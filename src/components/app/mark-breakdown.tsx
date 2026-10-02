@@ -6,34 +6,62 @@ import type { Grading } from "@/lib/examiner/types";
 import { cn } from "@/lib/utils";
 
 const AO_META = [
-  { key: "knowledge", label: "AO1 Knowledge", bar: "bg-ao1", text: "text-ao1" },
-  { key: "analysis", label: "AO2 Analysis", bar: "bg-ao2", text: "text-ao2" },
-  { key: "evaluation", label: "AO3 Evaluation", bar: "bg-ao3", text: "text-ao3" },
+  { key: "knowledge", label: "AO1 Knowledge", bar: "bg-ao1", text: "text-ao1", border: "border-ao1/30" },
+  { key: "analysis", label: "AO2 Analysis", bar: "bg-ao2", text: "text-ao2", border: "border-ao2/30" },
+  { key: "evaluation", label: "AO3 Evaluation", bar: "bg-ao3", text: "text-ao3", border: "border-ao3/30" },
 ] as const;
+
+function getBandBadgeStyle(band: string) {
+  if (band.includes("1") || band.includes("Top")) {
+    return "border-emerald-500/30 bg-emerald-500/10 text-emerald-500 font-semibold";
+  }
+  if (band.includes("2") || band.includes("Upper")) {
+    return "border-blue-500/30 bg-blue-500/10 text-blue-500 font-semibold";
+  }
+  if (band.includes("3") || band.includes("Middle")) {
+    return "border-amber-500/30 bg-amber-500/10 text-amber-500 font-semibold";
+  }
+  return "border-rose-500/30 bg-rose-500/10 text-rose-500 font-semibold";
+}
 
 export function MarkBreakdown({ grading }: { grading: Grading }) {
   const percent = grading.max_mark > 0 ? (grading.total_mark / grading.max_mark) * 100 : 0;
 
   return (
     <div className="space-y-5">
-      <div className="panel flex flex-wrap items-center gap-6 p-5">
+      <div className="panel relative overflow-hidden flex flex-wrap items-center gap-6 p-6 border-primary/20 shadow-sm">
         <div className="flex items-baseline gap-1">
-          <span className="text-5xl font-semibold tabular-nums">{grading.total_mark}</span>
-          <span className="text-xl text-muted-foreground">/{grading.max_mark}</span>
+          <span className="text-5xl font-bold tracking-tight tabular-nums bg-gradient-to-r from-foreground to-foreground/80 bg-clip-text text-transparent">
+            {grading.total_mark}
+          </span>
+          <span className="text-xl font-medium text-muted-foreground">/{grading.max_mark}</span>
         </div>
-        <div className="min-w-40 flex-1 space-y-2">
-          <div className="flex items-center gap-2">
-            <Badge variant="secondary">{grading.band}</Badge>
+        <div className="min-w-48 flex-1 space-y-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="outline" className={cn("px-2.5 py-0.5", getBandBadgeStyle(grading.band))}>
+              {grading.band}
+            </Badge>
             {grading.audited ? (
-              <Badge variant="outline" className="gap-1 text-primary">
-                <ShieldCheck className="size-3" /> Audited
+              <Badge variant="outline" className="gap-1 border-primary/30 bg-primary/10 text-primary">
+                <ShieldCheck className="size-3" /> Audited Pass
               </Badge>
             ) : null}
-            <span className="text-xs text-muted-foreground">
+            <span className="rounded-full bg-muted/60 px-2 py-0.5 text-xs text-muted-foreground tabular-nums">
               {Math.round(grading.confidence * 100)}% examiner confidence
             </span>
           </div>
-          <Progress value={percent} className="h-1.5" />
+          <div className="space-y-1">
+            <div className="flex justify-between text-[11px] text-muted-foreground">
+              <span>Overall score</span>
+              <span className="font-semibold text-foreground tabular-nums">{Math.round(percent)}%</span>
+            </div>
+            <div className="h-2 w-full overflow-hidden rounded-full bg-muted/60">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-primary via-emerald-400 to-primary transition-all duration-500"
+                style={{ width: `${percent}%` }}
+              />
+            </div>
+          </div>
         </div>
       </div>
 

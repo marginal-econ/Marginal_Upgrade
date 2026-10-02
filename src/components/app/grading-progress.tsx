@@ -64,43 +64,58 @@ export function GradingProgress({
   if (!active) return null;
 
   return (
-    <div className="panel space-y-4 p-6">
-      <div className="flex items-center justify-between text-sm">
-        <span className="flex items-center gap-2 font-medium">
-          <Loader2 className="size-4 animate-spin text-primary" />
-          {stages[stageIndex]?.label ?? "Working…"}
-        </span>
-        <span className="tabular-nums text-xs text-muted-foreground">{elapsedSeconds}s</span>
+    <div className="panel relative overflow-hidden space-y-5 p-6 border-primary/20 shadow-md">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <span className="relative flex size-2.5">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75" />
+            <span className="relative inline-flex size-2.5 rounded-full bg-primary" />
+          </span>
+          <span className="text-sm font-semibold tracking-tight">
+            {stages[stageIndex]?.label ?? "Processing…"}
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary tabular-nums">
+            {percent}%
+          </span>
+          <span className="rounded-full border border-border px-2 py-0.5 text-xs text-muted-foreground tabular-nums">
+            {elapsedSeconds}s
+          </span>
+        </div>
       </div>
 
-      <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+      <div className="relative h-2.5 w-full overflow-hidden rounded-full bg-muted/60 p-0.5">
         <div
-          className="h-full rounded-full bg-primary transition-[width] duration-200 ease-out"
+          className="h-full rounded-full bg-gradient-to-r from-primary via-emerald-400 to-primary transition-all duration-300 ease-out shadow-sm"
           style={{ width: `${percent}%` }}
         />
       </div>
 
-      <ol className="space-y-1.5">
+      <div className="grid gap-2 sm:grid-cols-2 pt-1">
         {stages.map((stage, index) => (
-          <li key={stage.label} className="flex items-center gap-2 text-xs">
-            {index < stageIndex ? (
-              <CheckCircle2 className="size-3.5 shrink-0 text-primary" />
-            ) : index === stageIndex ? (
-              <Loader2 className="size-3.5 shrink-0 animate-spin text-primary" />
-            ) : (
-              <span className="size-3.5 shrink-0 rounded-full border border-border" />
+          <div
+            key={stage.label}
+            className={cn(
+              "flex items-center gap-2.5 rounded-lg border p-2.5 text-xs transition-all duration-200",
+              index < stageIndex
+                ? "border-emerald-500/20 bg-emerald-500/5 text-foreground"
+                : index === stageIndex
+                  ? "border-primary/40 bg-primary/5 text-foreground font-medium shadow-sm"
+                  : "border-border/60 bg-muted/20 text-muted-foreground opacity-60",
             )}
-            <span
-              className={cn(
-                index <= stageIndex ? "text-foreground" : "text-muted-foreground",
-                index === stageIndex && "font-medium",
-              )}
-            >
-              {stage.label}
-            </span>
-          </li>
+          >
+            {index < stageIndex ? (
+              <CheckCircle2 className="size-4 shrink-0 text-emerald-500" />
+            ) : index === stageIndex ? (
+              <Loader2 className="size-4 shrink-0 animate-spin text-primary" />
+            ) : (
+              <span className="size-4 shrink-0 rounded-full border border-border/80" />
+            )}
+            <span className="truncate">{stage.label}</span>
+          </div>
         ))}
-      </ol>
+      </div>
     </div>
   );
 }
