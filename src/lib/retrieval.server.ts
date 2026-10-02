@@ -44,11 +44,56 @@ export type RetrieveOptions = {
  */
 const SPACE_MISMATCH_CEILING = 0.08;
 
+type CacheEntry = {
+  sources: GroundingSource[];
+  timestamp: number;
+};
+
+// In-memory cache for recent vector queries — prevents repeated embedding API
+// and pgvector calls when the same topic/question is checked during an active
+// writing, grading, or live-examiner session.
+const RETRIEVAL_CACHE = new Map<string, CacheEntry>();
+const CACHE_TTL_MS = 15 * 60 * 1000; // 15 minutes
+const MAX_CACHE_ENTRIES = 250;
+
+function getCacheKey(options: RetrieveOptions): string {
+  const types = options.docTypes ? [...options.docTypes].sort().join(",") : "all";
+  const topic = options.topicId ?? "none";
+  const count = options.matchCount ?? 8;
+  const minSim = options.minSimilarity ?? 0.25;
+  return `${options.query.trim().toLowerCase()}::${types}::${topic}::${count}::${minSim}`;
+}
+
+function deduplicateSources(sources: GroundingSource[]): GroundingSource[] {
+  const seenPrefixes = new Set<string>();
+  const result: GroundingSource[] = [];
+  for (const src of sources) {
+    const norm = src.snippet
+      .toLowerCase()
+      .replace(/[^\w\s]/g, "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 150);
+    if (seenPrefixes.has(norm)) continue;
+    seenPrefixes.add(norm);
+    result.push(src);
+  }
+  return result;
+}
+
 export async function retrieve(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: SupabaseClient<any>,
   options: RetrieveOptions,
 ): Promise<GroundingSource[]> {
+  const cacheKey = getCacheKey(options);
+  const now = Date.now();
+  const cached = RETRIEVAL_CACHE.get(cacheKey);
+
+  if (cached && now - cached.timestamp < CACHE_TTL_MS) {
+    return cached.sources;
+  }
+
   const queryEmbedding = await embedOne(options.query, MODEL_EMBEDDING);
 
   const { data, error } = await supabase.rpc("match_document_chunks", {
@@ -90,7 +135,7 @@ export async function retrieve(
     }
   }
 
-  return matches.map((row) => ({
+  const mapped = matches.map((row) => ({
     documentId: row.document_id,
     documentTitle: row.document_title,
     docType: row.doc_type,
@@ -98,6 +143,16 @@ export async function retrieve(
     snippet: row.content,
     similarity: Number(row.similarity.toFixed(4)),
   }));
+
+  const deduped = deduplicateSources(mapped);
+
+  if (RETRIEVAL_CACHE.size >= MAX_CACHE_ENTRIES) {
+    const oldestKey = RETRIEVAL_CACHE.keys().next().value;
+    if (oldestKey) RETRIEVAL_CACHE.delete(oldestKey);
+  }
+  RETRIEVAL_CACHE.set(cacheKey, { sources: deduped, timestamp: now });
+
+  return deduped;
 }
 
 /**

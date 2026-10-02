@@ -3,12 +3,14 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
   checkEssayWriting,
+  getExaminerChallenges,
+  type ExaminerChallenge,
   type LiveExaminerAoClassification,
   type PredictedMark,
 } from "@/lib/live-examiner.functions";
 import { isDailyLimitError } from "@/lib/usage-limits";
 
-export type { PredictedMark };
+export type { PredictedMark, ExaminerChallenge };
 
 export type IssueCategory =
   | "grammar"
@@ -18,7 +20,8 @@ export type IssueCategory =
   | "application"
   | "evaluation"
   | "reasoning_chain"
-  | "terminology";
+  | "terminology"
+  | "misconception";
 
 export type IssueSeverity = "low" | "medium" | "high";
 
@@ -106,6 +109,12 @@ export function useLiveExaminerCheck(params: {
   // means "unchanged", not "reset to zero", so this only ever moves when a
   // check actually produces a fresh number.
   const [predictedMark, setPredictedMark] = useState<PredictedMark | null>(null);
+
+  // Socratic Examiner Challenges & Adaptive Follow-up state
+  const fetchChallengesFn = useServerFn(getExaminerChallenges);
+  const [challenges, setChallenges] = useState<ExaminerChallenge[]>([]);
+  const [fetchingChallenges, setFetchingChallenges] = useState(false);
+  const [challengeOverview, setChallengeOverview] = useState<string | null>(null);
 
   const lastCheckedTextRef = useRef<string>("");
   const issuesRef = useRef<ActiveIssue[]>([]);
@@ -324,10 +333,47 @@ export function useLiveExaminerCheck(params: {
     runCheck(currentText, true);
   }
 
-  /** Clear what's currently showing without touching the history log. */
   function clearAll() {
     setIssues([]);
+    setClassifications([]);
   }
+
+  /** Request active Socratic examiner challenges based on the student's draft. */
+  const requestChallenges = useCallback(
+    async (currentText?: string) => {
+      const textToCheck = (currentText ?? text).trim();
+      if (textToCheck.length < 25) return;
+      setFetchingChallenges(true);
+      try {
+        const res = await fetchChallengesFn({
+          data: {
+            question,
+            level,
+            maxMark,
+            essayText: textToCheck,
+            contextBlock,
+          },
+        });
+        setChallenges(res.challenges);
+        setChallengeOverview(res.overview);
+      } catch {
+        // Handled silently
+      } finally {
+        setFetchingChallenges(false);
+      }
+    },
+    [text, question, level, maxMark, contextBlock, fetchChallengesFn],
+  );
+
+  const dismissChallenge = useCallback((id: string) => {
+    setChallenges((prev) => prev.filter((c) => c.id !== id));
+  }, []);
+
+  const markChallengeAddressed = useCallback((id: string) => {
+    setChallenges((prev) =>
+      prev.map((c) => (c.id === id ? { ...c, status: "addressed" } : c)),
+    );
+  }, []);
 
   return {
     issues,
@@ -338,6 +384,12 @@ export function useLiveExaminerCheck(params: {
     error,
     predictedMark,
     lastUpdatedAt,
+    challenges,
+    fetchingChallenges,
+    challengeOverview,
+    requestChallenges,
+    dismissChallenge,
+    markChallengeAddressed,
     acceptIssue,
     dismissIssue,
     rescan,

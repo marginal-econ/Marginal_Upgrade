@@ -20,23 +20,29 @@ const CATEGORY_AO: Record<IssueCategory, string | null> = {
   application: AO_DEFINITIONS.ao2.code,
   reasoning_chain: AO_DEFINITIONS.ao2.code,
   evaluation: AO_DEFINITIONS.ao3.code,
+  misconception: AO_DEFINITIONS.ao1.code,
 };
 
 const CATEGORY_META: Record<IssueCategory, { label: string; mark: string; dot: string }> = {
   grammar: {
     label: "Grammar",
-    mark: "decoration-rose-500/70 decoration-wavy underline underline-offset-2",
-    dot: "bg-rose-500",
+    mark: "decoration-rose-500/80 decoration-wavy underline underline-offset-2",
+    dot: "bg-rose-500 dark:bg-rose-400",
   },
   clarity: {
     label: "Clarity",
-    mark: "decoration-muted-foreground/70 decoration-dotted underline underline-offset-2",
+    mark: "decoration-muted-foreground/80 decoration-dotted underline underline-offset-2",
     dot: "bg-muted-foreground",
   },
   economics_accuracy: {
     label: "Economics accuracy",
     mark: "bg-ao1/15 decoration-ao1 underline decoration-2 underline-offset-2",
     dot: "bg-ao1",
+  },
+  misconception: {
+    label: "Economic misconception",
+    mark: "bg-red-500/20 text-red-950 dark:text-red-100 decoration-red-600 decoration-double underline decoration-2 underline-offset-2 font-medium",
+    dot: "bg-red-600 dark:bg-red-400",
   },
   analysis: {
     label: "Analysis",
@@ -55,13 +61,13 @@ const CATEGORY_META: Record<IssueCategory, { label: string; mark: string; dot: s
   },
   reasoning_chain: {
     label: "Chain of reasoning",
-    mark: "bg-ao2/15 decoration-ao2 underline decoration-2 underline-offset-2",
-    dot: "bg-ao2",
+    mark: "bg-amber-500/15 decoration-amber-500 underline decoration-2 underline-offset-2",
+    dot: "bg-amber-500 dark:bg-amber-400",
   },
   terminology: {
     label: "Terminology",
-    mark: "bg-ao1/15 decoration-ao1 underline decoration-2 underline-offset-2",
-    dot: "bg-ao1",
+    mark: "bg-blue-500/15 decoration-blue-500 underline decoration-2 underline-offset-2",
+    dot: "bg-blue-500 dark:bg-blue-400",
   },
 };
 

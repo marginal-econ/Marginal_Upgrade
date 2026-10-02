@@ -79,6 +79,7 @@ const CATEGORIES = [
   "evaluation",
   "reasoning_chain",
   "terminology",
+  "misconception",
 ] as const;
 
 const SEVERITIES = ["low", "medium", "high"] as const;
@@ -215,6 +216,7 @@ Categories you may flag, and ONLY these — each one is tied to exactly how this
 - "grammar": spelling, grammar, punctuation, tense, run-on sentences. (Not an AO — pure writing mechanics.)
 - "clarity": a sentence that is genuinely hard to follow or ambiguous — not just plainly worded. (Not an AO — pure writing mechanics.)
 - "economics_accuracy": a factually wrong economics claim that DIRECTLY CONTRADICTS the syllabus material above. (${AO_DEFINITIONS.ao1.code} ${AO_DEFINITIONS.ao1.name} — ${AO_DEFINITIONS.ao1.description}.)
+- "misconception": a fundamental conceptual misunderstanding (e.g. confusing a shift of a curve with a movement along it, conflating fiscal and monetary instruments, conflating economic growth with economic development, or confusing public goods with merit goods).
 - "terminology": a specific economics term used incorrectly (not: correct but informal phrasing). (${AO_DEFINITIONS.ao1.code} ${AO_DEFINITIONS.ao1.name} — ${AO_DEFINITIONS.ao1.description}.)
 - "analysis": a point stated but not explained (the underlying mechanism/chain is missing entirely). (${AO_DEFINITIONS.ao2.code} ${AO_DEFINITIONS.ao2.name} — the "explain -> analyse" steps of ${AO_DEFINITIONS.ao2.description}.)
 - "application": analysis that never once touches the specific context/numbers/scenario in the question. (${AO_DEFINITIONS.ao2.code} ${AO_DEFINITIONS.ao2.name} — the "apply to context" step of ${AO_DEFINITIONS.ao2.description}.)
@@ -226,7 +228,7 @@ CRITICAL — recognising valid work:
 - If you are unsure whether something is actually wrong, it is not a candidate — leave it out entirely rather than flag it "just in case".
 
 PROOF REQUIREMENT:
-- Every candidate needs an "evidence" string: for "economics_accuracy", this MUST be an exact, verbatim quote copied from the syllabus material above that the claim contradicts (a made-up or paraphrased quote will be rejected outright by the verifier). For every other category, a short, concrete, checkable reason.
+- Every candidate needs an "evidence" string: for "economics_accuracy" and "misconception", this MUST be an exact, verbatim quote copied from the syllabus material above that the claim contradicts (a made-up or paraphrased quote will be rejected outright by the verifier). For every other category, a short, concrete, checkable reason.
 - Every candidate needs a "confidence" score from 0 to 1 — your own honest estimate that this is a real, useful issue. Be harsh with yourself; only high-confidence candidates survive review.
 
 OTHER RULES:
@@ -250,10 +252,10 @@ Respond ONLY with a single valid JSON object, no markdown fences, no commentary,
       "sentence_index": <number, from "SENTENCES TO CHECK">,
       "original": "<the exact problem word/phrase, copied verbatim from the sentence>",
       "suggestion": "<the minimal fix — a phrase, not a rewrite>",
-      "category": "grammar" | "clarity" | "economics_accuracy" | "analysis" | "application" | "evaluation" | "reasoning_chain" | "terminology",
+      "category": "grammar" | "clarity" | "economics_accuracy" | "analysis" | "application" | "evaluation" | "reasoning_chain" | "terminology" | "misconception",
       "severity": "low" | "medium" | "high",
       "explanation": "<one short sentence — why this matters, in plain terms>",
-      "evidence": "<verbatim syllabus quote for economics_accuracy, or a short concrete reason otherwise>",
+      "evidence": "<verbatim syllabus quote for economics_accuracy/misconception, or a short concrete reason otherwise>",
       "confidence": <0 to 1>
     }
   ],
@@ -277,7 +279,7 @@ QUESTION: ${question}
 ${contextBlock || "No syllabus material is available."}
 
 For EACH candidate below, decide keep or reject:
-- REJECT any "economics_accuracy" candidate whose "evidence" is not an exact, verbatim quote from the syllabus material above, or whose evidence does not actually contradict the student's sentence when you re-read both side by side.
+- REJECT any "economics_accuracy" or "misconception" candidate whose "evidence" is not an exact, verbatim quote from the syllabus material above, or whose evidence does not actually contradict the student's sentence when you re-read both side by side.
 - REJECT any "analysis" / "application" / "evaluation" / "reasoning_chain" candidate if the student's original sentence is actually a valid — even if unconventional or differently-phrased — way of making a correct point. A different structure, order, or wording is NOT grounds to keep a candidate.
 - REJECT anything vague, debatable, or where a reasonable examiner could disagree.
 - KEEP only candidates you would be comfortable defending in front of the student with the evidence shown.
@@ -1015,3 +1017,130 @@ export const getMaxOutSuggestions = createServerFn({ method: "POST" })
     }
     return parsed.data;
   });
+
+// ---------------------------------------------------------------------------
+// 6. Adaptive Socratic Examiner Challenges — on-demand / adaptive questioning
+//    mode that actively interrogates the student's argument in progress.
+//    Identifies weak assertions, missing links in causal chains, ungrounded
+//    evaluation, or conceptual confusion, and poses authentic Cambridge
+//    examiner challenge questions with scaffolding hints.
+// ---------------------------------------------------------------------------
+
+const ExaminerChallengeInput = z.object({
+  question: z.string().trim().min(5).max(2000),
+  level: z.enum(["as", "a2"]),
+  maxMark: z.number().int().positive().max(30),
+  essayText: z.string().trim().min(25).max(40_000),
+  contextBlock: z.string().max(20_000).default(""),
+});
+
+export const ExaminerChallengeSchema = z.object({
+  id: z.string(),
+  type: z.enum(["challenge", "chain", "evaluation", "concept"]),
+  targetSentence: z.string(),
+  examinerPrompt: z.string(),
+  hint: z.string().optional(),
+  explanation: z.string(),
+  targetAo: z.enum(["AO1", "AO2", "AO3"]),
+});
+
+export type ExaminerChallenge = z.infer<typeof ExaminerChallengeSchema>;
+
+const ExaminerChallengesResponseSchema = z.object({
+  overview: z.string().max(240),
+  challenges: z.array(ExaminerChallengeSchema).max(4),
+});
+
+function buildChallengesSystemPrompt(
+  question: string,
+  level: string,
+  maxMark: number,
+  contextBlock: string,
+): string {
+  return `You are a Cambridge 9708 Economics Examiner running an interactive, Socratic examination of a student's answer in progress.
+Your goal is NOT to grade or proofread, but to actively interrogate their argument:
+1. Probe weak assertions or unstated assumptions ("challenge").
+2. Demand the missing link in incomplete causal chains ("chain").
+3. Force justified, conditional evaluation where claims are left one-sided ("evaluation").
+4. Demand precise theoretical definitions/models where vague lay terms were used ("concept").
+
+QUESTION (${level === "a2" ? "A Level" : "AS Level"}, ${maxMark} marks): ${question}
+
+SYLLABUS GROUNDING:
+${contextBlock || "Cambridge 9708 Economics syllabus standards."}
+
+RULES:
+- Be academically rigorous, fair, and probing. Speak in the voice of an encouraging but exacting examiner.
+- Never give away the full answer prematurely. Offer a subtle scaffold in the "hint" field instead.
+- Quote the student's actual phrase or sentence in "targetSentence".
+- Provide 2 to 3 high-impact challenges.
+- Return ONLY valid JSON matching this schema:
+{
+  "overview": "<one sentence diagnostic summary of their argument so far>",
+  "challenges": [
+    {
+      "id": "<short unique id, e.g. 'c1'>",
+      "type": "challenge" | "chain" | "evaluation" | "concept",
+      "targetSentence": "<the exact student sentence or phrase being challenged>",
+      "examinerPrompt": "<your probing Socratic examiner question directly to the student>",
+      "hint": "<optional gentle hint nudge if they are stuck>",
+      "explanation": "<why resolving this earns top-band marks under Cambridge criteria>",
+      "targetAo": "AO1" | "AO2" | "AO3"
+    }
+  ]
+}`;
+}
+
+export const getExaminerChallenges = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => ExaminerChallengeInput.parse(input))
+  .handler(async ({ data, context }) => {
+    await assertLiveExaminerSessionAllowed(context.supabase, data.question);
+
+    const { chat } = await import("./ai.server");
+    const { MODEL_EXAMINER, TEMPERATURE_TUTOR } = await import("./examiner/config");
+    const { extractFirstJsonObject } = await import("./examiner/json");
+
+    const result = await chat({
+      model: MODEL_EXAMINER,
+      temperature: TEMPERATURE_TUTOR,
+      json: true,
+      maxCompletionTokens: 1400,
+      messages: [
+        {
+          role: "system",
+          content: buildChallengesSystemPrompt(
+            data.question,
+            data.level,
+            data.maxMark,
+            data.contextBlock,
+          ),
+        },
+        {
+          role: "user",
+          content: `STUDENT ANSWER IN PROGRESS:\n\n${data.essayText}`,
+        },
+      ],
+    });
+
+    const parsed = ExaminerChallengesResponseSchema.safeParse(extractFirstJsonObject(result.text));
+    if (!parsed.success) {
+      return {
+        overview: "Examiner is reviewing your argument structure.",
+        challenges: [] as ExaminerChallenge[],
+      };
+    }
+
+    await context.supabase.from("ai_usage_log").insert({
+      user_id: context.userId,
+      feature: "live_examiner_challenges",
+      model: result.model,
+      prompt_tokens: result.promptTokens,
+      completion_tokens: result.completionTokens,
+      latency_ms: result.latencyMs,
+      ok: true,
+    });
+
+    return parsed.data;
+  });
+

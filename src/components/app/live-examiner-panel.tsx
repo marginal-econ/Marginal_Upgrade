@@ -1,4 +1,19 @@
-import { Check, Loader2, RefreshCw, Sparkles, Trash2, TriangleAlert, X } from "lucide-react";
+import {
+  AlertCircle,
+  Check,
+  CheckCircle2,
+  ChevronDown,
+  ChevronUp,
+  GraduationCap,
+  HelpCircle,
+  Lightbulb,
+  Loader2,
+  RefreshCw,
+  Sparkles,
+  Trash2,
+  TriangleAlert,
+  X,
+} from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import { Badge } from "@/components/ui/badge";
@@ -7,11 +22,17 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type {
   ActiveIssue,
+  ExaminerChallenge,
   HistoryEntry,
   IssueCategory,
   PredictedMark,
 } from "@/hooks/use-live-examiner-check";
 import { AO_DEFINITIONS } from "@/lib/examiner/config";
+import {
+  LIVE_EXAMINER_PALETTE,
+  mapCategoryToSemanticElement,
+  AO_COLOUR_SYSTEM,
+} from "@/lib/live-examiner/color-coding";
 import { cn } from "@/lib/utils";
 
 // Which AO this category maps to, shown next to the label so it's visibly
@@ -27,6 +48,7 @@ const CATEGORY_AO: Record<IssueCategory, string | null> = {
   application: AO_DEFINITIONS.ao2.code,
   reasoning_chain: AO_DEFINITIONS.ao2.code,
   evaluation: AO_DEFINITIONS.ao3.code,
+  misconception: AO_DEFINITIONS.ao1.code,
 };
 
 const CATEGORY_LABEL: Record<IssueCategory, string> = {
@@ -38,6 +60,7 @@ const CATEGORY_LABEL: Record<IssueCategory, string> = {
   evaluation: "Evaluation",
   reasoning_chain: "Chain of reasoning",
   terminology: "Terminology",
+  misconception: "Economic Misconception",
 };
 
 const SEVERITY_VARIANT: Record<ActiveIssue["severity"], "destructive" | "default" | "outline"> = {
@@ -64,6 +87,12 @@ export function LiveExaminerPanel({
   predictedMark,
   lastUpdatedAt,
   maxMark,
+  challenges = [],
+  fetchingChallenges = false,
+  challengeOverview = null,
+  onRequestChallenges,
+  onDismissChallenge,
+  onAddressChallenge,
   gradedHelp,
   onAccept,
   onDismiss,
@@ -79,12 +108,25 @@ export function LiveExaminerPanel({
   predictedMark: PredictedMark | null;
   lastUpdatedAt: number | null;
   maxMark: number;
+  challenges?: ExaminerChallenge[];
+  fetchingChallenges?: boolean;
+  challengeOverview?: string | null;
+  onRequestChallenges?: () => void;
+  onDismissChallenge?: (id: string) => void;
+  onAddressChallenge?: (id: string) => void;
   gradedHelp?: ReactNode;
   onAccept: (id: string) => void;
   onDismiss: (id: string) => void;
   onRescan: () => void;
   onClearAll: () => void;
 }) {
+  const [showColorGuide, setShowColorGuide] = useState(false);
+  const [expandedHints, setExpandedHints] = useState<Record<string, boolean>>({});
+
+  const toggleHint = (id: string) => {
+    setExpandedHints((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
+
   const resolvedHistory = history
     .filter((entry) => entry.status !== "active")
     .sort((a, b) => (b.resolvedAt ?? 0) - (a.resolvedAt ?? 0));
@@ -94,32 +136,66 @@ export function LiveExaminerPanel({
       <PredictedMarkCard predictedMark={predictedMark} maxMark={maxMark} />
       {gradedHelp}
 
-      <div className="grid grid-cols-3 gap-1.5" aria-label="Assessment objective colour key">
-        {[
-          ["AO1", "Knowledge"],
-          ["AO2", "Analysis"],
-          ["AO3", "Evaluation"],
-        ].map(([code, label]) => {
-          const style = AO_STYLE[code as keyof typeof AO_STYLE];
-          return (
-            <div
-              key={code}
-              className={cn("flex items-center gap-1.5 rounded-md border px-2 py-1.5", style.badge)}
-            >
-              <span className={cn("size-2 shrink-0 rounded-full", style.dot)} />
-              <span className="min-w-0 text-[10px] font-semibold">
-                {code}{" "}
-                <span className="hidden font-normal text-muted-foreground xl:inline">{label}</span>
-              </span>
-            </div>
-          );
-        })}
-      </div>
+      <div className="rounded-lg border border-border/80 bg-muted/20 p-2 text-xs space-y-1.5">
+        <div className="flex items-center justify-between">
+          <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+            Assessment & Diagnostic Key
+          </span>
+          <button
+            type="button"
+            onClick={() => setShowColorGuide((prev) => !prev)}
+            className="flex items-center gap-1 text-[10px] text-primary hover:underline"
+          >
+            {showColorGuide ? "Hide guide" : "Semantic guide"}
+            {showColorGuide ? <ChevronUp className="size-2.5" /> : <ChevronDown className="size-2.5" />}
+          </button>
+        </div>
 
-      <p className="text-[11px] leading-snug text-muted-foreground">
-        Every suggestion here is independently double-checked and grounded in your syllabus material
-        before it's shown — nothing is flagged on a guess.
-      </p>
+        <div className="grid grid-cols-3 gap-1.5" aria-label="Assessment objective colour key">
+          {[
+            ["AO1", "Knowledge"],
+            ["AO2", "Analysis"],
+            ["AO3", "Evaluation"],
+          ].map(([code, label]) => {
+            const style = AO_STYLE[code as keyof typeof AO_STYLE];
+            return (
+              <div
+                key={code}
+                className={cn("flex items-center gap-1.5 rounded-md border px-2 py-1.5", style.badge)}
+              >
+                <span className={cn("size-2 shrink-0 rounded-full", style.dot)} />
+                <span className="min-w-0 text-[10px] font-semibold">
+                  {code}{" "}
+                  <span className="hidden font-normal text-muted-foreground xl:inline">{label}</span>
+                </span>
+              </div>
+            );
+          })}
+        </div>
+
+        {showColorGuide ? (
+          <div className="mt-2 grid grid-cols-2 gap-1 pt-2 border-t border-border/60 text-[10px]">
+            <div className="flex items-center gap-1.5 p-1 rounded bg-plum/10 text-plum dark:text-primary">
+              <span className="size-1.5 rounded-full bg-plum dark:bg-primary" /> Examiner Questions
+            </div>
+            <div className="flex items-center gap-1.5 p-1 rounded bg-emerald-500/10 text-emerald-700 dark:text-emerald-300">
+              <span className="size-1.5 rounded-full bg-emerald-500" /> Positive AO Credit
+            </div>
+            <div className="flex items-center gap-1.5 p-1 rounded bg-rose-500/10 text-rose-700 dark:text-rose-300">
+              <span className="size-1.5 rounded-full bg-rose-500" /> Mechanics / Syntax
+            </div>
+            <div className="flex items-center gap-1.5 p-1 rounded bg-red-600/15 text-red-700 dark:text-red-300 font-semibold">
+              <span className="size-1.5 rounded-full bg-red-600" /> Economic Misconception
+            </div>
+            <div className="flex items-center gap-1.5 p-1 rounded bg-blue-500/10 text-blue-700 dark:text-blue-300">
+              <span className="size-1.5 rounded-full bg-blue-500" /> Theory / Terminology
+            </div>
+            <div className="flex items-center gap-1.5 p-1 rounded bg-cyan-500/10 text-cyan-700 dark:text-cyan-300">
+              <span className="size-1.5 rounded-full bg-cyan-500" /> Socratic Hints
+            </div>
+          </div>
+        ) : null}
+      </div>
 
       <div className="flex items-center justify-between gap-2">
         <StatusLine
@@ -159,11 +235,14 @@ export function LiveExaminerPanel({
       ) : null}
 
       <Tabs defaultValue="active" className="flex min-h-0 flex-1 flex-col">
-        <TabsList className="w-full">
-          <TabsTrigger value="active" className="flex-1">
+        <TabsList className="w-full grid grid-cols-3">
+          <TabsTrigger value="active" className="text-xs">
             Suggestions {issues.length > 0 ? `(${issues.length})` : ""}
           </TabsTrigger>
-          <TabsTrigger value="history" className="flex-1">
+          <TabsTrigger value="challenges" className="text-xs">
+            Challenges {challenges.length > 0 ? `(${challenges.length})` : ""}
+          </TabsTrigger>
+          <TabsTrigger value="history" className="text-xs">
             History {resolvedHistory.length > 0 ? `(${resolvedHistory.length})` : ""}
           </TabsTrigger>
         </TabsList>
@@ -179,9 +258,15 @@ export function LiveExaminerPanel({
                     key={issue.id}
                     className={cn(
                       "rounded-lg border border-border bg-card p-2.5",
-                      CATEGORY_AO[issue.category] === "AO1" && "border-l-4 border-l-ao1",
-                      CATEGORY_AO[issue.category] === "AO2" && "border-l-4 border-l-ao2",
-                      CATEGORY_AO[issue.category] === "AO3" && "border-l-4 border-l-ao3",
+                      issue.category === "misconception"
+                        ? "border-l-4 border-l-red-600 bg-red-500/5 dark:bg-red-950/20"
+                        : CATEGORY_AO[issue.category] === "AO1"
+                        ? "border-l-4 border-l-ao1"
+                        : CATEGORY_AO[issue.category] === "AO2"
+                        ? "border-l-4 border-l-ao2"
+                        : CATEGORY_AO[issue.category] === "AO3"
+                        ? "border-l-4 border-l-ao3"
+                        : "",
                     )}
                   >
                     <div className="mb-1.5 flex items-center gap-1.5">
@@ -189,9 +274,15 @@ export function LiveExaminerPanel({
                         variant="outline"
                         className={cn(
                           "text-[10px]",
-                          CATEGORY_AO[issue.category] === "AO1" && AO_STYLE.AO1.badge,
-                          CATEGORY_AO[issue.category] === "AO2" && AO_STYLE.AO2.badge,
-                          CATEGORY_AO[issue.category] === "AO3" && AO_STYLE.AO3.badge,
+                          issue.category === "misconception"
+                            ? "border-red-500/50 bg-red-500/15 text-red-700 dark:text-red-300 font-semibold"
+                            : CATEGORY_AO[issue.category] === "AO1"
+                            ? AO_STYLE.AO1.badge
+                            : CATEGORY_AO[issue.category] === "AO2"
+                            ? AO_STYLE.AO2.badge
+                            : CATEGORY_AO[issue.category] === "AO3"
+                            ? AO_STYLE.AO3.badge
+                            : "",
                         )}
                       >
                         {CATEGORY_LABEL[issue.category]}
@@ -237,6 +328,151 @@ export function LiveExaminerPanel({
                 ))}
               </ul>
             )}
+          </ScrollArea>
+        </TabsContent>
+
+        <TabsContent value="challenges" className="mt-2 min-h-0 flex-1">
+          <ScrollArea className="h-full pr-2">
+            <div className="space-y-3">
+              <div className="rounded-lg border border-plum/30 bg-plum/5 dark:bg-plum/15 p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <GraduationCap className="size-4 text-plum dark:text-primary shrink-0" />
+                    <span className="text-xs font-semibold text-plum dark:text-primary">
+                      Adaptive Socratic Interrogation
+                    </span>
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-7 text-[11px] border-plum/40 hover:bg-plum/10 text-plum dark:text-primary"
+                    disabled={fetchingChallenges}
+                    onClick={onRequestChallenges}
+                  >
+                    <Sparkles className={cn("size-3.5 mr-1 text-plum dark:text-primary", fetchingChallenges && "animate-spin")} />
+                    {fetchingChallenges ? "Probing draft…" : "Probe Draft"}
+                  </Button>
+                </div>
+                {challengeOverview ? (
+                  <p className="mt-2 text-[11px] leading-relaxed text-foreground/90 bg-card/60 rounded p-2 border border-plum/20">
+                    {challengeOverview}
+                  </p>
+                ) : (
+                  <p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground">
+                    Ask the Examiner to challenge your essay! Socratic follow-up probes identify missing economic chains, evaluate counter-arguments, and test syllabus depth.
+                  </p>
+                )}
+              </div>
+
+              {fetchingChallenges && challenges.length === 0 ? (
+                <div className="flex flex-col items-center justify-center p-6 text-center text-xs text-muted-foreground space-y-2">
+                  <Loader2 className="size-5 animate-spin text-plum dark:text-primary" />
+                  <p className="font-medium text-foreground">Examiner is evaluating your draft...</p>
+                  <p className="text-[11px]">Identifying gaps in economic logic, terminology, and evaluation depth.</p>
+                </div>
+              ) : challenges.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-border p-4 text-center text-xs text-muted-foreground space-y-1.5">
+                  <Lightbulb className="mx-auto size-5 text-muted-foreground/60" />
+                  <p className="font-medium text-foreground">No active examiner challenges</p>
+                  <p className="text-[11px]">
+                    Click "Probe Draft" to have the Live Examiner test your essay with Socratic follow-up questions.
+                  </p>
+                </div>
+              ) : (
+                <ul className="space-y-2.5">
+                  {challenges.map((challenge) => {
+                    const aoStyle = AO_STYLE[challenge.targetAo as keyof typeof AO_STYLE] ?? AO_STYLE.AO2;
+                    const isHintExpanded = Boolean(expandedHints[challenge.id]);
+                    return (
+                      <li
+                        key={challenge.id}
+                        className={cn(
+                          "rounded-lg border border-border bg-card p-3 space-y-2",
+                          challenge.targetAo === "AO1" && "border-l-4 border-l-ao1",
+                          challenge.targetAo === "AO2" && "border-l-4 border-l-ao2",
+                          challenge.targetAo === "AO3" && "border-l-4 border-l-ao3",
+                        )}
+                      >
+                        <div className="flex items-center justify-between gap-1.5">
+                          <div className="flex items-center gap-1.5">
+                            <Badge
+                              variant="outline"
+                              className={cn("text-[10px] uppercase font-bold", aoStyle.badge)}
+                            >
+                              {challenge.targetAo} Probe
+                            </Badge>
+                            <Badge variant="outline" className="text-[10px] capitalize">
+                              {challenge.type}
+                            </Badge>
+                          </div>
+                          {onDismissChallenge ? (
+                            <button
+                              type="button"
+                              onClick={() => onDismissChallenge(challenge.id)}
+                              className="text-muted-foreground hover:text-foreground p-0.5"
+                              title="Dismiss challenge"
+                            >
+                              <X className="size-3.5" />
+                            </button>
+                          ) : null}
+                        </div>
+
+                        {challenge.targetSentence ? (
+                          <div className="rounded bg-muted/40 p-2 text-[11px] italic text-muted-foreground border border-border/40">
+                            “{challenge.targetSentence}”
+                          </div>
+                        ) : null}
+
+                        <div className="rounded-md border border-plum/20 bg-plum/5 dark:bg-plum/10 p-2.5">
+                          <p className="text-xs font-semibold text-plum dark:text-primary flex items-start gap-1.5">
+                            <span className="size-1.5 rounded-full bg-plum dark:bg-primary mt-1.5 shrink-0" />
+                            <span>{challenge.examinerPrompt}</span>
+                          </p>
+                        </div>
+
+                        <p className="text-[11px] leading-relaxed text-muted-foreground">
+                          <span className="font-semibold text-foreground/80">Examiner Rationale: </span>
+                          {challenge.explanation}
+                        </p>
+
+                        {challenge.hint ? (
+                          <div className="pt-1">
+                            <button
+                              type="button"
+                              onClick={() => toggleHint(challenge.id)}
+                              className="flex items-center gap-1 text-[10px] font-medium text-cyan-600 dark:text-cyan-400 hover:underline"
+                            >
+                              <Lightbulb className="size-3" />
+                              {isHintExpanded ? "Hide Socratic Hint" : "Need a hint to answer this?"}
+                            </button>
+                            {isHintExpanded ? (
+                              <div className="mt-1.5 rounded-md border border-cyan-500/30 bg-cyan-500/10 p-2 text-[11px] text-cyan-900 dark:text-cyan-200">
+                                {challenge.hint}
+                              </div>
+                            ) : null}
+                          </div>
+                        ) : null}
+
+                        <div className="pt-1 flex items-center justify-end">
+                          {onAddressChallenge ? (
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              className="h-6 text-[11px] gap-1 hover:border-emerald-500 hover:text-emerald-600"
+                              onClick={() => onAddressChallenge(challenge.id)}
+                            >
+                              <Check className="size-3 text-emerald-600" /> Addressed in Draft
+                            </Button>
+                          ) : null}
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
           </ScrollArea>
         </TabsContent>
 

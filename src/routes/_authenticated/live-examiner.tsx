@@ -396,6 +396,12 @@ function LiveExaminerPage() {
     error: checkError,
     predictedMark,
     lastUpdatedAt,
+    challenges,
+    fetchingChallenges,
+    challengeOverview,
+    requestChallenges,
+    dismissChallenge,
+    markChallengeAddressed,
     acceptIssue,
     dismissIssue,
     rescan,
@@ -854,6 +860,12 @@ function LiveExaminerPage() {
               predictedMark={predictedMark}
               lastUpdatedAt={lastUpdatedAt}
               maxMark={maxMark}
+              challenges={challenges}
+              fetchingChallenges={fetchingChallenges}
+              challengeOverview={challengeOverview}
+              onRequestChallenges={requestChallenges}
+              onDismissChallenge={dismissChallenge}
+              onAddressChallenge={markChallengeAddressed}
               gradedHelp={
                 gradeMutation.data &&
                 gradeMutation.data.grading.total_mark < gradeMutation.data.grading.max_mark ? (

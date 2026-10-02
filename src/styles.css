@@ -77,6 +77,44 @@
   --color-plum-deep: var(--plum-deep);
   --color-plum-soft: var(--plum-soft);
   --color-plum-foreground: var(--plum-foreground);
+
+  /* Live Examiner semantic colour-coding tokens */
+  --color-examiner-question: var(--examiner-question);
+  --color-examiner-question-fg: var(--examiner-question-fg);
+  --color-examiner-question-bg: var(--examiner-question-bg);
+  --color-examiner-question-border: var(--examiner-question-border);
+  --color-examiner-student: var(--examiner-student);
+  --color-examiner-student-fg: var(--examiner-student-fg);
+  --color-examiner-student-bg: var(--examiner-student-bg);
+  --color-examiner-student-border: var(--examiner-student-border);
+  --color-examiner-positive: var(--examiner-positive);
+  --color-examiner-positive-fg: var(--examiner-positive-fg);
+  --color-examiner-positive-bg: var(--examiner-positive-bg);
+  --color-examiner-positive-border: var(--examiner-positive-border);
+  --color-examiner-correction: var(--examiner-correction);
+  --color-examiner-correction-fg: var(--examiner-correction-fg);
+  --color-examiner-correction-bg: var(--examiner-correction-bg);
+  --color-examiner-correction-border: var(--examiner-correction-border);
+  --color-examiner-misconception: var(--examiner-misconception);
+  --color-examiner-misconception-fg: var(--examiner-misconception-fg);
+  --color-examiner-misconception-bg: var(--examiner-misconception-bg);
+  --color-examiner-misconception-border: var(--examiner-misconception-border);
+  --color-examiner-concept: var(--examiner-concept);
+  --color-examiner-concept-fg: var(--examiner-concept-fg);
+  --color-examiner-concept-bg: var(--examiner-concept-bg);
+  --color-examiner-concept-border: var(--examiner-concept-border);
+  --color-examiner-hint: var(--examiner-hint);
+  --color-examiner-hint-fg: var(--examiner-hint-fg);
+  --color-examiner-hint-bg: var(--examiner-hint-bg);
+  --color-examiner-hint-border: var(--examiner-hint-border);
+  --color-examiner-explanation: var(--examiner-explanation);
+  --color-examiner-explanation-fg: var(--examiner-explanation-fg);
+  --color-examiner-explanation-bg: var(--examiner-explanation-bg);
+  --color-examiner-explanation-border: var(--examiner-explanation-border);
+  --color-examiner-warning: var(--examiner-warning);
+  --color-examiner-warning-fg: var(--examiner-warning-fg);
+  --color-examiner-warning-bg: var(--examiner-warning-bg);
+  --color-examiner-warning-border: var(--examiner-warning-border);
 }
 
 /*
@@ -129,6 +167,52 @@
   --ao1: oklch(0.575 0.125 228);
   --ao2: oklch(0.53 0.115 168);
   --ao3: oklch(0.63 0.145 58);
+
+  /* Live Examiner semantic colour-coding tokens (Light Theme) */
+  --examiner-question: oklch(0.38 0.14 290);
+  --examiner-question-fg: oklch(0.98 0.01 290);
+  --examiner-question-bg: oklch(0.96 0.03 290 / 45%);
+  --examiner-question-border: oklch(0.72 0.08 290 / 60%);
+
+  --examiner-student: oklch(0.24 0.02 295);
+  --examiner-student-fg: oklch(0.2 0.018 295);
+  --examiner-student-bg: oklch(0.99 0.005 300);
+  --examiner-student-border: oklch(0.545 0.185 295 / 75%);
+
+  --examiner-positive: oklch(0.48 0.14 165);
+  --examiner-positive-fg: oklch(0.98 0.01 165);
+  --examiner-positive-bg: oklch(0.94 0.05 165 / 45%);
+  --examiner-positive-border: oklch(0.65 0.12 165 / 70%);
+
+  --examiner-correction: oklch(0.55 0.18 25);
+  --examiner-correction-fg: oklch(0.99 0.01 25);
+  --examiner-correction-bg: oklch(0.95 0.06 25 / 45%);
+  --examiner-correction-border: oklch(0.72 0.14 25 / 70%);
+
+  --examiner-misconception: oklch(0.52 0.22 27);
+  --examiner-misconception-fg: oklch(0.99 0.01 27);
+  --examiner-misconception-bg: oklch(0.94 0.08 27 / 50%);
+  --examiner-misconception-border: oklch(0.62 0.2 27 / 80%);
+
+  --examiner-concept: oklch(0.48 0.15 250);
+  --examiner-concept-fg: oklch(0.98 0.01 250);
+  --examiner-concept-bg: oklch(0.94 0.05 250 / 45%);
+  --examiner-concept-border: oklch(0.68 0.12 250 / 70%);
+
+  --examiner-hint: oklch(0.48 0.14 210);
+  --examiner-hint-fg: oklch(0.98 0.01 210);
+  --examiner-hint-bg: oklch(0.95 0.05 210 / 45%);
+  --examiner-hint-border: oklch(0.7 0.11 210 / 70%);
+
+  --examiner-explanation: oklch(0.4 0.05 280);
+  --examiner-explanation-fg: oklch(0.98 0.01 280);
+  --examiner-explanation-bg: oklch(0.95 0.02 280 / 50%);
+  --examiner-explanation-border: oklch(0.78 0.04 280 / 65%);
+
+  --examiner-warning: oklch(0.55 0.16 65);
+  --examiner-warning-fg: oklch(0.98 0.01 65);
+  --examiner-warning-bg: oklch(0.95 0.06 65 / 45%);
+  --examiner-warning-border: oklch(0.72 0.14 65 / 70%);
 
   --chart-1: oklch(0.545 0.185 295);
   --chart-2: oklch(0.575 0.125 228);
@@ -252,6 +336,52 @@
   --ao1: oklch(0.76 0.16 232);
   --ao2: oklch(0.81 0.17 168);
   --ao3: oklch(0.85 0.16 82);
+
+  /* Live Examiner semantic colour-coding tokens (Dark Theme) */
+  --examiner-question: oklch(0.82 0.14 290);
+  --examiner-question-fg: oklch(0.12 0.04 290);
+  --examiner-question-bg: oklch(0.28 0.08 290 / 45%);
+  --examiner-question-border: oklch(0.65 0.16 290 / 60%);
+
+  --examiner-student: oklch(0.95 0.01 285);
+  --examiner-student-fg: oklch(0.98 0.01 285);
+  --examiner-student-bg: oklch(0.2 0.03 288 / 75%);
+  --examiner-student-border: oklch(0.74 0.19 300 / 80%);
+
+  --examiner-positive: oklch(0.8 0.17 165);
+  --examiner-positive-fg: oklch(0.12 0.04 165);
+  --examiner-positive-bg: oklch(0.26 0.08 165 / 45%);
+  --examiner-positive-border: oklch(0.7 0.15 165 / 75%);
+
+  --examiner-correction: oklch(0.78 0.18 25);
+  --examiner-correction-fg: oklch(0.12 0.04 25);
+  --examiner-correction-bg: oklch(0.27 0.09 25 / 45%);
+  --examiner-correction-border: oklch(0.68 0.16 25 / 75%);
+
+  --examiner-misconception: oklch(0.75 0.22 27);
+  --examiner-misconception-fg: oklch(0.1 0.03 27);
+  --examiner-misconception-bg: oklch(0.28 0.1 27 / 50%);
+  --examiner-misconception-border: oklch(0.68 0.2 27 / 85%);
+
+  --examiner-concept: oklch(0.78 0.16 250);
+  --examiner-concept-fg: oklch(0.12 0.04 250);
+  --examiner-concept-bg: oklch(0.26 0.08 250 / 45%);
+  --examiner-concept-border: oklch(0.68 0.14 250 / 75%);
+
+  --examiner-hint: oklch(0.79 0.15 210);
+  --examiner-hint-fg: oklch(0.12 0.04 210);
+  --examiner-hint-bg: oklch(0.26 0.07 210 / 45%);
+  --examiner-hint-border: oklch(0.68 0.13 210 / 75%);
+
+  --examiner-explanation: oklch(0.8 0.04 280);
+  --examiner-explanation-fg: oklch(0.15 0.02 280);
+  --examiner-explanation-bg: oklch(0.24 0.03 280 / 50%);
+  --examiner-explanation-border: oklch(0.6 0.06 280 / 65%);
+
+  --examiner-warning: oklch(0.84 0.17 65);
+  --examiner-warning-fg: oklch(0.14 0.04 65);
+  --examiner-warning-bg: oklch(0.28 0.08 65 / 45%);
+  --examiner-warning-border: oklch(0.72 0.15 65 / 75%);
 
   --chart-1: oklch(0.74 0.19 300);
   --chart-2: oklch(0.76 0.16 232);
