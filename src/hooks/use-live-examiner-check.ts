@@ -1,0 +1,346 @@
+import { useServerFn } from "@tanstack/react-start";
+import { useCallback, useEffect, useRef, useState } from "react";
+
+import {
+  checkEssayWriting,
+  type LiveExaminerAoClassification,
+  type PredictedMark,
+} from "@/lib/live-examiner.functions";
+import { isDailyLimitError } from "@/lib/usage-limits";
+
+export type { PredictedMark };
+
+export type IssueCategory =
+  | "grammar"
+  | "clarity"
+  | "economics_accuracy"
+  | "analysis"
+  | "application"
+  | "evaluation"
+  | "reasoning_chain"
+  | "terminology";
+
+export type IssueSeverity = "low" | "medium" | "high";
+
+export type LiveExaminerIssue = {
+  original: string;
+  suggestion: string;
+  category: IssueCategory;
+  severity: IssueSeverity;
+  explanation: string;
+  context: string;
+  /** The proof behind this suggestion — a verbatim syllabus quote for
+   *  economics_accuracy, or a short concrete reason otherwise. Always
+   *  shown in the UI: nothing is flagged as "wrong" without this. */
+  evidence?: string;
+};
+
+export type ActiveIssue = LiveExaminerIssue & { id: string };
+export type ActiveAoClassification = LiveExaminerAoClassification & { id: string };
+
+export type HistoryEntry = LiveExaminerIssue & {
+  id: string;
+  status: "active" | "accepted" | "dismissed";
+  firstSeenAt: number;
+  resolvedAt: number | null;
+};
+
+// Adaptive cadence: completing a sentence should feel immediate, while a
+// mid-sentence pause waits long enough not to fire on every few keystrokes.
+// One request is still allowed at a time and the newest edit always replaces
+// anything older in the queue.
+const TYPING_PAUSE_MS = 1350;
+const SENTENCE_COMPLETE_PAUSE_MS = 450;
+const MIN_REQUEST_INTERVAL_MS = 4000;
+const MIN_CHANGED_CHARS = 4;
+const MIN_TEXT_LENGTH = 25;
+
+function issueId(issue: Pick<LiveExaminerIssue, "context" | "original" | "category">): string {
+  return `${issue.category}::${issue.context.trim().toLowerCase()}::${issue.original.trim().toLowerCase()}`;
+}
+
+function classificationId(
+  classification: Pick<LiveExaminerAoClassification, "context" | "original" | "ao">,
+): string {
+  return `${classification.ao}::${classification.context.trim().toLowerCase()}::${classification.original.trim().toLowerCase()}`;
+}
+
+function changedAmount(a: string, b: string): number {
+  if (a === b) return 0;
+  let prefix = 0;
+  while (prefix < a.length && prefix < b.length && a[prefix] === b[prefix]) prefix += 1;
+
+  let suffix = 0;
+  while (
+    suffix < a.length - prefix &&
+    suffix < b.length - prefix &&
+    a[a.length - 1 - suffix] === b[b.length - 1 - suffix]
+  ) {
+    suffix += 1;
+  }
+
+  return a.length + b.length - prefix * 2 - suffix * 2;
+}
+
+export function useLiveExaminerCheck(params: {
+  text: string;
+  question: string;
+  level: "as" | "a2";
+  maxMark: number;
+  contextBlock: string;
+  /** Off while there's no question set yet, or the panel is collapsed. */
+  enabled: boolean;
+}) {
+  const { text, question, level, maxMark, contextBlock, enabled } = params;
+  const check = useServerFn(checkEssayWriting);
+
+  const [issues, setIssues] = useState<ActiveIssue[]>([]);
+  const [classifications, setClassifications] = useState<ActiveAoClassification[]>([]);
+  const [history, setHistory] = useState<HistoryEntry[]>([]);
+  const [checking, setChecking] = useState(false);
+  const [dirty, setDirty] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<number | null>(null);
+  // Rough, live-updating estimate — see PredictedMark. Missing from a given
+  // check result (e.g. a whitespace-only edit, or too little written yet)
+  // means "unchanged", not "reset to zero", so this only ever moves when a
+  // check actually produces a fresh number.
+  const [predictedMark, setPredictedMark] = useState<PredictedMark | null>(null);
+
+  const lastCheckedTextRef = useRef<string>("");
+  const issuesRef = useRef<ActiveIssue[]>([]);
+  const historyRef = useRef<HistoryEntry[]>([]);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const requestIdRef = useRef(0);
+  const inFlightRef = useRef(false);
+  const lastRequestAtRef = useRef(0);
+  const queuedTextRef = useRef<string | null>(null);
+  const latestTextRef = useRef(text);
+
+  issuesRef.current = issues;
+  historyRef.current = history;
+  latestTextRef.current = text;
+
+  const recordHistory = useCallback((fresh: LiveExaminerIssue[]) => {
+    setHistory((prev) => {
+      const byId = new Map(prev.map((entry) => [entry.id, entry]));
+      const now = Date.now();
+      for (const issue of fresh) {
+        const id = issueId(issue);
+        if (byId.has(id)) continue; // already tracked (active or resolved)
+        byId.set(id, { ...issue, id, status: "active", firstSeenAt: now, resolvedAt: null });
+      }
+      return Array.from(byId.values());
+    });
+  }, []);
+
+  const runCheck = useCallback(
+    (currentText: string, force: boolean) => {
+      queuedTextRef.current = currentText;
+      const waitFor = Math.max(
+        0,
+        MIN_REQUEST_INTERVAL_MS - (Date.now() - lastRequestAtRef.current),
+      );
+      if (inFlightRef.current || waitFor > 0) {
+        if (!inFlightRef.current) {
+          if (timerRef.current) clearTimeout(timerRef.current);
+          timerRef.current = setTimeout(
+            () => runCheck(queuedTextRef.current ?? currentText, force),
+            waitFor,
+          );
+        }
+        return;
+      }
+
+      queuedTextRef.current = null;
+      inFlightRef.current = true;
+      lastRequestAtRef.current = Date.now();
+      const requestId = ++requestIdRef.current;
+      const previousText = force ? undefined : lastCheckedTextRef.current || undefined;
+      const previousIssues = force ? [] : issuesRef.current;
+
+      setChecking(true);
+      setError(null);
+      check({
+        data: {
+          essayText: currentText,
+          previousText,
+          previousIssues,
+          question,
+          level,
+          maxMark,
+          contextBlock,
+        },
+      })
+        .then((result) => {
+          if (requestId !== requestIdRef.current) return; // superseded
+          lastCheckedTextRef.current = result.checkedText ?? currentText;
+          // Never flash a mark or annotations for an older draft while a
+          // newer edit is already waiting to be checked.
+          if (latestTextRef.current !== currentText) {
+            setDirty(true);
+            return;
+          }
+          const fresh = result.issues.map((issue) => ({ ...issue, id: issueId(issue) }));
+          setIssues(fresh);
+          setClassifications((previous) => {
+            const replacedContexts = new Set(result.classifiedContexts);
+            const surviving = (force && !result.checkFailed ? [] : previous).filter(
+              (classification) =>
+                currentText.includes(classification.context) &&
+                !replacedContexts.has(classification.context),
+            );
+            const awardedByAo = result.predictedMark
+              ? {
+                  AO1: result.predictedMark.ao_breakdown.knowledge.awarded,
+                  AO2: result.predictedMark.ao_breakdown.analysis.awarded,
+                  AO3: result.predictedMark.ao_breakdown.evaluation.awarded,
+                }
+              : null;
+            const incoming = result.classifications
+              .filter((classification) => !awardedByAo || awardedByAo[classification.ao] > 0)
+              .map((classification) => ({
+                ...classification,
+                id: classificationId(classification),
+              }));
+            return Array.from(
+              new Map([...surviving, ...incoming].map((item) => [item.id, item])).values(),
+            );
+          });
+          recordHistory(result.issues);
+          setDirty(false);
+          setLastUpdatedAt(Date.now());
+          if (result.predictedMark) setPredictedMark(result.predictedMark);
+          if (result.checkFailed) {
+            setError(
+              "The examiner check is temporarily unavailable — showing the last known issues.",
+            );
+          }
+        })
+        .catch((caught: unknown) => {
+          if (requestId !== requestIdRef.current) return;
+          // A daily-limit refusal is a real answer, not a network blip —
+          // show the actual reason instead of promising a retry.
+          setError(
+            isDailyLimitError(caught)
+              ? (caught as Error).message
+              : "Couldn't reach the examiner check. Your writing is safe — this will retry shortly.",
+          );
+        })
+        .finally(() => {
+          inFlightRef.current = false;
+          if (requestId === requestIdRef.current) setChecking(false);
+          const queuedText = queuedTextRef.current;
+          if (queuedText && queuedText !== lastCheckedTextRef.current) {
+            if (timerRef.current) clearTimeout(timerRef.current);
+            const remaining = Math.max(
+              TYPING_PAUSE_MS,
+              MIN_REQUEST_INTERVAL_MS - (Date.now() - lastRequestAtRef.current),
+            );
+            timerRef.current = setTimeout(() => runCheck(queuedText, false), remaining);
+          }
+        });
+    },
+    [check, question, level, maxMark, contextBlock, recordHistory],
+  );
+
+  useEffect(() => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+
+    if (!enabled || !question) {
+      setDirty(false);
+      return;
+    }
+
+    const trimmed = text.trim();
+    if (trimmed.length < MIN_TEXT_LENGTH) {
+      setIssues([]);
+      setClassifications([]);
+      setPredictedMark(null);
+      lastCheckedTextRef.current = "";
+      setDirty(false);
+      return;
+    }
+
+    if (text === lastCheckedTextRef.current) {
+      setDirty(false);
+      return;
+    }
+
+    if (changedAmount(text, lastCheckedTextRef.current) < MIN_CHANGED_CHARS) {
+      return;
+    }
+
+    setDirty(true);
+    const completedThought = /(?:[.!?]|\n)\s*$/.test(text);
+    timerRef.current = setTimeout(
+      () => runCheck(text, false),
+      completedThought ? SENTENCE_COMPLETE_PAUSE_MS : TYPING_PAUSE_MS,
+    );
+
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [text, enabled, question]);
+
+  /** Apply one suggestion in place and return the corrected text for the caller to set. */
+  function acceptIssue(id: string, currentText: string): string {
+    const issue = issuesRef.current.find((item) => item.id === id);
+    if (!issue) return currentText;
+
+    const replaceOnce = (source: string) => {
+      const at = source.indexOf(issue.context);
+      if (at === -1) return source;
+      const fixedSentence = issue.context.replace(issue.original, issue.suggestion);
+      return source.slice(0, at) + fixedSentence + source.slice(at + issue.context.length);
+    };
+
+    const nextText = replaceOnce(currentText);
+    lastCheckedTextRef.current = replaceOnce(lastCheckedTextRef.current);
+    setIssues((prev) => prev.filter((item) => item.id !== id));
+    setClassifications((prev) => prev.filter((item) => nextText.includes(item.context)));
+    setHistory((prev) =>
+      prev.map((entry) =>
+        entry.id === id ? { ...entry, status: "accepted", resolvedAt: Date.now() } : entry,
+      ),
+    );
+    return nextText;
+  }
+
+  function dismissIssue(id: string) {
+    setIssues((prev) => prev.filter((item) => item.id !== id));
+    setHistory((prev) =>
+      prev.map((entry) =>
+        entry.id === id ? { ...entry, status: "dismissed", resolvedAt: Date.now() } : entry,
+      ),
+    );
+  }
+
+  /** Force a fresh full-pass check, ignoring the diff cache. */
+  function rescan(currentText: string) {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    setDirty(false);
+    runCheck(currentText, true);
+  }
+
+  /** Clear what's currently showing without touching the history log. */
+  function clearAll() {
+    setIssues([]);
+  }
+
+  return {
+    issues,
+    classifications,
+    history,
+    checking,
+    pending: dirty,
+    error,
+    predictedMark,
+    lastUpdatedAt,
+    acceptIssue,
+    dismissIssue,
+    rescan,
+    clearAll,
+  };
+}

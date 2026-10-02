@@ -1,0 +1,13 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "marginal",
+  "main": "@tanstack/react-start/server-entry",
+  "compatibility_date": "2026-08-25",
+  "compatibility_flags": ["nodejs_compat"],
+  "vars": {
+    "PUBLIC_SITE_URL": "https://marginal.marginal-econ.workers.dev",
+  },
+  "observability": {
+    "enabled": true,
+  },
+}
