@@ -5,6 +5,7 @@ import { requireSupabaseAuth } from "@/integrations/backend/auth-middleware";
 import type { Json } from "@/integrations/supabase/types";
 import { LIVE_EXAMINER_LIMIT_MESSAGE } from "@/lib/usage-limits";
 import { deterministicTerminologyIssues } from "@/lib/live-examiner/economics-glossary";
+import { analyzeGrammarAndMechanics } from "@/lib/live-examiner/grammar-engine";
 import { diffSentences, splitSentences } from "@/lib/writing-check/sentence-diff";
 import { AO_DEFINITIONS, defaultSplitForMaxMark } from "@/lib/examiner/config";
 
@@ -446,8 +447,13 @@ export const checkEssayWriting = createServerFn({ method: "POST" })
     const toSend = changedSentences.slice(0, MAX_SENTENCES_PER_CALL);
 
     // Deterministic pass first — zero cost, zero latency, needs no AI
-    // confirmation since these are exact-string glossary matches.
-    const deterministic = deterministicTerminologyIssues(toSend);
+    // confirmation since these are exact-string glossary & rule matches.
+    const deterministicTerminology = deterministicTerminologyIssues(toSend);
+    const deterministicGrammar = analyzeGrammarAndMechanics(toSend);
+    const deterministic: LiveExaminerIssue[] = [
+      ...deterministicTerminology,
+      ...deterministicGrammar.map(({ ruleId: _ruleId, startOffset: _s, endOffset: _e, ...issue }) => issue),
+    ];
 
     // Whether this call bothers estimating a mark at all: skip it on tiny
     // diffs (a couple of words changed) so a running estimate doesn't

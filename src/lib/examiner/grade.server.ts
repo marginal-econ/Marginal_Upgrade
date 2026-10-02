@@ -17,6 +17,11 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { chat, visionChat } from "../ai.server";
 import { renderContext, retrieve } from "../retrieval.server";
+import {
+  arbitrateGrading,
+  computeObjectiveConfidence,
+  shouldTriggerArbitration,
+} from "./arbitration.server";
 import { AUDIT_PROMPT } from "./audit-prompt";
 import { buildAnchorBlock, fetchCalibrationAnchors } from "./calibration.server";
 import {
@@ -235,11 +240,37 @@ export async function gradeEssay(
             ],
           });
 
-      grading = normaliseGrading(extractFirstJsonObject(second.text), maxMark, split);
-      grading.audited = true;
+      const secondGrading = normaliseGrading(extractFirstJsonObject(second.text), maxMark, split);
+      secondGrading.audited = true;
       promptTokens = (promptTokens ?? 0) + (second.promptTokens ?? 0);
       completionTokens = (completionTokens ?? 0) + (second.completionTokens ?? 0);
       latencyMs += second.latencyMs;
+
+      // --- Stage 3: Selective Principal Examiner Arbitration ---
+      // Triggered only when a material discrepancy or grade band contradiction
+      // exists between the Primary Examiner and Independent Moderator.
+      const disputeCheck = shouldTriggerArbitration(grading, secondGrading, maxMark);
+      if (disputeCheck.shouldArbitrate) {
+        try {
+          const arbitrated = await arbitrateGrading({
+            question,
+            essayText,
+            maxMark,
+            split,
+            examinerGrading: grading,
+            moderatorGrading: secondGrading,
+            disputeReason: disputeCheck.reason,
+          });
+          grading = arbitrated;
+        } catch (arbitrationError) {
+          console.error("Arbitration pass encountered error; falling back to moderated grade", arbitrationError);
+          grading = secondGrading;
+          grading.confidence = computeObjectiveConfidence(grading, secondGrading, false);
+        }
+      } else {
+        grading = secondGrading;
+        grading.confidence = computeObjectiveConfidence(grading, secondGrading, false);
+      }
     } catch (error) {
       // The audit is a correction pass, not a gate. A transient audit failure
       // returns the already-valid first-pass result instead of failing.

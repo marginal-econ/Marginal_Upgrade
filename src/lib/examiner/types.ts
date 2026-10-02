@@ -37,6 +37,8 @@ export type Grading = {
   suggested_practice: string[];
   confidence: number;
   audited: boolean;
+  arbitrated?: boolean;
+  arbitrationNotes?: string;
   sources: GroundingSource[];
   /** How many active calibration anchors were injected for this grade —
    *  0 means genuinely "none set up yet", not "skipped". */
