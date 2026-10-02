@@ -152,6 +152,7 @@ export async function gradeEssay(
       matchCount: 6,
       docTypes: ["mark_scheme", "examiner_report", "syllabus", "coursebook"],
       topicId: options.topicId ?? null,
+      enableHybridRrf: true,
     });
   } catch (error) {
     throw new Error(

@@ -148,6 +148,7 @@ export const prepareLiveExaminerContext = createServerFn({ method: "POST" })
       matchCount: 8,
       docTypes: ["syllabus", "coursebook", "mark_scheme", "examiner_report"],
       minSimilarity: 0.22,
+      enableHybridRrf: true,
     });
 
     const anchors = await fetchCalibrationAnchors(context.supabase);
@@ -984,11 +985,11 @@ export const getMaxOutSuggestions = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => MaxOutInput.parse(input))
   .handler(async ({ data }) => {
     const { chat } = await import("./ai.server");
-    const { MODEL_GRADING, TEMPERATURE_TUTOR } = await import("./examiner/config");
+    const { MODEL_COACH, TEMPERATURE_TUTOR } = await import("./examiner/config");
     const { extractFirstJsonObject } = await import("./examiner/json");
 
     const result = await chat({
-      model: MODEL_GRADING,
+      model: MODEL_COACH,
       temperature: TEMPERATURE_TUTOR,
       json: true,
       maxCompletionTokens: 1800,
@@ -1104,11 +1105,11 @@ export const getExaminerChallenges = createServerFn({ method: "POST" })
     await assertLiveExaminerSessionAllowed(context.supabase, data.question);
 
     const { chat } = await import("./ai.server");
-    const { MODEL_EXAMINER, TEMPERATURE_TUTOR } = await import("./examiner/config");
+    const { MODEL_CHALLENGE, TEMPERATURE_TUTOR } = await import("./examiner/config");
     const { extractFirstJsonObject } = await import("./examiner/json");
 
     const result = await chat({
-      model: MODEL_EXAMINER,
+      model: MODEL_CHALLENGE,
       temperature: TEMPERATURE_TUTOR,
       json: true,
       maxCompletionTokens: 1400,

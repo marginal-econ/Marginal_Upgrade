@@ -8,7 +8,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { chat } from "../ai.server";
-import { MODEL_EXAMINER } from "../examiner/config";
+import { MODEL_QUESTION_GEN } from "../examiner/config";
 import { extractFirstJsonObject } from "../examiner/json";
 import { renderContext, retrieve } from "../retrieval.server";
 
@@ -60,6 +60,7 @@ export async function generateEssayQuestion(
       query: `${options.topic} — evaluative essay-worthy issues, debates and trade-offs`,
       matchCount: 8,
       docTypes: ["coursebook", "syllabus", "past_paper", "mark_scheme", "examiner_report"],
+      enableHybridRrf: true,
     });
   } catch (error) {
     console.error("Essay question generation retrieval failed", error);
@@ -97,7 +98,7 @@ export async function generateEssayQuestion(
   const userMessage = `Topic: ${options.topic}\nTariff: ${maxMark} marks`;
 
   const result = await chat({
-    model: MODEL_EXAMINER,
+    model: MODEL_QUESTION_GEN,
     temperature: 0.8,
     json: true,
     messages: [

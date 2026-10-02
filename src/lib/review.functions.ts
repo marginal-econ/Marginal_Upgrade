@@ -14,7 +14,7 @@ import { createServerFn } from "@tanstack/react-start";
 
 import { requireSupabaseAuth } from "@/integrations/backend/auth-middleware";
 import { chat } from "./ai.server";
-import { MODEL_EXAMINER } from "./examiner/config";
+import { MODEL_ANALYSIS } from "./examiner/config";
 import { extractFirstJsonObject } from "./examiner/json";
 import type { Grading } from "./examiner/types";
 import { aggregateMcqDomains, MCQ_DOMAIN_LABEL, type DomainStat } from "./mcq-domain";
@@ -319,7 +319,7 @@ export const getReviewPanel = createServerFn({ method: "GET" })
     ].join("\n");
 
     const result = await chat({
-      model: MODEL_EXAMINER,
+      model: MODEL_ANALYSIS,
       temperature: 0.2,
       json: true,
       messages: [

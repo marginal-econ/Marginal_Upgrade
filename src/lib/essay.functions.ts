@@ -37,7 +37,7 @@ export const generateModelEssay = createServerFn({ method: "POST" })
       await supabase.from("ai_usage_log").insert({
         user_id: userId,
         feature: "essay_generate",
-        model: "openai/gpt-5.6-sol",
+        model: "google/gemini-2.5-pro",
         ok: false,
         error_message: error instanceof Error ? error.message : "Unknown error",
       });
@@ -84,7 +84,7 @@ export const generateEssayQuestionAI = createServerFn({ method: "POST" })
       await supabase.from("ai_usage_log").insert({
         user_id: userId,
         feature: "essay_question_generate",
-        model: "openai/gpt-5.6-sol",
+        model: "google/gemini-3.6-flash",
         ok: false,
         error_message: error instanceof Error ? error.message : "Unknown error",
       });

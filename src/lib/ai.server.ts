@@ -161,7 +161,7 @@ export async function chat(rawOptions: ChatOptions): Promise<ChatResult> {
   }
 
   const data = await withRetry429(async () => {
-    const response = await fetch(`${GATEWAY}/chat/completions`, {
+    let response = await fetch(`${GATEWAY}/chat/completions`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -169,6 +169,28 @@ export async function chat(rawOptions: ChatOptions): Promise<ChatResult> {
       },
       body: JSON.stringify(body),
     });
+
+    if (!response.ok && (response.status === 400 || response.status === 404) && body.model !== ECONOMY_MODEL) {
+      const errText = await response.text();
+      if (
+        errText.toLowerCase().includes("model") ||
+        errText.toLowerCase().includes("not found") ||
+        errText.toLowerCase().includes("invalid") ||
+        errText.toLowerCase().includes("unsupported")
+      ) {
+        body.model = ECONOMY_MODEL;
+        response = await fetch(`${GATEWAY}/chat/completions`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Lovable-API-Key": apiKey(),
+          },
+          body: JSON.stringify(body),
+        });
+      } else {
+        throw new AiGatewayError(explain(response.status, errText), response.status);
+      }
+    }
 
     if (!response.ok) {
       throw new AiGatewayError(explain(response.status, await response.text()), response.status);
@@ -725,7 +747,7 @@ export async function visionChat(options: {
   };
   if (options.maxCompletionTokens) body.max_completion_tokens = options.maxCompletionTokens;
 
-  const response = await fetch(`${GATEWAY}/chat/completions`, {
+  let response = await fetch(`${GATEWAY}/chat/completions`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -733,6 +755,28 @@ export async function visionChat(options: {
     },
     body: JSON.stringify(body),
   });
+
+  if (!response.ok && (response.status === 400 || response.status === 404) && body.model !== ECONOMY_MODEL) {
+    const errText = await response.text();
+    if (
+      errText.toLowerCase().includes("model") ||
+      errText.toLowerCase().includes("not found") ||
+      errText.toLowerCase().includes("invalid") ||
+      errText.toLowerCase().includes("unsupported")
+    ) {
+      body.model = ECONOMY_MODEL;
+      response = await fetch(`${GATEWAY}/chat/completions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Lovable-API-Key": apiKey(),
+        },
+        body: JSON.stringify(body),
+      });
+    } else {
+      throw new AiGatewayError(explain(response.status, errText), response.status);
+    }
+  }
 
   if (!response.ok) {
     throw new AiGatewayError(explain(response.status, await response.text()), response.status);

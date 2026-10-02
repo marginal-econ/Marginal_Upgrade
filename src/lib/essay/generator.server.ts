@@ -149,6 +149,7 @@ export async function generatePerfectEssay(
       query: `${input.question} ${input.topic} — definitions, mechanisms, diagrams and evaluation`,
       matchCount: 10,
       docTypes: ["coursebook", "syllabus", "past_paper", "mark_scheme"],
+      enableHybridRrf: true,
     });
   } catch (error) {
     console.error("Essay generator retrieval failed", error);

@@ -11,7 +11,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { chat } from "../ai.server";
 import { renderContext, retrieve } from "../retrieval.server";
 import { buildAnchorBlock, fetchCalibrationAnchors } from "../examiner/calibration.server";
-import { MODEL_EXAMINER, TEMPERATURE_EXAMINER, defaultSplitForMaxMark } from "../examiner/config";
+import { MODEL_COACH, TEMPERATURE_EXAMINER, defaultSplitForMaxMark } from "../examiner/config";
 import { extractFirstJsonObject } from "../examiner/json";
 import type { GroundingSource } from "../examiner/types";
 
@@ -132,6 +132,7 @@ export async function coachPoint(
       query: `${options.question}\n${options.pointText}`,
       matchCount: 5,
       docTypes: ["coursebook", "syllabus", "mark_scheme", "examiner_report"],
+      enableHybridRrf: true,
     });
   } catch (error) {
     throw new Error(
@@ -174,7 +175,7 @@ export async function coachPoint(
     `Student's ${brief.skill}:\n${options.pointText}`;
 
   const result = await chat({
-    model: MODEL_EXAMINER,
+    model: MODEL_COACH,
     temperature: TEMPERATURE_EXAMINER,
     json: true,
     messages: [

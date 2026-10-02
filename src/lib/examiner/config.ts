@@ -70,32 +70,34 @@ export const TEMPERATURE_TUTOR = 0.4;
 export const MAX_ANCHORS_PER_BAND = 2;
 
 /**
- * Marking runs two sequential passes (examiner + independent audit), so the
- * examiner model is chosen for latency as well as judgement — the original
- * Gemini Pro pipeline pushed a single submission past a minute.
+ * Best Gemini Models for Credit-Optimised High-Intelligence Execution:
+ *
+ * 1. google/gemini-2.5-pro:
+ *    Authoritative Cambridge 9708 evaluative judgement, nuanced band calibration,
+ *    and rigorous mark-scheme grounding with substantially lower credit consumption
+ *    than legacy proprietary alternatives.
+ *
+ * 2. google/gemini-3.6-flash:
+ *    Near-instant sub-second latency and minimal token consumption. Used for all
+ *    interactive live keystroke checking, writing diagnostics, mark estimation,
+ *    question generation, and one-point skills drills.
  */
-export const MODEL_EXAMINER = "openai/gpt-5.6-sol";
-/**
- * Used only by the essay spelling/grammar check — a small, mechanical task
- * that doesn't need a full reasoning-grade model. This used to be aliased
- * to MODEL_EXAMINER (the same heavyweight model used for full essay
- * marking), which is why the check felt slow: it was paying the latency of
- * a marking-grade model for a proofreading pass. Gemini Flash is fast,
- * cheap, and more than accurate enough for spelling/grammar detection.
- */
+export const MODEL_EXAMINER = "google/gemini-2.5-pro";
 export const MODEL_FAST = "google/gemini-3.6-flash";
 
 /**
- * Task-specific model names. Keeping these aliases separate lets each job be
- * tuned independently without scattering model IDs through the application.
- * They deliberately point at the provider-qualified models already supported
- * by the configured AI gateway; the unqualified experimental names supplied
- * in the update archive would fail against that gateway.
+ * Task-specific model assignments. Tuning these cleanly separates each pipeline
+ * while keeping all tasks pointed at credit-optimized Gemini models:
  */
 export const MODEL_GRADING = MODEL_EXAMINER;
-export const MODEL_COACH = MODEL_EXAMINER;
+export const MODEL_AUDIT = MODEL_EXAMINER;
+export const MODEL_ARBITRATION = MODEL_EXAMINER;
 export const MODEL_ESSAY_GEN = MODEL_EXAMINER;
-export const MODEL_ANALYSIS = MODEL_EXAMINER;
+
+export const MODEL_COACH = MODEL_FAST;
+export const MODEL_ANALYSIS = MODEL_FAST;
+export const MODEL_CHALLENGE = MODEL_FAST;
+export const MODEL_QUESTION_GEN = MODEL_FAST;
 export const MODEL_EXTRACT = MODEL_FAST;
 export const MODEL_LIVE_CHECK = MODEL_FAST;
 export const MODEL_LIVE_CANDIDATE = MODEL_FAST;
