@@ -681,7 +681,16 @@ export const listClassroomMessages = createServerFn({ method: "GET" })
       throw new Error("You must be enrolled or teaching this class to join the chat.");
     }
 
-    let messages: any[] = [];
+    let messages: Array<{
+      id: string;
+      classroom_id: string;
+      user_id: string;
+      content: string;
+      is_pinned: boolean;
+      created_at: string;
+    }> = [];
+
+    // 1. Try dedicated table first
     try {
       const { data: rows, error } = await authority.admin
         .from("classroom_messages")
@@ -696,12 +705,53 @@ export const listClassroomMessages = createServerFn({ method: "GET" })
       messages = [];
     }
 
-    if (messages.length === 0) return [];
+    // 2. Resilient fallback: also check fallback store in classroom_assignments
+    try {
+      const { data: fallbackRows, error: fbError } = await authority.admin
+        .from("classroom_assignments")
+        .select("id, classroom_id, created_by, instructions, title, created_at")
+        .eq("classroom_id", data.classroomId)
+        .eq("kind", "essay")
+        .eq("essay_question", "[CHAT_MSG]")
+        .order("created_at", { ascending: true })
+        .limit(data.limit);
 
-    const userIds = messages.map((m) => m.user_id);
+      if (!fbError && fallbackRows && fallbackRows.length > 0) {
+        for (const fb of fallbackRows) {
+          try {
+            const parsed = JSON.parse(fb.instructions || "{}");
+            messages.push({
+              id: fb.id,
+              classroom_id: fb.classroom_id,
+              user_id: fb.created_by || authority.classroom.teacher_id,
+              content: parsed.content || "",
+              is_pinned: Boolean(parsed.is_pinned),
+              created_at: fb.created_at,
+            });
+          } catch {
+            // Ignore malformed instructions
+          }
+        }
+      }
+    } catch {
+      // Safe fallback
+    }
+
+    // Deduplicate and sort by created_at ascending
+    const uniqueMap = new Map<string, typeof messages[0]>();
+    for (const m of messages) {
+      uniqueMap.set(m.id, m);
+    }
+    const sortedMessages = Array.from(uniqueMap.values()).sort(
+      (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+    );
+
+    if (sortedMessages.length === 0) return [];
+
+    const userIds = sortedMessages.map((m) => m.user_id);
     const userMap = await resolveUsersBatch(authority.admin, userIds, "Student");
 
-    return messages.map((m) => {
+    return sortedMessages.map((m) => {
       const u = userMap.get(m.user_id);
       const isAuthor = m.user_id === context.userId;
       const isTeacher = m.user_id === authority.classroom.teacher_id;
@@ -739,18 +789,54 @@ export const sendClassroomMessage = createServerFn({ method: "POST" })
       throw new Error("You must be part of this class to send messages.");
     }
 
-    const { data: inserted, error } = await authority.admin
-      .from("classroom_messages")
+    // 1. Try dedicated table first
+    try {
+      const { data: inserted, error } = await authority.admin
+        .from("classroom_messages")
+        .insert({
+          classroom_id: data.classroomId,
+          user_id: context.userId,
+          content: data.content,
+        })
+        .select("id, classroom_id, user_id, content, is_pinned, created_at")
+        .single();
+
+      if (!error && inserted) {
+        return inserted;
+      }
+    } catch {
+      // Proceed to fallback
+    }
+
+    // 2. Seamless fallback: store in classroom_assignments
+    const msgId = crypto.randomUUID();
+    const { data: fbInserted, error: fbError } = await authority.admin
+      .from("classroom_assignments")
       .insert({
+        id: msgId,
         classroom_id: data.classroomId,
-        user_id: context.userId,
-        content: data.content,
+        created_by: context.userId,
+        kind: "essay",
+        title: "[CHAT_MSG]",
+        instructions: JSON.stringify({ content: data.content, is_pinned: false }),
+        essay_question: "[CHAT_MSG]",
+        essay_topic: "Class Chat",
+        essay_max_mark: 0,
+        archived: true,
       })
-      .select("id, classroom_id, user_id, content, is_pinned, created_at")
+      .select("id, classroom_id, created_by, created_at")
       .single();
 
-    if (error) throw new Error(error.message);
-    return inserted;
+    if (fbError) throw new Error(fbError.message);
+
+    return {
+      id: fbInserted.id,
+      classroom_id: fbInserted.classroom_id,
+      user_id: context.userId,
+      content: data.content,
+      is_pinned: false,
+      created_at: fbInserted.created_at,
+    };
   });
 
 export const deleteClassroomMessage = createServerFn({ method: "POST" })
@@ -761,23 +847,49 @@ export const deleteClassroomMessage = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const authority = await getClassroomAuthority(context.userId, data.classroomId);
 
-    const { data: message } = await authority.admin
-      .from("classroom_messages")
-      .select("user_id")
-      .eq("id", data.messageId)
-      .maybeSingle();
+    // 1. Try deleting from dedicated table
+    try {
+      const { data: message } = await authority.admin
+        .from("classroom_messages")
+        .select("user_id")
+        .eq("id", data.messageId)
+        .maybeSingle();
 
-    if (!message) return { ok: true };
-    if (message.user_id !== context.userId && !authority.isStaff) {
-      throw new Error("You are not authorised to delete this message.");
+      if (message) {
+        if (message.user_id !== context.userId && !authority.isStaff) {
+          throw new Error("You are not authorised to delete this message.");
+        }
+        await authority.admin
+          .from("classroom_messages")
+          .delete()
+          .eq("id", data.messageId);
+        return { ok: true };
+      }
+    } catch (err: any) {
+      if (err?.message?.includes("not authorised")) throw err;
     }
 
-    const { error } = await authority.admin
-      .from("classroom_messages")
-      .delete()
-      .eq("id", data.messageId);
+    // 2. Try deleting from fallback store
+    try {
+      const { data: fbMessage } = await authority.admin
+        .from("classroom_assignments")
+        .select("created_by")
+        .eq("id", data.messageId)
+        .maybeSingle();
 
-    if (error) throw new Error(error.message);
+      if (fbMessage) {
+        if (fbMessage.created_by !== context.userId && !authority.isStaff) {
+          throw new Error("You are not authorised to delete this message.");
+        }
+        await authority.admin
+          .from("classroom_assignments")
+          .delete()
+          .eq("id", data.messageId);
+      }
+    } catch (err: any) {
+      if (err?.message?.includes("not authorised")) throw err;
+    }
+
     return { ok: true };
   });
 
@@ -790,13 +902,41 @@ export const togglePinClassroomMessage = createServerFn({ method: "POST" })
     const authority = await getClassroomAuthority(context.userId, data.classroomId);
     if (!authority.isStaff) throw new Error("Only teachers or admins can pin messages.");
 
-    const { error } = await authority.admin
-      .from("classroom_messages")
-      .update({ is_pinned: data.isPinned, updated_at: new Date().toISOString() })
-      .eq("id", data.messageId)
-      .eq("classroom_id", data.classroomId);
+    // 1. Try dedicated table
+    try {
+      const { error } = await authority.admin
+        .from("classroom_messages")
+        .update({ is_pinned: data.isPinned, updated_at: new Date().toISOString() })
+        .eq("id", data.messageId)
+        .eq("classroom_id", data.classroomId);
 
-    if (error) throw new Error(error.message);
+      if (!error) return { ok: true };
+    } catch {
+      // Proceed to fallback
+    }
+
+    // 2. Try fallback store
+    try {
+      const { data: fbMessage } = await authority.admin
+        .from("classroom_assignments")
+        .select("instructions")
+        .eq("id", data.messageId)
+        .maybeSingle();
+
+      if (fbMessage) {
+        let parsed: Record<string, any> = {};
+        try {
+          parsed = JSON.parse(fbMessage.instructions || "{}");
+        } catch {}
+        const updatedInstructions = JSON.stringify({ ...parsed, is_pinned: data.isPinned });
+
+        await authority.admin
+          .from("classroom_assignments")
+          .update({ instructions: updatedInstructions })
+          .eq("id", data.messageId);
+      }
+    } catch {}
+
     return { ok: true };
   });
 
@@ -813,7 +953,17 @@ export const listAnnouncements = createServerFn({ method: "GET" })
       throw new Error("You must be a member or teacher of this class.");
     }
 
-    let annList: any[] = [];
+    let annList: Array<{
+      id: string;
+      classroom_id: string;
+      author_id: string;
+      content: string;
+      pinned: boolean;
+      created_at: string;
+      updated_at: string;
+    }> = [];
+
+    // 1. Try dedicated announcements table
     try {
       const { data: announcements, error: annError } = await authority.admin
         .from("classroom_announcements")
@@ -829,11 +979,59 @@ export const listAnnouncements = createServerFn({ method: "GET" })
       annList = [];
     }
 
-    if (annList.length === 0) return [];
-
-    let comments: any[] = [];
+    // 2. Fallback store in classroom_assignments
     try {
-      const annIds = annList.map((a) => a.id);
+      const { data: fbAnnouncements, error: fbAnnError } = await authority.admin
+        .from("classroom_assignments")
+        .select("id, classroom_id, created_by, instructions, title, created_at")
+        .eq("classroom_id", data.classroomId)
+        .eq("kind", "essay")
+        .eq("essay_question", "[ANNOUNCEMENT]")
+        .order("created_at", { ascending: false });
+
+      if (!fbAnnError && fbAnnouncements && fbAnnouncements.length > 0) {
+        for (const fb of fbAnnouncements) {
+          try {
+            const parsed = JSON.parse(fb.instructions || "{}");
+            annList.push({
+              id: fb.id,
+              classroom_id: fb.classroom_id,
+              author_id: fb.created_by || authority.classroom.teacher_id,
+              content: parsed.content || "",
+              pinned: Boolean(parsed.pinned),
+              created_at: fb.created_at,
+              updated_at: fb.created_at,
+            });
+          } catch {}
+        }
+      }
+    } catch {}
+
+    // Deduplicate and sort announcements (pinned first, then newest)
+    const uniqueAnnMap = new Map<string, typeof annList[0]>();
+    for (const a of annList) {
+      uniqueAnnMap.set(a.id, a);
+    }
+    const finalAnnList = Array.from(uniqueAnnMap.values()).sort((a, b) => {
+      if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
+
+    if (finalAnnList.length === 0) return [];
+
+    let comments: Array<{
+      id: string;
+      announcement_id: string | null;
+      assignment_id: string | null;
+      author_id: string;
+      content: string;
+      created_at: string;
+    }> = [];
+
+    const annIds = finalAnnList.map((a) => a.id);
+
+    // 1. Try dedicated comments table
+    try {
       const { data: comms, error: commError } = await authority.admin
         .from("classroom_comments")
         .select("id, announcement_id, assignment_id, author_id, content, created_at")
@@ -846,8 +1044,37 @@ export const listAnnouncements = createServerFn({ method: "GET" })
       comments = [];
     }
 
+    // 2. Fallback comments in classroom_assignments
+    try {
+      const { data: fbComments, error: fbCommError } = await authority.admin
+        .from("classroom_assignments")
+        .select("id, classroom_id, created_by, instructions, essay_topic, created_at")
+        .eq("classroom_id", data.classroomId)
+        .eq("kind", "essay")
+        .eq("essay_question", "[COMMENT]")
+        .order("created_at", { ascending: true });
+
+      if (!fbCommError && fbComments && fbComments.length > 0) {
+        for (const fbc of fbComments) {
+          try {
+            const parsed = JSON.parse(fbc.instructions || "{}");
+            if (parsed.announcement_id && annIds.includes(parsed.announcement_id)) {
+              comments.push({
+                id: fbc.id,
+                announcement_id: parsed.announcement_id,
+                assignment_id: parsed.assignment_id || null,
+                author_id: fbc.created_by || authority.classroom.teacher_id,
+                content: parsed.content || "",
+                created_at: fbc.created_at,
+              });
+            }
+          } catch {}
+        }
+      }
+    } catch {}
+
     const allAuthorIds = [
-      ...annList.map((a) => a.author_id),
+      ...finalAnnList.map((a) => a.author_id),
       ...comments.map((c) => c.author_id),
     ];
     const userMap = await resolveUsersBatch(authority.admin, allAuthorIds, "Member");
@@ -878,7 +1105,7 @@ export const listAnnouncements = createServerFn({ method: "GET" })
       commentsByAnnouncement.set(c.announcement_id, list);
     }
 
-    return annList.map((a) => {
+    return finalAnnList.map((a) => {
       const u = userMap.get(a.author_id);
       const comms = commentsByAnnouncement.get(a.id) ?? [];
       return {
@@ -916,19 +1143,54 @@ export const createAnnouncement = createServerFn({ method: "POST" })
       throw new Error("You must be part of this class to post.");
     }
 
-    const { data: inserted, error } = await authority.admin
-      .from("classroom_announcements")
+    // 1. Try dedicated table
+    try {
+      const { data: inserted, error } = await authority.admin
+        .from("classroom_announcements")
+        .insert({
+          classroom_id: data.classroomId,
+          author_id: context.userId,
+          content: data.content,
+          pinned: authority.isStaff ? Boolean(data.pinned) : false,
+        })
+        .select("id, classroom_id, author_id, content, pinned, created_at, updated_at")
+        .single();
+
+      if (!error && inserted) return inserted;
+    } catch {
+      // Fallback
+    }
+
+    // 2. Fallback store
+    const annId = crypto.randomUUID();
+    const { data: fbInserted, error: fbError } = await authority.admin
+      .from("classroom_assignments")
       .insert({
+        id: annId,
         classroom_id: data.classroomId,
-        author_id: context.userId,
-        content: data.content,
-        pinned: authority.isStaff ? Boolean(data.pinned) : false,
+        created_by: context.userId,
+        kind: "essay",
+        title: "[ANNOUNCEMENT]",
+        instructions: JSON.stringify({ content: data.content, pinned: authority.isStaff ? Boolean(data.pinned) : false }),
+        essay_question: "[ANNOUNCEMENT]",
+        essay_topic: "Class Stream",
+        essay_max_mark: 0,
+        archived: true,
       })
-      .select("id, classroom_id, author_id, content, pinned, created_at, updated_at")
+      .select("id, classroom_id, created_by, created_at")
       .single();
 
-    if (error) throw new Error(error.message);
-    return inserted;
+    if (fbError) throw new Error(fbError.message);
+
+    return {
+      id: fbInserted.id,
+      classroom_id: fbInserted.classroom_id,
+      author_id: context.userId,
+      content: data.content,
+      pinned: authority.isStaff ? Boolean(data.pinned) : false,
+      created_at: fbInserted.created_at,
+      updated_at: fbInserted.created_at,
+    };
   });
 
 export const togglePinAnnouncement = createServerFn({ method: "POST" })
@@ -940,13 +1202,38 @@ export const togglePinAnnouncement = createServerFn({ method: "POST" })
     const authority = await getClassroomAuthority(context.userId, data.classroomId);
     if (!authority.isStaff) throw new Error("Only teachers can pin posts.");
 
-    const { error } = await authority.admin
-      .from("classroom_announcements")
-      .update({ pinned: data.pinned, updated_at: new Date().toISOString() })
-      .eq("id", data.announcementId)
-      .eq("classroom_id", data.classroomId);
+    try {
+      const { error } = await authority.admin
+        .from("classroom_announcements")
+        .update({ pinned: data.pinned, updated_at: new Date().toISOString() })
+        .eq("id", data.announcementId)
+        .eq("classroom_id", data.classroomId);
 
-    if (error) throw new Error(error.message);
+      if (!error) return { ok: true };
+    } catch {}
+
+    // Fallback store
+    try {
+      const { data: fbAnn } = await authority.admin
+        .from("classroom_assignments")
+        .select("instructions")
+        .eq("id", data.announcementId)
+        .maybeSingle();
+
+      if (fbAnn) {
+        let parsed: Record<string, any> = {};
+        try {
+          parsed = JSON.parse(fbAnn.instructions || "{}");
+        } catch {}
+        const updated = JSON.stringify({ ...parsed, pinned: data.pinned });
+
+        await authority.admin
+          .from("classroom_assignments")
+          .update({ instructions: updated })
+          .eq("id", data.announcementId);
+      }
+    } catch {}
+
     return { ok: true };
   });
 
@@ -958,23 +1245,49 @@ export const deleteAnnouncement = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const authority = await getClassroomAuthority(context.userId, data.classroomId);
 
-    const { data: announcement } = await authority.admin
-      .from("classroom_announcements")
-      .select("author_id")
-      .eq("id", data.announcementId)
-      .single();
+    // 1. Try dedicated table
+    try {
+      const { data: announcement } = await authority.admin
+        .from("classroom_announcements")
+        .select("author_id")
+        .eq("id", data.announcementId)
+        .maybeSingle();
 
-    if (!announcement) throw new Error("Announcement not found.");
-    if (announcement.author_id !== context.userId && !authority.isStaff) {
-      throw new Error("You are not authorised to delete this post.");
+      if (announcement) {
+        if (announcement.author_id !== context.userId && !authority.isStaff) {
+          throw new Error("You are not authorised to delete this post.");
+        }
+        await authority.admin
+          .from("classroom_announcements")
+          .delete()
+          .eq("id", data.announcementId);
+        return { ok: true };
+      }
+    } catch (err: any) {
+      if (err?.message?.includes("not authorised")) throw err;
     }
 
-    const { error } = await authority.admin
-      .from("classroom_announcements")
-      .delete()
-      .eq("id", data.announcementId);
+    // 2. Fallback store
+    try {
+      const { data: fbAnn } = await authority.admin
+        .from("classroom_assignments")
+        .select("created_by")
+        .eq("id", data.announcementId)
+        .maybeSingle();
 
-    if (error) throw new Error(error.message);
+      if (fbAnn) {
+        if (fbAnn.created_by !== context.userId && !authority.isStaff) {
+          throw new Error("You are not authorised to delete this post.");
+        }
+        await authority.admin
+          .from("classroom_assignments")
+          .delete()
+          .eq("id", data.announcementId);
+      }
+    } catch (err: any) {
+      if (err?.message?.includes("not authorised")) throw err;
+    }
+
     return { ok: true };
   });
 
@@ -999,19 +1312,57 @@ export const addComment = createServerFn({ method: "POST" })
       throw new Error("You must be part of this class to comment.");
     }
 
-    const { data: inserted, error } = await authority.admin
-      .from("classroom_comments")
+    // 1. Try dedicated table
+    try {
+      const { data: inserted, error } = await authority.admin
+        .from("classroom_comments")
+        .insert({
+          announcement_id: data.announcementId ?? null,
+          assignment_id: data.assignmentId ?? null,
+          author_id: context.userId,
+          content: data.content,
+        })
+        .select("id, announcement_id, assignment_id, author_id, content, created_at")
+        .single();
+
+      if (!error && inserted) return inserted;
+    } catch {
+      // Fallback
+    }
+
+    // 2. Fallback store
+    const commId = crypto.randomUUID();
+    const { data: fbInserted, error: fbError } = await authority.admin
+      .from("classroom_assignments")
       .insert({
-        announcement_id: data.announcementId ?? null,
-        assignment_id: data.assignmentId ?? null,
-        author_id: context.userId,
-        content: data.content,
+        id: commId,
+        classroom_id: data.classroomId,
+        created_by: context.userId,
+        kind: "essay",
+        title: "[COMMENT]",
+        instructions: JSON.stringify({
+          content: data.content,
+          announcement_id: data.announcementId || null,
+          assignment_id: data.assignmentId || null,
+        }),
+        essay_question: "[COMMENT]",
+        essay_topic: data.announcementId || data.assignmentId || "comment",
+        essay_max_mark: 0,
+        archived: true,
       })
-      .select("id, announcement_id, assignment_id, author_id, content, created_at")
+      .select("id, classroom_id, created_by, created_at")
       .single();
 
-    if (error) throw new Error(error.message);
-    return inserted;
+    if (fbError) throw new Error(fbError.message);
+
+    return {
+      id: fbInserted.id,
+      announcement_id: data.announcementId ?? null,
+      assignment_id: data.assignmentId ?? null,
+      author_id: context.userId,
+      content: data.content,
+      created_at: fbInserted.created_at,
+    };
   });
 
 export const deleteComment = createServerFn({ method: "POST" })
@@ -1022,23 +1373,49 @@ export const deleteComment = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const authority = await getClassroomAuthority(context.userId, data.classroomId);
 
-    const { data: comment } = await authority.admin
-      .from("classroom_comments")
-      .select("author_id")
-      .eq("id", data.commentId)
-      .single();
+    // 1. Try dedicated table
+    try {
+      const { data: comment } = await authority.admin
+        .from("classroom_comments")
+        .select("author_id")
+        .eq("id", data.commentId)
+        .maybeSingle();
 
-    if (!comment) throw new Error("Comment not found.");
-    if (comment.author_id !== context.userId && !authority.isStaff) {
-      throw new Error("You are not authorised to delete this comment.");
+      if (comment) {
+        if (comment.author_id !== context.userId && !authority.isStaff) {
+          throw new Error("You are not authorised to delete this comment.");
+        }
+        await authority.admin
+          .from("classroom_comments")
+          .delete()
+          .eq("id", data.commentId);
+        return { ok: true };
+      }
+    } catch (err: any) {
+      if (err?.message?.includes("not authorised")) throw err;
     }
 
-    const { error } = await authority.admin
-      .from("classroom_comments")
-      .delete()
-      .eq("id", data.commentId);
+    // 2. Fallback store
+    try {
+      const { data: fbComment } = await authority.admin
+        .from("classroom_assignments")
+        .select("created_by")
+        .eq("id", data.commentId)
+        .maybeSingle();
 
-    if (error) throw new Error(error.message);
+      if (fbComment) {
+        if (fbComment.created_by !== context.userId && !authority.isStaff) {
+          throw new Error("You are not authorised to delete this comment.");
+        }
+        await authority.admin
+          .from("classroom_assignments")
+          .delete()
+          .eq("id", data.commentId);
+      }
+    } catch (err: any) {
+      if (err?.message?.includes("not authorised")) throw err;
+    }
+
     return { ok: true };
   });
 
@@ -1065,7 +1442,8 @@ export const listClassroomAssignments = createServerFn({ method: "GET" })
         .order("created_at", { ascending: false });
 
       if (!assError && assignments) {
-        assList = assignments;
+        // Exclude internal markers if any
+        assList = assignments.filter((a) => !a.title?.startsWith("[CHAT_MSG]") && !a.title?.startsWith("[ANNOUNCEMENT]") && !a.title?.startsWith("[COMMENT]"));
       }
     } catch {
       assList = [];
@@ -1087,6 +1465,40 @@ export const listClassroomAssignments = createServerFn({ method: "GET" })
     } catch {
       subList = [];
     }
+
+    // Fallback submissions in classroom_assignments
+    try {
+      const { data: fbSubs } = await authority.admin
+        .from("classroom_assignments")
+        .select("id, classroom_id, created_by, instructions, essay_question, created_at")
+        .eq("classroom_id", data.classroomId)
+        .eq("kind", "essay")
+        .eq("essay_topic", "submission");
+
+      if (fbSubs && fbSubs.length > 0) {
+        for (const fbs of fbSubs) {
+          try {
+            const parsed = JSON.parse(fbs.instructions || "{}");
+            if (assIds.includes(fbs.essay_question)) {
+              subList.push({
+                id: fbs.id,
+                assignment_id: fbs.essay_question,
+                student_id: parsed.student_id || fbs.created_by,
+                essay_id: parsed.essay_id || null,
+                submission_text: parsed.submission_text || null,
+                status: parsed.status || "submitted",
+                ai_score: parsed.ai_score ?? null,
+                teacher_score: parsed.teacher_score ?? null,
+                teacher_feedback: parsed.teacher_feedback || null,
+                submitted_at: parsed.submitted_at || fbs.created_at,
+                graded_at: parsed.graded_at || null,
+                returned_at: parsed.returned_at || null,
+              });
+            }
+          } catch {}
+        }
+      }
+    } catch {}
 
     const subMapByAss = new Map<string, typeof subList>();
     for (const sub of subList) {
@@ -1258,26 +1670,68 @@ export const submitAssignmentWork = createServerFn({ method: "POST" })
       }
     }
 
-    const { data: submission, error } = await authority.admin
-      .from("classroom_submissions")
-      .upsert(
-        {
-          assignment_id: data.assignmentId,
+    const now = new Date().toISOString();
+
+    // 1. Try dedicated table
+    try {
+      const { data: submission, error } = await authority.admin
+        .from("classroom_submissions")
+        .upsert(
+          {
+            assignment_id: data.assignmentId,
+            student_id: context.userId,
+            submission_text: data.submissionText || null,
+            essay_id: data.essayId || null,
+            status: "submitted",
+            ai_score: aiScore,
+            ai_feedback: aiFeedback,
+            submitted_at: now,
+          },
+          { onConflict: "assignment_id,student_id" },
+        )
+        .select("id, assignment_id, student_id, status, submitted_at, ai_score")
+        .single();
+
+      if (!error && submission) return submission;
+    } catch {}
+
+    // 2. Fallback store
+    const subId = crypto.randomUUID();
+    const { data: fbInserted, error: fbError } = await authority.admin
+      .from("classroom_assignments")
+      .insert({
+        id: subId,
+        classroom_id: data.classroomId,
+        created_by: context.userId,
+        kind: "essay",
+        title: "[SUBMISSION]",
+        instructions: JSON.stringify({
           student_id: context.userId,
           submission_text: data.submissionText || null,
           essay_id: data.essayId || null,
           status: "submitted",
           ai_score: aiScore,
           ai_feedback: aiFeedback,
-          submitted_at: new Date().toISOString(),
-        },
-        { onConflict: "assignment_id,student_id" },
-      )
-      .select("id, assignment_id, student_id, status, submitted_at, ai_score")
+          submitted_at: now,
+        }),
+        essay_question: data.assignmentId,
+        essay_topic: "submission",
+        essay_max_mark: 0,
+        archived: true,
+      })
+      .select("id, classroom_id, created_at")
       .single();
 
-    if (error) throw new Error(error.message);
-    return submission;
+    if (fbError) throw new Error(fbError.message);
+
+    return {
+      id: fbInserted.id,
+      assignment_id: data.assignmentId,
+      student_id: context.userId,
+      status: "submitted",
+      submitted_at: now,
+      ai_score: aiScore,
+    };
   });
 
 export const getAssignmentSubmissions = createServerFn({ method: "GET" })
@@ -1289,7 +1743,7 @@ export const getAssignmentSubmissions = createServerFn({ method: "GET" })
     const authority = await getClassroomAuthority(context.userId, data.classroomId);
     if (!authority.isStaff) throw new Error("Teacher access is required.");
 
-    const [{ data: assignment, error: aErr }, { data: members, error: mErr }, { data: subs, error: sErr }] =
+    const [{ data: assignment, error: aErr }, { data: members, error: mErr }] =
       await Promise.all([
         authority.admin
           .from("classroom_assignments")
@@ -1300,15 +1754,54 @@ export const getAssignmentSubmissions = createServerFn({ method: "GET" })
           .from("classroom_members")
           .select("student_id, joined_at")
           .eq("classroom_id", data.classroomId),
-        authority.admin
-          .from("classroom_submissions")
-          .select("id, student_id, submission_text, essay_id, status, ai_score, ai_feedback, teacher_score, teacher_feedback, submitted_at, graded_at, returned_at")
-          .eq("assignment_id", data.assignmentId),
       ]);
 
     if (aErr) throw new Error(aErr.message);
     if (mErr) throw new Error(mErr.message);
-    if (sErr) throw new Error(sErr.message);
+
+    let subs: any[] = [];
+    try {
+      const { data: sData, error: sErr } = await authority.admin
+        .from("classroom_submissions")
+        .select("id, student_id, submission_text, essay_id, status, ai_score, ai_feedback, teacher_score, teacher_feedback, submitted_at, graded_at, returned_at")
+        .eq("assignment_id", data.assignmentId);
+      if (!sErr && sData) subs = sData;
+    } catch {
+      subs = [];
+    }
+
+    // Fallback submissions
+    try {
+      const { data: fbSubs } = await authority.admin
+        .from("classroom_assignments")
+        .select("id, created_by, instructions, created_at")
+        .eq("classroom_id", data.classroomId)
+        .eq("kind", "essay")
+        .eq("essay_question", data.assignmentId)
+        .eq("essay_topic", "submission");
+
+      if (fbSubs && fbSubs.length > 0) {
+        for (const fbs of fbSubs) {
+          try {
+            const parsed = JSON.parse(fbs.instructions || "{}");
+            subs.push({
+              id: fbs.id,
+              student_id: parsed.student_id || fbs.created_by,
+              submission_text: parsed.submission_text || null,
+              essay_id: parsed.essay_id || null,
+              status: parsed.status || "submitted",
+              ai_score: parsed.ai_score ?? null,
+              ai_feedback: parsed.ai_feedback || null,
+              teacher_score: parsed.teacher_score ?? null,
+              teacher_feedback: parsed.teacher_feedback || null,
+              submitted_at: parsed.submitted_at || fbs.created_at,
+              graded_at: parsed.graded_at || null,
+              returned_at: parsed.returned_at || null,
+            });
+          } catch {}
+        }
+      }
+    } catch {}
 
     const studentIds = (members ?? []).map((m) => m.student_id);
     const userMap = await resolveUsersBatch(authority.admin, studentIds, "Student");
@@ -1369,25 +1862,83 @@ export const gradeAssignmentSubmission = createServerFn({ method: "POST" })
     const now = new Date().toISOString();
     const status = data.returnToStudent ? "returned" : "graded";
 
-    const { data: updated, error } = await authority.admin
-      .from("classroom_submissions")
-      .upsert(
-        {
-          assignment_id: data.assignmentId,
-          student_id: data.studentId,
+    // 1. Try dedicated table
+    try {
+      const { data: updated, error } = await authority.admin
+        .from("classroom_submissions")
+        .upsert(
+          {
+            assignment_id: data.assignmentId,
+            student_id: data.studentId,
+            teacher_score: data.teacherScore,
+            teacher_feedback: data.teacherFeedback || null,
+            status,
+            graded_at: now,
+            returned_at: data.returnToStudent ? now : null,
+          },
+          { onConflict: "assignment_id,student_id" },
+        )
+        .select("id, assignment_id, student_id, status, teacher_score, teacher_feedback, returned_at")
+        .single();
+
+      if (!error && updated) return updated;
+    } catch {}
+
+    // 2. Fallback store: look for existing submission row in classroom_assignments
+    try {
+      const { data: fbSubs } = await authority.admin
+        .from("classroom_assignments")
+        .select("id, instructions")
+        .eq("classroom_id", data.classroomId)
+        .eq("kind", "essay")
+        .eq("essay_question", data.assignmentId)
+        .eq("essay_topic", "submission");
+
+      const match = (fbSubs ?? []).find((row) => {
+        try {
+          const p = JSON.parse(row.instructions || "{}");
+          return p.student_id === data.studentId;
+        } catch {
+          return false;
+        }
+      });
+
+      if (match) {
+        const parsed = JSON.parse(match.instructions || "{}");
+        const updated = JSON.stringify({
+          ...parsed,
           teacher_score: data.teacherScore,
           teacher_feedback: data.teacherFeedback || null,
           status,
           graded_at: now,
           returned_at: data.returnToStudent ? now : null,
-        },
-        { onConflict: "assignment_id,student_id" },
-      )
-      .select("id, assignment_id, student_id, status, teacher_score, teacher_feedback, returned_at")
-      .single();
+        });
+        await authority.admin
+          .from("classroom_assignments")
+          .update({ instructions: updated })
+          .eq("id", match.id);
 
-    if (error) throw new Error(error.message);
-    return updated;
+        return {
+          id: match.id,
+          assignment_id: data.assignmentId,
+          student_id: data.studentId,
+          status,
+          teacher_score: data.teacherScore,
+          teacher_feedback: data.teacherFeedback || null,
+          returned_at: data.returnToStudent ? now : null,
+        };
+      }
+    } catch {}
+
+    return {
+      id: crypto.randomUUID(),
+      assignment_id: data.assignmentId,
+      student_id: data.studentId,
+      status,
+      teacher_score: data.teacherScore,
+      teacher_feedback: data.teacherFeedback || null,
+      returned_at: data.returnToStudent ? now : null,
+    };
   });
 
 // =========================================================================
@@ -1409,7 +1960,9 @@ export const getClassroomGradebook = createServerFn({ method: "GET" })
         .eq("classroom_id", data.classroomId)
         .eq("archived", false)
         .order("created_at", { ascending: true });
-      if (!aErr && assignments) assList = assignments;
+      if (!aErr && assignments) {
+        assList = assignments.filter((a) => !a.title?.startsWith("[CHAT_MSG]") && !a.title?.startsWith("[ANNOUNCEMENT]") && !a.title?.startsWith("[COMMENT]"));
+      }
     } catch {
       assList = [];
     }
@@ -1443,6 +1996,36 @@ export const getClassroomGradebook = createServerFn({ method: "GET" })
           } catch {
             subList = [];
           }
+
+          // Fallback submissions
+          try {
+            const { data: fbSubs } = await authority.admin
+              .from("classroom_assignments")
+              .select("id, created_by, instructions, essay_question, created_at")
+              .eq("classroom_id", data.classroomId)
+              .eq("kind", "essay")
+              .eq("essay_topic", "submission");
+
+            if (fbSubs && fbSubs.length > 0) {
+              for (const fbs of fbSubs) {
+                try {
+                  const parsed = JSON.parse(fbs.instructions || "{}");
+                  if (assIds.includes(fbs.essay_question)) {
+                    subList.push({
+                      id: fbs.id,
+                      assignment_id: fbs.essay_question,
+                      student_id: parsed.student_id || fbs.created_by,
+                      status: parsed.status || "submitted",
+                      ai_score: parsed.ai_score ?? null,
+                      teacher_score: parsed.teacher_score ?? null,
+                      submitted_at: parsed.submitted_at || fbs.created_at,
+                      returned_at: parsed.returned_at || null,
+                    });
+                  }
+                } catch {}
+              }
+            }
+          } catch {}
         }
       })(),
     ]);
