@@ -151,21 +151,22 @@ export function DashboardPage() {
     return values.length ? values.reduce((a, b) => a + b, 0) / values.length : 0;
   };
 
-  // Cambridge Readiness Score calculation (0 - 100%)
-  const readinessScore = useMemo(() => {
+  // Study Progress & Consistency Index (0 - 100%)
+  // Transparent calculation: average mark weight (60%) + practice volume (30%) + positive improvement trend (10%)
+  const progressIndex = useMemo(() => {
     if (versions.length === 0) return 0;
-    const avgPercent = (average / 12) * 100; // normalized to 12 mark standard
-    const volumeBonus = Math.min(25, versions.length * 5); // up to 25% for practice volume
-    const consistencyBonus = delta >= 0 ? 10 : 0;
-    return Math.min(100, Math.round(avgPercent * 0.65 + volumeBonus + consistencyBonus));
+    const avgPercent = Math.min(100, (average / 12) * 100);
+    const volumeScore = Math.min(30, versions.length * 6); // capped at 30% for 5+ essays
+    const consistencyScore = delta >= 0 ? 10 : 0;
+    return Math.min(100, Math.round(avgPercent * 0.6 + volumeScore + consistencyScore));
   }, [average, versions.length, delta]);
 
-  const readinessBadge = useMemo(() => {
-    if (readinessScore >= 80) return { label: "Band 1 Ready (Top Tier)", color: "text-emerald-500 bg-emerald-500/10 border-emerald-500/30" };
-    if (readinessScore >= 65) return { label: "Band 2 Solid (Upper Merit)", color: "text-blue-500 bg-blue-500/10 border-blue-500/30" };
-    if (readinessScore >= 45) return { label: "Band 3 Developing", color: "text-amber-500 bg-amber-500/10 border-amber-500/30" };
-    return { label: "Foundation Stage", color: "text-muted-foreground bg-muted border-border" };
-  }, [readinessScore]);
+  const progressBadge = useMemo(() => {
+    if (progressIndex >= 80) return { label: "Band 1 Target Track", color: "text-emerald-500 bg-emerald-500/10 border-emerald-500/30" };
+    if (progressIndex >= 60) return { label: "Band 2 Target Track", color: "text-blue-500 bg-blue-500/10 border-blue-500/30" };
+    if (progressIndex >= 40) return { label: "Developing Consistency", color: "text-amber-500 bg-amber-500/10 border-amber-500/30" };
+    return { label: "Initial Calibration", color: "text-muted-foreground bg-muted border-border" };
+  }, [progressIndex]);
 
   // Filtered essays
   const filteredEssays = useMemo(() => {
@@ -216,7 +217,15 @@ export function DashboardPage() {
       />
 
       <div className="space-y-6 px-5 py-6 md:px-8">
-        {/* Hero Interactive Greeting & Readiness Meter */}
+        {/* Transparent Cambridge Syllabus Disclaimer */}
+        <div className="flex items-center gap-2.5 rounded-xl border border-primary/20 bg-primary/[0.04] px-4 py-2.5 text-xs text-muted-foreground">
+          <ShieldCheck className="size-4 shrink-0 text-primary" />
+          <p className="leading-relaxed">
+            <strong className="text-foreground font-semibold">Cambridge 9708 Calibration:</strong> Marking rubrics and feedback criteria are calibrated against published Cambridge Assessment 9708 Economics syllabus standards and Principal Examiner reports. Marginal is an independent study platform and not endorsed by Cambridge Assessment.
+          </p>
+        </div>
+
+        {/* Hero Interactive Greeting & Progress Meter */}
         <section className="relative overflow-hidden rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/[0.08] via-background to-primary/[0.03] p-6 shadow-sm dark:from-primary/[0.14] dark:to-background md:p-8">
           <div className="absolute -top-12 -right-12 size-48 rounded-full bg-primary/10 blur-3xl" />
           <div className="relative flex flex-col justify-between gap-6 lg:flex-row lg:items-center">
@@ -249,7 +258,7 @@ export function DashboardPage() {
               </div>
             </div>
 
-            {/* Radial Readiness Score Ring */}
+            {/* Radial Study Progress & Consistency Ring */}
             <div className="flex items-center gap-5 rounded-xl border border-border/80 bg-background/80 p-4 backdrop-blur-sm shadow-sm">
               <div className="relative flex size-24 items-center justify-center">
                 <svg className="size-full -rotate-90" viewBox="0 0 100 100">
@@ -266,7 +275,7 @@ export function DashboardPage() {
                     className="text-primary transition-all duration-1000 ease-out"
                     strokeWidth="8"
                     strokeDasharray={2 * Math.PI * 38}
-                    strokeDashoffset={2 * Math.PI * 38 * (1 - readinessScore / 100)}
+                    strokeDashoffset={2 * Math.PI * 38 * (1 - progressIndex / 100)}
                     strokeLinecap="round"
                     stroke="currentColor"
                     fill="transparent"
@@ -277,23 +286,23 @@ export function DashboardPage() {
                 </svg>
                 <div className="absolute flex flex-col items-center">
                   <span className="text-xl font-bold tabular-nums tracking-tight">
-                    {readinessScore}%
+                    {progressIndex}%
                   </span>
-                  <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">
-                    Readiness
+                  <span className="text-[9px] text-muted-foreground uppercase tracking-wider font-semibold">
+                    Progress
                   </span>
                 </div>
               </div>
 
               <div className="space-y-1">
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                  Cambridge Status
+                  Consistency Index
                 </p>
-                <Badge variant="outline" className={cn("px-2.5 py-1 text-xs", readinessBadge.color)}>
-                  {readinessBadge.label}
+                <Badge variant="outline" className={cn("px-2.5 py-1 text-xs font-medium", progressBadge.color)}>
+                  {progressBadge.label}
                 </Badge>
-                <p className="text-[11px] text-muted-foreground pt-1">
-                  Based on recent essays & AO parity
+                <p className="text-[11px] text-muted-foreground pt-1 max-w-[150px]">
+                  Based on {versions.length} attempts & average mark ({average.toFixed(1)}/12)
                 </p>
               </div>
             </div>
@@ -693,17 +702,17 @@ export function DashboardPage() {
                     {communityPulse.data?.onlineCount ?? 1}
                   </p>
                   <span className="text-xs font-semibold text-emerald-500 flex items-center gap-1">
-                    <span className="size-1.5 rounded-full bg-emerald-500" /> Active now
+                    <span className="size-1.5 rounded-full bg-emerald-500" /> Active session{communityPulse.data?.onlineCount === 1 ? "" : "s"}
                   </span>
                 </div>
               )}
-              <p className="mt-1 text-sm text-muted-foreground">
-                students writing & preparing for Cambridge 9708
+              <p className="mt-1 text-xs text-muted-foreground">
+                Active student accounts recorded in the last 2 minutes
               </p>
               <div className="mt-5 pt-4 border-t border-border/60 text-xs text-muted-foreground">
                 {communityPulse.data?.memberCount
-                  ? `Community of ${communityPulse.data.memberCount} economics students worldwide.`
-                  : "Join peers refining essay technique and exam timing."}
+                  ? `${communityPulse.data.memberCount} registered students currently using Marginal.`
+                  : "Join fellow economics students practicing Cambridge 9708 essays."}
               </div>
             </div>
           </div>

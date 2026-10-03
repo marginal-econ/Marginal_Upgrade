@@ -1,7 +1,17 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { GraduationCap, Loader2, Quote, Sparkles, Wand2 } from "lucide-react";
+import {
+  Check,
+  Copy,
+  ExternalLink,
+  GraduationCap,
+  Loader2,
+  Quote,
+  ShieldCheck,
+  Sparkles,
+  Wand2,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -79,6 +89,21 @@ function EssayGeneratorPage() {
   const [maxMark, setMaxMark] = useState(12);
   const [savedEssay, setSavedEssay] = useState<GeneratedEssay | null>(null);
   const [draftReady, setDraftReady] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  function handleCopyEssay() {
+    if (!essay) return;
+    const fullText = [
+      `# ${essay.question}`,
+      `Level: ${essay.level.toUpperCase()} | Tariff: ${essay.maxMark} marks | Estimated Mark: ${essay.estimatedMark}/${essay.maxMark}`,
+      "",
+      ...essay.sections.map((s) => `## ${s.heading}\n\n${s.paragraphs.join("\n\n")}`),
+    ].join("\n\n");
+    navigator.clipboard.writeText(fullText);
+    setCopied(true);
+    toast.success("Model essay copied to clipboard.");
+    setTimeout(() => setCopied(false), 2000);
+  }
 
   const generate = useServerFn(generateModelEssay);
   const topics = [...topicsFor("Microeconomics"), ...topicsFor("Macroeconomics")];
@@ -385,12 +410,30 @@ function EssayGeneratorPage() {
                     {essay.wordCount} / {essay.wordLimit} words
                   </Badge>
                 </div>
-                <p className="text-base font-medium">{essay.question}</p>
+                <p className="text-base font-semibold text-foreground leading-snug">{essay.question}</p>
                 {essay.trimmedToFit ? (
                   <p className="text-xs text-muted-foreground">
                     Trimmed to fit the {essay.wordLimit}-word exam-standard limit.
                   </p>
                 ) : null}
+
+                {/* Quick Action Toolbar */}
+                <div className="flex flex-wrap items-center justify-between gap-3 border-y border-border/70 py-2.5">
+                  <div className="flex items-center gap-2">
+                    <Button size="sm" variant="outline" onClick={handleCopyEssay} className="gap-1.5 text-xs">
+                      {copied ? <Check className="size-3.5 text-emerald-600" /> : <Copy className="size-3.5" />}
+                      {copied ? "Copied!" : "Copy Model Essay"}
+                    </Button>
+                    <Button asChild size="sm" variant="outline" className="gap-1.5 text-xs">
+                      <Link to="/live-examiner">
+                        <Sparkles className="size-3.5 text-primary" /> Practise in Live Examiner
+                      </Link>
+                    </Button>
+                  </div>
+                  <span className="text-[11px] text-muted-foreground flex items-center gap-1 font-medium">
+                    <ShieldCheck className="size-3.5 text-primary" /> Cambridge 9708 Standard
+                  </span>
+                </div>
               </header>
 
               <div className="grid gap-3 sm:grid-cols-4">
@@ -441,37 +484,51 @@ function EssayGeneratorPage() {
               ) : null}
 
               <div className="space-y-6">
-                {essay.sections.map((section, sectionIndex) => (
-                  <section key={sectionIndex} className="space-y-3">
-                    <h3 className="border-b border-border pb-1.5 text-sm font-semibold">
-                      {section.heading}
-                    </h3>
-                    {section.paragraphs.map((paragraph, index) => (
-                      <p key={index} className="text-sm leading-relaxed text-foreground/90">
-                        {paragraph}
-                      </p>
-                    ))}
-                    {section.diagramIds.map((id) => {
-                      const entry = getDiagram(id);
-                      if (!entry) return null;
-                      return (
-                        <figure
-                          key={id}
-                          className="rounded-lg border border-border bg-card p-3 md:p-4"
-                        >
-                          <EconomicsDiagram
-                            spec={entry.spec}
-                            title={entry.title}
-                            className="mx-auto max-w-lg"
-                          />
-                          <figcaption className="mt-1 text-center text-xs text-muted-foreground">
-                            {entry.title}
-                          </figcaption>
-                        </figure>
-                      );
-                    })}
-                  </section>
-                ))}
+                {essay.sections.map((section, sectionIndex) => {
+                  const headingLower = section.heading.toLowerCase();
+                  const isAo1 = headingLower.includes("intro") || headingLower.includes("definition") || headingLower.includes("knowledge");
+                  const isAo3 = headingLower.includes("evaluat") || headingLower.includes("judgement") || headingLower.includes("conclusion") || headingLower.includes("assess");
+                  const aoBadge = isAo1
+                    ? { code: "AO1", label: "Knowledge", color: "border-ao1/40 bg-ao1/10 text-ao1" }
+                    : isAo3
+                      ? { code: "AO3", label: "Evaluation", color: "border-ao3/40 bg-ao3/10 text-ao3" }
+                      : { code: "AO2", label: "Analysis", color: "border-ao2/40 bg-ao2/10 text-ao2" };
+
+                  return (
+                    <section key={sectionIndex} className="space-y-3">
+                      <div className="flex items-center justify-between border-b border-border pb-1.5">
+                        <h3 className="text-sm font-semibold">{section.heading}</h3>
+                        <Badge variant="outline" className={cn("text-[10px] font-semibold", aoBadge.color)}>
+                          {aoBadge.code} {aoBadge.label}
+                        </Badge>
+                      </div>
+                      {section.paragraphs.map((paragraph, index) => (
+                        <p key={index} className="text-[15px] leading-[1.8] font-sans text-foreground/90">
+                          {paragraph}
+                        </p>
+                      ))}
+                      {section.diagramIds.map((id) => {
+                        const entry = getDiagram(id);
+                        if (!entry) return null;
+                        return (
+                          <figure
+                            key={id}
+                            className="rounded-lg border border-border bg-card p-3 md:p-4"
+                          >
+                            <EconomicsDiagram
+                              spec={entry.spec}
+                              title={entry.title}
+                              className="mx-auto max-w-lg"
+                            />
+                            <figcaption className="mt-1 text-center text-xs text-muted-foreground">
+                              {entry.title}
+                            </figcaption>
+                          </figure>
+                        );
+                      })}
+                    </section>
+                  );
+                })}
               </div>
 
               {essay.examinerComments.length > 0 ? (

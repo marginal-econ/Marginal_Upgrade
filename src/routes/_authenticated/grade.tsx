@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { AlertCircle, CheckCircle2, Loader2, SpellCheck, Sparkles, X } from "lucide-react";
+import { AlertCircle, CheckCircle2, Loader2, ShieldCheck, SpellCheck, Sparkles, X } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -199,6 +199,15 @@ function GradePage() {
         description="Marked to Cambridge 9708 standards, grounded in your own coursebook and mark schemes, then independently audited for central-tendency bias."
       />
 
+      <div className="px-5 pt-6 pb-0 md:px-8">
+        <div className="flex items-center gap-2.5 rounded-xl border border-primary/20 bg-primary/[0.04] px-4 py-2.5 text-xs text-muted-foreground">
+          <ShieldCheck className="size-4 shrink-0 text-primary" />
+          <p className="leading-relaxed">
+            <strong className="text-foreground font-semibold">Cambridge 9708 Standard:</strong> Marking bands, AO ratios, and model feedback are calibrated against published Cambridge Assessment guidelines. Marginal is an independent study platform and not endorsed by Cambridge Assessment.
+          </p>
+        </div>
+      </div>
+
       <div className="grid gap-6 px-5 py-6 md:px-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
         <div className="panel space-y-4 p-5">
           <div className="flex items-center justify-between gap-3">
@@ -259,7 +268,7 @@ function GradePage() {
             <Textarea
               id="essay"
               rows={16}
-              className="font-mono text-[13px] leading-relaxed"
+              className="font-sans text-[15px] leading-[1.8] p-4 rounded-xl"
               placeholder="Paste or type your full essay here…"
               value={essayText}
               onChange={(event) => {

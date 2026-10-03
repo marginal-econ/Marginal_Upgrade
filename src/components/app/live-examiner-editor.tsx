@@ -309,7 +309,7 @@ export function LiveExaminerEditor({
         }}
         placeholder={placeholder}
         className={cn(
-          "relative w-full resize-none whitespace-pre-wrap break-words bg-transparent text-foreground caret-foreground outline-none",
+          "relative w-full resize-none whitespace-pre-wrap break-words bg-transparent text-foreground caret-foreground outline-none font-sans text-[15px] leading-[1.8]",
           className,
         )}
       />
@@ -411,6 +411,7 @@ function SuggestionCard({
 }) {
   const meta = CATEGORY_META[issue.category];
   const ref = useRef<HTMLDivElement>(null);
+  const isEssential = issue.category === "misconception" || issue.severity === "high";
 
   useEffect(() => {
     function onPointerDown(event: MouseEvent) {
@@ -424,44 +425,67 @@ function SuggestionCard({
     <div
       ref={ref}
       style={style}
-      className="absolute z-20 w-72 space-y-2.5 rounded-lg border border-border bg-popover p-3 text-popover-foreground shadow-lg"
+      className="absolute z-30 w-80 space-y-3 rounded-xl border border-border/90 bg-popover/95 p-3.5 text-popover-foreground shadow-xl backdrop-blur-md"
     >
-      <div className="flex items-center gap-1.5">
-        <span className={cn("size-1.5 shrink-0 rounded-full", meta.dot)} />
-        <Badge variant="outline" className="text-[10px]">
-          {meta.label}
-          {CATEGORY_AO[issue.category] ? ` · ${CATEGORY_AO[issue.category]}` : ""}
-        </Badge>
-        <Badge variant="outline" className="text-[10px] capitalize">
-          {issue.severity}
-        </Badge>
+      <div className="flex items-center justify-between gap-1.5">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className={cn("size-2 shrink-0 rounded-full", meta.dot)} />
+          <Badge variant="outline" className="text-[10px] font-semibold">
+            {meta.label}
+            {CATEGORY_AO[issue.category] ? ` · ${CATEGORY_AO[issue.category]}` : ""}
+          </Badge>
+          <Badge
+            variant={isEssential ? "destructive" : "secondary"}
+            className="text-[9px] uppercase tracking-wider font-semibold"
+          >
+            {isEssential ? "Essential Correction" : "Stylistic Enhancement"}
+          </Badge>
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          className="text-muted-foreground hover:text-foreground p-0.5"
+          aria-label="Close"
+        >
+          <X className="size-3.5" />
+        </button>
+      </div>
+
+      {/* Visual Diff Box */}
+      <div className="space-y-1.5 rounded-lg border border-border/70 bg-muted/40 p-2.5 text-xs">
+        <div className="flex items-start gap-1.5 text-destructive">
+          <span className="text-[10px] font-semibold uppercase tracking-wider shrink-0 mt-0.5 text-destructive/80">Original:</span>
+          <span className="line-through">{issue.original}</span>
+        </div>
+        <div className="flex items-start gap-1.5 text-emerald-600 dark:text-emerald-400 font-medium pt-1 border-t border-border/50">
+          <span className="text-[10px] font-semibold uppercase tracking-wider shrink-0 mt-0.5 text-emerald-600/80 dark:text-emerald-400/80">Revision:</span>
+          <span>{issue.suggestion}</span>
+        </div>
       </div>
 
       <div className="space-y-1 text-xs">
-        <p className="text-destructive line-through">{issue.original}</p>
-        <p className="font-medium">{issue.suggestion}</p>
+        <p className="font-semibold text-foreground text-[11px] uppercase tracking-wider text-muted-foreground">Examiner Rationale</p>
+        <p className="leading-relaxed text-muted-foreground">{issue.explanation}</p>
       </div>
 
-      <p className="text-xs leading-relaxed text-muted-foreground">{issue.explanation}</p>
-
       {issue.evidence ? (
-        <p className="rounded-md border border-border/70 bg-muted/30 p-2 text-[11px] leading-relaxed text-muted-foreground italic">
+        <div className="rounded-md border border-border/70 bg-muted/30 p-2 text-[11px] leading-relaxed text-muted-foreground italic">
           "{issue.evidence}"
-        </p>
+        </div>
       ) : null}
 
-      <div className="flex gap-1.5 pt-0.5">
-        <Button type="button" size="sm" className="h-7 flex-1 text-xs" onClick={onAccept}>
-          <Check className="size-3.5" /> Accept
+      <div className="flex gap-2 pt-1">
+        <Button type="button" size="sm" className="h-7 flex-1 text-xs gap-1.5 font-medium" onClick={onAccept}>
+          <Check className="size-3.5" /> Accept Revision
         </Button>
         <Button
           type="button"
           size="sm"
           variant="outline"
-          className="h-7 flex-1 text-xs"
+          className="h-7 text-xs px-3 text-muted-foreground hover:text-foreground"
           onClick={onDismiss}
         >
-          <X className="size-3.5" /> Dismiss
+          Dismiss
         </Button>
       </div>
     </div>

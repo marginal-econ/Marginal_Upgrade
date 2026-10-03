@@ -1106,6 +1106,216 @@ export type Database = {
         Update: never;
         Relationships: [];
       };
+      classroom_teachers: {
+        Row: {
+          added_by: string;
+          classroom_id: string;
+          created_at: string;
+          id: string;
+          teacher_id: string;
+        };
+        Insert: {
+          added_by: string;
+          classroom_id: string;
+          created_at?: string;
+          id?: string;
+          teacher_id: string;
+        };
+        Update: {
+          added_by?: string;
+          classroom_id?: string;
+          created_at?: string;
+          id?: string;
+          teacher_id?: string;
+        };
+        Relationships: [];
+      };
+      classroom_assignments: {
+        Row: {
+          archived: boolean;
+          bank_essay_question_id: string | null;
+          classroom_id: string;
+          created_at: string;
+          created_by: string | null;
+          due_at: string | null;
+          essay_max_mark: number | null;
+          essay_question: string | null;
+          essay_topic: string | null;
+          id: string;
+          instructions: string | null;
+          kind: string;
+          mcq_paper_id: string | null;
+          title: string;
+        };
+        Insert: {
+          archived?: boolean;
+          bank_essay_question_id?: string | null;
+          classroom_id: string;
+          created_at?: string;
+          created_by?: string | null;
+          due_at?: string | null;
+          essay_max_mark?: number | null;
+          essay_question?: string | null;
+          essay_topic?: string | null;
+          id?: string;
+          instructions?: string | null;
+          kind: string;
+          mcq_paper_id?: string | null;
+          title: string;
+        };
+        Update: {
+          archived?: boolean;
+          bank_essay_question_id?: string | null;
+          classroom_id?: string;
+          created_at?: string;
+          created_by?: string | null;
+          due_at?: string | null;
+          essay_max_mark?: number | null;
+          essay_question?: string | null;
+          essay_topic?: string | null;
+          id?: string;
+          instructions?: string | null;
+          kind?: string;
+          mcq_paper_id?: string | null;
+          title?: string;
+        };
+        Relationships: [];
+      };
+      classroom_announcements: {
+        Row: {
+          author_id: string;
+          classroom_id: string;
+          content: string;
+          created_at: string;
+          id: string;
+          pinned: boolean;
+          updated_at: string;
+        };
+        Insert: {
+          author_id: string;
+          classroom_id: string;
+          content: string;
+          created_at?: string;
+          id?: string;
+          pinned?: boolean;
+          updated_at?: string;
+        };
+        Update: {
+          author_id?: string;
+          classroom_id?: string;
+          content?: string;
+          created_at?: string;
+          id?: string;
+          pinned?: boolean;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      classroom_comments: {
+        Row: {
+          announcement_id: string | null;
+          assignment_id: string | null;
+          author_id: string;
+          content: string;
+          created_at: string;
+          id: string;
+        };
+        Insert: {
+          announcement_id?: string | null;
+          assignment_id?: string | null;
+          author_id: string;
+          content: string;
+          created_at?: string;
+          id?: string;
+        };
+        Update: {
+          announcement_id?: string | null;
+          assignment_id?: string | null;
+          author_id?: string;
+          content?: string;
+          created_at?: string;
+          id?: string;
+        };
+        Relationships: [];
+      };
+      classroom_submissions: {
+        Row: {
+          ai_feedback: Json | null;
+          ai_score: number | null;
+          assignment_id: string;
+          essay_id: string | null;
+          graded_at: string | null;
+          id: string;
+          returned_at: string | null;
+          status: string;
+          student_id: string;
+          submission_text: string | null;
+          submitted_at: string;
+          teacher_feedback: string | null;
+          teacher_score: number | null;
+        };
+        Insert: {
+          ai_feedback?: Json | null;
+          ai_score?: number | null;
+          assignment_id: string;
+          essay_id?: string | null;
+          graded_at?: string | null;
+          id?: string;
+          returned_at?: string | null;
+          status?: string;
+          student_id: string;
+          submission_text?: string | null;
+          submitted_at?: string;
+          teacher_feedback?: string | null;
+          teacher_score?: number | null;
+        };
+        Update: {
+          ai_feedback?: Json | null;
+          ai_score?: number | null;
+          assignment_id?: string;
+          essay_id?: string | null;
+          graded_at?: string | null;
+          id?: string;
+          returned_at?: string | null;
+          status?: string;
+          student_id?: string;
+          submission_text?: string | null;
+          submitted_at?: string;
+          teacher_feedback?: string | null;
+          teacher_score?: number | null;
+        };
+        Relationships: [];
+      };
+      classroom_messages: {
+        Row: {
+          classroom_id: string;
+          content: string;
+          created_at: string;
+          id: string;
+          is_pinned: boolean;
+          updated_at: string;
+          user_id: string;
+        };
+        Insert: {
+          classroom_id: string;
+          content: string;
+          created_at?: string;
+          id?: string;
+          is_pinned?: boolean;
+          updated_at?: string;
+          user_id: string;
+        };
+        Update: {
+          classroom_id?: string;
+          content?: string;
+          created_at?: string;
+          id?: string;
+          is_pinned?: boolean;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
       user_presence: {
         Row: { last_seen: string; path: string | null; user_id: string };
         Insert: { last_seen?: string; path?: string | null; user_id: string };

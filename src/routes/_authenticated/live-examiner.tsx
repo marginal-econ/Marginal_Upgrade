@@ -78,6 +78,7 @@ import {
 import { topicsFor } from "@/lib/diagrams/catalog";
 import { isDailyLimitError } from "@/lib/usage-limits";
 import type { Grading } from "@/lib/examiner/types";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/live-examiner")({
   head: () => ({
@@ -720,11 +721,35 @@ function LiveExaminerPage() {
       ) : (
         <div className="grid gap-0 lg:grid-cols-[1fr_320px]">
           <section className="min-w-0 space-y-3 border-border p-5 lg:border-r md:p-6">
+            {/* Top Toolbar */}
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant="secondary">{level === "a2" ? "A Level" : "AS Level"}</Badge>
               <Badge variant="outline">{topic}</Badge>
               <Badge variant="outline">{maxMark} marks</Badge>
-              <Badge variant="outline">{wordCount} words</Badge>
+              
+              {/* Word Count Indicator with Tariff Target */}
+              {(() => {
+                const targetMin = maxMark === 8 ? 250 : maxMark === 12 ? 450 : 750;
+                const targetMax = maxMark === 8 ? 350 : maxMark === 12 ? 650 : 1000;
+                const isOptimal = wordCount >= targetMin && wordCount <= targetMax;
+                const isUnder = wordCount < targetMin;
+                return (
+                  <Badge
+                    variant="outline"
+                    className={cn(
+                      "text-xs px-2.5 py-0.5 font-medium transition-colors",
+                      isOptimal
+                        ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-semibold"
+                        : isUnder && wordCount > 0
+                          ? "border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                          : "",
+                    )}
+                  >
+                    {wordCount} words {wordCount > 0 ? (isOptimal ? "✓ In Target Zone" : `(Target: ${targetMin}–${targetMax})`) : `(Target: ${targetMin}–${targetMax})`}
+                  </Badge>
+                );
+              })()}
+
               {sourceCount > 0 ? (
                 <Badge variant="outline">
                   <GraduationCap className="mr-1 size-3" /> {sourceCount} syllabus source
@@ -758,7 +783,7 @@ function LiveExaminerPage() {
                 onClick={() => setDiagramDialogOpen(true)}
               >
                 <ImagePlus className="size-3.5" />
-                {diagrams.length > 0 ? "Add another diagram" : "Attach diagram"}
+                {diagrams.length > 0 ? "Add diagram" : "Attach diagram"}
               </Button>
               <Popover>
                 <PopoverTrigger asChild>
@@ -787,7 +812,7 @@ function LiveExaminerPage() {
                 type="button"
                 size="sm"
                 variant="outline"
-                className="h-7 text-xs"
+                className="h-7 text-xs border-primary/30 text-primary hover:bg-primary/10"
                 onClick={handleGradeNow}
               >
                 <Sparkles className="size-3.5" /> Grade now
@@ -811,29 +836,41 @@ function LiveExaminerPage() {
                 Change question
               </Button>
             </div>
-            <p className="text-sm font-medium">{question}</p>
 
-            <div className="overflow-hidden rounded-xl border-2 border-foreground bg-card shadow-[4px_4px_0_0_var(--foreground)]">
-              <div className="flex items-center justify-between bg-primary px-4 py-2.5 text-primary-foreground">
-                <span className="flex items-center gap-2 text-sm font-semibold">
-                  <span className="size-2.5 rounded-full bg-white/90" /> Live Examiner
+            {/* Question prompt card */}
+            <div className="rounded-xl border border-border/80 bg-muted/20 p-3.5 shadow-sm">
+              <div className="flex items-start justify-between gap-3">
+                <div className="space-y-1">
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-primary">
+                    Examination Question ({maxMark} Marks)
+                  </span>
+                  <p className="text-sm font-medium leading-relaxed text-foreground">{question}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Editor Container */}
+            <div className="overflow-hidden rounded-xl border border-border/80 bg-card shadow-sm transition-all duration-200">
+              <div className="flex items-center justify-between border-b border-border/70 bg-muted/30 px-4 py-2 text-foreground">
+                <span className="flex items-center gap-2 text-xs font-semibold">
+                  <span className="size-2 rounded-full bg-emerald-500 animate-pulse" /> Live Examiner Editor
                 </span>
-                <span className="font-mono text-xs opacity-75">
+                <span className="font-mono text-xs text-muted-foreground">
                   {level === "a2" ? "A Level" : "AS Level"} · {maxMark} marks
                 </span>
               </div>
-              <div className="flex flex-wrap gap-x-4 gap-y-2 border-b border-border bg-muted/25 px-4 py-2 text-[11px]">
-                <span className="flex items-center gap-1.5">
+              <div className="flex flex-wrap gap-x-4 gap-y-2 border-b border-border/60 bg-muted/15 px-4 py-1.5 text-[11px]">
+                <span className="flex items-center gap-1.5 font-medium text-foreground">
                   <span className="size-2 rounded-full bg-ao1" /> AO1 Knowledge
                 </span>
-                <span className="flex items-center gap-1.5">
+                <span className="flex items-center gap-1.5 font-medium text-foreground">
                   <span className="size-2 rounded-full bg-ao2" /> AO2 Analysis
                 </span>
-                <span className="flex items-center gap-1.5">
+                <span className="flex items-center gap-1.5 font-medium text-foreground">
                   <span className="size-2 rounded-full bg-ao3" /> AO3 Evaluation
                 </span>
                 <span className="ml-auto text-muted-foreground">
-                  Underlined phrases are currently earning AO credit
+                  Underlined phrases indicate active Cambridge AO credit
                 </span>
               </div>
               <LiveExaminerEditor
@@ -843,8 +880,8 @@ function LiveExaminerPage() {
                 classifications={classifications}
                 onAccept={(id) => setEssayText((current) => acceptIssue(id, current))}
                 onDismiss={dismissIssue}
-                placeholder="Start writing your answer here…"
-                className="min-h-[60vh] p-4 text-sm leading-relaxed"
+                placeholder="Start writing your answer here… The Live Examiner will evaluate your sentences in real-time."
+                className="min-h-[62vh] p-4 text-[15px] leading-[1.8]"
               />
             </div>
           </section>

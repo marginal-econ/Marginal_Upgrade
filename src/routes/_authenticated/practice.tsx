@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { ArrowRight, Check, Circle, Loader2, Sparkles, X } from "lucide-react";
+import { ArrowRight, Check, Circle, Loader2, ShieldCheck, Sparkles, X } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -112,6 +112,15 @@ function PracticePage() {
         title="AO skills coach"
         description="Write one point at a time. The examiner tells you exactly what to change — then shows you the same point written at exam standard."
       />
+
+      <div className="px-5 pt-6 pb-0 md:px-8">
+        <div className="flex items-center gap-2.5 rounded-xl border border-primary/20 bg-primary/[0.04] px-4 py-2.5 text-xs text-muted-foreground">
+          <ShieldCheck className="size-4 shrink-0 text-primary" />
+          <p className="leading-relaxed">
+            <strong className="text-foreground font-semibold">Cambridge 9708 Assessment Objectives:</strong> Drills are mapped directly to Cambridge criteria — Knowledge (AO1), Causal Chain Analysis (AO2), and Justified Evaluation (AO3).
+          </p>
+        </div>
+      </div>
 
       <div className="grid gap-6 px-5 py-6 md:px-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <div className="space-y-4">
@@ -258,29 +267,59 @@ function PracticePage() {
               </div>
 
               {feedback.chain.length > 0 ? (
-                <div className="panel space-y-2 p-5">
-                  <h2 className="text-sm font-semibold">
-                    {ao === "ao2" ? "Your causal chain" : "What this point needs"}
-                  </h2>
-                  <ol className="space-y-2">
+                <div className="panel space-y-3 p-5">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-sm font-semibold flex items-center gap-2">
+                      <Sparkles className="size-4 text-primary" />
+                      {ao === "ao2" ? "Economic Causal Chain (AO2)" : "Key Assessment Requirements"}
+                    </h2>
+                    <Badge variant="outline" className="text-[10px]">
+                      {feedback.chain.filter((s) => s.present).length}/{feedback.chain.length} Links Formed
+                    </Badge>
+                  </div>
+                  <div className="space-y-2">
                     {feedback.chain.map((step, index) => (
-                      <li key={index} className="flex gap-2 text-sm">
-                        {step.present ? (
-                          <Check className="mt-0.5 size-4 shrink-0 text-primary" />
-                        ) : (
-                          <Circle className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                      <div
+                        key={index}
+                        className={cn(
+                          "flex items-start gap-3 rounded-lg border p-3 text-xs transition-colors",
+                          step.present
+                            ? "border-emerald-500/30 bg-emerald-500/5 text-foreground"
+                            : "border-border/80 bg-muted/20 text-muted-foreground",
                         )}
+                      >
                         <span
                           className={cn(
-                            "leading-relaxed",
-                            step.present ? "" : "text-muted-foreground",
+                            "flex size-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold",
+                            step.present
+                              ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400"
+                              : "bg-muted text-muted-foreground",
                           )}
                         >
-                          {step.step}
+                          {index + 1}
                         </span>
-                      </li>
+                        <div className="min-w-0 flex-1 space-y-0.5">
+                          <div className="flex items-center justify-between">
+                            <span className="font-semibold text-foreground">
+                              {step.present ? "Step Established" : "Missing Reasoning Link"}
+                            </span>
+                            <Badge
+                              variant="outline"
+                              className={cn(
+                                "text-[9px] px-1.5 py-0 font-semibold",
+                                step.present
+                                  ? "border-emerald-500/40 text-emerald-600 dark:text-emerald-400"
+                                  : "border-muted-foreground/30 text-muted-foreground",
+                              )}
+                            >
+                              {step.present ? "✓ Credit Earned" : "Needs Addition"}
+                            </Badge>
+                          </div>
+                          <p className="leading-relaxed">{step.step}</p>
+                        </div>
+                      </div>
                     ))}
-                  </ol>
+                  </div>
                 </div>
               ) : null}
 

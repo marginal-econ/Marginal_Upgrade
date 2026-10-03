@@ -122,6 +122,7 @@ export function LiveExaminerPanel({
 }) {
   const [showColorGuide, setShowColorGuide] = useState(false);
   const [expandedHints, setExpandedHints] = useState<Record<string, boolean>>({});
+  const [categoryFilter, setCategoryFilter] = useState<"all" | "economics" | "mechanics" | "misconceptions">("all");
 
   const toggleHint = (id: string) => {
     setExpandedHints((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -130,6 +131,16 @@ export function LiveExaminerPanel({
   const resolvedHistory = history
     .filter((entry) => entry.status !== "active")
     .sort((a, b) => (b.resolvedAt ?? 0) - (a.resolvedAt ?? 0));
+
+  const filteredIssues = issues.filter((issue) => {
+    if (categoryFilter === "all") return true;
+    if (categoryFilter === "misconceptions") return issue.category === "misconception";
+    if (categoryFilter === "mechanics") return issue.category === "grammar" || issue.category === "clarity";
+    if (categoryFilter === "economics") {
+      return issue.category !== "grammar" && issue.category !== "clarity" && issue.category !== "misconception";
+    }
+    return true;
+  });
 
   return (
     <div className="flex h-full flex-col gap-3">
@@ -247,13 +258,66 @@ export function LiveExaminerPanel({
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="active" className="mt-2 min-h-0 flex-1">
+        <TabsContent value="active" className="mt-2 min-h-0 flex-1 flex flex-col gap-2">
+          {issues.length > 1 ? (
+            <div className="flex flex-wrap items-center gap-1 rounded-md border border-border bg-muted/30 p-1 text-[11px]">
+              <button
+                type="button"
+                onClick={() => setCategoryFilter("all")}
+                className={cn(
+                  "rounded px-2 py-0.5 font-medium transition-colors",
+                  categoryFilter === "all" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground",
+                )}
+              >
+                All ({issues.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setCategoryFilter("economics")}
+                className={cn(
+                  "rounded px-2 py-0.5 font-medium transition-colors",
+                  categoryFilter === "economics" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground",
+                )}
+              >
+                Economics & AO
+              </button>
+              <button
+                type="button"
+                onClick={() => setCategoryFilter("mechanics")}
+                className={cn(
+                  "rounded px-2 py-0.5 font-medium transition-colors",
+                  categoryFilter === "mechanics" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground",
+                )}
+              >
+                Mechanics
+              </button>
+              {issues.some((i) => i.category === "misconception") ? (
+                <button
+                  type="button"
+                  onClick={() => setCategoryFilter("misconceptions")}
+                  className={cn(
+                    "rounded px-2 py-0.5 font-medium transition-colors text-red-600 dark:text-red-400",
+                    categoryFilter === "misconceptions" ? "bg-red-500/15 font-semibold shadow-sm" : "text-red-600/80",
+                  )}
+                >
+                  Misconception
+                </button>
+              ) : null}
+            </div>
+          ) : null}
+
           <ScrollArea className="h-full pr-2">
-            {issues.length === 0 ? (
-              <EmptyState checking={checking} pending={pending} />
+            {filteredIssues.length === 0 ? (
+              issues.length === 0 ? (
+                <EmptyState checking={checking} pending={pending} />
+              ) : (
+                <p className="p-4 text-center text-xs text-muted-foreground">
+                  No suggestions in this category. Switch to "All" to view all feedback.
+                </p>
+              )
             ) : (
               <ul className="space-y-2">
-                {issues.map((issue) => (
+                {filteredIssues.map((issue) => (
                   <li
                     key={issue.id}
                     className={cn(
@@ -562,33 +626,35 @@ function PredictedMarkCard({
   const { total_mark, ao_breakdown, headline, confidence } = predictedMark;
   const nextMove = getNextMove(ao_breakdown);
   return (
-    <div className="overflow-hidden rounded-xl border-2 border-foreground bg-card shadow-[3px_3px_0_0_var(--foreground)]">
-      <div className="flex items-center justify-between bg-primary px-3 py-2 text-primary-foreground">
-        <span className="flex items-center gap-2 text-xs font-semibold">
-          <span className="size-2 rounded-full bg-white/90" /> Live Examiner
+    <div className="overflow-hidden rounded-xl border border-primary/20 bg-gradient-to-b from-primary/[0.04] to-card shadow-sm">
+      <div className="flex items-center justify-between border-b border-border/70 px-3.5 py-2.5 bg-muted/30">
+        <span className="flex items-center gap-2 text-xs font-semibold text-foreground">
+          <Sparkles className="size-3.5 text-primary" /> Live Examiner
         </span>
-        <span className="font-mono text-[10px] opacity-75">RUNNING MARK</span>
+        <Badge variant="outline" className="font-mono text-[10px] border-primary/30 bg-primary/10 text-primary font-medium">
+          RUNNING MARK
+        </Badge>
       </div>
-      <div className="p-3">
+      <div className="p-3.5">
         <div className="flex items-baseline justify-between gap-2">
-          <span className="text-[11px] font-medium text-muted-foreground">Predicted mark</span>
+          <span className="text-[11px] font-medium text-muted-foreground">Running assessment mark</span>
           {confidence < 0.5 ? (
-            <span className="text-[10px] text-muted-foreground">early estimate</span>
+            <span className="text-[10px] text-muted-foreground bg-muted/60 px-1.5 py-0.5 rounded">early estimate</span>
           ) : null}
         </div>
-        <div className="mt-0.5 flex items-baseline gap-1">
+        <div className="mt-1 flex items-baseline gap-1">
           <span
             className={cn(
-              "text-2xl font-semibold tabular-nums transition-colors duration-500",
-              justChanged && "text-primary",
+              "text-3xl font-bold tabular-nums tracking-tight transition-colors duration-500",
+              justChanged ? "text-primary scale-105" : "text-foreground",
             )}
           >
             {total_mark}
           </span>
-          <span className="text-sm text-muted-foreground">/ {maxMark}</span>
+          <span className="text-sm font-medium text-muted-foreground">/ {maxMark} marks</span>
         </div>
-        {headline ? <p className="mt-1.5 text-[11px] text-muted-foreground">{headline}</p> : null}
-        <div className="mt-3 space-y-2">
+        {headline ? <p className="mt-1.5 text-[11px] text-muted-foreground leading-relaxed">{headline}</p> : null}
+        <div className="mt-3.5 space-y-2.5">
           <AoMini
             label={AO_DEFINITIONS.ao1.code}
             name="Knowledge"
@@ -608,15 +674,14 @@ function PredictedMarkCard({
             tone="ao3"
           />
         </div>
-        <div className="mt-3 rounded-md border border-primary/20 bg-primary/5 p-2">
-          <p className="text-[9px] font-semibold tracking-wide text-primary uppercase">
-            Best next move
+        <div className="mt-3.5 rounded-lg border border-primary/20 bg-primary/5 p-2.5">
+          <p className="text-[9px] font-semibold tracking-wider text-primary uppercase">
+            Examiner next move
           </p>
-          <p className="mt-0.5 text-[10px] leading-snug text-foreground">{nextMove}</p>
+          <p className="mt-0.5 text-[11px] leading-snug text-foreground/90 font-medium">{nextMove}</p>
         </div>
         <p className="mt-2 text-[10px] leading-snug text-muted-foreground">
-          A rough, live running estimate — not your final grade. Use "Grade now" for the real, fully
-          checked mark.
+          Live running calibration — use "Grade now" for the complete two-pass examiner audit.
         </p>
       </div>
     </div>
@@ -658,14 +723,14 @@ function AoMini({
         <span className={cn("size-2 rounded-full", toneClass)} />
         {label}
       </span>
-      <div className="h-2 overflow-hidden rounded-full bg-muted">
+      <div className="h-2 overflow-hidden rounded-full bg-muted/60">
         <div
           className={cn("h-full rounded-full transition-all duration-700", toneClass)}
           style={{ width: `${pct}%` }}
           aria-label={`${label} ${name}: ${ao.awarded} out of ${ao.out_of}`}
         />
       </div>
-      <span className="w-9 text-right font-mono text-muted-foreground">
+      <span className="w-10 text-right font-mono font-medium text-foreground">
         {ao.awarded}/{ao.out_of}
       </span>
     </div>
