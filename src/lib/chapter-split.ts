@@ -1,42 +1,61 @@
-// Splits a coursebook's extracted text into one block per "Chapter N: ..."
+// Splits a coursebook's extracted text into one block per chapter/unit/topic
 // heading, so a single textbook PDF can be bulk-added to the knowledge base
 // as several clean, separately-searchable documents instead of one giant one.
 //
-// Real coursebook PDFs (Cambridge, in particular) repeat "Chapter N: Title"
-// as a running header on every page of that chapter, not just once at the
-// opening page. The algorithm below was written against and validated on a
-// real 296-page Cambridge 9708 coursebook export:
-//  1. Collect every line that is ONLY a "Chapter N[:] [Title]" heading.
-//  2. Collapse consecutive occurrences of the same chapter number into a
-//     single boundary (the repeated running header), keeping the longest
-//     title seen (the opening page often has "Chapter 4:" alone, with the
-//     full title following on the next line; later pages carry both on one
-//     line).
-//  3. Drop any resulting segment shorter than MIN_CHAPTER_CHARS and merge it
-//     back into the previous chapter, then re-collapse — this removes stray
-//     in-text cross references like "...as covered in Chapter 2 (AS Level)."
-//     that happen to land at the start of a wrapped line and would otherwise
-//     be mistaken for a real heading.
-// If fewer than two genuine chapter boundaries are found, the document isn't
-// a chaptered coursebook (or the split heuristic doesn't apply) and the
-// whole text is returned as a single block.
+// Real coursebook PDFs (Cambridge, Hodder, Oxford, Pearson, etc.) use diverse
+// heading conventions:
+//  - "Chapter 1: Basic economic ideas", "CHAPTER 1", "Chapter I"
+//  - "Unit 1: The Price System", "UNIT 1"
+//  - "Topic 1: Microeconomics", "TOPIC 1"
+//  - "Section 1: ...", "Section A: ..."
+//  - "Part 1: The Macroeconomy"
+//  - "Module 1: ...", "Theme 1: ..."
+//  - "1. Basic economic ideas and resource allocation"
+//
+// They also repeat headings as running headers on every page of that chapter.
+// The algorithm below:
+//  1. Detects chapter/unit/topic/section markers with flexible prefixes.
+//  2. Collapses consecutive occurrences of the same marker (running headers).
+//  3. Prunes spurious short segments (< MIN_CHAPTER_CHARS) and merges them.
+//  4. For giant textbooks (> 150k characters) lacking explicit keywords,
+//     identifies major headings or partitions gracefully on paragraph boundaries
+//     so large textbooks are always reliable and manageable.
 
 export type ChapterSplit = { title: string; text: string };
 
-const MIN_CHAPTER_CHARS = 3000;
-const MAX_HEADING_LINE_CHARS = 80;
+const MIN_CHAPTER_CHARS = 2500;
+const MAX_HEADING_LINE_CHARS = 90;
 
-// A heading line is ONLY "Chapter <number>", optionally followed by ":" and
-// a short title — nothing else on the line.
-const CHAPTER_HEADING = /^Chapter\s+(\d{1,3})\s*:?\s*(.*)$/;
+// Matches Chapter, Unit, Topic, Section, Part, Module, Theme with number, letter, or Roman numeral
+const NAMED_HEADING =
+  /^(Chapter|Unit|Topic|Section|Part|Module|Theme)\s+([0-9]{1,3}|[IVXLCDM]{1,6}|[A-Z])\s*[:.\-—–]?\s*(.*)$/i;
 
-type Marker = { lineIndex: number; number: string; title: string };
+// Matches numbered section titles: "1. The Basic Economic Problem" or "1: The Basic Economic Problem"
+const NUMBERED_HEADING =
+  /^([0-9]{1,2})\s*[:.\-—–]\s+([A-Z][A-Za-z0-9 ,'&()/-]{3,80})$/;
+
+type Marker = {
+  lineIndex: number;
+  kind: string;
+  number: string;
+  title: string;
+  displayPrefix: string;
+};
+
+const ROMAN_MAP: Record<string, number> = {
+  i: 1, ii: 2, iii: 3, iv: 4, v: 5, vi: 6, vii: 7, viii: 8, ix: 9, x: 10,
+  xi: 11, xii: 12, xiii: 13, xiv: 14, xv: 15, xvi: 16, xvii: 17, xviii: 18, xix: 19, xx: 20,
+};
+
+function normalizeNumber(raw: string): string {
+  const lower = raw.trim().toLowerCase();
+  if (ROMAN_MAP[lower]) return String(ROMAN_MAP[lower]);
+  return raw.trim();
+}
 
 function isPlausibleTitle(title: string): boolean {
   if (!title) return true; // heading alone on its line; title follows below
-  // Real chapter titles are short, title-cased fragments ("The macroeconomy",
-  // "Government macro intervention") — never a sentence. Reject anything
-  // that looks like body text that merely happens to start with "Chapter N".
+  // Real titles are short fragments, not body paragraphs or sentences.
   if (/[.!?]\s/.test(title)) return false;
   if (/^[a-z(){}[\]]/.test(title)) return false;
   return true;
@@ -44,26 +63,60 @@ function isPlausibleTitle(title: string): boolean {
 
 function collectMarkers(lines: string[]): Marker[] {
   const markers: Marker[] = [];
+
   lines.forEach((line, lineIndex) => {
     const trimmed = line.trim();
     if (trimmed.length === 0 || trimmed.length > MAX_HEADING_LINE_CHARS) return;
-    const match = CHAPTER_HEADING.exec(trimmed);
-    if (!match) return;
-    const number = match[1]!;
-    const title = (match[2] ?? "").trim();
-    if (!isPlausibleTitle(title)) return;
-    markers.push({ lineIndex, number, title });
+
+    // 1. Check for named heading: Chapter / Unit / Topic / Section / Part / Module / Theme
+    const namedMatch = NAMED_HEADING.exec(trimmed);
+    if (namedMatch) {
+      const kindRaw = namedMatch[1]!;
+      const kind = kindRaw.charAt(0).toUpperCase() + kindRaw.slice(1).toLowerCase();
+      const numRaw = namedMatch[2]!;
+      const normalizedNum = normalizeNumber(numRaw);
+      const title = (namedMatch[3] ?? "").trim();
+      if (isPlausibleTitle(title)) {
+        markers.push({
+          lineIndex,
+          kind,
+          number: normalizedNum,
+          title,
+          displayPrefix: `${kind} ${numRaw}`,
+        });
+        return;
+      }
+    }
+
+    // 2. Check for numbered major division: "1. Basic economic ideas"
+    const numMatch = NUMBERED_HEADING.exec(trimmed);
+    if (numMatch) {
+      const num = numMatch[1]!;
+      const title = numMatch[2]!.trim();
+      if (isPlausibleTitle(title)) {
+        markers.push({
+          lineIndex,
+          kind: "Section",
+          number: num,
+          title,
+          displayPrefix: `Section ${num}`,
+        });
+      }
+    }
   });
+
   return markers;
 }
 
-/** Merge consecutive markers that repeat the same chapter number. */
+/** Merge consecutive markers that repeat the same division number (e.g. running page headers). */
 function collapseRepeats(markers: Marker[]): Marker[] {
   const collapsed: Marker[] = [];
   for (const marker of markers) {
     const last = collapsed[collapsed.length - 1];
-    if (last && last.number === marker.number) {
-      if (marker.title.length > last.title.length) last.title = marker.title;
+    if (last && last.kind === marker.kind && last.number === marker.number) {
+      if (marker.title.length > last.title.length) {
+        last.title = marker.title;
+      }
       continue;
     }
     collapsed.push({ ...marker });
@@ -102,41 +155,92 @@ function pruneShortSegments(lines: string[], initial: Marker[]): Marker[] {
   return boundaries;
 }
 
+/**
+ * Fallback partitioner for giant textbooks (> 150k characters) that do not
+ * contain standard keyword headings. Splits safely on paragraph boundaries.
+ */
+function partitionLargeText(text: string, baseTitle: string): ChapterSplit[] {
+  const TARGET_PART_CHARS = 80_000; // ~25-30 pages of text per part
+  const paragraphs = text.split(/\n\s*\n/);
+  const parts: ChapterSplit[] = [];
+
+  let currentBuffer = "";
+  let partIndex = 1;
+
+  for (const para of paragraphs) {
+    if (currentBuffer.length + para.length > TARGET_PART_CHARS && currentBuffer.length > MIN_CHAPTER_CHARS) {
+      parts.push({
+        title: `${baseTitle} — Part ${partIndex}`,
+        text: currentBuffer.trim(),
+      });
+      partIndex += 1;
+      currentBuffer = "";
+    }
+    currentBuffer += `${para}\n\n`;
+  }
+
+  if (currentBuffer.trim().length > 0) {
+    if (parts.length > 0 && currentBuffer.trim().length < MIN_CHAPTER_CHARS) {
+      // Append tiny remainder to previous part
+      parts[parts.length - 1]!.text += `\n\n${currentBuffer.trim()}`;
+    } else {
+      parts.push({
+        title: `${baseTitle} — Part ${partIndex}`,
+        text: currentBuffer.trim(),
+      });
+    }
+  }
+
+  return parts.length >= 2 ? parts : [{ title: baseTitle, text: text.trim() }];
+}
+
 export function splitIntoChapters(text: string, fallbackTitle: string): ChapterSplit[] {
+  const cleanFallback = fallbackTitle.trim() || "Coursebook";
   const lines = text.replace(/\r\n/g, "\n").split("\n");
   const markers = collapseRepeats(collectMarkers(lines));
 
-  if (markers.length < 2) {
-    return [{ title: fallbackTitle, text: text.trim() }];
-  }
+  if (markers.length >= 2) {
+    const boundaries = pruneShortSegments(lines, markers);
+    if (boundaries.length >= 2) {
+      const chapters: ChapterSplit[] = boundaries.map((marker, index) => {
+        const end = boundaries[index + 1]?.lineIndex ?? lines.length;
+        let title = marker.title;
+        let bodyStart = marker.lineIndex + 1;
 
-  const boundaries = pruneShortSegments(lines, markers);
-  if (boundaries.length < 2) {
-    return [{ title: fallbackTitle, text: text.trim() }];
-  }
+        // A heading with no title on its own line often has the title as the
+        // very next (short, non-heading) line — pull it in.
+        if (!title) {
+          const next = lines[marker.lineIndex + 1]?.trim() ?? "";
+          if (
+            next &&
+            next.length <= MAX_HEADING_LINE_CHARS &&
+            !NAMED_HEADING.test(next) &&
+            !NUMBERED_HEADING.test(next)
+          ) {
+            title = next;
+            bodyStart = marker.lineIndex + 2;
+          }
+        }
 
-  const chapters: ChapterSplit[] = boundaries.map((marker, index) => {
-    const end = boundaries[index + 1]?.lineIndex ?? lines.length;
-    let title = marker.title;
-    let bodyStart = marker.lineIndex + 1;
+        const body = lines.slice(bodyStart, end).join("\n").trim();
+        return {
+          title: `${marker.displayPrefix}${title ? `: ${title}` : ""}`,
+          text: body,
+        };
+      });
 
-    // A heading with no title on its own line often has the title as the
-    // very next (short, non-heading) line — pull it in rather than leaving
-    // the chapter untitled.
-    if (!title) {
-      const next = lines[marker.lineIndex + 1]?.trim() ?? "";
-      if (next && next.length <= MAX_HEADING_LINE_CHARS && !CHAPTER_HEADING.test(next)) {
-        title = next;
-        bodyStart = marker.lineIndex + 2;
+      if (chapters.length >= 2) {
+        return chapters;
       }
     }
+  }
 
-    const body = lines.slice(bodyStart, end).join("\n").trim();
-    return {
-      title: `Chapter ${marker.number}${title ? `: ${title}` : ""}`,
-      text: body,
-    };
-  });
+  // If explicit headings weren't identified, but text is large (> 150k characters),
+  // apply intelligent partitioner so giant books are always manageable and indexed smoothly.
+  if (text.length > 150_000) {
+    return partitionLargeText(text, cleanFallback);
+  }
 
-  return chapters.length >= 2 ? chapters : [{ title: fallbackTitle, text: text.trim() }];
+  return [{ title: cleanFallback, text: text.trim() }];
 }
+

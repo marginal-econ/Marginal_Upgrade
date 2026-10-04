@@ -14,11 +14,11 @@ export type Chunk = {
 };
 
 const HEADING_PATTERN =
-  /^(?:#{1,6}\s+.+|\d+(?:\.\d+)*\s+\S.*|[A-Z][A-Z0-9 ,'&()/-]{6,}|(?:Chapter|Section|Unit|Topic|Question)\s+\d+.*)$/;
+  /^(?:#{1,6}\s+.+|\d+(?:\.\d+)*\s+\S.*|[A-Z][A-Z0-9 ,'&()/-]{6,}|(?:Chapter|Section|Unit|Topic|Part|Module|Theme|Question)\s+[0-9IVXLCDMA-Za-z]+.*)$/i;
 
 function isHeading(line: string): boolean {
   const trimmed = line.trim();
-  if (trimmed.length === 0 || trimmed.length > 120) return false;
+  if (trimmed.length === 0 || trimmed.length > 140) return false;
   return HEADING_PATTERN.test(trimmed);
 }
 

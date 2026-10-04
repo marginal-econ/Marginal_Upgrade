@@ -653,14 +653,54 @@ function KnowledgePage() {
 
                 {chapterPreview ? (
                   <div className="space-y-2 rounded-md border border-border p-3">
-                    <div className="flex items-center gap-1.5 text-xs font-medium">
-                      <Layers className="size-3.5" />
-                      Detected {chapterPreview.chapters.length} chapters in "
-                      {chapterPreview.file.name}"
+                    <div className="flex items-center justify-between gap-1.5">
+                      <div className="flex items-center gap-1.5 text-xs font-semibold">
+                        <Layers className="size-3.5 text-primary" />
+                        Detected {chapterPreview.chapters.length} sections in "
+                        {chapterPreview.file.name}"
+                      </div>
+                      <span className="text-[11px] text-muted-foreground">
+                        {Math.round(
+                          chapterPreview.chapters.reduce((acc, c) => acc + c.text.length, 0) /
+                            1000,
+                        )}
+                        k chars total
+                      </span>
                     </div>
-                    <p className="text-[11px] text-muted-foreground">
-                      Add each chapter as its own document, or uncheck any you don't want.
-                    </p>
+                    <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                      <span>Add each section as its own document, or uncheck any to exclude:</span>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          className="hover:underline font-medium text-primary cursor-pointer"
+                          disabled={busy}
+                          onClick={() =>
+                            setChapterPreview((curr) =>
+                              curr
+                                ? { ...curr, included: curr.chapters.map(() => true) }
+                                : curr,
+                            )
+                          }
+                        >
+                          Select all
+                        </button>
+                        <span>·</span>
+                        <button
+                          type="button"
+                          className="hover:underline font-medium text-muted-foreground cursor-pointer"
+                          disabled={busy}
+                          onClick={() =>
+                            setChapterPreview((curr) =>
+                              curr
+                                ? { ...curr, included: curr.chapters.map(() => false) }
+                                : curr,
+                            )
+                          }
+                        >
+                          Deselect all
+                        </button>
+                      </div>
+                    </div>
                     <ul className="max-h-56 space-y-1.5 overflow-y-auto pr-1">
                       {chapterPreview.chapters.map((chapter, index) => (
                         <li key={index} className="flex items-start gap-2">

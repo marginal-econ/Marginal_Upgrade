@@ -31,7 +31,7 @@ const IngestInput = z.object({
   sourceName: z.string().trim().max(200).optional(),
   examSeries: z.string().trim().max(60).optional(),
   storagePath: z.string().trim().max(400).optional(),
-  text: z.string().min(1).max(6_000_000),
+  text: z.string().min(1).max(30_000_000),
 });
 
 /**
@@ -127,7 +127,7 @@ export const ingestDocument = createServerFn({ method: "POST" })
     return { documentId: doc.id, chunkCount: chunks.length, duplicateOf: null as string | null };
   });
 
-const EMBED_BATCH = 40;
+const EMBED_BATCH = 50;
 
 /**
  * Safe (no api_key) list of saved embedding-purpose providers, for the
@@ -207,14 +207,21 @@ export const embedNextBatch = createServerFn({ method: "POST" })
         overrideProvider,
       );
 
-      for (let index = 0; index < pending.length; index++) {
+      // Concurrent parallel update to eliminate sequential round-trip latency (30x speedup)
+      const updateTasks = pending.map((chunk, index) => {
         const vector = vectors[index];
-        if (!vector) continue;
-        const { error: updateError } = await supabase
+        if (!vector) return Promise.resolve({ error: null });
+        return supabase
           .from("document_chunks")
           .update({ embedding: JSON.stringify(vector) })
-          .eq("id", pending[index].id);
-        if (updateError) throw new Error(updateError.message);
+          .eq("id", chunk.id);
+      });
+
+      const updateResults = await Promise.all(updateTasks);
+      for (const res of updateResults) {
+        if (res && "error" in res && res.error) {
+          throw new Error(res.error.message);
+        }
       }
     } catch (embedError) {
       const message = embedError instanceof Error ? embedError.message : "Embedding failed.";

@@ -31,7 +31,12 @@ const MIN_TEXT_LAYER_CHARS = 200;
 export async function ocrPdf(file: File, onProgress?: OcrProgress): Promise<PdfOcrOutcome> {
   onProgress?.("Reading PDF text…");
   const { extractTextFromFile } = await import("./extract-text");
-  const textLayer = (await extractTextFromFile(file)).trim();
+  const textLayer = (
+    await extractTextFromFile(file, (page, total) => {
+      const pct = Math.round((page / total) * 100);
+      onProgress?.(`Reading page ${page} of ${total} (${pct}%)…`);
+    })
+  ).trim();
 
   if (textLayer.length >= MIN_TEXT_LAYER_CHARS) {
     return {

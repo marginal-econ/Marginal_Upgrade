@@ -30,42 +30,63 @@ async function extractPdf(file: File, onProgress?: ExtractProgress): Promise<str
   pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
 
   const buffer = await file.arrayBuffer();
-  const pdf = await pdfjs.getDocument({ data: buffer }).promise;
+  const loadingTask = pdfjs.getDocument({
+    data: new Uint8Array(buffer),
+    disableFontFace: true, // drastically reduces memory and CPU overhead for pure text extraction
+    useSystemFonts: true,
+  });
+  const pdf = await loadingTask.promise;
 
-  const pages: string[] = [];
-  for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
-    const page = await pdf.getPage(pageNumber);
-    const content = await page.getTextContent();
+  try {
+    const pages: string[] = [];
+    for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
+      const page = await pdf.getPage(pageNumber);
+      try {
+        const content = await page.getTextContent();
 
-    // Rebuild line structure from item positions: PDF text items arrive as
-    // fragments, and naive joining destroys the headings retrieval relies on.
-    let lastY: number | null = null;
-    let line = "";
-    const lines: string[] = [];
+        // Rebuild line structure from item positions: PDF text items arrive as
+        // fragments, and naive joining destroys the headings retrieval relies on.
+        let lastY: number | null = null;
+        let line = "";
+        const lines: string[] = [];
 
-    for (const item of content.items) {
-      if (!("str" in item)) continue;
-      const y = Math.round((item.transform?.[5] ?? 0) * 10) / 10;
-      if (lastY !== null && Math.abs(y - lastY) > 2) {
+        for (const item of content.items) {
+          if (!("str" in item)) continue;
+          const y = Math.round((item.transform?.[5] ?? 0) * 10) / 10;
+          if (lastY !== null && Math.abs(y - lastY) > 2) {
+            if (line.trim()) lines.push(line.trim());
+            line = "";
+          }
+          line += item.str;
+          if (item.hasEOL) {
+            if (line.trim()) lines.push(line.trim());
+            line = "";
+          }
+          lastY = y;
+        }
         if (line.trim()) lines.push(line.trim());
-        line = "";
+
+        pages.push(lines.join("\n"));
+      } finally {
+        // Critical for large textbooks (100-800 pages): releases page cache in pdf.js
+        page.cleanup();
       }
-      line += item.str;
-      if (item.hasEOL) {
-        if (line.trim()) lines.push(line.trim());
-        line = "";
+
+      onProgress?.(pageNumber, pdf.numPages);
+
+      // Periodically yield to browser event loop every 25 pages on large books to keep UI smooth
+      if (pageNumber % 25 === 0 && pageNumber < pdf.numPages) {
+        await new Promise((resolve) => setTimeout(resolve, 0));
       }
-      lastY = y;
     }
-    if (line.trim()) lines.push(line.trim());
 
-    pages.push(lines.join("\n"));
-    onProgress?.(pageNumber, pdf.numPages);
+    return pages
+      .join("\n\n")
+      .replace(/-\n(?=[a-z])/g, "") // rejoin words hyphenated across line breaks
+      .replace(/\n{3,}/g, "\n\n")
+      .trim();
+  } finally {
+    // Release the entire PDF document and worker transport
+    await loadingTask.destroy().catch(() => {});
   }
-
-  return pages
-    .join("\n\n")
-    .replace(/-\n(?=[a-z])/g, "") // rejoin words hyphenated across line breaks
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
 }
