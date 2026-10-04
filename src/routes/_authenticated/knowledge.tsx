@@ -382,16 +382,23 @@ function KnowledgePage() {
     // if it happens to split into chapters, those are added automatically
     // without an interactive preview, since previewing several files' worth
     // of chapters at once isn't manageable in this UI).
-    // Chapter-split preview only applies to a single PDF — skip straight to
-    // the plain single-document path otherwise.
-    if (selected.length !== 1 || !isPdfFile(selected[0]!)) return;
+    // Chapter-split preview applies to any single coursebook PDF or text file
+    if (
+      selected.length !== 1 ||
+      (!isPdfFile(selected[0]!) &&
+        !selected[0]!.type.startsWith("text/") &&
+        !selected[0]!.name.endsWith(".txt") &&
+        !selected[0]!.name.endsWith(".md"))
+    )
+      return;
 
     const file = selected[0]!;
     try {
       setBusy(true);
       setQueue([{ id: "preview", title: file.name, status: "reading", detail: "Reading file…" }]);
       const text = await readFile(file, (label) => updateQueueItem("preview", { detail: label }));
-      const chapters = splitIntoChapters(text, file.name.replace(/\.[^.]+$/, ""));
+      const baseTitle = title.trim() || file.name.replace(/\.[^.]+$/, "");
+      const chapters = splitIntoChapters(text, baseTitle);
       if (chapters.length >= MIN_PREVIEW_CHAPTERS) {
         setChapterPreview({ file, chapters, included: chapters.map(() => true) });
       }
@@ -410,13 +417,21 @@ function KnowledgePage() {
       toast.error("Select at least one chapter to add.");
       return;
     }
+    const currentBaseTitle = title.trim();
     await runQueue(
-      selected.map((chapter, index) => ({
-        id: `chapter-${index}`,
-        title: chapter.title,
-        text: chapter.text,
-        sourceName: chapterPreview.file.name,
-      })),
+      selected.map((chapter, index) => {
+        // If teacher modified the Title input, ensure the chapter title reflects that updated base title
+        let chapterTitle = chapter.title;
+        if (currentBaseTitle && !chapterTitle.toLowerCase().startsWith(currentBaseTitle.toLowerCase())) {
+          chapterTitle = `${currentBaseTitle} — ${chapter.title.replace(/^.*? — /, "")}`;
+        }
+        return {
+          id: `chapter-${index}`,
+          title: chapterTitle,
+          text: chapter.text,
+          sourceName: chapterPreview.file.name,
+        };
+      }),
     );
   };
 
@@ -442,7 +457,19 @@ function KnowledgePage() {
     try {
       if (files.length === 0) {
         const text = pastedText.trim();
-        await runQueue([{ id: "pasted", title: title.trim() || "Untitled document", text }]);
+        const baseTitle = title.trim() || "Coursebook Notes";
+        const chapters = splitIntoChapters(text, baseTitle);
+        if (chapters.length > 1) {
+          await runQueue(
+            chapters.map((ch, idx) => ({
+              id: `pasted-ch${idx}`,
+              title: ch.title,
+              text: ch.text,
+            })),
+          );
+        } else {
+          await runQueue([{ id: "pasted", title: baseTitle, text }]);
+        }
         return;
       }
 
@@ -469,14 +496,8 @@ function KnowledgePage() {
               ? title.trim() || file.name.replace(/\.[^.]+$/, "")
               : file.name.replace(/\.[^.]+$/, "");
 
-          // A single coursebook-looking file with several chapters gets split
-          // automatically here (no interactive preview, since we're already
-          // past that step for a multi-file batch); a lone file follows the
-          // preview flow above instead and never reaches this branch.
-          const chapters =
-            files.length > 1
-              ? splitIntoChapters(text, singleTitle)
-              : [{ title: singleTitle, text }];
+          // Automatically split into chapters so RAG retrieval and citations are accurate
+          const chapters = splitIntoChapters(text, singleTitle);
 
           if (chapters.length > 1) {
             chapters.forEach((chapter, chapterIndex) => {
@@ -656,7 +677,7 @@ function KnowledgePage() {
                     <div className="flex items-center justify-between gap-1.5">
                       <div className="flex items-center gap-1.5 text-xs font-semibold">
                         <Layers className="size-3.5 text-primary" />
-                        Detected {chapterPreview.chapters.length} sections in "
+                        Detected {chapterPreview.chapters.length} chapters / sections in "
                         {chapterPreview.file.name}"
                       </div>
                       <span className="text-[11px] text-muted-foreground">
@@ -665,6 +686,12 @@ function KnowledgePage() {
                             1000,
                         )}
                         k chars total
+                      </span>
+                    </div>
+                    <div className="rounded bg-primary/10 px-2 py-1 text-[11px] font-medium text-primary flex items-center gap-1.5">
+                      <span>✓ Recommended for RAG:</span>
+                      <span className="text-muted-foreground font-normal">
+                        Each chapter is indexed with the textbook name for pinpoint search & citations.
                       </span>
                     </div>
                     <div className="flex items-center justify-between text-[11px] text-muted-foreground">
@@ -730,11 +757,11 @@ function KnowledgePage() {
                       type="button"
                       variant="ghost"
                       size="sm"
-                      className="w-full text-xs"
+                      className="w-full text-xs text-muted-foreground hover:text-foreground"
                       disabled={busy}
                       onClick={handleAddAsSingleDocument}
                     >
-                      Add as one document instead
+                      Add as one giant document instead (not recommended)
                     </Button>
                   </div>
                 ) : null}
