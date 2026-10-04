@@ -130,8 +130,8 @@ export async function coachPoint(
   try {
     sources = await retrieve(supabase, {
       query: `${options.question}\n${options.pointText}`,
-      matchCount: 5,
-      docTypes: ["coursebook", "syllabus", "mark_scheme", "examiner_report"],
+      matchCount: 6,
+      docTypes: ["coursebook", "syllabus", "mark_scheme", "examiner_report", "notes"],
       enableHybridRrf: true,
     });
   } catch (error) {

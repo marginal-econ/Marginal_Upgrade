@@ -322,5 +322,37 @@ export const searchKnowledge = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { retrieve } = await import("./retrieval.server");
-    return retrieve(context.supabase, { query: data.query, matchCount: 10 });
+    return retrieve(context.supabase, { query: data.query, matchCount: 10, enableHybridRrf: true });
+  });
+
+export const getKnowledgeStats = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase } = context;
+    const { data: docs, error: docError } = await supabase
+      .from("knowledge_documents")
+      .select("id, title, doc_type, status, char_count, chunk_count");
+    if (docError) throw new Error(docError.message);
+
+    const { count: pendingChunks } = await supabase
+      .from("document_chunks")
+      .select("id", { count: "exact", head: true })
+      .is("embedding", null);
+
+    const { count: totalChunks } = await supabase
+      .from("document_chunks")
+      .select("id", { count: "exact", head: true });
+
+    const total = totalChunks ?? 0;
+    const pending = pendingChunks ?? 0;
+
+    return {
+      totalDocuments: docs?.length ?? 0,
+      readyDocuments: docs?.filter((d) => d.status === "ready").length ?? 0,
+      processingDocuments: docs?.filter((d) => d.status === "processing").length ?? 0,
+      failedDocuments: docs?.filter((d) => d.status === "failed").length ?? 0,
+      totalChunks: total,
+      pendingChunks: pending,
+      embeddedChunks: Math.max(0, total - pending),
+    };
   });

@@ -24,6 +24,22 @@ describe("Advanced RAG Retrieval Engine", () => {
       expect(expanded).toContain("Phillips curve");
     });
 
+    it("expands a PPC and scarcity micro question with allocative efficiency", () => {
+      const query = "Explain how the production possibility curve illustrates scarcity and opportunity cost.";
+      const expanded = expandEconomicQuery(query);
+      expect(expanded).toContain("production possibility curve");
+      expect(expanded).toContain("allocative efficiency");
+      expect(expanded).toContain("capital goods");
+    });
+
+    it("expands an elasticity question with PED and tax incidence", () => {
+      const query = "Assess the usefulness of price elasticity of demand to a business setting prices.";
+      const expanded = expandEconomicQuery(query);
+      expect(expanded).toContain("price elasticity of demand");
+      expect(expanded).toContain("tax incidence");
+      expect(expanded).toContain("total revenue test");
+    });
+
     it("leaves unrelated non-economic queries unexpanded", () => {
       const query = "What is the procedure for registering for exam sessions?";
       const expanded = expandEconomicQuery(query);
@@ -34,7 +50,7 @@ describe("Advanced RAG Retrieval Engine", () => {
   describe("Sparse Lexical Scoring", () => {
     it("boosts matches found in headings and document titles", () => {
       const chunkWithTitleMatch = {
-        document_title: "Marshall-Lerner Condition Guide",
+        document_title: "Cambridge Economics — Chapter 4: Elasticity Guide",
         heading: "Elasticity Requirements",
         content: "If PEDx + PEDm > 1, depreciation improves trade balance.",
       };
@@ -44,11 +60,23 @@ describe("Advanced RAG Retrieval Engine", () => {
         content: "If PEDx + PEDm > 1, depreciation improves trade balance.",
       };
 
-      const queryTerms = ["marshall-lerner", "elasticity"];
+      const queryTerms = ["elasticity", "guide"];
       const scoreBoosted = computeLexicalScore(chunkWithTitleMatch, queryTerms);
       const scoreNormal = computeLexicalScore(chunkWithoutBoost, queryTerms);
 
       expect(scoreBoosted).toBeGreaterThan(scoreNormal);
+    });
+
+    it("properly scores 2-letter economics acronyms like AD, AS, MC, MR", () => {
+      const chunk = {
+        document_title: "Cambridge 9708 Economics — Macroeconomic Equilibrium",
+        heading: "AD-AS Analysis",
+        content: "An increase in investment shifts the AD curve to the right, raising real output.",
+      };
+
+      const queryTerms = ["ad", "shift"];
+      const score = computeLexicalScore(chunk, queryTerms);
+      expect(score).toBeGreaterThan(0);
     });
   });
 
@@ -67,11 +95,11 @@ describe("Advanced RAG Retrieval Engine", () => {
         {
           chunk_id: "c2",
           document_id: "d2",
-          document_title: "Cambridge 9708 Mark Scheme",
+          document_title: "Cambridge 9708 Mark Scheme — Exchange Rates",
           doc_type: "mark_scheme" as const,
           heading: "Marshall-Lerner Condition",
           content: "Examiner credit requires explicit reference to Marshall-Lerner and PED elasticity sum.",
-          similarity: 0.84, // Slightly lower dense similarity, but exact keyword match
+          similarity: 0.84, // Slightly lower dense similarity, but exact keyword match in title and heading
         },
         {
           chunk_id: "c3",

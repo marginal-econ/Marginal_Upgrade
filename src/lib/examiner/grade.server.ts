@@ -149,8 +149,8 @@ export async function gradeEssay(
   try {
     sources = await retrieve(supabase, {
       query: `${question}\n\nMark scheme, band descriptors and examiner report guidance for this question.`,
-      matchCount: 6,
-      docTypes: ["mark_scheme", "examiner_report", "syllabus", "coursebook"],
+      matchCount: 8,
+      docTypes: ["mark_scheme", "examiner_report", "syllabus", "coursebook", "notes"],
       topicId: options.topicId ?? null,
       enableHybridRrf: true,
     });

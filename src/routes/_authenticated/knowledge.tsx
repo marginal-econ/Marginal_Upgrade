@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { FileText, Layers, Loader2, Search, Trash2, Upload } from "lucide-react";
+import { FileText, Layers, Loader2, RefreshCw, Search, Trash2, Upload } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -42,6 +42,7 @@ import {
   ingestDocument,
   listDocuments,
   listEmbeddingProviderOptions,
+  reembedAllDocuments,
   searchKnowledge,
 } from "@/lib/knowledge.functions";
 import { isPdfFile, ocrPdf } from "@/lib/pdf-ocr";
@@ -93,12 +94,31 @@ function KnowledgePage() {
   const removeDoc = useServerFn(deleteDocument);
   const fetchDocs = useServerFn(listDocuments);
   const search = useServerFn(searchKnowledge);
+  const reembedAll = useServerFn(reembedAllDocuments);
 
   const docs = useQuery({ queryKey: ["documents"], queryFn: () => fetchDocs() });
 
   // Course materials — coursebook, syllabus, mark schemes, past papers,
   // examiner reports, notes — everything that grounds marking and coaching.
   const scopedDocs = docs.data ?? [];
+  const [recalibrating, setRecalibrating] = useState(false);
+
+  const handleRecalibrate = async () => {
+    setRecalibrating(true);
+    try {
+      const result = await reembedAll();
+      queryClient.invalidateQueries({ queryKey: ["documents"] });
+      toast.success(
+        result.queued > 0
+          ? `Queued ${result.queued} documents for recalibration under the active embedding provider.`
+          : "No documents in library to recalibrate.",
+      );
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Recalibration failed.");
+    } finally {
+      setRecalibrating(false);
+    }
+  };
 
   const fileRef = useRef<HTMLInputElement>(null);
   const [title, setTitle] = useState("");
@@ -860,8 +880,53 @@ function KnowledgePage() {
             </div>
 
             <div className="panel">
-              <div className="border-b border-border px-5 py-3.5">
-                <h2 className="text-sm font-semibold">Library</h2>
+              <div className="border-b border-border px-5 py-3.5 flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <h2 className="text-sm font-semibold">Library</h2>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {scopedDocs.length} documents ·{" "}
+                    {scopedDocs.reduce((acc, d) => acc + d.chunk_count, 0)} sections indexed
+                  </p>
+                </div>
+                {scopedDocs.length > 0 ? (
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-xs gap-1.5"
+                        disabled={busy || recalibrating || resumingIds.size > 0}
+                      >
+                        <RefreshCw
+                          className={cn(
+                            "size-3.5",
+                            (recalibrating || resumingIds.size > 0) && "animate-spin",
+                          )}
+                        />
+                        {resumingIds.size > 0
+                          ? `Recalibrating (${resumingIds.size})…`
+                          : "Recalibrate library"}
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Recalibrate Knowledge Library?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This re-indexes every document and chapter in your knowledge base under the
+                          active embedding provider. It brings all stored vectors and lexical index
+                          structures up to date for maximum RAG retrieval precision, chapter matching,
+                          and authoritative grading citations.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleRecalibrate}>
+                          Recalibrate now
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                ) : null}
               </div>
 
               {docs.isLoading ? (
