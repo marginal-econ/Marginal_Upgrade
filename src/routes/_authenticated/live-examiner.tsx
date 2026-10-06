@@ -8,6 +8,7 @@ import {
   CheckCircle2,
   ChevronRight,
   ClipboardPaste,
+  Clock,
   Copy,
   GraduationCap,
   ImagePlus,
@@ -457,6 +458,10 @@ function LiveExaminerPage() {
     dismissIssue,
     rescan,
     clearAll,
+    durationMinutes,
+    remainingSeconds,
+    aiCoachingExpired,
+    formattedTimeRemaining,
   } = useLiveExaminerCheck({
     text: textForCheck,
     question,
@@ -464,6 +469,9 @@ function LiveExaminerPage() {
     maxMark,
     contextBlock,
     enabled: started && contextMutation.isSuccess,
+    sessionStartedAt: sessionQuery.data?.session?.created_at
+      ? new Date(sessionQuery.data.session.created_at).getTime()
+      : null,
   });
 
   // --- Autosave, debounced, independent of the AI check debounce --------
@@ -805,6 +813,31 @@ function LiveExaminerPage() {
                 );
               })()}
 
+              {/* Live AI Coaching Session Timer Badge */}
+              <Badge
+                variant={aiCoachingExpired ? "secondary" : "outline"}
+                className={cn(
+                  "text-xs px-2.5 py-0.5 font-mono gap-1.5 transition-colors",
+                  aiCoachingExpired
+                    ? "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400 font-semibold"
+                    : remainingSeconds <= 300
+                      ? "border-rose-500/30 bg-rose-500/10 text-rose-600 dark:text-rose-400 font-semibold animate-pulse"
+                      : "border-primary/30 bg-primary/5 text-primary",
+                )}
+                title={
+                  aiCoachingExpired
+                    ? `AI coaching duration complete (${durationMinutes}m). Free instant in-browser grammar and terminology checks remain 100% active.`
+                    : `AI coaching timer: ${formattedTimeRemaining} remaining (${durationMinutes}m session limit)`
+                }
+              >
+                <Clock className="size-3" />
+                {aiCoachingExpired ? (
+                  <span>AI Limit Reached ({durationMinutes}m)</span>
+                ) : (
+                  <span>AI Coaching: {formattedTimeRemaining}</span>
+                )}
+              </Badge>
+
               {sourceCount > 0 ? (
                 <Badge variant="outline">
                   <GraduationCap className="mr-1 size-3" /> {sourceCount} syllabus source
@@ -969,6 +1002,10 @@ function LiveExaminerPage() {
               onRequestChallenges={requestChallenges}
               onDismissChallenge={dismissChallenge}
               onAddressChallenge={markChallengeAddressed}
+              durationMinutes={durationMinutes}
+              remainingSeconds={remainingSeconds}
+              aiCoachingExpired={aiCoachingExpired}
+              formattedTimeRemaining={formattedTimeRemaining}
               gradedHelp={
                 gradeMutation.data &&
                 gradeMutation.data.grading.total_mark < gradeMutation.data.grading.max_mark ? (

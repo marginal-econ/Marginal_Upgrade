@@ -201,6 +201,8 @@ const CheckInput = z.object({
   contextBlock: z.string().max(20_000).default(""),
   /** Decoupled mark estimation: only compute predicted mark when explicitly requested (e.g. paragraph end) */
   includePredictedMark: z.boolean().default(false),
+  /** When true, the session's AI coaching time limit has expired — return deterministic checks only, 0 LLM calls */
+  aiCoachingExpired: z.boolean().default(false),
 });
 
 const CandidateSchema = IssueSchema.extend({ confidence: z.number().min(0).max(1) });
@@ -461,6 +463,21 @@ export const checkEssayWriting = createServerFn({ method: "POST" })
         ({ ruleId: _ruleId, startOffset: _s, endOffset: _e, ...issue }) => issue,
       ),
     ];
+
+    // When the session's AI coaching time limit has expired, return instant deterministic checks
+    // (grammar, mechanics, terminology) and carry forward existing issues with ZERO LLM calls.
+    if (data.aiCoachingExpired) {
+      const surviving = dedupeAndCap([...carryForward(), ...deterministic]);
+      return {
+        issues: surviving,
+        classifications: [] as LiveExaminerAoClassification[],
+        classifiedContexts: [] as string[],
+        clean: surviving.length === 0,
+        checkedText: data.essayText,
+        predictedMark: null,
+        aiCoachingExpired: true,
+      };
+    }
 
     // Whether this call bothers estimating a mark at all: decoupled so rapid
     // keystroke checks do not pay for an extra model call on every sentence edit.
@@ -799,7 +816,7 @@ export const getLiveExaminerSession = createServerFn({ method: "POST" })
     const { data: row, error } = await context.supabase
       .from("live_examiner_sessions")
       .select(
-        "id, level, topic, question, max_mark, essay_text, issues_history, diagram_tag, updated_at",
+        "id, level, topic, question, max_mark, essay_text, issues_history, diagram_tag, created_at, updated_at",
       )
       .eq("user_id", context.userId)
       .eq("question", data.question)

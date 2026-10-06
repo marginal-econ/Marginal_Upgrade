@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { Link } from "@tanstack/react-router";
 import {
   ArrowRight,
   Building2,
   Check,
+  Clock,
   GraduationCap,
   HelpCircle,
   School,
@@ -57,12 +57,12 @@ const STUDENT_TIERS: StudentTier[] = [
     annualPrice: 1200,
     annualEquivalentMonthly: 100,
     savePct: 33,
-    quota: "10 Graded Essays / mo · Daily Live Session",
+    quota: "10 Graded Essays / mo · Daily Live Session (30m)",
     badge: "Most Accessible",
     features: [
       "10 Cambridge Graded Essays / month",
-      "Daily Live Examiner Session (1 Question/day, unlimited typing checks)",
-      "Instant In-Browser Diagnostics (< 50ms) for Grammar & Economics Terms",
+      "Daily Live Examiner Session (30m AI coaching per session)",
+      "Unlimited Instant In-Browser Grammar & Economics Terminology Checks (< 50ms)",
       "Full AO1, AO2, AO3 Diagnostic Reports",
       "Cambridge Definitions Hub & Drills",
       "Exemplar Showcase & Past MCQ Papers",
@@ -76,12 +76,13 @@ const STUDENT_TIERS: StudentTier[] = [
     annualPrice: 3600,
     annualEquivalentMonthly: 300,
     savePct: 25,
-    quota: "30 Graded Essays / mo · 1 Daily Live Session",
+    quota: "30 Graded Essays / mo · 1 Daily Live Session (45m)",
     badge: "Most Popular",
     popular: true,
     features: [
       "30 Cambridge Graded Essays / month",
-      "Daily Live Examiner Coach (1 Question Session/day, unlimited typing checks)",
+      "Daily Live Examiner Coach (45m official exam timing AI coaching)",
+      "Unlimited Instant In-Browser Grammar & Terminology Checks",
       "Sub-second Cambridge AO Sentence Diagnostics & Causal Chains",
       "Perfect Essay Generator (AI Model Answers)",
       "Dual-Model Principal Examiner Arbitration",
@@ -97,11 +98,12 @@ const STUDENT_TIERS: StudentTier[] = [
     annualPrice: 6000,
     annualEquivalentMonthly: 500,
     savePct: 17,
-    quota: "75 Graded Essays / mo · Revision Sprint Access",
+    quota: "75 Graded Essays / mo · Revision Sprint Access (60m)",
     badge: "A* Target",
     features: [
       "75 Cambridge Graded Essays / month",
-      "Exam Sprint Live Examiner (Multi-question revision sprint access, priority queue)",
+      "Exam Sprint Live Examiner (60m extended AI coaching, priority queue)",
+      "Unlimited Instant In-Browser Grammar & Mechanics Checks",
       "Handwritten Essay OCR Scanning (Photo Uploads)",
       "Holistic Review Panel & Syllabus Weakness Heatmap",
       "Level 4 & 5 Evaluative Refinement Engine",
@@ -117,11 +119,12 @@ const STUDENT_TIERS: StudentTier[] = [
     annualPrice: 9600,
     annualEquivalentMonthly: 800,
     savePct: 20,
-    quota: "Unlimited Essays & Unlimited Live Sessions",
+    quota: "Unlimited Essays & Unlimited Live Sessions (90m)",
     badge: "VIP All-Access",
     features: [
       "Unlimited Cambridge Graded Essays & Reworks",
-      "Unlimited 24/7 Live Examiner Sessions with zero daily cap",
+      "Unlimited 24/7 Live Examiner Sessions (90m sprint revision AI coaching per session)",
+      "Unlimited Instant In-Browser Grammar & Terminology Checks",
       "Dedicated High-Speed Flash Acceleration Queue",
       "Bespoke Past Paper Mock Series Generation",
       "Personalized Examiner Video & Audio Commentary",
@@ -484,7 +487,7 @@ export function PricingSection({ className }: { className?: string }) {
 
         {/* ── Trust & Risk Reversal Banner ── */}
         <div className="mt-14 rounded-2xl border border-border bg-muted/40 p-6 sm:p-8">
-          <div className="grid gap-6 md:grid-cols-3">
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
             <div className="flex items-start gap-3.5">
               <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
                 <ShieldCheck className="size-5" />
@@ -507,6 +510,18 @@ export function PricingSection({ className }: { className?: string }) {
                 <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
                   Every mark is grounded in Cambridge mark schemes, levels of response, and official
                   assessment objective criteria.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3.5">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                <Clock className="size-5" />
+              </span>
+              <div>
+                <h4 className="text-sm font-semibold">Timed Cambridge Sessions</h4>
+                <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
+                  Deep AI AO analysis runs for 30–90 min per session. Instant in-browser grammar, mechanics, and terminology checks remain unlimited.
                 </p>
               </div>
             </div>

@@ -27,3 +27,20 @@ export function isDailyLimitError(error: unknown): boolean {
   const message = error instanceof Error ? error.message : typeof error === "string" ? error : "";
   return message.startsWith(DAILY_LIMIT_PREFIX);
 }
+
+/**
+ * Session duration caps for deep AI Cambridge Examiner coaching (in minutes).
+ * When the duration expires, remote LLM checks pause to protect unit economics,
+ * while in-browser grammar, spelling, mechanics, and terminology checks remain
+ * 100% active for free.
+ */
+export const LIVE_EXAMINER_DURATION_MINUTES = {
+  foundation: 30, // 30 min timed drill
+  pro: 45,        // 45 min official Cambridge exam essay timing
+  mastery: 60,    // 60 min extended evaluative revision
+  elite: 90,      // 90 min sprint revision
+} as const;
+
+export type SubscriptionTier = keyof typeof LIVE_EXAMINER_DURATION_MINUTES;
+
+export const DEFAULT_LIVE_EXAMINER_DURATION_MINUTES = LIVE_EXAMINER_DURATION_MINUTES.pro;

@@ -4,6 +4,7 @@ import {
   CheckCircle2,
   ChevronDown,
   ChevronUp,
+  Clock,
   GraduationCap,
   HelpCircle,
   Lightbulb,
@@ -98,6 +99,10 @@ export function LiveExaminerPanel({
   onDismiss,
   onRescan,
   onClearAll,
+  durationMinutes,
+  remainingSeconds,
+  aiCoachingExpired = false,
+  formattedTimeRemaining,
 }: {
   issues: ActiveIssue[];
   history: HistoryEntry[];
@@ -119,6 +124,10 @@ export function LiveExaminerPanel({
   onDismiss: (id: string) => void;
   onRescan: () => void;
   onClearAll: () => void;
+  durationMinutes?: number;
+  remainingSeconds?: number;
+  aiCoachingExpired?: boolean;
+  formattedTimeRemaining?: string;
 }) {
   const [showColorGuide, setShowColorGuide] = useState(false);
   const [expandedHints, setExpandedHints] = useState<Record<string, boolean>>({});
@@ -151,8 +160,60 @@ export function LiveExaminerPanel({
 
   return (
     <div className="flex h-full flex-col gap-3">
-      <PredictedMarkCard predictedMark={predictedMark} maxMark={maxMark} />
+      <PredictedMarkCard
+        predictedMark={predictedMark}
+        maxMark={maxMark}
+        aiCoachingExpired={aiCoachingExpired}
+      />
       {gradedHelp}
+
+      {/* AI Coaching Window & Timer Notice */}
+      {durationMinutes ? (
+        aiCoachingExpired ? (
+          <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-2.5 text-xs space-y-1.5 text-amber-900 dark:text-amber-200">
+            <div className="flex items-center justify-between gap-1.5 font-semibold">
+              <span className="flex items-center gap-1.5">
+                <Clock className="size-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+                AI Coaching Time Limit Reached ({durationMinutes}m)
+              </span>
+              <Badge
+                variant="outline"
+                className="text-[10px] border-amber-500/40 text-amber-700 dark:text-amber-300 font-medium"
+              >
+                Limit Reached
+              </Badge>
+            </div>
+            <p className="text-[11px] leading-relaxed text-muted-foreground dark:text-amber-200/90">
+              Live Cambridge AO evaluation and mark updates have paused for this question.
+              <strong className="text-foreground dark:text-amber-100 font-semibold">
+                {" "}Instant in-browser grammar, mechanics, spelling, and economic terminology checks remain 100% active and unlimited.
+              </strong>
+            </p>
+            <p className="text-[10px] text-muted-foreground dark:text-amber-200/80">
+              Click <strong>"Grade now"</strong> above whenever you're ready for your complete Cambridge mark and examiner report.
+            </p>
+          </div>
+        ) : (
+          <div className="flex items-center justify-between rounded-md border border-border/70 bg-muted/20 px-2.5 py-1.5 text-[11px]">
+            <span className="flex items-center gap-1.5 font-mono text-muted-foreground">
+              <Clock className="size-3 text-primary" />
+              <span>AI Coaching:</span>
+              <span
+                className={cn(
+                  "font-semibold tabular-nums",
+                  (remainingSeconds ?? 0) <= 300
+                    ? "text-rose-600 dark:text-rose-400 animate-pulse"
+                    : "text-foreground",
+                )}
+              >
+                {formattedTimeRemaining ?? `${durationMinutes}:00`}
+              </span>
+              <span className="text-[10px] opacity-70">({durationMinutes}m limit)</span>
+            </span>
+            <span className="text-[10px] text-muted-foreground">Grammar checks unlimited</span>
+          </div>
+        )
+      ) : null}
 
       <div className="rounded-lg border border-border/80 bg-muted/20 p-2 text-xs space-y-1.5">
         <div className="flex items-center justify-between">
@@ -230,6 +291,7 @@ export function LiveExaminerPanel({
           pending={pending}
           count={issues.length}
           lastUpdatedAt={lastUpdatedAt}
+          aiCoachingExpired={aiCoachingExpired}
         />
         <div className="flex shrink-0 gap-1">
           <Button
@@ -435,8 +497,13 @@ export function LiveExaminerPanel({
                     size="sm"
                     variant="outline"
                     className="h-7 text-[11px] border-plum/40 hover:bg-plum/10 text-plum dark:text-primary"
-                    disabled={fetchingChallenges}
+                    disabled={fetchingChallenges || aiCoachingExpired}
                     onClick={onRequestChallenges}
+                    title={
+                      aiCoachingExpired
+                        ? "AI coaching limit reached for this session. Use 'Grade now' for full feedback."
+                        : undefined
+                    }
                   >
                     <Sparkles
                       className={cn(
@@ -444,10 +511,18 @@ export function LiveExaminerPanel({
                         fetchingChallenges && "animate-spin",
                       )}
                     />
-                    {fetchingChallenges ? "Probing draft…" : "Probe Draft"}
+                    {fetchingChallenges
+                      ? "Probing draft…"
+                      : aiCoachingExpired
+                        ? "Session Capped"
+                        : "Probe Draft"}
                   </Button>
                 </div>
-                {challengeOverview ? (
+                {aiCoachingExpired ? (
+                  <p className="mt-2 text-[11px] leading-relaxed text-amber-800 dark:text-amber-300 bg-amber-500/10 rounded p-2 border border-amber-500/20">
+                    Socratic AI interrogations are paused as this session's AI coaching limit has concluded. You can still write freely with instant grammar & terminology checks, or click <strong>"Grade now"</strong> anytime.
+                  </p>
+                ) : challengeOverview ? (
                   <p className="mt-2 text-[11px] leading-relaxed text-foreground/90 bg-card/60 rounded p-2 border border-plum/20">
                     {challengeOverview}
                   </p>
@@ -635,9 +710,11 @@ export function LiveExaminerPanel({
 function PredictedMarkCard({
   predictedMark,
   maxMark,
+  aiCoachingExpired = false,
 }: {
   predictedMark: PredictedMark | null;
   maxMark: number;
+  aiCoachingExpired?: boolean;
 }) {
   const [justChanged, setJustChanged] = useState(false);
   const previousMarkRef = useRef<number | null>(null);
@@ -654,6 +731,19 @@ function PredictedMarkCard({
   }, [predictedMark]);
 
   if (!predictedMark) {
+    if (aiCoachingExpired) {
+      return (
+        <div className="rounded-xl border border-dashed border-amber-500/40 bg-amber-500/5 p-3.5 text-center">
+          <div className="flex justify-center mb-1">
+            <Clock className="size-4 text-amber-600 dark:text-amber-400" />
+          </div>
+          <p className="text-xs font-semibold text-foreground">AI Coaching Window Complete</p>
+          <p className="mt-1 text-[11px] text-muted-foreground leading-relaxed">
+            Running mark estimation has concluded for this session. Instant in-browser grammar, spelling, mechanics, and economic terminology checks remain 100% active. Use <strong>"Grade now"</strong> for your complete Cambridge mark.
+          </p>
+        </div>
+      );
+    }
     return (
       <div className="rounded-lg border border-dashed border-border p-3 text-center">
         <p className="text-[11px] text-muted-foreground">
@@ -671,19 +761,28 @@ function PredictedMarkCard({
         <span className="flex items-center gap-2 text-xs font-semibold text-foreground">
           <Sparkles className="size-3.5 text-primary" /> Live Examiner
         </span>
-        <Badge
-          variant="outline"
-          className="font-mono text-[10px] border-primary/30 bg-primary/10 text-primary font-medium"
-        >
-          RUNNING MARK
-        </Badge>
+        {aiCoachingExpired ? (
+          <Badge
+            variant="outline"
+            className="font-mono text-[10px] border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300 font-medium"
+          >
+            FROZEN AT TIME LIMIT
+          </Badge>
+        ) : (
+          <Badge
+            variant="outline"
+            className="font-mono text-[10px] border-primary/30 bg-primary/10 text-primary font-medium"
+          >
+            RUNNING MARK
+          </Badge>
+        )}
       </div>
       <div className="p-3.5">
         <div className="flex items-baseline justify-between gap-2">
           <span className="text-[11px] font-medium text-muted-foreground">
-            Running assessment mark
+            {aiCoachingExpired ? "Final session running mark" : "Running assessment mark"}
           </span>
-          {confidence < 0.5 ? (
+          {confidence < 0.5 && !aiCoachingExpired ? (
             <span className="text-[10px] text-muted-foreground bg-muted/60 px-1.5 py-0.5 rounded">
               early estimate
             </span>
@@ -731,9 +830,15 @@ function PredictedMarkCard({
             {nextMove}
           </p>
         </div>
-        <p className="mt-2 text-[10px] leading-snug text-muted-foreground">
-          Live running calibration — use "Grade now" for the complete two-pass examiner audit.
-        </p>
+        {aiCoachingExpired ? (
+          <p className="mt-2 text-[10px] leading-snug text-amber-700 dark:text-amber-300 font-medium">
+            AI coaching window complete — running mark frozen. Instant mechanics & terminology checks remain active. Use "Grade now" for full audit.
+          </p>
+        ) : (
+          <p className="mt-2 text-[10px] leading-snug text-muted-foreground">
+            Live running calibration — use "Grade now" for the complete two-pass examiner audit.
+          </p>
+        )}
       </div>
     </div>
   );
@@ -793,16 +898,19 @@ function StatusLine({
   pending,
   count,
   lastUpdatedAt,
+  aiCoachingExpired,
 }: {
   checking: boolean;
   pending: boolean;
   count: number;
   lastUpdatedAt: number | null;
+  aiCoachingExpired?: boolean;
 }) {
   if (checking) {
     return (
       <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-        <Loader2 className="size-3.5 shrink-0 animate-spin" /> Checking and verifying…
+        <Loader2 className="size-3.5 shrink-0 animate-spin" />
+        {aiCoachingExpired ? "Checking mechanics & terminology…" : "Checking and verifying…"}
       </p>
     );
   }
@@ -817,7 +925,11 @@ function StatusLine({
     <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
       <Sparkles className="size-3.5 shrink-0" />
       {count > 0 ? `${count} suggestion${count === 1 ? "" : "s"}` : "No issues found"}
-      {lastUpdatedAt ? <span className="text-[10px] opacity-70">· Live</span> : null}
+      {aiCoachingExpired ? (
+        <span className="text-[10px] text-amber-600 dark:text-amber-400 font-medium">· Mechanics mode</span>
+      ) : lastUpdatedAt ? (
+        <span className="text-[10px] opacity-70">· Live</span>
+      ) : null}
     </p>
   );
 }

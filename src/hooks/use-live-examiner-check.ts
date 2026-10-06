@@ -8,7 +8,7 @@ import {
   type LiveExaminerAoClassification,
   type PredictedMark,
 } from "@/lib/live-examiner.functions";
-import { isDailyLimitError } from "@/lib/usage-limits";
+import { isDailyLimitError, DEFAULT_LIVE_EXAMINER_DURATION_MINUTES } from "@/lib/usage-limits";
 import { deterministicTerminologyIssues } from "@/lib/live-examiner/economics-glossary";
 import { analyzeGrammarAndMechanics } from "@/lib/live-examiner/grammar-engine";
 import { splitSentences } from "@/lib/writing-check/sentence-diff";
@@ -97,9 +97,68 @@ export function useLiveExaminerCheck(params: {
   contextBlock: string;
   /** Off while there's no question set yet, or the panel is collapsed. */
   enabled: boolean;
+  /** Duration limit in minutes for deep AI feedback (defaults to 45 min). Instant grammar & mechanics remain unlimited. */
+  sessionDurationMinutes?: number;
+  /** Timestamp when session started (from database session created_at). */
+  sessionStartedAt?: number | null;
 }) {
-  const { text, question, level, maxMark, contextBlock, enabled } = params;
+  const {
+    text,
+    question,
+    level,
+    maxMark,
+    contextBlock,
+    enabled,
+    sessionDurationMinutes,
+    sessionStartedAt,
+  } = params;
   const check = useServerFn(checkEssayWriting);
+
+  const durationMinutes = sessionDurationMinutes ?? DEFAULT_LIVE_EXAMINER_DURATION_MINUTES;
+  const durationSeconds = durationMinutes * 60;
+
+  const [sessionStartTime, setSessionStartTime] = useState<number>(() => {
+    if (sessionStartedAt && sessionStartedAt > 0) return sessionStartedAt;
+    if (typeof window !== "undefined" && question) {
+      const key = `marginal_session_start_${encodeURIComponent(question.toLowerCase().trim())}`;
+      const stored = localStorage.getItem(key);
+      if (stored) {
+        const parsed = Number(stored);
+        if (Number.isFinite(parsed) && parsed > 0) return parsed;
+      }
+      const now = Date.now();
+      localStorage.setItem(key, String(now));
+      return now;
+    }
+    return Date.now();
+  });
+
+  useEffect(() => {
+    if (sessionStartedAt && sessionStartedAt > 0) {
+      setSessionStartTime(sessionStartedAt);
+    }
+  }, [sessionStartedAt]);
+
+  const [remainingSeconds, setRemainingSeconds] = useState<number>(() => {
+    const elapsed = Math.max(0, Math.floor((Date.now() - sessionStartTime) / 1000));
+    return Math.max(0, durationSeconds - elapsed);
+  });
+
+  useEffect(() => {
+    if (!enabled || !question) return;
+    const updateRemaining = () => {
+      const elapsed = Math.max(0, Math.floor((Date.now() - sessionStartTime) / 1000));
+      setRemainingSeconds(Math.max(0, durationSeconds - elapsed));
+    };
+    updateRemaining();
+    const interval = setInterval(updateRemaining, 1000);
+    return () => clearInterval(interval);
+  }, [enabled, question, sessionStartTime, durationSeconds]);
+
+  const aiCoachingExpired = remainingSeconds <= 0;
+  const mins = Math.floor(remainingSeconds / 60);
+  const secs = remainingSeconds % 60;
+  const formattedTimeRemaining = `${mins}:${secs < 10 ? "0" : ""}${secs}`;
 
   const [issues, setIssues] = useState<ActiveIssue[]>([]);
   const [classifications, setClassifications] = useState<ActiveAoClassification[]>([]);
@@ -222,6 +281,17 @@ export function useLiveExaminerCheck(params: {
         lastEstimatedMarkAtRef.current = Date.now();
       }
 
+      if (aiCoachingExpired) {
+        // AI coaching time limit reached for this session.
+        // Instant in-browser deterministic checks continue (< 50ms, 0 tokens),
+        // but remote AI calls are halted to protect unit economics.
+        lastCheckedTextRef.current = currentText;
+        setChecking(false);
+        setDirty(false);
+        setLastUpdatedAt(Date.now());
+        return;
+      }
+
       setChecking(true);
       setError(null);
       check({
@@ -234,6 +304,7 @@ export function useLiveExaminerCheck(params: {
           maxMark,
           contextBlock,
           includePredictedMark: shouldIncludeEstimate,
+          aiCoachingExpired,
         },
       })
         .then((result) => {
@@ -316,7 +387,7 @@ export function useLiveExaminerCheck(params: {
           }
         });
     },
-    [check, question, level, maxMark, contextBlock, recordHistory, predictedMark],
+    [check, question, level, maxMark, contextBlock, recordHistory, predictedMark, aiCoachingExpired],
   );
 
   useEffect(() => {
@@ -407,6 +478,7 @@ export function useLiveExaminerCheck(params: {
   /** Request active Socratic examiner challenges based on the student's draft. */
   const requestChallenges = useCallback(
     async (currentText?: string) => {
+      if (aiCoachingExpired) return;
       const textToCheck = (currentText ?? text).trim();
       if (textToCheck.length < 25) return;
       setFetchingChallenges(true);
@@ -428,7 +500,7 @@ export function useLiveExaminerCheck(params: {
         setFetchingChallenges(false);
       }
     },
-    [text, question, level, maxMark, contextBlock, fetchChallengesFn],
+    [text, question, level, maxMark, contextBlock, fetchChallengesFn, aiCoachingExpired],
   );
 
   const dismissChallenge = useCallback((id: string) => {
@@ -458,5 +530,10 @@ export function useLiveExaminerCheck(params: {
     dismissIssue,
     rescan,
     clearAll,
+    // Session duration & AI limit status
+    durationMinutes,
+    remainingSeconds,
+    aiCoachingExpired,
+    formattedTimeRemaining,
   };
 }
