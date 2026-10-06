@@ -101,14 +101,17 @@ function EssayPage() {
     onError: (error: Error) => toast.error(error.message),
   });
 
-  const wordCount = active?.essay_text ? active.essay_text.trim().split(/\s+/).filter(Boolean).length : 0;
+  const wordCount = active?.essay_text
+    ? active.essay_text.trim().split(/\s+/).filter(Boolean).length
+    : 0;
   const rewriteWordCount = rewrite.trim() ? rewrite.trim().split(/\s+/).filter(Boolean).length : 0;
 
   // Previous attempt delta
   const previousAttempt = activeIndex > 0 ? versions[activeIndex - 1] : null;
-  const markDelta = previousAttempt && active?.total_mark != null && previousAttempt.total_mark != null
-    ? active.total_mark - previousAttempt.total_mark
-    : null;
+  const markDelta =
+    previousAttempt && active?.total_mark != null && previousAttempt.total_mark != null
+      ? active.total_mark - previousAttempt.total_mark
+      : null;
 
   if (thread.isLoading) {
     return (
@@ -148,7 +151,9 @@ function EssayPage() {
               onClick={() => setRewriting((value) => !value)}
               className="gap-1.5"
             >
-              <RefreshCw className={cn("size-3.5", rewriting && "rotate-180 transition-transform")} />
+              <RefreshCw
+                className={cn("size-3.5", rewriting && "rotate-180 transition-transform")}
+              />
               {rewriting ? "Close Rewrite" : "Rewrite & Improve"}
             </Button>
           </div>
@@ -160,7 +165,10 @@ function EssayPage() {
         <div className="flex items-center gap-2.5 rounded-xl border border-primary/20 bg-primary/[0.04] px-4 py-2.5 text-xs text-muted-foreground">
           <ShieldCheck className="size-4 shrink-0 text-primary" />
           <p className="leading-relaxed">
-            <strong className="text-foreground font-semibold">Cambridge 9708 Standard:</strong> Marking bands, AO ratios, and model feedback are calibrated against published Cambridge Assessment guidelines. Marginal is an independent study platform and not endorsed by Cambridge Assessment.
+            <strong className="text-foreground font-semibold">Cambridge 9708 Standard:</strong>{" "}
+            Marking bands, AO ratios, and model feedback are calibrated against published Cambridge
+            Assessment guidelines. Marginal is an independent study platform and not endorsed by
+            Cambridge Assessment.
           </p>
         </div>
 
@@ -181,7 +189,9 @@ function EssayPage() {
                 onClick={() => setViewMode("split")}
                 className={cn(
                   "flex items-center gap-1.5 rounded-md px-2.5 py-1 font-medium transition-colors",
-                  viewMode === "split" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
+                  viewMode === "split"
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground",
                 )}
               >
                 <Columns2 className="size-3.5" /> Side-by-Side
@@ -191,7 +201,9 @@ function EssayPage() {
                 onClick={() => setViewMode("report")}
                 className={cn(
                   "flex items-center gap-1.5 rounded-md px-2.5 py-1 font-medium transition-colors",
-                  viewMode === "report" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
+                  viewMode === "report"
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground",
                 )}
               >
                 <Sparkles className="size-3.5" /> Report Only
@@ -201,7 +213,9 @@ function EssayPage() {
                 onClick={() => setViewMode("script")}
                 className={cn(
                   "flex items-center gap-1.5 rounded-md px-2.5 py-1 font-medium transition-colors",
-                  viewMode === "script" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
+                  viewMode === "script"
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground",
                 )}
               >
                 <FileText className="size-3.5" /> Script Only
@@ -251,11 +265,14 @@ function EssayPage() {
               <span
                 className={cn(
                   "ml-auto text-xs font-semibold flex items-center gap-1",
-                  markDelta > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400",
+                  markDelta > 0
+                    ? "text-emerald-600 dark:text-emerald-400"
+                    : "text-amber-600 dark:text-amber-400",
                 )}
               >
                 <TrendingUp className="size-3.5" />
-                {markDelta > 0 ? `+${markDelta}` : markDelta} marks vs Attempt {previousAttempt?.version}
+                {markDelta > 0 ? `+${markDelta}` : markDelta} marks vs Attempt{" "}
+                {previousAttempt?.version}
               </span>
             ) : null}
           </div>
@@ -267,10 +284,12 @@ function EssayPage() {
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-b border-border/80 pb-3">
               <div>
                 <h2 className="text-base font-semibold flex items-center gap-2">
-                  <RefreshCw className="size-4 text-primary" /> Rewrite and Re-Mark Attempt #{versions.length + 1}
+                  <RefreshCw className="size-4 text-primary" /> Rewrite and Re-Mark Attempt #
+                  {versions.length + 1}
                 </h2>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Apply the examiner feedback, strengthen your analytical chains, and resubmit. Saved as a new attempt.
+                  Apply the examiner feedback, strengthen your analytical chains, and resubmit.
+                  Saved as a new attempt.
                 </p>
               </div>
               <Badge variant="outline" className="text-xs font-mono self-start sm:self-auto">
@@ -332,7 +351,9 @@ function EssayPage() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <FileText className="size-4 text-muted-foreground" />
-                    <h3 className="text-sm font-semibold">Student Script (Attempt {active.version})</h3>
+                    <h3 className="text-sm font-semibold">
+                      Student Script (Attempt {active.version})
+                    </h3>
                   </div>
                   <Badge variant="outline" className="text-xs">
                     {wordCount} words
@@ -355,7 +376,9 @@ function EssayPage() {
           ) : (
             <div className="space-y-4 max-w-3xl mx-auto">
               <div className="flex items-center justify-between">
-                <h3 className="text-base font-semibold">Student Script (Attempt {active.version})</h3>
+                <h3 className="text-base font-semibold">
+                  Student Script (Attempt {active.version})
+                </h3>
                 <Badge variant="outline" className="text-xs">
                   {wordCount} words
                 </Badge>

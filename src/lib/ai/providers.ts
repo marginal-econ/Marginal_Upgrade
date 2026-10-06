@@ -9,7 +9,12 @@ export const AI_PROVIDERS = [
     label: "Lovable AI (built in)",
     baseUrl: "https://ai.gateway.lovable.dev/v1",
     keyHint: "Managed automatically — no key needed",
-    models: ["google/gemini-2.5-pro", "google/gemini-3.6-flash", "openai/gpt-5.6-sol", "openai/gpt-5.6-terra"],
+    models: [
+      "google/gemini-2.5-pro",
+      "google/gemini-3.6-flash",
+      "openai/gpt-5.6-sol",
+      "openai/gpt-5.6-terra",
+    ],
     embeddingCapable: false,
     visionCapable: true,
     visionModels: ["google/gemini-2.5-pro", "google/gemini-3.6-flash", "openai/gpt-5.6-sol"],

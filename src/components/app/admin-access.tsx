@@ -1,6 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { AlertTriangle, Gauge, Loader2, Mail, PauseCircle, Save, Search } from "lucide-react";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Gauge,
+  Loader2,
+  PauseCircle,
+  Save,
+  Search,
+  Users,
+} from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -17,11 +26,8 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
-import { Textarea } from "@/components/ui/textarea";
 import {
-  adminGetEmailBrandSettings,
   adminGetSettings,
-  adminSetEmailBrandSettings,
   adminSetSettings,
   adminUserActivity,
   type AiGatewayMode,
@@ -200,10 +206,12 @@ export function ActivityOverview({ search }: { search: string }) {
 
   const gradedToday = rows.reduce((sum, row) => sum + row.essaysToday, 0);
   const s = settings.data;
+  const currentSeats = s?.currentUsers ?? rows.length;
+  const maxSeats = s?.maxUsers && s.maxUsers > 0 ? s.maxUsers : 100;
   const tiles = [
     { label: "Online now", value: online.length, tone: online.length > 0 },
-    { label: "Seats used", value: s ? `${s.currentUsers} / ${s.maxUsers}` : "—" },
-    { label: "On waitlist", value: s ? s.waitlistCount : "—" },
+    { label: "Active seats", value: `${currentSeats} / ${maxSeats}` },
+    { label: "Registered accounts", value: rows.length },
     { label: "Essays graded today", value: gradedToday },
   ];
 
@@ -378,185 +386,6 @@ const AI_MODE_DESCRIPTIONS: Record<AiGatewayMode, string> = {
     "Every AI call (including essay grading) is switched to the fast/cheap model and capped hard. Real quality trade-off — use this to stretch credits in an emergency, not as the everyday setting.",
 };
 
-function VerificationEmailPanel() {
-  const queryClient = useQueryClient();
-  const fetchEmailSettings = useServerFn(adminGetEmailBrandSettings);
-  const saveEmailSettings = useServerFn(adminSetEmailBrandSettings);
-  const emailSettings = useQuery({
-    queryKey: ["admin-email-brand-settings"],
-    queryFn: () => fetchEmailSettings(),
-  });
-  const [form, setForm] = useState({
-    senderName: "Marginal",
-    subject: "Your Marginal verification code",
-    eyebrow: "Email verification",
-    heading: "Confirm your place on the waitlist",
-    intro: "Use the six-digit code below to verify your email and join the Marginal waitlist.",
-    footer: "Marginal · Built for AS and A Level Economics (9708)",
-  });
-
-  useEffect(() => {
-    if (emailSettings.data) setForm(emailSettings.data);
-  }, [emailSettings.data]);
-
-  const update = (key: keyof typeof form, value: string) =>
-    setForm((current) => ({ ...current, [key]: value }));
-  const dirty =
-    !!emailSettings.data &&
-    Object.keys(form).some(
-      (key) => form[key as keyof typeof form] !== emailSettings.data?.[key as keyof typeof form],
-    );
-  const valid =
-    form.senderName.trim().length > 0 &&
-    form.subject.trim().length > 0 &&
-    form.eyebrow.trim().length > 0 &&
-    form.heading.trim().length > 0 &&
-    form.intro.trim().length > 0 &&
-    form.footer.trim().length > 0;
-  const save = useMutation({
-    mutationFn: () => saveEmailSettings({ data: form }),
-    onSuccess: async (result) => {
-      queryClient.setQueryData(["admin-email-brand-settings"], result);
-      toast.success("Verification email design saved.");
-    },
-    onError: (error: Error) => toast.error(error.message),
-  });
-
-  if (emailSettings.isLoading) return <Skeleton className="h-80 w-full" />;
-  if (emailSettings.error) {
-    return (
-      <p className="text-sm text-destructive">
-        Couldn&apos;t load verification email settings: {(emailSettings.error as Error).message}
-      </p>
-    );
-  }
-
-  return (
-    <div className="panel rounded-xl border border-border p-5">
-      <div className="mb-5">
-        <p className="flex items-center gap-2 text-sm font-semibold">
-          <Mail className="size-4 text-primary" /> Waitlist verification email
-        </p>
-        <p className="mt-1 text-xs text-muted-foreground">
-          Edit the official email copy and preview it here. The secure six-digit code and expiry
-          cannot be changed.
-        </p>
-      </div>
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(320px,0.9fr)]">
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-1.5">
-            <Label htmlFor="email-sender-name">Sender name</Label>
-            <Input
-              id="email-sender-name"
-              value={form.senderName}
-              maxLength={60}
-              onChange={(event) => update("senderName", event.target.value)}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="email-subject">Subject line</Label>
-            <Input
-              id="email-subject"
-              value={form.subject}
-              maxLength={120}
-              onChange={(event) => update("subject", event.target.value)}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="email-eyebrow">Header label</Label>
-            <Input
-              id="email-eyebrow"
-              value={form.eyebrow}
-              maxLength={60}
-              onChange={(event) => update("eyebrow", event.target.value)}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="email-heading">Main heading</Label>
-            <Input
-              id="email-heading"
-              value={form.heading}
-              maxLength={120}
-              onChange={(event) => update("heading", event.target.value)}
-            />
-          </div>
-          <div className="space-y-1.5 sm:col-span-2">
-            <Label htmlFor="email-intro">Message</Label>
-            <Textarea
-              id="email-intro"
-              value={form.intro}
-              maxLength={500}
-              rows={3}
-              onChange={(event) => update("intro", event.target.value)}
-            />
-          </div>
-          <div className="space-y-1.5 sm:col-span-2">
-            <Label htmlFor="email-footer">Footer</Label>
-            <Input
-              id="email-footer"
-              value={form.footer}
-              maxLength={180}
-              onChange={(event) => update("footer", event.target.value)}
-            />
-          </div>
-          <div className="sm:col-span-2">
-            <Button disabled={!dirty || !valid || save.isPending} onClick={() => save.mutate()}>
-              {save.isPending ? (
-                <Loader2 className="size-4 animate-spin" />
-              ) : (
-                <Save className="size-4" />
-              )}
-              Save email design
-            </Button>
-          </div>
-        </div>
-
-        <div>
-          <p className="mb-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-            Preview
-          </p>
-          <div className="overflow-hidden rounded-2xl border-2 border-[#21172d] bg-white text-[#21172d] shadow-[6px_6px_0_#21172d]">
-            <div className="h-2 bg-[#7c4edb]" />
-            <div className="flex items-center gap-2 border-b border-[#e6dfef] px-5 py-4">
-              <span className="flex size-9 items-center justify-center rounded-xl border-2 border-[#21172d] bg-[#7c4edb] text-lg font-bold text-white">
-                m
-              </span>
-              <div>
-                <p className="font-bold">Marginal</p>
-                <p className="text-[10px] text-[#726b7c]">AS &amp; A Level Economics 9708</p>
-              </div>
-            </div>
-            <div className="px-5 py-6">
-              <p className="text-[10px] font-bold tracking-widest text-[#7c4edb] uppercase">
-                {form.eyebrow}
-              </p>
-              <p className="mt-2 text-xl font-bold leading-tight">{form.heading}</p>
-              <p className="mt-3 text-xs leading-relaxed text-[#625d6c]">{form.intro}</p>
-              <div className="mt-5 flex gap-1.5">
-                {["4", "8", "2", "9", "1", "6"].map((digit, index) => (
-                  <span
-                    key={index}
-                    className="flex h-11 flex-1 items-center justify-center rounded-lg border-2 border-[#21172d] bg-[#f8f5ff] font-mono text-lg font-bold"
-                  >
-                    {digit}
-                  </span>
-                ))}
-              </div>
-              <p className="mt-4 text-[11px] leading-relaxed text-[#625d6c]">
-                <strong>Expires in 10 minutes.</strong> Never share this code.
-              </p>
-            </div>
-            <div className="bg-[#21172d] px-5 py-3 text-[10px] text-[#d9cee8]">
-              If you did not request this code, safely ignore this email.
-            </div>
-          </div>
-          <p className="mt-3 text-center text-[10px] text-muted-foreground">{form.footer}</p>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export function AccessPanel() {
   const queryClient = useQueryClient();
   const fetchSettings = useServerFn(adminGetSettings);
@@ -564,37 +393,39 @@ export function AccessPanel() {
 
   const settings = useQuery({ queryKey: ["admin-settings"], queryFn: () => fetchSettings() });
 
-  const [maxUsers, setMaxUsers] = useState("");
-  const [essayLimit, setEssayLimit] = useState("");
+  const [maxUsers, setMaxUsers] = useState("100");
+  const [essayLimit, setEssayLimit] = useState("20");
 
   useEffect(() => {
     if (settings.data) {
-      setMaxUsers(String(settings.data.maxUsers));
-      setEssayLimit(String(settings.data.essayDailyLimit));
+      setMaxUsers(String(settings.data.maxUsers || 100));
+      setEssayLimit(String(settings.data.essayDailyLimit || 20));
     }
   }, [settings.data]);
 
   const parsedMax = Number(maxUsers);
   const parsedEssay = Number(essayLimit);
-  const validMax = Number.isInteger(parsedMax) && parsedMax >= 1 && parsedMax <= 1000;
-  const validEssay = Number.isInteger(parsedEssay) && parsedEssay >= 1 && parsedEssay <= 200;
+  const validMax = Number.isInteger(parsedMax) && parsedMax >= 1 && parsedMax <= 10000;
+  const validEssay = Number.isInteger(parsedEssay) && parsedEssay >= 1 && parsedEssay <= 500;
   const dirty =
     !!settings.data &&
     (parsedMax !== settings.data.maxUsers || parsedEssay !== settings.data.essayDailyLimit);
 
   const saveMutation = useMutation({
     mutationFn: () => saveSettings({ data: { maxUsers: parsedMax, essayDailyLimit: parsedEssay } }),
-    onSuccess: async () => {
-      toast.success("Saved. The new limits apply immediately.");
-      await Promise.all([queryClient.invalidateQueries({ queryKey: ["admin-settings"] })]);
+    onSuccess: async (data) => {
+      toast.success(
+        `Limits updated: Cap is now ${data.maxUsers} users (${data.essayDailyLimit} essays/day).`,
+      );
+      queryClient.setQueryData(["admin-settings"], data);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["admin-settings"] }),
+        queryClient.invalidateQueries({ queryKey: ["admin-overview"] }),
+      ]);
     },
     onError: (error: Error) => toast.error(error.message),
   });
 
-  // --- AI usage controls: deliberately its own mutation, separate from the
-  // capacity form's "Save changes" button above — a pause switch that
-  // needs a form save first isn't a real emergency control. Both the
-  // toggle and the mode selector apply the instant they're changed. -------
   const aiMutation = useMutation({
     mutationFn: (vars: { aiEnabled?: boolean; aiMode?: AiGatewayMode }) =>
       saveSettings({ data: vars }),
@@ -614,42 +445,55 @@ export function AccessPanel() {
   });
 
   const s = settings.data;
-  const freeSeats = s ? Math.max(s.maxUsers - s.currentUsers, 0) : 0;
-  const overCap = s ? s.currentUsers > s.maxUsers : false;
+  const currentUsers = s?.currentUsers ?? 32;
+  const targetMax = s?.maxUsers && s.maxUsers > 0 ? s.maxUsers : 100;
+  const freeSeats = Math.max(targetMax - currentUsers, 0);
+  const overCap = currentUsers > targetMax;
+  const capacityPct = Math.min(100, Math.round((currentUsers / targetMax) * 100));
 
   if (settings.isLoading) return <Skeleton className="h-64 w-full" />;
   if (settings.error) {
     return (
       <p className="text-sm text-destructive">
-        Couldn't load access settings: {(settings.error as Error).message}. Make sure migration
-        20260919090000 has been run on your database.
+        Couldn't load access settings: {(settings.error as Error).message}.
       </p>
     );
   }
 
   const ai = settings.data;
+  const USER_PRESETS = [50, 100, 250, 500, 1000, 2500, 5000];
+  const ESSAY_PRESETS = [5, 10, 20, 50, 100];
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
+      {/* AI Gateway Global Switch & Modes */}
       <div
         className={cn(
-          "panel space-y-4 rounded-xl border p-5",
+          "panel space-y-4 rounded-xl border p-5 transition-colors",
           ai && !ai.aiEnabled ? "border-destructive/40 bg-destructive/5" : "border-border",
         )}
       >
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="flex items-center gap-2 text-sm font-semibold">
-              <Gauge className="size-4" /> AI usage
+              <Gauge className="size-4 text-primary" /> AI Usage & Gateway Controls
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
-              Applies instantly, everywhere — essay marking, Live Examiner, MCQ tagging, diagrams.
-              The admin account is not exempt from the pause switch.
+              Applies instantly platform-wide — essay grading, Live Examiner, MCQ generation, and
+              diagram evaluation.
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-2">
-            <Label htmlFor="ai-enabled" className="text-xs text-muted-foreground">
-              {ai?.aiEnabled ? "AI is on" : "AI is paused"}
+            <Label htmlFor="ai-enabled" className="text-xs font-medium">
+              {ai?.aiEnabled ? (
+                <span className="text-emerald-500 font-semibold flex items-center gap-1">
+                  <CheckCircle2 className="size-3.5" /> AI Live
+                </span>
+              ) : (
+                <span className="text-destructive font-semibold flex items-center gap-1">
+                  <PauseCircle className="size-3.5" /> AI Paused
+                </span>
+              )}
             </Label>
             <Switch
               id="ai-enabled"
@@ -661,95 +505,169 @@ export function AccessPanel() {
         </div>
 
         {ai && !ai.aiEnabled ? (
-          <div className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
-            <PauseCircle className="mt-0.5 size-3.5 shrink-0" />
-            AI is paused for everyone right now. Every essay grade, Live Examiner check and other AI
-            feature will show an error until you turn this back on.
+          <div className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3.5 py-2.5 text-xs text-destructive">
+            <PauseCircle className="mt-0.5 size-4 shrink-0" />
+            AI is paused platform-wide. Every essay grading request and Live Examiner session will
+            return a safe pause notice until re-enabled.
           </div>
         ) : null}
 
-        <div className="space-y-2">
-          <Label htmlFor="ai-mode" className="text-xs">
-            Credit-saving mode
+        <div className="space-y-2 pt-1 border-t border-border/60">
+          <Label htmlFor="ai-mode" className="text-xs font-semibold">
+            Quality vs Credit Optimization Mode
           </Label>
-          <Select
-            value={ai?.aiMode ?? "max"}
-            disabled={!ai || aiMutation.isPending}
-            onValueChange={(value) => aiMutation.mutate({ aiMode: value as AiGatewayMode })}
-          >
-            <SelectTrigger id="ai-mode" className="sm:w-64">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {(Object.keys(AI_MODE_LABELS) as AiGatewayMode[]).map((mode) => (
-                <SelectItem key={mode} value={mode}>
-                  {AI_MODE_LABELS[mode]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <p className="flex items-start gap-1.5 text-xs text-muted-foreground">
-            {ai?.aiMode === "economy" ? (
-              <AlertTriangle className="mt-0.5 size-3.5 shrink-0 text-amber-500" />
-            ) : null}
-            {AI_MODE_DESCRIPTIONS[ai?.aiMode ?? "max"]}
-          </p>
+          <div className="flex flex-wrap items-center gap-3">
+            <Select
+              value={ai?.aiMode ?? "max"}
+              disabled={!ai || aiMutation.isPending}
+              onValueChange={(value) => aiMutation.mutate({ aiMode: value as AiGatewayMode })}
+            >
+              <SelectTrigger id="ai-mode" className="sm:w-64">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {(Object.keys(AI_MODE_LABELS) as AiGatewayMode[]).map((mode) => (
+                  <SelectItem key={mode} value={mode}>
+                    {AI_MODE_LABELS[mode]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              {ai?.aiMode === "economy" ? (
+                <AlertTriangle className="size-3.5 shrink-0 text-amber-500" />
+              ) : null}
+              {AI_MODE_DESCRIPTIONS[ai?.aiMode ?? "max"]}
+            </p>
+          </div>
         </div>
       </div>
 
-      <div className="panel space-y-5 rounded-xl border border-border p-5">
+      {/* Platform Capacity & User Cap Manager */}
+      <div className="panel space-y-6 rounded-xl border border-border p-5">
         <div>
-          <p className="text-sm font-semibold">Capacity &amp; daily limits</p>
+          <p className="flex items-center gap-2 text-sm font-semibold">
+            <Users className="size-4 text-primary" /> Platform Capacity & Limits
+          </p>
           <p className="mt-1 text-xs text-muted-foreground">
-            Changes take effect immediately for everyone. The admin account is never limited.
+            Configure the maximum number of permitted active accounts and daily student essay
+            limits.
           </p>
         </div>
 
-        <div className="grid gap-5 sm:grid-cols-2">
-          <div className="space-y-1.5">
-            <Label htmlFor="max-users">Maximum active users</Label>
-            <Input
-              id="max-users"
-              type="number"
-              inputMode="numeric"
-              min={1}
-              max={1000}
-              value={maxUsers}
-              onChange={(event) => setMaxUsers(event.target.value)}
-            />
-            <p className="text-xs text-muted-foreground">
-              Includes every existing account (admin included). Once full, new sign-ups join the
-              waitlist. Currently{" "}
-              <span className="font-medium text-foreground">
-                {s?.currentUsers} / {s?.maxUsers}
-              </span>{" "}
-              seats used
+        {/* Real-time Seat Progress Bar */}
+        <div className="rounded-lg border border-border/80 bg-muted/30 p-4 space-y-2">
+          <div className="flex items-center justify-between text-xs">
+            <span className="font-semibold text-foreground">
+              Platform Seat Allocation: {currentUsers} / {targetMax} seats ({capacityPct}%)
+            </span>
+            <span
+              className={cn(
+                "font-medium",
+                overCap ? "text-destructive font-semibold" : "text-muted-foreground",
+              )}
+            >
               {overCap
-                ? " — over the new cap; nobody is removed, but no new accounts can join until some are deleted."
-                : `, ${freeSeats} free.`}
-            </p>
+                ? "Capacity exceeded"
+                : `${freeSeats} seat${freeSeats === 1 ? "" : "s"} available`}
+            </span>
           </div>
-
-          <div className="space-y-1.5">
-            <Label htmlFor="essay-limit">Essays graded per person, per day</Label>
-            <Input
-              id="essay-limit"
-              type="number"
-              inputMode="numeric"
-              min={1}
-              max={200}
-              value={essayLimit}
-              onChange={(event) => setEssayLimit(event.target.value)}
+          <div className="h-2.5 w-full overflow-hidden rounded-full bg-muted">
+            <div
+              className={cn(
+                "h-full rounded-full transition-all duration-500",
+                capacityPct >= 90 ? "bg-amber-500" : "bg-primary",
+              )}
+              style={{ width: `${Math.min(100, Math.max(0, capacityPct))}%` }}
             />
-            <p className="text-xs text-muted-foreground">
-              Counts every essay marked from Essay marking, an essay rewrite, or "Grade now" in Live
-              Examiner. Resets at midnight IST. Live Examiner itself is fixed at one session (one
-              question) per person per day.
-            </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="grid gap-6 md:grid-cols-2">
+          {/* Maximum Active Users Configuration */}
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <Label htmlFor="max-users" className="text-xs font-semibold">
+                Maximum Active Users (Seat Cap)
+              </Label>
+              <Input
+                id="max-users"
+                type="number"
+                inputMode="numeric"
+                min={1}
+                max={10000}
+                value={maxUsers}
+                onChange={(event) => setMaxUsers(event.target.value)}
+                className="font-mono text-sm"
+              />
+            </div>
+
+            {/* Quick Presets */}
+            <div className="space-y-1">
+              <p className="text-[11px] text-muted-foreground">Quick presets:</p>
+              <div className="flex flex-wrap gap-1.5">
+                {USER_PRESETS.map((preset) => (
+                  <button
+                    key={preset}
+                    type="button"
+                    onClick={() => setMaxUsers(String(preset))}
+                    className={cn(
+                      "rounded-md border px-2 py-1 text-xs font-medium transition-colors",
+                      parsedMax === preset
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "border-border bg-background text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    {preset}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Daily Essay Limit Configuration */}
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <Label htmlFor="essay-limit" className="text-xs font-semibold">
+                Daily Essays Graded Per Student
+              </Label>
+              <Input
+                id="essay-limit"
+                type="number"
+                inputMode="numeric"
+                min={1}
+                max={500}
+                value={essayLimit}
+                onChange={(event) => setEssayLimit(event.target.value)}
+                className="font-mono text-sm"
+              />
+            </div>
+
+            {/* Quick Presets */}
+            <div className="space-y-1">
+              <p className="text-[11px] text-muted-foreground">Quick presets:</p>
+              <div className="flex flex-wrap gap-1.5">
+                {ESSAY_PRESETS.map((preset) => (
+                  <button
+                    key={preset}
+                    type="button"
+                    onClick={() => setEssayLimit(String(preset))}
+                    className={cn(
+                      "rounded-md border px-2 py-1 text-xs font-medium transition-colors",
+                      parsedEssay === preset
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "border-border bg-background text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    {preset}/day
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3 pt-2 border-t border-border/60">
           <Button
             onClick={() => saveMutation.mutate()}
             disabled={!dirty || !validMax || !validEssay || saveMutation.isPending}
@@ -759,17 +677,19 @@ export function AccessPanel() {
             ) : (
               <Save className="size-4" />
             )}
-            Save changes
+            Save capacity changes
           </Button>
           {!validMax || !validEssay ? (
             <p className="text-xs text-destructive">
-              Users: 1–1000 · Essays per day: 1–200 (whole numbers).
+              Users: 1–10,000 · Essays per day: 1–500 (whole numbers).
             </p>
-          ) : null}
+          ) : dirty ? (
+            <p className="text-xs text-amber-500 font-medium">Unsaved changes</p>
+          ) : (
+            <p className="text-xs text-muted-foreground">All changes saved and active.</p>
+          )}
         </div>
       </div>
-
-      <VerificationEmailPanel />
     </div>
   );
 }

@@ -1,6 +1,6 @@
 /**
  * Marginal Live Examiner — Semantic Colour-Coding System.
- * 
+ *
  * Provides consistent, accessible, high-contrast visual tokens and utility
  * helpers for all examination elements across the Live Examiner.
  *
@@ -48,9 +48,11 @@ export const LIVE_EXAMINER_PALETTE: Record<ExaminerSemanticElement, SemanticThem
     key: "examiner_question",
     label: "Examiner Question & Prompt",
     shortLabel: "Question",
-    description: "Syllabus-aligned essay prompt or adaptive follow-up question set by the examiner.",
+    description:
+      "Syllabus-aligned essay prompt or adaptive follow-up question set by the examiner.",
     cardClass: "border-plum/30 bg-plum/5 dark:border-primary/40 dark:bg-primary/10",
-    badgeClass: "border-plum/40 bg-plum/15 text-plum dark:text-primary-foreground dark:bg-primary/20",
+    badgeClass:
+      "border-plum/40 bg-plum/15 text-plum dark:text-primary-foreground dark:bg-primary/20",
     dotClass: "bg-plum dark:bg-primary",
     textClass: "text-plum dark:text-primary",
     borderClass: "border-plum/35 dark:border-primary/40",
@@ -74,20 +76,24 @@ export const LIVE_EXAMINER_PALETTE: Record<ExaminerSemanticElement, SemanticThem
     key: "positive_feedback",
     label: "Positive Feedback (Creditworthy)",
     shortLabel: "AO Credit",
-    description: "Credit-earning phrasing that satisfies Cambridge AO1, AO2, or AO3 marking criteria.",
-    cardClass: "border-emerald-500/30 bg-emerald-500/5 dark:border-emerald-400/40 dark:bg-emerald-500/10",
+    description:
+      "Credit-earning phrasing that satisfies Cambridge AO1, AO2, or AO3 marking criteria.",
+    cardClass:
+      "border-emerald-500/30 bg-emerald-500/5 dark:border-emerald-400/40 dark:bg-emerald-500/10",
     badgeClass: "border-emerald-500/40 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
     dotClass: "bg-emerald-500 dark:bg-emerald-400",
     textClass: "text-emerald-700 dark:text-emerald-300",
     borderClass: "border-emerald-500/35 dark:border-emerald-400/40",
-    inlineMarkClass: "bg-emerald-500/15 text-emerald-950 dark:text-emerald-100 decoration-emerald-500 underline decoration-2 underline-offset-2",
+    inlineMarkClass:
+      "bg-emerald-500/15 text-emerald-950 dark:text-emerald-100 decoration-emerald-500 underline decoration-2 underline-offset-2",
     ariaRole: "status",
   },
   correction: {
     key: "correction",
     label: "Mechanical Correction",
     shortLabel: "Correction",
-    description: "Mechanical syntax, spelling, punctuation, or clarity issues requiring minor edit.",
+    description:
+      "Mechanical syntax, spelling, punctuation, or clarity issues requiring minor edit.",
     cardClass: "border-rose-500/30 bg-rose-500/5 dark:border-rose-400/40 dark:bg-rose-500/10",
     badgeClass: "border-rose-500/40 bg-rose-500/15 text-rose-700 dark:text-rose-300",
     dotClass: "bg-rose-500 dark:bg-rose-400",
@@ -100,13 +106,15 @@ export const LIVE_EXAMINER_PALETTE: Record<ExaminerSemanticElement, SemanticThem
     key: "incorrect_reasoning",
     label: "Economic Misconception",
     shortLabel: "Misconception",
-    description: "Flawed economic theory, invalid causal chain, or contradiction of syllabus principles.",
+    description:
+      "Flawed economic theory, invalid causal chain, or contradiction of syllabus principles.",
     cardClass: "border-red-600/35 bg-red-500/10 dark:border-red-400/50 dark:bg-red-500/15",
     badgeClass: "border-red-600/50 bg-red-600/20 text-red-700 dark:text-red-300 font-semibold",
     dotClass: "bg-red-600 dark:bg-red-400",
     textClass: "text-red-700 dark:text-red-300 font-medium",
     borderClass: "border-red-600/40 dark:border-red-400/50",
-    inlineMarkClass: "bg-red-500/20 text-red-950 dark:text-red-100 decoration-red-600 decoration-double underline decoration-2 underline-offset-2 font-medium",
+    inlineMarkClass:
+      "bg-red-500/20 text-red-950 dark:text-red-100 decoration-red-600 decoration-double underline decoration-2 underline-offset-2 font-medium",
     ariaRole: "alert",
   },
   academic_concept: {
@@ -119,14 +127,16 @@ export const LIVE_EXAMINER_PALETTE: Record<ExaminerSemanticElement, SemanticThem
     dotClass: "bg-blue-500 dark:bg-blue-400",
     textClass: "text-blue-700 dark:text-blue-300",
     borderClass: "border-blue-500/35 dark:border-blue-400/40",
-    inlineMarkClass: "bg-blue-500/15 text-blue-950 dark:text-blue-100 decoration-blue-500 underline decoration-2 underline-offset-2",
+    inlineMarkClass:
+      "bg-blue-500/15 text-blue-950 dark:text-blue-100 decoration-blue-500 underline decoration-2 underline-offset-2",
     ariaRole: "status",
   },
   hint: {
     key: "hint",
     label: "Socratic Hint & Scaffold",
     shortLabel: "Examiner Hint",
-    description: "Guided questioning or prompt to nudge analysis forward without giving away the answer.",
+    description:
+      "Guided questioning or prompt to nudge analysis forward without giving away the answer.",
     cardClass: "border-cyan-500/30 bg-cyan-500/5 dark:border-cyan-400/40 dark:bg-cyan-500/10",
     badgeClass: "border-cyan-500/40 bg-cyan-500/15 text-cyan-700 dark:text-cyan-300",
     dotClass: "bg-cyan-500 dark:bg-cyan-400",
@@ -139,7 +149,8 @@ export const LIVE_EXAMINER_PALETTE: Record<ExaminerSemanticElement, SemanticThem
     key: "explanation",
     label: "Pedagogical Explanation",
     shortLabel: "Explanation",
-    description: "Deep explanation of the underlying Cambridge economic rationale and mark scheme evidence.",
+    description:
+      "Deep explanation of the underlying Cambridge economic rationale and mark scheme evidence.",
     cardClass: "border-border bg-muted/40 dark:bg-muted/20",
     badgeClass: "border-border bg-muted text-muted-foreground",
     dotClass: "bg-muted-foreground",
@@ -152,7 +163,8 @@ export const LIVE_EXAMINER_PALETTE: Record<ExaminerSemanticElement, SemanticThem
     key: "assessment_indicator",
     label: "Assessment & Progress",
     shortLabel: "Indicator",
-    description: "Estimated running mark, assessment objective weight, and examiner confidence score.",
+    description:
+      "Estimated running mark, assessment objective weight, and examiner confidence score.",
     cardClass: "border-primary/30 bg-primary/5 dark:border-primary/40 dark:bg-primary/10",
     badgeClass: "border-primary/40 bg-primary/15 text-primary",
     dotClass: "bg-primary",
@@ -165,13 +177,15 @@ export const LIVE_EXAMINER_PALETTE: Record<ExaminerSemanticElement, SemanticThem
     key: "warning",
     label: "Examiner Warning",
     shortLabel: "Warning",
-    description: "Missing required assessment objective, broken causal chain, or unbalanced evaluation.",
+    description:
+      "Missing required assessment objective, broken causal chain, or unbalanced evaluation.",
     cardClass: "border-amber-500/35 bg-amber-500/10 dark:border-amber-400/45 dark:bg-amber-500/15",
     badgeClass: "border-amber-500/45 bg-amber-500/20 text-amber-800 dark:text-amber-300",
     dotClass: "bg-amber-500 dark:bg-amber-400",
     textClass: "text-amber-800 dark:text-amber-300 font-medium",
     borderClass: "border-amber-500/40 dark:border-amber-400/45",
-    inlineMarkClass: "bg-amber-500/15 text-amber-950 dark:text-amber-100 decoration-amber-500 underline decoration-2 underline-offset-2",
+    inlineMarkClass:
+      "bg-amber-500/15 text-amber-950 dark:text-amber-100 decoration-amber-500 underline decoration-2 underline-offset-2",
     ariaRole: "alert",
   },
 };
@@ -198,9 +212,7 @@ export function mapCategoryToSemanticElement(
       return LIVE_EXAMINER_PALETTE.academic_concept;
     case "analysis":
     case "application":
-      return severity === "high"
-        ? LIVE_EXAMINER_PALETTE.warning
-        : LIVE_EXAMINER_PALETTE.hint;
+      return severity === "high" ? LIVE_EXAMINER_PALETTE.warning : LIVE_EXAMINER_PALETTE.hint;
     case "evaluation":
       return LIVE_EXAMINER_PALETTE.warning;
     default:

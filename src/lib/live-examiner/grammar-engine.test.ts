@@ -115,7 +115,9 @@ describe("Grammar and Mechanics Engine", () => {
     it("flags classifying health and education as public goods", () => {
       const sentence = "The government provides public goods such as healthcare and schools.";
       const results = analyzeGrammarAndMechanics([sentence]);
-      const publicGoodIssue = results.find((r) => r.ruleId === "misconception_public_vs_merit_health");
+      const publicGoodIssue = results.find(
+        (r) => r.ruleId === "misconception_public_vs_merit_health",
+      );
       expect(publicGoodIssue).toBeDefined();
       expect(publicGoodIssue?.category).toBe("misconception");
       expect(publicGoodIssue?.suggestion).toContain("merit goods");
@@ -124,7 +126,9 @@ describe("Grammar and Mechanics Engine", () => {
     it("flags confusing deflation with disinflation", () => {
       const sentence = "Deflation means prices are rising slower than last month.";
       const results = analyzeGrammarAndMechanics([sentence]);
-      const deflationIssue = results.find((r) => r.ruleId === "misconception_deflation_vs_disinflation");
+      const deflationIssue = results.find(
+        (r) => r.ruleId === "misconception_deflation_vs_disinflation",
+      );
       expect(deflationIssue).toBeDefined();
       expect(deflationIssue?.category).toBe("misconception");
       expect(deflationIssue?.suggestion).toContain("disinflation");

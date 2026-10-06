@@ -116,6 +116,7 @@ function AuthPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
+  const [school, setSchool] = useState("");
   const [city, setCity] = useState("");
   const [country, setCountry] = useState("");
   const [referralCode, setReferralCode] = useState("");
@@ -230,78 +231,33 @@ function AuthPage() {
     navigate({ to: "/dashboard", replace: true });
   };
 
-  const joinWaitlist = async (event: React.FormEvent) => {
+  const signUp = async (event: React.FormEvent) => {
     event.preventDefault();
-    const normalisedReferral = referralCode.trim().toUpperCase();
-    if (normalisedReferral && !/^[A-Z0-9]{4,16}$/.test(normalisedReferral)) {
-      toast.error("Enter a valid referral code using 4–16 letters or numbers.");
+    if (password.length < 6) {
+      toast.error("Use at least 6 characters for your password.");
       return;
     }
     setBusy(true);
     try {
-      const response = await fetch("/api/waitlist", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          name: fullName,
-          email,
-          city,
-          country,
-          referredBy: normalisedReferral || null,
-          source: "account-access",
-          challengeId: waitlistChallengeId ?? undefined,
-          otp: waitlistChallengeId ? waitlistOtp : undefined,
-        }),
+      const { data, error } = await supabase.auth.signUp({
+        email: email.trim(),
+        password,
+        options: {
+          data: {
+            full_name: fullName.trim() || email.split("@")[0],
+            school: school.trim() || undefined,
+          },
+        },
       });
-      const result = (await response.json()) as {
-        message?: string;
-        code?: string;
-        challengeId?: string;
-        position?: number | null;
-      };
-      if (response.ok && result.code === "VERIFICATION_REQUIRED" && result.challengeId) {
-        setWaitlistChallengeId(result.challengeId);
-        setWaitlistOtp("");
-        setWaitlistResendIn(60);
-        toast.success(result.message ?? "Verification code sent.");
-        return;
+      if (error) throw error;
+      if (data.session) {
+        toast.success("Account created! Welcome to Marginal.");
+        navigate({ to: "/dashboard", replace: true });
+      } else {
+        toast.success("Account created. You can now sign in.");
       }
-      if (!response.ok && response.status !== 409) throw new Error(result.message);
-      setWaitlistPosition(result.position ?? null);
-      setWaitlistChallengeId(null);
-      toast.success(result.message ?? "Your access request has been received.");
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not join the waitlist.");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const resendWaitlistCode = async () => {
-    if (busy || waitlistResendIn > 0) return;
-    setBusy(true);
-    try {
-      const response = await fetch("/api/waitlist", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          name: fullName,
-          email,
-          city,
-          country,
-          referredBy: referralCode.trim().toUpperCase() || null,
-          source: "account-access",
-        }),
-      });
-      const result = (await response.json()) as { message?: string; challengeId?: string };
-      if (!response.ok || !result.challengeId) throw new Error(result.message);
-      setWaitlistChallengeId(result.challengeId);
-      setWaitlistOtp("");
-      setWaitlistResendIn(60);
-      toast.success("A new verification code was sent. Check your inbox and spam folder.");
-    } catch (error) {
-      setWaitlistResendIn(60);
-      toast.error(error instanceof Error ? error.message : "Could not resend the code.");
+    } catch (err: any) {
+      toast.error(err?.message || "Could not create your account.");
     } finally {
       setBusy(false);
     }
@@ -345,7 +301,7 @@ function AuthPage() {
                 <p className="eyebrow eyebrow-accent">Your workspace</p>
                 <h1 className="mt-2 text-2xl font-bold">Welcome to Marginal</h1>
                 <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
-                  Sign in to continue, or join the waitlist for access.
+                  Sign in to your account or create a new student workspace.
                 </p>
               </div>
               <Tabs defaultValue="signin">
@@ -360,7 +316,7 @@ function AuthPage() {
                     value="signup"
                     className="transition-colors duration-150 data-[state=active]:animate-in data-[state=active]:fade-in"
                   >
-                    Join waitlist
+                    Create account
                   </TabsTrigger>
                 </TabsList>
 
@@ -420,128 +376,63 @@ function AuthPage() {
                   value="signup"
                   className="animate-in fade-in slide-in-from-bottom-1 duration-300"
                 >
-                  {waitlistPosition !== null ? (
-                    <div className="mt-5 animate-in fade-in space-y-3 rounded-lg border border-border bg-muted/30 p-5 text-center duration-300">
-                      <span className="mx-auto flex size-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                        <Hourglass className="size-5" />
-                      </span>
-                      <p className="text-sm font-medium">You're on the waitlist</p>
-                      <p className="text-xs leading-relaxed text-muted-foreground">
-                        Your request is waiting for an administrator to review it.
-                        {waitlistPosition > 0
-                          ? ` You're number ${waitlistPosition} in line.`
-                          : ""}{" "}
-                        If approved, we’ll send access instructions to{" "}
-                        <span className="font-medium text-foreground">{email.trim()}</span>.
-                      </p>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setWaitlistPosition(null)}
-                      >
-                        Use a different email
-                      </Button>
+                  <form onSubmit={signUp} className="mt-5 space-y-4">
+                    <Field id="name" label="Full name" value={fullName} onChange={setFullName} />
+                    <Field
+                      id="email-up"
+                      label="Email address"
+                      type="email"
+                      value={email}
+                      onChange={setEmail}
+                    />
+                    <div className="space-y-1.5">
+                      <Label htmlFor="password-up">Password (min. 6 characters)</Label>
+                      <Input
+                        id="password-up"
+                        type="password"
+                        required
+                        minLength={6}
+                        value={password}
+                        onChange={(event) => setPassword(event.target.value)}
+                        className="transition-shadow duration-150 focus-visible:ring-2"
+                      />
                     </div>
-                  ) : (
-                    <form onSubmit={joinWaitlist} className="mt-5 space-y-4">
-                      {waitlistChallengeId ? (
-                        <Field
-                          id="waitlist-code"
-                          label="Verification code"
-                          value={waitlistOtp}
-                          onChange={(value) => setWaitlistOtp(value.replace(/\D/g, "").slice(0, 6))}
-                        />
-                      ) : (
+                    <Field
+                      id="school"
+                      label="School or College (optional)"
+                      value={school}
+                      onChange={setSchool}
+                      required={false}
+                    />
+                    <Button
+                      type="submit"
+                      className="w-full transition-transform duration-150 active:scale-[0.98]"
+                      disabled={busy}
+                    >
+                      {busy ? (
                         <>
-                          <Field
-                            id="name"
-                            label="Full name"
-                            value={fullName}
-                            onChange={setFullName}
-                          />
-                          <Field
-                            id="email-up"
-                            label="Email"
-                            type="email"
-                            value={email}
-                            onChange={setEmail}
-                          />
-                          <Field id="city" label="City" value={city} onChange={setCity} />
-                          <Field
-                            id="country"
-                            label="Country"
-                            value={country}
-                            onChange={setCountry}
-                            autoComplete="country-name"
-                            placeholder="Your country"
-                          />
-                          <Field
-                            id="referral-code"
-                            label="Referral code (optional)"
-                            value={referralCode}
-                            onChange={(value) =>
-                              setReferralCode(value.toUpperCase().replace(/[^A-Z0-9]/g, ""))
-                            }
-                            required={false}
-                            maxLength={16}
-                            autoComplete="off"
-                            placeholder="Enter a friend’s referral code"
-                          />
+                          <Loader2 className="size-4 animate-spin" /> Creating account…
                         </>
+                      ) : (
+                        "Create account"
                       )}
-                      <p className="-mt-1 text-xs text-muted-foreground">
-                        {waitlistChallengeId
-                          ? `Enter the six-digit code sent to ${email}. It expires in 10 minutes.`
-                          : "We'll verify your email first. Access is then reviewed by an administrator."}
-                      </p>
-                      {waitlistChallengeId ? (
-                        <div className="flex items-center justify-between gap-2">
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            disabled={busy || waitlistResendIn > 0}
-                            onClick={resendWaitlistCode}
-                          >
-                            {waitlistResendIn > 0
-                              ? `Resend code in ${waitlistResendIn}s`
-                              : "Resend code"}
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              setWaitlistChallengeId(null);
-                              setWaitlistOtp("");
-                              setWaitlistResendIn(0);
-                            }}
-                          >
-                            Change email
-                          </Button>
-                        </div>
-                      ) : null}
-                      <Button
-                        type="submit"
-                        className="w-full transition-transform duration-150 active:scale-[0.98]"
-                        disabled={busy}
-                      >
-                        {busy ? (
-                          <>
-                            <Loader2 className="size-4 animate-spin" />
-                            {waitlistChallengeId ? "Verifying…" : "Sending code…"}
-                          </>
-                        ) : waitlistChallengeId ? (
-                          "Verify & join"
-                        ) : (
-                          "Send verification code"
-                        )}
-                      </Button>
-                    </form>
-                  )}
+                    </Button>
+                  </form>
                 </TabsContent>
               </Tabs>
+
+              <p className="mt-4 text-center text-[11px] leading-relaxed text-muted-foreground">
+                By continuing, you agree to our{" "}
+                <Link to="/terms" className="underline hover:text-foreground">
+                  Terms
+                </Link>{" "}
+                and{" "}
+                <Link to="/privacy" className="underline hover:text-foreground">
+                  Privacy Policy
+                </Link>
+                . High-scoring student essays (8/8, &gt;10/12, &gt;15/20) are automatically
+                showcased in strictly anonymised format for academic peer learning.
+              </p>
             </div>
           ) : view === "verifying" ? (
             <div

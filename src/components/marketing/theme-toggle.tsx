@@ -77,18 +77,15 @@ export function ThemeToggle() {
       onClick={toggle}
       className="theme-orb"
       data-theme={theme ?? "light"}
-      data-pulse={pulse ? "true" : "false"}
       aria-label={label}
       title={label}
     >
-      <span className="orb-ripple" aria-hidden="true" />
-      <span className="orb-orbit" aria-hidden="true" />
       <span className="orb-coin" aria-hidden="true">
         <span className="orb-face">
-          <Sun className="size-5 text-ao3" strokeWidth={2.4} />
+          <Sun className="size-4 text-amber-500" strokeWidth={2.2} />
         </span>
         <span className="orb-face orb-face-back">
-          <Moon className="size-5 text-primary" strokeWidth={2.4} />
+          <Moon className="size-4 text-primary" strokeWidth={2.2} />
         </span>
       </span>
       <span className="sr-only" aria-live="polite">

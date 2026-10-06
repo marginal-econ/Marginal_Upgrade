@@ -42,6 +42,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { getMe } from "@/lib/account.functions";
+import { CAMBRIDGE_CORE_DEFINITIONS } from "@/lib/cambridge-definitions";
 import {
   deleteDefinition,
   listDefinitions,
@@ -111,7 +112,21 @@ function DefinitionsPage() {
   });
 
   const { topics, commandWords } = useMemo(() => {
-    const rows = definitionsQuery.data ?? [];
+    const rawRows = definitionsQuery.data ?? [];
+    let rows: DefinitionListRow[] = (
+      rawRows.length > 0 ? rawRows : CAMBRIDGE_CORE_DEFINITIONS
+    ) as DefinitionListRow[];
+
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      rows = rows.filter(
+        (r) =>
+          r.term.toLowerCase().includes(q) ||
+          r.definition_text.toLowerCase().includes(q) ||
+          (r.category && r.category.toLowerCase().includes(q)),
+      );
+    }
+
     return {
       topics: TOPIC_ORDER.map((name, index) => ({
         name,
@@ -121,7 +136,7 @@ function DefinitionsPage() {
       })).filter((group) => group.entries.length > 0),
       commandWords: rows.filter((row) => row.category === "Command words"),
     };
-  }, [definitionsQuery.data]);
+  }, [definitionsQuery.data, search]);
 
   const totalTerms = topics.reduce((sum, topic) => sum + topic.entries.length, 0);
   const syllabusLevels = ["AS Level", "A Level", "Reference"]

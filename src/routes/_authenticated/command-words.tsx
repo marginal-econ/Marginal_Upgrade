@@ -18,6 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
+import { CAMBRIDGE_CORE_DEFINITIONS } from "@/lib/cambridge-definitions";
 import { listDefinitions, type DefinitionListRow } from "@/lib/definitions.functions";
 import { cn } from "@/lib/utils";
 
@@ -101,10 +102,15 @@ function CommandWordsPage() {
     queryKey: ["definitions", "command-word-test"],
     queryFn: () => fetchDefinitions({ data: { search: undefined } }),
   });
-  const commandWords = useMemo(
-    () => (definitionsQuery.data ?? []).filter((entry) => entry.category === "Command words"),
-    [definitionsQuery.data],
-  );
+  const commandWords = useMemo(() => {
+    const fromDb = (definitionsQuery.data ?? []).filter(
+      (entry) => entry.category === "Command words",
+    );
+    if (fromDb.length >= 4) return fromDb;
+    return CAMBRIDGE_CORE_DEFINITIONS.filter(
+      (entry) => entry.category === "Command words",
+    ) as unknown as DefinitionListRow[];
+  }, [definitionsQuery.data]);
   const [quiz, setQuiz] = useState<QuizQuestion[]>([]);
   const [current, setCurrent] = useState(0);
   const [selected, setSelected] = useState<string | null>(null);

@@ -6,9 +6,27 @@ import type { Grading } from "@/lib/examiner/types";
 import { cn } from "@/lib/utils";
 
 const AO_META = [
-  { key: "knowledge", label: "AO1 Knowledge", bar: "bg-ao1", text: "text-ao1", border: "border-ao1/30" },
-  { key: "analysis", label: "AO2 Analysis", bar: "bg-ao2", text: "text-ao2", border: "border-ao2/30" },
-  { key: "evaluation", label: "AO3 Evaluation", bar: "bg-ao3", text: "text-ao3", border: "border-ao3/30" },
+  {
+    key: "knowledge",
+    label: "AO1 Knowledge",
+    bar: "bg-ao1",
+    text: "text-ao1",
+    border: "border-ao1/30",
+  },
+  {
+    key: "analysis",
+    label: "AO2 Analysis",
+    bar: "bg-ao2",
+    text: "text-ao2",
+    border: "border-ao2/30",
+  },
+  {
+    key: "evaluation",
+    label: "AO3 Evaluation",
+    bar: "bg-ao3",
+    text: "text-ao3",
+    border: "border-ao3/30",
+  },
 ] as const;
 
 function getBandBadgeStyle(band: string) {
@@ -38,11 +56,17 @@ export function MarkBreakdown({ grading }: { grading: Grading }) {
         </div>
         <div className="min-w-48 flex-1 space-y-3">
           <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="outline" className={cn("px-2.5 py-0.5", getBandBadgeStyle(grading.band))}>
+            <Badge
+              variant="outline"
+              className={cn("px-2.5 py-0.5", getBandBadgeStyle(grading.band))}
+            >
               {grading.band}
             </Badge>
             {grading.audited ? (
-              <Badge variant="outline" className="gap-1 border-primary/30 bg-primary/10 text-primary">
+              <Badge
+                variant="outline"
+                className="gap-1 border-primary/30 bg-primary/10 text-primary"
+              >
                 <ShieldCheck className="size-3" /> Audited Pass
               </Badge>
             ) : null}
@@ -53,7 +77,9 @@ export function MarkBreakdown({ grading }: { grading: Grading }) {
           <div className="space-y-1">
             <div className="flex justify-between text-[11px] text-muted-foreground">
               <span>Overall score</span>
-              <span className="font-semibold text-foreground tabular-nums">{Math.round(percent)}%</span>
+              <span className="font-semibold text-foreground tabular-nums">
+                {Math.round(percent)}%
+              </span>
             </div>
             <div className="h-2 w-full overflow-hidden rounded-full bg-muted/60">
               <div

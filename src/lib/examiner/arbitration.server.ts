@@ -1,10 +1,10 @@
 /**
  * Cambridge 9708 Third-Stage Principal Examiner Arbitration & Confidence Engine.
- * 
+ *
  * In official Cambridge International examination practice, when a primary examiner
  * and an independent moderator disagree significantly on a script, the script is
  * escalated to a Principal Examiner for authoritative arbitration.
- * 
+ *
  * This module:
  * 1. Objectively detects marking discrepancies (mark delta >= 18% of maxMark, or grade band mismatch).
  * 2. Selectively executes an evidence-grounded Principal Examiner arbitration pass.
@@ -158,10 +158,10 @@ export type ArbitrateOptions = {
 };
 
 export async function arbitrateGrading(options: ArbitrateOptions): Promise<Grading> {
-  const { question, essayText, maxMark, split, examinerGrading, moderatorGrading, disputeReason } = options;
+  const { question, essayText, maxMark, split, examinerGrading, moderatorGrading, disputeReason } =
+    options;
 
-  const promptTemplate = ARBITRATION_PROMPT
-    .replace(/{max_mark}/g, String(maxMark))
+  const promptTemplate = ARBITRATION_PROMPT.replace(/{max_mark}/g, String(maxMark))
     .replace(/{ao1_marks}/g, String(split.ao1_marks))
     .replace(/{ao2_marks}/g, String(split.ao2_marks))
     .replace(/{ao3_marks}/g, String(split.ao3_marks));

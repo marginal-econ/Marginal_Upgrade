@@ -38,6 +38,7 @@ import { CountUp, Reveal } from "@/components/marketing/reveal";
 import { Ribbon } from "@/components/marketing/ribbon";
 import { SiteNavLinks, SiteNavMobile } from "@/components/marketing/site-nav";
 import { Magnetic, TiltCard } from "@/components/marketing/three-d";
+import { PricingSection } from "@/components/marketing/pricing-section";
 import { WaitlistForm } from "@/components/marketing/waitlist-form";
 import { captureReferralCode } from "@/lib/waitlist-client";
 
@@ -591,6 +592,9 @@ function Index() {
           </Reveal>
         </div>
       </section>
+
+      {/* ── Pricing ──────────────────────────────────────────────────────── */}
+      <PricingSection />
 
       {/* ── FAQ ──────────────────────────────────────────────────────────── */}
       <section id="faq" className="border-b-[1.5px] border-ink bg-surface-raised scroll-mt-20">

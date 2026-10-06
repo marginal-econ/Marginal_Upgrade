@@ -19,8 +19,8 @@ export const Route = createFileRoute("/privacy")({
 const SUMMARY = [
   "Marginal is an independent AI study tool, not affiliated with or connected to Cambridge Assessment International Education, and its marking can be wrong.",
   "We collect what the marking needs: your account details, the work you submit, and how the tool was used.",
-  "Your essays are processed to mark them. They are not sold, not published, and not used to advertise to you.",
-  "Your submitted work is private to your account unless limited review access is required for calibration, safety, or support.",
+  "Your essays are processed to mark them. They are not sold, and not used to advertise to you.",
+  "Your submitted work is private to your account, with high-scoring distinction essays (8/8, >10/12, >15/20) automatically featured in strictly anonymised format in the Exemplar Showcase for peer learning.",
   "Separate authorised teams hold limited, logged access rights for calibration and safety review.",
   "You can ask for your work and your account to be deleted, and we will do it.",
 ];
@@ -99,7 +99,16 @@ const SECTIONS: LegalSection[] = [
     body: (
       <>
         <p>
-          <strong>You</strong>, always. Other students cannot browse or open your private attempts.
+          <strong>You</strong>, always. Your private drafts, in-progress essays and practice
+          attempts are only visible to you.
+        </p>
+        <p>
+          <strong>Exemplar Showcase</strong>: Essays achieving distinction marks (8/8 for 8-mark,
+          &gt;10 for 12-mark, or &gt;15 for 20-mark) are automatically made viewable in the Exemplar
+          Showcase for peer revision and academic standards benchmarking. Author identities are
+          strictly anonymised (only initials or Anonymous are shown). Only platform administrators
+          have the authority to curate, add model responses, or hide/remove essays from the
+          showcase.
         </p>
         <p>
           <strong>Your class teachers</strong>, while you are enrolled in their class, can view the
@@ -119,7 +128,6 @@ const SECTIONS: LegalSection[] = [
           <strong>We</strong> access individual work only where it is needed to fix a fault you have
           reported, to investigate misuse, or where the law requires it.
         </p>
-        <p>Other students never see your work.</p>
       </>
     ),
   },

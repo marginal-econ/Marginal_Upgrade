@@ -122,7 +122,9 @@ export function LiveExaminerPanel({
 }) {
   const [showColorGuide, setShowColorGuide] = useState(false);
   const [expandedHints, setExpandedHints] = useState<Record<string, boolean>>({});
-  const [categoryFilter, setCategoryFilter] = useState<"all" | "economics" | "mechanics" | "misconceptions">("all");
+  const [categoryFilter, setCategoryFilter] = useState<
+    "all" | "economics" | "mechanics" | "misconceptions"
+  >("all");
 
   const toggleHint = (id: string) => {
     setExpandedHints((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -135,9 +137,14 @@ export function LiveExaminerPanel({
   const filteredIssues = issues.filter((issue) => {
     if (categoryFilter === "all") return true;
     if (categoryFilter === "misconceptions") return issue.category === "misconception";
-    if (categoryFilter === "mechanics") return issue.category === "grammar" || issue.category === "clarity";
+    if (categoryFilter === "mechanics")
+      return issue.category === "grammar" || issue.category === "clarity";
     if (categoryFilter === "economics") {
-      return issue.category !== "grammar" && issue.category !== "clarity" && issue.category !== "misconception";
+      return (
+        issue.category !== "grammar" &&
+        issue.category !== "clarity" &&
+        issue.category !== "misconception"
+      );
     }
     return true;
   });
@@ -158,7 +165,11 @@ export function LiveExaminerPanel({
             className="flex items-center gap-1 text-[10px] text-primary hover:underline"
           >
             {showColorGuide ? "Hide guide" : "Semantic guide"}
-            {showColorGuide ? <ChevronUp className="size-2.5" /> : <ChevronDown className="size-2.5" />}
+            {showColorGuide ? (
+              <ChevronUp className="size-2.5" />
+            ) : (
+              <ChevronDown className="size-2.5" />
+            )}
           </button>
         </div>
 
@@ -172,12 +183,17 @@ export function LiveExaminerPanel({
             return (
               <div
                 key={code}
-                className={cn("flex items-center gap-1.5 rounded-md border px-2 py-1.5", style.badge)}
+                className={cn(
+                  "flex items-center gap-1.5 rounded-md border px-2 py-1.5",
+                  style.badge,
+                )}
               >
                 <span className={cn("size-2 shrink-0 rounded-full", style.dot)} />
                 <span className="min-w-0 text-[10px] font-semibold">
                   {code}{" "}
-                  <span className="hidden font-normal text-muted-foreground xl:inline">{label}</span>
+                  <span className="hidden font-normal text-muted-foreground xl:inline">
+                    {label}
+                  </span>
                 </span>
               </div>
             );
@@ -266,7 +282,9 @@ export function LiveExaminerPanel({
                 onClick={() => setCategoryFilter("all")}
                 className={cn(
                   "rounded px-2 py-0.5 font-medium transition-colors",
-                  categoryFilter === "all" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground",
+                  categoryFilter === "all"
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground",
                 )}
               >
                 All ({issues.length})
@@ -276,7 +294,9 @@ export function LiveExaminerPanel({
                 onClick={() => setCategoryFilter("economics")}
                 className={cn(
                   "rounded px-2 py-0.5 font-medium transition-colors",
-                  categoryFilter === "economics" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground",
+                  categoryFilter === "economics"
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground",
                 )}
               >
                 Economics & AO
@@ -286,7 +306,9 @@ export function LiveExaminerPanel({
                 onClick={() => setCategoryFilter("mechanics")}
                 className={cn(
                   "rounded px-2 py-0.5 font-medium transition-colors",
-                  categoryFilter === "mechanics" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground",
+                  categoryFilter === "mechanics"
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground",
                 )}
               >
                 Mechanics
@@ -297,7 +319,9 @@ export function LiveExaminerPanel({
                   onClick={() => setCategoryFilter("misconceptions")}
                   className={cn(
                     "rounded px-2 py-0.5 font-medium transition-colors text-red-600 dark:text-red-400",
-                    categoryFilter === "misconceptions" ? "bg-red-500/15 font-semibold shadow-sm" : "text-red-600/80",
+                    categoryFilter === "misconceptions"
+                      ? "bg-red-500/15 font-semibold shadow-sm"
+                      : "text-red-600/80",
                   )}
                 >
                   Misconception
@@ -325,12 +349,12 @@ export function LiveExaminerPanel({
                       issue.category === "misconception"
                         ? "border-l-4 border-l-red-600 bg-red-500/5 dark:bg-red-950/20"
                         : CATEGORY_AO[issue.category] === "AO1"
-                        ? "border-l-4 border-l-ao1"
-                        : CATEGORY_AO[issue.category] === "AO2"
-                        ? "border-l-4 border-l-ao2"
-                        : CATEGORY_AO[issue.category] === "AO3"
-                        ? "border-l-4 border-l-ao3"
-                        : "",
+                          ? "border-l-4 border-l-ao1"
+                          : CATEGORY_AO[issue.category] === "AO2"
+                            ? "border-l-4 border-l-ao2"
+                            : CATEGORY_AO[issue.category] === "AO3"
+                              ? "border-l-4 border-l-ao3"
+                              : "",
                     )}
                   >
                     <div className="mb-1.5 flex items-center gap-1.5">
@@ -341,12 +365,12 @@ export function LiveExaminerPanel({
                           issue.category === "misconception"
                             ? "border-red-500/50 bg-red-500/15 text-red-700 dark:text-red-300 font-semibold"
                             : CATEGORY_AO[issue.category] === "AO1"
-                            ? AO_STYLE.AO1.badge
-                            : CATEGORY_AO[issue.category] === "AO2"
-                            ? AO_STYLE.AO2.badge
-                            : CATEGORY_AO[issue.category] === "AO3"
-                            ? AO_STYLE.AO3.badge
-                            : "",
+                              ? AO_STYLE.AO1.badge
+                              : CATEGORY_AO[issue.category] === "AO2"
+                                ? AO_STYLE.AO2.badge
+                                : CATEGORY_AO[issue.category] === "AO3"
+                                  ? AO_STYLE.AO3.badge
+                                  : "",
                         )}
                       >
                         {CATEGORY_LABEL[issue.category]}
@@ -414,7 +438,12 @@ export function LiveExaminerPanel({
                     disabled={fetchingChallenges}
                     onClick={onRequestChallenges}
                   >
-                    <Sparkles className={cn("size-3.5 mr-1 text-plum dark:text-primary", fetchingChallenges && "animate-spin")} />
+                    <Sparkles
+                      className={cn(
+                        "size-3.5 mr-1 text-plum dark:text-primary",
+                        fetchingChallenges && "animate-spin",
+                      )}
+                    />
                     {fetchingChallenges ? "Probing draft…" : "Probe Draft"}
                   </Button>
                 </div>
@@ -424,7 +453,8 @@ export function LiveExaminerPanel({
                   </p>
                 ) : (
                   <p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground">
-                    Ask the Examiner to challenge your essay! Socratic follow-up probes identify missing economic chains, evaluate counter-arguments, and test syllabus depth.
+                    Ask the Examiner to challenge your essay! Socratic follow-up probes identify
+                    missing economic chains, evaluate counter-arguments, and test syllabus depth.
                   </p>
                 )}
               </div>
@@ -432,21 +462,27 @@ export function LiveExaminerPanel({
               {fetchingChallenges && challenges.length === 0 ? (
                 <div className="flex flex-col items-center justify-center p-6 text-center text-xs text-muted-foreground space-y-2">
                   <Loader2 className="size-5 animate-spin text-plum dark:text-primary" />
-                  <p className="font-medium text-foreground">Examiner is evaluating your draft...</p>
-                  <p className="text-[11px]">Identifying gaps in economic logic, terminology, and evaluation depth.</p>
+                  <p className="font-medium text-foreground">
+                    Examiner is evaluating your draft...
+                  </p>
+                  <p className="text-[11px]">
+                    Identifying gaps in economic logic, terminology, and evaluation depth.
+                  </p>
                 </div>
               ) : challenges.length === 0 ? (
                 <div className="rounded-lg border border-dashed border-border p-4 text-center text-xs text-muted-foreground space-y-1.5">
                   <Lightbulb className="mx-auto size-5 text-muted-foreground/60" />
                   <p className="font-medium text-foreground">No active examiner challenges</p>
                   <p className="text-[11px]">
-                    Click "Probe Draft" to have the Live Examiner test your essay with Socratic follow-up questions.
+                    Click "Probe Draft" to have the Live Examiner test your essay with Socratic
+                    follow-up questions.
                   </p>
                 </div>
               ) : (
                 <ul className="space-y-2.5">
                   {challenges.map((challenge) => {
-                    const aoStyle = AO_STYLE[challenge.targetAo as keyof typeof AO_STYLE] ?? AO_STYLE.AO2;
+                    const aoStyle =
+                      AO_STYLE[challenge.targetAo as keyof typeof AO_STYLE] ?? AO_STYLE.AO2;
                     const isHintExpanded = Boolean(expandedHints[challenge.id]);
                     return (
                       <li
@@ -496,7 +532,9 @@ export function LiveExaminerPanel({
                         </div>
 
                         <p className="text-[11px] leading-relaxed text-muted-foreground">
-                          <span className="font-semibold text-foreground/80">Examiner Rationale: </span>
+                          <span className="font-semibold text-foreground/80">
+                            Examiner Rationale:{" "}
+                          </span>
                           {challenge.explanation}
                         </p>
 
@@ -508,7 +546,9 @@ export function LiveExaminerPanel({
                               className="flex items-center gap-1 text-[10px] font-medium text-cyan-600 dark:text-cyan-400 hover:underline"
                             >
                               <Lightbulb className="size-3" />
-                              {isHintExpanded ? "Hide Socratic Hint" : "Need a hint to answer this?"}
+                              {isHintExpanded
+                                ? "Hide Socratic Hint"
+                                : "Need a hint to answer this?"}
                             </button>
                             {isHintExpanded ? (
                               <div className="mt-1.5 rounded-md border border-cyan-500/30 bg-cyan-500/10 p-2 text-[11px] text-cyan-900 dark:text-cyan-200">
@@ -631,15 +671,22 @@ function PredictedMarkCard({
         <span className="flex items-center gap-2 text-xs font-semibold text-foreground">
           <Sparkles className="size-3.5 text-primary" /> Live Examiner
         </span>
-        <Badge variant="outline" className="font-mono text-[10px] border-primary/30 bg-primary/10 text-primary font-medium">
+        <Badge
+          variant="outline"
+          className="font-mono text-[10px] border-primary/30 bg-primary/10 text-primary font-medium"
+        >
           RUNNING MARK
         </Badge>
       </div>
       <div className="p-3.5">
         <div className="flex items-baseline justify-between gap-2">
-          <span className="text-[11px] font-medium text-muted-foreground">Running assessment mark</span>
+          <span className="text-[11px] font-medium text-muted-foreground">
+            Running assessment mark
+          </span>
           {confidence < 0.5 ? (
-            <span className="text-[10px] text-muted-foreground bg-muted/60 px-1.5 py-0.5 rounded">early estimate</span>
+            <span className="text-[10px] text-muted-foreground bg-muted/60 px-1.5 py-0.5 rounded">
+              early estimate
+            </span>
           ) : null}
         </div>
         <div className="mt-1 flex items-baseline gap-1">
@@ -653,7 +700,9 @@ function PredictedMarkCard({
           </span>
           <span className="text-sm font-medium text-muted-foreground">/ {maxMark} marks</span>
         </div>
-        {headline ? <p className="mt-1.5 text-[11px] text-muted-foreground leading-relaxed">{headline}</p> : null}
+        {headline ? (
+          <p className="mt-1.5 text-[11px] text-muted-foreground leading-relaxed">{headline}</p>
+        ) : null}
         <div className="mt-3.5 space-y-2.5">
           <AoMini
             label={AO_DEFINITIONS.ao1.code}
@@ -678,7 +727,9 @@ function PredictedMarkCard({
           <p className="text-[9px] font-semibold tracking-wider text-primary uppercase">
             Examiner next move
           </p>
-          <p className="mt-0.5 text-[11px] leading-snug text-foreground/90 font-medium">{nextMove}</p>
+          <p className="mt-0.5 text-[11px] leading-snug text-foreground/90 font-medium">
+            {nextMove}
+          </p>
         </div>
         <p className="mt-2 text-[10px] leading-snug text-muted-foreground">
           Live running calibration — use "Grade now" for the complete two-pass examiner audit.

@@ -25,6 +25,7 @@ const NAV_SECTIONS = [
   { id: "result", label: "What you get" },
   { id: "tools", label: "What's inside" },
   { id: "drill", label: "Drill" },
+  { id: "pricing", label: "Pricing" },
   { id: "faq", label: "FAQ" },
   { id: "join", label: "Join" },
 ] as const;

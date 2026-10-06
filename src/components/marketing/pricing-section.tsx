@@ -1,0 +1,528 @@
+import { useState } from "react";
+import { Link } from "@tanstack/react-router";
+import {
+  ArrowRight,
+  Building2,
+  Check,
+  GraduationCap,
+  HelpCircle,
+  School,
+  ShieldCheck,
+  Sparkles,
+  Zap,
+} from "lucide-react";
+
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+
+type Audience = "students" | "schools";
+type BillingCycle = "monthly" | "annual";
+
+interface StudentTier {
+  id: string;
+  name: string;
+  tagline: string;
+  monthlyPrice: number;
+  annualPrice: number;
+  annualEquivalentMonthly: number;
+  savePct: number;
+  quota: string;
+  badge?: string;
+  popular?: boolean;
+  features: string[];
+}
+
+interface SchoolTier {
+  id: string;
+  name: string;
+  tagline: string;
+  monthlyPrice: string;
+  annualPrice: string;
+  studentCapacity: string;
+  effectiveCostPerStudent: string;
+  teacherSeats: string;
+  quota: string;
+  badge?: string;
+  popular?: boolean;
+  features: string[];
+}
+
+const STUDENT_TIERS: StudentTier[] = [
+  {
+    id: "foundation",
+    name: "Foundation Scholar",
+    tagline: "Accessible entry point: less than a coffee, zero friction.",
+    monthlyPrice: 149,
+    annualPrice: 1299,
+    annualEquivalentMonthly: 108,
+    savePct: 27,
+    quota: "10 Graded Essays / month",
+    badge: "Most Accessible",
+    features: [
+      "10 Cambridge Graded Essays / month",
+      "Unlimited Live Examiner Typing Coach",
+      "Full AO1, AO2, AO3 Diagnostic Reports",
+      "Cambridge Definitions Hub & Drills",
+      "Exemplar Showcase & Past MCQ Papers",
+      "Fast response turnaround (< 5s)",
+    ],
+  },
+  {
+    id: "pro",
+    name: "Pro Accelerator",
+    tagline: "The benchmark for serious Cambridge candidates studying year-round.",
+    monthlyPrice: 399,
+    annualPrice: 3499,
+    annualEquivalentMonthly: 291,
+    savePct: 27,
+    quota: "30 Graded Essays / month",
+    badge: "Most Popular",
+    popular: true,
+    features: [
+      "30 Cambridge Graded Essays / month",
+      "Perfect Essay Generator (AI Model Answers)",
+      "Dual-Model Principal Examiner Arbitration",
+      "Real-time Diagram Integration Suggestions",
+      "All Foundation features included",
+      "Priority speed processing queue",
+    ],
+  },
+  {
+    id: "mastery",
+    name: "A* Mastery Sprint",
+    tagline: "Peak revision powerhouse for Oct/Nov & May/June exam series.",
+    monthlyPrice: 599,
+    annualPrice: 4999,
+    annualEquivalentMonthly: 416,
+    savePct: 30,
+    quota: "75 Graded Essays / month",
+    badge: "A* Target",
+    features: [
+      "75 Cambridge Graded Essays / month",
+      "Handwritten Essay OCR Scanning (Photo Uploads)",
+      "Holistic Review Panel & Syllabus Weakness Heatmap",
+      "Level 4 & 5 Evaluative Refinement Engine",
+      "Complete historical mark scheme grounding",
+      "All Pro features included",
+    ],
+  },
+  {
+    id: "elite",
+    name: "Cambridge Elite Pass",
+    tagline: "VIP all-inclusive pass for complete syllabus and exam dominance.",
+    monthlyPrice: 999,
+    annualPrice: 7999,
+    annualEquivalentMonthly: 666,
+    savePct: 33,
+    quota: "Unlimited Essays & Reworks",
+    badge: "VIP All-Access",
+    features: [
+      "Unlimited Cambridge Graded Essays & Reworks",
+      "Bespoke Past Paper Mock Series Generation",
+      "Personalized Examiner Video & Audio Commentary",
+      "Priority beta access to new subjects (Business/Law)",
+      "Direct 1-on-1 examiner support channel",
+      "All Mastery features included",
+    ],
+  },
+];
+
+const SCHOOL_TIERS: SchoolTier[] = [
+  {
+    id: "school-starter",
+    name: "Department Starter",
+    tagline: "For boutique classes and small Economics cohorts.",
+    monthlyPrice: "₹4,999",
+    annualPrice: "₹49,999",
+    studentCapacity: "Up to 50 Students",
+    effectiveCostPerStudent: "~₹83 / student / mo",
+    teacherSeats: "2 Teacher Admin Seats",
+    quota: "15 essays / student / mo",
+    badge: "Small Cohorts",
+    features: [
+      "Up to 50 active student seats",
+      "2 Teacher Admin accounts with full dashboard",
+      "Batch homework submissions in 1-click",
+      "Cambridge AO distribution & mark breakdowns",
+      "Gradebook CSV & spreadsheet exports",
+    ],
+  },
+  {
+    id: "school-campus",
+    name: "Campus Standard",
+    tagline: "Ideal for Cambridge international schools and exam centers.",
+    monthlyPrice: "₹11,999",
+    annualPrice: "₹1,19,999",
+    studentCapacity: "Up to 150 Students",
+    effectiveCostPerStudent: "~₹66 / student / mo",
+    teacherSeats: "5 Teacher Admin Seats",
+    quota: "25 essays / student / mo",
+    badge: "Recommended for Schools",
+    popular: true,
+    features: [
+      "Up to 150 active student seats",
+      "5 Teacher Admin seats with section management",
+      "Section-wise cohort comparison matrix",
+      "Custom mock paper grading & feedback",
+      "Syllabus weakness tracking across classes",
+      "All Starter features included",
+    ],
+  },
+  {
+    id: "school-institution",
+    name: "Institution Premium",
+    tagline: "Comprehensive capacity for large high schools and prep academies.",
+    monthlyPrice: "₹24,999",
+    annualPrice: "₹2,49,999",
+    studentCapacity: "Up to 400 Students",
+    effectiveCostPerStudent: "~₹52 / student / mo",
+    teacherSeats: "15 Teacher Admin Seats",
+    quota: "40 essays / student / mo",
+    badge: "Large Departments",
+    features: [
+      "Up to 400 active student seats",
+      "15 Teacher Admin seats with custom permissions",
+      "Handwritten OCR script batch uploads",
+      "Full syllabus topic mastery analytics",
+      "Examiner arbitration on disputed marks",
+      "Priority SLA and dedicated support line",
+    ],
+  },
+  {
+    id: "school-enterprise",
+    name: "Multi-Campus Enterprise",
+    tagline: "Custom solution for school networks, trusts, and franchises.",
+    monthlyPrice: "₹49,999+",
+    annualPrice: "Custom Contract",
+    studentCapacity: "1,000+ Students",
+    effectiveCostPerStudent: "< ₹45 / student / mo",
+    teacherSeats: "Unlimited Teacher Seats",
+    quota: "Unlimited cohort volume",
+    badge: "Multi-Campus",
+    features: [
+      "1,000+ student capacity across campuses",
+      "Unlimited teacher and administrative seats",
+      "Custom school branding & LMS/ERP integration",
+      "Dedicated Cambridge Academic Account Manager",
+      "Onsite or remote faculty training workshops",
+      "Custom mark scheme and mock calibration",
+    ],
+  },
+];
+
+export function PricingSection({ className }: { className?: string }) {
+  const [audience, setAudience] = useState<Audience>("students");
+  const [cycle, setCycle] = useState<BillingCycle>("annual");
+
+  return (
+    <section
+      id="pricing"
+      className={cn("relative scroll-mt-20 px-4 py-16 sm:px-6 md:px-8 lg:py-24", className)}
+    >
+      <div className="mx-auto max-w-7xl">
+        {/* ── Section Header ── */}
+        <div className="mx-auto max-w-3xl text-center">
+          <p className="eyebrow eyebrow-accent">Transparent Cambridge Economics Pricing</p>
+          <h2 className="mt-2.5 text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl lg:text-5xl">
+            Examiner-standard AI at a fraction of private tutoring.
+          </h2>
+          <p className="mx-auto mt-4 max-w-2xl text-sm leading-relaxed text-muted-foreground sm:text-base">
+            Private 1-on-1 Cambridge tutoring costs{" "}
+            <span className="font-semibold text-foreground">₹2,500 – ₹5,000 / hour</span>. Marginal
+            delivers 24/7 instant AO1/AO2/AO3 feedback and live coaching starting at just{" "}
+            <span className="font-semibold text-foreground">₹149 / month</span>.
+          </p>
+
+          {/* ── Audience Selector (Students vs Schools) ── */}
+          <div className="mt-8 inline-flex items-center rounded-xl border border-border bg-muted/60 p-1.5 shadow-xs">
+            <button
+              type="button"
+              onClick={() => setAudience("students")}
+              className={cn(
+                "flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-semibold transition-all sm:text-sm",
+                audience === "students"
+                  ? "bg-background text-foreground shadow-xs"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              <GraduationCap className="size-4 text-primary" />
+              For Students &amp; Candidates
+            </button>
+            <button
+              type="button"
+              onClick={() => setAudience("schools")}
+              className={cn(
+                "flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-semibold transition-all sm:text-sm",
+                audience === "schools"
+                  ? "bg-background text-foreground shadow-xs"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              <School className="size-4 text-primary" />
+              For Schools &amp; Departments
+            </button>
+          </div>
+
+          {/* ── Billing Cycle Toggle ── */}
+          <div className="mt-6 flex items-center justify-center gap-3">
+            <span
+              className={cn(
+                "text-xs font-medium transition-colors sm:text-sm",
+                cycle === "monthly" ? "text-foreground font-semibold" : "text-muted-foreground",
+              )}
+            >
+              Monthly Billing
+            </span>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={cycle === "annual"}
+              onClick={() => setCycle((prev) => (prev === "monthly" ? "annual" : "monthly"))}
+              className={cn(
+                "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+                cycle === "annual" ? "bg-primary" : "bg-muted-foreground/30",
+              )}
+            >
+              <span
+                className={cn(
+                  "pointer-events-none inline-block size-5 transform rounded-full bg-background shadow-lg ring-0 transition duration-200 ease-in-out",
+                  cycle === "annual" ? "translate-x-5" : "translate-x-0",
+                )}
+              />
+            </button>
+            <span
+              className={cn(
+                "flex items-center gap-1.5 text-xs font-medium transition-colors sm:text-sm",
+                cycle === "annual" ? "text-foreground font-semibold" : "text-muted-foreground",
+              )}
+            >
+              Annual Billing
+              <Badge
+                variant="secondary"
+                className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-[10px] font-bold"
+              >
+                Save up to 33%
+              </Badge>
+            </span>
+          </div>
+        </div>
+
+        {/* ── Pricing Cards Grid ── */}
+        {audience === "students" ? (
+          <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            {STUDENT_TIERS.map((tier) => {
+              const displayPrice =
+                cycle === "annual" ? `₹${tier.annualEquivalentMonthly}` : `₹${tier.monthlyPrice}`;
+              const periodText = cycle === "annual" ? "/ mo (billed annually)" : "/ mo";
+
+              return (
+                <div
+                  key={tier.id}
+                  className={cn(
+                    "relative flex flex-col justify-between rounded-2xl border p-6 transition-all duration-300 sm:p-7",
+                    tier.popular
+                      ? "border-primary/50 bg-card shadow-lg ring-2 ring-primary/20"
+                      : "border-border bg-card/60 hover:border-border/80",
+                  )}
+                >
+                  {tier.badge ? (
+                    <div className="absolute -top-3 left-6">
+                      <Badge
+                        className={cn(
+                          "text-[10px] font-bold uppercase tracking-wider",
+                          tier.popular
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-muted text-foreground border border-border",
+                        )}
+                      >
+                        {tier.badge}
+                      </Badge>
+                    </div>
+                  ) : null}
+
+                  <div>
+                    <h3 className="text-lg font-bold text-foreground">{tier.name}</h3>
+                    <p className="mt-1.5 text-xs text-muted-foreground leading-relaxed">
+                      {tier.tagline}
+                    </p>
+
+                    <div className="mt-5 border-y border-border/60 py-4">
+                      <div className="flex items-baseline gap-1">
+                        <span className="text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">
+                          {displayPrice}
+                        </span>
+                        <span className="text-xs text-muted-foreground">{periodText}</span>
+                      </div>
+                      {cycle === "annual" ? (
+                        <p className="mt-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
+                          ₹{tier.annualPrice.toLocaleString()} / year (Save {tier.savePct}%)
+                        </p>
+                      ) : (
+                        <p className="mt-1 text-[11px] text-muted-foreground">
+                          Billed monthly · Cancel anytime
+                        </p>
+                      )}
+                      <div className="mt-2.5 inline-flex items-center gap-1.5 rounded-md bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">
+                        <Zap className="size-3" />
+                        {tier.quota}
+                      </div>
+                    </div>
+
+                    <ul className="mt-5 space-y-2.5 text-xs text-muted-foreground">
+                      {tier.features.map((feature, idx) => (
+                        <li key={idx} className="flex items-start gap-2">
+                          <Check className="size-4 shrink-0 text-emerald-600 dark:text-emerald-400 mt-0.5" />
+                          <span className="leading-snug">{feature}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  <div className="mt-8 pt-4">
+                    <Button
+                      asChild
+                      variant={tier.popular ? "default" : "outline"}
+                      className="w-full text-xs font-semibold h-10 shadow-xs"
+                    >
+                      <a href="#join">
+                        Get Started <ArrowRight className="size-3.5 ml-1.5" />
+                      </a>
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            {SCHOOL_TIERS.map((tier) => {
+              const displayPrice = cycle === "annual" ? tier.annualPrice : tier.monthlyPrice;
+              const periodText = cycle === "annual" ? " / year" : " / month";
+
+              return (
+                <div
+                  key={tier.id}
+                  className={cn(
+                    "relative flex flex-col justify-between rounded-2xl border p-6 transition-all duration-300 sm:p-7",
+                    tier.popular
+                      ? "border-primary/50 bg-card shadow-lg ring-2 ring-primary/20"
+                      : "border-border bg-card/60 hover:border-border/80",
+                  )}
+                >
+                  {tier.badge ? (
+                    <div className="absolute -top-3 left-6">
+                      <Badge
+                        className={cn(
+                          "text-[10px] font-bold uppercase tracking-wider",
+                          tier.popular
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-muted text-foreground border border-border",
+                        )}
+                      >
+                        {tier.badge}
+                      </Badge>
+                    </div>
+                  ) : null}
+
+                  <div>
+                    <h3 className="text-lg font-bold text-foreground">{tier.name}</h3>
+                    <p className="mt-1.5 text-xs text-muted-foreground leading-relaxed">
+                      {tier.tagline}
+                    </p>
+
+                    <div className="mt-5 border-y border-border/60 py-4">
+                      <div className="flex items-baseline gap-1">
+                        <span className="text-2xl font-extrabold tracking-tight text-foreground sm:text-3xl">
+                          {displayPrice}
+                        </span>
+                        <span className="text-xs text-muted-foreground">{periodText}</span>
+                      </div>
+                      <p className="mt-1 text-[11px] font-semibold text-primary">
+                        {tier.effectiveCostPerStudent}
+                      </p>
+
+                      <div className="mt-3 flex flex-wrap gap-1.5">
+                        <Badge variant="outline" className="text-[10px] bg-muted/50">
+                          {tier.studentCapacity}
+                        </Badge>
+                        <Badge variant="outline" className="text-[10px] bg-muted/50">
+                          {tier.teacherSeats}
+                        </Badge>
+                      </div>
+                    </div>
+
+                    <ul className="mt-5 space-y-2.5 text-xs text-muted-foreground">
+                      {tier.features.map((feature, idx) => (
+                        <li key={idx} className="flex items-start gap-2">
+                          <Check className="size-4 shrink-0 text-emerald-600 dark:text-emerald-400 mt-0.5" />
+                          <span className="leading-snug">{feature}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  <div className="mt-8 pt-4">
+                    <Button
+                      asChild
+                      variant={tier.popular ? "default" : "outline"}
+                      className="w-full text-xs font-semibold h-10 shadow-xs"
+                    >
+                      <a href="#join">
+                        Request School Demo <ArrowRight className="size-3.5 ml-1.5" />
+                      </a>
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* ── Trust & Risk Reversal Banner ── */}
+        <div className="mt-14 rounded-2xl border border-border bg-muted/40 p-6 sm:p-8">
+          <div className="grid gap-6 md:grid-cols-3">
+            <div className="flex items-start gap-3.5">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                <ShieldCheck className="size-5" />
+              </span>
+              <div>
+                <h4 className="text-sm font-semibold">2 Free Graded Essays</h4>
+                <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
+                  Try the full Cambridge examiner marking engine with 2 full essays completely free.
+                  No credit card required.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3.5">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                <Sparkles className="size-5" />
+              </span>
+              <div>
+                <h4 className="text-sm font-semibold">Syllabus 9708 Grounded</h4>
+                <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
+                  Every mark is grounded in Cambridge mark schemes, levels of response, and official
+                  assessment objective criteria.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3.5">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                <Building2 className="size-5" />
+              </span>
+              <div>
+                <h4 className="text-sm font-semibold">Department Pilot Grants</h4>
+                <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
+                  Cambridge school economics departments receive a 30-day cohort trial for up to 100
+                  students upon request.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}

@@ -20,7 +20,7 @@ const SUMMARY = [
   "Marginal is independent. It is not affiliated with, endorsed by, or connected to Cambridge Assessment International Education.",
   "Marginal is an AI tool for AS and A Level Economics (9708). It can and does make mistakes, so every mark is a second opinion to be checked, never an official Cambridge mark.",
   "Calibration is restricted to authorised administrators holding special access rights granted by us.",
-  "Your essays stay yours. We process them only to provide and improve the service described here.",
+  "Your essays stay yours. High-scoring responses (8/8, >10/12, >15/20) are automatically featured in the Exemplar Showcase in strictly anonymised format for academic peer learning.",
   "Passing off a generated essay as your own is a breach of these terms and of your school's academic honesty rules.",
 ];
 
@@ -160,22 +160,27 @@ const SECTIONS: LegalSection[] = [
   },
   {
     id: "your-work",
-    title: "Your work stays yours",
+    title: "Your work and the Exemplar Showcase",
     body: (
       <>
         <p>
-          You keep every right you already had in the essays, answers, notes and photographs of
-          scripts you upload. You give us only the permission we need to run the service: to store
-          your work, process it in order to mark it, and show it back to you.
+          You keep every intellectual property right you already had in the essays, answers, notes
+          and photographs of scripts you upload. You give us only the permission needed to run the
+          service: to store your work, process it in order to mark it, and show it back to you.
         </p>
         <p>
-          An essay may be selected as a calibration exemplar so the standard holds steady. Selecting
-          and reviewing exemplars is done by the authorised teams described in the access rights
-          section, and only the minimum information required for that review is used.
+          To foster collaborative academic excellence across the Cambridge 9708 community, student
+          essays that attain top-band distinction marks (specifically 8/8 for 8-mark questions,
+          &gt;10 for 12-mark questions, or &gt;15 for 20-mark questions) are automatically featured
+          in the Exemplar Showcase. Showcased essays are strictly anonymised (displaying only author
+          initials or anonymous markers) so that students can study master-level reasoning, AO
+          breakdowns and examiner commentaries.
         </p>
         <p>
-          We do not sell your work, and we do not publish it. How it is stored, who can see it and
-          how to have it deleted are set out in the{" "}
+          Platform administrators retain full editorial moderation rights to curate, add official
+          model exemplars, or remove essays from the showcase at any time. We do not sell your work,
+          and we do not use your essays to advertise to third parties. How data is stored and how to
+          request deletion are set out in the{" "}
           <Link
             to="/privacy"
             className="font-medium text-primary underline-offset-4 hover:underline"

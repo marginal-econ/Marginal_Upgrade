@@ -257,7 +257,11 @@ export function ClassesPage() {
           <div>
             <h2 className="text-xl font-semibold text-white tracking-tight flex items-center gap-2">
               <GraduationCap className="h-6 w-6 text-purple-400" />
-              {isAdmin ? "Classroom Administration" : isTeacher ? "My Teaching Classes" : "Enrolled Classes"}
+              {isAdmin
+                ? "Classroom Administration"
+                : isTeacher
+                  ? "My Teaching Classes"
+                  : "Enrolled Classes"}
             </h2>
             <p className="text-sm text-slate-400 mt-1">
               {isAdmin
@@ -270,9 +274,13 @@ export function ClassesPage() {
 
           <div className="flex items-center gap-3 w-full sm:w-auto">
             {isAdmin ? (
-              <CreateClassDialog onCreated={() => queryClient.invalidateQueries({ queryKey: ["classrooms"] })} />
+              <CreateClassDialog
+                onCreated={() => queryClient.invalidateQueries({ queryKey: ["classrooms"] })}
+              />
             ) : (
-              <JoinClassDialog onJoined={() => queryClient.invalidateQueries({ queryKey: ["classrooms"] })} />
+              <JoinClassDialog
+                onJoined={() => queryClient.invalidateQueries({ queryKey: ["classrooms"] })}
+              />
             )}
           </div>
         </div>
@@ -281,7 +289,10 @@ export function ClassesPage() {
         {isLoading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {[1, 2, 3].map((n) => (
-              <div key={n} className="h-64 rounded-2xl bg-slate-900/40 border border-slate-800 animate-pulse" />
+              <div
+                key={n}
+                className="h-64 rounded-2xl bg-slate-900/40 border border-slate-800 animate-pulse"
+              />
             ))}
           </div>
         ) : classes.length === 0 ? (
@@ -296,9 +307,13 @@ export function ClassesPage() {
                   : "You haven't joined any classrooms yet. Ask your Economics teacher for a 6-character class code to join."}
             </p>
             {isAdmin ? (
-              <CreateClassDialog onCreated={() => queryClient.invalidateQueries({ queryKey: ["classrooms"] })} />
+              <CreateClassDialog
+                onCreated={() => queryClient.invalidateQueries({ queryKey: ["classrooms"] })}
+              />
             ) : (
-              <JoinClassDialog onJoined={() => queryClient.invalidateQueries({ queryKey: ["classrooms"] })} />
+              <JoinClassDialog
+                onJoined={() => queryClient.invalidateQueries({ queryKey: ["classrooms"] })}
+              />
             )}
           </div>
         ) : (
@@ -356,10 +371,18 @@ function ClassCard({
       className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/60 transition-all duration-200 hover:-translate-y-1 hover:border-purple-500/50 hover:shadow-xl hover:shadow-purple-950/20 cursor-pointer"
     >
       {/* Top Themed Header */}
-      <div className={cn("p-6 bg-gradient-to-br relative text-white border-b border-slate-800/80", gradient)}>
+      <div
+        className={cn(
+          "p-6 bg-gradient-to-br relative text-white border-b border-slate-800/80",
+          gradient,
+        )}
+      >
         <div className="flex items-start justify-between gap-2">
           <div className="space-y-1 pr-4">
-            <Badge variant="outline" className="bg-slate-950/40 text-purple-300 border-purple-400/30 text-xs uppercase tracking-wider backdrop-blur-sm">
+            <Badge
+              variant="outline"
+              className="bg-slate-950/40 text-purple-300 border-purple-400/30 text-xs uppercase tracking-wider backdrop-blur-sm"
+            >
               {formatLevel(classroom.level)}
             </Badge>
             <h3 className="text-xl font-bold text-white tracking-tight line-clamp-1 group-hover:text-purple-200 transition-colors">
@@ -374,7 +397,11 @@ function ClassCard({
                 title="Click to copy join code"
                 className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-950/60 hover:bg-slate-950 border border-slate-700/50 text-xs font-mono text-slate-300 transition-colors"
               >
-                {copied ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5 text-slate-400" />}
+                {copied ? (
+                  <Check className="h-3.5 w-3.5 text-emerald-400" />
+                ) : (
+                  <Copy className="h-3.5 w-3.5 text-slate-400" />
+                )}
                 <span>{classroom.join_code}</span>
               </button>
             )}
@@ -385,7 +412,11 @@ function ClassCard({
                 size="sm"
                 onClick={(e) => {
                   e.stopPropagation();
-                  if (confirm(`Permanently delete classroom "${classroom.name}"? This action is only available to Admins.`)) {
+                  if (
+                    confirm(
+                      `Permanently delete classroom "${classroom.name}"? This action is only available to Admins.`,
+                    )
+                  ) {
                     deleteClassFn({ data: { classroomId: classroom.id } }).then(() => {
                       toast.success("Classroom permanently deleted");
                       queryClient.invalidateQueries({ queryKey: ["classrooms"] });
@@ -406,9 +437,13 @@ function ClassCard({
           <div className="h-7 w-7 rounded-full bg-purple-600/60 border border-purple-400/40 flex items-center justify-center font-bold text-white text-xs">
             {getInitials(classroom.teacher_name || "Teacher")}
           </div>
-          <span className="font-medium truncate">{classroom.teacher_name || "Economics Faculty"}</span>
+          <span className="font-medium truncate">
+            {classroom.teacher_name || "Economics Faculty"}
+          </span>
           {classroom.teacher_school && (
-            <span className="text-slate-400 truncate text-[11px]">• {classroom.teacher_school}</span>
+            <span className="text-slate-400 truncate text-[11px]">
+              • {classroom.teacher_school}
+            </span>
           )}
         </div>
       </div>
@@ -505,7 +540,8 @@ function JoinClassDialog({ onJoined }: { onJoined: () => void }) {
             </div>
 
             <div className="p-3 bg-purple-950/30 border border-purple-900/40 rounded-xl text-xs text-purple-300">
-              By joining, your assigned essays and test results for this class will be visible to your teachers and administrators.
+              By joining, your assigned essays and test results for this class will be visible to
+              your teachers and administrators.
             </div>
 
             <div className="flex items-center justify-end gap-3 pt-2">
@@ -595,7 +631,9 @@ function CreateClassDialog({ onCreated }: { onCreated: () => void }) {
               </div>
 
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-slate-300">Cambridge Syllabus Level</Label>
+                <Label className="text-xs font-semibold text-slate-300">
+                  Cambridge Syllabus Level
+                </Label>
                 <Select value={level} onValueChange={(v: "as" | "a2" | "mixed") => setLevel(v)}>
                   <SelectTrigger className="bg-slate-950 border-slate-700 text-white focus:border-purple-500">
                     <SelectValue placeholder="Select level" />
@@ -610,7 +648,8 @@ function CreateClassDialog({ onCreated }: { onCreated: () => void }) {
             </div>
 
             <div className="p-3 rounded-xl bg-purple-950/30 border border-purple-900/40 text-xs text-purple-300">
-              Only Administrators have permission to create or delete classrooms. Once created, teachers can assign work and grade essays.
+              Only Administrators have permission to create or delete classrooms. Once created,
+              teachers can assign work and grade essays.
             </div>
 
             <div className="flex items-center justify-end gap-3 pt-2">
@@ -677,7 +716,10 @@ function ClassroomDetailView({
                 <h1 className="text-lg font-bold text-white tracking-tight truncate max-w-xs sm:max-w-md">
                   {classroom.name}
                 </h1>
-                <Badge variant="outline" className="bg-purple-950/40 text-purple-300 border-purple-800 text-[10px] uppercase">
+                <Badge
+                  variant="outline"
+                  className="bg-purple-950/40 text-purple-300 border-purple-800 text-[10px] uppercase"
+                >
                   {formatLevel(classroom.level)}
                 </Badge>
               </div>
@@ -755,20 +797,25 @@ function ClassroomDetailView({
       {/* Main Tab Content */}
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6">
         {activeTab === "stream" && (
-          <StreamTab classroom={classroom} isStaff={isStaff} onGoToClasswork={() => setActiveTab("classwork")} />
+          <StreamTab
+            classroom={classroom}
+            isStaff={isStaff}
+            onGoToClasswork={() => setActiveTab("classwork")}
+          />
         )}
         {activeTab === "classwork" && (
           <ClassworkTab classroom={classroom} isStaff={isStaff} role={role} />
         )}
-        {activeTab === "chat" && (
-          <ClassChatTab classroom={classroom} isStaff={isStaff} />
-        )}
+        {activeTab === "chat" && <ClassChatTab classroom={classroom} isStaff={isStaff} />}
         {activeTab === "people" && (
-          <PeopleTab classroom={classroom} isStaff={isStaff} isAdmin={isAdmin} onLeaveClass={onBack} />
+          <PeopleTab
+            classroom={classroom}
+            isStaff={isStaff}
+            isAdmin={isAdmin}
+            onLeaveClass={onBack}
+          />
         )}
-        {activeTab === "grades" && isStaff && (
-          <GradesTab classroom={classroom} />
-        )}
+        {activeTab === "grades" && isStaff && <GradesTab classroom={classroom} />}
       </div>
     </div>
   );
@@ -778,13 +825,7 @@ function ClassroomDetailView({
 // TAB: CLASS CHAT INFRASTRUCTURE (Real-Time Classmates & Teachers Chat)
 // =========================================================================
 
-function ClassChatTab({
-  classroom,
-  isStaff,
-}: {
-  classroom: Classroom;
-  isStaff: boolean;
-}) {
+function ClassChatTab({ classroom, isStaff }: { classroom: Classroom; isStaff: boolean }) {
   const queryClient = useQueryClient();
   const listMessagesFn = useServerFn(listClassroomMessages);
   const sendMessageFn = useServerFn(sendClassroomMessage);
@@ -895,7 +936,8 @@ function ClassChatTab({
             <MessageSquare className="h-10 w-10 text-slate-600 mx-auto" />
             <h4 className="text-sm font-semibold text-slate-300">Welcome to your class chat!</h4>
             <p className="text-xs text-slate-500 max-w-sm mx-auto">
-              Ask Economics questions, discuss Cambridge essay topics, collaborate on past papers, and share study tips here.
+              Ask Economics questions, discuss Cambridge essay topics, collaborate on past papers,
+              and share study tips here.
             </p>
           </div>
         ) : (
@@ -911,7 +953,12 @@ function ClassChatTab({
                 {getInitials(msg.userName)}
               </div>
 
-              <div className={cn("max-w-[75%] space-y-1", msg.isMine ? "items-end text-right" : "items-start text-left")}>
+              <div
+                className={cn(
+                  "max-w-[75%] space-y-1",
+                  msg.isMine ? "items-end text-right" : "items-start text-left",
+                )}
+              >
                 <div className="flex items-center gap-2 text-[11px] text-slate-400">
                   <span className="font-semibold text-slate-300">{msg.userName}</span>
                   {msg.isTeacher && (
@@ -920,7 +967,10 @@ function ClassChatTab({
                     </Badge>
                   )}
                   <span>
-                    {new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                    {new Date(msg.createdAt).toLocaleTimeString([], {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
                   </span>
                 </div>
 
@@ -936,7 +986,12 @@ function ClassChatTab({
                 </div>
 
                 {/* Message Hover Actions */}
-                <div className={cn("opacity-0 group-hover:opacity-100 flex items-center gap-1.5 text-[10px] text-slate-500 pt-0.5", msg.isMine ? "justify-end" : "justify-start")}>
+                <div
+                  className={cn(
+                    "opacity-0 group-hover:opacity-100 flex items-center gap-1.5 text-[10px] text-slate-500 pt-0.5",
+                    msg.isMine ? "justify-end" : "justify-start",
+                  )}
+                >
                   {msg.canPin && (
                     <button
                       onClick={() => {
@@ -947,8 +1002,12 @@ function ClassChatTab({
                             isPinned: !msg.isPinned,
                           },
                         }).then(() => {
-                          toast.success(msg.isPinned ? "Unpinned message" : "Pinned message to chat");
-                          queryClient.invalidateQueries({ queryKey: ["classroom_chat", classroom.id] });
+                          toast.success(
+                            msg.isPinned ? "Unpinned message" : "Pinned message to chat",
+                          );
+                          queryClient.invalidateQueries({
+                            queryKey: ["classroom_chat", classroom.id],
+                          });
                         });
                       }}
                       className="hover:text-purple-400"
@@ -966,7 +1025,9 @@ function ClassChatTab({
                             classroomId: classroom.id,
                           },
                         }).then(() => {
-                          queryClient.invalidateQueries({ queryKey: ["classroom_chat", classroom.id] });
+                          queryClient.invalidateQueries({
+                            queryKey: ["classroom_chat", classroom.id],
+                          });
                         });
                       }}
                       className="hover:text-rose-400"
@@ -1102,9 +1163,7 @@ function StreamTab({
 
   const upcomingAssignments = useMemo(() => {
     const list = assignments ?? [];
-    return list
-      .filter((a) => a.dueAt && new Date(a.dueAt) > new Date())
-      .slice(0, 4);
+    return list.filter((a) => a.dueAt && new Date(a.dueAt) > new Date()).slice(0, 4);
   }, [assignments]);
 
   return (
@@ -1113,7 +1172,10 @@ function StreamTab({
       <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-purple-900 via-indigo-950 to-slate-900 border border-purple-800/40 p-8 sm:p-10 shadow-2xl">
         <div className="relative z-10 flex flex-col md:flex-row md:items-end justify-between gap-6">
           <div className="space-y-2 max-w-2xl">
-            <Badge variant="outline" className="bg-purple-950/60 text-purple-300 border-purple-500/40 text-xs uppercase tracking-wider backdrop-blur-md">
+            <Badge
+              variant="outline"
+              className="bg-purple-950/60 text-purple-300 border-purple-500/40 text-xs uppercase tracking-wider backdrop-blur-md"
+            >
               {formatLevel(classroom.level)}
             </Badge>
             <h2 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
@@ -1124,19 +1186,23 @@ function StreamTab({
                 <div className="h-6 w-6 rounded-full bg-purple-600 flex items-center justify-center font-bold text-white text-xs">
                   {getInitials(classroom.teacher_name || "Faculty")}
                 </div>
-                <span className="font-semibold text-white">{classroom.teacher_name || "Faculty"}</span>
+                <span className="font-semibold text-white">
+                  {classroom.teacher_name || "Faculty"}
+                </span>
               </div>
-              {classroom.teacher_school && (
-                <span>• {classroom.teacher_school}</span>
-              )}
+              {classroom.teacher_school && <span>• {classroom.teacher_school}</span>}
             </div>
           </div>
 
           {/* Join Code Display Pill */}
           <div className="flex items-center gap-3 bg-slate-950/60 backdrop-blur-md border border-purple-500/30 rounded-2xl p-3 px-4 self-start md:self-auto">
             <div>
-              <div className="text-[10px] uppercase font-bold text-purple-300 tracking-wider">Class Code</div>
-              <div className="font-mono text-xl font-black text-white tracking-widest">{classroom.join_code}</div>
+              <div className="text-[10px] uppercase font-bold text-purple-300 tracking-wider">
+                Class Code
+              </div>
+              <div className="font-mono text-xl font-black text-white tracking-widest">
+                {classroom.join_code}
+              </div>
             </div>
             <Button
               size="sm"
@@ -1145,7 +1211,11 @@ function StreamTab({
               className="text-purple-300 hover:text-white hover:bg-purple-900/40 h-9 w-9 p-0"
               title="Copy Code"
             >
-              {copiedCode ? <Check className="h-4 w-4 text-emerald-400" /> : <Copy className="h-4 w-4" />}
+              {copiedCode ? (
+                <Check className="h-4 w-4 text-emerald-400" />
+              ) : (
+                <Copy className="h-4 w-4" />
+              )}
             </Button>
           </div>
         </div>
@@ -1177,7 +1247,11 @@ function StreamTab({
                     <div className="text-xs font-semibold text-white line-clamp-1">{a.title}</div>
                     <div className="text-[11px] text-purple-300 flex items-center gap-1">
                       <Calendar className="h-3 w-3" />
-                      Due {new Date(a.dueAt!).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                      Due{" "}
+                      {new Date(a.dueAt!).toLocaleDateString(undefined, {
+                        month: "short",
+                        day: "numeric",
+                      })}
                     </div>
                   </div>
                 ))}
@@ -1244,15 +1318,21 @@ function StreamTab({
           {isLoading ? (
             <div className="space-y-4">
               {[1, 2].map((i) => (
-                <div key={i} className="h-36 rounded-2xl bg-slate-900/40 border border-slate-800 animate-pulse" />
+                <div
+                  key={i}
+                  className="h-36 rounded-2xl bg-slate-900/40 border border-slate-800 animate-pulse"
+                />
               ))}
             </div>
           ) : (announcements ?? []).length === 0 ? (
             <div className="text-center py-16 px-4 rounded-2xl border border-slate-800/80 bg-slate-900/20">
               <MessageSquare className="h-10 w-10 text-slate-600 mx-auto mb-3" />
-              <h4 className="text-sm font-semibold text-slate-300">This is where you can talk to your class</h4>
+              <h4 className="text-sm font-semibold text-slate-300">
+                This is where you can talk to your class
+              </h4>
               <p className="text-xs text-slate-500 max-w-sm mx-auto mt-1">
-                Use the stream to share announcements, post lesson notes, Cambridge syllabus updates, and answer student questions.
+                Use the stream to share announcements, post lesson notes, Cambridge syllabus
+                updates, and answer student questions.
               </p>
             </div>
           ) : (
@@ -1306,7 +1386,9 @@ function StreamTab({
                               },
                             }).then(() => {
                               toast.success(ann.pinned ? "Unpinned post" : "Pinned post to top");
-                              queryClient.invalidateQueries({ queryKey: ["classroom_announcements", classroom.id] });
+                              queryClient.invalidateQueries({
+                                queryKey: ["classroom_announcements", classroom.id],
+                              });
                             });
                           }}
                           className="text-slate-400 hover:text-purple-300 h-8 w-8 p-0"
@@ -1329,7 +1411,9 @@ function StreamTab({
                                 },
                               }).then(() => {
                                 toast.success("Announcement deleted");
-                                queryClient.invalidateQueries({ queryKey: ["classroom_announcements", classroom.id] });
+                                queryClient.invalidateQueries({
+                                  queryKey: ["classroom_announcements", classroom.id],
+                                });
                               });
                             }
                           }}
@@ -1352,16 +1436,24 @@ function StreamTab({
                     {ann.comments.length > 0 && (
                       <div className="space-y-2.5">
                         {ann.comments.map((comm) => (
-                          <div key={comm.id} className="flex items-start justify-between gap-2 p-2.5 rounded-xl bg-slate-950/40 border border-slate-800/60">
+                          <div
+                            key={comm.id}
+                            className="flex items-start justify-between gap-2 p-2.5 rounded-xl bg-slate-950/40 border border-slate-800/60"
+                          >
                             <div className="flex items-start gap-2.5">
                               <div className="h-6 w-6 rounded-full bg-slate-800 flex items-center justify-center font-bold text-[10px] text-slate-300 shrink-0 mt-0.5">
                                 {getInitials(comm.authorName)}
                               </div>
                               <div className="space-y-0.5">
                                 <div className="flex items-center gap-2">
-                                  <span className="font-semibold text-xs text-slate-300">{comm.authorName}</span>
+                                  <span className="font-semibold text-xs text-slate-300">
+                                    {comm.authorName}
+                                  </span>
                                   <span className="text-[10px] text-slate-500">
-                                    {new Date(comm.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                                    {new Date(comm.createdAt).toLocaleTimeString([], {
+                                      hour: "2-digit",
+                                      minute: "2-digit",
+                                    })}
                                   </span>
                                 </div>
                                 <div className="text-xs text-slate-300">{comm.content}</div>
@@ -1377,7 +1469,9 @@ function StreamTab({
                                       classroomId: classroom.id,
                                     },
                                   }).then(() => {
-                                    queryClient.invalidateQueries({ queryKey: ["classroom_announcements", classroom.id] });
+                                    queryClient.invalidateQueries({
+                                      queryKey: ["classroom_announcements", classroom.id],
+                                    });
                                   });
                                 }}
                                 className="text-slate-500 hover:text-rose-400 p-1"
@@ -1395,11 +1489,20 @@ function StreamTab({
                     <div className="flex items-center gap-2 pt-1">
                       <Input
                         value={commentInputs[ann.id] || ""}
-                        onChange={(e) => setCommentInputs((prev) => ({ ...prev, [ann.id]: e.target.value }))}
+                        onChange={(e) =>
+                          setCommentInputs((prev) => ({ ...prev, [ann.id]: e.target.value }))
+                        }
                         onKeyDown={(e) => {
-                          if (e.key === "Enter" && !e.shiftKey && (commentInputs[ann.id] || "").trim()) {
+                          if (
+                            e.key === "Enter" &&
+                            !e.shiftKey &&
+                            (commentInputs[ann.id] || "").trim()
+                          ) {
                             e.preventDefault();
-                            commentMutation.mutate({ announcementId: ann.id, text: commentInputs[ann.id].trim() });
+                            commentMutation.mutate({
+                              announcementId: ann.id,
+                              text: commentInputs[ann.id].trim(),
+                            });
                           }
                         }}
                         placeholder="Add a class comment..."
@@ -1407,8 +1510,15 @@ function StreamTab({
                       />
                       <Button
                         size="sm"
-                        disabled={!(commentInputs[ann.id] || "").trim() || commentMutation.isPending}
-                        onClick={() => commentMutation.mutate({ announcementId: ann.id, text: commentInputs[ann.id].trim() })}
+                        disabled={
+                          !(commentInputs[ann.id] || "").trim() || commentMutation.isPending
+                        }
+                        onClick={() =>
+                          commentMutation.mutate({
+                            announcementId: ann.id,
+                            text: commentInputs[ann.id].trim(),
+                          })
+                        }
                         className="bg-purple-600 hover:bg-purple-500 text-white h-8 px-3"
                       >
                         <Send className="h-3 w-3" />
@@ -1446,7 +1556,9 @@ function ClassworkTab({
 
   const [filter, setFilter] = useState<"all" | "essay" | "mcq_paper">("all");
   const [createOpen, setCreateOpen] = useState(false);
-  const [selectedSubmissionsAssignmentId, setSelectedSubmissionsAssignmentId] = useState<string | null>(null);
+  const [selectedSubmissionsAssignmentId, setSelectedSubmissionsAssignmentId] = useState<
+    string | null
+  >(null);
 
   // Assignment Creator Form State
   const [title, setTitle] = useState("");
@@ -1475,7 +1587,7 @@ function ClassworkTab({
           title: title.trim(),
           instructions: instructions.trim() || undefined,
           dueAt: dueAt ? new Date(dueAt).toISOString() : null,
-          essayQuestion: kind === "essay" ? (essayQuestion.trim() || title.trim()) : undefined,
+          essayQuestion: kind === "essay" ? essayQuestion.trim() || title.trim() : undefined,
           essayTopic: kind === "essay" ? essayTopic : undefined,
           essayMaxMark: kind === "essay" ? Number(essayMaxMark) : undefined,
         },
@@ -1527,7 +1639,10 @@ function ClassworkTab({
             size="sm"
             variant={filter === "all" ? "default" : "ghost"}
             onClick={() => setFilter("all")}
-            className={cn("text-xs", filter === "all" ? "bg-purple-600 text-white" : "text-slate-400")}
+            className={cn(
+              "text-xs",
+              filter === "all" ? "bg-purple-600 text-white" : "text-slate-400",
+            )}
           >
             All Topics
           </Button>
@@ -1535,7 +1650,10 @@ function ClassworkTab({
             size="sm"
             variant={filter === "essay" ? "default" : "ghost"}
             onClick={() => setFilter("essay")}
-            className={cn("text-xs", filter === "essay" ? "bg-purple-600 text-white" : "text-slate-400")}
+            className={cn(
+              "text-xs",
+              filter === "essay" ? "bg-purple-600 text-white" : "text-slate-400",
+            )}
           >
             Cambridge Essays (8, 12, 20m)
           </Button>
@@ -1543,7 +1661,10 @@ function ClassworkTab({
             size="sm"
             variant={filter === "mcq_paper" ? "default" : "ghost"}
             onClick={() => setFilter("mcq_paper")}
-            className={cn("text-xs", filter === "mcq_paper" ? "bg-purple-600 text-white" : "text-slate-400")}
+            className={cn(
+              "text-xs",
+              filter === "mcq_paper" ? "bg-purple-600 text-white" : "text-slate-400",
+            )}
           >
             MCQ Past Papers
           </Button>
@@ -1564,7 +1685,10 @@ function ClassworkTab({
       {isLoading ? (
         <div className="space-y-4">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="h-28 rounded-2xl bg-slate-900/40 border border-slate-800 animate-pulse" />
+            <div
+              key={i}
+              className="h-28 rounded-2xl bg-slate-900/40 border border-slate-800 animate-pulse"
+            />
           ))}
         </div>
       ) : filteredAssignments.length === 0 ? (
@@ -1582,8 +1706,15 @@ function ClassworkTab({
           {filteredAssignments.map((a) => {
             const isEssay = a.kind === "essay";
             const mySub = a.mySubmission;
-            const isSubmitted = Boolean(mySub && (mySub.status === "submitted" || mySub.status === "graded" || mySub.status === "returned"));
-            const isGraded = Boolean(mySub && (mySub.status === "graded" || mySub.status === "returned"));
+            const isSubmitted = Boolean(
+              mySub &&
+              (mySub.status === "submitted" ||
+                mySub.status === "graded" ||
+                mySub.status === "returned"),
+            );
+            const isGraded = Boolean(
+              mySub && (mySub.status === "graded" || mySub.status === "returned"),
+            );
 
             return (
               <div
@@ -1594,16 +1725,26 @@ function ClassworkTab({
                 <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
                   <div className="flex items-start gap-3.5">
                     <div className="h-10 w-10 rounded-xl bg-purple-950/80 border border-purple-700/50 flex items-center justify-center text-purple-300 shrink-0">
-                      {isEssay ? <FileText className="h-5 w-5" /> : <BookOpen className="h-5 w-5" />}
+                      {isEssay ? (
+                        <FileText className="h-5 w-5" />
+                      ) : (
+                        <BookOpen className="h-5 w-5" />
+                      )}
                     </div>
                     <div className="space-y-1">
                       <div className="flex items-center gap-2 flex-wrap">
                         <h3 className="text-base font-bold text-white tracking-tight">{a.title}</h3>
-                        <Badge variant="outline" className="bg-slate-950 text-slate-300 border-slate-700 text-[10px]">
+                        <Badge
+                          variant="outline"
+                          className="bg-slate-950 text-slate-300 border-slate-700 text-[10px]"
+                        >
                           {isEssay ? `${a.essayMaxMark || 20} Marks` : "30 MCQs"}
                         </Badge>
                         {a.essayTopic && (
-                          <Badge variant="outline" className="bg-purple-950/40 text-purple-300 border-purple-800 text-[10px]">
+                          <Badge
+                            variant="outline"
+                            className="bg-purple-950/40 text-purple-300 border-purple-800 text-[10px]"
+                          >
                             {a.essayTopic}
                           </Badge>
                         )}
@@ -1613,7 +1754,11 @@ function ClassworkTab({
                         <div className="text-xs text-slate-400 flex items-center gap-1.5">
                           <Calendar className="h-3.5 w-3.5 text-purple-400" />
                           <span>
-                            Due {new Date(a.dueAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}
+                            Due{" "}
+                            {new Date(a.dueAt).toLocaleString(undefined, {
+                              dateStyle: "medium",
+                              timeStyle: "short",
+                            })}
                           </span>
                         </div>
                       )}
@@ -1659,9 +1804,13 @@ function ClassworkTab({
                           variant="ghost"
                           onClick={() => {
                             if (confirm("Archive/delete this assignment?")) {
-                              deleteAssignmentFn({ data: { assignmentId: a.id, classroomId: classroom.id } }).then(() => {
+                              deleteAssignmentFn({
+                                data: { assignmentId: a.id, classroomId: classroom.id },
+                              }).then(() => {
                                 toast.success("Assignment archived");
-                                queryClient.invalidateQueries({ queryKey: ["classroom_assignments", classroom.id] });
+                                queryClient.invalidateQueries({
+                                  queryKey: ["classroom_assignments", classroom.id],
+                                });
                               });
                             }
                           }}
@@ -1679,7 +1828,9 @@ function ClassworkTab({
                   <div className="bg-slate-950/50 rounded-xl p-4 border border-slate-800/80 text-xs text-slate-300 space-y-2">
                     {a.essayQuestion && (
                       <div>
-                        <span className="font-semibold text-purple-300 block mb-1">Question Prompt:</span>
+                        <span className="font-semibold text-purple-300 block mb-1">
+                          Question Prompt:
+                        </span>
                         <p className="text-slate-200 text-sm font-medium">{a.essayQuestion}</p>
                       </div>
                     )}
@@ -1700,8 +1851,14 @@ function ClassworkTab({
                             Teacher Assessment & Feedback
                           </span>
                           <span className="text-sm font-bold text-emerald-200">
-                            Score: {mySub?.teacherScore ?? mySub?.aiScore} / {a.essayMaxMark || 20} (
-                            {Math.round(((Number(mySub?.teacherScore ?? mySub?.aiScore) || 0) / (a.essayMaxMark || 20)) * 100)}%)
+                            Score: {mySub?.teacherScore ?? mySub?.aiScore} / {a.essayMaxMark || 20}{" "}
+                            (
+                            {Math.round(
+                              ((Number(mySub?.teacherScore ?? mySub?.aiScore) || 0) /
+                                (a.essayMaxMark || 20)) *
+                                100,
+                            )}
+                            %)
                           </span>
                         </div>
                         {mySub?.teacherFeedback && (
@@ -1747,7 +1904,9 @@ function ClassworkTab({
                           </Button>
                           <Button
                             size="sm"
-                            onClick={() => submitMutation.mutate({ assignmentId: a.id, text: submissionText })}
+                            onClick={() =>
+                              submitMutation.mutate({ assignmentId: a.id, text: submissionText })
+                            }
                             disabled={!submissionText.trim() || submitMutation.isPending}
                             className="bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold"
                           >
@@ -1758,7 +1917,9 @@ function ClassworkTab({
                       </div>
                     ) : (
                       <div className="flex items-center justify-between pt-1">
-                        <span className="text-xs text-slate-500">Your work has not been turned in yet.</span>
+                        <span className="text-xs text-slate-500">
+                          Your work has not been turned in yet.
+                        </span>
                         <Button
                           size="sm"
                           onClick={() => setSubmittingAssignmentId(a.id)}
@@ -1789,7 +1950,9 @@ function ClassworkTab({
                     </div>
                     {a.stats.averageScore !== null && (
                       <div className="text-purple-300">
-                        <span className="font-bold mr-1">{a.stats.averageScore}/{a.essayMaxMark || 20}</span>
+                        <span className="font-bold mr-1">
+                          {a.stats.averageScore}/{a.essayMaxMark || 20}
+                        </span>
                         <span>Class Average</span>
                       </div>
                     )}
@@ -1810,7 +1973,10 @@ function ClassworkTab({
                 <FileEdit className="h-5 w-5 text-purple-400" />
                 Create Class Assignment
               </h3>
-              <button onClick={() => setCreateOpen(false)} className="text-slate-400 hover:text-white">
+              <button
+                onClick={() => setCreateOpen(false)}
+                className="text-slate-400 hover:text-white"
+              >
                 <X className="h-5 w-5" />
               </button>
             </div>
@@ -1849,19 +2015,34 @@ function ClassworkTab({
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent className="bg-slate-900 border-slate-800 text-white">
-                          <SelectItem value="Unit 1: Basic Economic Ideas">Unit 1: Basic Economic Ideas</SelectItem>
-                          <SelectItem value="Unit 2: The Price System & Microeconomy">Unit 2: The Price System & Micro</SelectItem>
-                          <SelectItem value="Unit 3: Government Micro Intervention">Unit 3: Government Micro Intervention</SelectItem>
-                          <SelectItem value="Unit 4: The National Economy (Macro)">Unit 4: The National Economy (Macro)</SelectItem>
-                          <SelectItem value="Unit 5: Government Macro Intervention">Unit 5: Government Macro Intervention</SelectItem>
-                          <SelectItem value="Unit 6: International Economic Issues">Unit 6: International Economics</SelectItem>
+                          <SelectItem value="Unit 1: Basic Economic Ideas">
+                            Unit 1: Basic Economic Ideas
+                          </SelectItem>
+                          <SelectItem value="Unit 2: The Price System & Microeconomy">
+                            Unit 2: The Price System & Micro
+                          </SelectItem>
+                          <SelectItem value="Unit 3: Government Micro Intervention">
+                            Unit 3: Government Micro Intervention
+                          </SelectItem>
+                          <SelectItem value="Unit 4: The National Economy (Macro)">
+                            Unit 4: The National Economy (Macro)
+                          </SelectItem>
+                          <SelectItem value="Unit 5: Government Macro Intervention">
+                            Unit 5: Government Macro Intervention
+                          </SelectItem>
+                          <SelectItem value="Unit 6: International Economic Issues">
+                            Unit 6: International Economics
+                          </SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
 
                     <div className="space-y-1.5">
                       <Label className="text-xs font-semibold text-slate-300">Maximum Marks</Label>
-                      <Select value={String(essayMaxMark)} onValueChange={(v) => setEssayMaxMark(Number(v))}>
+                      <Select
+                        value={String(essayMaxMark)}
+                        onValueChange={(v) => setEssayMaxMark(Number(v))}
+                      >
                         <SelectTrigger className="bg-slate-950 border-slate-700 text-white">
                           <SelectValue />
                         </SelectTrigger>
@@ -1875,7 +2056,9 @@ function ClassworkTab({
                   </div>
 
                   <div className="space-y-1.5">
-                    <Label className="text-xs font-semibold text-slate-300">Full Question Prompt</Label>
+                    <Label className="text-xs font-semibold text-slate-300">
+                      Full Question Prompt
+                    </Label>
                     <Textarea
                       value={essayQuestion}
                       onChange={(e) => setEssayQuestion(e.target.value)}
@@ -1888,7 +2071,9 @@ function ClassworkTab({
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold text-slate-300">Due Date & Time (Optional)</Label>
+                  <Label className="text-xs font-semibold text-slate-300">
+                    Due Date & Time (Optional)
+                  </Label>
                   <Input
                     type="datetime-local"
                     value={dueAt}
@@ -1899,7 +2084,9 @@ function ClassworkTab({
               </div>
 
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-slate-300">Teacher Instructions / Rubric Notes</Label>
+                <Label className="text-xs font-semibold text-slate-300">
+                  Teacher Instructions / Rubric Notes
+                </Label>
                 <Textarea
                   value={instructions}
                   onChange={(e) => setInstructions(e.target.value)}
@@ -1910,7 +2097,11 @@ function ClassworkTab({
             </div>
 
             <div className="flex items-center justify-end gap-3 pt-2">
-              <Button variant="ghost" onClick={() => setCreateOpen(false)} className="text-slate-400 hover:text-white">
+              <Button
+                variant="ghost"
+                onClick={() => setCreateOpen(false)}
+                className="text-slate-400 hover:text-white"
+              >
                 Cancel
               </Button>
               <Button
@@ -2119,7 +2310,8 @@ function TeacherSubmissionsModal({
                           Student's Submitted Essay Answer:
                         </Label>
                         <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 text-sm text-slate-200 leading-relaxed whitespace-pre-wrap">
-                          {activeStudent.submission.submissionText || "Linked graded essay version."}
+                          {activeStudent.submission.submissionText ||
+                            "Linked graded essay version."}
                         </div>
                       </div>
 
@@ -2131,7 +2323,10 @@ function TeacherSubmissionsModal({
                               <Sparkles className="h-4 w-4 text-purple-400" />
                               AI Examiner Preliminary Mark
                             </span>
-                            <span>{activeStudent.submission.aiScore} / {assignment?.essay_max_mark || 20}</span>
+                            <span>
+                              {activeStudent.submission.aiScore} /{" "}
+                              {assignment?.essay_max_mark || 20}
+                            </span>
                           </div>
                         </div>
                       )}
@@ -2237,7 +2432,10 @@ function PeopleTab({
   const [search, setSearch] = useState("");
   const [inviteTeacherOpen, setInviteTeacherOpen] = useState(false);
   const [teacherEmail, setTeacherEmail] = useState("");
-  const [selectedStudentForInsights, setSelectedStudentForInsights] = useState<{ id: string; name: string } | null>(null);
+  const [selectedStudentForInsights, setSelectedStudentForInsights] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
 
   const { data: teachersData } = useQuery({
     queryKey: ["classroom_teachers", classroom.id],
@@ -2291,7 +2489,9 @@ function PeopleTab({
               <School className="h-5 w-5 text-purple-400" />
               Teachers
             </h3>
-            <p className="text-xs text-slate-400 mt-1">Economics instructors managing this classroom.</p>
+            <p className="text-xs text-slate-400 mt-1">
+              Economics instructors managing this classroom.
+            </p>
           </div>
 
           {isStaff && (
@@ -2320,9 +2520,13 @@ function PeopleTab({
                   <div className="flex items-center gap-2">
                     <span className="font-semibold text-sm text-white">{t.fullName}</span>
                     {t.owner ? (
-                      <Badge className="bg-purple-950 text-purple-300 border-purple-700 text-[10px] py-0">Owner</Badge>
+                      <Badge className="bg-purple-950 text-purple-300 border-purple-700 text-[10px] py-0">
+                        Owner
+                      </Badge>
                     ) : (
-                      <Badge className="bg-slate-800 text-slate-300 border-slate-700 text-[10px] py-0">Co-Teacher</Badge>
+                      <Badge className="bg-slate-800 text-slate-300 border-slate-700 text-[10px] py-0">
+                        Co-Teacher
+                      </Badge>
                     )}
                   </div>
                   <div className="text-xs text-slate-400 flex items-center gap-2 mt-0.5">
@@ -2338,9 +2542,13 @@ function PeopleTab({
                   variant="ghost"
                   onClick={() => {
                     if (confirm(`Remove ${t.fullName} from co-teachers?`)) {
-                      removeTeacherFn({ data: { classroomId: classroom.id, teacherId: t.teacherId } }).then(() => {
+                      removeTeacherFn({
+                        data: { classroomId: classroom.id, teacherId: t.teacherId },
+                      }).then(() => {
                         toast.success("Teacher removed");
-                        queryClient.invalidateQueries({ queryKey: ["classroom_teachers", classroom.id] });
+                        queryClient.invalidateQueries({
+                          queryKey: ["classroom_teachers", classroom.id],
+                        });
                       });
                     }
                   }}
@@ -2362,7 +2570,9 @@ function PeopleTab({
               <UsersRound className="h-5 w-5 text-purple-400" />
               Classmates ({students.length})
             </h3>
-            <p className="text-xs text-slate-400 mt-1">Enrolled students taking Cambridge Economics.</p>
+            <p className="text-xs text-slate-400 mt-1">
+              Enrolled students taking Cambridge Economics.
+            </p>
           </div>
 
           <div className="w-full sm:w-64">
@@ -2384,7 +2594,9 @@ function PeopleTab({
         ) : filteredStudents.length === 0 ? (
           <div className="text-center py-12 text-slate-500">
             <UsersRound className="h-10 w-10 text-slate-600 mx-auto mb-2" />
-            <p className="text-xs">No students enrolled yet. Share the class code with your students.</p>
+            <p className="text-xs">
+              No students enrolled yet. Share the class code with your students.
+            </p>
           </div>
         ) : (
           <div className="space-y-2.5">
@@ -2398,7 +2610,9 @@ function PeopleTab({
                     {getInitials(st.full_name || "Student")}
                   </div>
                   <div>
-                    <div className="font-semibold text-sm text-white">{st.full_name || "Student"}</div>
+                    <div className="font-semibold text-sm text-white">
+                      {st.full_name || "Student"}
+                    </div>
                     <div className="text-xs text-slate-400 flex items-center gap-2">
                       <span>{st.email}</span>
                       {st.school && <span>• {st.school}</span>}
@@ -2411,7 +2625,12 @@ function PeopleTab({
                     <Button
                       size="sm"
                       variant="ghost"
-                      onClick={() => setSelectedStudentForInsights({ id: st.student_id, name: st.full_name || "Student" })}
+                      onClick={() =>
+                        setSelectedStudentForInsights({
+                          id: st.student_id,
+                          name: st.full_name || "Student",
+                        })
+                      }
                       className="text-xs text-purple-400 hover:text-white hover:bg-purple-950/40"
                     >
                       <BarChart3 className="h-3.5 w-3.5 mr-1" />
@@ -2425,9 +2644,13 @@ function PeopleTab({
                       variant="ghost"
                       onClick={() => {
                         if (confirm(`Remove ${st.full_name || "this student"} from class?`)) {
-                          removeMemberFn({ data: { membershipId: st.membership_id, classroomId: classroom.id } }).then(() => {
+                          removeMemberFn({
+                            data: { membershipId: st.membership_id, classroomId: classroom.id },
+                          }).then(() => {
                             toast.success("Student removed from class");
-                            queryClient.invalidateQueries({ queryKey: ["classroom_roster", classroom.id] });
+                            queryClient.invalidateQueries({
+                              queryKey: ["classroom_roster", classroom.id],
+                            });
                           });
                         }
                       }}
@@ -2475,13 +2698,17 @@ function PeopleTab({
                 <UserPlus className="h-5 w-5 text-purple-400" />
                 Invite Co-Teacher
               </h3>
-              <button onClick={() => setInviteTeacherOpen(false)} className="text-slate-400 hover:text-white">
+              <button
+                onClick={() => setInviteTeacherOpen(false)}
+                className="text-slate-400 hover:text-white"
+              >
                 <X className="h-5 w-5" />
               </button>
             </div>
 
             <p className="text-xs text-slate-400">
-              Enter the email address of the teacher you want to collaborate with. They must have a Marginal account with Teacher privileges.
+              Enter the email address of the teacher you want to collaborate with. They must have a
+              Marginal account with Teacher privileges.
             </p>
 
             <div className="space-y-1.5">
@@ -2496,7 +2723,11 @@ function PeopleTab({
             </div>
 
             <div className="flex items-center justify-end gap-3 pt-2">
-              <Button variant="ghost" onClick={() => setInviteTeacherOpen(false)} className="text-slate-400 hover:text-white">
+              <Button
+                variant="ghost"
+                onClick={() => setInviteTeacherOpen(false)}
+                className="text-slate-400 hover:text-white"
+              >
                 Cancel
               </Button>
               <Button
@@ -2557,7 +2788,9 @@ function StudentInsightsModal({
               <BarChart3 className="h-5 w-5 text-purple-400" />
               Student Performance: {studentName}
             </h3>
-            <p className="text-xs text-slate-400 mt-0.5">Comprehensive Cambridge Economics activity & diagnostic profile</p>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Comprehensive Cambridge Economics activity & diagnostic profile
+            </p>
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-white p-1">
             <X className="h-5 w-5" />
@@ -2568,21 +2801,31 @@ function StudentInsightsModal({
           {isLoading ? (
             <div className="py-16 text-center text-slate-500">Loading student analytics...</div>
           ) : !insights ? (
-            <div className="py-16 text-center text-slate-500">No insight data recorded for this student yet.</div>
+            <div className="py-16 text-center text-slate-500">
+              No insight data recorded for this student yet.
+            </div>
           ) : (
             <>
               {/* Summary KPIs */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-1">
-                  <div className="text-[10px] uppercase font-bold text-slate-500">Average Essay %</div>
+                  <div className="text-[10px] uppercase font-bold text-slate-500">
+                    Average Essay %
+                  </div>
                   <div className="text-2xl font-black text-purple-400">
-                    {insights.summary.average_essay_percent !== null ? `${insights.summary.average_essay_percent}%` : "--"}
+                    {insights.summary.average_essay_percent !== null
+                      ? `${insights.summary.average_essay_percent}%`
+                      : "--"}
                   </div>
                 </div>
 
                 <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-1">
-                  <div className="text-[10px] uppercase font-bold text-slate-500">Essays Marked</div>
-                  <div className="text-2xl font-black text-white">{insights.summary.essays_marked}</div>
+                  <div className="text-[10px] uppercase font-bold text-slate-500">
+                    Essays Marked
+                  </div>
+                  <div className="text-2xl font-black text-white">
+                    {insights.summary.essays_marked}
+                  </div>
                 </div>
 
                 <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-1">
@@ -2595,20 +2838,37 @@ function StudentInsightsModal({
                 </div>
 
                 <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-1">
-                  <div className="text-[10px] uppercase font-bold text-slate-500">Live Examiner Runs</div>
-                  <div className="text-2xl font-black text-blue-400">{insights.summary.live_examiner_sessions}</div>
+                  <div className="text-[10px] uppercase font-bold text-slate-500">
+                    Live Examiner Runs
+                  </div>
+                  <div className="text-2xl font-black text-blue-400">
+                    {insights.summary.live_examiner_sessions}
+                  </div>
                 </div>
               </div>
 
               {/* Topic Mastery breakdown */}
               <div className="space-y-3">
-                <h4 className="text-xs font-bold uppercase text-slate-400 tracking-wider">Topic Accuracy Breakdown</h4>
+                <h4 className="text-xs font-bold uppercase text-slate-400 tracking-wider">
+                  Topic Accuracy Breakdown
+                </h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {insights.topics.map((top) => (
-                    <div key={top.topic} className="p-3 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between text-xs">
+                    <div
+                      key={top.topic}
+                      className="p-3 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between text-xs"
+                    >
                       <span className="font-semibold text-slate-200">{top.topic}</span>
-                      <Badge className={cn("text-[10px]", (top.accuracy_pct ?? 0) >= 70 ? "bg-emerald-950 text-emerald-300" : "bg-amber-950 text-amber-300")}>
-                        {top.accuracy_pct !== null ? `${top.accuracy_pct}%` : "--"} ({top.attempted} MCQs)
+                      <Badge
+                        className={cn(
+                          "text-[10px]",
+                          (top.accuracy_pct ?? 0) >= 70
+                            ? "bg-emerald-950 text-emerald-300"
+                            : "bg-amber-950 text-amber-300",
+                        )}
+                      >
+                        {top.accuracy_pct !== null ? `${top.accuracy_pct}%` : "--"} ({top.attempted}{" "}
+                        MCQs)
                       </Badge>
                     </div>
                   ))}
@@ -2644,16 +2904,27 @@ function GradesTab({ classroom }: { classroom: Classroom }) {
       return;
     }
 
-    const headers = ["Student Name", "Email", "Overall Average %", ...assignments.map((a) => `${a.title} (Max ${a.maxMark})`)];
+    const headers = [
+      "Student Name",
+      "Email",
+      "Overall Average %",
+      ...assignments.map((a) => `${a.title} (Max ${a.maxMark})`),
+    ];
     const rows = students.map((s) => {
       const studentGrades = assignments.map((a) => {
         const cell = matrix[`${s.id}_${a.id}`];
         return cell?.score !== null && cell?.score !== undefined ? cell.score : "";
       });
-      return [s.fullName, s.email, s.overallAvgPct !== null ? `${s.overallAvgPct}%` : "", ...studentGrades];
+      return [
+        s.fullName,
+        s.email,
+        s.overallAvgPct !== null ? `${s.overallAvgPct}%` : "",
+        ...studentGrades,
+      ];
     });
 
-    const csvContent = "data:text/csv;charset=utf-8," + [headers, ...rows].map((e) => e.join(",")).join("\n");
+    const csvContent =
+      "data:text/csv;charset=utf-8," + [headers, ...rows].map((e) => e.join(",")).join("\n");
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
@@ -2681,17 +2952,24 @@ function GradesTab({ classroom }: { classroom: Classroom }) {
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-6 px-4 py-2 rounded-2xl bg-slate-950 border border-slate-800 text-xs">
             <div>
-              <span className="text-slate-500 uppercase text-[10px] font-bold block">Class Size</span>
+              <span className="text-slate-500 uppercase text-[10px] font-bold block">
+                Class Size
+              </span>
               <span className="text-base font-bold text-white">{summary?.totalStudents ?? 0}</span>
             </div>
             <div>
               <span className="text-slate-500 uppercase text-[10px] font-bold block">Tasks</span>
-              <span className="text-base font-bold text-white">{summary?.totalAssignments ?? 0}</span>
+              <span className="text-base font-bold text-white">
+                {summary?.totalAssignments ?? 0}
+              </span>
             </div>
             <div>
-              <span className="text-slate-500 uppercase text-[10px] font-bold block">Class Average</span>
+              <span className="text-slate-500 uppercase text-[10px] font-bold block">
+                Class Average
+              </span>
               <span className="text-base font-bold text-purple-400">
-                {summary?.overallClassAveragePct !== null && summary?.overallClassAveragePct !== undefined
+                {summary?.overallClassAveragePct !== null &&
+                summary?.overallClassAveragePct !== undefined
                   ? `${summary.overallClassAveragePct}%`
                   : "--"}
               </span>
@@ -2717,7 +2995,8 @@ function GradesTab({ classroom }: { classroom: Classroom }) {
           <UsersRound className="h-12 w-12 text-slate-600 mx-auto mb-3" />
           <h4 className="text-base font-medium text-slate-300">No students enrolled yet</h4>
           <p className="text-xs text-slate-500 max-w-sm mx-auto mt-1">
-            Once students join your class code and turn in essays, their scores will populate this matrix automatically.
+            Once students join your class code and turn in essays, their scores will populate this
+            matrix automatically.
           </p>
         </div>
       ) : assignments.length === 0 ? (
@@ -2740,8 +3019,13 @@ function GradesTab({ classroom }: { classroom: Classroom }) {
                   Overall Avg
                 </th>
                 {assignments.map((a) => (
-                  <th key={a.id} className="p-4 min-w-[160px] text-slate-300 font-semibold space-y-1">
-                    <div className="truncate font-bold text-white" title={a.title}>{a.title}</div>
+                  <th
+                    key={a.id}
+                    className="p-4 min-w-[160px] text-slate-300 font-semibold space-y-1"
+                  >
+                    <div className="truncate font-bold text-white" title={a.title}>
+                      {a.title}
+                    </div>
                     <div className="text-[10px] text-slate-500 font-normal flex items-center justify-between">
                       <span>Max {a.maxMark}</span>
                       {a.classAvgPct !== null && (
@@ -2769,11 +3053,16 @@ function GradesTab({ classroom }: { classroom: Classroom }) {
 
                   <td className="p-4 text-center font-bold border-r border-slate-800">
                     {st.overallAvgPct !== null ? (
-                      <span className={cn(
-                        "px-2 py-0.5 rounded-full text-xs font-bold",
-                        st.overallAvgPct >= 80 ? "bg-emerald-950 text-emerald-300" :
-                        st.overallAvgPct >= 60 ? "bg-purple-950 text-purple-300" : "bg-amber-950 text-amber-300",
-                      )}>
+                      <span
+                        className={cn(
+                          "px-2 py-0.5 rounded-full text-xs font-bold",
+                          st.overallAvgPct >= 80
+                            ? "bg-emerald-950 text-emerald-300"
+                            : st.overallAvgPct >= 60
+                              ? "bg-purple-950 text-purple-300"
+                              : "bg-amber-950 text-amber-300",
+                        )}
+                      >
                         {st.overallAvgPct}%
                       </span>
                     ) : (
@@ -2788,10 +3077,13 @@ function GradesTab({ classroom }: { classroom: Classroom }) {
                         {cell?.score !== null && cell?.score !== undefined ? (
                           <div className="inline-flex flex-col items-center">
                             <span className="font-bold text-white text-xs">
-                              {cell.score} <span className="text-slate-500 text-[10px]">/ {a.maxMark}</span>
+                              {cell.score}{" "}
+                              <span className="text-slate-500 text-[10px]">/ {a.maxMark}</span>
                             </span>
                             {cell.percentage !== null && (
-                              <span className="text-[10px] text-slate-400 font-medium">({cell.percentage}%)</span>
+                              <span className="text-[10px] text-slate-400 font-medium">
+                                ({cell.percentage}%)
+                              </span>
                             )}
                           </div>
                         ) : cell?.status === "submitted" ? (

@@ -169,12 +169,24 @@ export async function classifyPdfMcqTopics(options: {
     .filter((t): t is TopicTag => t !== null);
 }
 
+export type McqDiagnostic = {
+  concept: string;
+  keyRule: string;
+  correctReasoning: string;
+  distractorTrap: string;
+  speedTip: string;
+};
+
+export type McqExplanationResult = {
+  text: string;
+  diagnostic?: McqDiagnostic;
+};
+
 /**
- * Short written explanation of why one question's mark-scheme answer is
+ * Advanced examiner explanation of why one question's mark-scheme answer is
  * correct, generated on demand when a student opens a question in the
- * post-attempt review (typically one they got wrong). Text-only, given
- * just the stem text pulled from the PDF and the two letters involved —
- * never used to grade, and never shown until after the attempt is marked.
+ * post-attempt review. Produces structured Cambridge 9708 diagnostic data
+ * (concept, key rule, worked derivation, distractor trap analysis, speed tip).
  */
 export async function explainPdfMcqAnswer(options: {
   level: "as" | "a2";
@@ -182,49 +194,70 @@ export async function explainPdfMcqAnswer(options: {
   stemText: string;
   correctAnswer: "A" | "B" | "C" | "D";
   userAnswer: "A" | "B" | "C" | "D" | null;
-}): Promise<string> {
+}): Promise<McqExplanationResult> {
   const { level, number, stemText, correctAnswer, userAnswer } = options;
 
   const systemPrompt = [
-    "You are an experienced Cambridge International AS & A Level Economics (9708) teacher",
-    `(${level === "a2" ? "A2" : "AS"} level) explaining one multiple-choice question to a student`,
-    "reviewing their finished attempt. The question text below was extracted from a real PDF and",
-    "may run the stem and options together or include minor noise — read past that.",
-    "Explain, in a full short paragraph (roughly 4-7 sentences), why the correct option is right —",
-    "walk through the underlying economics, not just the letter — and, if the student picked a",
-    "different option, explain specifically why that option is wrong or less complete. Finish your",
-    "explanation properly; never cut a sentence short. Plain text only, no markdown, no restating",
-    "these instructions.",
-  ].join(" ");
+    "You are a Principal Examiner for Cambridge International AS & A Level Economics (9708)",
+    `(${level === "a2" ? "A2 Level Paper 3" : "AS Level Paper 1"}) explaining a past multiple-choice question`,
+    "to a student reviewing their finished paper attempt. The question stem was extracted from a real past paper.",
+    "Deliver an advanced, authoritative diagnostic breakdown.",
+    "",
+    "Return ONLY a single valid JSON object with these exact keys:",
+    '- "concept": short syllabus unit & topic reference (e.g. "AS Unit 2: Cross Elasticity of Demand (XED)")',
+    '- "keyRule": the core economic principle, equation, or golden rule governing this question',
+    '- "correctReasoning": clear step-by-step worked derivation of why the correct option is uniquely true',
+    '- "distractorTrap": detailed diagnosis of why the student\'s choice was wrong or the common distractor trap Cambridge sets for this item',
+    '- "speedTip": rapid elimination shortcut to solve or reject options in < 45 seconds on Paper 1/Paper 3',
+    '- "summary": a cohesive 3-5 sentence explanation paragraph walking through the question',
+  ].join("\n");
 
   const userMessage = [
     `Question ${number}:`,
-    stemText.slice(0, 1200) ||
+    stemText.slice(0, 1400) ||
       "(question text unavailable — explain generally from the answer key)",
     "",
-    `Correct answer: ${correctAnswer}`,
-    userAnswer ? `Student's answer: ${userAnswer}` : "Student left this one blank.",
+    `Correct mark scheme answer: Option ${correctAnswer}`,
+    userAnswer
+      ? `Student selected: Option ${userAnswer} (${userAnswer === correctAnswer ? "CORRECT" : "INCORRECT"})`
+      : "Student left this question unattempted.",
   ].join("\n");
 
   const result = await chat({
     model: MODEL_EXAMINER,
-    temperature: 0.3,
-    // "none", not "low" — this is a short written explanation, not a task
-    // that benefits from a reasoning pass, and reasoning tokens on a GPT-5
-    // family model count against the same maxCompletionTokens budget as
-    // the visible answer. At "low" the model was spending a chunk of the
-    // (too-small) 400-token budget on hidden reasoning and running out of
-    // room before finishing the explanation, which is exactly the same
-    // class of bug already fixed once in OCR (thinkingBudget: 0) — the
-    // model wasn't wrong, it was starved. Raised the ceiling well past
-    // what a 4-7 sentence paragraph needs, too, as a second safety margin.
+    temperature: 0.2,
+    json: true,
     reasoningEffort: "none",
-    maxCompletionTokens: 900,
+    maxCompletionTokens: 1000,
     messages: [
       { role: "system", content: systemPrompt },
       { role: "user", content: userMessage },
     ],
   });
 
-  return result.text.trim();
+  const parsed = extractFirstJsonObject(result.text);
+  if (parsed && typeof parsed === "object") {
+    const p = parsed as Record<string, unknown>;
+    const summary = typeof p.summary === "string" && p.summary.trim() ? p.summary.trim() : "";
+    const correctReasoning =
+      typeof p.correctReasoning === "string" ? p.correctReasoning.trim() : "";
+    const text = summary || correctReasoning || result.text.trim();
+
+    const diagnostic: McqDiagnostic = {
+      concept:
+        typeof p.concept === "string" && p.concept.trim()
+          ? p.concept.trim()
+          : `Cambridge 9708 Question ${number}`,
+      keyRule: typeof p.keyRule === "string" ? p.keyRule.trim() : "",
+      correctReasoning: correctReasoning || text,
+      distractorTrap: typeof p.distractorTrap === "string" ? p.distractorTrap.trim() : "",
+      speedTip: typeof p.speedTip === "string" ? p.speedTip.trim() : "",
+    };
+
+    return { text, diagnostic };
+  }
+
+  return {
+    text: result.text.trim(),
+  };
 }

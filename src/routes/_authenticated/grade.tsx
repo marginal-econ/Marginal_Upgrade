@@ -1,7 +1,15 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { AlertCircle, CheckCircle2, Loader2, ShieldCheck, SpellCheck, Sparkles, X } from "lucide-react";
+import {
+  AlertCircle,
+  CheckCircle2,
+  Loader2,
+  ShieldCheck,
+  SpellCheck,
+  Sparkles,
+  X,
+} from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -203,7 +211,10 @@ function GradePage() {
         <div className="flex items-center gap-2.5 rounded-xl border border-primary/20 bg-primary/[0.04] px-4 py-2.5 text-xs text-muted-foreground">
           <ShieldCheck className="size-4 shrink-0 text-primary" />
           <p className="leading-relaxed">
-            <strong className="text-foreground font-semibold">Cambridge 9708 Standard:</strong> Marking bands, AO ratios, and model feedback are calibrated against published Cambridge Assessment guidelines. Marginal is an independent study platform and not endorsed by Cambridge Assessment.
+            <strong className="text-foreground font-semibold">Cambridge 9708 Standard:</strong>{" "}
+            Marking bands, AO ratios, and model feedback are calibrated against published Cambridge
+            Assessment guidelines. Marginal is an independent study platform and not endorsed by
+            Cambridge Assessment.
           </p>
         </div>
       </div>

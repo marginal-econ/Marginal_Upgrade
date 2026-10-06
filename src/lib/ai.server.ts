@@ -170,7 +170,11 @@ export async function chat(rawOptions: ChatOptions): Promise<ChatResult> {
       body: JSON.stringify(body),
     });
 
-    if (!response.ok && (response.status === 400 || response.status === 404) && body.model !== ECONOMY_MODEL) {
+    if (
+      !response.ok &&
+      (response.status === 400 || response.status === 404) &&
+      body.model !== ECONOMY_MODEL
+    ) {
       const errText = await response.text();
       if (
         errText.toLowerCase().includes("model") ||
@@ -756,7 +760,11 @@ export async function visionChat(options: {
     body: JSON.stringify(body),
   });
 
-  if (!response.ok && (response.status === 400 || response.status === 404) && body.model !== ECONOMY_MODEL) {
+  if (
+    !response.ok &&
+    (response.status === 400 || response.status === 404) &&
+    body.model !== ECONOMY_MODEL
+  ) {
     const errText = await response.text();
     if (
       errText.toLowerCase().includes("model") ||

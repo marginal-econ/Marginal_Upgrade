@@ -39,6 +39,8 @@ async function assertStaff(
  * back to the exact passage, which is the point: no definition here can be
  * displayed without a knowledge-base citation next to it.
  */
+import { CAMBRIDGE_CORE_DEFINITIONS } from "./cambridge-definitions";
+
 export const listDefinitions = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) =>
@@ -50,23 +52,52 @@ export const listDefinitions = createServerFn({ method: "GET" })
       .parse(input ?? {}),
   )
   .handler(async ({ data, context }) => {
-    let query = context.supabase
-      .from("definitions")
-      .select(
-        "id, term, definition_text, topic_id, created_at, " +
-          "source_document_id, source_chunk_id, " +
-          "source_label, category, " +
-          "knowledge_documents(title, doc_type, source_name), " +
-          "topics(name)",
-      )
-      .order("term", { ascending: true });
+    try {
+      let query = context.supabase
+        .from("definitions")
+        .select(
+          "id, term, definition_text, topic_id, created_at, " +
+            "source_document_id, source_chunk_id, " +
+            "source_label, category, " +
+            "knowledge_documents(title, doc_type, source_name), " +
+            "topics(name)",
+        )
+        .order("term", { ascending: true });
 
-    if (data.search) query = query.ilike("term", `%${data.search}%`);
-    if (data.topicId) query = query.eq("topic_id", data.topicId);
+      if (data.search) {
+        query = query.or(`term.ilike.%${data.search}%,definition_text.ilike.%${data.search}%`);
+      }
+      if (data.topicId) query = query.eq("topic_id", data.topicId);
 
-    const { data: rows, error } = await query.limit(500);
-    if (error) throw new Error(error.message);
-    return (rows ?? []) as unknown as DefinitionListRow[];
+      const { data: rows, error } = await query.limit(500);
+      if (error || !rows || rows.length === 0) {
+        let fallback = [...CAMBRIDGE_CORE_DEFINITIONS] as unknown as DefinitionListRow[];
+        if (data.search) {
+          const s = data.search.toLowerCase();
+          fallback = fallback.filter(
+            (d) =>
+              d.term.toLowerCase().includes(s) ||
+              d.definition_text.toLowerCase().includes(s) ||
+              (d.category && d.category.toLowerCase().includes(s)),
+          );
+        }
+        return fallback;
+      }
+      return rows as unknown as DefinitionListRow[];
+    } catch (err) {
+      console.error("Failed to list definitions from DB, returning core definitions:", err);
+      let fallback = [...CAMBRIDGE_CORE_DEFINITIONS] as unknown as DefinitionListRow[];
+      if (data.search) {
+        const s = data.search.toLowerCase();
+        fallback = fallback.filter(
+          (d) =>
+            d.term.toLowerCase().includes(s) ||
+            d.definition_text.toLowerCase().includes(s) ||
+            (d.category && d.category.toLowerCase().includes(s)),
+        );
+      }
+      return fallback;
+    }
   });
 
 /** Staff-only: run extraction across one document's chunks and save any

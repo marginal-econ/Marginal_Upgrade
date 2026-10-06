@@ -302,7 +302,13 @@ function McqLivePage() {
           userAnswer: q?.user_answer ?? null,
         },
       });
-      setExplanations((prev) => ({ ...prev, [number]: { text: explanation } }));
+      setExplanations((prev) => ({
+        ...prev,
+        [number]:
+          typeof explanation === "string"
+            ? { text: explanation }
+            : { text: explanation.text, diagnostic: explanation.diagnostic },
+      }));
     } catch (error) {
       setExplanations((prev) => ({
         ...prev,
@@ -366,7 +372,13 @@ function McqLivePage() {
           userAnswer: q?.user_answer ?? null,
         },
       });
-      setHistoryExplanations((prev) => ({ ...prev, [number]: { text: explanation } }));
+      setHistoryExplanations((prev) => ({
+        ...prev,
+        [number]:
+          typeof explanation === "string"
+            ? { text: explanation }
+            : { text: explanation.text, diagnostic: explanation.diagnostic },
+      }));
     } catch (error) {
       setHistoryExplanations((prev) => ({
         ...prev,

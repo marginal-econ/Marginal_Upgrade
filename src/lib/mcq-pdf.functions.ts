@@ -3,7 +3,7 @@ import { z } from "zod";
 
 import { requireSupabaseAuth } from "@/integrations/backend/auth-middleware";
 
-export type { PaperHistoryEntry } from "./mcq/mcq-pdf.server";
+export type { PaperHistoryEntry, McqDiagnostic, McqExplanationResult } from "./mcq/mcq-pdf.server";
 
 const LevelSchema = z.enum(["as", "a2"]);
 

@@ -442,7 +442,10 @@ function KnowledgePage() {
       selected.map((chapter, index) => {
         // If teacher modified the Title input, ensure the chapter title reflects that updated base title
         let chapterTitle = chapter.title;
-        if (currentBaseTitle && !chapterTitle.toLowerCase().startsWith(currentBaseTitle.toLowerCase())) {
+        if (
+          currentBaseTitle &&
+          !chapterTitle.toLowerCase().startsWith(currentBaseTitle.toLowerCase())
+        ) {
           chapterTitle = `${currentBaseTitle} — ${chapter.title.replace(/^.*? — /, "")}`;
         }
         return {
@@ -702,8 +705,7 @@ function KnowledgePage() {
                       </div>
                       <span className="text-[11px] text-muted-foreground">
                         {Math.round(
-                          chapterPreview.chapters.reduce((acc, c) => acc + c.text.length, 0) /
-                            1000,
+                          chapterPreview.chapters.reduce((acc, c) => acc + c.text.length, 0) / 1000,
                         )}
                         k chars total
                       </span>
@@ -711,7 +713,8 @@ function KnowledgePage() {
                     <div className="rounded bg-primary/10 px-2 py-1 text-[11px] font-medium text-primary flex items-center gap-1.5">
                       <span>✓ Recommended for RAG:</span>
                       <span className="text-muted-foreground font-normal">
-                        Each chapter is indexed with the textbook name for pinpoint search & citations.
+                        Each chapter is indexed with the textbook name for pinpoint search &
+                        citations.
                       </span>
                     </div>
                     <div className="flex items-center justify-between text-[11px] text-muted-foreground">
@@ -723,9 +726,7 @@ function KnowledgePage() {
                           disabled={busy}
                           onClick={() =>
                             setChapterPreview((curr) =>
-                              curr
-                                ? { ...curr, included: curr.chapters.map(() => true) }
-                                : curr,
+                              curr ? { ...curr, included: curr.chapters.map(() => true) } : curr,
                             )
                           }
                         >
@@ -738,9 +739,7 @@ function KnowledgePage() {
                           disabled={busy}
                           onClick={() =>
                             setChapterPreview((curr) =>
-                              curr
-                                ? { ...curr, included: curr.chapters.map(() => false) }
-                                : curr,
+                              curr ? { ...curr, included: curr.chapters.map(() => false) } : curr,
                             )
                           }
                         >
@@ -912,10 +911,10 @@ function KnowledgePage() {
                       <AlertDialogHeader>
                         <AlertDialogTitle>Recalibrate Knowledge Library?</AlertDialogTitle>
                         <AlertDialogDescription>
-                          This re-indexes every document and chapter in your knowledge base under the
-                          active embedding provider. It brings all stored vectors and lexical index
-                          structures up to date for maximum RAG retrieval precision, chapter matching,
-                          and authoritative grading citations.
+                          This re-indexes every document and chapter in your knowledge base under
+                          the active embedding provider. It brings all stored vectors and lexical
+                          index structures up to date for maximum RAG retrieval precision, chapter
+                          matching, and authoritative grading citations.
                         </AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter>

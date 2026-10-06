@@ -453,7 +453,9 @@ export const checkEssayWriting = createServerFn({ method: "POST" })
     const deterministicGrammar = analyzeGrammarAndMechanics(toSend);
     const deterministic: LiveExaminerIssue[] = [
       ...deterministicTerminology,
-      ...deterministicGrammar.map(({ ruleId: _ruleId, startOffset: _s, endOffset: _e, ...issue }) => issue),
+      ...deterministicGrammar.map(
+        ({ ruleId: _ruleId, startOffset: _s, endOffset: _e, ...issue }) => issue,
+      ),
     ];
 
     // Whether this call bothers estimating a mark at all: skip it on tiny
@@ -888,7 +890,7 @@ const MaxOutInput = z.object({
   maxMark: z.number().int().positive().max(30),
   essayText: z.string().trim().min(1).max(40_000),
   contextBlock: z.string().max(20_000).default(""),
-  totalMark: z.number().min(0),
+  totalMark: z.number().min(0).default(0),
   band: z.string().max(120).default(""),
   weaknesses: z.array(z.string()).max(20).default([]),
   missingElements: MaxOutMissingElements,
@@ -897,19 +899,31 @@ const MaxOutInput = z.object({
 
 const AoTargetSchema = z.enum(["ao1", "ao2", "ao3", "structure"]);
 
-const MaxOutSuggestionSchema = z.object({
-  target_ao: AoTargetSchema,
-  title: z.string().min(1).max(80),
-  suggestion: z.string().min(1).max(600),
-  mark_uplift: z.string().max(40),
+const StrategicOptionSchema = z.object({
+  label: z.string().default("Perspective"),
+  description: z.string().default(""),
+  sentence_starter: z.string().default(""),
 });
 
-const MaxOutResponseSchema = z.object({
-  headline: z.string().max(160),
+export const MaxOutSuggestionSchema = z.object({
+  target_ao: AoTargetSchema,
+  title: z.string().min(1).max(120),
+  suggestion: z.string().min(1).max(1200),
+  mark_uplift: z.string().max(40).default("+1–2 marks"),
+  how_to_write: z.array(z.string()).default([]),
+  strategic_options: z.array(StrategicOptionSchema).default([]),
+  model_phrasing: z.string().default(""),
+});
+
+export const MaxOutResponseSchema = z.object({
+  headline: z.string().max(240),
+  target_band: z.string().max(100).default("Band 1 / Level 5 (Top Band)"),
+  perfection_summary: z.string().max(1000).default(""),
   suggestions: z.array(MaxOutSuggestionSchema).max(6),
 });
 
 export type MaxOutSuggestion = z.infer<typeof MaxOutSuggestionSchema>;
+export type MaxOutResponse = z.infer<typeof MaxOutResponseSchema>;
 
 function buildMaxOutSystemPrompt(
   question: string,
@@ -917,26 +931,50 @@ function buildMaxOutSystemPrompt(
   maxMark: number,
   contextBlock: string,
 ): string {
-  return `You are a Cambridge 9708 Economics examiner giving a student SPECIFIC, ACTIONABLE advice on how to push an already-marked answer as close to full marks as realistically possible. The essay below has already been fully marked — you are not marking it again, you are telling the student exactly what to add, fix, or rewrite to close the gap between the mark it got and the maximum.
+  return `You are a Principal Examiner for Cambridge International AS & A Level Economics (syllabus 9708).
+A student has written an essay for a ${maxMark}-mark Cambridge question and wants a precise, authoritative SCORE MAXIMIZER & PERFECTION BLUEPRINT showing them exactly how to write and maximize their score to achieve full marks (${maxMark}/${maxMark}).
 
 QUESTION (${level === "a2" ? "A Level" : "AS Level"}, ${maxMark} marks): ${question}
 
 SYLLABUS MATERIAL RETRIEVED FOR THIS QUESTION:
-${contextBlock || "None retrieved — keep suggestions general to Cambridge 9708 standards, don't invent specific syllabus facts."}
+${contextBlock || "None retrieved — keep suggestions strictly grounded in Cambridge 9708 standards."}
 
-Every suggestion must be CONCRETE and SPECIFIC to what THIS student actually wrote — not generic exam advice like "add more analysis". Reference the student's own argument, examples, or missing chain of reasoning directly. Where useful, write out (in quotes) the kind of sentence or phrase they could add, or name exactly which paragraph needs the extra step. Never invent economics facts not grounded in the syllabus material above or standard Cambridge 9708 content.
+YOUR OBJECTIVE:
+Provide concrete, academically rigorous guidance detailing:
+1. What specific missing concepts, causal chains, or evaluative weights stand between their current mark and full marks.
+2. Step-by-step "How to write" instructions for each improvement (e.g. Step 1: Definition/Premise -> Step 2: Causal Transmission Chain -> Step 3: Evaluation/Trade-off).
+3. Strategic options (e.g. Option 1 vs Option 2) providing multiple argument perspectives the student can choose from.
+4. Exemplar Cambridge-grade sentence starters and model phrasing that they can directly incorporate.
 
-Give at most 5 suggestions, each one genuinely different and each targeting a real, specific gap (not padding to reach 5). Order them by mark value — biggest realistic mark gain first.
-
-Respond ONLY with a single valid JSON object, no markdown fences, no commentary:
+Respond ONLY with a single valid JSON object, no markdown fences, no commentary outside the JSON:
 {
-  "headline": "<one short sentence on the single biggest thing standing between this and full marks>",
+  "headline": "<1-2 sentences summarizing the most critical step to reach a perfect score>",
+  "target_band": "Band 1 / Level 5 (${maxMark}/${maxMark} Marks)",
+  "perfection_summary": "<concise paragraph explaining the overarching structural upgrade needed for maximum marks>",
   "suggestions": [
     {
       "target_ao": "<ao1 | ao2 | ao3 | structure>",
-      "title": "<max 8 words, e.g. 'Add a second real-world example'>",
-      "suggestion": "<2-4 sentences: exactly what to add/change and why it earns marks, specific to this essay>",
-      "mark_uplift": "<short estimate, e.g. '+1–2 marks'>"
+      "title": "<short title, e.g. 'Complete the Causal Mechanism for Tax Incidence'>",
+      "suggestion": "<detailed explanation of what is missing in the current draft and why adding this closes the gap to full marks>",
+      "mark_uplift": "<e.g. '+2 marks'>",
+      "how_to_write": [
+        "<Step 1: State the concept and explicit condition>",
+        "<Step 2: Trace the transmission mechanism (Cause -> Transmission -> Outcome)>",
+        "<Step 3: Provide evaluative counter-weight or context dependency>"
+      ],
+      "strategic_options": [
+        {
+          "label": "<e.g. Option 1: Elasticity Dependency>",
+          "description": "<what this perspective argues>",
+          "sentence_starter": "<exemplar sentence starter the student can use>"
+        },
+        {
+          "label": "<e.g. Option 2: Time Horizons & Unintended Consequences>",
+          "description": "<what this alternative perspective argues>",
+          "sentence_starter": "<exemplar sentence starter the student can use>"
+        }
+      ],
+      "model_phrasing": "<a polished, Cambridge Level 5 model sentence demonstrating exact analytical tone>"
     }
   ]
 }`;
@@ -1150,4 +1188,3 @@ export const getExaminerChallenges = createServerFn({ method: "POST" })
 
     return parsed.data;
   });
-

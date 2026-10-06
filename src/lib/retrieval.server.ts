@@ -33,7 +33,24 @@ export type RetrieveOptions = {
 
 // Generic 2-letter stop words to ignore in sparse lexical queries
 const GENERIC_STOP_WORDS_2 = new Set([
-  "to", "in", "on", "at", "of", "is", "it", "an", "by", "if", "or", "so", "my", "we", "he", "do", "no", "up",
+  "to",
+  "in",
+  "on",
+  "at",
+  "of",
+  "is",
+  "it",
+  "an",
+  "by",
+  "if",
+  "or",
+  "so",
+  "my",
+  "we",
+  "he",
+  "do",
+  "no",
+  "up",
 ]);
 
 /**
@@ -48,12 +65,14 @@ export function expandEconomicQuery(query: string): string {
 
   const TOPIC_EXPANSIONS: Array<{ triggers: RegExp; keywords: string }> = [
     {
-      triggers: /\b(scarcit(y|ies)|opportunity cost|ppc|ppf|production possibilit(y|ies)|basic economic (problem|idea))\b/i,
+      triggers:
+        /\b(scarcit(y|ies)|opportunity cost|ppc|ppf|production possibilit(y|ies)|basic economic (problem|idea))\b/i,
       keywords:
         "scarcity, opportunity cost, production possibility curve, allocative efficiency, productive efficiency, normative and positive statements, capital goods, consumer goods, shift vs movement on PPC",
     },
     {
-      triggers: /\b(demand|supply|equilibrium|consumer surplus|producer surplus|price mechanism)\b/i,
+      triggers:
+        /\b(demand|supply|equilibrium|consumer surplus|producer surplus|price mechanism)\b/i,
       keywords:
         "law of demand, determinants of supply, equilibrium price, excess demand, excess supply, consumer surplus, producer surplus, rationing function, signalling function, incentive function",
     },
@@ -63,7 +82,8 @@ export function expandEconomicQuery(query: string): string {
         "price elasticity of demand, price elasticity of supply, income elasticity, cross elasticity, tax incidence, total revenue test, normal and inferior goods",
     },
     {
-      triggers: /\b(tax(es|ation)?|subsid(y|ies)|price ceiling|price floor|maximum price|minimum price|indirect tax)\b/i,
+      triggers:
+        /\b(tax(es|ation)?|subsid(y|ies)|price ceiling|price floor|maximum price|minimum price|indirect tax)\b/i,
       keywords:
         "specific tax, ad valorem tax, tax incidence, producer burden, consumer burden, subsidy pass-through, deadweight loss, shortage, surplus, black markets, minimum wage",
     },
@@ -78,17 +98,20 @@ export function expandEconomicQuery(query: string): string {
         "CPI, purchasing power, cost-push, demand-pull, money supply, Phillips curve, real wage, menu costs",
     },
     {
-      triggers: /\b(monetary policy|interest rates?|central bank|money supply|quantitative easing)\b/i,
+      triggers:
+        /\b(monetary policy|interest rates?|central bank|money supply|quantitative easing)\b/i,
       keywords:
         "interest rates, quantitative easing, commercial bank liquidity, transmission mechanism, borrowing costs, aggregate demand, exchange rate transmission",
     },
     {
-      triggers: /\b(fiscal policy|budget deficit|taxation|taxes?|government spending|national debt)\b/i,
+      triggers:
+        /\b(fiscal policy|budget deficit|taxation|taxes?|government spending|national debt)\b/i,
       keywords:
         "automatic stabilisers, discretionary fiscal policy, national debt, crowding out, marginal propensity to consume, multiplier effect",
     },
     {
-      triggers: /\b(aggregate demand|aggregate supply|ad[- ]as|macroeconomic equilibrium|sras|lras)\b/i,
+      triggers:
+        /\b(aggregate demand|aggregate supply|ad[- ]as|macroeconomic equilibrium|sras|lras)\b/i,
       keywords:
         "consumption, investment, government expenditure, net exports, SRAS supply shocks, Keynesian AS, classical LRAS, inflationary gap, deflationary gap",
     },
@@ -118,27 +141,32 @@ export function expandEconomicQuery(query: string): string {
         "Marshall-Lerner condition, J-curve effect, current account balance, terms of trade, hot money flows, export competitiveness",
     },
     {
-      triggers: /\b(comparative advantage|absolute advantage|terms of trade|free trade|protectionism|tariff|quota)\b/i,
+      triggers:
+        /\b(comparative advantage|absolute advantage|terms of trade|free trade|protectionism|tariff|quota)\b/i,
       keywords:
         "opportunity cost ratio, law of comparative advantage, terms of trade index, trade creation, trade diversion, tariff welfare loss, domestic producer surplus, quota rent, infant industry argument",
     },
     {
-      triggers: /\b(monopol(y|ies)|oligopol(y|ies)|market structure|perfect competition|monopolistic competition)\b/i,
+      triggers:
+        /\b(monopol(y|ies)|oligopol(y|ies)|market structure|perfect competition|monopolistic competition)\b/i,
       keywords:
         "kinked demand curve, price discrimination, barriers to entry, abnormal profit, contestable markets, collusion, allocative and productive efficiency, game theory",
     },
     {
-      triggers: /\b(cost|revenue|economies of scale|diminishing returns|marginal cost|average cost)\b/i,
+      triggers:
+        /\b(cost|revenue|economies of scale|diminishing returns|marginal cost|average cost)\b/i,
       keywords:
         "law of diminishing marginal returns, marginal revenue, average revenue, internal economies of scale, external economies of scale, minimum efficient scale, diseconomies of scale",
     },
     {
-      triggers: /\b(labour market|wage determination|trade union|economic rent|transfer earnings)\b/i,
+      triggers:
+        /\b(labour market|wage determination|trade union|economic rent|transfer earnings)\b/i,
       keywords:
         "marginal revenue product of labour (MRPL), marginal productivity theory, elasticity of demand for labour, backward bending labour supply curve, transfer earnings, economic rent",
     },
     {
-      triggers: /\b(utility|indifference curve|budget line|consumer equilibrium|marginal utility)\b/i,
+      triggers:
+        /\b(utility|indifference curve|budget line|consumer equilibrium|marginal utility)\b/i,
       keywords:
         "law of diminishing marginal utility, equi-marginal principle, marginal rate of substitution, income effect, substitution effect, normal goods, inferior goods",
     },
@@ -267,7 +295,7 @@ function getCacheKey(options: RetrieveOptions): string {
   const types = options.docTypes ? [...options.docTypes].sort().join(",") : "all";
   const topic = options.topicId ?? "none";
   const count = options.matchCount ?? 8;
-  const minSim = options.minSimilarity ?? 0.20;
+  const minSim = options.minSimilarity ?? 0.2;
   const rrf = options.enableHybridRrf !== false ? "rrf" : "dense";
   return `${options.query.trim().toLowerCase()}::${types}::${topic}::${count}::${minSim}::${rrf}`;
 }
@@ -306,7 +334,8 @@ export async function retrieve(
   const queryEmbedding = await embedOne(expandedQuery, MODEL_EMBEDDING);
   const matchTarget = options.matchCount ?? 8;
   // Over-fetch by 2x when hybrid RRF is enabled to allow reciprocal reranking across candidates
-  const fetchCount = options.enableHybridRrf !== false ? Math.min(24, Math.max(matchTarget * 2, 16)) : matchTarget;
+  const fetchCount =
+    options.enableHybridRrf !== false ? Math.min(24, Math.max(matchTarget * 2, 16)) : matchTarget;
 
   const { data, error } = await supabase.rpc("match_document_chunks", {
     query_embedding: JSON.stringify(queryEmbedding),
@@ -318,7 +347,7 @@ export async function retrieve(
   if (error) throw new Error(`Knowledge search failed: ${error.message}`);
 
   const rows = (data ?? []) as MatchRow[];
-  const minSimilarity = options.minSimilarity ?? 0.20; // Calibrated floor
+  const minSimilarity = options.minSimilarity ?? 0.2; // Calibrated floor
   const matches = rows.filter((row) => row.similarity >= minSimilarity);
 
   // Before accepting "nothing relevant was found" at face value, rule out

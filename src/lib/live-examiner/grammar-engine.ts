@@ -1,12 +1,12 @@
 /**
  * Next-Generation Deterministic Grammar, Clarity & Academic Writing Engine.
- * 
+ *
  * Provides Grammarly-level multi-layer writing diagnostics for Cambridge Economics:
  * - Layer 1: Mechanics & Grammar (subject-verb agreement, modal verbs, repeated words, articles)
  * - Layer 2: Sentence Construction & Clarity (redundancy, wordiness, convoluted expressions)
  * - Layer 3: Academic Writing Tone (informal idioms, colloquial phrasing, precision)
  * - Layer 4: Subject-Specific Economic Misconceptions (shift vs movement, fiscal vs monetary, public vs merit)
- * 
+ *
  * Runs in 0ms without consuming AI tokens or API credits.
  * Includes a strict Cambridge whitelist to eliminate false positives on technical economics terms.
  */
@@ -144,7 +144,8 @@ const RULES: RuleDefinition[] = [
       const repl = v === "are" ? "is" : v === "were" ? "was" : "has";
       return `the government ${repl}`;
     },
-    explanation: "In academic English, 'government' functions as a singular collective entity ('the government is/has').",
+    explanation:
+      "In academic English, 'government' functions as a singular collective entity ('the government is/has').",
   },
   {
     id: "sv_central_bank",
@@ -177,7 +178,8 @@ const RULES: RuleDefinition[] = [
     id: "modal_verb_inflection",
     category: "grammar",
     severity: "high",
-    pattern: /\b(will|can|could|would|should|may|might|must)\s+(causes|leads|increases|decreases|results|creates|shifts)\b/i,
+    pattern:
+      /\b(will|can|could|would|should|may|might|must)\s+(causes|leads|increases|decreases|results|creates|shifts)\b/i,
     getSuggestion: (m) => `${m[1]} ${m[2].slice(0, -1)}`,
     explanation: "Modal auxiliary verbs must be followed by base form of the verb without '-s'.",
   },
@@ -193,7 +195,8 @@ const RULES: RuleDefinition[] = [
     id: "article_vowel_sound",
     category: "grammar",
     severity: "medium",
-    pattern: /\ba\s+(economy|economic|equilibrium|increase|decrease|externality|elasticity|oligopoly|opportunity|interest|inflationary)\b/i,
+    pattern:
+      /\ba\s+(economy|economic|equilibrium|increase|decrease|externality|elasticity|oligopoly|opportunity|interest|inflationary)\b/i,
     getSuggestion: (m) => `an ${m[1]}`,
     explanation: "Use indefinite article 'an' before words beginning with vowel sounds.",
   },
@@ -257,7 +260,8 @@ const RULES: RuleDefinition[] = [
       if (noun === "increase" || noun === "expansion") return "increase";
       return "reduce";
     },
-    explanation: "Use active verbs (e.g. 'increase' or 'reduce') rather than nominalised phrases like 'bring about an increase'.",
+    explanation:
+      "Use active verbs (e.g. 'increase' or 'reduce') rather than nominalised phrases like 'bring about an increase'.",
   },
 
   // --- LAYER 3: Academic Writing Tone & Precision ---
@@ -267,7 +271,8 @@ const RULES: RuleDefinition[] = [
     severity: "low",
     pattern: /\b(?:a\s+lot\s+of|lots\s+of)\b/i,
     getSuggestion: () => "a substantial volume of",
-    explanation: "'A lot of' is informal in Cambridge essays; prefer 'a substantial quantity of', 'significant', or 'widespread'.",
+    explanation:
+      "'A lot of' is informal in Cambridge essays; prefer 'a substantial quantity of', 'significant', or 'widespread'.",
   },
   {
     id: "academic_tone_huge",
@@ -282,7 +287,10 @@ const RULES: RuleDefinition[] = [
     category: "clarity",
     severity: "medium",
     pattern: /\b(?:good|bad)\s+(?:things|stuff)\b/i,
-    getSuggestion: (m) => (m[0].toLowerCase().includes("good") ? "positive economic outcomes" : "adverse economic effects"),
+    getSuggestion: (m) =>
+      m[0].toLowerCase().includes("good")
+        ? "positive economic outcomes"
+        : "adverse economic effects",
     explanation: "Vague colloquial phrasing. Specify precise economic outcomes or welfare impacts.",
   },
   {
@@ -291,7 +299,8 @@ const RULES: RuleDefinition[] = [
     severity: "medium",
     pattern: /\bmoney\s+printing\b/i,
     getSuggestion: () => "quantitative easing",
-    explanation: "Cambridge standard terminology is 'quantitative easing' (asset purchases) or 'expansionary monetary policy'.",
+    explanation:
+      "Cambridge standard terminology is 'quantitative easing' (asset purchases) or 'expansionary monetary policy'.",
   },
 
   // --- LAYER 4: Subject-Specific Economic Misconceptions ---
@@ -299,25 +308,35 @@ const RULES: RuleDefinition[] = [
     id: "misconception_shift_vs_movement_demand",
     category: "misconception",
     severity: "high",
-    pattern: /\bdemand\s+(?:increased|increased|decreased|fell)\s+because\s+the\s+price\s+(?:fell|dropped|decreased|rose|increased)\b/i,
+    pattern:
+      /\bdemand\s+(?:increased|increased|decreased|fell)\s+because\s+the\s+price\s+(?:fell|dropped|decreased|rose|increased)\b/i,
     getSuggestion: (m) => {
       const isRise = /fell|dropped|decreased/i.test(m[0]);
-      return isRise ? "quantity demanded increased (movement along demand curve)" : "quantity demanded fell (movement along demand curve)";
+      return isRise
+        ? "quantity demanded increased (movement along demand curve)"
+        : "quantity demanded fell (movement along demand curve)";
     },
-    explanation: "Fundamental misconception: a change in price causes a movement along the demand curve ('change in quantity demanded'), NOT a shift in demand.",
-    evidence: "A change in the price of the good itself causes a movement along the demand curve, whereas a change in non-price determinants shifts the curve.",
+    explanation:
+      "Fundamental misconception: a change in price causes a movement along the demand curve ('change in quantity demanded'), NOT a shift in demand.",
+    evidence:
+      "A change in the price of the good itself causes a movement along the demand curve, whereas a change in non-price determinants shifts the curve.",
   },
   {
     id: "misconception_shift_vs_movement_supply",
     category: "misconception",
     severity: "high",
-    pattern: /\bsupply\s+(?:increased|increased|decreased|fell)\s+because\s+the\s+price\s+(?:fell|dropped|decreased|rose|increased)\b/i,
+    pattern:
+      /\bsupply\s+(?:increased|increased|decreased|fell)\s+because\s+the\s+price\s+(?:fell|dropped|decreased|rose|increased)\b/i,
     getSuggestion: (m) => {
       const isRise = /rose|increased/i.test(m[0]);
-      return isRise ? "quantity supplied increased (movement along supply curve)" : "quantity supplied decreased (movement along supply curve)";
+      return isRise
+        ? "quantity supplied increased (movement along supply curve)"
+        : "quantity supplied decreased (movement along supply curve)";
     },
-    explanation: "Fundamental misconception: price changes cause a movement along the supply curve ('quantity supplied'), not a shift of the supply curve.",
-    evidence: "A change in the price of the good leads to a movement along the supply curve, distinct from shifts caused by changes in costs of production.",
+    explanation:
+      "Fundamental misconception: price changes cause a movement along the supply curve ('quantity supplied'), not a shift of the supply curve.",
+    evidence:
+      "A change in the price of the good leads to a movement along the supply curve, distinct from shifts caused by changes in costs of production.",
   },
   {
     id: "misconception_fiscal_interest_rates",
@@ -325,44 +344,60 @@ const RULES: RuleDefinition[] = [
     severity: "high",
     pattern: /\bfiscal\s+policy\s+(?:lowered|cut|reduced|raised|increased)\s+interest\s+rates\b/i,
     getSuggestion: () => "monetary policy adjusted interest rates",
-    explanation: "Instrument confusion: interest rates are determined by monetary policy (central banks), while fiscal policy controls taxation and government expenditure.",
-    evidence: "Monetary policy involves changes in interest rates and money supply; fiscal policy involves government spending and taxation.",
+    explanation:
+      "Instrument confusion: interest rates are determined by monetary policy (central banks), while fiscal policy controls taxation and government expenditure.",
+    evidence:
+      "Monetary policy involves changes in interest rates and money supply; fiscal policy involves government spending and taxation.",
   },
   {
     id: "misconception_monetary_taxation",
     category: "misconception",
     severity: "high",
-    pattern: /\bmonetary\s+policy\s+(?:increased|cut|raised|reduced)\s+(?:taxes|taxation|government\s+spending)\b/i,
+    pattern:
+      /\bmonetary\s+policy\s+(?:increased|cut|raised|reduced)\s+(?:taxes|taxation|government\s+spending)\b/i,
     getSuggestion: () => "fiscal policy adjusted taxes",
-    explanation: "Instrument confusion: taxes and government spending are instruments of fiscal policy, not monetary policy.",
-    evidence: "Fiscal policy is the manipulation of government spending and taxation to influence aggregate demand.",
+    explanation:
+      "Instrument confusion: taxes and government spending are instruments of fiscal policy, not monetary policy.",
+    evidence:
+      "Fiscal policy is the manipulation of government spending and taxation to influence aggregate demand.",
   },
   {
     id: "misconception_public_vs_merit_health",
     category: "misconception",
     severity: "high",
-    pattern: /\bpublic\s+goods\s+such\s+as\s+(?:healthcare|health\s+care|education|schools|hospitals)\b/i,
+    pattern:
+      /\bpublic\s+goods\s+such\s+as\s+(?:healthcare|health\s+care|education|schools|hospitals)\b/i,
     getSuggestion: () => "merit goods such as healthcare and education",
-    explanation: "Healthcare and education are merit goods (excludable and rival in consumption, with positive externalities), NOT public goods (which must be non-excludable and non-rival).",
-    evidence: "Merit goods are rival and excludable goods that are under-consumed in a free market due to information failure and positive externalities, unlike pure public goods.",
+    explanation:
+      "Healthcare and education are merit goods (excludable and rival in consumption, with positive externalities), NOT public goods (which must be non-excludable and non-rival).",
+    evidence:
+      "Merit goods are rival and excludable goods that are under-consumed in a free market due to information failure and positive externalities, unlike pure public goods.",
   },
   {
     id: "misconception_deflation_vs_disinflation",
     category: "misconception",
     severity: "high",
-    pattern: /\bdeflation\s+means\s+(?:prices\s+are\s+rising\s+slower|inflation\s+is\s+slowing|the\s+rate\s+of\s+inflation\s+is\s+falling)\b/i,
-    getSuggestion: () => "disinflation means a falling inflation rate, whereas deflation is a negative inflation rate (falling price level)",
-    explanation: "A falling rate of positive inflation is 'disinflation'. 'Deflation' specifically denotes a sustained fall in the general price level (negative inflation rate).",
-    evidence: "Deflation is a persistent decrease in the general price level, whereas disinflation refers to a decrease in the rate of inflation while it remains positive.",
+    pattern:
+      /\bdeflation\s+means\s+(?:prices\s+are\s+rising\s+slower|inflation\s+is\s+slowing|the\s+rate\s+of\s+inflation\s+is\s+falling)\b/i,
+    getSuggestion: () =>
+      "disinflation means a falling inflation rate, whereas deflation is a negative inflation rate (falling price level)",
+    explanation:
+      "A falling rate of positive inflation is 'disinflation'. 'Deflation' specifically denotes a sustained fall in the general price level (negative inflation rate).",
+    evidence:
+      "Deflation is a persistent decrease in the general price level, whereas disinflation refers to a decrease in the rate of inflation while it remains positive.",
   },
   {
     id: "misconception_current_account_vs_budget",
     category: "misconception",
     severity: "high",
-    pattern: /\ba\s+current\s+account\s+deficit\s+means\s+the\s+government\s+(?:spends\s+more\s+than\s+it\s+taxes|is\s+in\s+debt)\b/i,
-    getSuggestion: () => "a budget (fiscal) deficit occurs when government spending exceeds tax revenue",
-    explanation: "Confusing international trade with government accounts: a current account deficit is net trade & income outflows; a budget deficit is government spending exceeding tax revenue.",
-    evidence: "The current account records trade in goods, services, primary income and secondary income. A budget deficit occurs when government expenditure exceeds tax revenue.",
+    pattern:
+      /\ba\s+current\s+account\s+deficit\s+means\s+the\s+government\s+(?:spends\s+more\s+than\s+it\s+taxes|is\s+in\s+debt)\b/i,
+    getSuggestion: () =>
+      "a budget (fiscal) deficit occurs when government spending exceeds tax revenue",
+    explanation:
+      "Confusing international trade with government accounts: a current account deficit is net trade & income outflows; a budget deficit is government spending exceeding tax revenue.",
+    evidence:
+      "The current account records trade in goods, services, primary income and secondary income. A budget deficit occurs when government expenditure exceeds tax revenue.",
   },
 ];
 

@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  computeObjectiveConfidence,
-  shouldTriggerArbitration,
-} from "./arbitration.server";
+import { computeObjectiveConfidence, shouldTriggerArbitration } from "./arbitration.server";
 import type { Grading } from "./types";
 
 function mockGrading(totalMark: number, band: string, strengths: string[] = []): Grading {
@@ -68,7 +65,9 @@ describe("Principal Examiner Arbitration & Confidence Engine", () => {
 
   describe("Objective Confidence Computation", () => {
     it("awards high confidence when examiner and moderator closely converge", () => {
-      const examiner = mockGrading(9, "Upper middle band", ['Quotes: "AD shifts right due to investment"']);
+      const examiner = mockGrading(9, "Upper middle band", [
+        'Quotes: "AD shifts right due to investment"',
+      ]);
       const moderator = mockGrading(9, "Upper middle band", ['Agrees with "AD shifts right"']);
 
       const confidence = computeObjectiveConfidence(examiner, moderator, false);

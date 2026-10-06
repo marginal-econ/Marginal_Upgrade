@@ -162,9 +162,21 @@ export function DashboardPage() {
   }, [average, versions.length, delta]);
 
   const progressBadge = useMemo(() => {
-    if (progressIndex >= 80) return { label: "Band 1 Target Track", color: "text-emerald-500 bg-emerald-500/10 border-emerald-500/30" };
-    if (progressIndex >= 60) return { label: "Band 2 Target Track", color: "text-blue-500 bg-blue-500/10 border-blue-500/30" };
-    if (progressIndex >= 40) return { label: "Developing Consistency", color: "text-amber-500 bg-amber-500/10 border-amber-500/30" };
+    if (progressIndex >= 80)
+      return {
+        label: "Band 1 Target Track",
+        color: "text-emerald-500 bg-emerald-500/10 border-emerald-500/30",
+      };
+    if (progressIndex >= 60)
+      return {
+        label: "Band 2 Target Track",
+        color: "text-blue-500 bg-blue-500/10 border-blue-500/30",
+      };
+    if (progressIndex >= 40)
+      return {
+        label: "Developing Consistency",
+        color: "text-amber-500 bg-amber-500/10 border-amber-500/30",
+      };
     return { label: "Initial Calibration", color: "text-muted-foreground bg-muted border-border" };
   }, [progressIndex]);
 
@@ -221,34 +233,45 @@ export function DashboardPage() {
         <div className="flex items-center gap-2.5 rounded-xl border border-primary/20 bg-primary/[0.04] px-4 py-2.5 text-xs text-muted-foreground">
           <ShieldCheck className="size-4 shrink-0 text-primary" />
           <p className="leading-relaxed">
-            <strong className="text-foreground font-semibold">Cambridge 9708 Calibration:</strong> Marking rubrics and feedback criteria are calibrated against published Cambridge Assessment 9708 Economics syllabus standards and Principal Examiner reports. Marginal is an independent study platform and not endorsed by Cambridge Assessment.
+            <strong className="text-foreground font-semibold">Cambridge 9708 Calibration:</strong>{" "}
+            Marking rubrics and feedback criteria are calibrated against published Cambridge
+            Assessment 9708 Economics syllabus standards and Principal Examiner reports. Marginal is
+            an independent study platform and not endorsed by Cambridge Assessment.
           </p>
         </div>
 
         {/* Hero Interactive Greeting & Progress Meter */}
-        <section className="relative overflow-hidden rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/[0.08] via-background to-primary/[0.03] p-6 shadow-sm dark:from-primary/[0.14] dark:to-background md:p-8">
-          <div className="absolute -top-12 -right-12 size-48 rounded-full bg-primary/10 blur-3xl" />
+        <section className="relative overflow-hidden rounded-2xl border border-border/80 bg-card p-6 shadow-xs sm:p-7 md:p-8">
           <div className="relative flex flex-col justify-between gap-6 lg:flex-row lg:items-center">
             <div className="space-y-2.5 max-w-xl">
               <div className="flex flex-wrap items-center gap-2">
-                <Badge variant="outline" className="border-primary/30 bg-primary/10 text-primary text-[11px] font-medium">
+                <Badge
+                  variant="outline"
+                  className="border-primary/30 bg-primary/10 text-primary text-[11px] font-medium"
+                >
                   Syllabus 9708
                 </Badge>
-                <Badge variant="outline" className="border-emerald-500/30 bg-emerald-500/10 text-emerald-500 text-[11px] font-medium flex items-center gap-1">
-                  <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                <Badge
+                  variant="outline"
+                  className="border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[11px] font-medium flex items-center gap-1.5"
+                >
+                  <span className="size-1.5 rounded-full bg-emerald-500" />
                   Hybrid RRF RAG Active
                 </Badge>
               </div>
-              <h2 className="text-2xl font-bold tracking-tight md:text-3xl">
+              <h2 className="text-2xl font-bold tracking-tight text-foreground md:text-3xl">
                 {greeting}, {me.data?.fullName?.split(" ")[0] || "Economist"}!
               </h2>
               <p className="text-sm leading-relaxed text-muted-foreground">
-                Your writing is evaluated against official Cambridge mark schemes and Principal Examiner reports. Focus on consistent analytical chains and justified evaluation.
+                Your writing is evaluated against official Cambridge mark schemes and Principal
+                Examiner reports. Focus on consistent analytical chains and justified evaluation.
               </p>
               <div className="flex flex-wrap items-center gap-4 pt-1 text-xs text-muted-foreground">
                 <span className="flex items-center gap-1.5 font-medium text-foreground">
                   <Flame className="size-3.5 text-amber-500" />
-                  {versions.length > 0 ? `${versions.length} attempts completed` : "Ready for attempt #1"}
+                  {versions.length > 0
+                    ? `${versions.length} attempts completed`
+                    : "Ready for attempt #1"}
                 </span>
                 <span>•</span>
                 <span className="flex items-center gap-1.5">
@@ -258,59 +281,47 @@ export function DashboardPage() {
               </div>
             </div>
 
-            {/* Radial Study Progress & Consistency Ring */}
-            <div className="flex items-center gap-5 rounded-xl border border-border/80 bg-background/80 p-4 backdrop-blur-sm shadow-sm">
-              <div className="relative flex size-24 items-center justify-center">
-                <svg className="size-full -rotate-90" viewBox="0 0 100 100">
-                  <circle
-                    className="text-muted/50"
-                    strokeWidth="8"
-                    stroke="currentColor"
-                    fill="transparent"
-                    r="38"
-                    cx="50"
-                    cy="50"
-                  />
-                  <circle
-                    className="text-primary transition-all duration-1000 ease-out"
-                    strokeWidth="8"
-                    strokeDasharray={2 * Math.PI * 38}
-                    strokeDashoffset={2 * Math.PI * 38 * (1 - progressIndex / 100)}
-                    strokeLinecap="round"
-                    stroke="currentColor"
-                    fill="transparent"
-                    r="38"
-                    cx="50"
-                    cy="50"
-                  />
-                </svg>
-                <div className="absolute flex flex-col items-center">
-                  <span className="text-xl font-bold tabular-nums tracking-tight">
+            {/* Clean Cambridge Readiness Status Card */}
+            <div className="flex flex-col justify-between gap-3 rounded-xl border border-border/80 bg-muted/40 p-4 sm:min-w-[280px] shadow-xs">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                    Cambridge Status
+                  </p>
+                  <Badge
+                    variant="outline"
+                    className={cn("mt-1 px-2.5 py-0.5 text-xs font-semibold", progressBadge.color)}
+                  >
+                    {progressBadge.label}
+                  </Badge>
+                </div>
+                <div className="text-right">
+                  <span className="text-2xl font-bold tabular-nums tracking-tight text-foreground">
                     {progressIndex}%
                   </span>
-                  <span className="text-[9px] text-muted-foreground uppercase tracking-wider font-semibold">
-                    Progress
-                  </span>
+                  <p className="text-[10px] text-muted-foreground uppercase font-semibold">
+                    Readiness
+                  </p>
                 </div>
               </div>
 
-              <div className="space-y-1">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                  Consistency Index
-                </p>
-                <Badge variant="outline" className={cn("px-2.5 py-1 text-xs font-medium", progressBadge.color)}>
-                  {progressBadge.label}
-                </Badge>
-                <p className="text-[11px] text-muted-foreground pt-1 max-w-[150px]">
-                  Based on {versions.length} attempts & average mark ({average.toFixed(1)}/12)
+              <div className="space-y-1 pt-1">
+                <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+                  <div
+                    className="h-full rounded-full bg-primary transition-all duration-700 ease-out"
+                    style={{ width: `${Math.min(100, Math.max(0, progressIndex))}%` }}
+                  />
+                </div>
+                <p className="text-[11px] text-muted-foreground pt-1">
+                  Based on {versions.length} attempts & AO parity
                 </p>
               </div>
             </div>
           </div>
         </section>
 
-        {/* 4 Interactive Stat Cards with Progress Trackers */}
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {/* 4 Clean Stat Cards */}
+        <div className="grid gap-3.5 sm:grid-cols-2 lg:grid-cols-4">
           <InteractiveStat
             label="Essays marked"
             value={String(versions.length)}
@@ -324,11 +335,7 @@ export function DashboardPage() {
           <InteractiveStat
             label="Average mark"
             value={versions.length ? average.toFixed(1) : "—"}
-            badge={
-              delta !== 0
-                ? `${delta > 0 ? "+" : ""}${delta.toFixed(1)} trend`
-                : "Baseline"
-            }
+            badge={delta !== 0 ? `${delta > 0 ? "+" : ""}${delta.toFixed(1)} trend` : "Baseline"}
             hint={
               versions.length
                 ? `${Math.round((average / 12) * 100)}% Cambridge benchmark`
@@ -351,7 +358,7 @@ export function DashboardPage() {
           />
           <InteractiveStat
             label="Knowledge base"
-            value={me.data?.isStaff ? String(readyDocs) : "50+"}
+            value={me.data?.isStaff ? String(readyDocs) : "58"}
             badge="RRF Grounded"
             hint="Syllabus & mark schemes active"
             progressPercent={100}
@@ -362,14 +369,16 @@ export function DashboardPage() {
         </div>
 
         {/* Assessment Objective Mastery Console */}
-        <div className="panel p-6 shadow-sm border-primary/15">
+        <div className="rounded-2xl border border-border/80 bg-card p-6 shadow-xs">
           <div className="flex flex-wrap items-center justify-between gap-4 border-b border-border/80 pb-4">
             <div className="space-y-1">
               <h2 className="flex items-center gap-2 text-base font-semibold tracking-tight">
-                <Award className="size-4 text-primary" /> Cambridge Assessment Objective (AO) Mastery
+                <Award className="size-4 text-primary" /> Cambridge Assessment Objective (AO)
+                Mastery
               </h2>
               <p className="text-xs text-muted-foreground">
-                Authoritative weightings for Cambridge 9708 evaluative essays (Knowledge 2 : Analysis 6 : Evaluation 4).
+                Authoritative weightings for Cambridge 9708 evaluative essays (Knowledge 2 :
+                Analysis 6 : Evaluation 4).
               </p>
             </div>
 
@@ -379,7 +388,9 @@ export function DashboardPage() {
                 onClick={() => setActiveTariff("all")}
                 className={cn(
                   "rounded-md px-2.5 py-1 font-medium transition-colors",
-                  activeTariff === "all" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
+                  activeTariff === "all"
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground",
                 )}
               >
                 All tariffs
@@ -389,7 +400,9 @@ export function DashboardPage() {
                 onClick={() => setActiveTariff(12)}
                 className={cn(
                   "rounded-md px-2.5 py-1 font-medium transition-colors",
-                  activeTariff === 12 ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
+                  activeTariff === 12
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground",
                 )}
               >
                 12-mark essays
@@ -399,7 +412,9 @@ export function DashboardPage() {
                 onClick={() => setActiveTariff(8)}
                 className={cn(
                   "rounded-md px-2.5 py-1 font-medium transition-colors",
-                  activeTariff === 8 ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
+                  activeTariff === 8
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground",
                 )}
               >
                 8-mark
@@ -409,7 +424,9 @@ export function DashboardPage() {
                 onClick={() => setActiveTariff(20)}
                 className={cn(
                   "rounded-md px-2.5 py-1 font-medium transition-colors",
-                  activeTariff === 20 ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
+                  activeTariff === 20
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground",
                 )}
               >
                 20-mark A2
@@ -455,7 +472,9 @@ export function DashboardPage() {
 
           <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/80 bg-muted/30 p-3.5 text-xs">
             <span className="text-muted-foreground">
-              💡 <strong className="text-foreground">Examiner insight:</strong> Evaluation (AO3) is where over 70% of Cambridge students lose top-band marks. Strengthen judgements with context.
+              💡 <strong className="text-foreground">Examiner insight:</strong> Evaluation (AO3) is
+              where over 70% of Cambridge students lose top-band marks. Strengthen judgements with
+              context.
             </span>
             <Button asChild variant="outline" size="sm" className="h-7 text-xs">
               <Link to="/practice">
@@ -473,7 +492,8 @@ export function DashboardPage() {
                 <TrendingUp className="size-4 text-primary" /> Essay Mark Trajectory
               </h2>
               <p className="text-xs text-muted-foreground">
-                Chronological marking progression across all submissions with Cambridge Grade Band thresholds.
+                Chronological marking progression across all submissions with Cambridge Grade Band
+                thresholds.
               </p>
             </div>
             <div className="flex items-center gap-3 text-xs text-muted-foreground">
@@ -503,7 +523,8 @@ export function DashboardPage() {
                 <Sparkles className="mx-auto size-8 text-primary/60 mb-3" />
                 <h3 className="text-sm font-semibold">Ready to plot your trajectory</h3>
                 <p className="mt-1 text-xs text-muted-foreground max-w-md mx-auto">
-                  Submit 2 or more essays to unlock interactive performance charts and historical grade band tracking.
+                  Submit 2 or more essays to unlock interactive performance charts and historical
+                  grade band tracking.
                 </p>
                 <Button asChild size="sm" className="mt-4">
                   <Link to="/grade">Submit an essay to begin</Link>
@@ -559,7 +580,9 @@ export function DashboardPage() {
           <div className="flex flex-col gap-3 border-b border-border/80 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 className="text-sm font-semibold">Your Recent Essays</h2>
-              <p className="text-xs text-muted-foreground">Review feedback and track improvements on rewrites</p>
+              <p className="text-xs text-muted-foreground">
+                Review feedback and track improvements on rewrites
+              </p>
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
@@ -577,21 +600,36 @@ export function DashboardPage() {
                 <button
                   type="button"
                   onClick={() => setBandFilter("all")}
-                  className={cn("rounded px-2 py-1 transition-colors", bandFilter === "all" ? "bg-background font-medium shadow-sm" : "text-muted-foreground")}
+                  className={cn(
+                    "rounded px-2 py-1 transition-colors",
+                    bandFilter === "all"
+                      ? "bg-background font-medium shadow-sm"
+                      : "text-muted-foreground",
+                  )}
                 >
                   All
                 </button>
                 <button
                   type="button"
                   onClick={() => setBandFilter("band1")}
-                  className={cn("rounded px-2 py-1 transition-colors", bandFilter === "band1" ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-medium" : "text-muted-foreground")}
+                  className={cn(
+                    "rounded px-2 py-1 transition-colors",
+                    bandFilter === "band1"
+                      ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-medium"
+                      : "text-muted-foreground",
+                  )}
                 >
                   Band 1
                 </button>
                 <button
                   type="button"
                   onClick={() => setBandFilter("band2")}
-                  className={cn("rounded px-2 py-1 transition-colors", bandFilter === "band2" ? "bg-blue-500/10 text-blue-600 dark:text-blue-400 font-medium" : "text-muted-foreground")}
+                  className={cn(
+                    "rounded px-2 py-1 transition-colors",
+                    bandFilter === "band2"
+                      ? "bg-blue-500/10 text-blue-600 dark:text-blue-400 font-medium"
+                      : "text-muted-foreground",
+                  )}
                 >
                   Band 2
                 </button>
@@ -669,7 +707,9 @@ export function DashboardPage() {
                         </Badge>
                         <span className="text-sm font-bold tabular-nums">
                           {essay.latest_mark ?? "—"}
-                          <span className="text-muted-foreground font-normal">/{essay.max_mark}</span>
+                          <span className="text-muted-foreground font-normal">
+                            /{essay.max_mark}
+                          </span>
                         </span>
                         <ArrowUpRight className="size-4 shrink-0 text-muted-foreground transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-primary" />
                       </div>
@@ -702,7 +742,8 @@ export function DashboardPage() {
                     {communityPulse.data?.onlineCount ?? 1}
                   </p>
                   <span className="text-xs font-semibold text-emerald-500 flex items-center gap-1">
-                    <span className="size-1.5 rounded-full bg-emerald-500" /> Active session{communityPulse.data?.onlineCount === 1 ? "" : "s"}
+                    <span className="size-1.5 rounded-full bg-emerald-500" /> Active session
+                    {communityPulse.data?.onlineCount === 1 ? "" : "s"}
                   </span>
                 </div>
               )}
@@ -726,7 +767,10 @@ export function DashboardPage() {
                   <h3 className="text-sm font-semibold">Cambridge Examiner Report Tip</h3>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Badge variant="outline" className="border-primary/30 bg-primary/10 text-primary text-[10px]">
+                  <Badge
+                    variant="outline"
+                    className="border-primary/30 bg-primary/10 text-primary text-[10px]"
+                  >
                     {currentTip.ao} Target
                   </Badge>
                   <button
@@ -787,36 +831,44 @@ function InteractiveStat({
   icon: typeof PenLine;
 }) {
   return (
-    <div className="group panel p-5 transition-all duration-200 hover:border-primary/40 hover:shadow-md">
-      <div className="flex items-center justify-between">
-        <p className="text-xs font-medium text-muted-foreground">{label}</p>
-        <div className="rounded-md bg-muted/60 p-1.5 text-muted-foreground transition-colors group-hover:bg-primary/10 group-hover:text-primary">
-          <Icon className="size-3.5" />
+    <div className="group rounded-xl border border-border/80 bg-card p-4 sm:p-5 shadow-xs transition-all duration-200 hover:border-primary/40 hover:shadow-sm flex flex-col justify-between">
+      <div>
+        <div className="flex items-center justify-between">
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            {label}
+          </p>
+          <div className="flex size-7 items-center justify-center rounded-lg bg-primary/10 text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
+            <Icon className="size-3.5" />
+          </div>
         </div>
+
+        <div className="mt-3 flex items-baseline gap-2">
+          {loading ? (
+            <Skeleton className="h-8 w-16" />
+          ) : (
+            <p className="text-2xl font-bold tracking-tight text-foreground tabular-nums sm:text-3xl">
+              {value}
+            </p>
+          )}
+          <Badge variant="secondary" className="text-[10px] font-medium px-1.5 py-0.5">
+            {badge}
+          </Badge>
+        </div>
+
+        <p className="mt-1 text-xs text-muted-foreground">{hint}</p>
       </div>
 
-      <div className="mt-2 flex items-baseline gap-2">
-        {loading ? (
-          <Skeleton className="h-8 w-16" />
-        ) : (
-          <p className="text-3xl font-bold tracking-tight tabular-nums">{value}</p>
-        )}
-        <Badge variant="outline" className="border-border/80 text-[10px] px-1.5 py-0">
-          {badge}
-        </Badge>
-      </div>
-
-      <p className="mt-1 text-xs text-muted-foreground">{hint}</p>
-
-      <div className="mt-3.5 space-y-1">
-        <div className="flex justify-between text-[10px] text-muted-foreground">
-          <span>{progressLabel}</span>
-          <span className="font-semibold tabular-nums">{Math.round(progressPercent)}%</span>
+      <div className="mt-4 pt-3 border-t border-border/60 space-y-1.5">
+        <div className="flex items-center justify-between text-[11px]">
+          <span className="text-muted-foreground">{progressLabel}</span>
+          <span className="font-semibold text-foreground tabular-nums">
+            {Math.round(progressPercent)}%
+          </span>
         </div>
-        <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted/60">
+        <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
           <div
             className="h-full rounded-full bg-primary transition-all duration-500 ease-out"
-            style={{ width: `${progressPercent}%` }}
+            style={{ width: `${Math.min(100, Math.max(0, progressPercent))}%` }}
           />
         </div>
       </div>
@@ -833,7 +885,6 @@ function AoCard({
   badgeClass,
   insight,
   targetRatio,
-  aoKey,
 }: {
   label: string;
   subtitle: string;
@@ -849,39 +900,49 @@ function AoCard({
   const targetMark = maxScore * targetRatio;
 
   return (
-    <div className="panel p-5 space-y-3.5 hover:border-primary/30 transition-colors">
-      <div className="flex items-start justify-between gap-2">
-        <div>
-          <h3 className="text-sm font-semibold text-foreground">{label}</h3>
-          <p className="text-[11px] text-muted-foreground">{subtitle}</p>
+    <div className="rounded-xl border border-border/80 bg-card p-4 sm:p-5 shadow-xs transition-all duration-200 hover:border-primary/40 hover:shadow-sm flex flex-col justify-between">
+      <div className="space-y-3">
+        <div className="flex items-start justify-between gap-2">
+          <div>
+            <h3 className="text-sm font-semibold text-foreground">{label}</h3>
+            <p className="text-[11px] text-muted-foreground">{subtitle}</p>
+          </div>
+          <Badge
+            variant="outline"
+            className={cn("text-[10px] px-2 py-0.5 font-semibold shrink-0", badgeClass)}
+          >
+            {score.toFixed(1)} / {maxScore} marks
+          </Badge>
         </div>
-        <Badge variant="outline" className={cn("text-[10px] px-2 py-0.5 font-semibold", badgeClass)}>
-          {score.toFixed(1)} / {maxScore} marks
-        </Badge>
+
+        <div className="space-y-1.5 pt-1">
+          <div className="flex items-center justify-between text-[11px]">
+            <span className="text-muted-foreground">Mastery level</span>
+            <span className="font-semibold text-foreground tabular-nums">{percent}%</span>
+          </div>
+          <div className="relative h-2 w-full overflow-hidden rounded-full bg-muted">
+            <div
+              className={cn("h-full rounded-full transition-all duration-500 ease-out", tone)}
+              style={{ width: `${percent}%` }}
+            />
+          </div>
+          <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+            <span>Level 1 (Basic)</span>
+            <span className="font-medium text-primary">Band 1 Target: {targetMark.toFixed(1)}</span>
+          </div>
+        </div>
+
+        <p className="text-xs leading-relaxed text-muted-foreground border-t border-border/60 pt-3">
+          {insight}
+        </p>
       </div>
 
-      <div className="space-y-1.5">
-        <div className="flex justify-between text-[11px] text-muted-foreground">
-          <span>Mastery level</span>
-          <span className="font-semibold text-foreground tabular-nums">{percent}%</span>
-        </div>
-        <div className="relative h-2 w-full overflow-hidden rounded-full bg-muted/60">
-          <div
-            className={cn("h-full rounded-full transition-all duration-500 ease-out", tone)}
-            style={{ width: `${percent}%` }}
-          />
-        </div>
-        <div className="flex justify-between text-[10px] text-muted-foreground">
-          <span>Level 1 (Basic)</span>
-          <span className="text-primary font-medium">Band 1 Target: {targetMark.toFixed(1)}</span>
-        </div>
-      </div>
-
-      <p className="text-xs leading-relaxed text-muted-foreground border-t border-border/60 pt-2.5">
-        {insight}
-      </p>
-
-      <Button asChild variant="ghost" size="sm" className="w-full text-xs h-7 mt-1 text-primary hover:text-primary hover:bg-primary/10">
+      <Button
+        asChild
+        variant="ghost"
+        size="sm"
+        className="w-full text-xs h-8 mt-3 text-primary hover:text-primary hover:bg-primary/10"
+      >
         <Link to="/practice">Practise {label.split(" ")[0]} →</Link>
       </Button>
     </div>
@@ -911,16 +972,17 @@ function QuickActionCard({
           <div className="rounded-lg bg-primary/10 p-2 text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
             <Icon className="size-4" />
           </div>
-          <Badge variant="outline" className="border-primary/20 text-[10px] font-medium text-primary bg-primary/5">
+          <Badge
+            variant="outline"
+            className="border-primary/20 text-[10px] font-medium text-primary bg-primary/5"
+          >
             {badge}
           </Badge>
         </div>
         <h3 className="mt-3.5 text-sm font-semibold group-hover:text-primary transition-colors">
           {title}
         </h3>
-        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-          {description}
-        </p>
+        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{description}</p>
       </div>
 
       <div className="mt-4 pt-3 border-t border-border/50 flex items-center justify-between text-xs font-medium text-primary">
@@ -938,7 +1000,9 @@ function PerformanceChart({
 }: {
   versions: Array<{ total_mark?: number | null; created_at: string; essay_id?: string | null }>;
   hoveredPoint: { index: number; mark: number; date: string; question: string } | null;
-  onHoverPoint: (pt: { index: number; mark: number; date: string; question: string } | null) => void;
+  onHoverPoint: (
+    pt: { index: number; mark: number; date: string; question: string } | null,
+  ) => void;
 }) {
   const width = 800;
   const height = 220;
@@ -1047,7 +1111,9 @@ function PerformanceChart({
           <g
             key={idx}
             className="cursor-pointer"
-            onMouseEnter={() => onHoverPoint({ index: idx, mark: pt.mark, date: pt.date, question: pt.question })}
+            onMouseEnter={() =>
+              onHoverPoint({ index: idx, mark: pt.mark, date: pt.date, question: pt.question })
+            }
             onMouseLeave={() => onHoverPoint(null)}
           >
             <circle
@@ -1062,7 +1128,9 @@ function PerformanceChart({
 
         {/* Tooltip on hover */}
         {hoveredPoint !== null && points[hoveredPoint.index] ? (
-          <g transform={`translate(${points[hoveredPoint.index]!.x}, ${points[hoveredPoint.index]!.y - 12})`}>
+          <g
+            transform={`translate(${points[hoveredPoint.index]!.x}, ${points[hoveredPoint.index]!.y - 12})`}
+          >
             <rect
               x="-45"
               y="-30"

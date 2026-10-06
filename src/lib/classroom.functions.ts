@@ -22,7 +22,8 @@ async function assertAdmin(context: { supabase: SupabaseClient<Database>; userId
     .limit(1)
     .maybeSingle();
   if (error) throw new Error(error.message);
-  if (!data) throw new Error("Administrator privileges are required to create or remove classrooms.");
+  if (!data)
+    throw new Error("Administrator privileges are required to create or remove classrooms.");
 }
 
 async function assertTeacher(context: { supabase: SupabaseClient<Database>; userId: string }) {
@@ -41,7 +42,11 @@ async function getClassroomAuthority(userId: string, classroomId: string) {
   const { getSupabaseAdmin } = await import("@/server/supabase");
   const admin = getSupabaseAdmin();
   const [{ data: classroom, error }, { data: roles }] = await Promise.all([
-    admin.from("classrooms").select("id, teacher_id, name, level, join_code, archived, created_at").eq("id", classroomId).single(),
+    admin
+      .from("classrooms")
+      .select("id, teacher_id, name, level, join_code, archived, created_at")
+      .eq("id", classroomId)
+      .single(),
     admin.from("user_roles").select("role").eq("user_id", userId),
   ]);
   if (error || !classroom) throw new Error(error?.message || "Classroom not found.");
@@ -111,7 +116,12 @@ async function resolveUsersBatch(
     profiles = [];
   }
 
-  type ProfileRow = { id: string; full_name: string | null; school: string | null; avatar_url: string | null };
+  type ProfileRow = {
+    id: string;
+    full_name: string | null;
+    school: string | null;
+    avatar_url: string | null;
+  };
   const profileMap = new Map<string, ProfileRow>();
   for (const p of (profiles as ProfileRow[] | null) ?? []) {
     if (p?.id) profileMap.set(p.id, p);
@@ -148,10 +158,7 @@ async function resolveUsersBatch(
         : "";
 
       const fullName =
-        profile?.full_name?.trim() ||
-        metaName ||
-        formattedEmailPrefix ||
-        defaultRoleLabel;
+        profile?.full_name?.trim() || metaName || formattedEmailPrefix || defaultRoleLabel;
 
       resolved.set(id, {
         id,
@@ -208,7 +215,9 @@ export const listClassrooms = createServerFn({ method: "GET" })
       classesQuery = admin
         .from("classrooms")
         .select("id, teacher_id, name, level, join_code, archived, created_at")
-        .or(`teacher_id.eq.${context.userId}${coTaughtIds.length > 0 ? `,id.in.(${coTaughtIds.join(",")})` : ""}`)
+        .or(
+          `teacher_id.eq.${context.userId}${coTaughtIds.length > 0 ? `,id.in.(${coTaughtIds.join(",")})` : ""}`,
+        )
         .eq("archived", false)
         .order("created_at", { ascending: false });
     } else {
@@ -256,13 +265,20 @@ export const listClassrooms = createServerFn({ method: "GET" })
       resolveUsersBatch(admin, teacherIds, "Teacher"),
       (async () => {
         try {
-          const res = await admin.from("classroom_members").select("classroom_id").in("classroom_id", classIds);
+          const res = await admin
+            .from("classroom_members")
+            .select("classroom_id")
+            .in("classroom_id", classIds);
           if (!res.error && res.data) memberCounts = res.data;
         } catch {}
       })(),
       (async () => {
         try {
-          const res = await admin.from("classroom_assignments").select("classroom_id").in("classroom_id", classIds).eq("archived", false);
+          const res = await admin
+            .from("classroom_assignments")
+            .select("classroom_id")
+            .in("classroom_id", classIds)
+            .eq("archived", false);
           if (!res.error && res.data) assignmentCounts = res.data;
         } catch {}
       })(),
@@ -275,7 +291,10 @@ export const listClassrooms = createServerFn({ method: "GET" })
 
     const assignmentCountByClass = new Map<string, number>();
     for (const a of assignmentCounts) {
-      assignmentCountByClass.set(a.classroom_id, (assignmentCountByClass.get(a.classroom_id) ?? 0) + 1);
+      assignmentCountByClass.set(
+        a.classroom_id,
+        (assignmentCountByClass.get(a.classroom_id) ?? 0) + 1,
+      );
     }
 
     const enrichedClasses = classList.map((c) => {
@@ -340,10 +359,7 @@ export const deleteClassroom = createServerFn({ method: "POST" })
     await assertAdmin(context);
     const { getSupabaseAdmin } = await import("@/server/supabase");
     const admin = getSupabaseAdmin();
-    const { error } = await admin
-      .from("classrooms")
-      .delete()
-      .eq("id", data.classroomId);
+    const { error } = await admin.from("classrooms").delete().eq("id", data.classroomId);
     if (error) throw new Error(error.message);
     return { ok: true };
   });
@@ -673,7 +689,12 @@ export const leaveClassroom = createServerFn({ method: "POST" })
 export const listClassroomMessages = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) =>
-    z.object({ classroomId: z.string().uuid(), limit: z.number().int().min(1).max(200).optional().default(100) }).parse(input),
+    z
+      .object({
+        classroomId: z.string().uuid(),
+        limit: z.number().int().min(1).max(200).optional().default(100),
+      })
+      .parse(input),
   )
   .handler(async ({ data, context }) => {
     const authority = await getClassroomAuthority(context.userId, data.classroomId);
@@ -738,7 +759,7 @@ export const listClassroomMessages = createServerFn({ method: "GET" })
     }
 
     // Deduplicate and sort by created_at ascending
-    const uniqueMap = new Map<string, typeof messages[0]>();
+    const uniqueMap = new Map<string, (typeof messages)[0]>();
     for (const m of messages) {
       uniqueMap.set(m.id, m);
     }
@@ -859,10 +880,7 @@ export const deleteClassroomMessage = createServerFn({ method: "POST" })
         if (message.user_id !== context.userId && !authority.isStaff) {
           throw new Error("You are not authorised to delete this message.");
         }
-        await authority.admin
-          .from("classroom_messages")
-          .delete()
-          .eq("id", data.messageId);
+        await authority.admin.from("classroom_messages").delete().eq("id", data.messageId);
         return { ok: true };
       }
     } catch (err: any) {
@@ -881,10 +899,7 @@ export const deleteClassroomMessage = createServerFn({ method: "POST" })
         if (fbMessage.created_by !== context.userId && !authority.isStaff) {
           throw new Error("You are not authorised to delete this message.");
         }
-        await authority.admin
-          .from("classroom_assignments")
-          .delete()
-          .eq("id", data.messageId);
+        await authority.admin.from("classroom_assignments").delete().eq("id", data.messageId);
       }
     } catch (err: any) {
       if (err?.message?.includes("not authorised")) throw err;
@@ -896,7 +911,13 @@ export const deleteClassroomMessage = createServerFn({ method: "POST" })
 export const togglePinClassroomMessage = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) =>
-    z.object({ messageId: z.string().uuid(), classroomId: z.string().uuid(), isPinned: z.boolean() }).parse(input),
+    z
+      .object({
+        messageId: z.string().uuid(),
+        classroomId: z.string().uuid(),
+        isPinned: z.boolean(),
+      })
+      .parse(input),
   )
   .handler(async ({ data, context }) => {
     const authority = await getClassroomAuthority(context.userId, data.classroomId);
@@ -1008,7 +1029,7 @@ export const listAnnouncements = createServerFn({ method: "GET" })
     } catch {}
 
     // Deduplicate and sort announcements (pinned first, then newest)
-    const uniqueAnnMap = new Map<string, typeof annList[0]>();
+    const uniqueAnnMap = new Map<string, (typeof annList)[0]>();
     for (const a of annList) {
       uniqueAnnMap.set(a.id, a);
     }
@@ -1079,15 +1100,18 @@ export const listAnnouncements = createServerFn({ method: "GET" })
     ];
     const userMap = await resolveUsersBatch(authority.admin, allAuthorIds, "Member");
 
-    const commentsByAnnouncement = new Map<string, Array<{
-      id: string;
-      authorId: string;
-      authorName: string;
-      authorAvatar: string | null;
-      content: string;
-      createdAt: string;
-      canDelete: boolean;
-    }>>();
+    const commentsByAnnouncement = new Map<
+      string,
+      Array<{
+        id: string;
+        authorId: string;
+        authorName: string;
+        authorAvatar: string | null;
+        content: string;
+        createdAt: string;
+        canDelete: boolean;
+      }>
+    >();
 
     for (const c of comments) {
       if (!c.announcement_id) continue;
@@ -1171,7 +1195,10 @@ export const createAnnouncement = createServerFn({ method: "POST" })
         created_by: context.userId,
         kind: "essay",
         title: "[ANNOUNCEMENT]",
-        instructions: JSON.stringify({ content: data.content, pinned: authority.isStaff ? Boolean(data.pinned) : false }),
+        instructions: JSON.stringify({
+          content: data.content,
+          pinned: authority.isStaff ? Boolean(data.pinned) : false,
+        }),
         essay_question: "[ANNOUNCEMENT]",
         essay_topic: "Class Stream",
         essay_max_mark: 0,
@@ -1196,7 +1223,13 @@ export const createAnnouncement = createServerFn({ method: "POST" })
 export const togglePinAnnouncement = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) =>
-    z.object({ announcementId: z.string().uuid(), classroomId: z.string().uuid(), pinned: z.boolean() }).parse(input),
+    z
+      .object({
+        announcementId: z.string().uuid(),
+        classroomId: z.string().uuid(),
+        pinned: z.boolean(),
+      })
+      .parse(input),
   )
   .handler(async ({ data, context }) => {
     const authority = await getClassroomAuthority(context.userId, data.classroomId);
@@ -1279,10 +1312,7 @@ export const deleteAnnouncement = createServerFn({ method: "POST" })
         if (fbAnn.created_by !== context.userId && !authority.isStaff) {
           throw new Error("You are not authorised to delete this post.");
         }
-        await authority.admin
-          .from("classroom_assignments")
-          .delete()
-          .eq("id", data.announcementId);
+        await authority.admin.from("classroom_assignments").delete().eq("id", data.announcementId);
       }
     } catch (err: any) {
       if (err?.message?.includes("not authorised")) throw err;
@@ -1385,10 +1415,7 @@ export const deleteComment = createServerFn({ method: "POST" })
         if (comment.author_id !== context.userId && !authority.isStaff) {
           throw new Error("You are not authorised to delete this comment.");
         }
-        await authority.admin
-          .from("classroom_comments")
-          .delete()
-          .eq("id", data.commentId);
+        await authority.admin.from("classroom_comments").delete().eq("id", data.commentId);
         return { ok: true };
       }
     } catch (err: any) {
@@ -1407,10 +1434,7 @@ export const deleteComment = createServerFn({ method: "POST" })
         if (fbComment.created_by !== context.userId && !authority.isStaff) {
           throw new Error("You are not authorised to delete this comment.");
         }
-        await authority.admin
-          .from("classroom_assignments")
-          .delete()
-          .eq("id", data.commentId);
+        await authority.admin.from("classroom_assignments").delete().eq("id", data.commentId);
       }
     } catch (err: any) {
       if (err?.message?.includes("not authorised")) throw err;
@@ -1436,14 +1460,21 @@ export const listClassroomAssignments = createServerFn({ method: "GET" })
     try {
       const { data: assignments, error: assError } = await authority.admin
         .from("classroom_assignments")
-        .select("id, classroom_id, created_by, kind, title, instructions, due_at, archived, created_at, bank_essay_question_id, essay_question, essay_topic, essay_max_mark, mcq_paper_id")
+        .select(
+          "id, classroom_id, created_by, kind, title, instructions, due_at, archived, created_at, bank_essay_question_id, essay_question, essay_topic, essay_max_mark, mcq_paper_id",
+        )
         .eq("classroom_id", data.classroomId)
         .eq("archived", false)
         .order("created_at", { ascending: false });
 
       if (!assError && assignments) {
         // Exclude internal markers if any
-        assList = assignments.filter((a) => !a.title?.startsWith("[CHAT_MSG]") && !a.title?.startsWith("[ANNOUNCEMENT]") && !a.title?.startsWith("[COMMENT]"));
+        assList = assignments.filter(
+          (a) =>
+            !a.title?.startsWith("[CHAT_MSG]") &&
+            !a.title?.startsWith("[ANNOUNCEMENT]") &&
+            !a.title?.startsWith("[COMMENT]"),
+        );
       }
     } catch {
       assList = [];
@@ -1457,7 +1488,9 @@ export const listClassroomAssignments = createServerFn({ method: "GET" })
     try {
       const { data: submissions, error: subErr } = await authority.admin
         .from("classroom_submissions")
-        .select("id, assignment_id, student_id, essay_id, submission_text, status, ai_score, teacher_score, teacher_feedback, submitted_at, graded_at, returned_at")
+        .select(
+          "id, assignment_id, student_id, essay_id, submission_text, status, ai_score, teacher_score, teacher_feedback, submitted_at, graded_at, returned_at",
+        )
         .in("assignment_id", assIds);
       if (!subErr && submissions) {
         subList = submissions;
@@ -1521,14 +1554,20 @@ export const listClassroomAssignments = createServerFn({ method: "GET" })
     return assList.map((a) => {
       const subs = subMapByAss.get(a.id) ?? [];
       const mySub = subs.find((s) => s.student_id === context.userId);
-      const turnedIn = subs.filter((s) => s.status === "submitted" || s.status === "graded" || s.status === "returned").length;
+      const turnedIn = subs.filter(
+        (s) => s.status === "submitted" || s.status === "graded" || s.status === "returned",
+      ).length;
       const graded = subs.filter((s) => s.status === "graded" || s.status === "returned").length;
       const assigned = Math.max(0, totalStudents - turnedIn);
 
       const gradedSubsWithScores = subs.filter((s) => (s.teacher_score ?? s.ai_score) !== null);
-      const avgScore = gradedSubsWithScores.length > 0
-        ? gradedSubsWithScores.reduce((acc, curr) => acc + Number(curr.teacher_score ?? curr.ai_score ?? 0), 0) / gradedSubsWithScores.length
-        : null;
+      const avgScore =
+        gradedSubsWithScores.length > 0
+          ? gradedSubsWithScores.reduce(
+              (acc, curr) => acc + Number(curr.teacher_score ?? curr.ai_score ?? 0),
+              0,
+            ) / gradedSubsWithScores.length
+          : null;
 
       return {
         id: a.id,
@@ -1641,7 +1680,12 @@ export const submitAssignmentWork = createServerFn({ method: "POST" })
       .object({
         assignmentId: z.string().uuid(),
         classroomId: z.string().uuid(),
-        submissionText: z.string().trim().min(1, "Submission text cannot be empty.").max(20000).optional(),
+        submissionText: z
+          .string()
+          .trim()
+          .min(1, "Submission text cannot be empty.")
+          .max(20000)
+          .optional(),
         essayId: z.string().uuid().optional(),
       })
       .parse(input),
@@ -1743,18 +1787,17 @@ export const getAssignmentSubmissions = createServerFn({ method: "GET" })
     const authority = await getClassroomAuthority(context.userId, data.classroomId);
     if (!authority.isStaff) throw new Error("Teacher access is required.");
 
-    const [{ data: assignment, error: aErr }, { data: members, error: mErr }] =
-      await Promise.all([
-        authority.admin
-          .from("classroom_assignments")
-          .select("id, title, kind, essay_max_mark, due_at")
-          .eq("id", data.assignmentId)
-          .single(),
-        authority.admin
-          .from("classroom_members")
-          .select("student_id, joined_at")
-          .eq("classroom_id", data.classroomId),
-      ]);
+    const [{ data: assignment, error: aErr }, { data: members, error: mErr }] = await Promise.all([
+      authority.admin
+        .from("classroom_assignments")
+        .select("id, title, kind, essay_max_mark, due_at")
+        .eq("id", data.assignmentId)
+        .single(),
+      authority.admin
+        .from("classroom_members")
+        .select("student_id, joined_at")
+        .eq("classroom_id", data.classroomId),
+    ]);
 
     if (aErr) throw new Error(aErr.message);
     if (mErr) throw new Error(mErr.message);
@@ -1763,7 +1806,9 @@ export const getAssignmentSubmissions = createServerFn({ method: "GET" })
     try {
       const { data: sData, error: sErr } = await authority.admin
         .from("classroom_submissions")
-        .select("id, student_id, submission_text, essay_id, status, ai_score, ai_feedback, teacher_score, teacher_feedback, submitted_at, graded_at, returned_at")
+        .select(
+          "id, student_id, submission_text, essay_id, status, ai_score, ai_feedback, teacher_score, teacher_feedback, submitted_at, graded_at, returned_at",
+        )
         .eq("assignment_id", data.assignmentId);
       if (!sErr && sData) subs = sData;
     } catch {
@@ -1878,7 +1923,9 @@ export const gradeAssignmentSubmission = createServerFn({ method: "POST" })
           },
           { onConflict: "assignment_id,student_id" },
         )
-        .select("id, assignment_id, student_id, status, teacher_score, teacher_feedback, returned_at")
+        .select(
+          "id, assignment_id, student_id, status, teacher_score, teacher_feedback, returned_at",
+        )
         .single();
 
       if (!error && updated) return updated;
@@ -1961,7 +2008,12 @@ export const getClassroomGradebook = createServerFn({ method: "GET" })
         .eq("archived", false)
         .order("created_at", { ascending: true });
       if (!aErr && assignments) {
-        assList = assignments.filter((a) => !a.title?.startsWith("[CHAT_MSG]") && !a.title?.startsWith("[ANNOUNCEMENT]") && !a.title?.startsWith("[COMMENT]"));
+        assList = assignments.filter(
+          (a) =>
+            !a.title?.startsWith("[CHAT_MSG]") &&
+            !a.title?.startsWith("[ANNOUNCEMENT]") &&
+            !a.title?.startsWith("[COMMENT]"),
+        );
       }
     } catch {
       assList = [];
@@ -1990,7 +2042,9 @@ export const getClassroomGradebook = createServerFn({ method: "GET" })
           try {
             const { data: subs, error: sErr } = await authority.admin
               .from("classroom_submissions")
-              .select("id, assignment_id, student_id, status, ai_score, teacher_score, submitted_at, returned_at")
+              .select(
+                "id, assignment_id, student_id, status, ai_score, teacher_score, submitted_at, returned_at",
+              )
               .in("assignment_id", assIds);
             if (!sErr && subs) subList = subs;
           } catch {
@@ -2031,15 +2085,18 @@ export const getClassroomGradebook = createServerFn({ method: "GET" })
     ]);
 
     // Key: `${studentId}_${assignmentId}`
-    const gradeMap: Record<string, {
-      submissionId: string;
-      status: string;
-      score: number | null;
-      maxMark: number;
-      percentage: number | null;
-      submittedAt: string;
-      returnedAt: string | null;
-    }> = {};
+    const gradeMap: Record<
+      string,
+      {
+        submissionId: string;
+        status: string;
+        score: number | null;
+        maxMark: number;
+        percentage: number | null;
+        submittedAt: string;
+        returnedAt: string | null;
+      }
+    > = {};
 
     const studentTotalPercents: Record<string, number[]> = {};
     const assignmentTotalPercents: Record<string, number[]> = {};
@@ -2065,7 +2122,8 @@ export const getClassroomGradebook = createServerFn({ method: "GET" })
         if (!studentTotalPercents[sub.student_id]) studentTotalPercents[sub.student_id] = [];
         studentTotalPercents[sub.student_id].push(percentage);
 
-        if (!assignmentTotalPercents[sub.assignment_id]) assignmentTotalPercents[sub.assignment_id] = [];
+        if (!assignmentTotalPercents[sub.assignment_id])
+          assignmentTotalPercents[sub.assignment_id] = [];
         assignmentTotalPercents[sub.assignment_id].push(percentage);
       }
     }
@@ -2073,7 +2131,8 @@ export const getClassroomGradebook = createServerFn({ method: "GET" })
     const students = memberList.map((m) => {
       const u = userMap.get(m.student_id);
       const pcts = studentTotalPercents[m.student_id] ?? [];
-      const overallAvgPct = pcts.length > 0 ? Math.round(pcts.reduce((a, b) => a + b, 0) / pcts.length) : null;
+      const overallAvgPct =
+        pcts.length > 0 ? Math.round(pcts.reduce((a, b) => a + b, 0) / pcts.length) : null;
 
       return {
         id: m.student_id,
@@ -2087,7 +2146,8 @@ export const getClassroomGradebook = createServerFn({ method: "GET" })
 
     const enrichedAssignments = assList.map((a) => {
       const pcts = assignmentTotalPercents[a.id] ?? [];
-      const classAvgPct = pcts.length > 0 ? Math.round(pcts.reduce((x, y) => x + y, 0) / pcts.length) : null;
+      const classAvgPct =
+        pcts.length > 0 ? Math.round(pcts.reduce((x, y) => x + y, 0) / pcts.length) : null;
       return {
         id: a.id,
         title: a.title,
@@ -2099,7 +2159,8 @@ export const getClassroomGradebook = createServerFn({ method: "GET" })
     });
 
     const allPcts = Object.values(assignmentTotalPercents).flat();
-    const overallClassAveragePct = allPcts.length > 0 ? Math.round(allPcts.reduce((a, b) => a + b, 0) / allPcts.length) : null;
+    const overallClassAveragePct =
+      allPcts.length > 0 ? Math.round(allPcts.reduce((a, b) => a + b, 0) / allPcts.length) : null;
 
     return {
       students,

@@ -370,9 +370,7 @@ export function useLiveExaminerCheck(params: {
   }, []);
 
   const markChallengeAddressed = useCallback((id: string) => {
-    setChallenges((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, status: "addressed" } : c)),
-    );
+    setChallenges((prev) => prev.map((c) => (c.id === id ? { ...c, status: "addressed" } : c)));
   }, []);
 
   return {

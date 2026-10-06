@@ -117,7 +117,11 @@ function PracticePage() {
         <div className="flex items-center gap-2.5 rounded-xl border border-primary/20 bg-primary/[0.04] px-4 py-2.5 text-xs text-muted-foreground">
           <ShieldCheck className="size-4 shrink-0 text-primary" />
           <p className="leading-relaxed">
-            <strong className="text-foreground font-semibold">Cambridge 9708 Assessment Objectives:</strong> Drills are mapped directly to Cambridge criteria — Knowledge (AO1), Causal Chain Analysis (AO2), and Justified Evaluation (AO3).
+            <strong className="text-foreground font-semibold">
+              Cambridge 9708 Assessment Objectives:
+            </strong>{" "}
+            Drills are mapped directly to Cambridge criteria — Knowledge (AO1), Causal Chain
+            Analysis (AO2), and Justified Evaluation (AO3).
           </p>
         </div>
       </div>
@@ -274,7 +278,8 @@ function PracticePage() {
                       {ao === "ao2" ? "Economic Causal Chain (AO2)" : "Key Assessment Requirements"}
                     </h2>
                     <Badge variant="outline" className="text-[10px]">
-                      {feedback.chain.filter((s) => s.present).length}/{feedback.chain.length} Links Formed
+                      {feedback.chain.filter((s) => s.present).length}/{feedback.chain.length} Links
+                      Formed
                     </Badge>
                   </div>
                   <div className="space-y-2">

@@ -31,10 +31,26 @@ const MIN_CHAPTER_CHARS = 2500;
 const MAX_HEADING_LINE_CHARS = 90;
 
 const NUMBER_WORDS: Record<string, number> = {
-  one: 1, two: 2, three: 3, four: 4, five: 5,
-  six: 6, seven: 7, eight: 8, nine: 9, ten: 10,
-  eleven: 11, twelve: 12, thirteen: 13, fourteen: 14, fifteen: 15,
-  sixteen: 16, seventeen: 17, eighteen: 18, nineteen: 19, twenty: 20,
+  one: 1,
+  two: 2,
+  three: 3,
+  four: 4,
+  five: 5,
+  six: 6,
+  seven: 7,
+  eight: 8,
+  nine: 9,
+  ten: 10,
+  eleven: 11,
+  twelve: 12,
+  thirteen: 13,
+  fourteen: 14,
+  fifteen: 15,
+  sixteen: 16,
+  seventeen: 17,
+  eighteen: 18,
+  nineteen: 19,
+  twenty: 20,
 };
 
 const NUMBER_WORD_PATTERN =
@@ -47,8 +63,7 @@ const NAMED_HEADING = new RegExp(
 );
 
 // Matches numbered section titles: "1. The Basic Economic Problem" or "1: The Basic Economic Problem"
-const NUMBERED_HEADING =
-  /^([0-9]{1,2})\s*[:.\-—–]\s+([A-Z][A-Za-z0-9 ,'&()/-]{3,80})$/;
+const NUMBERED_HEADING = /^([0-9]{1,2})\s*[:.\-—–]\s+([A-Z][A-Za-z0-9 ,'&()/-]{3,80})$/;
 
 type Marker = {
   lineIndex: number;
@@ -59,8 +74,26 @@ type Marker = {
 };
 
 const ROMAN_MAP: Record<string, number> = {
-  i: 1, ii: 2, iii: 3, iv: 4, v: 5, vi: 6, vii: 7, viii: 8, ix: 9, x: 10,
-  xi: 11, xii: 12, xiii: 13, xiv: 14, xv: 15, xvi: 16, xvii: 17, xviii: 18, xix: 19, xx: 20,
+  i: 1,
+  ii: 2,
+  iii: 3,
+  iv: 4,
+  v: 5,
+  vi: 6,
+  vii: 7,
+  viii: 8,
+  ix: 9,
+  x: 10,
+  xi: 11,
+  xii: 12,
+  xiii: 13,
+  xiv: 14,
+  xv: 15,
+  xvi: 16,
+  xvii: 17,
+  xviii: 18,
+  xix: 19,
+  xx: 20,
 };
 
 function normalizeNumber(raw: string): string {
@@ -196,7 +229,10 @@ function partitionLargeText(text: string, baseTitle: string): ChapterSplit[] {
   let partIndex = 1;
 
   for (const para of paragraphs) {
-    if (currentBuffer.length + para.length > TARGET_PART_CHARS && currentBuffer.length > MIN_CHAPTER_CHARS) {
+    if (
+      currentBuffer.length + para.length > TARGET_PART_CHARS &&
+      currentBuffer.length > MIN_CHAPTER_CHARS
+    ) {
       parts.push({
         title: `${baseTitle} — Part ${partIndex}`,
         text: currentBuffer.trim(),

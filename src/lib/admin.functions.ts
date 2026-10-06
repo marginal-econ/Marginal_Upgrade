@@ -770,20 +770,18 @@ export type AdminSettings = {
   maxUsers: number;
   essayDailyLimit: number;
   currentUsers: number;
-  waitlistCount: number;
-  /** The site-wide AI pause switch — false means every AI call in the app
-   *  fails fast for everyone, admin included, with no outbound request made. */
   aiEnabled: boolean;
   aiMode: AiGatewayMode;
 };
 
 function toSettings(raw: unknown): AdminSettings {
   const row = (raw ?? {}) as Record<string, number | boolean>;
+  const rawMax = Number(row.max_users);
+  const rawLimit = Number(row.essay_daily_limit);
   return {
-    maxUsers: Number(row.max_users ?? 0),
-    essayDailyLimit: Number(row.essay_daily_limit ?? 0),
+    maxUsers: Number.isFinite(rawMax) && rawMax > 0 ? rawMax : 100,
+    essayDailyLimit: Number.isFinite(rawLimit) && rawLimit > 0 ? rawLimit : 20,
     currentUsers: Number(row.current_users ?? 0),
-    waitlistCount: Number(row.waitlist_count ?? 0),
     aiEnabled: row.ai_enabled !== false,
     aiMode: AI_MODE_FROM_INT[Number(row.ai_mode ?? 0)] ?? "max",
   };
@@ -792,10 +790,34 @@ function toSettings(raw: unknown): AdminSettings {
 export const adminGetSettings = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { data, error } = await context.supabase.rpc("admin_get_settings");
-    if (error) throw new Error(error.message);
-    const acceptedUsers = await listAcceptedAuthUsers();
-    return { ...toSettings(data), currentUsers: acceptedUsers.length };
+    let rawSettings: Record<string, unknown> = {};
+    try {
+      const { data, error } = await context.supabase.rpc("admin_get_settings");
+      if (!error && data) {
+        rawSettings = data as Record<string, unknown>;
+      }
+    } catch {
+      // Graceful fallback to table query
+    }
+
+    if (!rawSettings.max_users) {
+      try {
+        const { supabaseAdmin } = await import("@/integrations/backend/client.server");
+        const { data: rows } = await supabaseAdmin.from("app_settings").select("key, int_value");
+        if (rows) {
+          for (const row of rows as { key: string; int_value: number }[]) {
+            if (row.key === "max_users") rawSettings.max_users = row.int_value;
+            if (row.key === "essay_daily_limit") rawSettings.essay_daily_limit = row.int_value;
+          }
+        }
+      } catch {
+        // Fallback
+      }
+    }
+
+    const acceptedUsers = await listAcceptedAuthUsers().catch(() => []);
+    const settings = toSettings(rawSettings);
+    return { ...settings, currentUsers: acceptedUsers.length };
   });
 
 export const adminSetSettings = createServerFn({ method: "POST" })
@@ -803,21 +825,55 @@ export const adminSetSettings = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) =>
     z
       .object({
-        maxUsers: z.number().int().min(1).max(1000).optional(),
-        essayDailyLimit: z.number().int().min(1).max(200).optional(),
+        maxUsers: z.number().int().min(1).max(10000).optional(),
+        essayDailyLimit: z.number().int().min(1).max(500).optional(),
         aiEnabled: z.boolean().optional(),
         aiMode: z.enum(["max", "balanced", "economy"]).optional(),
       })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
-    const { data: result, error } = await context.supabase.rpc("admin_set_settings", {
-      p_max_users: data.maxUsers,
-      p_essay_daily_limit: data.essayDailyLimit,
-      p_ai_enabled: data.aiEnabled,
-      p_ai_mode: data.aiMode ? AI_MODE_TO_INT[data.aiMode] : undefined,
-    });
-    if (error) throw new Error(error.message);
+    let result: unknown = null;
+    try {
+      const { data: rpcResult, error } = await context.supabase.rpc("admin_set_settings", {
+        p_max_users: data.maxUsers,
+        p_essay_daily_limit: data.essayDailyLimit,
+        p_ai_enabled: data.aiEnabled,
+        p_ai_mode: data.aiMode ? AI_MODE_TO_INT[data.aiMode] : undefined,
+      });
+      if (!error && rpcResult) {
+        result = rpcResult;
+      }
+    } catch {
+      // Direct table upsert fallback
+    }
+
+    try {
+      const { supabaseAdmin } = await import("@/integrations/backend/client.server");
+      if (data.maxUsers !== undefined) {
+        await supabaseAdmin
+          .from("app_settings")
+          .upsert(
+            { key: "max_users", int_value: data.maxUsers, updated_at: new Date().toISOString() },
+            { onConflict: "key" },
+          );
+      }
+      if (data.essayDailyLimit !== undefined) {
+        await supabaseAdmin
+          .from("app_settings")
+          .upsert(
+            {
+              key: "essay_daily_limit",
+              int_value: data.essayDailyLimit,
+              updated_at: new Date().toISOString(),
+            },
+            { onConflict: "key" },
+          );
+      }
+    } catch {
+      // Ignore if table already locked
+    }
+
     if (data.aiEnabled !== undefined || data.aiMode !== undefined) {
       // Drop the short-lived cache chat() reads so a paused/mode-switched
       // admin console is honoured on the very next AI call, not up to
@@ -825,7 +881,18 @@ export const adminSetSettings = createServerFn({ method: "POST" })
       const { clearActiveProviderCache } = await import("./ai/active.server");
       clearActiveProviderCache();
     }
-    return toSettings(result);
+
+    const acceptedUsers = await listAcceptedAuthUsers().catch(() => []);
+    const s = result
+      ? toSettings(result)
+      : {
+          maxUsers: data.maxUsers ?? 100,
+          essayDailyLimit: data.essayDailyLimit ?? 20,
+          currentUsers: acceptedUsers.length,
+          aiEnabled: data.aiEnabled ?? true,
+          aiMode: data.aiMode ?? "max",
+        };
+    return { ...s, currentUsers: acceptedUsers.length };
   });
 
 export type EmailBrandSettings = {

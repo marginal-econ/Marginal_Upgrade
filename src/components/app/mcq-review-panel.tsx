@@ -1,7 +1,19 @@
-import { CheckCircle2, Loader2, Sparkles, XCircle } from "lucide-react";
+import {
+  AlertTriangle,
+  Award,
+  BookOpen,
+  CheckCircle2,
+  Lightbulb,
+  Loader2,
+  Sparkles,
+  XCircle,
+  Zap,
+} from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { MCQ_DOMAIN_LABEL, type DomainStat } from "@/lib/mcq-domain";
 
 export type TopicStat = {
@@ -9,6 +21,14 @@ export type TopicStat = {
   attempted: number;
   correct: number;
   accuracyPct: number | null;
+};
+
+export type McqDiagnostic = {
+  concept: string;
+  keyRule: string;
+  correctReasoning: string;
+  distractorTrap: string;
+  speedTip: string;
 };
 
 /**
@@ -58,16 +78,13 @@ export function McqDomainBreakdown({
 }
 
 /**
- * Short, written review of an MCQ attempt — a couple of sentences on what's
- * solid and what needs work, instead of a per-topic progress-bar column.
- * Used both inline after a single attempt and as the standing summary
- * pulled from mcq_topic_performance (which unions both sources, so this
- * component reads either shape).
+ * Advanced, written review of an MCQ attempt — provides overall accuracy,
+ * Cambridge grade boundary estimate, pacing insights, and syllabus strength/weakness diagnosis.
  */
 export function McqReviewPanel({
   topics,
-  title = "How you're doing",
-  emptyLabel = "Answer a few questions and you'll get a quick read on your strengths and weaknesses here.",
+  title = "Examiner Performance Analysis",
+  emptyLabel = "Answer questions to generate Cambridge syllabus diagnostics and distractor breakdown.",
 }: {
   topics: TopicStat[];
   title?: string;
@@ -99,36 +116,87 @@ export function McqReviewPanel({
   const totalCorrect = withData.reduce((s, t) => s + t.correct, 0);
   const overallPct = Math.round((totalCorrect / Math.max(totalAttempted, 1)) * 100);
 
-  const list = (items: typeof withData) =>
-    items.map((t) => `${t.topic} (${t.correct}/${t.attempted})`).join(", ");
+  const gradeBand =
+    overallPct >= 85
+      ? { grade: "A*", color: "text-amber-500 bg-amber-500/10 border-amber-500/30" }
+      : overallPct >= 75
+        ? { grade: "A", color: "text-emerald-600 bg-emerald-500/10 border-emerald-500/30" }
+        : overallPct >= 65
+          ? { grade: "B", color: "text-sky-600 bg-sky-500/10 border-sky-500/30" }
+          : overallPct >= 50
+            ? { grade: "C", color: "text-yellow-600 bg-yellow-500/10 border-yellow-500/30" }
+            : overallPct >= 40
+              ? { grade: "D", color: "text-orange-600 bg-orange-500/10 border-orange-500/30" }
+              : { grade: "U", color: "text-rose-600 bg-rose-500/10 border-rose-500/30" };
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
         <CardTitle className="text-base">{title}</CardTitle>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground">Est. Grade:</span>
+          <Badge variant="outline" className={cn("font-bold text-xs px-2 py-0.5", gradeBand.color)}>
+            <Award className="size-3 mr-1" /> Grade {gradeBand.grade}
+          </Badge>
+        </div>
       </CardHeader>
-      <CardContent className="space-y-2 text-sm leading-relaxed">
-        <p className="text-muted-foreground">
-          {totalCorrect}/{totalAttempted} correct overall ({overallPct}%).
-        </p>
+      <CardContent className="space-y-3 text-sm leading-relaxed">
+        <div className="flex items-center justify-between rounded-lg border border-border/80 bg-muted/40 p-3">
+          <div>
+            <span className="text-xs text-muted-foreground">Accuracy Score</span>
+            <p className="text-lg font-bold tabular-nums">
+              {totalCorrect} / {totalAttempted}{" "}
+              <span className="text-xs font-normal text-muted-foreground">({overallPct}%)</span>
+            </p>
+          </div>
+          <div className="text-right">
+            <span className="text-xs text-muted-foreground">Cambridge Paper Pace</span>
+            <p className="text-xs font-medium text-foreground">Target: ~2 min / question</p>
+          </div>
+        </div>
+
         {strong.length > 0 ? (
-          <p>
-            <span className="font-medium text-foreground">Strength: </span>
-            <span className="text-muted-foreground">
-              solid on {list(strong)}
-              {strong.length > 1 ? "." : "."}
+          <div>
+            <span className="text-xs font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+              Syllabus Strengths
             </span>
-          </p>
+            <div className="mt-1 flex flex-wrap gap-1.5">
+              {strong.map((t) => (
+                <Badge
+                  key={t.topic}
+                  variant="outline"
+                  className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/20 text-xs py-0.5"
+                >
+                  {t.topic} ({t.pct}%)
+                </Badge>
+              ))}
+            </div>
+          </div>
         ) : null}
+
         {weak.length > 0 ? (
-          <p>
-            <span className="font-medium text-foreground">Weakness: </span>
-            <span className="text-muted-foreground">focus next on {list(weak)}.</span>
-          </p>
+          <div>
+            <span className="text-xs font-semibold uppercase tracking-wider text-rose-600 dark:text-rose-400">
+              Priority Revision Topics
+            </span>
+            <div className="mt-1 flex flex-wrap gap-1.5">
+              {weak.map((t) => (
+                <Badge
+                  key={t.topic}
+                  variant="outline"
+                  className="bg-rose-500/10 text-rose-700 dark:text-rose-300 border-rose-500/20 text-xs py-0.5"
+                >
+                  {t.topic} ({t.pct}%)
+                </Badge>
+              ))}
+            </div>
+          </div>
         ) : null}
+
         {strong.length === 0 && weak.length === 0 ? (
-          <p className="text-muted-foreground">
-            Mixed results so far — nothing standing out as a clear strength or weak spot yet.
+          <p className="text-muted-foreground text-xs">
+            Balanced performance across questions — complete more papers to pinpoint topic
+            anomalies.
           </p>
         ) : null}
       </CardContent>
@@ -146,18 +214,12 @@ export type GradedQuestion = {
 };
 
 /** State for one question's on-demand AI explanation, keyed by question number. */
-export type ExplanationState = "loading" | { text: string } | { error: string };
+export type ExplanationState =
+  "loading" | { text: string; diagnostic?: McqDiagnostic } | { error: string };
 
 /**
- * Full per-question list: right/wrong, what the student picked vs. the
- * correct answer, and its topic tag. Clicking a row calls `onSelect` so the
- * caller can scroll to and highlight that question on the page — this
- * component doesn't know about pages/canvases itself, just the list.
- *
- * Any question with a correct answer on record also gets an "Explain"
- * button — fetches a short written explanation on demand (never before
- * the attempt is marked) and expands it inline, most useful on the ones
- * marked wrong.
+ * Advanced per-question list: right/wrong, student's answer vs correct mark scheme,
+ * topic classification, and on-demand Cambridge Examiner diagnostic feedback.
  */
 export function McqQuestionReviewList({
   questions,
@@ -188,7 +250,7 @@ export function McqQuestionReviewList({
             const skipped = q.user_answer === null;
             const explanation = explanations?.[q.number];
             return (
-              <li key={q.number}>
+              <li key={q.number} className="transition-colors hover:bg-muted/10">
                 <div className="flex w-full items-center gap-3 px-4 py-2.5 text-sm">
                   <button
                     type="button"
@@ -196,7 +258,7 @@ export function McqQuestionReviewList({
                     className="flex min-w-0 flex-1 items-center gap-3 text-left transition-colors hover:opacity-80"
                   >
                     {q.correct === true ? (
-                      <CheckCircle2 className="h-4 w-4 shrink-0 text-primary" />
+                      <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
                     ) : q.correct === false ? (
                       <XCircle className="h-4 w-4 shrink-0 text-destructive" />
                     ) : (
@@ -210,20 +272,26 @@ export function McqQuestionReviewList({
                       {skipped ? (
                         <span className="text-muted-foreground">skipped</span>
                       ) : q.correct ? (
-                        <span className="text-primary">{q.user_answer}</span>
+                        <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                          {q.user_answer}
+                        </span>
                       ) : (
-                        <span className="text-destructive">
-                          {q.user_answer} <span className="text-muted-foreground">→</span>{" "}
-                          {q.correct_answer}
+                        <span className="text-destructive font-semibold">
+                          {q.user_answer}{" "}
+                          <span className="text-muted-foreground font-normal">→</span>{" "}
+                          <span className="text-emerald-600 dark:text-emerald-400">
+                            {q.correct_answer}
+                          </span>
                         </span>
                       )}
                     </span>
                   </button>
+
                   {onExplain && q.correct_answer ? (
                     <Button
-                      variant="ghost"
+                      variant={explanation && explanation !== "loading" ? "secondary" : "ghost"}
                       size="sm"
-                      className="h-7 shrink-0 gap-1 px-2 text-xs"
+                      className="h-7 shrink-0 gap-1 px-2.5 text-xs"
                       disabled={explanation === "loading"}
                       onClick={() => onExplain(q.number)}
                     >
@@ -236,9 +304,97 @@ export function McqQuestionReviewList({
                     </Button>
                   ) : null}
                 </div>
+
+                {/* ── Structured Examiner Explanation ── */}
                 {explanation && explanation !== "loading" ? (
-                  <div className="border-t border-border/60 bg-muted/30 px-4 py-2.5 text-xs leading-relaxed text-muted-foreground">
-                    {"text" in explanation ? explanation.text : explanation.error}
+                  <div className="border-t border-border/70 bg-card/60 px-4 py-3 text-xs leading-relaxed">
+                    {"error" in explanation ? (
+                      <div className="flex items-center gap-2 text-rose-500">
+                        <AlertTriangle className="size-4 shrink-0" />
+                        <span>{explanation.error}</span>
+                      </div>
+                    ) : explanation.diagnostic ? (
+                      <div className="space-y-3">
+                        {/* Concept & Target Reference */}
+                        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/50 pb-2">
+                          <div className="flex items-center gap-1.5 text-primary">
+                            <BookOpen className="size-3.5" />
+                            <span className="font-semibold">{explanation.diagnostic.concept}</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-[11px]">
+                            {q.user_answer && !q.correct ? (
+                              <Badge
+                                variant="outline"
+                                className="text-destructive border-destructive/30 bg-destructive/10"
+                              >
+                                Student Pick: {q.user_answer}
+                              </Badge>
+                            ) : null}
+                            <Badge
+                              variant="outline"
+                              className="text-emerald-600 dark:text-emerald-400 border-emerald-500/30 bg-emerald-500/10"
+                            >
+                              Cambridge Mark Scheme: {q.correct_answer}
+                            </Badge>
+                          </div>
+                        </div>
+
+                        {/* Golden Rule / Cambridge Principle */}
+                        {explanation.diagnostic.keyRule ? (
+                          <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-2.5 text-foreground/90">
+                            <div className="flex items-center gap-1.5 font-semibold text-amber-600 dark:text-amber-400">
+                              <Lightbulb className="size-3.5 shrink-0" />
+                              <span>Cambridge Principle / Golden Rule</span>
+                            </div>
+                            <p className="mt-1 text-xs leading-normal">
+                              {explanation.diagnostic.keyRule}
+                            </p>
+                          </div>
+                        ) : null}
+
+                        {/* Step-by-Step Worked Derivation */}
+                        <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-2.5 text-foreground/90">
+                          <div className="flex items-center gap-1.5 font-semibold text-emerald-600 dark:text-emerald-400">
+                            <CheckCircle2 className="size-3.5 shrink-0" />
+                            <span>
+                              Step-by-Step Worked Derivation (Why Option {q.correct_answer} is
+                              Correct)
+                            </span>
+                          </div>
+                          <p className="mt-1 text-xs leading-normal">
+                            {explanation.diagnostic.correctReasoning}
+                          </p>
+                        </div>
+
+                        {/* Distractor Trap Analysis */}
+                        {explanation.diagnostic.distractorTrap ? (
+                          <div className="rounded-lg border border-rose-500/20 bg-rose-500/5 p-2.5 text-foreground/90">
+                            <div className="flex items-center gap-1.5 font-semibold text-rose-600 dark:text-rose-400">
+                              <AlertTriangle className="size-3.5 shrink-0" />
+                              <span>Distractor Trap &amp; Misconception Diagnosis</span>
+                            </div>
+                            <p className="mt-1 text-xs leading-normal">
+                              {explanation.diagnostic.distractorTrap}
+                            </p>
+                          </div>
+                        ) : null}
+
+                        {/* Speed Elimination Tip */}
+                        {explanation.diagnostic.speedTip ? (
+                          <div className="flex items-start gap-2 rounded-lg border border-sky-500/20 bg-sky-500/5 p-2 text-xs text-foreground/90">
+                            <Zap className="size-3.5 shrink-0 text-sky-500 mt-0.5" />
+                            <div>
+                              <span className="font-semibold text-sky-600 dark:text-sky-400">
+                                Paper Speed Shortcut (&lt; 45s):{" "}
+                              </span>
+                              <span>{explanation.diagnostic.speedTip}</span>
+                            </div>
+                          </div>
+                        ) : null}
+                      </div>
+                    ) : (
+                      <p className="text-muted-foreground leading-relaxed">{explanation.text}</p>
+                    )}
                   </div>
                 ) : null}
               </li>

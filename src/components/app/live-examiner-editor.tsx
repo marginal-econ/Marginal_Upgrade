@@ -454,17 +454,23 @@ function SuggestionCard({
       {/* Visual Diff Box */}
       <div className="space-y-1.5 rounded-lg border border-border/70 bg-muted/40 p-2.5 text-xs">
         <div className="flex items-start gap-1.5 text-destructive">
-          <span className="text-[10px] font-semibold uppercase tracking-wider shrink-0 mt-0.5 text-destructive/80">Original:</span>
+          <span className="text-[10px] font-semibold uppercase tracking-wider shrink-0 mt-0.5 text-destructive/80">
+            Original:
+          </span>
           <span className="line-through">{issue.original}</span>
         </div>
         <div className="flex items-start gap-1.5 text-emerald-600 dark:text-emerald-400 font-medium pt-1 border-t border-border/50">
-          <span className="text-[10px] font-semibold uppercase tracking-wider shrink-0 mt-0.5 text-emerald-600/80 dark:text-emerald-400/80">Revision:</span>
+          <span className="text-[10px] font-semibold uppercase tracking-wider shrink-0 mt-0.5 text-emerald-600/80 dark:text-emerald-400/80">
+            Revision:
+          </span>
           <span>{issue.suggestion}</span>
         </div>
       </div>
 
       <div className="space-y-1 text-xs">
-        <p className="font-semibold text-foreground text-[11px] uppercase tracking-wider text-muted-foreground">Examiner Rationale</p>
+        <p className="font-semibold text-foreground text-[11px] uppercase tracking-wider text-muted-foreground">
+          Examiner Rationale
+        </p>
         <p className="leading-relaxed text-muted-foreground">{issue.explanation}</p>
       </div>
 
@@ -475,7 +481,12 @@ function SuggestionCard({
       ) : null}
 
       <div className="flex gap-2 pt-1">
-        <Button type="button" size="sm" className="h-7 flex-1 text-xs gap-1.5 font-medium" onClick={onAccept}>
+        <Button
+          type="button"
+          size="sm"
+          className="h-7 flex-1 text-xs gap-1.5 font-medium"
+          onClick={onAccept}
+        >
           <Check className="size-3.5" /> Accept Revision
         </Button>
         <Button

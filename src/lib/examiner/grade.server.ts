@@ -264,7 +264,10 @@ export async function gradeEssay(
           });
           grading = arbitrated;
         } catch (arbitrationError) {
-          console.error("Arbitration pass encountered error; falling back to moderated grade", arbitrationError);
+          console.error(
+            "Arbitration pass encountered error; falling back to moderated grade",
+            arbitrationError,
+          );
           grading = secondGrading;
           grading.confidence = computeObjectiveConfidence(grading, secondGrading, false);
         }

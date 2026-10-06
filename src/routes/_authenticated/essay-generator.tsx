@@ -410,7 +410,9 @@ function EssayGeneratorPage() {
                     {essay.wordCount} / {essay.wordLimit} words
                   </Badge>
                 </div>
-                <p className="text-base font-semibold text-foreground leading-snug">{essay.question}</p>
+                <p className="text-base font-semibold text-foreground leading-snug">
+                  {essay.question}
+                </p>
                 {essay.trimmedToFit ? (
                   <p className="text-xs text-muted-foreground">
                     Trimmed to fit the {essay.wordLimit}-word exam-standard limit.
@@ -420,8 +422,17 @@ function EssayGeneratorPage() {
                 {/* Quick Action Toolbar */}
                 <div className="flex flex-wrap items-center justify-between gap-3 border-y border-border/70 py-2.5">
                   <div className="flex items-center gap-2">
-                    <Button size="sm" variant="outline" onClick={handleCopyEssay} className="gap-1.5 text-xs">
-                      {copied ? <Check className="size-3.5 text-emerald-600" /> : <Copy className="size-3.5" />}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={handleCopyEssay}
+                      className="gap-1.5 text-xs"
+                    >
+                      {copied ? (
+                        <Check className="size-3.5 text-emerald-600" />
+                      ) : (
+                        <Copy className="size-3.5" />
+                      )}
                       {copied ? "Copied!" : "Copy Model Essay"}
                     </Button>
                     <Button asChild size="sm" variant="outline" className="gap-1.5 text-xs">
@@ -486,24 +497,45 @@ function EssayGeneratorPage() {
               <div className="space-y-6">
                 {essay.sections.map((section, sectionIndex) => {
                   const headingLower = section.heading.toLowerCase();
-                  const isAo1 = headingLower.includes("intro") || headingLower.includes("definition") || headingLower.includes("knowledge");
-                  const isAo3 = headingLower.includes("evaluat") || headingLower.includes("judgement") || headingLower.includes("conclusion") || headingLower.includes("assess");
+                  const isAo1 =
+                    headingLower.includes("intro") ||
+                    headingLower.includes("definition") ||
+                    headingLower.includes("knowledge");
+                  const isAo3 =
+                    headingLower.includes("evaluat") ||
+                    headingLower.includes("judgement") ||
+                    headingLower.includes("conclusion") ||
+                    headingLower.includes("assess");
                   const aoBadge = isAo1
                     ? { code: "AO1", label: "Knowledge", color: "border-ao1/40 bg-ao1/10 text-ao1" }
                     : isAo3
-                      ? { code: "AO3", label: "Evaluation", color: "border-ao3/40 bg-ao3/10 text-ao3" }
-                      : { code: "AO2", label: "Analysis", color: "border-ao2/40 bg-ao2/10 text-ao2" };
+                      ? {
+                          code: "AO3",
+                          label: "Evaluation",
+                          color: "border-ao3/40 bg-ao3/10 text-ao3",
+                        }
+                      : {
+                          code: "AO2",
+                          label: "Analysis",
+                          color: "border-ao2/40 bg-ao2/10 text-ao2",
+                        };
 
                   return (
                     <section key={sectionIndex} className="space-y-3">
                       <div className="flex items-center justify-between border-b border-border pb-1.5">
                         <h3 className="text-sm font-semibold">{section.heading}</h3>
-                        <Badge variant="outline" className={cn("text-[10px] font-semibold", aoBadge.color)}>
+                        <Badge
+                          variant="outline"
+                          className={cn("text-[10px] font-semibold", aoBadge.color)}
+                        >
                           {aoBadge.code} {aoBadge.label}
                         </Badge>
                       </div>
                       {section.paragraphs.map((paragraph, index) => (
-                        <p key={index} className="text-[15px] leading-[1.8] font-sans text-foreground/90">
+                        <p
+                          key={index}
+                          className="text-[15px] leading-[1.8] font-sans text-foreground/90"
+                        >
                           {paragraph}
                         </p>
                       ))}

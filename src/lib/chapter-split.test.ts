@@ -13,8 +13,12 @@ ${"Demand and supply interact to establish equilibrium. ".repeat(80)}
 
     const result = splitIntoChapters(text, "Cambridge 9708 Economics");
     expect(result.length).toBe(2);
-    expect(result[0]!.title).toBe("Cambridge 9708 Economics — Chapter 1: Basic Economic Ideas and Resource Allocation");
-    expect(result[1]!.title).toBe("Cambridge 9708 Economics — Chapter 2: The Price System and the Microeconomy");
+    expect(result[0]!.title).toBe(
+      "Cambridge 9708 Economics — Chapter 1: Basic Economic Ideas and Resource Allocation",
+    );
+    expect(result[1]!.title).toBe(
+      "Cambridge 9708 Economics — Chapter 2: The Price System and the Microeconomy",
+    );
   });
 
   it("splits Unit N headings and Roman numerals", () => {
@@ -64,8 +68,12 @@ ${"Equilibrium price clears the market without surplus or shortage. ".repeat(80)
 
     const result = splitIntoChapters(text, "Oxford Economics");
     expect(result.length).toBe(2);
-    expect(result[0]!.title).toBe("Oxford Economics — Chapter 1: Basic Economic Ideas and the Allocation of Resources");
-    expect(result[1]!.title).toBe("Oxford Economics — Chapter 2: The Price System and Resource Allocation");
+    expect(result[0]!.title).toBe(
+      "Oxford Economics — Chapter 1: Basic Economic Ideas and the Allocation of Resources",
+    );
+    expect(result[1]!.title).toBe(
+      "Oxford Economics — Chapter 2: The Price System and Resource Allocation",
+    );
   });
 
   it("safely ignores Table of Contents lines with leader dots and page numbers", () => {
@@ -129,7 +137,8 @@ ${"Circular flow of income models economic injections and leakages. ".repeat(80)
   });
 
   it("safely partitions massive textbooks lacking explicit keywords", () => {
-    const chunk = "Economics is the study of scarcity, choice, and allocation of resources under constraints.\n\n";
+    const chunk =
+      "Economics is the study of scarcity, choice, and allocation of resources under constraints.\n\n";
     // 80,000+ characters of content without standard chapter markers
     const hugeText = chunk.repeat(900);
 

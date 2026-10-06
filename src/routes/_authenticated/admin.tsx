@@ -2,17 +2,22 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
+  BookOpen,
   CheckCircle2,
   Eraser,
   Eye,
+  EyeOff,
   ImagePlus,
   KeyRound,
   Loader2,
   Plug,
+  Plus,
   RefreshCw,
+  Search,
   ShieldCheck,
   Sparkles,
   Trash2,
+  Trophy,
   XCircle,
 } from "lucide-react";
 import { useRef, useState } from "react";
@@ -28,7 +33,6 @@ import {
   useUserActivity,
 } from "@/components/app/admin-access";
 import { PageHeader } from "@/components/app/app-shell";
-import { PublicWaitlistPanel } from "@/components/app/public-waitlist-admin";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -87,6 +91,13 @@ import {
 import { filesToPageImages } from "@/lib/handwriting-images";
 import { SPEC_TEMPLATES, templateSpec } from "@/lib/diagrams/custom";
 import { EconomicsDiagram } from "@/components/diagrams/economics-diagram";
+import {
+  adminAddShowcaseExemplar,
+  adminDeleteShowcaseExemplar,
+  adminListShowcaseEssays,
+  adminToggleShowcaseVisibility,
+  type ShowcaseEssayItem,
+} from "@/lib/showcase.functions";
 
 function embeddingModelsFor(meta: ReturnType<typeof providerMeta>): readonly string[] {
   return "embeddingModels" in meta ? meta.embeddingModels : [];
@@ -155,15 +166,27 @@ function AdminPage() {
         <Tabs defaultValue="overview">
           <TabsList className="h-auto flex-wrap">
             <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="users">Users</TabsTrigger>
-            <TabsTrigger value="waitlist">Waitlist</TabsTrigger>
-            <TabsTrigger value="access">Access &amp; limits</TabsTrigger>
-            <TabsTrigger value="providers">AI providers</TabsTrigger>
+            <TabsTrigger value="users">Users &amp; Roles</TabsTrigger>
+            <TabsTrigger value="access">Capacity &amp; AI Controls</TabsTrigger>
+            <TabsTrigger value="showcase">Showcase</TabsTrigger>
+            <TabsTrigger value="providers">AI Providers</TabsTrigger>
             <TabsTrigger value="embeddings">Embeddings</TabsTrigger>
-            <TabsTrigger value="vision">Vision</TabsTrigger>
+            <TabsTrigger value="vision">Vision OCR</TabsTrigger>
             <TabsTrigger value="diagrams">Diagrams</TabsTrigger>
           </TabsList>
 
+          <TabsContent value="overview" className="mt-5">
+            <OverviewPanel />
+          </TabsContent>
+          <TabsContent value="users" className="mt-5">
+            <UsersPanel />
+          </TabsContent>
+          <TabsContent value="access" className="mt-5">
+            <AccessPanel />
+          </TabsContent>
+          <TabsContent value="showcase" className="mt-5">
+            <ShowcaseAdminPanel />
+          </TabsContent>
           <TabsContent value="providers" className="mt-5">
             <ProvidersPanel />
           </TabsContent>
@@ -175,18 +198,6 @@ function AdminPage() {
           </TabsContent>
           <TabsContent value="diagrams" className="mt-5">
             <DiagramsPanel />
-          </TabsContent>
-          <TabsContent value="overview" className="mt-5">
-            <OverviewPanel />
-          </TabsContent>
-          <TabsContent value="users" className="mt-5">
-            <UsersPanel />
-          </TabsContent>
-          <TabsContent value="access" className="mt-5">
-            <AccessPanel />
-          </TabsContent>
-          <TabsContent value="waitlist" className="mt-5">
-            <PublicWaitlistPanel />
           </TabsContent>
         </Tabs>
       </div>
@@ -2001,6 +2012,425 @@ function DiagramsPanel() {
             No custom diagrams yet — the library still shows all built-in Cambridge diagrams.
           </p>
         ) : null}
+      </section>
+    </div>
+  );
+}
+
+function ShowcaseAdminPanel() {
+  const queryClient = useQueryClient();
+  const listShowcase = useServerFn(adminListShowcaseEssays);
+  const toggleVisibility = useServerFn(adminToggleShowcaseVisibility);
+  const addExemplar = useServerFn(adminAddShowcaseExemplar);
+  const deleteExemplar = useServerFn(adminDeleteShowcaseExemplar);
+
+  const query = useQuery({
+    queryKey: ["admin-showcase-essays"],
+    queryFn: () => listShowcase(),
+  });
+
+  const [search, setSearch] = useState("");
+  const [question, setQuestion] = useState("");
+  const [maxMark, setMaxMark] = useState<number>(12);
+  const [totalMark, setTotalMark] = useState<number>(12);
+  const [ao1, setAo1] = useState<number | undefined>(2);
+  const [ao2, setAo2] = useState<number | undefined>(6);
+  const [ao3, setAo3] = useState<number | undefined>(4);
+  const [topicName, setTopicName] = useState("");
+  const [authorName, setAuthorName] = useState("");
+  const [examinerSummary, setExaminerSummary] = useState("");
+  const [essayText, setEssayText] = useState("");
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  const refresh = () => {
+    queryClient.invalidateQueries({ queryKey: ["admin-showcase-essays"] });
+    queryClient.invalidateQueries({ queryKey: ["showcase-essays"] });
+  };
+
+  const addMutation = useMutation({
+    mutationFn: () =>
+      addExemplar({
+        data: {
+          question,
+          maxMark,
+          totalMark,
+          ao1Awarded: ao1,
+          ao2Awarded: ao2,
+          ao3Awarded: ao3,
+          topicName: topicName || undefined,
+          authorName: authorName || undefined,
+          examinerSummary: examinerSummary || undefined,
+          essayText,
+        },
+      }),
+    onSuccess: async () => {
+      toast.success("Exemplar essay added to Showcase.");
+      setQuestion("");
+      setEssayText("");
+      setExaminerSummary("");
+      setTopicName("");
+      setAuthorName("");
+      await refresh();
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const toggleMutation = useMutation({
+    mutationFn: (input: { versionId: string; hidden: boolean }) =>
+      toggleVisibility({ data: input }),
+    onSuccess: async (res) => {
+      toast.success(
+        res.hidden ? "Essay hidden from student showcase." : "Essay restored to showcase.",
+      );
+      await refresh();
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => deleteExemplar({ data: { id } }),
+    onSuccess: async () => {
+      toast.success("Essay removed from showcase.");
+      await refresh();
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const allItems: ShowcaseEssayItem[] = (query.data as ShowcaseEssayItem[]) ?? [];
+  const filtered = allItems.filter((item) => {
+    if (!search.trim()) return true;
+    const q = search.toLowerCase().trim();
+    return (
+      item.question.toLowerCase().includes(q) ||
+      (item.topic_name && item.topic_name.toLowerCase().includes(q)) ||
+      item.author_initials.toLowerCase().includes(q) ||
+      item.essay_text.toLowerCase().includes(q)
+    );
+  });
+
+  const visibleCount = allItems.filter((i) => !i.is_hidden).length;
+  const hiddenCount = allItems.filter((i) => i.is_hidden).length;
+
+  return (
+    <div className="grid gap-5 lg:grid-cols-[440px_1fr]">
+      {/* Left: Add Exemplar */}
+      <section className="panel rounded-xl border border-border p-5 space-y-4">
+        <div>
+          <h2 className="flex items-center gap-2 text-sm font-semibold">
+            <Plus className="size-4 text-primary" /> Add Model Exemplar
+          </h2>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Publish verified Cambridge examiner exemplar answers directly to the Showcase.
+          </p>
+        </div>
+
+        <div className="space-y-3">
+          <div className="space-y-1.5">
+            <Label>Question text</Label>
+            <Textarea
+              rows={2}
+              value={question}
+              onChange={(e) => setQuestion(e.target.value)}
+              placeholder="e.g. Evaluate whether supply-side policies are more effective than demand-side..."
+              className="text-xs"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>Tariff</Label>
+              <Select
+                value={String(maxMark)}
+                onValueChange={(val) => {
+                  const num = Number(val);
+                  setMaxMark(num);
+                  setTotalMark(num);
+                  if (num === 8) {
+                    setAo1(3);
+                    setAo2(5);
+                    setAo3(undefined);
+                  } else if (num === 12) {
+                    setAo1(2);
+                    setAo2(6);
+                    setAo3(4);
+                  } else if (num === 20) {
+                    setAo1(4);
+                    setAo2(8);
+                    setAo3(8);
+                  }
+                }}
+              >
+                <SelectTrigger className="text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="8">8-mark question</SelectItem>
+                  <SelectItem value="12">12-mark question</SelectItem>
+                  <SelectItem value="20">20-mark question</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label>Awarded mark</Label>
+              <Input
+                type="number"
+                min={1}
+                max={maxMark}
+                value={totalMark}
+                onChange={(e) => setTotalMark(Number(e.target.value))}
+                className="text-xs"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-2">
+            <div className="space-y-1">
+              <Label className="text-[11px]">AO1 Mark</Label>
+              <Input
+                type="number"
+                value={ao1 ?? ""}
+                onChange={(e) => setAo1(e.target.value ? Number(e.target.value) : undefined)}
+                className="h-8 text-xs"
+                placeholder="AO1"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-[11px]">AO2 Mark</Label>
+              <Input
+                type="number"
+                value={ao2 ?? ""}
+                onChange={(e) => setAo2(e.target.value ? Number(e.target.value) : undefined)}
+                className="h-8 text-xs"
+                placeholder="AO2"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-[11px]">AO3 Mark</Label>
+              <Input
+                type="number"
+                value={ao3 ?? ""}
+                onChange={(e) => setAo3(e.target.value ? Number(e.target.value) : undefined)}
+                className="h-8 text-xs"
+                placeholder="AO3"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>Topic name (optional)</Label>
+              <Input
+                value={topicName}
+                onChange={(e) => setTopicName(e.target.value)}
+                placeholder="e.g. Macroeconomic policy"
+                className="text-xs"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Author name</Label>
+              <Input
+                value={authorName}
+                onChange={(e) => setAuthorName(e.target.value)}
+                placeholder="e.g. Cambridge Senior Examiner"
+                className="text-xs"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>Examiner commentary / Band notes</Label>
+            <Textarea
+              rows={2}
+              value={examinerSummary}
+              onChange={(e) => setExaminerSummary(e.target.value)}
+              placeholder="Why this essay achieves Level 5..."
+              className="text-xs"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>Full exemplar essay text</Label>
+            <Textarea
+              rows={6}
+              value={essayText}
+              onChange={(e) => setEssayText(e.target.value)}
+              placeholder="Write or paste full model essay here..."
+              className="font-serif text-xs leading-relaxed"
+            />
+          </div>
+
+          <Button
+            className="w-full"
+            onClick={() => addMutation.mutate()}
+            disabled={
+              addMutation.isPending || question.trim().length < 5 || essayText.trim().length < 20
+            }
+          >
+            {addMutation.isPending ? (
+              <Loader2 className="mr-1.5 size-4 animate-spin" />
+            ) : (
+              <Plus className="mr-1.5 size-4" />
+            )}
+            Publish to Showcase
+          </Button>
+        </div>
+      </section>
+
+      {/* Right: Manage Showcase Essays */}
+      <section className="space-y-4">
+        <div className="panel flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border p-4">
+          <div>
+            <h3 className="text-sm font-semibold">Showcase Repository &amp; Moderation</h3>
+            <p className="text-xs text-muted-foreground">
+              {visibleCount} active in student showcase • {hiddenCount} hidden from view
+            </p>
+          </div>
+          <div className="relative min-w-[200px]">
+            <Search className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Filter showcase essays…"
+              className="h-8 pl-8 text-xs"
+            />
+          </div>
+        </div>
+
+        {query.isLoading ? (
+          <div className="space-y-3">
+            <Skeleton className="h-24 w-full" />
+            <Skeleton className="h-24 w-full" />
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-border p-8 text-center text-xs text-muted-foreground">
+            No showcase essays match your search.
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {filtered.map((item) => (
+              <div
+                key={item.version_id}
+                className={`panel rounded-xl border p-4 transition-all duration-150 ${
+                  item.is_hidden
+                    ? "border-destructive/30 bg-destructive/[0.02] opacity-70"
+                    : "border-border"
+                }`}
+              >
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1 space-y-1.5">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <Badge
+                        variant={item.is_hidden ? "destructive" : "default"}
+                        className="text-[11px] font-semibold"
+                      >
+                        <Trophy className="mr-1 size-3" />
+                        {item.total_mark} / {item.max_mark} marks
+                      </Badge>
+
+                      {item.is_hidden ? (
+                        <Badge
+                          variant="outline"
+                          className="border-destructive/40 text-[11px] text-destructive"
+                        >
+                          <EyeOff className="mr-1 size-3" /> Hidden from Students
+                        </Badge>
+                      ) : (
+                        <Badge
+                          variant="outline"
+                          className="border-emerald-500/40 text-[11px] text-emerald-600 dark:text-emerald-400"
+                        >
+                          <Eye className="mr-1 size-3" /> Live in Showcase
+                        </Badge>
+                      )}
+
+                      <Badge variant="secondary" className="text-[11px]">
+                        {item.source === "cambridge_model"
+                          ? "Cambridge Model"
+                          : item.source === "teacher_model"
+                            ? "Teacher Exemplar"
+                            : item.source === "admin_added"
+                              ? "Admin Added"
+                              : "Student Auto"}
+                      </Badge>
+
+                      <span className="text-[11px] text-muted-foreground">
+                        Author:{" "}
+                        <strong className="font-medium text-foreground">
+                          {item.author_initials}
+                        </strong>
+                      </span>
+                    </div>
+
+                    <p className="text-xs font-semibold leading-snug text-foreground">
+                      {item.question}
+                    </p>
+                  </div>
+
+                  <div className="flex shrink-0 items-center gap-1.5">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={() =>
+                        toggleMutation.mutate({
+                          versionId: item.version_id,
+                          hidden: !item.is_hidden,
+                        })
+                      }
+                      disabled={toggleMutation.isPending}
+                    >
+                      {item.is_hidden ? (
+                        <>
+                          <Eye className="mr-1 size-3.5" /> Restore
+                        </>
+                      ) : (
+                        <>
+                          <EyeOff className="mr-1 size-3.5 text-muted-foreground" /> Hide
+                        </>
+                      )}
+                    </Button>
+
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 text-xs text-destructive hover:bg-destructive/10"
+                      onClick={() => deleteMutation.mutate(item.version_id)}
+                      disabled={deleteMutation.isPending}
+                      title="Remove or permanently hide"
+                    >
+                      <Trash2 className="size-3.5" />
+                    </Button>
+
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={() =>
+                        setExpandedId(expandedId === item.version_id ? null : item.version_id)
+                      }
+                    >
+                      {expandedId === item.version_id ? "Close" : "Inspect"}
+                    </Button>
+                  </div>
+                </div>
+
+                {expandedId === item.version_id ? (
+                  <div className="mt-3 space-y-2 border-t border-border/60 pt-3 text-xs">
+                    {item.grading?.examiner_summary ? (
+                      <p className="rounded-md bg-muted/40 p-2.5 italic text-muted-foreground">
+                        "{item.grading.examiner_summary}"
+                      </p>
+                    ) : null}
+                    <div className="max-h-60 overflow-y-auto whitespace-pre-wrap rounded-lg bg-muted/20 p-3 font-serif text-foreground border border-border/40">
+                      {item.essay_text}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        )}
       </section>
     </div>
   );

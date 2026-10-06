@@ -25,7 +25,8 @@ describe("Advanced RAG Retrieval Engine", () => {
     });
 
     it("expands a PPC and scarcity micro question with allocative efficiency", () => {
-      const query = "Explain how the production possibility curve illustrates scarcity and opportunity cost.";
+      const query =
+        "Explain how the production possibility curve illustrates scarcity and opportunity cost.";
       const expanded = expandEconomicQuery(query);
       expect(expanded).toContain("production possibility curve");
       expect(expanded).toContain("allocative efficiency");
@@ -33,7 +34,8 @@ describe("Advanced RAG Retrieval Engine", () => {
     });
 
     it("expands an elasticity question with PED and tax incidence", () => {
-      const query = "Assess the usefulness of price elasticity of demand to a business setting prices.";
+      const query =
+        "Assess the usefulness of price elasticity of demand to a business setting prices.";
       const expanded = expandEconomicQuery(query);
       expect(expanded).toContain("price elasticity of demand");
       expect(expanded).toContain("tax incidence");
@@ -98,7 +100,8 @@ describe("Advanced RAG Retrieval Engine", () => {
           document_title: "Cambridge 9708 Mark Scheme — Exchange Rates",
           doc_type: "mark_scheme" as const,
           heading: "Marshall-Lerner Condition",
-          content: "Examiner credit requires explicit reference to Marshall-Lerner and PED elasticity sum.",
+          content:
+            "Examiner credit requires explicit reference to Marshall-Lerner and PED elasticity sum.",
           similarity: 0.84, // Slightly lower dense similarity, but exact keyword match in title and heading
         },
         {
@@ -129,7 +132,8 @@ describe("Advanced RAG Retrieval Engine", () => {
           documentTitle: "Syllabus 2026",
           docType: "syllabus",
           heading: "Fiscal Policy",
-          snippet: "Fiscal policy is the manipulation of government spending and taxation to influence AD.",
+          snippet:
+            "Fiscal policy is the manipulation of government spending and taxation to influence AD.",
           similarity: 0.9,
         },
         {
@@ -137,7 +141,8 @@ describe("Advanced RAG Retrieval Engine", () => {
           documentTitle: "Coursebook Chap 12",
           docType: "coursebook",
           heading: "Fiscal Definitions",
-          snippet: "Fiscal policy is the manipulation of government spending and taxation to influence AD.",
+          snippet:
+            "Fiscal policy is the manipulation of government spending and taxation to influence AD.",
           similarity: 0.88,
         },
         {
@@ -145,7 +150,8 @@ describe("Advanced RAG Retrieval Engine", () => {
           documentTitle: "Examiner Report",
           docType: "examiner_report",
           heading: "Common Errors",
-          snippet: "Students often fail to distinguish between automatic stabilisers and discretionary policy.",
+          snippet:
+            "Students often fail to distinguish between automatic stabilisers and discretionary policy.",
           similarity: 0.85,
         },
       ];
