@@ -1,4 +1,4 @@
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it } from "vitest";
 import {
   LIVE_EXAMINER_DURATION_MINUTES,
   DEFAULT_LIVE_EXAMINER_DURATION_MINUTES,
