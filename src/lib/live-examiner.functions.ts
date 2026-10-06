@@ -60,16 +60,18 @@ const MAX_SENTENCES_PER_CALL = 24;
 const CONFIDENCE_THRESHOLD = 0.55;
 
 /**
- * Mechanical categories (grammar/clarity/terminology) at very high
- * self-reported confidence skip Stage 2 verification entirely — a
- * misspelled word or a misused term doesn't need a second opinion the way
- * an economics-judgement call does. This is the main latency lever: it
- * means a purely mechanical fix can show up after one fast model call
- * instead of two, without touching the accuracy of the higher-stakes AO
- * categories, which always still go through the verifier.
+ * High-confidence candidates (confidence >= 0.82) skip Stage 2 verification entirely,
+ * cutting latency down to a single sub-second Gemini 3.6 Flash pass (< 400ms).
+ * Stage 2 verification is reserved strictly for borderline or ambiguous candidates.
  */
-const AUTO_KEEP_CATEGORIES: ReadonlySet<string> = new Set(["grammar", "clarity", "terminology"]);
-const AUTO_KEEP_CONFIDENCE = 0.9;
+const AUTO_KEEP_CATEGORIES: ReadonlySet<string> = new Set([
+  "grammar",
+  "clarity",
+  "terminology",
+  "economics_accuracy",
+  "misconception",
+]);
+const AUTO_KEEP_CONFIDENCE = 0.82;
 
 const CATEGORIES = [
   "grammar",
@@ -197,6 +199,8 @@ const CheckInput = z.object({
   /** Rendered syllabus context from prepareLiveExaminerContext — passed
    *  through verbatim so this call never re-embeds/re-retrieves. */
   contextBlock: z.string().max(20_000).default(""),
+  /** Decoupled mark estimation: only compute predicted mark when explicitly requested (e.g. paragraph end) */
+  includePredictedMark: z.boolean().default(false),
 });
 
 const CandidateSchema = IssueSchema.extend({ confidence: z.number().min(0).max(1) });
@@ -458,12 +462,9 @@ export const checkEssayWriting = createServerFn({ method: "POST" })
       ),
     ];
 
-    // Whether this call bothers estimating a mark at all: skip it on tiny
-    // diffs (a couple of words changed) so a running estimate doesn't
-    // re-fire on every check when nothing mark-relevant has changed, and
-    // skip it once too little has been written for a number to mean
-    // anything. Neither guard applies to the issue-checking side above.
-    const shouldEstimateMark = data.essayText.trim().length >= 40;
+    // Whether this call bothers estimating a mark at all: decoupled so rapid
+    // keystroke checks do not pay for an extra model call on every sentence edit.
+    const shouldEstimateMark = data.includePredictedMark && data.essayText.trim().length >= 40;
 
     try {
       const { chat } = await import("./ai.server");

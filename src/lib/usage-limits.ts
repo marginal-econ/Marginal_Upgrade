@@ -21,7 +21,7 @@ export function essayLimitMessage(limit: number): string {
   } graded per day and today's ${limit === 1 ? "one is" : `${limit} are`} used up. ${LIMIT_RESET_NOTE}`;
 }
 
-export const LIVE_EXAMINER_LIMIT_MESSAGE = `${DAILY_LIMIT_PREFIX}: you can use one Live Examiner session per day, and today's is already in use for a different question. You can keep working on that same question today. ${LIMIT_RESET_NOTE}`;
+export const LIVE_EXAMINER_LIMIT_MESSAGE = `${DAILY_LIMIT_PREFIX}: you can start 1 Live Examiner question session per day on your current plan, and today's session is already active for another question. You can continue typing on your active question with unlimited checks today, or upgrade for multi-session access. ${LIMIT_RESET_NOTE}`;
 
 export function isDailyLimitError(error: unknown): boolean {
   const message = error instanceof Error ? error.message : typeof error === "string" ? error : "";
