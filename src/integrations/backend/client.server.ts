@@ -3,11 +3,15 @@
 import { createClient } from "@supabase/supabase-js";
 
 import type { Database } from "@/integrations/supabase/types";
+import { readEnv } from "@/server/env";
 import { BACKEND_URL, createBackendFetch, requireBackendConfig } from "./config";
 
 function createAdminClient() {
   requireBackendConfig();
-  const key = process.env["BACKEND_SERVICE_ROLE_KEY"];
+  const key =
+    readEnv("BACKEND_SERVICE_ROLE_KEY") ||
+    readEnv("SUPABASE_SECRET_KEY") ||
+    (typeof process !== "undefined" ? process.env["BACKEND_SERVICE_ROLE_KEY"] : undefined);
   if (!key) {
     throw new Error(
       "Missing BACKEND_SERVICE_ROLE_KEY. Add the service role key of the backend project in secrets.",

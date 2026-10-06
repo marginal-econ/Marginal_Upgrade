@@ -10,6 +10,7 @@ import {
   getActiveVisionProvider,
   getAiGatewaySettings,
 } from "./ai/active.server";
+import { readEnv } from "../server/env";
 import { EMBEDDING_DIMS } from "./examiner/config";
 
 /** The cheap/fast model every call is swapped to in "max savings" mode. Kept
@@ -64,7 +65,7 @@ export class AiGatewayError extends Error {
 }
 
 function apiKey(): string {
-  const key = process.env.LOVABLE_API_KEY;
+  const key = readEnv("LOVABLE_API_KEY");
   if (!key) throw new AiGatewayError("AI is not configured on this server.", 500);
   return key;
 }
@@ -516,7 +517,7 @@ export async function embed(
     return embedViaConfig(inputs, config);
   }
 
-  if (!process.env.LOVABLE_API_KEY) {
+  if (!readEnv("LOVABLE_API_KEY")) {
     throw new AiGatewayError(
       "No embedding provider is configured. Add one under Admin → Embeddings and mark it active.",
       500,
@@ -722,7 +723,7 @@ export async function visionChat(options: {
     return { ...result, latencyMs: Date.now() - started };
   }
 
-  if (!process.env.LOVABLE_API_KEY) {
+  if (!readEnv("LOVABLE_API_KEY")) {
     throw new AiGatewayError(
       "No AI provider is configured for handwriting/vision. Add a provider key that supports vision (Anthropic, OpenAI, or Google) under Admin → AI providers and mark it active.",
       500,
