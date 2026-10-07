@@ -165,9 +165,7 @@ function AdminPage() {
         <ShieldCheck className="mx-auto size-8 text-muted-foreground" />
         <h1 className="mt-4 text-lg font-semibold">Admin access required</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          This console shows every user, essay, document and AI call, and is where provider API keys
-          live. Ask an existing administrator to grant access, or follow the secure initial-admin
-          procedure in SUPABASE_SETUP.md.
+          This console is reserved exclusively for the platform administrator (vaquitavoid).
         </p>
       </div>
     );
@@ -1898,24 +1896,29 @@ function UsersPanel() {
                   </p>
                 </div>
                 <div className="ml-auto flex items-center gap-1.5">
-                  <Select
-                    value={user.role}
-                    onValueChange={(value) =>
-                      roleMutation.mutate({
-                        userId: user.id,
-                        role: value as "student" | "teacher" | "admin",
-                      })
-                    }
-                  >
-                    <SelectTrigger className="w-36">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="student">Student</SelectItem>
-                      <SelectItem value="teacher">Teacher</SelectItem>
-                      <SelectItem value="admin">Admin</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  {user.id === "84ff607d-83f8-43ee-aa20-b632d1e84c14" || extra?.email?.toLowerCase().includes("vaquitavoid") ? (
+                    <Badge variant="outline" className="h-8 px-2.5 font-semibold border-amber-500/40 text-amber-600 dark:text-amber-400 bg-amber-500/10">
+                      Sole Admin
+                    </Badge>
+                  ) : (
+                    <Select
+                      value={user.role === "admin" ? "student" : user.role}
+                      onValueChange={(value) =>
+                        roleMutation.mutate({
+                          userId: user.id,
+                          role: value as "student" | "teacher",
+                        })
+                      }
+                    >
+                      <SelectTrigger className="w-36">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="student">Student</SelectItem>
+                        <SelectItem value="teacher">Teacher</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
                   <Button
                     type="button"
                     size="icon"
@@ -1929,19 +1932,21 @@ function UsersPanel() {
                   >
                     <Eraser className="size-4" />
                   </Button>
-                  <Button
-                    type="button"
-                    size="icon"
-                    variant="ghost"
-                    className="size-8 text-muted-foreground hover:text-destructive"
-                    aria-label="Delete this account"
-                    title="Delete account permanently"
-                    onClick={() =>
-                      setDeleteTarget({ id: user.id, name: user.fullName ?? "this account" })
-                    }
-                  >
-                    <Trash2 className="size-4" />
-                  </Button>
+                  {!(user.id === "84ff607d-83f8-43ee-aa20-b632d1e84c14" || extra?.email?.toLowerCase().includes("vaquitavoid")) && (
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      className="size-8 text-muted-foreground hover:text-destructive"
+                      aria-label="Delete this account"
+                      title="Delete account permanently"
+                      onClick={() =>
+                        setDeleteTarget({ id: user.id, name: user.fullName ?? "this account" })
+                      }
+                    >
+                      <Trash2 className="size-4" />
+                    </Button>
+                  )}
                 </div>
               </div>
             );

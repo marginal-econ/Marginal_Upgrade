@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
 import { requireSupabaseAuth } from "@/integrations/backend/auth-middleware";
+import { isVaquitavoid } from "@/lib/auth-admin";
 
 export type AppRole = "student" | "teacher" | "admin";
 
@@ -9,6 +10,11 @@ export const getMe = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { supabase, userId } = context;
+    const isVaquita = isVaquitavoid({
+      userId,
+      email: (context as any).email,
+      claims: (context as any).claims,
+    });
 
     try {
       const [{ data: profile }, { data: roles }] = await Promise.all([
@@ -26,28 +32,33 @@ export const getMe = createServerFn({ method: "GET" })
       ]);
 
       const roleList = (roles ?? []).map((row: any) => row.role);
-      const role: AppRole = roleList.includes("admin")
-        ? "admin"
-        : roleList.includes("teacher")
-          ? "teacher"
-          : "student";
+      let role: AppRole = "student";
+
+      // Vaquitavoid is hardcoded as the one and only admin
+      if (isVaquita) {
+        role = "admin";
+      } else if (roleList.includes("teacher")) {
+        role = "teacher";
+      } else {
+        role = "student";
+      }
 
       return {
         userId,
-        fullName: profile?.full_name ?? null,
+        fullName: profile?.full_name ?? (isVaquita ? "Vaquitavoid" : null),
         school: profile?.school ?? null,
         role,
-        isStaff: role === "admin" || role === "teacher",
+        isStaff: isVaquita || role === "teacher",
         tutorialCompleted: profile?.tutorial_completed ?? true,
       };
     } catch (err) {
-      console.warn("Exception in getMe, returning default student role:", err);
+      console.warn("Exception in getMe, returning fallback role:", err);
       return {
         userId,
-        fullName: null,
+        fullName: isVaquita ? "Vaquitavoid" : null,
         school: null,
-        role: "student" as AppRole,
-        isStaff: false,
+        role: isVaquita ? ("admin" as AppRole) : ("student" as AppRole),
+        isStaff: isVaquita,
         tutorialCompleted: true,
       };
     }

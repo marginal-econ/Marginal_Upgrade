@@ -9,6 +9,8 @@ import { analyzeGrammarAndMechanics } from "@/lib/live-examiner/grammar-engine";
 import { diffSentences, splitSentences } from "@/lib/writing-check/sentence-diff";
 import { AO_DEFINITIONS, defaultSplitForMaxMark } from "@/lib/examiner/config";
 
+import { isVaquitavoid } from "@/lib/auth-admin";
+
 /**
  * HARD limit: a non-admin gets ONE Live Examiner session per day, locked to
  * ONE question (the admin account is exempt). The first question a student
@@ -22,7 +24,18 @@ async function assertLiveExaminerSessionAllowed(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any,
   question: string,
+  context?: any,
 ) {
+  if (
+    context &&
+    isVaquitavoid({
+      userId: context.userId,
+      claims: context.claims,
+      email: context.email,
+    })
+  ) {
+    return;
+  }
   const { data, error } = await supabase.rpc("claim_live_examiner_session", {
     p_question: question,
   });
@@ -165,7 +178,7 @@ export const prepareLiveExaminerContext = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => PrepareContextInput.parse(input))
   .handler(async ({ data, context }) => {
-    await assertLiveExaminerSessionAllowed(context.supabase, data.question);
+    await assertLiveExaminerSessionAllowed(context.supabase, data.question, context);
 
     const { retrieve, renderContext } = await import("./retrieval.server");
     const { fetchCalibrationAnchors, buildAnchorBlock } =
@@ -452,7 +465,7 @@ export const checkEssayWriting = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => CheckInput.parse(input))
   .handler(async ({ data, context }) => {
-    await assertLiveExaminerSessionAllowed(context.supabase, data.question);
+    await assertLiveExaminerSessionAllowed(context.supabase, data.question, context);
 
     const currentSentences = splitSentences(data.essayText);
     const previousSentences = data.previousText ? splitSentences(data.previousText) : [];
@@ -859,7 +872,7 @@ export const saveLiveExaminerSession = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => SaveSessionInput.parse(input))
   .handler(async ({ data, context }) => {
-    await assertLiveExaminerSessionAllowed(context.supabase, data.question);
+    await assertLiveExaminerSessionAllowed(context.supabase, data.question, context);
 
     const { data: row, error } = await context.supabase
       .from("live_examiner_sessions")
@@ -942,15 +955,12 @@ export const getTodayLiveExaminerSession = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     try {
-      // 1. Check if user holds admin role (admins are exempt from 1 session/day)
-      const { data: roleRow } = await context.supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", context.userId)
-        .eq("role", "admin")
-        .maybeSingle()
-        .catch(() => ({ data: null }));
-      const isAdmin = roleRow?.role === "admin";
+      // 1. Check if user is Vaquitavoid / holds admin role (admins are exempt from 1 session/day)
+      const isAdmin = isVaquitavoid({
+        userId: context.userId,
+        claims: (context as any).claims,
+        email: (context as any).email,
+      });
 
       // 2. Query daily_feature_usage for this user's live_examiner entry
       const { data: usageRows } = await context.supabase
@@ -1355,7 +1365,7 @@ export const getExaminerChallenges = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => ExaminerChallengeInput.parse(input))
   .handler(async ({ data, context }) => {
-    await assertLiveExaminerSessionAllowed(context.supabase, data.question);
+    await assertLiveExaminerSessionAllowed(context.supabase, data.question, context);
 
     const { chat } = await import("./ai.server");
     const { MODEL_CHALLENGE, TEMPERATURE_TUTOR } = await import("./examiner/config");

@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { requireSupabaseAuth } from "@/integrations/backend/auth-middleware";
 import type { Database } from "@/integrations/supabase/types";
+import { isVaquitavoid, VAQUITAVOID_USER_ID } from "@/lib/auth-admin";
 
 type AuthContext = { supabase: SupabaseClient<Database>; userId: string };
 
@@ -28,15 +29,19 @@ async function listAcceptedAuthUsers(): Promise<User[]> {
   }
 }
 
-/** Throws unless the caller holds the admin role. */
+/** Throws unless the caller is Vaquitavoid (the one and only admin). */
 async function assertAdmin(context: AuthContext) {
-  const { data } = await context.supabase
-    .from("user_roles")
-    .select("role")
-    .eq("user_id", context.userId)
-    .eq("role", "admin")
-    .maybeSingle();
-  if (!data) throw new Error("Admin access is required for this action.");
+  const isVaquita = isVaquitavoid({
+    userId: context.userId,
+    claims: (context as any).claims,
+    email: (context as any).email,
+  });
+
+  if (isVaquita) {
+    return;
+  }
+
+  throw new Error("Admin access is restricted. Vaquitavoid is the sole administrator of this platform.");
 }
 
 export const listPublicWaitlist = createServerFn({ method: "GET" })
@@ -486,28 +491,34 @@ export const listUsers = createServerFn({ method: "GET" })
       return authUsers.map((user) => {
         const profile = profileMap.get(user.id);
         const list = roleMap.get(user.id) ?? [];
+        const isVaquita = isVaquitavoid({
+          userId: user.id,
+          email: user.email,
+          claims: user.user_metadata,
+        });
         return {
           id: user.id,
           fullName:
             profile?.full_name ??
             (typeof user.user_metadata?.full_name === "string"
               ? user.user_metadata.full_name
-              : (user.email ?? "Unnamed account")),
+              : (user.email ?? (isVaquita ? "Vaquitavoid" : "Unnamed account"))),
           school: profile?.school ?? null,
           createdAt: user.created_at,
-          role: list.includes("admin") ? "admin" : list.includes("teacher") ? "teacher" : "student",
+          role: isVaquita ? "admin" : list.includes("teacher") ? "teacher" : "student",
         };
       });
     }
 
     return profiles.map((profile) => {
       const list = roleMap.get(profile.id) ?? [];
+      const isVaquita = isVaquitavoid({ userId: profile.id });
       return {
         id: profile.id,
-        fullName: profile.full_name ?? "Unnamed account",
+        fullName: profile.full_name ?? (isVaquita ? "Vaquitavoid" : "Unnamed account"),
         school: profile.school ?? null,
         createdAt: profile.created_at,
-        role: list.includes("admin") ? "admin" : list.includes("teacher") ? "teacher" : "student",
+        role: isVaquita ? "admin" : list.includes("teacher") ? "teacher" : "student",
       };
     });
   });
@@ -524,6 +535,14 @@ export const setUserRole = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     await assertAdmin(context);
+
+    if (isVaquitavoid({ userId: data.userId })) {
+      throw new Error("Vaquitavoid is the permanent administrator and cannot be modified.");
+    }
+    if (data.role === "admin") {
+      throw new Error("Vaquitavoid is the one and only admin. No other accounts can be given admin privileges.");
+    }
+
     const { supabaseAdmin } = await import("@/integrations/backend/client.server");
 
     const { data: existingAdmin, error: existingAdminError } = await supabaseAdmin
@@ -602,6 +621,9 @@ export const deleteUserAccount = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => z.object({ userId: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
     await assertAdmin(context);
+    if (isVaquitavoid({ userId: data.userId })) {
+      throw new Error("The Vaquitavoid administrator account cannot be deleted.");
+    }
     if (data.userId === context.userId) {
       throw new Error("You can't delete your own account from here.");
     }

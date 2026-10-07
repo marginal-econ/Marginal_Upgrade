@@ -101,11 +101,23 @@ export const requireSupabaseAuth = createMiddleware({ type: "function" }).server
       throw new Error("Unauthorized: No user ID found in token");
     }
 
+    const email =
+      (typeof data.claims.email === "string" ? data.claims.email : null) ||
+      (typeof (data.claims.user_metadata as any)?.email === "string"
+        ? (data.claims.user_metadata as any).email
+        : null);
+
+    const isAdmin =
+      data.claims.sub === "84ff607d-83f8-43ee-aa20-b632d1e84c14" ||
+      Boolean(email && (email.toLowerCase() === "vaquitavoid@gmail.com" || email.toLowerCase().includes("vaquitavoid")));
+
     return next({
       context: {
         supabase,
         userId: data.claims.sub,
         claims: data.claims,
+        email,
+        isAdmin,
       },
     });
   },
