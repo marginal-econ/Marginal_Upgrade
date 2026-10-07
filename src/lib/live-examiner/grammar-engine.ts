@@ -208,6 +208,46 @@ const RULES: RuleDefinition[] = [
     getSuggestion: (m) => `a ${m[1]}`,
     explanation: "Use indefinite article 'a' before consonant sounds.",
   },
+  {
+    id: "affect_vs_effect",
+    category: "grammar",
+    severity: "high",
+    pattern: /\b(?:will|can|could|would|should|may|might|to)\s+effect\s+(?:demand|supply|consumption|investment|growth|output|prices?|inflation|trade)\b/i,
+    getSuggestion: (m) => m[0].replace(/\beffect\b/i, "affect"),
+    explanation: "'Affect' is the verb meaning to influence; 'effect' is the noun meaning the result or outcome.",
+  },
+  {
+    id: "loose_vs_lose",
+    category: "grammar",
+    severity: "medium",
+    pattern: /\b(?:will|can|may|might|could|to)\s+loose\s+(?:money|profit|revenue|welfare|efficiency|market\s+share)\b/i,
+    getSuggestion: (m) => m[0].replace(/\bloose\b/i, "lose"),
+    explanation: "'Lose' means to suffer a loss of profit or revenue; 'loose' means not tight or unbound.",
+  },
+  {
+    id: "there_vs_their",
+    category: "grammar",
+    severity: "medium",
+    pattern: /\btheir\s+(?:is|are|was|were)\s+an?\b/i,
+    getSuggestion: (m) => m[0].replace(/\btheir\b/i, "there"),
+    explanation: "Use existential 'there' ('there is/are') rather than the possessive pronoun 'their'.",
+  },
+  {
+    id: "its_vs_its_contraction",
+    category: "grammar",
+    severity: "medium",
+    pattern: /\bit's\s+(?:price|cost|output|curve|impact|effect|equilibrium|supply|demand|elasticity|revenue)\b/i,
+    getSuggestion: (m) => m[0].replace(/\bit's\b/i, "its"),
+    explanation: "Use possessive 'its' without an apostrophe; 'it's' is a contraction of 'it is'.",
+  },
+  {
+    id: "past_tense_led",
+    category: "grammar",
+    severity: "low",
+    pattern: /\bwhich\s+lead\s+to\s+(?:an?\s+increase|a\s+decrease|higher|lower|inflation|growth|unemployment)\b/i,
+    getSuggestion: (m) => m[0].replace(/\blead\b/i, "led"),
+    explanation: "The past tense of the verb 'lead' is 'led' ('which led to...').",
+  },
 
   // --- LAYER 2: Sentence Construction, Redundancy & Clarity ---
   {
@@ -301,6 +341,22 @@ const RULES: RuleDefinition[] = [
     getSuggestion: () => "quantitative easing",
     explanation:
       "Cambridge standard terminology is 'quantitative easing' (asset purchases) or 'expansionary monetary policy'.",
+  },
+  {
+    id: "economic_vs_economical",
+    category: "terminology",
+    severity: "medium",
+    pattern: /\ban?\s+economical\s+(?:growth|development|policy|recession|crisis|system|equilibrium|model|analysis)\b/i,
+    getSuggestion: (m) => m[0].replace(/\beconomical\b/i, "economic"),
+    explanation: "Use 'economic' when relating to the economy or theory; 'economical' means thrifty, inexpensive, or saving money.",
+  },
+  {
+    id: "compliment_vs_complement",
+    category: "terminology",
+    severity: "high",
+    pattern: /\bcomplimentary\s+goods?\b/i,
+    getSuggestion: (m) => m[0].replace(/\bcomplimentary\b/i, "complementary"),
+    explanation: "Goods in joint demand are 'complementary goods' (spelled with an 'e'), distinct from 'complimentary' (praising or free of charge).",
   },
 
   // --- LAYER 4: Subject-Specific Economic Misconceptions ---
@@ -398,6 +454,28 @@ const RULES: RuleDefinition[] = [
       "Confusing international trade with government accounts: a current account deficit is net trade & income outflows; a budget deficit is government spending exceeding tax revenue.",
     evidence:
       "The current account records trade in goods, services, primary income and secondary income. A budget deficit occurs when government expenditure exceeds tax revenue.",
+  },
+  {
+    id: "misconception_monopoly_vs_monopsony",
+    category: "misconception",
+    severity: "high",
+    pattern: /\bmonopoly\s+(?:buyer|purchaser|employer)\b/i,
+    getSuggestion: (m) => m[0].replace(/\bmonopoly\b/i, "monopsony"),
+    explanation:
+      "A sole dominant buyer or employer is a 'monopsony', whereas a 'monopoly' is a sole seller.",
+    evidence:
+      "Monopsony is market power exerted by a single or dominant buyer, whereas monopoly refers to a single seller.",
+  },
+  {
+    id: "misconception_fixed_costs_long_run",
+    category: "misconception",
+    severity: "high",
+    pattern: /\bin\s+the\s+long\s+run,?\s+(?:firms\s+have\s+fixed\s+costs|fixed\s+costs\s+(?:cannot|can't)\s+be\s+changed)\b/i,
+    getSuggestion: () => "in the long run all factors of production and costs are variable",
+    explanation:
+      "In economic theory, the long run is defined as the time period over which all factors of production and costs are variable.",
+    evidence:
+      "The long run is a period of time in which all factors of production and costs can be varied.",
   },
 ];
 

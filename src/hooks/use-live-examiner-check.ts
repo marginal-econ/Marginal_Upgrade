@@ -51,15 +51,28 @@ export type HistoryEntry = LiveExaminerIssue & {
   resolvedAt: number | null;
 };
 
+export type LiveExaminerSessionUsage = {
+  totalTokensUsed: number;
+  promptTokens: number;
+  completionTokens: number;
+  aiCallsCount: number;
+  instantChecksCount: number;
+  tokensSaved: number;
+  lastLatencyMs: number;
+  lastCheckType: "instant" | "ai" | "idle";
+};
+
 // Rapid Grammarly-style adaptive cadence:
-// - Sentence completion (punctuation or newline): fires in 250ms
-// - Mid-sentence pause: fires in 650ms (down from 1,350ms)
-// - Minimum request interval: 1,200ms (down from 4,000ms)
-// - Instant deterministic pre-pass: fires immediately (< 120ms) in-memory
-const TYPING_PAUSE_MS = 650;
-const SENTENCE_COMPLETE_PAUSE_MS = 250;
-const MIN_REQUEST_INTERVAL_MS = 1200;
-const MIN_CHANGED_CHARS = 3;
+// - Instant deterministic pre-pass: fires immediately (< 25ms) in-browser with ZERO tokens
+// - Sentence completion (punctuation or newline): fires in 350ms
+// - Mid-sentence pause: 1,400ms (avoids firing AI calls mid-thought)
+// - Minimum request interval: 2,400ms (protects API credits)
+// - Minimum changed characters: 8 chars
+const INSTANT_LOCAL_PAUSE_MS = 25;
+const TYPING_PAUSE_MS = 1400;
+const SENTENCE_COMPLETE_PAUSE_MS = 350;
+const MIN_REQUEST_INTERVAL_MS = 2400;
+const MIN_CHANGED_CHARS = 8;
 const MIN_TEXT_LENGTH = 20;
 
 function issueId(issue: Pick<LiveExaminerIssue, "context" | "original" | "category">): string {
@@ -160,6 +173,17 @@ export function useLiveExaminerCheck(params: {
   const secs = remainingSeconds % 60;
   const formattedTimeRemaining = `${mins}:${secs < 10 ? "0" : ""}${secs}`;
 
+  const [sessionUsage, setSessionUsage] = useState<LiveExaminerSessionUsage>({
+    totalTokensUsed: 0,
+    promptTokens: 0,
+    completionTokens: 0,
+    aiCallsCount: 0,
+    instantChecksCount: 0,
+    tokensSaved: 0,
+    lastLatencyMs: 0,
+    lastCheckType: "idle",
+  });
+
   const [issues, setIssues] = useState<ActiveIssue[]>([]);
   const [classifications, setClassifications] = useState<ActiveAoClassification[]>([]);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
@@ -208,7 +232,7 @@ export function useLiveExaminerCheck(params: {
     });
   }, []);
 
-  // Instant client-side check (< 50ms): runs in-browser immediately on typing
+  // Instant client-side check (< 25ms): runs in-browser immediately on typing
   // Catches spelling, grammar mechanics, and exact Cambridge terminology errors instantly.
   useEffect(() => {
     if (localTimerRef.current) clearTimeout(localTimerRef.current);
@@ -227,6 +251,13 @@ export function useLiveExaminerCheck(params: {
       ];
 
       if (instantIssues.length > 0) {
+        setSessionUsage((prev) => ({
+          ...prev,
+          instantChecksCount: prev.instantChecksCount + 1,
+          tokensSaved: prev.tokensSaved + 1200 * instantIssues.length,
+          lastLatencyMs: 15,
+          lastCheckType: "instant",
+        }));
         setIssues((prev) => {
           const map = new Map<string, ActiveIssue>();
           // Keep existing issues still present in text
@@ -241,7 +272,7 @@ export function useLiveExaminerCheck(params: {
         });
         recordHistory(instantIssues);
       }
-    }, 120);
+    }, INSTANT_LOCAL_PAUSE_MS);
 
     return () => {
       if (localTimerRef.current) clearTimeout(localTimerRef.current);
@@ -357,6 +388,18 @@ export function useLiveExaminerCheck(params: {
           setDirty(false);
           setLastUpdatedAt(Date.now());
           if (result.predictedMark) setPredictedMark(result.predictedMark);
+          if (result.usage) {
+            setSessionUsage((prev) => ({
+              totalTokensUsed: prev.totalTokensUsed + result.usage.totalTokens,
+              promptTokens: prev.promptTokens + result.usage.promptTokens,
+              completionTokens: prev.completionTokens + result.usage.completionTokens,
+              aiCallsCount: prev.aiCallsCount + (result.usage.totalTokens > 0 ? 1 : 0),
+              instantChecksCount: prev.instantChecksCount + result.usage.deterministicCount,
+              tokensSaved: prev.tokensSaved + result.usage.tokensSaved,
+              lastLatencyMs: result.usage.latencyMs,
+              lastCheckType: result.usage.totalTokens > 0 ? "ai" : "instant",
+            }));
+          }
           if (result.checkFailed) {
             setError(
               "The examiner check is temporarily unavailable — showing the last known issues.",
@@ -535,5 +578,7 @@ export function useLiveExaminerCheck(params: {
     remainingSeconds,
     aiCoachingExpired,
     formattedTimeRemaining,
+    // Real-time credit, token and latency metrics
+    sessionUsage,
   };
 }

@@ -462,6 +462,7 @@ function LiveExaminerPage() {
     remainingSeconds,
     aiCoachingExpired,
     formattedTimeRemaining,
+    sessionUsage,
   } = useLiveExaminerCheck({
     text: textForCheck,
     question,
@@ -1006,6 +1007,7 @@ function LiveExaminerPage() {
               remainingSeconds={remainingSeconds}
               aiCoachingExpired={aiCoachingExpired}
               formattedTimeRemaining={formattedTimeRemaining}
+              sessionUsage={sessionUsage}
               gradedHelp={
                 gradeMutation.data &&
                 gradeMutation.data.grading.total_mark < gradeMutation.data.grading.max_mark ? (

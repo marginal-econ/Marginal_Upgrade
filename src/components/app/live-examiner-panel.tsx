@@ -14,6 +14,7 @@ import {
   Trash2,
   TriangleAlert,
   X,
+  Zap,
 } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
@@ -26,6 +27,7 @@ import type {
   ExaminerChallenge,
   HistoryEntry,
   IssueCategory,
+  LiveExaminerSessionUsage,
   PredictedMark,
 } from "@/hooks/use-live-examiner-check";
 import { AO_DEFINITIONS } from "@/lib/examiner/config";
@@ -103,6 +105,7 @@ export function LiveExaminerPanel({
   remainingSeconds,
   aiCoachingExpired = false,
   formattedTimeRemaining,
+  sessionUsage,
 }: {
   issues: ActiveIssue[];
   history: HistoryEntry[];
@@ -128,6 +131,7 @@ export function LiveExaminerPanel({
   remainingSeconds?: number;
   aiCoachingExpired?: boolean;
   formattedTimeRemaining?: string;
+  sessionUsage?: LiveExaminerSessionUsage;
 }) {
   const [showColorGuide, setShowColorGuide] = useState(false);
   const [expandedHints, setExpandedHints] = useState<Record<string, boolean>>({});
@@ -213,6 +217,60 @@ export function LiveExaminerPanel({
             <span className="text-[10px] text-muted-foreground">Grammar checks unlimited</span>
           </div>
         )
+      ) : null}
+
+      {sessionUsage ? (
+        <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-2 text-xs space-y-1.5">
+          <div className="flex items-center justify-between">
+            <span className="flex items-center gap-1.5 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">
+              <Zap className="size-3 text-emerald-500" />
+              Efficiency & Credit Meter
+            </span>
+            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-medium">
+              {sessionUsage.lastCheckType === "instant"
+                ? `⚡ ${sessionUsage.lastLatencyMs || 15}ms (Instant)`
+                : sessionUsage.lastCheckType === "ai"
+                  ? `🤖 ${sessionUsage.lastLatencyMs}ms (AI Flash)`
+                  : "⚡ Ready (< 25ms)"}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-3 gap-1.5 text-[10px]">
+            <div className="rounded border border-border/60 bg-background/60 p-1.5 flex flex-col">
+              <span className="text-muted-foreground">Tokens Used</span>
+              <span className="font-semibold tabular-nums text-foreground">
+                {sessionUsage.totalTokensUsed > 0
+                  ? `${sessionUsage.totalTokensUsed.toLocaleString()} tok`
+                  : "0 tokens"}
+              </span>
+            </div>
+            <div className="rounded border border-border/60 bg-background/60 p-1.5 flex flex-col">
+              <span className="text-muted-foreground">Est. Cost</span>
+              <span className="font-semibold tabular-nums text-foreground">
+                {sessionUsage.totalTokensUsed > 0
+                  ? `₹${((sessionUsage.totalTokensUsed * 0.000003)).toFixed(3)}`
+                  : "₹0.000"}
+              </span>
+            </div>
+            <div className="rounded border border-border/60 bg-background/60 p-1.5 flex flex-col">
+              <span className="text-muted-foreground">Tokens Saved</span>
+              <span className="font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">
+                {sessionUsage.tokensSaved > 0
+                  ? `+${sessionUsage.tokensSaved.toLocaleString()}`
+                  : "0 free"}
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between text-[10px] text-muted-foreground pt-0.5">
+            <span>
+              {sessionUsage.instantChecksCount} free checks run (0 tokens)
+            </span>
+            <span className="text-emerald-600 dark:text-emerald-400 font-medium">
+              Brutal Efficiency Active
+            </span>
+          </div>
+        </div>
       ) : null}
 
       <div className="rounded-lg border border-border/80 bg-muted/20 p-2 text-xs space-y-1.5">

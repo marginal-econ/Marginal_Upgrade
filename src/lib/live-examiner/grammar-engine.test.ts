@@ -44,6 +44,22 @@ describe("Grammar and Mechanics Engine", () => {
       expect(articleIssue).toBeDefined();
       expect(articleIssue?.suggestion).toBe("an economy");
     });
+
+    it("corrects 'will effect demand' to 'will affect demand'", () => {
+      const sentence = "A higher interest rate will effect demand for mortgages.";
+      const results = analyzeGrammarAndMechanics([sentence]);
+      const effectIssue = results.find((r) => r.ruleId === "affect_vs_effect");
+      expect(effectIssue).toBeDefined();
+      expect(effectIssue?.suggestion).toContain("affect demand");
+    });
+
+    it("corrects 'loose profit' to 'lose profit'", () => {
+      const sentence = "Without protection, domestic firms will loose profit.";
+      const results = analyzeGrammarAndMechanics([sentence]);
+      const looseIssue = results.find((r) => r.ruleId === "loose_vs_lose");
+      expect(looseIssue).toBeDefined();
+      expect(looseIssue?.suggestion).toContain("lose profit");
+    });
   });
 
   describe("Layer 2: Sentence Construction, Redundancy and Clarity", () => {
@@ -90,6 +106,22 @@ describe("Grammar and Mechanics Engine", () => {
       expect(termIssue?.suggestion).toBe("quantitative easing");
       expect(termIssue?.category).toBe("terminology");
     });
+
+    it("corrects 'an economical policy' to 'an economic policy'", () => {
+      const sentence = "This is an economical policy designed to reduce poverty.";
+      const results = analyzeGrammarAndMechanics([sentence]);
+      const termIssue = results.find((r) => r.ruleId === "economic_vs_economical");
+      expect(termIssue).toBeDefined();
+      expect(termIssue?.suggestion).toContain("economic policy");
+    });
+
+    it("corrects 'complimentary goods' to 'complementary goods'", () => {
+      const sentence = "Cars and petrol are complimentary goods in joint demand.";
+      const results = analyzeGrammarAndMechanics([sentence]);
+      const termIssue = results.find((r) => r.ruleId === "compliment_vs_complement");
+      expect(termIssue).toBeDefined();
+      expect(termIssue?.suggestion).toContain("complementary goods");
+    });
   });
 
   describe("Layer 4: Economic Misconceptions", () => {
@@ -101,6 +133,14 @@ describe("Grammar and Mechanics Engine", () => {
       expect(shiftIssue?.category).toBe("misconception");
       expect(shiftIssue?.severity).toBe("high");
       expect(shiftIssue?.evidence).toBeDefined();
+    });
+
+    it("flags 'monopoly buyer' and suggests 'monopsony'", () => {
+      const sentence = "The National Health Service acts as a monopoly buyer of pharmaceuticals.";
+      const results = analyzeGrammarAndMechanics([sentence]);
+      const monopsonyIssue = results.find((r) => r.ruleId === "misconception_monopoly_vs_monopsony");
+      expect(monopsonyIssue).toBeDefined();
+      expect(monopsonyIssue?.suggestion).toContain("monopsony");
     });
 
     it("flags fiscal policy adjusting interest rates", () => {
