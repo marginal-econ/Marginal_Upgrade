@@ -2,6 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
+  AlertCircle,
+  AlertTriangle,
   ArrowRight,
   BookOpen,
   Check,
@@ -73,7 +75,7 @@ import { listApprovedEssayQuestions, listBankTopics } from "@/lib/bank.functions
 import { generateEssayQuestionAI, generateModelEssay } from "@/lib/essay.functions";
 import type { GeneratedEssay } from "@/lib/essay/generator.server";
 import { describeDiagramImage, listDiagramLibrary } from "@/lib/diagrams.functions";
-import { gradeEssaySubmission } from "@/lib/grading.functions";
+import { checkQuestionGrounding, gradeEssaySubmission } from "@/lib/grading.functions";
 import {
   getLiveExaminerSession,
   getTodayLiveExaminerSession,
@@ -377,6 +379,15 @@ function LiveExaminerPage() {
   // --- Syllabus grounding — fetched ONCE per question, reused by every
   // subsequent live check call so nothing re-embeds on every keystroke ---
   const prepareContext = useServerFn(prepareLiveExaminerContext);
+  const checkGrounding = useServerFn(checkQuestionGrounding);
+
+  const groundingQuery = useQuery({
+    queryKey: ["live-examiner-grounding", question.trim()],
+    queryFn: () => checkGrounding({ data: { question: question.trim() } }),
+    enabled: !started && question.trim().length >= 15,
+    staleTime: 5 * 60_000,
+  });
+
   const contextMutation = useMutation({
     mutationFn: (variables?: { level?: "as" | "a2"; topic?: string; question?: string }) =>
       prepareContext({
@@ -832,6 +843,33 @@ function LiveExaminerPage() {
                     onChange={(event) => setQuestion(event.target.value)}
                     placeholder="Paste or type the exact exam question…"
                   />
+                  {question.trim().length >= 15 ? (
+                    groundingQuery.isLoading ? (
+                      <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground animate-pulse">
+                        <Loader2 className="size-3 animate-spin" />
+                        Checking Knowledge Base for official Cambridge mark schemes...
+                      </p>
+                    ) : groundingQuery.data?.grounded ? (
+                      <div className="flex items-center gap-1.5 text-[11px] text-emerald-400 font-medium">
+                        <CheckCircle2 className="size-3.5 shrink-0" />
+                        <span>
+                          Knowledge Base Grounded: Verified against {groundingQuery.data.topMatchTitle} ({Math.round((groundingQuery.data.topSimilarity ?? 0) * 100)}% match)
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-2 text-[11px] text-amber-300">
+                        <div className="flex items-start gap-1.5">
+                          <AlertTriangle className="size-3.5 mt-0.5 shrink-0 text-amber-400" />
+                          <div className="space-y-0.5">
+                            <span className="font-semibold">No specific mark scheme found in Knowledge Base</span>
+                            <p className="text-amber-200/80 leading-normal">
+                              Live keystroke suggestions and estimated marks will evaluate against standard Cambridge AO rubrics. Attach a mark scheme screenshot during the session for question-specific grounding.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  ) : null}
                 </div>
               )}
 
@@ -938,7 +976,14 @@ function LiveExaminerPage() {
                   <GraduationCap className="mr-1 size-3" /> {sourceCount} syllabus source
                   {sourceCount === 1 ? "" : "s"}
                 </Badge>
-              ) : null}
+              ) : (
+                <Badge
+                  variant="outline"
+                  className="border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400 font-medium text-xs"
+                >
+                  <AlertTriangle className="mr-1 size-3 text-amber-500" /> 0 Knowledge Base sources (Unanchored)
+                </Badge>
+              )}
               {anchorsUsed > 0 ? (
                 <Badge variant="outline">
                   <CheckCircle2 className="mr-1 size-3" /> {anchorsUsed} calibration anchor
@@ -1047,6 +1092,27 @@ function LiveExaminerPage() {
                 </div>
               </div>
             </div>
+
+            {/* Unanchored Grounding Alert Banner */}
+            {sourceCount === 0 && markSchemeImages.length === 0 ? (
+              <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3.5 text-xs text-amber-200 shadow-sm">
+                <div className="flex items-start gap-2.5">
+                  <AlertTriangle className="size-4 mt-0.5 shrink-0 text-amber-400" />
+                  <div className="space-y-1">
+                    <span className="font-semibold text-amber-300">
+                      Unanchored Live Session — No Specific Mark Scheme in Knowledge Base
+                    </span>
+                    <p className="text-amber-200/90 leading-relaxed">
+                      This question did not match any verified mark schemes in your Knowledge Base (similarity below 50%).
+                      Live keystroke suggestions and estimated marks are operating on generic Cambridge 9708 Assessment Objective rubrics.
+                    </p>
+                    <p className="font-medium text-amber-300">
+                      💡 Click "Attach mark scheme" in the toolbar above to paste the official mark scheme screenshot for question-specific live feedback.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ) : null}
 
             {/* Editor Container */}
             <div className="overflow-hidden rounded-xl border border-border/80 bg-card shadow-sm transition-all duration-200">

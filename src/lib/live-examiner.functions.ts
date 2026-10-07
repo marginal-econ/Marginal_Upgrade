@@ -193,7 +193,7 @@ export const prepareLiveExaminerContext = createServerFn({ method: "POST" })
         query: `${data.topic} — ${data.question}`,
         matchCount: 8,
         docTypes: ["syllabus", "coursebook", "mark_scheme", "examiner_report"],
-        minSimilarity: 0.22,
+        minSimilarity: 0.5,
         enableHybridRrf: true,
       });
     } catch (err) {
@@ -218,6 +218,9 @@ export const prepareLiveExaminerContext = createServerFn({ method: "POST" })
       contextBlock,
       sourceCount: sources.length,
       anchorsUsed: anchors.length,
+      grounded: sources.length > 0,
+      topMatchTitle: sources[0]?.documentTitle ?? null,
+      topSimilarity: sources[0]?.similarity ?? null,
     };
   });
 
@@ -272,7 +275,7 @@ function buildCandidateSystemPrompt(
 
 QUESTION (${level === "a2" ? "A Level" : "AS Level"}, ${maxMark} marks): ${question}
 
-${contextBlock || "No syllabus material was retrieved for this question — be extremely conservative about flagging economics content, since you have nothing to check it against. Grammar/clarity/terminology issues are still fine to flag."}
+${contextBlock || "CRITICAL NOTICE: No matching mark scheme or syllabus material was found in the Knowledge Base for this question. Do NOT invent unseen mark scheme requirements or hallucinate specific document quotes. Judge strictly on core economic logic, valid chains of reasoning, and standard Cambridge 9708 AO definitions. If you flag economics content, you must not claim it comes from a specific mark scheme."}
 
 Categories you may flag, and ONLY these — each one is tied to exactly how this same essay will actually be graded (the same AO definitions the full Cambridge examiner uses):
 - "grammar": spelling, grammar, punctuation, tense, run-on sentences. (Not an AO — pure writing mechanics.)
@@ -338,7 +341,7 @@ function buildVerifierSystemPrompt(question: string, contextBlock: string) {
 
 QUESTION: ${question}
 
-${contextBlock || "No syllabus material is available."}
+${contextBlock || "CRITICAL NOTICE: No syllabus material is available in the Knowledge Base for this question. Automatically REJECT any candidate that claims to quote from an unseen mark scheme."}
 
 For EACH candidate below, decide keep or reject:
 - REJECT any "economics_accuracy" or "misconception" candidate whose "evidence" is not an exact, verbatim quote from the syllabus material above, or whose evidence does not actually contradict the student's sentence when you re-read both side by side.
