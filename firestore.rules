@@ -1,0 +1,98 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    function isStaff() {
+      return isAuthenticated() && (
+        request.auth.token.role == 'admin' || 
+        request.auth.token.role == 'teacher'
+      );
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && request.auth.token.role == 'admin';
+    }
+
+    // Profiles: users can read/write own, staff can read all
+    match /profiles/{userId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isOwner(userId) || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // User roles
+    match /user_roles/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // Syllabus (subjects, units, topics): read-only for public/authenticated, write for admin
+    match /subjects/{subjectId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    
+    match /units/{unitId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    
+    match /topics/{topicId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Cambridge Definitions Hub: readable by all signed-in users, writable by staff
+    match /definitions/{defId} {
+      allow read: if true;
+      allow write: if isStaff();
+    }
+
+    // Knowledge Base Documents and Chunks (Grounding sources)
+    match /knowledge_documents/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isStaff();
+    }
+    
+    match /document_chunks/{chunkId} {
+      allow read: if isAuthenticated();
+      allow write: if isStaff();
+    }
+
+    // Essay Versions & Submissions: students read/write their own, staff read all
+    match /essay_versions/{versionId} {
+      allow read: if isAuthenticated() && (
+        resource.data.user_id == request.auth.uid || 
+        resource.data.is_showcase == true || 
+        isStaff()
+      );
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated() && (resource.data.user_id == request.auth.uid || isStaff());
+      allow delete: if isAuthenticated() && (resource.data.user_id == request.auth.uid || isAdmin());
+    }
+
+    // Live Examiner Sessions
+    match /live_examiner_sessions/{sessionId} {
+      allow read, write: if isAuthenticated() && (
+        resource.data.user_id == request.auth.uid || 
+        request.resource.data.user_id == request.auth.uid || 
+        isStaff()
+      );
+    }
+
+    // Classrooms
+    match /classes/{classId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isStaff();
+    }
+  }
+}

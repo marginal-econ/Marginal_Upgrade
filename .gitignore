@@ -13,6 +13,8 @@ coverage/
 !.env.example
 *.pem
 *.key
+backup/
+firebase-service-account.json
 
 # Local tooling and editor state
 .DS_Store
