@@ -5,7 +5,7 @@
   "compatibility_date": "2026-08-25",
   "compatibility_flags": ["nodejs_compat"],
   "vars": {
-    "PUBLIC_SITE_URL": "https://marginal.marginal-econ.workers.dev",
+    "PUBLIC_SITE_URL": "https://marginal.vaquitavoid.workers.dev",
   },
   "observability": {
     "enabled": true,
