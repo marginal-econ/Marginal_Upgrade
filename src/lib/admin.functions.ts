@@ -204,9 +204,164 @@ export const adminOverview = createServerFn({ method: "GET" })
 
     const { data: usage } = await supabaseAdmin
       .from("ai_usage_log")
-      .select("id, user_id, feature, model, ok, error_message, latency_ms, created_at")
+      .select("id, user_id, feature, model, prompt_tokens, completion_tokens, ok, error_message, latency_ms, created_at")
       .order("created_at", { ascending: false })
-      .limit(100);
+      .limit(500);
+
+    const USD_TO_INR = 86.5;
+
+    function estimateCostUsd(model: string, promptTokens: number, completionTokens: number): number {
+      const m = (model || "").toLowerCase();
+      let inRate = 0.15 / 1_000_000;
+      let outRate = 0.60 / 1_000_000;
+      if (m.includes("pro") || m.includes("sonnet") || m.includes("opus")) {
+        inRate = 1.25 / 1_000_000;
+        outRate = 5.00 / 1_000_000;
+      }
+      return promptTokens * inRate + completionTokens * outRate;
+    }
+
+    const now = Date.now();
+    const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+
+    let totalPromptTokens = 0;
+    let totalCompletionTokens = 0;
+    let totalTokens = 0;
+    let totalCostUsd = 0;
+    let last24hTokens = 0;
+    let last24hCostInr = 0;
+
+    const featureMap = new Map<
+      string,
+      {
+        feature: string;
+        label: string;
+        calls: number;
+        okCalls: number;
+        failedCalls: number;
+        promptTokens: number;
+        completionTokens: number;
+        totalTokens: number;
+        totalLatencyMs: number;
+        estCostUsd: number;
+        estCostInr: number;
+        avgLatencyMs: number;
+      }
+    >();
+
+    const FEATURE_LABELS: Record<string, string> = {
+      live_examiner: "Live Examiner (Keystroke)",
+      live_examiner_estimate: "Live Examiner (Mark Estimate)",
+      live_examiner_challenges: "Live Examiner (Challenges)",
+      live_examiner_maxout: "Live Examiner (Perfection)",
+      grade_essay: "Essay Grader",
+      essay_grade: "Essay Grader",
+      essay_generate: "Model Essay Generator",
+      essay_question_generate: "AI Question Generator",
+      diagram_describe: "Diagram OCR/Analysis",
+      diagram_autofill: "Diagram Generator",
+      ocr_handwriting: "Handwriting OCR",
+      writing_check: "General Writing Check",
+      coach_chat: "Economics Coach",
+    };
+
+    for (const row of usage ?? []) {
+      const pTokens = (row.prompt_tokens as number | null) ?? 0;
+      const cTokens = (row.completion_tokens as number | null) ?? 0;
+      const tTokens = pTokens + cTokens;
+      const costUsd = estimateCostUsd(row.model as string, pTokens, cTokens);
+      const costInr = costUsd * USD_TO_INR;
+
+      totalPromptTokens += pTokens;
+      totalCompletionTokens += cTokens;
+      totalTokens += tTokens;
+      totalCostUsd += costUsd;
+
+      const rowTime = new Date(row.created_at).getTime();
+      if (now - rowTime <= ONE_DAY_MS) {
+        last24hTokens += tTokens;
+        last24hCostInr += costInr;
+      }
+
+      const key = (row.feature as string) || "unknown";
+      const existing = featureMap.get(key) ?? {
+        feature: key,
+        label: FEATURE_LABELS[key] ?? key,
+        calls: 0,
+        okCalls: 0,
+        failedCalls: 0,
+        promptTokens: 0,
+        completionTokens: 0,
+        totalTokens: 0,
+        totalLatencyMs: 0,
+        estCostUsd: 0,
+        estCostInr: 0,
+        avgLatencyMs: 0,
+      };
+
+      existing.calls += 1;
+      if (row.ok) existing.okCalls += 1;
+      else existing.failedCalls += 1;
+      existing.promptTokens += pTokens;
+      existing.completionTokens += cTokens;
+      existing.totalTokens += tTokens;
+      existing.totalLatencyMs += (row.latency_ms as number | null) ?? 0;
+      existing.estCostUsd += costUsd;
+      existing.estCostInr += costInr;
+      featureMap.set(key, existing);
+    }
+
+    for (const item of featureMap.values()) {
+      item.avgLatencyMs = item.calls > 0 ? Math.round(item.totalLatencyMs / item.calls) : 0;
+    }
+
+    const featureBreakdown = Array.from(featureMap.values()).sort(
+      (a, b) => b.totalTokens - a.totalTokens,
+    );
+
+    const liveExaminerFeatures = [
+      "live_examiner",
+      "live_examiner_estimate",
+      "live_examiner_challenges",
+      "live_examiner_maxout",
+    ];
+    const leRows = featureBreakdown.filter((f) => liveExaminerFeatures.includes(f.feature));
+    const liveExaminerMetrics = {
+      calls: leRows.reduce((sum, r) => sum + r.calls, 0),
+      totalTokens: leRows.reduce((sum, r) => sum + r.totalTokens, 0),
+      promptTokens: leRows.reduce((sum, r) => sum + r.promptTokens, 0),
+      completionTokens: leRows.reduce((sum, r) => sum + r.completionTokens, 0),
+      costInr: leRows.reduce((sum, r) => sum + r.estCostInr, 0),
+      costUsd: leRows.reduce((sum, r) => sum + r.estCostUsd, 0),
+      avgLatencyMs:
+        leRows.length > 0
+          ? Math.round(
+              leRows.reduce((sum, r) => sum + r.totalLatencyMs, 0) /
+                Math.max(1, leRows.reduce((sum, r) => sum + r.calls, 0)),
+            )
+          : 0,
+    };
+
+    const egRows = featureBreakdown.filter(
+      (f) => f.feature === "grade_essay" || f.feature === "essay_grade",
+    );
+    const essayGraderMetrics = {
+      calls: egRows.reduce((sum, r) => sum + r.calls, 0),
+      totalTokens: egRows.reduce((sum, r) => sum + r.totalTokens, 0),
+      promptTokens: egRows.reduce((sum, r) => sum + r.promptTokens, 0),
+      completionTokens: egRows.reduce((sum, r) => sum + r.completionTokens, 0),
+      costInr: egRows.reduce((sum, r) => sum + r.estCostInr, 0),
+      costUsd: egRows.reduce((sum, r) => sum + r.estCostUsd, 0),
+      avgLatencyMs:
+        egRows.length > 0
+          ? Math.round(
+              egRows.reduce((sum, r) => sum + r.totalLatencyMs, 0) /
+                Math.max(1, egRows.reduce((sum, r) => sum + r.calls, 0)),
+            )
+          : 0,
+    };
+
+    const totalCostInr = totalCostUsd * USD_TO_INR;
 
     const { data: failures } = await supabaseAdmin
       .from("ai_usage_log")
@@ -217,6 +372,18 @@ export const adminOverview = createServerFn({ method: "GET" })
     return {
       counts: { users, essays, documents, chunks, attempts, anchors },
       usage: usage ?? [],
+      metrics: {
+        totalTokens,
+        totalPromptTokens,
+        totalCompletionTokens,
+        totalCostUsd,
+        totalCostInr,
+        last24hTokens,
+        last24hCostInr,
+        liveExaminer: liveExaminerMetrics,
+        essayGrader: essayGraderMetrics,
+        byFeature: featureBreakdown,
+      },
       hasFailures: (failures ?? []).length > 0,
     };
   });

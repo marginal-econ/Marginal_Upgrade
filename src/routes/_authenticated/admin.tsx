@@ -4,6 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import {
   BookOpen,
   CheckCircle2,
+  Coins,
   Eraser,
   Eye,
   EyeOff,
@@ -19,6 +20,7 @@ import {
   Trash2,
   Trophy,
   XCircle,
+  Zap,
 } from "lucide-react";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
@@ -1366,10 +1368,56 @@ type UsageRow = {
   user_id: string | null;
   feature: string;
   model: string;
+  prompt_tokens: number | null;
+  completion_tokens: number | null;
   ok: boolean;
   error_message: string | null;
   latency_ms: number | null;
   created_at: string;
+};
+
+type FeatureMetric = {
+  feature: string;
+  label: string;
+  calls: number;
+  okCalls: number;
+  failedCalls: number;
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  totalLatencyMs: number;
+  estCostUsd: number;
+  estCostInr: number;
+  avgLatencyMs: number;
+};
+
+type AdminMetrics = {
+  totalTokens: number;
+  totalPromptTokens: number;
+  totalCompletionTokens: number;
+  totalCostUsd: number;
+  totalCostInr: number;
+  last24hTokens: number;
+  last24hCostInr: number;
+  liveExaminer: {
+    calls: number;
+    totalTokens: number;
+    promptTokens: number;
+    completionTokens: number;
+    costInr: number;
+    costUsd: number;
+    avgLatencyMs: number;
+  };
+  essayGrader: {
+    calls: number;
+    totalTokens: number;
+    promptTokens: number;
+    completionTokens: number;
+    costInr: number;
+    costUsd: number;
+    avgLatencyMs: number;
+  };
+  byFeature: FeatureMetric[];
 };
 
 function OverviewPanel() {
@@ -1377,6 +1425,7 @@ function OverviewPanel() {
   const overview = useQuery({ queryKey: ["admin-overview"], queryFn: () => fetchOverview() });
   const activity = useUserActivity();
   const [search, setSearch] = useState("");
+  const [featureFilter, setFeatureFilter] = useState<"all" | "live_examiner" | "essay_grade" | "other">("all");
 
   const whoIs = new Map(
     (activity.data ?? []).map((row) => [row.userId, `${displayName(row)} ${row.email ?? ""}`]),
@@ -1386,6 +1435,8 @@ function OverviewPanel() {
   if (!overview.data) return <p className="text-sm text-muted-foreground">Nothing to show yet.</p>;
 
   const { counts, usage } = overview.data;
+  const metrics = (overview.data as { metrics?: AdminMetrics }).metrics;
+
   const tiles = [
     { label: "Users", value: counts.users },
     { label: "Essays marked", value: counts.essays },
@@ -1395,8 +1446,16 @@ function OverviewPanel() {
     { label: "Calibration anchors", value: counts.anchors },
   ];
 
-  const shownUsage = (usage as UsageRow[]).filter((row) =>
-    matchesSearch(
+  const shownUsage = (usage as UsageRow[]).filter((row) => {
+    if (featureFilter === "live_examiner") {
+      if (!row.feature.startsWith("live_examiner")) return false;
+    } else if (featureFilter === "essay_grade") {
+      if (row.feature !== "grade_essay" && row.feature !== "essay_grade") return false;
+    } else if (featureFilter === "other") {
+      if (row.feature.startsWith("live_examiner") || row.feature === "grade_essay" || row.feature === "essay_grade") return false;
+    }
+
+    return matchesSearch(
       [
         row.feature,
         row.model,
@@ -1405,20 +1464,180 @@ function OverviewPanel() {
         row.user_id ? whoIs.get(row.user_id) : null,
       ],
       search,
-    ),
-  );
+    );
+  });
 
   return (
-    <div className="space-y-5">
-      <SearchBox
-        value={search}
-        onChange={setSearch}
-        placeholder="Search everything below — a person, email, page, feature or error…"
-        className="max-w-xl"
-      />
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <SearchBox
+          value={search}
+          onChange={setSearch}
+          placeholder="Search everything below — a person, email, page, feature or error…"
+          className="max-w-xl flex-1"
+        />
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          onClick={() => overview.refetch()}
+          disabled={overview.isFetching}
+          className="gap-2 shrink-0"
+        >
+          <RefreshCw className={cn("size-3.5", overview.isFetching && "animate-spin")} />
+          <span>Refresh metrics</span>
+        </Button>
+      </div>
 
       <ActivityOverview search={search} />
 
+      {/* Real-time AI Token & Credit Analytics (Private Admin Console) */}
+      <section className="panel rounded-xl border border-border p-5 space-y-5 bg-card/40">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-3">
+          <div>
+            <h2 className="flex items-center gap-2 text-sm font-semibold">
+              <Zap className="size-4 text-emerald-500" /> Real-time AI Token &amp; Credit Consumption
+            </h2>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Internal accounting of Gemini and Claude token expenditures across Live Examiner, Essay Grader, and generators.
+            </p>
+          </div>
+          <Badge variant="outline" className="font-mono text-xs border-emerald-500/40 text-emerald-600 dark:text-emerald-400">
+            Real-time Log Active
+          </Badge>
+        </div>
+
+        {/* 4 Hero KPI Cards */}
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="rounded-lg border border-border/70 bg-background/60 p-3.5 space-y-1">
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <span>Total Tokens Consumed</span>
+              <Zap className="size-3.5 text-emerald-500" />
+            </div>
+            <p className="text-2xl font-bold tracking-tight tabular-nums">
+              {(metrics?.totalTokens ?? 0).toLocaleString()}
+            </p>
+            <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-1">
+              <span>{(metrics?.totalPromptTokens ?? 0).toLocaleString()} in / {(metrics?.totalCompletionTokens ?? 0).toLocaleString()} out</span>
+              <span className="text-emerald-600 dark:text-emerald-400 font-medium">
+                +{(metrics?.last24hTokens ?? 0).toLocaleString()} 24h
+              </span>
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-border/70 bg-background/60 p-3.5 space-y-1">
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <span>Total Estimated Cost</span>
+              <Coins className="size-3.5 text-amber-500" />
+            </div>
+            <p className="text-2xl font-bold tracking-tight tabular-nums text-foreground">
+              ₹{(metrics?.totalCostInr ?? 0).toFixed(2)}
+            </p>
+            <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-1">
+              <span>${(metrics?.totalCostUsd ?? 0).toFixed(3)} USD</span>
+              <span className="text-muted-foreground font-medium">
+                ₹{(metrics?.last24hCostInr ?? 0).toFixed(2)} 24h
+              </span>
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3.5 space-y-1">
+            <div className="flex items-center justify-between text-xs text-emerald-700 dark:text-emerald-400 font-medium">
+              <span>Live Examiner</span>
+              <Badge variant="outline" className="text-[10px] border-emerald-500/40 text-emerald-700 dark:text-emerald-300">
+                {(metrics?.liveExaminer.calls ?? 0)} calls
+              </Badge>
+            </div>
+            <p className="text-2xl font-bold tracking-tight tabular-nums text-foreground">
+              {(metrics?.liveExaminer.totalTokens ?? 0).toLocaleString()}
+              <span className="text-xs font-normal text-muted-foreground ml-1">tokens</span>
+            </p>
+            <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-1">
+              <span>Est: ₹{(metrics?.liveExaminer.costInr ?? 0).toFixed(2)}</span>
+              <span className="font-mono text-emerald-600 dark:text-emerald-400">
+                ⚡ ~{(metrics?.liveExaminer.avgLatencyMs ?? 0)}ms
+              </span>
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-primary/30 bg-primary/5 p-3.5 space-y-1">
+            <div className="flex items-center justify-between text-xs text-primary font-medium">
+              <span>Essay Grader</span>
+              <Badge variant="outline" className="text-[10px] border-primary/40 text-primary">
+                {(metrics?.essayGrader.calls ?? 0)} essays
+              </Badge>
+            </div>
+            <p className="text-2xl font-bold tracking-tight tabular-nums text-foreground">
+              {(metrics?.essayGrader.totalTokens ?? 0).toLocaleString()}
+              <span className="text-xs font-normal text-muted-foreground ml-1">tokens</span>
+            </p>
+            <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-1">
+              <span>Est: ₹{(metrics?.essayGrader.costInr ?? 0).toFixed(2)}</span>
+              <span className="font-mono text-muted-foreground">
+                ~{(metrics?.essayGrader.avgLatencyMs ?? 0)}ms
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Feature Breakdown Table */}
+        {metrics && metrics.byFeature.length > 0 ? (
+          <div className="rounded-lg border border-border overflow-hidden">
+            <div className="bg-muted/40 px-3.5 py-2 text-xs font-semibold flex items-center justify-between">
+              <span>Feature Breakdown &amp; Unit Economics</span>
+              <span className="text-[11px] font-normal text-muted-foreground">Based on latest 500 AI calls</span>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="border-b border-border bg-muted/20 text-muted-foreground text-[11px]">
+                  <tr>
+                    <th className="px-3.5 py-2">Feature</th>
+                    <th className="px-3.5 py-2 text-right">Calls</th>
+                    <th className="px-3.5 py-2 text-right">Prompt In</th>
+                    <th className="px-3.5 py-2 text-right">Completion Out</th>
+                    <th className="px-3.5 py-2 text-right">Total Tokens</th>
+                    <th className="px-3.5 py-2 text-right">Avg Latency</th>
+                    <th className="px-3.5 py-2 text-right">Est. Cost (₹)</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {metrics.byFeature.map((f) => (
+                    <tr key={f.feature} className="hover:bg-muted/10 transition-colors">
+                      <td className="px-3.5 py-2">
+                        <div className="font-medium">{f.label}</div>
+                        <div className="text-[10px] font-mono text-muted-foreground">{f.feature}</div>
+                      </td>
+                      <td className="px-3.5 py-2 text-right tabular-nums">
+                        {f.calls}
+                        {f.failedCalls > 0 ? (
+                          <span className="text-destructive ml-1 text-[10px]">({f.failedCalls} fail)</span>
+                        ) : null}
+                      </td>
+                      <td className="px-3.5 py-2 text-right tabular-nums text-muted-foreground">
+                        {f.promptTokens.toLocaleString()}
+                      </td>
+                      <td className="px-3.5 py-2 text-right tabular-nums text-muted-foreground">
+                        {f.completionTokens.toLocaleString()}
+                      </td>
+                      <td className="px-3.5 py-2 text-right tabular-nums font-semibold">
+                        {f.totalTokens.toLocaleString()}
+                      </td>
+                      <td className="px-3.5 py-2 text-right tabular-nums text-muted-foreground">
+                        {f.avgLatencyMs > 0 ? `${f.avgLatencyMs} ms` : "—"}
+                      </td>
+                      <td className="px-3.5 py-2 text-right tabular-nums font-medium">
+                        ₹{f.estCostInr.toFixed(2)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ) : null}
+      </section>
+
+      {/* Platform Totals */}
       <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
         {tiles.map((tile) => (
           <div key={tile.label} className="panel rounded-xl border border-border p-4">
@@ -1428,45 +1647,109 @@ function OverviewPanel() {
         ))}
       </div>
 
+      {/* Recent AI calls with real-time token counts and cost */}
       <div className="panel rounded-xl border border-border">
-        <p className="border-b border-border px-4 py-3 text-sm font-semibold">
-          Recent AI calls{" "}
-          <span className="font-normal text-muted-foreground">
-            (latest {usage.length}
-            {search ? `, ${shownUsage.length} match` : ""})
-          </span>
-        </p>
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3">
+          <p className="text-sm font-semibold">
+            Recent AI calls{" "}
+            <span className="font-normal text-muted-foreground">
+              (latest {usage.length}
+              {search || featureFilter !== "all" ? `, ${shownUsage.length} match` : ""})
+            </span>
+          </p>
+          <div className="flex items-center gap-1.5 text-xs">
+            <Button
+              type="button"
+              size="sm"
+              variant={featureFilter === "all" ? "default" : "outline"}
+              className="h-7 px-2.5 text-xs"
+              onClick={() => setFeatureFilter("all")}
+            >
+              All
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant={featureFilter === "live_examiner" ? "default" : "outline"}
+              className="h-7 px-2.5 text-xs"
+              onClick={() => setFeatureFilter("live_examiner")}
+            >
+              Live Examiner
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant={featureFilter === "essay_grade" ? "default" : "outline"}
+              className="h-7 px-2.5 text-xs"
+              onClick={() => setFeatureFilter("essay_grade")}
+            >
+              Essay Grader
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant={featureFilter === "other" ? "default" : "outline"}
+              className="h-7 px-2.5 text-xs"
+              onClick={() => setFeatureFilter("other")}
+            >
+              Others
+            </Button>
+          </div>
+        </div>
+
         <div className="divide-y divide-border">
           {shownUsage.length === 0 ? (
             <p className="px-4 py-4 text-sm text-muted-foreground">
-              {search ? "No AI calls match that search." : "No AI calls logged yet."}
+              {search || featureFilter !== "all" ? "No AI calls match that filter." : "No AI calls logged yet."}
             </p>
           ) : null}
-          {shownUsage.map((row) => (
-            <div key={row.id} className="flex flex-wrap items-center gap-2 px-4 py-2.5 text-xs">
-              {row.ok ? (
-                <CheckCircle2 className="size-3.5 text-primary" />
-              ) : (
-                <XCircle className="size-3.5 text-destructive" />
-              )}
-              <span className="font-medium">{row.feature}</span>
-              <span className="text-muted-foreground">{row.model}</span>
-              {row.latency_ms ? (
-                <span className="text-muted-foreground">{row.latency_ms} ms</span>
-              ) : null}
-              {row.user_id && whoIs.get(row.user_id) ? (
-                <span className="truncate text-muted-foreground">
-                  · {whoIs.get(row.user_id)?.trim()}
+          {shownUsage.map((row) => {
+            const rowTokens = (row.prompt_tokens ?? 0) + (row.completion_tokens ?? 0);
+            const rowCostInr = (((row.prompt_tokens ?? 0) * 0.00000015 + (row.completion_tokens ?? 0) * 0.00000060) * 86.5);
+            return (
+              <div key={row.id} className="flex flex-wrap items-center gap-2 px-4 py-2.5 text-xs hover:bg-muted/10 transition-colors">
+                {row.ok ? (
+                  <CheckCircle2 className="size-3.5 text-primary shrink-0" />
+                ) : (
+                  <XCircle className="size-3.5 text-destructive shrink-0" />
+                )}
+                <Badge variant="outline" className="text-[10px] font-medium">
+                  {row.feature}
+                </Badge>
+                <span className="text-muted-foreground text-[11px]">{row.model}</span>
+
+                {rowTokens > 0 ? (
+                  <Badge variant="secondary" className="font-mono text-[10px] tabular-nums">
+                    ⚡ {rowTokens.toLocaleString()} tok ({row.prompt_tokens ?? 0} in / {row.completion_tokens ?? 0} out)
+                  </Badge>
+                ) : null}
+
+                {rowCostInr > 0 ? (
+                  <span className="font-mono text-[11px] text-muted-foreground">
+                    ₹{rowCostInr.toFixed(3)}
+                  </span>
+                ) : null}
+
+                {row.latency_ms ? (
+                  <span className="text-muted-foreground text-[11px]">{row.latency_ms} ms</span>
+                ) : null}
+
+                {row.user_id && whoIs.get(row.user_id) ? (
+                  <span className="truncate text-muted-foreground text-[11px]">
+                    · {whoIs.get(row.user_id)?.trim()}
+                  </span>
+                ) : null}
+
+                <span className="ml-auto text-muted-foreground text-[11px]">
+                  {new Date(row.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
                 </span>
-              ) : null}
-              <span className="ml-auto text-muted-foreground">
-                {new Date(row.created_at).toLocaleString()}
-              </span>
-              {row.error_message ? (
-                <p className="w-full text-destructive">{row.error_message}</p>
-              ) : null}
-            </div>
-          ))}
+
+                {row.error_message ? (
+                  <p className="w-full text-destructive text-[11px] pl-5">{row.error_message}</p>
+                ) : null}
+              </div>
+            );
+          })}
         </div>
       </div>
 

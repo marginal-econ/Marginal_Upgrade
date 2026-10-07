@@ -76,6 +76,7 @@ import { describeDiagramImage, listDiagramLibrary } from "@/lib/diagrams.functio
 import { gradeEssaySubmission } from "@/lib/grading.functions";
 import {
   getLiveExaminerSession,
+  getTodayLiveExaminerSession,
   getMaxOutSuggestions,
   prepareLiveExaminerContext,
   saveLiveExaminerSession,
@@ -389,6 +390,37 @@ function LiveExaminerPage() {
     },
   });
 
+  // --- Authoritative check: today's claimed session ledger (prevents restarting new sessions) ---
+  const fetchTodaySession = useServerFn(getTodayLiveExaminerSession);
+  const todaySessionQuery = useQuery({
+    queryKey: ["live-examiner-today-session"],
+    queryFn: () => fetchTodaySession(),
+    staleTime: 30_000,
+  });
+
+  const hasActiveDailySession = Boolean(todaySessionQuery.data?.hasActiveDailySession);
+
+  // Auto-resume active daily session when page loads
+  useEffect(() => {
+    const today = todaySessionQuery.data;
+    if (today?.hasActiveDailySession && !started) {
+      if (today.session) {
+        setLevel(today.session.level as "as" | "a2");
+        setTopic(today.session.topic);
+        setQuestion(today.session.question);
+        setMaxMark(today.session.max_mark);
+        if (today.session.essay_text) setEssayText(today.session.essay_text);
+        if (today.session.diagram_tag) {
+          setDiagrams(parseDiagramTags(today.session.diagram_tag));
+        }
+      } else if (today.claimedQuestion) {
+        setQuestion(today.claimedQuestion);
+      }
+      setStarted(true);
+      contextMutation.mutate();
+    }
+  }, [todaySessionQuery.data, started]);
+
   // --- Resume an existing draft for this question, if one exists --------
   const fetchSession = useServerFn(getLiveExaminerSession);
   const sessionQuery = useQuery({
@@ -439,6 +471,12 @@ function LiveExaminerPage() {
   const combinedDiagramTag = combineDiagramTags(diagrams);
   const textForCheck = combinedDiagramTag ? `${essayText}\n\n${combinedDiagramTag}` : essayText;
 
+  const authoritativeStartedAt =
+    todaySessionQuery.data?.sessionStartedAt ??
+    (sessionQuery.data?.session?.created_at
+      ? new Date(sessionQuery.data.session.created_at).getTime()
+      : null);
+
   const {
     issues,
     classifications,
@@ -470,9 +508,7 @@ function LiveExaminerPage() {
     maxMark,
     contextBlock,
     enabled: started && contextMutation.isSuccess,
-    sessionStartedAt: sessionQuery.data?.session?.created_at
-      ? new Date(sessionQuery.data.session.created_at).getTime()
-      : null,
+    sessionStartedAt: authoritativeStartedAt,
   });
 
   // --- Autosave, debounced, independent of the AI check debounce --------
@@ -607,7 +643,48 @@ function LiveExaminerPage() {
 
       {!started ? (
         <div className="mx-auto max-w-5xl p-5 md:p-8">
-          {limitNotice ? (
+          {hasActiveDailySession && todaySessionQuery.data ? (
+            <div
+              role="alert"
+              className="mb-6 rounded-lg border border-primary/40 bg-primary/5 p-4 space-y-3"
+            >
+              <div className="flex items-center gap-2 font-semibold text-primary">
+                <LockKeyhole className="size-4" />
+                <span>Today's Live Examiner Session Active</span>
+              </div>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Your daily Live Examiner session is active for today's question:{" "}
+                <strong className="text-foreground">
+                  "{todaySessionQuery.data.claimedQuestion}"
+                </strong>
+                . Regular plans include 1 question session per day. You can continue writing with unlimited checks on this question.
+              </p>
+              <Button
+                type="button"
+                onClick={() => {
+                  const today = todaySessionQuery.data;
+                  if (today.session) {
+                    setLevel(today.session.level as "as" | "a2");
+                    setTopic(today.session.topic);
+                    setQuestion(today.session.question);
+                    setMaxMark(today.session.max_mark);
+                    if (today.session.essay_text) setEssayText(today.session.essay_text);
+                    if (today.session.diagram_tag) {
+                      setDiagrams(parseDiagramTags(today.session.diagram_tag));
+                    }
+                  } else if (today.claimedQuestion) {
+                    setQuestion(today.claimedQuestion);
+                  }
+                  setStarted(true);
+                  contextMutation.mutate();
+                }}
+                className="gap-2"
+              >
+                <span>Continue your essay</span>
+                <ArrowRight className="size-4" />
+              </Button>
+            </div>
+          ) : limitNotice ? (
             <div
               role="alert"
               className="mb-6 rounded-lg border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-destructive"
@@ -925,15 +1002,21 @@ function LiveExaminerPage() {
               >
                 <RotateCcw className="size-3.5" /> Restart exam
               </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                className="ml-auto h-7 text-xs"
-                onClick={() => setStarted(false)}
-              >
-                Change question
-              </Button>
+              {hasActiveDailySession ? (
+                <span className="ml-auto flex items-center gap-1.5 text-[11px] text-muted-foreground font-mono bg-muted/50 px-2 py-0.5 rounded border border-border/60">
+                  <LockKeyhole className="size-3 text-muted-foreground" /> Today's session locked
+                </span>
+              ) : (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className="ml-auto h-7 text-xs"
+                  onClick={() => setStarted(false)}
+                >
+                  Change question
+                </Button>
+              )}
             </div>
 
             {/* Question prompt card */}
@@ -1044,16 +1127,21 @@ function LiveExaminerPage() {
       <AlertDialog open={restartDialogOpen} onOpenChange={setRestartDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Restart this exam?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This clears your written answer, attached diagrams, and all suggestions for this
-              question — including the saved draft — so you can write the full response again from a
-              blank sheet. This can't be undone.
+            <AlertDialogTitle>Restart this exam attempt?</AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              <span className="block">
+                This clears your written draft, attached diagrams, and active suggestions so you can write the full response again from scratch.
+              </span>
+              {hasActiveDailySession ? (
+                <span className="block rounded-md border border-amber-500/30 bg-amber-500/10 p-2 text-xs text-amber-900 dark:text-amber-200">
+                  Note: Your session timer continues running and today's session remains locked to this question. Restarting does not grant additional AI coaching time.
+                </span>
+              ) : null}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleRestart}>Restart exam</AlertDialogAction>
+            <AlertDialogAction onClick={handleRestart}>Clear &amp; restart</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

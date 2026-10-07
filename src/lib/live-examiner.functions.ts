@@ -929,12 +929,106 @@ export const listLiveExaminerSessions = createServerFn({ method: "GET" })
     });
   });
 
+export const getTodayLiveExaminerSession = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    // 1. Check if user holds admin role (admins are exempt from 1 session/day)
+    const { data: roleRow } = await context.supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", context.userId)
+      .eq("role", "admin")
+      .maybeSingle();
+    const isAdmin = roleRow?.role === "admin";
+
+    // 2. Query daily_feature_usage for this user's live_examiner entry
+    const { data: usageRows } = await context.supabase
+      .from("daily_feature_usage")
+      .select("usage_day, detail, updated_at")
+      .eq("user_id", context.userId)
+      .eq("feature", "live_examiner")
+      .order("updated_at", { ascending: false })
+      .limit(1);
+
+    const usageRow = usageRows?.[0] ?? null;
+    const todayIST = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(
+      new Date(),
+    );
+    const isToday = usageRow?.usage_day === todayIST;
+
+    if (!isToday || !usageRow?.detail) {
+      return {
+        hasActiveDailySession: false,
+        isAdmin,
+        claimedQuestion: null,
+        sessionStartedAt: null,
+        session: null,
+      };
+    }
+
+    // A session was claimed today!
+    const claimedKey = usageRow.detail.toLowerCase().trim();
+    const { data: sessions } = await context.supabase
+      .from("live_examiner_sessions")
+      .select(
+        "id, level, topic, question, max_mark, essay_text, issues_history, diagram_tag, created_at, updated_at",
+      )
+      .eq("user_id", context.userId)
+      .order("updated_at", { ascending: false })
+      .limit(20);
+
+    const matchingSession =
+      (sessions ?? []).find(
+        (s) => s.question.toLowerCase().trim().replace(/\s+/g, " ") === claimedKey,
+      ) ?? sessions?.[0] ?? null;
+
+    const startedAt = matchingSession?.created_at
+      ? new Date(matchingSession.created_at).getTime()
+      : new Date(usageRow.updated_at).getTime();
+
+    return {
+      hasActiveDailySession: !isAdmin,
+      isAdmin,
+      claimedQuestion: matchingSession?.question ?? usageRow.detail,
+      sessionStartedAt: startedAt,
+      session: matchingSession,
+    };
+  });
+
 const DeleteSessionInput = z.object({ id: z.string().uuid() });
 
 export const deleteLiveExaminerSession = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => DeleteSessionInput.parse(input))
   .handler(async ({ data, context }) => {
+    // Check if this session is today's locked session
+    const { data: sessionRow } = await context.supabase
+      .from("live_examiner_sessions")
+      .select("question, created_at")
+      .eq("id", data.id)
+      .eq("user_id", context.userId)
+      .maybeSingle();
+
+    if (sessionRow) {
+      const todayIST = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(
+        new Date(),
+      );
+      const { data: usageRow } = await context.supabase
+        .from("daily_feature_usage")
+        .select("detail, usage_day")
+        .eq("user_id", context.userId)
+        .eq("feature", "live_examiner")
+        .eq("usage_day", todayIST)
+        .maybeSingle();
+
+      if (usageRow) {
+        const normS = sessionRow.question.toLowerCase().trim().replace(/\s+/g, " ");
+        if (normS === usageRow.detail) {
+          throw new Error("Today's active session is locked and cannot be deleted until tomorrow.");
+        }
+      }
+    }
+
     // Scoped to user_id as well as id — belt and braces alongside the RLS
     // policy, so this can never touch a row that isn't the caller's own.
     const { error, count } = await context.supabase

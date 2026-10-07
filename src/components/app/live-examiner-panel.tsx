@@ -14,7 +14,6 @@ import {
   Trash2,
   TriangleAlert,
   X,
-  Zap,
 } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
@@ -171,105 +170,30 @@ export function LiveExaminerPanel({
       />
       {gradedHelp}
 
-      {/* AI Coaching Window & Timer Notice */}
-      {durationMinutes ? (
-        aiCoachingExpired ? (
-          <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-2.5 text-xs space-y-1.5 text-amber-900 dark:text-amber-200">
-            <div className="flex items-center justify-between gap-1.5 font-semibold">
-              <span className="flex items-center gap-1.5">
-                <Clock className="size-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
-                AI Coaching Time Limit Reached ({durationMinutes}m)
-              </span>
-              <Badge
-                variant="outline"
-                className="text-[10px] border-amber-500/40 text-amber-700 dark:text-amber-300 font-medium"
-              >
-                Limit Reached
-              </Badge>
-            </div>
-            <p className="text-[11px] leading-relaxed text-muted-foreground dark:text-amber-200/90">
-              Live Cambridge AO evaluation and mark updates have paused for this question.
-              <strong className="text-foreground dark:text-amber-100 font-semibold">
-                {" "}Instant in-browser grammar, mechanics, spelling, and economic terminology checks remain 100% active and unlimited.
-              </strong>
-            </p>
-            <p className="text-[10px] text-muted-foreground dark:text-amber-200/80">
-              Click <strong>"Grade now"</strong> above whenever you're ready for your complete Cambridge mark and examiner report.
-            </p>
-          </div>
-        ) : (
-          <div className="flex items-center justify-between rounded-md border border-border/70 bg-muted/20 px-2.5 py-1.5 text-[11px]">
-            <span className="flex items-center gap-1.5 font-mono text-muted-foreground">
-              <Clock className="size-3 text-primary" />
-              <span>AI Coaching:</span>
-              <span
-                className={cn(
-                  "font-semibold tabular-nums",
-                  (remainingSeconds ?? 0) <= 300
-                    ? "text-rose-600 dark:text-rose-400 animate-pulse"
-                    : "text-foreground",
-                )}
-              >
-                {formattedTimeRemaining ?? `${durationMinutes}:00`}
-              </span>
-              <span className="text-[10px] opacity-70">({durationMinutes}m limit)</span>
+      {/* AI Coaching Limit Reached Notice (displayed only after duration expires, no public timer beforehand) */}
+      {durationMinutes && aiCoachingExpired ? (
+        <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-2.5 text-xs space-y-1.5 text-amber-900 dark:text-amber-200">
+          <div className="flex items-center justify-between gap-1.5 font-semibold">
+            <span className="flex items-center gap-1.5">
+              <Clock className="size-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+              AI Coaching Time Limit Reached ({durationMinutes}m)
             </span>
-            <span className="text-[10px] text-muted-foreground">Grammar checks unlimited</span>
+            <Badge
+              variant="outline"
+              className="text-[10px] border-amber-500/40 text-amber-700 dark:text-amber-300 font-medium"
+            >
+              Limit Reached
+            </Badge>
           </div>
-        )
-      ) : null}
-
-      {sessionUsage ? (
-        <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-2 text-xs space-y-1.5">
-          <div className="flex items-center justify-between">
-            <span className="flex items-center gap-1.5 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">
-              <Zap className="size-3 text-emerald-500" />
-              Efficiency & Credit Meter
-            </span>
-            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-medium">
-              {sessionUsage.lastCheckType === "instant"
-                ? `⚡ ${sessionUsage.lastLatencyMs || 15}ms (Instant)`
-                : sessionUsage.lastCheckType === "ai"
-                  ? `🤖 ${sessionUsage.lastLatencyMs}ms (AI Flash)`
-                  : "⚡ Ready (< 25ms)"}
-            </span>
-          </div>
-
-          <div className="grid grid-cols-3 gap-1.5 text-[10px]">
-            <div className="rounded border border-border/60 bg-background/60 p-1.5 flex flex-col">
-              <span className="text-muted-foreground">Tokens Used</span>
-              <span className="font-semibold tabular-nums text-foreground">
-                {sessionUsage.totalTokensUsed > 0
-                  ? `${sessionUsage.totalTokensUsed.toLocaleString()} tok`
-                  : "0 tokens"}
-              </span>
-            </div>
-            <div className="rounded border border-border/60 bg-background/60 p-1.5 flex flex-col">
-              <span className="text-muted-foreground">Est. Cost</span>
-              <span className="font-semibold tabular-nums text-foreground">
-                {sessionUsage.totalTokensUsed > 0
-                  ? `₹${((sessionUsage.totalTokensUsed * 0.000003)).toFixed(3)}`
-                  : "₹0.000"}
-              </span>
-            </div>
-            <div className="rounded border border-border/60 bg-background/60 p-1.5 flex flex-col">
-              <span className="text-muted-foreground">Tokens Saved</span>
-              <span className="font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">
-                {sessionUsage.tokensSaved > 0
-                  ? `+${sessionUsage.tokensSaved.toLocaleString()}`
-                  : "0 free"}
-              </span>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between text-[10px] text-muted-foreground pt-0.5">
-            <span>
-              {sessionUsage.instantChecksCount} free checks run (0 tokens)
-            </span>
-            <span className="text-emerald-600 dark:text-emerald-400 font-medium">
-              Brutal Efficiency Active
-            </span>
-          </div>
+          <p className="text-[11px] leading-relaxed text-muted-foreground dark:text-amber-200/90">
+            Live Cambridge AO evaluation and mark updates have paused for this question.
+            <strong className="text-foreground dark:text-amber-100 font-semibold">
+              {" "}Instant in-browser grammar, mechanics, spelling, and economic terminology checks remain 100% active and unlimited.
+            </strong>
+          </p>
+          <p className="text-[10px] text-muted-foreground dark:text-amber-200/80">
+            Click <strong>"Grade now"</strong> above whenever you're ready for your complete Cambridge mark and examiner report.
+          </p>
         </div>
       ) : null}
 

@@ -149,8 +149,12 @@ export function useLiveExaminerCheck(params: {
   useEffect(() => {
     if (sessionStartedAt && sessionStartedAt > 0) {
       setSessionStartTime(sessionStartedAt);
+      if (typeof window !== "undefined" && question) {
+        const key = `marginal_session_start_${encodeURIComponent(question.toLowerCase().trim())}`;
+        localStorage.setItem(key, String(sessionStartedAt));
+      }
     }
-  }, [sessionStartedAt]);
+  }, [sessionStartedAt, question]);
 
   const [remainingSeconds, setRemainingSeconds] = useState<number>(() => {
     const elapsed = Math.max(0, Math.floor((Date.now() - sessionStartTime) / 1000));
