@@ -65,6 +65,7 @@ import { embedNextBatch, listDocuments, reembedAllDocuments } from "@/lib/knowle
 import {
   activateProviderKey,
   adminOverview,
+  clearAiUsageLog,
   deleteProviderKey,
   deleteUserAccount,
   listProviderKeys,
@@ -1286,7 +1287,7 @@ function VisionPanel() {
 }
 
 const RESET_ALL_CATEGORIES: {
-  category: "mcq" | "essays" | "liveExaminer";
+  category: "mcq" | "essays" | "liveExaminer" | "aiUsage";
   title: string;
   description: string;
   confirmWord: string;
@@ -1310,6 +1311,12 @@ const RESET_ALL_CATEGORIES: {
     description: "Permanently deletes every Live Examiner writing session for every student.",
     confirmWord: "LIVE",
   },
+  {
+    category: "aiUsage",
+    title: "Clear all AI calls & cost logs",
+    description: "Permanently wipes all AI usage logs, token tracking, and cost accounting back to zero for a clean slate.",
+    confirmWord: "CLEAR",
+  },
 ];
 
 function DangerZoneSection() {
@@ -1319,7 +1326,7 @@ function DangerZoneSection() {
   const [confirmText, setConfirmText] = useState("");
 
   const resetAllMutation = useMutation({
-    mutationFn: (category: "mcq" | "essays" | "liveExaminer") => resetAll({ data: { category } }),
+    mutationFn: (category: "mcq" | "essays" | "liveExaminer" | "aiUsage") => resetAll({ data: { category } }),
     onSuccess: async (result) => {
       const total = Object.values(result.counts).reduce((sum, n) => sum + n, 0);
       toast.success(
@@ -1465,11 +1472,30 @@ type AdminMetrics = {
 };
 
 function OverviewPanel() {
+  const queryClient = useQueryClient();
   const fetchOverview = useServerFn(adminOverview);
+  const clearAi = useServerFn(clearAiUsageLog);
   const overview = useQuery({ queryKey: ["admin-overview"], queryFn: () => fetchOverview() });
   const activity = useUserActivity();
   const [search, setSearch] = useState("");
   const [featureFilter, setFeatureFilter] = useState<"all" | "live_examiner" | "essay_grade" | "other">("all");
+  const [clearAiDialogOpen, setClearAiDialogOpen] = useState(false);
+  const [clearConfirmText, setClearConfirmText] = useState("");
+
+  const clearAiMutation = useMutation({
+    mutationFn: () => clearAi(),
+    onSuccess: async (result) => {
+      toast.success(
+        result.deletedCount > 0
+          ? `Cleared ${result.deletedCount} AI usage log records. Telemetry reset to clean slate.`
+          : "AI calls and cost are already at clean slate (0).",
+      );
+      setClearAiDialogOpen(false);
+      setClearConfirmText("");
+      await queryClient.invalidateQueries({ queryKey: ["admin-overview"] });
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
 
   const whoIs = new Map(
     (activity.data ?? []).map((row) => [row.userId, `${displayName(row)} ${row.email ?? ""}`]),
@@ -1578,9 +1604,25 @@ function OverviewPanel() {
               Internal accounting of Gemini and Claude token expenditures across Live Examiner, Essay Grader, and generators.
             </p>
           </div>
-          <Badge variant="outline" className="font-mono text-xs border-emerald-500/40 text-emerald-600 dark:text-emerald-400">
-            Real-time Log Active
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
+              onClick={() => {
+                setClearAiDialogOpen(true);
+                setClearConfirmText("");
+              }}
+              disabled={clearAiMutation.isPending}
+            >
+              <Eraser className="size-3.5 mr-1" />
+              Clear calls &amp; cost
+            </Button>
+            <Badge variant="outline" className="font-mono text-xs border-emerald-500/40 text-emerald-600 dark:text-emerald-400">
+              Real-time Log Active
+            </Badge>
+          </div>
         </div>
 
         {/* 4 Hero KPI Cards */}
@@ -1828,6 +1870,51 @@ function OverviewPanel() {
           })}
         </div>
       </div>
+
+      <AlertDialog
+        open={clearAiDialogOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setClearAiDialogOpen(false);
+            setClearConfirmText("");
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Clear all AI calls &amp; cost logs?</AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              <span>
+                This will permanently wipe all AI telemetry records, prompt/completion tokens, and cost accounting.
+                All student essays, questions, and accounts will remain intact — only AI consumption metrics will reset to 0.
+              </span>
+              <span className="block pt-2 font-mono text-xs text-foreground">
+                Type <strong>CLEAR</strong> to confirm:
+              </span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <Input
+            value={clearConfirmText}
+            onChange={(e) => setClearConfirmText(e.target.value)}
+            placeholder="CLEAR"
+            className="font-mono"
+            autoFocus
+          />
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={clearAiMutation.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={clearConfirmText.trim().toUpperCase() !== "CLEAR" || clearAiMutation.isPending}
+              onClick={(e) => {
+                e.preventDefault();
+                clearAiMutation.mutate();
+              }}
+            >
+              {clearAiMutation.isPending ? "Clearing..." : "Wipe to clean slate"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <DangerZoneSection />
     </div>

@@ -662,12 +662,28 @@ const RESET_ALL_TABLES = {
   mcq: ["mcq_attempts", "mcq_pdf_attempts"],
   essays: ["essays"],
   liveExaminer: ["live_examiner_sessions"],
+  aiUsage: ["ai_usage_log"],
 } as const;
+
+export const clearAiUsageLog = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/backend/client.server");
+
+    const { error, count } = await supabaseAdmin
+      .from("ai_usage_log")
+      .delete({ count: "exact" })
+      .neq("id", "00000000-0000-0000-0000-000000000000");
+
+    if (error) throw new Error(`Clearing ai_usage_log failed: ${error.message}`);
+    return { ok: true, deletedCount: count ?? 0 };
+  });
 
 export const resetAllScores = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) =>
-    z.object({ category: z.enum(["mcq", "essays", "liveExaminer"]) }).parse(input),
+    z.object({ category: z.enum(["mcq", "essays", "liveExaminer", "aiUsage"]) }).parse(input),
   )
   .handler(async ({ data, context }) => {
     await assertAdmin(context);
