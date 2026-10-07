@@ -220,3 +220,30 @@ export const getProgress = createServerFn({ method: "GET" })
     if (error) throw new Error(error.message);
     return data ?? [];
   });
+
+/** Proactively check if a question matches verified Cambridge Knowledge Base materials */
+export const checkQuestionGrounding = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({ question: z.string().trim().max(2000) }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    if (data.question.length < 15) return { checked: false, grounded: false, sourceCount: 0 };
+    const { retrieve } = await import("./retrieval.server");
+    try {
+      const sources = await retrieve(context.supabase, {
+        query: `${data.question}\n\nMark scheme, band descriptors and examiner report guidance for this question.`,
+        matchCount: 4,
+        minSimilarity: 0.5,
+      });
+      return {
+        checked: true,
+        grounded: sources.length > 0,
+        sourceCount: sources.length,
+        topMatchTitle: sources[0]?.documentTitle ?? null,
+        topSimilarity: sources[0]?.similarity ?? null,
+      };
+    } catch {
+      return { checked: false, grounded: false, sourceCount: 0 };
+    }
+  });

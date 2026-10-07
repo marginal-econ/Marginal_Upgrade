@@ -191,6 +191,26 @@ export async function gradeEssay(
       "have missed or garbled."
     : "";
 
+  const isGroundedInKnowledgeBase = sources.length > 0;
+  const hasMarkSchemeImages = markSchemeImages.length > 0;
+  const groundingStatus: "grounded" | "mark_scheme_image" | "unanchored" = hasMarkSchemeImages
+    ? "mark_scheme_image"
+    : isGroundedInKnowledgeBase
+      ? "grounded"
+      : "unanchored";
+
+  if (groundingStatus === "unanchored") {
+    systemPrompt = `${systemPrompt}\n\n` +
+      `CRITICAL KNOWLEDGE BASE NOTICE — NO SPECIFIC MARK SCHEME OR SYLLABUS MATCH FOUND:\n` +
+      `No specific Cambridge 9708 mark scheme, syllabus section, or examiner report was found in the institution's knowledge base for this question (${question}), and no mark scheme screenshot was attached.\n\n` +
+      `MARKING INSTRUCTIONS FOR UNANCHORED ESSAYS:\n` +
+      `1. You MUST notify the candidate in 'examiner_summary' with this exact prefix:\n` +
+      `   "[UNANCHORED ASSESSMENT: No official mark scheme found in Knowledge Base — evaluated against generic Cambridge 9708 Assessment Objectives (AO1/AO2/AO3)]. "\n` +
+      `2. Mark strictly against standard Cambridge AO level descriptors without inventing question-specific requirements.\n` +
+      `3. In 'actionable_feedback', advise the student to attach a screenshot of the official mark scheme or have an administrator upload it to the Knowledge Base to unlock question-specific mark scheme grounding.\n` +
+      `4. Do NOT invent fake mark-scheme references or claim to have consulted specific unseen question mark schemes.`;
+  }
+
   const userMessage =
     `Exam question (${maxMark} marks):\n\n${question}\n\n` +
     `Student essay to mark:\n\n${essayText}${imageNote}`;
@@ -294,6 +314,7 @@ export async function gradeEssay(
 
   grading.sources = sources;
   grading.anchorsUsed = anchors.length;
+  grading.grounding_status = groundingStatus;
 
   return {
     grading,

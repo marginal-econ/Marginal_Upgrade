@@ -20,12 +20,20 @@ type MatchRow = {
   similarity: number;
 };
 
+/**
+ * Chunks below this cosine similarity are dropped as irrelevant noise.
+ * In dense 2048-dim vector embeddings, random English texts share a baseline similarity of ~0.35-0.45.
+ * Genuine Cambridge 9708 Economics syllabus matches score 0.55-0.85.
+ * Setting the default floor to 0.50 guarantees that random noise is never treated as a source.
+ */
+export const DEFAULT_GROUNDING_SIMILARITY_FLOOR = 0.5;
+
 export type RetrieveOptions = {
   query: string;
   matchCount?: number;
   docTypes?: DocType[];
   topicId?: string | null;
-  /** Chunks below this cosine similarity are dropped as irrelevant noise. Default calibrated to 0.20. */
+  /** Chunks below this cosine similarity are dropped as irrelevant noise. Default calibrated to 0.50. */
   minSimilarity?: number;
   /** Enable Reciprocal Rank Fusion of dense vectors and sparse lexical search (defaults to true). */
   enableHybridRrf?: boolean;
@@ -295,7 +303,7 @@ function getCacheKey(options: RetrieveOptions): string {
   const types = options.docTypes ? [...options.docTypes].sort().join(",") : "all";
   const topic = options.topicId ?? "none";
   const count = options.matchCount ?? 8;
-  const minSim = options.minSimilarity ?? 0.2;
+  const minSim = options.minSimilarity ?? DEFAULT_GROUNDING_SIMILARITY_FLOOR;
   const rrf = options.enableHybridRrf !== false ? "rrf" : "dense";
   return `${options.query.trim().toLowerCase()}::${types}::${topic}::${count}::${minSim}::${rrf}`;
 }
@@ -347,7 +355,7 @@ export async function retrieve(
   if (error) throw new Error(`Knowledge search failed: ${error.message}`);
 
   const rows = (data ?? []) as MatchRow[];
-  const minSimilarity = options.minSimilarity ?? 0.2; // Calibrated floor
+  const minSimilarity = options.minSimilarity ?? DEFAULT_GROUNDING_SIMILARITY_FLOOR; // Calibrated floor (>=0.50)
   const matches = rows.filter((row) => row.similarity >= minSimilarity);
 
   // Before accepting "nothing relevant was found" at face value, rule out

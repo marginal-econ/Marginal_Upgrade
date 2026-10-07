@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
   AlertCircle,
+  AlertTriangle,
   CheckCircle2,
   Loader2,
   ShieldCheck,
@@ -36,7 +37,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { describeDiagramUrl, listDiagramLibrary } from "@/lib/diagrams.functions";
-import { gradeEssaySubmission } from "@/lib/grading.functions";
+import { checkQuestionGrounding, gradeEssaySubmission } from "@/lib/grading.functions";
 import { checkWritingQuality } from "@/lib/writing-check.functions";
 import type { Grading } from "@/lib/examiner/types";
 
@@ -82,11 +83,19 @@ function GradePage() {
   const queryClient = useQueryClient();
   const search = Route.useSearch();
   const grade = useServerFn(gradeEssaySubmission);
+  const checkGrounding = useServerFn(checkQuestionGrounding);
   const checkWriting = useServerFn(checkWritingQuality);
   const describeDiagram = useServerFn(describeDiagramUrl);
   const listDiagrams = useServerFn(listDiagramLibrary);
 
   const [question, setQuestion] = useState(search.q ?? "");
+
+  const groundingQuery = useQuery({
+    queryKey: ["question-grounding", question.trim()],
+    queryFn: () => checkGrounding({ data: { question: question.trim() } }),
+    enabled: question.trim().length >= 15,
+    staleTime: 5 * 60_000,
+  });
   const [essayText, setEssayText] = useState("");
   const [maxMark, setMaxMark] = useState(search.marks ? String(search.marks) : "12");
   const [auditPass, setAuditPass] = useState(true);
@@ -243,6 +252,33 @@ function GradePage() {
               value={question}
               onChange={(event) => setQuestion(event.target.value)}
             />
+            {question.trim().length >= 15 ? (
+              groundingQuery.isLoading ? (
+                <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground animate-pulse">
+                  <Loader2 className="size-3 animate-spin" />
+                  Checking Knowledge Base for official Cambridge mark schemes...
+                </p>
+              ) : groundingQuery.data?.grounded ? (
+                <div className="flex items-center gap-1.5 text-[11px] text-emerald-400 font-medium">
+                  <CheckCircle2 className="size-3.5 shrink-0" />
+                  <span>
+                    Knowledge Base Grounded: Verified against {groundingQuery.data.topMatchTitle} ({Math.round((groundingQuery.data.topSimilarity ?? 0) * 100)}% match)
+                  </span>
+                </div>
+              ) : (
+                <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-2 text-[11px] text-amber-300">
+                  <div className="flex items-start gap-1.5">
+                    <AlertTriangle className="size-3.5 mt-0.5 shrink-0 text-amber-400" />
+                    <div className="space-y-0.5">
+                      <span className="font-semibold">No specific mark scheme found in Knowledge Base</span>
+                      <p className="text-amber-200/80 leading-normal">
+                        Paste or attach a screenshot of the official mark scheme below for question-specific grounding, or this essay will be marked against standard Cambridge AO level rubrics.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )
+            ) : null}
           </div>
 
           <div className="space-y-1.5">

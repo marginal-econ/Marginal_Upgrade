@@ -45,6 +45,7 @@ export type Grading = {
   anchorsUsed: number;
   off_syllabus?: boolean;
   detected_subject?: string;
+  grounding_status?: "grounded" | "mark_scheme_image" | "unanchored";
 };
 
 const EMPTY_MISSING: MissingElements = {
@@ -133,6 +134,10 @@ export function normaliseGrading(
     anchorsUsed: 0,
     off_syllabus: Boolean(raw.off_syllabus),
     detected_subject: typeof raw.detected_subject === "string" ? raw.detected_subject : undefined,
+    grounding_status:
+      raw.grounding_status === "mark_scheme_image" || raw.grounding_status === "unanchored"
+        ? raw.grounding_status
+        : "grounded",
   };
 }
 
