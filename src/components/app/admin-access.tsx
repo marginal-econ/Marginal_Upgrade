@@ -53,8 +53,8 @@ export function timeAgo(iso: string | null | undefined): string {
   return new Date(iso).toLocaleDateString();
 }
 
-export function displayName(row: Pick<UserActivityRow, "fullName" | "email">): string {
-  return row.fullName?.trim() || row.email || "Unnamed account";
+export function displayName(row?: Partial<UserActivityRow> | null): string {
+  return row?.fullName?.trim() || row?.email || "Unnamed account";
 }
 
 /** Case-insensitive "every word must appear somewhere" match. */
@@ -131,26 +131,30 @@ const SORT_LABELS: Record<SortKey, string> = {
   joined: "Newest accounts",
 };
 
-function totalActivity(row: UserActivityRow): number {
-  return row.essaysGraded + row.liveExaminerSessions + row.mcqAttempts;
+function totalActivity(row?: UserActivityRow | null): number {
+  if (!row) return 0;
+  return (row.essaysGraded || 0) + (row.liveExaminerSessions || 0) + (row.mcqAttempts || 0);
 }
 
-function sortValue(row: UserActivityRow, key: SortKey): number {
+function sortValue(row?: UserActivityRow | null, key?: SortKey): number {
+  if (!row) return 0;
   switch (key) {
     case "total":
       return totalActivity(row);
     case "essays":
-      return row.essaysGraded;
+      return row.essaysGraded || 0;
     case "live":
-      return row.liveExaminerSessions;
+      return row.liveExaminerSessions || 0;
     case "mcq":
-      return row.mcqAttempts;
+      return row.mcqAttempts || 0;
     case "ai":
-      return row.aiCalls;
+      return row.aiCalls || 0;
     case "recent":
       return row.lastActivity ? new Date(row.lastActivity).getTime() : 0;
     case "joined":
-      return new Date(row.joinedAt).getTime();
+      return row.joinedAt ? new Date(row.joinedAt).getTime() : 0;
+    default:
+      return 0;
   }
 }
 

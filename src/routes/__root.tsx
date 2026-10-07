@@ -6,8 +6,9 @@ import {
   useRouter,
   HeadContent,
   Scripts,
+  isRedirect,
 } from "@tanstack/react-router";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 import { ThemeToggle } from "../components/marketing/theme-toggle";
 import { Toaster } from "../components/ui/sonner";
@@ -38,20 +39,35 @@ function NotFoundComponent() {
 }
 
 function ErrorComponent({ error, reset }: { error: unknown; reset: () => void }) {
-  console.error(error);
+  console.error("Root ErrorComponent caught:", error);
   const router = useRouter();
+  const [showDetails, setShowDetails] = useState(false);
+
+  // If a route threw a redirect (e.g. from beforeLoad), follow it immediately
+  if (isRedirect(error)) {
+    if (typeof window !== "undefined") {
+      const redirectObj = error as { href?: string; to?: string };
+      const target = redirectObj.href || redirectObj.to || "/auth";
+      window.location.replace(target);
+    }
+    return null;
+  }
+
   useEffect(() => {
     reportLovableError(error, { boundary: "tanstack_root_error_component" });
   }, [error]);
 
+  const errorMessage = error instanceof Error ? error.message : typeof error === "string" ? error : JSON.stringify(error);
+  const errorStack = error instanceof Error ? error.stack : null;
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
-      <div className="max-w-md text-center">
+    <div className="flex min-h-screen items-center justify-center bg-background px-4 py-12">
+      <div className="max-w-lg text-center w-full">
         <h1 className="text-xl font-semibold tracking-tight text-foreground">
           This page didn't load
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Something went wrong on our end. You can try refreshing or head back home.
+          {errorMessage || "Something went wrong on our end. You can try refreshing or head back home."}
         </p>
         <div className="mt-6 flex flex-wrap justify-center gap-2">
           <button
@@ -69,7 +85,20 @@ function ErrorComponent({ error, reset }: { error: unknown; reset: () => void })
           >
             Go home
           </a>
+          {errorStack && (
+            <button
+              onClick={() => setShowDetails(!showDetails)}
+              className="inline-flex items-center justify-center rounded-md border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground hover:text-foreground"
+            >
+              {showDetails ? "Hide details" : "Show details"}
+            </button>
+          )}
         </div>
+        {showDetails && errorStack && (
+          <pre className="mt-4 max-h-48 overflow-auto rounded-lg border border-border/80 bg-muted/70 p-3 text-left font-mono text-[11px] text-destructive whitespace-pre-wrap">
+            {errorStack}
+          </pre>
+        )}
       </div>
     </div>
   );

@@ -109,6 +109,34 @@ function visionModelsFor(meta: ReturnType<typeof providerMeta>): readonly string
   return "visionModels" in meta ? meta.visionModels : [];
 }
 
+function AdminErrorComponent({ error, reset }: { error: unknown; reset: () => void }) {
+  const errorMessage = error instanceof Error ? error.message : typeof error === "string" ? error : JSON.stringify(error);
+  const errorStack = error instanceof Error ? error.stack : null;
+
+  return (
+    <div className="mx-auto max-w-xl px-5 py-16 text-center space-y-4">
+      <XCircle className="mx-auto size-10 text-destructive" />
+      <h1 className="text-xl font-bold">Admin Console encountered an issue</h1>
+      <p className="text-sm text-muted-foreground">
+        {errorMessage || "An unexpected error occurred while loading the Admin Console."}
+      </p>
+      {errorStack && (
+        <pre className="max-h-48 overflow-auto rounded border border-border/80 bg-muted/70 p-3 text-left font-mono text-[11px] text-destructive whitespace-pre-wrap">
+          {errorStack}
+        </pre>
+      )}
+      <div className="flex justify-center gap-2 pt-2">
+        <Button onClick={reset} variant="default" size="sm">
+          Try again
+        </Button>
+        <Button onClick={() => window.location.reload()} variant="outline" size="sm">
+          Refresh page
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export const Route = createFileRoute("/_authenticated/admin")({
   head: () => ({
     meta: [
@@ -128,10 +156,12 @@ export const Route = createFileRoute("/_authenticated/admin")({
     ],
   }),
   component: AdminPage,
+  errorComponent: AdminErrorComponent,
 });
 
 function AdminPage() {
   const fetchMe = useServerFn(getMe);
+  const [activeTab, setActiveTab] = useState("overview");
 
   const me = useQuery({ queryKey: ["me"], queryFn: () => fetchMe() });
 
@@ -178,7 +208,7 @@ function AdminPage() {
         description="Everything in one place: platform totals, user roles, AI usage and your own AI provider keys."
       />
       <div className="px-5 py-6 md:px-8">
-        <Tabs defaultValue="overview">
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="h-auto flex-wrap">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="users">Users &amp; Roles</TabsTrigger>
@@ -191,28 +221,28 @@ function AdminPage() {
           </TabsList>
 
           <TabsContent value="overview" className="mt-5">
-            <OverviewPanel />
+            {activeTab === "overview" && <OverviewPanel />}
           </TabsContent>
           <TabsContent value="users" className="mt-5">
-            <UsersPanel />
+            {activeTab === "users" && <UsersPanel />}
           </TabsContent>
           <TabsContent value="access" className="mt-5">
-            <AccessPanel />
+            {activeTab === "access" && <AccessPanel />}
           </TabsContent>
           <TabsContent value="showcase" className="mt-5">
-            <ShowcaseAdminPanel />
+            {activeTab === "showcase" && <ShowcaseAdminPanel />}
           </TabsContent>
           <TabsContent value="providers" className="mt-5">
-            <ProvidersPanel />
+            {activeTab === "providers" && <ProvidersPanel />}
           </TabsContent>
           <TabsContent value="embeddings" className="mt-5">
-            <EmbeddingsPanel />
+            {activeTab === "embeddings" && <EmbeddingsPanel />}
           </TabsContent>
           <TabsContent value="vision" className="mt-5">
-            <VisionPanel />
+            {activeTab === "vision" && <VisionPanel />}
           </TabsContent>
           <TabsContent value="diagrams" className="mt-5">
-            <DiagramsPanel />
+            {activeTab === "diagrams" && <DiagramsPanel />}
           </TabsContent>
         </Tabs>
       </div>
@@ -1786,7 +1816,7 @@ function OverviewPanel() {
                 ) : null}
 
                 <span className="ml-auto text-muted-foreground text-[11px]">
-                  {new Date(row.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+                  {row.created_at ? new Date(row.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "—"}
                 </span>
 
                 {row.error_message ? (
