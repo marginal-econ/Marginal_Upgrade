@@ -179,17 +179,21 @@ export const getEssayThread = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => z.object({ essayId: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
-    const { supabase } = context;
+    const { isUserAdmin } = await import("@/lib/auth-admin");
+    const isAdmin = isUserAdmin(context.userId);
+    const client = isAdmin
+      ? (await import("@/integrations/backend/client.server")).supabaseAdmin
+      : context.supabase;
 
-    const { data: essay, error } = await supabase
+    const { data: essay, error } = await client
       .from("essays")
-      .select("id, question, max_mark, latest_mark, created_at")
+      .select("id, question, max_mark, latest_mark, created_at, user_id")
       .eq("id", data.essayId)
       .maybeSingle();
     if (error) throw new Error(error.message);
     if (!essay) throw new Error("That essay could not be found.");
 
-    const { data: versions, error: versionError } = await supabase
+    const { data: versions, error: versionError } = await client
       .from("essay_versions")
       .select("id, version, essay_text, grading, total_mark, confidence, audited, created_at")
       .eq("essay_id", data.essayId)

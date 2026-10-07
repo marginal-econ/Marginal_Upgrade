@@ -4,6 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import {
   BookOpen,
   CheckCircle2,
+  ChevronRight,
   Coins,
   Eraser,
   Eye,
@@ -19,6 +20,7 @@ import {
   Sparkles,
   Trash2,
   Trophy,
+  Crown,
   XCircle,
   Zap,
 } from "lucide-react";
@@ -26,6 +28,7 @@ import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
+import { AdminGodmodeDashboard } from "@/components/app/admin-godmode";
 import {
   AccessPanel,
   ActivityOverview,
@@ -213,6 +216,13 @@ function AdminPage() {
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="h-auto flex-wrap">
             <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger
+              value="godmode"
+              className="font-semibold text-amber-600 dark:text-amber-400 data-[state=active]:bg-amber-500/10"
+            >
+              <Crown className="size-3.5 mr-1.5 inline" />
+              Platform Vault &amp; Inspector
+            </TabsTrigger>
             <TabsTrigger value="users">Users &amp; Roles</TabsTrigger>
             <TabsTrigger value="access">Capacity &amp; AI Controls</TabsTrigger>
             <TabsTrigger value="showcase">Showcase</TabsTrigger>
@@ -223,7 +233,10 @@ function AdminPage() {
           </TabsList>
 
           <TabsContent value="overview" className="mt-5">
-            {activeTab === "overview" && <OverviewPanel />}
+            {activeTab === "overview" && <OverviewPanel onOpenGodmode={() => setActiveTab("godmode")} />}
+          </TabsContent>
+          <TabsContent value="godmode" className="mt-5">
+            {activeTab === "godmode" && <AdminGodmodeDashboard />}
           </TabsContent>
           <TabsContent value="users" className="mt-5">
             {activeTab === "users" && <UsersPanel />}
@@ -1471,7 +1484,7 @@ type AdminMetrics = {
   byFeature: FeatureMetric[];
 };
 
-function OverviewPanel() {
+function OverviewPanel({ onOpenGodmode }: { onOpenGodmode?: () => void } = {}) {
   const queryClient = useQueryClient();
   const fetchOverview = useServerFn(adminOverview);
   const clearAi = useServerFn(clearAiUsageLog);
@@ -1589,6 +1602,38 @@ function OverviewPanel() {
           <RefreshCw className={cn("size-3.5", overview.isFetching && "animate-spin")} />
           <span>Refresh metrics</span>
         </Button>
+      </div>
+
+      {/* God-Mode Quick Entry Banner */}
+      <div className="relative overflow-hidden rounded-xl border border-amber-500/30 bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
+        <div className="flex items-center gap-3">
+          <span className="flex size-8 items-center justify-center rounded-lg bg-amber-500/20 text-amber-500 shrink-0">
+            <Crown className="size-4" />
+          </span>
+          <div>
+            <h3 className="text-xs font-bold text-foreground sm:text-sm flex items-center gap-1.5">
+              God-Mode Platform Vault &amp; Inspector
+              <Badge variant="outline" className="border-amber-500/40 text-amber-600 dark:text-amber-400 text-[10px] py-0">
+                ADMIN ROOT
+              </Badge>
+            </h3>
+            <p className="text-[11px] text-muted-foreground">
+              Direct access to all 81+ student essays, complete Cambridge mark reports, MCQ attempts, and Live Examiner writing sessions.
+            </p>
+          </div>
+        </div>
+        {onOpenGodmode && (
+          <Button
+            type="button"
+            size="sm"
+            variant="default"
+            className="h-8 text-xs font-semibold bg-amber-600 hover:bg-amber-700 text-white shrink-0 gap-1.5 shadow-sm"
+            onClick={onOpenGodmode}
+          >
+            <span>Open Platform Vault</span>
+            <ChevronRight className="size-3.5" />
+          </Button>
+        )}
       </div>
 
       <ActivityOverview search={search} />

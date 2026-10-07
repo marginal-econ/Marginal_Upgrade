@@ -1332,3 +1332,411 @@ export const adminUserActivity = createServerFn({ method: "GET" })
       return [];
     }
   });
+
+/* ============================================================================
+ * GOD-MODE PLATFORM VAULT & INSPECTOR FUNCTIONS (Admin Vaquitavoid Only)
+ * Allows deep inspection of any student's essays, MCQ attempts, Live Examiner
+ * writing drafts, and 360-degree academic dossiers across the entire platform.
+ * ============================================================================ */
+
+export const adminListAllEssays = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/backend/client.server");
+
+    const [essaysRes, versionsRes, profilesRes, authUsers] = await Promise.all([
+      supabaseAdmin
+        .from("essays")
+        .select("id, user_id, question, max_mark, latest_mark, created_at, updated_at")
+        .order("created_at", { ascending: false })
+        .limit(300),
+      supabaseAdmin
+        .from("essay_versions")
+        .select("id, essay_id, version, total_mark, ao1_awarded, ao2_awarded, ao3_awarded, confidence, audited, created_at")
+        .order("version", { ascending: false }),
+      supabaseAdmin.from("profiles").select("id, full_name, school"),
+      listAcceptedAuthUsers(),
+    ]);
+
+    const authMap = new Map(authUsers.map((u) => [u.id, u.email]));
+    const profileMap = new Map((profilesRes.data ?? []).map((p: any) => [p.id, p]));
+
+    const versionMap = new Map<string, { count: number; latest: any }>();
+    for (const v of versionsRes.data ?? []) {
+      const existing = versionMap.get(v.essay_id);
+      if (!existing) {
+        versionMap.set(v.essay_id, { count: 1, latest: v });
+      } else {
+        existing.count += 1;
+      }
+    }
+
+    const essays = (essaysRes.data ?? []).map((e: any) => {
+      const profile = profileMap.get(e.user_id);
+      const email = authMap.get(e.user_id);
+      const vInfo = versionMap.get(e.id);
+      return {
+        id: e.id,
+        userId: e.user_id,
+        studentName: profile?.full_name || email || "Student",
+        studentEmail: email || null,
+        school: profile?.school || null,
+        question: e.question,
+        maxMark: e.max_mark,
+        latestMark: e.latest_mark,
+        versionsCount: vInfo?.count || 1,
+        latestAo1: vInfo?.latest?.ao1_awarded ?? null,
+        latestAo2: vInfo?.latest?.ao2_awarded ?? null,
+        latestAo3: vInfo?.latest?.ao3_awarded ?? null,
+        createdAt: e.created_at,
+        updatedAt: e.updated_at,
+      };
+    });
+
+    return essays;
+  });
+
+export const adminGetEssayDetail = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => z.object({ essayId: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/backend/client.server");
+
+    const { data: essay, error: essayErr } = await supabaseAdmin
+      .from("essays")
+      .select("id, user_id, question, max_mark, latest_mark, created_at, updated_at")
+      .eq("id", data.essayId)
+      .maybeSingle();
+
+    if (essayErr) throw new Error(essayErr.message);
+    if (!essay) throw new Error("Essay not found");
+
+    const [versionsRes, profileRes, authUsers] = await Promise.all([
+      supabaseAdmin
+        .from("essay_versions")
+        .select("id, version, essay_text, grading, total_mark, ao1_awarded, ao2_awarded, ao3_awarded, confidence, audited, created_at")
+        .eq("essay_id", data.essayId)
+        .order("version", { ascending: true }),
+      supabaseAdmin
+        .from("profiles")
+        .select("id, full_name, school")
+        .eq("id", essay.user_id)
+        .maybeSingle(),
+      listAcceptedAuthUsers(),
+    ]);
+
+    const authorEmail = authUsers.find((u) => u.id === essay.user_id)?.email || null;
+
+    return {
+      essay,
+      versions: versionsRes.data ?? [],
+      author: {
+        id: essay.user_id,
+        name: profileRes.data?.full_name || authorEmail || "Student",
+        email: authorEmail,
+        school: profileRes.data?.school || null,
+      },
+    };
+  });
+
+export const adminListAllMcqAttempts = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/backend/client.server");
+
+    const [genRes, pdfRes, profilesRes, authUsers] = await Promise.all([
+      supabaseAdmin
+        .from("mcq_attempts")
+        .select("id, user_id, title, topic, level, status, score, total, created_at, completed_at")
+        .order("created_at", { ascending: false })
+        .limit(200),
+      supabaseAdmin
+        .from("mcq_pdf_attempts")
+        .select("id, user_id, title, filename, level, score, total, created_at, completed_at")
+        .order("created_at", { ascending: false })
+        .limit(200),
+      supabaseAdmin.from("profiles").select("id, full_name, school"),
+      listAcceptedAuthUsers(),
+    ]);
+
+    const authMap = new Map(authUsers.map((u) => [u.id, u.email]));
+    const profileMap = new Map((profilesRes.data ?? []).map((p: any) => [p.id, p]));
+
+    const generated = (genRes.data ?? []).map((a: any) => {
+      const profile = profileMap.get(a.user_id);
+      const email = authMap.get(a.user_id);
+      return {
+        id: a.id,
+        kind: "generated" as const,
+        userId: a.user_id,
+        studentName: profile?.full_name || email || "Student",
+        studentEmail: email || null,
+        title: a.title,
+        topic: a.topic || "All Syllabus Topics",
+        level: a.level,
+        status: a.status,
+        score: a.score,
+        total: a.total,
+        percentage: a.score !== null && a.total > 0 ? Math.round((a.score / a.total) * 100) : null,
+        createdAt: a.created_at,
+        completedAt: a.completed_at,
+      };
+    });
+
+    const pastPaper = (pdfRes.data ?? []).map((a: any) => {
+      const profile = profileMap.get(a.user_id);
+      const email = authMap.get(a.user_id);
+      return {
+        id: a.id,
+        kind: "past_paper" as const,
+        userId: a.user_id,
+        studentName: profile?.full_name || email || "Student",
+        studentEmail: email || null,
+        title: a.title,
+        topic: a.filename || "Cambridge Past Paper",
+        level: a.level,
+        status: a.completed_at ? "marked" : "in_progress",
+        score: a.score,
+        total: a.total,
+        percentage: a.score !== null && a.total > 0 ? Math.round((a.score / a.total) * 100) : null,
+        createdAt: a.created_at,
+        completedAt: a.completed_at,
+      };
+    });
+
+    return [...generated, ...pastPaper].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    );
+  });
+
+export const adminGetMcqAttemptDetail = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({ id: z.string().uuid(), kind: z.enum(["generated", "past_paper"]) }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/backend/client.server");
+
+    let attempt: any = null;
+    if (data.kind === "generated") {
+      const { data: row, error } = await supabaseAdmin
+        .from("mcq_attempts")
+        .select("*")
+        .eq("id", data.id)
+        .maybeSingle();
+      if (error) throw new Error(error.message);
+      attempt = row;
+    } else {
+      const { data: row, error } = await supabaseAdmin
+        .from("mcq_pdf_attempts")
+        .select("*")
+        .eq("id", data.id)
+        .maybeSingle();
+      if (error) throw new Error(error.message);
+      attempt = row;
+    }
+
+    if (!attempt) throw new Error("MCQ attempt not found");
+
+    const [profileRes, authUsers] = await Promise.all([
+      supabaseAdmin.from("profiles").select("id, full_name, school").eq("id", attempt.user_id).maybeSingle(),
+      listAcceptedAuthUsers(),
+    ]);
+
+    const authorEmail = authUsers.find((u) => u.id === attempt.user_id)?.email || null;
+
+    return {
+      attempt,
+      kind: data.kind,
+      author: {
+        id: attempt.user_id,
+        name: profileRes.data?.full_name || authorEmail || "Student",
+        email: authorEmail,
+        school: profileRes.data?.school || null,
+      },
+    };
+  });
+
+export const adminListAllLiveExaminerSessions = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/backend/client.server");
+
+    const [sessionsRes, profilesRes, authUsers] = await Promise.all([
+      supabaseAdmin
+        .from("live_examiner_sessions")
+        .select("id, user_id, level, topic, question, max_mark, essay_text, issues_history, created_at, updated_at")
+        .order("updated_at", { ascending: false })
+        .limit(200),
+      supabaseAdmin.from("profiles").select("id, full_name, school"),
+      listAcceptedAuthUsers(),
+    ]);
+
+    const authMap = new Map(authUsers.map((u) => [u.id, u.email]));
+    const profileMap = new Map((profilesRes.data ?? []).map((p: any) => [p.id, p]));
+
+    return (sessionsRes.data ?? []).map((s: any) => {
+      const profile = profileMap.get(s.user_id);
+      const email = authMap.get(s.user_id);
+      const text = s.essay_text || "";
+      const wordCount = text.trim() ? text.trim().split(/\s+/).length : 0;
+      const issues = Array.isArray(s.issues_history) ? s.issues_history : [];
+
+      return {
+        id: s.id,
+        userId: s.user_id,
+        studentName: profile?.full_name || email || "Student",
+        studentEmail: email || null,
+        school: profile?.school || null,
+        question: s.question,
+        topic: s.topic,
+        level: s.level,
+        maxMark: s.max_mark,
+        wordCount,
+        issuesCount: issues.length,
+        previewText: text.slice(0, 150),
+        createdAt: s.created_at,
+        updatedAt: s.updated_at,
+      };
+    });
+  });
+
+export const adminGetLiveExaminerSessionDetail = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => z.object({ sessionId: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/backend/client.server");
+
+    const { data: session, error } = await supabaseAdmin
+      .from("live_examiner_sessions")
+      .select("*")
+      .eq("id", data.sessionId)
+      .maybeSingle();
+
+    if (error) throw new Error(error.message);
+    if (!session) throw new Error("Live Examiner session not found");
+
+    const [profileRes, authUsers] = await Promise.all([
+      supabaseAdmin.from("profiles").select("id, full_name, school").eq("id", session.user_id).maybeSingle(),
+      listAcceptedAuthUsers(),
+    ]);
+
+    const authorEmail = authUsers.find((u) => u.id === session.user_id)?.email || null;
+
+    return {
+      session,
+      author: {
+        id: session.user_id,
+        name: profileRes.data?.full_name || authorEmail || "Student",
+        email: authorEmail,
+        school: profileRes.data?.school || null,
+      },
+    };
+  });
+
+export const adminGetStudentDossier = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => z.object({ userId: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/backend/client.server");
+
+    const [profileRes, authUsers, essaysRes, mcqGenRes, mcqPdfRes, liveSessionsRes, classMembersRes, classroomsRes] =
+      await Promise.all([
+        supabaseAdmin.from("profiles").select("*").eq("id", data.userId).maybeSingle(),
+        listAcceptedAuthUsers(),
+        supabaseAdmin
+          .from("essays")
+          .select("id, question, max_mark, latest_mark, created_at, updated_at")
+          .eq("user_id", data.userId)
+          .order("created_at", { ascending: false }),
+        supabaseAdmin
+          .from("mcq_attempts")
+          .select("id, title, topic, level, status, score, total, created_at, completed_at")
+          .eq("user_id", data.userId)
+          .order("created_at", { ascending: false }),
+        supabaseAdmin
+          .from("mcq_pdf_attempts")
+          .select("id, title, filename, level, score, total, created_at, completed_at")
+          .eq("user_id", data.userId)
+          .order("created_at", { ascending: false }),
+        supabaseAdmin
+          .from("live_examiner_sessions")
+          .select("id, level, topic, question, max_mark, essay_text, issues_history, created_at, updated_at")
+          .eq("user_id", data.userId)
+          .order("updated_at", { ascending: false }),
+        supabaseAdmin
+          .from("classroom_members")
+          .select("id, classroom_id, joined_at")
+          .eq("student_id", data.userId),
+        supabaseAdmin.from("classrooms").select("id, name, level, teacher_id"),
+      ]);
+
+    const authUser = authUsers.find((u) => u.id === data.userId);
+    const classMap = new Map((classroomsRes.data ?? []).map((c: any) => [c.id, c]));
+
+    const enrolledClasses = (classMembersRes.data ?? []).map((cm: any) => {
+      const cls = classMap.get(cm.classroom_id);
+      return {
+        id: cm.classroom_id,
+        name: cls?.name || "Classroom",
+        level: cls?.level || "mixed",
+        joinedAt: cm.joined_at,
+      };
+    });
+
+    const essays = essaysRes.data ?? [];
+    const mcqGen = mcqGenRes.data ?? [];
+    const mcqPdf = mcqPdfRes.data ?? [];
+    const liveSessions = liveSessionsRes.data ?? [];
+
+    const totalEssays = essays.length;
+    const scoredEssays = essays.filter((e: any) => e.latest_mark !== null && e.max_mark > 0);
+    const avgEssayPercent =
+      scoredEssays.length > 0
+        ? Math.round(
+            scoredEssays.reduce((sum: number, e: any) => sum + ((e.latest_mark ?? 0) / e.max_mark) * 100, 0) /
+              scoredEssays.length,
+          )
+        : null;
+
+    const allMcqs = [
+      ...mcqGen.map((m: any) => ({ ...m, kind: "generated" as const })),
+      ...mcqPdf.map((m: any) => ({ ...m, kind: "past_paper" as const })),
+    ];
+    const totalMcqs = allMcqs.length;
+    const scoredMcqs = allMcqs.filter((m: any) => m.score !== null && m.total > 0);
+    const totalMcqQuestions = scoredMcqs.reduce((sum: number, m: any) => sum + m.total, 0);
+    const totalMcqCorrect = scoredMcqs.reduce((sum: number, m: any) => sum + (m.score ?? 0), 0);
+    const avgMcqPercent = totalMcqQuestions > 0 ? Math.round((totalMcqCorrect / totalMcqQuestions) * 100) : null;
+
+    return {
+      profile: {
+        id: data.userId,
+        email: authUser?.email || null,
+        fullName: profileRes.data?.full_name || null,
+        school: profileRes.data?.school || null,
+        createdAt: authUser?.created_at || profileRes.data?.created_at || null,
+        lastSignInAt: authUser?.last_sign_in_at || null,
+      },
+      stats: {
+        totalEssays,
+        avgEssayPercent,
+        totalMcqs,
+        totalMcqQuestions,
+        totalMcqCorrect,
+        avgMcqPercent,
+        totalLiveSessions: liveSessions.length,
+      },
+      classrooms: enrolledClasses,
+      essays,
+      mcqAttempts: allMcqs,
+      liveSessions,
+    };
+  });
