@@ -180,6 +180,9 @@ export const prepareLiveExaminerContext = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await assertLiveExaminerSessionAllowed(context.supabase, data.question, context);
 
+    const { validateEconomicsSyllabus } = await import("./examiner/syllabus-guard.server");
+    await validateEconomicsSyllabus(data.question);
+
     const { retrieve, renderContext } = await import("./retrieval.server");
     const { fetchCalibrationAnchors, buildAnchorBlock } =
       await import("./examiner/calibration.server");

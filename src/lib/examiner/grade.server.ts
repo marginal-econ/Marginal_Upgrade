@@ -134,6 +134,10 @@ export async function gradeEssay(
 
   let systemPrompt = loadPrompt(EXAMINER_PROMPT, promptValues);
 
+  // --- syllabus pre-flight guardrail ----------------------------------------
+  const { validateEconomicsSyllabus, OffSyllabusError } = await import("./syllabus-guard.server");
+  await validateEconomicsSyllabus(question, essayText);
+
   // --- retrieval grounding ---------------------------------------------------
   // Mandatory, not best-effort: every mark must be grounded in this
   // teacher's actual syllabus/mark-scheme/examiner-report material. A
@@ -210,6 +214,12 @@ export async function gradeEssay(
       });
 
   let grading = normaliseGrading(extractFirstJsonObject(first.text), maxMark, split);
+  if (grading.off_syllabus) {
+    throw new OffSyllabusError(
+      grading.detected_subject || "another subject",
+      grading.examiner_summary || "The examiner flagged this submission as outside the Cambridge 9708 Economics syllabus.",
+    );
+  }
   let promptTokens = first.promptTokens;
   let completionTokens = first.completionTokens;
   let latencyMs = first.latencyMs;

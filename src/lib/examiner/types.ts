@@ -43,6 +43,8 @@ export type Grading = {
   /** How many active calibration anchors were injected for this grade —
    *  0 means genuinely "none set up yet", not "skipped". */
   anchorsUsed: number;
+  off_syllabus?: boolean;
+  detected_subject?: string;
 };
 
 const EMPTY_MISSING: MissingElements = {
@@ -129,6 +131,8 @@ export function normaliseGrading(
     audited: false,
     sources: [],
     anchorsUsed: 0,
+    off_syllabus: Boolean(raw.off_syllabus),
+    detected_subject: typeof raw.detected_subject === "string" ? raw.detected_subject : undefined,
   };
 }
 

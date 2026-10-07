@@ -43,6 +43,10 @@ export const gradeEssaySubmission = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
 
+    // Fast pre-flight check: reject non-economics questions before consuming quota or incurring AI cost
+    const { validateEconomicsSyllabus } = await import("./examiner/syllabus-guard.server");
+    await validateEconomicsSyllabus(data.question, data.essayText);
+
     // Hard per-day cap on essays graded (admin-configurable, default 5; the
     // admin account is exempt). Enforced atomically in the database — this
     // reserves one of today's slots BEFORE any AI cost is incurred, and the
