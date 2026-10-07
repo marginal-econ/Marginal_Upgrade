@@ -314,10 +314,10 @@ function ShowcasePage() {
     const q = searchQuery.toLowerCase().trim();
     return rawEssays.filter(
       (e) =>
-        e.question.toLowerCase().includes(q) ||
+        (e.question && e.question.toLowerCase().includes(q)) ||
         (e.topic_name && e.topic_name.toLowerCase().includes(q)) ||
-        e.essay_text.toLowerCase().includes(q) ||
-        e.author_initials.toLowerCase().includes(q),
+        (e.essay_text && e.essay_text.toLowerCase().includes(q)) ||
+        (e.author_initials && e.author_initials.toLowerCase().includes(q)),
     );
   }, [rawEssays, searchQuery]);
 

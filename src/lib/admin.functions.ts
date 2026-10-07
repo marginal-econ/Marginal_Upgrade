@@ -8,15 +8,24 @@ import type { Database } from "@/integrations/supabase/types";
 type AuthContext = { supabase: SupabaseClient<Database>; userId: string };
 
 async function listAcceptedAuthUsers(): Promise<User[]> {
-  const { supabaseAdmin } = await import("@/integrations/backend/client.server");
-  const users: User[] = [];
-  for (let page = 1; ; page += 1) {
-    const { data, error } = await supabaseAdmin.auth.admin.listUsers({ page, perPage: 1000 });
-    if (error) throw new Error(error.message);
-    users.push(...data.users.filter((user) => Boolean(user.last_sign_in_at)));
-    if (data.users.length < 1000) break;
+  try {
+    const { supabaseAdmin } = await import("@/integrations/backend/client.server");
+    const users: User[] = [];
+    for (let page = 1; ; page += 1) {
+      const { data, error } = await supabaseAdmin.auth.admin.listUsers({ page, perPage: 1000 });
+      if (error) {
+        console.warn("Failed to list auth users:", error.message);
+        break;
+      }
+      if (!data?.users) break;
+      users.push(...data.users.filter((user) => Boolean(user.last_sign_in_at)));
+      if (data.users.length < 1000) break;
+    }
+    return users;
+  } catch (err) {
+    console.warn("Exception in listAcceptedAuthUsers:", err);
+    return [];
   }
-  return users;
 }
 
 /** Throws unless the caller holds the admin role. */
@@ -186,27 +195,64 @@ export const adminOverview = createServerFn({ method: "GET" })
     const { supabaseAdmin } = await import("@/integrations/backend/client.server");
 
     const count = async (table: string) => {
-      const { count } = await supabaseAdmin
-        .from(table as never)
-        .select("*", { count: "exact", head: true });
-      return count ?? 0;
+      try {
+        const { count, error } = await supabaseAdmin
+          .from(table as never)
+          .select("*", { count: "exact", head: true });
+        if (error) {
+          console.warn(`Count warning for ${table}:`, error.message);
+          return 0;
+        }
+        return count ?? 0;
+      } catch (err) {
+        console.warn(`Exception counting ${table}:`, err);
+        return 0;
+      }
     };
 
-    const [acceptedUsers, essays, documents, chunks, attempts, anchors] = await Promise.all([
-      listAcceptedAuthUsers(),
-      count("essays"),
-      count("knowledge_documents"),
-      count("document_chunks"),
-      count("mcq_attempts"),
-      count("calibration_anchors"),
-    ]);
+    let acceptedUsers: User[] = [];
+    let essays = 0;
+    let documents = 0;
+    let chunks = 0;
+    let attempts = 0;
+    let anchors = 0;
+
+    try {
+      const results = await Promise.allSettled([
+        listAcceptedAuthUsers(),
+        count("essays"),
+        count("knowledge_documents"),
+        count("document_chunks"),
+        count("mcq_attempts"),
+        count("calibration_anchors"),
+      ]);
+      if (results[0].status === "fulfilled") acceptedUsers = results[0].value;
+      if (results[1].status === "fulfilled") essays = results[1].value;
+      if (results[2].status === "fulfilled") documents = results[2].value;
+      if (results[3].status === "fulfilled") chunks = results[3].value;
+      if (results[4].status === "fulfilled") attempts = results[4].value;
+      if (results[5].status === "fulfilled") anchors = results[5].value;
+    } catch (e) {
+      console.warn("Error gathering counts in adminOverview:", e);
+    }
+
     const users = acceptedUsers.length;
 
-    const { data: usage } = await supabaseAdmin
-      .from("ai_usage_log")
-      .select("id, user_id, feature, model, prompt_tokens, completion_tokens, ok, error_message, latency_ms, created_at")
-      .order("created_at", { ascending: false })
-      .limit(500);
+    let usage: any[] = [];
+    try {
+      const { data, error } = await supabaseAdmin
+        .from("ai_usage_log")
+        .select("id, user_id, feature, model, prompt_tokens, completion_tokens, ok, error_message, latency_ms, created_at")
+        .order("created_at", { ascending: false })
+        .limit(500);
+      if (error) {
+        console.warn("Warning fetching ai_usage_log:", error.message);
+      } else {
+        usage = data ?? [];
+      }
+    } catch (e) {
+      console.warn("Exception fetching ai_usage_log:", e);
+    }
 
     const USD_TO_INR = 86.5;
 
@@ -363,11 +409,17 @@ export const adminOverview = createServerFn({ method: "GET" })
 
     const totalCostInr = totalCostUsd * USD_TO_INR;
 
-    const { data: failures } = await supabaseAdmin
-      .from("ai_usage_log")
-      .select("id", { count: "exact", head: false })
-      .eq("ok", false)
-      .limit(1);
+    let hasFailures = false;
+    try {
+      const { data: failures } = await supabaseAdmin
+        .from("ai_usage_log")
+        .select("id", { count: "exact", head: false })
+        .eq("ok", false)
+        .limit(1);
+      hasFailures = (failures ?? []).length > 0;
+    } catch (e) {
+      console.warn("Exception checking failures:", e);
+    }
 
     return {
       counts: { users, essays, documents, chunks, attempts, anchors },
@@ -384,7 +436,7 @@ export const adminOverview = createServerFn({ method: "GET" })
         essayGrader: essayGraderMetrics,
         byFeature: featureBreakdown,
       },
-      hasFailures: (failures ?? []).length > 0,
+      hasFailures,
     };
   });
 
@@ -430,18 +482,31 @@ export const listUsers = createServerFn({ method: "GET" })
     }
 
     const profileMap = new Map(profiles.map((profile) => [profile.id, profile]));
-    return authUsers.map((user) => {
-      const profile = profileMap.get(user.id);
-      const list = roleMap.get(user.id) ?? [];
+    if (authUsers.length > 0) {
+      return authUsers.map((user) => {
+        const profile = profileMap.get(user.id);
+        const list = roleMap.get(user.id) ?? [];
+        return {
+          id: user.id,
+          fullName:
+            profile?.full_name ??
+            (typeof user.user_metadata?.full_name === "string"
+              ? user.user_metadata.full_name
+              : (user.email ?? "Unnamed account")),
+          school: profile?.school ?? null,
+          createdAt: user.created_at,
+          role: list.includes("admin") ? "admin" : list.includes("teacher") ? "teacher" : "student",
+        };
+      });
+    }
+
+    return profiles.map((profile) => {
+      const list = roleMap.get(profile.id) ?? [];
       return {
-        id: user.id,
-        fullName:
-          profile?.full_name ??
-          (typeof user.user_metadata?.full_name === "string"
-            ? user.user_metadata.full_name
-            : (user.email ?? "Unnamed account")),
-        school: profile?.school ?? null,
-        createdAt: user.created_at,
+        id: profile.id,
+        fullName: profile.full_name ?? "Unnamed account",
+        school: profile.school ?? null,
+        createdAt: profile.created_at,
         role: list.includes("admin") ? "admin" : list.includes("teacher") ? "teacher" : "student",
       };
     });
@@ -1162,26 +1227,70 @@ export type UserActivityRow = {
 export const adminUserActivity = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<UserActivityRow[]> => {
-    const { data, error } = await context.supabase.rpc("admin_user_activity");
-    if (error) throw new Error(error.message);
-    const acceptedIds = new Set((await listAcceptedAuthUsers()).map((user) => user.id));
-    return (data ?? [])
-      .filter((row) => acceptedIds.has(row.user_id))
-      .map((row) => ({
-        userId: row.user_id,
-        email: row.email,
-        fullName: row.full_name,
-        school: row.school,
-        role: row.role as UserActivityRow["role"],
-        joinedAt: row.joined_at,
-        lastSeen: row.last_seen,
-        currentPath: row.current_path,
-        isOnline: row.is_online,
-        essaysGraded: Number(row.essays_graded),
-        essaysToday: Number(row.essays_today),
-        liveExaminerSessions: Number(row.live_examiner_sessions),
-        mcqAttempts: Number(row.mcq_attempts),
-        aiCalls: Number(row.ai_calls),
-        lastActivity: row.last_activity,
+    try {
+      await assertAdmin(context);
+    } catch {
+      return [];
+    }
+
+    try {
+      const { data, error } = await context.supabase.rpc("admin_user_activity");
+      if (!error && data) {
+        const authUsers = await listAcceptedAuthUsers();
+        const acceptedIds = authUsers.length > 0 ? new Set(authUsers.map((u) => u.id)) : null;
+        return ((data ?? []) as any[])
+          .filter((row) => (acceptedIds ? acceptedIds.has(row.user_id) : true))
+          .map((row) => ({
+            userId: row.user_id,
+            email: row.email,
+            fullName: row.full_name,
+            school: row.school,
+            role: (row.role || "student") as UserActivityRow["role"],
+            joinedAt: row.joined_at || new Date().toISOString(),
+            lastSeen: row.last_seen,
+            currentPath: row.current_path,
+            isOnline: Boolean(row.is_online),
+            essaysGraded: Number(row.essays_graded || 0),
+            essaysToday: Number(row.essays_today || 0),
+            liveExaminerSessions: Number(row.live_examiner_sessions || 0),
+            mcqAttempts: Number(row.mcq_attempts || 0),
+            aiCalls: Number(row.ai_calls || 0),
+            lastActivity: row.last_activity,
+          }));
+      }
+    } catch (err) {
+      console.warn("RPC admin_user_activity failed, falling back to profiles:", err);
+    }
+
+    // Fallback: query profiles directly
+    try {
+      const { supabaseAdmin } = await import("@/integrations/backend/client.server");
+      const { data: profiles } = await supabaseAdmin
+        .from("profiles")
+        .select("id, full_name, school, created_at")
+        .limit(200);
+
+      const authUsers = await listAcceptedAuthUsers();
+      const authMap = new Map(authUsers.map((u) => [u.id, u.email]));
+
+      return (profiles ?? []).map((p: any) => ({
+        userId: p.id,
+        email: authMap.get(p.id) ?? null,
+        fullName: p.full_name,
+        school: p.school,
+        role: "student" as const,
+        joinedAt: p.created_at || new Date().toISOString(),
+        lastSeen: null,
+        currentPath: null,
+        isOnline: false,
+        essaysGraded: 0,
+        essaysToday: 0,
+        liveExaminerSessions: 0,
+        mcqAttempts: 0,
+        aiCalls: 0,
+        lastActivity: null,
       }));
+    } catch {
+      return [];
+    }
   });

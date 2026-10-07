@@ -2,6 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { ArrowLeft, CheckCircle2, Hourglass, KeyRound, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { z } from "zod";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -51,7 +52,12 @@ function WaitingBar({ active, label }: { active: boolean; label: string }) {
   );
 }
 
+const authSearchSchema = z.object({
+  redirect: z.string().optional(),
+});
+
 export const Route = createFileRoute("/auth")({
+  validateSearch: authSearchSchema,
   head: () => ({
     meta: [
       { title: "Sign in — Marginal | AS/A Level Economics marking" },
@@ -113,6 +119,9 @@ function readRecoveryLinkState(): "recovery" | "error" | null {
 
 function AuthPage() {
   const navigate = useNavigate();
+  const search = Route.useSearch();
+  const targetRedirect =
+    search.redirect && search.redirect.startsWith("/") ? search.redirect : "/dashboard";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
@@ -170,7 +179,7 @@ function AuthPage() {
       // than closed over, so this can't act on a stale "credentials" value.
       setView((current) => {
         if (data.session && current !== "recovery" && current !== "verifying") {
-          navigate({ to: "/dashboard", replace: true });
+          navigate({ to: targetRedirect, replace: true });
         }
         if (data.session && current === "verifying") return "recovery";
         return current;
@@ -196,7 +205,7 @@ function AuthPage() {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     setBusy(false);
     if (error) return toast.error(error.message);
-    navigate({ to: "/dashboard", replace: true });
+    navigate({ to: targetRedirect, replace: true });
   };
 
   const sendResetLink = async (event: React.FormEvent) => {

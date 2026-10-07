@@ -144,6 +144,21 @@ function AdminPage() {
     );
   }
 
+  if (me.isError) {
+    return (
+      <div className="mx-auto max-w-lg px-5 py-16 text-center space-y-4">
+        <XCircle className="mx-auto size-8 text-destructive" />
+        <h1 className="text-lg font-semibold">Unable to verify permissions</h1>
+        <p className="text-sm text-muted-foreground">
+          {me.error instanceof Error ? me.error.message : "Failed to load user profile."}
+        </p>
+        <Button onClick={() => me.refetch()} variant="outline" size="sm">
+          Retry
+        </Button>
+      </div>
+    );
+  }
+
   if (me.data?.role !== "admin") {
     return (
       <div className="mx-auto max-w-lg px-5 py-16 text-center">
@@ -1432,27 +1447,59 @@ function OverviewPanel() {
   );
 
   if (overview.isLoading) return <Skeleton className="h-64 w-full" />;
+
+  if (overview.isError) {
+    return (
+      <div className="rounded-xl border border-destructive/40 bg-destructive/10 p-6 space-y-3">
+        <div className="flex items-center gap-2 text-destructive font-semibold">
+          <XCircle className="size-5" />
+          <span>Failed to load admin overview metrics</span>
+        </div>
+        <p className="text-sm text-muted-foreground">
+          {overview.error instanceof Error ? overview.error.message : "An unexpected server error occurred."}
+        </p>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          onClick={() => overview.refetch()}
+          className="gap-2"
+        >
+          <RefreshCw className="size-3.5" />
+          <span>Retry</span>
+        </Button>
+      </div>
+    );
+  }
+
   if (!overview.data) return <p className="text-sm text-muted-foreground">Nothing to show yet.</p>;
 
-  const { counts, usage } = overview.data;
+  const counts = overview.data.counts;
+  const usage = overview.data.usage ?? [];
   const metrics = (overview.data as { metrics?: AdminMetrics }).metrics;
 
   const tiles = [
-    { label: "Users", value: counts.users },
-    { label: "Essays marked", value: counts.essays },
-    { label: "Knowledge documents", value: counts.documents },
-    { label: "Indexed sections", value: counts.chunks },
-    { label: "MCQ attempts", value: counts.attempts },
-    { label: "Calibration anchors", value: counts.anchors },
+    { label: "Users", value: counts?.users ?? 0 },
+    { label: "Essays marked", value: counts?.essays ?? 0 },
+    { label: "Knowledge documents", value: counts?.documents ?? 0 },
+    { label: "Indexed sections", value: counts?.chunks ?? 0 },
+    { label: "MCQ attempts", value: counts?.attempts ?? 0 },
+    { label: "Calibration anchors", value: counts?.anchors ?? 0 },
   ];
 
   const shownUsage = (usage as UsageRow[]).filter((row) => {
     if (featureFilter === "live_examiner") {
-      if (!row.feature.startsWith("live_examiner")) return false;
+      if (!row.feature || !row.feature.startsWith("live_examiner")) return false;
     } else if (featureFilter === "essay_grade") {
       if (row.feature !== "grade_essay" && row.feature !== "essay_grade") return false;
     } else if (featureFilter === "other") {
-      if (row.feature.startsWith("live_examiner") || row.feature === "grade_essay" || row.feature === "essay_grade") return false;
+      if (
+        !row.feature ||
+        row.feature.startsWith("live_examiner") ||
+        row.feature === "grade_essay" ||
+        row.feature === "essay_grade"
+      )
+        return false;
     }
 
     return matchesSearch(
@@ -1545,17 +1592,17 @@ function OverviewPanel() {
             <div className="flex items-center justify-between text-xs text-emerald-700 dark:text-emerald-400 font-medium">
               <span>Live Examiner</span>
               <Badge variant="outline" className="text-[10px] border-emerald-500/40 text-emerald-700 dark:text-emerald-300">
-                {(metrics?.liveExaminer.calls ?? 0)} calls
+                {(metrics?.liveExaminer?.calls ?? 0)} calls
               </Badge>
             </div>
             <p className="text-2xl font-bold tracking-tight tabular-nums text-foreground">
-              {(metrics?.liveExaminer.totalTokens ?? 0).toLocaleString()}
+              {(metrics?.liveExaminer?.totalTokens ?? 0).toLocaleString()}
               <span className="text-xs font-normal text-muted-foreground ml-1">tokens</span>
             </p>
             <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-1">
-              <span>Est: ₹{(metrics?.liveExaminer.costInr ?? 0).toFixed(2)}</span>
+              <span>Est: ₹{(metrics?.liveExaminer?.costInr ?? 0).toFixed(2)}</span>
               <span className="font-mono text-emerald-600 dark:text-emerald-400">
-                ⚡ ~{(metrics?.liveExaminer.avgLatencyMs ?? 0)}ms
+                ⚡ ~{(metrics?.liveExaminer?.avgLatencyMs ?? 0)}ms
               </span>
             </div>
           </div>
@@ -1564,24 +1611,24 @@ function OverviewPanel() {
             <div className="flex items-center justify-between text-xs text-primary font-medium">
               <span>Essay Grader</span>
               <Badge variant="outline" className="text-[10px] border-primary/40 text-primary">
-                {(metrics?.essayGrader.calls ?? 0)} essays
+                {(metrics?.essayGrader?.calls ?? 0)} essays
               </Badge>
             </div>
             <p className="text-2xl font-bold tracking-tight tabular-nums text-foreground">
-              {(metrics?.essayGrader.totalTokens ?? 0).toLocaleString()}
+              {(metrics?.essayGrader?.totalTokens ?? 0).toLocaleString()}
               <span className="text-xs font-normal text-muted-foreground ml-1">tokens</span>
             </p>
             <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-1">
-              <span>Est: ₹{(metrics?.essayGrader.costInr ?? 0).toFixed(2)}</span>
+              <span>Est: ₹{(metrics?.essayGrader?.costInr ?? 0).toFixed(2)}</span>
               <span className="font-mono text-muted-foreground">
-                ~{(metrics?.essayGrader.avgLatencyMs ?? 0)}ms
+                ~{(metrics?.essayGrader?.avgLatencyMs ?? 0)}ms
               </span>
             </div>
           </div>
         </div>
 
         {/* Feature Breakdown Table */}
-        {metrics && metrics.byFeature.length > 0 ? (
+        {metrics?.byFeature && metrics.byFeature.length > 0 ? (
           <div className="rounded-lg border border-border overflow-hidden">
             <div className="bg-muted/40 px-3.5 py-2 text-xs font-semibold flex items-center justify-between">
               <span>Feature Breakdown &amp; Unit Economics</span>
@@ -1614,19 +1661,19 @@ function OverviewPanel() {
                         ) : null}
                       </td>
                       <td className="px-3.5 py-2 text-right tabular-nums text-muted-foreground">
-                        {f.promptTokens.toLocaleString()}
+                        {(f.promptTokens ?? 0).toLocaleString()}
                       </td>
                       <td className="px-3.5 py-2 text-right tabular-nums text-muted-foreground">
-                        {f.completionTokens.toLocaleString()}
+                        {(f.completionTokens ?? 0).toLocaleString()}
                       </td>
                       <td className="px-3.5 py-2 text-right tabular-nums font-semibold">
-                        {f.totalTokens.toLocaleString()}
+                        {(f.totalTokens ?? 0).toLocaleString()}
                       </td>
                       <td className="px-3.5 py-2 text-right tabular-nums text-muted-foreground">
                         {f.avgLatencyMs > 0 ? `${f.avgLatencyMs} ms` : "—"}
                       </td>
                       <td className="px-3.5 py-2 text-right tabular-nums font-medium">
-                        ₹{f.estCostInr.toFixed(2)}
+                        ₹{(f.estCostInr ?? 0).toFixed(2)}
                       </td>
                     </tr>
                   ))}

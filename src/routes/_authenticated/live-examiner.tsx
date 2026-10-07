@@ -378,7 +378,14 @@ function LiveExaminerPage() {
   // subsequent live check call so nothing re-embeds on every keystroke ---
   const prepareContext = useServerFn(prepareLiveExaminerContext);
   const contextMutation = useMutation({
-    mutationFn: () => prepareContext({ data: { level, topic, question } }),
+    mutationFn: (variables?: { level?: "as" | "a2"; topic?: string; question?: string }) =>
+      prepareContext({
+        data: {
+          level: variables?.level ?? level,
+          topic: variables?.topic ?? topic,
+          question: variables?.question ?? question,
+        },
+      }),
     onError: (error: Error) => {
       toast.error(error.message);
       // Today's one session is already used on another question — send the
@@ -404,10 +411,14 @@ function LiveExaminerPage() {
   useEffect(() => {
     const today = todaySessionQuery.data;
     if (today?.hasActiveDailySession && !started) {
+      const targetLevel = (today.session?.level as "as" | "a2") ?? level;
+      const targetTopic = today.session?.topic ?? topic;
+      const targetQuestion = today.session?.question ?? today.claimedQuestion ?? question;
+
       if (today.session) {
-        setLevel(today.session.level as "as" | "a2");
-        setTopic(today.session.topic);
-        setQuestion(today.session.question);
+        setLevel(targetLevel);
+        setTopic(targetTopic);
+        setQuestion(targetQuestion);
         setMaxMark(today.session.max_mark);
         if (today.session.essay_text) setEssayText(today.session.essay_text);
         if (today.session.diagram_tag) {
@@ -417,7 +428,13 @@ function LiveExaminerPage() {
         setQuestion(today.claimedQuestion);
       }
       setStarted(true);
-      contextMutation.mutate();
+      if (targetQuestion && targetQuestion.trim().length >= 5) {
+        contextMutation.mutate({
+          level: targetLevel,
+          topic: targetTopic,
+          question: targetQuestion,
+        });
+      }
     }
   }, [todaySessionQuery.data, started]);
 

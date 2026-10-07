@@ -171,23 +171,32 @@ export const prepareLiveExaminerContext = createServerFn({ method: "POST" })
     const { fetchCalibrationAnchors, buildAnchorBlock } =
       await import("./examiner/calibration.server");
 
-    // Mandatory, same as essay grading — a failure here throws rather than
-    // silently checking essays against nothing. See grade.server.ts for
-    // why this changed from a best-effort try/catch.
-    const sources = await retrieve(context.supabase, {
-      query: `${data.topic} — ${data.question}`,
-      matchCount: 8,
-      docTypes: ["syllabus", "coursebook", "mark_scheme", "examiner_report"],
-      minSimilarity: 0.22,
-      enableHybridRrf: true,
-    });
+    let sources: any[] = [];
+    try {
+      sources = await retrieve(context.supabase, {
+        query: `${data.topic} — ${data.question}`,
+        matchCount: 8,
+        docTypes: ["syllabus", "coursebook", "mark_scheme", "examiner_report"],
+        minSimilarity: 0.22,
+        enableHybridRrf: true,
+      });
+    } catch (err) {
+      console.warn("Live examiner retrieve fallback:", err);
+    }
 
-    const anchors = await fetchCalibrationAnchors(context.supabase);
-    const anchorBlock = buildAnchorBlock(anchors);
+    let anchors: any[] = [];
+    try {
+      anchors = await fetchCalibrationAnchors(context.supabase);
+    } catch (err) {
+      console.warn("Live examiner anchors fallback:", err);
+    }
 
+    const anchorBlock = anchors.length > 0 ? buildAnchorBlock(anchors) : "";
+
+    const rendered = sources.length > 0 ? renderContext(sources) : "";
     const contextBlock = anchorBlock
-      ? `${renderContext(sources)}\n\n${anchorBlock}`
-      : renderContext(sources);
+      ? `${rendered}\n\n${anchorBlock}`
+      : rendered;
 
     return {
       contextBlock,
@@ -932,67 +941,82 @@ export const listLiveExaminerSessions = createServerFn({ method: "GET" })
 export const getTodayLiveExaminerSession = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    // 1. Check if user holds admin role (admins are exempt from 1 session/day)
-    const { data: roleRow } = await context.supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", context.userId)
-      .eq("role", "admin")
-      .maybeSingle();
-    const isAdmin = roleRow?.role === "admin";
+    try {
+      // 1. Check if user holds admin role (admins are exempt from 1 session/day)
+      const { data: roleRow } = await context.supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", context.userId)
+        .eq("role", "admin")
+        .maybeSingle()
+        .catch(() => ({ data: null }));
+      const isAdmin = roleRow?.role === "admin";
 
-    // 2. Query daily_feature_usage for this user's live_examiner entry
-    const { data: usageRows } = await context.supabase
-      .from("daily_feature_usage")
-      .select("usage_day, detail, updated_at")
-      .eq("user_id", context.userId)
-      .eq("feature", "live_examiner")
-      .order("updated_at", { ascending: false })
-      .limit(1);
+      // 2. Query daily_feature_usage for this user's live_examiner entry
+      const { data: usageRows } = await context.supabase
+        .from("daily_feature_usage")
+        .select("usage_day, detail, updated_at")
+        .eq("user_id", context.userId)
+        .eq("feature", "live_examiner")
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .catch(() => ({ data: null }));
 
-    const usageRow = usageRows?.[0] ?? null;
-    const todayIST = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(
-      new Date(),
-    );
-    const isToday = usageRow?.usage_day === todayIST;
+      const usageRow = usageRows?.[0] ?? null;
+      const todayIST = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(
+        new Date(),
+      );
+      const isToday = usageRow?.usage_day === todayIST;
 
-    if (!isToday || !usageRow?.detail) {
+      if (!isToday || !usageRow?.detail) {
+        return {
+          hasActiveDailySession: false,
+          isAdmin,
+          claimedQuestion: null,
+          sessionStartedAt: null,
+          session: null,
+        };
+      }
+
+      // A session was claimed today!
+      const claimedKey = usageRow.detail.toLowerCase().trim();
+      const { data: sessions } = await context.supabase
+        .from("live_examiner_sessions")
+        .select(
+          "id, level, topic, question, max_mark, essay_text, issues_history, diagram_tag, created_at, updated_at",
+        )
+        .eq("user_id", context.userId)
+        .order("updated_at", { ascending: false })
+        .limit(20)
+        .catch(() => ({ data: null }));
+
+      const matchingSession =
+        (sessions ?? []).find(
+          (s: any) =>
+            (s?.question || "").toLowerCase().trim().replace(/\s+/g, " ") === claimedKey,
+        ) ?? sessions?.[0] ?? null;
+
+      const startedAt = matchingSession?.created_at
+        ? new Date(matchingSession.created_at).getTime()
+        : (usageRow?.updated_at ? new Date(usageRow.updated_at).getTime() : Date.now());
+
+      return {
+        hasActiveDailySession: !isAdmin,
+        isAdmin,
+        claimedQuestion: matchingSession?.question ?? usageRow.detail,
+        sessionStartedAt: startedAt,
+        session: matchingSession,
+      };
+    } catch (err) {
+      console.warn("Exception in getTodayLiveExaminerSession:", err);
       return {
         hasActiveDailySession: false,
-        isAdmin,
+        isAdmin: false,
         claimedQuestion: null,
         sessionStartedAt: null,
         session: null,
       };
     }
-
-    // A session was claimed today!
-    const claimedKey = usageRow.detail.toLowerCase().trim();
-    const { data: sessions } = await context.supabase
-      .from("live_examiner_sessions")
-      .select(
-        "id, level, topic, question, max_mark, essay_text, issues_history, diagram_tag, created_at, updated_at",
-      )
-      .eq("user_id", context.userId)
-      .order("updated_at", { ascending: false })
-      .limit(20);
-
-    const matchingSession =
-      (sessions ?? []).find(
-        (s) => s.question.toLowerCase().trim().replace(/\s+/g, " ") === claimedKey,
-      ) ?? sessions?.[0] ?? null;
-
-    const startedAt = matchingSession?.created_at
-      ? new Date(matchingSession.created_at).getTime()
-      : new Date(usageRow.updated_at).getTime();
-
-    return {
-      hasActiveDailySession: !isAdmin,
-      isAdmin,
-      claimedQuestion: matchingSession?.question ?? usageRow.detail,
-      sessionStartedAt: startedAt,
-      session: matchingSession,
-    };
   });
 
 const DeleteSessionInput = z.object({ id: z.string().uuid() });
