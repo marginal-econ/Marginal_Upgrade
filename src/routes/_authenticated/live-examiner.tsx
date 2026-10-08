@@ -910,235 +910,130 @@ function LiveExaminerPage() {
           </p>
         </div>
       ) : (
-        <div className="grid gap-0 lg:grid-cols-[1fr_320px]">
-          <section className="min-w-0 space-y-3 border-border p-5 lg:border-r md:p-6">
-            {/* Top Toolbar */}
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge variant="secondary">{level === "a2" ? "A Level" : "AS Level"}</Badge>
-              <Badge variant="outline">{topic}</Badge>
-              <Badge variant="outline">{maxMark} marks</Badge>
+        <div className="grid gap-0 lg:grid-cols-[1fr_340px]">
+          <section className="min-w-0 space-y-4 border-border p-6 lg:border-r md:p-8">
+            {/* Minimalist Top Control Bar */}
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/50 pb-4">
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="text-xs font-semibold px-2.5 py-1 bg-muted/40">
+                  {level === "a2" ? "A Level" : "AS Level"} · {maxMark} Marks
+                </Badge>
+                {topic ? (
+                  <span className="text-xs text-muted-foreground hidden sm:inline truncate max-w-[200px]">
+                    {topic}
+                  </span>
+                ) : null}
+              </div>
 
-              {/* Word Count Indicator with Tariff Target */}
-              {(() => {
-                const targetMin = maxMark === 8 ? 250 : maxMark === 12 ? 450 : 750;
-                const targetMax = maxMark === 8 ? 350 : maxMark === 12 ? 650 : 1000;
-                const isOptimal = wordCount >= targetMin && wordCount <= targetMax;
-                const isUnder = wordCount < targetMin;
-                return (
-                  <Badge
-                    variant="outline"
-                    className={cn(
-                      "text-xs px-2.5 py-0.5 font-medium transition-colors",
-                      isOptimal
-                        ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-semibold"
-                        : isUnder && wordCount > 0
-                          ? "border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400"
-                          : "",
-                    )}
-                  >
-                    {wordCount} words{" "}
-                    {wordCount > 0
-                      ? isOptimal
-                        ? "✓ In Target Zone"
-                        : `(Target: ${targetMin}–${targetMax})`
-                      : `(Target: ${targetMin}–${targetMax})`}
-                  </Badge>
-                );
-              })()}
+              {/* Running Score Pill, Word Count, and Timer */}
+              <div className="flex items-center gap-3">
+                {predictedMark ? (
+                  <div className="flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400 transition-all duration-300">
+                    <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
+                    <span>Est. {predictedMark.total_mark} / {maxMark} marks</span>
+                    <span className="text-[10px] opacity-75 font-normal hidden md:inline">
+                      (AO1: {predictedMark.ao_breakdown.knowledge.awarded} · AO2: {predictedMark.ao_breakdown.analysis.awarded} · AO3: {predictedMark.ao_breakdown.evaluation.awarded})
+                    </span>
+                  </div>
+                ) : null}
 
-              {/* Live AI Coaching Session Timer Badge */}
-              <Badge
-                variant={aiCoachingExpired ? "secondary" : "outline"}
-                className={cn(
-                  "text-xs px-2.5 py-0.5 font-mono gap-1.5 transition-colors",
-                  aiCoachingExpired
-                    ? "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400 font-semibold"
-                    : remainingSeconds <= 300
-                      ? "border-rose-500/30 bg-rose-500/10 text-rose-600 dark:text-rose-400 font-semibold animate-pulse"
-                      : "border-primary/30 bg-primary/5 text-primary",
-                )}
-                title={
-                  aiCoachingExpired
-                    ? `AI coaching duration complete (${durationMinutes}m). Free instant in-browser grammar and terminology checks remain 100% active.`
-                    : `AI coaching timer: ${formattedTimeRemaining} remaining (${durationMinutes}m session limit)`
-                }
-              >
-                <Clock className="size-3" />
-                {aiCoachingExpired ? (
-                  <span>AI Limit Reached ({durationMinutes}m)</span>
-                ) : (
-                  <span>AI Coaching: {formattedTimeRemaining}</span>
-                )}
-              </Badge>
-
-              {sourceCount > 0 ? (
-                <Badge variant="outline">
-                  <GraduationCap className="mr-1 size-3" /> {sourceCount} syllabus source
-                  {sourceCount === 1 ? "" : "s"}
-                </Badge>
-              ) : (
-                <Badge
-                  variant="outline"
-                  className="border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400 font-medium text-xs"
-                >
-                  <AlertTriangle className="mr-1 size-3 text-amber-500" /> 0 Knowledge Base sources (Unanchored)
-                </Badge>
-              )}
-              {anchorsUsed > 0 ? (
-                <Badge variant="outline">
-                  <CheckCircle2 className="mr-1 size-3" /> {anchorsUsed} calibration anchor
-                  {anchorsUsed === 1 ? "" : "s"}
-                </Badge>
-              ) : null}
-              {diagrams.map((d) => (
-                <Badge key={d.id} variant="outline" className="gap-1">
-                  <CheckCircle2 className="size-3 text-emerald-600" /> {d.label}
-                  <button
-                    type="button"
-                    onClick={() => removeDiagram(d.id)}
-                    className="ml-0.5 text-muted-foreground hover:text-foreground"
-                    aria-label={`Remove ${d.label}`}
-                  >
-                    <X className="size-3" />
-                  </button>
-                </Badge>
-              ))}
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                className="h-7 text-xs"
-                onClick={() => setDiagramDialogOpen(true)}
-              >
-                <ImagePlus className="size-3.5" />
-                {diagrams.length > 0 ? "Add diagram" : "Attach diagram"}
-              </Button>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button type="button" size="sm" variant="ghost" className="h-7 text-xs">
-                    <ClipboardPaste className="size-3.5" />
-                    {markSchemeImages.length > 0
-                      ? `Mark scheme (${markSchemeImages.length})`
-                      : "Attach mark scheme"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-80 space-y-2" align="start">
-                  <p className="text-xs text-muted-foreground">
-                    Paste a screenshot of the relevant mark scheme page — the examiner reads it
-                    directly, on top of your knowledge base, when you grade this answer.
-                  </p>
-                  <MarkSchemeScreenshots
-                    images={markSchemeImages}
-                    onAdd={(img) => setMarkSchemeImages((current) => [...current, img])}
-                    onRemove={(id) =>
-                      setMarkSchemeImages((current) => current.filter((img) => img.id !== id))
-                    }
-                  />
-                </PopoverContent>
-              </Popover>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                className="h-7 text-xs border-amber-500/40 bg-amber-500/10 text-amber-800 dark:text-amber-300 hover:bg-amber-500/20 font-semibold"
-                onClick={handleOpenScoreMaximizer}
-                title="Open step-by-step suggestions, strategic options, and model sentence phrasing to achieve full marks"
-              >
-                <Sparkles className="size-3.5 text-amber-600 dark:text-amber-400" /> Score Maximizer
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                className="h-7 text-xs border-primary/30 text-primary hover:bg-primary/10"
-                onClick={handleGradeNow}
-              >
-                <CheckCircle2 className="size-3.5" /> Grade now
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                className="h-7 text-xs"
-                onClick={() => setRestartDialogOpen(true)}
-              >
-                <RotateCcw className="size-3.5" /> Restart exam
-              </Button>
-              {hasActiveDailySession ? (
-                <span className="ml-auto flex items-center gap-1.5 text-[11px] text-muted-foreground font-mono bg-muted/50 px-2 py-0.5 rounded border border-border/60">
-                  <LockKeyhole className="size-3 text-muted-foreground" /> Today's session locked
+                <span className="text-xs font-mono text-muted-foreground">
+                  {wordCount} words
                 </span>
-              ) : (
+
+                <div className="flex items-center gap-1 text-xs text-muted-foreground font-mono">
+                  <Clock className="size-3.5" />
+                  <span>{formattedTimeRemaining}</span>
+                </div>
+
+                {autosave === "saving" ? (
+                  <span className="text-[11px] text-muted-foreground flex items-center gap-1">
+                    <Loader2 className="size-3 animate-spin" />
+                  </span>
+                ) : autosave === "saved" ? (
+                  <span className="text-[11px] text-emerald-600/80 flex items-center gap-1" title="Autosaved">
+                    <Check className="size-3" />
+                  </span>
+                ) : null}
+              </div>
+
+              {/* Actions */}
+              <div className="flex items-center gap-1.5">
+                <Button
+                  type="button"
+                  size="sm"
+                  className="h-8 gap-1.5 text-xs font-medium"
+                  onClick={handleGradeNow}
+                >
+                  <CheckCircle2 className="size-3.5" /> Grade now
+                </Button>
+
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-8 text-xs gap-1.5"
+                  onClick={() => setDiagramDialogOpen(true)}
+                >
+                  <ImagePlus className="size-3.5" />
+                  {diagrams.length > 0 ? `Diagram (${diagrams.length})` : "Diagram"}
+                </Button>
+
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button type="button" size="sm" variant="outline" className="h-8 text-xs gap-1.5">
+                      <ClipboardPaste className="size-3.5" />
+                      {markSchemeImages.length > 0 ? `MS (${markSchemeImages.length})` : "Mark Scheme"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-80 space-y-2" align="end">
+                    <p className="text-xs text-muted-foreground">
+                      Paste a mark scheme screenshot to evaluate against official marking criteria.
+                    </p>
+                    <MarkSchemeScreenshots
+                      images={markSchemeImages}
+                      onAdd={(img) => setMarkSchemeImages((current) => [...current, img])}
+                      onRemove={(id) => setMarkSchemeImages((current) => current.filter((img) => img.id !== id))}
+                    />
+                  </PopoverContent>
+                </Popover>
+
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-8 text-xs border-amber-500/30 bg-amber-500/5 text-amber-700 dark:text-amber-300 hover:bg-amber-500/10 font-medium"
+                  onClick={handleOpenScoreMaximizer}
+                  title="Open Score Maximizer guidance"
+                >
+                  <Sparkles className="size-3.5 text-amber-500" /> Maximizer
+                </Button>
+
                 <Button
                   type="button"
                   size="sm"
                   variant="ghost"
-                  className="ml-auto h-7 text-xs"
-                  onClick={() => setStarted(false)}
+                  className="h-8 text-xs text-muted-foreground hover:text-foreground"
+                  onClick={() => setRestartDialogOpen(true)}
+                  title="Clear & restart exam"
                 >
-                  Change question
+                  <RotateCcw className="size-3.5" />
                 </Button>
-              )}
-            </div>
-
-            {/* Question prompt card */}
-            <div className="rounded-xl border border-border/80 bg-muted/20 p-3.5 shadow-sm">
-              <div className="flex items-start justify-between gap-3">
-                <div className="space-y-1">
-                  <span className="text-[10px] font-semibold uppercase tracking-wider text-primary">
-                    Examination Question ({maxMark} Marks)
-                  </span>
-                  <p className="text-sm font-medium leading-relaxed text-foreground">{question}</p>
-                </div>
               </div>
             </div>
 
-            {/* Unanchored Grounding Alert Banner */}
-            {sourceCount === 0 && markSchemeImages.length === 0 ? (
-              <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3.5 text-xs text-amber-200 shadow-sm">
-                <div className="flex items-start gap-2.5">
-                  <AlertTriangle className="size-4 mt-0.5 shrink-0 text-amber-400" />
-                  <div className="space-y-1">
-                    <span className="font-semibold text-amber-300">
-                      Unanchored Live Session — No Specific Mark Scheme in Knowledge Base
-                    </span>
-                    <p className="text-amber-200/90 leading-relaxed">
-                      This question did not match any verified mark schemes in your Knowledge Base (similarity below 50%).
-                      Live keystroke suggestions and estimated marks are operating on generic Cambridge 9708 Assessment Objective rubrics.
-                    </p>
-                    <p className="font-medium text-amber-300">
-                      💡 Click "Attach mark scheme" in the toolbar above to paste the official mark scheme screenshot for question-specific live feedback.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            ) : null}
+            {/* Clean Spaced-Out Question Card */}
+            <div className="rounded-xl border border-border/70 bg-muted/20 px-4 py-3.5">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Question ({maxMark} Marks)
+              </span>
+              <p className="text-[15px] font-medium leading-relaxed text-foreground mt-1">
+                {question}
+              </p>
+            </div>
 
-            {/* Editor Container */}
-            <div className="overflow-hidden rounded-xl border border-border/80 bg-card shadow-sm transition-all duration-200">
-              <div className="flex items-center justify-between border-b border-border/70 bg-muted/30 px-4 py-2 text-foreground">
-                <span className="flex items-center gap-2 text-xs font-semibold">
-                  <span className="size-2 rounded-full bg-emerald-500 animate-pulse" /> Live
-                  Examiner Editor
-                </span>
-                <span className="font-mono text-xs text-muted-foreground">
-                  {level === "a2" ? "A Level" : "AS Level"} · {maxMark} marks
-                </span>
-              </div>
-              <div className="flex flex-wrap gap-x-4 gap-y-2 border-b border-border/60 bg-muted/15 px-4 py-1.5 text-[11px]">
-                <span className="flex items-center gap-1.5 font-medium text-foreground">
-                  <span className="size-2 rounded-full bg-ao1" /> AO1 Knowledge
-                </span>
-                <span className="flex items-center gap-1.5 font-medium text-foreground">
-                  <span className="size-2 rounded-full bg-ao2" /> AO2 Analysis
-                </span>
-                <span className="flex items-center gap-1.5 font-medium text-foreground">
-                  <span className="size-2 rounded-full bg-ao3" /> AO3 Evaluation
-                </span>
-                <span className="ml-auto text-muted-foreground">
-                  Underlined phrases indicate active Cambridge AO credit
-                </span>
-              </div>
+            {/* Clean, Focused Editor Container */}
+            <div className="overflow-hidden rounded-2xl border border-border/80 bg-card shadow-sm transition-all duration-200 focus-within:border-primary/50 focus-within:ring-1 focus-within:ring-primary/20">
               <LiveExaminerEditor
                 value={essayText}
                 onChange={setEssayText}
@@ -1146,8 +1041,8 @@ function LiveExaminerPage() {
                 classifications={classifications}
                 onAccept={(id) => setEssayText((current) => acceptIssue(id, current))}
                 onDismiss={dismissIssue}
-                placeholder="Start writing your answer here… The Live Examiner will evaluate your sentences in real-time."
-                className="min-h-[62vh] p-4 text-[15px] leading-[1.8]"
+                placeholder="Start typing your essay here… The Live Examiner evaluates your economic analysis, Assessment Objectives, and logical chains in real-time."
+                className="min-h-[66vh] p-6 md:p-8 text-[16px] leading-[1.85]"
               />
             </div>
           </section>

@@ -62,18 +62,18 @@ export type LiveExaminerSessionUsage = {
   lastCheckType: "instant" | "ai" | "idle";
 };
 
-// Rapid Grammarly-style adaptive cadence:
-// - Instant deterministic pre-pass: fires immediately (< 25ms) in-browser with ZERO tokens
-// - Sentence completion (punctuation or newline): fires in 350ms
-// - Mid-sentence pause: 1,400ms (avoids firing AI calls mid-thought)
-// - Minimum request interval: 2,400ms (protects API credits)
-// - Minimum changed characters: 8 chars
+// Rapid adaptive cadence:
+// - Instant deterministic pre-pass: fires immediately (< 25ms) in-browser
+// - Sentence completion (punctuation or newline): fires in 300ms
+// - Mid-sentence pause: 1,000ms
+// - Minimum request interval: 1,800ms
+// - Minimum changed characters: 6 chars
 const INSTANT_LOCAL_PAUSE_MS = 25;
-const TYPING_PAUSE_MS = 1400;
-const SENTENCE_COMPLETE_PAUSE_MS = 350;
-const MIN_REQUEST_INTERVAL_MS = 2400;
-const MIN_CHANGED_CHARS = 8;
-const MIN_TEXT_LENGTH = 20;
+const TYPING_PAUSE_MS = 1000;
+const SENTENCE_COMPLETE_PAUSE_MS = 300;
+const MIN_REQUEST_INTERVAL_MS = 1800;
+const MIN_CHANGED_CHARS = 6;
+const MIN_TEXT_LENGTH = 15;
 
 function issueId(issue: Pick<LiveExaminerIssue, "context" | "original" | "category">): string {
   return `${issue.category}::${issue.context.trim().toLowerCase()}::${issue.original.trim().toLowerCase()}`;
@@ -308,10 +308,10 @@ export function useLiveExaminerCheck(params: {
       const previousText = force ? undefined : lastCheckedTextRef.current || undefined;
       const previousIssues = force ? [] : issuesRef.current;
 
-      const isParagraphEnd = /\n\s*\n\s*$/.test(currentText) || currentText.endsWith("\n");
+      const isSentenceOrThoughtEnd = /(?:[.!?]|\n)\s*$/.test(currentText);
       const timeSinceLastEstimate = Date.now() - lastEstimatedMarkAtRef.current;
       const shouldIncludeEstimate =
-        isParagraphEnd || timeSinceLastEstimate > 35_000 || !predictedMark;
+        isSentenceOrThoughtEnd || timeSinceLastEstimate > 10_000 || !predictedMark;
       if (shouldIncludeEstimate) {
         lastEstimatedMarkAtRef.current = Date.now();
       }

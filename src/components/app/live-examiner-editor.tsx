@@ -26,48 +26,48 @@ const CATEGORY_AO: Record<IssueCategory, string | null> = {
 const CATEGORY_META: Record<IssueCategory, { label: string; mark: string; dot: string }> = {
   grammar: {
     label: "Grammar",
-    mark: "decoration-rose-500/80 decoration-wavy underline underline-offset-2",
+    mark: "border-b border-rose-400/70 border-dashed",
     dot: "bg-rose-500 dark:bg-rose-400",
   },
   clarity: {
     label: "Clarity",
-    mark: "decoration-muted-foreground/80 decoration-dotted underline underline-offset-2",
+    mark: "border-b border-muted-foreground/70 border-dotted",
     dot: "bg-muted-foreground",
   },
   economics_accuracy: {
     label: "Economics accuracy",
-    mark: "bg-ao1/15 decoration-ao1 underline decoration-2 underline-offset-2",
-    dot: "bg-ao1",
+    mark: "border-b-2 border-rose-500/90",
+    dot: "bg-rose-500",
   },
   misconception: {
     label: "Economic misconception",
-    mark: "bg-red-500/20 text-red-950 dark:text-red-100 decoration-red-600 decoration-double underline decoration-2 underline-offset-2 font-medium",
+    mark: "border-b-2 border-red-600",
     dot: "bg-red-600 dark:bg-red-400",
   },
   analysis: {
     label: "Analysis",
-    mark: "bg-ao2/15 decoration-ao2 underline decoration-2 underline-offset-2",
-    dot: "bg-ao2",
+    mark: "border-b-2 border-amber-500/80",
+    dot: "bg-amber-500",
   },
   application: {
     label: "Application",
-    mark: "bg-ao2/15 decoration-ao2 underline decoration-2 underline-offset-2",
-    dot: "bg-ao2",
+    mark: "border-b-2 border-blue-500/80",
+    dot: "bg-blue-500",
   },
   evaluation: {
     label: "Evaluation",
-    mark: "bg-ao3/15 decoration-ao3 underline decoration-2 underline-offset-2",
-    dot: "bg-ao3",
+    mark: "border-b-2 border-purple-500/80",
+    dot: "bg-purple-500",
   },
   reasoning_chain: {
     label: "Chain of reasoning",
-    mark: "bg-amber-500/15 decoration-amber-500 underline decoration-2 underline-offset-2",
+    mark: "border-b-2 border-amber-500/80",
     dot: "bg-amber-500 dark:bg-amber-400",
   },
   terminology: {
     label: "Terminology",
-    mark: "bg-blue-500/15 decoration-blue-500 underline decoration-2 underline-offset-2",
-    dot: "bg-blue-500 dark:bg-blue-400",
+    mark: "border-b-2 border-cyan-500/80",
+    dot: "bg-cyan-500 dark:bg-cyan-400",
   },
 };
 
@@ -76,17 +76,17 @@ const DIAGRAM_TAG = /\[DIAGRAM:[^\]]*\]/g;
 const AO_META = {
   AO1: {
     label: "AO1 Knowledge",
-    mark: "bg-ao1/10 shadow-[inset_0_-3px_0_var(--ao1)]",
+    mark: "border-b border-ao1/40",
     dot: "bg-ao1",
   },
   AO2: {
     label: "AO2 Analysis",
-    mark: "bg-ao2/10 shadow-[inset_0_-3px_0_var(--ao2)]",
+    mark: "border-b border-ao2/40",
     dot: "bg-ao2",
   },
   AO3: {
     label: "AO3 Evaluation",
-    mark: "bg-ao3/10 shadow-[inset_0_-3px_0_var(--ao3)]",
+    mark: "border-b border-ao3/40",
     dot: "bg-ao3",
   },
 } as const;
@@ -279,7 +279,7 @@ export function LiveExaminerEditor({
             <mark
               key={index}
               className={cn(
-                "box-decoration-clone rounded-[2px] bg-transparent",
+                "box-decoration-clone bg-transparent text-transparent font-normal",
                 segment.range.kind === "issue"
                   ? CATEGORY_META[segment.range.issue.category].mark
                   : AO_META[segment.range.classification.ao].mark,

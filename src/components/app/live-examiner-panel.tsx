@@ -197,77 +197,7 @@ export function LiveExaminerPanel({
         </div>
       ) : null}
 
-      <div className="rounded-lg border border-border/80 bg-muted/20 p-2 text-xs space-y-1.5">
-        <div className="flex items-center justify-between">
-          <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-            Assessment & Diagnostic Key
-          </span>
-          <button
-            type="button"
-            onClick={() => setShowColorGuide((prev) => !prev)}
-            className="flex items-center gap-1 text-[10px] text-primary hover:underline"
-          >
-            {showColorGuide ? "Hide guide" : "Semantic guide"}
-            {showColorGuide ? (
-              <ChevronUp className="size-2.5" />
-            ) : (
-              <ChevronDown className="size-2.5" />
-            )}
-          </button>
-        </div>
-
-        <div className="grid grid-cols-3 gap-1.5" aria-label="Assessment objective colour key">
-          {[
-            ["AO1", "Knowledge"],
-            ["AO2", "Analysis"],
-            ["AO3", "Evaluation"],
-          ].map(([code, label]) => {
-            const style = AO_STYLE[code as keyof typeof AO_STYLE];
-            return (
-              <div
-                key={code}
-                className={cn(
-                  "flex items-center gap-1.5 rounded-md border px-2 py-1.5",
-                  style.badge,
-                )}
-              >
-                <span className={cn("size-2 shrink-0 rounded-full", style.dot)} />
-                <span className="min-w-0 text-[10px] font-semibold">
-                  {code}{" "}
-                  <span className="hidden font-normal text-muted-foreground xl:inline">
-                    {label}
-                  </span>
-                </span>
-              </div>
-            );
-          })}
-        </div>
-
-        {showColorGuide ? (
-          <div className="mt-2 grid grid-cols-2 gap-1 pt-2 border-t border-border/60 text-[10px]">
-            <div className="flex items-center gap-1.5 p-1 rounded bg-plum/10 text-plum dark:text-primary">
-              <span className="size-1.5 rounded-full bg-plum dark:bg-primary" /> Examiner Questions
-            </div>
-            <div className="flex items-center gap-1.5 p-1 rounded bg-emerald-500/10 text-emerald-700 dark:text-emerald-300">
-              <span className="size-1.5 rounded-full bg-emerald-500" /> Positive AO Credit
-            </div>
-            <div className="flex items-center gap-1.5 p-1 rounded bg-rose-500/10 text-rose-700 dark:text-rose-300">
-              <span className="size-1.5 rounded-full bg-rose-500" /> Mechanics / Syntax
-            </div>
-            <div className="flex items-center gap-1.5 p-1 rounded bg-red-600/15 text-red-700 dark:text-red-300 font-semibold">
-              <span className="size-1.5 rounded-full bg-red-600" /> Economic Misconception
-            </div>
-            <div className="flex items-center gap-1.5 p-1 rounded bg-blue-500/10 text-blue-700 dark:text-blue-300">
-              <span className="size-1.5 rounded-full bg-blue-500" /> Theory / Terminology
-            </div>
-            <div className="flex items-center gap-1.5 p-1 rounded bg-cyan-500/10 text-cyan-700 dark:text-cyan-300">
-              <span className="size-1.5 rounded-full bg-cyan-500" /> Socratic Hints
-            </div>
-          </div>
-        ) : null}
-      </div>
-
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex items-center justify-between gap-2 px-1">
         <StatusLine
           checking={checking}
           pending={pending}
@@ -280,26 +210,27 @@ export function LiveExaminerPanel({
             type="button"
             size="sm"
             variant="ghost"
-            className="h-7 px-2 text-xs"
+            className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
             onClick={onRescan}
           >
-            <RefreshCw className={cn("size-3.5", checking && "animate-spin")} /> Rescan
+            <RefreshCw className={cn("size-3.5 mr-1", checking && "animate-spin")} /> Rescan
           </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            className="h-7 px-2 text-xs"
-            disabled={issues.length === 0}
-            onClick={onClearAll}
-          >
-            <Trash2 className="size-3.5" /> Clear
-          </Button>
+          {issues.length > 0 ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+              onClick={onClearAll}
+            >
+              <Trash2 className="size-3.5 mr-1" /> Clear
+            </Button>
+          ) : null}
         </div>
       </div>
 
       {error ? (
-        <p className="flex items-start gap-1.5 rounded-md border border-amber-500/30 bg-amber-500/10 p-2 text-[11px] text-amber-700 dark:text-amber-400">
+        <p className="flex items-start gap-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 p-2.5 text-xs text-amber-700 dark:text-amber-400">
           <TriangleAlert className="mt-0.5 size-3.5 shrink-0" />
           {error}
         </p>
@@ -308,10 +239,10 @@ export function LiveExaminerPanel({
       <Tabs defaultValue="active" className="flex min-h-0 flex-1 flex-col">
         <TabsList className="w-full grid grid-cols-3">
           <TabsTrigger value="active" className="text-xs">
-            Suggestions {issues.length > 0 ? `(${issues.length})` : ""}
+            Insights {issues.length > 0 ? `(${issues.length})` : ""}
           </TabsTrigger>
           <TabsTrigger value="challenges" className="text-xs">
-            Challenges {challenges.length > 0 ? `(${challenges.length})` : ""}
+            Probes {challenges.length > 0 ? `(${challenges.length})` : ""}
           </TabsTrigger>
           <TabsTrigger value="history" className="text-xs">
             History {resolvedHistory.length > 0 ? `(${resolvedHistory.length})` : ""}
@@ -319,60 +250,6 @@ export function LiveExaminerPanel({
         </TabsList>
 
         <TabsContent value="active" className="mt-2 min-h-0 flex-1 flex flex-col gap-2">
-          {issues.length > 1 ? (
-            <div className="flex flex-wrap items-center gap-1 rounded-md border border-border bg-muted/30 p-1 text-[11px]">
-              <button
-                type="button"
-                onClick={() => setCategoryFilter("all")}
-                className={cn(
-                  "rounded px-2 py-0.5 font-medium transition-colors",
-                  categoryFilter === "all"
-                    ? "bg-background text-foreground shadow-sm"
-                    : "text-muted-foreground",
-                )}
-              >
-                All ({issues.length})
-              </button>
-              <button
-                type="button"
-                onClick={() => setCategoryFilter("economics")}
-                className={cn(
-                  "rounded px-2 py-0.5 font-medium transition-colors",
-                  categoryFilter === "economics"
-                    ? "bg-background text-foreground shadow-sm"
-                    : "text-muted-foreground",
-                )}
-              >
-                Economics & AO
-              </button>
-              <button
-                type="button"
-                onClick={() => setCategoryFilter("mechanics")}
-                className={cn(
-                  "rounded px-2 py-0.5 font-medium transition-colors",
-                  categoryFilter === "mechanics"
-                    ? "bg-background text-foreground shadow-sm"
-                    : "text-muted-foreground",
-                )}
-              >
-                Mechanics
-              </button>
-              {issues.some((i) => i.category === "misconception") ? (
-                <button
-                  type="button"
-                  onClick={() => setCategoryFilter("misconceptions")}
-                  className={cn(
-                    "rounded px-2 py-0.5 font-medium transition-colors text-red-600 dark:text-red-400",
-                    categoryFilter === "misconceptions"
-                      ? "bg-red-500/15 font-semibold shadow-sm"
-                      : "text-red-600/80",
-                  )}
-                >
-                  Misconception
-                </button>
-              ) : null}
-            </div>
-          ) : null}
 
           <ScrollArea className="h-full pr-2">
             {filteredIssues.length === 0 ? (

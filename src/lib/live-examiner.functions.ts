@@ -93,7 +93,6 @@ const AUTO_KEEP_CONFIDENCE = 0.72;
  */
 export function compactSyllabusContext(contextBlock: string): string {
   if (!contextBlock) return "";
-  if (contextBlock.length <= 1500) return contextBlock;
   const lines = contextBlock.split("\n");
   const filtered: string[] = [];
   let length = 0;
@@ -103,7 +102,7 @@ export function compactSyllabusContext(contextBlock: string): string {
     length += line.length + 1;
     if (length >= 1500) break;
   }
-  return filtered.join("\n").slice(0, 1500);
+  return filtered.join("\n").slice(0, 1500).trim();
 }
 
 export type LiveExaminerUsage = {
@@ -271,89 +270,75 @@ function buildCandidateSystemPrompt(
   maxMark: number,
   contextBlock: string,
 ) {
-  return `You are a Cambridge 9708 Economics examiner giving LIVE, IN-PROGRESS feedback on a student's answer as they type it — a quick, light first pass over a few sentences, not a full mark. A second, independent reviewer will check every candidate you raise before the student ever sees it, so your job here is to propose candidates, not to be the final word — but still only propose things you genuinely believe are real.
+  return `You are an expert Cambridge International AS/A Level Economics (9708) examiner giving live, constructive feedback on an essay as a student types it.
 
 QUESTION (${level === "a2" ? "A Level" : "AS Level"}, ${maxMark} marks): ${question}
 
-${contextBlock || "CRITICAL NOTICE: No matching mark scheme or syllabus material was found in the Knowledge Base for this question. Do NOT invent unseen mark scheme requirements or hallucinate specific document quotes. Judge strictly on core economic logic, valid chains of reasoning, and standard Cambridge 9708 AO definitions. If you flag economics content, you must not claim it comes from a specific mark scheme."}
+${contextBlock ? `SYLLABUS & MARK SCHEME GROUNDING:\n${contextBlock}` : "GENERAL CAMBRIDGE 9708 SYLLABUS EVALUATION: Evaluate strictly against authoritative Cambridge 9708 economic theory, logical transmission mechanisms, and syllabus definitions."}
 
-Categories you may flag, and ONLY these — each one is tied to exactly how this same essay will actually be graded (the same AO definitions the full Cambridge examiner uses):
-- "grammar": spelling, grammar, punctuation, tense, run-on sentences. (Not an AO — pure writing mechanics.)
-- "clarity": a sentence that is genuinely hard to follow or ambiguous — not just plainly worded. (Not an AO — pure writing mechanics.)
-- "economics_accuracy": a factually wrong economics claim that DIRECTLY CONTRADICTS the syllabus material above. (${AO_DEFINITIONS.ao1.code} ${AO_DEFINITIONS.ao1.name} — ${AO_DEFINITIONS.ao1.description}.)
-- "misconception": a fundamental conceptual misunderstanding (e.g. confusing a shift of a curve with a movement along it, conflating fiscal and monetary instruments, conflating economic growth with economic development, or confusing public goods with merit goods).
-- "terminology": a specific economics term used incorrectly (not: correct but informal phrasing). (${AO_DEFINITIONS.ao1.code} ${AO_DEFINITIONS.ao1.name} — ${AO_DEFINITIONS.ao1.description}.)
-- "analysis": a point stated but not explained (the underlying mechanism/chain is missing entirely). (${AO_DEFINITIONS.ao2.code} ${AO_DEFINITIONS.ao2.name} — the "explain -> analyse" steps of ${AO_DEFINITIONS.ao2.description}.)
-- "application": analysis that never once touches the specific context/numbers/scenario in the question. (${AO_DEFINITIONS.ao2.code} ${AO_DEFINITIONS.ao2.name} — the "apply to context" step of ${AO_DEFINITIONS.ao2.description}.)
-- "reasoning_chain": a genuine logical jump — the conclusion contradicts or does not follow from what was just stated. (${AO_DEFINITIONS.ao2.code} ${AO_DEFINITIONS.ao2.name} — a broken link anywhere in ${AO_DEFINITIONS.ao2.description}.)
-- "evaluation": a claim made with literally no justification, no counter-argument, and no condition, where the question demands evaluation. (${AO_DEFINITIONS.ao3.code} ${AO_DEFINITIONS.ao3.name} — ${AO_DEFINITIONS.ao3.description}.)
+Your PRIMARY focus is genuine ECONOMICS feedback. Writing mechanics (spelling/grammar) should only be flagged if severe. Prioritise:
+1. "economics_accuracy": Factually or theoretically incorrect economics claims (e.g. claiming tariffs increase imports, inflation lowers the cost of living, or backwards supply/demand logic). (${AO_DEFINITIONS.ao1.code} ${AO_DEFINITIONS.ao1.name} — ${AO_DEFINITIONS.ao1.description}.)
+2. "misconception": Fundamental economic errors (e.g. confusing movements along a curve with shifts of a curve, conflating fiscal and monetary policies, conflating economic growth with economic development, or confusing public goods with merit goods).
+3. "analysis": Stated economic point without explaining the causal transmission mechanism (e.g. stating that "interest rates rise so consumption falls" without explaining higher borrowing costs and incentive to save). (${AO_DEFINITIONS.ao2.code} ${AO_DEFINITIONS.ao2.name} — ${AO_DEFINITIONS.ao2.description}.)
+4. "reasoning_chain": Broken economic logic or contradictory cause-and-effect links in the student's argument. (${AO_DEFINITIONS.ao2.code} ${AO_DEFINITIONS.ao2.name}.)
+5. "application": Pure textbook theory completely disconnected from the context/scenario in the question. (${AO_DEFINITIONS.ao2.code} ${AO_DEFINITIONS.ao2.name}.)
+6. "evaluation": Unsubstantiated assertions lacking conditions (elasticity, time lags, scale), counter-arguments, or balanced economic judgements where required. (${AO_DEFINITIONS.ao3.code} ${AO_DEFINITIONS.ao3.name} — ${AO_DEFINITIONS.ao3.description}.)
+7. "terminology": Inaccurate, imprecise, or confused economic terms (e.g. "demand went down" instead of "contraction in demand" or "leftward shift"). (${AO_DEFINITIONS.ao1.code} ${AO_DEFINITIONS.ao1.name}.)
+8. "clarity": Awkward, ambiguous, or incoherent expression that obscures economic reasoning.
+9. "grammar": Significant spelling or grammatical mistakes that impact academic communication.
 
-CRITICAL — recognising valid work:
-- A correct argument written in the student's own words, in a different order, or via a different (but valid) route to the same conclusion is NOT an error. Economics has more than one legitimate way to make a point. Only flag analysis/application/evaluation/reasoning_chain when something is genuinely MISSING or WRONG, never because it doesn't match a "template" structure.
-- If you are unsure whether something is actually wrong, it is not a candidate — leave it out entirely rather than flag it "just in case".
+FEEDBACK RULES:
+- Suggestion must be minimal and concise — a targeted correction or missing mechanism phrase, NOT a complete rewrite.
+- Evidence: Cite the relevant syllabus/mark scheme rule, economic principle, or causal law (e.g. "Law of Demand", "Transmission mechanism of monetary policy", "PED definition", or quote from grounding if available).
+- Give an honest confidence score (0.6 to 1.0).
+- Be constructive: Recognize valid economics arguments even if expressed in the student's own words. Do not force template phrasing.
+- If a sentence is economically sound, omit it from issues.
 
-PROOF REQUIREMENT:
-- Every candidate needs an "evidence" string: for "economics_accuracy" and "misconception", this MUST be an exact, verbatim quote copied from the syllabus material above that the claim contradicts (a made-up or paraphrased quote will be rejected outright by the verifier). For every other category, a short, concrete, checkable reason.
-- Every candidate needs a "confidence" score from 0 to 1 — your own honest estimate that this is a real, useful issue. Be harsh with yourself; only high-confidence candidates survive review.
+Also identify up to 8 creditworthy economics phrases currently earning Cambridge Assessment Objective credit:
+- AO1: Accurate definitions, terminology, concepts.
+- AO2: Logical causal mechanisms, chains of reasoning, context application.
+- AO3: Evaluative criteria, limitations, short-run vs long-run distinctions, balanced conclusions.
+Copy the exact 3–12 word scoring phrase verbatim.
 
-OTHER RULES:
-- Never rewrite the student's voice or style. "suggestion" must be the smallest possible fix — a phrase, a missing link, a corrected term — never a rewritten sentence or paragraph.
-- Do NOT flag [DIAGRAM: ...] tags. If a word is marked "[?]" (illegible handwriting), leave it as "[?]".
-- Return at most a small handful of your most confident candidates. Zero candidates on a clean or already-strong passage is the correct, expected answer far more often than not.
-- Each sentence below is numbered. Only report candidates for sentences under "SENTENCES TO CHECK" — sentences under "CONTEXT ONLY" are given purely so you understand references/flow and must never appear in your output.
-
-Also classify the student's creditworthy economics writing into assessment objectives. This is separate from finding mistakes, but an underline means the phrase currently earns credit: never classify an inaccurate, incomplete, contradictory, or merely attempted point.
-- AO1: knowledge, definitions, concepts, diagrams, facts, and terminology.
-- AO2: application to the question plus explanation, causal links, and developed analysis.
-- AO3: evaluation, judgement, counter-arguments, limitations, conditions, and weighing significance.
-- Underline only the main scoring point: copy the smallest self-contained phrase that proves the AO, normally 3–12 words. Never return a whole sentence when a shorter exact phrase carries the same credit. A sentence may contain more than one AO.
-- Copy each classified clause verbatim from a SENTENCES TO CHECK sentence. Do not classify filler, headings, or [DIAGRAM: ...] tags.
-- Return at most 16 of the strongest classifications. It is correct to return no classification when the writing does not yet earn a mark.
-
-Respond ONLY with a single valid JSON object, no markdown fences, no commentary, in exactly this shape:
+Respond ONLY with a single valid JSON object, no markdown fences:
 {
   "issues": [
     {
       "sentence_index": <number, from "SENTENCES TO CHECK">,
-      "original": "<the exact problem word/phrase, copied verbatim from the sentence>",
-      "suggestion": "<the minimal fix — a phrase, not a rewrite>",
-      "category": "grammar" | "clarity" | "economics_accuracy" | "analysis" | "application" | "evaluation" | "reasoning_chain" | "terminology" | "misconception",
+      "original": "<exact phrase from the sentence>",
+      "suggestion": "<minimal fix or added economic mechanism>",
+      "category": "economics_accuracy" | "misconception" | "analysis" | "reasoning_chain" | "application" | "evaluation" | "terminology" | "clarity" | "grammar",
       "severity": "low" | "medium" | "high",
-      "explanation": "<one short sentence — why this matters, in plain terms>",
-      "evidence": "<verbatim syllabus quote for economics_accuracy/misconception, or a short concrete reason otherwise>",
-      "confidence": <0 to 1>
+      "explanation": "<concise explanation of the economic flaw or improvement>",
+      "evidence": "<economic law, syllabus principle, or mark scheme reference>",
+      "confidence": <0.6 to 1.0>
     }
   ],
   "classifications": [
     {
-      "sentence_index": <number, from "SENTENCES TO CHECK">,
-      "original": "<the exact 3–12 word main scoring phrase copied verbatim from the sentence>",
+      "sentence_index": <number>,
+      "original": "<creditworthy 3-12 word phrase>",
       "ao": "AO1" | "AO2" | "AO3",
-      "explanation": "<one short sentence explaining why this clause earns that AO>"
+      "explanation": "<why this earns that AO credit>"
     }
   ]
-}
-If a sentence has no issues, omit it from issues but still classify its meaningful economics clauses.`;
+}`;
 }
 
 function buildVerifierSystemPrompt(question: string, contextBlock: string) {
-  return `You are a strict, sceptical second reviewer checking a junior examiner's candidate feedback on a Cambridge 9708 Economics answer before any of it is shown to the student. Your default is REJECT — a candidate only survives if it is clearly, provably correct.
-
+  return `You are a senior Cambridge 9708 Economics examiner reviewing candidate feedback before displaying it to the student.
 QUESTION: ${question}
+${contextBlock ? `SYLLABUS GROUNDING:\n${contextBlock}` : "SYLLABUS GROUNDING: Standard Cambridge 9708 economic theory."}
 
-${contextBlock || "CRITICAL NOTICE: No syllabus material is available in the Knowledge Base for this question. Automatically REJECT any candidate that claims to quote from an unseen mark scheme."}
+For each candidate:
+- KEEP candidates that identify real economic flaws, misconceptions, broken reasoning chains, missing analytical steps (AO2), or superficial evaluation (AO3).
+- REJECT candidates if the student's point is economically sound and valid, even if phrased unconventionally.
+- REJECT trivial, nitpicky, or debatable points.
 
-For EACH candidate below, decide keep or reject:
-- REJECT any "economics_accuracy" or "misconception" candidate whose "evidence" is not an exact, verbatim quote from the syllabus material above, or whose evidence does not actually contradict the student's sentence when you re-read both side by side.
-- REJECT any "analysis" / "application" / "evaluation" / "reasoning_chain" candidate if the student's original sentence is actually a valid — even if unconventional or differently-phrased — way of making a correct point. A different structure, order, or wording is NOT grounds to keep a candidate.
-- REJECT anything vague, debatable, or where a reasonable examiner could disagree.
-- KEEP only candidates you would be comfortable defending in front of the student with the evidence shown.
-- You may also lightly tighten a kept candidate's "explanation" to be clearer, but never change what it claims.
-
-Respond ONLY with a single valid JSON object, no markdown fences, no commentary:
+Respond ONLY with a single valid JSON object:
 {
   "verdicts": [
-    { "index": <number, matching the candidate list below>, "keep": true | false, "explanation": "<optionally tightened, only if keep is true>" }
+    { "index": <number>, "keep": true | false, "explanation": "<optional tightened explanation>" }
   ]
 }`;
 }
@@ -364,10 +349,7 @@ Respond ONLY with a single valid JSON object, no markdown fences, no commentary:
 // candidate check, on the full current essay text (not just the changed
 // sentences, since a mark estimate needs the whole answer), and is fired
 // in parallel with the Stage-1 candidate call so it costs latency, not
-// doubles it. It intentionally skips retrieval grounding, the audit pass,
-// and calibration anchors — all the things that make full grading slow —
-// because a rough live number is the point; "Grade now" still runs the
-// real, fully-grounded two-pass examiner for the mark that counts.
+// doubles it.
 // ---------------------------------------------------------------------------
 
 const PredictedAoSchema = z.object({
@@ -395,34 +377,39 @@ function buildPredictedMarkPrompt(
   contextBlock: string,
 ) {
   const split = defaultSplitForMaxMark(maxMark);
-  return `You are giving a QUICK, ROUGH, live running estimate of the mark an unfinished Cambridge 9708 Economics answer is currently on track for — shown to the student as they type, updated every few seconds. This is NOT the final grade and will never be shown as one; it exists purely so the student can see their estimated mark move as they add real content, so lean toward a fast, reasonable read of what's on the page rather than an exhaustively justified one.
+  return `You are a Cambridge 9708 Economics examiner providing a live, running mark estimate for a student's answer as they write.
 
 QUESTION (${level === "a2" ? "A Level" : "AS Level"}, ${maxMark} marks): ${question}
+${contextBlock ? `SYLLABUS GROUNDING:\n${compactSyllabusContext(contextBlock)}` : ""}
 
-${contextBlock || "No syllabus material was retrieved for this question — judge on general Cambridge 9708 standards."}
+MAX MARKS FOR THIS QUESTION:
+- Knowledge & Understanding (AO1): max ${split.ao1_marks}
+- Analysis & Application (AO2): max ${split.ao2_marks}
+- Evaluation & Judgement (AO3): max ${split.ao3_marks}
+Total max: ${maxMark} marks.
 
-FIXED AO ALLOCATION for this question: knowledge (${AO_DEFINITIONS.ao1.name}) out of ${split.ao1_marks}, analysis (${AO_DEFINITIONS.ao2.name}) out of ${split.ao2_marks}, evaluation (${AO_DEFINITIONS.ao3.name}) out of ${split.ao3_marks}. These "out_of" values are fixed — use exactly these three numbers, never invent different ones.
+MARKING PROGRESSION GUIDELINES:
+- Early opening / definition (30-80 words): Typically awards 1-2 AO1 marks. Total ~1-3.
+- Developing theoretical mechanisms & causal chains (100-250 words): Awards AO1 + early/mid AO2 (2-4 marks). Total ~4-7.
+- Full analytical development + clear context application (250-400 words): High AO1 + strong AO2 (4-6 marks) + initial evaluation. Total ~7-10.
+- Mature, multi-perspective evaluative conclusion with conditions/trade-offs (400+ words): Strong AO1, AO2, and AO3 (3-4 marks). Total ~10-${maxMark}.
+Award marks fairly and progressively for genuine economic substance currently on the page. As the student adds more developed points, their mark should increase accordingly.
 
-Judge only what is actually written so far — an incomplete essay should score low on whichever AOs it hasn't reached yet (e.g. no evaluation paragraph yet means evaluation is currently near 0, not an assumed future score). Be a fair, firm, mid-level examiner: reward real, developed points in full; don't invent credit for what isn't there yet, but don't punish an in-progress essay for being unfinished beyond the AOs it genuinely hasn't attempted.
-
-Respond ONLY with a single valid JSON object, no markdown fences, no commentary:
+Respond ONLY with a single valid JSON object:
 {
-  "total_mark": <integer, 0 to ${maxMark}, sum of the three awarded values below>,
-  "confidence": <0 to 1, your own honest confidence in this rough read — lower for a very short or very early draft>,
-  "headline": "<max 8 words, plain, e.g. 'Solid knowledge, analysis still thin'>",
+  "total_mark": <integer, sum of awarded AO marks>,
+  "confidence": <0.5 to 1.0>,
+  "headline": "<max 8 words on current strength and next step>",
   "ao_breakdown": {
-    "knowledge": { "awarded": <int>, "out_of": ${split.ao1_marks} },
-    "analysis": { "awarded": <int>, "out_of": ${split.ao2_marks} },
-    "evaluation": { "awarded": <int>, "out_of": ${split.ao3_marks} }
+    "knowledge": { "awarded": <int, 0 to ${split.ao1_marks}>, "out_of": ${split.ao1_marks} },
+    "analysis": { "awarded": <int, 0 to ${split.ao2_marks}>, "out_of": ${split.ao2_marks} },
+    "evaluation": { "awarded": <int, 0 to ${split.ao3_marks}>, "out_of": ${split.ao3_marks} }
   }
 }`;
 }
 
 /** Clamp/sanitise the model's rough estimate so a malformed response never
- *  reaches the client as a bogus number (e.g. negative, or exceeding the
- *  fixed out_of for an AO). Returns null on anything unusable — the caller
- *  treats that exactly like "estimate unavailable this round", never as an
- *  error that should block the real issue-checking result. */
+ *  reaches the client as a bogus number. */
 function sanitisePredictedMark(raw: unknown, maxMark: number): PredictedMark | null {
   const parsed = PredictedMarkSchema.safeParse(raw);
   if (!parsed.success) return null;
@@ -455,16 +442,28 @@ function dedupeAndCap(issues: LiveExaminerIssue[]): LiveExaminerIssue[] {
     seen.add(key);
     deduped.push(issue);
   }
-  const order: Record<(typeof SEVERITIES)[number], number> = { high: 0, medium: 1, low: 2 };
-  return deduped.sort((a, b) => order[a.severity] - order[b.severity]).slice(0, MAX_VISIBLE_ISSUES);
-}
 
-/** Case-insensitive substring check — the deterministic half of "no economics
- *  claim without proof": a citation that isn't literally in the retrieved
- *  material is rejected before it ever reaches the verifier. */
-function evidenceAppearsInContext(evidence: string, contextBlock: string): boolean {
-  if (!evidence.trim()) return false;
-  return contextBlock.toLowerCase().includes(evidence.trim().toLowerCase());
+  // Priority order: Economics substance ALWAYS takes precedence over mechanics/grammar!
+  const categoryPriority: Record<(typeof CATEGORIES)[number], number> = {
+    economics_accuracy: 0,
+    misconception: 1,
+    analysis: 2,
+    reasoning_chain: 3,
+    evaluation: 4,
+    application: 5,
+    terminology: 6,
+    clarity: 7,
+    grammar: 8,
+  };
+  const order: Record<(typeof SEVERITIES)[number], number> = { high: 0, medium: 1, low: 2 };
+
+  return deduped
+    .sort((a, b) => {
+      const catDiff = categoryPriority[a.category] - categoryPriority[b.category];
+      if (catDiff !== 0) return catDiff;
+      return order[a.severity] - order[b.severity];
+    })
+    .slice(0, MAX_VISIBLE_ISSUES);
 }
 
 export const checkEssayWriting = createServerFn({ method: "POST" })
@@ -578,7 +577,7 @@ export const checkEssayWriting = createServerFn({ method: "POST" })
           model: MODEL_LIVE_CANDIDATE,
           temperature: 0,
           json: true,
-          maxCompletionTokens: 350,
+          maxCompletionTokens: 800,
           messages: [
             {
               role: "system",
@@ -597,7 +596,7 @@ export const checkEssayWriting = createServerFn({ method: "POST" })
               model: MODEL_ESTIMATE,
               temperature: 0,
               json: true,
-              maxCompletionTokens: 300,
+              maxCompletionTokens: 500,
               messages: [
                 {
                   role: "system",
@@ -683,18 +682,8 @@ export const checkEssayWriting = createServerFn({ method: "POST" })
           : "medium";
         if (!sentence || !original || !suggestion || !parsedCategory) return [];
         if (!Number.isFinite(confidence) || confidence < CONFIDENCE_THRESHOLD) return [];
-        // Guard against a hallucinated correction that doesn't even
-        // appear in the sentence it claims to fix.
+        // Guard against a hallucinated correction that doesn't appear in the sentence
         if (!sentence.toLowerCase().includes(original.toLowerCase())) return [];
-        // Economics claims need real proof: the cited evidence must
-        // literally exist in the retrieved syllabus material, checked
-        // here rather than trusted from the model's own claim.
-        if (
-          parsedCategory === "economics_accuracy" &&
-          !evidenceAppearsInContext(evidence, data.contextBlock)
-        ) {
-          return [];
-        }
         return [
           {
             original,
