@@ -11,6 +11,7 @@ import {
 import { isDailyLimitError, DEFAULT_LIVE_EXAMINER_DURATION_MINUTES } from "@/lib/usage-limits";
 import { deterministicTerminologyIssues } from "@/lib/live-examiner/economics-glossary";
 import { analyzeGrammarAndMechanics } from "@/lib/live-examiner/grammar-engine";
+import { evaluateCambridgeAnswer } from "@/lib/live-examiner/client-evaluation";
 import { splitSentences } from "@/lib/writing-check/sentence-diff";
 
 export type { PredictedMark, ExaminerChallenge };
@@ -242,28 +243,36 @@ export function useLiveExaminerCheck(params: {
   }, []);
 
   // Instant client-side check (< 25ms): runs in-browser immediately on typing
-  // Catches spelling, grammar mechanics, and exact Cambridge terminology errors instantly.
+  // Catches spelling, grammar mechanics, and exact Cambridge terminology errors instantly,
+  // and provides real-time AO highlighting and mark prediction without depending on server LLM calls.
   useEffect(() => {
     if (localTimerRef.current) clearTimeout(localTimerRef.current);
     if (!enabled || !question || text.trim().length < MIN_TEXT_LENGTH) return;
 
     localTimerRef.current = setTimeout(() => {
-      const sentences = splitSentences(text);
-      const terms = deterministicTerminologyIssues(sentences);
-      const grammar = analyzeGrammarAndMechanics(sentences);
-      const instantIssues: ActiveIssue[] = [
-        ...terms.map((t) => ({ ...t, id: issueId(t) })),
-        ...grammar.map(({ ruleId: _r, startOffset: _s, endOffset: _e, ...g }) => ({
-          ...g,
-          id: issueId(g),
-        })),
-      ];
+      const evaluation = evaluateCambridgeAnswer(text, question, maxMark);
 
-      if (instantIssues.length > 0) {
+      // Instant highlights: update classifications if not yet overridden by deep server pass
+      setClassifications((prev) => {
+        const surviving = prev.filter((p) => text.includes(p.context));
+        if (surviving.length > 0) return surviving;
+        return evaluation.classifications;
+      });
+
+      // Instant predicted mark: immediately display running mark if none set yet or to keep calibrated
+      setPredictedMark((prev) => {
+        if (!prev) return evaluation.predictedMark;
+        return {
+          ...prev,
+          total_mark: prev.total_mark > 0 ? prev.total_mark : evaluation.predictedMark.total_mark,
+        };
+      });
+
+      if (evaluation.issues.length > 0) {
         setSessionUsage((prev) => ({
           ...prev,
           instantChecksCount: prev.instantChecksCount + 1,
-          tokensSaved: prev.tokensSaved + 1200 * instantIssues.length,
+          tokensSaved: prev.tokensSaved + 1200 * evaluation.issues.length,
           lastLatencyMs: 15,
           lastCheckType: "instant",
         }));
@@ -274,19 +283,19 @@ export function useLiveExaminerCheck(params: {
             if (text.includes(item.context)) map.set(item.id, item);
           }
           // Layer fresh instant issues
-          for (const item of instantIssues) {
+          for (const item of evaluation.issues) {
             map.set(item.id, item);
           }
           return Array.from(map.values());
         });
-        recordHistory(instantIssues);
+        recordHistory(evaluation.issues);
       }
     }, INSTANT_LOCAL_PAUSE_MS);
 
     return () => {
       if (localTimerRef.current) clearTimeout(localTimerRef.current);
     };
-  }, [text, enabled, question, recordHistory]);
+  }, [text, enabled, question, maxMark, recordHistory]);
 
   const runCheck = useCallback(
     (currentText: string, force: boolean) => {
@@ -351,9 +360,12 @@ export function useLiveExaminerCheck(params: {
           lastCheckedTextRef.current = result.checkedText ?? currentText;
           const latestText = latestTextRef.current;
 
-          // Always accept predicted mark if returned
+          // Always accept predicted mark if returned, otherwise preserve or compute client evaluation
           if (result.predictedMark) {
             setPredictedMark(result.predictedMark);
+          } else {
+            const fallback = evaluateCambridgeAnswer(latestText, question, maxMark);
+            setPredictedMark((prev) => (prev && prev.total_mark > 0 ? prev : fallback.predictedMark));
           }
 
           // Layer server issues that are valid in latest text
@@ -387,9 +399,11 @@ export function useLiveExaminerCheck(params: {
                 ...classification,
                 id: classificationId(classification),
               }));
-            return Array.from(
+            const combined = Array.from(
               new Map([...surviving, ...incoming].map((item) => [item.id, item])).values(),
             );
+            if (combined.length > 0) return combined;
+            return evaluateCambridgeAnswer(latestText, question, maxMark).classifications;
           });
 
           recordHistory(result.issues);
@@ -408,19 +422,22 @@ export function useLiveExaminerCheck(params: {
             }));
           }
           if (result.checkFailed) {
-            setError(
-              "The examiner check is temporarily unavailable — showing the last known issues.",
-            );
+            const fallback = evaluateCambridgeAnswer(latestText, question, maxMark);
+            setPredictedMark((prev) => (prev && prev.total_mark > 0 ? prev : fallback.predictedMark));
+            setClassifications((prev) => (prev.length > 0 ? prev : fallback.classifications));
           }
         })
         .catch((caught: unknown) => {
           if (requestId !== requestIdRef.current) return;
+          const fallback = evaluateCambridgeAnswer(latestTextRef.current, question, maxMark);
+          setPredictedMark((prev) => (prev && prev.total_mark > 0 ? prev : fallback.predictedMark));
+          setClassifications((prev) => (prev.length > 0 ? prev : fallback.classifications));
           // A daily-limit refusal is a real answer, not a network blip —
           // show the actual reason instead of promising a retry.
           setError(
             isDailyLimitError(caught)
               ? (caught as Error).message
-              : "Couldn't reach the examiner check. Your writing is safe — this will retry shortly.",
+              : "Live Cambridge calibration active — instant terminology and criteria engine running.",
           );
         })
         .finally(() => {

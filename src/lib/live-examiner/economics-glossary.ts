@@ -50,6 +50,12 @@ const GLOSSARY: GlossaryEntry[] = [
   { wrong: "marginal social benifit", correct: "marginal social benefit" },
   { wrong: "marginal social benifits", correct: "marginal social benefits" },
   { wrong: "marginal private benifit", correct: "marginal private benefit" },
+  { wrong: "demand pull inflate", correct: "demand-pull inflation" },
+  { wrong: "cost push inflate", correct: "cost-push inflation" },
+  { wrong: "Thai because", correct: "This is because" },
+  { wrong: "agregate demand", correct: "aggregate demand" },
+  { wrong: "agregate supply", correct: "aggregate supply" },
+  { wrong: "agregate", correct: "aggregate" },
 ];
 
 export type DeterministicIssue = {

@@ -75,73 +75,80 @@ const COMMON_MISSPELLINGS: Record<string, string> = {
 
 const SPECIMENS: Specimen[] = [
   {
-    id: "demerit-goods",
-    paper: "AS Paper 2 · 12 marks",
+    id: "aggregate-demand",
+    paper: "Economics AS Level - Paper 2 · 12 marks",
     question:
-      "Assess whether a minimum price is the most effective policy to reduce consumption of a demerit good.",
+      "Asses whether an increase in aggregate demand would be of overall benefit to an economy.",
     total: 12,
     aoBreakdown: { ao1: 3, ao2: 5, ao3: 4 },
     keyTerms: [
-      "minimum price",
-      "price floor",
-      "equilibrium",
-      "demerit good",
-      "external cost",
-      "inelastic",
-      "elasticity",
-      "market failure",
-      "social optimum",
+      "aggregate demand",
+      "c + i + g + nx",
+      "monetary policy",
+      "fiscal policy",
+      "demand-pull inflation",
+      "production capacity",
+      "profit motive",
+      "gdp",
+      "economic growth",
+      "budget deficit",
+      "merit goods",
     ],
     clauses: [
       {
-        text: "A minimum price is a price floor set above equilibrium, ",
+        text: "Aggregate demand is equal C + I + G + NX. Aggregate demand can be increased in certain cases by expansionary monetary and fiscal policies. ",
         ao: "AO1",
-        note: "Definition, precisely stated. AO1 credited.",
+        note: "AO1 credited: AD formula components (C+I+G+NX) and monetary/fiscal macroeconomic levers accurately defined.",
       },
       {
-        text: "used where a demerit good is over-consumed because its external costs are ignored by the individual. ",
+        text: "Increased aggregate demand can cause demand-pull inflation. ",
         ao: "AO1",
-        note: "Links the policy to the market failure. Still AO1, but earning it.",
+        note: "Cambridge terminology applied: demand-pull inflation recognized.",
       },
       {
-        text: "Raising price from P1 to Pmin contracts demand along the curve to Q2, ",
+        text: "Increased aggregate demand may mean increase in production. As when aggregate demand is high, it means suppliers are incentivised to produce due to their profit motive. Increased production can lead to increased job opportunities, and also increased production leading to an increase in GDP (Economic growth). ",
         ao: "AO2",
-        note: "The chain has started — and it's on the diagram.",
+        note: "AO2 credited: complete analytical transmission chain linking consumer spending to producer output, employment, and real GDP growth.",
       },
       {
-        text: "so consumption and therefore external cost fall, moving output toward the social optimum. ",
+        text: "But, the level of increase in production depends on the production capacity. If an economy is already operating at maximum production capacity, and high aggregate demand may only lead to higher prices. This is because firms may not have enough resources to increase production capacity. ",
+        ao: "AO3",
+        note: "AO3 credited: critical capacity bottleneck constraint. Evaluates where on the aggregate supply curve the economy operates.",
+      },
+      {
+        text: "As AD shifts outward, the increase in quantity is minimal from Y1 to Y2, but the price level rises sharply from P1 to P2. ",
         ao: "AO2",
-        note: "Cause reaches consequence. This is the sentence most answers stop before.",
+        note: "AO2 credited: diagrammatic shift mechanics accurately integrated into written prose.",
       },
       {
-        text: "However the size of that fall depends on price elasticity of demand: for an addictive good demand is inelastic, so a large price rise buys a small fall in quantity. ",
-        ao: "AO3",
-        note: "Judgement with a condition attached. AO3 in full.",
+        text: "Increase in aggregate demand can be more government revenue. As increased demand means that consumers are spending more, producers may be increasing production. This means revenue from income tax and corporate tax rises, leading to more budget for the government to spend on merit goods like healthcare and education. ",
+        ao: "AO2",
+        note: "AO2 credited: analytical bridge linking macroeconomic expansion to fiscal tax yields and public investment in merit goods.",
       },
       {
-        text: "A minimum price is therefore most effective where demand is relatively elastic and enforcement is credible; otherwise taxation with hypothecated revenue does more.",
+        text: "But, a high aggregate demand is not always due to increased consumer spending. It can also be due to an increase in government spending as part of an expansionary fiscal policies. If that is true, while aggregate demand may be high, it may actually cause a budget deficit for the government as their spending may be high and taxation low.",
         ao: "AO3",
-        note: "Answers the actual command word: which, and when.",
+        note: "AO3 in full: high-band evaluative counter-argument addressing fiscal solvency and government budget deficit risks.",
       },
     ],
     levels: {
       level1: {
-        title: "Level 1: Basic Knowledge (4/12)",
+        title: "Level 1: Basic Definition (4/12)",
         mark: 4,
-        text: "A minimum price is a price floor set above the equilibrium price. Demerit goods are goods that are overconsumed by consumers because of information failure and negative external costs.",
-        tip: "Definition only. Without a causal chain showing how demand contracts, marks are capped in Level 1.",
+        text: "Aggregate demand is equal C + I + G + NX. Aggregate demand is the total demand for all goods and services in an economy. Increased aggregate demand can be caused by expansionary monetary and fiscal policies.",
+        tip: "Definition only. Without developing analytical chains linking AD to output, employment, and prices, marks are capped in Level 1.",
       },
       level2: {
-        title: "Level 2: Developed Analysis (8/12)",
+        title: "Level 2: Candidate Live Script (8/12)",
         mark: 8,
-        text: "A minimum price is a price floor set above equilibrium. When the government introduces Pmin, this contracts demand along the demand curve to Q2. Because price rises, consumption falls and the external cost is reduced, shifting output closer to the socially optimum level.",
-        tip: "Strong analysis chain reaching market equilibrium, but zero evaluation. Add price elasticity of demand to reach Level 3.",
+        text: "Aggregate demand is equal C + I + G + NX. Aggregate demand can be increased in certain cases by expansionary monetary and fiscal policies. Increased aggregate demand can cause demand-pull inflation.\n\nIncreased aggregate demand may mean increase in production. As when aggregate demand is high, it means suppliers are incentivised to produce due to their profit motive. Increased production can lead to increased job opportunities, and also increased production leading to an increase in GDP (Economic growth).\n\nBut, the level of increase in production depends on the production capacity. If an economy is already operating at maximum production capacity, and high aggregate demand may only lead to higher prices. This is because firms may not have enough resources to increase production capacity. This can be shown from the diagram below.\n\nAs AD shifts outward, the increase in quantity is minimal from Y1 to Y2, but the price level rises sharply from P1 to P2.\n\nIncrease in aggregate demand can be more government revenue. As increased demand means that consumers are spending more, producers may be increasing production. This means revenue from income tax and corporate tax rises, leading to more budget for the government to spend on merit goods like healthcare and education.\n\nBut, a high aggregate demand is not always due to increased consumer spending. It can also be due to an increase in government spending as part of an expansionary fiscal policies. If that is true, while aggregate demand may be high, it may actually cause a budget deficit for the government as their spending may be high and taxation low.",
+        tip: "Real student draft: Strong AO1 definitions and solid AO2 transmission chains to GDP and tax revenue. Good evaluation of capacity limits and fiscal deficits (8/12).",
       },
       level3: {
         title: "Level 3: Full Marks Exemplar (12/12)",
         mark: 12,
-        text: "A minimum price is a price floor set above equilibrium, used where a demerit good is over-consumed because its external costs are ignored by the individual. Raising price from P1 to Pmin contracts demand along the curve to Q2, so consumption and therefore external cost fall, moving output toward the social optimum. However the size of that fall depends on price elasticity of demand: for an addictive good demand is inelastic, so a large price rise buys a small fall in quantity. A minimum price is therefore most effective where demand is relatively elastic and enforcement is credible; otherwise taxation with hypothecated revenue does more.",
-        tip: "Outstanding response meeting all Cambridge 9708 criteria: precise definitions, unbroken analysis chain, and conditional evaluation.",
+        text: "Aggregate demand is equal to C + I + G + (X - M). An outward shift in AD via expansionary fiscal or monetary policy incentivises firms to raise output due to the profit motive, increasing derived labour demand and accelerating real GDP growth. Furthermore, higher corporate profits and incomes yield buoyant tax revenue for public expenditure on merit goods. However, the net economic benefit depends strictly on current spare capacity. If the economy operates on the vertical, classical segment of the LRAS curve, higher AD produces demand-pull inflation without real output gains. Additionally, debt-financed government spending risks structural budget deficits and current account deterioration. Therefore, an AD increase is only of overall benefit when an economy has an initial negative output gap and supply-side capacity expands concurrently.",
+        tip: "Outstanding response: precise Keynesian/Classical synthesis, unbroken transmission mechanisms, and conditional evaluation answering 'overall benefit'.",
       },
     },
   },
@@ -272,7 +279,7 @@ export function LiveMarkDemo() {
   const [typed, setTyped] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [customText, setCustomText] = useState("");
-  const [selectedLevel, setSelectedLevel] = useState<"level1" | "level2" | "level3" | "custom">("level3");
+  const [selectedLevel, setSelectedLevel] = useState<"level1" | "level2" | "level3" | "custom">("level2");
   const [justChanged, setJustChanged] = useState(false);
   const previousMarkRef = useRef<number | null>(null);
 
@@ -281,9 +288,9 @@ export function LiveMarkDemo() {
 
   // Initial text setup
   useEffect(() => {
-    setCustomText(specimen.levels.level3.text);
-    setSelectedLevel("level3");
-    setTyped(specimen.levels.level3.text.length);
+    setCustomText(specimen.levels.level2.text);
+    setSelectedLevel("level2");
+    setTyped(specimen.levels.level2.text.length);
   }, [specimenIndex]);
 
   // Autotyping engine
@@ -324,8 +331,14 @@ export function LiveMarkDemo() {
       }
     });
 
-    // Detect common misspellings
+    // Detect common misspellings & specific Cambridge mechanics
     const misspellings: { wrong: string; correct: string }[] = [];
+    if (text.includes("demand pull inflate")) {
+      misspellings.push({ wrong: "demand pull inflate", correct: "demand-pull inflation" });
+    }
+    if (text.includes("thai because")) {
+      misspellings.push({ wrong: "Thai because", correct: "This is because" });
+    }
     words.forEach((w) => {
       const clean = w.replace(/[^a-z]/g, "");
       if (COMMON_MISSPELLINGS[clean]) {
@@ -361,6 +374,8 @@ export function LiveMarkDemo() {
       "reduces",
       "increases",
       "exceeds",
+      "incentivised",
+      "profit motive",
     ];
     let ao2Hits = 0;
     analyticalConnectors.forEach((c) => {
@@ -390,6 +405,8 @@ export function LiveMarkDemo() {
       "in contrast",
       "limitation",
       "condition",
+      "capacity",
+      "deficit",
     ];
     let ao3Hits = 0;
     evalConnectors.forEach((c) => {
@@ -416,9 +433,9 @@ export function LiveMarkDemo() {
     } else if (ao2Awarded < Math.ceil(ao2Max / 2)) {
       nextMove = "Develop a because → effect → consequence chain to show how the economic mechanism works.";
     } else if (ao3Max > 0 && ao3Awarded === 0) {
-      nextMove = "Add an evaluative counter-argument or condition (e.g. price elasticity, time period, or alternative policies).";
+      nextMove = "Add an evaluative counter-argument or condition (e.g. capacity limits, time period, or fiscal deficits).";
     } else if (ao3Max > 0 && ao3Awarded < ao3Max) {
-      nextMove = "Weigh up your points and reach a justified overall conclusion answering the command word.";
+      nextMove = "Weigh up whether long-run supply-side improvements from infrastructure and education spending offset the short-run inflationary risks.";
     } else {
       nextMove = "Full Cambridge criteria satisfied! Response demonstrates high-band knowledge, analysis, and evaluation.";
     }
@@ -513,11 +530,11 @@ export function LiveMarkDemo() {
             className={cn(
               "px-2.5 py-1 rounded-md font-medium transition-colors border",
               selectedLevel === "level2"
-                ? "bg-muted text-foreground border-primary/40 font-semibold"
+                ? "bg-primary/10 text-primary border-primary font-bold shadow-xs"
                 : "text-muted-foreground border-border hover:bg-muted/50",
             )}
           >
-            Level 2 (Merit · {specimen.levels.level2.mark}m)
+            Level 2 (Candidate Script · {specimen.levels.level2.mark}m)
           </button>
           <button
             type="button"
@@ -525,7 +542,7 @@ export function LiveMarkDemo() {
             className={cn(
               "px-2.5 py-1 rounded-md font-medium transition-colors border",
               selectedLevel === "level3"
-                ? "bg-primary/10 text-primary border-primary font-bold"
+                ? "bg-primary/10 text-primary border-primary font-bold shadow-xs"
                 : "text-muted-foreground border-border hover:bg-muted/50",
             )}
           >
@@ -549,22 +566,62 @@ export function LiveMarkDemo() {
         {/* Left Column: Interactive Essay Writing Workspace */}
         <div className="p-5 md:p-6 flex flex-col justify-between min-h-[380px] bg-background">
           <div className="space-y-4">
-            {/* Question Header */}
-            <div className="rounded-xl border border-primary/20 bg-primary/5 p-3.5">
-              <div className="flex items-center justify-between text-[11px] font-mono text-primary font-bold mb-1">
-                <span>{specimen.paper}</span>
-                <span>Max Marks: {specimen.total}</span>
+            {/* Cambridge Script Header */}
+            <div className="rounded-xl border border-primary/20 bg-muted/30 p-3.5 space-y-2">
+              <div className="flex flex-wrap items-center justify-between gap-1.5 text-[10.5px]">
+                <div className="flex items-center gap-1.5 font-mono text-muted-foreground text-[10px]">
+                  <span className="font-semibold text-foreground">CAMBRIDGE ASSESSMENT INTERNATIONAL EDUCATION</span>
+                  <span>·</span>
+                  <span className="text-primary font-bold">9708 SYLLABUS</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="inline-flex items-center gap-1 rounded bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                    <span className="size-1.5 rounded-full bg-emerald-500" /> Script Active
+                  </span>
+                  <Badge variant="outline" className="font-mono text-[9.5px] border-primary/30 bg-primary/10 text-primary">
+                    Max Tariff: [{specimen.total} Marks]
+                  </Badge>
+                </div>
               </div>
-              <p className="text-sm font-semibold text-foreground leading-snug">
+              <div className="flex items-center justify-between text-xs font-bold text-foreground">
+                <span>{specimen.paper}</span>
+                <span className="font-mono text-[10px] text-muted-foreground">QUESTION 1 [{specimen.total}] · CONTINUOUS PROSE</span>
+              </div>
+              <p className="text-[13px] font-semibold text-foreground leading-snug pt-0.5 border-t border-border/60">
                 “{specimen.question}”
               </p>
+            </div>
+
+            {/* Quick Notations bar */}
+            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 text-[10px]">
+              <span className="font-mono uppercase text-muted-foreground text-[9px] shrink-0">Quick Notation:</span>
+              {[
+                { label: "+ PED formula", insert: " PED = %ΔQd / %ΔP " },
+                { label: "+ YED formula", insert: " YED = %ΔQd / %ΔY " },
+                { label: "+ PES formula", insert: " PES = %ΔQs / %ΔP " },
+                { label: "+ AD equation", insert: " AD = C + I + G + NX " },
+                { label: "+ LRAS / SRAS", insert: " LRAS / SRAS shifts " },
+                { label: "+ PPC", insert: " PPC outward shift " },
+              ].map((item) => (
+                <button
+                  key={item.label}
+                  type="button"
+                  onClick={() => {
+                    setCustomText((prev) => prev + item.insert);
+                    setSelectedLevel("custom");
+                  }}
+                  className="rounded bg-muted/60 hover:bg-muted px-1.5 py-0.5 font-mono text-[9.5px] text-foreground border border-border/70 transition-colors shrink-0"
+                >
+                  {item.label}
+                </button>
+              ))}
             </div>
 
             {/* Editable Interactive Textarea */}
             <div>
               <div className="flex items-center justify-between text-xs text-muted-foreground mb-1.5">
                 <span className="font-semibold text-foreground flex items-center gap-1.5">
-                  <Edit3 className="size-3.5 text-primary" /> Essay Workspace (Type or edit freely)
+                  <Edit3 className="size-3.5 text-primary" /> Essay Workspace (Candidate Answer Script)
                 </span>
                 <span className="text-[11px]">
                   {liveAnalysis.wordCount} words · ~{Math.max(1, Math.ceil(liveAnalysis.wordCount / 20))} min read
