@@ -88,7 +88,7 @@ import {
 import { isVaquitavoid } from "@/lib/auth-admin";
 import { getMe } from "@/lib/account.functions";
 import { topicsFor } from "@/lib/diagrams/catalog";
-import { isDailyLimitError } from "@/lib/usage-limits";
+import { isDailyLimitError, DEFAULT_LIVE_EXAMINER_DURATION_MINUTES } from "@/lib/usage-limits";
 import type { Grading } from "@/lib/examiner/types";
 import { cn } from "@/lib/utils";
 
@@ -433,12 +433,22 @@ function LiveExaminerPage() {
       (meQuery.data?.userId && isVaquitavoid({ userId: meQuery.data.userId }))
   );
 
-  const hasActiveDailySession = !isAdmin && Boolean(todaySessionQuery.data?.hasActiveDailySession);
+  const DURATION_SECONDS = DEFAULT_LIVE_EXAMINER_DURATION_MINUTES * 60;
+  const isTimeExceeded =
+    Boolean(todaySessionQuery.data?.sessionStartedAt) &&
+    (Date.now() - (todaySessionQuery.data?.sessionStartedAt ?? 0)) >= DURATION_SECONDS * 1000;
 
-  // Auto-resume active daily session when page loads
+  const isTodaySessionExpired =
+    !isAdmin &&
+    (Boolean((todaySessionQuery.data as any)?.isExpired) || isTimeExceeded);
+
+  const hasActiveDailySession =
+    !isAdmin && !isTodaySessionExpired && Boolean(todaySessionQuery.data?.hasActiveDailySession);
+
+  // Auto-resume active daily session when page loads (only when not expired)
   useEffect(() => {
     const today = todaySessionQuery.data;
-    if (today?.hasActiveDailySession && !started) {
+    if (today?.hasActiveDailySession && !started && !isTodaySessionExpired) {
       const targetLevel = (today.session?.level as "as" | "a2") ?? level;
       const targetTopic = today.session?.topic ?? topic;
       const targetQuestion = today.session?.question ?? today.claimedQuestion ?? question;
@@ -464,7 +474,7 @@ function LiveExaminerPage() {
         });
       }
     }
-  }, [todaySessionQuery.data, started]);
+  }, [todaySessionQuery.data, started, isTodaySessionExpired]);
 
   // --- Resume an existing draft for this question, if one exists --------
   const fetchSession = useServerFn(getLiveExaminerSession);
@@ -552,10 +562,15 @@ function LiveExaminerPage() {
     level,
     maxMark,
     contextBlock,
-    enabled: started && contextMutation.isSuccess,
+    enabled: started && contextMutation.isSuccess && !isTodaySessionExpired,
     sessionStartedAt: authoritativeStartedAt,
     isAdmin,
   });
+
+  // For students, when time limit is reached, locked out of live examiner itself:
+  // only able to see their essay, with a small notification on top.
+  const isLockedOut =
+    !isAdmin && (isTodaySessionExpired || (started && aiCoachingExpired));
 
   // --- Autosave, debounced, independent of the AI check debounce --------
   // Flawless here means: never silently stop trying. A failed save keeps
@@ -630,6 +645,13 @@ function LiveExaminerPage() {
     };
   }, [essayText, started, doSave]);
 
+  // When time limit locks out the session, immediately save any pending draft text
+  useEffect(() => {
+    if (isLockedOut && essayText.trim() && essayText !== lastSavedTextRef.current) {
+      doSave(essayText);
+    }
+  }, [isLockedOut, essayText, doSave]);
+
   useEffect(() => {
     return () => {
       if (retryTimer.current) clearTimeout(retryTimer.current);
@@ -678,6 +700,76 @@ function LiveExaminerPage() {
     });
     setRestartDialogOpen(false);
     toast.success("Cleared — write the full answer again from scratch.");
+  }
+
+  if (todaySessionQuery.isLoading && !started) {
+    return (
+      <div className="flex min-h-64 flex-col items-center justify-center gap-3 p-8 text-center">
+        <Loader2 className="size-5 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (isLockedOut) {
+    const displayEssayText =
+      essayText.trim() || todaySessionQuery.data?.session?.essay_text || "";
+    const displayQuestion =
+      question.trim() ||
+      todaySessionQuery.data?.session?.question ||
+      todaySessionQuery.data?.claimedQuestion ||
+      "";
+    const displayLevel =
+      (todaySessionQuery.data?.session?.level as "as" | "a2") ?? level;
+    const displayTopic = todaySessionQuery.data?.session?.topic ?? topic;
+    const displayMaxMark =
+      todaySessionQuery.data?.session?.max_mark ?? maxMark;
+
+    return (
+      <div className="mx-auto max-w-3xl p-5 md:p-8 space-y-5">
+        {/* One small notification on top saying exceed limit. Nothing else. */}
+        <div className="flex items-center justify-between border-b border-border/50 pb-3">
+          <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Live Examiner
+          </span>
+          <span className="text-xs text-muted-foreground bg-muted border border-border/60 px-2.5 py-0.5 rounded-full font-medium">
+            Exceeded limit
+          </span>
+        </div>
+
+        {/* Only able to see their essay. Nothing else. */}
+        <div className="rounded-xl border border-border/70 bg-card p-6 md:p-8 shadow-sm space-y-6">
+          {displayQuestion ? (
+            <div className="border-b border-border/50 pb-4">
+              <div className="flex items-center gap-2 mb-1.5">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-primary">
+                  {displayLevel === "a2" ? "A Level" : "AS Level"} · [{displayMaxMark} Marks]
+                </span>
+                {displayTopic ? (
+                  <span className="text-xs text-muted-foreground truncate">· {displayTopic}</span>
+                ) : null}
+              </div>
+              <p className="text-sm md:text-base font-medium text-foreground leading-relaxed">
+                {displayQuestion}
+              </p>
+            </div>
+          ) : null}
+
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Your Written Answer
+              </span>
+              <span className="text-xs font-mono text-muted-foreground">
+                {displayEssayText.trim() ? displayEssayText.trim().split(/\s+/).length : 0} words
+              </span>
+            </div>
+            <div className="text-sm md:text-base leading-relaxed whitespace-pre-wrap font-sans text-foreground/90 select-text p-5 rounded-lg bg-muted/20 border border-border/40 min-h-[300px]">
+              {displayEssayText.trim() || "(No written answer was submitted for this session.)"}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (

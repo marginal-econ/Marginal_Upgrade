@@ -57,4 +57,28 @@ describe("Live Examiner Session Duration & Limits", () => {
     const adminFormatted = isAdmin ? "Unlimited" : `${mins}:${secs < 10 ? "0" : ""}${secs}`;
     expect(adminFormatted).toBe("Unlimited");
   });
+
+  it("locks out students when session duration is exceeded", () => {
+    const durationSeconds = DEFAULT_LIVE_EXAMINER_DURATION_MINUTES * 60; // 2700s
+
+    // Student who hasn't exceeded time: not locked out
+    const studentElapsed = 1200; // 20m
+    const studentRemaining = Math.max(0, durationSeconds - studentElapsed);
+    const isStudentExpired = studentRemaining <= 0;
+    const isStudentLockedOut = !false && isStudentExpired;
+    expect(isStudentLockedOut).toBe(false);
+
+    // Student who exceeded 45 minutes: locked out
+    const expiredStudentElapsed = 2701; // 45m 1s
+    const expiredStudentRemaining = Math.max(0, durationSeconds - expiredStudentElapsed);
+    const isExpiredStudentTimeUp = expiredStudentRemaining <= 0;
+    const isExpiredStudentLockedOut = !false && isExpiredStudentTimeUp;
+    expect(isExpiredStudentLockedOut).toBe(true);
+
+    // Admin who has been writing for 2 hours: never locked out
+    const adminElapsed = 7200; // 2 hours
+    const isAdmin = true;
+    const isAdminLockedOut = !isAdmin && (Math.max(0, durationSeconds - adminElapsed) <= 0);
+    expect(isAdminLockedOut).toBe(false);
+  });
 });

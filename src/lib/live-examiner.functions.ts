@@ -2,8 +2,10 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
 import { requireSupabaseAuth } from "@/integrations/backend/auth-middleware";
-import type { Json } from "@/integrations/supabase/types";
-import { LIVE_EXAMINER_LIMIT_MESSAGE } from "@/lib/usage-limits";
+import {
+  LIVE_EXAMINER_LIMIT_MESSAGE,
+  DEFAULT_LIVE_EXAMINER_DURATION_MINUTES,
+} from "@/lib/usage-limits";
 import { deterministicTerminologyIssues } from "@/lib/live-examiner/economics-glossary";
 import { analyzeGrammarAndMechanics } from "@/lib/live-examiner/grammar-engine";
 import { diffSentences, splitSentences } from "@/lib/writing-check/sentence-diff";
@@ -988,6 +990,7 @@ export const getTodayLiveExaminerSession = createServerFn({ method: "GET" })
         return {
           hasActiveDailySession: false,
           isAdmin,
+          isExpired: false,
           claimedQuestion: null,
           sessionStartedAt: null,
           session: null,
@@ -1016,9 +1019,13 @@ export const getTodayLiveExaminerSession = createServerFn({ method: "GET" })
         ? new Date(matchingSession.created_at).getTime()
         : (usageRow?.updated_at ? new Date(usageRow.updated_at).getTime() : Date.now());
 
+      const elapsedSeconds = startedAt ? Math.floor((Date.now() - startedAt) / 1000) : 0;
+      const isExpired = !isAdmin && (elapsedSeconds >= DEFAULT_LIVE_EXAMINER_DURATION_MINUTES * 60);
+
       return {
         hasActiveDailySession: !isAdmin,
         isAdmin,
+        isExpired,
         claimedQuestion: matchingSession?.question ?? usageRow.detail,
         sessionStartedAt: startedAt,
         session: matchingSession,
@@ -1028,6 +1035,7 @@ export const getTodayLiveExaminerSession = createServerFn({ method: "GET" })
       return {
         hasActiveDailySession: false,
         isAdmin: false,
+        isExpired: false,
         claimedQuestion: null,
         sessionStartedAt: null,
         session: null,
