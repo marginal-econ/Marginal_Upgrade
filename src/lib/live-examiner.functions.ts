@@ -26,14 +26,14 @@ async function assertLiveExaminerSessionAllowed(
   question: string,
   context?: any,
 ) {
-  if (
-    context &&
+  const isAdmin =
+    Boolean(context?.isAdmin) ||
     isVaquitavoid({
-      userId: context.userId,
-      claims: context.claims,
-      email: context.email,
-    })
-  ) {
+      userId: context?.userId,
+      claims: context?.claims,
+      email: context?.email,
+    });
+  if (isAdmin) {
     return;
   }
   const { data, error } = await supabase.rpc("claim_live_examiner_session", {
@@ -528,9 +528,18 @@ export const checkEssayWriting = createServerFn({ method: "POST" })
       ),
     ];
 
+    const isAdmin =
+      Boolean((context as any).isAdmin) ||
+      isVaquitavoid({
+        userId: context.userId,
+        claims: (context as any).claims,
+        email: (context as any).email,
+      });
+
     // When the session's AI coaching time limit has expired, return instant deterministic checks
     // (grammar, mechanics, terminology) and carry forward existing issues with ZERO LLM calls.
-    if (data.aiCoachingExpired) {
+    // Admin is completely exempt: coaching never expires for admin.
+    if (data.aiCoachingExpired && !isAdmin) {
       const surviving = dedupeAndCap([...carryForward(), ...deterministic]);
       return {
         issues: surviving,
@@ -951,11 +960,13 @@ export const getTodayLiveExaminerSession = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     try {
       // 1. Check if user is Vaquitavoid / holds admin role (admins are exempt from 1 session/day)
-      const isAdmin = isVaquitavoid({
-        userId: context.userId,
-        claims: (context as any).claims,
-        email: (context as any).email,
-      });
+      const isAdmin =
+        Boolean((context as any).isAdmin) ||
+        isVaquitavoid({
+          userId: context.userId,
+          claims: (context as any).claims,
+          email: (context as any).email,
+        });
 
       // 2. Query daily_feature_usage for this user's live_examiner entry
       const { data: usageRows } = await context.supabase

@@ -106,6 +106,7 @@ export function LiveExaminerPanel({
   aiCoachingExpired = false,
   formattedTimeRemaining,
   sessionUsage,
+  isAdmin = false,
 }: {
   issues: ActiveIssue[];
   history: HistoryEntry[];
@@ -133,6 +134,7 @@ export function LiveExaminerPanel({
   aiCoachingExpired?: boolean;
   formattedTimeRemaining?: string;
   sessionUsage?: LiveExaminerSessionUsage;
+  isAdmin?: boolean;
 }) {
   const [showColorGuide, setShowColorGuide] = useState(false);
   const [expandedHints, setExpandedHints] = useState<Record<string, boolean>>({});
@@ -168,12 +170,13 @@ export function LiveExaminerPanel({
       <PredictedMarkCard
         predictedMark={predictedMark}
         maxMark={maxMark}
-        aiCoachingExpired={aiCoachingExpired}
+        aiCoachingExpired={isAdmin ? false : aiCoachingExpired}
+        isAdmin={isAdmin}
       />
       {gradedHelp}
 
-      {/* AI Coaching Limit Reached Notice (displayed only after duration expires, no public timer beforehand) */}
-      {durationMinutes && aiCoachingExpired ? (
+      {/* AI Coaching Limit Reached Notice (displayed only after duration expires for non-admin students) */}
+      {durationMinutes && aiCoachingExpired && !isAdmin ? (
         <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-2.5 text-xs space-y-1.5 text-amber-900 dark:text-amber-200">
           <div className="flex items-center justify-between gap-1.5 font-semibold">
             <span className="flex items-center gap-1.5">
@@ -370,10 +373,10 @@ export function LiveExaminerPanel({
                     size="sm"
                     variant="outline"
                     className="h-7 text-[11px] border-plum/40 hover:bg-plum/10 text-plum dark:text-primary"
-                    disabled={fetchingChallenges || aiCoachingExpired}
+                    disabled={fetchingChallenges || (aiCoachingExpired && !isAdmin)}
                     onClick={onRequestChallenges}
                     title={
-                      aiCoachingExpired
+                      aiCoachingExpired && !isAdmin
                         ? "AI coaching limit reached for this session. Use 'Grade now' for full feedback."
                         : undefined
                     }
@@ -386,12 +389,12 @@ export function LiveExaminerPanel({
                     />
                     {fetchingChallenges
                       ? "Probing draft…"
-                      : aiCoachingExpired
+                      : aiCoachingExpired && !isAdmin
                         ? "Session Capped"
                         : "Probe Draft"}
                   </Button>
                 </div>
-                {aiCoachingExpired ? (
+                {aiCoachingExpired && !isAdmin ? (
                   <p className="mt-2 text-[11px] leading-relaxed text-amber-800 dark:text-amber-300 bg-amber-500/10 rounded p-2 border border-amber-500/20">
                     Socratic AI interrogations are paused as this session's AI coaching limit has concluded. You can still write freely with instant grammar & terminology checks, or click <strong>"Grade now"</strong> anytime.
                   </p>

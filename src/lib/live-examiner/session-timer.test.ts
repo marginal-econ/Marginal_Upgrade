@@ -43,11 +43,18 @@ describe("Live Examiner Session Duration & Limits", () => {
     const formatted = `${mins}:${secs < 10 ? "0" : ""}${secs}`;
     expect(formatted).toBe("35:00");
 
-    // Elapsed past duration (2800s) -> expired
+    // Elapsed past duration (2800s) -> expired for regular student
     const expiredElapsed = 2800;
     const expiredRemaining = Math.max(0, durationSeconds - expiredElapsed);
     expect(expiredRemaining).toBe(0);
     const isExpired = expiredRemaining <= 0;
     expect(isExpired).toBe(true);
+
+    // Admin exemption: coaching never expires, formatted as Unlimited
+    const isAdmin = true;
+    const adminCoachingExpired = isAdmin ? false : isExpired;
+    expect(adminCoachingExpired).toBe(false);
+    const adminFormatted = isAdmin ? "Unlimited" : `${mins}:${secs < 10 ? "0" : ""}${secs}`;
+    expect(adminFormatted).toBe("Unlimited");
   });
 });

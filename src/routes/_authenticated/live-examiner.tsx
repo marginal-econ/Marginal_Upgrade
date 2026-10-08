@@ -85,6 +85,8 @@ import {
   type MaxOutSuggestion,
   type MaxOutResponse,
 } from "@/lib/live-examiner.functions";
+import { isVaquitavoid } from "@/lib/auth-admin";
+import { getMe } from "@/lib/account.functions";
 import { topicsFor } from "@/lib/diagrams/catalog";
 import { isDailyLimitError } from "@/lib/usage-limits";
 import type { Grading } from "@/lib/examiner/types";
@@ -418,7 +420,20 @@ function LiveExaminerPage() {
     staleTime: 30_000,
   });
 
-  const hasActiveDailySession = Boolean(todaySessionQuery.data?.hasActiveDailySession);
+  const fetchMe = useServerFn(getMe);
+  const meQuery = useQuery({
+    queryKey: ["me"],
+    queryFn: () => fetchMe(),
+    staleTime: 60_000,
+  });
+
+  const isAdmin = Boolean(
+    todaySessionQuery.data?.isAdmin ||
+      meQuery.data?.role === "admin" ||
+      (meQuery.data?.userId && isVaquitavoid({ userId: meQuery.data.userId }))
+  );
+
+  const hasActiveDailySession = !isAdmin && Boolean(todaySessionQuery.data?.hasActiveDailySession);
 
   // Auto-resume active daily session when page loads
   useEffect(() => {
@@ -539,6 +554,7 @@ function LiveExaminerPage() {
     contextBlock,
     enabled: started && contextMutation.isSuccess,
     sessionStartedAt: authoritativeStartedAt,
+    isAdmin,
   });
 
   // --- Autosave, debounced, independent of the AI check debounce --------
@@ -945,7 +961,7 @@ function LiveExaminerPage() {
 
                 <div className="flex items-center gap-1 text-xs text-muted-foreground font-mono">
                   <Clock className="size-3.5" />
-                  <span>{formattedTimeRemaining}</span>
+                  <span>{isAdmin ? "Admin (Unlimited)" : formattedTimeRemaining}</span>
                 </div>
 
                 {autosave === "saving" ? (
@@ -1206,6 +1222,7 @@ function LiveExaminerPage() {
                 aiCoachingExpired={aiCoachingExpired}
                 formattedTimeRemaining={formattedTimeRemaining}
                 sessionUsage={sessionUsage}
+                isAdmin={isAdmin}
                 onFocusIssue={(id) => setFocusedIssueId(id)}
                 gradedHelp={
                   gradeMutation.data &&

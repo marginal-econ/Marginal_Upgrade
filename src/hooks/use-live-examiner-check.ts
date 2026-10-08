@@ -114,6 +114,8 @@ export function useLiveExaminerCheck(params: {
   sessionDurationMinutes?: number;
   /** Timestamp when session started (from database session created_at). */
   sessionStartedAt?: number | null;
+  /** When true, all AI session timers and duration limits are bypassed completely. */
+  isAdmin?: boolean;
 }) {
   const {
     text,
@@ -124,6 +126,7 @@ export function useLiveExaminerCheck(params: {
     enabled,
     sessionDurationMinutes,
     sessionStartedAt,
+    isAdmin = false,
   } = params;
   const check = useServerFn(checkEssayWriting);
 
@@ -172,10 +175,10 @@ export function useLiveExaminerCheck(params: {
     return () => clearInterval(interval);
   }, [enabled, question, sessionStartTime, durationSeconds]);
 
-  const aiCoachingExpired = remainingSeconds <= 0;
-  const mins = Math.floor(remainingSeconds / 60);
-  const secs = remainingSeconds % 60;
-  const formattedTimeRemaining = `${mins}:${secs < 10 ? "0" : ""}${secs}`;
+  const aiCoachingExpired = isAdmin ? false : remainingSeconds <= 0;
+  const mins = Math.max(0, Math.floor(remainingSeconds / 60));
+  const secs = Math.max(0, remainingSeconds % 60);
+  const formattedTimeRemaining = isAdmin ? "Unlimited" : `${mins}:${secs < 10 ? "0" : ""}${secs}`;
 
   const [sessionUsage, setSessionUsage] = useState<LiveExaminerSessionUsage>({
     totalTokensUsed: 0,
@@ -316,7 +319,7 @@ export function useLiveExaminerCheck(params: {
         lastEstimatedMarkAtRef.current = Date.now();
       }
 
-      if (aiCoachingExpired) {
+      if (aiCoachingExpired && !isAdmin) {
         // AI coaching time limit reached for this session.
         // Instant in-browser deterministic checks continue (< 50ms, 0 tokens),
         // but remote AI calls are halted to protect unit economics.
@@ -339,7 +342,7 @@ export function useLiveExaminerCheck(params: {
           maxMark,
           contextBlock,
           includePredictedMark: shouldIncludeEstimate,
-          aiCoachingExpired,
+          aiCoachingExpired: isAdmin ? false : aiCoachingExpired,
         },
       })
         .then((result) => {
