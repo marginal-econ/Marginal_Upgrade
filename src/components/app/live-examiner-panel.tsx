@@ -98,6 +98,7 @@ export function LiveExaminerPanel({
   gradedHelp,
   onAccept,
   onDismiss,
+  onFocusIssue,
   onRescan,
   onClearAll,
   durationMinutes,
@@ -124,6 +125,7 @@ export function LiveExaminerPanel({
   gradedHelp?: ReactNode;
   onAccept: (id: string) => void;
   onDismiss: (id: string) => void;
+  onFocusIssue?: (id: string) => void;
   onRescan: () => void;
   onClearAll: () => void;
   durationMinutes?: number;
@@ -314,7 +316,7 @@ export function LiveExaminerPanel({
                         "{issue.evidence}"
                       </p>
                     ) : null}
-                    <div className="mt-2 flex gap-1.5">
+                    <div className="mt-2 flex items-center gap-1.5">
                       <Button
                         type="button"
                         size="sm"
@@ -323,6 +325,18 @@ export function LiveExaminerPanel({
                       >
                         <Check className="size-3" /> Accept
                       </Button>
+                      {onFocusIssue ? (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="secondary"
+                          className="h-6 px-2 text-[11px]"
+                          onClick={() => onFocusIssue(issue.id)}
+                          title="Locate and highlight in script"
+                        >
+                          Locate
+                        </Button>
+                      ) : null}
                       <Button
                         type="button"
                         size="sm"

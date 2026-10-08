@@ -23,73 +23,118 @@ const CATEGORY_AO: Record<IssueCategory, string | null> = {
   misconception: AO_DEFINITIONS.ao1.code,
 };
 
-const CATEGORY_META: Record<IssueCategory, { label: string; mark: string; dot: string }> = {
+export type UnderlineStyleMeta = {
+  label: string;
+  dot: string;
+  underlineColor: string;
+  underlineStyle: "wavy" | "solid" | "dashed";
+  underlineThickness: string;
+  offset: string;
+};
+
+const CATEGORY_META: Record<IssueCategory, UnderlineStyleMeta> = {
   grammar: {
     label: "Grammar",
-    mark: "border-b border-rose-400/70 border-dashed",
     dot: "bg-rose-500 dark:bg-rose-400",
+    underlineColor: "rgba(244, 63, 94, 0.75)",
+    underlineStyle: "dashed",
+    underlineThickness: "1.5px",
+    offset: "5px",
   },
   clarity: {
     label: "Clarity",
-    mark: "border-b border-muted-foreground/70 border-dotted",
     dot: "bg-muted-foreground",
+    underlineColor: "rgba(161, 161, 170, 0.75)",
+    underlineStyle: "dashed",
+    underlineThickness: "1.5px",
+    offset: "5px",
   },
   economics_accuracy: {
     label: "Economics accuracy",
-    mark: "border-b-2 border-rose-500/90",
-    dot: "bg-rose-500",
+    dot: "bg-rose-600",
+    underlineColor: "rgba(225, 29, 72, 0.95)",
+    underlineStyle: "wavy",
+    underlineThickness: "2.5px",
+    offset: "5px",
   },
   misconception: {
     label: "Economic misconception",
-    mark: "border-b-2 border-red-600",
     dot: "bg-red-600 dark:bg-red-400",
+    underlineColor: "rgba(220, 38, 38, 0.95)",
+    underlineStyle: "wavy",
+    underlineThickness: "2.5px",
+    offset: "5px",
   },
   analysis: {
     label: "Analysis",
-    mark: "border-b-2 border-amber-500/80",
     dot: "bg-amber-500",
+    underlineColor: "rgba(245, 158, 11, 0.9)",
+    underlineStyle: "solid",
+    underlineThickness: "2px",
+    offset: "5px",
   },
   application: {
     label: "Application",
-    mark: "border-b-2 border-blue-500/80",
     dot: "bg-blue-500",
+    underlineColor: "rgba(59, 130, 246, 0.9)",
+    underlineStyle: "solid",
+    underlineThickness: "2px",
+    offset: "5px",
   },
   evaluation: {
     label: "Evaluation",
-    mark: "border-b-2 border-purple-500/80",
     dot: "bg-purple-500",
+    underlineColor: "rgba(168, 85, 247, 0.9)",
+    underlineStyle: "solid",
+    underlineThickness: "2px",
+    offset: "5px",
   },
   reasoning_chain: {
     label: "Chain of reasoning",
-    mark: "border-b-2 border-amber-500/80",
     dot: "bg-amber-500 dark:bg-amber-400",
+    underlineColor: "rgba(245, 158, 11, 0.9)",
+    underlineStyle: "solid",
+    underlineThickness: "2px",
+    offset: "5px",
   },
   terminology: {
     label: "Terminology",
-    mark: "border-b-2 border-cyan-500/80",
     dot: "bg-cyan-500 dark:bg-cyan-400",
+    underlineColor: "rgba(6, 182, 212, 0.9)",
+    underlineStyle: "solid",
+    underlineThickness: "2px",
+    offset: "5px",
   },
 };
 
 const DIAGRAM_TAG = /\[DIAGRAM:[^\]]*\]/g;
 
-const AO_META = {
+const AO_META: Record<"AO1" | "AO2" | "AO3", UnderlineStyleMeta> = {
   AO1: {
     label: "AO1 Knowledge",
-    mark: "border-b border-ao1/40",
     dot: "bg-ao1",
+    underlineColor: "rgba(16, 185, 129, 0.5)",
+    underlineStyle: "solid",
+    underlineThickness: "1.5px",
+    offset: "5px",
   },
   AO2: {
     label: "AO2 Analysis",
-    mark: "border-b border-ao2/40",
     dot: "bg-ao2",
+    underlineColor: "rgba(59, 130, 246, 0.5)",
+    underlineStyle: "solid",
+    underlineThickness: "1.5px",
+    offset: "5px",
   },
   AO3: {
     label: "AO3 Evaluation",
-    mark: "border-b border-ao3/40",
     dot: "bg-ao3",
+    underlineColor: "rgba(168, 85, 247, 0.5)",
+    underlineStyle: "solid",
+    underlineThickness: "1.5px",
+    offset: "5px",
   },
-} as const;
+};
 
 type Range =
   | { start: number; end: number; id: string; kind: "issue"; issue: ActiveIssue }
@@ -186,6 +231,20 @@ function computeRanges(
   return merged;
 }
 
+export const LIVE_EXAMINER_TYPOGRAPHY: React.CSSProperties = {
+  fontFamily:
+    'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+  fontSize: "16px",
+  lineHeight: "32px",
+  letterSpacing: "0px",
+  wordSpacing: "0px",
+  boxSizing: "border-box",
+  whiteSpace: "pre-wrap",
+  wordBreak: "break-word",
+  overflowWrap: "break-word",
+  tabSize: 2,
+};
+
 export function LiveExaminerEditor({
   value,
   onChange,
@@ -195,6 +254,7 @@ export function LiveExaminerEditor({
   onDismiss,
   placeholder,
   className,
+  focusedIssueId,
 }: {
   value: string;
   onChange: (next: string) => void;
@@ -204,6 +264,7 @@ export function LiveExaminerEditor({
   onDismiss: (id: string) => void;
   placeholder?: string;
   className?: string;
+  focusedIssueId?: string | null;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const highlightRef = useRef<HTMLDivElement>(null);
@@ -217,6 +278,24 @@ export function LiveExaminerEditor({
     [value, issues, classifications],
   );
   const activeRange = ranges.find((range) => range.id === activeAnnotationId) ?? null;
+
+  // React to programmatic focus from the side panel
+  useEffect(() => {
+    if (focusedIssueId) {
+      const hit = ranges.find((r) => r.id === focusedIssueId);
+      if (hit && containerRef.current && textareaRef.current) {
+        setActiveAnnotationId(hit.id);
+        const containerBox = containerRef.current.getBoundingClientRect();
+        // Position card near middle-top if clicked from panel
+        setCardPos({
+          top: 40,
+          left: Math.max(16, Math.min(containerBox.width - 340, 60)),
+        });
+        textareaRef.current.focus();
+        textareaRef.current.setSelectionRange(hit.start, hit.end);
+      }
+    }
+  }, [focusedIssueId, ranges]);
 
   // Close the card if its issue was resolved elsewhere (accept/dismiss from
   // the side panel) or disappeared from a fresh check result.
@@ -242,7 +321,6 @@ export function LiveExaminerEditor({
   function syncScroll() {
     if (!textareaRef.current || !highlightRef.current) return;
     highlightRef.current.scrollTop = textareaRef.current.scrollTop;
-    highlightRef.current.scrollLeft = textareaRef.current.scrollLeft;
   }
 
   function handleClick(event: React.MouseEvent<HTMLTextAreaElement>) {
@@ -259,38 +337,74 @@ export function LiveExaminerEditor({
     const containerBox = container.getBoundingClientRect();
     setActiveAnnotationId(hit.id);
     setCardPos({
-      top: event.clientY - containerBox.top + 14,
-      left: Math.min(event.clientX - containerBox.left, containerBox.width - 300),
+      top: Math.max(20, event.clientY - containerBox.top + 16),
+      left: Math.max(16, Math.min(event.clientX - containerBox.left, containerBox.width - 340)),
     });
   }
 
   return (
-    <div ref={containerRef} className="relative">
+    <div ref={containerRef} className="relative w-full h-full min-h-[580px]">
       <div
         ref={highlightRef}
         aria-hidden
-        className={cn(
-          "pointer-events-none absolute inset-0 overflow-auto whitespace-pre-wrap break-words text-transparent",
-          className,
-        )}
+        style={{
+          ...LIVE_EXAMINER_TYPOGRAPHY,
+          position: "absolute",
+          inset: 0,
+          color: "transparent",
+          WebkitTextFillColor: "transparent",
+          backgroundColor: "transparent",
+          userSelect: "none",
+          pointerEvents: "none",
+          overflowY: "scroll",
+          overflowX: "hidden",
+          scrollbarWidth: "none",
+        }}
+        className={cn("p-6 md:p-8 [&::-webkit-scrollbar]:hidden", className)}
       >
-        {segments.map((segment, index) =>
-          segment.range ? (
+        {segments.map((segment, index) => {
+          if (!segment.range) {
+            return (
+              <span
+                key={index}
+                style={{
+                  color: "transparent",
+                  WebkitTextFillColor: "transparent",
+                  backgroundColor: "transparent",
+                  userSelect: "none",
+                }}
+              >
+                {segment.text}
+              </span>
+            );
+          }
+
+          const meta =
+            segment.range.kind === "issue"
+              ? CATEGORY_META[segment.range.issue.category]
+              : AO_META[segment.range.classification.ao];
+
+          return (
             <mark
               key={index}
-              className={cn(
-                "box-decoration-clone bg-transparent text-transparent font-normal",
-                segment.range.kind === "issue"
-                  ? CATEGORY_META[segment.range.issue.category].mark
-                  : AO_META[segment.range.classification.ao].mark,
-              )}
+              style={{
+                color: "transparent",
+                WebkitTextFillColor: "transparent",
+                backgroundColor: "transparent",
+                textDecorationLine: "underline",
+                textDecorationStyle: meta.underlineStyle,
+                textDecorationColor: meta.underlineColor,
+                textDecorationThickness: meta.underlineThickness,
+                textUnderlineOffset: meta.offset,
+                textDecorationSkipInk: "none",
+                fontWeight: "normal",
+                userSelect: "none",
+              }}
             >
               {segment.text}
             </mark>
-          ) : (
-            <span key={index}>{segment.text}</span>
-          ),
-        )}
+          );
+        })}
         {/* Trailing newline keeps the mirror's height in sync with the textarea. */}
         {"\n"}
       </div>
@@ -308,10 +422,22 @@ export function LiveExaminerEditor({
           }
         }}
         placeholder={placeholder}
-        className={cn(
-          "relative w-full resize-none whitespace-pre-wrap break-words bg-transparent text-foreground caret-foreground outline-none font-sans text-[15px] leading-[1.8]",
-          className,
-        )}
+        spellCheck={false}
+        style={{
+          ...LIVE_EXAMINER_TYPOGRAPHY,
+          position: "relative",
+          width: "100%",
+          height: "100%",
+          minHeight: "580px",
+          backgroundColor: "transparent",
+          color: "inherit",
+          caretColor: "currentColor",
+          outline: "none",
+          resize: "none",
+          overflowY: "scroll",
+          overflowX: "hidden",
+        }}
+        className={cn("p-6 md:p-8", className)}
       />
 
       {activeRange?.kind === "issue" && cardPos ? (
