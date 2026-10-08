@@ -23,91 +23,110 @@ import {
   BookText,
   Trophy,
   CircleHelp,
+  ChevronDown,
+  ChevronRight,
+  Menu,
 } from "lucide-react";
 import type { ReactNode } from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { usePresenceHeartbeat } from "@/hooks/use-presence";
 import { supabase } from "@/integrations/backend/client";
 import { cn } from "@/lib/utils";
 
-type NavItem = {
+export type NavItem = {
   to: string;
   label: string;
   icon: typeof LayoutDashboard;
-  staffOnly: boolean;
+  badge?: string;
+  staffOnly?: boolean;
   adminOnly?: boolean;
 };
 
-type AppSection = "grader" | "bank";
-
-const SECTION_STORAGE_KEY = "marginal.activeSection";
-const SIDEBAR_COLLAPSED_STORAGE_KEY = "marginal.sidebarCollapsed";
-
-// The two distinct apps that share this sidebar, same site, same database.
-// "Grader" is everything about marking and model answers; "Question bank"
-// is everything about practicing new questions (AI-generated essay
-// questions plus real past-paper MCQ and essay questions — MCQ itself is
-// never AI-generated). Dashboard and the staff tools below sit outside the
-// toggle since they're used from either side.
-const GRADER_NAV: NavItem[] = [
-  { to: "/grade", label: "Essay marking", icon: PenLine, staffOnly: false },
-  { to: "/live-examiner", label: "Live Examiner", icon: Sparkles, staffOnly: false },
-  { to: "/response-structure", label: "Response structure", icon: ListOrdered, staffOnly: false },
-  { to: "/practice", label: "AO skills coach", icon: Dumbbell, staffOnly: false },
-  { to: "/essay-generator", label: "Perfect essay generator", icon: Wand2, staffOnly: false },
-  { to: "/diagrams", label: "Diagram library", icon: LineChart, staffOnly: false },
-  { to: "/definitions", label: "Definitions hub", icon: BookText, staffOnly: false },
-  { to: "/command-words", label: "Command words test", icon: CircleHelp, staffOnly: false },
-  { to: "/showcase", label: "Showcase", icon: Trophy, staffOnly: false },
-];
-
-const BANK_NAV: NavItem[] = [
-  { to: "/question-bank", label: "Question bank", icon: BookMarked, staffOnly: false },
-  { to: "/mcq-live", label: "MCQ papers", icon: ListChecks, staffOnly: false },
-];
-
-// Not part of the toggle — visible under either section for staff, since
-// the knowledge base and calibration data feed both the grader and the
-// question generators.
-const STAFF_NAV: NavItem[] = [
-  { to: "/knowledge", label: "Knowledge base", icon: BookOpen, staffOnly: true },
-  { to: "/calibration", label: "Calibration", icon: Target, staffOnly: true },
-  {
-    to: "/content-admin",
-    label: "Content admin",
-    icon: ShieldPlus,
-    staffOnly: true,
-    adminOnly: true,
-  },
-  {
-    to: "/mcq-papers-admin",
-    label: "MCQ paper library",
-    icon: UploadCloud,
-    staffOnly: true,
-    adminOnly: true,
-  },
-  { to: "/admin", label: "Admin console", icon: ShieldCheck, staffOnly: true, adminOnly: true },
-];
-
-const SECTION_NAV: Record<AppSection, NavItem[]> = {
-  grader: GRADER_NAV,
-  bank: BANK_NAV,
+export type NavGroup = {
+  id: string;
+  label?: string;
+  collapsible?: boolean;
+  items: NavItem[];
 };
 
-function filterForRole(items: NavItem[], role: "student" | "teacher" | "admin") {
-  return items.filter(
+const SIDEBAR_COLLAPSED_STORAGE_KEY = "marginal.sidebarCollapsed";
+const COLLAPSED_GROUPS_STORAGE_KEY = "marginal.collapsedNavGroups";
+
+/**
+ * Clean, structured navigation groups:
+ * 1. Overview: Dashboard, Review Panel, Classes
+ * 2. Examiner & Essays: Flagship Live Examiner, Marking, Essay Gen, Response Structure
+ * 3. Practice & Papers: Real past-paper MCQ, Question Bank, Skills Coach
+ * 4. Syllabus Resources: Definitions, Diagrams, Command Words, Showcase (Collapsible)
+ * 5. Staff & Administration: Knowledge Base, Calibration, Content, Admin Console (Collapsible)
+ */
+const NAV_GROUPS: NavGroup[] = [
+  {
+    id: "overview",
+    items: [
+      { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+      { to: "/review", label: "Review & Analytics", icon: ClipboardCheck },
+      { to: "/classes", label: "Classes", icon: UsersRound },
+    ],
+  },
+  {
+    id: "writing",
+    label: "Examiner & Essays",
+    items: [
+      { to: "/live-examiner", label: "Live Examiner", icon: Sparkles, badge: "Live" },
+      { to: "/grade", label: "Essay Marking", icon: PenLine },
+      { to: "/essay-generator", label: "Essay Generator", icon: Wand2 },
+      { to: "/response-structure", label: "Response Structure", icon: ListOrdered },
+    ],
+  },
+  {
+    id: "practice",
+    label: "Past Papers & Practice",
+    items: [
+      { to: "/mcq-live", label: "MCQ Past Papers", icon: ListChecks },
+      { to: "/question-bank", label: "Essay Question Bank", icon: BookMarked },
+      { to: "/practice", label: "AO Skills Coach", icon: Dumbbell },
+    ],
+  },
+  {
+    id: "resources",
+    label: "Syllabus Resources",
+    collapsible: true,
+    items: [
+      { to: "/definitions", label: "Definitions Hub", icon: BookText },
+      { to: "/diagrams", label: "Diagram Library", icon: LineChart },
+      { to: "/command-words", label: "Command Words", icon: CircleHelp },
+      { to: "/showcase", label: "Exemplars Showcase", icon: Trophy },
+    ],
+  },
+  {
+    id: "staff",
+    label: "Staff & Administration",
+    collapsible: true,
+    items: [
+      { to: "/admin", label: "Admin Console", icon: ShieldCheck, staffOnly: true, adminOnly: true },
+      { to: "/knowledge", label: "Knowledge Base", icon: BookOpen, staffOnly: true },
+      { to: "/calibration", label: "Calibration Anchors", icon: Target, staffOnly: true },
+      { to: "/content-admin", label: "Content Admin", icon: ShieldPlus, staffOnly: true, adminOnly: true },
+      { to: "/mcq-papers-admin", label: "MCQ Paper Library", icon: UploadCloud, staffOnly: true, adminOnly: true },
+    ],
+  },
+];
+
+function filterGroupForRole(
+  group: NavGroup,
+  role: "student" | "teacher" | "admin",
+): NavGroup | null {
+  const visibleItems = group.items.filter(
     (item) =>
       (!item.staffOnly || role === "teacher" || role === "admin") &&
       (!item.adminOnly || role === "admin"),
   );
-}
-
-function sectionForPathname(pathname: string): AppSection | null {
-  if (BANK_NAV.some((item) => pathname.startsWith(item.to))) return "bank";
-  if (GRADER_NAV.some((item) => pathname.startsWith(item.to))) return "grader";
-  return null;
+  if (visibleItems.length === 0) return null;
+  return { ...group, items: visibleItems };
 }
 
 export function AppShell({
@@ -126,28 +145,49 @@ export function AppShell({
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   usePresenceHeartbeat(pathname, userId);
 
-  const [section, setSection] = useState<AppSection>(
-    () => sectionForPathname(pathname) ?? "grader",
-  );
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => new Set());
+  const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
 
-  // Keep the toggle in sync with direct navigation (a link from Dashboard,
-  // browser back/forward, etc.) and remember the choice across visits to
-  // shared pages like Dashboard or the staff tools.
   useEffect(() => {
-    const fromPath = sectionForPathname(pathname);
-    if (fromPath) {
-      setSection(fromPath);
-      window.localStorage.setItem(SECTION_STORAGE_KEY, fromPath);
+    try {
+      const isCollapsed = window.localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY) === "true";
+      setSidebarCollapsed(isCollapsed);
+
+      const savedCollapsedGroups = window.localStorage.getItem(COLLAPSED_GROUPS_STORAGE_KEY);
+      if (savedCollapsedGroups) {
+        setCollapsedGroups(new Set(JSON.parse(savedCollapsedGroups)));
+      }
+    } catch {
+      // Ignore localStorage errors
     }
-  }, [pathname]);
-
-  useEffect(() => {
-    const stored = window.localStorage.getItem(SECTION_STORAGE_KEY);
-    if (stored === "grader" || stored === "bank") setSection(stored);
-
-    setSidebarCollapsed(window.localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY) === "true");
   }, []);
+
+  const toggleGroup = (groupId: string) => {
+    setCollapsedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(groupId)) next.delete(groupId);
+      else next.add(groupId);
+      try {
+        window.localStorage.setItem(COLLAPSED_GROUPS_STORAGE_KEY, JSON.stringify(Array.from(next)));
+      } catch {
+        // Ignore localStorage write error
+      }
+      return next;
+    });
+  };
+
+  const toggleSidebar = () => {
+    setSidebarCollapsed((current) => {
+      const next = !current;
+      try {
+        window.localStorage.setItem(SIDEBAR_COLLAPSED_STORAGE_KEY, String(next));
+      } catch {
+        // Ignore localStorage error
+      }
+      return next;
+    });
+  };
 
   const signOut = async () => {
     await queryClient.cancelQueries();
@@ -156,56 +196,123 @@ export function AppShell({
     navigate({ to: "/auth", replace: true });
   };
 
-  const switchSection = (next: AppSection) => {
-    setSection(next);
-    window.localStorage.setItem(SECTION_STORAGE_KEY, next);
-    const target = SECTION_NAV[next][0];
-    if (target) navigate({ to: target.to });
-  };
+  const visibleGroups = useMemo(() => {
+    return NAV_GROUPS.map((g) => filterGroupForRole(g, role)).filter(
+      (g): g is NavGroup => g !== null,
+    );
+  }, [role]);
 
-  const toggleSidebar = () => {
-    setSidebarCollapsed((current) => {
-      const next = !current;
-      window.localStorage.setItem(SIDEBAR_COLLAPSED_STORAGE_KEY, String(next));
-      return next;
-    });
-  };
-
-  const activeNav = role === "teacher" ? [] : filterForRole(SECTION_NAV[section], role);
-  const staffNav = filterForRole(STAFF_NAV, role);
   const classroomLabel = role === "student" ? "Join class" : "Classes";
-  const mobileNav = [...activeNav, ...staffNav];
+
+  const renderNavGroup = (group: NavGroup, isMobile = false) => {
+    const isGroupCollapsed = group.collapsible && collapsedGroups.has(group.id);
+    // Always expand group if current page is within this group
+    const hasActiveItem = group.items.some((item) => pathname.startsWith(item.to));
+    const forceOpen = hasActiveItem || !isGroupCollapsed;
+
+    return (
+      <div key={group.id} className="space-y-0.5">
+        {group.label ? (
+          sidebarCollapsed && !isMobile ? (
+            <div className="my-2 border-t border-sidebar-border/60" />
+          ) : (
+            <div className="flex items-center justify-between px-2.5 pt-3.5 pb-1 text-[10px] font-bold tracking-wider text-muted-foreground/60 uppercase select-none">
+              <span>{group.label}</span>
+              {group.collapsible ? (
+                <button
+                  type="button"
+                  onClick={() => toggleGroup(group.id)}
+                  className="rounded p-0.5 text-muted-foreground/50 hover:bg-sidebar-accent hover:text-sidebar-foreground transition-colors"
+                  title={forceOpen ? "Collapse section" : "Expand section"}
+                >
+                  {forceOpen ? (
+                    <ChevronDown className="size-3" />
+                  ) : (
+                    <ChevronRight className="size-3" />
+                  )}
+                </button>
+              ) : null}
+            </div>
+          )
+        ) : null}
+
+        {(forceOpen || (sidebarCollapsed && !isMobile)) && (
+          <nav className="flex flex-col gap-0.5">
+            {group.items.map((item) => {
+              const active = pathname.startsWith(item.to);
+              const label = item.to === "/classes" ? classroomLabel : item.label;
+
+              return (
+                <Link
+                  key={item.to}
+                  to={item.to}
+                  onClick={() => isMobile && setMobileDrawerOpen(false)}
+                  className={cn(
+                    "group relative flex items-center rounded-lg py-1.5 text-xs font-medium text-sidebar-foreground/75 transition-all duration-150",
+                    sidebarCollapsed && !isMobile ? "justify-center px-2" : "gap-2.5 px-2.5",
+                    "hover:bg-sidebar-accent/80 hover:text-sidebar-accent-foreground",
+                    active && "bg-sidebar-accent font-semibold text-sidebar-accent-foreground shadow-xs",
+                  )}
+                  title={label}
+                >
+                  {active && (!sidebarCollapsed || isMobile) ? (
+                    <span className="absolute left-0 top-1.5 bottom-1.5 w-1 rounded-r-full bg-primary" />
+                  ) : null}
+                  <item.icon
+                    className={cn(
+                      "size-4 shrink-0 transition-transform group-hover:scale-105",
+                      active ? "text-primary" : "text-muted-foreground/80",
+                    )}
+                  />
+                  <span className={cn("truncate", sidebarCollapsed && !isMobile && "sr-only")}>
+                    {label}
+                  </span>
+                  {item.badge && (!sidebarCollapsed || isMobile) ? (
+                    <span className="ml-auto rounded-full bg-emerald-500/15 border border-emerald-500/20 px-1.5 py-0.2 text-[9px] font-bold text-emerald-600 dark:text-emerald-400">
+                      {item.badge}
+                    </span>
+                  ) : null}
+                </Link>
+              );
+            })}
+          </nav>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div className="flex min-h-screen bg-background">
+      {/* Desktop Sidebar */}
       <aside
         className={cn(
-          "hidden shrink-0 flex-col border-r border-sidebar-border bg-sidebar py-5 transition-[width,padding] duration-300 ease-out md:flex",
-          sidebarCollapsed ? "w-[4.5rem] px-2" : "w-60 px-3",
+          "hidden shrink-0 flex-col border-r border-sidebar-border bg-sidebar py-4 transition-[width,padding] duration-300 ease-out md:flex",
+          sidebarCollapsed ? "w-[4.5rem] px-2" : "w-64 px-3",
         )}
       >
+        {/* Brand Header */}
         <div
           className={cn(
-            "mb-5 flex items-center",
-            sidebarCollapsed ? "justify-center" : "gap-2 px-2",
+            "mb-3 flex items-center pb-2 border-b border-sidebar-border/50",
+            sidebarCollapsed ? "justify-center" : "gap-2 px-1.5",
           )}
         >
           <Link
             to="/dashboard"
-            className="flex min-w-0 items-center gap-2"
+            className="flex min-w-0 items-center gap-2 group"
             title="Marginal dashboard"
           >
             <img
               src="/marginal-m-icon-clean.png"
               alt=""
               aria-hidden="true"
-              className="size-9 shrink-0 object-contain"
+              className="size-8 shrink-0 object-contain transition-transform group-hover:scale-105"
             />
             <span
-              className={cn("text-sm leading-tight font-semibold", sidebarCollapsed && "hidden")}
+              className={cn("text-sm leading-tight font-bold tracking-tight", sidebarCollapsed && "hidden")}
             >
               Marginal
-              <span className="block text-[11px] font-normal text-muted-foreground">
+              <span className="block text-[10px] font-normal text-muted-foreground">
                 Economics 9708
               </span>
             </span>
@@ -214,12 +321,12 @@ export function AppShell({
             <Button
               variant="ghost"
               size="icon"
-              className="ml-auto size-8 shrink-0"
+              className="ml-auto size-7 shrink-0 text-muted-foreground hover:text-foreground"
               onClick={toggleSidebar}
               title="Collapse sidebar"
               aria-label="Collapse sidebar"
             >
-              <PanelLeftClose className="size-4" />
+              <PanelLeftClose className="size-3.5" />
             </Button>
           ) : null}
         </div>
@@ -228,268 +335,110 @@ export function AppShell({
           <Button
             variant="ghost"
             size="icon"
-            className="mb-3 size-10 self-center"
+            className="mb-2 size-8 self-center text-muted-foreground hover:text-foreground"
             onClick={toggleSidebar}
             title="Expand sidebar"
             aria-label="Expand sidebar"
           >
-            <PanelLeftOpen className="size-4" />
+            <PanelLeftOpen className="size-3.5" />
           </Button>
         ) : null}
 
-        <Link
-          to="/dashboard"
-          className={cn(
-            "mb-3 flex items-center rounded-md py-2 text-sm text-sidebar-foreground/75 transition-colors",
-            sidebarCollapsed ? "justify-center px-2" : "gap-2.5 px-2.5",
-            "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-            pathname === "/dashboard" &&
-              "bg-sidebar-accent font-medium text-sidebar-accent-foreground",
-          )}
-        >
-          <LayoutDashboard className="size-4" />
-          <span className={cn(sidebarCollapsed && "sr-only")}>Dashboard</span>
-        </Link>
+        {/* Scrollable Navigation Groups */}
+        <div className="flex-1 overflow-y-auto overflow-x-hidden space-y-2 pr-0.5">
+          {visibleGroups.map((group) => renderNavGroup(group))}
+        </div>
 
-        {role !== "teacher" ? (
-          <Link
-            to="/review"
-            className={cn(
-              "mb-3 flex items-center rounded-md py-2 text-sm text-sidebar-foreground/75 transition-colors",
-              sidebarCollapsed ? "justify-center px-2" : "gap-2.5 px-2.5",
-              "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-              pathname === "/review" &&
-                "bg-sidebar-accent font-medium text-sidebar-accent-foreground",
-            )}
-          >
-            <ClipboardCheck className="size-4" />
-            <span className={cn(sidebarCollapsed && "sr-only")}>Review panel</span>
-          </Link>
-        ) : null}
-
-        <Link
-          to="/classes"
-          className={cn(
-            "mb-3 flex items-center rounded-md py-2 text-sm text-sidebar-foreground/75 transition-colors",
-            sidebarCollapsed ? "justify-center px-2" : "gap-2.5 px-2.5",
-            "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-            pathname.startsWith("/classes") &&
-              "bg-sidebar-accent font-medium text-sidebar-accent-foreground",
-          )}
-          title={classroomLabel}
-        >
-          <UsersRound className="size-4" />
-          <span className={cn(sidebarCollapsed && "sr-only")}>{classroomLabel}</span>
-        </Link>
-
-        {role !== "teacher" ? (
-          <div
-            className={cn(
-              "mb-3 grid gap-1 rounded-lg bg-muted p-1",
-              sidebarCollapsed ? "grid-cols-1" : "grid-cols-2",
-            )}
-          >
-            <button
-              type="button"
-              onClick={() => switchSection("grader")}
-              className={cn(
-                "rounded-md px-2 py-1.5 text-xs font-medium transition-colors",
-                section === "grader"
-                  ? "bg-background text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              <span className={cn(sidebarCollapsed && "sr-only")}>Grader</span>
-              {sidebarCollapsed ? <PenLine className="mx-auto size-4" /> : null}
-            </button>
-            <button
-              type="button"
-              onClick={() => switchSection("bank")}
-              className={cn(
-                "rounded-md px-2 py-1.5 text-xs font-medium transition-colors",
-                section === "bank"
-                  ? "bg-background text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              <span className={cn(sidebarCollapsed && "sr-only")}>Question bank</span>
-              {sidebarCollapsed ? <BookMarked className="mx-auto size-4" /> : null}
-            </button>
-          </div>
-        ) : null}
-
-        <nav className="flex flex-col gap-0.5">
-          {activeNav.map((item) => {
-            const active = pathname.startsWith(item.to);
-            return (
-              <Link
-                key={item.to}
-                to={item.to}
-                className={cn(
-                  "flex items-center rounded-md py-2 text-sm text-sidebar-foreground/75 transition-colors",
-                  sidebarCollapsed ? "justify-center px-2" : "gap-2.5 px-2.5",
-                  "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-                  active && "bg-sidebar-accent font-medium text-sidebar-accent-foreground",
-                )}
-              >
-                <item.icon className="size-4" />
-                <span className={cn(sidebarCollapsed && "sr-only")}>{item.label}</span>
-              </Link>
-            );
-          })}
-        </nav>
-
-        {staffNav.length > 0 ? (
-          <>
-            <p
-              className={cn(
-                "mt-5 mb-1 px-2.5 text-[11px] font-medium tracking-wide text-muted-foreground uppercase",
-                sidebarCollapsed && "sr-only",
-              )}
-            >
-              Staff
-            </p>
-            <nav className="flex flex-1 flex-col gap-0.5">
-              {staffNav.map((item) => {
-                const active = pathname.startsWith(item.to);
-                return (
-                  <Link
-                    key={item.to}
-                    to={item.to}
-                    className={cn(
-                      "flex items-center rounded-md py-2 text-sm text-sidebar-foreground/75 transition-colors",
-                      sidebarCollapsed ? "justify-center px-2" : "gap-2.5 px-2.5",
-                      "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-                      active && "bg-sidebar-accent font-medium text-sidebar-accent-foreground",
-                    )}
-                  >
-                    <item.icon className="size-4" />
-                    <span className={cn(sidebarCollapsed && "sr-only")}>{item.label}</span>
-                  </Link>
-                );
-              })}
-            </nav>
-          </>
-        ) : (
-          <div className="flex-1" />
-        )}
-
-        <div className="mt-4 border-t border-sidebar-border pt-3">
+        {/* User Footer */}
+        <div className="mt-3 border-t border-sidebar-border/70 pt-2.5">
           <Link
             to="/settings"
             className={cn(
-              "block rounded-md py-1.5 transition-colors hover:bg-sidebar-accent",
-              sidebarCollapsed ? "px-2 text-center" : "px-2.5",
+              "block rounded-lg py-1.5 transition-colors hover:bg-sidebar-accent",
+              sidebarCollapsed ? "px-1 text-center" : "px-2",
               pathname.startsWith("/settings") && "bg-sidebar-accent",
             )}
+            title="Account settings"
           >
-            <p className={cn("text-sm font-medium", sidebarCollapsed && "sr-only")}>
+            <p className={cn("text-xs font-semibold truncate", sidebarCollapsed && "sr-only")}>
               {name ?? "Your account"}
             </p>
             <p
               className={cn(
-                "text-xs text-muted-foreground capitalize",
+                "text-[11px] text-muted-foreground capitalize truncate",
                 sidebarCollapsed && "sr-only",
               )}
             >
-              {role} · Edit profile
+              {role} · Settings
             </p>
             {sidebarCollapsed ? (
-              <span className="text-xs font-medium">{role.slice(0, 1).toUpperCase()}</span>
+              <span className="text-xs font-bold text-muted-foreground">{role.slice(0, 1).toUpperCase()}</span>
             ) : null}
           </Link>
           <Button
             variant="ghost"
             size="sm"
-            className={cn("mt-1 w-full", sidebarCollapsed ? "justify-center" : "justify-start")}
+            className={cn("mt-0.5 h-8 w-full text-xs text-muted-foreground hover:text-foreground", sidebarCollapsed ? "justify-center p-0" : "justify-start px-2")}
             onClick={signOut}
             title="Sign out"
           >
-            <LogOut className="size-4" />{" "}
-            <span className={cn(sidebarCollapsed && "sr-only")}>Sign out</span>
+            <LogOut className="size-3.5" />
+            <span className={cn("ml-2", sidebarCollapsed && "sr-only")}>Sign out</span>
           </Button>
         </div>
       </aside>
 
+      {/* Main Content & Mobile Header */}
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex flex-col gap-2 border-b border-border px-3 py-2 md:hidden">
-          <div className="flex items-center gap-1">
-            {role !== "teacher" ? (
-              <div className="grid flex-1 grid-cols-2 gap-1 rounded-lg bg-muted p-1">
-                <button
-                  type="button"
-                  onClick={() => switchSection("grader")}
-                  className={cn(
-                    "rounded-md px-2 py-1 text-xs font-medium transition-colors",
-                    section === "grader"
-                      ? "bg-background text-foreground shadow-sm"
-                      : "text-muted-foreground",
-                  )}
-                >
-                  Grader
-                </button>
-                <button
-                  type="button"
-                  onClick={() => switchSection("bank")}
-                  className={cn(
-                    "rounded-md px-2 py-1 text-xs font-medium transition-colors",
-                    section === "bank"
-                      ? "bg-background text-foreground shadow-sm"
-                      : "text-muted-foreground",
-                  )}
-                >
-                  Question bank
-                </button>
-              </div>
-            ) : (
-              <div className="flex-1 px-2 text-sm font-semibold">Marginal teacher</div>
-            )}
-            <Button variant="ghost" size="sm" onClick={signOut}>
-              <LogOut className="size-4" />
-            </Button>
+        <header className="flex items-center justify-between border-b border-border bg-card/80 px-4 py-2.5 backdrop-blur-sm md:hidden">
+          <div className="flex items-center gap-2.5">
+            <Sheet open={mobileDrawerOpen} onOpenChange={setMobileDrawerOpen}>
+              <SheetTrigger asChild>
+                <Button variant="ghost" size="icon" className="size-8">
+                  <Menu className="size-4" />
+                  <span className="sr-only">Open navigation menu</span>
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="left" className="w-72 p-4">
+                <SheetHeader className="mb-4 text-left">
+                  <SheetTitle className="flex items-center gap-2">
+                    <img
+                      src="/marginal-m-icon-clean.png"
+                      alt=""
+                      aria-hidden="true"
+                      className="size-7 object-contain"
+                    />
+                    <span>Marginal 9708</span>
+                  </SheetTitle>
+                </SheetHeader>
+                <div className="overflow-y-auto space-y-3 max-h-[calc(100vh-140px)]">
+                  {visibleGroups.map((group) => renderNavGroup(group, true))}
+                </div>
+                <div className="mt-4 border-t border-border pt-3">
+                  <Button variant="outline" size="sm" className="w-full justify-start text-xs" onClick={signOut}>
+                    <LogOut className="mr-2 size-3.5" /> Sign out
+                  </Button>
+                </div>
+              </SheetContent>
+            </Sheet>
+
+            <Link to="/dashboard" className="flex items-center gap-2">
+              <img
+                src="/marginal-m-icon-clean.png"
+                alt=""
+                className="size-6 object-contain"
+              />
+              <span className="text-sm font-bold tracking-tight">Marginal</span>
+            </Link>
           </div>
-          <div className="flex items-center gap-1 overflow-x-auto">
-            <Link
-              to="/dashboard"
-              className={cn(
-                "rounded-md px-2.5 py-1.5 text-xs whitespace-nowrap text-muted-foreground",
-                pathname === "/dashboard" && "bg-accent text-accent-foreground",
-              )}
-            >
-              Dashboard
+
+          <div className="flex items-center gap-2 text-xs">
+            <Link to="/live-examiner" className="flex items-center gap-1 rounded-full bg-primary/10 border border-primary/20 px-2.5 py-1 font-semibold text-primary">
+              <Sparkles className="size-3" /> Live Examiner
             </Link>
-            {role !== "teacher" ? (
-              <Link
-                to="/review"
-                className={cn(
-                  "rounded-md px-2.5 py-1.5 text-xs whitespace-nowrap text-muted-foreground",
-                  pathname === "/review" && "bg-accent text-accent-foreground",
-                )}
-              >
-                Review panel
-              </Link>
-            ) : null}
-            <Link
-              to="/classes"
-              className={cn(
-                "rounded-md px-2.5 py-1.5 text-xs whitespace-nowrap text-muted-foreground",
-                pathname.startsWith("/classes") && "bg-accent text-accent-foreground",
-              )}
-            >
-              {classroomLabel}
-            </Link>
-            {mobileNav.map((item) => (
-              <Link
-                key={item.to}
-                to={item.to}
-                className={cn(
-                  "rounded-md px-2.5 py-1.5 text-xs whitespace-nowrap text-muted-foreground",
-                  pathname.startsWith(item.to) && "bg-accent text-accent-foreground",
-                )}
-              >
-                {item.label}
-              </Link>
-            ))}
+            <Button variant="ghost" size="icon" className="size-8" onClick={signOut} title="Sign out">
+              <LogOut className="size-3.5" />
+            </Button>
           </div>
         </header>
 

@@ -6,7 +6,9 @@ import {
   BookOpen,
   CheckCircle2,
   Eraser,
+  Flag,
   History,
+  LayoutGrid,
   Loader2,
   Pencil,
   Sparkles,
@@ -63,6 +65,7 @@ import {
   aggregateMcqDomainsFromTopicStats,
   type DomainStat,
 } from "@/lib/mcq-domain";
+import { cn } from "@/lib/utils";
 
 /** Fixed render scale for the plain page image — no positions are computed
  *  against it (there's no overlay anymore), it's purely how big/sharp the
@@ -108,6 +111,7 @@ type McqDraft = {
   version: number;
   paperId: string;
   answers: Record<number, Letter>;
+  flagged?: number[];
   timeLeft: number | null;
   savedAt: number;
 };
@@ -216,6 +220,17 @@ function McqLivePage() {
   const [pages, setPages] = useState<PageImage[]>([]);
   const [stemBlobs, setStemBlobs] = useState<StemBlob[]>([]);
   const [answers, setAnswers] = useState<Record<number, Letter>>({});
+  const [flagged, setFlagged] = useState<Set<number>>(new Set());
+
+  const toggleFlag = useCallback((number: number) => {
+    setFlagged((prev) => {
+      const next = new Set(prev);
+      if (next.has(number)) next.delete(number);
+      else next.add(number);
+      return next;
+    });
+  }, []);
+
   const [graded, setGraded] = useState(false);
   const [result, setResult] = useState<{ score: number; total: number } | null>(null);
   const [attemptTopics, setAttemptTopics] = useState<TopicStat[]>([]);
@@ -423,6 +438,7 @@ function McqLivePage() {
         )
       : null;
     setAnswers(completedAnswers ?? draft?.answers ?? {});
+    setFlagged(new Set(draft?.flagged ?? []));
     setGraded(!!completedAttempt);
     setResult(
       completedAttempt && completedAttempt.score !== null
@@ -584,6 +600,7 @@ function McqLivePage() {
         version: MCQ_DRAFT_VERSION,
         paperId: selectedPaperId,
         answers,
+        flagged: Array.from(flagged),
         timeLeft,
         savedAt: Date.now(),
       };
@@ -597,7 +614,7 @@ function McqLivePage() {
       );
     }, 300);
     return () => window.clearTimeout(id);
-  }, [answers, graded, me.data?.userId, selectedPaperId, stage, timeLeft]);
+  }, [answers, flagged, graded, me.data?.userId, selectedPaperId, stage, timeLeft]);
 
   /* ---------------- answering ---------------- */
 
@@ -870,6 +887,15 @@ function McqLivePage() {
             <span className="whitespace-nowrap font-mono text-xs text-muted-foreground">
               {answeredCount} / {qCount} answered
             </span>
+            {flagged.size > 0 ? (
+              <UiBadge
+                variant="outline"
+                className="gap-1 border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400 font-mono text-xs"
+              >
+                <Flag className="h-3 w-3 fill-amber-500 text-amber-500" />
+                {flagged.size} flagged
+              </UiBadge>
+            ) : null}
             <Button size="sm" onClick={gradeAndSave} disabled={!!busyLabel}>
               {busyLabel ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
               Submit &amp; mark
@@ -965,7 +991,7 @@ function McqLivePage() {
             <div
               className={[
                 "lg:sticky lg:top-[52px] lg:max-h-[calc(100vh-72px)] lg:shrink-0 lg:overflow-y-auto",
-                graded ? "lg:w-80" : "lg:w-64",
+                graded ? "lg:w-80" : "lg:w-72",
               ].join(" ")}
             >
               {graded ? (
@@ -977,17 +1003,19 @@ function McqLivePage() {
                   title="Review & explain"
                 />
               ) : (
-                <Card>
-                  <CardContent className="py-4">
-                    <p className="mb-3 text-xs font-medium text-muted-foreground">Your answers</p>
+                <Card className="border-border/80 shadow-md">
+                  <CardContent className="p-3 sm:p-4">
                     <AnswerSidePanel
                       numbers={questionNumbers}
                       answers={answers}
                       answerKey={answerKey}
                       graded={graded}
                       onPick={pick}
+                      flagged={flagged}
+                      onToggleFlag={toggleFlag}
                       highlightNumber={highlightNumber}
                       rowRefs={answerRowRefs}
+                      onJumpToQuestion={goToQuestion}
                     />
                   </CardContent>
                 </Card>
@@ -1365,52 +1393,228 @@ function AnswerSidePanel({
   answerKey,
   graded,
   onPick,
+  flagged = new Set(),
+  onToggleFlag,
   highlightNumber,
   rowRefs,
+  onJumpToQuestion,
 }: {
   numbers: number[];
   answers: Record<number, Letter>;
   answerKey: Record<number, Letter>;
   graded: boolean;
   onPick: (number: number, letter: Letter) => void;
+  flagged?: Set<number>;
+  onToggleFlag?: (number: number) => void;
   /** Question number to visually pulse right now (from clicking a review-list row), or null. */
   highlightNumber?: number | null;
   rowRefs: React.MutableRefObject<Map<number, HTMLDivElement>>;
+  onJumpToQuestion?: (number: number) => void;
 }) {
+  const [filter, setFilter] = useState<"all" | "flagged" | "unanswered">("all");
+  const [showGrid, setShowGrid] = useState(false);
+
   if (numbers.length === 0) {
     return <p className="text-xs text-muted-foreground">No questions loaded.</p>;
   }
+
+  const answeredCount = numbers.filter((n) => !!answers[n]).length;
+  const flaggedCount = numbers.filter((n) => flagged.has(n)).length;
+  const unansweredCount = numbers.length - answeredCount;
+
+  const filteredNumbers = numbers.filter((n) => {
+    if (filter === "flagged") return flagged.has(n);
+    if (filter === "unanswered") return !answers[n];
+    return true;
+  });
+
   return (
-    <div className="grid grid-cols-1 gap-1 sm:grid-cols-2 lg:grid-cols-1">
-      {numbers.map((number) => (
-        <div
-          key={number}
-          ref={(el) => {
-            if (el) rowRefs.current.set(number, el);
-            else rowRefs.current.delete(number);
-          }}
-          className={[
-            "flex items-center gap-2 rounded-md border px-2 py-1.5 transition-colors",
-            highlightNumber === number ? "border-amber-400 bg-amber-400/10" : "border-transparent",
-          ].join(" ")}
-        >
-          <span className="w-7 shrink-0 text-right font-mono text-xs text-muted-foreground">
-            {number}
+    <div className="space-y-3">
+      {/* Header controls & status */}
+      <div className="space-y-2 pb-2 border-b border-border/60">
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-semibold tracking-tight text-foreground">
+            Questions ({answeredCount}/{numbers.length})
           </span>
-          <div className="flex gap-1.5">
-            {(["A", "B", "C", "D"] as Letter[]).map((l) => (
-              <AnswerOptionButton
-                key={l}
-                letter={l}
-                picked={answers[number] === l}
-                correct={graded && answerKey[number] === l}
-                wrong={graded && answers[number] === l && answerKey[number] !== l}
-                onClick={() => onPick(number, l)}
-              />
-            ))}
-          </div>
+          <Button
+            type="button"
+            variant={showGrid ? "secondary" : "ghost"}
+            size="sm"
+            onClick={() => setShowGrid((v) => !v)}
+            className="h-7 px-2 text-xs gap-1"
+            title={showGrid ? "Hide question matrix" : "Show quick jump matrix"}
+          >
+            <LayoutGrid className="h-3.5 w-3.5" />
+            <span className="sr-only sm:not-sr-only sm:inline-block">Matrix</span>
+          </Button>
         </div>
-      ))}
+
+        {/* Quick jump matrix */}
+        {showGrid ? (
+          <div className="p-2 rounded-lg bg-muted/40 border border-border/60">
+            <div className="text-[10px] font-medium text-muted-foreground mb-1.5 flex items-center justify-between">
+              <span>Quick jump:</span>
+              <span className="flex items-center gap-1.5 text-[10px]">
+                <span className="inline-block w-2 h-2 rounded-full bg-primary/70" /> Answered
+                <span className="inline-block w-2 h-2 rounded-full bg-amber-500" /> Flagged
+              </span>
+            </div>
+            <div className="grid grid-cols-6 gap-1">
+              {numbers.map((n) => {
+                const isAnswered = !!answers[n];
+                const isFlagged = flagged.has(n);
+                const isCurrent = highlightNumber === n;
+                return (
+                  <button
+                    key={n}
+                    type="button"
+                    onClick={() => {
+                      if (filter !== "all" && !filteredNumbers.includes(n)) {
+                        setFilter("all");
+                      }
+                      onJumpToQuestion?.(n);
+                    }}
+                    className={cn(
+                      "relative h-7 text-[11px] font-mono rounded border flex items-center justify-center transition-all",
+                      isCurrent
+                        ? "ring-2 ring-primary border-primary font-bold"
+                        : isAnswered
+                          ? "bg-primary/10 border-primary/30 text-primary hover:bg-primary/20"
+                          : "bg-background border-border/60 text-muted-foreground hover:bg-muted",
+                      isFlagged && "border-amber-400 bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                    )}
+                    title={`Question ${n}${isFlagged ? " (Flagged)" : ""}${isAnswered ? " (Answered)" : " (Unanswered)"}`}
+                  >
+                    {n}
+                    {isFlagged ? (
+                      <span className="absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full bg-amber-500" />
+                    ) : null}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ) : null}
+
+        {/* Filter pills */}
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => setFilter("all")}
+            className={cn(
+              "flex-1 text-center py-1 px-1.5 rounded text-[11px] font-medium transition-colors",
+              filter === "all"
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground"
+            )}
+          >
+            All ({numbers.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setFilter("flagged")}
+            className={cn(
+              "flex-1 flex items-center justify-center gap-1 py-1 px-1.5 rounded text-[11px] font-medium transition-colors",
+              filter === "flagged"
+                ? "bg-amber-500 text-white shadow-sm"
+                : flaggedCount > 0
+                  ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 hover:bg-amber-500/25"
+                  : "bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground"
+            )}
+          >
+            <Flag className={cn("h-3 w-3", filter === "flagged" || flaggedCount > 0 ? "fill-current" : "")} />
+            Flagged ({flaggedCount})
+          </button>
+          <button
+            type="button"
+            onClick={() => setFilter("unanswered")}
+            className={cn(
+              "flex-1 text-center py-1 px-1.5 rounded text-[11px] font-medium transition-colors",
+              filter === "unanswered"
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground"
+            )}
+          >
+            Left ({unansweredCount})
+          </button>
+        </div>
+      </div>
+
+      {/* Question list */}
+      {filteredNumbers.length === 0 ? (
+        <div className="py-8 text-center text-xs text-muted-foreground">
+          {filter === "flagged" ? (
+            <div className="space-y-1">
+              <p className="font-medium text-foreground">No flagged questions</p>
+              <p>Click the flag icon next to any question to mark it for review.</p>
+            </div>
+          ) : filter === "unanswered" ? (
+            <div className="space-y-1">
+              <p className="font-medium text-foreground">All answered!</p>
+              <p>You have answered all {numbers.length} questions in this paper.</p>
+            </div>
+          ) : (
+            <p>No questions found.</p>
+          )}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-1.5">
+          {filteredNumbers.map((number) => {
+            const isFlagged = flagged.has(number);
+            return (
+              <div
+                key={number}
+                ref={(el) => {
+                  if (el) rowRefs.current.set(number, el);
+                  else rowRefs.current.delete(number);
+                }}
+                className={cn(
+                  "flex items-center justify-between gap-1.5 rounded-md border px-2 py-1.5 transition-all",
+                  highlightNumber === number
+                    ? "border-amber-400 bg-amber-400/15 shadow-sm"
+                    : isFlagged
+                      ? "border-amber-500/30 bg-amber-500/5"
+                      : "border-transparent hover:border-border/40 hover:bg-muted/30"
+                )}
+              >
+                <div className="flex items-center gap-1">
+                  {onToggleFlag ? (
+                    <button
+                      type="button"
+                      onClick={() => onToggleFlag(number)}
+                      className={cn(
+                        "flex h-6 w-6 items-center justify-center rounded transition-transform hover:scale-110",
+                        isFlagged
+                          ? "text-amber-500"
+                          : "text-muted-foreground/30 hover:text-amber-500/70"
+                      )}
+                      title={isFlagged ? `Question ${number} flagged — click to unflag` : `Flag question ${number} for review`}
+                    >
+                      <Flag className={cn("h-3.5 w-3.5", isFlagged && "fill-amber-500")} />
+                      <span className="sr-only">Flag Q{number}</span>
+                    </button>
+                  ) : null}
+                  <span className="w-6 shrink-0 text-right font-mono text-xs font-medium text-muted-foreground">
+                    {number}
+                  </span>
+                </div>
+                <div className="flex gap-1.5">
+                  {(["A", "B", "C", "D"] as Letter[]).map((l) => (
+                    <AnswerOptionButton
+                      key={l}
+                      letter={l}
+                      picked={answers[number] === l}
+                      correct={graded && answerKey[number] === l}
+                      wrong={graded && answers[number] === l && answerKey[number] !== l}
+                      onClick={() => onPick(number, l)}
+                    />
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
