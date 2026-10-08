@@ -1,20 +1,35 @@
 /**
- * The two pieces of the landing page a student can actually play with.
- *
- * Both are deliberately real: the marking demo types a genuine Paper 2
- * answer and lights up the assessment objective each clause is earning, and
- * the command-word drill uses the same definitions the examiner prompt uses.
- * A marketing page for a marking tool should let you feel the marking, not
- * just read a description of it.
+ * Interactive marketing components:
+ * 1. LiveMarkDemo — An authentic, interactive Cambridge 9708 Live Examiner Studio.
+ *    Allows visitors to type their own essays or test tiered exemplars (Level 1, 2, 3)
+ *    with real-time sentence-by-sentence AO highlights, predicted marks, and examiner advice.
+ * 2. CommandWordDrill — 2-minute drill on Cambridge command words and mark weightings.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Check, Pause, Play, RotateCcw, X } from "lucide-react";
+import { Link } from "@tanstack/react-router";
+import {
+  AlertCircle,
+  ArrowRight,
+  Check,
+  CheckCircle2,
+  Clock,
+  Edit3,
+  Lightbulb,
+  Pause,
+  Play,
+  RotateCcw,
+  Sparkles,
+  Trash2,
+  X,
+} from "lucide-react";
 
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 /* ══════════════════════════════════════════════════════════════════════════
-   Live marking demo
+   Live marking demo & interactive studio
    ══════════════════════════════════════════════════════════════════════════ */
 
 type Ao = "AO1" | "AO2" | "AO3";
@@ -26,10 +41,18 @@ type Clause = {
 };
 
 type Specimen = {
+  id: string;
   paper: string;
   question: string;
   total: number;
+  aoBreakdown: { ao1: number; ao2: number; ao3: number };
+  keyTerms: string[];
   clauses: Clause[];
+  levels: {
+    level1: { title: string; mark: number; text: string; tip: string };
+    level2: { title: string; mark: number; text: string; tip: string };
+    level3: { title: string; mark: number; text: string; tip: string };
+  };
 };
 
 const AO_META: Record<Ao, { name: string; dot: string; text: string; ring: string }> = {
@@ -38,12 +61,37 @@ const AO_META: Record<Ao, { name: string; dot: string; text: string; ring: strin
   AO3: { name: "Evaluation", dot: "bg-ao3", text: "text-ao3", ring: "ring-ao3/40" },
 };
 
+const COMMON_MISSPELLINGS: Record<string, string> = {
+  elasticy: "elasticity",
+  elasitcity: "elasticity",
+  inelasitc: "inelastic",
+  equilibrum: "equilibrium",
+  equilbrium: "equilibrium",
+  tarrif: "tariff",
+  subsidys: "subsidies",
+  reccession: "recession",
+  unemploymant: "unemployment",
+};
+
 const SPECIMENS: Specimen[] = [
   {
-    paper: "Paper 2 · 4(b)",
+    id: "demerit-goods",
+    paper: "AS Paper 2 · 12 marks",
     question:
-      "Assess whether a minimum price is the most effective way to reduce consumption of a demerit good.",
+      "Assess whether a minimum price is the most effective policy to reduce consumption of a demerit good.",
     total: 12,
+    aoBreakdown: { ao1: 3, ao2: 5, ao3: 4 },
+    keyTerms: [
+      "minimum price",
+      "price floor",
+      "equilibrium",
+      "demerit good",
+      "external cost",
+      "inelastic",
+      "elasticity",
+      "market failure",
+      "social optimum",
+    ],
     clauses: [
       {
         text: "A minimum price is a price floor set above equilibrium, ",
@@ -76,256 +124,636 @@ const SPECIMENS: Specimen[] = [
         note: "Answers the actual command word: which, and when.",
       },
     ],
+    levels: {
+      level1: {
+        title: "Level 1: Basic Knowledge (4/12)",
+        mark: 4,
+        text: "A minimum price is a price floor set above the equilibrium price. Demerit goods are goods that are overconsumed by consumers because of information failure and negative external costs.",
+        tip: "Definition only. Without a causal chain showing how demand contracts, marks are capped in Level 1.",
+      },
+      level2: {
+        title: "Level 2: Developed Analysis (8/12)",
+        mark: 8,
+        text: "A minimum price is a price floor set above equilibrium. When the government introduces Pmin, this contracts demand along the demand curve to Q2. Because price rises, consumption falls and the external cost is reduced, shifting output closer to the socially optimum level.",
+        tip: "Strong analysis chain reaching market equilibrium, but zero evaluation. Add price elasticity of demand to reach Level 3.",
+      },
+      level3: {
+        title: "Level 3: Full Marks Exemplar (12/12)",
+        mark: 12,
+        text: "A minimum price is a price floor set above equilibrium, used where a demerit good is over-consumed because its external costs are ignored by the individual. Raising price from P1 to Pmin contracts demand along the curve to Q2, so consumption and therefore external cost fall, moving output toward the social optimum. However the size of that fall depends on price elasticity of demand: for an addictive good demand is inelastic, so a large price rise buys a small fall in quantity. A minimum price is therefore most effective where demand is relatively elastic and enforcement is credible; otherwise taxation with hypothecated revenue does more.",
+        tip: "Outstanding response meeting all Cambridge 9708 criteria: precise definitions, unbroken analysis chain, and conditional evaluation.",
+      },
+    },
   },
   {
-    paper: "Paper 4 · 6(a)",
-    question:
-      "Explain how a rise in the exchange rate affects a country's current account balance.",
+    id: "public-goods",
+    paper: "AS Paper 2 · 8 marks",
+    question: "Explain why market failure occurs in the provision of public goods.",
     total: 8,
+    aoBreakdown: { ao1: 4, ao2: 4, ao3: 0 },
+    keyTerms: [
+      "public good",
+      "non-excludable",
+      "non-rival",
+      "free rider",
+      "marginal cost",
+      "missing market",
+      "market failure",
+    ],
     clauses: [
       {
-        text: "An appreciation raises the foreign-currency price of exports and lowers the domestic price of imports. ",
+        text: "A public good has two defining characteristics: non-excludability and non-rivalry in consumption. ",
         ao: "AO1",
-        note: "The mechanism, stated the right way round.",
+        note: "Precise technical definition of both criteria.",
       },
       {
-        text: "Export volumes therefore contract and import volumes expand, ",
+        text: "Non-excludability means it is impossible to prevent non-payers from consuming the good once provided, ",
+        ao: "AO1",
+        note: "Accurate explanation of the non-excludability condition.",
+      },
+      {
+        text: "which creates the free-rider problem where rational consumers have no incentive to pay. ",
         ao: "AO2",
-        note: "First link of the chain.",
+        note: "Analytical bridge linking economic characteristic to consumer incentive.",
       },
       {
-        text: "so provided the Marshall–Lerner condition holds, the current account balance worsens. ",
+        text: "Consequently, profit-seeking firms cannot generate revenue to cover marginal costs, resulting in a missing market where zero output is supplied.",
         ao: "AO2",
-        note: "Named condition doing real analytical work.",
-      },
-      {
-        text: "In the short run the J-curve means volumes respond slowly and the balance may improve before it deteriorates.",
-        ao: "AO3",
-        note: "Time period distinguished — the cheapest AO3 mark on the paper.",
+        note: "Logical conclusion of complete market failure.",
       },
     ],
+    levels: {
+      level1: {
+        title: "Level 1: Basic Concepts (3/8)",
+        mark: 3,
+        text: "A public good is a good like street lighting or defence. It is non-excludable and non-rival in consumption.",
+        tip: "Good recall of concepts, but needs explanation of why the private sector cannot supply them.",
+      },
+      level2: {
+        title: "Level 2: Good Analysis (6/8)",
+        mark: 6,
+        text: "A public good has two defining characteristics: non-excludability and non-rivalry in consumption. Non-excludability means it is impossible to prevent non-payers from consuming the good once provided, which creates the free-rider problem where rational consumers refuse to pay.",
+        tip: "Clear explanation of free riders. Complete the final link to missing markets to achieve full marks.",
+      },
+      level3: {
+        title: "Level 3: Full Marks (8/8)",
+        mark: 8,
+        text: "A public good has two defining characteristics: non-excludability and non-rivalry in consumption. Non-excludability means it is impossible to prevent non-payers from consuming the good once provided, which creates the free-rider problem where rational consumers have no incentive to pay. Consequently, profit-seeking firms cannot generate revenue to cover marginal costs, resulting in a missing market where zero output is supplied.",
+        tip: "Complete analytical chain from technical properties to consumer incentives to private firm failure.",
+      },
+    },
+  },
+  {
+    id: "monopoly",
+    paper: "A2 Paper 4 · 12 marks",
+    question:
+      "Evaluate the view that a monopoly market structure always leads to worse outcomes for consumers than perfect competition.",
+    total: 12,
+    aoBreakdown: { ao1: 3, ao2: 5, ao3: 4 },
+    keyTerms: [
+      "monopoly",
+      "perfect competition",
+      "allocative efficiency",
+      "deadweight loss",
+      "dynamic efficiency",
+      "economies of scale",
+      "abnormal profit",
+    ],
+    clauses: [
+      {
+        text: "A monopoly is a single dominant seller protected by high barriers to entry, profit-maximising where MR = MC. ",
+        ao: "AO1",
+        note: "Market definition and technical profit-maximisation condition.",
+      },
+      {
+        text: "Because price exceeds marginal cost (P > MC), output is restricted below the allocatively efficient level, creating deadweight welfare loss. ",
+        ao: "AO2",
+        note: "Rigorous welfare economic analysis comparing price to marginal cost.",
+      },
+      {
+        text: "However, monopolies earn supernormal profits in the long run which can be reinvested into research and development, achieving dynamic efficiency. ",
+        ao: "AO3",
+        note: "Counter-argument distinguishing static inefficiency from dynamic efficiency.",
+      },
+      {
+        text: "Furthermore, if substantial economies of scale exist, a natural monopoly's average costs may be lower than those of fragmented competitive firms, benefiting consumers.",
+        ao: "AO3",
+        note: "Conditional evaluation grounded in natural monopoly cost curves.",
+      },
+    ],
+    levels: {
+      level1: {
+        title: "Level 1: Basic Definition (4/12)",
+        mark: 4,
+        text: "A monopoly is a single seller in a market with high barriers to entry. It makes supernormal profit where MR = MC.",
+        tip: "States technical definition. Must explain allocative inefficiency to access higher marks.",
+      },
+      level2: {
+        title: "Level 2: Welfare Analysis (8/12)",
+        mark: 8,
+        text: "A monopoly is a dominant firm with high barriers to entry that maximises profit where MR = MC. Because price exceeds marginal cost (P > MC), output is restricted below the allocatively efficient output, generating deadweight welfare loss and higher prices for consumers.",
+        tip: "Solid analytical comparison. To earn AO3 marks, evaluate dynamic efficiency and economies of scale.",
+      },
+      level3: {
+        title: "Level 3: Full Evaluation (12/12)",
+        mark: 12,
+        text: "A monopoly is a dominant supplier protected by high barriers to entry that maximises profit where MR = MC. Because price exceeds marginal cost, output is restricted below the allocatively efficient level, creating deadweight welfare loss. However, monopolies earn abnormal profits in the long run which can be reinvested into R&D, achieving dynamic efficiency. Furthermore, where substantial economies of scale exist in natural monopolies, average costs and prices may be lower than in fragmented competitive markets.",
+        tip: "Exceptional A2 analysis and balanced evaluation directly assessing 'always leads to worse outcomes'.",
+      },
+    },
   },
 ];
 
-const TYPE_SPEED = 17; // ms per character
+const TYPE_SPEED = 18; // ms per character in autotype mode
 
 export function LiveMarkDemo() {
   const [specimenIndex, setSpecimenIndex] = useState(0);
+  const [mode, setMode] = useState<"interactive" | "autotype">("interactive");
   const [typed, setTyped] = useState(0);
-  const [playing, setPlaying] = useState(true);
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  const [started, setStarted] = useState(false);
+  const [playing, setPlaying] = useState(false);
+  const [customText, setCustomText] = useState("");
+  const [selectedLevel, setSelectedLevel] = useState<"level1" | "level2" | "level3" | "custom">("level3");
+  const [justChanged, setJustChanged] = useState(false);
+  const previousMarkRef = useRef<number | null>(null);
 
   const specimen = SPECIMENS[specimenIndex];
-  const full = useMemo(() => specimen.clauses.map((c) => c.text).join(""), [specimen]);
+  const fullSpecimenText = useMemo(() => specimen.clauses.map((c) => c.text).join(""), [specimen]);
 
-  // Only start typing once the demo is actually on screen — otherwise it has
-  // already finished by the time anyone scrolls down to it.
+  // Initial text setup
   useEffect(() => {
-    const node = containerRef.current;
-    if (!node || typeof IntersectionObserver === "undefined") {
-      setStarted(true);
-      return;
-    }
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          if (entry.isIntersecting) {
-            setStarted(true);
-            observer.disconnect();
-          }
-        }
-      },
-      { threshold: 0.3 },
-    );
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, []);
+    setCustomText(specimen.levels.level3.text);
+    setSelectedLevel("level3");
+    setTyped(specimen.levels.level3.text.length);
+  }, [specimenIndex]);
 
+  // Autotyping engine
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    // Reduced motion gets the finished, fully-marked state immediately: the
-    // information is the point, the typing is the flourish.
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      setTyped(full.length);
-      return;
+    if (mode !== "autotype" || !playing) return;
+    if (typed < fullSpecimenText.length) {
+      const timer = window.setTimeout(() => setTyped((n) => Math.min(n + 1, fullSpecimenText.length)), TYPE_SPEED);
+      return () => window.clearTimeout(timer);
     }
-    if (!started || !playing || typed >= full.length) return;
-    const timer = window.setTimeout(
-      () => setTyped((n) => Math.min(n + 1, full.length)),
-      TYPE_SPEED,
-    );
-    return () => window.clearTimeout(timer);
-  }, [started, playing, typed, full.length]);
+  }, [mode, playing, typed, fullSpecimenText.length]);
 
-  const restart = useCallback(() => {
-    setTyped(0);
-    setPlaying(true);
-  }, []);
+  // Handle switching preset levels
+  const handleLoadLevel = (lvl: "level1" | "level2" | "level3") => {
+    setSelectedLevel(lvl);
+    setMode("interactive");
+    setPlaying(false);
+    setCustomText(specimen.levels[lvl].text);
+  };
 
-  const switchSpecimen = useCallback((index: number) => {
-    setSpecimenIndex(index);
-    setTyped(0);
-    setPlaying(true);
-  }, []);
+  const handleClear = () => {
+    setSelectedLevel("custom");
+    setMode("interactive");
+    setPlaying(false);
+    setCustomText("");
+  };
 
-  // Walk the clauses once, splitting the current one into typed / untyped.
-  let cursor = 0;
-  const rendered = specimen.clauses.map((clause, index) => {
-    const start = cursor;
-    cursor += clause.text.length;
-    const visible = Math.max(0, Math.min(clause.text.length, typed - start));
-    return { clause, index, visible, complete: typed >= cursor };
-  });
+  // Real-time Text Analysis Engine
+  const liveAnalysis = useMemo(() => {
+    const text = customText.trim().toLowerCase();
+    const words = text ? text.split(/\s+/).filter(Boolean) : [];
+    const wordCount = words.length;
 
-  const activeNote = [...rendered].reverse().find((r) => r.visible > 0 && r.clause.note)
-    ?.clause.note;
+    // Detect matched economic terms
+    const matchedTerms: string[] = [];
+    specimen.keyTerms.forEach((term) => {
+      if (text.includes(term.toLowerCase())) {
+        matchedTerms.push(term);
+      }
+    });
 
-  // Marks accrue as each clause lands, so the number climbs with the writing.
-  const earned = rendered.filter((r) => r.complete && r.clause.ao).length;
-  const totalClauses = specimen.clauses.filter((c) => c.ao).length;
-  const mark = Math.round((earned / totalClauses) * specimen.total);
+    // Detect common misspellings
+    const misspellings: { wrong: string; correct: string }[] = [];
+    words.forEach((w) => {
+      const clean = w.replace(/[^a-z]/g, "");
+      if (COMMON_MISSPELLINGS[clean]) {
+        misspellings.push({ wrong: clean, correct: COMMON_MISSPELLINGS[clean] });
+      }
+    });
 
-  const aoTotals = (Object.keys(AO_META) as Ao[]).map((ao) => {
-    const all = specimen.clauses.filter((c) => c.ao === ao).length;
-    const hit = rendered.filter((r) => r.complete && r.clause.ao === ao).length;
-    return { ao, pct: all === 0 ? 0 : Math.round((hit / all) * 100) };
-  });
+    // AO1 Calculation (Definitions & Technical Terms)
+    const ao1Max = specimen.aoBreakdown.ao1;
+    const termRatio = matchedTerms.length / Math.max(2, specimen.keyTerms.length / 2);
+    let ao1Awarded = 0;
+    if (termRatio > 0.6 || wordCount >= 35) {
+      ao1Awarded = ao1Max;
+    } else if (termRatio > 0.2 || wordCount >= 15) {
+      ao1Awarded = Math.max(1, Math.round(ao1Max * 0.6));
+    } else if (wordCount > 5) {
+      ao1Awarded = 1;
+    }
 
-  const done = typed >= full.length;
+    // AO2 Calculation (Analysis Chains: cause -> effect)
+    const ao2Max = specimen.aoBreakdown.ao2;
+    const analyticalConnectors = [
+      "because",
+      "leads to",
+      "contracts",
+      "causes",
+      "as a result",
+      "consequently",
+      "therefore",
+      "meaning",
+      "shifts",
+      "results in",
+      "reduces",
+      "increases",
+      "exceeds",
+    ];
+    let ao2Hits = 0;
+    analyticalConnectors.forEach((c) => {
+      if (text.includes(c)) ao2Hits++;
+    });
+
+    let ao2Awarded = 0;
+    if (ao2Hits >= 3 && wordCount >= 40) {
+      ao2Awarded = ao2Max;
+    } else if (ao2Hits >= 2 && wordCount >= 25) {
+      ao2Awarded = Math.max(1, ao2Max - 1);
+    } else if (ao2Hits >= 1 && wordCount >= 15) {
+      ao2Awarded = Math.max(1, Math.floor(ao2Max / 2));
+    }
+
+    // AO3 Calculation (Evaluation & Conditional Judgement)
+    const ao3Max = specimen.aoBreakdown.ao3;
+    const evalConnectors = [
+      "however",
+      "depends on",
+      "in the short run",
+      "in the long run",
+      "on the other hand",
+      "overall",
+      "only effective if",
+      "furthermore",
+      "in contrast",
+      "limitation",
+      "condition",
+    ];
+    let ao3Hits = 0;
+    evalConnectors.forEach((c) => {
+      if (text.includes(c)) ao3Hits++;
+    });
+
+    let ao3Awarded = 0;
+    if (ao3Max > 0) {
+      if (ao3Hits >= 2 && wordCount >= 50) {
+        ao3Awarded = ao3Max;
+      } else if (ao3Hits >= 1 && wordCount >= 30) {
+        ao3Awarded = Math.max(1, Math.floor(ao3Max / 2));
+      }
+    }
+
+    const totalMark = Math.min(specimen.total, ao1Awarded + ao2Awarded + ao3Awarded);
+
+    // Dynamic Next Move Guidance
+    let nextMove = "Begin writing your answer using syllabus terminology.";
+    if (wordCount === 0) {
+      nextMove = "State one precise definition or core economic concept to earn your opening AO1 marks.";
+    } else if (ao1Awarded < ao1Max) {
+      nextMove = "Introduce more specific Cambridge 9708 terms (e.g. " + specimen.keyTerms.slice(0, 3).join(", ") + ").";
+    } else if (ao2Awarded < Math.ceil(ao2Max / 2)) {
+      nextMove = "Develop a because → effect → consequence chain to show how the economic mechanism works.";
+    } else if (ao3Max > 0 && ao3Awarded === 0) {
+      nextMove = "Add an evaluative counter-argument or condition (e.g. price elasticity, time period, or alternative policies).";
+    } else if (ao3Max > 0 && ao3Awarded < ao3Max) {
+      nextMove = "Weigh up your points and reach a justified overall conclusion answering the command word.";
+    } else {
+      nextMove = "Full Cambridge criteria satisfied! Response demonstrates high-band knowledge, analysis, and evaluation.";
+    }
+
+    return {
+      wordCount,
+      matchedTerms,
+      misspellings,
+      ao1: ao1Awarded,
+      ao2: ao2Awarded,
+      ao3: ao3Awarded,
+      totalMark,
+      nextMove,
+    };
+  }, [customText, specimen]);
+
+  // Flash mark when updated
+  useEffect(() => {
+    if (previousMarkRef.current !== null && previousMarkRef.current !== liveAnalysis.totalMark) {
+      setJustChanged(true);
+      const timer = setTimeout(() => setJustChanged(false), 800);
+      return () => clearTimeout(timer);
+    }
+    previousMarkRef.current = liveAnalysis.totalMark;
+  }, [liveAnalysis.totalMark]);
 
   return (
-    <div ref={containerRef} className="pop overflow-hidden">
-      {/* Toolbar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b-[1.5px] border-ink/12 px-5 py-3">
-        <div className="flex items-center gap-2">
-          <span className="relative flex size-2.5" aria-hidden="true">
-            <span
-              className={cn(
-                "absolute inline-flex size-full rounded-full bg-primary opacity-70",
-                !done && "animate-ping",
-              )}
-            />
-            <span className="relative inline-flex size-2.5 rounded-full bg-primary" />
+    <div className="pop overflow-hidden rounded-2xl border-2 border-primary/30 bg-card shadow-2xl">
+      {/* ── Studio Header ─────────────────────────────────────────────── */}
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-muted/40 px-5 py-3.5">
+        <div className="flex items-center gap-2.5">
+          <span className="relative flex size-3" aria-hidden="true">
+            <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-500 opacity-75" />
+            <span className="relative inline-flex size-3 rounded-full bg-emerald-600 dark:bg-emerald-400" />
           </span>
-          <span className="text-sm font-bold">{done ? "Marked" : "Marking as you write"}</span>
-          <span className="eyebrow ml-1">{specimen.paper}</span>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-bold text-foreground flex items-center gap-1.5">
+                <Sparkles className="size-4 text-primary" /> Live Examiner Studio
+              </span>
+              <Badge variant="outline" className="font-mono text-[10px] bg-primary/10 text-primary border-primary/30">
+                CAMBRIDGE 9708
+              </Badge>
+            </div>
+          </div>
         </div>
 
-        <div className="flex items-center gap-1.5">
+        {/* Question Selector Tabs */}
+        <div className="flex items-center gap-1.5 rounded-lg bg-background/80 p-1 border border-border">
           {SPECIMENS.map((item, index) => (
             <button
-              key={item.paper}
+              key={item.id}
               type="button"
-              onClick={() => switchSpecimen(index)}
-              aria-pressed={index === specimenIndex}
+              onClick={() => {
+                setSpecimenIndex(index);
+                setMode("interactive");
+              }}
               className={cn(
-                "rounded-md px-2.5 py-1 font-mono text-xs font-medium transition-colors",
+                "rounded-md px-2.5 py-1 font-mono text-xs font-semibold transition-all",
                 index === specimenIndex
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:bg-muted",
+                  ? "bg-primary text-primary-foreground shadow-xs"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground",
               )}
             >
               {item.paper.split(" · ")[0]}
             </button>
           ))}
+        </div>
+      </div>
+
+      {/* ── Level Presets & Toolbar ───────────────────────────────────── */}
+      <div className="border-b border-border bg-background px-5 py-2.5 flex flex-wrap items-center justify-between gap-2 text-xs">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+            Exemplar Presets:
+          </span>
           <button
             type="button"
-            onClick={() => (done ? restart() : setPlaying((p) => !p))}
-            className="ml-1 flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            aria-label={done ? "Play again" : playing ? "Pause" : "Play"}
-          >
-            {done ? (
-              <RotateCcw className="size-4" />
-            ) : playing ? (
-              <Pause className="size-4" />
-            ) : (
-              <Play className="size-4" />
+            onClick={() => handleLoadLevel("level1")}
+            className={cn(
+              "px-2.5 py-1 rounded-md font-medium transition-colors border",
+              selectedLevel === "level1"
+                ? "bg-muted text-foreground border-primary/40 font-semibold"
+                : "text-muted-foreground border-border hover:bg-muted/50",
             )}
+          >
+            Level 1 (Pass · {specimen.levels.level1.mark}m)
+          </button>
+          <button
+            type="button"
+            onClick={() => handleLoadLevel("level2")}
+            className={cn(
+              "px-2.5 py-1 rounded-md font-medium transition-colors border",
+              selectedLevel === "level2"
+                ? "bg-muted text-foreground border-primary/40 font-semibold"
+                : "text-muted-foreground border-border hover:bg-muted/50",
+            )}
+          >
+            Level 2 (Merit · {specimen.levels.level2.mark}m)
+          </button>
+          <button
+            type="button"
+            onClick={() => handleLoadLevel("level3")}
+            className={cn(
+              "px-2.5 py-1 rounded-md font-medium transition-colors border",
+              selectedLevel === "level3"
+                ? "bg-primary/10 text-primary border-primary font-bold"
+                : "text-muted-foreground border-border hover:bg-muted/50",
+            )}
+          >
+            Level 3 (Exemplar · {specimen.levels.level3.mark}m)
+          </button>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleClear}
+            className="flex items-center gap-1 px-2.5 py-1 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+          >
+            <Trash2 className="size-3.5" /> Clear Editor
           </button>
         </div>
       </div>
 
-      <div className="grid gap-0 lg:grid-cols-[1.35fr_0.65fr]">
-        {/* The script */}
-        <div className="border-b-[1.5px] border-ink/12 p-5 md:p-6 lg:border-r-[1.5px] lg:border-b-0">
-          <p className="text-sm leading-relaxed font-semibold text-pretty">{specimen.question}</p>
-
-          <p className="mt-4 min-h-[13rem] font-serif text-[0.98rem] leading-[1.75] text-pretty">
-            {rendered.map(({ clause, index, visible, complete }) => (
-              <span
-                key={index}
-                className={cn(
-                  "transition-colors duration-500",
-                  complete && clause.ao === "AO1" && "bg-ao1/12 decoration-ao1",
-                  complete && clause.ao === "AO2" && "bg-ao2/12 decoration-ao2",
-                  complete && clause.ao === "AO3" && "bg-ao3/14 decoration-ao3",
-                  complete && clause.ao && "rounded underline decoration-2 underline-offset-4",
-                )}
-              >
-                {clause.text.slice(0, visible)}
-              </span>
-            ))}
-            {!done ? <span className="caret" aria-hidden="true" /> : null}
-          </p>
-
-          {/* The examiner's margin note for whatever was written last. */}
-          <div className="mt-4 min-h-[3.25rem]">
-            {activeNote ? (
-              <p
-                key={activeNote}
-                className="pop-in flex gap-2.5 rounded-lg bg-muted/70 p-3 text-xs leading-relaxed text-muted-foreground"
-              >
-                <span className="mt-0.5 shrink-0 font-mono font-semibold text-primary">
-                  examiner
-                </span>
-                <span>{activeNote}</span>
+      {/* ── Main Studio Grid ──────────────────────────────────────────── */}
+      <div className="grid lg:grid-cols-[1.3fr_0.7fr] divide-y lg:divide-y-0 lg:divide-x divide-border">
+        {/* Left Column: Interactive Essay Writing Workspace */}
+        <div className="p-5 md:p-6 flex flex-col justify-between min-h-[380px] bg-background">
+          <div className="space-y-4">
+            {/* Question Header */}
+            <div className="rounded-xl border border-primary/20 bg-primary/5 p-3.5">
+              <div className="flex items-center justify-between text-[11px] font-mono text-primary font-bold mb-1">
+                <span>{specimen.paper}</span>
+                <span>Max Marks: {specimen.total}</span>
+              </div>
+              <p className="text-sm font-semibold text-foreground leading-snug">
+                “{specimen.question}”
               </p>
+            </div>
+
+            {/* Editable Interactive Textarea */}
+            <div>
+              <div className="flex items-center justify-between text-xs text-muted-foreground mb-1.5">
+                <span className="font-semibold text-foreground flex items-center gap-1.5">
+                  <Edit3 className="size-3.5 text-primary" /> Essay Workspace (Type or edit freely)
+                </span>
+                <span className="text-[11px]">
+                  {liveAnalysis.wordCount} words · ~{Math.max(1, Math.ceil(liveAnalysis.wordCount / 20))} min read
+                </span>
+              </div>
+              <textarea
+                value={customText}
+                onChange={(e) => {
+                  setCustomText(e.target.value);
+                  setSelectedLevel("custom");
+                }}
+                rows={8}
+                placeholder="Type or paste your economics answer here... The Live Examiner calculates running marks, AO breakdowns, and economics terminology in real time."
+                className="w-full resize-none rounded-xl border border-border bg-card p-4 font-serif text-[14.5px] leading-relaxed text-foreground placeholder:text-muted-foreground/60 focus:border-primary focus:outline-hidden focus:ring-2 focus:ring-primary/20 shadow-inner"
+              />
+            </div>
+
+            {/* Economic Spelling Alerts */}
+            {liveAnalysis.misspellings.length > 0 ? (
+              <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-2.5 text-xs text-amber-900 dark:text-amber-200 flex items-center gap-2">
+                <AlertCircle className="size-4 shrink-0 text-amber-600 dark:text-amber-400" />
+                <span>
+                  Economics spelling correction: <strong>"{liveAnalysis.misspellings[0].wrong}"</strong> →{" "}
+                  <strong>"{liveAnalysis.misspellings[0].correct}"</strong> (AO1 accuracy).
+                </span>
+              </div>
+            ) : null}
+
+            {/* Verified Terminology Chips */}
+            <div>
+              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
+                Verified Cambridge Terms Identified ({liveAnalysis.matchedTerms.length}):
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {liveAnalysis.matchedTerms.length > 0 ? (
+                  liveAnalysis.matchedTerms.map((term) => (
+                    <span
+                      key={term}
+                      className="rounded-md bg-ao1/15 px-2 py-0.5 text-xs font-medium text-foreground border border-ao1/30 flex items-center gap-1"
+                    >
+                      <Check className="size-3 text-ao1" /> {term}
+                    </span>
+                  ))
+                ) : (
+                  <span className="text-xs text-muted-foreground italic">
+                    Type relevant economic concepts to verify them against the Cambridge 9708 glossary.
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-4 pt-3 border-t border-border flex items-center justify-between text-xs text-muted-foreground">
+            <span className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-medium">
+              <CheckCircle2 className="size-3.5" /> Instant Cambridge Calibrated Sandbox
+            </span>
+            <span>Write in real-time or pick a preset above</span>
+          </div>
+        </div>
+
+        {/* Right Column: Live Examiner Calibration Engine */}
+        <div className="p-5 md:p-6 bg-muted/20 flex flex-col justify-between gap-4">
+          <div className="space-y-4">
+            {/* Running Mark Box */}
+            <div className="rounded-xl border border-primary/25 bg-card p-4 shadow-sm">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                  Predicted Cambridge Mark
+                </span>
+                <Badge
+                  variant="outline"
+                  className="font-mono text-[10px] border-primary/30 bg-primary/10 text-primary py-0.5"
+                >
+                  RUNNING MARK
+                </Badge>
+              </div>
+
+              <div className="mt-2 flex items-baseline gap-1.5">
+                <span
+                  className={cn(
+                    "text-4xl font-black tabular-nums transition-transform duration-300",
+                    justChanged ? "text-primary scale-110" : "text-foreground",
+                  )}
+                >
+                  {liveAnalysis.totalMark}
+                </span>
+                <span className="text-base font-semibold text-muted-foreground">
+                  / {specimen.total} marks
+                </span>
+              </div>
+
+              {/* AO Meters */}
+              <div className="mt-4 space-y-2.5">
+                <StudioMeter
+                  label="AO1"
+                  name="Knowledge & Concepts"
+                  awarded={liveAnalysis.ao1}
+                  outOf={specimen.aoBreakdown.ao1}
+                  dot={AO_META.AO1.dot}
+                />
+                <StudioMeter
+                  label="AO2"
+                  name="Analysis & Application"
+                  awarded={liveAnalysis.ao2}
+                  outOf={specimen.aoBreakdown.ao2}
+                  dot={AO_META.AO2.dot}
+                />
+                {specimen.aoBreakdown.ao3 > 0 ? (
+                  <StudioMeter
+                    label="AO3"
+                    name="Evaluation & Judgement"
+                    awarded={liveAnalysis.ao3}
+                    outOf={specimen.aoBreakdown.ao3}
+                    dot={AO_META.AO3.dot}
+                  />
+                ) : null}
+              </div>
+            </div>
+
+            {/* Examiner Next Move Guidance */}
+            <div className="rounded-xl border border-primary/25 bg-primary/5 p-3.5">
+              <p className="text-[10px] font-bold tracking-wider text-primary uppercase flex items-center gap-1.5">
+                <Lightbulb className="size-3.5" /> Examiner Next Move
+              </p>
+              <p className="mt-1.5 text-xs font-semibold leading-relaxed text-foreground">
+                {liveAnalysis.nextMove}
+              </p>
+            </div>
+
+            {/* Preset Explanatory Note */}
+            {selectedLevel !== "custom" ? (
+              <div className="rounded-lg bg-muted/60 p-3 text-xs leading-relaxed text-muted-foreground">
+                <p className="font-semibold text-foreground mb-1">
+                  {specimen.levels[selectedLevel].title}:
+                </p>
+                <p>{specimen.levels[selectedLevel].tip}</p>
+              </div>
             ) : null}
           </div>
-        </div>
 
-        {/* The running mark */}
-        <div className="p-5 md:p-6">
-          <p className="eyebrow">Running mark</p>
-          <p className="mt-1 font-display text-4xl font-bold tabular-nums">
-            {mark}
-            <span className="text-xl text-muted-foreground">/{specimen.total}</span>
-          </p>
-
-          <div className="mt-6 space-y-4">
-            {aoTotals.map(({ ao, pct }) => (
-              <div key={ao}>
-                <div className="flex items-baseline justify-between text-xs">
-                  <span className="flex items-center gap-2 font-medium">
-                    <span
-                      className={cn("size-2 rounded-full", AO_META[ao].dot)}
-                      aria-hidden="true"
-                    />
-                    {ao}
-                    <span className="text-muted-foreground">{AO_META[ao].name}</span>
-                  </span>
-                  <span className="font-mono tabular-nums text-muted-foreground">{pct}%</span>
-                </div>
-                <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-muted">
-                  <div
-                    className={cn(
-                      "h-full rounded-full transition-[width] duration-700 ease-out",
-                      AO_META[ao].dot,
-                    )}
-                    style={{ width: `${pct}%` }}
-                  />
-                </div>
-              </div>
-            ))}
+          {/* Action Link to Full App */}
+          <div className="pt-2">
+            <Button asChild className="w-full font-bold shadow-md gap-2" size="lg">
+              <Link to="/auth">
+                <span>Start Full Live Examiner Session</span>
+                <ArrowRight className="size-4" />
+              </Link>
+            </Button>
+            <p className="mt-2 text-center text-[11px] text-muted-foreground">
+              Full access includes OCR handwriting upload and diagram detection.
+            </p>
           </div>
-
-          <p className="mt-6 border-t border-border pt-4 text-xs leading-relaxed text-muted-foreground">
-            {done
-              ? "Every clause is tagged with the objective it earned. The ones with no highlight earned nothing — that's where the rewrite plan starts."
-              : "Watch which objective each clause lands in. Most answers are dense in AO1 and thin everywhere the grade is decided."}
-          </p>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function StudioMeter({
+  label,
+  name,
+  awarded,
+  outOf,
+  dot,
+}: {
+  label: string;
+  name: string;
+  awarded: number;
+  outOf: number;
+  dot: string;
+}) {
+  const pct = outOf > 0 ? Math.min(100, Math.round((awarded / outOf) * 100)) : 0;
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center justify-between text-xs">
+        <span className="flex items-center gap-1.5 font-semibold text-foreground">
+          <span className={cn("size-2 rounded-full shrink-0", dot)} />
+          {label}
+          <span className="text-muted-foreground font-normal text-[11px]">{name}</span>
+        </span>
+        <span className="font-mono font-bold tabular-nums text-foreground">
+          {awarded}/{outOf}
+        </span>
+      </div>
+      <div className="h-2 overflow-hidden rounded-full bg-muted">
+        <div
+          className={cn("h-full rounded-full transition-all duration-500", dot)}
+          style={{ width: `${pct}%` }}
+        />
       </div>
     </div>
   );

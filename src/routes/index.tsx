@@ -389,13 +389,13 @@ function Index() {
         <div className="relative z-10 mx-auto max-w-6xl px-4 py-14 sm:px-5 sm:py-16 md:px-8 md:py-20">
           <Reveal>
             <SectionHeading
-              eyebrow="Watch it work"
+              eyebrow="Interactive Live Examiner Studio"
               title={
                 <>
-                  Every clause lands in <span className="aurora-text">an objective</span>
+                  Test the examiner <span className="aurora-text">live in real-time</span>
                 </>
               }
-              lead="This is a real Paper 2 answer being typed. The highlight underneath each clause is the assessment objective it just earned — and the marks climb as it goes. Nothing here is a mock-up; it's the marking engine, running."
+              lead="Type or paste your own economics essay into the editor, or test Level 1, 2, and 3 exemplars. The Live Examiner evaluates your writing in real time — detecting Cambridge 9708 terms, scoring AO1/AO2/AO3 breakdowns, and delivering strategic examiner next-move guidance."
             />
           </Reveal>
 
