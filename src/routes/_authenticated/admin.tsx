@@ -1,26 +1,34 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
+  Activity,
   BookOpen,
   CheckCircle2,
   ChevronRight,
   Coins,
+  Crown,
   Eraser,
+  ExternalLink,
   Eye,
   EyeOff,
   ImagePlus,
   KeyRound,
+  Layers,
+  LineChart,
   Loader2,
   Plug,
   Plus,
   RefreshCw,
   Search,
   ShieldCheck,
+  ShieldPlus,
   Sparkles,
+  Target,
   Trash2,
   Trophy,
-  Crown,
+  UploadCloud,
+  Users,
   XCircle,
   Zap,
 } from "lucide-react";
@@ -39,7 +47,6 @@ import {
   useUserActivity,
 } from "@/components/app/admin-access";
 import { PageHeader } from "@/components/app/app-shell";
-import { AdminNavTabs } from "@/components/app/admin-nav";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -165,6 +172,109 @@ export const Route = createFileRoute("/_authenticated/admin")({
   errorComponent: AdminErrorComponent,
 });
 
+type AdminSectionMeta = {
+  id: string;
+  category: string;
+  title: string;
+  subtitle: string;
+  icon: typeof Activity;
+  badge?: string;
+  badgeColor?: string;
+};
+
+const ADMIN_SECTIONS: Record<string, AdminSectionMeta> = {
+  overview: {
+    id: "overview",
+    category: "Platform & Intelligence",
+    title: "Executive Platform Dashboard",
+    subtitle: "Real-time user sessions, grading throughput, AI token spend, database health, and error telemetry.",
+    icon: Activity,
+  },
+  godmode: {
+    id: "godmode",
+    category: "Platform & Intelligence",
+    title: "Platform Vault & Database Inspector",
+    subtitle: "Superadmin raw database access: inspect user records, audit student essays, and view live system attempts.",
+    icon: Crown,
+    badge: "Godmode",
+    badgeColor: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30",
+  },
+  users: {
+    id: "users",
+    category: "Users & Access",
+    title: "User Directory & Role Management",
+    subtitle: "Manage registered student and teacher accounts, grant staff privileges, and audit account states.",
+    icon: Users,
+  },
+  access: {
+    id: "access",
+    category: "Users & Access",
+    title: "Capacity & AI Rate Controls",
+    subtitle: "Administer per-user daily essay allowances, global request quotas, and VIP token overrides.",
+    icon: Coins,
+  },
+  showcase: {
+    id: "showcase",
+    category: "Curriculum & Content",
+    title: "Exemplar Showcase Curation",
+    subtitle: "Review, approve, and curate Level 4 and Level 5 high-scoring Cambridge 9708 model essays.",
+    icon: Trophy,
+  },
+  diagrams: {
+    id: "diagrams",
+    category: "Curriculum & Content",
+    title: "Diagram Library Engine",
+    subtitle: "Cambridge 9708 interactive visual graphs: label-by-label definitions, axes calibration, and custom graphs.",
+    icon: LineChart,
+  },
+  providers: {
+    id: "providers",
+    category: "AI Engine & Infrastructure",
+    title: "LLM Providers & API Keys",
+    subtitle: "Bring your own keys: Anthropic Claude, Google Gemini, OpenAI GPT, Groq, and OpenRouter.",
+    icon: KeyRound,
+  },
+  embeddings: {
+    id: "embeddings",
+    category: "AI Engine & Infrastructure",
+    title: "Embedding Models & Vector Search",
+    subtitle: "Configure semantic vector search models for syllabus retrieval, RAG grounding, and batch recalibration.",
+    icon: Layers,
+  },
+  vision: {
+    id: "vision",
+    category: "AI Engine & Infrastructure",
+    title: "Vision OCR & Handwriting Engine",
+    subtitle: "Extract handwritten student scripts, diagrams, and mark scheme photos using multimodal AI models.",
+    icon: ImagePlus,
+  },
+};
+
+const ADMIN_CATEGORIES = [
+  {
+    title: "Platform & Intelligence",
+    items: [ADMIN_SECTIONS.overview, ADMIN_SECTIONS.godmode],
+  },
+  {
+    title: "Users & Access",
+    items: [ADMIN_SECTIONS.users, ADMIN_SECTIONS.access],
+  },
+  {
+    title: "Curriculum & Content",
+    items: [ADMIN_SECTIONS.showcase, ADMIN_SECTIONS.diagrams],
+    externalLinks: [
+      { label: "Knowledge Base", to: "/knowledge", icon: BookOpen, desc: "RAG Syllabus & Mark Schemes" },
+      { label: "Calibration Anchors", to: "/calibration", icon: Target, desc: "Worked Exam Exemplars" },
+      { label: "Content Ingestion", to: "/content-admin", icon: ShieldPlus, desc: "Question Bank Ingestion" },
+      { label: "MCQ Paper Library", to: "/mcq-papers-admin", icon: UploadCloud, desc: "Past Paper PDFs" },
+    ],
+  },
+  {
+    title: "AI Infrastructure",
+    items: [ADMIN_SECTIONS.providers, ADMIN_SECTIONS.embeddings, ADMIN_SECTIONS.vision],
+  },
+];
+
 function AdminPage() {
   const fetchMe = useServerFn(getMe);
   const [activeTab, setActiveTab] = useState("overview");
@@ -207,63 +317,179 @@ function AdminPage() {
     );
   }
 
-  return (
-    <>
-      <PageHeader
-        title="Admin console"
-        description="Everything in one place: platform totals, user roles, AI usage and your own AI provider keys."
-      />
-      <AdminNavTabs role="admin" />
-      <div className="px-5 py-6 md:px-8">
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="h-auto flex-wrap">
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger
-              value="godmode"
-              className="font-semibold text-amber-600 dark:text-amber-400 data-[state=active]:bg-amber-500/10"
-            >
-              <Crown className="size-3.5 mr-1.5 inline" />
-              Platform Vault &amp; Inspector
-            </TabsTrigger>
-            <TabsTrigger value="users">Users &amp; Roles</TabsTrigger>
-            <TabsTrigger value="access">Capacity &amp; AI Controls</TabsTrigger>
-            <TabsTrigger value="showcase">Showcase</TabsTrigger>
-            <TabsTrigger value="providers">AI Providers</TabsTrigger>
-            <TabsTrigger value="embeddings">Embeddings</TabsTrigger>
-            <TabsTrigger value="vision">Vision OCR</TabsTrigger>
-            <TabsTrigger value="diagrams">Diagrams</TabsTrigger>
-          </TabsList>
+  const currentSection = ADMIN_SECTIONS[activeTab] ?? ADMIN_SECTIONS.overview;
+  const ActiveIcon = currentSection.icon;
 
-          <TabsContent value="overview" className="mt-5">
-            {activeTab === "overview" && <OverviewPanel onOpenGodmode={() => setActiveTab("godmode")} />}
-          </TabsContent>
-          <TabsContent value="godmode" className="mt-5">
+  return (
+    <div className="flex flex-1 flex-col">
+      {/* ── Studio Header ── */}
+      <PageHeader
+        title="Admin Command Studio"
+        description="Master control center: platform health, user roles, syllabus curriculum, and AI infrastructure."
+        action={
+          <div className="flex items-center gap-2">
+            <div className="hidden sm:flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+              <span className="relative flex size-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                <span className="relative inline-flex size-2 rounded-full bg-emerald-500" />
+              </span>
+              <span>Root: vaquitavoid</span>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => window.location.reload()}
+              className="h-8 text-xs gap-1.5"
+            >
+              <RefreshCw className="size-3.5" />
+              <span className="hidden sm:inline">Reload Studio</span>
+            </Button>
+          </div>
+        }
+      />
+
+      {/* ── Studio Layout: Left Sidebar + Right Workspace ── */}
+      <div className="flex flex-1 flex-col md:flex-row min-h-[calc(100vh-140px)] border-t border-border/70">
+        {/* Mobile Horizontal Selector (< md) */}
+        <div className="md:hidden border-b border-border/70 bg-card/60 p-3 space-y-2">
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <span className="font-semibold uppercase tracking-wider text-[10px]">Studio Module:</span>
+            <span className="font-medium text-foreground">{currentSection.title}</span>
+          </div>
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+            {Object.values(ADMIN_SECTIONS).map((sec) => (
+              <Button
+                key={sec.id}
+                variant={activeTab === sec.id ? "default" : "outline"}
+                size="sm"
+                onClick={() => setActiveTab(sec.id)}
+                className="h-7 text-xs whitespace-nowrap gap-1 shrink-0"
+              >
+                <sec.icon className="size-3" />
+                {sec.id === "godmode" ? "Vault" : sec.title.split(" ")[0]}
+              </Button>
+            ))}
+          </div>
+        </div>
+
+        {/* Desktop Left-Hand Studio Sidebar (md:) */}
+        <aside className="hidden md:flex md:w-64 lg:w-72 shrink-0 flex-col justify-between border-r border-border/70 bg-card/40 p-3.5 space-y-4">
+          <div className="space-y-4 overflow-y-auto">
+            {ADMIN_CATEGORIES.map((cat) => (
+              <div key={cat.title} className="space-y-1">
+                <p className="px-2.5 text-[10px] font-bold tracking-wider text-muted-foreground/70 uppercase">
+                  {cat.title}
+                </p>
+                <div className="space-y-0.5">
+                  {cat.items.map((item) => {
+                    const isActive = activeTab === item.id;
+                    const ItemIcon = item.icon;
+                    return (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => setActiveTab(item.id)}
+                        className={cn(
+                          "group relative flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-left text-xs transition-all",
+                          isActive
+                            ? "bg-primary/10 font-semibold text-primary shadow-xs"
+                            : "text-muted-foreground hover:bg-muted/70 hover:text-foreground",
+                        )}
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <ItemIcon className={cn("size-4 shrink-0 transition-transform group-hover:scale-110", isActive ? "text-primary" : "text-muted-foreground")} />
+                          <span className="truncate">{item.title.split(" ")[0]} {item.title.split(" ")[1] ?? ""}</span>
+                        </div>
+                        {item.badge ? (
+                          <Badge variant="outline" className={cn("text-[9px] px-1.5 py-0 h-4 font-mono uppercase", item.badgeColor)}>
+                            {item.badge}
+                          </Badge>
+                        ) : null}
+                        {isActive ? (
+                          <span className="absolute left-0 top-1.5 bottom-1.5 w-1 rounded-r-full bg-primary" />
+                        ) : null}
+                      </button>
+                    );
+                  })}
+
+                  {/* External links under Curriculum */}
+                  {cat.externalLinks?.map((link) => (
+                    <Link
+                      key={link.to}
+                      to={link.to}
+                      className="group flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-muted/60 hover:text-foreground transition-colors"
+                      title={link.desc}
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <link.icon className="size-3.5 shrink-0 text-muted-foreground group-hover:text-foreground" />
+                        <span className="truncate">{link.label}</span>
+                      </div>
+                      <ExternalLink className="size-3 text-muted-foreground/50 group-hover:text-foreground shrink-0" />
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Sidebar Footer info */}
+          <div className="border-t border-border/60 pt-3 px-2 text-[11px] text-muted-foreground/80 space-y-1">
+            <p className="font-semibold text-foreground text-xs">Marginal 9708 Engine</p>
+            <p className="text-[10px]">Cloudflare Workers · PostgreSQL</p>
+          </div>
+        </aside>
+
+        {/* ── Main Studio Workspace (Right) ── */}
+        <main className="flex-1 min-w-0 p-4 sm:p-6 lg:p-8 bg-card/10 overflow-y-auto space-y-6">
+          {/* Section Breadcrumb & Header Banner */}
+          <div className="rounded-xl border border-border/80 bg-card p-5 sm:p-6 shadow-xs">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <span>Admin</span>
+                  <span>/</span>
+                  <span className="text-foreground font-medium">{currentSection.category}</span>
+                  <span>/</span>
+                  <span className="text-primary font-semibold">{currentSection.title.split(" ")[0]}</span>
+                </div>
+                <div className="flex items-center gap-2.5 pt-1">
+                  <span className="flex size-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                    <ActiveIcon className="size-4" />
+                  </span>
+                  <h1 className="text-xl font-bold tracking-tight text-foreground sm:text-2xl">
+                    {currentSection.title}
+                  </h1>
+                </div>
+                <p className="text-xs sm:text-sm text-muted-foreground pt-0.5 leading-relaxed">
+                  {currentSection.subtitle}
+                </p>
+              </div>
+
+              {currentSection.badge ? (
+                <Badge variant="outline" className={cn("self-start sm:self-center font-mono text-xs uppercase px-2.5 py-1", currentSection.badgeColor)}>
+                  {currentSection.badge} active
+                </Badge>
+              ) : null}
+            </div>
+          </div>
+
+          {/* Active Panel View */}
+          <div className="space-y-6">
+            {activeTab === "overview" && (
+              <OverviewPanel onOpenGodmode={() => setActiveTab("godmode")} />
+            )}
             {activeTab === "godmode" && <AdminGodmodeDashboard />}
-          </TabsContent>
-          <TabsContent value="users" className="mt-5">
             {activeTab === "users" && <UsersPanel />}
-          </TabsContent>
-          <TabsContent value="access" className="mt-5">
             {activeTab === "access" && <AccessPanel />}
-          </TabsContent>
-          <TabsContent value="showcase" className="mt-5">
             {activeTab === "showcase" && <ShowcaseAdminPanel />}
-          </TabsContent>
-          <TabsContent value="providers" className="mt-5">
-            {activeTab === "providers" && <ProvidersPanel />}
-          </TabsContent>
-          <TabsContent value="embeddings" className="mt-5">
-            {activeTab === "embeddings" && <EmbeddingsPanel />}
-          </TabsContent>
-          <TabsContent value="vision" className="mt-5">
-            {activeTab === "vision" && <VisionPanel />}
-          </TabsContent>
-          <TabsContent value="diagrams" className="mt-5">
             {activeTab === "diagrams" && <DiagramsPanel />}
-          </TabsContent>
-        </Tabs>
+            {activeTab === "providers" && <ProvidersPanel />}
+            {activeTab === "embeddings" && <EmbeddingsPanel />}
+            {activeTab === "vision" && <VisionPanel />}
+          </div>
+        </main>
       </div>
-    </>
+    </div>
   );
 }
 
