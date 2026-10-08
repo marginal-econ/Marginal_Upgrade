@@ -14,6 +14,7 @@ import {
 import { useEffect, useMemo, useState } from "react";
 
 import { PageHeader } from "@/components/app/app-shell";
+import { SyllabusNavTabs } from "@/components/app/syllabus-nav";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -158,6 +159,7 @@ function CommandWordsPage() {
         title="Command words test"
         description="Understand what the examiner is asking before you start writing."
       />
+      <SyllabusNavTabs />
       <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 p-4 sm:p-5 md:p-8">
         <section className="relative overflow-hidden rounded-2xl border border-amber-300/50 bg-linear-to-br from-amber-50 via-card to-card p-5 dark:from-amber-950/30 sm:p-7">
           <div className="paper-grid pointer-events-none absolute inset-0 opacity-20" />

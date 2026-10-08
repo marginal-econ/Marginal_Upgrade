@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { PageHeader } from "@/components/app/app-shell";
+import { AdminNavTabs } from "@/components/app/admin-nav";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -570,6 +571,7 @@ function KnowledgePage() {
         title="Knowledge base"
         description="Add your coursebook, the 9708 syllabus, mark schemes and examiner reports. Every mark is then grounded in these documents and cited back to them."
       />
+      <AdminNavTabs role={me.data?.isAdmin ? "admin" : "teacher"} />
 
       {me.isLoading ? null : !isStaff ? (
         <div className="px-5 py-16 md:px-8">

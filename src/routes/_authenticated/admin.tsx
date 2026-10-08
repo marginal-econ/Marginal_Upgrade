@@ -39,6 +39,7 @@ import {
   useUserActivity,
 } from "@/components/app/admin-access";
 import { PageHeader } from "@/components/app/app-shell";
+import { AdminNavTabs } from "@/components/app/admin-nav";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -212,6 +213,7 @@ function AdminPage() {
         title="Admin console"
         description="Everything in one place: platform totals, user roles, AI usage and your own AI provider keys."
       />
+      <AdminNavTabs role="admin" />
       <div className="px-5 py-6 md:px-8">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="h-auto flex-wrap">

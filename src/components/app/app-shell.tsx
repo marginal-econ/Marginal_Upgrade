@@ -73,45 +73,29 @@ const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    id: "writing",
-    label: "Examiner & Essays",
+    id: "practice",
+    label: "Examiner & Practice",
     items: [
       { to: "/live-examiner", label: "Live Examiner", icon: Sparkles, badge: "Live" },
       { to: "/grade", label: "Essay Marking", icon: PenLine },
-      { to: "/essay-generator", label: "Essay Generator", icon: Wand2 },
-      { to: "/response-structure", label: "Response Structure", icon: ListOrdered },
-    ],
-  },
-  {
-    id: "practice",
-    label: "Past Papers & Practice",
-    items: [
       { to: "/mcq-live", label: "MCQ Past Papers", icon: ListChecks },
-      { to: "/question-bank", label: "Essay Question Bank", icon: BookMarked },
-      { to: "/practice", label: "AO Skills Coach", icon: Dumbbell },
+      { to: "/question-bank", label: "Question Bank", icon: BookMarked },
+      { to: "/practice", label: "Skills Coach", icon: Dumbbell },
     ],
   },
   {
     id: "resources",
-    label: "Syllabus Resources",
-    collapsible: true,
+    label: "Syllabus Hub",
     items: [
-      { to: "/definitions", label: "Definitions Hub", icon: BookText },
-      { to: "/diagrams", label: "Diagram Library", icon: LineChart },
-      { to: "/command-words", label: "Command Words", icon: CircleHelp },
-      { to: "/showcase", label: "Exemplars Showcase", icon: Trophy },
+      { to: "/definitions", label: "Syllabus & Diagrams", icon: BookText },
     ],
   },
   {
     id: "staff",
-    label: "Staff & Administration",
-    collapsible: true,
+    label: "Staff & Admin",
     items: [
-      { to: "/admin", label: "Admin Console", icon: ShieldCheck, staffOnly: true, adminOnly: true },
-      { to: "/knowledge", label: "Knowledge Base", icon: BookOpen, staffOnly: true },
-      { to: "/calibration", label: "Calibration Anchors", icon: Target, staffOnly: true },
-      { to: "/content-admin", label: "Content Admin", icon: ShieldPlus, staffOnly: true, adminOnly: true },
-      { to: "/mcq-papers-admin", label: "MCQ Paper Library", icon: UploadCloud, staffOnly: true, adminOnly: true },
+      { to: "/admin", label: "Admin Console", icon: ShieldCheck, adminOnly: true },
+      { to: "/knowledge", label: "Staff Console", icon: BookOpen, staffOnly: true },
     ],
   },
 ];
@@ -120,11 +104,11 @@ function filterGroupForRole(
   group: NavGroup,
   role: "student" | "teacher" | "admin",
 ): NavGroup | null {
-  const visibleItems = group.items.filter(
-    (item) =>
-      (!item.staffOnly || role === "teacher" || role === "admin") &&
-      (!item.adminOnly || role === "admin"),
-  );
+  const visibleItems = group.items.filter((item) => {
+    if (item.adminOnly) return role === "admin";
+    if (item.staffOnly) return role === "teacher";
+    return true;
+  });
   if (visibleItems.length === 0) return null;
   return { ...group, items: visibleItems };
 }
@@ -204,10 +188,22 @@ export function AppShell({
 
   const classroomLabel = role === "student" ? "Join class" : "Classes";
 
+  const isItemActive = (to: string) => {
+    if (to === "/dashboard") return pathname === "/dashboard";
+    if (pathname.startsWith(to)) return true;
+    if (to === "/definitions" && ["/diagrams", "/command-words", "/showcase"].some((p) => pathname.startsWith(p))) {
+      return true;
+    }
+    if ((to === "/admin" || to === "/knowledge") && ["/calibration", "/content-admin", "/mcq-papers-admin"].some((p) => pathname.startsWith(p))) {
+      return true;
+    }
+    return false;
+  };
+
   const renderNavGroup = (group: NavGroup, isMobile = false) => {
     const isGroupCollapsed = group.collapsible && collapsedGroups.has(group.id);
     // Always expand group if current page is within this group
-    const hasActiveItem = group.items.some((item) => pathname.startsWith(item.to));
+    const hasActiveItem = group.items.some((item) => isItemActive(item.to));
     const forceOpen = hasActiveItem || !isGroupCollapsed;
 
     return (
@@ -239,7 +235,7 @@ export function AppShell({
         {(forceOpen || (sidebarCollapsed && !isMobile)) && (
           <nav className="flex flex-col gap-0.5">
             {group.items.map((item) => {
-              const active = pathname.startsWith(item.to);
+              const active = isItemActive(item.to);
               const label = item.to === "/classes" ? classroomLabel : item.label;
 
               return (

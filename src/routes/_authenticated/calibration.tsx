@@ -6,6 +6,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { PageHeader } from "@/components/app/app-shell";
+import { AdminNavTabs } from "@/components/app/admin-nav";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -133,6 +134,7 @@ function CalibrationPage() {
         title="Calibration anchors"
         description="Real essays with marks you have confirmed. These are shown to the examiner model as worked exemplars, which is what stops it drifting towards safe middle-band marks."
       />
+      <AdminNavTabs role={me.data?.isAdmin ? "admin" : "teacher"} />
 
       <div className="grid gap-6 px-5 py-6 md:px-8 lg:grid-cols-[minmax(0,440px)_minmax(0,1fr)]">
         <div className="panel space-y-4 p-5">

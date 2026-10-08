@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import { PageHeader } from "@/components/app/app-shell";
+import { AdminNavTabs } from "@/components/app/admin-nav";
 import { QuestionBankAdmin } from "@/components/app/question-bank-admin";
 
 export const Route = createFileRoute("/_authenticated/content-admin")({
@@ -27,6 +28,7 @@ function ContentAdminPage() {
         title="Content admin"
         description="Paper and question-bank ingestion — separate from the App admin console. Extract real past-paper questions, then review and approve them before they reach students."
       />
+      <AdminNavTabs role="admin" />
       <QuestionBankAdmin />
     </div>
   );

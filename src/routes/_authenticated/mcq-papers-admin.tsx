@@ -6,6 +6,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { PageHeader } from "@/components/app/app-shell";
+import { AdminNavTabs } from "@/components/app/admin-nav";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -317,6 +318,7 @@ function McqPapersAdminPage() {
         title="MCQ paper library"
         description="Add past papers here — students can only pick from what you've added, never upload their own."
       />
+      <AdminNavTabs role="admin" />
 
       <div className="mx-auto max-w-3xl space-y-6 px-5 py-8 md:px-8">
         <Card>
