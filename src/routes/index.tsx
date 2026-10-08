@@ -8,9 +8,11 @@ import {
   ListChecks,
   Mail,
   PenLine,
+  Scan,
   ShieldCheck,
   Sparkles,
   Target,
+  TrendingUp,
 } from "lucide-react";
 
 import {
@@ -69,10 +71,12 @@ const RIBBON_ITEMS = [
   "AO1 Knowledge",
   "AO2 Analysis",
   "AO3 Evaluation",
-  "Paper 1",
-  "Paper 2",
-  "Paper 3",
-  "Paper 4",
+  "Paper 1 & 3 MCQs",
+  "Paper 2 & 4 Essays",
+  "Live Examiner",
+  "Handwriting Vision OCR",
+  "Diagram Studio",
+  "Definition Hub",
   "Marked to 9708",
 ];
 
@@ -85,38 +89,71 @@ const OBJECTIVES = [
   { code: "AO3", name: "Evaluation", dot: "bg-ao3", share: 45 },
 ];
 
-// What's actually inside, in the words a student would use. Each tile takes
-// one of the reserved hues — no new colours invented for decoration. `back`
-// is the detail on the reverse of the flip card, so the front can stay a
-// single scannable line.
+// All eight specialized features engineered for Cambridge 9708 Economics.
 const TOOLS = [
   {
-    icon: PenLine,
+    icon: Sparkles,
     tile: "bg-primary",
-    title: "Essay marking",
-    lead: "A real mark, split by objective",
-    body: "A mark out of the real total, split by assessment objective, with the mark-scheme points you hit and the ones you didn't.",
+    badge: "Real-Time AI",
+    title: "Live Examiner",
+    lead: "Instant calibration sentence by sentence",
+    body: "Running Cambridge marks out of 8, 12, or 20, real-time AO1/AO2/AO3 progress meters, economics terminology checks, and dynamic examiner next-move coaching while you write.",
+  },
+  {
+    icon: PenLine,
+    tile: "bg-ao2",
+    badge: "Full Audit",
+    title: "Dual-Pass Essay Lab",
+    lead: "Independent two-pass Cambridge 9708 grading",
+    body: "Grounded in official 9708 mark schemes and coursebooks. Two independent evaluation passes correct AI central-tendency bias, providing line-by-line mark scheme matching and rewrite plans.",
   },
   {
     icon: ListChecks,
     tile: "bg-ao1",
-    title: "Question bank & MCQs",
-    lead: "Past papers, by topic and level",
-    body: "Real past-paper questions by topic and level, plus multiple-choice papers you can sit against a timer.",
+    badge: "Exam Simulation",
+    title: "MCQ Live Simulation",
+    lead: "Authentic timed Paper 1 & Paper 3 exams",
+    body: "Real Cambridge past papers with official mark schemes. Features question flagging for review, interactive jump matrix, domain accuracy breakdown, and on-demand AI explanations.",
+  },
+  {
+    icon: BookOpen,
+    tile: "bg-ao3",
+    badge: "Revision Vault",
+    title: "Cambridge Definition Hub",
+    lead: "Over 120 verified textbook definitions",
+    body: "Precise definitions for every 9708 economic concept with essential syllabus keywords, topic tags, and copyable flashcards so you never surrender easy AO1 knowledge marks.",
   },
   {
     icon: Target,
-    tile: "bg-ao3",
-    title: "AO skills coach",
-    lead: "Drills on the one thing costing you marks",
-    body: "Short drills on the one thing costing you marks — chains of analysis, evaluation that actually judges, precise definitions.",
+    tile: "bg-primary",
+    badge: "Exam Technique",
+    title: "Command Words Explorer",
+    lead: "Assess, Evaluate, Explain — exact AO rubrics",
+    body: "Master what Cambridge examiners demand for every command word. Learn the exact analytical and evaluative weights to structure high-band answers without wasted prose.",
   },
   {
     icon: LineChart,
     tile: "bg-ao2",
-    title: "Diagram library",
-    lead: "Every 9708 diagram, drawn properly",
-    body: "Every diagram on the 9708 syllabus, drawn properly, with the labelling examiners look for.",
+    badge: "Visual Studio",
+    title: "Economics Diagram Studio",
+    lead: "Every 9708 diagram with dynamic curve shifts",
+    body: "Interactive micro and macro diagrams with real-time shifts, equilibrium price/quantity tracking, and examiner labelling standards for tariffs, externalities, and market structures.",
+  },
+  {
+    icon: Scan,
+    tile: "bg-ao1",
+    badge: "Vision AI",
+    title: "Handwriting Vision OCR",
+    lead: "Upload photos of handwritten mock exams",
+    body: "Specialized vision engine lifts student handwriting off paper, detects hand-drawn diagrams, verifies economic terminology, and sends it directly for examiner grading.",
+  },
+  {
+    icon: TrendingUp,
+    tile: "bg-ao3",
+    badge: "Intelligence",
+    title: "Review & Analytics Hub",
+    lead: "Projected Cambridge grades & domain radar",
+    body: "Executive performance dashboard tracking your projected grade, essay averages, MCQ topic mastery, and syllabus balance across Micro, Macro, Trade, and Market Failure.",
   },
 ];
 
@@ -264,7 +301,7 @@ function Index() {
         </Drift>
         <Star className="doodle absolute top-32 left-[46%] hidden size-4 text-ao3/30 md:block" />
 
-        <div className="relative z-10 mx-auto grid max-w-6xl items-center gap-10 px-4 py-10 sm:px-5 sm:py-14 md:px-8 md:py-16 lg:grid-cols-[1.05fr_0.95fr] lg:gap-10">
+        <div className="relative z-10 mx-auto grid max-w-6xl items-center gap-10 px-4 py-10 sm:px-5 sm:py-14 md:px-8 md:py-16 lg:grid-cols-[0.9fr_1.1fr] lg:gap-10">
           <div>
             <Reveal>
               <div className="flex flex-wrap items-center gap-2">
@@ -329,20 +366,10 @@ function Index() {
             </Reveal>
           </div>
 
-          {/* The product, marking, on its own 3D stage: the panel leans toward
-              the pointer and the two stickers ride in front of it on separate
-              Z planes, so the group reads as depth rather than as one flat
-              picture. It loops forever — the claim on the left demonstrated
-              rather than described. */}
+          {/* Authentic Live Examiner Interactive Sandbox: lets students observe real calibration or click & type their own answers */}
           <Reveal variant="pop" delay={120} className="relative">
-            <ExaminerStage className="relative mx-auto w-full max-w-md min-w-0">
+            <ExaminerStage className="relative mx-auto w-full max-w-xl min-w-0">
               <LiveExaminer />
-              <span className="sticker layer-3 absolute -top-3 left-1 z-10 bg-ao3 text-foreground md:-left-6">
-                Nice evaluation
-              </span>
-              <span className="sticker layer-3 absolute right-1 bottom-24 z-10 rotate-6 bg-surface text-foreground md:-right-6">
-                AO3 · 5/6
-              </span>
             </ExaminerStage>
           </Reveal>
         </div>
@@ -441,14 +468,14 @@ function Index() {
           <Reveal>
             <SectionHeading
               eyebrow="What's inside"
-              title="Four tools, one syllabus"
-              lead="Everything here exists because a 9708 student needed it. Nothing here is a generic study widget. Hover or tap a card to turn it over."
+              title="Eight specialized tools, one Cambridge syllabus"
+              lead="Everything in Marginal is engineered exclusively for Cambridge AS & A Level Economics (9708). No generic chatbots, no vague study widgets. Hover or tap a card to see what it does."
             />
           </Reveal>
 
-          <div className="mt-12 grid gap-5 sm:grid-cols-2">
+          <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
             {TOOLS.map((tool, index) => (
-              <Reveal key={tool.title} variant="pop" delay={index * 70}>
+              <Reveal key={tool.title} variant="pop" delay={index * 50}>
                 {/* Front and back are the same card turned over. The shell is
                     focusable so the reverse is reachable from the keyboard,
                     not just from a hover. */}
@@ -457,27 +484,32 @@ function Index() {
                   className="scene flip-shell block h-full w-full text-left"
                   aria-label={`${tool.title}. ${tool.lead}. ${tool.body}`}
                 >
-                  <div aria-hidden="true" className="flip relative h-full min-h-[13.5rem]">
-                    <div className="flip-face pop pop-press flex h-full flex-col p-6">
-                      <span
-                        className={`pop-sm flex size-11 items-center justify-center text-background transition-transform duration-300 ${tool.tile}`}
-                      >
-                        <tool.icon className="size-5" />
-                      </span>
-                      <h3 className="mt-5 text-lg font-semibold">{tool.title}</h3>
-                      <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                  <div aria-hidden="true" className="flip relative h-full min-h-[14rem]">
+                    <div className="flip-face pop pop-press flex h-full flex-col p-5">
+                      <div className="flex items-center justify-between gap-2">
+                        <span
+                          className={`pop-sm flex size-10 items-center justify-center text-background transition-transform duration-300 ${tool.tile}`}
+                        >
+                          <tool.icon className="size-5" />
+                        </span>
+                        <span className="font-mono text-[9px] uppercase tracking-wider font-bold text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                          {tool.badge}
+                        </span>
+                      </div>
+                      <h3 className="mt-4 text-base font-bold text-foreground">{tool.title}</h3>
+                      <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
                         {tool.lead}
                       </p>
-                      <span className="mt-auto pt-4 font-mono text-xs text-muted-foreground">
-                        {String(index + 1).padStart(2, "0")} / 04
+                      <span className="mt-auto pt-3 font-mono text-[10px] text-muted-foreground">
+                        {String(index + 1).padStart(2, "0")} / 08
                       </span>
                     </div>
 
                     <div
-                      className={`flip-face flip-back pop flex h-full flex-col justify-center p-6 ${tool.tile}`}
+                      className={`flip-face flip-back pop flex h-full flex-col justify-center p-5 ${tool.tile}`}
                     >
-                      <h3 className="text-lg font-semibold text-background">{tool.title}</h3>
-                      <p className="mt-2 text-sm leading-relaxed text-background/90">{tool.body}</p>
+                      <h3 className="text-base font-bold text-background">{tool.title}</h3>
+                      <p className="mt-2 text-xs leading-relaxed text-background/90">{tool.body}</p>
                     </div>
                   </div>
                 </button>
