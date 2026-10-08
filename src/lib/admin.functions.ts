@@ -553,7 +553,7 @@ export const setUserRole = createServerFn({ method: "POST" })
       .maybeSingle();
     if (existingAdminError) throw new Error(existingAdminError.message);
 
-    if (existingAdmin && data.role !== "admin") {
+    if (existingAdmin) {
       if (data.userId === context.userId) {
         throw new Error("You cannot remove your own administrator access.");
       }

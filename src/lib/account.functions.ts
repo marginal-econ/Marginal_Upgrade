@@ -17,19 +17,29 @@ export const getMe = createServerFn({ method: "GET" })
     });
 
     try {
-      const [{ data: profile }, { data: roles }] = await Promise.all([
-        supabase
+      let profile: { id: string; full_name: string | null; school: string | null; tutorial_completed: boolean } | null = null;
+      let roles: { role: string }[] | null = null;
+
+      try {
+        const profileRes = await supabase
           .from("profiles")
           .select("id, full_name, school, tutorial_completed")
           .eq("id", userId)
-          .maybeSingle()
-          .catch(() => ({ data: null })),
-        supabase
+          .maybeSingle();
+        profile = profileRes.data;
+      } catch {
+        profile = null;
+      }
+
+      try {
+        const rolesRes = await supabase
           .from("user_roles")
           .select("role")
-          .eq("user_id", userId)
-          .catch(() => ({ data: null })),
-      ]);
+          .eq("user_id", userId);
+        roles = rolesRes.data as { role: string }[] | null;
+      } catch {
+        roles = null;
+      }
 
       const roleList = (roles ?? []).map((row: any) => row.role);
       let role: AppRole = "student";
@@ -48,6 +58,7 @@ export const getMe = createServerFn({ method: "GET" })
         fullName: profile?.full_name ?? (isVaquita ? "Vaquitavoid" : null),
         school: profile?.school ?? null,
         role,
+        isAdmin: isVaquita || role === "admin",
         isStaff: isVaquita || role === "teacher",
         tutorialCompleted: profile?.tutorial_completed ?? true,
       };
@@ -58,6 +69,7 @@ export const getMe = createServerFn({ method: "GET" })
         fullName: isVaquita ? "Vaquitavoid" : null,
         school: null,
         role: isVaquita ? ("admin" as AppRole) : ("student" as AppRole),
+        isAdmin: isVaquita,
         isStaff: isVaquita,
         tutorialCompleted: true,
       };

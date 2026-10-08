@@ -393,12 +393,12 @@ function LiveExaminerPage() {
   });
 
   const contextMutation = useMutation({
-    mutationFn: (variables?: { level?: "as" | "a2"; topic?: string; question?: string }) =>
+    mutationFn: (variables?: { level?: "as" | "a2"; topic?: string; question?: string } | void) =>
       prepareContext({
         data: {
-          level: variables?.level ?? level,
-          topic: variables?.topic ?? topic,
-          question: variables?.question ?? question,
+          level: variables && typeof variables === "object" && variables.level ? variables.level : level,
+          topic: variables && typeof variables === "object" && variables.topic ? variables.topic : topic,
+          question: variables && typeof variables === "object" && variables.question ? variables.question : question,
         },
       }),
     onError: (error: Error) => {
@@ -502,7 +502,7 @@ function LiveExaminerPage() {
     }
     setLimitNotice(null);
     setStarted(true);
-    contextMutation.mutate();
+    contextMutation.mutate({ level, topic, question });
   }
 
   /** Resume a past essay from the history panel — same as picking that
@@ -515,7 +515,7 @@ function LiveExaminerPage() {
     setMaxMark(entry.maxMark);
     setLimitNotice(null);
     setStarted(true);
-    contextMutation.mutate();
+    contextMutation.mutate({ level: entry.level, topic: entry.topic, question: entry.question });
   }
 
   const contextBlock = contextMutation.data?.contextBlock ?? "";
@@ -817,7 +817,10 @@ function LiveExaminerPage() {
                     setQuestion(today.claimedQuestion);
                   }
                   setStarted(true);
-                  contextMutation.mutate();
+                  const targetLevel = (today.session?.level ?? level) as "as" | "a2";
+                  const targetTopic = today.session?.topic ?? topic;
+                  const targetQuestion = today.session?.question ?? today.claimedQuestion ?? question;
+                  contextMutation.mutate({ level: targetLevel, topic: targetTopic, question: targetQuestion });
                 }}
                 className="gap-2"
               >

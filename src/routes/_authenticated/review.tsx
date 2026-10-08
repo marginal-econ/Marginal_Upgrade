@@ -468,24 +468,24 @@ export function ReviewPanelPage() {
                             <Badge variant="outline" className="text-[10px] uppercase font-mono">
                               {paper.level === "as" ? "AS Paper 1" : "A2 Paper 3"}
                             </Badge>
-                            {paper.retakeCount > 0 ? (
+                            {paper.attemptsCount > 1 ? (
                               <Badge variant="secondary" className="text-[10px]">
-                                {paper.retakeCount + 1} attempts
+                                {paper.attemptsCount} attempts
                               </Badge>
                             ) : null}
                           </div>
                           <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                            {paper.lastAttemptedAt ? (
+                            {paper.latestAt ? (
                               <span className="flex items-center gap-1">
                                 <Calendar className="size-3" />
-                                {new Date(paper.lastAttemptedAt).toLocaleDateString(undefined, {
+                                {new Date(paper.latestAt).toLocaleDateString(undefined, {
                                   month: "short",
                                   day: "numeric",
                                   year: "numeric",
                                 })}
                               </span>
                             ) : null}
-                            {paper.retakeCount > 0 && paper.latestScore !== null ? (
+                            {paper.attemptsCount > 1 && paper.latestScore !== null ? (
                               <span>Latest retake: {paper.latestScore}/{paper.latestTotal}</span>
                             ) : null}
                           </div>
@@ -502,7 +502,7 @@ export function ReviewPanelPage() {
                           </div>
 
                           <Button asChild size="sm" variant="outline" className="h-8 text-xs gap-1">
-                            <Link to="/mcq-live" search={{ paperId: paper.paperId }}>
+                            <Link to="/mcq-live" search={{ paperId: paper.paperId ?? undefined }}>
                               Retake <ArrowRight className="size-3 ml-0.5" />
                             </Link>
                           </Button>

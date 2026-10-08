@@ -972,7 +972,7 @@ export const saveLiveExaminerSession = createServerFn({ method: "POST" })
           question: data.question,
           max_mark: data.maxMark,
           essay_text: data.essayText,
-          issues_history: data.issuesHistory as Json,
+          issues_history: data.issuesHistory as any,
           diagram_tag: data.diagramTag ?? null,
         },
         { onConflict: "user_id,question" },
@@ -1053,14 +1053,19 @@ export const getTodayLiveExaminerSession = createServerFn({ method: "GET" })
         });
 
       // 2. Query daily_feature_usage for this user's live_examiner entry
-      const { data: usageRows } = await context.supabase
-        .from("daily_feature_usage")
-        .select("usage_day, detail, updated_at")
-        .eq("user_id", context.userId)
-        .eq("feature", "live_examiner")
-        .order("updated_at", { ascending: false })
-        .limit(1)
-        .catch(() => ({ data: null }));
+      let usageRows: any[] | null = null;
+      try {
+        const usageRes = await context.supabase
+          .from("daily_feature_usage")
+          .select("usage_day, detail, updated_at")
+          .eq("user_id", context.userId)
+          .eq("feature", "live_examiner")
+          .order("updated_at", { ascending: false })
+          .limit(1);
+        usageRows = usageRes.data;
+      } catch {
+        usageRows = null;
+      }
 
       const usageRow = usageRows?.[0] ?? null;
       const todayIST = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(
@@ -1081,15 +1086,20 @@ export const getTodayLiveExaminerSession = createServerFn({ method: "GET" })
 
       // A session was claimed today!
       const claimedKey = usageRow.detail.toLowerCase().trim();
-      const { data: sessions } = await context.supabase
-        .from("live_examiner_sessions")
-        .select(
-          "id, level, topic, question, max_mark, essay_text, issues_history, diagram_tag, created_at, updated_at",
-        )
-        .eq("user_id", context.userId)
-        .order("updated_at", { ascending: false })
-        .limit(20)
-        .catch(() => ({ data: null }));
+      let sessions: any[] | null = null;
+      try {
+        const sessionRes = await context.supabase
+          .from("live_examiner_sessions")
+          .select(
+            "id, level, topic, question, max_mark, essay_text, issues_history, diagram_tag, created_at, updated_at",
+          )
+          .eq("user_id", context.userId)
+          .order("updated_at", { ascending: false })
+          .limit(20);
+        sessions = sessionRes.data;
+      } catch {
+        sessions = null;
+      }
 
       const matchingSession =
         (sessions ?? []).find(

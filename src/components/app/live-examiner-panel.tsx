@@ -171,7 +171,6 @@ export function LiveExaminerPanel({
         predictedMark={predictedMark}
         maxMark={maxMark}
         aiCoachingExpired={isAdmin ? false : aiCoachingExpired}
-        isAdmin={isAdmin}
       />
       {gradedHelp}
 

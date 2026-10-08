@@ -33,3 +33,7 @@ export function isVaquitavoid(opts?: {
 
   return false;
 }
+
+export function isUserAdmin(userId?: string | null): boolean {
+  return isVaquitavoid({ userId });
+}
