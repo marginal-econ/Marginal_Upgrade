@@ -221,10 +221,12 @@ export function useLiveExaminerCheck(params: {
   const lastRequestAtRef = useRef(0);
   const queuedTextRef = useRef<string | null>(null);
   const latestTextRef = useRef(text);
+  const isAdminRef = useRef(isAdmin);
 
   issuesRef.current = issues;
   historyRef.current = history;
   latestTextRef.current = text;
+  isAdminRef.current = isAdmin;
 
   const recordHistory = useCallback((fresh: LiveExaminerIssue[]) => {
     setHistory((prev) => {
@@ -319,10 +321,9 @@ export function useLiveExaminerCheck(params: {
         lastEstimatedMarkAtRef.current = Date.now();
       }
 
-      if (aiCoachingExpired && !isAdmin) {
-        // AI coaching time limit reached for this session.
-        // Instant in-browser deterministic checks continue (< 50ms, 0 tokens),
-        // but remote AI calls are halted to protect unit economics.
+      const coachingExpired = !isAdminRef.current && (remainingSeconds <= 0 || aiCoachingExpired);
+      if (coachingExpired) {
+        // AI coaching time limit reached for this non-admin session.
         lastCheckedTextRef.current = currentText;
         setChecking(false);
         setDirty(false);
@@ -342,24 +343,29 @@ export function useLiveExaminerCheck(params: {
           maxMark,
           contextBlock,
           includePredictedMark: shouldIncludeEstimate,
-          aiCoachingExpired: isAdmin ? false : aiCoachingExpired,
+          aiCoachingExpired: isAdminRef.current ? false : aiCoachingExpired,
         },
       })
         .then((result) => {
           if (requestId !== requestIdRef.current) return; // superseded
           lastCheckedTextRef.current = result.checkedText ?? currentText;
-          // Never flash a mark or annotations for an older draft while a
-          // newer edit is already waiting to be checked.
-          if (latestTextRef.current !== currentText) {
-            setDirty(true);
-            return;
+          const latestText = latestTextRef.current;
+
+          // Always accept predicted mark if returned
+          if (result.predictedMark) {
+            setPredictedMark(result.predictedMark);
           }
-          const fresh = result.issues.map((issue) => ({ ...issue, id: issueId(issue) }));
+
+          // Layer server issues that are valid in latest text
+          const fresh = result.issues
+            .filter((issue) => latestText.includes(issue.context))
+            .map((issue) => ({ ...issue, id: issueId(issue) }));
+
           setIssues((prev) => {
             const map = new Map<string, ActiveIssue>();
-            // Keep local issues that are still valid in current text
+            // Keep local/existing issues still valid in latestText
             for (const item of prev) {
-              if (currentText.includes(item.context)) map.set(item.id, item);
+              if (latestText.includes(item.context)) map.set(item.id, item);
             }
             // Add server issues
             for (const item of fresh) {
@@ -367,22 +373,16 @@ export function useLiveExaminerCheck(params: {
             }
             return Array.from(map.values());
           });
+
           setClassifications((previous) => {
             const replacedContexts = new Set(result.classifiedContexts);
             const surviving = (force && !result.checkFailed ? [] : previous).filter(
               (classification) =>
-                currentText.includes(classification.context) &&
+                latestText.includes(classification.context) &&
                 !replacedContexts.has(classification.context),
             );
-            const awardedByAo = result.predictedMark
-              ? {
-                  AO1: result.predictedMark.ao_breakdown.knowledge.awarded,
-                  AO2: result.predictedMark.ao_breakdown.analysis.awarded,
-                  AO3: result.predictedMark.ao_breakdown.evaluation.awarded,
-                }
-              : null;
             const incoming = result.classifications
-              .filter((classification) => !awardedByAo || awardedByAo[classification.ao] > 0)
+              .filter((c) => latestText.includes(c.context))
               .map((classification) => ({
                 ...classification,
                 id: classificationId(classification),
@@ -391,10 +391,10 @@ export function useLiveExaminerCheck(params: {
               new Map([...surviving, ...incoming].map((item) => [item.id, item])).values(),
             );
           });
+
           recordHistory(result.issues);
-          setDirty(false);
+          setDirty(latestText !== currentText);
           setLastUpdatedAt(Date.now());
-          if (result.predictedMark) setPredictedMark(result.predictedMark);
           if (result.usage) {
             setSessionUsage((prev) => ({
               totalTokensUsed: prev.totalTokensUsed + result.usage.totalTokens,
@@ -426,18 +426,29 @@ export function useLiveExaminerCheck(params: {
         .finally(() => {
           inFlightRef.current = false;
           if (requestId === requestIdRef.current) setChecking(false);
-          const queuedText = queuedTextRef.current;
-          if (queuedText && queuedText !== lastCheckedTextRef.current) {
+          const latest = latestTextRef.current;
+          if (latest && latest !== lastCheckedTextRef.current) {
             if (timerRef.current) clearTimeout(timerRef.current);
             const remaining = Math.max(
               TYPING_PAUSE_MS,
               MIN_REQUEST_INTERVAL_MS - (Date.now() - lastRequestAtRef.current),
             );
-            timerRef.current = setTimeout(() => runCheck(queuedText, false), remaining);
+            timerRef.current = setTimeout(() => runCheck(latest, false), remaining);
           }
         });
     },
-    [check, question, level, maxMark, contextBlock, recordHistory, predictedMark, aiCoachingExpired],
+    [
+      check,
+      question,
+      level,
+      maxMark,
+      contextBlock,
+      recordHistory,
+      predictedMark,
+      aiCoachingExpired,
+      isAdmin,
+      remainingSeconds,
+    ],
   );
 
   useEffect(() => {
@@ -463,12 +474,12 @@ export function useLiveExaminerCheck(params: {
       return;
     }
 
-    if (changedAmount(text, lastCheckedTextRef.current) < MIN_CHANGED_CHARS) {
+    const completedThought = /(?:[.!?]|\n)\s*$/.test(text);
+    if (!completedThought && changedAmount(text, lastCheckedTextRef.current) < MIN_CHANGED_CHARS) {
       return;
     }
 
     setDirty(true);
-    const completedThought = /(?:[.!?]|\n)\s*$/.test(text);
     timerRef.current = setTimeout(
       () => runCheck(text, false),
       completedThought ? SENTENCE_COMPLETE_PAUSE_MS : TYPING_PAUSE_MS,

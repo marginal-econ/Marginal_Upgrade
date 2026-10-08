@@ -427,8 +427,11 @@ function LiveExaminerPage() {
     staleTime: 60_000,
   });
 
+  const routeContext = Route.useRouteContext() as { user?: { id?: string; email?: string } } | undefined;
+  const routeUser = routeContext?.user;
   const isAdmin = Boolean(
-    todaySessionQuery.data?.isAdmin ||
+    isVaquitavoid({ userId: routeUser?.id, email: routeUser?.email }) ||
+      todaySessionQuery.data?.isAdmin ||
       meQuery.data?.role === "admin" ||
       (meQuery.data?.userId && isVaquitavoid({ userId: meQuery.data.userId }))
   );
@@ -562,7 +565,7 @@ function LiveExaminerPage() {
     level,
     maxMark,
     contextBlock,
-    enabled: started && contextMutation.isSuccess && !isTodaySessionExpired,
+    enabled: started && !isTodaySessionExpired,
     sessionStartedAt: authoritativeStartedAt,
     isAdmin,
   });
@@ -1012,7 +1015,7 @@ function LiveExaminerPage() {
             <LiveExaminerHistoryPanel onResume={resumeSession} />
           </div>
         </div>
-      ) : contextMutation.isPending || !contextMutation.isSuccess ? (
+      ) : (contextMutation.isPending && !essayText && !contextBlock) ? (
         <div className="flex min-h-64 flex-col items-center justify-center gap-3 p-8 text-center">
           <Loader2 className="size-6 animate-spin text-muted-foreground" />
           <p className="text-sm text-muted-foreground">

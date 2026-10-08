@@ -64,7 +64,7 @@ const MAX_VISIBLE_ISSUES = 8;
 const MAX_NEW_ISSUES_PER_CALL = 6;
 
 /** Sentences per model call is capped to active edited sentences during live typing (rapid & frugal). */
-const MAX_SENTENCES_PER_CALL = 4;
+const MAX_SENTENCES_PER_CALL = 12;
 
 /** Stage-1 candidates below this self-reported confidence are dropped
  *  before they even reach verification — cheap, zero-latency filter. */
@@ -354,19 +354,27 @@ Respond ONLY with a single valid JSON object:
 // doubles it.
 // ---------------------------------------------------------------------------
 
-const PredictedAoSchema = z.object({
-  awarded: z.number(),
-  out_of: z.number(),
+export const PredictedAoSchema = z.object({
+  awarded: z.coerce.number().default(0),
+  out_of: z.coerce.number().default(0),
 });
 
-const PredictedMarkSchema = z.object({
-  total_mark: z.number(),
-  confidence: z.number().min(0).max(1),
-  headline: z.string(),
+export const PredictedMarkSchema = z.object({
+  total_mark: z.coerce.number().default(0),
+  confidence: z.coerce
+    .number()
+    .transform((v) => (v > 1 && v <= 100 ? v / 100 : v))
+    .pipe(z.number().min(0).max(1))
+    .catch(0.8),
+  headline: z.string().catch("Live assessment in progress"),
   ao_breakdown: z.object({
-    knowledge: PredictedAoSchema,
-    analysis: PredictedAoSchema,
-    evaluation: PredictedAoSchema,
+    knowledge: PredictedAoSchema.catch({ awarded: 0, out_of: 0 }),
+    analysis: PredictedAoSchema.catch({ awarded: 0, out_of: 0 }),
+    evaluation: PredictedAoSchema.catch({ awarded: 0, out_of: 0 }),
+  }).catch({
+    knowledge: { awarded: 0, out_of: 0 },
+    analysis: { awarded: 0, out_of: 0 },
+    evaluation: { awarded: 0, out_of: 0 },
   }),
 });
 
@@ -411,22 +419,72 @@ Respond ONLY with a single valid JSON object:
 }
 
 /** Clamp/sanitise the model's rough estimate so a malformed response never
- *  reaches the client as a bogus number. */
-function sanitisePredictedMark(raw: unknown, maxMark: number): PredictedMark | null {
-  const parsed = PredictedMarkSchema.safeParse(raw);
-  if (!parsed.success) return null;
-  const clampAo = (ao: { awarded: number; out_of: number }) => ({
-    out_of: Math.max(0, Math.round(ao.out_of)),
-    awarded: Math.min(Math.max(0, Math.round(ao.awarded)), Math.max(0, Math.round(ao.out_of))),
-  });
-  const knowledge = clampAo(parsed.data.ao_breakdown.knowledge);
-  const analysis = clampAo(parsed.data.ao_breakdown.analysis);
-  const evaluation = clampAo(parsed.data.ao_breakdown.evaluation);
-  const total = knowledge.awarded + analysis.awarded + evaluation.awarded;
+ *  reaches the client as a bogus number. Robust to percentage confidence,
+ *  stringified numbers, and alternative AO property keys. */
+export function sanitisePredictedMark(raw: unknown, maxMark: number): PredictedMark | null {
+  if (!raw || typeof raw !== "object") return null;
+  const record = raw as Record<string, unknown>;
+
+  const split = defaultSplitForMaxMark(maxMark);
+
+  // Normalize confidence (convert 0-100 percentage to 0.0-1.0 if needed)
+  let confidence = typeof record.confidence === "number" ? record.confidence : parseFloat(String(record.confidence));
+  if (Number.isFinite(confidence)) {
+    if (confidence > 1 && confidence <= 100) confidence = confidence / 100;
+  } else {
+    confidence = 0.8;
+  }
+
+  const headline =
+    typeof record.headline === "string" && record.headline.trim()
+      ? record.headline.trim().slice(0, 80)
+      : "Live assessment in progress";
+
+  const rawBreakdown = (record.ao_breakdown ?? {}) as Record<string, unknown>;
+  const parseAo = (
+    val: unknown,
+    defaultMax: number,
+  ): { awarded: number; out_of: number } => {
+    if (typeof val === "number") {
+      return { awarded: Math.min(Math.max(0, Math.round(val)), defaultMax), out_of: defaultMax };
+    }
+    if (val && typeof val === "object") {
+      const obj = val as Record<string, unknown>;
+      const awardedNum = typeof obj.awarded === "number" ? obj.awarded : parseInt(String(obj.awarded ?? 0), 10);
+      const outOfNum = typeof obj.out_of === "number" ? obj.out_of : parseInt(String(obj.out_of ?? defaultMax), 10);
+      const safeAwarded = Number.isFinite(awardedNum) ? awardedNum : 0;
+      const safeOutOf = Number.isFinite(outOfNum) && outOfNum > 0 ? outOfNum : defaultMax;
+      return {
+        awarded: Math.min(Math.max(0, Math.round(safeAwarded)), Math.max(0, Math.round(safeOutOf))),
+        out_of: Math.max(0, Math.round(safeOutOf)),
+      };
+    }
+    return { awarded: 0, out_of: defaultMax };
+  };
+
+  const knowledge = parseAo(
+    rawBreakdown.knowledge ?? rawBreakdown.AO1 ?? rawBreakdown.ao1 ?? rawBreakdown.knowledge_and_understanding,
+    split.ao1_marks,
+  );
+  const analysis = parseAo(
+    rawBreakdown.analysis ?? rawBreakdown.AO2 ?? rawBreakdown.ao2 ?? rawBreakdown.analysis_and_application,
+    split.ao2_marks,
+  );
+  const evaluation = parseAo(
+    rawBreakdown.evaluation ?? rawBreakdown.AO3 ?? rawBreakdown.ao3 ?? rawBreakdown.evaluation_and_judgement,
+    split.ao3_marks,
+  );
+
+  let totalMark = typeof record.total_mark === "number" ? record.total_mark : parseInt(String(record.total_mark), 10);
+  const sumAwarded = knowledge.awarded + analysis.awarded + evaluation.awarded;
+  if (!Number.isFinite(totalMark) || totalMark <= 0) {
+    totalMark = sumAwarded;
+  }
+
   return {
-    total_mark: Math.min(Math.max(0, total), maxMark),
-    confidence: Math.min(Math.max(0, parsed.data.confidence), 1),
-    headline: parsed.data.headline.slice(0, 80),
+    total_mark: Math.min(Math.max(0, Math.round(totalMark)), maxMark),
+    confidence: Math.min(Math.max(0, confidence), 1),
+    headline,
     ao_breakdown: { knowledge, analysis, evaluation },
   };
 }
@@ -654,13 +712,17 @@ export const checkEssayWriting = createServerFn({ method: "POST" })
       const classifications = classificationsRaw.flatMap<LiveExaminerAoClassification>((item) => {
         const record = (item ?? {}) as Record<string, unknown>;
         const idx = Number(record.sentence_index);
-        const sentence = Number.isInteger(idx) ? toSend[idx - 1] : undefined;
+        let sentence = Number.isInteger(idx) && idx >= 1 && idx <= toSend.length ? toSend[idx - 1] : undefined;
         const original = typeof record.original === "string" ? record.original.trim() : "";
         const explanation = typeof record.explanation === "string" ? record.explanation.trim() : "";
         const ao = AO_CODES.includes(record.ao as (typeof AO_CODES)[number])
           ? (record.ao as (typeof AO_CODES)[number])
           : null;
-        if (!sentence || !original || !ao) return [];
+        if (!original || !ao) return [];
+        if (!sentence) {
+          sentence = toSend.find((s) => s.toLowerCase().includes(original.toLowerCase()));
+        }
+        if (!sentence) return [];
         const localIndex = sentence.toLowerCase().indexOf(original.toLowerCase());
         if (localIndex === -1 || /\[DIAGRAM:[^\]]*\]/i.test(original)) return [];
 
@@ -676,25 +738,39 @@ export const checkEssayWriting = createServerFn({ method: "POST" })
           },
         ];
       });
+
       const candidates = issuesRaw.flatMap<Candidate>((item) => {
         const record = (item ?? {}) as Record<string, unknown>;
         const idx = Number(record.sentence_index);
-        const sentence = Number.isInteger(idx) ? toSend[idx - 1] : undefined;
-        const original = typeof record.original === "string" ? record.original : "";
-        const suggestion = typeof record.suggestion === "string" ? record.suggestion : "";
-        const explanation = typeof record.explanation === "string" ? record.explanation : "";
-        const evidence = typeof record.evidence === "string" ? record.evidence : "";
-        const confidence = Number(record.confidence);
+        let sentence = Number.isInteger(idx) && idx >= 1 && idx <= toSend.length ? toSend[idx - 1] : undefined;
+        const original = typeof record.original === "string" ? record.original.trim() : "";
+        const suggestion = typeof record.suggestion === "string" ? record.suggestion.trim() : "";
+        const explanation = typeof record.explanation === "string" ? record.explanation.trim() : "";
+        const evidence = typeof record.evidence === "string" ? record.evidence.trim() : "";
+
+        let confidence = typeof record.confidence === "number" ? record.confidence : parseFloat(String(record.confidence));
+        if (Number.isFinite(confidence)) {
+          if (confidence > 1 && confidence <= 100) confidence = confidence / 100;
+        } else {
+          confidence = 0.8;
+        }
+
         const parsedCategory = CATEGORIES.includes(record.category as (typeof CATEGORIES)[number])
           ? (record.category as (typeof CATEGORIES)[number])
           : null;
         const parsedSeverity = SEVERITIES.includes(record.severity as (typeof SEVERITIES)[number])
           ? (record.severity as (typeof SEVERITIES)[number])
           : "medium";
-        if (!sentence || !original || !suggestion || !parsedCategory) return [];
-        if (!Number.isFinite(confidence) || confidence < CONFIDENCE_THRESHOLD) return [];
+
+        if (!original || !suggestion || !parsedCategory) return [];
+        if (!sentence) {
+          sentence = toSend.find((s) => s.toLowerCase().includes(original.toLowerCase()));
+        }
+        if (!sentence) return [];
+        if (confidence < CONFIDENCE_THRESHOLD) return [];
         // Guard against a hallucinated correction that doesn't appear in the sentence
         if (!sentence.toLowerCase().includes(original.toLowerCase())) return [];
+
         return [
           {
             original,
@@ -743,53 +819,59 @@ export const checkEssayWriting = createServerFn({ method: "POST" })
           )
           .join("\n\n");
 
-        const verifyResult = await chat({
-          model: MODEL_LIVE_CHECK,
-          temperature: 0,
-          json: true,
-          messages: [
-            {
-              role: "system",
-              content: buildVerifierSystemPrompt(data.question, data.contextBlock),
-            },
-            { role: "user", content: `CANDIDATES:\n\n${candidateBlock}` },
-          ],
-        });
-
-        const verifyRaw = extractFirstJsonObject(verifyResult.text);
-        const verdicts = Array.isArray(verifyRaw.verdicts) ? verifyRaw.verdicts : [];
-        const verdictByIndex = new Map<number, { keep: boolean; explanation?: string }>();
-        for (const v of verdicts) {
-          const record = (v ?? {}) as Record<string, unknown>;
-          const idx = Number(record.index);
-          if (!Number.isInteger(idx)) continue;
-          verdictByIndex.set(idx, {
-            keep: record.keep === true,
-            explanation: typeof record.explanation === "string" ? record.explanation : undefined,
+        try {
+          const verifyResult = await chat({
+            model: MODEL_LIVE_CHECK,
+            temperature: 0,
+            json: true,
+            messages: [
+              {
+                role: "system",
+                content: buildVerifierSystemPrompt(data.question, data.contextBlock),
+              },
+              { role: "user", content: `CANDIDATES:\n\n${candidateBlock}` },
+            ],
           });
+
+          const verifyRaw = extractFirstJsonObject(verifyResult.text);
+          const verdicts = Array.isArray(verifyRaw.verdicts) ? verifyRaw.verdicts : [];
+          const verdictByIndex = new Map<number, { keep: boolean; explanation?: string }>();
+          for (const v of verdicts) {
+            const record = (v ?? {}) as Record<string, unknown>;
+            const idx = Number(record.index);
+            if (!Number.isInteger(idx)) continue;
+            verdictByIndex.set(idx, {
+              keep: record.keep === true,
+              explanation: typeof record.explanation === "string" ? record.explanation : undefined,
+            });
+          }
+
+          const verified = needsVerification
+            .map((candidate, i) => {
+              const verdict = verdictByIndex.get(i + 1);
+              if (!verdict?.keep) return null;
+              const { confidence: _confidence, ...issue } = candidate;
+              return { ...issue, explanation: verdict.explanation || issue.explanation };
+            })
+            .filter((item): item is LiveExaminerIssue => item !== null);
+
+          // Trickle new issues in rather than dumping all of them at once.
+          freshIssues = [...autoKept, ...verified].slice(0, MAX_NEW_ISSUES_PER_CALL);
+
+          await context.supabase.from("ai_usage_log").insert({
+            user_id: context.userId,
+            feature: "live_examiner_verify",
+            model: verifyResult.model,
+            prompt_tokens: verifyResult.promptTokens,
+            completion_tokens: verifyResult.completionTokens,
+            latency_ms: verifyResult.latencyMs,
+            ok: true,
+          });
+        } catch (verifyError) {
+          console.warn("Live examiner stage 2 verification fallback:", verifyError);
+          // If stage 2 verification fails, retain candidate issues rather than failing the check
+          freshIssues = [...autoKept, ...needsVerification.map(({ confidence: _c, ...issue }) => issue)].slice(0, MAX_NEW_ISSUES_PER_CALL);
         }
-
-        const verified = needsVerification
-          .map((candidate, i) => {
-            const verdict = verdictByIndex.get(i + 1);
-            if (!verdict?.keep) return null;
-            const { confidence: _confidence, ...issue } = candidate;
-            return { ...issue, explanation: verdict.explanation || issue.explanation };
-          })
-          .filter((item): item is LiveExaminerIssue => item !== null);
-
-        // Trickle new issues in rather than dumping all of them at once.
-        freshIssues = [...autoKept, ...verified].slice(0, MAX_NEW_ISSUES_PER_CALL);
-
-        await context.supabase.from("ai_usage_log").insert({
-          user_id: context.userId,
-          feature: "live_examiner_verify",
-          model: verifyResult.model,
-          prompt_tokens: verifyResult.promptTokens,
-          completion_tokens: verifyResult.completionTokens,
-          latency_ms: verifyResult.latencyMs,
-          ok: true,
-        });
       } else {
         freshIssues = autoKept.slice(0, MAX_NEW_ISSUES_PER_CALL);
       }
