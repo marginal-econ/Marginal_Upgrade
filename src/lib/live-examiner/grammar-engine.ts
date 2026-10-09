@@ -236,7 +236,8 @@ const RULES: RuleDefinition[] = [
     id: "its_vs_its_contraction",
     category: "grammar",
     severity: "medium",
-    pattern: /\bit's\s+(?:price|cost|output|curve|impact|effect|equilibrium|supply|demand|elasticity|revenue)\b/i,
+    pattern:
+      /\bit's\s+(?:(?:negative|positive|external|social|private|adverse|long-run|short-run|own|actual)\s+)?(?:price|prices|cost|costs|output|curve|curves|impact|impacts|effect|effects|equilibrium|supply|demand|elasticity|revenue|externailties|externalities|benefit|benefits|consequence|consequences|failure|failures|faliure)\b/i,
     getSuggestion: (m) => m[0].replace(/\bit's\b/i, "its"),
     explanation: "Use possessive 'its' without an apostrophe; 'it's' is a contraction of 'it is'.",
   },

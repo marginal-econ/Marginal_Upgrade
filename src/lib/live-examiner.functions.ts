@@ -278,23 +278,24 @@ QUESTION (${level === "a2" ? "A Level" : "AS Level"}, ${maxMark} marks): ${quest
 
 ${contextBlock ? `SYLLABUS & MARK SCHEME GROUNDING:\n${contextBlock}` : "GENERAL CAMBRIDGE 9708 SYLLABUS EVALUATION: Evaluate strictly against authoritative Cambridge 9708 economic theory, logical transmission mechanisms, and syllabus definitions."}
 
-Your PRIMARY focus is genuine ECONOMICS feedback. Writing mechanics (spelling/grammar) should only be flagged if severe. Prioritise:
+You evaluate both rigorous ECONOMICS substance and clear academic English. Prioritise:
 1. "economics_accuracy": Factually or theoretically incorrect economics claims (e.g. claiming tariffs increase imports, inflation lowers the cost of living, or backwards supply/demand logic). (${AO_DEFINITIONS.ao1.code} ${AO_DEFINITIONS.ao1.name} — ${AO_DEFINITIONS.ao1.description}.)
 2. "misconception": Fundamental economic errors (e.g. confusing movements along a curve with shifts of a curve, conflating fiscal and monetary policies, conflating economic growth with economic development, or confusing public goods with merit goods).
 3. "analysis": Stated economic point without explaining the causal transmission mechanism (e.g. stating that "interest rates rise so consumption falls" without explaining higher borrowing costs and incentive to save). (${AO_DEFINITIONS.ao2.code} ${AO_DEFINITIONS.ao2.name} — ${AO_DEFINITIONS.ao2.description}.)
 4. "reasoning_chain": Broken economic logic or contradictory cause-and-effect links in the student's argument. (${AO_DEFINITIONS.ao2.code} ${AO_DEFINITIONS.ao2.name}.)
 5. "application": Pure textbook theory completely disconnected from the context/scenario in the question. (${AO_DEFINITIONS.ao2.code} ${AO_DEFINITIONS.ao2.name}.)
 6. "evaluation": Unsubstantiated assertions lacking conditions (elasticity, time lags, scale), counter-arguments, or balanced economic judgements where required. (${AO_DEFINITIONS.ao3.code} ${AO_DEFINITIONS.ao3.name} — ${AO_DEFINITIONS.ao3.description}.)
-7. "terminology": Inaccurate, imprecise, or confused economic terms (e.g. "demand went down" instead of "contraction in demand" or "leftward shift"). (${AO_DEFINITIONS.ao1.code} ${AO_DEFINITIONS.ao1.name}.)
+7. "terminology": Inaccurate, imprecise, or misspelled economic terms (e.g. "demand went down" instead of "contraction in demand", or misspelled technical terms). (${AO_DEFINITIONS.ao1.code} ${AO_DEFINITIONS.ao1.name}.)
 8. "clarity": Awkward, ambiguous, or incoherent expression that obscures economic reasoning.
-9. "grammar": Significant spelling or grammatical mistakes that impact academic communication.
+9. "grammar": Clear spelling mistakes, typos, apostrophe/contraction errors, or grammatical disagreements.
 
 FEEDBACK RULES:
+- Always flag unambiguous spelling mistakes or typos (e.g. "becuase", "faliure", "externailties", "it's" used as possessive) so the student can correct them immediately.
 - Suggestion must be minimal and concise — a targeted correction or missing mechanism phrase, NOT a complete rewrite.
 - Evidence: Cite the relevant syllabus/mark scheme rule, economic principle, or causal law (e.g. "Law of Demand", "Transmission mechanism of monetary policy", "PED definition", or quote from grounding if available).
 - Give an honest confidence score (0.6 to 1.0).
 - Be constructive: Recognize valid economics arguments even if expressed in the student's own words. Do not force template phrasing.
-- If a sentence is economically sound, omit it from issues.
+- If a sentence has no economic errors or spelling mistakes, omit it from issues.
 
 Also identify up to 8 creditworthy economics phrases currently earning Cambridge Assessment Objective credit:
 - AO1: Accurate definitions, terminology, concepts.
@@ -480,6 +481,13 @@ export function sanitisePredictedMark(raw: unknown, maxMark: number): PredictedM
   if (!Number.isFinite(totalMark) || totalMark <= 0) {
     totalMark = sumAwarded;
   }
+  // If the model estimated an introductory mark (> 0) but returned an empty/zero breakdown,
+  // allocate it to AO1 Knowledge (the standard early band) so breakdown matches total:
+  if (totalMark > 0 && sumAwarded === 0) {
+    knowledge.awarded = Math.min(split.ao1_marks, totalMark);
+  }
+  const finalSum = knowledge.awarded + analysis.awarded + evaluation.awarded;
+  totalMark = finalSum > 0 ? finalSum : totalMark;
 
   return {
     total_mark: Math.min(Math.max(0, Math.round(totalMark)), maxMark),

@@ -189,4 +189,34 @@ describe("Grammar and Mechanics Engine", () => {
       expect(CAMBRIDGE_ECONOMICS_WHITELIST.has("phillips curve")).toBe(true);
     });
   });
+
+  describe("Real-time Typo Detection & AO Evaluation", () => {
+    it("catches multiple spelling errors and evaluate AO1 on demerit goods response", async () => {
+      const { deterministicTerminologyIssues } = await import("./economics-glossary");
+      const { evaluateCambridgeAnswer } = await import("./client-evaluation");
+
+      const sentence1 = "A minimum price intervention is a government intervention set above market equilibrium.";
+      const sentence2 = "Demerit goods are goods that are overconsumed in an economy becuase cosumered are not aware of it's negative externailties due to information faliure.";
+
+      const terms = deterministicTerminologyIssues([sentence2]);
+      const originals = terms.map((t) => t.original.toLowerCase());
+      expect(originals).toContain("becuase");
+      expect(originals).toContain("cosumered");
+      expect(originals).toContain("externailties");
+      expect(originals).toContain("faliure");
+
+      const mechanics = analyzeGrammarAndMechanics([sentence2]);
+      const itsIssue = mechanics.find((m) => m.ruleId === "its_vs_its_contraction");
+      expect(itsIssue).toBeDefined();
+
+      const evaluation = evaluateCambridgeAnswer(`${sentence1}\n${sentence2}`, "Assess whether minimum price reduces demerit goods", 12);
+      expect(evaluation.classifications.length).toBeGreaterThanOrEqual(1);
+      expect(evaluation.predictedMark.ao_breakdown.knowledge.awarded).toBeGreaterThanOrEqual(1);
+      expect(evaluation.predictedMark.total_mark).toBe(
+        evaluation.predictedMark.ao_breakdown.knowledge.awarded +
+        evaluation.predictedMark.ao_breakdown.analysis.awarded +
+        evaluation.predictedMark.ao_breakdown.evaluation.awarded
+      );
+    });
+  });
 });

@@ -252,20 +252,52 @@ export function useLiveExaminerCheck(params: {
     localTimerRef.current = setTimeout(() => {
       const evaluation = evaluateCambridgeAnswer(text, question, maxMark);
 
-      // Instant highlights: update classifications if not yet overridden by deep server pass
+      // Instant highlights: merge fresh instant classifications with surviving ones
       setClassifications((prev) => {
         const surviving = prev.filter((p) => text.includes(p.context));
-        if (surviving.length > 0) return surviving;
-        return evaluation.classifications;
+        const map = new Map<string, ActiveAoClassification>();
+        for (const item of evaluation.classifications) {
+          map.set(item.id, item);
+        }
+        for (const item of surviving) {
+          map.set(item.id, item);
+        }
+        return Array.from(map.values());
       });
 
-      // Instant predicted mark: immediately display running mark if none set yet or to keep calibrated
+      // Instant predicted mark: keep score and AO breakdown synchronized
       setPredictedMark((prev) => {
         if (!prev) return evaluation.predictedMark;
+        const clientSum =
+          evaluation.predictedMark.ao_breakdown.knowledge.awarded +
+          evaluation.predictedMark.ao_breakdown.analysis.awarded +
+          evaluation.predictedMark.ao_breakdown.evaluation.awarded;
+        const prevSum =
+          prev.ao_breakdown.knowledge.awarded +
+          prev.ao_breakdown.analysis.awarded +
+          prev.ao_breakdown.evaluation.awarded;
+
+        if (clientSum >= prevSum && clientSum > 0) {
+          return evaluation.predictedMark;
+        }
+
         return {
           ...prev,
-          total_mark: prev.total_mark > 0 ? prev.total_mark : evaluation.predictedMark.total_mark,
+          total_mark: prevSum > 0 ? prevSum : Math.max(prev.total_mark, evaluation.predictedMark.total_mark),
+          ao_breakdown: prevSum > 0 ? prev.ao_breakdown : evaluation.predictedMark.ao_breakdown,
         };
+      });
+
+      // Sync instant issues (prunes resolved ones, layers fresh ones)
+      setIssues((prev) => {
+        const map = new Map<string, ActiveIssue>();
+        for (const item of prev) {
+          if (text.includes(item.context)) map.set(item.id, item);
+        }
+        for (const item of evaluation.issues) {
+          map.set(item.id, item);
+        }
+        return Array.from(map.values());
       });
 
       if (evaluation.issues.length > 0) {
@@ -276,18 +308,6 @@ export function useLiveExaminerCheck(params: {
           lastLatencyMs: 15,
           lastCheckType: "instant",
         }));
-        setIssues((prev) => {
-          const map = new Map<string, ActiveIssue>();
-          // Keep existing issues still present in text
-          for (const item of prev) {
-            if (text.includes(item.context)) map.set(item.id, item);
-          }
-          // Layer fresh instant issues
-          for (const item of evaluation.issues) {
-            map.set(item.id, item);
-          }
-          return Array.from(map.values());
-        });
         recordHistory(evaluation.issues);
       }
     }, INSTANT_LOCAL_PAUSE_MS);

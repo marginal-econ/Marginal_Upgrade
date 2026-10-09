@@ -10,15 +10,15 @@ import { splitSentences } from "@/lib/writing-check/sentence-diff";
 
 const AO1_PATTERNS = [
   /\b(aggregate demand|aggregate supply|ad equation|c\s*\+\s*i\s*\+\s*g\s*\+\s*nx|ad\s*=\s*c\s*\+\s*i\s*\+\s*g\s*\+\s*nx)\b/i,
-  /\b(monetary policy|fiscal policy|expansionary|contractionary|interest rates|taxation|money supply)\b/i,
+  /\b(monetary policy|fiscal policy|expansionary|contractionary|interest rates?|taxation|money supply)\b/i,
   /\b(inflation|demand-?pull|cost-?push|deflation|disinflation|price level|cpi)\b/i,
   /\b(elasticity|ped|yed|pes|xed|price elastic|inelastic)\b/i,
   /\b(gdp|economic growth|real gdp|output|national income)\b/i,
-  /\b(demerit good|merit good|public good|free rider|non-excludable|non-rival)\b/i,
-  /\b(external cost|externality|social optimum|market failure|information failure)\b/i,
-  /\b(opportunity cost|production possibility|ppc|ppf)\b/i,
-  /\b(equilibrium|price floor|minimum price|maximum price|price ceiling|subsidy|tariff)\b/i,
-  /\b(is equal to|is defined as|refers to|means that suppliers|means that firms)\b/i,
+  /\b(demerit goods?|merit goods?|public goods?|free rider|non-excludable|non-rival)\b/i,
+  /\b(external costs?|externalit(?:y|ies|ailties)|social optimum|market failures?|information failures?|information faliure)\b/i,
+  /\b(opportunity costs?|production possibility|ppc|ppf)\b/i,
+  /\b(equilibrium|price floors?|minimum prices?|maximum prices?|price ceilings?|subsid(?:y|ies)|tariffs?)\b/i,
+  /\b(is equal to|is defined as|refers to|means that suppliers|means that firms|are goods that are|government intervention|overconsumed|underconsumed)\b/i,
 ];
 
 const AO2_PATTERNS = [
