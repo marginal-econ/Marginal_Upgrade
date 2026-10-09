@@ -497,11 +497,17 @@ export function LiveExaminerEditor({
       return;
     }
     const containerBox = container.getBoundingClientRect();
-    setActiveAnnotationId(hit.id);
-    setCardPos({
-      top: Math.max(20, event.clientY - containerBox.top + 16),
-      left: Math.max(16, Math.min(event.clientX - containerBox.left, containerBox.width - 340)),
-    });
+    const clickY = event.clientY - containerBox.top;
+    const cardHeight = hit.kind === "issue" ? 280 : 200;
+    const top =
+      clickY + cardHeight > containerBox.height && clickY - cardHeight > 20
+        ? Math.max(20, clickY - cardHeight - 8)
+        : Math.max(20, clickY + 16);
+    const cardWidth = hit.kind === "issue" ? 320 : 288;
+    const maxLeft = Math.max(16, containerBox.width - cardWidth - 24);
+    const left = Math.max(16, Math.min(event.clientX - containerBox.left, maxLeft));
+
+    setCardPos({ top, left });
   }
 
   return (
@@ -646,7 +652,7 @@ function ClassificationCard({
   style: React.CSSProperties;
   onClose: () => void;
 }) {
-  const meta = AO_META[classification.ao];
+  const meta = AO_META[classification.ao] ?? AO_META.AO1;
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -661,7 +667,7 @@ function ClassificationCard({
     AO1: "border-ao1/40 bg-ao1/10 text-ao1 font-semibold",
     AO2: "border-ao2/40 bg-ao2/10 text-ao2 font-semibold",
     AO3: "border-ao3/40 bg-ao3/10 text-ao3 font-semibold",
-  }[classification.ao];
+  }[classification.ao] ?? "border-ao1/40 bg-ao1/10 text-ao1 font-semibold";
 
   return (
     <div
@@ -703,7 +709,7 @@ function SuggestionCard({
   onDismiss: () => void;
   onClose: () => void;
 }) {
-  const meta = CATEGORY_META[issue.category];
+  const meta = CATEGORY_META[issue.category] ?? DEFAULT_ISSUE_META;
   const ref = useRef<HTMLDivElement>(null);
   const isEssential = issue.category === "misconception" || issue.severity === "high";
 
