@@ -34,6 +34,7 @@ import {
 } from "@/components/marketing/doodles";
 import { SiteFooter } from "@/components/marketing/footer";
 import { CommandWordDrill, LiveMarkDemo } from "@/components/marketing/interactive";
+import { ExaminerStage, LiveExaminer } from "@/components/marketing/live-examiner";
 import { MarkingHand } from "@/components/marketing/mascot";
 import { CountUp, Reveal } from "@/components/marketing/reveal";
 import { Ribbon } from "@/components/marketing/ribbon";
@@ -300,68 +301,74 @@ function Index() {
         </Drift>
         <Star className="doodle absolute top-32 left-[46%] hidden size-4 text-ao3/30 md:block" />
 
-        <div className="relative z-10 mx-auto max-w-4xl px-4 py-12 text-center sm:px-6 sm:py-16 md:py-20">
-          <Reveal>
-            <div className="inline-flex items-center gap-2">
-              <span className="chip-soft">
-                <Sparkles className="size-3.5" />
-                AS and A Level Economics (9708)
-              </span>
-            </div>
-          </Reveal>
+        <div className="relative z-10 mx-auto grid max-w-6xl items-center gap-10 px-4 py-10 sm:px-5 sm:py-14 md:px-8 md:py-16 lg:grid-cols-[0.95fr_1.05fr] lg:gap-10">
+          <div>
+            <Reveal>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="chip-soft">
+                  <Sparkles className="size-3.5" />
+                  AS and A Level Economics (9708)
+                </span>
+              </div>
+            </Reveal>
 
-          <Reveal delay={60}>
-            <h1 className="mt-5 text-[2.2rem] leading-[1.08] font-bold text-balance min-[380px]:text-4xl md:text-5xl lg:text-[3.5rem]">
-              {settings.heroTitle}{" "}
-              <span className="highlight highlight-deep">{settings.heroHighlight}</span>
-            </h1>
-          </Reveal>
+            <Reveal delay={60}>
+              <h1 className="mt-5 text-[2.15rem] leading-[1.08] font-bold text-balance min-[380px]:text-4xl md:text-[3.2rem]">
+                {settings.heroTitle}{" "}
+                <span className="highlight highlight-deep">{settings.heroHighlight}</span>
+              </h1>
+            </Reveal>
 
-          <Reveal delay={110}>
-            <p className="mt-6 mx-auto max-w-2xl text-base leading-relaxed text-pretty text-muted-foreground md:text-lg dark:text-foreground/90">
-              {settings.heroDescription}
-            </p>
-          </Reveal>
-
-          <Reveal delay={160}>
-            <p className="mt-4 mx-auto max-w-xl text-sm leading-relaxed text-pretty text-muted-foreground md:text-base dark:text-foreground/80">
-              {settings.heroNotice}
-            </p>
-          </Reveal>
-
-          {/* The form itself, above the fold. No modal, no second page: the
-              only thing being asked for is an email, and asking for it
-              behind a click loses the people who would have given it. */}
-          <Reveal delay={210}>
-            <div id="waitlist-primary" className="mt-8 mx-auto max-w-xl scroll-mt-24 text-left">
-              <WaitlistForm
-                variant="hero"
-                cta={settings.cta}
-                settings={settings}
-                settingsLoaded={settingsLoaded}
-              />
-            </div>
-          </Reveal>
-
-          {invitedBy ? (
-            <Reveal delay={240}>
-              <p className="mt-4 inline-flex items-center gap-2 text-sm text-muted-foreground">
-                <Gift className="size-4 text-primary" aria-hidden="true" />A friend invited you
-                with code{" "}
-                <span className="font-mono font-semibold text-foreground">{invitedBy}</span> —
-                they move up when you join.
+            <Reveal delay={110}>
+              <p className="mt-5 max-w-lg text-base leading-relaxed text-pretty text-muted-foreground md:text-lg dark:text-foreground/90">
+                {settings.heroDescription}
               </p>
             </Reveal>
-          ) : null}
 
-          <Reveal delay={260}>
-            <div className="mt-6 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-muted-foreground dark:text-foreground/70">
-              <a href="#try" className="nav-link font-medium text-primary">
-                Or test the Live Examiner studio below ↓
-              </a>
-              <span>·</span>
-              <span>Built exclusively for AS and A Level Economics (9708)</span>
-            </div>
+            <Reveal delay={160}>
+              <p className="mt-3.5 max-w-lg text-sm leading-relaxed text-pretty text-muted-foreground md:text-base dark:text-foreground/80">
+                {settings.heroNotice}
+              </p>
+            </Reveal>
+
+            {/* The form itself, above the fold. */}
+            <Reveal delay={210}>
+              <div id="waitlist-primary" className="mt-7 max-w-lg scroll-mt-24">
+                <WaitlistForm
+                  variant="hero"
+                  cta={settings.cta}
+                  settings={settings}
+                  settingsLoaded={settingsLoaded}
+                />
+              </div>
+            </Reveal>
+
+            {invitedBy ? (
+              <Reveal delay={240}>
+                <p className="mt-4 inline-flex items-center gap-2 text-sm text-muted-foreground">
+                  <Gift className="size-4 text-primary" aria-hidden="true" />A friend invited you
+                  with code{" "}
+                  <span className="font-mono font-semibold text-foreground">{invitedBy}</span> —
+                  they move up when you join.
+                </p>
+              </Reveal>
+            ) : null}
+
+            <Reveal delay={260}>
+              <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-muted-foreground dark:text-foreground/70">
+                <a href="#try" className="nav-link font-medium text-primary">
+                  Or test the full Live Examiner studio below ↓
+                </a>
+                <span>Built for AS and A Level Economics (9708)</span>
+              </div>
+            </Reveal>
+          </div>
+
+          {/* Compact, Non-Overflowing Live Examiner Showcase Card */}
+          <Reveal variant="pop" delay={120} className="relative">
+            <ExaminerStage className="relative mx-auto w-full max-w-lg min-w-0">
+              <LiveExaminer />
+            </ExaminerStage>
           </Reveal>
         </div>
 

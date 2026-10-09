@@ -1,133 +1,282 @@
 /**
- * Cambridge 9708 Candidate Answer Script Hero Showcase.
+ * Compact, Non-Overflowing Cambridge 9708 Live Examiner Showcase for the Hero.
  *
- * Provides a beautifully proportioned, realistic preview of a Cambridge 9708
- * continuous prose script with authentic examiner markings and verified marks.
- * Smoothly links to the dedicated Live Examiner Studio (#try).
+ * Types a concise, authentic Paper 2 Aggregate Demand answer while the
+ * examiner marks in real time: each clause is washed in its assessment-objective
+ * color (AO1, AO2, AO3), the examiner margin note updates dynamically, and the
+ * running mark climbs to 8/12.
+ *
+ * Perfectly proportioned to sit beside the hero waitlist form with zero overflow.
  */
 
-import { useEffect, useRef, type ReactNode } from "react";
-import { ArrowDown, CheckCircle2, Sparkles } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { ArrowDown, CheckCircle2, Pause, Play, Radio, RotateCcw, Sparkles } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
-export function HeroScriptPreview({ className }: { className?: string }) {
+export type Ao = "AO1" | "AO2" | "AO3";
+
+const AO_META: Record<Ao, { name: string; tint: string; ink: string; dot: string; text: string }> = {
+  AO1: { name: "Knowledge", tint: "var(--ao1)", ink: "var(--ao1)", dot: "bg-ao1", text: "text-ao1" },
+  AO2: { name: "Analysis", tint: "var(--ao2)", ink: "var(--ao2)", dot: "bg-ao2", text: "text-ao2" },
+  AO3: { name: "Evaluation", tint: "var(--ao3)", ink: "var(--ao3)", dot: "bg-ao3", text: "text-ao3" },
+};
+
+export type Clause = { text: string; ao: Ao; note: string; points: number };
+
+const CLAUSES: Clause[] = [
+  {
+    text: "Aggregate demand equals C + I + G + NX. AD shifts outward from expansionary monetary or fiscal policies. ",
+    ao: "AO1",
+    note: "AO1 credited: AD formula components & macroeconomic levers defined accurately.",
+    points: 3,
+  },
+  {
+    text: "Increased aggregate demand can cause demand-pull inflation. ",
+    ao: "AO1",
+    note: "Terminology recognized: demand-pull inflation correctly applied.",
+    points: 1,
+  },
+  {
+    text: "Higher AD incentivises suppliers to raise production due to profit motive, increasing real GDP and creating jobs. ",
+    ao: "AO2",
+    note: "AO2 credited: valid transmission chain from consumer spending to GDP growth.",
+    points: 2,
+  },
+  {
+    text: "However, if the economy operates at maximum capacity, higher AD only leads to higher prices, and fiscal spending risks budget deficits.",
+    ao: "AO3",
+    note: "AO3 credited: critical capacity bottleneck and fiscal deficit constraint evaluated.",
+    points: 2,
+  },
+];
+
+const TOTAL = 12;
+const TARGET_MARK = 8;
+const TYPE_SPEED = 24; // ms per character
+const HOLD = 3600; // ms held at completion before gentle loop
+
+export function LiveExaminer({ className }: { className?: string }) {
+  const [typed, setTyped] = useState(0);
+  const [playing, setPlaying] = useState(true);
+  const [still, setStill] = useState(false);
+
+  const fullText = useMemo(() => CLAUSES.map((c) => c.text).join(""), []);
+  const fullLength = fullText.length;
+
+  // Reduced motion: show full text immediately
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      setStill(true);
+      setTyped(fullLength);
+    }
+  }, [fullLength]);
+
+  // Autotyping loop
+  useEffect(() => {
+    if (still || !playing) return;
+    if (typed < fullLength) {
+      const timer = window.setTimeout(() => setTyped((n) => n + 1), TYPE_SPEED);
+      return () => window.clearTimeout(timer);
+    }
+    const timer = window.setTimeout(() => setTyped(0), HOLD);
+    return () => window.clearTimeout(timer);
+  }, [typed, fullLength, playing, still]);
+
+  // Compute rendered clauses
+  let cursor = 0;
+  const rendered = CLAUSES.map((clause, index) => {
+    const start = cursor;
+    cursor += clause.text.length;
+    return {
+      clause,
+      index,
+      visible: Math.max(0, Math.min(clause.text.length, typed - start)),
+      marked: typed >= cursor,
+    };
+  });
+
+  const done = typed >= fullLength;
+  const activeNote = [...rendered].reverse().find((row) => row.marked)?.clause.note;
+  const markedClauses = rendered.filter((row) => row.marked);
+
+  // Running mark calculation (smoothly reaches 8/12)
+  const currentMark = Math.min(
+    TARGET_MARK,
+    markedClauses.reduce((acc, row) => acc + row.clause.points, 0)
+  );
+
+  // AO Breakdown progress
+  const aoStats = (Object.keys(AO_META) as Ao[]).map((ao) => {
+    const all = CLAUSES.filter((c) => c.ao === ao).length;
+    const hit = rendered.filter((row) => row.marked && row.clause.ao === ao).length;
+    const maxMarks = ao === "AO1" ? 3 : ao === "AO2" ? 5 : 4;
+    const awardedMarks = ao === "AO1" ? Math.min(3, hit * 2) : ao === "AO2" ? (hit > 0 ? 3 : 0) : (hit > 0 ? 2 : 0);
+    return {
+      ao,
+      pct: all === 0 ? 0 : Math.round((hit / all) * 100),
+      awarded: awardedMarks,
+      max: maxMarks,
+    };
+  });
+
+  const handleRestart = useCallback(() => {
+    setTyped(0);
+    setPlaying(true);
+  }, []);
+
   return (
     <div
       className={cn(
-        "examiner-card pop examiner-float overflow-hidden rounded-2xl border-2 border-primary/25 bg-card shadow-2xl text-foreground flex flex-col justify-between max-w-xl mx-auto",
-        className,
+        "examiner-card pop examiner-float overflow-hidden rounded-2xl border-2 border-primary/25 bg-card shadow-2xl text-foreground flex flex-col justify-between max-w-lg mx-auto",
+        className
       )}
     >
-      {/* ── Official Cambridge Assessment Header ─────────────────────────── */}
-      <div className="border-b border-border/80 bg-muted/40 px-4 py-3 flex items-center justify-between gap-2">
+      {/* ── Chrome Header ─────────────────────────────────────────────── */}
+      <div className="flex items-center justify-between border-b border-border/80 bg-muted/40 px-4 py-2.5">
         <div className="flex items-center gap-2">
           <span className="relative flex size-2.5" aria-hidden="true">
-            <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-500 opacity-75" />
+            {!done ? (
+              <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-500 opacity-75" />
+            ) : null}
             <span className="relative inline-flex size-2.5 rounded-full bg-emerald-600 dark:bg-emerald-400" />
           </span>
-          <div>
-            <div className="flex items-center gap-1.5">
-              <span className="text-xs font-bold tracking-tight text-foreground font-mono">
-                CAMBRIDGE 9708/22
-              </span>
-              <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[9.5px] font-mono font-medium text-primary">
-                OFFICIAL SPECIMEN
-              </span>
-            </div>
-          </div>
+          <span className="text-xs font-bold tracking-tight text-foreground font-mono flex items-center gap-1.5">
+            <Sparkles className="size-3 text-primary" /> LIVE EXAMINER
+          </span>
+          <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[9.5px] font-mono font-medium text-primary">
+            9708 ENGINE
+          </span>
         </div>
 
-        <div className="flex items-center gap-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/25 px-2.5 py-0.5 text-[11px] font-bold text-emerald-600 dark:text-emerald-400 shadow-2xs">
-          <CheckCircle2 className="size-3" />
-          <span>Verified 8 / 12</span>
+        <div className="flex items-center gap-1.5">
+          <Badge
+            variant="outline"
+            className="font-mono text-[9.5px] border-primary/30 bg-primary/5 text-primary py-0"
+          >
+            Tariff: [12 Marks]
+          </Badge>
+          <button
+            type="button"
+            onClick={() => setPlaying(!playing)}
+            className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+            title={playing ? "Pause animation" : "Resume animation"}
+            aria-label={playing ? "Pause" : "Play"}
+          >
+            {playing ? <Pause className="size-3" /> : <Play className="size-3" />}
+          </button>
+          <button
+            type="button"
+            onClick={handleRestart}
+            className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+            title="Restart calibration"
+            aria-label="Restart"
+          >
+            <RotateCcw className="size-3" />
+          </button>
         </div>
       </div>
 
-      {/* ── Question & Tariff Banner ─────────────────────────────────────── */}
-      <div className="border-b border-border/70 bg-background/80 px-4 py-2.5 space-y-1">
+      {/* ── Question Bar ─────────────────────────────────────────────── */}
+      <div className="border-b border-border/70 bg-background/90 px-4 py-2">
         <div className="flex items-center justify-between text-[10px] font-mono text-muted-foreground uppercase font-semibold">
-          <span>Economics AS Level · Paper 2</span>
-          <Badge variant="outline" className="font-mono text-[9.5px] border-primary/30 bg-primary/5 text-primary py-0">
-            Max Tariff: [12 Marks]
-          </Badge>
+          <span>Question 1 · AS Paper 2</span>
+          <span className="text-primary font-bold">Continuous Prose</span>
         </div>
-        <p className="text-xs font-bold text-foreground leading-snug">
+        <p className="mt-0.5 text-xs font-bold text-foreground leading-snug">
           “Asses whether an increase in aggregate demand would be of overall benefit to an economy.”
         </p>
       </div>
 
-      {/* ── Annotated Candidate Script Excerpt ────────────────────────────── */}
-      <div className="p-4 space-y-2.5 font-serif text-[12.5px] leading-relaxed bg-background/50">
-        {/* Paragraph 1: AO1 Knowledge */}
-        <div className="rounded-lg bg-ao1/10 border-l-3 border-ao1 p-2.5 space-y-1 transition-all hover:bg-ao1/15">
-          <div className="flex items-center justify-between text-[10px] font-sans font-semibold text-ao1">
-            <span className="flex items-center gap-1">
-              <span className="size-1.5 rounded-full bg-ao1" /> AO1 Knowledge & Concepts
-            </span>
-            <span className="font-mono font-bold">3 / 3 Marks</span>
-          </div>
-          <p className="text-foreground/90 italic">
-            “Aggregate demand is equal C + I + G + NX. Aggregate demand can be increased in certain cases by expansionary monetary and fiscal policies. Increased aggregate demand can cause demand-pull inflation.”
-          </p>
-        </div>
+      {/* ── Script Preview (Non-overflowing) ─────────────────────────── */}
+      <div className="relative p-4 pb-2 bg-background/50">
+        {!done ? <span className="examiner-scan" aria-hidden="true" /> : null}
 
-        {/* Paragraph 2: AO2 Analysis */}
-        <div className="rounded-lg bg-ao2/10 border-l-3 border-ao2 p-2.5 space-y-1 transition-all hover:bg-ao2/15">
-          <div className="flex items-center justify-between text-[10px] font-sans font-semibold text-ao2">
-            <span className="flex items-center gap-1">
-              <span className="size-1.5 rounded-full bg-ao2" /> AO2 Causal Analysis Chain
+        <p className="relative min-h-[9rem] font-serif text-[13.5px] leading-[1.8] text-foreground select-none">
+          {rendered.map(({ clause, index, visible, marked }) => (
+            <span
+              key={index}
+              className="clause"
+              data-marked={marked ? "true" : "false"}
+              style={
+                {
+                  "--clause-tint": `color-mix(in oklab, ${AO_META[clause.ao].tint} 16%, transparent)`,
+                  "--clause-ink": AO_META[clause.ao].ink,
+                } as React.CSSProperties
+              }
+            >
+              {clause.text.slice(0, visible)}
             </span>
-            <span className="font-mono font-bold">3 / 5 Marks</span>
-          </div>
-          <p className="text-foreground/90 italic">
-            “Suppliers are incentivised to produce due to their profit motive, increasing job opportunities and real GDP growth. Revenue from corporate and income tax rises, expanding the budget for merit goods…”
-          </p>
-        </div>
-
-        {/* Paragraph 3: AO3 Evaluation */}
-        <div className="rounded-lg bg-ao3/10 border-l-3 border-ao3 p-2.5 space-y-1 transition-all hover:bg-ao3/15">
-          <div className="flex items-center justify-between text-[10px] font-sans font-semibold text-ao3">
-            <span className="flex items-center gap-1">
-              <span className="size-1.5 rounded-full bg-ao3" /> AO3 Evaluative Constraint
-            </span>
-            <span className="font-mono font-bold">2 / 4 Marks</span>
-          </div>
-          <p className="text-foreground/90 italic">
-            “However, the benefit depends on production capacity. If already operating at full capacity, high AD only causes inflation. Furthermore, expansionary fiscal policy may cause severe budget deficits.”
-          </p>
-        </div>
+          ))}
+          {!done ? (
+            <span className="inline-block w-1 h-3.5 ml-0.5 bg-primary animate-pulse align-middle" />
+          ) : null}
+        </p>
       </div>
 
-      {/* ── Footer Bar with CTA to Live Examiner Studio ─────────────────── */}
-      <div className="border-t border-border/80 bg-muted/30 px-4 py-2.5 flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2 text-[11px]">
-          <span className="font-bold text-foreground">Band 3</span>
-          <span className="text-muted-foreground">·</span>
-          <div className="flex items-center gap-1 text-[10.5px] font-mono text-muted-foreground">
-            <span className="text-ao1 font-semibold">AO1: 3/3</span>
-            <span>·</span>
-            <span className="text-ao2 font-semibold">AO2: 3/5</span>
-            <span>·</span>
-            <span className="text-ao3 font-semibold">AO3: 2/4</span>
+      {/* ── Dynamic Margin Note ───────────────────────────────────────── */}
+      <div className="min-h-[2.75rem] px-4 pb-2">
+        {activeNote ? (
+          <p
+            key={activeNote}
+            className="note-in flex items-start gap-2 rounded-lg bg-primary/8 border border-primary/20 p-2 text-[11px] leading-snug text-foreground/90"
+          >
+            <span className="mt-0.5 shrink-0 rounded bg-primary/15 px-1 py-0.2 font-mono text-[9px] font-bold text-primary uppercase">
+              Examiner
+            </span>
+            <span className="line-clamp-2">{activeNote}</span>
+          </p>
+        ) : (
+          <p className="text-[11px] text-muted-foreground/70 italic flex items-center gap-1.5 py-1">
+            <Radio className="size-3 animate-pulse text-primary" /> Live examiner listening for Cambridge 9708 concepts…
+          </p>
+        )}
+      </div>
+
+      {/* ── Running Mark & AO Meters ─────────────────────────────────── */}
+      <div className="flex items-center gap-4 border-t border-border/80 bg-muted/30 px-4 py-2.5">
+        <div>
+          <p className="font-mono text-[10px] uppercase font-bold text-muted-foreground">
+            {done ? "Verified Mark" : "Running Mark"}
+          </p>
+          <div className="flex items-baseline gap-1">
+            <span className="text-2xl font-black tabular-nums text-foreground">
+              {currentMark}
+            </span>
+            <span className="text-xs font-semibold text-muted-foreground">
+              /{TOTAL}
+            </span>
           </div>
         </div>
 
-        <a
-          href="#try"
-          className="pop-sm pop-press inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-xs hover:bg-primary/90 transition-colors"
-        >
-          <span>Try live examiner</span>
-          <ArrowDown className="size-3 animate-bounce" />
-        </a>
+        <div className="ml-auto flex-1 max-w-[200px] space-y-1">
+          {aoStats.map(({ ao, pct, awarded, max }) => (
+            <div key={ao} className="grid grid-cols-[auto_1fr_auto] items-center gap-1.5 text-[9.5px]">
+              <span className="flex items-center gap-1 font-semibold text-foreground">
+                <span className={cn("size-1.5 rounded-full shrink-0", AO_META[ao].dot)} />
+                {ao}
+              </span>
+              <div className="h-1.5 overflow-hidden rounded-full bg-muted/80">
+                <div
+                  className={cn("h-full rounded-full transition-all duration-500", AO_META[ao].dot)}
+                  style={{ width: `${pct}%` }}
+                />
+              </div>
+              <span className="font-mono font-semibold tabular-nums text-foreground/80 text-right w-5">
+                {awarded}/{max}
+              </span>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
 }
 
 // Backwards-compatibility alias:
-export const LiveExaminer = HeroScriptPreview;
+export const HeroScriptPreview = LiveExaminer;
 
 /**
  * 3D stage wrapper that tilts subtly with pointer hover on desktop devices.
