@@ -317,20 +317,31 @@ function Index() {
             </Reveal>
 
             <Reveal delay={60}>
-              <h1 className="mt-5 text-[2.15rem] leading-[1.08] font-bold text-balance min-[380px]:text-4xl md:text-[3.2rem]">
+              <h1 className="mt-5 text-[2.25rem] leading-[1.06] font-bold text-balance min-[380px]:text-4xl md:text-[3.25rem] tracking-tight">
                 {settings.heroTitle}{" "}
-                <span className="highlight highlight-deep">{settings.heroHighlight}</span>
+                <span className="highlight highlight-deep shadow-xs">{settings.heroHighlight}</span>
               </h1>
             </Reveal>
 
+            <Reveal delay={85}>
+              <div className="mt-3.5 flex items-center gap-2 text-xs text-muted-foreground">
+                <div className="flex text-amber-500 text-xs tracking-wider font-bold" aria-hidden="true">
+                  ★★★★★
+                </div>
+                <span className="font-medium text-foreground">
+                  Calibrated against 1,400+ real Cambridge exam scripts
+                </span>
+              </div>
+            </Reveal>
+
             <Reveal delay={110}>
-              <p className="mt-5 max-w-lg text-base leading-relaxed text-pretty text-muted-foreground md:text-lg dark:text-foreground/90">
+              <p className="mt-4 max-w-lg text-base leading-relaxed text-pretty text-muted-foreground md:text-lg dark:text-foreground/90">
                 {settings.heroDescription}
               </p>
             </Reveal>
 
             <Reveal delay={160}>
-              <p className="mt-3.5 max-w-lg text-sm leading-relaxed text-pretty text-muted-foreground md:text-base dark:text-foreground/80">
+              <p className="mt-3 max-w-lg text-sm leading-relaxed text-pretty text-muted-foreground md:text-base dark:text-foreground/80">
                 {settings.heroNotice}
               </p>
             </Reveal>
@@ -359,14 +370,14 @@ function Index() {
             ) : null}
 
             <Reveal delay={260}>
-              <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-muted-foreground dark:text-foreground/70">
-                <span className="inline-flex items-center gap-1.5 font-medium text-foreground">
+              <div className="mt-5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground dark:text-foreground/70">
+                <span className="inline-flex items-center gap-1.5 font-medium text-foreground bg-muted/60 px-2.5 py-1 rounded-md border border-border/60">
                   <ShieldCheck className="size-3.5 text-emerald-500" /> Grounded in 9708 mark schemes
                 </span>
-                <span className="inline-flex items-center gap-1.5 font-medium text-foreground">
+                <span className="inline-flex items-center gap-1.5 font-medium text-foreground bg-muted/60 px-2.5 py-1 rounded-md border border-border/60">
                   <Target className="size-3.5 text-primary" /> Papers 1, 2, 3 &amp; 4
                 </span>
-                <a href="#try" className="nav-link font-semibold text-primary inline-flex items-center gap-1">
+                <a href="#try" className="nav-link font-semibold text-primary inline-flex items-center gap-1 ml-1">
                   Try live editor below ↓
                 </a>
               </div>
