@@ -99,6 +99,7 @@ const TOOLS = [
     title: "Live Examiner",
     lead: "Instant calibration sentence by sentence",
     body: "Running Cambridge marks out of 8, 12, or 20, real-time AO1/AO2/AO3 progress meters, economics terminology checks, and dynamic examiner next-move coaching while you write.",
+    href: "/live-examiner",
   },
   {
     icon: PenLine,
@@ -107,6 +108,7 @@ const TOOLS = [
     title: "Dual-Pass Essay Lab",
     lead: "Independent two-pass Cambridge 9708 grading",
     body: "Grounded in official 9708 mark schemes and coursebooks. Two independent evaluation passes correct AI central-tendency bias, providing line-by-line mark scheme matching and rewrite plans.",
+    href: "/practice",
   },
   {
     icon: ListChecks,
@@ -115,6 +117,7 @@ const TOOLS = [
     title: "MCQ Live Simulation",
     lead: "Authentic timed Paper 1 & Paper 3 exams",
     body: "Real Cambridge past papers with official mark schemes. Features question flagging for review, interactive jump matrix, domain accuracy breakdown, and on-demand AI explanations.",
+    href: "/mcq-live",
   },
   {
     icon: BookOpen,
@@ -123,6 +126,7 @@ const TOOLS = [
     title: "Cambridge Definition Hub",
     lead: "Over 120 verified textbook definitions",
     body: "Precise definitions for every 9708 economic concept with essential syllabus keywords, topic tags, and copyable flashcards so you never surrender easy AO1 knowledge marks.",
+    href: "/definitions",
   },
   {
     icon: Target,
@@ -131,6 +135,7 @@ const TOOLS = [
     title: "Command Words Explorer",
     lead: "Assess, Evaluate, Explain — exact AO rubrics",
     body: "Master what Cambridge examiners demand for every command word. Learn the exact analytical and evaluative weights to structure high-band answers without wasted prose.",
+    href: "/command-words",
   },
   {
     icon: LineChart,
@@ -139,6 +144,7 @@ const TOOLS = [
     title: "Economics Diagram Studio",
     lead: "Every 9708 diagram with dynamic curve shifts",
     body: "Interactive micro and macro diagrams with real-time shifts, equilibrium price/quantity tracking, and examiner labelling standards for tariffs, externalities, and market structures.",
+    href: "/diagrams",
   },
   {
     icon: Scan,
@@ -147,6 +153,7 @@ const TOOLS = [
     title: "Handwriting Vision OCR",
     lead: "Upload photos of handwritten mock exams",
     body: "Specialized vision engine lifts student handwriting off paper, detects hand-drawn diagrams, verifies economic terminology, and sends it directly for examiner grading.",
+    href: "/practice",
   },
   {
     icon: TrendingUp,
@@ -155,6 +162,7 @@ const TOOLS = [
     title: "Review & Analytics Hub",
     lead: "Projected Cambridge grades & domain radar",
     body: "Executive performance dashboard tracking your projected grade, essay averages, MCQ topic mastery, and syllabus balance across Micro, Macro, Trade, and Market Failure.",
+    href: "/review",
   },
 ];
 
@@ -492,56 +500,52 @@ function Index() {
           </Reveal>
 
           <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-            {TOOLS.map((tool, index) => {
-              const isWide = index === 0 || index === 1;
-              return (
-                <Reveal
-                  key={tool.title}
-                  variant="pop"
-                  delay={index * 40}
-                  className={isWide ? "sm:col-span-2 lg:col-span-2" : "col-span-1"}
+            {TOOLS.map((tool, index) => (
+              <Reveal key={tool.title} variant="pop" delay={index * 35}>
+                <Link
+                  to={tool.href}
+                  className="pop pop-press group flex h-full flex-col justify-between p-5 sm:p-6 transition-all duration-300 hover:-translate-y-1 hover:border-primary/60 hover:shadow-xl bg-card border-2 cursor-pointer no-underline block"
                 >
-                  <div className="pop pop-press group flex h-full flex-col justify-between p-6 transition-all duration-300 hover:-translate-y-1 hover:border-primary/50 hover:shadow-xl bg-card border-2">
-                    <div>
-                      <div className="flex items-center justify-between gap-2">
-                        <span
-                          className={`pop-sm flex size-11 items-center justify-center rounded-xl text-primary-foreground transition-transform duration-300 group-hover:scale-110 ${tool.tile}`}
-                        >
-                          <tool.icon className="size-5" />
+                  <div>
+                    <div className="flex items-center justify-between gap-2">
+                      <span
+                        className={`pop-sm flex size-10 items-center justify-center rounded-xl text-primary-foreground transition-transform duration-300 group-hover:scale-110 ${tool.tile}`}
+                      >
+                        <tool.icon className="size-5" />
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-[9.5px] uppercase tracking-wider font-bold text-muted-foreground bg-muted/80 px-2 py-0.5 rounded-full border border-border/60">
+                          {tool.badge}
                         </span>
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono text-[10px] uppercase tracking-wider font-bold text-muted-foreground bg-muted/80 px-2 py-0.5 rounded-full border border-border/60">
-                            {tool.badge}
-                          </span>
-                          <span className="font-mono text-[10px] text-muted-foreground">
-                            {String(index + 1).padStart(2, "0")} / 08
-                          </span>
-                        </div>
+                        <span className="font-mono text-[10px] text-muted-foreground font-semibold">
+                          {String(index + 1).padStart(2, "0")} / 08
+                        </span>
                       </div>
-
-                      <h3 className="mt-4 text-base font-bold text-foreground group-hover:text-primary transition-colors">
-                        {tool.title}
-                      </h3>
-                      <p className="mt-1 text-xs font-semibold text-primary/90">
-                        {tool.lead}
-                      </p>
-                      <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-                        {tool.body}
-                      </p>
                     </div>
 
-                    <div className="mt-5 pt-3 border-t border-border/60 flex items-center justify-between text-[11px] text-muted-foreground">
-                      <span className="font-mono text-[10px] uppercase font-semibold tracking-wider text-muted-foreground/80">
-                        Cambridge 9708 Engine
-                      </span>
-                      <span className="inline-flex items-center gap-1 text-primary text-[10.5px] font-semibold opacity-0 group-hover:opacity-100 transition-opacity">
-                        Explore engine →
-                      </span>
-                    </div>
+                    <h3 className="mt-4 text-base font-bold text-foreground group-hover:text-primary transition-colors">
+                      {tool.title}
+                    </h3>
+                    <p className="mt-1 text-xs font-semibold text-primary/90 leading-snug">
+                      {tool.lead}
+                    </p>
+                    <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+                      {tool.body}
+                    </p>
                   </div>
-                </Reveal>
-              );
-            })}
+
+                  <div className="mt-5 pt-3 border-t border-border/60 flex items-center justify-between text-[11px] text-muted-foreground">
+                    <span className="font-mono text-[10px] uppercase font-semibold tracking-wider text-muted-foreground/80">
+                      Cambridge 9708 Engine
+                    </span>
+                    <span className="inline-flex items-center gap-1 text-primary text-[11px] font-bold group-hover:translate-x-1 transition-transform">
+                      <span>Explore engine</span>
+                      <span aria-hidden="true">→</span>
+                    </span>
+                  </div>
+                </Link>
+              </Reveal>
+            ))}
           </div>
         </div>
       </section>
