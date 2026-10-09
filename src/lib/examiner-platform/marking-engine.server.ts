@@ -1,5 +1,5 @@
 import { chat } from "../ai.server";
-import { MODEL_EXAMINER } from "../examiner/config";
+import { MODEL_EXAMINER, renderAoDefinitions } from "../examiner/config";
 import type { CambridgeQuestionSpec } from "./cambridge-papers";
 import type { QuestionMarkRecord, AoBreakdown, DiagramEvaluation, VerificationFlag } from "./types";
 
@@ -11,6 +11,9 @@ export type QuestionMarkInput = {
 
 const MARKING_SYSTEM_PROMPT = `You are an official Cambridge International AS & A Level Economics (9708) Assistant Principal Examiner.
 You are evaluating a candidate's actual examination response to propose marks for teacher review.
+
+CAMBRIDGE 9708 ASSESSMENT OBJECTIVES (SINGLE SOURCE OF TRUTH):
+${renderAoDefinitions()}
 
 CRITICAL INSTRUCTIONS:
 1. Mark strictly against the official question-specific mark scheme criteria provided.
