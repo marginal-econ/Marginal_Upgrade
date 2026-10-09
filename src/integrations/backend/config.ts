@@ -4,13 +4,14 @@
 // code. The URL and publishable key are public by design, but still belong in
 // environment configuration so a repository never silently points at a real
 // project.
+const metaEnv = typeof import.meta !== "undefined" ? (import.meta as any).env : undefined;
 export const BACKEND_URL =
-  import.meta.env["VITE_BACKEND_URL"] ||
-  (typeof process !== "undefined" ? process.env["BACKEND_URL"] : undefined) ||
+  metaEnv?.["VITE_BACKEND_URL"] ||
+  (typeof process !== "undefined" ? process.env["BACKEND_URL"] || process.env["VITE_BACKEND_URL"] : undefined) ||
   "";
 export const BACKEND_PUBLISHABLE_KEY =
-  import.meta.env["VITE_BACKEND_PUBLISHABLE_KEY"] ||
-  (typeof process !== "undefined" ? process.env["BACKEND_PUBLISHABLE_KEY"] : undefined) ||
+  metaEnv?.["VITE_BACKEND_PUBLISHABLE_KEY"] ||
+  (typeof process !== "undefined" ? process.env["BACKEND_PUBLISHABLE_KEY"] || process.env["VITE_BACKEND_PUBLISHABLE_KEY"] : undefined) ||
   "";
 
 export function requireBackendConfig(): void {

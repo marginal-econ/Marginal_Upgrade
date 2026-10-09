@@ -7,7 +7,7 @@
  * on config.
  */
 import { AiGatewayError, visionChat } from "../ai.server";
-import { getActiveVisionProvider } from "../ai/active.server";
+import { getActiveVisionProvider, getActiveProvider } from "../ai/active.server";
 import type { ProviderConfig } from "../ai/active.server";
 
 // Gemini 3.7 Flash reads small/cramped handwriting far more reliably than
@@ -86,7 +86,7 @@ function backoffDelay(attempt: number, isRateLimited: boolean): number {
 /** The admin-active vision-purpose key, if any — direct Google path or generic vision path. */
 async function getVisionConfig(): Promise<ProviderConfig | null> {
   try {
-    return await getActiveVisionProvider();
+    return (await getActiveVisionProvider()) ?? (await getActiveProvider());
   } catch {
     return null;
   }
@@ -100,46 +100,55 @@ function splitDataUrl(dataUrl: string): { mimeType: string; data: string } {
 
 async function transcribeViaGoogle(apiKey: string, model: string, dataUrl: string, hint?: string) {
   const { mimeType, data } = splitDataUrl(dataUrl);
-  const response = await fetch(`${GOOGLE_ENDPOINT}/${model}:generateContent`, {
-    method: "POST",
-    headers: { "content-type": "application/json", "x-goog-api-key": apiKey },
-    body: JSON.stringify({
-      systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
-      contents: [
-        {
-          role: "user",
-          parts: [
-            { inlineData: { mimeType, data } },
-            { text: hint ? `${PAGE_PROMPT}\nContext: ${hint}` : PAGE_PROMPT },
-          ],
-        },
-      ],
-      // No temperature override: Gemini 3.x models are tuned for their
-      // default sampling and Google now advises against changing it —
-      // legibility comes from mediaResolution + the prompt, not temperature.
-      generationConfig: {
-        mediaResolution: "MEDIA_RESOLUTION_HIGH",
-        maxOutputTokens: MAX_OUTPUT_TOKENS,
-      },
-    }),
-  });
+  const primary = model.startsWith("models/") ? model : `models/${model}`;
+  const candidateModels = Array.from(
+    new Set([primary, "models/gemini-3.8-flash", "models/gemini-3.6-flash", "models/gemini-3.7-flash"]),
+  );
 
-  if (!response.ok) {
-    const detail = await response.text().catch(() => "");
-    const error = new Error(`Google returned ${response.status}. ${detail.slice(0, 200)}`);
-    (error as Error & { status?: number }).status = response.status;
-    throw error;
+  let lastErr: unknown = null;
+  for (const m of candidateModels) {
+    try {
+      const response = await fetch(`${GOOGLE_ENDPOINT}/${m}:generateContent`, {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-goog-api-key": apiKey },
+        body: JSON.stringify({
+          systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+          contents: [
+            {
+              role: "user",
+              parts: [
+                { inlineData: { mimeType, data } },
+                { text: hint ? `${PAGE_PROMPT}\nContext: ${hint}` : PAGE_PROMPT },
+              ],
+            },
+          ],
+          generationConfig: {
+            mediaResolution: "MEDIA_RESOLUTION_HIGH",
+            maxOutputTokens: MAX_OUTPUT_TOKENS,
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        const detail = await response.text().catch(() => "");
+        lastErr = new Error(`Google (${m}) returned ${response.status}. ${detail.slice(0, 200)}`);
+        continue;
+      }
+
+      const payload = (await response.json()) as {
+        candidates?: { content?: { parts?: { text?: string }[] } }[];
+      };
+      const text = (payload.candidates?.[0]?.content?.parts ?? [])
+        .map((part) => part.text ?? "")
+        .join("")
+        .trim();
+      if (text) return text;
+    } catch (err) {
+      lastErr = err;
+    }
   }
 
-  const payload = (await response.json()) as {
-    candidates?: { content?: { parts?: { text?: string }[] } }[];
-  };
-  const text = (payload.candidates?.[0]?.content?.parts ?? [])
-    .map((part) => part.text ?? "")
-    .join("")
-    .trim();
-  if (!text) throw new Error("Google returned no text for this page.");
-  return text;
+  throw lastErr || new Error("All Google vision models failed for this page.");
 }
 
 async function transcribeViaGateway(model: string, dataUrl: string, hint?: string) {

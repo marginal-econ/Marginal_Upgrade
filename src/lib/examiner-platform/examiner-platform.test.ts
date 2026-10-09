@@ -248,4 +248,79 @@ describe("Marking Engine", () => {
       response.ao_breakdown.evaluation.awarded
     ).toBe(response.ai_awarded_mark);
   });
+
+  it("handles blank responses with 0 marks and flags them for teacher review", async () => {
+    const qSpec = {
+      number: "1(c)",
+      title: "Explain how indirect taxes reduce negative externalities",
+      maxMark: 4,
+      tariff: { ao1: 1, ao2: 3, ao3: 0 },
+      hasDiagramRequirement: true,
+      syllabusTopic: "Government microeconomic intervention",
+      markingGuide: "1 mark for shifting MPC up. Up to 3 marks for analysis of tax incidence.",
+    };
+
+    const response = await markQuestionResponse({
+      question: qSpec,
+      studentAnswerText: "",
+    });
+
+    expect(response.ai_awarded_mark).toBe(0);
+    expect(response.ao_breakdown.knowledge.awarded).toBe(0);
+    expect(response.ao_breakdown.analysis.awarded).toBe(0);
+    expect(response.ao_breakdown.evaluation.awarded).toBe(0);
+    expect(response.verification_flags.some((f) => f.id === "blank-response")).toBe(true);
+  });
+
+  it("segments answers written out of order across pages", () => {
+    const pages = [
+      {
+        page_number: 1,
+        raw_text: "Question 2\n[DIAGRAM: Aggregate Demand and Aggregate Supply]\nAn increase in government spending increases AD from AD1 to AD2. This leads to higher real GDP and demand-pull inflation.",
+        detected_questions: ["2"],
+        diagram_tags: ["[DIAGRAM: Aggregate Demand and Aggregate Supply]"],
+        uncertain_words: [],
+        has_cross_outs: false,
+        confidence: 0.96,
+      },
+      {
+        page_number: 2,
+        raw_text: "Question 1(a)\nOpportunity cost is the next best alternative forgone when making an economic choice.\n\nQuestion 1(b)\nPublic goods are non-excludable and non-rival in consumption.",
+        detected_questions: ["1(a)", "1(b)"],
+        diagram_tags: [],
+        uncertain_words: [],
+        has_cross_outs: false,
+        confidence: 0.94,
+      },
+    ];
+
+    const expected = ["1(a)", "1(b)", "1(c)", "2"];
+    const segmented = segmentTranscriptionByQuestions(pages, expected);
+
+    // Q2 was written on page 1 before Q1(a)
+    expect(segmented["2"]).toContain("government spending increases AD");
+    expect(segmented["2"]).toContain("[DIAGRAM: Aggregate Demand and Aggregate Supply]");
+
+    // Q1(a) was written on page 2
+    expect(segmented["1(a)"]).toContain("Opportunity cost is the next best alternative");
+
+    // Q1(b) was written on page 2 after 1(a)
+    expect(segmented["1(b)"]).toContain("Public goods are non-excludable");
+
+    // Q1(c) was completely skipped by student
+    expect(segmented["1(c)"]).toBe("");
+  });
+
+  it("handles crossed-out responses without awarding credit to superseded text", () => {
+    const rawWithCrossOut = `
+Question 1(a)
+[[CROSSED OUT: A merit good is a good produced by the government.]]
+A merit good is an underconsumed commodity where social benefits exceed private benefits.
+`;
+    expect(rawWithCrossOut).toContain("[[CROSSED OUT:");
+    const activeText = rawWithCrossOut.replace(/\[\[CROSSED OUT:[\s\S]*?\]\]/g, "").trim();
+    expect(activeText).not.toContain("produced by the government");
+    expect(activeText).toContain("underconsumed commodity");
+  });
 });
+
