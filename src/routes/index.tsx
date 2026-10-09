@@ -34,7 +34,7 @@ import {
 } from "@/components/marketing/doodles";
 import { SiteFooter } from "@/components/marketing/footer";
 import { CommandWordDrill, LiveMarkDemo } from "@/components/marketing/interactive";
-import { ExaminerStage, LiveExaminer } from "@/components/marketing/live-examiner";
+import { ExaminerStage, HeroScriptPreview } from "@/components/marketing/live-examiner";
 import { MarkingHand } from "@/components/marketing/mascot";
 import { CountUp, Reveal } from "@/components/marketing/reveal";
 import { Ribbon } from "@/components/marketing/ribbon";
@@ -366,10 +366,10 @@ function Index() {
             </Reveal>
           </div>
 
-          {/* Authentic Live Examiner Interactive Sandbox: lets students observe real calibration or click & type their own answers */}
+          {/* Cambridge 9708 Candidate Answer Script Preview Card */}
           <Reveal variant="pop" delay={120} className="relative">
             <ExaminerStage className="relative mx-auto w-full max-w-xl min-w-0">
-              <LiveExaminer />
+              <HeroScriptPreview />
             </ExaminerStage>
           </Reveal>
         </div>

@@ -280,6 +280,8 @@ export function LiveMarkDemo() {
   const [playing, setPlaying] = useState(false);
   const [customText, setCustomText] = useState("");
   const [selectedLevel, setSelectedLevel] = useState<"level1" | "level2" | "level3" | "custom">("level2");
+  const [viewTab, setViewTab] = useState<"editor" | "annotated">("editor");
+  const [activeClauseIndex, setActiveClauseIndex] = useState<number | null>(0);
   const [justChanged, setJustChanged] = useState(false);
   const previousMarkRef = useRef<number | null>(null);
 
@@ -617,26 +619,91 @@ export function LiveMarkDemo() {
               ))}
             </div>
 
-            {/* Editable Interactive Textarea */}
+            {/* Dual-View Workspace: Interactive Editor vs Annotated Examiner Script */}
             <div>
-              <div className="flex items-center justify-between text-xs text-muted-foreground mb-1.5">
-                <span className="font-semibold text-foreground flex items-center gap-1.5">
-                  <Edit3 className="size-3.5 text-primary" /> Essay Workspace (Candidate Answer Script)
-                </span>
-                <span className="text-[11px]">
+              <div className="flex flex-wrap items-center justify-between text-xs text-muted-foreground mb-2 gap-2">
+                <div className="flex items-center gap-1 bg-muted/70 p-0.5 rounded-lg border border-border">
+                  <button
+                    type="button"
+                    onClick={() => setViewTab("editor")}
+                    className={cn(
+                      "px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all flex items-center gap-1.5",
+                      viewTab === "editor"
+                        ? "bg-card text-foreground shadow-2xs font-bold"
+                        : "text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    <Edit3 className="size-3 text-primary" /> Interactive Editor
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setViewTab("annotated")}
+                    className={cn(
+                      "px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all flex items-center gap-1.5",
+                      viewTab === "annotated"
+                        ? "bg-card text-foreground shadow-2xs font-bold"
+                        : "text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    <Sparkles className="size-3 text-ao3" /> Annotated Script (Marked Clauses)
+                  </button>
+                </div>
+                <span className="text-[11px] font-mono">
                   {liveAnalysis.wordCount} words · ~{Math.max(1, Math.ceil(liveAnalysis.wordCount / 20))} min read
                 </span>
               </div>
-              <textarea
-                value={customText}
-                onChange={(e) => {
-                  setCustomText(e.target.value);
-                  setSelectedLevel("custom");
-                }}
-                rows={8}
-                placeholder="Type or paste your economics answer here... The Live Examiner calculates running marks, AO breakdowns, and economics terminology in real time."
-                className="w-full resize-none rounded-xl border border-border bg-card p-4 font-serif text-[14.5px] leading-relaxed text-foreground placeholder:text-muted-foreground/60 focus:border-primary focus:outline-hidden focus:ring-2 focus:ring-primary/20 shadow-inner"
-              />
+
+              {viewTab === "editor" ? (
+                <textarea
+                  value={customText}
+                  onChange={(e) => {
+                    setCustomText(e.target.value);
+                    setSelectedLevel("custom");
+                  }}
+                  rows={8}
+                  placeholder="Type or paste your economics answer here... The Live Examiner calculates running marks, AO breakdowns, and economics terminology in real time."
+                  className="w-full resize-none rounded-xl border border-border bg-card p-4 font-serif text-[14.5px] leading-relaxed text-foreground placeholder:text-muted-foreground/60 focus:border-primary focus:outline-hidden focus:ring-2 focus:ring-primary/20 shadow-inner"
+                />
+              ) : (
+                <div className="space-y-3">
+                  <div className="rounded-xl border border-border bg-card p-4 font-serif text-[14px] leading-relaxed text-foreground shadow-inner space-y-2 select-text">
+                    <p className="leading-[1.9]">
+                      {specimen.clauses.map((clause, idx) => (
+                        <span
+                          key={idx}
+                          onClick={() => setActiveClauseIndex(idx)}
+                          className={cn(
+                            "cursor-pointer rounded-xs px-1 py-0.5 transition-all inline",
+                            clause.ao === "AO1" && "bg-ao1/15 border-b-2 border-ao1 hover:bg-ao1/25",
+                            clause.ao === "AO2" && "bg-ao2/15 border-b-2 border-ao2 hover:bg-ao2/25",
+                            clause.ao === "AO3" && "bg-ao3/15 border-b-2 border-ao3 hover:bg-ao3/25",
+                            activeClauseIndex === idx && "ring-2 ring-primary/40 font-medium",
+                          )}
+                          title={`Click to view examiner feedback for this ${clause.ao} sentence`}
+                        >
+                          {clause.text}
+                        </span>
+                      ))}
+                    </p>
+                  </div>
+
+                  {activeClauseIndex !== null && specimen.clauses[activeClauseIndex] ? (
+                    <div className="rounded-lg border border-primary/25 bg-primary/5 p-3 text-xs leading-relaxed">
+                      <div className="flex items-center justify-between font-bold text-foreground mb-1">
+                        <span className="flex items-center gap-1.5 text-primary">
+                          <Sparkles className="size-3.5" /> Cambridge Examiner Annotation ({specimen.clauses[activeClauseIndex].ao}):
+                        </span>
+                        <span className="text-[10px] font-mono text-muted-foreground uppercase">
+                          Clause {activeClauseIndex + 1} of {specimen.clauses.length}
+                        </span>
+                      </div>
+                      <p className="text-foreground/90 font-medium">
+                        {specimen.clauses[activeClauseIndex].note}
+                      </p>
+                    </div>
+                  ) : null}
+                </div>
+              )}
             </div>
 
             {/* Economic Spelling Alerts */}
