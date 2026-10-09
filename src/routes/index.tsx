@@ -1,4 +1,5 @@
 import { DEFAULT_SETTINGS, type PublicSettings } from "@/lib/site-settings";
+import { cn } from "@/lib/utils";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import {
@@ -306,8 +307,11 @@ function Index() {
             <Reveal>
               <div className="flex flex-wrap items-center gap-2">
                 <span className="chip-soft">
-                  <Sparkles className="size-3.5" />
-                  AS and A Level Economics (9708)
+                  <Sparkles className="size-3.5 text-primary" />
+                  Cambridge 9708 Examiner Calibration
+                </span>
+                <span className="rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 text-[10.5px] font-mono font-semibold text-emerald-600 dark:text-emerald-400">
+                  May/June 2026 Aligned
                 </span>
               </div>
             </Reveal>
@@ -355,11 +359,16 @@ function Index() {
             ) : null}
 
             <Reveal delay={260}>
-              <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-muted-foreground dark:text-foreground/70">
-                <a href="#try" className="nav-link font-medium text-primary">
-                  Or test the full Live Examiner studio below ↓
+              <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-muted-foreground dark:text-foreground/70">
+                <span className="inline-flex items-center gap-1.5 font-medium text-foreground">
+                  <ShieldCheck className="size-3.5 text-emerald-500" /> Grounded in 9708 mark schemes
+                </span>
+                <span className="inline-flex items-center gap-1.5 font-medium text-foreground">
+                  <Target className="size-3.5 text-primary" /> Papers 1, 2, 3 &amp; 4
+                </span>
+                <a href="#try" className="nav-link font-semibold text-primary inline-flex items-center gap-1">
+                  Try live editor below ↓
                 </a>
-                <span>Built for AS and A Level Economics (9708)</span>
               </div>
             </Reveal>
           </div>
@@ -472,47 +481,56 @@ function Index() {
           </Reveal>
 
           <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-            {TOOLS.map((tool, index) => (
-              <Reveal key={tool.title} variant="pop" delay={index * 50}>
-                {/* Front and back are the same card turned over. The shell is
-                    focusable so the reverse is reachable from the keyboard,
-                    not just from a hover. */}
-                <button
-                  type="button"
-                  className="scene flip-shell block h-full w-full text-left"
-                  aria-label={`${tool.title}. ${tool.lead}. ${tool.body}`}
+            {TOOLS.map((tool, index) => {
+              const isWide = index === 0 || index === 1;
+              return (
+                <Reveal
+                  key={tool.title}
+                  variant="pop"
+                  delay={index * 40}
+                  className={isWide ? "sm:col-span-2 lg:col-span-2" : "col-span-1"}
                 >
-                  <div aria-hidden="true" className="flip relative h-full min-h-[14rem]">
-                    <div className="flip-face pop pop-press flex h-full flex-col p-5">
+                  <div className="pop pop-press group flex h-full flex-col justify-between p-6 transition-all duration-300 hover:-translate-y-1 hover:border-primary/50 hover:shadow-xl bg-card border-2">
+                    <div>
                       <div className="flex items-center justify-between gap-2">
                         <span
-                          className={`pop-sm flex size-10 items-center justify-center text-background transition-transform duration-300 ${tool.tile}`}
+                          className={`pop-sm flex size-11 items-center justify-center rounded-xl text-primary-foreground transition-transform duration-300 group-hover:scale-110 ${tool.tile}`}
                         >
                           <tool.icon className="size-5" />
                         </span>
-                        <span className="font-mono text-[9px] uppercase tracking-wider font-bold text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
-                          {tool.badge}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-[10px] uppercase tracking-wider font-bold text-muted-foreground bg-muted/80 px-2 py-0.5 rounded-full border border-border/60">
+                            {tool.badge}
+                          </span>
+                          <span className="font-mono text-[10px] text-muted-foreground">
+                            {String(index + 1).padStart(2, "0")} / 08
+                          </span>
+                        </div>
                       </div>
-                      <h3 className="mt-4 text-base font-bold text-foreground">{tool.title}</h3>
-                      <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
+
+                      <h3 className="mt-4 text-base font-bold text-foreground group-hover:text-primary transition-colors">
+                        {tool.title}
+                      </h3>
+                      <p className="mt-1 text-xs font-semibold text-primary/90">
                         {tool.lead}
                       </p>
-                      <span className="mt-auto pt-3 font-mono text-[10px] text-muted-foreground">
-                        {String(index + 1).padStart(2, "0")} / 08
-                      </span>
+                      <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+                        {tool.body}
+                      </p>
                     </div>
 
-                    <div
-                      className={`flip-face flip-back pop flex h-full flex-col justify-center p-5 ${tool.tile}`}
-                    >
-                      <h3 className="text-base font-bold text-background">{tool.title}</h3>
-                      <p className="mt-2 text-xs leading-relaxed text-background/90">{tool.body}</p>
+                    <div className="mt-5 pt-3 border-t border-border/60 flex items-center justify-between text-[11px] text-muted-foreground">
+                      <span className="font-mono text-[10px] uppercase font-semibold tracking-wider text-muted-foreground/80">
+                        Cambridge 9708 Engine
+                      </span>
+                      <span className="inline-flex items-center gap-1 text-primary text-[10.5px] font-semibold opacity-0 group-hover:opacity-100 transition-opacity">
+                        Explore engine →
+                      </span>
                     </div>
                   </div>
-                </button>
-              </Reveal>
-            ))}
+                </Reveal>
+              );
+            })}
           </div>
         </div>
       </section>
@@ -721,62 +739,123 @@ function Index() {
  * missing points) a student will meet inside.
  */
 function SpecimenCard() {
+  const [view, setView] = useState<"marginal" | "generic">("marginal");
+
   return (
     <div className="relative">
       <span className="sticker layer-2 absolute -top-3 -right-2 z-10 bg-ao3 text-foreground md:-right-4">
-        Example
+        Live Inspection
       </span>
 
-      <div className="pop p-6 md:p-7">
-        <p className="eyebrow">Paper 2 · Question 4(b)</p>
-        <p className="mt-2.5 text-sm leading-relaxed font-medium">
+      <div className="pop p-6 md:p-7 bg-card">
+        {/* Toggle between Marginal Examiner vs Generic AI */}
+        <div className="flex items-center justify-between gap-2 border-b border-border pb-4 mb-4">
+          <div className="inline-flex rounded-lg bg-muted p-1 text-xs font-semibold">
+            <button
+              type="button"
+              onClick={() => setView("marginal")}
+              className={cn(
+                "rounded-md px-3 py-1 transition-all",
+                view === "marginal"
+                  ? "bg-primary text-primary-foreground shadow-2xs font-bold"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              Marginal 9708 Examiner
+            </button>
+            <button
+              type="button"
+              onClick={() => setView("generic")}
+              className={cn(
+                "rounded-md px-3 py-1 transition-all",
+                view === "generic"
+                  ? "bg-destructive/20 text-destructive font-bold shadow-2xs"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              Generic AI Bot
+            </button>
+          </div>
+          <span className="font-mono text-[10px] text-muted-foreground uppercase font-bold hidden sm:inline">
+            Paper 2 · Q4(b)
+          </span>
+        </div>
+
+        <p className="eyebrow">AS Economics Paper 2 · Section B [12 Marks]</p>
+        <p className="mt-2 text-sm leading-relaxed font-medium">
           “Assess whether a minimum price is the most effective way to reduce consumption of a
           demerit good.”
         </p>
 
-        <div className="layer-1 mt-6 space-y-3.5">
-          {OBJECTIVES.map((objective, index) => (
-            <div key={objective.code}>
-              <div className="flex items-baseline justify-between text-xs">
-                <span className="flex items-center gap-2 font-medium">
-                  <span className={`size-2 rounded-full ${objective.dot}`} aria-hidden="true" />
-                  {objective.code}
-                  <span className="text-muted-foreground">{objective.name}</span>
-                </span>
-                <span className="font-mono text-muted-foreground">
-                  <CountUp value={objective.share} suffix="%" delay={240 + index * 130} />
-                </span>
-              </div>
-              <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-muted">
-                <div
-                  className={`grow-bar h-full rounded-full ${objective.dot}`}
-                  style={
-                    {
-                      width: `${objective.share}%`,
-                      "--bar-delay": `${240 + index * 130}ms`,
-                    } as React.CSSProperties
-                  }
-                />
-              </div>
+        {view === "marginal" ? (
+          <>
+            <div className="layer-1 mt-6 space-y-3.5">
+              {OBJECTIVES.map((objective, index) => (
+                <div key={objective.code}>
+                  <div className="flex items-baseline justify-between text-xs">
+                    <span className="flex items-center gap-2 font-medium">
+                      <span className={`size-2 rounded-full ${objective.dot}`} aria-hidden="true" />
+                      {objective.code}
+                      <span className="text-muted-foreground">{objective.name}</span>
+                    </span>
+                    <span className="font-mono text-muted-foreground">
+                      <CountUp value={objective.share} suffix="%" delay={240 + index * 130} />
+                    </span>
+                  </div>
+                  <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-muted">
+                    <div
+                      className={`grow-bar h-full rounded-full ${objective.dot}`}
+                      style={
+                        {
+                          width: `${objective.share}%`,
+                          "--bar-delay": `${240 + index * 130}ms`,
+                        } as React.CSSProperties
+                      }
+                    />
+                  </div>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
 
-        <div className="mt-6 border-t border-border pt-4">
-          <p className="eyebrow">What's missing</p>
-          <ul className="mt-2.5 space-y-2 text-sm text-muted-foreground">
-            <li className="flex gap-2.5">
-              <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-ao3" aria-hidden="true" />
-              <span>
-                No judgement on <em>which</em> policy is most effective — only a list.
-              </span>
-            </li>
-            <li className="flex gap-2.5">
-              <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-ao2" aria-hidden="true" />
-              <span>Chain of analysis stops at “demand falls”; no effect on the shortage.</span>
-            </li>
-          </ul>
-        </div>
+            <div className="mt-6 border-t border-border pt-4">
+              <p className="eyebrow text-primary">Marginal Diagnostic Feedback</p>
+              <ul className="mt-2.5 space-y-2 text-xs text-muted-foreground">
+                <li className="flex gap-2.5">
+                  <span className="mt-1 size-1.5 shrink-0 rounded-full bg-ao3" aria-hidden="true" />
+                  <span>
+                    <strong className="text-foreground">AO3 Gap:</strong> Listed alternative policies (taxation, education) without synthesizing <em>which</em> policy dominates when price elasticity of demand is inelastic.
+                  </span>
+                </li>
+                <li className="flex gap-2.5">
+                  <span className="mt-1 size-1.5 shrink-0 rounded-full bg-ao2" aria-hidden="true" />
+                  <span>
+                    <strong className="text-foreground">AO2 Gap:</strong> Transmission halts at “quantity demanded falls”; omitted informal black-market emergence and producer surplus changes.
+                  </span>
+                </li>
+              </ul>
+            </div>
+          </>
+        ) : (
+          <div className="mt-5 space-y-4">
+            <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-xs text-muted-foreground space-y-2">
+              <div className="flex items-center gap-1.5 font-bold text-destructive">
+                <span>⚠️ Generic Chatbot Output (ChatGPT / Claude default):</span>
+              </div>
+              <p className="italic text-foreground/80 leading-relaxed">
+                “This is a very good essay! You clearly understand minimum prices and explain how they reduce demand for demerit goods like cigarettes. You also mentioned other policies. Mark: 7 / 12 (Grade B). Keep practicing!”
+              </p>
+            </div>
+
+            <div className="rounded-lg border border-border bg-muted/40 p-3 text-[11px] text-muted-foreground space-y-1.5">
+              <p className="font-bold text-foreground">Why generic AI fails Cambridge students:</p>
+              <ul className="list-disc pl-4 space-y-1">
+                <li>Cannot separate marks into official AO1, AO2, AO3 quotas.</li>
+                <li>Suffers from central-tendency bias (clusters all scores around 60%).</li>
+                <li>Provides polite encouragement instead of actionable mark-scheme rubrics.</li>
+              </ul>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -78,7 +78,7 @@ const SPECIMENS: Specimen[] = [
     id: "aggregate-demand",
     paper: "Economics AS Level - Paper 2 · 12 marks",
     question:
-      "Asses whether an increase in aggregate demand would be of overall benefit to an economy.",
+      "Assess whether an increase in aggregate demand would be of overall benefit to an economy.",
     total: 12,
     aoBreakdown: { ao1: 3, ao2: 5, ao3: 4 },
     keyTerms: [
