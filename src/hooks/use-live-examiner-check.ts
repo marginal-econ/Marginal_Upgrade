@@ -534,16 +534,58 @@ export function useLiveExaminerCheck(params: {
     if (!issue) return currentText;
 
     const replaceOnce = (source: string) => {
-      const at = source.indexOf(issue.context);
-      if (at === -1) return source;
-      const fixedSentence = issue.context.replace(issue.original, issue.suggestion);
-      return source.slice(0, at) + fixedSentence + source.slice(at + issue.context.length);
+      let at = source.indexOf(issue.context);
+      if (at !== -1) {
+        const fixedSentence = issue.context.replace(issue.original, issue.suggestion);
+        return source.slice(0, at) + fixedSentence + source.slice(at + issue.context.length);
+      }
+      const origAt = source.indexOf(issue.original);
+      if (origAt !== -1) {
+        return source.slice(0, origAt) + issue.suggestion + source.slice(origAt + issue.original.length);
+      }
+      return source;
     };
 
     const nextText = replaceOnce(currentText);
     lastCheckedTextRef.current = replaceOnce(lastCheckedTextRef.current);
-    setIssues((prev) => prev.filter((item) => item.id !== id));
-    setClassifications((prev) => prev.filter((item) => nextText.includes(item.context)));
+
+    // Update remaining issues so their context stays synchronized with the fixed text
+    setIssues((prev) =>
+      prev
+        .filter((item) => item.id !== id)
+        .map((item) => {
+          if (item.context === issue.context) {
+            return {
+              ...item,
+              context: item.context.replace(issue.original, issue.suggestion),
+            };
+          }
+          return item;
+        })
+        .filter((item) => nextText.includes(item.context)),
+    );
+
+    // Update classifications so their context and original stay synchronized without being dropped!
+    setClassifications((prev) =>
+      prev
+        .map((item) => {
+          if (item.context === issue.context) {
+            const nextContext = item.context.replace(issue.original, issue.suggestion);
+            const nextOriginal =
+              item.original === item.context
+                ? nextContext
+                : item.original.replace(issue.original, issue.suggestion);
+            return {
+              ...item,
+              context: nextContext,
+              original: nextOriginal,
+            };
+          }
+          return item;
+        })
+        .filter((item) => nextText.includes(item.context)),
+    );
+
     setHistory((prev) =>
       prev.map((entry) =>
         entry.id === id ? { ...entry, status: "accepted", resolvedAt: Date.now() } : entry,

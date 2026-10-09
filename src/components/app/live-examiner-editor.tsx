@@ -136,7 +136,7 @@ const AO_META: Record<"AO1" | "AO2" | "AO3", UnderlineStyleMeta> = {
   },
 };
 
-type Range =
+export type Range =
   | { start: number; end: number; id: string; kind: "issue"; issue: ActiveIssue }
   | {
       start: number;
@@ -146,14 +146,26 @@ type Range =
       classification: ActiveAoClassification;
     };
 
-/** Locate every issue's `original` text inside the full essay, skipping
- *  anything that overlaps a [DIAGRAM: ...] tag or another issue's range —
- *  highlights must never cover diagram/table content or double up. */
-function computeRanges(
+const DEFAULT_ISSUE_META: UnderlineStyleMeta = {
+  label: "Correction",
+  dot: "bg-rose-500 dark:bg-rose-400",
+  underlineColor: "rgba(244, 63, 94, 0.85)",
+  underlineStyle: "dashed",
+  underlineThickness: "1.5px",
+  offset: "5px",
+};
+
+/** Locate every issue's `original` text and AO classification inside the essay.
+ *  Issues take precedence over classifications for styling and suggestions,
+ *  while allowing the surrounding sentence to retain its AO underline.
+ *  Diagram and table tags ([DIAGRAM: ...]) are protected from underlines. */
+export function computeRanges(
   text: string,
   issues: ActiveIssue[],
   classifications: ActiveAoClassification[],
 ): Range[] {
+  if (!text) return [];
+
   const protectedSpans: Array<[number, number]> = [];
   for (const match of text.matchAll(DIAGRAM_TAG)) {
     protectedSpans.push([match.index!, match.index! + match[0].length]);
@@ -162,70 +174,218 @@ function computeRanges(
   const overlapsProtected = (start: number, end: number) =>
     protectedSpans.some(([pStart, pEnd]) => start < pEnd && end > pStart);
 
-  const ranges: Range[] = [];
+  // 1. Locate issues (non-overlapping among each other, skipping diagrams)
+  type LocatedIssue = { start: number; end: number; id: string; issue: ActiveIssue };
+  const locatedIssues: LocatedIssue[] = [];
 
-  function locate(context: string, original: string): { start: number; end: number } | null {
-    let sentenceStart = -1;
+  for (const issue of issues) {
+    if (!issue.original) continue;
+    let foundStart = -1;
+
+    // First try: locate within issue.context
+    if (issue.context) {
+      let searchContextFrom = 0;
+      while (true) {
+        const at = text.indexOf(issue.context, searchContextFrom);
+        if (at === -1) break;
+        let searchOriginalFrom = 0;
+        while (true) {
+          const localIndex = issue.context.indexOf(issue.original, searchOriginalFrom);
+          if (localIndex === -1) break;
+          const candidateStart = at + localIndex;
+          const candidateEnd = candidateStart + issue.original.length;
+          const collides =
+            overlapsProtected(candidateStart, candidateEnd) ||
+            locatedIssues.some((r) => candidateStart < r.end && candidateEnd > r.start);
+          if (!collides) {
+            foundStart = candidateStart;
+            break;
+          }
+          searchOriginalFrom = localIndex + 1;
+        }
+        if (foundStart !== -1) break;
+        searchContextFrom = at + 1;
+      }
+    }
+
+    // Fallback: search issue.original directly in text
+    if (foundStart === -1) {
+      let searchOriginalFrom = 0;
+      while (true) {
+        const at = text.indexOf(issue.original, searchOriginalFrom);
+        if (at === -1) break;
+        const candidateStart = at;
+        const candidateEnd = candidateStart + issue.original.length;
+        const collides =
+          overlapsProtected(candidateStart, candidateEnd) ||
+          locatedIssues.some((r) => candidateStart < r.end && candidateEnd > r.start);
+        if (!collides) {
+          foundStart = candidateStart;
+          break;
+        }
+        searchOriginalFrom = at + 1;
+      }
+    }
+
+    if (foundStart !== -1) {
+      locatedIssues.push({
+        start: foundStart,
+        end: foundStart + issue.original.length,
+        id: issue.id,
+        issue,
+      });
+    }
+  }
+
+  // 2. Locate classifications (non-overlapping among each other, skipping diagrams)
+  // Classifications are located INDEPENDENTLY of issues.
+  type LocatedClassification = {
+    start: number;
+    end: number;
+    id: string;
+    classification: ActiveAoClassification;
+  };
+  const locatedClassifications: LocatedClassification[] = [];
+
+  for (const classification of classifications) {
+    if (!classification.original && !classification.context) continue;
+    const targetString = classification.original || classification.context;
+    let foundStart = -1;
+
     let searchFrom = 0;
     while (true) {
-      const at = text.indexOf(context, searchFrom);
+      const at = text.indexOf(targetString, searchFrom);
       if (at === -1) break;
-      const localIndex = context.indexOf(original);
-      if (localIndex === -1) return null;
-      const candidateStart = at + localIndex;
-      const candidateEnd = candidateStart + original.length;
-      if (
-        !overlapsProtected(candidateStart, candidateEnd) &&
-        !ranges.some((range) => candidateStart < range.end && candidateEnd > range.start)
-      ) {
-        sentenceStart = at;
+      const candidateStart = at;
+      const candidateEnd = candidateStart + targetString.length;
+      const collides =
+        overlapsProtected(candidateStart, candidateEnd) ||
+        locatedClassifications.some((r) => candidateStart < r.end && candidateEnd > r.start);
+      if (!collides) {
+        foundStart = candidateStart;
         break;
       }
       searchFrom = at + 1;
     }
-    if (sentenceStart === -1) return null;
-    const start = sentenceStart + context.indexOf(original);
-    return { start, end: start + original.length };
-  }
 
-  // Corrections take priority when they overlap an AO classification so
-  // the accept/dismiss interaction is never hidden by the colour layer.
-  for (const issue of issues) {
-    const located = locate(issue.context, issue.original);
-    if (located) ranges.push({ ...located, id: issue.id, kind: "issue", issue });
-  }
-  for (const classification of classifications) {
-    const located = locate(classification.context, classification.original);
-    if (located) {
-      ranges.push({
-        ...located,
+    // Fallback: search classification.context if original wasn't found
+    if (foundStart === -1 && classification.context && classification.context !== targetString) {
+      let searchFromCtx = 0;
+      while (true) {
+        const at = text.indexOf(classification.context, searchFromCtx);
+        if (at === -1) break;
+        const candidateStart = at;
+        const candidateEnd = candidateStart + classification.context.length;
+        const collides =
+          overlapsProtected(candidateStart, candidateEnd) ||
+          locatedClassifications.some((r) => candidateStart < r.end && candidateEnd > r.start);
+        if (!collides) {
+          foundStart = candidateStart;
+          break;
+        }
+        searchFromCtx = at + 1;
+      }
+    }
+
+    if (foundStart !== -1) {
+      const len =
+        text.indexOf(targetString, foundStart) === foundStart
+          ? targetString.length
+          : classification.context.length;
+      locatedClassifications.push({
+        start: foundStart,
+        end: foundStart + len,
         id: classification.id,
-        kind: "classification",
         classification,
       });
     }
   }
 
-  const sorted = ranges.sort((a, b) => a.start - b.start);
-  const merged: Range[] = [];
-  for (const range of sorted) {
-    const previous = merged.at(-1);
-    const gap = previous ? text.slice(previous.end, range.start) : "";
-    if (
-      previous?.kind === "classification" &&
-      range.kind === "classification" &&
-      previous.classification.ao === range.classification.ao &&
-      gap.length <= 3 &&
-      gap.trim() === ""
-    ) {
-      previous.end = range.end;
-      previous.classification = {
-        ...previous.classification,
-        original: text.slice(previous.start, range.end),
-      };
+  // 3. Sweep-line interval subdivision: split text into disjoint slices where issues take priority over classifications
+  const points = new Set<number>();
+  for (const item of locatedIssues) {
+    points.add(item.start);
+    points.add(item.end);
+  }
+  for (const item of locatedClassifications) {
+    points.add(item.start);
+    points.add(item.end);
+  }
+
+  const sortedPoints = Array.from(points).sort((a, b) => a - b);
+  const rawRanges: Range[] = [];
+
+  for (let i = 0; i < sortedPoints.length - 1; i++) {
+    const pStart = sortedPoints[i];
+    const pEnd = sortedPoints[i + 1];
+    if (pStart >= pEnd) continue;
+
+    // Issue takes priority for underline & suggestion card
+    const matchingIssue = locatedIssues.find(
+      (item) => item.start <= pStart && item.end >= pEnd,
+    );
+    if (matchingIssue) {
+      rawRanges.push({
+        start: pStart,
+        end: pEnd,
+        id: matchingIssue.id,
+        kind: "issue",
+        issue: matchingIssue.issue,
+      });
       continue;
     }
-    merged.push(range);
+
+    // Otherwise, check if within an AO classification
+    const matchingClassification = locatedClassifications.find(
+      (item) => item.start <= pStart && item.end >= pEnd,
+    );
+    if (matchingClassification) {
+      rawRanges.push({
+        start: pStart,
+        end: pEnd,
+        id: matchingClassification.id,
+        kind: "classification",
+        classification: matchingClassification.classification,
+      });
+      continue;
+    }
+  }
+
+  // 4. Merge adjacent slices of identical identity or contiguous same-AO classifications
+  const merged: Range[] = [];
+  for (const range of rawRanges) {
+    const previous = merged.at(-1);
+    if (previous && previous.end === range.start) {
+      // Merge identical issues
+      if (previous.kind === "issue" && range.kind === "issue" && previous.id === range.id) {
+        previous.end = range.end;
+        continue;
+      }
+      // Merge identical classifications
+      if (
+        previous.kind === "classification" &&
+        range.kind === "classification" &&
+        previous.id === range.id
+      ) {
+        previous.end = range.end;
+        continue;
+      }
+    }
+    // Also merge adjacent classifications of the same AO if separated only by whitespace (<= 3 chars)
+    if (previous) {
+      const gap = text.slice(previous.end, range.start);
+      if (
+        previous.kind === "classification" &&
+        range.kind === "classification" &&
+        previous.classification.ao === range.classification.ao &&
+        gap.length <= 3 &&
+        gap.trim() === ""
+      ) {
+        previous.end = range.end;
+        continue;
+      }
+    }
+    merged.push({ ...range });
   }
 
   return merged;
@@ -328,7 +488,9 @@ export function LiveExaminerEditor({
     const container = containerRef.current;
     if (!textarea || !container) return;
     const at = textarea.selectionStart;
-    const hit = ranges.find((r) => at >= r.start && at <= r.end);
+    const hit =
+      ranges.find((r) => r.kind === "issue" && at >= r.start && at <= r.end) ??
+      ranges.find((r) => at >= r.start && at <= r.end);
     if (!hit) {
       setActiveAnnotationId(null);
       setCardPos(null);
@@ -381,8 +543,8 @@ export function LiveExaminerEditor({
 
           const meta =
             segment.range.kind === "issue"
-              ? CATEGORY_META[segment.range.issue.category]
-              : AO_META[segment.range.classification.ao];
+              ? CATEGORY_META[segment.range.issue.category] ?? DEFAULT_ISSUE_META
+              : AO_META[segment.range.classification.ao] ?? AO_META.AO1;
 
           return (
             <mark

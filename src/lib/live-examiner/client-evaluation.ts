@@ -138,13 +138,14 @@ export function evaluateCambridgeAnswer(
   // Issues (glossary & grammar)
   const terms = deterministicTerminologyIssues(sentences);
   const grammar = analyzeGrammarAndMechanics(sentences);
-  const issues: ActiveIssue[] = [
-    ...terms.map((t) => ({ ...t, id: `${t.category}::${t.context.toLowerCase()}::${t.original.toLowerCase()}` })),
+  const rawIssues: ActiveIssue[] = [
+    ...terms.map((t) => ({ ...t, id: `${t.category}::${t.context.trim().toLowerCase()}::${t.original.trim().toLowerCase()}` })),
     ...grammar.map(({ ruleId: _r, startOffset: _s, endOffset: _e, ...g }) => ({
       ...g,
-      id: `${g.category}::${g.context.toLowerCase()}::${g.original.toLowerCase()}`,
+      id: `${g.category}::${g.context.trim().toLowerCase()}::${g.original.trim().toLowerCase()}`,
     })),
   ];
+  const issues: ActiveIssue[] = Array.from(new Map(rawIssues.map((item) => [item.id, item])).values());
 
   const predictedMark: PredictedMark = {
     total_mark: totalMark,
