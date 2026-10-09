@@ -26,6 +26,7 @@ import {
   ChevronDown,
   ChevronRight,
   Menu,
+  GraduationCap,
 } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
@@ -94,6 +95,7 @@ const NAV_GROUPS: NavGroup[] = [
     id: "staff",
     label: "Staff & Admin",
     items: [
+      { to: "/examiner", label: "Teacher Examiner", icon: GraduationCap, badge: "Schools", staffOnly: true },
       { to: "/admin", label: "Admin Console", icon: ShieldCheck, adminOnly: true },
       { to: "/knowledge", label: "Staff Console", icon: BookOpen, staffOnly: true },
     ],
@@ -106,7 +108,7 @@ function filterGroupForRole(
 ): NavGroup | null {
   const visibleItems = group.items.filter((item) => {
     if (item.adminOnly) return role === "admin";
-    if (item.staffOnly) return role === "teacher";
+    if (item.staffOnly) return role === "teacher" || role === "admin";
     return true;
   });
   if (visibleItems.length === 0) return null;

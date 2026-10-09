@@ -39,6 +39,12 @@ import { Route as AuthenticatedReviewRouteImport } from './routes/_authenticated
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedShowcaseRouteImport } from './routes/_authenticated/showcase'
 import { Route as AuthenticatedEssayEssayIdRouteImport } from './routes/_authenticated/essay.$essayId'
+import { Route as AuthenticatedExaminerIndexRouteImport } from './routes/_authenticated/examiner/index'
+import { Route as AuthenticatedExaminerBenchmarksRouteImport } from './routes/_authenticated/examiner/benchmarks'
+import { Route as AuthenticatedExaminerModerationRouteImport } from './routes/_authenticated/examiner/moderation'
+import { Route as AuthenticatedExaminerNewSessionRouteImport } from './routes/_authenticated/examiner/new-session'
+import { Route as AuthenticatedExaminerMarkingDeskScriptIdRouteImport } from './routes/_authenticated/examiner/marking-desk.$scriptId'
+import { Route as AuthenticatedExaminerSessionSessionIdRouteImport } from './routes/_authenticated/examiner/session.$sessionId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -199,6 +205,42 @@ const AuthenticatedEssayEssayIdRoute =
     path: '/essay/$essayId',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedExaminerIndexRoute =
+  AuthenticatedExaminerIndexRouteImport.update({
+    id: '/examiner/',
+    path: '/examiner/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedExaminerBenchmarksRoute =
+  AuthenticatedExaminerBenchmarksRouteImport.update({
+    id: '/examiner/benchmarks',
+    path: '/examiner/benchmarks',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedExaminerModerationRoute =
+  AuthenticatedExaminerModerationRouteImport.update({
+    id: '/examiner/moderation',
+    path: '/examiner/moderation',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedExaminerNewSessionRoute =
+  AuthenticatedExaminerNewSessionRouteImport.update({
+    id: '/examiner/new-session',
+    path: '/examiner/new-session',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedExaminerMarkingDeskScriptIdRoute =
+  AuthenticatedExaminerMarkingDeskScriptIdRouteImport.update({
+    id: '/examiner/marking-desk/$scriptId',
+    path: '/examiner/marking-desk/$scriptId',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedExaminerSessionSessionIdRoute =
+  AuthenticatedExaminerSessionSessionIdRouteImport.update({
+    id: '/examiner/session/$sessionId',
+    path: '/examiner/session/$sessionId',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -230,6 +272,12 @@ export interface FileRoutesByFullPath {
   '/settings': typeof AuthenticatedSettingsRoute
   '/showcase': typeof AuthenticatedShowcaseRoute
   '/essay/$essayId': typeof AuthenticatedEssayEssayIdRoute
+  '/examiner/benchmarks': typeof AuthenticatedExaminerBenchmarksRoute
+  '/examiner/moderation': typeof AuthenticatedExaminerModerationRoute
+  '/examiner/new-session': typeof AuthenticatedExaminerNewSessionRoute
+  '/examiner/': typeof AuthenticatedExaminerIndexRoute
+  '/examiner/marking-desk/$scriptId': typeof AuthenticatedExaminerMarkingDeskScriptIdRoute
+  '/examiner/session/$sessionId': typeof AuthenticatedExaminerSessionSessionIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -261,6 +309,12 @@ export interface FileRoutesByTo {
   '/settings': typeof AuthenticatedSettingsRoute
   '/showcase': typeof AuthenticatedShowcaseRoute
   '/essay/$essayId': typeof AuthenticatedEssayEssayIdRoute
+  '/examiner/benchmarks': typeof AuthenticatedExaminerBenchmarksRoute
+  '/examiner/moderation': typeof AuthenticatedExaminerModerationRoute
+  '/examiner/new-session': typeof AuthenticatedExaminerNewSessionRoute
+  '/examiner': typeof AuthenticatedExaminerIndexRoute
+  '/examiner/marking-desk/$scriptId': typeof AuthenticatedExaminerMarkingDeskScriptIdRoute
+  '/examiner/session/$sessionId': typeof AuthenticatedExaminerSessionSessionIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -294,6 +348,12 @@ export interface FileRoutesById {
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/showcase': typeof AuthenticatedShowcaseRoute
   '/_authenticated/essay/$essayId': typeof AuthenticatedEssayEssayIdRoute
+  '/_authenticated/examiner/benchmarks': typeof AuthenticatedExaminerBenchmarksRoute
+  '/_authenticated/examiner/moderation': typeof AuthenticatedExaminerModerationRoute
+  '/_authenticated/examiner/new-session': typeof AuthenticatedExaminerNewSessionRoute
+  '/_authenticated/examiner/': typeof AuthenticatedExaminerIndexRoute
+  '/_authenticated/examiner/marking-desk/$scriptId': typeof AuthenticatedExaminerMarkingDeskScriptIdRoute
+  '/_authenticated/examiner/session/$sessionId': typeof AuthenticatedExaminerSessionSessionIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -327,6 +387,12 @@ export interface FileRouteTypes {
     | '/settings'
     | '/showcase'
     | '/essay/$essayId'
+    | '/examiner/benchmarks'
+    | '/examiner/moderation'
+    | '/examiner/new-session'
+    | '/examiner/'
+    | '/examiner/marking-desk/$scriptId'
+    | '/examiner/session/$sessionId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -358,6 +424,12 @@ export interface FileRouteTypes {
     | '/settings'
     | '/showcase'
     | '/essay/$essayId'
+    | '/examiner/benchmarks'
+    | '/examiner/moderation'
+    | '/examiner/new-session'
+    | '/examiner'
+    | '/examiner/marking-desk/$scriptId'
+    | '/examiner/session/$sessionId'
   id:
     | '__root__'
     | '/'
@@ -390,6 +462,12 @@ export interface FileRouteTypes {
     | '/_authenticated/settings'
     | '/_authenticated/showcase'
     | '/_authenticated/essay/$essayId'
+    | '/_authenticated/examiner/benchmarks'
+    | '/_authenticated/examiner/moderation'
+    | '/_authenticated/examiner/new-session'
+    | '/_authenticated/examiner/'
+    | '/_authenticated/examiner/marking-desk/$scriptId'
+    | '/_authenticated/examiner/session/$sessionId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -615,6 +693,48 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedEssayEssayIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/examiner/': {
+      id: '/_authenticated/examiner/'
+      path: '/examiner'
+      fullPath: '/examiner/'
+      preLoaderRoute: typeof AuthenticatedExaminerIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/examiner/benchmarks': {
+      id: '/_authenticated/examiner/benchmarks'
+      path: '/examiner/benchmarks'
+      fullPath: '/examiner/benchmarks'
+      preLoaderRoute: typeof AuthenticatedExaminerBenchmarksRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/examiner/moderation': {
+      id: '/_authenticated/examiner/moderation'
+      path: '/examiner/moderation'
+      fullPath: '/examiner/moderation'
+      preLoaderRoute: typeof AuthenticatedExaminerModerationRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/examiner/new-session': {
+      id: '/_authenticated/examiner/new-session'
+      path: '/examiner/new-session'
+      fullPath: '/examiner/new-session'
+      preLoaderRoute: typeof AuthenticatedExaminerNewSessionRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/examiner/marking-desk/$scriptId': {
+      id: '/_authenticated/examiner/marking-desk/$scriptId'
+      path: '/examiner/marking-desk/$scriptId'
+      fullPath: '/examiner/marking-desk/$scriptId'
+      preLoaderRoute: typeof AuthenticatedExaminerMarkingDeskScriptIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/examiner/session/$sessionId': {
+      id: '/_authenticated/examiner/session/$sessionId'
+      path: '/examiner/session/$sessionId'
+      fullPath: '/examiner/session/$sessionId'
+      preLoaderRoute: typeof AuthenticatedExaminerSessionSessionIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
   }
 }
 
@@ -641,6 +761,12 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedShowcaseRoute: typeof AuthenticatedShowcaseRoute
   AuthenticatedEssayEssayIdRoute: typeof AuthenticatedEssayEssayIdRoute
+  AuthenticatedExaminerBenchmarksRoute: typeof AuthenticatedExaminerBenchmarksRoute
+  AuthenticatedExaminerModerationRoute: typeof AuthenticatedExaminerModerationRoute
+  AuthenticatedExaminerNewSessionRoute: typeof AuthenticatedExaminerNewSessionRoute
+  AuthenticatedExaminerIndexRoute: typeof AuthenticatedExaminerIndexRoute
+  AuthenticatedExaminerMarkingDeskScriptIdRoute: typeof AuthenticatedExaminerMarkingDeskScriptIdRoute
+  AuthenticatedExaminerSessionSessionIdRoute: typeof AuthenticatedExaminerSessionSessionIdRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
@@ -666,6 +792,14 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedShowcaseRoute: AuthenticatedShowcaseRoute,
   AuthenticatedEssayEssayIdRoute: AuthenticatedEssayEssayIdRoute,
+  AuthenticatedExaminerBenchmarksRoute: AuthenticatedExaminerBenchmarksRoute,
+  AuthenticatedExaminerModerationRoute: AuthenticatedExaminerModerationRoute,
+  AuthenticatedExaminerNewSessionRoute: AuthenticatedExaminerNewSessionRoute,
+  AuthenticatedExaminerIndexRoute: AuthenticatedExaminerIndexRoute,
+  AuthenticatedExaminerMarkingDeskScriptIdRoute:
+    AuthenticatedExaminerMarkingDeskScriptIdRoute,
+  AuthenticatedExaminerSessionSessionIdRoute:
+    AuthenticatedExaminerSessionSessionIdRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =
