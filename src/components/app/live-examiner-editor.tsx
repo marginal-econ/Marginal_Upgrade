@@ -36,7 +36,7 @@ const CATEGORY_META: Record<IssueCategory, UnderlineStyleMeta> = {
   grammar: {
     label: "Grammar",
     dot: "bg-rose-500 dark:bg-rose-400",
-    underlineColor: "rgba(244, 63, 94, 0.75)",
+    underlineColor: "rgba(244, 63, 94, 0.85)",
     underlineStyle: "dashed",
     underlineThickness: "1.5px",
     offset: "5px",
@@ -44,14 +44,14 @@ const CATEGORY_META: Record<IssueCategory, UnderlineStyleMeta> = {
   clarity: {
     label: "Clarity",
     dot: "bg-muted-foreground",
-    underlineColor: "rgba(161, 161, 170, 0.75)",
+    underlineColor: "rgba(161, 161, 170, 0.85)",
     underlineStyle: "dashed",
     underlineThickness: "1.5px",
     offset: "5px",
   },
   economics_accuracy: {
     label: "Economics accuracy",
-    dot: "bg-rose-600",
+    dot: "bg-rose-600 dark:bg-rose-400",
     underlineColor: "rgba(225, 29, 72, 0.95)",
     underlineStyle: "wavy",
     underlineThickness: "2.5px",
@@ -67,40 +67,40 @@ const CATEGORY_META: Record<IssueCategory, UnderlineStyleMeta> = {
   },
   analysis: {
     label: "Analysis",
-    dot: "bg-amber-500",
-    underlineColor: "rgba(245, 158, 11, 0.9)",
+    dot: "bg-ao2",
+    underlineColor: "var(--ao2)",
     underlineStyle: "solid",
     underlineThickness: "2px",
     offset: "5px",
   },
   application: {
     label: "Application",
-    dot: "bg-blue-500",
-    underlineColor: "rgba(59, 130, 246, 0.9)",
+    dot: "bg-ao2",
+    underlineColor: "var(--ao2)",
     underlineStyle: "solid",
     underlineThickness: "2px",
     offset: "5px",
   },
   evaluation: {
     label: "Evaluation",
-    dot: "bg-purple-500",
-    underlineColor: "rgba(168, 85, 247, 0.9)",
+    dot: "bg-ao3",
+    underlineColor: "var(--ao3)",
     underlineStyle: "solid",
     underlineThickness: "2px",
     offset: "5px",
   },
   reasoning_chain: {
     label: "Chain of reasoning",
-    dot: "bg-amber-500 dark:bg-amber-400",
-    underlineColor: "rgba(245, 158, 11, 0.9)",
+    dot: "bg-ao2",
+    underlineColor: "var(--ao2)",
     underlineStyle: "solid",
     underlineThickness: "2px",
     offset: "5px",
   },
   terminology: {
     label: "Terminology",
-    dot: "bg-cyan-500 dark:bg-cyan-400",
-    underlineColor: "rgba(6, 182, 212, 0.9)",
+    dot: "bg-ao1",
+    underlineColor: "var(--ao1)",
     underlineStyle: "solid",
     underlineThickness: "2px",
     offset: "5px",
@@ -113,25 +113,25 @@ const AO_META: Record<"AO1" | "AO2" | "AO3", UnderlineStyleMeta> = {
   AO1: {
     label: "AO1 Knowledge",
     dot: "bg-ao1",
-    underlineColor: "rgba(16, 185, 129, 0.5)",
+    underlineColor: "var(--ao1)",
     underlineStyle: "solid",
-    underlineThickness: "1.5px",
+    underlineThickness: "2px",
     offset: "5px",
   },
   AO2: {
     label: "AO2 Analysis",
     dot: "bg-ao2",
-    underlineColor: "rgba(59, 130, 246, 0.5)",
+    underlineColor: "var(--ao2)",
     underlineStyle: "solid",
-    underlineThickness: "1.5px",
+    underlineThickness: "2px",
     offset: "5px",
   },
   AO3: {
     label: "AO3 Evaluation",
     dot: "bg-ao3",
-    underlineColor: "rgba(168, 85, 247, 0.5)",
+    underlineColor: "var(--ao3)",
     underlineStyle: "solid",
-    underlineThickness: "1.5px",
+    underlineThickness: "2px",
     offset: "5px",
   },
 };
@@ -495,6 +495,12 @@ function ClassificationCard({
     return () => document.removeEventListener("mousedown", onPointerDown);
   }, [onClose]);
 
+  const aoBadgeClass = {
+    AO1: "border-ao1/40 bg-ao1/10 text-ao1 font-semibold",
+    AO2: "border-ao2/40 bg-ao2/10 text-ao2 font-semibold",
+    AO3: "border-ao3/40 bg-ao3/10 text-ao3 font-semibold",
+  }[classification.ao];
+
   return (
     <div
       ref={ref}
@@ -503,7 +509,7 @@ function ClassificationCard({
     >
       <div className="flex items-center gap-2">
         <span className={cn("size-2 shrink-0 rounded-full", meta.dot)} />
-        <Badge variant="outline" className="text-[10px]">
+        <Badge variant="outline" className={cn("text-[10px]", aoBadgeClass)}>
           {meta.label}
         </Badge>
       </div>
@@ -556,7 +562,21 @@ function SuggestionCard({
       <div className="flex items-center justify-between gap-1.5">
         <div className="flex items-center gap-1.5 flex-wrap">
           <span className={cn("size-2 shrink-0 rounded-full", meta.dot)} />
-          <Badge variant="outline" className="text-[10px] font-semibold">
+          <Badge
+            variant="outline"
+            className={cn(
+              "text-[10px] font-semibold",
+              issue.category === "misconception"
+                ? "border-red-500/50 bg-red-500/15 text-red-700 dark:text-red-300"
+                : CATEGORY_AO[issue.category] === "AO1"
+                  ? "border-ao1/40 bg-ao1/10 text-ao1"
+                  : CATEGORY_AO[issue.category] === "AO2"
+                    ? "border-ao2/40 bg-ao2/10 text-ao2"
+                    : CATEGORY_AO[issue.category] === "AO3"
+                      ? "border-ao3/40 bg-ao3/10 text-ao3"
+                      : "border-border bg-muted/40 text-muted-foreground",
+            )}
+          >
             {meta.label}
             {CATEGORY_AO[issue.category] ? ` · ${CATEGORY_AO[issue.category]}` : ""}
           </Badge>

@@ -1231,6 +1231,19 @@ function LiveExaminerPage() {
                       </button>
                     ))}
                   </div>
+
+                  {/* Cambridge AO Visual Color Legend */}
+                  <div className="hidden sm:flex items-center gap-3 text-[11px] font-medium select-none">
+                    <span className="flex items-center gap-1 text-ao1">
+                      <span className="size-2 rounded-full bg-ao1" /> AO1 Knowledge
+                    </span>
+                    <span className="flex items-center gap-1 text-ao2">
+                      <span className="size-2 rounded-full bg-ao2" /> AO2 Analysis
+                    </span>
+                    <span className="flex items-center gap-1 text-ao3">
+                      <span className="size-2 rounded-full bg-ao3" /> AO3 Evaluation
+                    </span>
+                  </div>
                 </div>
               </div>
 

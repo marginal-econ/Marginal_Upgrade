@@ -9,6 +9,7 @@ import {
   HelpCircle,
   Lightbulb,
   Loader2,
+  Palette,
   RefreshCw,
   Sparkles,
   Trash2,
@@ -19,6 +20,13 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type {
@@ -210,6 +218,16 @@ export function LiveExaminerPanel({
           aiCoachingExpired={aiCoachingExpired}
         />
         <div className="flex shrink-0 gap-1">
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+            onClick={() => setShowColorGuide(true)}
+            title="View Cambridge Assessment Objective color key"
+          >
+            <Palette className="size-3.5 mr-1" /> Key
+          </Button>
           <Button
             type="button"
             size="sm"
@@ -571,6 +589,7 @@ export function LiveExaminerPanel({
       </Tabs>
 
       <AutosaveIndicator state={autosave} />
+      <ColorGuideDialog open={showColorGuide} onOpenChange={setShowColorGuide} />
     </div>
   );
 }
@@ -848,3 +867,105 @@ function AutosaveIndicator({ state }: { state: AutosaveState }) {
     </p>
   );
 }
+
+function ColorGuideDialog({
+  open,
+  onOpenChange,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md p-6">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-base">
+            <GraduationCap className="size-4 text-primary" />
+            Cambridge 9708 Colour-Coding Key
+          </DialogTitle>
+          <DialogDescription className="text-xs">
+            Every sentence and keystroke in your answer script is annotated against official Cambridge Assessment Objectives (AOs) and syllabus criteria.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-3 pt-2 text-xs">
+          <div className="rounded-lg border border-ao1/40 bg-ao1/5 p-3 space-y-1">
+            <div className="flex items-center justify-between">
+              <span className="flex items-center gap-1.5 font-semibold text-ao1">
+                <span className="size-2.5 rounded-full bg-ao1" />
+                AO1 Knowledge & Understanding
+              </span>
+              <Badge variant="outline" className="border-ao1/40 bg-ao1/10 text-ao1 text-[10px]">
+                Solid Blue Line
+              </Badge>
+            </div>
+            <p className="text-muted-foreground text-[11px] leading-relaxed">
+              Accurate syllabus definitions, terminology, formulas, and fundamental economic models.
+            </p>
+          </div>
+
+          <div className="rounded-lg border border-ao2/40 bg-ao2/5 p-3 space-y-1">
+            <div className="flex items-center justify-between">
+              <span className="flex items-center gap-1.5 font-semibold text-ao2">
+                <span className="size-2.5 rounded-full bg-ao2" />
+                AO2 Analysis & Application
+              </span>
+              <Badge variant="outline" className="border-ao2/40 bg-ao2/10 text-ao2 text-[10px]">
+                Solid Green Line
+              </Badge>
+            </div>
+            <p className="text-muted-foreground text-[11px] leading-relaxed">
+              Multi-step causal chains (reason → mechanism → consequence), diagrams, and context application.
+            </p>
+          </div>
+
+          <div className="rounded-lg border border-ao3/40 bg-ao3/5 p-3 space-y-1">
+            <div className="flex items-center justify-between">
+              <span className="flex items-center gap-1.5 font-semibold text-ao3">
+                <span className="size-2.5 rounded-full bg-ao3" />
+                AO3 Evaluation & Judgement
+              </span>
+              <Badge variant="outline" className="border-ao3/40 bg-ao3/10 text-ao3 text-[10px]">
+                Solid Amber Line
+              </Badge>
+            </div>
+            <p className="text-muted-foreground text-[11px] leading-relaxed">
+              Critical conditions ("depends on…"), short-run vs long-run tradeoffs, limitations, and synthesised conclusions.
+            </p>
+          </div>
+
+          <div className="rounded-lg border border-red-500/30 bg-red-500/5 p-3 space-y-1">
+            <div className="flex items-center justify-between">
+              <span className="flex items-center gap-1.5 font-semibold text-red-600 dark:text-red-400">
+                <span className="size-2.5 rounded-full bg-red-600 dark:bg-red-400" />
+                Economic Misconceptions & Inaccuracies
+              </span>
+              <Badge variant="outline" className="border-red-500/40 bg-red-500/10 text-red-600 dark:text-red-400 text-[10px]">
+                Wavy Crimson Line
+              </Badge>
+            </div>
+            <p className="text-muted-foreground text-[11px] leading-relaxed">
+              Inverted economic relationships, conflicting theoretical claims, or syllabus violations.
+            </p>
+          </div>
+
+          <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-1">
+            <div className="flex items-center justify-between">
+              <span className="flex items-center gap-1.5 font-semibold text-foreground/80">
+                <span className="size-2.5 rounded-full bg-rose-500" />
+                Mechanics, Clarity & Phrasing
+              </span>
+              <Badge variant="outline" className="border-border bg-muted text-muted-foreground text-[10px]">
+                Dashed Line
+              </Badge>
+            </div>
+            <p className="text-muted-foreground text-[11px] leading-relaxed">
+              Grammar fixes, clarity suggestions, and conciseness enhancements.
+            </p>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
