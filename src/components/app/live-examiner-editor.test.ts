@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeRanges, type Range } from "./live-examiner-editor";
+import { computeRanges, LIVE_EXAMINER_TYPOGRAPHY, type Range } from "./live-examiner-editor";
 import type { ActiveAoClassification, ActiveIssue } from "@/hooks/use-live-examiner-check";
 import { evaluateCambridgeAnswer } from "@/lib/live-examiner/client-evaluation";
 import { splitSentences } from "@/lib/writing-check/sentence-diff";
@@ -462,5 +462,41 @@ describe("Live Examiner Editor - computeRanges & Investor Demo Robustness", () =
       rangeCoveringDemand!.end,
     );
     expect(sliceWithDemand).toContain("shifting demand.");
+  });
+
+  it("EXECUTIVE TYPOGRAPHY: provides 15px/28px crisp academic metrics with geometric precision", () => {
+    expect(LIVE_EXAMINER_TYPOGRAPHY.fontSize).toBe("15px");
+    expect(LIVE_EXAMINER_TYPOGRAPHY.lineHeight).toBe("28px");
+    expect(LIVE_EXAMINER_TYPOGRAPHY.letterSpacing).toBe("-0.01em");
+    expect(LIVE_EXAMINER_TYPOGRAPHY.textRendering).toBe("geometricPrecision");
+    expect(LIVE_EXAMINER_TYPOGRAPHY.fontVariantLigatures).toBe("none");
+    expect(LIVE_EXAMINER_TYPOGRAPHY.whiteSpace).toBe("pre-wrap");
+    expect(LIVE_EXAMINER_TYPOGRAPHY.wordBreak).toBe("break-word");
+  });
+
+  it("SCREENSHOT FIX: strictly excludes the space between the first two sentences so no trailing box occurs", () => {
+    const text =
+      "A minimum price intervention is a government intervention set above market equilibrium. demerit goods are goods that are overconsumed in an economy because consumers are not aware of their true private costs and negative externalities due to information failure.";
+    const ranges = computeRanges(text, [], []);
+    expect(ranges.length).toBe(2);
+
+    const s1 = ranges[0];
+    const s2 = ranges[1];
+
+    // Sentence 1 ends exactly on the period
+    expect(text.slice(s1.start, s1.end)).toBe(
+      "A minimum price intervention is a government intervention set above market equilibrium.",
+    );
+    expect(text[s1.end - 1]).toBe(".");
+
+    // Sentence 2 starts after the separating space
+    expect(text.slice(s2.start, s2.end)).toBe(
+      "demerit goods are goods that are overconsumed in an economy because consumers are not aware of their true private costs and negative externalities due to information failure.",
+    );
+    expect(text[s2.start]).toBe("d");
+
+    // The gap between sentence 1 and sentence 2 is strictly the space and has no highlight
+    expect(s2.start).toBe(s1.end + 1);
+    expect(text.slice(s1.end, s2.start)).toBe(" ");
   });
 });

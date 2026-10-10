@@ -40,83 +40,83 @@ const CATEGORY_META: Record<IssueCategory, UnderlineStyleMeta> = {
   grammar: {
     label: "Grammar",
     dot: "bg-rose-500 dark:bg-rose-400",
-    underlineColor: "rgba(244, 63, 94, 0.85)",
+    underlineColor: "rgba(244, 63, 94, 0.75)",
     underlineStyle: "dashed",
     underlineThickness: "1.5px",
-    offset: "5px",
-    backgroundColor: "rgba(244, 63, 94, 0.08)",
+    offset: "3.5px",
+    backgroundColor: "rgba(244, 63, 94, 0.07)",
   },
   clarity: {
     label: "Clarity",
     dot: "bg-muted-foreground",
-    underlineColor: "rgba(161, 161, 170, 0.85)",
+    underlineColor: "rgba(161, 161, 170, 0.75)",
     underlineStyle: "dashed",
     underlineThickness: "1.5px",
-    offset: "5px",
-    backgroundColor: "rgba(161, 161, 170, 0.08)",
+    offset: "3.5px",
+    backgroundColor: "rgba(161, 161, 170, 0.07)",
   },
   economics_accuracy: {
     label: "Economics accuracy",
     dot: "bg-rose-600 dark:bg-rose-400",
-    underlineColor: "rgba(225, 29, 72, 0.95)",
+    underlineColor: "rgba(225, 29, 72, 0.85)",
     underlineStyle: "wavy",
-    underlineThickness: "2.5px",
-    offset: "5px",
-    backgroundColor: "rgba(225, 29, 72, 0.10)",
+    underlineThickness: "1.75px",
+    offset: "3.5px",
+    backgroundColor: "rgba(225, 29, 72, 0.08)",
   },
   misconception: {
     label: "Economic misconception",
     dot: "bg-red-600 dark:bg-red-400",
-    underlineColor: "rgba(220, 38, 38, 0.95)",
+    underlineColor: "rgba(220, 38, 38, 0.90)",
     underlineStyle: "wavy",
-    underlineThickness: "2.5px",
-    offset: "5px",
-    backgroundColor: "rgba(220, 38, 38, 0.10)",
+    underlineThickness: "1.75px",
+    offset: "3.5px",
+    backgroundColor: "rgba(220, 38, 38, 0.09)",
   },
   analysis: {
     label: "Analysis",
     dot: "bg-ao2",
-    underlineColor: "var(--ao2)",
+    underlineColor: "rgba(16, 185, 129, 0.65)",
     underlineStyle: "solid",
-    underlineThickness: "2px",
-    offset: "5px",
-    backgroundColor: "rgba(16, 185, 129, 0.12)",
+    underlineThickness: "1.5px",
+    offset: "3.5px",
+    backgroundColor: "rgba(16, 185, 129, 0.09)",
   },
   application: {
     label: "Application",
     dot: "bg-ao2",
-    underlineColor: "var(--ao2)",
+    underlineColor: "rgba(16, 185, 129, 0.65)",
     underlineStyle: "solid",
-    underlineThickness: "2px",
-    offset: "5px",
-    backgroundColor: "rgba(16, 185, 129, 0.12)",
+    underlineThickness: "1.5px",
+    offset: "3.5px",
+    backgroundColor: "rgba(16, 185, 129, 0.09)",
   },
   evaluation: {
     label: "Evaluation",
     dot: "bg-ao3",
-    underlineColor: "var(--ao3)",
+    underlineColor: "rgba(245, 158, 11, 0.70)",
     underlineStyle: "solid",
-    underlineThickness: "2px",
-    offset: "5px",
-    backgroundColor: "rgba(245, 158, 11, 0.14)",
+    underlineThickness: "1.5px",
+    offset: "3.5px",
+    backgroundColor: "rgba(245, 158, 11, 0.10)",
   },
   reasoning_chain: {
     label: "Chain of reasoning",
     dot: "bg-ao2",
-    underlineColor: "var(--ao2)",
+    underlineColor: "rgba(16, 185, 129, 0.65)",
     underlineStyle: "solid",
-    underlineThickness: "2px",
-    offset: "5px",
-    backgroundColor: "rgba(16, 185, 129, 0.12)",
+    underlineThickness: "1.5px",
+    offset: "3.5px",
+    backgroundColor: "rgba(16, 185, 129, 0.09)",
   },
   terminology: {
     label: "Terminology",
     dot: "bg-ao1",
-    underlineColor: "var(--ao1)",
+    underlineColor: "rgba(59, 130, 246, 0.65)",
     underlineStyle: "solid",
-    underlineThickness: "2px",
-    offset: "5px",
-    backgroundColor: "rgba(59, 130, 246, 0.12)",
+    underlineThickness: "1.5px",
+    offset: "3.5px",
+    backgroundColor: "rgba(59, 130, 246, 0.09)",
   },
 };
 
@@ -126,29 +126,29 @@ const AO_META: Record<"AO1" | "AO2" | "AO3", UnderlineStyleMeta> = {
   AO1: {
     label: "AO1 Knowledge",
     dot: "bg-ao1",
-    underlineColor: "var(--ao1)",
+    underlineColor: "rgba(59, 130, 246, 0.65)",
     underlineStyle: "solid",
-    underlineThickness: "2.5px",
-    offset: "5px",
-    backgroundColor: "rgba(59, 130, 246, 0.22)",
+    underlineThickness: "1.5px",
+    offset: "3.5px",
+    backgroundColor: "rgba(59, 130, 246, 0.09)",
   },
   AO2: {
     label: "AO2 Analysis",
     dot: "bg-ao2",
-    underlineColor: "var(--ao2)",
+    underlineColor: "rgba(16, 185, 129, 0.65)",
     underlineStyle: "solid",
-    underlineThickness: "2.5px",
-    offset: "5px",
-    backgroundColor: "rgba(16, 185, 129, 0.20)",
+    underlineThickness: "1.5px",
+    offset: "3.5px",
+    backgroundColor: "rgba(16, 185, 129, 0.09)",
   },
   AO3: {
     label: "AO3 Evaluation",
     dot: "bg-ao3",
-    underlineColor: "var(--ao3)",
+    underlineColor: "rgba(245, 158, 11, 0.70)",
     underlineStyle: "solid",
-    underlineThickness: "2.5px",
-    offset: "5px",
-    backgroundColor: "rgba(245, 158, 11, 0.24)",
+    underlineThickness: "1.5px",
+    offset: "3.5px",
+    backgroundColor: "rgba(245, 158, 11, 0.10)",
   },
 };
 
@@ -420,16 +420,20 @@ export function computeRanges(
 
 export const LIVE_EXAMINER_TYPOGRAPHY: React.CSSProperties = {
   fontFamily:
-    'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
-  fontSize: "16px",
-  lineHeight: "32px",
-  letterSpacing: "0px",
+    '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+  fontSize: "15px",
+  lineHeight: "28px",
+  letterSpacing: "-0.01em",
   wordSpacing: "0px",
   boxSizing: "border-box",
   whiteSpace: "pre-wrap",
   wordBreak: "break-word",
   overflowWrap: "break-word",
   tabSize: 2,
+  textRendering: "geometricPrecision",
+  fontVariantLigatures: "none",
+  WebkitFontSmoothing: "antialiased",
+  MozOsxFontSmoothing: "grayscale",
 };
 
 export function LiveExaminerEditor({
@@ -510,6 +514,11 @@ export function LiveExaminerEditor({
     highlightRef.current.scrollTop = textareaRef.current.scrollTop;
   }
 
+  // Keep scroll position strictly synchronized on every value change
+  useEffect(() => {
+    syncScroll();
+  }, [value]);
+
   function handleClick(event: React.MouseEvent<HTMLTextAreaElement>) {
     const textarea = textareaRef.current;
     const container = containerRef.current;
@@ -554,11 +563,37 @@ export function LiveExaminerEditor({
           overflowY: "scroll",
           overflowX: "hidden",
           scrollbarWidth: "none",
+          msOverflowStyle: "none",
+          margin: 0,
+          border: 0,
         }}
         className={cn("p-6 md:p-8 [&::-webkit-scrollbar]:hidden", className)}
       >
         {segments.map((segment, index) => {
           if (!segment.range) {
+            return (
+              <span
+                key={index}
+                style={{
+                  color: "transparent",
+                  WebkitTextFillColor: "transparent",
+                  backgroundColor: "transparent",
+                  userSelect: "none",
+                }}
+              >
+                {segment.text}
+              </span>
+            );
+          }
+
+          // Strictly isolate leading and trailing whitespace outside the <mark> tag
+          // so whitespace NEVER receives a colored background box or underline
+          const match = segment.text.match(/^(\s*)([\s\S]*?)(\s*)$/);
+          const leadingWs = match ? match[1] : "";
+          const coreText = match ? match[2] : segment.text;
+          const trailingWs = match ? match[3] : "";
+
+          if (!coreText) {
             return (
               <span
                 key={index}
@@ -580,27 +615,52 @@ export function LiveExaminerEditor({
               : AO_META[segment.range.classification.ao] ?? AO_META.AO1;
 
           return (
-            <mark
-              key={index}
-              style={{
-                color: "transparent",
-                WebkitTextFillColor: "transparent",
-                backgroundColor: meta.backgroundColor || "transparent",
-                textDecorationLine: "underline",
-                textDecorationStyle: meta.underlineStyle,
-                textDecorationColor: meta.underlineColor,
-                textDecorationThickness: meta.underlineThickness,
-                textUnderlineOffset: meta.offset,
-                textDecorationSkipInk: "auto",
-                fontWeight: "normal",
-                userSelect: "none",
-                borderRadius: "2px",
-                boxDecorationBreak: "clone",
-                WebkitBoxDecorationBreak: "clone",
-              }}
-            >
-              {segment.text}
-            </mark>
+            <span key={index}>
+              {leadingWs ? (
+                <span
+                  style={{
+                    color: "transparent",
+                    WebkitTextFillColor: "transparent",
+                    backgroundColor: "transparent",
+                    userSelect: "none",
+                  }}
+                >
+                  {leadingWs}
+                </span>
+              ) : null}
+              <mark
+                style={{
+                  color: "transparent",
+                  WebkitTextFillColor: "transparent",
+                  backgroundColor: meta.backgroundColor || "transparent",
+                  textDecorationLine: "underline",
+                  textDecorationStyle: meta.underlineStyle,
+                  textDecorationColor: meta.underlineColor,
+                  textDecorationThickness: meta.underlineThickness,
+                  textUnderlineOffset: meta.offset,
+                  textDecorationSkipInk: "auto",
+                  fontWeight: "normal",
+                  userSelect: "none",
+                  borderRadius: "3px",
+                  boxDecorationBreak: "clone",
+                  WebkitBoxDecorationBreak: "clone",
+                }}
+              >
+                {coreText}
+              </mark>
+              {trailingWs ? (
+                <span
+                  style={{
+                    color: "transparent",
+                    WebkitTextFillColor: "transparent",
+                    backgroundColor: "transparent",
+                    userSelect: "none",
+                  }}
+                >
+                  {trailingWs}
+                </span>
+              ) : null}
+            </span>
           );
         })}
         {/* Trailing newline keeps the mirror's height in sync with the textarea. */}
@@ -634,8 +694,12 @@ export function LiveExaminerEditor({
           resize: "none",
           overflowY: "scroll",
           overflowX: "hidden",
+          scrollbarWidth: "none",
+          msOverflowStyle: "none",
+          margin: 0,
+          border: 0,
         }}
-        className={cn("p-6 md:p-8", className)}
+        className={cn("p-6 md:p-8 [&::-webkit-scrollbar]:hidden", className)}
       />
 
       {activeRange?.kind === "issue" && cardPos ? (

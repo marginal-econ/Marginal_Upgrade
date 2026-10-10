@@ -1371,7 +1371,7 @@ function LiveExaminerPage() {
           </section>
 
           {!zenMode ? (
-            <aside className="min-w-0 p-4 md:p-5 border-t lg:border-t-0 lg:border-l border-border/60">
+            <aside className="min-w-0 p-4 md:p-5 border-t lg:border-t-0 lg:border-l border-border/60 lg:sticky lg:top-4 lg:self-start lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
               <LiveExaminerPanel
                 issues={issues}
                 history={history}
