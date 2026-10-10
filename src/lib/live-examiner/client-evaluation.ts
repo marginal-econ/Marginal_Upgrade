@@ -67,9 +67,12 @@ export function evaluateCambridgeAnswer(
     const trimmed = sentence.trim();
     if (trimmed.length < 10) continue;
 
-    const isAo3 = AO3_PATTERNS.some((p) => p.test(trimmed));
-    const isAo2 = AO2_PATTERNS.some((p) => p.test(trimmed));
-    const isAo1 = AO1_PATTERNS.some((p) => p.test(trimmed));
+    // Check definitions and knowledge first so definitions containing 'because' or 'due to'
+    // are correctly classified as AO1 Knowledge, not misattributed as AO2 Analysis.
+    const isDefOrTerm = AO1_PATTERNS.some((p) => p.test(trimmed));
+    const isAo3 = !isDefOrTerm && AO3_PATTERNS.some((p) => p.test(trimmed));
+    const isAo2 = !isDefOrTerm && !isAo3 && AO2_PATTERNS.some((p) => p.test(trimmed));
+    const isAo1 = isDefOrTerm;
 
     if (isAo3) {
       ao3Count++;
@@ -109,27 +112,29 @@ export function evaluateCambridgeAnswer(
 
   // Calculate marks calibrated to Cambridge 9708 tariffs
   let ao1Awarded = 0;
-  if (ao1Count >= 2 || wordCount >= 30) {
+  if (wordCount >= 80 && ao1Count >= 2) {
     ao1Awarded = split.ao1_marks;
-  } else if (ao1Count >= 1 || wordCount >= 15) {
-    ao1Awarded = Math.max(1, Math.floor(split.ao1_marks * 0.5));
+  } else if (ao1Count >= 1 || wordCount >= 20) {
+    ao1Awarded = Math.min(split.ao1_marks, Math.max(1, Math.floor(split.ao1_marks * 0.5)));
   }
 
   let ao2Awarded = 0;
-  if (ao2Count >= 3 && wordCount >= 120) {
+  // Analysis requires developing causal transmission mechanisms - never awarded on short opening definitions
+  if (wordCount >= 150 && ao2Count >= 3) {
     ao2Awarded = Math.min(split.ao2_marks, Math.max(4, Math.round(split.ao2_marks * 0.75)));
-  } else if (ao2Count >= 2 && wordCount >= 60) {
+  } else if (wordCount >= 80 && ao2Count >= 2) {
     ao2Awarded = Math.min(split.ao2_marks, Math.max(2, Math.round(split.ao2_marks * 0.5)));
-  } else if (ao2Count >= 1 || wordCount >= 25) {
-    ao2Awarded = Math.max(1, Math.round(split.ao2_marks * 0.3));
+  } else if (wordCount >= 50 && ao2Count >= 1) {
+    ao2Awarded = Math.min(split.ao2_marks, Math.max(1, Math.round(split.ao2_marks * 0.25)));
   }
 
   let ao3Awarded = 0;
-  if (split.ao3_marks > 0) {
-    if (ao3Count >= 2 && wordCount >= 100) {
+  // Evaluation requires weighing up, conditions, and judgements - never awarded on opening text
+  if (split.ao3_marks > 0 && wordCount >= 75) {
+    if (ao3Count >= 2 && wordCount >= 160) {
       ao3Awarded = Math.min(split.ao3_marks, Math.max(2, Math.round(split.ao3_marks * 0.6)));
-    } else if (ao3Count >= 1 || (wordCount >= 70 && /however|depends|capacity|deficit/i.test(text))) {
-      ao3Awarded = Math.min(split.ao3_marks, Math.max(1, Math.round(split.ao3_marks * 0.4)));
+    } else if (ao3Count >= 1) {
+      ao3Awarded = Math.min(split.ao3_marks, Math.max(1, Math.round(split.ao3_marks * 0.3)));
     }
   }
 

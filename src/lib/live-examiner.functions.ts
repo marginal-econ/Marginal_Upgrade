@@ -400,11 +400,14 @@ MAX MARKS FOR THIS QUESTION:
 Total max: ${maxMark} marks.
 
 MARKING PROGRESSION GUIDELINES:
-- Early opening / definition (30-80 words): Typically awards 1-2 AO1 marks. Total ~1-3.
+- CRITICAL: A pure definition or introductory statement earns ONLY AO1 (Knowledge). It earns ZERO for AO2 (Analysis) and ZERO for AO3 (Evaluation).
+- NEVER award AO2 (Analysis) marks unless the student actually develops a theoretical causal mechanism or transmission chain linking cause, mechanism, and consequence.
+- NEVER award AO3 (Evaluation) marks unless the student provides genuine evaluative judgements, limitations, elasticity conditions, or trade-offs.
+- Brief opening definitions (under 60 words) can earn at most 1-2 AO1 marks total (Total: 1-2 / ${maxMark}). NEVER award 3+ marks or AO2/AO3 marks for isolated definitions!
 - Developing theoretical mechanisms & causal chains (100-250 words): Awards AO1 + early/mid AO2 (2-4 marks). Total ~4-7.
 - Full analytical development + clear context application (250-400 words): High AO1 + strong AO2 (4-6 marks) + initial evaluation. Total ~7-10.
 - Mature, multi-perspective evaluative conclusion with conditions/trade-offs (400+ words): Strong AO1, AO2, and AO3 (3-4 marks). Total ~10-${maxMark}.
-Award marks fairly and progressively for genuine economic substance currently on the page. As the student adds more developed points, their mark should increase accordingly.
+Award marks fairly and progressively for genuine economic substance currently on the page. As the student adds more developed points, their mark should increase accordingly. Total mark MUST equal exactly knowledge.awarded + analysis.awarded + evaluation.awarded.
 
 Respond ONLY with a single valid JSON object:
 {

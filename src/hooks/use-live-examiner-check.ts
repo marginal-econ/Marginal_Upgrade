@@ -11,7 +11,6 @@ import {
 import { isDailyLimitError, DEFAULT_LIVE_EXAMINER_DURATION_MINUTES } from "@/lib/usage-limits";
 import { deterministicTerminologyIssues } from "@/lib/live-examiner/economics-glossary";
 import { analyzeGrammarAndMechanics } from "@/lib/live-examiner/grammar-engine";
-import { evaluateCambridgeAnswer } from "@/lib/live-examiner/client-evaluation";
 import { splitSentences } from "@/lib/writing-check/sentence-diff";
 
 export type { PredictedMark, ExaminerChallenge };
@@ -243,79 +242,51 @@ export function useLiveExaminerCheck(params: {
   }, []);
 
   // Instant client-side check (< 25ms): runs in-browser immediately on typing
-  // Catches spelling, grammar mechanics, and exact Cambridge terminology errors instantly,
-  // and provides real-time AO highlighting and mark prediction without depending on server LLM calls.
+  // Catches spelling, grammar mechanics, and exact Cambridge terminology errors instantly.
   useEffect(() => {
     if (localTimerRef.current) clearTimeout(localTimerRef.current);
     if (!enabled || !question || text.trim().length < MIN_TEXT_LENGTH) return;
 
     localTimerRef.current = setTimeout(() => {
-      const evaluation = evaluateCambridgeAnswer(text, question, maxMark);
+      const sentences = splitSentences(text);
+      const terms = deterministicTerminologyIssues(sentences);
+      const grammar = analyzeGrammarAndMechanics(sentences);
+      const instantIssues: ActiveIssue[] = [
+        ...terms.map((t) => ({ ...t, id: issueId(t) })),
+        ...grammar.map(({ ruleId: _r, startOffset: _s, endOffset: _e, ...g }) => ({
+          ...g,
+          id: issueId(g),
+        })),
+      ];
 
-      // Instant highlights: merge fresh instant classifications with surviving ones
-      setClassifications((prev) => {
-        const surviving = prev.filter((p) => text.includes(p.context));
-        const map = new Map<string, ActiveAoClassification>();
-        for (const item of evaluation.classifications) {
-          map.set(item.id, item);
-        }
-        for (const item of surviving) {
-          map.set(item.id, item);
-        }
-        return Array.from(map.values());
-      });
-
-      // Instant predicted mark: keep score and AO breakdown synchronized
-      setPredictedMark((prev) => {
-        if (!prev) return evaluation.predictedMark;
-        const clientSum =
-          evaluation.predictedMark.ao_breakdown.knowledge.awarded +
-          evaluation.predictedMark.ao_breakdown.analysis.awarded +
-          evaluation.predictedMark.ao_breakdown.evaluation.awarded;
-        const prevSum =
-          prev.ao_breakdown.knowledge.awarded +
-          prev.ao_breakdown.analysis.awarded +
-          prev.ao_breakdown.evaluation.awarded;
-
-        if (clientSum >= prevSum && clientSum > 0) {
-          return evaluation.predictedMark;
-        }
-
-        return {
-          ...prev,
-          total_mark: prevSum > 0 ? prevSum : Math.max(prev.total_mark, evaluation.predictedMark.total_mark),
-          ao_breakdown: prevSum > 0 ? prev.ao_breakdown : evaluation.predictedMark.ao_breakdown,
-        };
-      });
-
-      // Sync instant issues (prunes resolved ones, layers fresh ones)
-      setIssues((prev) => {
-        const map = new Map<string, ActiveIssue>();
-        for (const item of prev) {
-          if (text.includes(item.context)) map.set(item.id, item);
-        }
-        for (const item of evaluation.issues) {
-          map.set(item.id, item);
-        }
-        return Array.from(map.values());
-      });
-
-      if (evaluation.issues.length > 0) {
+      if (instantIssues.length > 0) {
         setSessionUsage((prev) => ({
           ...prev,
           instantChecksCount: prev.instantChecksCount + 1,
-          tokensSaved: prev.tokensSaved + 1200 * evaluation.issues.length,
+          tokensSaved: prev.tokensSaved + 1200 * instantIssues.length,
           lastLatencyMs: 15,
           lastCheckType: "instant",
         }));
-        recordHistory(evaluation.issues);
+        setIssues((prev) => {
+          const map = new Map<string, ActiveIssue>();
+          // Keep existing issues still present in text
+          for (const item of prev) {
+            if (text.includes(item.context)) map.set(item.id, item);
+          }
+          // Layer fresh instant issues
+          for (const item of instantIssues) {
+            map.set(item.id, item);
+          }
+          return Array.from(map.values());
+        });
+        recordHistory(instantIssues);
       }
     }, INSTANT_LOCAL_PAUSE_MS);
 
     return () => {
       if (localTimerRef.current) clearTimeout(localTimerRef.current);
     };
-  }, [text, enabled, question, maxMark, recordHistory]);
+  }, [text, enabled, question, recordHistory]);
 
   const runCheck = useCallback(
     (currentText: string, force: boolean) => {
@@ -383,9 +354,6 @@ export function useLiveExaminerCheck(params: {
           // Always accept predicted mark if returned, otherwise preserve or compute client evaluation
           if (result.predictedMark) {
             setPredictedMark(result.predictedMark);
-          } else {
-            const fallback = evaluateCambridgeAnswer(latestText, question, maxMark);
-            setPredictedMark((prev) => (prev && prev.total_mark > 0 ? prev : fallback.predictedMark));
           }
 
           // Layer server issues that are valid in latest text
@@ -419,11 +387,9 @@ export function useLiveExaminerCheck(params: {
                 ...classification,
                 id: classificationId(classification),
               }));
-            const combined = Array.from(
+            return Array.from(
               new Map([...surviving, ...incoming].map((item) => [item.id, item])).values(),
             );
-            if (combined.length > 0) return combined;
-            return evaluateCambridgeAnswer(latestText, question, maxMark).classifications;
           });
 
           recordHistory(result.issues);
@@ -442,22 +408,19 @@ export function useLiveExaminerCheck(params: {
             }));
           }
           if (result.checkFailed) {
-            const fallback = evaluateCambridgeAnswer(latestText, question, maxMark);
-            setPredictedMark((prev) => (prev && prev.total_mark > 0 ? prev : fallback.predictedMark));
-            setClassifications((prev) => (prev.length > 0 ? prev : fallback.classifications));
+            setError(
+              "The examiner check is temporarily unavailable — showing the last known issues.",
+            );
           }
         })
         .catch((caught: unknown) => {
           if (requestId !== requestIdRef.current) return;
-          const fallback = evaluateCambridgeAnswer(latestTextRef.current, question, maxMark);
-          setPredictedMark((prev) => (prev && prev.total_mark > 0 ? prev : fallback.predictedMark));
-          setClassifications((prev) => (prev.length > 0 ? prev : fallback.classifications));
           // A daily-limit refusal is a real answer, not a network blip —
           // show the actual reason instead of promising a retry.
           setError(
             isDailyLimitError(caught)
               ? (caught as Error).message
-              : "Live Cambridge calibration active — instant terminology and criteria engine running.",
+              : "Couldn't reach the examiner check. Your writing is safe — this will retry shortly.",
           );
         })
         .finally(() => {
