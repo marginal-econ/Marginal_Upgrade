@@ -75,10 +75,10 @@ async function getPdfJs() {
 function parseArgs() {
   const args = process.argv.slice(2);
   const options = {
-    years: [2022, 2023, 2024],
+    years: [2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025],
     types: "all" as "mcq" | "essay" | "all",
     variants: ["12", "22", "11", "21", "13", "23", "32", "42"],
-    limit: 10,
+    limit: 100,
     dryRun: false,
     verbose: false,
   };
@@ -214,15 +214,17 @@ async function extractTextFromPdfBuffer(pdfjs: any, buf: Buffer): Promise<string
   return fullText;
 }
 
-// Deterministic MCQ answer key parser
+// Deterministic MCQ answer key parser (handles 2016-2019 2-col and 2020-2025 3-col tables)
 function parseMcqAnswerKey(text: string): Record<string, "A" | "B" | "C" | "D"> {
   const answerKey: Record<string, "A" | "B" | "C" | "D"> = {};
-  const regex = /(\d{1,3})\s+([ABCD])\s+\d+/g;
+  
+  // Try universal format: question number (1-30) followed by answer letter (A-D)
+  const regex = /\b(\d{1,2})\s+([ABCD])\b/g;
   let m: RegExpExecArray | null;
 
   while ((m = regex.exec(text)) !== null) {
     const qNum = parseInt(m[1], 10);
-    if (qNum >= 1 && qNum <= 30) {
+    if (qNum >= 1 && qNum <= 30 && !answerKey[String(qNum)]) {
       answerKey[String(qNum)] = m[2] as "A" | "B" | "C" | "D";
     }
   }
@@ -241,13 +243,17 @@ function parseMcqAnswerKey(text: string): Record<string, "A" | "B" | "C" | "D"> 
 
 // Deterministic Essay question parser from QP text
 interface ExtractedEssay {
-  mark: 8 | 12 | 20;
+  mark: number;
   text: string;
   topic: string;
 }
 
 function parseEssayQuestions(fullText: string, level: "as" | "a2"): ExtractedEssay[] {
-  let cleaned = fullText
+  // Strip cover page (page 1) to avoid matching boilerplate instructions
+  const p2Idx = fullText.indexOf("[PAGE 2]");
+  const contentFromP2 = p2Idx !== -1 ? fullText.substring(p2Idx) : fullText;
+
+  let cleaned = contentFromP2
     .replace(/\d+\s+9708\/\d+\/[A-Z\/0-9]+\s+©\s+UCLES\s+\d{4}/gi, "")
     .replace(/\[Turn\s+over\]?/gi, "")
     .replace(/BLANK\s+PAGE/gi, "")
@@ -259,7 +265,7 @@ function parseEssayQuestions(fullText: string, level: "as" | "a2"): ExtractedEss
 
   sectionText = sectionText
     .replace(/Section\s+[BC]/gi, "")
-    .replace(/Answer\s+one\s+question\./gi, "")
+    .replace(/Answer\s+(?:one|any\s+(?:one|two))\s+questions?\./gi, "")
     .replace(/\b(EITHER|OR)\b/gi, "");
 
   const questions: ExtractedEssay[] = [];
@@ -299,16 +305,46 @@ function parseEssayQuestions(fullText: string, level: "as" | "a2"): ExtractedEss
       }
     }
   } else {
-    // A2 Level (Paper 4): Section B & C 20-mark evaluation essays
-    const matches = [...sectionText.matchAll(/(?:^|\n|\s)([2-6])\s+([A-Z][\s\S]+?)\s*\[20\]/g)];
-    for (const m of matches) {
+    // A2 Level (Paper 4): Section B & C essays (20m, 25m, or subparts 12m/13m)
+    // 1. Single long essays e.g. [20] or [25]
+    const matchesSingle = [...sectionText.matchAll(/(?:^|\n|\s)([2-6])\s+([A-Z][\s\S]+?)\s*\[(20|25)\]/g)];
+    for (const m of matchesSingle) {
       const text = m[2].replace(/\s+/g, " ").trim();
+      const mark = parseInt(m[3], 10);
       if (text.length > 25) {
         questions.push({
-          mark: 20,
+          mark,
           text,
           topic: tagSyllabusTopic(text),
         });
+      }
+    }
+
+    // 2. Subdivided Paper 4 essays e.g. (a) [12] and (b) [13]
+    const qBlocks = sectionText.split(/(?=(?:^|\n|\s)\b[2-6]\s+(?:\([ab]\)|[A-Z]))/g);
+    for (const block of qBlocks) {
+      const matchA = block.match(/(?:^|\s)\([aA]\)\s+([\s\S]+?)\s*\[(12|13)\]/);
+      const matchB = block.match(/(?:^|\s)\([bB]\)\s+([\s\S]+?)\s*\[(12|13)\]/);
+
+      if (matchA) {
+        const text = matchA[1].replace(/\s+/g, " ").trim();
+        if (text.length > 20) {
+          questions.push({
+            mark: parseInt(matchA[2], 10),
+            text,
+            topic: tagSyllabusTopic(text),
+          });
+        }
+      }
+      if (matchB) {
+        const text = matchB[1].replace(/\s+/g, " ").trim();
+        if (text.length > 20) {
+          questions.push({
+            mark: parseInt(matchB[2], 10),
+            text,
+            topic: tagSyllabusTopic(text),
+          });
+        }
       }
     }
   }
