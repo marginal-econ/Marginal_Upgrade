@@ -1,11 +1,13 @@
+import { useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
   GraduationCap,
   Plus,
   Building2,
   FileCheck2,
+  FileText,
   BarChart3,
   ShieldCheck,
   Clock,
@@ -16,7 +18,11 @@ import {
   Settings,
   Sparkles,
   BookOpen,
+  Upload,
+  ExternalLink,
+  Trash2,
 } from "lucide-react";
+import { toast } from "sonner";
 
 import { PageHeader } from "@/components/app/app-shell";
 import { Badge } from "@/components/ui/badge";
@@ -27,7 +33,10 @@ import {
   getMySchoolWorkspace,
   listMarkingSessions,
   getReliabilityBenchmarks,
+  listExaminerPapers,
+  deleteExaminerPaper,
 } from "@/lib/examiner-platform/session.functions";
+import { UploadPaperDialog } from "@/components/examiner/upload-paper-dialog";
 
 export const Route = createFileRoute("/_authenticated/examiner/")({
   head: () => ({
@@ -43,9 +52,15 @@ export const Route = createFileRoute("/_authenticated/examiner/")({
 });
 
 function ExaminerDashboardPage() {
+  const queryClient = useQueryClient();
+  const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
+  const [paperFilter, setPaperFilter] = useState<"all" | "custom" | "official">("all");
+
   const getWorkspace = useServerFn(getMySchoolWorkspace);
   const getSessions = useServerFn(listMarkingSessions);
   const getBenchmarks = useServerFn(getReliabilityBenchmarks);
+  const getPapers = useServerFn(listExaminerPapers);
+  const deletePaperFn = useServerFn(deleteExaminerPaper);
 
   const workspaceQuery = useQuery({
     queryKey: ["examiner-workspace"],
@@ -62,9 +77,32 @@ function ExaminerDashboardPage() {
     queryFn: () => getBenchmarks(),
   });
 
+  const papersQuery = useQuery({
+    queryKey: ["examiner-papers"],
+    queryFn: () => getPapers(),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (paperId: string) => deletePaperFn({ data: { paperId } }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["examiner-papers"] });
+      toast.success("Paper deleted from library.");
+    },
+    onError: (err: any) => {
+      toast.error(err.message || "Failed to delete paper.");
+    },
+  });
+
   const school = workspaceQuery.data?.school;
   const sessions = sessionsQuery.data?.sessions || [];
   const benchmarks = benchmarksQuery.data?.benchmarks || [];
+  const papers = papersQuery.data?.papers || [];
+
+  const filteredPapers = papers.filter((p) => {
+    if (paperFilter === "custom") return !p.isOfficial;
+    if (paperFilter === "official") return p.isOfficial;
+    return true;
+  });
 
   const totalScripts = sessions.reduce((acc, s) => acc + s.total_scripts_count, 0);
   const completedScripts = sessions.reduce((acc, s) => acc + s.completed_scripts_count, 0);
@@ -110,6 +148,15 @@ function ExaminerDashboardPage() {
               <Link to="/examiner/moderation">
                 <ShieldCheck className="size-3.5" /> Moderation Desk
               </Link>
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => setIsUploadDialogOpen(true)}
+              className="text-xs gap-1.5 border-primary/40 text-primary hover:bg-primary/10"
+            >
+              <Upload className="size-3.5" /> Upload Paper (QP &amp; MS)
             </Button>
             <Button asChild size="sm" className="text-xs gap-1.5 bg-primary text-primary-foreground">
               <Link to="/examiner/new-session">
@@ -249,6 +296,231 @@ function ExaminerDashboardPage() {
           </div>
         )}
       </div>
+
+      {/* Examination Papers Repository (QP & MS Library) */}
+      <div className="space-y-4 pt-4 border-t border-border/60">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="space-y-0.5">
+            <div className="flex items-center gap-2">
+              <BookOpen className="size-5 text-primary" />
+              <h2 className="text-lg font-semibold tracking-tight">
+                Examination Papers Repository
+              </h2>
+              <Badge variant="secondary" className="text-xs">
+                {papers.length} Papers
+              </Badge>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Official Cambridge 9708 past papers and school-uploaded mock papers with verified Question Paper (QP) and Mark Scheme (MS) PDFs.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex items-center rounded-lg border border-border p-0.5 text-xs bg-muted/20">
+              <button
+                type="button"
+                onClick={() => setPaperFilter("all")}
+                className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors ${
+                  paperFilter === "all"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                All ({papers.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setPaperFilter("custom")}
+                className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors ${
+                  paperFilter === "custom"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                School Uploads ({papers.filter((p) => !p.isOfficial).length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setPaperFilter("official")}
+                className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors ${
+                  paperFilter === "official"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Official Cambridge ({papers.filter((p) => p.isOfficial).length})
+              </button>
+            </div>
+
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => setIsUploadDialogOpen(true)}
+              className="text-xs gap-1.5"
+            >
+              <Plus className="size-3.5" /> Upload New Paper
+            </Button>
+          </div>
+        </div>
+
+        {papersQuery.isLoading ? (
+          <div className="rounded-xl border border-border p-8 text-center text-xs text-muted-foreground">
+            Loading papers repository...
+          </div>
+        ) : filteredPapers.length === 0 ? (
+          <Card className="border-dashed border-border p-8 text-center space-y-3">
+            <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+              <Upload className="size-6" />
+            </div>
+            <div className="space-y-1">
+              <h3 className="text-sm font-semibold">No custom papers uploaded yet</h3>
+              <p className="text-xs text-muted-foreground max-w-md mx-auto">
+                Upload your school's mock examinations, preliminary papers, or past papers with both Question Paper (QP) and Mark Scheme (MS) PDFs.
+              </p>
+            </div>
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => setIsUploadDialogOpen(true)}
+              className="text-xs gap-1.5"
+            >
+              <Plus className="size-3.5" /> Upload First Paper
+            </Button>
+          </Card>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filteredPapers.map((paper) => (
+              <Card
+                key={paper.id}
+                className="border-border hover:border-primary/50 transition-colors flex flex-col justify-between"
+              >
+                <CardHeader className="pb-3 space-y-1.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <Badge
+                      variant={paper.isOfficial ? "secondary" : "default"}
+                      className="text-[10px]"
+                    >
+                      {paper.isOfficial ? "Official Cambridge" : "School Uploaded"}
+                    </Badge>
+                    <Badge variant="outline" className="text-[10px] font-mono">
+                      {paper.qualification.toUpperCase()} · 9708/{paper.paperNumber}
+                    </Badge>
+                  </div>
+                  <CardTitle className="text-base font-semibold leading-snug line-clamp-2">
+                    {paper.title}
+                  </CardTitle>
+                  <CardDescription className="text-xs">
+                    Series: <span className="font-medium text-foreground">{paper.series}</span> · {paper.totalMarks} Marks · {paper.durationMinutes} mins
+                  </CardDescription>
+                </CardHeader>
+
+                <CardContent className="space-y-3 pb-3 text-xs flex-1">
+                  {/* Questions breakdown */}
+                  {paper.questions && paper.questions.length > 0 && (
+                    <div className="space-y-1">
+                      <span className="text-[10px] text-muted-foreground block">
+                        Included Questions ({paper.questions.length}):
+                      </span>
+                      <div className="flex items-center gap-1 flex-wrap">
+                        {paper.questions.slice(0, 5).map((q) => (
+                          <Badge
+                            key={q.number}
+                            variant="secondary"
+                            className="text-[9px] font-mono py-0 px-1"
+                          >
+                            Q{q.number} ({q.maxMark}m)
+                          </Badge>
+                        ))}
+                        {paper.questions.length > 5 && (
+                          <Badge variant="outline" className="text-[9px] py-0 px-1">
+                            +{paper.questions.length - 5} more
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* PDF links */}
+                  <div className="flex items-center gap-2 pt-1 border-t border-border/40">
+                    {paper.qpUrl ? (
+                      <a
+                        href={paper.qpUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex"
+                      >
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-[10px] gap-1 px-2"
+                        >
+                          <FileText className="size-3 text-blue-500" /> QP PDF{" "}
+                          <ExternalLink className="size-2.5" />
+                        </Button>
+                      </a>
+                    ) : (
+                      <Badge variant="outline" className="text-[9px] text-muted-foreground">
+                        Official Exam
+                      </Badge>
+                    )}
+
+                    {paper.msUrl ? (
+                      <a
+                        href={paper.msUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex"
+                      >
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-[10px] gap-1 px-2"
+                        >
+                          <FileCheck2 className="size-3 text-emerald-500" /> MS PDF{" "}
+                          <ExternalLink className="size-2.5" />
+                        </Button>
+                      </a>
+                    ) : null}
+
+                    {!paper.isOfficial && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="size-7 text-muted-foreground hover:text-destructive ml-auto"
+                        title="Delete custom paper"
+                        onClick={() => {
+                          if (confirm("Are you sure you want to delete this custom paper?")) {
+                            deleteMutation.mutate(paper.id);
+                          }
+                        }}
+                      >
+                        <Trash2 className="size-3.5" />
+                      </Button>
+                    )}
+                  </div>
+                </CardContent>
+
+                <div className="p-4 pt-0">
+                  <Button asChild size="sm" className="w-full text-xs gap-1.5" variant="secondary">
+                    <Link to="/examiner/new-session" search={{ paperId: paper.id }}>
+                      <Plus className="size-3.5" /> Start Marking Session
+                    </Link>
+                  </Button>
+                </div>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Upload Paper Modal */}
+      <UploadPaperDialog
+        open={isUploadDialogOpen}
+        onOpenChange={setIsUploadDialogOpen}
+      />
     </div>
   );
 }

@@ -18,17 +18,18 @@ GRANT SELECT ON public.classroom_teachers TO authenticated;
 GRANT ALL ON public.classroom_teachers TO service_role;
 ALTER TABLE public.classroom_teachers ENABLE ROW LEVEL SECURITY;
 
-CREATE OR REPLACE FUNCTION public.owns_classroom(_classroom_id UUID, _user_id UUID DEFAULT auth.uid())
+DROP FUNCTION IF EXISTS public.owns_classroom(UUID, UUID) CASCADE;
+CREATE OR REPLACE FUNCTION public.owns_classroom(_classroom_id UUID, _uid UUID DEFAULT auth.uid())
 RETURNS BOOLEAN LANGUAGE SQL STABLE SECURITY DEFINER SET search_path = public AS $$
   SELECT EXISTS (
     SELECT 1 FROM public.classrooms
     WHERE id = _classroom_id
       AND (
-        teacher_id = _user_id
-        OR public.has_role(_user_id, 'admin')
+        teacher_id = _uid
+        OR public.has_role(_uid, 'admin')
         OR EXISTS (
           SELECT 1 FROM public.classroom_teachers ct
-          WHERE ct.classroom_id = _classroom_id AND ct.teacher_id = _user_id
+          WHERE ct.classroom_id = _classroom_id AND ct.teacher_id = _uid
         )
       )
   );

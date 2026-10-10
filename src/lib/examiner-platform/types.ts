@@ -38,6 +38,9 @@ export type MarkingSession = {
   qualification_level: "as" | "a2";
   exam_series: string; // '2024_may_june'
   paper_number: string; // '22', '42'
+  paper_id?: string | null;
+  qp_url?: string | null;
+  ms_url?: string | null;
   max_mark: number;
   status: MarkingSessionStatus;
   resource_verified: boolean;

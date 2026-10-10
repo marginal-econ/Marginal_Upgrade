@@ -32,10 +32,16 @@ import {
 import {
   createMarkingSession,
   uploadCandidateScriptBatch,
+  listExaminerPapers,
 } from "@/lib/examiner-platform/session.functions";
-import { CAMBRIDGE_9708_PAPERS } from "@/lib/examiner-platform/cambridge-papers";
+import { CAMBRIDGE_9708_PAPERS, type ExaminerCustomPaper } from "@/lib/examiner-platform/cambridge-papers";
+import { UploadPaperDialog } from "@/components/examiner/upload-paper-dialog";
+import { ExternalLink, Sparkles, BookOpen } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/examiner/new-session")({
+  validateSearch: (search: Record<string, unknown>) => ({
+    paperId: typeof search.paperId === "string" ? search.paperId : undefined,
+  }),
   head: () => ({
     meta: [
       { title: "New Marking Session — Marginal Examiner" },
@@ -61,8 +67,22 @@ type UploadItem = {
 function NewMarkingSessionPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { paperId: initialPaperId } = Route.useSearch();
+  const listPapersFn = useServerFn(listExaminerPapers);
   const createSessionFn = useServerFn(createMarkingSession);
   const uploadBatchFn = useServerFn(uploadCandidateScriptBatch);
+
+  // Papers Query
+  const papersQuery = useQuery({
+    queryKey: ["examiner-papers"],
+    queryFn: () => listPapersFn(),
+  });
+  const papers = papersQuery.data?.papers || [];
+
+  const [selectedPaperId, setSelectedPaperId] = useState<string>(
+    initialPaperId || "builtin_9708_22_2024_mj",
+  );
+  const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
 
   // Form State
   const [title, setTitle] = useState("Year 12 Economics Mid-Year Mock Examination");
@@ -74,6 +94,23 @@ function NewMarkingSessionPage() {
   // Script Batch State
   const [uploadedScripts, setUploadedScripts] = useState<UploadItem[]>([]);
   const [isProcessingFiles, setIsProcessingFiles] = useState(false);
+
+  // Find active paper
+  const selectedPaper =
+    papers.find((p) => p.id === selectedPaperId) ||
+    papers.find((p) => p.paperNumber === paperNumber) ||
+    papers[0];
+
+  const handleSelectPaper = (paperId: string) => {
+    setSelectedPaperId(paperId);
+    const p = papers.find((x) => x.id === paperId);
+    if (p) {
+      setLevel(p.qualification);
+      setPaperNumber(p.paperNumber);
+      setExamSeries(p.series);
+      setTitle(`${p.title} Assessment`);
+    }
+  };
 
   const createMutation = useMutation({
     mutationFn: async () => {
@@ -90,6 +127,9 @@ function NewMarkingSessionPage() {
           qualificationLevel: level,
           examSeries,
           paperNumber,
+          paperId: selectedPaper && !selectedPaper.id.startsWith("builtin_") ? selectedPaper.id : undefined,
+          qpUrl: selectedPaper?.qpUrl ?? undefined,
+          msUrl: selectedPaper?.msUrl ?? undefined,
         },
       });
 
@@ -225,12 +265,112 @@ Question 2(a): Productive efficiency occurs at the MES / lowest point of LRAC. A
       {/* Step 1: Paper Configuration */}
       <Card className="border-border">
         <CardHeader className="pb-4">
-          <CardTitle className="text-base font-semibold">1. Examination &amp; Paper Configuration</CardTitle>
-          <CardDescription className="text-xs">
-            Match this session to the official Cambridge 9708 paper and mark scheme.
-          </CardDescription>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+              <CardTitle className="text-base font-semibold">1. Examination &amp; Paper Configuration</CardTitle>
+              <CardDescription className="text-xs">
+                Match this session to an official Cambridge 9708 paper or a school-uploaded custom paper (QP &amp; MS PDF).
+              </CardDescription>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setIsUploadDialogOpen(true)}
+              className="h-8 text-xs gap-1.5 border-primary/40 text-primary hover:bg-primary/10 shrink-0"
+            >
+              <Plus className="size-3.5" /> Upload New Paper (QP &amp; MS)
+            </Button>
+          </div>
         </CardHeader>
         <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+          {/* Paper Picker */}
+          <div className="space-y-1.5 md:col-span-2">
+            <Label className="font-semibold text-xs">Select Examination Paper</Label>
+            <Select value={selectedPaperId} onValueChange={handleSelectPaper}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Choose past paper or custom mock..." />
+              </SelectTrigger>
+              <SelectContent>
+                {papers.some((p) => !p.isOfficial) && (
+                  <div className="px-2 py-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                    School Uploaded Papers
+                  </div>
+                )}
+                {papers
+                  .filter((p) => !p.isOfficial)
+                  .map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      📄 {p.title} ({p.qualification.toUpperCase()} · {p.totalMarks} marks)
+                    </SelectItem>
+                  ))}
+
+                <div className="px-2 py-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                  Official Cambridge Past Papers
+                </div>
+                {papers
+                  .filter((p) => p.isOfficial)
+                  .map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      🏛️ {p.title}
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Paper Details Banner */}
+          {selectedPaper && (
+            <div className="md:col-span-2 rounded-lg border border-border/80 bg-muted/20 p-3 space-y-2.5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Badge variant={selectedPaper.isOfficial ? "secondary" : "default"} className="text-[10px]">
+                    {selectedPaper.isOfficial ? "Official Cambridge" : "School Uploaded"}
+                  </Badge>
+                  <Badge variant="outline" className="text-[10px]">
+                    {selectedPaper.qualification.toUpperCase()} Level
+                  </Badge>
+                  <Badge variant="outline" className="text-[10px] font-mono">
+                    {selectedPaper.totalMarks} Marks · {selectedPaper.durationMinutes} mins
+                  </Badge>
+                  <span className="text-xs font-semibold text-foreground">{selectedPaper.title}</span>
+                </div>
+
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {selectedPaper.qpUrl && (
+                    <a href={selectedPaper.qpUrl} target="_blank" rel="noopener noreferrer">
+                      <Button type="button" variant="outline" size="sm" className="h-6 text-[10px] gap-1 px-2">
+                        <FileText className="size-3 text-blue-500" /> View QP PDF <ExternalLink className="size-2.5" />
+                      </Button>
+                    </a>
+                  )}
+                  {selectedPaper.msUrl && (
+                    <a href={selectedPaper.msUrl} target="_blank" rel="noopener noreferrer">
+                      <Button type="button" variant="outline" size="sm" className="h-6 text-[10px] gap-1 px-2">
+                        <FileCheck2 className="size-3 text-emerald-500" /> View MS PDF <ExternalLink className="size-2.5" />
+                      </Button>
+                    </a>
+                  )}
+                </div>
+              </div>
+
+              {/* Questions Preview Pills */}
+              {selectedPaper.questions && selectedPaper.questions.length > 0 && (
+                <div className="flex items-center gap-1.5 flex-wrap pt-0.5 border-t border-border/40">
+                  <span className="text-[10px] text-muted-foreground mr-1">Questions:</span>
+                  {selectedPaper.questions.map((q) => (
+                    <Badge key={q.number} variant="secondary" className="text-[10px] font-mono py-0 px-1.5 gap-1">
+                      Q{q.number}
+                      <span className="text-muted-foreground">
+                        ({q.maxMark}m{q.hasDiagramRequirement ? ", diag" : ""})
+                      </span>
+                    </Badge>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="space-y-1.5 md:col-span-2">
             <Label htmlFor="session-title">Session Title</Label>
             <Input
@@ -274,6 +414,7 @@ Question 2(a): Productive efficiency occurs at the MES / lowest point of LRAC. A
                 <SelectItem value="2024_may_june">May/June 2024</SelectItem>
                 <SelectItem value="2024_oct_nov">October/November 2024</SelectItem>
                 <SelectItem value="2023_may_june">May/June 2023</SelectItem>
+                <SelectItem value="2025_mock">2025 Mock Assessment</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -287,6 +428,7 @@ Question 2(a): Productive efficiency occurs at the MES / lowest point of LRAC. A
               <SelectContent>
                 <SelectItem value="22">Paper 22 (AS Data Response &amp; Essays · 60 marks)</SelectItem>
                 <SelectItem value="42">Paper 42 (A Level Data Response &amp; Essays · 60 marks)</SelectItem>
+                <SelectItem value="21">Paper 21 (AS Data Response &amp; Essays · 60 marks)</SelectItem>
                 <SelectItem value="12">Paper 12 (AS Multiple Choice · 30 marks)</SelectItem>
               </SelectContent>
             </Select>
@@ -415,6 +557,13 @@ Question 2(a): Productive efficiency occurs at the MES / lowest point of LRAC. A
           </div>
         </CardContent>
       </Card>
+
+      {/* Upload Paper Modal */}
+      <UploadPaperDialog
+        open={isUploadDialogOpen}
+        onOpenChange={setIsUploadDialogOpen}
+        onSuccess={(newPaper) => handleSelectPaper(newPaper.id)}
+      />
     </div>
   );
 }

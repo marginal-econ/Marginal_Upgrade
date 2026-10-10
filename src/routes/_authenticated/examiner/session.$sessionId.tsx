@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
   FileText,
+  FileCheck2,
   Play,
   CheckCircle2,
   Clock,
@@ -138,16 +139,41 @@ function SessionDetailsPage() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-6 p-4 md:p-8">
-      <PageHeader
-        title={session?.title || "Marking Session"}
-        description={`Cambridge International 9708/${session?.paper_number || "22"} · Cohort: ${session?.class_name || ""} · Maximum: ${session?.max_mark || 60} marks`}
-        backTo="/examiner"
-        badge={
-          <Badge variant="outline" className="border-primary/40 bg-primary/10 text-primary font-medium text-xs">
-            {session?.qualification_level ? session.qualification_level.toUpperCase() : "AS"} Level
-          </Badge>
-        }
-      />
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <PageHeader
+          title={session?.title || "Marking Session"}
+          description={`Cambridge International 9708/${session?.paper_number || "22"} · Cohort: ${session?.class_name || ""} · Maximum: ${session?.max_mark || 60} marks`}
+          backTo="/examiner"
+          badge={
+            <Badge variant="outline" className="border-primary/40 bg-primary/10 text-primary font-medium text-xs">
+              {session?.qualification_level ? session.qualification_level.toUpperCase() : "AS"} Level
+            </Badge>
+          }
+        />
+        {/* Quick links to uploaded Question Paper & Mark Scheme PDFs */}
+        {(session?.qp_url || session?.ms_url) && (
+          <div className="flex items-center gap-2 flex-wrap shrink-0">
+            {session.qp_url && (
+              <a href={session.qp_url} target="_blank" rel="noopener noreferrer">
+                <Button size="sm" variant="outline" className="text-xs gap-1.5 h-8">
+                  <FileText className="size-3.5 text-blue-500" />
+                  Question Paper (QP) PDF
+                  <ExternalLink className="size-3 text-muted-foreground" />
+                </Button>
+              </a>
+            )}
+            {session.ms_url && (
+              <a href={session.ms_url} target="_blank" rel="noopener noreferrer">
+                <Button size="sm" variant="outline" className="text-xs gap-1.5 h-8">
+                  <FileCheck2 className="size-3.5 text-emerald-500" />
+                  Mark Scheme (MS) PDF
+                  <ExternalLink className="size-3 text-muted-foreground" />
+                </Button>
+              </a>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Overview Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

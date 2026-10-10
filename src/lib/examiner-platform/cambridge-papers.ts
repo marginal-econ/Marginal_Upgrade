@@ -177,6 +177,64 @@ export function getPaperConfig(
   return CAMBRIDGE_9708_PAPERS["9708_22_2024_mj"];
 }
 
+export type ExaminerCustomPaper = {
+  id: string;
+  title: string;
+  subjectCode: "9708";
+  subjectTitle: string;
+  qualification: "as" | "a2";
+  paperNumber: string;
+  series: string;
+  totalMarks: number;
+  durationMinutes: number;
+  qpUrl: string | null;
+  msUrl: string | null;
+  qpRawText?: string | null;
+  msRawText?: string | null;
+  questions: CambridgeQuestionSpec[];
+  isOfficial: boolean;
+  createdAt?: string;
+};
+
+export async function getPaperConfigWithDb(
+  subjectCode: string,
+  paperNumber: string,
+  series: string,
+  paperId?: string | null,
+): Promise<CambridgePaperConfig> {
+  // 1. If paperId provided, lookup in examiner_papers table
+  if (paperId) {
+    try {
+      const { getSupabaseAdmin } = await import("@/server/supabase");
+      const admin = getSupabaseAdmin();
+      const { data: dbPaper } = await admin
+        .from("examiner_papers")
+        .select("*")
+        .eq("id", paperId)
+        .maybeSingle();
+
+      if (dbPaper && dbPaper.questions && Array.isArray(dbPaper.questions)) {
+        return {
+          subjectCode: "9708",
+          subjectTitle: dbPaper.subject_title || "Cambridge International AS & A Level Economics",
+          qualification: dbPaper.qualification_level as "as" | "a2",
+          paperNumber: dbPaper.paper_number,
+          series: dbPaper.exam_series,
+          totalMarks: dbPaper.total_marks || 60,
+          durationMinutes: dbPaper.duration_minutes || 120,
+          questions: dbPaper.questions as CambridgeQuestionSpec[],
+        };
+      }
+    } catch (err) {
+      console.warn("DB paper lookup failed, falling back to static config:", err);
+    }
+  }
+
+  // 2. Lookup in static CAMBRIDGE_9708_PAPERS
+  return getPaperConfig(subjectCode, paperNumber, series);
+}
+
 export function listAvailablePapers(): CambridgePaperConfig[] {
   return Object.values(CAMBRIDGE_9708_PAPERS);
 }
+

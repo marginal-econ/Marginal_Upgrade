@@ -36,20 +36,22 @@ RETURNS BOOLEAN LANGUAGE SQL STABLE SECURITY DEFINER SET search_path = public AS
   );
 $$;
 
-CREATE OR REPLACE FUNCTION public.owns_classroom(_classroom_id UUID, _user_id UUID DEFAULT auth.uid())
+DROP FUNCTION IF EXISTS public.owns_classroom(UUID, UUID) CASCADE;
+CREATE OR REPLACE FUNCTION public.owns_classroom(_classroom_id UUID, _uid UUID DEFAULT auth.uid())
 RETURNS BOOLEAN LANGUAGE SQL STABLE SECURITY DEFINER SET search_path = public AS $$
   SELECT EXISTS (
     SELECT 1 FROM public.classrooms
     WHERE id = _classroom_id
-      AND (teacher_id = _user_id OR public.has_role(_user_id, 'admin'))
+      AND (teacher_id = _uid OR public.has_role(_uid, 'admin'))
   );
 $$;
 
-CREATE OR REPLACE FUNCTION public.is_classroom_member(_classroom_id UUID, _user_id UUID DEFAULT auth.uid())
+DROP FUNCTION IF EXISTS public.is_classroom_member(UUID, UUID) CASCADE;
+CREATE OR REPLACE FUNCTION public.is_classroom_member(_classroom_id UUID, _uid UUID DEFAULT auth.uid())
 RETURNS BOOLEAN LANGUAGE SQL STABLE SECURITY DEFINER SET search_path = public AS $$
   SELECT EXISTS (
     SELECT 1 FROM public.classroom_members
-    WHERE classroom_id = _classroom_id AND student_id = _user_id
+    WHERE classroom_id = _classroom_id AND student_id = _uid
   );
 $$;
 

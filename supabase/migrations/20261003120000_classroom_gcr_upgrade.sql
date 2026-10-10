@@ -16,17 +16,18 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON public.classroom_teachers TO authenticat
 GRANT ALL ON public.classroom_teachers TO service_role;
 ALTER TABLE public.classroom_teachers ENABLE ROW LEVEL SECURITY;
 
-CREATE OR REPLACE FUNCTION public.owns_classroom(_classroom_id UUID, _user_id UUID DEFAULT auth.uid())
+DROP FUNCTION IF EXISTS public.owns_classroom(UUID, UUID) CASCADE;
+CREATE OR REPLACE FUNCTION public.owns_classroom(_classroom_id UUID, _uid UUID DEFAULT auth.uid())
 RETURNS BOOLEAN LANGUAGE SQL STABLE SECURITY DEFINER SET search_path = public AS $$
   SELECT EXISTS (
     SELECT 1 FROM public.classrooms
     WHERE id = _classroom_id
       AND (
-        teacher_id = _user_id
-        OR public.has_role(_user_id, 'admin')
+        teacher_id = _uid
+        OR public.has_role(_uid, 'admin')
         OR EXISTS (
           SELECT 1 FROM public.classroom_teachers ct
-          WHERE ct.classroom_id = _classroom_id AND ct.teacher_id = _user_id
+          WHERE ct.classroom_id = _classroom_id AND ct.teacher_id = _uid
         )
       )
   );
@@ -45,6 +46,24 @@ CREATE TABLE IF NOT EXISTS public.classroom_announcements (
   pinned BOOLEAN NOT NULL DEFAULT false,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- 2b. Ensure Classroom Assignments exists
+CREATE TABLE IF NOT EXISTS public.classroom_assignments (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  classroom_id UUID NOT NULL REFERENCES public.classrooms(id) ON DELETE CASCADE,
+  created_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  kind TEXT NOT NULL DEFAULT 'essay',
+  title TEXT NOT NULL,
+  instructions TEXT,
+  due_at TIMESTAMPTZ,
+  archived BOOLEAN NOT NULL DEFAULT false,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  bank_essay_question_id UUID REFERENCES public.bank_essay_questions(id) ON DELETE SET NULL,
+  essay_question TEXT,
+  essay_topic TEXT,
+  essay_max_mark INT,
+  mcq_paper_id UUID REFERENCES public.mcq_pdf_papers(id) ON DELETE SET NULL
 );
 
 -- 3. Comments Table

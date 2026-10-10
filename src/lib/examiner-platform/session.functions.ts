@@ -2,7 +2,13 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/backend/auth-middleware";
 import { getSupabaseAdmin } from "@/server/supabase";
-import { getPaperConfig } from "./cambridge-papers";
+import {
+  getPaperConfig,
+  getPaperConfigWithDb,
+  type CambridgeQuestionSpec,
+  type ExaminerCustomPaper,
+  CAMBRIDGE_9708_PAPERS,
+} from "./cambridge-papers";
 import { processScriptTranscription, segmentTranscriptionByQuestions } from "./ocr-pipeline.server";
 import { markQuestionResponse } from "./marking-engine.server";
 import { verifyScriptMarking } from "./verification-engine.server";
@@ -111,7 +117,187 @@ export const listMarkingSessions = createServerFn({ method: "GET" })
     return { sessions: (sessions || []) as MarkingSession[] };
   });
 
-// 3. Create a new marking session
+// 3. List available examination papers (both custom uploaded QP/MS and official Cambridge)
+export const listExaminerPapers = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const admin = getSupabaseAdmin();
+    const access = await assertSchoolAccess(admin, context.userId);
+
+    const { data: dbPapers, error } = await admin
+      .from("examiner_papers")
+      .select("*")
+      .or(`school_id.eq.${access.schoolId},school_id.is.null,is_official.eq.true`)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.warn("Could not fetch examiner_papers:", error.message);
+    }
+
+    const customPapers: ExaminerCustomPaper[] = (dbPapers || []).map((p: any) => ({
+      id: p.id,
+      title: p.title,
+      subjectCode: (p.subject_code as "9708") || "9708",
+      subjectTitle: p.subject_title || "Cambridge International AS & A Level Economics",
+      qualification: p.qualification_level as "as" | "a2",
+      paperNumber: p.paper_number,
+      series: p.exam_series,
+      totalMarks: p.total_marks || 60,
+      durationMinutes: p.duration_minutes || 120,
+      qpUrl: p.qp_url,
+      msUrl: p.ms_url,
+      qpRawText: p.qp_raw_text,
+      msRawText: p.ms_raw_text,
+      questions: (p.questions || []) as CambridgeQuestionSpec[],
+      isOfficial: p.is_official || false,
+      createdAt: p.created_at,
+    }));
+
+    // Built-in official Cambridge papers
+    const builtInPapers: ExaminerCustomPaper[] = Object.entries(CAMBRIDGE_9708_PAPERS).map(
+      ([key, p]) => ({
+        id: `builtin_${key}`,
+        title: `${p.subjectTitle} — Paper ${p.paperNumber} (${p.qualification.toUpperCase()}) [Official]`,
+        subjectCode: p.subjectCode,
+        subjectTitle: p.subjectTitle,
+        qualification: p.qualification,
+        paperNumber: p.paperNumber,
+        series: p.series,
+        totalMarks: p.totalMarks,
+        durationMinutes: p.durationMinutes,
+        qpUrl: null,
+        msUrl: null,
+        questions: p.questions,
+        isOfficial: true,
+      }),
+    );
+
+    return {
+      papers: [...customPapers, ...builtInPapers],
+    };
+  });
+
+const QuestionSpecSchema = z.object({
+  number: z.string(),
+  title: z.string(),
+  maxMark: z.number().int().positive(),
+  tariff: z.object({
+    ao1: z.number().int().nonnegative(),
+    ao2: z.number().int().nonnegative(),
+    ao3: z.number().int().nonnegative(),
+  }),
+  hasDiagramRequirement: z.boolean(),
+  syllabusTopic: z.string(),
+  markingGuide: z.string(),
+});
+
+// 4. Create new Examination Paper (upload full QP and MS PDF)
+export const createExaminerPaper = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((input: unknown) =>
+    z
+      .object({
+        title: z.string().trim().min(3).max(150),
+        subjectCode: z.literal("9708"),
+        qualificationLevel: z.enum(["as", "a2"]),
+        paperNumber: z.string().trim().min(2).max(10),
+        examSeries: z.string().trim().min(2).max(60),
+        totalMarks: z.number().int().positive().default(60),
+        durationMinutes: z.number().int().positive().default(120),
+        qpUrl: z.string().url().optional().nullable(),
+        msUrl: z.string().url().optional().nullable(),
+        qpRawText: z.string().optional().nullable(),
+        msRawText: z.string().optional().nullable(),
+        questions: z.array(QuestionSpecSchema).min(1),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const admin = getSupabaseAdmin();
+    const access = await assertSchoolAccess(admin, context.userId);
+
+    const { data: created, error } = await admin
+      .from("examiner_papers")
+      .insert({
+        school_id: access.schoolId,
+        uploaded_by: context.userId,
+        title: data.title,
+        subject_code: data.subjectCode,
+        subject_title: "Cambridge International AS & A Level Economics",
+        qualification_level: data.qualificationLevel,
+        paper_number: data.paperNumber,
+        exam_series: data.examSeries,
+        total_marks: data.totalMarks,
+        duration_minutes: data.durationMinutes,
+        qp_url: data.qpUrl ?? null,
+        ms_url: data.msUrl ?? null,
+        qp_raw_text: data.qpRawText ?? null,
+        ms_raw_text: data.msRawText ?? null,
+        questions: data.questions,
+        is_official: false,
+      })
+      .select("*")
+      .single();
+
+    if (error || !created) throw new Error(error?.message || "Failed to save paper.");
+
+    // Sync to Knowledge Base if MS / QP texts are available
+    if (data.msRawText && data.msRawText.trim().length > 50) {
+      try {
+        const { chunkText, contentHash } = await import("../chunking.server");
+        const msHash = await contentHash(data.msRawText);
+        const chunks = chunkText(data.msRawText);
+        const { data: doc } = await admin
+          .from("knowledge_documents")
+          .insert({
+            title: `${data.title} (Mark Scheme)`,
+            doc_type: "mark_scheme",
+            source_name: "Examiner Paper Upload",
+            exam_series: data.examSeries,
+            content_hash: msHash,
+            char_count: data.msRawText.length,
+            chunk_count: chunks.length,
+            status: "ready",
+          })
+          .select("id")
+          .single();
+
+        if (doc) {
+          const chunkRows = chunks.map((c) => ({
+            document_id: doc.id,
+            chunk_index: c.index,
+            content: c.content,
+            heading: c.heading,
+            token_estimate: c.tokenEstimate,
+          }));
+          await admin.from("document_chunks").insert(chunkRows.slice(0, 100));
+        }
+      } catch (err) {
+        console.warn("Knowledge sync error (non-fatal):", err);
+      }
+    }
+
+    return { paper: created };
+  });
+
+// Delete custom Examination Paper
+export const deleteExaminerPaper = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((input: unknown) => z.object({ paperId: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }) => {
+    const admin = getSupabaseAdmin();
+    const access = await assertSchoolAccess(admin, context.userId);
+    const { error } = await admin
+      .from("examiner_papers")
+      .delete()
+      .eq("id", data.paperId)
+      .eq("school_id", access.schoolId);
+
+    if (error) throw new Error(error.message);
+    return { success: true };
+  });
+
+// 5. Create a new marking session
 export const createMarkingSession = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .validator(
@@ -124,19 +310,30 @@ export const createMarkingSession = createServerFn({ method: "POST" })
           qualificationLevel: z.enum(["as", "a2"]),
           examSeries: z.string().trim().min(4), // '2024_may_june'
           paperNumber: z.string().trim().min(2), // '22', '42'
+          paperId: z.string().optional().nullable(),
+          qpUrl: z.string().optional().nullable(),
+          msUrl: z.string().optional().nullable(),
         })
         .parse(input),
   )
   .handler(async ({ data, context }) => {
     const admin = getSupabaseAdmin();
     const access = await assertSchoolAccess(admin, context.userId);
-    const paperSpec = getPaperConfig(data.subjectCode, data.paperNumber, data.examSeries);
+    const paperSpec = await getPaperConfigWithDb(
+      data.subjectCode,
+      data.paperNumber,
+      data.examSeries,
+      data.paperId,
+    );
 
     const { data: created, error } = await admin
       .from("examiner_marking_sessions")
       .insert({
         school_id: access.schoolId,
         teacher_id: context.userId,
+        paper_id: data.paperId && !data.paperId.startsWith("builtin_") ? data.paperId : null,
+        qp_url: data.qpUrl ?? null,
+        ms_url: data.msUrl ?? null,
         title: data.title,
         class_name: data.className,
         subject_code: data.subjectCode,
@@ -298,7 +495,12 @@ export const processScriptAiMarking = createServerFn({ method: "POST" })
       })
       .eq("id", script.id);
 
-    const paperSpec = getPaperConfig(session.subject_code, session.paper_number, session.exam_series);
+    const paperSpec = await getPaperConfigWithDb(
+      session.subject_code,
+      session.paper_number,
+      session.exam_series,
+      (session as any).paper_id,
+    );
     const expectedQNums = paperSpec.questions.map((q) => q.number);
     const segmented = segmentTranscriptionByQuestions(ocrResult.pages, expectedQNums);
 
