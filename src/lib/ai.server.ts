@@ -291,28 +291,63 @@ async function chatViaProvider(
   if (options.json) body.response_format = { type: "json_object" };
   if (options.maxCompletionTokens) body.max_completion_tokens = options.maxCompletionTokens;
 
-  const data = await withRetry429(async () => {
-    const response = await fetch(`${config.baseUrl}/chat/completions`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${config.apiKey}`,
-      },
-      body: JSON.stringify(body),
-    });
+  const candidateModels =
+    config.provider === "google"
+      ? Array.from(
+          new Set([
+            config.model.replace(/^(google\/|models\/)/, ""),
+            "gemini-3.8-flash",
+            "gemini-3.6-flash",
+            "gemini-3.7-flash",
+          ]),
+        )
+      : [config.model];
 
-    if (!response.ok) {
-      throw new AiGatewayError(explain(response.status, await response.text()), response.status);
+  let usedModel = candidateModels[0];
+  const data = await withRetry429(async () => {
+    let lastErrStatus = 500;
+    let lastErrDetail = "";
+
+    for (const m of candidateModels) {
+      usedModel = m;
+      const modelBody = { ...body, model: m };
+      const response = await fetch(`${config.baseUrl}/chat/completions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${config.apiKey}`,
+        },
+        body: JSON.stringify(modelBody),
+      });
+
+      if (response.ok) {
+        return (await response.json()) as {
+          choices?: { message?: { content?: string } }[];
+          usage?: { prompt_tokens?: number; completion_tokens?: number };
+        };
+      }
+
+      const text = await response.text();
+      lastErrStatus = response.status;
+      lastErrDetail = text;
+
+      // Rate limit or server error on this specific model — try next candidate model
+      if (response.status === 429 || response.status === 503) {
+        console.warn(`[chatViaProvider] Model ${m} returned ${response.status}. Attempting fallback candidate model...`);
+        continue;
+      }
+
+      // Any other client error (e.g. 401 unauthorized, 400 bad request) fails immediately
+      throw new AiGatewayError(explain(response.status, text), response.status);
     }
 
-    return (await response.json()) as {
-      choices?: { message?: { content?: string } }[];
-      usage?: { prompt_tokens?: number; completion_tokens?: number };
-    };
+    // If all models failed with 429/503, throw so withRetry429 can backoff if 429
+    throw new AiGatewayError(explain(lastErrStatus, lastErrDetail), lastErrStatus);
   }, CHAT_RETRY_OPTS);
+
   return {
     text: data.choices?.[0]?.message?.content ?? "",
-    model: config.model,
+    model: usedModel,
     promptTokens: data.usage?.prompt_tokens ?? null,
     completionTokens: data.usage?.completion_tokens ?? null,
   };

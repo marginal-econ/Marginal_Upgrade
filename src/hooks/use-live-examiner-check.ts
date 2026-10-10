@@ -411,6 +411,8 @@ export function useLiveExaminerCheck(params: {
             setError(
               "The examiner check is temporarily unavailable — showing the last known issues.",
             );
+          } else {
+            setError(null);
           }
         })
         .catch((caught: unknown) => {
@@ -569,6 +571,7 @@ export function useLiveExaminerCheck(params: {
   /** Force a fresh full-pass check, ignoring the diff cache. */
   function rescan(currentText: string) {
     if (timerRef.current) clearTimeout(timerRef.current);
+    setError(null);
     setDirty(false);
     runCheck(currentText, true);
   }

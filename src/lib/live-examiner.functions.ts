@@ -296,8 +296,9 @@ FEEDBACK RULES:
 - Give an honest confidence score (0.6 to 1.0).
 - Be constructive: Recognize valid economics arguments even if expressed in the student's own words. Do not force template phrasing.
 - If a sentence has no economic errors or spelling mistakes, omit it from issues.
+- Limit issues to at most 4 highest-priority items.
 
-Also identify up to 8 creditworthy economics phrases currently earning Cambridge Assessment Objective credit:
+Also identify up to 5 creditworthy economics phrases currently earning Cambridge Assessment Objective credit:
 - AO1: Accurate definitions, terminology, concepts.
 - AO2: Logical causal mechanisms, chains of reasoning, context application.
 - AO3: Evaluative criteria, limitations, short-run vs long-run distinctions, balanced conclusions.
@@ -657,7 +658,7 @@ export const checkEssayWriting = createServerFn({ method: "POST" })
           model: MODEL_LIVE_CANDIDATE,
           temperature: 0,
           json: true,
-          maxCompletionTokens: 800,
+          maxCompletionTokens: 2500,
           messages: [
             {
               role: "system",
@@ -676,7 +677,7 @@ export const checkEssayWriting = createServerFn({ method: "POST" })
               model: MODEL_ESTIMATE,
               temperature: 0,
               json: true,
-              maxCompletionTokens: 500,
+              maxCompletionTokens: 1000,
               messages: [
                 {
                   role: "system",
@@ -693,8 +694,12 @@ export const checkEssayWriting = createServerFn({ method: "POST" })
           : Promise.resolve(null),
       ]);
 
-      if (candidateOutcome.status === "rejected") throw candidateOutcome.reason;
-      const candidateResult = candidateOutcome.value;
+      let candidateResult: Awaited<ReturnType<typeof chat>> | null = null;
+      if (candidateOutcome.status === "fulfilled") {
+        candidateResult = candidateOutcome.value;
+      } else {
+        console.warn("Live examiner candidate generation fallback:", candidateOutcome.reason);
+      }
 
       let predictedMark: PredictedMark | null = null;
       if (predictedOutcome.status === "fulfilled" && predictedOutcome.value) {
@@ -717,7 +722,14 @@ export const checkEssayWriting = createServerFn({ method: "POST" })
         }
       }
 
-      const raw = extractFirstJsonObject(candidateResult.text);
+      let raw: Record<string, unknown> = {};
+      if (candidateResult) {
+        try {
+          raw = extractFirstJsonObject(candidateResult.text);
+        } catch (jsonErr) {
+          console.warn("Live examiner candidate json parse fallback:", jsonErr);
+        }
+      }
       const issuesRaw = Array.isArray(raw.issues) ? raw.issues : [];
       const classificationsRaw = Array.isArray(raw.classifications) ? raw.classifications : [];
       const classifications = classificationsRaw.flatMap<LiveExaminerAoClassification>((item) => {
@@ -889,18 +901,21 @@ export const checkEssayWriting = createServerFn({ method: "POST" })
 
       const merged = dedupeAndCap([...carryForward(), ...deterministic, ...freshIssues]);
 
-      await context.supabase.from("ai_usage_log").insert({
-        user_id: context.userId,
-        feature: "live_examiner_check",
-        model: candidateResult.model,
-        prompt_tokens: candidateResult.promptTokens,
-        completion_tokens: candidateResult.completionTokens,
-        latency_ms: candidateResult.latencyMs,
-        ok: true,
-      });
+      if (candidateResult) {
+        await context.supabase.from("ai_usage_log").insert({
+          user_id: context.userId,
+          feature: "live_examiner_check",
+          model: candidateResult.model,
+          prompt_tokens: candidateResult.promptTokens,
+          completion_tokens: candidateResult.completionTokens,
+          latency_ms: candidateResult.latencyMs,
+          ok: true,
+        });
+      }
 
-      const promptTokens = candidateResult.promptTokens ?? 0;
-      const completionTokens = candidateResult.completionTokens ?? 0;
+      const promptTokens = candidateResult?.promptTokens ?? 0;
+      const completionTokens = candidateResult?.completionTokens ?? 0;
+      const latencyMs = candidateResult?.latencyMs ?? 0;
 
       return {
         issues: merged,
@@ -913,7 +928,7 @@ export const checkEssayWriting = createServerFn({ method: "POST" })
           promptTokens,
           completionTokens,
           totalTokens: promptTokens + completionTokens,
-          latencyMs: candidateResult.latencyMs,
+          latencyMs,
           deterministicCount: deterministic.length,
           tokensSaved: 1200 * Math.max(1, deterministic.length),
         },
