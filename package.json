@@ -10,7 +10,8 @@
     "test": "vitest run",
     "preview": "vite preview",
     "lint": "eslint .",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "harvest:papers": "npx tsx --env-file=.env scripts/harvest-papers.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
