@@ -377,14 +377,29 @@ export function useLiveExaminerCheck(params: {
           });
 
           setClassifications((previous) => {
-            const replacedContexts = new Set(result.classifiedContexts);
+            const currentSentenceList = splitSentences(latestText);
+            const currentSentenceSet = new Set(
+              currentSentenceList.map((s) => s.trim().toLowerCase()).filter((s) => s.length >= 5),
+            );
+
+            const replacedContexts = new Set(
+              (result.classifiedContexts || []).map((c) => c.trim().toLowerCase()),
+            );
             const surviving = (force && !result.checkFailed ? [] : previous).filter(
-              (classification) =>
-                latestText.includes(classification.context) &&
-                !replacedContexts.has(classification.context),
+              (classification) => {
+                const normContext = (classification.context || classification.original || "")
+                  .trim()
+                  .toLowerCase();
+                // ONLY survive if it matches an actual current complete sentence in latestText,
+                // NEVER an obsolete or truncated substring fragment from mid-keystroke typing!
+                return currentSentenceSet.has(normContext) && !replacedContexts.has(normContext);
+              },
             );
             const incoming = result.classifications
-              .filter((c) => latestText.includes(c.context))
+              .filter((c) => {
+                const normContext = (c.context || c.original || "").trim().toLowerCase();
+                return currentSentenceSet.has(normContext) || latestText.toLowerCase().includes(normContext);
+              })
               .map((classification) => ({
                 ...classification,
                 id: classificationId(classification),

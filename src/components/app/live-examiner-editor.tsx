@@ -254,17 +254,8 @@ export function computeRanges(
     }
   }
 
-  // 2. Locate classifications (non-overlapping among each other, skipping diagrams)
-  // Classifications are located INDEPENDENTLY of issues, prioritizing higher-order objectives:
-  // AO3 (Evaluation) > AO2 (Analysis) > AO1 (Knowledge).
-  // Highlights and underlines the WHOLE sentence, not just phrases.
-  type LocatedClassification = {
-    start: number;
-    end: number;
-    id: string;
-    classification: ActiveAoClassification;
-  };
-  const locatedClassifications: LocatedClassification[] = [];
+  // 2. Locate sentences in document order and apply AO classifications + issues seamlessly
+  const allSentences = splitSentences(text);
 
   const aoPriority: Record<"AO3" | "AO2" | "AO1", number> = {
     AO3: 3,
@@ -275,239 +266,151 @@ export function computeRanges(
     (a, b) => (aoPriority[b.ao] ?? 0) - (aoPriority[a.ao] ?? 0),
   );
 
-  for (const classification of sortedClassifications) {
-    const targetSentence = (classification.context || classification.original || "").trim();
-    if (!targetSentence) continue;
+  const rawRanges: Range[] = [];
+  let cursor = 0;
 
-    let foundStart = -1;
-    let foundLength = targetSentence.length;
-
-    let searchFrom = 0;
-    while (true) {
-      const at = text.indexOf(targetSentence, searchFrom);
-      if (at === -1) break;
-      let candidateStart = at;
-      let candidateEnd = candidateStart + targetSentence.length;
-
-      // Clean leading and trailing whitespace
-      while (candidateStart < candidateEnd && /\s/.test(text[candidateStart])) {
-        candidateStart++;
-      }
-      while (candidateEnd > candidateStart && /\s/.test(text[candidateEnd - 1])) {
-        candidateEnd--;
-      }
-
-      // Absorb terminal sentence punctuation (e.g. '.', '!', '?') if followed by whitespace or end of string,
-      // so the punctuation is cleanly contained in the sentence highlight rather than dangling naked
-      if (candidateEnd < text.length && /[.!?]/.test(text[candidateEnd])) {
-        const nextChar = text[candidateEnd + 1];
-        if (!nextChar || /\s/.test(nextChar) || /[)\]"']/.test(nextChar)) {
-          candidateEnd++;
-        }
-      }
-      if (candidateEnd < text.length && /[)\]"']/.test(text[candidateEnd])) {
-        const afterQuote = text[candidateEnd + 1];
-        if (!afterQuote || /\s/.test(afterQuote)) {
-          candidateEnd++;
-        }
-      }
-
-      const collides =
-        overlapsProtected(candidateStart, candidateEnd) ||
-        locatedClassifications.some((r) => candidateStart < r.end && candidateEnd > r.start);
-      if (!collides) {
-        foundStart = candidateStart;
-        foundLength = candidateEnd - candidateStart;
-        break;
-      }
-      searchFrom = at + 1;
-    }
-
-    // Fallback: search classification.original if context was not matched verbatim
-    if (foundStart === -1 && classification.original && classification.original.trim() !== targetSentence) {
-      const fallbackStr = classification.original.trim();
-      let searchFromOrig = 0;
-      while (true) {
-        const at = text.indexOf(fallbackStr, searchFromOrig);
-        if (at === -1) break;
-        let candidateStart = at;
-        let candidateEnd = candidateStart + fallbackStr.length;
-
-        while (candidateStart < candidateEnd && /\s/.test(text[candidateStart])) {
-          candidateStart++;
-        }
-        while (candidateEnd > candidateStart && /\s/.test(text[candidateEnd - 1])) {
-          candidateEnd--;
-        }
-
-        if (candidateEnd < text.length && /[.!?]/.test(text[candidateEnd])) {
-          const nextChar = text[candidateEnd + 1];
-          if (!nextChar || /\s/.test(nextChar) || /[)\]"']/.test(nextChar)) {
-            candidateEnd++;
-          }
-        }
-        if (candidateEnd < text.length && /[)\]"']/.test(text[candidateEnd])) {
-          const afterQuote = text[candidateEnd + 1];
-          if (!afterQuote || /\s/.test(afterQuote)) {
-            candidateEnd++;
-          }
-        }
-
-        const collides =
-          overlapsProtected(candidateStart, candidateEnd) ||
-          locatedClassifications.some((r) => candidateStart < r.end && candidateEnd > r.start);
-        if (!collides) {
-          foundStart = candidateStart;
-          foundLength = candidateEnd - candidateStart;
-          break;
-        }
-        searchFromOrig = at + 1;
-      }
-    }
-
-    if (foundStart !== -1) {
-      locatedClassifications.push({
-        start: foundStart,
-        end: foundStart + foundLength,
-        id: classification.id,
-        classification,
-      });
-    }
-  }
-
-  // 2b. Full Coverage Guarantee: ensure 100% of sentences in text are identified and color-coded
-  const allSentences = splitSentences(text);
   for (const sentence of allSentences) {
     const trimmed = sentence.trim();
-    if (trimmed.length < 5 || /\[DIAGRAM:[^\]]*\]/i.test(trimmed)) continue;
+    if (trimmed.length < 3 || /\[DIAGRAM:[^\]]*\]/i.test(trimmed)) continue;
 
-    // Check if this sentence is already located
-    const alreadyLocated = locatedClassifications.some((loc) => {
-      const locText = text.slice(loc.start, loc.end).trim();
-      return locText.includes(trimmed) || trimmed.includes(locText);
+    // Locate sentence in text in sequential document order
+    let at = text.indexOf(trimmed, cursor);
+    if (at === -1) {
+      at = text.indexOf(trimmed);
+    }
+    if (at === -1) continue;
+
+    let sStart = at;
+    let sEnd = at + trimmed.length;
+    cursor = sEnd;
+
+    // Absorb terminal punctuation (e.g. '.', '!', '?') if followed by whitespace or end of string
+    if (sEnd < text.length && /[.!?]/.test(text[sEnd])) {
+      const nextChar = text[sEnd + 1];
+      if (!nextChar || /\s/.test(nextChar) || /[)\]"']/.test(nextChar)) {
+        sEnd++;
+      }
+    }
+    if (sEnd < text.length && /[)\]"']/.test(text[sEnd])) {
+      const afterQuote = text[sEnd + 1];
+      if (!afterQuote || /\s/.test(afterQuote)) {
+        sEnd++;
+      }
+    }
+
+    // Clean whitespace
+    while (sStart < sEnd && /\s/.test(text[sStart])) sStart++;
+    while (sEnd > sStart && /\s/.test(text[sEnd - 1])) sEnd--;
+    if (sStart >= sEnd || overlapsProtected(sStart, sEnd)) continue;
+
+    // Determine the Assessment Objective for this complete sentence:
+    // Match against server classifications (prioritizing AO3 > AO2 > AO1), or fallback to deterministic
+    const matched = sortedClassifications.find((c) => {
+      const cContext = (c.context || "").trim();
+      const cOrig = (c.original || "").trim();
+      return (
+        cContext === trimmed ||
+        cOrig === trimmed ||
+        cContext.includes(trimmed) ||
+        trimmed.includes(cContext) ||
+        cOrig.includes(trimmed) ||
+        trimmed.includes(cOrig)
+      );
     });
 
-    if (!alreadyLocated) {
-      let searchFrom = 0;
-      while (true) {
-        const at = text.indexOf(trimmed, searchFrom);
-        if (at === -1) break;
-        let candidateStart = at;
-        let candidateEnd = candidateStart + trimmed.length;
-
-        while (candidateStart < candidateEnd && /\s/.test(text[candidateStart])) {
-          candidateStart++;
-        }
-        while (candidateEnd > candidateStart && /\s/.test(text[candidateEnd - 1])) {
-          candidateEnd--;
-        }
-
-        if (candidateEnd < text.length && /[.!?]/.test(text[candidateEnd])) {
-          const nextChar = text[candidateEnd + 1];
-          if (!nextChar || /\s/.test(nextChar) || /[)\]"']/.test(nextChar)) {
-            candidateEnd++;
-          }
-        }
-        if (candidateEnd < text.length && /[)\]"']/.test(text[candidateEnd])) {
-          const afterQuote = text[candidateEnd + 1];
-          if (!afterQuote || /\s/.test(afterQuote)) {
-            candidateEnd++;
-          }
-        }
-
-        const collides =
-          overlapsProtected(candidateStart, candidateEnd) ||
-          locatedClassifications.some((r) => candidateStart < r.end && candidateEnd > r.start);
-        if (!collides) {
+    const activeClassification: ActiveAoClassification = matched
+      ? matched
+      : (() => {
           const auto = classifySentenceDeterministically(trimmed);
-          locatedClassifications.push({
-            start: candidateStart,
-            end: candidateEnd,
-            id: `auto-${auto.ao}-${candidateStart}`,
-            classification: {
-              id: `auto-${auto.ao}-${candidateStart}`,
-              original: trimmed,
-              context: trimmed,
-              ao: auto.ao,
-              explanation: auto.explanation,
-            },
-          });
-          break;
-        }
-        searchFrom = at + 1;
-      }
-    }
-  }
+          return {
+            id: `auto-${auto.ao}-${sStart}`,
+            original: trimmed,
+            context: trimmed,
+            ao: auto.ao,
+            explanation: auto.explanation,
+          };
+        })();
 
-  // 3. Sweep-line interval subdivision: split text into disjoint slices where issues take priority over classifications
-  const points = new Set<number>();
-  for (const item of locatedIssues) {
-    points.add(item.start);
-    points.add(item.end);
-  }
-  for (const item of locatedClassifications) {
-    points.add(item.start);
-    points.add(item.end);
-  }
+    // Check for issues that lie strictly inside this sentence
+    const sentenceIssues = locatedIssues
+      .filter((iss) => iss.start >= sStart && iss.end <= sEnd)
+      .sort((a, b) => a.start - b.start);
 
-  const sortedPoints = Array.from(points).sort((a, b) => a - b);
-  const rawRanges: Range[] = [];
-
-  for (let i = 0; i < sortedPoints.length - 1; i++) {
-    const pStart = sortedPoints[i];
-    const pEnd = sortedPoints[i + 1];
-    if (pStart >= pEnd) continue;
-
-    // Issue takes priority for underline & suggestion card
-    const matchingIssue = locatedIssues.find(
-      (item) => item.start <= pStart && item.end >= pEnd,
-    );
-    if (matchingIssue) {
+    if (sentenceIssues.length === 0) {
       rawRanges.push({
-        start: pStart,
-        end: pEnd,
-        id: matchingIssue.id,
-        kind: "issue",
-        issue: matchingIssue.issue,
-      });
-      continue;
-    }
-
-    // Otherwise, check if within an AO classification
-    const matchingClassification = locatedClassifications.find(
-      (item) => item.start <= pStart && item.end >= pEnd,
-    );
-    if (matchingClassification) {
-      rawRanges.push({
-        start: pStart,
-        end: pEnd,
-        id: matchingClassification.id,
+        start: sStart,
+        end: sEnd,
+        id: activeClassification.id,
         kind: "classification",
-        classification: matchingClassification.classification,
+        classification: activeClassification,
       });
-      continue;
+    } else {
+      let currentPos = sStart;
+      for (const issue of sentenceIssues) {
+        if (issue.start > currentPos) {
+          rawRanges.push({
+            start: currentPos,
+            end: issue.start,
+            id: activeClassification.id,
+            kind: "classification",
+            classification: activeClassification,
+          });
+        }
+        rawRanges.push({
+          start: issue.start,
+          end: issue.end,
+          id: issue.id,
+          kind: "issue",
+          issue: issue.issue,
+        });
+        currentPos = issue.end;
+      }
+      if (currentPos < sEnd) {
+        rawRanges.push({
+          start: currentPos,
+          end: sEnd,
+          id: activeClassification.id,
+          kind: "classification",
+          classification: activeClassification,
+        });
+      }
     }
   }
 
-  // 4. Merge adjacent slices of identical identity or contiguous same-AO classifications
-  const merged: Range[] = [];
+  // 3. Strictly sanitize against newlines: NO <mark> tag ever wraps across \n or \r
+  // This guarantees zero background highlight boxes on empty lines or paragraph breaks!
+  const sanitizedRanges: Range[] = [];
   for (const range of rawRanges) {
+    const slice = text.slice(range.start, range.end);
+    if (!/[\r\n]/.test(slice)) {
+      if (range.start < range.end) {
+        sanitizedRanges.push({ ...range });
+      }
+      continue;
+    }
+
+    let segStart = range.start;
+    for (let i = range.start; i < range.end; i++) {
+      if (text[i] === "\n" || text[i] === "\r") {
+        if (i > segStart) {
+          sanitizedRanges.push({ ...range, start: segStart, end: i, id: `${range.id}-${segStart}` });
+        }
+        segStart = i + 1;
+      }
+    }
+    if (range.end > segStart) {
+      sanitizedRanges.push({ ...range, start: segStart, end: range.end, id: `${range.id}-${segStart}` });
+    }
+  }
+
+  // 4. Merge adjacent slices of identical identity
+  sanitizedRanges.sort((a, b) => a.start - b.start);
+  const merged: Range[] = [];
+  for (const range of sanitizedRanges) {
     const previous = merged.at(-1);
-    if (previous && previous.end === range.start) {
-      // Merge identical issues
-      if (previous.kind === "issue" && range.kind === "issue" && previous.id === range.id) {
-        previous.end = range.end;
-        continue;
-      }
-      // Merge identical classifications
-      if (
-        previous.kind === "classification" &&
-        range.kind === "classification" &&
-        previous.id === range.id
-      ) {
-        previous.end = range.end;
-        continue;
-      }
+    if (previous && previous.end === range.start && previous.id === range.id) {
+      previous.end = range.end;
+      continue;
     }
     merged.push({ ...range });
   }

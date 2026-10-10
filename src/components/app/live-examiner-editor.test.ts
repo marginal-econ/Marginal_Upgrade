@@ -420,4 +420,47 @@ describe("Live Examiner Editor - computeRanges & Investor Demo Robustness", () =
     const gap = essay.slice(ranges[0].end, ranges[1].start);
     expect(gap).toBe("  ");
   });
+
+  it("SOLVES SCREENSHOT GLITCH: never highlights blank lines between paragraphs and never splits 'demand.' across colors", () => {
+    const p1 =
+      "information failure. It merely raises the price, causing a contraction in quantity demanded rather than shifting demand. This means while it may reduce consumption and production, it does not correct information failure or educate consumers on the drawbacks of demerit goods.";
+    const p2 =
+      "In conclusion, minimum price policies can help reduce production and consumption. Furthermore, if demand is price inelastic, quantity demanded will fall by a smaller percentage, limiting its effectiveness. Therefore, other policies like educational campaigns and other awareness programs may be more effective in the long run.";
+    const p3 =
+      "As established in economic theory, when demand for a demerit good is price inelastic (|PED| < 1)—a common trait of habit-forming goods—the percentage reduction in quantity demanded is proportionately smaller than the percentage increase in price, meaning consumption persists near overconsumed levels; conversely, effectiveness is maximized when demand is price elastic";
+
+    const fullEssay = `${p1}\n\n${p2}\n\n${p3}`;
+
+    const ranges = computeRanges(fullEssay, [], []);
+
+    // 1. Ensure NO range ever contains a newline character (\n or \r)
+    for (const r of ranges) {
+      const slice = fullEssay.slice(r.start, r.end);
+      expect(slice).not.toContain("\n");
+      expect(slice).not.toContain("\r");
+    }
+
+    // 2. Ensure blank lines between paragraphs have ZERO range coverage
+    const p1End = p1.length;
+    const p2Start = p1End + 2; // \n\n
+    for (const r of ranges) {
+      // Range cannot start inside \n\n or end inside \n\n
+      const insideP1P2Blank = r.start < p2Start && r.end > p1End;
+      expect(insideP1P2Blank).toBe(false);
+    }
+
+    // 3. Ensure 'demand.' in sentence 2 is completely intact within a single range
+    const demandIndex = fullEssay.indexOf("shifting demand.");
+    expect(demandIndex).toBeGreaterThan(-1);
+    const rangeCoveringDemand = ranges.find(
+      (r) => r.start <= demandIndex && r.end >= demandIndex + "shifting demand.".length,
+    );
+    expect(rangeCoveringDemand).toBeDefined();
+    // 'demand.' must NOT be split into 'deman' and 'd.'
+    const sliceWithDemand = fullEssay.slice(
+      rangeCoveringDemand!.start,
+      rangeCoveringDemand!.end,
+    );
+    expect(sliceWithDemand).toContain("shifting demand.");
+  });
 });
