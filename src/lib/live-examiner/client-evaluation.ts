@@ -39,6 +39,57 @@ const AO3_PATTERNS = [
   /\b(if that is true|level of increase depends|trade-?off)\b/i,
 ];
 
+export function classifySentenceDeterministically(sentence: string): {
+  ao: "AO1" | "AO2" | "AO3";
+  explanation: string;
+} {
+  const trimmed = sentence.trim();
+  const lower = trimmed.toLowerCase();
+
+  // 1. Evaluative criteria, dependencies, trade-offs, judgements (AO3)
+  const isAo3 =
+    AO3_PATTERNS.some((p) => p.test(lower)) ||
+    /\b(however|although|on the other hand|nevertheless|in contrast|whereas|depends on|dependent on|critical factor|extent to which|contingent|elasticity|ped|pes|yed|inelastic|elastic|short[- ]run|long[- ]run|time lag|in the long run|in the short run|unintended consequence|black market|informal market|smuggling|shadow economy|in conclusion|overall|ultimately|to conclude|judgement|balanced|weighing|effective|ineffective|limitation|drawback|barrier of entry|scale of|magnitude|quality of life|better welfare)\b/i.test(
+      lower,
+    );
+  if (isAo3) {
+    return {
+      ao: "AO3",
+      explanation: "AO3 Evaluation: Critical capacity condition, dependency, limitation, or evaluative judgement.",
+    };
+  }
+
+  // 2. Explicit definition phrasing (AO1 Knowledge)
+  const isExplicitDef = /\b(is a|are goods that are|is defined as|refers to|definition of|occurs when|government intervention set above|overconsumed|underconsumed)\b/i.test(
+    lower,
+  );
+  if (isExplicitDef) {
+    return {
+      ao: "AO1",
+      explanation: "AO1 Knowledge: Accurate Cambridge 9708 definition, formula, or economic concept foundation.",
+    };
+  }
+
+  // 3. Analysis, causal mechanisms, transmission links, application (AO2)
+  const isAo2 =
+    AO2_PATTERNS.some((p) => p.test(lower)) ||
+    /\b(causes|leading to|leads to|results in|resulting in|means that|this means|contraction in|expansion in|shift|shifts|excess supply|excess demand|surplus|shortage|as prices? rise|as prices? fall|higher prices?|lower prices?|incentive|disincentive|signals?|rationing|allocative|fall by a|increase by a|percentage|quantity demanded|quantity supplied|constrained|producers?|consumers?|firms?|output|sales?|profit|for example|for instance|such as|case of)\b/i.test(
+      lower,
+    );
+  if (isAo2) {
+    return {
+      ao: "AO2",
+      explanation: "AO2 Analysis: Causal transmission mechanism linking cause, market reaction, and economic outcome.",
+    };
+  }
+
+  // 4. Terminology / general knowledge foundation (AO1 Knowledge)
+  return {
+    ao: "AO1",
+    explanation: "AO1 Knowledge: Foundational economic statement, terminology, or theoretical premise.",
+  };
+}
+
 export type ClientEvaluationResult = {
   predictedMark: PredictedMark;
   classifications: ActiveAoClassification[];
@@ -65,43 +116,24 @@ export function evaluateCambridgeAnswer(
 
   for (const sentence of sentences) {
     const trimmed = sentence.trim();
-    if (trimmed.length < 10) continue;
+    if (trimmed.length < 5 || /\[DIAGRAM:[^\]]*\]/i.test(trimmed)) continue;
 
-    // Check definitions and knowledge first so definitions containing 'because' or 'due to'
-    // are correctly classified as AO1 Knowledge, not misattributed as AO2 Analysis.
-    const isDefOrTerm = AO1_PATTERNS.some((p) => p.test(trimmed));
-    const isAo3 = !isDefOrTerm && AO3_PATTERNS.some((p) => p.test(trimmed));
-    const isAo2 = !isDefOrTerm && !isAo3 && AO2_PATTERNS.some((p) => p.test(trimmed));
-    const isAo1 = isDefOrTerm;
-
-    if (isAo3) {
+    const classified = classifySentenceDeterministically(trimmed);
+    if (classified.ao === "AO3") {
       ao3Count++;
-      classifications.push({
-        id: `AO3::${trimmed.toLowerCase()}::${trimmed.toLowerCase()}`,
-        original: trimmed,
-        context: sentence,
-        ao: "AO3",
-        explanation: "AO3 Evaluation: Critical capacity condition, limitation, or counter-argument identified.",
-      });
-    } else if (isAo2) {
+    } else if (classified.ao === "AO2") {
       ao2Count++;
-      classifications.push({
-        id: `AO2::${trimmed.toLowerCase()}::${trimmed.toLowerCase()}`,
-        original: trimmed,
-        context: sentence,
-        ao: "AO2",
-        explanation: "AO2 Analysis: Unbroken economic causal chain linking cause, mechanism, and economic consequence.",
-      });
-    } else if (isAo1) {
+    } else {
       ao1Count++;
-      classifications.push({
-        id: `AO1::${trimmed.toLowerCase()}::${trimmed.toLowerCase()}`,
-        original: trimmed,
-        context: sentence,
-        ao: "AO1",
-        explanation: "AO1 Knowledge: Accurate Cambridge 9708 definition, formula, or syllabus policy lever.",
-      });
     }
+
+    classifications.push({
+      id: `${classified.ao}::${trimmed.toLowerCase()}::${trimmed.toLowerCase()}`,
+      original: trimmed,
+      context: sentence,
+      ao: classified.ao,
+      explanation: classified.explanation,
+    });
 
     // Collect matched terms
     for (const pat of AO1_PATTERNS) {

@@ -14,14 +14,19 @@ const TAG_CLOSE = "\u2063";
 /** Split text into sentences, keeping [DIAGRAM: ...] tags atomic. */
 export function splitSentences(text: string): string[] {
   const tags: string[] = [];
-  const protectedText = text.replace(/\[DIAGRAM:[^\]]*\]/g, (match) => {
+  let protectedText = text.replace(/\[DIAGRAM:[^\]]*\]/g, (match) => {
     tags.push(match);
     return `${TAG_OPEN}${tags.length - 1}${TAG_CLOSE}`;
   });
 
+  // Protect common abbreviations from splitting on period
+  protectedText = protectedText.replace(/\b(e\.g|i\.e|etc|approx|vs)\.\s+/gi, (match) => {
+    return match.replace(/\./g, "\u2062");
+  });
+
   const rough = protectedText
-    .split(/(?<=[.!?])\s+(?=[A-Z0-9"'\u2063])|\n{2,}/g)
-    .map((sentence) => sentence.trim())
+    .split(/(?<=[.!?])\s+|\n+/g)
+    .map((sentence) => sentence.replace(/\u2062/g, ".").trim())
     .filter(Boolean);
 
   const restore = new RegExp(`${TAG_OPEN}(\\d+)${TAG_CLOSE}`, "g");

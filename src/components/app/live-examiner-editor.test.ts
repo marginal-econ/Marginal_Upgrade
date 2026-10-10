@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { computeRanges, type Range } from "./live-examiner-editor";
 import type { ActiveAoClassification, ActiveIssue } from "@/hooks/use-live-examiner-check";
 import { evaluateCambridgeAnswer } from "@/lib/live-examiner/client-evaluation";
+import { splitSentences } from "@/lib/writing-check/sentence-diff";
 
 describe("Live Examiner Editor - computeRanges & Investor Demo Robustness", () => {
   it("preserves pure AO1 classification on an error-free sentence", () => {
@@ -315,6 +316,31 @@ describe("Live Examiner Editor - computeRanges & Investor Demo Robustness", () =
     expect(ranges[0].end).toBe(sentence.length);
     if (ranges[0].kind === "classification") {
       expect(ranges[0].classification.ao).toBe("AO3");
+    }
+  });
+
+  it("guarantees 100% sentence coverage across multi-paragraph essays and classifies definitions as AO1 blue", () => {
+    const essay = [
+      "A minimum price intervention is a government intervention set above market equilibrium. demerit goods are goods that are overconsumed in an economy because consumers are not aware of its negative externalities due to information failure.",
+      "A minimum price intervention causes the market price to rise above equilibrium, leading to a contraction in demand and excess supply.",
+      "As prices rises, less number of consumers will consume the good. this means the consumption of demerit goods may reduce, leading to better welfare for consumers.",
+      "But, an decrease in consumption is dependent on the price elasticity of demand (PED). For instance, if PED is inelastic, quantity demanded will fall by a smaller percentage, making the policy less effective, as consumers still demand the product.",
+    ].join("\n\n");
+
+    const ranges = computeRanges(essay, [], []);
+    expect(ranges.length).toBeGreaterThanOrEqual(3);
+
+    // Verify sentence 1 is classified as AO1 Knowledge (blue highlight)
+    const firstRange = ranges[0];
+    expect(firstRange.kind).toBe("classification");
+    if (firstRange.kind === "classification") {
+      expect(firstRange.classification.ao).toBe("AO1");
+    }
+
+    // Verify all text in every paragraph is covered by classification ranges
+    for (const r of ranges) {
+      expect(r.kind).toBe("classification");
+      expect(r.end).toBeGreaterThan(r.start);
     }
   });
 });

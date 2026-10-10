@@ -301,13 +301,6 @@ function LiveExaminerPage() {
   });
 
   function handleOpenScoreMaximizer() {
-    const words = essayText.trim() ? essayText.trim().split(/\s+/).length : 0;
-    if (words < 15) {
-      toast.error(
-        "Write at least a short paragraph before generating score maximization blueprints.",
-      );
-      return;
-    }
     setScoreMaximizerOpen(true);
     const grading = gradeMutation.data?.grading;
     maxOutMutation.mutate({
@@ -315,9 +308,9 @@ function LiveExaminerPage() {
       level,
       maxMark,
       essayText,
-      contextBlock,
-      totalMark: grading?.total_mark ?? Math.round(maxMark * 0.5),
-      band: grading?.band ?? "Draft Attempt",
+      contextBlock: contextBlock || "",
+      totalMark: grading?.total_mark ?? (predictedMark?.total_mark ?? Math.round(maxMark * 0.5)),
+      band: grading?.band ?? (predictedMark ? `Est. ${predictedMark.total_mark}/${maxMark}` : "Draft Attempt"),
       weaknesses: grading?.weaknesses ?? [],
       missingElements: grading?.missing_elements ?? {},
       actionableFeedback: grading?.actionable_feedback ?? [],

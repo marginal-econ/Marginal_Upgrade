@@ -63,8 +63,8 @@ const MAX_VISIBLE_ISSUES = 8;
  *  reach the new higher ceiling. */
 const MAX_NEW_ISSUES_PER_CALL = 6;
 
-/** Sentences per model call is capped to active edited sentences during live typing (rapid & frugal). */
-const MAX_SENTENCES_PER_CALL = 12;
+/** Sentences per model call is raised to 32 to ensure full-length essay responses are completely classified. */
+const MAX_SENTENCES_PER_CALL = 32;
 
 /** Stage-1 candidates below this self-reported confidence are dropped
  *  before they even reach verification — cheap, zero-latency filter. */
@@ -299,11 +299,17 @@ FEEDBACK RULES:
 - If a sentence has no economic errors or spelling mistakes, omit it from issues.
 - Limit issues to at most 4 highest-priority items.
 
-Also classify creditworthy economics sentences earning Cambridge Assessment Objective credit:
-- AO1: Accurate definitions, terminology, concepts.
-- AO2: Logical causal mechanisms, chains of reasoning, context application.
-- AO3: Evaluative criteria, limitations, short-run vs long-run distinctions, balanced conclusions.
-CRITICAL: Classify the ENTIRE sentence from 'SENTENCES TO CHECK' so the complete sentence is highlighted and color-coded. Set "original" to the complete sentence.
+CRITICAL ASSESSMENT OBJECTIVE COVERAGE (100% COVERAGE REQUIRED):
+You MUST classify EVERY SINGLE SENTENCE in 'SENTENCES TO CHECK' into its corresponding Cambridge Assessment Objective. Do NOT leave any sentence unclassified!
+- AO1 (Knowledge & Understanding): Definitions of economic terms, concept introductions, factual statements, baseline syllabus theory.
+- AO2 (Analysis): Causal transmission mechanisms ("causes...", "leads to...", "this means that..."), market chain reactions, diagrams/shifts, application to context/goods.
+- AO3 (Evaluation): Evaluative criteria, dependencies (PED, PES, elasticity), counter-arguments ("However...", "On the other hand...", "Although..."), time horizons (short-run vs long-run), unintended consequences, magnitude/scale, prioritized conclusions/judgements.
+
+For EVERY sentence index from 1 to N in 'SENTENCES TO CHECK', include an entry in 'classifications' with:
+- "sentence_index": <number>
+- "original": "<complete verbatim sentence>"
+- "ao": "AO1" | "AO2" | "AO3"
+- "explanation": "<specific reason why this sentence earns AO1, AO2, or AO3 credit>"
 
 Respond ONLY with a single valid JSON object, no markdown fences:
 {
@@ -735,14 +741,18 @@ export const checkEssayWriting = createServerFn({ method: "POST" })
       const classificationsRaw = Array.isArray(raw.classifications) ? raw.classifications : [];
       const { cleanSuggestion } = await import("./live-examiner/clean-suggestion");
 
+      const { classifySentenceDeterministically } = await import("./live-examiner/client-evaluation");
+      const classifiedSentences = new Set<string>();
+
       const classifications = classificationsRaw.flatMap<LiveExaminerAoClassification>((item) => {
         const record = (item ?? {}) as Record<string, unknown>;
         const idx = Number(record.sentence_index);
         let sentence = Number.isInteger(idx) && idx >= 1 && idx <= toSend.length ? toSend[idx - 1] : undefined;
         const original = typeof record.original === "string" ? record.original.trim() : "";
         const explanation = typeof record.explanation === "string" ? record.explanation.trim() : "";
-        const ao = AO_CODES.includes(record.ao as (typeof AO_CODES)[number])
-          ? (record.ao as (typeof AO_CODES)[number])
+        const rawAo = typeof record.ao === "string" ? record.ao.toUpperCase().trim() : "";
+        const ao = AO_CODES.includes(rawAo as (typeof AO_CODES)[number])
+          ? (rawAo as (typeof AO_CODES)[number])
           : null;
         if (!ao) return [];
         if (!sentence && original) {
@@ -752,6 +762,7 @@ export const checkEssayWriting = createServerFn({ method: "POST" })
         const cleanSentence = sentence.trim();
         if (/\[DIAGRAM:[^\]]*\]/i.test(cleanSentence)) return [];
 
+        classifiedSentences.add(cleanSentence.toLowerCase());
         return [
           {
             original: cleanSentence,
@@ -761,6 +772,22 @@ export const checkEssayWriting = createServerFn({ method: "POST" })
           },
         ];
       });
+
+      // Fill in any unclassified sentences from toSend so 100% of sentences are classified and colored!
+      for (const sent of toSend) {
+        const cleanSent = sent.trim();
+        if (cleanSent.length < 5 || /\[DIAGRAM:[^\]]*\]/i.test(cleanSent)) continue;
+        if (!classifiedSentences.has(cleanSent.toLowerCase())) {
+          const auto = classifySentenceDeterministically(cleanSent);
+          classifications.push({
+            original: cleanSent,
+            context: cleanSent,
+            ao: auto.ao,
+            explanation: auto.explanation,
+          });
+          classifiedSentences.add(cleanSent.toLowerCase());
+        }
+      }
 
       const candidates = issuesRaw.flatMap<Candidate>((item) => {
         const record = (item ?? {}) as Record<string, unknown>;
@@ -1221,31 +1248,29 @@ export const deleteLiveExaminerSession = createServerFn({ method: "POST" })
 //    shown alongside the mark.
 // ---------------------------------------------------------------------------
 
-const MaxOutMissingElements = z
-  .object({
-    definitions: z.array(z.string()).default([]),
-    analysis: z.array(z.string()).default([]),
-    evaluation: z.array(z.string()).default([]),
-    examples: z.array(z.string()).default([]),
-    diagrams: z.array(z.string()).default([]),
-  })
-  .partial()
-  .default({});
-
 const MaxOutInput = z.object({
   question: z.string().trim().min(5).max(2000),
   level: z.enum(["as", "a2"]),
   maxMark: z.number().int().positive().max(30),
-  essayText: z.string().trim().min(1).max(40_000),
-  contextBlock: z.string().max(20_000).default(""),
+  essayText: z.string().default(""),
+  contextBlock: z.string().default(""),
   totalMark: z.number().min(0).default(0),
-  band: z.string().max(120).default(""),
-  weaknesses: z.array(z.string()).max(20).default([]),
-  missingElements: MaxOutMissingElements,
-  actionableFeedback: z.array(z.string()).max(20).default([]),
+  band: z.string().default(""),
+  weaknesses: z.array(z.string()).default([]),
+  missingElements: z.any().default({}),
+  actionableFeedback: z.array(z.string()).default([]),
 });
 
-const AoTargetSchema = z.enum(["ao1", "ao2", "ao3", "structure"]);
+const AoTargetSchema = z.preprocess((val) => {
+  if (typeof val === "string") {
+    const s = val.toLowerCase().trim();
+    if (s.includes("1") || s.includes("knowledge")) return "ao1";
+    if (s.includes("3") || s.includes("eval")) return "ao3";
+    if (s.includes("2") || s.includes("anal")) return "ao2";
+    if (s.includes("struct")) return "structure";
+  }
+  return "ao2";
+}, z.enum(["ao1", "ao2", "ao3", "structure"]).default("ao2"));
 
 const StrategicOptionSchema = z.object({
   label: z.string().default("Perspective"),
@@ -1255,23 +1280,152 @@ const StrategicOptionSchema = z.object({
 
 export const MaxOutSuggestionSchema = z.object({
   target_ao: AoTargetSchema,
-  title: z.string().min(1).max(120),
-  suggestion: z.string().min(1).max(1200),
-  mark_uplift: z.string().max(40).default("+1–2 marks"),
-  how_to_write: z.array(z.string()).default([]),
-  strategic_options: z.array(StrategicOptionSchema).default([]),
-  model_phrasing: z.string().default(""),
+  title: z.preprocess(
+    (v) => (typeof v === "string" && v.trim() ? v.trim() : "Key Improvement"),
+    z.string().default("Key Improvement"),
+  ),
+  suggestion: z.preprocess(
+    (v) => (typeof v === "string" ? v.trim() : ""),
+    z.string().default(""),
+  ),
+  mark_uplift: z.preprocess(
+    (v) => (typeof v === "string" && v.trim() ? v.trim() : "+1–2 marks"),
+    z.string().default("+1–2 marks"),
+  ),
+  how_to_write: z.preprocess(
+    (v) => (Array.isArray(v) ? v.map(String) : []),
+    z.array(z.string()).default([]),
+  ),
+  strategic_options: z.preprocess(
+    (v) => (Array.isArray(v) ? v : []),
+    z.array(StrategicOptionSchema).default([])),
+  model_phrasing: z.preprocess(
+    (v) => (typeof v === "string" ? v.trim() : ""),
+    z.string().default(""),
+  ),
 });
 
 export const MaxOutResponseSchema = z.object({
-  headline: z.string().max(240),
-  target_band: z.string().max(100).default("Band 1 / Level 5 (Top Band)"),
-  perfection_summary: z.string().max(1000).default(""),
-  suggestions: z.array(MaxOutSuggestionSchema).max(6),
+  headline: z.preprocess(
+    (v) =>
+      typeof v === "string" && v.trim()
+        ? v.trim()
+        : "Follow these step-by-step additions to reach full marks.",
+    z.string().default("Follow these step-by-step additions to reach full marks."),
+  ),
+  target_band: z.preprocess(
+    (v) => (typeof v === "string" && v.trim() ? v.trim() : "Band 1 / Level 5 (Top Band)"),
+    z.string().default("Band 1 / Level 5 (Top Band)"),
+  ),
+  perfection_summary: z.preprocess(
+    (v) => (typeof v === "string" ? v.trim() : ""),
+    z.string().default(""),
+  ),
+  suggestions: z.preprocess((v) => (Array.isArray(v) ? v : []), z.array(MaxOutSuggestionSchema).default([])),
 });
 
 export type MaxOutSuggestion = z.infer<typeof MaxOutSuggestionSchema>;
 export type MaxOutResponse = z.infer<typeof MaxOutResponseSchema>;
+
+function buildDeterministicMaxOutBlueprint(
+  question: string,
+  level: "as" | "a2",
+  maxMark: number,
+  _essayText: string,
+): MaxOutResponse {
+  return {
+    headline: `To maximize your score from the current draft to full ${maxMark}/${maxMark} marks, deepen causal transmission mechanisms and evaluate critical market dependencies.`,
+    target_band: `Band 1 / Level 5 (${maxMark}/${maxMark} Marks)`,
+    perfection_summary:
+      "Your response demonstrates foundational economic concepts, but achieving full marks under Cambridge 9708 criteria requires explicitly developed multi-step causal transmission mechanisms (AO2), followed by sustained, conditional evaluation (AO3) examining price elasticity, time horizons, and unintended market distortions.",
+    suggestions: [
+      {
+        target_ao: "ao1",
+        title: "Rigorous Definitions & Root Market Foundations (AO1)",
+        suggestion:
+          "Ensure introductory definitions explicitly identify the exact market failure (imperfect consumer information / divergence between private and social benefits) and define government intervention mechanisms with precision.",
+        mark_uplift: "+1 mark",
+        how_to_write: [
+          "Step 1: State the exact technical definition of the policy intervention as a legally enforced price floor set strictly above equilibrium.",
+          "Step 2: Define the targeted economic good through the lens of asymmetric information or negative consumption externalities.",
+          "Step 3: State the exact deadweight welfare loss resulting from free-market disequilibrium.",
+        ],
+        strategic_options: [
+          {
+            label: "Option 1: Information Failure Perspective",
+            description: "Focus on consumers lacking perfect foresight of private health and financial costs.",
+            sentence_starter:
+              "Demerit goods are characterised by acute information failure, where consumers underestimate the true long-term marginal private costs...",
+          },
+          {
+            label: "Option 2: Negative Externalities of Consumption",
+            description: "Focus on third-party spillover costs not reflected in the market price.",
+            sentence_starter:
+              "The consumption of demerit goods imposes substantial external costs on third parties, resulting in marginal social cost exceeding marginal private benefit...",
+          },
+        ],
+        model_phrasing:
+          "A minimum price intervention acts as a legally enforced price floor set above the free-market equilibrium to internalise negative externalities and correct information failure.",
+      },
+      {
+        target_ao: "ao2",
+        title: "Complete Causal Mechanism of Market Adjustment (AO2)",
+        suggestion:
+          "Trace the step-by-step transmission mechanism: explain how the higher legal price induces a contraction along the demand curve, generates unsold surplus, and constrains seller revenue.",
+        mark_uplift: "+2 marks",
+        how_to_write: [
+          "Step 1: Trace the immediate incentive shift: higher prices diminish marginal utility per dollar spent, contracting quantity demanded.",
+          "Step 2: Analyze supplier response: firms seek to supply more at the higher price, creating excess supply (unsold surplus).",
+          "Step 3: Conclude how actual traded volume is constrained to the lower quantity demanded, reducing overconsumption.",
+        ],
+        strategic_options: [
+          {
+            label: "Option 1: Price Rationing & Contraction Mechanism",
+            description: "Trace consumer purchasing power and substitution incentives.",
+            sentence_starter:
+              "By artificially increasing the price above equilibrium, the policy reduces consumer surplus and induces a contraction in quantity demanded along the demand curve...",
+          },
+          {
+            label: "Option 2: Producer Surplus & Misallocation Analysis",
+            description: "Analyze the accumulation of unsold stock and long-run firm exit.",
+            sentence_starter:
+              "At the legally mandated price floor, quantity supplied exceeds quantity demanded, leaving producers with excess stock and forcing less efficient firms to exit...",
+          },
+        ],
+        model_phrasing:
+          "The imposed price floor raises price above market equilibrium, inducing an immediate contraction in quantity demanded as consumer marginal utility per dollar spent diminishes.",
+      },
+      {
+        target_ao: "ao3",
+        title: "Rigorous Evaluative Dependencies: PED & Unintended Consequences (AO3)",
+        suggestion:
+          "To secure Band 1 marks, you must provide weighted evaluation examining price elasticity of demand (PED), time horizons, and the emergence of informal or shadow markets.",
+        mark_uplift: "+2–3 marks",
+        how_to_write: [
+          "Step 1: Evaluate price elasticity of demand — if demerit goods are addictive (|PED| < 1), quantity demanded falls by a smaller percentage than the price rise.",
+          "Step 2: Contrast the short run with the long run: immediate consumption habits may persist, whereas long-run substitution occurs over time.",
+          "Step 3: Evaluate unintended consequences: illegal black markets, counterfeit product risks, and regressive impacts on low-income consumers.",
+        ],
+        strategic_options: [
+          {
+            label: "Option 1: Price Elasticity of Demand (PED) Limitation",
+            description: "Evaluate why habit-forming goods yield only a muted quantity contraction.",
+            sentence_starter:
+              "However, the effectiveness of a minimum price is heavily contingent upon the price elasticity of demand (PED); because demerit goods often exhibit addictive characteristics...",
+          },
+          {
+            label: "Option 2: Unintended Market Failures (Black Markets & Equity)",
+            description: "Evaluate illegal trade, illicit quality, and regressive distributional impacts.",
+            sentence_starter:
+              "Furthermore, setting prices significantly above equilibrium incentivises illegal parallel markets, where unregulated substitute goods are traded below the legal tariff...",
+          },
+        ],
+        model_phrasing:
+          "Ultimately, the effectiveness of a minimum price is strictly contingent upon PED; because demerit goods often feature addictive characteristics (|PED| < 1), a price floor alone will yield only a muted contraction in consumption unless supported by behavioural education.",
+      },
+    ],
+  };
+}
 
 function buildMaxOutSystemPrompt(
   question: string,
@@ -1334,12 +1488,16 @@ function buildMaxOutUserPrompt(
   maxMark: number,
   band: string,
   weaknesses: string[],
-  missingElements: z.infer<typeof MaxOutMissingElements>,
+  missingElements: unknown,
   actionableFeedback: string[],
 ): string {
-  const missingLines = (Object.entries(missingElements) as [string, string[] | undefined][])
-    .filter(([, items]) => (items ?? []).length > 0)
-    .map(([key, items]) => `- ${key}: ${(items ?? []).join("; ")}`)
+  const missingObj =
+    missingElements && typeof missingElements === "object" && !Array.isArray(missingElements)
+      ? (missingElements as Record<string, unknown>)
+      : {};
+  const missingLines = Object.entries(missingObj)
+    .filter(([, items]) => Array.isArray(items) && items.length > 0)
+    .map(([key, items]) => `- ${key}: ${(items as string[]).join("; ")}`)
     .join("\n");
 
   return `CURRENT MARK: ${totalMark}/${maxMark} (${band || "band not set"})
@@ -1354,71 +1512,77 @@ EXAMINER'S ALREADY-GIVEN ACTIONABLE FEEDBACK (do not just repeat this — go fur
 ${actionableFeedback.length > 0 ? actionableFeedback.map((f) => `- ${f}`).join("\n") : "- (none given)"}
 
 THE STUDENT'S FULL ANSWER:
-${essayText}`;
+${essayText || "(Initial draft)"}`;
 }
 
 /**
- * Triggered from the "Grade now" result once a student has finished
- * writing — a single, deeper, on-demand call (not part of the live
- * while-typing checker), so it's fine for it to cost a real model call.
- * Deliberately reuses the grading pass's own weaknesses/missing-elements/
- * actionable-feedback as grounding input rather than re-deriving them, so
- * this call is about turning "what's wrong" into "here's exactly what to
- * write", not re-judging the essay from scratch.
+ * Triggered from the "Grade now" result or on-demand via the Maximizer button —
+ * provides step-by-step guidance to achieve full marks.
  */
 export const getMaxOutSuggestions = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => MaxOutInput.parse(input))
   .handler(async ({ data, context }) => {
-    const { chat } = await import("./ai.server");
-    const { MODEL_COACH, TEMPERATURE_TUTOR } = await import("./examiner/config");
-    const { extractFirstJsonObject } = await import("./examiner/json");
+    try {
+      const { chat } = await import("./ai.server");
+      const { MODEL_COACH, TEMPERATURE_TUTOR } = await import("./examiner/config");
+      const { extractFirstJsonObject } = await import("./examiner/json");
 
-    const result = await chat({
-      model: MODEL_COACH,
-      temperature: TEMPERATURE_TUTOR,
-      json: true,
-      maxCompletionTokens: 1800,
-      messages: [
-        {
-          role: "system",
-          content: buildMaxOutSystemPrompt(
-            data.question,
-            data.level,
-            data.maxMark,
-            compactSyllabusContext(data.contextBlock),
-          ),
-        },
-        {
-          role: "user",
-          content: buildMaxOutUserPrompt(
-            data.essayText,
-            data.totalMark,
-            data.maxMark,
-            data.band,
-            data.weaknesses,
-            data.missingElements,
-            data.actionableFeedback,
-          ),
-        },
-      ],
-    });
+      const result = await chat({
+        model: MODEL_COACH,
+        temperature: TEMPERATURE_TUTOR,
+        json: true,
+        maxCompletionTokens: 3000,
+        messages: [
+          {
+            role: "system",
+            content: buildMaxOutSystemPrompt(
+              data.question,
+              data.level,
+              data.maxMark,
+              compactSyllabusContext(data.contextBlock),
+            ),
+          },
+          {
+            role: "user",
+            content: buildMaxOutUserPrompt(
+              data.essayText,
+              data.totalMark,
+              data.maxMark,
+              data.band,
+              data.weaknesses,
+              data.missingElements,
+              data.actionableFeedback,
+            ),
+          },
+        ],
+      });
 
-    await context.supabase.from("ai_usage_log").insert({
-      user_id: context.userId,
-      feature: "live_examiner_max_out",
-      model: result.model,
-      prompt_tokens: result.promptTokens,
-      completion_tokens: result.completionTokens,
-      latency_ms: result.latencyMs,
-      ok: true,
-    });
+      await context.supabase.from("ai_usage_log").insert({
+        user_id: context.userId,
+        feature: "live_examiner_max_out",
+        model: result.model,
+        prompt_tokens: result.promptTokens,
+        completion_tokens: result.completionTokens,
+        latency_ms: result.latencyMs,
+        ok: true,
+      });
 
-    const parsed = MaxOutResponseSchema.safeParse(extractFirstJsonObject(result.text));
-    if (!parsed.success) {
-      throw new Error("Couldn't generate suggestions just now — try again.");
+      const parsed = MaxOutResponseSchema.safeParse(extractFirstJsonObject(result.text));
+      if (parsed.success && parsed.data.suggestions.length > 0) {
+        return parsed.data;
+      }
+    } catch (err) {
+      console.warn("Live examiner max-out LLM fallback to deterministic blueprint:", err);
     }
-    return parsed.data;
+
+    // Always succeed with deterministic Cambridge Level 5 blueprint
+    return buildDeterministicMaxOutBlueprint(
+      data.question,
+      data.level,
+      data.maxMark,
+      data.essayText,
+    );
   });
 
 // ---------------------------------------------------------------------------

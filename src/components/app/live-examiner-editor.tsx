@@ -9,6 +9,8 @@ import type {
   IssueCategory,
 } from "@/hooks/use-live-examiner-check";
 import { cleanSuggestion } from "@/lib/live-examiner/clean-suggestion";
+import { classifySentenceDeterministically } from "@/lib/live-examiner/client-evaluation";
+import { splitSentences } from "@/lib/writing-check/sentence-diff";
 import { AO_DEFINITIONS } from "@/lib/examiner/config";
 import { cn } from "@/lib/utils";
 
@@ -126,27 +128,27 @@ const AO_META: Record<"AO1" | "AO2" | "AO3", UnderlineStyleMeta> = {
     dot: "bg-ao1",
     underlineColor: "var(--ao1)",
     underlineStyle: "solid",
-    underlineThickness: "2px",
+    underlineThickness: "2.5px",
     offset: "5px",
-    backgroundColor: "rgba(59, 130, 246, 0.12)",
+    backgroundColor: "rgba(59, 130, 246, 0.22)",
   },
   AO2: {
     label: "AO2 Analysis",
     dot: "bg-ao2",
     underlineColor: "var(--ao2)",
     underlineStyle: "solid",
-    underlineThickness: "2px",
+    underlineThickness: "2.5px",
     offset: "5px",
-    backgroundColor: "rgba(16, 185, 129, 0.12)",
+    backgroundColor: "rgba(16, 185, 129, 0.20)",
   },
   AO3: {
     label: "AO3 Evaluation",
     dot: "bg-ao3",
     underlineColor: "var(--ao3)",
     underlineStyle: "solid",
-    underlineThickness: "2px",
+    underlineThickness: "2.5px",
     offset: "5px",
-    backgroundColor: "rgba(245, 158, 11, 0.15)",
+    backgroundColor: "rgba(245, 158, 11, 0.24)",
   },
 };
 
@@ -325,6 +327,49 @@ export function computeRanges(
         id: classification.id,
         classification,
       });
+    }
+  }
+
+  // 2b. Full Coverage Guarantee: ensure 100% of sentences in text are identified and color-coded
+  const allSentences = splitSentences(text);
+  for (const sentence of allSentences) {
+    const trimmed = sentence.trim();
+    if (trimmed.length < 5 || /\[DIAGRAM:[^\]]*\]/i.test(trimmed)) continue;
+
+    // Check if this sentence is already located
+    const alreadyLocated = locatedClassifications.some((loc) => {
+      const locText = text.slice(loc.start, loc.end).trim();
+      return locText.includes(trimmed) || trimmed.includes(locText);
+    });
+
+    if (!alreadyLocated) {
+      let searchFrom = 0;
+      while (true) {
+        const at = text.indexOf(trimmed, searchFrom);
+        if (at === -1) break;
+        const candidateStart = at;
+        const candidateEnd = candidateStart + trimmed.length;
+        const collides =
+          overlapsProtected(candidateStart, candidateEnd) ||
+          locatedClassifications.some((r) => candidateStart < r.end && candidateEnd > r.start);
+        if (!collides) {
+          const auto = classifySentenceDeterministically(trimmed);
+          locatedClassifications.push({
+            start: candidateStart,
+            end: candidateEnd,
+            id: `auto-${auto.ao}-${candidateStart}`,
+            classification: {
+              id: `auto-${auto.ao}-${candidateStart}`,
+              original: trimmed,
+              context: trimmed,
+              ao: auto.ao,
+              explanation: auto.explanation,
+            },
+          });
+          break;
+        }
+        searchFrom = at + 1;
+      }
     }
   }
 
