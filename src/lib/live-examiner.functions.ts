@@ -1303,6 +1303,14 @@ export const MaxOutSuggestionSchema = z.object({
     (v) => (typeof v === "string" ? v.trim() : ""),
     z.string().default(""),
   ),
+  placement: z.preprocess(
+    (v) => (typeof v === "string" && v.trim() ? v.trim() : "Analytical Body Paragraph"),
+    z.string().default("Analytical Body Paragraph"),
+  ),
+  placement_rationale: z.preprocess(
+    (v) => (typeof v === "string" && v.trim() ? v.trim() : ""),
+    z.string().default(""),
+  ),
 });
 
 export const MaxOutResponseSchema = z.object({
@@ -1345,6 +1353,9 @@ function buildDeterministicMaxOutBlueprint(
         suggestion:
           "Ensure introductory definitions explicitly identify the exact market failure (imperfect consumer information / divergence between private and social benefits) and define government intervention mechanisms with precision.",
         mark_uplift: "+1 mark",
+        placement: "Paragraph 1 (Introduction & Core Definitions)",
+        placement_rationale:
+          "Cambridge examiners award AO1 marks early when baseline definitions and market failure principles are established upfront in the opening paragraph.",
         how_to_write: [
           "Step 1: State the exact technical definition of the policy intervention as a legally enforced price floor set strictly above equilibrium.",
           "Step 2: Define the targeted economic good through the lens of asymmetric information or negative consumption externalities.",
@@ -1373,6 +1384,9 @@ function buildDeterministicMaxOutBlueprint(
         suggestion:
           "Trace the step-by-step transmission mechanism: explain how the higher legal price induces a contraction along the demand curve, generates unsold surplus, and constrains seller revenue.",
         mark_uplift: "+2 marks",
+        placement: "Paragraph 2 or 3 (Analytical Transmission Mechanism)",
+        placement_rationale:
+          "Step-by-step analysis (AO2) must follow definitions to systematically unpack consumer/supplier incentives and market equilibria.",
         how_to_write: [
           "Step 1: Trace the immediate incentive shift: higher prices diminish marginal utility per dollar spent, contracting quantity demanded.",
           "Step 2: Analyze supplier response: firms seek to supply more at the higher price, creating excess supply (unsold surplus).",
@@ -1401,6 +1415,9 @@ function buildDeterministicMaxOutBlueprint(
         suggestion:
           "To secure Band 1 marks, you must provide weighted evaluation examining price elasticity of demand (PED), time horizons, and the emergence of informal or shadow markets.",
         mark_uplift: "+2–3 marks",
+        placement: "Final Paragraph (Evaluative Counterweight & Real-World Synthesis)",
+        placement_rationale:
+          "High-level evaluation (AO3) requires weighing critical dependencies (elasticities, time horizons, unintended consequences) against earlier arguments to reach a justified conclusion.",
         how_to_write: [
           "Step 1: Evaluate price elasticity of demand — if demerit goods are addictive (|PED| < 1), quantity demanded falls by a smaller percentage than the price rise.",
           "Step 2: Contrast the short run with the long run: immediate consumption habits may persist, whereas long-run substitution occurs over time.",
@@ -1447,6 +1464,7 @@ Provide concrete, academically rigorous guidance detailing:
 2. Step-by-step "How to write" instructions for each improvement (e.g. Step 1: Definition/Premise -> Step 2: Causal Transmission Chain -> Step 3: Evaluation/Trade-off).
 3. Strategic options (e.g. Option 1 vs Option 2) providing multiple argument perspectives the student can choose from.
 4. Exemplar Cambridge-grade sentence starters and model phrasing that they can directly incorporate.
+5. Exact structural placement in the essay (e.g. Paragraph 1 for definitions, Paragraph 2 for causal mechanisms, Final Paragraph for evaluation) and why placing it there scores marks.
 
 Respond ONLY with a single valid JSON object, no markdown fences, no commentary outside the JSON:
 {
@@ -1459,6 +1477,8 @@ Respond ONLY with a single valid JSON object, no markdown fences, no commentary 
       "title": "<short title, e.g. 'Complete the Causal Mechanism for Tax Incidence'>",
       "suggestion": "<detailed explanation of what is missing in the current draft and why adding this closes the gap to full marks>",
       "mark_uplift": "<e.g. '+2 marks'>",
+      "placement": "<exact position in essay, e.g. 'Paragraph 1 (Introduction & Definitions)', 'Body Paragraph 2 (Analytical Mechanism)', 'Final Paragraph (Evaluative Judgement)'>",
+      "placement_rationale": "<why placing it in this exact location achieves Cambridge marks>",
       "how_to_write": [
         "<Step 1: State the concept and explicit condition>",
         "<Step 2: Trace the transmission mechanism (Cause -> Transmission -> Outcome)>",

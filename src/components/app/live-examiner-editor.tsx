@@ -286,14 +286,38 @@ export function computeRanges(
     while (true) {
       const at = text.indexOf(targetSentence, searchFrom);
       if (at === -1) break;
-      const candidateStart = at;
-      const candidateEnd = candidateStart + targetSentence.length;
+      let candidateStart = at;
+      let candidateEnd = candidateStart + targetSentence.length;
+
+      // Clean leading and trailing whitespace
+      while (candidateStart < candidateEnd && /\s/.test(text[candidateStart])) {
+        candidateStart++;
+      }
+      while (candidateEnd > candidateStart && /\s/.test(text[candidateEnd - 1])) {
+        candidateEnd--;
+      }
+
+      // Absorb terminal sentence punctuation (e.g. '.', '!', '?') if followed by whitespace or end of string,
+      // so the punctuation is cleanly contained in the sentence highlight rather than dangling naked
+      if (candidateEnd < text.length && /[.!?]/.test(text[candidateEnd])) {
+        const nextChar = text[candidateEnd + 1];
+        if (!nextChar || /\s/.test(nextChar) || /[)\]"']/.test(nextChar)) {
+          candidateEnd++;
+        }
+      }
+      if (candidateEnd < text.length && /[)\]"']/.test(text[candidateEnd])) {
+        const afterQuote = text[candidateEnd + 1];
+        if (!afterQuote || /\s/.test(afterQuote)) {
+          candidateEnd++;
+        }
+      }
+
       const collides =
         overlapsProtected(candidateStart, candidateEnd) ||
         locatedClassifications.some((r) => candidateStart < r.end && candidateEnd > r.start);
       if (!collides) {
         foundStart = candidateStart;
-        foundLength = targetSentence.length;
+        foundLength = candidateEnd - candidateStart;
         break;
       }
       searchFrom = at + 1;
@@ -306,14 +330,35 @@ export function computeRanges(
       while (true) {
         const at = text.indexOf(fallbackStr, searchFromOrig);
         if (at === -1) break;
-        const candidateStart = at;
-        const candidateEnd = candidateStart + fallbackStr.length;
+        let candidateStart = at;
+        let candidateEnd = candidateStart + fallbackStr.length;
+
+        while (candidateStart < candidateEnd && /\s/.test(text[candidateStart])) {
+          candidateStart++;
+        }
+        while (candidateEnd > candidateStart && /\s/.test(text[candidateEnd - 1])) {
+          candidateEnd--;
+        }
+
+        if (candidateEnd < text.length && /[.!?]/.test(text[candidateEnd])) {
+          const nextChar = text[candidateEnd + 1];
+          if (!nextChar || /\s/.test(nextChar) || /[)\]"']/.test(nextChar)) {
+            candidateEnd++;
+          }
+        }
+        if (candidateEnd < text.length && /[)\]"']/.test(text[candidateEnd])) {
+          const afterQuote = text[candidateEnd + 1];
+          if (!afterQuote || /\s/.test(afterQuote)) {
+            candidateEnd++;
+          }
+        }
+
         const collides =
           overlapsProtected(candidateStart, candidateEnd) ||
           locatedClassifications.some((r) => candidateStart < r.end && candidateEnd > r.start);
         if (!collides) {
           foundStart = candidateStart;
-          foundLength = fallbackStr.length;
+          foundLength = candidateEnd - candidateStart;
           break;
         }
         searchFromOrig = at + 1;
@@ -347,8 +392,29 @@ export function computeRanges(
       while (true) {
         const at = text.indexOf(trimmed, searchFrom);
         if (at === -1) break;
-        const candidateStart = at;
-        const candidateEnd = candidateStart + trimmed.length;
+        let candidateStart = at;
+        let candidateEnd = candidateStart + trimmed.length;
+
+        while (candidateStart < candidateEnd && /\s/.test(text[candidateStart])) {
+          candidateStart++;
+        }
+        while (candidateEnd > candidateStart && /\s/.test(text[candidateEnd - 1])) {
+          candidateEnd--;
+        }
+
+        if (candidateEnd < text.length && /[.!?]/.test(text[candidateEnd])) {
+          const nextChar = text[candidateEnd + 1];
+          if (!nextChar || /\s/.test(nextChar) || /[)\]"']/.test(nextChar)) {
+            candidateEnd++;
+          }
+        }
+        if (candidateEnd < text.length && /[)\]"']/.test(text[candidateEnd])) {
+          const afterQuote = text[candidateEnd + 1];
+          if (!afterQuote || /\s/.test(afterQuote)) {
+            candidateEnd++;
+          }
+        }
+
         const collides =
           overlapsProtected(candidateStart, candidateEnd) ||
           locatedClassifications.some((r) => candidateStart < r.end && candidateEnd > r.start);
@@ -438,20 +504,6 @@ export function computeRanges(
         previous.kind === "classification" &&
         range.kind === "classification" &&
         previous.id === range.id
-      ) {
-        previous.end = range.end;
-        continue;
-      }
-    }
-    // Also merge adjacent classifications of the same AO if separated only by whitespace (<= 3 chars)
-    if (previous) {
-      const gap = text.slice(previous.end, range.start);
-      if (
-        previous.kind === "classification" &&
-        range.kind === "classification" &&
-        previous.classification.ao === range.classification.ao &&
-        gap.length <= 3 &&
-        gap.trim() === ""
       ) {
         previous.end = range.end;
         continue;
@@ -636,10 +688,12 @@ export function LiveExaminerEditor({
                 textDecorationColor: meta.underlineColor,
                 textDecorationThickness: meta.underlineThickness,
                 textUnderlineOffset: meta.offset,
-                textDecorationSkipInk: "none",
+                textDecorationSkipInk: "auto",
                 fontWeight: "normal",
                 userSelect: "none",
-                borderRadius: "3px",
+                borderRadius: "2px",
+                boxDecorationBreak: "clone",
+                WebkitBoxDecorationBreak: "clone",
               }}
             >
               {segment.text}

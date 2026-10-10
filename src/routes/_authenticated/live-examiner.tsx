@@ -16,6 +16,7 @@ import {
   ImagePlus,
   Loader2,
   LockKeyhole,
+  MapPin,
   PenLine,
   Plus,
   RotateCcw,
@@ -317,12 +318,78 @@ function LiveExaminerPage() {
     });
   }
 
-  function handleInsertSentence(text: string) {
+  function handleInsertSentence(
+    text: string,
+    targetAo?: "ao1" | "ao2" | "ao3" | "structure",
+    placementLabel?: string,
+    forceEnd = false,
+  ) {
     setEssayText((current) => {
-      if (!current.trim()) return text;
-      return `${current}\n\n${text}`;
+      const trimmedCurrent = current.trim();
+      if (!trimmedCurrent) return text;
+
+      if (forceEnd) {
+        return `${trimmedCurrent}\n\n${text}`;
+      }
+
+      // Split into paragraphs (delimited by double newlines)
+      const paragraphs = trimmedCurrent
+        .split(/\n\s*\n/)
+        .map((p) => p.trim())
+        .filter(Boolean);
+
+      if (targetAo === "ao1") {
+        // AO1: Definitions & Baseline Knowledge — place into opening paragraph
+        if (paragraphs.length <= 1) {
+          return `${paragraphs[0] || ""} ${text}`.trim();
+        }
+        paragraphs[0] = `${paragraphs[0]} ${text}`;
+        return paragraphs.join("\n\n");
+      }
+
+      if (targetAo === "ao2") {
+        // AO2: Analytical Transmission Chains — place into analytical body (paragraph 2)
+        if (paragraphs.length === 1) {
+          return `${paragraphs[0]}\n\n${text}`;
+        }
+        paragraphs[1] = `${paragraphs[1]} ${text}`;
+        return paragraphs.join("\n\n");
+      }
+
+      if (targetAo === "ao3") {
+        // AO3: Evaluation & Counterweight — place into evaluation or concluding section
+        const lastIdx = paragraphs.length - 1;
+        const lastPara = paragraphs[lastIdx].toLowerCase();
+        const hasEvalKeywords =
+          lastPara.includes("however") ||
+          lastPara.includes("conclusion") ||
+          lastPara.includes("overall") ||
+          lastPara.includes("depends") ||
+          lastPara.includes("evaluation") ||
+          lastPara.includes("in conclusion");
+
+        if (hasEvalKeywords) {
+          paragraphs[lastIdx] = `${paragraphs[lastIdx]} ${text}`;
+          return paragraphs.join("\n\n");
+        }
+        paragraphs.push(text);
+        return paragraphs.join("\n\n");
+      }
+
+      return `${trimmedCurrent}\n\n${text}`;
     });
-    toast.success("Inserted into essay draft.");
+
+    const locationName =
+      placementLabel ||
+      (targetAo === "ao1"
+        ? "Opening Paragraph (Definitions)"
+        : targetAo === "ao2"
+          ? "Analytical Body (Paragraph 2)"
+          : targetAo === "ao3"
+            ? "Evaluative Conclusion"
+            : "Essay draft");
+
+    toast.success(`Inserted into ${locationName}.`);
   }
 
   useEffect(() => {
@@ -1619,6 +1686,45 @@ function aoBadgeStyle(target: MaxOutSuggestion["target_ao"]): string {
   }
 }
 
+function defaultPlacement(ao: "ao1" | "ao2" | "ao3" | "structure") {
+  switch (ao) {
+    case "ao1":
+      return "Paragraph 1 (Introduction & Core Definitions)";
+    case "ao2":
+      return "Paragraph 2 or 3 (Analytical Transmission Mechanism)";
+    case "ao3":
+      return "Final Paragraph (Evaluative Counterweight & Synthesis)";
+    default:
+      return "Analytical Body Paragraph";
+  }
+}
+
+function defaultPlacementRationale(ao: "ao1" | "ao2" | "ao3" | "structure") {
+  switch (ao) {
+    case "ao1":
+      return "Cambridge examiners award AO1 marks early when baseline definitions and market failure principles are established upfront in the opening paragraph.";
+    case "ao2":
+      return "Step-by-step analysis (AO2) must follow definitions to systematically unpack consumer/supplier incentives and market equilibria.";
+    case "ao3":
+      return "High-level evaluation (AO3) requires weighing critical dependencies (elasticities, time horizons, unintended consequences) against earlier arguments to reach a justified conclusion.";
+    default:
+      return "Integrates the analytical requirement directly into the core essay structure.";
+  }
+}
+
+function shortPlacement(ao: "ao1" | "ao2" | "ao3" | "structure") {
+  switch (ao) {
+    case "ao1":
+      return "Intro (¶1)";
+    case "ao2":
+      return "Body (¶2)";
+    case "ao3":
+      return "Evaluation";
+    default:
+      return "Draft";
+  }
+}
+
 function ScoreMaximizerDialog({
   open,
   onOpenChange,
@@ -1641,7 +1747,12 @@ function ScoreMaximizerDialog({
   loading: boolean;
   error: boolean;
   onRetry: () => void;
-  onInsertText: (text: string) => void;
+  onInsertText: (
+    text: string,
+    targetAo?: "ao1" | "ao2" | "ao3" | "structure",
+    placementLabel?: string,
+    forceEnd?: boolean,
+  ) => void;
   onShowModelAnswer: () => void;
 }) {
   return (
@@ -1678,7 +1789,7 @@ function ScoreMaximizerDialog({
             </p>
             <p className="max-w-md text-xs text-muted-foreground">
               Identifying missing causal chains, evaluative trade-offs, strategic argument options,
-              and model phrasing.
+              exact essay placement, and model phrasing.
             </p>
           </div>
         ) : error ? (
@@ -1743,6 +1854,25 @@ function ScoreMaximizerDialog({
                     </div>
                   </div>
 
+                  {/* Exact Essay Placement Card */}
+                  <div className="mt-3.5 rounded-lg border border-primary/20 bg-primary/[0.03] p-3 space-y-1.5">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <div className="flex items-center gap-1.5 text-xs font-bold text-foreground">
+                        <MapPin className="size-3.5 text-primary shrink-0" />
+                        <span>Exact Essay Placement:</span>
+                      </div>
+                      <Badge variant="secondary" className="border text-[10px] font-semibold bg-background text-primary">
+                        {suggestion.placement || defaultPlacement(suggestion.target_ao)}
+                      </Badge>
+                    </div>
+                    {(suggestion.placement_rationale || defaultPlacementRationale(suggestion.target_ao)) ? (
+                      <p className="text-[11px] leading-relaxed text-muted-foreground pl-5">
+                        <strong className="text-foreground/90 font-medium">Why place it here: </strong>
+                        {suggestion.placement_rationale || defaultPlacementRationale(suggestion.target_ao)}
+                      </p>
+                    ) : null}
+                  </div>
+
                   {/* Diagnostic */}
                   <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
                     {suggestion.suggestion}
@@ -1798,18 +1928,40 @@ function ScoreMaximizerDialog({
                               ) : null}
                             </div>
                             {option.sentence_starter ? (
-                              <div className="mt-2.5 flex items-center justify-end gap-1.5 pt-1.5 border-t border-border/40">
+                              <div className="mt-2.5 flex flex-wrap items-center justify-end gap-1.5 pt-1.5 border-t border-border/40">
                                 <CopyButton text={option.sentence_starter} label="Copy starter" />
                                 <Button
                                   type="button"
+                                  variant="outline"
                                   size="sm"
-                                  className="h-7 text-xs gap-1"
+                                  className="h-7 text-xs"
                                   onClick={() => {
-                                    onInsertText(option.sentence_starter);
+                                    onInsertText(
+                                      option.sentence_starter,
+                                      suggestion.target_ao,
+                                      suggestion.placement,
+                                      true,
+                                    );
                                     onOpenChange(false);
                                   }}
                                 >
-                                  <Plus className="size-3" /> Insert into draft
+                                  Append
+                                </Button>
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  className="h-7 text-xs gap-1 font-medium bg-primary text-primary-foreground hover:bg-primary/90"
+                                  onClick={() => {
+                                    onInsertText(
+                                      option.sentence_starter,
+                                      suggestion.target_ao,
+                                      suggestion.placement,
+                                      false,
+                                    );
+                                    onOpenChange(false);
+                                  }}
+                                >
+                                  <MapPin className="size-3" /> Place in {shortPlacement(suggestion.target_ao)}
                                 </Button>
                               </div>
                             ) : null}
@@ -1821,28 +1973,49 @@ function ScoreMaximizerDialog({
 
                   {/* Model Phrasing */}
                   {suggestion.model_phrasing ? (
-                    <div className="mt-3 rounded-lg border border-emerald-500/20 bg-emerald-500/[0.04] p-2.5">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 uppercase tracking-wider">
-                          Cambridge Level 5 Exemplar Phrasing
+                    <div className="mt-3.5 rounded-lg border border-emerald-500/25 bg-emerald-500/[0.04] p-3 space-y-2">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 uppercase tracking-wider flex items-center gap-1.5">
+                          <Sparkles className="size-3" /> Cambridge Level 5 Exemplar Phrasing
                         </span>
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex flex-wrap items-center gap-1.5">
                           <CopyButton text={suggestion.model_phrasing} label="Copy" />
                           <Button
                             type="button"
-                            variant="ghost"
+                            variant="outline"
                             size="sm"
-                            className="h-7 text-xs text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/10"
+                            className="h-7 text-xs"
                             onClick={() => {
-                              onInsertText(suggestion.model_phrasing);
+                              onInsertText(
+                                suggestion.model_phrasing,
+                                suggestion.target_ao,
+                                suggestion.placement,
+                                true,
+                              );
                               onOpenChange(false);
                             }}
                           >
-                            <Plus className="size-3" /> Insert
+                            Append
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            className="h-7 text-xs gap-1 bg-emerald-600 text-white hover:bg-emerald-700 font-medium"
+                            onClick={() => {
+                              onInsertText(
+                                suggestion.model_phrasing,
+                                suggestion.target_ao,
+                                suggestion.placement,
+                                false,
+                              );
+                              onOpenChange(false);
+                            }}
+                          >
+                            <MapPin className="size-3" /> Place in {shortPlacement(suggestion.target_ao)}
                           </Button>
                         </div>
                       </div>
-                      <p className="mt-1.5 text-xs italic leading-relaxed text-foreground/90 font-serif">
+                      <p className="rounded border border-emerald-500/20 bg-background/80 p-2.5 font-serif text-xs italic leading-relaxed text-foreground/90">
                         "{suggestion.model_phrasing}"
                       </p>
                     </div>

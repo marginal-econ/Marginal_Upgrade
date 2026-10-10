@@ -343,4 +343,81 @@ describe("Live Examiner Editor - computeRanges & Investor Demo Robustness", () =
       expect(r.end).toBeGreaterThan(r.start);
     }
   });
+
+  it("PRISTINE SENTENCE ENDS: absorbs terminal punctuation and strictly excludes inter-sentence whitespace", () => {
+    const s1 = "Demerit goods are over-consumed because of information failure.";
+    const s2 = "This causes a misallocation of resources and market failure.";
+    const essay = `${s1} ${s2}`;
+
+    // LLM returned sentence without period
+    const s1WithoutDot = "Demerit goods are over-consumed because of information failure";
+    const s2WithoutDot = "This causes a misallocation of resources and market failure";
+
+    const classifications: ActiveAoClassification[] = [
+      {
+        id: "c1",
+        ao: "AO1",
+        original: s1WithoutDot,
+        context: s1WithoutDot,
+        explanation: "Definition",
+      },
+      {
+        id: "c2",
+        ao: "AO2",
+        original: s2WithoutDot,
+        context: s2WithoutDot,
+        explanation: "Analysis",
+      },
+    ];
+
+    const ranges = computeRanges(essay, [], classifications);
+    expect(ranges).toHaveLength(2);
+
+    // Range 1 must absorb the period '.'
+    expect(essay.slice(ranges[0].start, ranges[0].end)).toBe(s1);
+    expect(essay[ranges[0].end - 1]).toBe(".");
+
+    // The space between sentences must NOT be inside either range
+    expect(ranges[0].end).toBe(s1.length);
+    expect(ranges[1].start).toBe(s1.length + 1);
+
+    // Range 2 must absorb its period '.'
+    expect(essay.slice(ranges[1].start, ranges[1].end)).toBe(s2);
+    expect(essay[ranges[1].end - 1]).toBe(".");
+  });
+
+  it("NEVER merges across whitespace gaps even when two adjacent sentences share the same AO", () => {
+    const s1 = "Supply increases when subsidies are granted.";
+    const s2 = "This shifts the supply curve downwards and to the right.";
+    const essay = `${s1}  ${s2}`; // two spaces between sentences
+
+    const classifications: ActiveAoClassification[] = [
+      {
+        id: "ao2-1",
+        ao: "AO2",
+        original: s1,
+        context: s1,
+        explanation: "Mechanism 1",
+      },
+      {
+        id: "ao2-2",
+        ao: "AO2",
+        original: s2,
+        context: s2,
+        explanation: "Mechanism 2",
+      },
+    ];
+
+    const ranges = computeRanges(essay, [], classifications);
+    expect(ranges).toHaveLength(2);
+
+    // Range 1 ends exactly at period
+    expect(essay.slice(ranges[0].start, ranges[0].end)).toBe(s1);
+    // Range 2 starts after whitespace
+    expect(essay.slice(ranges[1].start, ranges[1].end)).toBe(s2);
+
+    // The gap between them is exactly the whitespace and contains no range
+    const gap = essay.slice(ranges[0].end, ranges[1].start);
+    expect(gap).toBe("  ");
+  });
 });

@@ -81,4 +81,36 @@ Here is a very long script that was 4000 characters long and should be stripped 
     expect(res?.ao_breakdown.analysis.awarded).toBe(6);
     expect(res?.ao_breakdown.evaluation.awarded).toBe(2);
   });
+
+  it("validates MaxOutResponseSchema with placement and placement_rationale", async () => {
+    const { MaxOutResponseSchema } = await import("../live-examiner.functions");
+    const testData = {
+      headline: "Upgrade your draft to full marks",
+      target_band: "Band 1 / Level 5",
+      perfection_summary: "Deepen analytical mechanisms",
+      suggestions: [
+        {
+          target_ao: "ao1",
+          title: "Rigorous Definitions",
+          suggestion: "Define minimum price and market failure",
+          mark_uplift: "+1 mark",
+          placement: "Paragraph 1 (Introduction & Core Definitions)",
+          placement_rationale: "Establishes baseline knowledge early.",
+          how_to_write: ["Step 1", "Step 2"],
+          strategic_options: [
+            {
+              label: "Option 1",
+              description: "Information failure",
+              sentence_starter: "Demerit goods...",
+            },
+          ],
+          model_phrasing: "A minimum price intervention...",
+        },
+      ],
+    };
+
+    const parsed = MaxOutResponseSchema.parse(testData);
+    expect(parsed.suggestions[0].placement).toBe("Paragraph 1 (Introduction & Core Definitions)");
+    expect(parsed.suggestions[0].placement_rationale).toBe("Establishes baseline knowledge early.");
+  });
 });
