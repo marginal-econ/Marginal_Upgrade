@@ -405,6 +405,12 @@ export function QuestionBankAdmin() {
                   }}
                   onAttachDiagram={qpFile ? () => openCropFor(row.id) : undefined}
                   attachingDiagram={rasterizing}
+                  onUploadDiagram={async (file: File) => {
+                    const url = await uploadDiagramCrop(row.id, file);
+                    await updateMcq({ data: { id: row.id, diagramImageUrl: url } });
+                    queryClient.invalidateQueries({ queryKey: ["bank-review", kind] });
+                    toast.success("Diagram image uploaded and attached.");
+                  }}
                 />
               ) : (
                 <EssayReviewRow
@@ -450,6 +456,7 @@ function McqReviewRow({
   onSave,
   onAttachDiagram,
   attachingDiagram,
+  onUploadDiagram,
 }: {
   row: BankMcqRow;
   onApprove: () => void;
@@ -466,6 +473,7 @@ function McqReviewRow({
   /** Undefined when no original paper file is available this session (e.g. after a page reload). */
   onAttachDiagram?: () => void;
   attachingDiagram?: boolean;
+  onUploadDiagram?: (file: File) => Promise<void>;
 }) {
   const [editing, setEditing] = useState(false);
   const [stem, setStem] = useState(row.stem);
@@ -474,6 +482,8 @@ function McqReviewRow({
   const [topic, setTopic] = useState(row.topic);
   const [diagramId, setDiagramId] = useState<string | null>(row.diagram_id);
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const uploadInputRef = useRef<HTMLInputElement>(null);
 
   const diagram = getDiagram(diagramId);
 
@@ -498,15 +508,59 @@ function McqReviewRow({
         </div>
         <div className="flex shrink-0 gap-1">
           {onAttachDiagram ? (
-            <Button variant="ghost" size="sm" onClick={onAttachDiagram} disabled={attachingDiagram}>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onAttachDiagram}
+              disabled={attachingDiagram || uploading}
+            >
               {attachingDiagram ? (
                 <Loader2 className="size-3.5 animate-spin" />
               ) : row.diagram_image_url ? (
                 "Re-crop"
               ) : (
-                "Attach exact diagram"
+                "Crop from paper"
               )}
             </Button>
+          ) : null}
+          {onUploadDiagram ? (
+            <>
+              <input
+                ref={uploadInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  setUploading(true);
+                  try {
+                    await onUploadDiagram(file);
+                  } catch (err) {
+                    toast.error(err instanceof Error ? err.message : "Failed to upload diagram.");
+                  } finally {
+                    setUploading(false);
+                    e.target.value = "";
+                  }
+                }}
+              />
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => uploadInputRef.current?.click()}
+                disabled={uploading}
+                title="Upload diagram image file directly"
+              >
+                {uploading ? (
+                  <Loader2 className="size-3.5 animate-spin" />
+                ) : (
+                  <>
+                    <Upload className="mr-1 size-3.5" />
+                    {row.diagram_image_url ? "Replace image" : "Upload image"}
+                  </>
+                )}
+              </Button>
+            </>
           ) : null}
           <Button variant="ghost" size="sm" onClick={() => setEditing((v) => !v)}>
             {editing ? "Done" : "Edit"}

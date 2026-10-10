@@ -22,6 +22,7 @@ import {
   RotateCcw,
   Sparkles,
   Target,
+  Upload,
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -162,6 +163,7 @@ function LiveExaminerPage() {
   const [diagrams, setDiagrams] = useState<AttachedDiagram[]>([]);
   const [diagramDialogOpen, setDiagramDialogOpen] = useState(false);
   const diagramFileRef = useRef<HTMLInputElement>(null);
+  const [diagramDragging, setDiagramDragging] = useState(false);
 
   // --- Mark scheme screenshot: pasted straight in, sent to the examiner
   // as an image (vision) alongside the retrieved text context, for both
@@ -1493,32 +1495,74 @@ function LiveExaminerPage() {
             ) : null}
 
             <div className="space-y-1.5">
-              <Label>Photo of your diagram</Label>
+              <Label>Photo or image of your diagram</Label>
               <input
                 ref={diagramFileRef}
                 type="file"
                 accept="image/*"
                 capture="environment"
                 className="hidden"
-                onChange={(event) => handleDiagramFile(event.target.files?.[0])}
+                onChange={(event) => {
+                  handleDiagramFile(event.target.files?.[0]);
+                  event.target.value = "";
+                }}
               />
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full"
-                disabled={describeDiagramMutation.isPending}
-                onClick={() => diagramFileRef.current?.click()}
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={() => {
+                  if (!describeDiagramMutation.isPending) {
+                    diagramFileRef.current?.click();
+                  }
+                }}
+                onKeyDown={(e) => {
+                  if ((e.key === "Enter" || e.key === " ") && !describeDiagramMutation.isPending) {
+                    e.preventDefault();
+                    diagramFileRef.current?.click();
+                  }
+                }}
+                onPaste={(e) => {
+                  const file = e.clipboardData?.files?.[0];
+                  if (file && file.type.startsWith("image/")) {
+                    e.preventDefault();
+                    handleDiagramFile(file);
+                  }
+                }}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setDiagramDragging(true);
+                }}
+                onDragLeave={() => setDiagramDragging(false)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setDiagramDragging(false);
+                  const file = e.dataTransfer?.files?.[0];
+                  if (file && file.type.startsWith("image/")) {
+                    handleDiagramFile(file);
+                  }
+                }}
+                className={`flex flex-col items-center justify-center gap-1.5 rounded-lg border-2 border-dashed p-4 text-center cursor-pointer transition-colors focus:outline-none focus:ring-2 focus:ring-ring ${
+                  diagramDragging
+                    ? "border-primary bg-primary/5"
+                    : "border-border bg-background hover:bg-muted/30"
+                } ${describeDiagramMutation.isPending ? "opacity-70 pointer-events-none" : ""}`}
               >
                 {describeDiagramMutation.isPending ? (
-                  <>
+                  <div className="flex items-center gap-2 text-primary font-medium text-xs">
                     <Loader2 className="size-4 animate-spin" /> Reading your diagram…
-                  </>
+                  </div>
                 ) : (
                   <>
-                    <ImagePlus className="size-4" /> Upload a photo
+                    <div className="flex items-center gap-2 text-foreground font-medium text-xs">
+                      <Upload className="size-4 text-primary" />
+                      Click to upload image, drag &amp; drop, or paste (Ctrl+V)
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">
+                      Upload photos of hand-drawn diagrams, screenshots, or exported images
+                    </p>
                   </>
                 )}
-              </Button>
+              </div>
             </div>
 
             <div className="space-y-1.5">

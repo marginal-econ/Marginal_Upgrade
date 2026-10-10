@@ -5,13 +5,15 @@ import {
   AlertCircle,
   AlertTriangle,
   CheckCircle2,
+  ImagePlus,
   Loader2,
   ShieldCheck,
   SpellCheck,
   Sparkles,
+  Upload,
   X,
 } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 
@@ -36,7 +38,11 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { describeDiagramUrl, listDiagramLibrary } from "@/lib/diagrams.functions";
+import {
+  describeDiagramImage,
+  describeDiagramUrl,
+  listDiagramLibrary,
+} from "@/lib/diagrams.functions";
 import { checkQuestionGrounding, gradeEssaySubmission } from "@/lib/grading.functions";
 import { checkWritingQuality } from "@/lib/writing-check.functions";
 import type { Grading } from "@/lib/examiner/types";
@@ -85,7 +91,8 @@ function GradePage() {
   const grade = useServerFn(gradeEssaySubmission);
   const checkGrounding = useServerFn(checkQuestionGrounding);
   const checkWriting = useServerFn(checkWritingQuality);
-  const describeDiagram = useServerFn(describeDiagramUrl);
+  const describeDiagramImg = useServerFn(describeDiagramImage);
+  const describeDiagramLink = useServerFn(describeDiagramUrl);
   const listDiagrams = useServerFn(listDiagramLibrary);
 
   const [question, setQuestion] = useState(search.q ?? "");
@@ -112,9 +119,11 @@ function GradePage() {
   // its own [DIAGRAM: ...] tag, and all of them are joined together when the
   // essay is submitted for marking.
   const [diagrams, setDiagrams] = useState<AttachedDiagram[]>([]);
-  const [diagramMode, setDiagramMode] = useState<"none" | "library" | "url">("none");
+  const [diagramMode, setDiagramMode] = useState<"none" | "upload" | "library" | "url">("none");
   const [diagramLibraryId, setDiagramLibraryId] = useState<string>("");
   const [diagramUrl, setDiagramUrl] = useState("");
+  const diagramFileInputRef = useRef<HTMLInputElement>(null);
+  const [isDiagramDragging, setIsDiagramDragging] = useState(false);
 
   // A pasted screenshot of the mark scheme, sent to the examiner as an
   // actual image (vision) alongside the retrieved text context — see
@@ -130,8 +139,22 @@ function GradePage() {
     staleTime: 10 * 60_000,
   });
 
-  const describeDiagramMutation = useMutation({
-    mutationFn: (url: string) => describeDiagram({ data: { url } }),
+  const describeDiagramImageMutation = useMutation({
+    mutationFn: ({ image, label }: { image: string; label?: string }) =>
+      describeDiagramImg({ data: { image } }).then((res) => ({ ...res, label })),
+    onSuccess: (data) => {
+      setDiagrams((current) => [
+        ...current,
+        { id: crypto.randomUUID(), label: data.label || "Uploaded diagram", tag: data.tag },
+      ]);
+      setDiagramMode("none");
+      toast.success("Diagram image read and attached to your essay.");
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  const describeDiagramUrlMutation = useMutation({
+    mutationFn: (url: string) => describeDiagramLink({ data: { url } }),
     onSuccess: (data) => {
       setDiagrams((current) => [
         ...current,
@@ -143,6 +166,21 @@ function GradePage() {
     },
     onError: (error: Error) => toast.error(error.message),
   });
+
+  function handleDiagramFile(file: File | undefined) {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please upload an image file (PNG, JPEG, WebP, etc.).");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result as string;
+      describeDiagramImageMutation.mutate({ image: dataUrl, label: file.name });
+    };
+    reader.onerror = () => toast.error("Could not read that diagram image file.");
+    reader.readAsDataURL(file);
+  }
 
   const checkMutation = useMutation({
     mutationFn: () => checkWriting({ data: { essayText } }),
@@ -369,7 +407,7 @@ function GradePage() {
 
             <Select
               value={diagramMode}
-              onValueChange={(value: "none" | "library" | "url") => setDiagramMode(value)}
+              onValueChange={(value: "none" | "upload" | "library" | "url") => setDiagramMode(value)}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Add a diagram…" />
@@ -378,10 +416,84 @@ function GradePage() {
                 <SelectItem value="none">
                   {diagrams.length > 0 ? "No more diagrams to add" : "No diagram to reference"}
                 </SelectItem>
+                <SelectItem value="upload">Upload diagram image / photo</SelectItem>
                 <SelectItem value="library">Choose from the diagram library</SelectItem>
                 <SelectItem value="url">Paste a diagram image URL</SelectItem>
               </SelectContent>
             </Select>
+
+            {diagramMode === "upload" ? (
+              <div className="space-y-2">
+                <input
+                  ref={diagramFileInputRef}
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  className="hidden"
+                  onChange={(e) => {
+                    handleDiagramFile(e.target.files?.[0]);
+                    e.target.value = "";
+                  }}
+                />
+                <div
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => {
+                    if (!describeDiagramImageMutation.isPending) {
+                      diagramFileInputRef.current?.click();
+                    }
+                  }}
+                  onKeyDown={(e) => {
+                    if ((e.key === "Enter" || e.key === " ") && !describeDiagramImageMutation.isPending) {
+                      e.preventDefault();
+                      diagramFileInputRef.current?.click();
+                    }
+                  }}
+                  onPaste={(e) => {
+                    const item = e.clipboardData?.files?.[0];
+                    if (item && item.type.startsWith("image/")) {
+                      e.preventDefault();
+                      handleDiagramFile(item);
+                    }
+                  }}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    setIsDiagramDragging(true);
+                  }}
+                  onDragLeave={() => setIsDiagramDragging(false)}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    setIsDiagramDragging(false);
+                    const file = e.dataTransfer?.files?.[0];
+                    if (file && file.type.startsWith("image/")) {
+                      handleDiagramFile(file);
+                    }
+                  }}
+                  className={`flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-4 text-center cursor-pointer transition-colors focus:outline-none focus:ring-2 focus:ring-ring ${
+                    isDiagramDragging
+                      ? "border-primary bg-primary/5"
+                      : "border-border bg-background hover:bg-muted/30"
+                  } ${describeDiagramImageMutation.isPending ? "opacity-70 pointer-events-none" : ""}`}
+                >
+                  {describeDiagramImageMutation.isPending ? (
+                    <div className="flex items-center gap-2 text-primary font-medium text-xs">
+                      <Loader2 className="size-4 animate-spin" />
+                      Analyzing diagram and extracting economic labels…
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex items-center gap-2 text-foreground font-medium text-xs">
+                        <Upload className="size-4 text-primary" />
+                        Click to upload diagram image, drag &amp; drop, or paste (Ctrl+V)
+                      </div>
+                      <p className="text-[11px] text-muted-foreground">
+                        Supports PNG, JPEG, WebP, photos of hand-drawn diagrams, or digital exports
+                      </p>
+                    </>
+                  )}
+                </div>
+              </div>
+            ) : null}
 
             {diagramMode === "library" ? (
               <Select value={diagramLibraryId} onValueChange={applyLibraryDiagram}>
@@ -408,10 +520,10 @@ function GradePage() {
                 <Button
                   type="button"
                   variant="outline"
-                  disabled={!diagramUrl.trim() || describeDiagramMutation.isPending}
-                  onClick={() => describeDiagramMutation.mutate(diagramUrl.trim())}
+                  disabled={!diagramUrl.trim() || describeDiagramUrlMutation.isPending}
+                  onClick={() => describeDiagramUrlMutation.mutate(diagramUrl.trim())}
                 >
-                  {describeDiagramMutation.isPending ? (
+                  {describeDiagramUrlMutation.isPending ? (
                     <Loader2 className="size-4 animate-spin" />
                   ) : (
                     "Read diagram"

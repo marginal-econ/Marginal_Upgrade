@@ -1,14 +1,12 @@
-import { ClipboardPaste, X } from "lucide-react";
-import { useState, type ClipboardEvent, type DragEvent } from "react";
+import { Upload, X } from "lucide-react";
+import { useRef, useState, type ClipboardEvent, type DragEvent } from "react";
 import { toast } from "sonner";
 
 /**
- * Lets a student paste (Ctrl+V) a screenshot of the mark scheme straight
- * into the grader or Live Examiner, so the examiner AI can read the actual
- * page — not just the retrieved text chunks — while marking. Paste-only by
- * design (no file picker): a screenshot is something already on the
- * clipboard, and adding an upload path here would just duplicate the
- * diagram-attach flow that already exists for that.
+ * Lets a student upload, drag-and-drop, or paste (Ctrl+V) a screenshot or
+ * image file of the mark scheme straight into the grader or Live Examiner,
+ * so the examiner AI can read the actual page — not just the retrieved text
+ * chunks — while marking.
  */
 
 export type MarkSchemeImage = { id: string; dataUrl: string };
@@ -44,6 +42,7 @@ export function MarkSchemeScreenshots({
   onAdd: (image: MarkSchemeImage) => void;
   onRemove: (id: string) => void;
 }) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const atLimit = images.length >= MAX_IMAGES;
 
@@ -53,7 +52,7 @@ export function MarkSchemeScreenshots({
       return;
     }
     if (!file.type.startsWith("image/")) {
-      toast.error("That clipboard item isn't an image — copy a screenshot first.");
+      toast.error("That item isn't an image — upload a screenshot or photo.");
       return;
     }
     if (file.size > MAX_BYTES) {
@@ -69,6 +68,16 @@ export function MarkSchemeScreenshots({
     reader.readAsDataURL(file);
   }
 
+  function handleFileInput(event: React.ChangeEvent<HTMLInputElement>) {
+    const files = event.target.files;
+    if (!files) return;
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      if (file) handleFile(file);
+    }
+    event.target.value = "";
+  }
+
   function handlePaste(event: ClipboardEvent<HTMLDivElement>) {
     const file = firstImageFile(event.clipboardData?.items ?? null);
     if (!file) {
@@ -82,15 +91,42 @@ export function MarkSchemeScreenshots({
   function handleDrop(event: DragEvent<HTMLDivElement>) {
     event.preventDefault();
     setIsDragging(false);
-    const file = firstImageFile(event.dataTransfer?.files ?? null);
+    const files = event.dataTransfer?.files;
+    if (files && files.length > 0) {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        if (file && file.type.startsWith("image/")) {
+          handleFile(file);
+        }
+      }
+      return;
+    }
+    const file = firstImageFile(event.dataTransfer?.items ?? null);
     if (file) handleFile(file);
   }
 
   return (
     <div className="space-y-2">
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        multiple
+        className="hidden"
+        onChange={handleFileInput}
+      />
       <div
         role="button"
         tabIndex={0}
+        onClick={() => {
+          if (!atLimit) fileInputRef.current?.click();
+        }}
+        onKeyDown={(event) => {
+          if ((event.key === "Enter" || event.key === " ") && !atLimit) {
+            event.preventDefault();
+            fileInputRef.current?.click();
+          }
+        }}
         onPaste={handlePaste}
         onDragOver={(event) => {
           event.preventDefault();
@@ -99,26 +135,23 @@ export function MarkSchemeScreenshots({
         onDragLeave={() => setIsDragging(false)}
         onDrop={handleDrop}
         aria-disabled={atLimit}
-        className={`flex flex-col items-center justify-center gap-1.5 rounded-lg border-2 border-dashed p-4 text-center transition-colors focus:outline-none focus:ring-2 focus:ring-ring ${
-          isDragging ? "border-primary bg-primary/5" : "border-border bg-background"
-        } ${atLimit ? "opacity-60" : ""}`}
+        className={`flex flex-col items-center justify-center gap-1.5 rounded-lg border-2 border-dashed p-4 text-center cursor-pointer transition-colors focus:outline-none focus:ring-2 focus:ring-ring ${
+          isDragging ? "border-primary bg-primary/5" : "border-border bg-background hover:bg-muted/30"
+        } ${atLimit ? "opacity-60 cursor-not-allowed" : ""}`}
       >
-        <ClipboardPaste className="size-4 text-muted-foreground" />
-        <p className="text-xs text-muted-foreground">
+        <Upload className="size-4 text-primary" />
+        <p className="text-xs font-medium text-foreground">
           {atLimit ? (
             `Up to ${MAX_IMAGES} screenshots attached.`
           ) : (
-            <>
-              Click here, then{" "}
-              <kbd className="rounded border border-border bg-muted px-1 py-0.5 text-[10px]">
-                Ctrl
-              </kbd>
-              +
-              <kbd className="rounded border border-border bg-muted px-1 py-0.5 text-[10px]">V</kbd>{" "}
-              to paste a screenshot of the mark scheme.
-            </>
+            "Click to upload image file, drag & drop, or paste (Ctrl+V)"
           )}
         </p>
+        {!atLimit ? (
+          <p className="text-[11px] text-muted-foreground">
+            Supports PNG, JPEG, WebP, or clipboard screenshots of mark schemes
+          </p>
+        ) : null}
       </div>
 
       {images.length > 0 ? (
