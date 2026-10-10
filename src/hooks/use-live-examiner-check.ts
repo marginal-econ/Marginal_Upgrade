@@ -12,8 +12,10 @@ import { isDailyLimitError, DEFAULT_LIVE_EXAMINER_DURATION_MINUTES } from "@/lib
 import { deterministicTerminologyIssues } from "@/lib/live-examiner/economics-glossary";
 import { analyzeGrammarAndMechanics } from "@/lib/live-examiner/grammar-engine";
 import { splitSentences } from "@/lib/writing-check/sentence-diff";
+import { cleanSuggestion } from "@/lib/live-examiner/clean-suggestion";
 
 export type { PredictedMark, ExaminerChallenge };
+export { cleanSuggestion };
 
 export type IssueCategory =
   | "grammar"
@@ -498,17 +500,30 @@ export function useLiveExaminerCheck(params: {
     const issue = issuesRef.current.find((item) => item.id === id);
     if (!issue) return currentText;
 
+    const clean = cleanSuggestion(issue.suggestion);
+
+    const applySub = (sourceSentence: string) => {
+      const idx = sourceSentence.indexOf(issue.original);
+      if (idx === -1) return sourceSentence;
+      let replacement = clean;
+      const nextChar = sourceSentence[idx + issue.original.length];
+      if (nextChar && /[.,;:!?]/.test(nextChar) && replacement.endsWith(nextChar)) {
+        replacement = replacement.slice(0, -1);
+      }
+      return (
+        sourceSentence.slice(0, idx) +
+        replacement +
+        sourceSentence.slice(idx + issue.original.length)
+      );
+    };
+
     const replaceOnce = (source: string) => {
       let at = source.indexOf(issue.context);
       if (at !== -1) {
-        const fixedSentence = issue.context.replace(issue.original, issue.suggestion);
+        const fixedSentence = applySub(issue.context);
         return source.slice(0, at) + fixedSentence + source.slice(at + issue.context.length);
       }
-      const origAt = source.indexOf(issue.original);
-      if (origAt !== -1) {
-        return source.slice(0, origAt) + issue.suggestion + source.slice(origAt + issue.original.length);
-      }
-      return source;
+      return applySub(source);
     };
 
     const nextText = replaceOnce(currentText);
@@ -522,7 +537,7 @@ export function useLiveExaminerCheck(params: {
           if (item.context === issue.context) {
             return {
               ...item,
-              context: item.context.replace(issue.original, issue.suggestion),
+              context: applySub(item.context),
             };
           }
           return item;
@@ -535,11 +550,9 @@ export function useLiveExaminerCheck(params: {
       prev
         .map((item) => {
           if (item.context === issue.context) {
-            const nextContext = item.context.replace(issue.original, issue.suggestion);
+            const nextContext = applySub(item.context);
             const nextOriginal =
-              item.original === item.context
-                ? nextContext
-                : item.original.replace(issue.original, issue.suggestion);
+              item.original === item.context ? nextContext : applySub(item.original);
             return {
               ...item,
               context: nextContext,

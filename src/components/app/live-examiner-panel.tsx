@@ -43,6 +43,7 @@ import {
   mapCategoryToSemanticElement,
   AO_COLOUR_SYSTEM,
 } from "@/lib/live-examiner/color-coding";
+import { cleanSuggestion } from "@/lib/live-examiner/clean-suggestion";
 import { cn } from "@/lib/utils";
 
 // Which AO this category maps to, shown next to the label so it's visibly
@@ -327,7 +328,7 @@ export function LiveExaminerPanel({
                       </Badge>
                     </div>
                     <p className="text-xs text-destructive line-through">{issue.original}</p>
-                    <p className="text-xs font-medium">{issue.suggestion}</p>
+                    <p className="text-xs font-medium">{cleanSuggestion(issue.suggestion)}</p>
                     <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
                       {issue.explanation}
                     </p>
@@ -576,7 +577,7 @@ export function LiveExaminerPanel({
                       {entry.status === "accepted" ? (
                         <>
                           {" → "}
-                          <span className="font-medium">{entry.suggestion}</span>
+                          <span className="font-medium">{cleanSuggestion(entry.suggestion)}</span>
                         </>
                       ) : null}
                     </div>

@@ -8,6 +8,7 @@ import type {
   ActiveIssue,
   IssueCategory,
 } from "@/hooks/use-live-examiner-check";
+import { cleanSuggestion } from "@/lib/live-examiner/clean-suggestion";
 import { AO_DEFINITIONS } from "@/lib/examiner/config";
 import { cn } from "@/lib/utils";
 
@@ -30,6 +31,7 @@ export type UnderlineStyleMeta = {
   underlineStyle: "wavy" | "solid" | "dashed";
   underlineThickness: string;
   offset: string;
+  backgroundColor: string;
 };
 
 const CATEGORY_META: Record<IssueCategory, UnderlineStyleMeta> = {
@@ -40,6 +42,7 @@ const CATEGORY_META: Record<IssueCategory, UnderlineStyleMeta> = {
     underlineStyle: "dashed",
     underlineThickness: "1.5px",
     offset: "5px",
+    backgroundColor: "rgba(244, 63, 94, 0.08)",
   },
   clarity: {
     label: "Clarity",
@@ -48,6 +51,7 @@ const CATEGORY_META: Record<IssueCategory, UnderlineStyleMeta> = {
     underlineStyle: "dashed",
     underlineThickness: "1.5px",
     offset: "5px",
+    backgroundColor: "rgba(161, 161, 170, 0.08)",
   },
   economics_accuracy: {
     label: "Economics accuracy",
@@ -56,6 +60,7 @@ const CATEGORY_META: Record<IssueCategory, UnderlineStyleMeta> = {
     underlineStyle: "wavy",
     underlineThickness: "2.5px",
     offset: "5px",
+    backgroundColor: "rgba(225, 29, 72, 0.10)",
   },
   misconception: {
     label: "Economic misconception",
@@ -64,6 +69,7 @@ const CATEGORY_META: Record<IssueCategory, UnderlineStyleMeta> = {
     underlineStyle: "wavy",
     underlineThickness: "2.5px",
     offset: "5px",
+    backgroundColor: "rgba(220, 38, 38, 0.10)",
   },
   analysis: {
     label: "Analysis",
@@ -72,6 +78,7 @@ const CATEGORY_META: Record<IssueCategory, UnderlineStyleMeta> = {
     underlineStyle: "solid",
     underlineThickness: "2px",
     offset: "5px",
+    backgroundColor: "rgba(16, 185, 129, 0.12)",
   },
   application: {
     label: "Application",
@@ -80,6 +87,7 @@ const CATEGORY_META: Record<IssueCategory, UnderlineStyleMeta> = {
     underlineStyle: "solid",
     underlineThickness: "2px",
     offset: "5px",
+    backgroundColor: "rgba(16, 185, 129, 0.12)",
   },
   evaluation: {
     label: "Evaluation",
@@ -88,6 +96,7 @@ const CATEGORY_META: Record<IssueCategory, UnderlineStyleMeta> = {
     underlineStyle: "solid",
     underlineThickness: "2px",
     offset: "5px",
+    backgroundColor: "rgba(245, 158, 11, 0.14)",
   },
   reasoning_chain: {
     label: "Chain of reasoning",
@@ -96,6 +105,7 @@ const CATEGORY_META: Record<IssueCategory, UnderlineStyleMeta> = {
     underlineStyle: "solid",
     underlineThickness: "2px",
     offset: "5px",
+    backgroundColor: "rgba(16, 185, 129, 0.12)",
   },
   terminology: {
     label: "Terminology",
@@ -104,6 +114,7 @@ const CATEGORY_META: Record<IssueCategory, UnderlineStyleMeta> = {
     underlineStyle: "solid",
     underlineThickness: "2px",
     offset: "5px",
+    backgroundColor: "rgba(59, 130, 246, 0.12)",
   },
 };
 
@@ -117,6 +128,7 @@ const AO_META: Record<"AO1" | "AO2" | "AO3", UnderlineStyleMeta> = {
     underlineStyle: "solid",
     underlineThickness: "2px",
     offset: "5px",
+    backgroundColor: "rgba(59, 130, 246, 0.12)",
   },
   AO2: {
     label: "AO2 Analysis",
@@ -125,6 +137,7 @@ const AO_META: Record<"AO1" | "AO2" | "AO3", UnderlineStyleMeta> = {
     underlineStyle: "solid",
     underlineThickness: "2px",
     offset: "5px",
+    backgroundColor: "rgba(16, 185, 129, 0.12)",
   },
   AO3: {
     label: "AO3 Evaluation",
@@ -133,6 +146,7 @@ const AO_META: Record<"AO1" | "AO2" | "AO3", UnderlineStyleMeta> = {
     underlineStyle: "solid",
     underlineThickness: "2px",
     offset: "5px",
+    backgroundColor: "rgba(245, 158, 11, 0.15)",
   },
 };
 
@@ -153,6 +167,7 @@ const DEFAULT_ISSUE_META: UnderlineStyleMeta = {
   underlineStyle: "dashed",
   underlineThickness: "1.5px",
   offset: "5px",
+  backgroundColor: "rgba(244, 63, 94, 0.08)",
 };
 
 /** Locate every issue's `original` text and AO classification inside the essay.
@@ -238,7 +253,9 @@ export function computeRanges(
   }
 
   // 2. Locate classifications (non-overlapping among each other, skipping diagrams)
-  // Classifications are located INDEPENDENTLY of issues.
+  // Classifications are located INDEPENDENTLY of issues, prioritizing higher-order objectives:
+  // AO3 (Evaluation) > AO2 (Analysis) > AO1 (Knowledge).
+  // Highlights and underlines the WHOLE sentence, not just phrases.
   type LocatedClassification = {
     start: number;
     end: number;
@@ -247,54 +264,64 @@ export function computeRanges(
   };
   const locatedClassifications: LocatedClassification[] = [];
 
-  for (const classification of classifications) {
-    if (!classification.original && !classification.context) continue;
-    const targetString = classification.original || classification.context;
+  const aoPriority: Record<"AO3" | "AO2" | "AO1", number> = {
+    AO3: 3,
+    AO2: 2,
+    AO1: 1,
+  };
+  const sortedClassifications = [...classifications].sort(
+    (a, b) => (aoPriority[b.ao] ?? 0) - (aoPriority[a.ao] ?? 0),
+  );
+
+  for (const classification of sortedClassifications) {
+    const targetSentence = (classification.context || classification.original || "").trim();
+    if (!targetSentence) continue;
+
     let foundStart = -1;
+    let foundLength = targetSentence.length;
 
     let searchFrom = 0;
     while (true) {
-      const at = text.indexOf(targetString, searchFrom);
+      const at = text.indexOf(targetSentence, searchFrom);
       if (at === -1) break;
       const candidateStart = at;
-      const candidateEnd = candidateStart + targetString.length;
+      const candidateEnd = candidateStart + targetSentence.length;
       const collides =
         overlapsProtected(candidateStart, candidateEnd) ||
         locatedClassifications.some((r) => candidateStart < r.end && candidateEnd > r.start);
       if (!collides) {
         foundStart = candidateStart;
+        foundLength = targetSentence.length;
         break;
       }
       searchFrom = at + 1;
     }
 
-    // Fallback: search classification.context if original wasn't found
-    if (foundStart === -1 && classification.context && classification.context !== targetString) {
-      let searchFromCtx = 0;
+    // Fallback: search classification.original if context was not matched verbatim
+    if (foundStart === -1 && classification.original && classification.original.trim() !== targetSentence) {
+      const fallbackStr = classification.original.trim();
+      let searchFromOrig = 0;
       while (true) {
-        const at = text.indexOf(classification.context, searchFromCtx);
+        const at = text.indexOf(fallbackStr, searchFromOrig);
         if (at === -1) break;
         const candidateStart = at;
-        const candidateEnd = candidateStart + classification.context.length;
+        const candidateEnd = candidateStart + fallbackStr.length;
         const collides =
           overlapsProtected(candidateStart, candidateEnd) ||
           locatedClassifications.some((r) => candidateStart < r.end && candidateEnd > r.start);
         if (!collides) {
           foundStart = candidateStart;
+          foundLength = fallbackStr.length;
           break;
         }
-        searchFromCtx = at + 1;
+        searchFromOrig = at + 1;
       }
     }
 
     if (foundStart !== -1) {
-      const len =
-        text.indexOf(targetString, foundStart) === foundStart
-          ? targetString.length
-          : classification.context.length;
       locatedClassifications.push({
         start: foundStart,
-        end: foundStart + len,
+        end: foundStart + foundLength,
         id: classification.id,
         classification,
       });
@@ -558,7 +585,7 @@ export function LiveExaminerEditor({
               style={{
                 color: "transparent",
                 WebkitTextFillColor: "transparent",
-                backgroundColor: "transparent",
+                backgroundColor: meta.backgroundColor || "transparent",
                 textDecorationLine: "underline",
                 textDecorationStyle: meta.underlineStyle,
                 textDecorationColor: meta.underlineColor,
@@ -567,6 +594,7 @@ export function LiveExaminerEditor({
                 textDecorationSkipInk: "none",
                 fontWeight: "normal",
                 userSelect: "none",
+                borderRadius: "3px",
               }}
             >
               {segment.text}
@@ -777,7 +805,7 @@ function SuggestionCard({
           <span className="text-[10px] font-semibold uppercase tracking-wider shrink-0 mt-0.5 text-emerald-600/80 dark:text-emerald-400/80">
             Revision:
           </span>
-          <span>{issue.suggestion}</span>
+          <span>{cleanSuggestion(issue.suggestion)}</span>
         </div>
       </div>
 

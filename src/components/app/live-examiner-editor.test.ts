@@ -250,4 +250,71 @@ describe("Live Examiner Editor - computeRanges & Investor Demo Robustness", () =
       expect(result.classifications.length).toBeGreaterThan(0);
     }
   });
+
+  it("highlights and underlines WHOLE sentences, not phrases, and prioritizes AO3 on evaluation sentences", () => {
+    const text = "A minimum price reduces consumption of demerit goods. However, setting a minimum price above equilibrium does not tackle information failure.";
+    const classifications: ActiveAoClassification[] = [
+      {
+        id: "ao1-sentence",
+        ao: "AO1",
+        original: "A minimum price reduces consumption of demerit goods.",
+        context: "A minimum price reduces consumption of demerit goods.",
+        explanation: "AO1 Knowledge",
+      },
+      {
+        id: "ao3-sentence",
+        ao: "AO3",
+        original: "However, setting a minimum price above equilibrium does not tackle information failure.",
+        context: "However, setting a minimum price above equilibrium does not tackle information failure.",
+        explanation: "AO3 Evaluation",
+      },
+    ];
+
+    const ranges = computeRanges(text, [], classifications);
+    expect(ranges).toHaveLength(2);
+    // First sentence is full AO1 range
+    expect(ranges[0].start).toBe(0);
+    expect(ranges[0].end).toBe("A minimum price reduces consumption of demerit goods.".length);
+    expect(ranges[0].kind).toBe("classification");
+    if (ranges[0].kind === "classification") {
+      expect(ranges[0].classification.ao).toBe("AO1");
+    }
+
+    // Second sentence is full AO3 range
+    const secondSentenceStart = text.indexOf("However,");
+    expect(ranges[1].start).toBe(secondSentenceStart);
+    expect(ranges[1].end).toBe(text.length);
+    expect(ranges[1].kind).toBe("classification");
+    if (ranges[1].kind === "classification") {
+      expect(ranges[1].classification.ao).toBe("AO3");
+    }
+  });
+
+  it("prioritizes AO3 evaluation over AO1 when an evaluation sentence contains both", () => {
+    const sentence = "However, setting a minimum price above equilibrium does not tackle information failure.";
+    const classifications: ActiveAoClassification[] = [
+      {
+        id: "partial-ao1",
+        ao: "AO1",
+        original: "setting a minimum price above equilibrium",
+        context: sentence,
+        explanation: "AO1 Knowledge",
+      },
+      {
+        id: "full-ao3",
+        ao: "AO3",
+        original: sentence,
+        context: sentence,
+        explanation: "AO3 Evaluation",
+      },
+    ];
+
+    const ranges = computeRanges(sentence, [], classifications);
+    expect(ranges).toHaveLength(1);
+    expect(ranges[0].start).toBe(0);
+    expect(ranges[0].end).toBe(sentence.length);
+    if (ranges[0].kind === "classification") {
+      expect(ranges[0].classification.ao).toBe("AO3");
+    }
+  });
 });

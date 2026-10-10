@@ -292,17 +292,18 @@ You evaluate both rigorous ECONOMICS substance and clear academic English. Prior
 FEEDBACK RULES:
 - Always flag unambiguous spelling mistakes or typos (e.g. "becuase", "faliure", "externailties", "it's" used as possessive) so the student can correct them immediately.
 - Suggestion must be minimal and concise — a targeted correction or missing mechanism phrase, NOT a complete rewrite.
+- CRITICAL: "suggestion" MUST be the exact, ready-to-insert replacement text ONLY! NEVER include "e.g.", "for example", "like", "use", "consider", quotes, or meta-commentary in "suggestion". For example, if fixing "becuase", suggestion MUST be "because", NOT "e.g. because".
 - Evidence: Cite the relevant syllabus/mark scheme rule, economic principle, or causal law (e.g. "Law of Demand", "Transmission mechanism of monetary policy", "PED definition", or quote from grounding if available).
 - Give an honest confidence score (0.6 to 1.0).
 - Be constructive: Recognize valid economics arguments even if expressed in the student's own words. Do not force template phrasing.
 - If a sentence has no economic errors or spelling mistakes, omit it from issues.
 - Limit issues to at most 4 highest-priority items.
 
-Also identify up to 5 creditworthy economics phrases currently earning Cambridge Assessment Objective credit:
+Also classify creditworthy economics sentences earning Cambridge Assessment Objective credit:
 - AO1: Accurate definitions, terminology, concepts.
 - AO2: Logical causal mechanisms, chains of reasoning, context application.
 - AO3: Evaluative criteria, limitations, short-run vs long-run distinctions, balanced conclusions.
-Copy the exact 3–12 word scoring phrase verbatim.
+CRITICAL: Classify the ENTIRE sentence from 'SENTENCES TO CHECK' so the complete sentence is highlighted and color-coded. Set "original" to the complete sentence.
 
 Respond ONLY with a single valid JSON object, no markdown fences:
 {
@@ -310,7 +311,7 @@ Respond ONLY with a single valid JSON object, no markdown fences:
     {
       "sentence_index": <number, from "SENTENCES TO CHECK">,
       "original": "<exact phrase from the sentence>",
-      "suggestion": "<minimal fix or added economic mechanism>",
+      "suggestion": "<exact replacement text ONLY - no e.g. or quotes>",
       "category": "economics_accuracy" | "misconception" | "analysis" | "reasoning_chain" | "application" | "evaluation" | "terminology" | "clarity" | "grammar",
       "severity": "low" | "medium" | "high",
       "explanation": "<concise explanation of the economic flaw or improvement>",
@@ -321,9 +322,9 @@ Respond ONLY with a single valid JSON object, no markdown fences:
   "classifications": [
     {
       "sentence_index": <number>,
-      "original": "<creditworthy 3-12 word phrase>",
+      "original": "<complete creditworthy sentence>",
       "ao": "AO1" | "AO2" | "AO3",
-      "explanation": "<why this earns that AO credit>"
+      "explanation": "<why this sentence earns that AO credit>"
     }
   ]
 }`;
@@ -732,6 +733,8 @@ export const checkEssayWriting = createServerFn({ method: "POST" })
       }
       const issuesRaw = Array.isArray(raw.issues) ? raw.issues : [];
       const classificationsRaw = Array.isArray(raw.classifications) ? raw.classifications : [];
+      const { cleanSuggestion } = await import("./live-examiner/clean-suggestion");
+
       const classifications = classificationsRaw.flatMap<LiveExaminerAoClassification>((item) => {
         const record = (item ?? {}) as Record<string, unknown>;
         const idx = Number(record.sentence_index);
@@ -741,23 +744,20 @@ export const checkEssayWriting = createServerFn({ method: "POST" })
         const ao = AO_CODES.includes(record.ao as (typeof AO_CODES)[number])
           ? (record.ao as (typeof AO_CODES)[number])
           : null;
-        if (!original || !ao) return [];
-        if (!sentence) {
+        if (!ao) return [];
+        if (!sentence && original) {
           sentence = toSend.find((s) => s.toLowerCase().includes(original.toLowerCase()));
         }
         if (!sentence) return [];
-        const localIndex = sentence.toLowerCase().indexOf(original.toLowerCase());
-        if (localIndex === -1 || /\[DIAGRAM:[^\]]*\]/i.test(original)) return [];
+        const cleanSentence = sentence.trim();
+        if (/\[DIAGRAM:[^\]]*\]/i.test(cleanSentence)) return [];
 
-        // Preserve the student's exact casing and punctuation so locating
-        // the coloured range in the textarea is deterministic.
-        const exactOriginal = sentence.slice(localIndex, localIndex + original.length);
         return [
           {
-            original: exactOriginal,
-            context: sentence,
+            original: cleanSentence,
+            context: cleanSentence,
             ao,
-            explanation: explanation || `${ao} evidence identified by the live examiner.`,
+            explanation: explanation || `${ao} credit identified by the live examiner.`,
           },
         ];
       });
@@ -767,7 +767,8 @@ export const checkEssayWriting = createServerFn({ method: "POST" })
         const idx = Number(record.sentence_index);
         let sentence = Number.isInteger(idx) && idx >= 1 && idx <= toSend.length ? toSend[idx - 1] : undefined;
         const original = typeof record.original === "string" ? record.original.trim() : "";
-        const suggestion = typeof record.suggestion === "string" ? record.suggestion.trim() : "";
+        const rawSuggestion = typeof record.suggestion === "string" ? record.suggestion.trim() : "";
+        const suggestion = cleanSuggestion(rawSuggestion);
         const explanation = typeof record.explanation === "string" ? record.explanation.trim() : "";
         const evidence = typeof record.evidence === "string" ? record.evidence.trim() : "";
 
