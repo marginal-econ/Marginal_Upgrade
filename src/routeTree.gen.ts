@@ -24,6 +24,7 @@ import { Route as AuthenticatedCommandWordsRouteImport } from './routes/_authent
 import { Route as AuthenticatedContentAdminRouteImport } from './routes/_authenticated/content-admin'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedDefinitionsRouteImport } from './routes/_authenticated/definitions'
+import { Route as AuthenticatedDiagramLabRouteImport } from './routes/_authenticated/diagram-lab'
 import { Route as AuthenticatedDiagramsRouteImport } from './routes/_authenticated/diagrams'
 import { Route as AuthenticatedEssayGeneratorRouteImport } from './routes/_authenticated/essay-generator'
 import { Route as AuthenticatedGradeRouteImport } from './routes/_authenticated/grade'
@@ -32,6 +33,7 @@ import { Route as AuthenticatedLiveExaminerRouteImport } from './routes/_authent
 import { Route as AuthenticatedMcqRouteImport } from './routes/_authenticated/mcq'
 import { Route as AuthenticatedMcqLiveRouteImport } from './routes/_authenticated/mcq-live'
 import { Route as AuthenticatedMcqPapersAdminRouteImport } from './routes/_authenticated/mcq-papers-admin'
+import { Route as AuthenticatedPaperMatrixRouteImport } from './routes/_authenticated/paper-matrix'
 import { Route as AuthenticatedPracticeRouteImport } from './routes/_authenticated/practice'
 import { Route as AuthenticatedQuestionBankRouteImport } from './routes/_authenticated/question-bank'
 import { Route as AuthenticatedResponseStructureRouteImport } from './routes/_authenticated/response-structure'
@@ -124,6 +126,11 @@ const AuthenticatedDefinitionsRoute =
     path: '/definitions',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedDiagramLabRoute = AuthenticatedDiagramLabRouteImport.update({
+  id: '/diagram-lab',
+  path: '/diagram-lab',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedDiagramsRoute = AuthenticatedDiagramsRouteImport.update({
   id: '/diagrams',
   path: '/diagrams',
@@ -165,6 +172,12 @@ const AuthenticatedMcqPapersAdminRoute =
   AuthenticatedMcqPapersAdminRouteImport.update({
     id: '/mcq-papers-admin',
     path: '/mcq-papers-admin',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedPaperMatrixRoute =
+  AuthenticatedPaperMatrixRouteImport.update({
+    id: '/paper-matrix',
+    path: '/paper-matrix',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedPracticeRoute = AuthenticatedPracticeRouteImport.update({
@@ -257,6 +270,7 @@ export interface FileRoutesByFullPath {
   '/content-admin': typeof AuthenticatedContentAdminRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/definitions': typeof AuthenticatedDefinitionsRoute
+  '/diagram-lab': typeof AuthenticatedDiagramLabRoute
   '/diagrams': typeof AuthenticatedDiagramsRoute
   '/essay-generator': typeof AuthenticatedEssayGeneratorRoute
   '/grade': typeof AuthenticatedGradeRoute
@@ -265,6 +279,7 @@ export interface FileRoutesByFullPath {
   '/mcq': typeof AuthenticatedMcqRoute
   '/mcq-live': typeof AuthenticatedMcqLiveRoute
   '/mcq-papers-admin': typeof AuthenticatedMcqPapersAdminRoute
+  '/paper-matrix': typeof AuthenticatedPaperMatrixRoute
   '/practice': typeof AuthenticatedPracticeRoute
   '/question-bank': typeof AuthenticatedQuestionBankRoute
   '/response-structure': typeof AuthenticatedResponseStructureRoute
@@ -294,6 +309,7 @@ export interface FileRoutesByTo {
   '/content-admin': typeof AuthenticatedContentAdminRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/definitions': typeof AuthenticatedDefinitionsRoute
+  '/diagram-lab': typeof AuthenticatedDiagramLabRoute
   '/diagrams': typeof AuthenticatedDiagramsRoute
   '/essay-generator': typeof AuthenticatedEssayGeneratorRoute
   '/grade': typeof AuthenticatedGradeRoute
@@ -302,6 +318,7 @@ export interface FileRoutesByTo {
   '/mcq': typeof AuthenticatedMcqRoute
   '/mcq-live': typeof AuthenticatedMcqLiveRoute
   '/mcq-papers-admin': typeof AuthenticatedMcqPapersAdminRoute
+  '/paper-matrix': typeof AuthenticatedPaperMatrixRoute
   '/practice': typeof AuthenticatedPracticeRoute
   '/question-bank': typeof AuthenticatedQuestionBankRoute
   '/response-structure': typeof AuthenticatedResponseStructureRoute
@@ -333,6 +350,7 @@ export interface FileRoutesById {
   '/_authenticated/content-admin': typeof AuthenticatedContentAdminRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/definitions': typeof AuthenticatedDefinitionsRoute
+  '/_authenticated/diagram-lab': typeof AuthenticatedDiagramLabRoute
   '/_authenticated/diagrams': typeof AuthenticatedDiagramsRoute
   '/_authenticated/essay-generator': typeof AuthenticatedEssayGeneratorRoute
   '/_authenticated/grade': typeof AuthenticatedGradeRoute
@@ -341,6 +359,7 @@ export interface FileRoutesById {
   '/_authenticated/mcq': typeof AuthenticatedMcqRoute
   '/_authenticated/mcq-live': typeof AuthenticatedMcqLiveRoute
   '/_authenticated/mcq-papers-admin': typeof AuthenticatedMcqPapersAdminRoute
+  '/_authenticated/paper-matrix': typeof AuthenticatedPaperMatrixRoute
   '/_authenticated/practice': typeof AuthenticatedPracticeRoute
   '/_authenticated/question-bank': typeof AuthenticatedQuestionBankRoute
   '/_authenticated/response-structure': typeof AuthenticatedResponseStructureRoute
@@ -372,6 +391,7 @@ export interface FileRouteTypes {
     | '/content-admin'
     | '/dashboard'
     | '/definitions'
+    | '/diagram-lab'
     | '/diagrams'
     | '/essay-generator'
     | '/grade'
@@ -380,6 +400,7 @@ export interface FileRouteTypes {
     | '/mcq'
     | '/mcq-live'
     | '/mcq-papers-admin'
+    | '/paper-matrix'
     | '/practice'
     | '/question-bank'
     | '/response-structure'
@@ -409,6 +430,7 @@ export interface FileRouteTypes {
     | '/content-admin'
     | '/dashboard'
     | '/definitions'
+    | '/diagram-lab'
     | '/diagrams'
     | '/essay-generator'
     | '/grade'
@@ -417,6 +439,7 @@ export interface FileRouteTypes {
     | '/mcq'
     | '/mcq-live'
     | '/mcq-papers-admin'
+    | '/paper-matrix'
     | '/practice'
     | '/question-bank'
     | '/response-structure'
@@ -447,6 +470,7 @@ export interface FileRouteTypes {
     | '/_authenticated/content-admin'
     | '/_authenticated/dashboard'
     | '/_authenticated/definitions'
+    | '/_authenticated/diagram-lab'
     | '/_authenticated/diagrams'
     | '/_authenticated/essay-generator'
     | '/_authenticated/grade'
@@ -455,6 +479,7 @@ export interface FileRouteTypes {
     | '/_authenticated/mcq'
     | '/_authenticated/mcq-live'
     | '/_authenticated/mcq-papers-admin'
+    | '/_authenticated/paper-matrix'
     | '/_authenticated/practice'
     | '/_authenticated/question-bank'
     | '/_authenticated/response-structure'
@@ -588,6 +613,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDefinitionsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/diagram-lab': {
+      id: '/_authenticated/diagram-lab'
+      path: '/diagram-lab'
+      fullPath: '/diagram-lab'
+      preLoaderRoute: typeof AuthenticatedDiagramLabRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/diagrams': {
       id: '/_authenticated/diagrams'
       path: '/diagrams'
@@ -642,6 +674,13 @@ declare module '@tanstack/react-router' {
       path: '/mcq-papers-admin'
       fullPath: '/mcq-papers-admin'
       preLoaderRoute: typeof AuthenticatedMcqPapersAdminRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/paper-matrix': {
+      id: '/_authenticated/paper-matrix'
+      path: '/paper-matrix'
+      fullPath: '/paper-matrix'
+      preLoaderRoute: typeof AuthenticatedPaperMatrixRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/practice': {
@@ -746,6 +785,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedContentAdminRoute: typeof AuthenticatedContentAdminRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedDefinitionsRoute: typeof AuthenticatedDefinitionsRoute
+  AuthenticatedDiagramLabRoute: typeof AuthenticatedDiagramLabRoute
   AuthenticatedDiagramsRoute: typeof AuthenticatedDiagramsRoute
   AuthenticatedEssayGeneratorRoute: typeof AuthenticatedEssayGeneratorRoute
   AuthenticatedGradeRoute: typeof AuthenticatedGradeRoute
@@ -754,6 +794,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedMcqRoute: typeof AuthenticatedMcqRoute
   AuthenticatedMcqLiveRoute: typeof AuthenticatedMcqLiveRoute
   AuthenticatedMcqPapersAdminRoute: typeof AuthenticatedMcqPapersAdminRoute
+  AuthenticatedPaperMatrixRoute: typeof AuthenticatedPaperMatrixRoute
   AuthenticatedPracticeRoute: typeof AuthenticatedPracticeRoute
   AuthenticatedQuestionBankRoute: typeof AuthenticatedQuestionBankRoute
   AuthenticatedResponseStructureRoute: typeof AuthenticatedResponseStructureRoute
@@ -777,6 +818,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedContentAdminRoute: AuthenticatedContentAdminRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedDefinitionsRoute: AuthenticatedDefinitionsRoute,
+  AuthenticatedDiagramLabRoute: AuthenticatedDiagramLabRoute,
   AuthenticatedDiagramsRoute: AuthenticatedDiagramsRoute,
   AuthenticatedEssayGeneratorRoute: AuthenticatedEssayGeneratorRoute,
   AuthenticatedGradeRoute: AuthenticatedGradeRoute,
@@ -785,6 +827,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedMcqRoute: AuthenticatedMcqRoute,
   AuthenticatedMcqLiveRoute: AuthenticatedMcqLiveRoute,
   AuthenticatedMcqPapersAdminRoute: AuthenticatedMcqPapersAdminRoute,
+  AuthenticatedPaperMatrixRoute: AuthenticatedPaperMatrixRoute,
   AuthenticatedPracticeRoute: AuthenticatedPracticeRoute,
   AuthenticatedQuestionBankRoute: AuthenticatedQuestionBankRoute,
   AuthenticatedResponseStructureRoute: AuthenticatedResponseStructureRoute,

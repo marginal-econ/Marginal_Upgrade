@@ -1,10 +1,12 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { BookText, CircleHelp, LineChart, Trophy } from "lucide-react";
+import { BookText, CircleHelp, Flame, LineChart, Sliders, Trophy } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export const SYLLABUS_TABS = [
   { to: "/definitions", label: "Definitions Hub", icon: BookText },
   { to: "/diagrams", label: "Diagram Library", icon: LineChart },
+  { to: "/diagram-lab", label: "Diagram CAD Lab", icon: Sliders },
+  { to: "/paper-matrix", label: "Past Paper Predictor", icon: Flame },
   { to: "/command-words", label: "Command Words", icon: CircleHelp },
   { to: "/showcase", label: "Exemplars Showcase", icon: Trophy },
 ] as const;

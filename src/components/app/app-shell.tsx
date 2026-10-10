@@ -27,6 +27,8 @@ import {
   ChevronRight,
   Menu,
   GraduationCap,
+  Flame,
+  Sliders,
 } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
@@ -80,6 +82,7 @@ const NAV_GROUPS: NavGroup[] = [
       { to: "/live-examiner", label: "Live Examiner", icon: Sparkles, badge: "Live" },
       { to: "/grade", label: "Essay Marking", icon: PenLine },
       { to: "/mcq-live", label: "MCQ Past Papers", icon: ListChecks },
+      { to: "/paper-matrix", label: "Paper Cycle Predictor", icon: Flame, badge: "Predict" },
       { to: "/question-bank", label: "Question Bank", icon: BookMarked },
       { to: "/practice", label: "Skills Coach", icon: Dumbbell },
     ],
@@ -89,6 +92,7 @@ const NAV_GROUPS: NavGroup[] = [
     label: "Syllabus Hub",
     items: [
       { to: "/definitions", label: "Syllabus & Diagrams", icon: BookText },
+      { to: "/diagram-lab", label: "Diagram CAD Lab", icon: Sliders, badge: "New" },
     ],
   },
   {
