@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeRanges, LIVE_EXAMINER_TYPOGRAPHY, type Range } from "./live-examiner-editor";
+import { AO_META, computeRanges, LIVE_EXAMINER_TYPOGRAPHY, type Range } from "./live-examiner-editor";
 import type { ActiveAoClassification, ActiveIssue } from "@/hooks/use-live-examiner-check";
 import { evaluateCambridgeAnswer } from "@/lib/live-examiner/client-evaluation";
 import { splitSentences } from "@/lib/writing-check/sentence-diff";
@@ -498,5 +498,11 @@ describe("Live Examiner Editor - computeRanges & Investor Demo Robustness", () =
     // The gap between sentence 1 and sentence 2 is strictly the space and has no highlight
     expect(s2.start).toBe(s1.end + 1);
     expect(text.slice(s1.end, s2.start)).toBe(" ");
+  });
+
+  it("DESCENDER CLEARANCE: provides 6px underline offset ensuring p, g, y, q tails are never intersected", () => {
+    expect(AO_META.AO1.offset).toBe("6px");
+    expect(AO_META.AO2.offset).toBe("6px");
+    expect(AO_META.AO3.offset).toBe("6px");
   });
 });

@@ -1086,346 +1086,349 @@ function LiveExaminerPage() {
           </p>
         </div>
       ) : (
-        <div className={cn("grid gap-6 transition-all duration-300", zenMode ? "grid-cols-1 max-w-5xl mx-auto" : "grid-cols-1 lg:grid-cols-[1fr_360px]")}>
-          <section className="min-w-0 space-y-5 p-4 md:p-6 lg:p-8">
-            {/* Top Control Bar */}
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 pb-4">
-              <div className="flex items-center gap-2">
-                <Badge variant="outline" className="text-xs font-semibold px-2.5 py-1 bg-muted/40">
-                  {level === "a2" ? "A Level" : "AS Level"} · {maxMark} Marks
-                </Badge>
-                {topic ? (
-                  <span className="text-xs text-muted-foreground hidden sm:inline truncate max-w-[220px]">
-                    {topic}
-                  </span>
-                ) : null}
-              </div>
-
-              {/* Running Score Pill, Word Count, and Timer */}
-              <div className="flex items-center gap-3">
-                {predictedMark ? (
-                  <div className="flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400 transition-all duration-300 shadow-sm">
-                    <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
-                    <span>Est. {predictedMark.total_mark} / {maxMark} marks</span>
-                    <span className="text-[10px] opacity-75 font-normal hidden md:inline">
-                      (AO1: {predictedMark.ao_breakdown.knowledge.awarded} · AO2: {predictedMark.ao_breakdown.analysis.awarded} · AO3: {predictedMark.ao_breakdown.evaluation.awarded})
-                    </span>
-                  </div>
-                ) : null}
-
-                <span className="text-xs font-mono text-muted-foreground">
-                  {wordCount} words
+        <div className="space-y-6 p-4 md:p-6 lg:p-8 max-w-[1680px] mx-auto">
+          {/* Top Control Bar */}
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 pb-4">
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="text-xs font-semibold px-2.5 py-1 bg-muted/40">
+                {level === "a2" ? "A Level" : "AS Level"} · {maxMark} Marks
+              </Badge>
+              {topic ? (
+                <span className="text-xs text-muted-foreground hidden sm:inline truncate max-w-[220px]">
+                  {topic}
                 </span>
-
-                <div className="flex items-center gap-1 text-xs text-muted-foreground font-mono">
-                  <Clock className="size-3.5" />
-                  <span>{isAdmin ? "Admin (Unlimited)" : formattedTimeRemaining}</span>
-                </div>
-
-                {autosave === "saving" ? (
-                  <span className="text-[11px] text-muted-foreground flex items-center gap-1">
-                    <Loader2 className="size-3 animate-spin" />
-                  </span>
-                ) : autosave === "saved" ? (
-                  <span className="text-[11px] text-emerald-600/80 flex items-center gap-1" title="Autosaved">
-                    <Check className="size-3" />
-                  </span>
-                ) : null}
-              </div>
-
-              {/* Actions */}
-              <div className="flex items-center gap-1.5">
-                <Button
-                  type="button"
-                  size="sm"
-                  className="h-8 gap-1.5 text-xs font-medium"
-                  onClick={handleGradeNow}
-                >
-                  <CheckCircle2 className="size-3.5" /> Grade now
-                </Button>
-
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  className="h-8 text-xs gap-1.5"
-                  onClick={() => setDiagramDialogOpen(true)}
-                >
-                  <ImagePlus className="size-3.5" />
-                  {diagrams.length > 0 ? `Diagram (${diagrams.length})` : "Diagram"}
-                </Button>
-
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button type="button" size="sm" variant="outline" className="h-8 text-xs gap-1.5">
-                      <ClipboardPaste className="size-3.5" />
-                      {markSchemeImages.length > 0 ? `MS (${markSchemeImages.length})` : "Mark Scheme"}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-80 space-y-2" align="end">
-                    <p className="text-xs text-muted-foreground">
-                      Paste a mark scheme screenshot to evaluate against official marking criteria.
-                    </p>
-                    <MarkSchemeScreenshots
-                      images={markSchemeImages}
-                      onAdd={(img) => setMarkSchemeImages((current) => [...current, img])}
-                      onRemove={(id) => setMarkSchemeImages((current) => current.filter((img) => img.id !== id))}
-                    />
-                  </PopoverContent>
-                </Popover>
-
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  className="h-8 text-xs border-amber-500/30 bg-amber-500/5 text-amber-700 dark:text-amber-300 hover:bg-amber-500/10 font-medium"
-                  onClick={handleOpenScoreMaximizer}
-                  title="Open Score Maximizer guidance"
-                >
-                  <Sparkles className="size-3.5 text-amber-500" /> Maximizer
-                </Button>
-
-                <Button
-                  type="button"
-                  size="sm"
-                  variant={zenMode ? "secondary" : "outline"}
-                  className="h-8 text-xs"
-                  onClick={() => setZenMode((prev) => !prev)}
-                  title="Toggle Zen / Focus Mode"
-                >
-                  {zenMode ? "Panel" : "Focus"}
-                </Button>
-
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  className="h-8 text-xs text-muted-foreground hover:text-foreground"
-                  onClick={() => setRestartDialogOpen(true)}
-                  title="Clear & restart exam"
-                >
-                  <RotateCcw className="size-3.5" />
-                </Button>
-              </div>
+              ) : null}
             </div>
 
-            {/* Official Cambridge Examination Answer Script Paper */}
-            <div className="relative mx-auto w-full overflow-hidden rounded-2xl border border-border/80 bg-card/95 shadow-xl backdrop-blur-sm transition-all duration-200">
-              {/* Cambridge Official Script Header Banner */}
-              <div className="border-b border-border/70 bg-muted/30 px-6 py-4">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    <div className="flex size-9 items-center justify-center rounded-lg border border-primary/30 bg-primary/10 text-primary">
-                      <GraduationCap className="size-5" />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-bold tracking-widest text-muted-foreground uppercase">
-                          Cambridge Assessment International Education
-                        </span>
-                        <Badge variant="outline" className="text-[9px] font-semibold py-0 px-1.5 border-primary/30 text-primary bg-primary/5">
-                          9708 SYLLABUS
-                        </Badge>
-                      </div>
-                      <h3 className="text-sm font-semibold text-foreground tracking-tight">
-                        Economics {level === "a2" ? "A Level · Paper 4" : "AS Level · Paper 2"} Digital Answer Script
-                      </h3>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2 text-xs">
-                    <div className="flex items-center gap-1.5 rounded-md border border-border/70 bg-background/80 px-2.5 py-1 text-muted-foreground font-mono">
-                      <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                      <span>Script Active</span>
-                    </div>
-                    <Badge variant="secondary" className="font-semibold text-xs">
-                      Max Tariff: [{maxMark} Marks]
-                    </Badge>
-                  </div>
+            {/* Running Score Pill, Word Count, and Timer */}
+            <div className="flex items-center gap-3">
+              {predictedMark ? (
+                <div className="flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400 transition-all duration-300 shadow-sm">
+                  <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <span>Est. {predictedMark.total_mark} / {maxMark} marks</span>
+                  <span className="text-[10px] opacity-75 font-normal hidden md:inline">
+                    (AO1: {predictedMark.ao_breakdown.knowledge.awarded} · AO2: {predictedMark.ao_breakdown.analysis.awarded} · AO3: {predictedMark.ao_breakdown.evaluation.awarded})
+                  </span>
                 </div>
+              ) : null}
 
-                {/* Cambridge Question Presentation Box */}
-                <div className="mt-3.5 rounded-xl border border-border/80 bg-background/90 p-4 shadow-sm">
-                  <div className="flex items-center justify-between gap-2 border-b border-border/50 pb-2 mb-2.5">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold text-primary tracking-wide">
-                        QUESTION 1 [{maxMark}]
-                      </span>
-                      {topic ? (
-                        <span className="text-xs text-muted-foreground font-medium truncate max-w-sm">
-                          · {topic}
-                        </span>
-                      ) : null}
-                    </div>
-                    <span className="text-[11px] font-medium text-muted-foreground italic hidden sm:inline">
-                      Continuous prose response
-                    </span>
-                  </div>
-                  <p className="text-[15px] md:text-[16px] font-medium text-foreground leading-relaxed">
-                    {question}
+              <span className="text-xs font-mono text-muted-foreground">
+                {wordCount} words
+              </span>
+
+              <div className="flex items-center gap-1 text-xs text-muted-foreground font-mono">
+                <Clock className="size-3.5" />
+                <span>{isAdmin ? "Admin (Unlimited)" : formattedTimeRemaining}</span>
+              </div>
+
+              {autosave === "saving" ? (
+                <span className="text-[11px] text-muted-foreground flex items-center gap-1">
+                  <Loader2 className="size-3 animate-spin" />
+                </span>
+              ) : autosave === "saved" ? (
+                <span className="text-[11px] text-emerald-600/80 flex items-center gap-1" title="Autosaved">
+                  <Check className="size-3" />
+                </span>
+              ) : null}
+            </div>
+
+            {/* Actions */}
+            <div className="flex items-center gap-1.5">
+              <Button
+                type="button"
+                size="sm"
+                className="h-8 gap-1.5 text-xs font-medium"
+                onClick={handleGradeNow}
+              >
+                <CheckCircle2 className="size-3.5" /> Grade now
+              </Button>
+
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-8 text-xs gap-1.5"
+                onClick={() => setDiagramDialogOpen(true)}
+              >
+                <ImagePlus className="size-3.5" />
+                {diagrams.length > 0 ? `Diagram (${diagrams.length})` : "Diagram"}
+              </Button>
+
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button type="button" size="sm" variant="outline" className="h-8 text-xs gap-1.5">
+                    <ClipboardPaste className="size-3.5" />
+                    {markSchemeImages.length > 0 ? `MS (${markSchemeImages.length})` : "Mark Scheme"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-80 space-y-2" align="end">
+                  <p className="text-xs text-muted-foreground">
+                    Paste a mark scheme screenshot to evaluate against official marking criteria.
                   </p>
-                </div>
-
-                {/* Economics Quick Insert Notation Strip */}
-                <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-border/40 pt-2.5 text-xs">
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mr-1">
-                      Quick Notation:
-                    </span>
-                    {[
-                      { label: "PED formula", insert: "PED = (%ΔQd / %ΔP)" },
-                      { label: "YED formula", insert: "YED = (%ΔQd / %ΔY)" },
-                      { label: "PES formula", insert: "PES = (%ΔQs / %ΔP)" },
-                      { label: "AD equation", insert: "AD = C + I + G + (X - M)" },
-                      { label: "LRAS / SRAS", insert: "SRAS and LRAS curves" },
-                      { label: "PPC", insert: "Production Possibility Curve (PPC)" },
-                    ].map((btn) => (
-                      <button
-                        key={btn.label}
-                        type="button"
-                        onClick={() => handleInsertSentence(btn.insert)}
-                        className="rounded border border-border/70 bg-background/70 px-2 py-0.5 text-[11px] font-mono text-muted-foreground hover:bg-primary/10 hover:text-primary hover:border-primary/40 transition-colors"
-                        title={`Insert ${btn.insert}`}
-                      >
-                        + {btn.label}
-                      </button>
-                    ))}
-                  </div>
-
-                  {/* Cambridge AO Visual Color Legend */}
-                  <div className="hidden sm:flex items-center gap-3 text-[11px] font-medium select-none">
-                    <span className="flex items-center gap-1 text-ao1">
-                      <span className="size-2 rounded-full bg-ao1" /> AO1 Knowledge
-                    </span>
-                    <span className="flex items-center gap-1 text-ao2">
-                      <span className="size-2 rounded-full bg-ao2" /> AO2 Analysis
-                    </span>
-                    <span className="flex items-center gap-1 text-ao3">
-                      <span className="size-2 rounded-full bg-ao3" /> AO3 Evaluation
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Answer Script Body with Left Margin Gutter */}
-              <div className="relative flex min-h-[64vh]">
-                {/* Left Margin Ruling: For Examiner's Use */}
-                <div className="hidden sm:flex w-12 shrink-0 flex-col items-center border-r border-border/60 bg-muted/10 py-6 select-none">
-                  <span className="[writing-mode:vertical-lr] rotate-180 text-[9px] font-bold tracking-widest text-muted-foreground/50 uppercase">
-                    For Examiner's Use
-                  </span>
-                </div>
-
-                {/* The Math-Locked Live Examiner Editor */}
-                <div className="min-w-0 flex-1">
-                  <LiveExaminerEditor
-                    value={essayText}
-                    onChange={setEssayText}
-                    issues={issues}
-                    classifications={classifications}
-                    focusedIssueId={focusedIssueId}
-                    onAccept={(id) => setEssayText((current) => acceptIssue(id, current))}
-                    onDismiss={dismissIssue}
-                    placeholder="Begin typing your examination response here in continuous prose… The Live Examiner evaluates your economic accuracy (AO1), causal mechanisms (AO2), and evaluative synthesis (AO3) with inline annotations."
-                    className="min-h-[64vh]"
+                  <MarkSchemeScreenshots
+                    images={markSchemeImages}
+                    onAdd={(img) => setMarkSchemeImages((current) => [...current, img])}
+                    onRemove={(id) => setMarkSchemeImages((current) => current.filter((img) => img.id !== id))}
                   />
-                </div>
-              </div>
+                </PopoverContent>
+              </Popover>
 
-              {/* Official Answer Script Verification Footer */}
-              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/70 bg-muted/30 px-6 py-3 text-xs text-muted-foreground">
-                <div className="flex items-center gap-3">
-                  <span className="text-[11px] font-medium">
-                    Cambridge 9708 · Page 1 of 1
-                  </span>
-                  <span className="text-[11px] font-mono">
-                    {wordCount} words {wordCount > 0 ? `(~${Math.max(1, Math.round(wordCount / 180))} min read)` : ""}
-                  </span>
-                  {wordCount < 150 ? (
-                    <span className="text-[10px] text-amber-600 dark:text-amber-400">
-                      (Standard: 350–550 words)
-                    </span>
-                  ) : null}
-                </div>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-8 text-xs border-amber-500/30 bg-amber-500/5 text-amber-700 dark:text-amber-300 hover:bg-amber-500/10 font-medium"
+                onClick={handleOpenScoreMaximizer}
+                title="Open Score Maximizer guidance"
+              >
+                <Sparkles className="size-3.5 text-amber-500" /> Maximizer
+              </Button>
 
-                <div className="flex items-center gap-3">
-                  {predictedMark ? (
-                    <div className="flex items-center gap-1.5 font-medium text-emerald-600 dark:text-emerald-400">
-                      <span className="size-2 rounded-full bg-emerald-500" />
-                      <span>Cambridge Live Standard: {predictedMark.total_mark}/{maxMark} Marks</span>
-                    </div>
-                  ) : null}
+              <Button
+                type="button"
+                size="sm"
+                variant={zenMode ? "secondary" : "outline"}
+                className="h-8 text-xs"
+                onClick={() => setZenMode((prev) => !prev)}
+                title="Toggle Zen / Focus Mode"
+              >
+                {zenMode ? "Panel" : "Focus"}
+              </Button>
 
-                  {autosave === "saving" ? (
-                    <span className="text-[11px] text-muted-foreground flex items-center gap-1">
-                      <Loader2 className="size-3 animate-spin" /> Saving…
-                    </span>
-                  ) : autosave === "saved" ? (
-                    <span className="text-[11px] text-emerald-600/90 dark:text-emerald-400 flex items-center gap-1">
-                      <Check className="size-3" /> Autosaved
-                    </span>
-                  ) : null}
-                </div>
-              </div>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                className="h-8 text-xs text-muted-foreground hover:text-foreground"
+                onClick={() => setRestartDialogOpen(true)}
+                title="Clear & restart exam"
+              >
+                <RotateCcw className="size-3.5" />
+              </Button>
             </div>
-          </section>
+          </div>
 
-          {!zenMode ? (
-            <aside className="min-w-0 p-4 md:p-5 border-t lg:border-t-0 lg:border-l border-border/60 lg:sticky lg:top-4 lg:self-start lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
-              <LiveExaminerPanel
-                issues={issues}
-                history={history}
-                checking={checking}
-                pending={pending}
-                error={checkError}
-                autosave={autosave}
-                predictedMark={predictedMark}
-                lastUpdatedAt={lastUpdatedAt}
-                maxMark={maxMark}
-                challenges={challenges}
-                fetchingChallenges={fetchingChallenges}
-                challengeOverview={challengeOverview}
-                onRequestChallenges={requestChallenges}
-                onDismissChallenge={dismissChallenge}
-                onAddressChallenge={markChallengeAddressed}
-                durationMinutes={durationMinutes}
-                remainingSeconds={remainingSeconds}
-                aiCoachingExpired={aiCoachingExpired}
-                formattedTimeRemaining={formattedTimeRemaining}
-                sessionUsage={sessionUsage}
-                isAdmin={isAdmin}
-                onFocusIssue={(id) => setFocusedIssueId(id)}
-                gradedHelp={
-                  gradeMutation.data &&
-                  gradeMutation.data.grading.total_mark < gradeMutation.data.grading.max_mark ? (
-                    <GradedHelpCard
-                      grading={gradeMutation.data.grading as Grading}
-                      suggestions={maxOutMutation.data?.suggestions ?? []}
-                      headline={maxOutMutation.data?.headline}
-                      loading={maxOutMutation.isPending}
-                      error={maxOutMutation.isError}
-                      revealed={revealedHints}
-                      onReveal={() => setRevealedHints((count) => Math.min(3, count + 1))}
-                      onRetry={() => maxOutMutation.mutate()}
-                      generatingAnswer={fullAnswerMutation.isPending}
-                      onShowAnswer={() => fullAnswerMutation.mutate()}
-                    />
-                  ) : gradeMutation.data ? (
-                    <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-xs text-emerald-700 dark:text-emerald-300">
-                      <p className="font-semibold">Full marks achieved</p>
-                      <p className="mt-0.5">
-                        No hints needed — this answer has met the full standard.
-                      </p>
+          {/* Unified 2-Column Workspace: Left Paper + Right Examiner Panel */}
+          <div className={cn("grid gap-6 transition-all duration-300 items-start", zenMode ? "grid-cols-1 max-w-5xl mx-auto" : "grid-cols-1 lg:grid-cols-[1fr_360px] xl:grid-cols-[1fr_380px]")}>
+            {/* Official Cambridge Examination Answer Script Paper */}
+            <main className="min-w-0">
+              <div className="relative mx-auto w-full overflow-hidden rounded-2xl border border-border/80 bg-card/95 shadow-xl backdrop-blur-sm transition-all duration-200">
+                {/* Cambridge Official Script Header Banner */}
+                <div className="border-b border-border/70 bg-muted/30 px-6 py-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="flex size-9 items-center justify-center rounded-lg border border-primary/30 bg-primary/10 text-primary">
+                        <GraduationCap className="size-5" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-bold tracking-widest text-muted-foreground uppercase">
+                            Cambridge Assessment International Education
+                          </span>
+                          <Badge variant="outline" className="text-[9px] font-semibold py-0 px-1.5 border-primary/30 text-primary bg-primary/5">
+                            9708 SYLLABUS
+                          </Badge>
+                        </div>
+                        <h3 className="text-sm font-semibold text-foreground tracking-tight">
+                          Economics {level === "a2" ? "A Level · Paper 4" : "AS Level · Paper 2"} Digital Answer Script
+                        </h3>
+                      </div>
                     </div>
-                  ) : null
-                }
-                onAccept={(id) => setEssayText((current) => acceptIssue(id, current))}
-                onDismiss={dismissIssue}
-                onRescan={() => rescan(essayText)}
-                onClearAll={clearAll}
-              />
-            </aside>
-          ) : null}
+
+                    <div className="flex items-center gap-2 text-xs">
+                      <div className="flex items-center gap-1.5 rounded-md border border-border/70 bg-background/80 px-2.5 py-1 text-muted-foreground font-mono">
+                        <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                        <span>Script Active</span>
+                      </div>
+                      <Badge variant="secondary" className="font-semibold text-xs">
+                        Max Tariff: [{maxMark} Marks]
+                      </Badge>
+                    </div>
+                  </div>
+
+                  {/* Cambridge Question Presentation Box */}
+                  <div className="mt-3.5 rounded-xl border border-border/80 bg-background/90 p-4 shadow-sm">
+                    <div className="flex items-center justify-between gap-2 border-b border-border/50 pb-2 mb-2.5">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-primary tracking-wide">
+                          QUESTION 1 [{maxMark}]
+                        </span>
+                        {topic ? (
+                          <span className="text-xs text-muted-foreground font-medium truncate max-w-sm">
+                            · {topic}
+                          </span>
+                        ) : null}
+                      </div>
+                      <span className="text-[11px] font-medium text-muted-foreground italic hidden sm:inline">
+                        Continuous prose response
+                      </span>
+                    </div>
+                    <p className="text-[15px] md:text-[16px] font-medium text-foreground leading-relaxed">
+                      {question}
+                    </p>
+                  </div>
+
+                  {/* Economics Quick Insert Notation Strip */}
+                  <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-border/40 pt-2.5 text-xs">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mr-1">
+                        Quick Notation:
+                      </span>
+                      {[
+                        { label: "PED formula", insert: "PED = (%ΔQd / %ΔP)" },
+                        { label: "YED formula", insert: "YED = (%ΔQd / %ΔY)" },
+                        { label: "PES formula", insert: "PES = (%ΔQs / %ΔP)" },
+                        { label: "AD equation", insert: "AD = C + I + G + (X - M)" },
+                        { label: "LRAS / SRAS", insert: "SRAS and LRAS curves" },
+                        { label: "PPC", insert: "Production Possibility Curve (PPC)" },
+                      ].map((btn) => (
+                        <button
+                          key={btn.label}
+                          type="button"
+                          onClick={() => handleInsertSentence(btn.insert)}
+                          className="rounded border border-border/70 bg-background/70 px-2 py-0.5 text-[11px] font-mono text-muted-foreground hover:bg-primary/10 hover:text-primary hover:border-primary/40 transition-colors"
+                          title={`Insert ${btn.insert}`}
+                        >
+                          + {btn.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Cambridge AO Visual Color Legend */}
+                    <div className="hidden sm:flex items-center gap-3 text-[11px] font-medium select-none">
+                      <span className="flex items-center gap-1 text-ao1">
+                        <span className="size-2 rounded-full bg-ao1" /> AO1 Knowledge
+                      </span>
+                      <span className="flex items-center gap-1 text-ao2">
+                        <span className="size-2 rounded-full bg-ao2" /> AO2 Analysis
+                      </span>
+                      <span className="flex items-center gap-1 text-ao3">
+                        <span className="size-2 rounded-full bg-ao3" /> AO3 Evaluation
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Answer Script Body with Left Margin Gutter */}
+                <div className="relative flex min-h-[64vh]">
+                  {/* Left Margin Ruling: For Examiner's Use */}
+                  <div className="hidden sm:flex w-12 shrink-0 flex-col items-center border-r border-border/60 bg-muted/10 py-6 select-none">
+                    <span className="[writing-mode:vertical-lr] rotate-180 text-[9px] font-bold tracking-widest text-muted-foreground/50 uppercase">
+                      For Examiner's Use
+                    </span>
+                  </div>
+
+                  {/* The Math-Locked Live Examiner Editor */}
+                  <div className="min-w-0 flex-1">
+                    <LiveExaminerEditor
+                      value={essayText}
+                      onChange={setEssayText}
+                      issues={issues}
+                      classifications={classifications}
+                      focusedIssueId={focusedIssueId}
+                      onAccept={(id) => setEssayText((current) => acceptIssue(id, current))}
+                      onDismiss={dismissIssue}
+                      placeholder="Begin typing your examination response here in continuous prose… The Live Examiner evaluates your economic accuracy (AO1), causal mechanisms (AO2), and evaluative synthesis (AO3) with inline annotations."
+                      className="min-h-[64vh]"
+                    />
+                  </div>
+                </div>
+
+                {/* Official Answer Script Verification Footer */}
+                <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/70 bg-muted/30 px-6 py-3 text-xs text-muted-foreground">
+                  <div className="flex items-center gap-3">
+                    <span className="text-[11px] font-medium">
+                      Cambridge 9708 · Page 1 of 1
+                    </span>
+                    <span className="text-[11px] font-mono">
+                      {wordCount} words {wordCount > 0 ? `(~${Math.max(1, Math.round(wordCount / 180))} min read)` : ""}
+                    </span>
+                    {wordCount < 150 ? (
+                      <span className="text-[10px] text-amber-600 dark:text-amber-400">
+                        (Standard: 350–550 words)
+                      </span>
+                    ) : null}
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    {predictedMark ? (
+                      <div className="flex items-center gap-1.5 font-medium text-emerald-600 dark:text-emerald-400">
+                        <span className="size-2 rounded-full bg-emerald-500" />
+                        <span>Cambridge Live Standard: {predictedMark.total_mark}/{maxMark} Marks</span>
+                      </div>
+                    ) : null}
+
+                    {autosave === "saving" ? (
+                      <span className="text-[11px] text-muted-foreground flex items-center gap-1">
+                        <Loader2 className="size-3 animate-spin" /> Saving…
+                      </span>
+                    ) : autosave === "saved" ? (
+                      <span className="text-[11px] text-emerald-600/90 dark:text-emerald-400 flex items-center gap-1">
+                        <Check className="size-3" /> Autosaved
+                      </span>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+            </main>
+
+            {!zenMode ? (
+              <aside className="min-w-0 lg:sticky lg:top-4 lg:self-start lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
+                <LiveExaminerPanel
+                  issues={issues}
+                  history={history}
+                  checking={checking}
+                  pending={pending}
+                  error={checkError}
+                  autosave={autosave}
+                  predictedMark={predictedMark}
+                  lastUpdatedAt={lastUpdatedAt}
+                  maxMark={maxMark}
+                  challenges={challenges}
+                  fetchingChallenges={fetchingChallenges}
+                  challengeOverview={challengeOverview}
+                  onRequestChallenges={requestChallenges}
+                  onDismissChallenge={dismissChallenge}
+                  onAddressChallenge={markChallengeAddressed}
+                  durationMinutes={durationMinutes}
+                  remainingSeconds={remainingSeconds}
+                  aiCoachingExpired={aiCoachingExpired}
+                  formattedTimeRemaining={formattedTimeRemaining}
+                  sessionUsage={sessionUsage}
+                  isAdmin={isAdmin}
+                  onFocusIssue={(id) => setFocusedIssueId(id)}
+                  gradedHelp={
+                    gradeMutation.data &&
+                    gradeMutation.data.grading.total_mark < gradeMutation.data.grading.max_mark ? (
+                      <GradedHelpCard
+                        grading={gradeMutation.data.grading as Grading}
+                        suggestions={maxOutMutation.data?.suggestions ?? []}
+                        headline={maxOutMutation.data?.headline}
+                        loading={maxOutMutation.isPending}
+                        error={maxOutMutation.isError}
+                        revealed={revealedHints}
+                        onReveal={() => setRevealedHints((count) => Math.min(3, count + 1))}
+                        onRetry={() => maxOutMutation.mutate()}
+                        generatingAnswer={fullAnswerMutation.isPending}
+                        onShowAnswer={() => fullAnswerMutation.mutate()}
+                      />
+                    ) : gradeMutation.data ? (
+                      <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-xs text-emerald-700 dark:text-emerald-300">
+                        <p className="font-semibold">Full marks achieved</p>
+                        <p className="mt-0.5">
+                          No hints needed — this answer has met the full standard.
+                        </p>
+                      </div>
+                    ) : null
+                  }
+                  onAccept={(id) => setEssayText((current) => acceptIssue(id, current))}
+                  onDismiss={dismissIssue}
+                  onRescan={() => rescan(essayText)}
+                  onClearAll={clearAll}
+                />
+              </aside>
+            ) : null}
+          </div>
         </div>
       )}
 

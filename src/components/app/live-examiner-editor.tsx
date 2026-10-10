@@ -43,7 +43,7 @@ const CATEGORY_META: Record<IssueCategory, UnderlineStyleMeta> = {
     underlineColor: "rgba(244, 63, 94, 0.75)",
     underlineStyle: "dashed",
     underlineThickness: "1.5px",
-    offset: "3.5px",
+    offset: "6px",
     backgroundColor: "rgba(244, 63, 94, 0.07)",
   },
   clarity: {
@@ -52,7 +52,7 @@ const CATEGORY_META: Record<IssueCategory, UnderlineStyleMeta> = {
     underlineColor: "rgba(161, 161, 170, 0.75)",
     underlineStyle: "dashed",
     underlineThickness: "1.5px",
-    offset: "3.5px",
+    offset: "6px",
     backgroundColor: "rgba(161, 161, 170, 0.07)",
   },
   economics_accuracy: {
@@ -61,7 +61,7 @@ const CATEGORY_META: Record<IssueCategory, UnderlineStyleMeta> = {
     underlineColor: "rgba(225, 29, 72, 0.85)",
     underlineStyle: "wavy",
     underlineThickness: "1.75px",
-    offset: "3.5px",
+    offset: "6px",
     backgroundColor: "rgba(225, 29, 72, 0.08)",
   },
   misconception: {
@@ -70,7 +70,7 @@ const CATEGORY_META: Record<IssueCategory, UnderlineStyleMeta> = {
     underlineColor: "rgba(220, 38, 38, 0.90)",
     underlineStyle: "wavy",
     underlineThickness: "1.75px",
-    offset: "3.5px",
+    offset: "6px",
     backgroundColor: "rgba(220, 38, 38, 0.09)",
   },
   analysis: {
@@ -79,7 +79,7 @@ const CATEGORY_META: Record<IssueCategory, UnderlineStyleMeta> = {
     underlineColor: "rgba(16, 185, 129, 0.65)",
     underlineStyle: "solid",
     underlineThickness: "1.5px",
-    offset: "3.5px",
+    offset: "6px",
     backgroundColor: "rgba(16, 185, 129, 0.09)",
   },
   application: {
@@ -88,7 +88,7 @@ const CATEGORY_META: Record<IssueCategory, UnderlineStyleMeta> = {
     underlineColor: "rgba(16, 185, 129, 0.65)",
     underlineStyle: "solid",
     underlineThickness: "1.5px",
-    offset: "3.5px",
+    offset: "6px",
     backgroundColor: "rgba(16, 185, 129, 0.09)",
   },
   evaluation: {
@@ -97,7 +97,7 @@ const CATEGORY_META: Record<IssueCategory, UnderlineStyleMeta> = {
     underlineColor: "rgba(245, 158, 11, 0.70)",
     underlineStyle: "solid",
     underlineThickness: "1.5px",
-    offset: "3.5px",
+    offset: "6px",
     backgroundColor: "rgba(245, 158, 11, 0.10)",
   },
   reasoning_chain: {
@@ -106,7 +106,7 @@ const CATEGORY_META: Record<IssueCategory, UnderlineStyleMeta> = {
     underlineColor: "rgba(16, 185, 129, 0.65)",
     underlineStyle: "solid",
     underlineThickness: "1.5px",
-    offset: "3.5px",
+    offset: "6px",
     backgroundColor: "rgba(16, 185, 129, 0.09)",
   },
   terminology: {
@@ -115,21 +115,21 @@ const CATEGORY_META: Record<IssueCategory, UnderlineStyleMeta> = {
     underlineColor: "rgba(59, 130, 246, 0.65)",
     underlineStyle: "solid",
     underlineThickness: "1.5px",
-    offset: "3.5px",
+    offset: "6px",
     backgroundColor: "rgba(59, 130, 246, 0.09)",
   },
 };
 
 const DIAGRAM_TAG = /\[DIAGRAM:[^\]]*\]/g;
 
-const AO_META: Record<"AO1" | "AO2" | "AO3", UnderlineStyleMeta> = {
+export const AO_META: Record<"AO1" | "AO2" | "AO3", UnderlineStyleMeta> = {
   AO1: {
     label: "AO1 Knowledge",
     dot: "bg-ao1",
     underlineColor: "rgba(59, 130, 246, 0.65)",
     underlineStyle: "solid",
     underlineThickness: "1.5px",
-    offset: "3.5px",
+    offset: "6px",
     backgroundColor: "rgba(59, 130, 246, 0.09)",
   },
   AO2: {
@@ -138,7 +138,7 @@ const AO_META: Record<"AO1" | "AO2" | "AO3", UnderlineStyleMeta> = {
     underlineColor: "rgba(16, 185, 129, 0.65)",
     underlineStyle: "solid",
     underlineThickness: "1.5px",
-    offset: "3.5px",
+    offset: "6px",
     backgroundColor: "rgba(16, 185, 129, 0.09)",
   },
   AO3: {
@@ -147,7 +147,7 @@ const AO_META: Record<"AO1" | "AO2" | "AO3", UnderlineStyleMeta> = {
     underlineColor: "rgba(245, 158, 11, 0.70)",
     underlineStyle: "solid",
     underlineThickness: "1.5px",
-    offset: "3.5px",
+    offset: "6px",
     backgroundColor: "rgba(245, 158, 11, 0.10)",
   },
 };
@@ -168,7 +168,7 @@ const DEFAULT_ISSUE_META: UnderlineStyleMeta = {
   underlineColor: "rgba(244, 63, 94, 0.85)",
   underlineStyle: "dashed",
   underlineThickness: "1.5px",
-  offset: "5px",
+  offset: "6px",
   backgroundColor: "rgba(244, 63, 94, 0.08)",
 };
 
