@@ -295,7 +295,7 @@ export const listApprovedEssayQuestions = createServerFn({ method: "POST" })
       .eq("level", data.level)
       .eq("status", "approved")
       .order("created_at", { ascending: false })
-      .limit(100);
+      .limit(500);
     if (data.topic) query = query.eq("topic", data.topic);
     const { data: rows, error } = await query;
     if (error) throw new Error(error.message);

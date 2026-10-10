@@ -11,6 +11,7 @@ import {
   LayoutGrid,
   Loader2,
   Pencil,
+  Search,
   Sparkles,
   Timer as TimerIcon,
   Trash2,
@@ -34,6 +35,7 @@ import {
 import { Badge as UiBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import {
@@ -43,6 +45,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import {
   classifyMcqTopics,
@@ -210,6 +213,7 @@ function McqLivePage() {
   const fetchMe = useServerFn(getMe);
   const me = useQuery({ queryKey: ["me"], queryFn: () => fetchMe() });
   const [stage, setStage] = useState<"library" | "practice">("library");
+  const [libraryTab, setLibraryTab] = useState<"catalog" | "picker">("catalog");
   const [selectedPaperId, setSelectedPaperId] = useState<string | null>(null);
   const [level, setLevel] = useState<Level>("as");
   const [qCount, setQCount] = useState(30);
@@ -788,12 +792,36 @@ function McqLivePage() {
                 </CardContent>
               </Card>
             ) : (
-              <PastPaperSelector
-                papers={papersQuery.data!.papers}
-                busy={!!busyLabel}
-                busyPaperId={selectedPaperId}
-                onStart={beginPractice}
-              />
+              <div className="space-y-4">
+                <Tabs value={libraryTab} onValueChange={(v) => setLibraryTab(v as "catalog" | "picker")}>
+                  <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="catalog" className="gap-2">
+                      <LayoutGrid className="h-3.5 w-3.5" />
+                      Browse Catalog ({papersQuery.data!.papers.length})
+                    </TabsTrigger>
+                    <TabsTrigger value="picker" className="gap-2">
+                      <BookOpen className="h-3.5 w-3.5" />
+                      Quick Selector
+                    </TabsTrigger>
+                  </TabsList>
+                </Tabs>
+
+                {libraryTab === "catalog" ? (
+                  <PastPaperCatalog
+                    papers={papersQuery.data!.papers}
+                    busy={!!busyLabel}
+                    busyPaperId={selectedPaperId}
+                    onStart={beginPractice}
+                  />
+                ) : (
+                  <PastPaperSelector
+                    papers={papersQuery.data!.papers}
+                    busy={!!busyLabel}
+                    busyPaperId={selectedPaperId}
+                    onStart={beginPractice}
+                  />
+                )}
+              </div>
             )}
 
             <p className="mt-5 flex items-start gap-1.5 text-xs text-muted-foreground">
@@ -1681,6 +1709,191 @@ function uniqueSorted<T>(values: T[], compare: (a: T, b: T) => number): T[] {
   return Array.from(new Set(values)).sort(compare);
 }
 
+function PastPaperCatalog({
+  papers,
+  busy,
+  busyPaperId,
+  onStart,
+}: {
+  papers: McqPaperSummary[];
+  busy: boolean;
+  busyPaperId: string | null;
+  onStart: (paper: McqPaperSummary) => void;
+}) {
+  const [search, setSearch] = useState("");
+  const [selectedYear, setSelectedYear] = useState<string>("all");
+  const [selectedLevel, setSelectedLevel] = useState<"all" | "as" | "a2">("all");
+
+  const years = useMemo(() => {
+    const set = new Set<string>();
+    for (const p of papers) {
+      if (p.examYear) set.add(String(p.examYear));
+    }
+    return Array.from(set).sort((a, b) => Number(b) - Number(a));
+  }, [papers]);
+
+  const filtered = useMemo(() => {
+    return papers.filter((paper) => {
+      if (selectedYear !== "all" && String(paper.examYear) !== selectedYear) return false;
+      if (selectedLevel !== "all" && paper.level !== selectedLevel) return false;
+      if (search.trim()) {
+        const q = search.toLowerCase();
+        const matchesTitle = paper.title.toLowerCase().includes(q);
+        const matchesSeries = paper.examSeries?.toLowerCase().includes(q) ?? false;
+        const matchesYear = String(paper.examYear ?? "").includes(q);
+        if (!matchesTitle && !matchesSeries && !matchesYear) return false;
+      }
+      return true;
+    });
+  }, [papers, selectedYear, selectedLevel, search]);
+
+  return (
+    <div className="space-y-4">
+      {/* Search and filters */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search papers (e.g. 2023, Paper 12, Oct/Nov)..."
+            className="pl-9 text-sm"
+          />
+        </div>
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
+          <Button
+            type="button"
+            size="sm"
+            variant={selectedLevel === "all" ? "default" : "outline"}
+            onClick={() => setSelectedLevel("all")}
+            className="h-8 text-xs"
+          >
+            All
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant={selectedLevel === "as" ? "default" : "outline"}
+            onClick={() => setSelectedLevel("as")}
+            className="h-8 text-xs"
+          >
+            AS Level
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant={selectedLevel === "a2" ? "default" : "outline"}
+            onClick={() => setSelectedLevel("a2")}
+            className="h-8 text-xs"
+          >
+            A Level
+          </Button>
+        </div>
+      </div>
+
+      {/* Year filter chips */}
+      <div className="flex flex-wrap items-center gap-1.5 text-xs">
+        <span className="text-muted-foreground mr-1">Year:</span>
+        <button
+          type="button"
+          onClick={() => setSelectedYear("all")}
+          className={cn(
+            "rounded-md px-2.5 py-1 font-medium transition-colors",
+            selectedYear === "all"
+              ? "bg-primary text-primary-foreground shadow-sm"
+              : "bg-muted/70 text-muted-foreground hover:bg-muted hover:text-foreground"
+          )}
+        >
+          All ({papers.length})
+        </button>
+        {years.map((yr) => {
+          const count = papers.filter((p) => String(p.examYear) === yr).length;
+          return (
+            <button
+              key={yr}
+              type="button"
+              onClick={() => setSelectedYear(yr)}
+              className={cn(
+                "rounded-md px-2.5 py-1 font-medium transition-colors",
+                selectedYear === yr
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "bg-muted/70 text-muted-foreground hover:bg-muted hover:text-foreground"
+              )}
+            >
+              {yr} ({count})
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Papers Grid */}
+      {filtered.length === 0 ? (
+        <Card>
+          <CardContent className="py-8 text-center text-sm text-muted-foreground">
+            No papers match your search. Try another year or clear the search.
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {filtered.map((paper) => {
+            const isComplete = hasCompleteAnswerKey(paper);
+            const isBusy = busy && busyPaperId === paper.id;
+            return (
+              <Card
+                key={paper.id}
+                className="group flex flex-col justify-between border-border transition-all hover:border-primary/50 hover:shadow-sm"
+              >
+                <CardContent className="space-y-3 p-4">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <UiBadge variant="outline" className="text-[11px] font-semibold">
+                        {paper.level === "as" ? "AS Level" : "A Level"}
+                      </UiBadge>
+                      {paper.examYear ? (
+                        <UiBadge variant="secondary" className="text-[11px]">
+                          {paper.examSeries ? `${paper.examSeries} ` : ""}{paper.examYear}
+                        </UiBadge>
+                      ) : null}
+                    </div>
+                    <span className="font-mono text-xs text-muted-foreground">
+                      {paper.questionCount} Qs
+                    </span>
+                  </div>
+
+                  <div>
+                    <h3 className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors">
+                      {paper.title}
+                    </h3>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {isComplete ? "Official Cambridge mark scheme" : "Partial mark scheme"}
+                    </p>
+                  </div>
+
+                  <Button
+                    size="sm"
+                    className="w-full gap-1.5"
+                    disabled={busy || !isComplete}
+                    onClick={() => onStart(paper)}
+                  >
+                    {isBusy ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <>
+                        Practice paper
+                        <span aria-hidden="true">→</span>
+                      </>
+                    )}
+                  </Button>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function PastPaperSelector({
   papers,
   busy,
@@ -1701,6 +1914,13 @@ function PastPaperSelector({
     },
   );
   const [year, setYear] = useState(years[0]);
+
+  useEffect(() => {
+    if (years.length > 0 && !years.includes(year)) {
+      setYear(years[0]);
+    }
+  }, [years, year]);
+
   const yearPapers = papers.filter(
     (paper) => (paper.examYear ? String(paper.examYear) : "Unsorted") === year,
   );
@@ -1715,6 +1935,12 @@ function PastPaperSelector({
     },
   );
   const [series, setSeries] = useState(seriesOptions[0]);
+
+  useEffect(() => {
+    if (seriesOptions.length > 0 && !seriesOptions.includes(series)) {
+      setSeries(seriesOptions[0]);
+    }
+  }, [seriesOptions, series]);
   const seriesPapers = yearPapers.filter((paper) => (paper.examSeries ?? "Unsorted") === series);
   const levels = uniqueSorted(
     seriesPapers.map((paper) => paper.level),
