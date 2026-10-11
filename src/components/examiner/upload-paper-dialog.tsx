@@ -227,27 +227,49 @@ export function UploadPaperDialog({ open, onOpenChange, onSuccess }: UploadPaper
 
       const uploadId = crypto.randomUUID();
 
-      // 1. Upload QP to examiner-papers bucket
-      const qpFileName = `${uploadId}_qp_${qpFile.name.replace(/[^a-zA-Z0-9.-]/g, "_")}`;
-      const { error: qpErr } = await supabase.storage
-        .from("examiner-papers")
-        .upload(qpFileName, qpFile, { contentType: "application/pdf", upsert: true });
+      // 1. Upload QP to examiner-papers bucket (with fallback to mcq-papers)
+      let qpUrl: string | null = null;
+      try {
+        const qpFileName = `${uploadId}_qp_${qpFile.name.replace(/[^a-zA-Z0-9.-]/g, "_")}`;
+        const { error: qpErr } = await supabase.storage
+          .from("examiner-papers")
+          .upload(qpFileName, qpFile, { contentType: "application/pdf", upsert: true });
 
-      if (qpErr) {
-        throw new Error(`Question Paper PDF upload failed: ${qpErr.message}`);
+        if (!qpErr) {
+          qpUrl = supabase.storage.from("examiner-papers").getPublicUrl(qpFileName).data.publicUrl;
+        } else {
+          const { error: fallbackErr } = await supabase.storage
+            .from("mcq-papers")
+            .upload(qpFileName, qpFile, { contentType: "application/pdf", upsert: true });
+          if (!fallbackErr) {
+            qpUrl = supabase.storage.from("mcq-papers").getPublicUrl(qpFileName).data.publicUrl;
+          }
+        }
+      } catch (err) {
+        console.warn("Could not upload QP file to storage:", err);
       }
-      const qpUrl = supabase.storage.from("examiner-papers").getPublicUrl(qpFileName).data.publicUrl;
 
-      // 2. Upload MS to examiner-papers bucket
-      const msFileName = `${uploadId}_ms_${msFile.name.replace(/[^a-zA-Z0-9.-]/g, "_")}`;
-      const { error: msErr } = await supabase.storage
-        .from("examiner-papers")
-        .upload(msFileName, msFile, { contentType: "application/pdf", upsert: true });
+      // 2. Upload MS to examiner-papers bucket (with fallback to mcq-papers)
+      let msUrl: string | null = null;
+      try {
+        const msFileName = `${uploadId}_ms_${msFile.name.replace(/[^a-zA-Z0-9.-]/g, "_")}`;
+        const { error: msErr } = await supabase.storage
+          .from("examiner-papers")
+          .upload(msFileName, msFile, { contentType: "application/pdf", upsert: true });
 
-      if (msErr) {
-        throw new Error(`Mark Scheme PDF upload failed: ${msErr.message}`);
+        if (!msErr) {
+          msUrl = supabase.storage.from("examiner-papers").getPublicUrl(msFileName).data.publicUrl;
+        } else {
+          const { error: fallbackErr } = await supabase.storage
+            .from("mcq-papers")
+            .upload(msFileName, msFile, { contentType: "application/pdf", upsert: true });
+          if (!fallbackErr) {
+            msUrl = supabase.storage.from("mcq-papers").getPublicUrl(msFileName).data.publicUrl;
+          }
+        }
+      } catch (err) {
+        console.warn("Could not upload MS file to storage:", err);
       }
-      const msUrl = supabase.storage.from("examiner-papers").getPublicUrl(msFileName).data.publicUrl;
 
       // 3. Save paper in DB via server function (also syncs MS into knowledge_documents)
       const { paper } = await createPaperFn({

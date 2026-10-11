@@ -137,6 +137,36 @@ function SessionDetailsPage() {
     }
   };
 
+  if (sessionQuery.isLoading) {
+    return (
+      <div className="flex h-[70vh] flex-col items-center justify-center gap-3 text-center">
+        <Loader2 className="size-8 animate-spin text-primary" />
+        <p className="text-sm text-muted-foreground">Loading marking session details…</p>
+      </div>
+    );
+  }
+
+  if (sessionQuery.isError || !session) {
+    return (
+      <div className="mx-auto max-w-xl py-16 text-center space-y-4">
+        <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-destructive/10 text-destructive">
+          <AlertCircle className="size-6" />
+        </div>
+        <div className="space-y-1">
+          <h2 className="text-lg font-semibold tracking-tight">Marking Session Not Found</h2>
+          <p className="text-xs text-muted-foreground">
+            {sessionQuery.error instanceof Error
+              ? sessionQuery.error.message
+              : "The requested marking session does not exist or has been removed."}
+          </p>
+        </div>
+        <Button asChild size="sm" variant="outline">
+          <Link to="/examiner">Return to Examiner Dashboard</Link>
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <div className="mx-auto max-w-6xl space-y-6 p-4 md:p-8">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">

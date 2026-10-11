@@ -23,6 +23,7 @@ import {
   History,
   Info,
   Maximize2,
+  Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -153,6 +154,23 @@ function TeacherMarkingDeskPage() {
     return (
       <div className="flex h-[80vh] items-center justify-center text-xs text-muted-foreground">
         <Loader2 className="size-6 animate-spin mr-2 text-primary" /> Loading Teacher Marking Desk…
+      </div>
+    );
+  }
+
+  if (scriptQuery.isError || !script) {
+    return (
+      <div className="flex h-[80vh] flex-col items-center justify-center gap-3 p-4 text-center">
+        <AlertTriangle className="size-8 text-destructive" />
+        <h2 className="text-base font-semibold">Script Not Found</h2>
+        <p className="text-xs text-muted-foreground max-w-sm">
+          {scriptQuery.error instanceof Error
+            ? scriptQuery.error.message
+            : "The examination script you requested could not be found or you do not have permission to access it."}
+        </p>
+        <Button asChild size="sm" variant="outline" className="text-xs">
+          <Link to="/examiner">Return to Examiner Dashboard</Link>
+        </Button>
       </div>
     );
   }

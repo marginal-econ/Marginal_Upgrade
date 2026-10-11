@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import {
   ShieldAlert,
   CheckCircle2,
@@ -38,6 +39,9 @@ type ScriptWithSession = CandidateScript & {
 
 function SchoolModerationPage() {
   const queryClient = useQueryClient();
+  const listModerationFn = useServerFn(listModerationScripts);
+  const submitModerationFn = useServerFn(submitScriptModeration);
+
   const [discrepancyOnly, setDiscrepancyOnly] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState<"scripts" | "audit">("scripts");
@@ -50,12 +54,12 @@ function SchoolModerationPage() {
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ["examiner-moderation", discrepancyOnly],
-    queryFn: () => listModerationScripts({ data: { discrepancyOnly } }),
+    queryFn: () => listModerationFn({ data: { discrepancyOnly } }),
   });
 
   const moderateMutation = useMutation({
     mutationFn: (variables: { scriptId: string; moderatedMark: number; rationale: string }) =>
-      submitScriptModeration({ data: variables }),
+      submitModerationFn({ data: variables }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["examiner-moderation"] });
       setSelectedScript(null);

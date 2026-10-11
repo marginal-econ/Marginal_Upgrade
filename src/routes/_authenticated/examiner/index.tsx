@@ -21,6 +21,7 @@ import {
   Upload,
   ExternalLink,
   Trash2,
+  Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -212,8 +213,16 @@ function ExaminerDashboardPage() {
         </div>
 
         {sessionsQuery.isLoading ? (
-          <div className="rounded-xl border border-border p-8 text-center text-xs text-muted-foreground">
-            Loading marking sessions…
+          <div className="rounded-xl border border-border p-8 text-center text-xs text-muted-foreground flex items-center justify-center gap-2">
+            <Loader2 className="size-4 animate-spin text-primary" /> Loading marking sessions…
+          </div>
+        ) : sessionsQuery.isError ? (
+          <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-6 text-center text-xs text-destructive space-y-2">
+            <AlertCircle className="size-5 mx-auto" />
+            <p>Failed to load marking sessions: {(sessionsQuery.error as Error)?.message || "Unknown error"}</p>
+            <Button size="sm" variant="outline" onClick={() => sessionsQuery.refetch()} className="text-xs">
+              Retry
+            </Button>
           </div>
         ) : sessions.length === 0 ? (
           <Card className="border-dashed border-border p-8 text-center space-y-3">
@@ -364,8 +373,16 @@ function ExaminerDashboardPage() {
         </div>
 
         {papersQuery.isLoading ? (
-          <div className="rounded-xl border border-border p-8 text-center text-xs text-muted-foreground">
-            Loading papers repository...
+          <div className="rounded-xl border border-border p-8 text-center text-xs text-muted-foreground flex items-center justify-center gap-2">
+            <Loader2 className="size-4 animate-spin text-primary" /> Loading papers repository...
+          </div>
+        ) : papersQuery.isError ? (
+          <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-6 text-center text-xs text-destructive space-y-2">
+            <AlertCircle className="size-5 mx-auto" />
+            <p>Failed to load papers library: {(papersQuery.error as Error)?.message || "Unknown error"}</p>
+            <Button size="sm" variant="outline" onClick={() => papersQuery.refetch()} className="text-xs">
+              Retry
+            </Button>
           </div>
         ) : filteredPapers.length === 0 ? (
           <Card className="border-dashed border-border p-8 text-center space-y-3">
