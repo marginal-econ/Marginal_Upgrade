@@ -54,7 +54,7 @@ const SYSTEM_PROMPT = [
   "",
   "This page WILL contain something to transcribe — every page comes from a real, non-blank exam script. If the",
   "handwriting is faint, small or partly obscured, do your best rather than giving up; use [?] only for individual",
-  "words you genuinely cannot resolve, never for a whole page.",
+  "words you genuinely cannot resolve. If there is genuinely no writing or diagram on this page, return '[Blank page]'.",
 ].join("\n");
 
 const PAGE_PROMPT =
@@ -92,17 +92,35 @@ async function getVisionConfig(): Promise<ProviderConfig | null> {
   }
 }
 
-function splitDataUrl(dataUrl: string): { mimeType: string; data: string } {
-  const match = /^data:([^;]+);base64,(.+)$/s.exec(dataUrl);
-  if (!match) throw new Error("A page image was not a valid base64 image.");
-  return { mimeType: match[1]!, data: match[2]! };
+async function prepareDataUrl(input: string): Promise<{ mimeType: string; data: string; fullDataUrl: string }> {
+  if (input.startsWith("http://") || input.startsWith("https://")) {
+    try {
+      const res = await fetch(input);
+      if (res.ok) {
+        const contentType = res.headers.get("content-type") || "image/jpeg";
+        const buf = Buffer.from(await res.arrayBuffer());
+        const b64 = buf.toString("base64");
+        return {
+          mimeType: contentType,
+          data: b64,
+          fullDataUrl: `data:${contentType};base64,${b64}`,
+        };
+      }
+    } catch (e) {
+      console.warn("Could not fetch remote page image:", e);
+    }
+  }
+
+  const match = /^data:([^;]+);base64,(.+)$/s.exec(input);
+  if (!match) throw new Error("A page image was not a valid base64 or remote image URL.");
+  return { mimeType: match[1]!, data: match[2]!, fullDataUrl: input };
 }
 
 async function transcribeViaGoogle(apiKey: string, model: string, dataUrl: string, hint?: string) {
-  const { mimeType, data } = splitDataUrl(dataUrl);
+  const { mimeType, data } = await prepareDataUrl(dataUrl);
   const primary = model.startsWith("models/") ? model : `models/${model}`;
   const candidateModels = Array.from(
-    new Set([primary, "models/gemini-3.8-flash", "models/gemini-3.6-flash", "models/gemini-3.7-flash"]),
+    new Set([primary, "models/gemini-3.8-flash", "models/gemini-3.7-flash", "models/gemini-3.6-flash"]),
   );
 
   let lastErr: unknown = null;
@@ -123,6 +141,7 @@ async function transcribeViaGoogle(apiKey: string, model: string, dataUrl: strin
             },
           ],
           generationConfig: {
+            thinkingConfig: { thinkingBudget: 0 },
             mediaResolution: "MEDIA_RESOLUTION_HIGH",
             maxOutputTokens: MAX_OUTPUT_TOKENS,
           },
@@ -143,6 +162,8 @@ async function transcribeViaGoogle(apiKey: string, model: string, dataUrl: strin
         .join("")
         .trim();
       if (text) return text;
+      // If the candidate model stopped without text, it resolved the page as blank
+      return "[Blank page / no handwriting detected]";
     } catch (err) {
       lastErr = err;
     }
@@ -152,15 +173,16 @@ async function transcribeViaGoogle(apiKey: string, model: string, dataUrl: strin
 }
 
 async function transcribeViaGateway(model: string, dataUrl: string, hint?: string) {
+  const { fullDataUrl } = await prepareDataUrl(dataUrl);
   const result = await visionChat({
     model,
     systemPrompt: SYSTEM_PROMPT,
     prompt: hint ? `${PAGE_PROMPT}\nContext: ${hint}` : PAGE_PROMPT,
-    imageDataUrls: [dataUrl],
+    imageDataUrls: [fullDataUrl],
     maxCompletionTokens: MAX_OUTPUT_TOKENS,
   });
   const text = result.text.trim();
-  if (!text) throw new Error(`${model} returned no text for this page.`);
+  if (!text) return "[Blank page]";
   return text;
 }
 

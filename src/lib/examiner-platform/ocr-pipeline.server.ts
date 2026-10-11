@@ -3,7 +3,8 @@ import type { ScriptPageTranscription } from "./types";
 
 export type OcrInputPage = {
   pageNumber: number;
-  dataUrl?: string; // Base64 data URL if available
+  dataUrl?: string; // Base64 data URL or remote image URL
+  imageUrl?: string;
   textFallback?: string;
 };
 
@@ -25,9 +26,10 @@ export async function processScriptTranscription(
   let confidenceSum = 0;
 
   for (const page of pages) {
-    if (page.dataUrl) {
+    const imageSource = page.dataUrl || page.imageUrl;
+    if (imageSource) {
       try {
-        const ocrOutcome = await transcribeWithGemini([page.dataUrl]);
+        const ocrOutcome = await transcribeWithGemini([imageSource]);
         const rawText = ocrOutcome.text.trim();
 
         // Detect questions
@@ -70,6 +72,7 @@ export async function processScriptTranscription(
 
         processedPages.push({
           page_number: page.pageNumber,
+          image_url: page.imageUrl || page.dataUrl,
           raw_text: rawText,
           detected_questions: detectedQuestions,
           diagram_tags: diagramTags,
@@ -82,6 +85,7 @@ export async function processScriptTranscription(
         const text = page.textFallback || `[Page ${page.pageNumber} scanned script]`;
         processedPages.push({
           page_number: page.pageNumber,
+          image_url: page.imageUrl || page.dataUrl,
           raw_text: text,
           detected_questions: [],
           diagram_tags: [],
@@ -114,6 +118,7 @@ export async function processScriptTranscription(
 
       processedPages.push({
         page_number: page.pageNumber,
+        image_url: page.imageUrl || page.dataUrl,
         raw_text: text,
         detected_questions: detected,
         diagram_tags: diagramTags,
@@ -140,8 +145,13 @@ export function segmentTranscriptionByQuestions(
   pages: ScriptPageTranscription[],
   expectedQuestions: string[],
 ): Record<string, string> {
-  const fullText = pages.map((p) => p.raw_text).join("\n\n");
+  const fullText = pages.map((p) => p.raw_text).join("\n\n").trim();
   const result: Record<string, string> = {};
+
+  if (!fullText) {
+    for (const qNum of expectedQuestions) result[qNum] = "";
+    return result;
+  }
 
   type QuestionBoundary = {
     qNum: string;
@@ -151,12 +161,30 @@ export function segmentTranscriptionByQuestions(
   const boundaries: QuestionBoundary[] = [];
 
   for (const qNum of expectedQuestions) {
-    const escaped = qNum.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    // Match question headers: Question 1(a), Q1(a), Part 1(a), or 1(a) at line boundary
-    const pattern = new RegExp(
-      `(?:^|\\n|\\b)(?:Question\\s*|Q\\s*|Part\\s*)?(${escaped})(?:[.):\\s]|$)`,
-      "gi",
-    );
+    const partMatch = /^(\d+)(?:\(([a-zA-Z0-9]+)\)|([a-zA-Z0-9]+))?$/.exec(qNum.trim());
+    let pattern: RegExp;
+    if (partMatch) {
+      const num = partMatch[1];
+      const sub = partMatch[2] || partMatch[3];
+      if (sub) {
+        pattern = new RegExp(
+          `(?:^|\\n|\\b)(?:Question|Q|Part)?\\s*${num}\\s*(?:\\(?${sub}\\)?|\\.\\s*${sub}|\\s+${sub})(?:[.:)\\s]|$)`,
+          "i",
+        );
+      } else {
+        pattern = new RegExp(
+          `(?:^|\\n|\\b)(?:Question|Q|Part)\\s*${num}(?:[.:)\\s]|$)|(?:^|\\n)\\s*${num}[.:)]\\s+`,
+          "i",
+        );
+      }
+    } else {
+      const escaped = qNum.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      pattern = new RegExp(
+        `(?:^|\\n|\\b)(?:Question\\s*|Q\\s*|Part\\s*)?(${escaped})(?:[.):\\s]|$)`,
+        "i",
+      );
+    }
+
     const m = pattern.exec(fullText);
     if (m) {
       boundaries.push({
@@ -166,23 +194,26 @@ export function segmentTranscriptionByQuestions(
     }
   }
 
-  // Sort by appearance in student's handwritten response (handles out-of-order responses)
   boundaries.sort((a, b) => a.start - b.start);
 
   if (boundaries.length === 0) {
-    for (const qNum of expectedQuestions) {
-      result[qNum] = expectedQuestions.length === 1 ? fullText.trim() : "";
+    if (expectedQuestions.length === 1) {
+      result[expectedQuestions[0]!] = fullText;
+    } else {
+      result[expectedQuestions[0]!] = fullText;
+      for (let i = 1; i < expectedQuestions.length; i++) {
+        result[expectedQuestions[i]!] = "";
+      }
     }
     return result;
   }
 
   for (let i = 0; i < boundaries.length; i++) {
-    const curr = boundaries[i];
-    const nextStart = i + 1 < boundaries.length ? boundaries[i + 1].start : fullText.length;
+    const curr = boundaries[i]!;
+    const nextStart = i + 1 < boundaries.length ? boundaries[i + 1]!.start : fullText.length;
     result[curr.qNum] = fullText.slice(curr.start, nextStart).trim();
   }
 
-  // If a question was completely omitted by student, mark as blank
   for (const qNum of expectedQuestions) {
     if (result[qNum] === undefined) {
       result[qNum] = "";

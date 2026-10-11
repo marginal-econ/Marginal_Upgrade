@@ -395,6 +395,7 @@ export const uploadCandidateScriptBatch = createServerFn({ method: "POST" })
                   z.object({
                     pageNumber: z.number().int().min(1),
                     dataUrl: z.string().optional(),
+                    imageUrl: z.string().optional(),
                     textFallback: z.string().optional(),
                   }),
                 )
@@ -417,6 +418,18 @@ export const uploadCandidateScriptBatch = createServerFn({ method: "POST" })
     const insertedScripts: CandidateScript[] = [];
 
     for (const item of data.scripts) {
+      const pageList =
+        item.pages && item.pages.length > 0
+          ? item.pages
+          : [
+              {
+                pageNumber: 1,
+                dataUrl: undefined,
+                imageUrl: undefined,
+                textFallback: undefined,
+              },
+            ];
+
       const { data: created, error } = await admin
         .from("examiner_candidate_scripts")
         .insert({
@@ -424,10 +437,11 @@ export const uploadCandidateScriptBatch = createServerFn({ method: "POST" })
           candidate_code: item.candidateCode,
           file_name: item.fileName,
           file_url: item.fileUrl || null,
-          page_count: item.pageCount,
+          page_count: Math.max(item.pageCount, pageList.length),
           status: "queued",
-          page_transcriptions: item.pages.map((p) => ({
-            page_number: p.pageNumber,
+          page_transcriptions: pageList.map((p, idx) => ({
+            page_number: p.pageNumber || idx + 1,
+            image_url: p.dataUrl || p.imageUrl || null,
             raw_text: p.textFallback || "",
             detected_questions: [],
             diagram_tags: [],
@@ -441,13 +455,20 @@ export const uploadCandidateScriptBatch = createServerFn({ method: "POST" })
 
       if (!error && created) {
         insertedScripts.push(created as CandidateScript);
+      } else if (error) {
+        console.error("Failed to insert candidate script:", item.candidateCode, error);
       }
     }
 
-    // Update total count
+    // Update total count accurately from database
+    const { count } = await admin
+      .from("examiner_candidate_scripts")
+      .select("*", { count: "exact", head: true })
+      .eq("session_id", data.sessionId);
+
     await admin
       .from("examiner_marking_sessions")
-      .update({ total_scripts_count: insertedScripts.length })
+      .update({ total_scripts_count: count ?? insertedScripts.length })
       .eq("id", data.sessionId);
 
     return { scripts: insertedScripts };
@@ -471,103 +492,180 @@ export const processScriptAiMarking = createServerFn({ method: "POST" })
 
     const startTime = Date.now();
 
-    // Step A: Update to OCR processing
-    await admin
-      .from("examiner_candidate_scripts")
-      .update({ status: "ocr_processing" })
-      .eq("id", script.id);
+    try {
+      // Step A: Update to OCR processing
+      await admin
+        .from("examiner_candidate_scripts")
+        .update({ status: "ocr_processing", error_message: null })
+        .eq("id", script.id);
 
-    const rawPages = (script.page_transcriptions || []) as any[];
-    const ocrInput = rawPages.map((p: any) => ({
-      pageNumber: p.page_number,
-      textFallback: p.raw_text,
-    }));
+      const rawPages = (script.page_transcriptions || []) as any[];
+      const ocrInput = rawPages.map((p: any) => ({
+        pageNumber: p.page_number,
+        imageUrl:
+          p.image_url ||
+          p.imageUrl ||
+          p.data_url ||
+          p.dataUrl ||
+          (typeof p.raw_text === "string" && p.raw_text.startsWith("data:image/")
+            ? p.raw_text
+            : undefined),
+        dataUrl:
+          p.data_url ||
+          p.dataUrl ||
+          p.image_url ||
+          p.imageUrl ||
+          (typeof p.raw_text === "string" && p.raw_text.startsWith("data:image/")
+            ? p.raw_text
+            : undefined),
+        textFallback:
+          p.raw_text && !p.raw_text.startsWith("data:image/") ? p.raw_text : undefined,
+      }));
 
-    const ocrResult = await processScriptTranscription(ocrInput);
+      const ocrResult = await processScriptTranscription(ocrInput);
 
-    // Step B: Segment by questions & mark
-    await admin
-      .from("examiner_candidate_scripts")
-      .update({
-        status: "marking",
-        page_transcriptions: ocrResult.pages,
-        confidence_score: ocrResult.overallConfidence,
-      })
-      .eq("id", script.id);
-
-    const paperSpec = await getPaperConfigWithDb(
-      session.subject_code,
-      session.paper_number,
-      session.exam_series,
-      (session as any).paper_id,
-    );
-    const expectedQNums = paperSpec.questions.map((q) => q.number);
-    const segmented = segmentTranscriptionByQuestions(ocrResult.pages, expectedQNums);
-
-    const questionResults: any[] = [];
-    for (const qSpec of paperSpec.questions) {
-      const studentText = segmented[qSpec.number] || "";
-      const markResult = await markQuestionResponse({
-        question: qSpec,
-        studentAnswerText: studentText,
-        candidateCode: script.candidate_code,
-      });
-
-      const { data: insertedQ } = await admin
-        .from("examiner_question_marks")
-        .insert({
-          script_id: script.id,
-          ...markResult,
+      // Step B: Segment by questions & mark
+      await admin
+        .from("examiner_candidate_scripts")
+        .update({
+          status: "marking",
+          page_transcriptions: ocrResult.pages,
+          confidence_score: ocrResult.overallConfidence,
         })
+        .eq("id", script.id);
+
+      const paperSpec = await getPaperConfigWithDb(
+        session.subject_code,
+        session.paper_number,
+        session.exam_series,
+        (session as any).paper_id,
+      );
+      const expectedQNums = paperSpec.questions.map((q) => q.number);
+      const segmented = segmentTranscriptionByQuestions(ocrResult.pages, expectedQNums);
+
+      // Delete prior question records if re-marking
+      await admin.from("examiner_question_marks").delete().eq("script_id", script.id);
+
+      const questionResults: any[] = [];
+      for (const qSpec of paperSpec.questions) {
+        const studentText = segmented[qSpec.number] || "";
+        const markResult = await markQuestionResponse({
+          question: qSpec,
+          studentAnswerText: studentText,
+          candidateCode: script.candidate_code,
+        });
+
+        const { data: insertedQ } = await admin
+          .from("examiner_question_marks")
+          .insert({
+            script_id: script.id,
+            ...markResult,
+          })
+          .select("*")
+          .single();
+
+        if (insertedQ) questionResults.push(insertedQ);
+      }
+
+      // Step C: Independent Verification Pass
+      await admin
+        .from("examiner_candidate_scripts")
+        .update({ status: "verification" })
+        .eq("id", script.id);
+
+      const verification = verifyScriptMarking(questionResults);
+      const latencyMs = Date.now() - startTime;
+      const estimatedCost = 0.042; // ~4.2 cents for OCR + full examiner prompt pass
+
+      // Step D: Update script ready for teacher review
+      const { data: updatedScript } = await admin
+        .from("examiner_candidate_scripts")
+        .update({
+          status: "ready_for_review",
+          total_ai_mark: verification.totalComputedMark,
+          latency_ms: latencyMs,
+          estimated_cost_usd: estimatedCost,
+          error_message: null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", script.id)
         .select("*")
         .single();
 
-      if (insertedQ) questionResults.push(insertedQ);
+      // Log audit
+      await admin.from("examiner_audit_logs").insert({
+        school_id: session.school_id,
+        script_id: script.id,
+        user_id: context.userId,
+        action: "ai_marking_completed",
+        new_data: {
+          total_ai_mark: verification.totalComputedMark,
+          quality: verification.overallQuality,
+          questions_marked: questionResults.length,
+        },
+        rationale: "Automated Cambridge 9708 marking and independent verification completed.",
+      });
+
+      return {
+        script: updatedScript as CandidateScript,
+        questions: questionResults as QuestionMarkRecord[],
+        verification,
+      };
+    } catch (err: any) {
+      console.error("AI Marking processing failed:", script.id, err);
+      await admin
+        .from("examiner_candidate_scripts")
+        .update({
+          status: "failed",
+          error_message: err?.message || "AI marking processing failed.",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", script.id);
+      throw err;
     }
+  });
 
-    // Step C: Independent Verification Pass
-    await admin
+// 6b. Update page transcription manually
+export const updateScriptTranscription = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator(
+    (input: unknown) =>
+      z
+        .object({
+          scriptId: z.string().uuid(),
+          pageNumber: z.number().int().min(1),
+          rawText: z.string(),
+        })
+        .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const admin = getSupabaseAdmin();
+    const { data: script } = await admin
       .from("examiner_candidate_scripts")
-      .update({ status: "verification" })
-      .eq("id", script.id);
+      .select("*, examiner_marking_sessions(school_id)")
+      .eq("id", data.scriptId)
+      .single();
 
-    const verification = verifyScriptMarking(questionResults);
-    const latencyMs = Date.now() - startTime;
-    const estimatedCost = 0.042; // ~4.2 cents for OCR + full examiner prompt pass
+    if (!script) throw new Error("Script not found.");
+    const schoolId = script.examiner_marking_sessions.school_id;
+    await assertSchoolAccess(admin, context.userId, schoolId);
 
-    // Step D: Update script ready for teacher review
-    const { data: updatedScript } = await admin
+    const pages = ((script.page_transcriptions || []) as any[]).map((p) =>
+      p.page_number === data.pageNumber ? { ...p, raw_text: data.rawText } : p,
+    );
+
+    const { data: updated, error } = await admin
       .from("examiner_candidate_scripts")
       .update({
-        status: "ready_for_review",
-        total_ai_mark: verification.totalComputedMark,
-        latency_ms: latencyMs,
-        estimated_cost_usd: estimatedCost,
+        page_transcriptions: pages,
         updated_at: new Date().toISOString(),
       })
       .eq("id", script.id)
       .select("*")
       .single();
 
-    // Log audit
-    await admin.from("examiner_audit_logs").insert({
-      school_id: session.school_id,
-      script_id: script.id,
-      user_id: context.userId,
-      action: "ai_marking_completed",
-      new_data: {
-        total_ai_mark: verification.totalComputedMark,
-        quality: verification.overallQuality,
-        questions_marked: questionResults.length,
-      },
-      rationale: "Automated Cambridge 9708 marking and independent verification completed.",
-    });
-
-    return {
-      script: updatedScript as CandidateScript,
-      questions: questionResults as QuestionMarkRecord[],
-      verification,
-    };
+    if (error) throw new Error(error.message);
+    return { script: updated as CandidateScript };
   });
 
 // 7. Get script for the Teacher Marking Desk (Two-pane interface)

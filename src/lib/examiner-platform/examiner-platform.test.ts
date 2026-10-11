@@ -26,6 +26,19 @@ vi.mock("../ai.server", () => ({
   }),
 }));
 
+vi.mock("../ocr/gemini.server", () => ({
+  transcribeWithGemini: vi.fn().mockResolvedValue({
+    text: "Question 1(a): A negative externality is an external cost.\nQuestion 1(b): An indirect tax raises production costs.",
+    pages: [
+      {
+        pageNumber: 1,
+        text: "Question 1(a): A negative externality is an external cost.\nQuestion 1(b): An indirect tax raises production costs.",
+        uncertainCount: 0,
+      },
+    ],
+  }),
+}));
+
 import {
   getPaperConfig,
   listAvailablePapers,
@@ -129,6 +142,44 @@ describe("OCR & Handwriting Pipeline", () => {
     expect(result.pages[0].page_number).toBe(1);
     expect(result.pages[0].raw_text).toContain("Merit good");
     expect(result.overallConfidence).toBeGreaterThan(0.5);
+  });
+
+  it("preserves image_url and dataUrl across processed pages", async () => {
+    const inputPages = [
+      {
+        pageNumber: 1,
+        dataUrl: "data:image/jpeg;base64,/9j/4AAQSkZJRg==",
+        textFallback: "Question 1(a): External cost response.",
+      },
+      {
+        pageNumber: 2,
+        imageUrl: "https://example.com/scans/page2.jpg",
+        textFallback: "Question 1(b): Tax curve shift.",
+      },
+    ];
+
+    const result = await processScriptTranscription(inputPages);
+    expect(result.pages.length).toBe(2);
+    expect(result.pages[0].image_url).toBe("data:image/jpeg;base64,/9j/4AAQSkZJRg==");
+    expect(result.pages[1].image_url).toBe("https://example.com/scans/page2.jpg");
+  });
+
+  it("segments question variants like 1a, 1(a), and Part a accurately", () => {
+    const pages = [
+      {
+        page_number: 1,
+        raw_text: "1a. A demerit good is overconsumed.\n\n1b. Indirect tax shifts supply inward.",
+        detected_questions: [],
+        diagram_tags: [],
+        uncertain_words: [],
+        has_cross_outs: false,
+        confidence: 0.9,
+      },
+    ];
+
+    const segmented = segmentTranscriptionByQuestions(pages, ["1(a)", "1(b)"]);
+    expect(segmented["1(a)"]).toContain("demerit good is overconsumed");
+    expect(segmented["1(b)"]).toContain("Indirect tax shifts supply");
   });
 });
 

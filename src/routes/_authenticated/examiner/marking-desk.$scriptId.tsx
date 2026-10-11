@@ -38,6 +38,8 @@ import {
   getCandidateScriptForMarkingDesk,
   updateQuestionTeacherMark,
   approveCandidateScript,
+  updateScriptTranscription,
+  processScriptAiMarking,
 } from "@/lib/examiner-platform/session.functions";
 import type { QuestionMarkRecord } from "@/lib/examiner-platform/types";
 import { cn } from "@/lib/utils";
@@ -63,6 +65,8 @@ function TeacherMarkingDeskPage() {
   const getScriptFn = useServerFn(getCandidateScriptForMarkingDesk);
   const updateQuestionFn = useServerFn(updateQuestionTeacherMark);
   const approveScriptFn = useServerFn(approveCandidateScript);
+  const updateTranscriptionFn = useServerFn(updateScriptTranscription);
+  const processScriptFn = useServerFn(processScriptAiMarking);
 
   const scriptQuery = useQuery({
     queryKey: ["marking-desk-script", scriptId],
@@ -141,6 +145,49 @@ function TeacherMarkingDeskPage() {
       });
     },
     onError: (err: Error) => toast.error(err.message || "Failed to approve script."),
+  });
+
+  const saveTranscriptionMutation = useMutation({
+    mutationFn: async () => {
+      const textToSave =
+        editableTranscription !== null ? editableTranscription : activePageData?.raw_text || "";
+      await updateTranscriptionFn({
+        data: {
+          scriptId,
+          pageNumber: currentPage,
+          rawText: textToSave,
+        },
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["marking-desk-script", scriptId] });
+      toast.success(`Transcription saved for Page ${currentPage}!`);
+      setEditableTranscription(null);
+    },
+    onError: (err: Error) => toast.error(err.message || "Failed to save transcription."),
+  });
+
+  const reMarkMutation = useMutation({
+    mutationFn: async () => {
+      // First save if edited
+      if (editableTranscription !== null) {
+        await updateTranscriptionFn({
+          data: {
+            scriptId,
+            pageNumber: currentPage,
+            rawText: editableTranscription,
+          },
+        });
+      }
+      await processScriptFn({ data: { scriptId } });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["marking-desk-script", scriptId] });
+      queryClient.invalidateQueries({ queryKey: ["examiner-session-detail", script?.session_id] });
+      toast.success("Script re-evaluated with updated handwriting transcription!");
+      setEditableTranscription(null);
+    },
+    onError: (err: Error) => toast.error(err.message || "Failed to re-mark script."),
   });
 
   // Calculate Running Marks
@@ -236,7 +283,10 @@ function TeacherMarkingDeskPage() {
                 variant="ghost"
                 className="size-7"
                 disabled={currentPage <= 1}
-                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                onClick={() => {
+                  setCurrentPage((p) => Math.max(1, p - 1));
+                  setEditableTranscription(null);
+                }}
               >
                 <ChevronLeft className="size-3.5" />
               </Button>
@@ -248,7 +298,10 @@ function TeacherMarkingDeskPage() {
                 variant="ghost"
                 className="size-7"
                 disabled={currentPage >= totalPages}
-                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                onClick={() => {
+                  setCurrentPage((p) => Math.min(totalPages, p + 1));
+                  setEditableTranscription(null);
+                }}
               >
                 <ChevronRight className="size-3.5" />
               </Button>
@@ -304,49 +357,64 @@ function TeacherMarkingDeskPage() {
           </div>
 
           {/* Viewer Area */}
-          <div className="flex-1 overflow-auto p-4 flex items-center justify-center">
+          <div className="flex-1 overflow-auto p-4 flex items-start justify-center">
             {activeTabLeft === "scan" ? (
               <div
                 style={{
                   transform: `scale(${zoomLevel / 100}) rotate(${rotation}deg)`,
-                  transformOrigin: "center center",
+                  transformOrigin: "top center",
                   transition: "transform 0.15s ease-out",
                 }}
-                className="max-w-2xl w-full rounded-lg border border-border bg-card p-6 shadow-sm min-h-[500px] flex flex-col justify-between"
+                className="w-full flex justify-center py-2"
               >
-                <div className="border-b border-border/60 pb-3 flex justify-between items-center text-[10px] font-mono text-muted-foreground uppercase">
-                  <span>Candidate: {script?.candidate_code}</span>
-                  <span>Page {currentPage} of {totalPages}</span>
-                </div>
-
-                {/* Simulated high-fidelity handwritten page display */}
-                <div className="my-6 space-y-4 font-serif text-sm leading-relaxed text-foreground/90 select-none">
-                  <div className="p-3 bg-muted/30 rounded border border-dashed border-border/80">
-                    <p className="font-mono text-[11px] text-muted-foreground mb-1 uppercase tracking-wider">
-                      Handwritten Examination Prose:
-                    </p>
-                    <p className="italic whitespace-pre-wrap">
-                      {activePageData?.raw_text ||
-                        "Candidate's handwritten responses for this page are verified by OCR."}
-                    </p>
-                  </div>
-
-                  {activePageData?.diagram_tags && activePageData.diagram_tags.length > 0 ? (
-                    <div className="p-3 bg-primary/5 rounded border border-primary/20 space-y-1">
-                      <span className="text-[10px] font-mono uppercase font-semibold text-primary block">
-                        Hand-Drawn Diagram Region:
-                      </span>
-                      <p className="font-mono text-xs text-primary/90">
-                        {activePageData.diagram_tags.join("\n")}
-                      </p>
+                {activePageData?.image_url ? (
+                  <div className="relative max-w-3xl w-full rounded-lg border border-border bg-white shadow-md overflow-hidden">
+                    <div className="border-b border-border bg-muted/40 px-4 py-2 flex justify-between items-center text-[10px] font-mono text-muted-foreground uppercase">
+                      <span>Candidate: {script?.candidate_code}</span>
+                      <span>Page {currentPage} of {totalPages} (Scanned Original)</span>
                     </div>
-                  ) : null}
-                </div>
+                    <img
+                      src={activePageData.image_url}
+                      alt={`Candidate ${script?.candidate_code} - Page ${currentPage}`}
+                      className="w-full h-auto object-contain block bg-white select-none"
+                    />
+                  </div>
+                ) : (
+                  <div className="max-w-2xl w-full rounded-lg border border-border bg-card p-6 shadow-sm min-h-[500px] flex flex-col justify-between">
+                    <div className="border-b border-border/60 pb-3 flex justify-between items-center text-[10px] font-mono text-muted-foreground uppercase">
+                      <span>Candidate: {script?.candidate_code}</span>
+                      <span>Page {currentPage} of {totalPages}</span>
+                    </div>
 
-                <div className="border-t border-border/60 pt-2 text-[10px] text-muted-foreground flex justify-between">
-                  <span>Cambridge International Examinations · 9708 Economics</span>
-                  <span>CONFIDENTIAL CANDIDATE SCRIPT</span>
-                </div>
+                    <div className="my-6 space-y-4 font-serif text-sm leading-relaxed text-foreground/90 select-none">
+                      <div className="p-3 bg-muted/30 rounded border border-dashed border-border/80">
+                        <p className="font-mono text-[11px] text-muted-foreground mb-1 uppercase tracking-wider">
+                          Handwritten Examination Prose:
+                        </p>
+                        <p className="italic whitespace-pre-wrap">
+                          {activePageData?.raw_text ||
+                            "Candidate's handwritten responses for this page are verified by OCR."}
+                        </p>
+                      </div>
+
+                      {activePageData?.diagram_tags && activePageData.diagram_tags.length > 0 ? (
+                        <div className="p-3 bg-primary/5 rounded border border-primary/20 space-y-1">
+                          <span className="text-[10px] font-mono uppercase font-semibold text-primary block">
+                            Hand-Drawn Diagram Region:
+                          </span>
+                          <p className="font-mono text-xs text-primary/90">
+                            {activePageData.diagram_tags.join("\n")}
+                          </p>
+                        </div>
+                      ) : null}
+                    </div>
+
+                    <div className="border-t border-border/60 pt-2 text-[10px] text-muted-foreground flex justify-between">
+                      <span>Cambridge International Examinations · 9708 Economics</span>
+                      <span>CONFIDENTIAL CANDIDATE SCRIPT</span>
+                    </div>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="max-w-2xl w-full h-full flex flex-col gap-2">
@@ -355,7 +423,7 @@ function TeacherMarkingDeskPage() {
                     Verbatim OCR Transcription (Editable by Teacher)
                   </span>
                   <Badge variant="outline" className="text-[10px]">
-                    Page {currentPage}
+                    Page {currentPage} · Confidence: {Math.round((activePageData?.confidence ?? 0.9) * 100)}%
                   </Badge>
                 </div>
                 <Textarea
@@ -365,18 +433,37 @@ function TeacherMarkingDeskPage() {
                       : activePageData?.raw_text || ""
                   }
                   onChange={(e) => setEditableTranscription(e.target.value)}
-                  className="flex-1 font-mono text-xs leading-relaxed resize-none bg-card p-4"
+                  className="flex-1 font-mono text-xs leading-relaxed resize-none bg-card p-4 min-h-[350px]"
                 />
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="self-end text-xs gap-1"
-                  onClick={() => {
-                    toast.success("Transcription corrections saved for this page.");
-                  }}
-                >
-                  <Save className="size-3.5" /> Save Transcription Correction
-                </Button>
+                <div className="flex items-center justify-between pt-1">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-xs gap-1.5"
+                    disabled={reMarkMutation.isPending}
+                    onClick={() => reMarkMutation.mutate()}
+                  >
+                    {reMarkMutation.isPending ? (
+                      <Loader2 className="size-3.5 animate-spin" />
+                    ) : (
+                      <RotateCw className="size-3.5" />
+                    )}
+                    Re-run AI Marking
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="text-xs gap-1.5"
+                    disabled={saveTranscriptionMutation.isPending}
+                    onClick={() => saveTranscriptionMutation.mutate()}
+                  >
+                    {saveTranscriptionMutation.isPending ? (
+                      <Loader2 className="size-3.5 animate-spin" />
+                    ) : (
+                      <Save className="size-3.5" />
+                    )}
+                    Save Transcription Correction
+                  </Button>
+                </div>
               </div>
             )}
           </div>

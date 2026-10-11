@@ -37,6 +37,8 @@ import {
 import { CAMBRIDGE_9708_PAPERS, type ExaminerCustomPaper } from "@/lib/examiner-platform/cambridge-papers";
 import { UploadPaperDialog } from "@/components/examiner/upload-paper-dialog";
 import { ExternalLink, Sparkles, BookOpen } from "lucide-react";
+import { filesToPageImages } from "@/lib/handwriting-images";
+import { generateSampleScriptPage } from "@/lib/examiner-platform/sample-script-generator";
 
 export const Route = createFileRoute("/_authenticated/examiner/new-session")({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -54,12 +56,19 @@ export const Route = createFileRoute("/_authenticated/examiner/new-session")({
   component: NewMarkingSessionPage,
 });
 
+type ScriptPageUpload = {
+  pageNumber: number;
+  dataUrl?: string;
+  textFallback?: string;
+};
+
 type UploadItem = {
   id: string;
   candidateCode: string;
   fileName: string;
   fileSize: number;
   pageCount: number;
+  pages: ScriptPageUpload[];
   rawTextFallback?: string;
   dataUrl?: string;
 };
@@ -133,24 +142,35 @@ function NewMarkingSessionPage() {
         },
       });
 
-      // Step 2: Upload candidate batch
-      await uploadBatchFn({
-        data: {
-          sessionId: session.id,
-          scripts: uploadedScripts.map((item) => ({
-            candidateCode: item.candidateCode,
-            fileName: item.fileName,
-            pageCount: item.pageCount,
-            pages: [
-              {
-                pageNumber: 1,
-                dataUrl: item.dataUrl,
-                textFallback: item.rawTextFallback,
-              },
-            ],
-          })),
-        },
-      });
+      // Step 2: Upload candidate batch in chunks of 2 to avoid browser/network payload limits
+      const chunkSize = 2;
+      for (let i = 0; i < uploadedScripts.length; i += chunkSize) {
+        const chunk = uploadedScripts.slice(i, i + chunkSize);
+        await uploadBatchFn({
+          data: {
+            sessionId: session.id,
+            scripts: chunk.map((item) => ({
+              candidateCode: item.candidateCode,
+              fileName: item.fileName,
+              pageCount: item.pages.length || item.pageCount || 1,
+              pages:
+                item.pages.length > 0
+                  ? item.pages.map((p, idx) => ({
+                      pageNumber: p.pageNumber || idx + 1,
+                      dataUrl: p.dataUrl,
+                      textFallback: p.textFallback || item.rawTextFallback,
+                    }))
+                  : [
+                      {
+                        pageNumber: 1,
+                        dataUrl: item.dataUrl,
+                        textFallback: item.rawTextFallback,
+                      },
+                    ],
+            })),
+          },
+        });
+      }
 
       return session;
     },
@@ -172,30 +192,48 @@ function NewMarkingSessionPage() {
     const newItems: UploadItem[] = [];
     const startIndex = uploadedScripts.length + 1;
 
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      const candidateCode = `CAND-${String(startIndex + i).padStart(3, "0")}`;
+    try {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const candidateCode = `CAND-${String(startIndex + i).padStart(3, "0")}`;
 
-      // Sample fallback text for simulated handwriting / OCR demonstration
-      const textFallback = `Candidate response for Cambridge 9708 Economics Paper ${paperNumber}.
-Question 1(a): A negative externality is an external cost inflicted upon a third party not directly involved in the transaction. In this market, over-production leads to deadweight welfare loss.
-Question 1(b): An indirect tax increases production costs, shifting the supply curve inward from S to S+tax. This raises market price and contracts demand to social equilibrium.
-[DIAGRAM: Negative externality in consumption | axes: Price / Quantity | curves: MPB, MSB, MPC=MSC | labels: deadweight welfare loss, P1, Q1, P*, Q* | accuracy: correct labels and shifts]
-Question 2(a): Productive efficiency occurs at lowest average total cost on the AC curve. Allocative efficiency is achieved where price equals marginal cost (P=MC).`;
+        toast.info(`Rasterizing handwriting scan: ${file.name}…`);
 
-      newItems.push({
-        id: crypto.randomUUID(),
-        candidateCode,
-        fileName: file.name,
-        fileSize: file.size,
-        pageCount: Math.max(1, Math.ceil(file.size / (1024 * 300))),
-        rawTextFallback: textFallback,
-      });
+        let pageImages: string[] = [];
+        try {
+          pageImages = await filesToPageImages([file]);
+        } catch (rasterErr: any) {
+          console.warn("Failed to rasterize file:", file.name, rasterErr);
+          toast.error(`Could not read ${file.name}: ${rasterErr?.message || "Invalid file"}`);
+          continue;
+        }
+
+        const pages: ScriptPageUpload[] = pageImages.map((dataUrl, idx) => ({
+          pageNumber: idx + 1,
+          dataUrl,
+        }));
+
+        newItems.push({
+          id: crypto.randomUUID(),
+          candidateCode,
+          fileName: file.name,
+          fileSize: file.size,
+          pageCount: pages.length,
+          pages,
+          dataUrl: pages[0]?.dataUrl,
+        });
+      }
+
+      if (newItems.length > 0) {
+        setUploadedScripts((prev) => [...prev, ...newItems]);
+        toast.success(`Loaded ${newItems.length} candidate scripts with genuine handwritten scans!`);
+      }
+    } catch (err: any) {
+      toast.error(err?.message || "Error processing files.");
+    } finally {
+      setIsProcessingFiles(false);
+      event.target.value = "";
     }
-
-    setUploadedScripts((prev) => [...prev, ...newItems]);
-    setIsProcessingFiles(false);
-    toast.success(`Added ${newItems.length} candidate scripts.`);
   };
 
   const removeScript = (id: string) => {
@@ -208,45 +246,69 @@ Question 2(a): Productive efficiency occurs at lowest average total cost on the 
     );
   };
 
-  // Pre-seed sample demonstration scripts button
+  // Pre-seed sample demonstration scripts button with canvas-rendered Cambridge exam pages
   const handleLoadDemoBatch = () => {
+    const paperName = selectedPaper?.title || `Cambridge 9708/${paperNumber}`;
+
+    const cand1Text = `Question 1(a): A negative externality is an external cost inflicted upon third parties not directly involved in the transaction. In this market, over-production leads to deadweight welfare loss as MSC > MPC.
+
+Question 1(b): An indirect tax increases production costs, shifting the private marginal cost curve upward from MPC to MPC + tax. This raises market price to P* and contracts quantity demanded to the socially optimal level Q*, eliminating deadweight welfare loss.
+[DIAGRAM: Negative externality with tax | axes: Price / Quantity | curves: MPC, MSC, MPC+tax | labels: P1, P2, Q1, Qopt | accuracy: accurate axes and shifts]
+
+Question 2(a): Productive efficiency occurs at the lowest average total cost on the LRAC curve where MES is achieved. Allocative efficiency is achieved where price equals marginal cost (P=MC), maximizing total societal welfare.`;
+
+    const cand2Text = `Question 1(a): Negative externalities mean pollution caused by factories that hurts people living nearby.
+
+Question 1(b): The government should tax firms because it makes them stop producing bad goods and pay for the damage. This will fix the failure and make things fair for everyone.
+
+Question 2(a): Productive efficiency is when a firm produces a lot of output quickly without wasting time. Allocative efficiency is when consumers are happy with market prices.`;
+
+    const cand3Text = `Question 1(a): A negative externality is a market failure occurring when marginal social cost exceeds marginal private cost (MSC > MPC), representing negative spillover effects to society.
+
+Question 1(b): Imposing a specific indirect tax internalises the external cost. The supply curve shifts vertically upwards by the per-unit tax amount, moving the market from equilibrium price P1 to the socially optimal price P*, eliminating the welfare deadweight loss triangle.
+[DIAGRAM: Market failure and indirect tax | axes: P / Q | curves: MPB, MSB, MPC, MSC, MPC+tax | labels: P*, Q*, deadweight loss triangle | accuracy: perfectly drawn and fully annotated]
+
+Question 2(a): Productive efficiency requires operation at minimum average cost on the long-run average cost curve. Allocative efficiency requires P = MC where marginal social benefit equals marginal social cost.`;
+
+    const img1 = generateSampleScriptPage("CAND-001", 1, paperName, cand1Text);
+    const img2 = generateSampleScriptPage("CAND-002", 1, paperName, cand2Text);
+    const img3 = generateSampleScriptPage("CAND-003", 1, paperName, cand3Text);
+
     const demoCandidates: UploadItem[] = [
       {
         id: crypto.randomUUID(),
         candidateCode: "CAND-001",
         fileName: "9708_S24_Candidate_001_Scanned.pdf",
         fileSize: 1024 * 850,
-        pageCount: 3,
-        rawTextFallback: `Question 1(a): A negative externality is an external cost imposed on third parties outside the market transaction.
-Question 1(b): An indirect tax shifts the supply curve leftwards from S1 to S2, raising the market equilibrium price and lowering quantity demanded towards the socially optimal level.
-[DIAGRAM: Negative externality with tax | axes: Price / Quantity | curves: MPC, MSC, MPC+tax | labels: P1, P2, Q1, Qopt | accuracy: accurate axes and shifts]
-Question 2(a): Productive efficiency requires producing at the minimum average cost on the long run average cost curve. Allocative efficiency requires P=MC where marginal social benefit equals marginal social cost.`,
+        pageCount: 1,
+        pages: [{ pageNumber: 1, dataUrl: img1, textFallback: cand1Text }],
+        dataUrl: img1,
+        rawTextFallback: cand1Text,
       },
       {
         id: crypto.randomUUID(),
         candidateCode: "CAND-002",
         fileName: "9708_S24_Candidate_002_Scanned.pdf",
         fileSize: 1024 * 920,
-        pageCount: 4,
-        rawTextFallback: `Question 1(a): Negative externalities mean pollution caused by factories.
-Question 1(b): The goverment should tax firms becuase it makes them stop producing bad goods. This will fix the faliure.
-Question 2(a): Productive efficiency is when a firm produces a lot of output quickly. Allocative efficiency is when consumers are happy with prices.`,
+        pageCount: 1,
+        pages: [{ pageNumber: 1, dataUrl: img2, textFallback: cand2Text }],
+        dataUrl: img2,
+        rawTextFallback: cand2Text,
       },
       {
         id: crypto.randomUUID(),
         candidateCode: "CAND-003",
         fileName: "9708_S24_Candidate_003_Scanned.pdf",
         fileSize: 1024 * 780,
-        pageCount: 3,
-        rawTextFallback: `Question 1(a): Negative externality occurs when marginal social cost exceeds marginal private cost (MSC > MPC).
-Question 1(b): Imposing a specific indirect tax internalises the external cost. The supply curve shifts upward by the vertical distance of the tax, eliminating deadweight welfare loss.
-[DIAGRAM: Market failure and indirect tax | axes: P / Q | curves: MPB, MSB, MPC, MSC, MPC+tax | labels: P*, Q*, deadweight loss triangle | accuracy: perfectly drawn and fully annotated]
-Question 2(a): Productive efficiency occurs at the MES / lowest point of LRAC. Allocative efficiency is achieved when resources are allocated to maximize total economic welfare where P = MC.`,
+        pageCount: 1,
+        pages: [{ pageNumber: 1, dataUrl: img3, textFallback: cand3Text }],
+        dataUrl: img3,
+        rawTextFallback: cand3Text,
       },
     ];
 
     setUploadedScripts(demoCandidates);
-    toast.success("Loaded 3 sample candidate scripts for demonstration.");
+    toast.success("Loaded 3 sample candidate scripts with rendered Cambridge exam booklet scans.");
   };
 
   return (
