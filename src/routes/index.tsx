@@ -38,7 +38,7 @@ import {
   Waves,
 } from "@/components/marketing/doodles";
 import { SiteFooter } from "@/components/marketing/footer";
-import { CommandWordDrill, LiveMarkDemo } from "@/components/marketing/interactive";
+import { CommandWordDrill } from "@/components/marketing/interactive";
 import { ExaminerStage, LiveExaminer } from "@/components/marketing/live-examiner";
 import { MarkingHand } from "@/components/marketing/mascot";
 import { CountUp, Reveal } from "@/components/marketing/reveal";
@@ -402,8 +402,8 @@ function Index() {
                 <span className="inline-flex items-center gap-1.5 font-medium text-foreground bg-muted/60 px-2.5 py-1 rounded-md border border-border/60">
                   <Target className="size-3.5 text-primary" /> Papers 1, 2, 3 &amp; 4
                 </span>
-                <a href="#try" className="nav-link font-semibold text-primary inline-flex items-center gap-1 ml-1">
-                  Try live editor below ↓
+                <a href="#graded-exemplar" className="nav-link font-semibold text-primary inline-flex items-center gap-1 ml-1">
+                  Inspect real graded essay below ↓
                 </a>
               </div>
             </Reveal>
@@ -421,31 +421,6 @@ function Index() {
           items={RIBBON_ITEMS}
           className="right-12 bottom-10 left-12 -rotate-[1deg] md:right-24 md:left-24"
         />
-      </section>
-
-      {/* ── Live marking demo ────────────────────────────────────────────── */}
-      <section
-        id="try"
-        className="relative border-b-[1.5px] border-ink bg-surface-raised scroll-mt-20"
-      >
-        <div className="starfield" aria-hidden="true" />
-        <div className="relative z-10 mx-auto max-w-6xl px-4 py-14 sm:px-5 sm:py-16 md:px-8 md:py-20">
-          <Reveal>
-            <SectionHeading
-              eyebrow="Interactive Live Examiner Studio"
-              title={
-                <>
-                  Test the examiner <span className="aurora-text">live in real-time</span>
-                </>
-              }
-              lead="Type or paste your own economics essay into the editor, or test Level 1, 2, and 3 exemplars. The Live Examiner evaluates your writing in real time — detecting Cambridge 9708 terms, scoring AO1/AO2/AO3 breakdowns, and delivering strategic examiner next-move guidance."
-            />
-          </Reveal>
-
-          <Reveal variant="pop" delay={90} className="mt-12 scroll-rise">
-            <LiveMarkDemo />
-          </Reveal>
-        </div>
       </section>
 
       {/* ── Real Graded Essay Showcase (User Scored Exemplar) ────────────── */}
