@@ -9,9 +9,9 @@ import { Menu, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const NAV_SECTIONS = [
-  { id: "exemplar", label: "Real Graded Essay", to: "/exemplar" },
-  { id: "try", label: "Live Demo" },
-  { id: "result", label: "Diagnostic" },
+  { id: "try", label: "Live Examiner" },
+  { id: "graded-exemplar", label: "Real Graded Essay" },
+  { id: "rag-engine", label: "RAG Engine & Syllabus" },
   { id: "tools", label: "Features" },
   { id: "pricing", label: "Pricing", to: "/pricing" },
   { id: "faq", label: "FAQ" },

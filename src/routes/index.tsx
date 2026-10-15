@@ -46,6 +46,8 @@ import { Ribbon } from "@/components/marketing/ribbon";
 import { SiteNavLinks, SiteNavMobile } from "@/components/marketing/site-nav";
 import { Magnetic, TiltCard } from "@/components/marketing/three-d";
 import { PricingSection } from "@/components/marketing/pricing-section";
+import { RealEssayShowcase } from "@/components/marketing/real-essay-showcase";
+import { RagEngineSection } from "@/components/marketing/rag-engine-section";
 import { captureReferralCode } from "@/lib/waitlist-client";
 
 export const Route = createFileRoute("/")({
@@ -445,6 +447,12 @@ function Index() {
           </Reveal>
         </div>
       </section>
+
+      {/* ── Real Graded Essay Showcase (User Scored Exemplar) ────────────── */}
+      <RealEssayShowcase />
+
+      {/* ── Cambridge Syllabus Coverage & RAG Knowledge Engine ────────────── */}
+      <RagEngineSection />
 
       {/* ── What you get back ────────────────────────────────────────────── */}
       <section id="result" className="relative border-b-[1.5px] border-ink scroll-mt-20">
