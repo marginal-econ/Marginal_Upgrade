@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "@tanstack/react-router";
 import {
   ArrowRight,
   Building2,
@@ -391,9 +392,15 @@ export function PricingSection({ className }: { className?: string }) {
                       variant={tier.popular ? "default" : "outline"}
                       className="w-full text-xs font-semibold h-10 shadow-xs"
                     >
-                      <a href="#join">
-                        Get Started <ArrowRight className="size-3.5 ml-1.5" />
-                      </a>
+                      <Link
+                        to="/payment"
+                        search={{
+                          tier: tier.id as any,
+                          cycle: cycle,
+                        }}
+                      >
+                        Choose {tier.name} <ArrowRight className="size-3.5 ml-1.5" />
+                      </Link>
                     </Button>
                   </div>
                 </div>
@@ -474,7 +481,7 @@ export function PricingSection({ className }: { className?: string }) {
                       variant={tier.popular ? "default" : "outline"}
                       className="w-full text-xs font-semibold h-10 shadow-xs"
                     >
-                      <a href="#join">
+                      <a href="mailto:licensing@marginal.app?subject=Cambridge%209708%20School%20License%20Inquiry">
                         Request School Demo <ArrowRight className="size-3.5 ml-1.5" />
                       </a>
                     </Button>

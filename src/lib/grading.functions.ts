@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
 import { requireSupabaseAuth } from "@/integrations/backend/auth-middleware";
-import { essayLimitMessage } from "@/lib/usage-limits";
+import { essayLimitMessage, FREE_ESSAY_LIMIT_MESSAGE } from "@/lib/usage-limits";
 
 const GradeInput = z.object({
   question: z.string().trim().min(10, "Paste the exam question.").max(2000),
@@ -46,6 +46,19 @@ export const gradeEssaySubmission = createServerFn({ method: "POST" })
     // Fast pre-flight check: reject non-economics questions before consuming quota or incurring AI cost
     const { validateEconomicsSyllabus } = await import("./examiner/syllabus-guard.server");
     await validateEconomicsSyllabus(data.question, data.essayText);
+
+    // Enforce Free Tier (max 2 essays) and subscription tier allowances
+    const { getUserSubscriptionDetails } = await import("./subscription.server");
+    const sub = await getUserSubscriptionDetails(supabase, userId, (context as any).email, (context as any).claims);
+    if (!sub.canGradeEssay) {
+      if (!sub.isPaid) {
+        throw new Error(FREE_ESSAY_LIMIT_MESSAGE);
+      } else {
+        throw new Error(
+          `Monthly essay quota reached (${sub.essaysLimit} essays on your ${sub.tierName} plan). Upgrade your plan or wait for the cycle reset.`
+        );
+      }
+    }
 
     // Hard per-day cap on essays graded (admin-configurable, default 5; the
     // admin account is exempt). Enforced atomically in the database — this

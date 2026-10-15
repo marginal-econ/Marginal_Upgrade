@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
@@ -141,6 +141,7 @@ function combineDiagramTags(diagrams: AttachedDiagram[]): string | undefined {
 }
 
 function LiveExaminerPage() {
+  const navigate = useNavigate();
   const [level, setLevel] = useState<"as" | "a2">("as");
   const [topic, setTopic] = useState("Government microeconomic intervention");
   const [question, setQuestion] = useState("");
@@ -250,7 +251,20 @@ function LiveExaminerPage() {
       setRevealedHints(0);
       toast.success(`Marked ${data.grading.total_mark}/${data.grading.max_mark}`);
     },
-    onError: (error: Error) => toast.error(error.message),
+    onError: (error: Error) => {
+      const isPlanLimit =
+        error.message.includes("Plan limit reached") ||
+        error.message.includes("Upgrade to Foundation");
+      toast.error(error.message, {
+        action: isPlanLimit
+          ? {
+              label: "View Plans",
+              onClick: () => navigate({ to: "/pricing" }),
+            }
+          : undefined,
+        duration: isPlanLimit ? 8000 : 4000,
+      });
+    },
   });
 
   function handleGradeNow() {
@@ -791,14 +805,19 @@ function LiveExaminerPage() {
 
     return (
       <div className="mx-auto max-w-3xl p-5 md:p-8 space-y-5">
-        {/* One small notification on top saying exceed limit. Nothing else. */}
+        {/* One small notification on top saying exceed limit with upgrade action */}
         <div className="flex items-center justify-between border-b border-border/50 pb-3">
           <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Live Examiner
           </span>
-          <span className="text-xs text-muted-foreground bg-muted border border-border/60 px-2.5 py-0.5 rounded-full font-medium">
-            Exceeded limit
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground bg-muted border border-border/60 px-2.5 py-0.5 rounded-full font-medium">
+              Exceeded limit
+            </span>
+            <Button size="sm" variant="outline" asChild className="h-7 text-xs">
+              <Link to="/pricing">Upgrade Plan</Link>
+            </Button>
+          </div>
         </div>
 
         {/* Only able to see their essay. Nothing else. */}
@@ -846,7 +865,27 @@ function LiveExaminerPage() {
 
       {!started ? (
         <div className="mx-auto max-w-5xl p-5 md:p-8">
-          {hasActiveDailySession && todaySessionQuery.data ? (
+          {meQuery.data?.subscription && !meQuery.data.subscription.canUseLiveExaminer && !isAdmin ? (
+            <div
+              role="alert"
+              className="mb-6 rounded-xl border border-amber-500/30 bg-amber-500/10 p-5 text-amber-950 dark:text-amber-100 flex flex-col md:flex-row md:items-center justify-between gap-4"
+            >
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 font-semibold text-amber-900 dark:text-amber-300">
+                  <LockKeyhole className="size-4" />
+                  <span>Live Examiner is a Paid Feature</span>
+                </div>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Your Free Tier includes up to 2 free graded essays and 30 days of MCQ practice.
+                  Upgrade to Foundation (₹149/mo) or Pro (₹399/mo) to unlock Live Examiner credits,
+                  real-time Cambridge keystroke coaching, and examiner next-move guidance.
+                </p>
+              </div>
+              <Button size="sm" asChild className="shrink-0">
+                <Link to="/pricing">Unlock Live Credits</Link>
+              </Button>
+            </div>
+          ) : hasActiveDailySession && todaySessionQuery.data ? (
             <div
               role="alert"
               className="mb-6 rounded-lg border border-primary/40 bg-primary/5 p-4 space-y-3"
@@ -893,9 +932,12 @@ function LiveExaminerPage() {
           ) : limitNotice ? (
             <div
               role="alert"
-              className="mb-6 rounded-lg border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-destructive"
+              className="mb-6 rounded-lg border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive flex flex-col sm:flex-row sm:items-center justify-between gap-3"
             >
-              {limitNotice}
+              <span>{limitNotice}</span>
+              <Button size="sm" variant="default" asChild className="shrink-0">
+                <Link to="/pricing">View Plans & Credits</Link>
+              </Button>
             </div>
           ) : null}
           <div className="grid gap-8 lg:grid-cols-[minmax(0,440px)_minmax(0,1fr)]">

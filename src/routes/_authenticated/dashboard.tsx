@@ -14,6 +14,7 @@ import {
   RefreshCw,
   Search,
   ShieldCheck,
+  Sliders,
   Sparkles,
   Target,
   TrendingUp,
@@ -543,7 +544,7 @@ export function DashboardPage() {
             <span className="text-xs text-muted-foreground">Select a tool to start studying</span>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             <QuickActionCard
               to="/live-examiner"
               icon={Sparkles}
@@ -557,6 +558,20 @@ export function DashboardPage() {
               title="Grade Essay"
               badge="2-Pass + Arb"
               description="Authoritative Cambridge marking with AO breakdown, model corrections, and Principal Examiner review."
+            />
+            <QuickActionCard
+              to="/diagram-lab"
+              icon={Sliders}
+              title="Diagram CAD Lab"
+              badge="Vector CAD"
+              description="Interactive vector economics canvas. Manipulate curves, equilibrium points, deadweight loss, and tax shifts."
+            />
+            <QuickActionCard
+              to="/paper-matrix"
+              icon={Flame}
+              title="Paper Predictor"
+              badge="15-Yr Matrix"
+              description="Statistical cycle intelligence analyzing 15 years of Cambridge 9708 past papers to flag overdue topics."
             />
             <QuickActionCard
               to="/practice"
@@ -956,7 +971,7 @@ function QuickActionCard({
   badge,
   description,
 }: {
-  to: "/live-examiner" | "/grade" | "/practice" | "/question-bank";
+  to: string;
   icon: typeof PenLine;
   title: string;
   badge: string;
@@ -1006,23 +1021,24 @@ function PerformanceChart({
 }) {
   const width = 800;
   const height = 220;
-  const padding = { top: 20, right: 30, bottom: 30, left: 40 };
+  const padding = { top: 24, right: 30, bottom: 30, left: 40 };
 
   const chartWidth = width - padding.left - padding.right;
   const chartHeight = height - padding.top - padding.bottom;
 
   const points = useMemo(() => {
     const list = versions.slice(-15);
-    const maxMarkVal = 12; // standard baseline
+    const maxMarkVal = Math.max(12, ...list.map((v) => v.total_mark ?? 0));
     return list.map((v, i) => {
       const mark = v.total_mark ?? 0;
+      const pct = maxMarkVal > 0 ? Math.min(1, Math.max(0, mark / maxMarkVal)) : 0;
       const x = padding.left + (i / Math.max(1, list.length - 1)) * chartWidth;
-      const y = padding.top + chartHeight - (mark / maxMarkVal) * chartHeight;
+      const y = padding.top + chartHeight - pct * chartHeight;
       const date = new Date(v.created_at).toLocaleDateString(undefined, {
         month: "short",
         day: "numeric",
       });
-      return { x, y, mark, date, question: `Essay submission #${i + 1}` };
+      return { x, y, mark, maxMark: maxMarkVal, date, question: `Essay submission #${i + 1}` };
     });
   }, [versions, chartWidth, chartHeight, padding.left, padding.top]);
 
@@ -1049,18 +1065,18 @@ function PerformanceChart({
       >
         <defs>
           <linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="var(--primary)" stopOpacity="0.25" />
-            <stop offset="100%" stopColor="var(--primary)" stopOpacity="0.0" />
+            <stop offset="0%" stopColor="#4f46e5" stopOpacity="0.25" />
+            <stop offset="100%" stopColor="#4f46e5" stopOpacity="0.0" />
           </linearGradient>
         </defs>
 
         {/* Band Reference Lines */}
-        {/* Band 1: 10 marks (approx 83%) */}
+        {/* Band 1: 75% Distinction Target */}
         <line
           x1={padding.left}
-          y1={padding.top + chartHeight * (1 - 10 / 12)}
+          y1={padding.top + chartHeight * (1 - 0.75)}
           x2={width - padding.right}
-          y2={padding.top + chartHeight * (1 - 10 / 12)}
+          y2={padding.top + chartHeight * (1 - 0.75)}
           stroke="currentColor"
           strokeDasharray="4 4"
           className="text-emerald-500/40"
@@ -1068,18 +1084,18 @@ function PerformanceChart({
         />
         <text
           x={padding.left + 5}
-          y={padding.top + chartHeight * (1 - 10 / 12) - 4}
+          y={padding.top + chartHeight * (1 - 0.75) - 4}
           className="text-[9px] fill-emerald-500 font-semibold"
         >
-          Band 1 (Top)
+          Band 1 Distinction Target (75%+)
         </text>
 
-        {/* Band 2: 7 marks */}
+        {/* Band 2: 50% Mid Band */}
         <line
           x1={padding.left}
-          y1={padding.top + chartHeight * (1 - 7 / 12)}
+          y1={padding.top + chartHeight * (1 - 0.5)}
           x2={width - padding.right}
-          y2={padding.top + chartHeight * (1 - 7 / 12)}
+          y2={padding.top + chartHeight * (1 - 0.5)}
           stroke="currentColor"
           strokeDasharray="4 4"
           className="text-blue-500/40"
@@ -1087,10 +1103,10 @@ function PerformanceChart({
         />
         <text
           x={padding.left + 5}
-          y={padding.top + chartHeight * (1 - 7 / 12) - 4}
+          y={padding.top + chartHeight * (1 - 0.5) - 4}
           className="text-[9px] fill-blue-500 font-semibold"
         >
-          Band 2 (Mid)
+          Band 2 Pass Target (50%+)
         </text>
 
         {/* Area fill */}
@@ -1100,7 +1116,8 @@ function PerformanceChart({
         <path
           d={pathD}
           fill="none"
-          stroke="var(--primary)"
+          stroke="#4f46e5"
+          className="stroke-primary"
           strokeWidth="2.5"
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -1129,24 +1146,24 @@ function PerformanceChart({
         {/* Tooltip on hover */}
         {hoveredPoint !== null && points[hoveredPoint.index] ? (
           <g
-            transform={`translate(${points[hoveredPoint.index]!.x}, ${points[hoveredPoint.index]!.y - 12})`}
+            transform={`translate(${Math.max(50, Math.min(width - 50, points[hoveredPoint.index]!.x))}, ${Math.max(35, points[hoveredPoint.index]!.y - 12)})`}
           >
             <rect
-              x="-45"
-              y="-30"
-              width="90"
+              x="-48"
+              y="-28"
+              width="96"
               height="26"
-              rx="5"
+              rx="6"
               className="fill-popover stroke-border shadow-md"
               strokeWidth="1"
             />
             <text
               x="0"
-              y="-13"
+              y="-11"
               textAnchor="middle"
               className="text-[11px] font-bold fill-foreground"
             >
-              {hoveredPoint.mark}/12 marks
+              {hoveredPoint.mark} marks awarded
             </text>
           </g>
         ) : null}

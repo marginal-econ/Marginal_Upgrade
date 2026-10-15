@@ -45,7 +45,12 @@ function AuthenticatedLayout() {
   }
 
   return (
-    <AppShell role={data?.role ?? "student"} name={data?.fullName ?? null} userId={user.id}>
+    <AppShell
+      role={data?.role ?? "student"}
+      name={data?.fullName ?? null}
+      userId={user.id}
+      subscription={data?.subscription}
+    >
       <Outlet />
       <PrivacyConsent userId={user.id} onResolved={handlePrivacyResolved} />
       {/* Only ever true for a freshly-created account; flips to true for

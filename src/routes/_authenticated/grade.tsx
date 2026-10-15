@@ -212,7 +212,20 @@ function GradePage() {
       queryClient.invalidateQueries({ queryKey: ["progress"] });
       toast.success(`Marked ${data.grading.total_mark}/${data.grading.max_mark}`);
     },
-    onError: (error: Error) => toast.error(error.message),
+    onError: (error: Error) => {
+      const isPlanLimit =
+        error.message.includes("Plan limit reached") ||
+        error.message.includes("Upgrade to Foundation");
+      toast.error(error.message, {
+        action: isPlanLimit
+          ? {
+              label: "View Plans",
+              onClick: () => navigate({ to: "/pricing" }),
+            }
+          : undefined,
+        duration: isPlanLimit ? 8000 : 4000,
+      });
+    },
   });
 
   const words = essayText.trim() ? essayText.trim().split(/\s+/).length : 0;

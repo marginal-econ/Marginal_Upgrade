@@ -9,34 +9,32 @@ import {
   PenLine,
   Target,
   Dumbbell,
-  LineChart,
-  Wand2,
   ShieldCheck,
-  ShieldPlus,
-  ListOrdered,
   BookMarked,
   Sparkles,
-  UploadCloud,
   PanelLeftClose,
   PanelLeftOpen,
   UsersRound,
   BookText,
-  Trophy,
-  CircleHelp,
   ChevronDown,
   ChevronRight,
   Menu,
   GraduationCap,
   Flame,
   Sliders,
+  Settings,
+  CreditCard,
+  Zap,
 } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { usePresenceHeartbeat } from "@/hooks/use-presence";
 import { supabase } from "@/integrations/backend/client";
+import type { UserSubscriptionDetails } from "@/lib/usage-limits";
 import { cn } from "@/lib/utils";
 
 export type NavItem = {
@@ -59,12 +57,11 @@ const SIDEBAR_COLLAPSED_STORAGE_KEY = "marginal.sidebarCollapsed";
 const COLLAPSED_GROUPS_STORAGE_KEY = "marginal.collapsedNavGroups";
 
 /**
- * Clean, structured navigation groups:
- * 1. Overview: Dashboard, Review Panel, Classes
- * 2. Examiner & Essays: Flagship Live Examiner, Marking, Essay Gen, Response Structure
- * 3. Practice & Papers: Real past-paper MCQ, Question Bank, Skills Coach
- * 4. Syllabus Resources: Definitions, Diagrams, Command Words, Showcase (Collapsible)
- * 5. Staff & Administration: Knowledge Base, Calibration, Content, Admin Console (Collapsible)
+ * Curated, uncluttered navigation groups for Cambridge 9708 candidates and teachers:
+ * 1. Overview: Dashboard, Review & Analytics, Classes
+ * 2. Examiner & Practice: Live Examiner, Essay Marking, MCQ Past Papers, Paper Predictor, Question Bank, Skills Coach
+ * 3. Syllabus Hub: Syllabus & Definitions, Diagram CAD Lab
+ * 4. Staff & Admin: Teacher Examiner, Admin Console, Staff Console
  */
 const NAV_GROUPS: NavGroup[] = [
   {
@@ -82,7 +79,7 @@ const NAV_GROUPS: NavGroup[] = [
       { to: "/live-examiner", label: "Live Examiner", icon: Sparkles, badge: "Live" },
       { to: "/grade", label: "Essay Marking", icon: PenLine },
       { to: "/mcq-live", label: "MCQ Past Papers", icon: ListChecks },
-      { to: "/paper-matrix", label: "Paper Cycle Predictor", icon: Flame, badge: "Predict" },
+      { to: "/paper-matrix", label: "Paper Predictor", icon: Flame, badge: "Predict" },
       { to: "/question-bank", label: "Question Bank", icon: BookMarked },
       { to: "/practice", label: "Skills Coach", icon: Dumbbell },
     ],
@@ -91,7 +88,7 @@ const NAV_GROUPS: NavGroup[] = [
     id: "resources",
     label: "Syllabus Hub",
     items: [
-      { to: "/definitions", label: "Syllabus & Diagrams", icon: BookText },
+      { to: "/definitions", label: "Syllabus & Definitions", icon: BookText },
       { to: "/diagram-lab", label: "Diagram CAD Lab", icon: Sliders, badge: "New" },
     ],
   },
@@ -124,11 +121,13 @@ export function AppShell({
   role,
   name,
   userId,
+  subscription,
 }: {
   children: ReactNode;
   role: "student" | "teacher" | "admin";
   name: string | null;
   userId: string;
+  subscription?: UserSubscriptionDetails;
 }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -208,7 +207,6 @@ export function AppShell({
 
   const renderNavGroup = (group: NavGroup, isMobile = false) => {
     const isGroupCollapsed = group.collapsible && collapsedGroups.has(group.id);
-    // Always expand group if current page is within this group
     const hasActiveItem = group.items.some((item) => isItemActive(item.to));
     const forceOpen = hasActiveItem || !isGroupCollapsed;
 
@@ -218,7 +216,7 @@ export function AppShell({
           sidebarCollapsed && !isMobile ? (
             <div className="my-2 border-t border-sidebar-border/60" />
           ) : (
-            <div className="flex items-center justify-between px-2.5 pt-3.5 pb-1 text-[10px] font-bold tracking-wider text-muted-foreground/60 uppercase select-none">
+            <div className="flex items-center justify-between px-2.5 pt-3 pb-1 text-[10px] font-bold tracking-wider text-muted-foreground/60 uppercase select-none">
               <span>{group.label}</span>
               {group.collapsible ? (
                 <button
@@ -250,10 +248,10 @@ export function AppShell({
                   to={item.to}
                   onClick={() => isMobile && setMobileDrawerOpen(false)}
                   className={cn(
-                    "group relative flex items-center rounded-lg py-1.5 text-xs font-medium text-sidebar-foreground/75 transition-all duration-150",
+                    "group relative flex items-center rounded-lg py-1.5 text-xs font-medium text-sidebar-foreground/80 transition-all duration-150",
                     sidebarCollapsed && !isMobile ? "justify-center px-2" : "gap-2.5 px-2.5",
                     "hover:bg-sidebar-accent/80 hover:text-sidebar-accent-foreground",
-                    active && "bg-sidebar-accent font-semibold text-sidebar-accent-foreground shadow-xs",
+                    active && "bg-sidebar-accent font-semibold text-sidebar-accent-foreground shadow-2xs",
                   )}
                   title={label}
                 >
@@ -283,39 +281,46 @@ export function AppShell({
     );
   };
 
+  const candidateInitials = useMemo(() => {
+    if (!name) return "E";
+    const parts = name.trim().split(/\s+/);
+    if (parts.length >= 2) return `${parts[0]![0]}${parts[1]![0]}`.toUpperCase();
+    return (name[0] ?? "E").toUpperCase();
+  }, [name]);
+
   return (
     <div className="flex min-h-screen bg-background">
-      {/* Desktop Sidebar */}
+      {/* ── Desktop Sidebar: Sticky, fixed-height, perfectly pinned ── */}
       <aside
         className={cn(
-          "hidden shrink-0 flex-col border-r border-sidebar-border bg-sidebar py-4 transition-[width,padding] duration-300 ease-out md:flex",
+          "sticky top-0 h-screen shrink-0 flex-col border-r border-sidebar-border bg-sidebar py-3 transition-[width,padding] duration-300 ease-out hidden md:flex z-30 select-none",
           sidebarCollapsed ? "w-[4.5rem] px-2" : "w-64 px-3",
         )}
       >
         {/* Brand Header */}
         <div
           className={cn(
-            "mb-3 flex items-center pb-2 border-b border-sidebar-border/50",
+            "mb-2.5 flex items-center pb-2.5 border-b border-sidebar-border/60 shrink-0",
             sidebarCollapsed ? "justify-center" : "gap-2 px-1.5",
           )}
         >
           <Link
             to="/dashboard"
-            className="flex min-w-0 items-center gap-2 group"
-            title="Marginal dashboard"
+            className="flex min-w-0 items-center gap-2.5 group"
+            title="Marginal Economics Dashboard"
           >
             <img
               src="/marginal-m-icon-clean.png"
               alt=""
               aria-hidden="true"
-              className="size-8 shrink-0 object-contain transition-transform group-hover:scale-105"
+              className="size-7 shrink-0 object-contain transition-transform group-hover:scale-105"
             />
             <span
-              className={cn("text-sm leading-tight font-bold tracking-tight", sidebarCollapsed && "hidden")}
+              className={cn("text-sm leading-tight font-bold tracking-tight text-foreground", sidebarCollapsed && "hidden")}
             >
               Marginal
               <span className="block text-[10px] font-normal text-muted-foreground">
-                Economics 9708
+                Cambridge 9708
               </span>
             </span>
           </Link>
@@ -337,7 +342,7 @@ export function AppShell({
           <Button
             variant="ghost"
             size="icon"
-            className="mb-2 size-8 self-center text-muted-foreground hover:text-foreground"
+            className="mb-2 size-8 self-center text-muted-foreground hover:text-foreground shrink-0"
             onClick={toggleSidebar}
             title="Expand sidebar"
             aria-label="Expand sidebar"
@@ -346,53 +351,122 @@ export function AppShell({
           </Button>
         ) : null}
 
+        {/* User Status & Credit Widget */}
+        {!sidebarCollapsed && subscription ? (
+          <div className="mb-2.5 rounded-xl border border-border/80 bg-muted/40 p-2.5 shrink-0">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="size-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[10px] font-bold shrink-0">
+                  {candidateInitials}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold truncate text-foreground leading-tight">
+                    {name ?? "Candidate"}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground capitalize leading-tight">
+                    {role}
+                  </p>
+                </div>
+              </div>
+
+              <Link to="/pricing">
+                <Badge
+                  variant="outline"
+                  className={cn(
+                    "text-[9.5px] px-1.5 py-0 font-bold shrink-0 cursor-pointer transition-colors hover:opacity-80",
+                    subscription.isPaid
+                      ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                      : "border-primary/30 bg-primary/10 text-primary"
+                  )}
+                >
+                  {subscription.isPaid ? subscription.tierName.split(" ")[0] : "Free Tier"}
+                </Badge>
+              </Link>
+            </div>
+
+            <div className="mt-2 pt-2 border-t border-border/50 space-y-1 text-[10.5px]">
+              <div className="flex items-center justify-between text-muted-foreground">
+                <span className="flex items-center gap-1">
+                  <PenLine className="size-3 text-primary" /> Essays Left
+                </span>
+                <span className="font-semibold text-foreground tabular-nums">
+                  {subscription.essaysLimit === 9999 ? "Unlimited" : `${subscription.essaysRemaining} / ${subscription.essaysLimit}`}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-muted-foreground">
+                <span className="flex items-center gap-1">
+                  <Zap className="size-3 text-amber-500" /> Live Credits
+                </span>
+                {subscription.liveExaminerCredits > 0 ? (
+                  <span className="font-semibold text-foreground tabular-nums">
+                    {subscription.liveExaminerCredits}
+                  </span>
+                ) : (
+                  <Link to="/pricing" className="text-[10px] font-bold text-primary hover:underline">
+                    Upgrade
+                  </Link>
+                )}
+              </div>
+            </div>
+          </div>
+        ) : null}
+
         {/* Scrollable Navigation Groups */}
-        <div className="flex-1 overflow-y-auto overflow-x-hidden space-y-2 pr-0.5">
+        <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden space-y-2 pr-0.5">
           {visibleGroups.map((group) => renderNavGroup(group))}
         </div>
 
-        {/* User Footer */}
-        <div className="mt-3 border-t border-sidebar-border/70 pt-2.5">
+        {/* ── User Footer: Cleanly pinned at the bottom, perfectly spaced ── */}
+        <div className="shrink-0 pt-2.5 border-t border-sidebar-border/70 mt-auto space-y-1">
+          <Link
+            to="/pricing"
+            className={cn(
+              "flex items-center rounded-lg py-1.5 text-xs font-medium text-sidebar-foreground/80 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+              sidebarCollapsed ? "justify-center px-1" : "gap-2.5 px-2.5",
+              pathname.startsWith("/pricing") && "bg-sidebar-accent text-sidebar-accent-foreground font-semibold",
+            )}
+            title="Revision plans & pricing"
+          >
+            <CreditCard className="size-4 shrink-0 text-primary" />
+            <span className={cn("truncate", sidebarCollapsed && "sr-only")}>
+              Plans & Pricing
+            </span>
+          </Link>
+
           <Link
             to="/settings"
             className={cn(
-              "block rounded-lg py-1.5 transition-colors hover:bg-sidebar-accent",
-              sidebarCollapsed ? "px-1 text-center" : "px-2",
-              pathname.startsWith("/settings") && "bg-sidebar-accent",
+              "flex items-center rounded-lg py-1.5 text-xs font-medium text-sidebar-foreground/80 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+              sidebarCollapsed ? "justify-center px-1" : "gap-2.5 px-2.5",
+              pathname.startsWith("/settings") && "bg-sidebar-accent text-sidebar-accent-foreground font-semibold",
             )}
             title="Account settings"
           >
-            <p className={cn("text-xs font-semibold truncate", sidebarCollapsed && "sr-only")}>
-              {name ?? "Your account"}
-            </p>
-            <p
-              className={cn(
-                "text-[11px] text-muted-foreground capitalize truncate",
-                sidebarCollapsed && "sr-only",
-              )}
-            >
-              {role} · Settings
-            </p>
-            {sidebarCollapsed ? (
-              <span className="text-xs font-bold text-muted-foreground">{role.slice(0, 1).toUpperCase()}</span>
-            ) : null}
+            <Settings className="size-4 shrink-0 text-muted-foreground/80" />
+            <span className={cn("truncate", sidebarCollapsed && "sr-only")}>
+              Settings
+            </span>
           </Link>
+
           <Button
             variant="ghost"
             size="sm"
-            className={cn("mt-0.5 h-8 w-full text-xs text-muted-foreground hover:text-foreground", sidebarCollapsed ? "justify-center p-0" : "justify-start px-2")}
+            className={cn(
+              "h-8 w-full text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors",
+              sidebarCollapsed ? "justify-center p-0" : "justify-start px-2.5 gap-2.5"
+            )}
             onClick={signOut}
-            title="Sign out"
+            title="Sign out of account"
           >
-            <LogOut className="size-3.5" />
-            <span className={cn("ml-2", sidebarCollapsed && "sr-only")}>Sign out</span>
+            <LogOut className="size-4 shrink-0" />
+            <span className={cn(sidebarCollapsed && "sr-only")}>Sign out</span>
           </Button>
         </div>
       </aside>
 
-      {/* Main Content & Mobile Header */}
+      {/* ── Main Content & Mobile Header ── */}
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex items-center justify-between border-b border-border bg-card/80 px-4 py-2.5 backdrop-blur-sm md:hidden">
+        <header className="flex items-center justify-between border-b border-border bg-card/80 px-4 py-2.5 backdrop-blur-sm md:hidden sticky top-0 z-40">
           <div className="flex items-center gap-2.5">
             <Sheet open={mobileDrawerOpen} onOpenChange={setMobileDrawerOpen}>
               <SheetTrigger asChild>
@@ -401,8 +475,8 @@ export function AppShell({
                   <span className="sr-only">Open navigation menu</span>
                 </Button>
               </SheetTrigger>
-              <SheetContent side="left" className="w-72 p-4">
-                <SheetHeader className="mb-4 text-left">
+              <SheetContent side="left" className="w-72 p-4 flex flex-col h-full">
+                <SheetHeader className="mb-3 text-left shrink-0">
                   <SheetTitle className="flex items-center gap-2">
                     <img
                       src="/marginal-m-icon-clean.png"
@@ -410,15 +484,51 @@ export function AppShell({
                       aria-hidden="true"
                       className="size-7 object-contain"
                     />
-                    <span>Marginal 9708</span>
+                    <span className="font-bold">Marginal 9708</span>
                   </SheetTitle>
                 </SheetHeader>
-                <div className="overflow-y-auto space-y-3 max-h-[calc(100vh-140px)]">
+
+                {subscription ? (
+                  <div className="mb-3 rounded-xl border border-border/80 bg-muted/40 p-2.5 shrink-0 text-xs">
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold">{name ?? "Candidate"}</span>
+                      <Badge variant="outline" className="text-[9px] px-1.5 py-0 font-bold">
+                        {subscription.isPaid ? subscription.tierName : "Free Tier"}
+                      </Badge>
+                    </div>
+                    <div className="mt-2 pt-2 border-t border-border/50 flex justify-between text-[11px] text-muted-foreground">
+                      <span>Essays left: {subscription.essaysRemaining}</span>
+                      <span>Credits: {subscription.liveExaminerCredits}</span>
+                    </div>
+                  </div>
+                ) : null}
+
+                <div className="min-h-0 flex-1 overflow-y-auto space-y-2 pr-1">
                   {visibleGroups.map((group) => renderNavGroup(group, true))}
                 </div>
-                <div className="mt-4 border-t border-border pt-3">
-                  <Button variant="outline" size="sm" className="w-full justify-start text-xs" onClick={signOut}>
-                    <LogOut className="mr-2 size-3.5" /> Sign out
+
+                <div className="mt-auto shrink-0 pt-3 border-t border-border space-y-1">
+                  <Link
+                    to="/pricing"
+                    onClick={() => setMobileDrawerOpen(false)}
+                    className="flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-xs font-medium text-foreground hover:bg-muted"
+                  >
+                    <CreditCard className="size-4 text-primary" /> Plans &amp; Pricing
+                  </Link>
+                  <Link
+                    to="/settings"
+                    onClick={() => setMobileDrawerOpen(false)}
+                    className="flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-xs font-medium text-foreground hover:bg-muted"
+                  >
+                    <Settings className="size-4 text-muted-foreground" /> Settings
+                  </Link>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-full justify-start text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10 px-2.5 gap-2.5"
+                    onClick={signOut}
+                  >
+                    <LogOut className="size-4" /> Sign out
                   </Button>
                 </div>
               </SheetContent>
@@ -428,23 +538,23 @@ export function AppShell({
               <img
                 src="/marginal-m-icon-clean.png"
                 alt=""
+                aria-hidden="true"
                 className="size-6 object-contain"
               />
-              <span className="text-sm font-bold tracking-tight">Marginal</span>
+              <span className="text-sm font-bold">Marginal</span>
             </Link>
           </div>
 
-          <div className="flex items-center gap-2 text-xs">
-            <Link to="/live-examiner" className="flex items-center gap-1 rounded-full bg-primary/10 border border-primary/20 px-2.5 py-1 font-semibold text-primary">
-              <Sparkles className="size-3" /> Live Examiner
+          <div className="flex items-center gap-2">
+            <Link to="/pricing">
+              <Badge variant="outline" className="text-[10px] font-bold text-primary border-primary/30">
+                {subscription?.isPaid ? subscription.tierName.split(" ")[0] : "Free Tier"}
+              </Badge>
             </Link>
-            <Button variant="ghost" size="icon" className="size-8" onClick={signOut} title="Sign out">
-              <LogOut className="size-3.5" />
-            </Button>
           </div>
         </header>
 
-        <main className="min-w-0 flex-1">{children}</main>
+        <main className="flex-1">{children}</main>
       </div>
     </div>
   );
@@ -460,14 +570,16 @@ export function PageHeader({
   action?: ReactNode;
 }) {
   return (
-    <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border px-5 py-5 md:px-8">
-      <div>
-        <h1 className="text-lg font-semibold md:text-xl">{title}</h1>
-        {description ? (
-          <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{description}</p>
-        ) : null}
+    <div className="border-b border-border bg-card/60 px-5 py-5 sm:px-6 md:px-8">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-xl font-bold tracking-tight text-foreground sm:text-2xl">{title}</h1>
+          {description ? (
+            <p className="mt-1 text-xs text-muted-foreground sm:text-sm">{description}</p>
+          ) : null}
+        </div>
+        {action ? <div className="shrink-0">{action}</div> : null}
       </div>
-      {action}
     </div>
   );
 }

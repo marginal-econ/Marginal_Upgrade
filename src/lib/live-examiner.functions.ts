@@ -4,6 +4,8 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/backend/auth-middleware";
 import {
   LIVE_EXAMINER_LIMIT_MESSAGE,
+  LIVE_EXAMINER_PAID_ONLY_MESSAGE,
+  LIVE_EXAMINER_NO_CREDITS_MESSAGE,
   DEFAULT_LIVE_EXAMINER_DURATION_MINUTES,
 } from "@/lib/usage-limits";
 import { deterministicTerminologyIssues } from "@/lib/live-examiner/economics-glossary";
@@ -38,6 +40,23 @@ async function assertLiveExaminerSessionAllowed(
   if (isAdmin) {
     return;
   }
+
+  // Check paid subscription and credit balance
+  const { getUserSubscriptionDetails } = await import("./subscription.server");
+  const sub = await getUserSubscriptionDetails(
+    supabase,
+    context?.userId,
+    context?.email,
+    context?.claims,
+  );
+  if (!sub.canUseLiveExaminer) {
+    if (!sub.isPaid) {
+      throw new Error(LIVE_EXAMINER_PAID_ONLY_MESSAGE);
+    } else {
+      throw new Error(LIVE_EXAMINER_NO_CREDITS_MESSAGE);
+    }
+  }
+
   const { data, error } = await supabase.rpc("claim_live_examiner_session", {
     p_question: question,
   });

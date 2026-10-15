@@ -121,7 +121,7 @@ function AuthPage() {
   const navigate = useNavigate();
   const search = Route.useSearch();
   const targetRedirect =
-    search.redirect && search.redirect.startsWith("/") ? search.redirect : "/dashboard";
+    search.redirect && search.redirect.startsWith("/") ? search.redirect : "/pricing";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
@@ -261,7 +261,7 @@ function AuthPage() {
       if (error) throw error;
       if (data.session) {
         toast.success("Account created! Welcome to Marginal.");
-        navigate({ to: "/dashboard", replace: true });
+        navigate({ to: "/pricing", replace: true });
       } else {
         toast.success("Account created. You can now sign in.");
       }

@@ -3,7 +3,9 @@ import { cn } from "@/lib/utils";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import {
+  ArrowRight,
   BookOpen,
+  ExternalLink,
   Gift,
   LineChart,
   ListChecks,
@@ -15,6 +17,8 @@ import {
   Target,
   TrendingUp,
 } from "lucide-react";
+
+import { Button } from "@/components/ui/button";
 
 import {
   Accordion,
@@ -48,20 +52,20 @@ import { captureReferralCode } from "@/lib/waitlist-client";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Marginal — AS and A Level Economics (9708) essay marking waitlist" },
+      { title: "Marginal — Cambridge AS & A Level Economics (9708) Marking & Live Examiner" },
       {
         name: "description",
         content:
-          "Marginal marks AS and A Level Economics (9708) essays with AO1/AO2/AO3 breakdowns, grounded in your own coursebook, syllabus and mark schemes. An independent AI tool, not connected to Cambridge. Join the waitlist for the first cohort.",
+          "Marginal marks AS and A Level Economics (9708) essays with AO1/AO2/AO3 breakdowns, grounded in official syllabus and mark schemes. Start free with 2 graded essays.",
       },
       {
         property: "og:title",
-        content: "Marginal — AS and A Level Economics (9708) essay marking waitlist",
+        content: "Marginal — Cambridge AS & A Level Economics (9708) Marking & Live Examiner",
       },
       {
         property: "og:description",
         content:
-          "Examiner-standard marks, assessment-objective breakdowns and rewrite plans for AS and A Level Economics (9708). Waitlist open now.",
+          "Examiner-standard marks, assessment-objective breakdowns and rewrite plans for Cambridge 9708 Economics.",
       },
     ],
   }),
@@ -276,14 +280,12 @@ function Index() {
               Sign in
             </Link>
             <Magnetic strength={8}>
-              <a
-                href="#waitlist-primary"
-                aria-label={settings.cta}
-                className="pop-sm pop-press shine inline-flex min-h-9 items-center justify-center gap-1.5 whitespace-nowrap bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground sm:px-3.5 sm:text-sm"
+              <Link
+                to="/auth"
+                className="pop-sm pop-press shine inline-flex min-h-9 items-center justify-center gap-1.5 whitespace-nowrap bg-primary px-3.5 py-2 text-xs font-semibold text-primary-foreground sm:text-sm rounded-lg"
               >
-                <span className="min-[380px]:hidden">Join</span>
-                <span className="hidden min-[380px]:inline">{settings.cta}</span>
-              </a>
+                <span>Get Started Free</span>
+              </Link>
             </Magnetic>
           </div>
         </div>
@@ -354,25 +356,39 @@ function Index() {
               </p>
             </Reveal>
 
-            {/* The form itself, above the fold. */}
+            {/* Direct candidate conversion actions */}
             <Reveal delay={210}>
-              <div id="waitlist-primary" className="mt-7 max-w-lg scroll-mt-24">
-                <WaitlistForm
-                  variant="hero"
-                  cta={settings.cta}
-                  settings={settings}
-                  settingsLoaded={settingsLoaded}
-                />
+              <div className="mt-7 flex flex-wrap items-center gap-3">
+                <Button
+                  asChild
+                  size="lg"
+                  className="h-11 px-6 text-sm font-bold shadow-md bg-primary hover:bg-primary/90 text-primary-foreground"
+                >
+                  <Link to="/auth">
+                    Get Started Free (2 Free Essays) <ArrowRight className="size-4 ml-1.5" />
+                  </Link>
+                </Button>
+                <Button
+                  asChild
+                  variant="outline"
+                  size="lg"
+                  className="h-11 px-5 text-sm font-semibold border-2 hover:bg-muted"
+                >
+                  <Link to="/exemplar">
+                    Real Graded Essay (10/12) <ExternalLink className="size-3.5 ml-1.5 text-primary" />
+                  </Link>
+                </Button>
               </div>
+              <p className="mt-2 text-xs text-muted-foreground">
+                No credit card required &bull; 2 full essays graded free &bull; 30-day MCQ access
+              </p>
             </Reveal>
 
             {invitedBy ? (
               <Reveal delay={240}>
-                <p className="mt-4 inline-flex items-center gap-2 text-sm text-muted-foreground">
-                  <Gift className="size-4 text-primary" aria-hidden="true" />A friend invited you
-                  with code{" "}
-                  <span className="font-mono font-semibold text-foreground">{invitedBy}</span> —
-                  they move up when you join.
+                <p className="mt-3.5 inline-flex items-center gap-2 text-xs text-muted-foreground">
+                  <Gift className="size-3.5 text-primary" aria-hidden="true" />
+                  Invited with code <span className="font-semibold text-foreground">{invitedBy.toLowerCase()}</span> — 2 free essays ready.
                 </p>
               </Reveal>
             ) : null}
@@ -688,7 +704,7 @@ function Index() {
         </div>
       </section>
 
-      {/* ── Join ─────────────────────────────────────────────────────────── */}
+      {/* ── Candidate Onboarding CTA ──────────────────────────────────── */}
       <section
         id="join"
         className="relative scroll-mt-20 px-4 py-14 sm:px-5 sm:py-16 md:px-8 md:py-20"
@@ -704,28 +720,46 @@ function Index() {
             <div className="relative grid items-center gap-10 md:grid-cols-[1.15fr_0.85fr]">
               <div className="text-center md:text-left">
                 <span className="chip-soft bg-plum-foreground/15 text-plum-foreground">
-                  <Mail className="size-3.5" />
-                  One email. When it opens.
+                  <Sparkles className="size-3.5" />
+                  Cambridge 9708 Candidate Workspace
                 </span>
 
                 <h2 className="mt-4 text-3xl font-bold text-balance text-plum-foreground md:text-4xl">
-                  {settings.joinTitle}
+                  Start scoring higher in AS & A Level Economics
                 </h2>
                 <p className="mt-4 max-w-md text-sm text-pretty text-plum-foreground/85 md:text-base">
-                  {settings.joinDescription}
+                  Every candidate gets 2 full essay gradings and 30 days of MCQ past papers completely free. Instant access with line-by-line mark scheme matching.
                 </p>
 
-                <div className="mt-7 max-w-lg text-left">
-                  <WaitlistForm
-                    variant="wide"
-                    cta={settings.cta}
-                    settings={settings}
-                    settingsLoaded={settingsLoaded}
-                  />
+                <div className="mt-7 flex flex-wrap items-center justify-center md:justify-start gap-3">
+                  <Button
+                    asChild
+                    size="lg"
+                    className="h-11 px-6 text-xs sm:text-sm font-bold bg-background text-foreground hover:bg-background/90 shadow-lg"
+                  >
+                    <Link to="/auth">
+                      Create Free Account <ArrowRight className="size-4 ml-1.5" />
+                    </Link>
+                  </Button>
+                  <Button
+                    asChild
+                    variant="outline"
+                    size="lg"
+                    className="h-11 px-5 text-xs sm:text-sm font-semibold border-white/30 text-plum-foreground hover:bg-white/10"
+                  >
+                    <Link to="/pricing">View Revision Plans</Link>
+                  </Button>
+                  <Button
+                    asChild
+                    variant="ghost"
+                    size="lg"
+                    className="h-11 px-4 text-xs sm:text-sm font-semibold text-plum-foreground/80 hover:text-plum-foreground hover:bg-white/10"
+                  >
+                    <Link to="/exemplar">View 10/12 Exemplar</Link>
+                  </Button>
                 </div>
 
-                {/* Said where the decision is made, not buried in the footer. */}
-                <p className="mt-4 text-xs text-plum-foreground/70">
+                <p className="mt-5 text-xs text-plum-foreground/70">
                   By joining you agree to the{" "}
                   <Link to="/terms" className="font-medium underline underline-offset-4">
                     terms &amp; conditions
@@ -848,6 +882,12 @@ function SpecimenCard() {
                   </span>
                 </li>
               </ul>
+              <div className="mt-4 pt-3 border-t border-border flex items-center justify-between">
+                <span className="text-[11px] text-muted-foreground">Calibrated against real 9708 candidates</span>
+                <Link to="/exemplar" className="text-xs font-bold text-primary hover:underline inline-flex items-center gap-1">
+                  View Full 10/12 Script Exemplar →
+                </Link>
+              </div>
             </div>
           </>
         ) : (

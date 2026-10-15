@@ -53,6 +53,14 @@ export const getMe = createServerFn({ method: "GET" })
         role = "student";
       }
 
+      const { getUserSubscriptionDetails } = await import("./subscription.server");
+      const subscription = await getUserSubscriptionDetails(
+        supabase,
+        userId,
+        (context as any).email,
+        (context as any).claims,
+      );
+
       return {
         userId,
         fullName: profile?.full_name ?? (isVaquita ? "Vaquitavoid" : null),
@@ -61,6 +69,7 @@ export const getMe = createServerFn({ method: "GET" })
         isAdmin: isVaquita || role === "admin",
         isStaff: isVaquita || role === "teacher",
         tutorialCompleted: profile?.tutorial_completed ?? true,
+        subscription,
       };
     } catch (err) {
       console.warn("Exception in getMe, returning fallback role:", err);
@@ -72,6 +81,19 @@ export const getMe = createServerFn({ method: "GET" })
         isAdmin: isVaquita,
         isStaff: isVaquita,
         tutorialCompleted: true,
+        subscription: {
+          tier: "free" as const,
+          tierName: "Free Tier",
+          isPaid: false,
+          isAdmin: isVaquita,
+          essaysGradedCount: 0,
+          essaysLimit: 2,
+          essaysRemaining: 2,
+          canGradeEssay: true,
+          liveExaminerCredits: 0,
+          canUseLiveExaminer: false,
+          mcqFreeDaysRemaining: 30,
+        },
       };
     }
   });
