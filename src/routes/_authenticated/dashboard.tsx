@@ -10,6 +10,8 @@ import {
   Flame,
   GraduationCap,
   LibraryBig,
+  ListChecks,
+  BookText,
   PenLine,
   RefreshCw,
   Search,
@@ -560,18 +562,18 @@ export function DashboardPage() {
               description="Authoritative Cambridge marking with AO breakdown, model corrections, and Principal Examiner review."
             />
             <QuickActionCard
-              to="/diagram-lab"
-              icon={Sliders}
-              title="Diagram CAD Lab"
-              badge="Vector CAD"
-              description="Interactive vector economics canvas. Manipulate curves, equilibrium points, deadweight loss, and tax shifts."
+              to="/mcq-live"
+              icon={ListChecks}
+              title="MCQ Past Papers"
+              badge="Papers 1 & 3"
+              description="Real Cambridge past papers with interactive jump matrix, timer, and AI mark-scheme explanations."
             />
             <QuickActionCard
-              to="/paper-matrix"
-              icon={Flame}
-              title="Paper Predictor"
-              badge="15-Yr Matrix"
-              description="Statistical cycle intelligence analyzing 15 years of Cambridge 9708 past papers to flag overdue topics."
+              to="/definitions"
+              icon={BookText}
+              title="Definitions Hub"
+              badge="120+ Terms"
+              description="Official Cambridge 9708 syllabus definitions, keywords, and flashcards for full AO1 knowledge."
             />
             <QuickActionCard
               to="/practice"
@@ -588,6 +590,44 @@ export function DashboardPage() {
               description="Filter hundreds of past paper essay and MCQ questions, or generate fresh syllabus prompts."
             />
           </div>
+
+          {/* Conditional Experimental Labs Compartment (Admin & Higher-Tier Only) */}
+          {Boolean(
+            me.data?.isAdmin ||
+              me.data?.subscription?.tier === "mastery" ||
+              me.data?.subscription?.tier === "elite"
+          ) ? (
+            <div className="mt-6 rounded-2xl border border-primary/30 bg-primary/[0.03] p-5">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <Badge className="bg-primary/20 text-primary border-primary/30 text-[10px] font-bold">
+                    Experimental Labs
+                  </Badge>
+                  <span className="text-xs text-muted-foreground font-medium">
+                    {me.data?.isAdmin
+                      ? "Administrator Access"
+                      : "Higher-Tier Preview (Mastery / Elite)"}
+                  </span>
+                </div>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <QuickActionCard
+                  to="/diagram-lab"
+                  icon={Sliders}
+                  title="Diagram CAD Lab"
+                  badge="Vector CAD"
+                  description="Interactive vector economics canvas. Manipulate curves, equilibrium points, deadweight loss, and tax shifts."
+                />
+                <QuickActionCard
+                  to="/paper-matrix"
+                  icon={Flame}
+                  title="Paper Predictor"
+                  badge="15-Yr Matrix"
+                  description="Statistical cycle intelligence analyzing 15 years of Cambridge 9708 past papers to flag overdue topics."
+                />
+              </div>
+            </div>
+          ) : null}
         </section>
 
         {/* Recent Essays Interactive Feed */}
@@ -1021,7 +1061,7 @@ function PerformanceChart({
 }) {
   const width = 800;
   const height = 220;
-  const padding = { top: 24, right: 30, bottom: 30, left: 40 };
+  const padding = { top: 24, right: 75, bottom: 30, left: 35 };
 
   const chartWidth = width - padding.left - padding.right;
   const chartHeight = height - padding.top - padding.bottom;
@@ -1079,15 +1119,16 @@ function PerformanceChart({
           y2={padding.top + chartHeight * (1 - 0.75)}
           stroke="currentColor"
           strokeDasharray="4 4"
-          className="text-emerald-500/40"
+          className="text-emerald-500/35"
           strokeWidth="1"
         />
         <text
-          x={padding.left + 5}
-          y={padding.top + chartHeight * (1 - 0.75) - 4}
-          className="text-[9px] fill-emerald-500 font-semibold"
+          x={width - 8}
+          y={padding.top + chartHeight * (1 - 0.75) + 3}
+          textAnchor="end"
+          className="text-[9.5px] fill-emerald-500 font-semibold select-none"
         >
-          Band 1 Distinction Target (75%+)
+          Band 1 (75%+)
         </text>
 
         {/* Band 2: 50% Mid Band */}
@@ -1098,15 +1139,36 @@ function PerformanceChart({
           y2={padding.top + chartHeight * (1 - 0.5)}
           stroke="currentColor"
           strokeDasharray="4 4"
-          className="text-blue-500/40"
+          className="text-blue-500/35"
           strokeWidth="1"
         />
         <text
-          x={padding.left + 5}
-          y={padding.top + chartHeight * (1 - 0.5) - 4}
-          className="text-[9px] fill-blue-500 font-semibold"
+          x={width - 8}
+          y={padding.top + chartHeight * (1 - 0.5) + 3}
+          textAnchor="end"
+          className="text-[9.5px] fill-blue-500 font-semibold select-none"
         >
-          Band 2 Pass Target (50%+)
+          Band 2 (50%+)
+        </text>
+
+        {/* Band 3: 35% Lower Band */}
+        <line
+          x1={padding.left}
+          y1={padding.top + chartHeight * (1 - 0.35)}
+          x2={width - padding.right}
+          y2={padding.top + chartHeight * (1 - 0.35)}
+          stroke="currentColor"
+          strokeDasharray="4 4"
+          className="text-amber-500/35"
+          strokeWidth="1"
+        />
+        <text
+          x={width - 8}
+          y={padding.top + chartHeight * (1 - 0.35) + 3}
+          textAnchor="end"
+          className="text-[9.5px] fill-amber-500 font-semibold select-none"
+        >
+          Band 3 (35%+)
         </text>
 
         {/* Area fill */}

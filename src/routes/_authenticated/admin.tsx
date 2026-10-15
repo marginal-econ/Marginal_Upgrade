@@ -92,6 +92,12 @@ import {
 } from "@/lib/admin.functions";
 import { getMe } from "@/lib/account.functions";
 import {
+  getPlatformPricing,
+  updatePlatformPricing,
+  adminManageUserCredits,
+} from "@/lib/pricing.functions";
+import { DEFAULT_PRICING_PLANS } from "@/lib/pricing-plans";
+import {
   AI_PROVIDERS,
   EMBEDDING_PROVIDERS,
   VISION_PROVIDERS,
@@ -213,6 +219,15 @@ const ADMIN_SECTIONS: Record<string, AdminSectionMeta> = {
     subtitle: "Administer per-user daily essay allowances, global request quotas, and VIP token overrides.",
     icon: Coins,
   },
+  pricing: {
+    id: "pricing",
+    category: "Monetization & Plans",
+    title: "Pricing Plans & Credit Control",
+    subtitle: "Real-time pricing editor: customize monthly/annual tier pricing, essay allowances, Live Examiner credit quotas, and user balances.",
+    icon: Coins,
+    badge: "Live Dynamic",
+    badgeColor: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30",
+  },
   showcase: {
     id: "showcase",
     category: "Curriculum & Content",
@@ -258,6 +273,10 @@ const ADMIN_CATEGORIES = [
   {
     title: "Users & Access",
     items: [ADMIN_SECTIONS.users, ADMIN_SECTIONS.access],
+  },
+  {
+    title: "Monetization & Plans",
+    items: [ADMIN_SECTIONS.pricing],
   },
   {
     title: "Curriculum & Content",
@@ -481,6 +500,7 @@ function AdminPage() {
             {activeTab === "godmode" && <AdminGodmodeDashboard />}
             {activeTab === "users" && <UsersPanel />}
             {activeTab === "access" && <AccessPanel />}
+            {activeTab === "pricing" && <PricingAdminPanel />}
             {activeTab === "showcase" && <ShowcaseAdminPanel />}
             {activeTab === "diagrams" && <DiagramsPanel />}
             {activeTab === "providers" && <ProvidersPanel />}
@@ -3158,6 +3178,365 @@ function ShowcaseAdminPanel() {
           </div>
         )}
       </section>
+    </div>
+  );
+}
+
+function PricingAdminPanel() {
+  const queryClient = useQueryClient();
+  const getPricingFn = useServerFn(getPlatformPricing);
+  const updatePricingFn = useServerFn(updatePlatformPricing);
+  const manageUserCreditsFn = useServerFn(adminManageUserCredits);
+
+  const pricingQuery = useQuery({
+    queryKey: ["platform-pricing"],
+    queryFn: () => getPricingFn(),
+    staleTime: 30_000,
+  });
+
+  const activePlans = pricingQuery.data?.plans ?? DEFAULT_PRICING_PLANS;
+
+  // Local state for tier editing
+  const [tierForms, setTierForms] = useState<
+    Record<
+      string,
+      {
+        monthlyPrice: number;
+        annualPrice: number;
+        essaysPerMonth: number;
+        liveCredits: number;
+        hasExperimentalLabs: boolean;
+      }
+    >
+  >({});
+
+  const getTierState = (tier: "foundation" | "pro" | "mastery" | "elite") => {
+    if (tierForms[tier]) return tierForms[tier];
+    const plan = activePlans[tier];
+    return {
+      monthlyPrice: plan.monthlyPrice,
+      annualPrice: plan.annualPrice,
+      essaysPerMonth: plan.essaysPerMonth,
+      liveCredits: plan.liveCredits,
+      hasExperimentalLabs: plan.hasExperimentalLabs ?? (tier === "mastery" || tier === "elite"),
+    };
+  };
+
+  const updateTierMutation = useMutation({
+    mutationFn: (data: {
+      tier: "foundation" | "pro" | "mastery" | "elite";
+      monthlyPrice: number;
+      annualPrice: number;
+      essaysPerMonth: number;
+      liveCredits: number;
+      hasExperimentalLabs: boolean;
+    }) => updatePricingFn({ data }),
+    onSuccess: (res: any) => {
+      toast.success(res?.message || "Plan pricing updated successfully!");
+      queryClient.invalidateQueries({ queryKey: ["platform-pricing"] });
+    },
+    onError: (err: any) => toast.error(err?.message || "Failed to update pricing."),
+  });
+
+  // User Credit Manager State
+  const [targetUserId, setTargetUserId] = useState("");
+  const [selectedUserTier, setSelectedUserTier] = useState<string>("pro");
+  const [bonusLiveCredits, setBonusLiveCredits] = useState<number>(0);
+  const [bonusEssays, setBonusEssays] = useState<number>(0);
+  const [resetUsage, setResetUsage] = useState<boolean>(false);
+
+  const manageCreditsMutation = useMutation({
+    mutationFn: (data: {
+      userId: string;
+      tier?: any;
+      bonusLiveCredits?: number;
+      bonusEssays?: number;
+      resetUsageCount?: boolean;
+    }) => manageUserCreditsFn({ data }),
+    onSuccess: (res: any) => {
+      toast.success(res?.message || "User subscription and credits updated!");
+      queryClient.invalidateQueries({ queryKey: ["admin-overview"] });
+      setBonusLiveCredits(0);
+      setBonusEssays(0);
+      setResetUsage(false);
+    },
+    onError: (err: any) => toast.error(err?.message || "Failed to update user credits."),
+  });
+
+  const tiers: ("foundation" | "pro" | "mastery" | "elite")[] = [
+    "foundation",
+    "pro",
+    "mastery",
+    "elite",
+  ];
+
+  return (
+    <div className="space-y-8">
+      {/* Superadmin Status Notice */}
+      <div className="rounded-2xl border border-primary/20 bg-primary/[0.04] p-5 shadow-xs">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <Crown className="size-5" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-foreground">
+                Administrator Root: vaquitavoid
+              </h3>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Admin account operates with <strong>Uncapped Godmode</strong>. Zero credit counters, no daily essay caps, and unrestricted bypass across all candidate features and experimental labs.
+              </p>
+            </div>
+          </div>
+          <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 text-xs font-mono">
+            Uncapped · 0 Limits
+          </Badge>
+        </div>
+      </div>
+
+      {/* Dynamic Tier Pricing Editor */}
+      <div className="rounded-2xl border border-border bg-card p-5 sm:p-6 shadow-xs space-y-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border/80 pb-4">
+          <div>
+            <h2 className="text-base font-semibold text-foreground flex items-center gap-2">
+              <Coins className="size-4 text-primary" />
+              Dynamic Platform Pricing &amp; Tier Editor
+            </h2>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Edit live student prices, annual discounts, monthly essay quotas, and Live Examiner credit allocations. Changes instantly reflect across{" "}
+              <code className="text-primary font-mono text-[11px]">/pricing</code> and{" "}
+              <code className="text-primary font-mono text-[11px]">/payment</code>.
+            </p>
+          </div>
+          {pricingQuery.data?.isCustom ? (
+            <Badge variant="outline" className="text-xs border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+              Custom DB Values Active
+            </Badge>
+          ) : (
+            <Badge variant="outline" className="text-xs border-muted-foreground/30 text-muted-foreground">
+              Default Config Active
+            </Badge>
+          )}
+        </div>
+
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+          {tiers.map((tierKey) => {
+            const plan = activePlans[tierKey];
+            const current = getTierState(tierKey);
+
+            return (
+              <div
+                key={tierKey}
+                className="flex flex-col justify-between rounded-xl border border-border/80 bg-background/50 p-4 space-y-4 shadow-2xs"
+              >
+                <div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold uppercase tracking-wider text-primary">
+                      {tierKey}
+                    </span>
+                    {current.hasExperimentalLabs && (
+                      <Badge className="text-[9px] bg-amber-500/10 text-amber-500 border border-amber-500/30">
+                        Labs Access
+                      </Badge>
+                    )}
+                  </div>
+                  <h4 className="text-sm font-bold text-foreground mt-1">{plan.name}</h4>
+                  <p className="text-[11px] text-muted-foreground line-clamp-2 mt-0.5">
+                    {plan.tagline}
+                  </p>
+                </div>
+
+                <div className="space-y-3 border-t border-border/60 pt-3 text-xs">
+                  <div>
+                    <Label className="text-[11px] text-muted-foreground">Monthly Price (₹)</Label>
+                    <Input
+                      type="number"
+                      value={current.monthlyPrice}
+                      onChange={(e) =>
+                        setTierForms((prev) => ({
+                          ...prev,
+                          [tierKey]: { ...current, monthlyPrice: Number(e.target.value) },
+                        }))
+                      }
+                      className="h-8 text-xs font-semibold tabular-nums mt-1"
+                    />
+                  </div>
+
+                  <div>
+                    <Label className="text-[11px] text-muted-foreground">Annual Price (₹)</Label>
+                    <Input
+                      type="number"
+                      value={current.annualPrice}
+                      onChange={(e) =>
+                        setTierForms((prev) => ({
+                          ...prev,
+                          [tierKey]: { ...current, annualPrice: Number(e.target.value) },
+                        }))
+                      }
+                      className="h-8 text-xs font-semibold tabular-nums mt-1"
+                    />
+                  </div>
+
+                  <div>
+                    <Label className="text-[11px] text-muted-foreground">Monthly Essays Quota</Label>
+                    <Input
+                      type="number"
+                      value={current.essaysPerMonth}
+                      onChange={(e) =>
+                        setTierForms((prev) => ({
+                          ...prev,
+                          [tierKey]: { ...current, essaysPerMonth: Number(e.target.value) },
+                        }))
+                      }
+                      className="h-8 text-xs font-semibold tabular-nums mt-1"
+                    />
+                  </div>
+
+                  <div>
+                    <Label className="text-[11px] text-muted-foreground">Live Examiner Credits</Label>
+                    <Input
+                      type="number"
+                      value={current.liveCredits}
+                      onChange={(e) =>
+                        setTierForms((prev) => ({
+                          ...prev,
+                          [tierKey]: { ...current, liveCredits: Number(e.target.value) },
+                        }))
+                      }
+                      className="h-8 text-xs font-semibold tabular-nums mt-1"
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between pt-1">
+                    <span className="text-[11px] font-medium text-muted-foreground">
+                      Experimental Labs
+                    </span>
+                    <Switch
+                      checked={current.hasExperimentalLabs}
+                      onCheckedChange={(val) =>
+                        setTierForms((prev) => ({
+                          ...prev,
+                          [tierKey]: { ...current, hasExperimentalLabs: val },
+                        }))
+                      }
+                    />
+                  </div>
+                </div>
+
+                <Button
+                  size="sm"
+                  className="w-full text-xs font-medium h-8 cursor-pointer"
+                  disabled={updateTierMutation.isPending}
+                  onClick={() =>
+                    updateTierMutation.mutate({
+                      tier: tierKey,
+                      ...current,
+                    })
+                  }
+                >
+                  {updateTierMutation.isPending ? (
+                    <Loader2 className="size-3 animate-spin mr-1" />
+                  ) : null}
+                  Save {plan.name}
+                </Button>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* User Credit & Subscription Granting Console */}
+      <div className="rounded-2xl border border-border bg-card p-5 sm:p-6 shadow-xs space-y-5">
+        <div>
+          <h2 className="text-base font-semibold text-foreground flex items-center gap-2">
+            <Coins className="size-4 text-emerald-500" />
+            Manage User Credits, Quotas &amp; Tier Assignment
+          </h2>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Target any user by UUID to promote their tier, inject bonus Live Examiner credits, grant extra essays, or reset their usage counter.
+          </p>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="sm:col-span-2 space-y-1.5">
+            <Label className="text-xs">User ID (UUID)</Label>
+            <Input
+              placeholder="e.g. 550e8400-e29b-41d4-a716-446655440000"
+              value={targetUserId}
+              onChange={(e) => setTargetUserId(e.target.value)}
+              className="font-mono text-xs"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs">Assign Active Tier</Label>
+            <Select value={selectedUserTier} onValueChange={setSelectedUserTier}>
+              <SelectTrigger className="text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="free">Free Starter (2 essays)</SelectItem>
+                <SelectItem value="foundation">Foundation Scholar</SelectItem>
+                <SelectItem value="pro">Pro Accelerator</SelectItem>
+                <SelectItem value="mastery">A* Mastery Sprint</SelectItem>
+                <SelectItem value="elite">Cambridge Elite Pass</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs">Bonus Live Credits</Label>
+            <Input
+              type="number"
+              placeholder="+10"
+              value={bonusLiveCredits || ""}
+              onChange={(e) => setBonusLiveCredits(Number(e.target.value))}
+              className="text-xs"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs">Bonus Graded Essays</Label>
+            <Input
+              type="number"
+              placeholder="+5"
+              value={bonusEssays || ""}
+              onChange={(e) => setBonusEssays(Number(e.target.value))}
+              className="text-xs"
+            />
+          </div>
+
+          <div className="flex items-center gap-2 pt-6">
+            <Switch checked={resetUsage} onCheckedChange={setResetUsage} id="reset-usage-switch" />
+            <Label htmlFor="reset-usage-switch" className="text-xs cursor-pointer">
+              Reset Essay Counter to 0
+            </Label>
+          </div>
+
+          <div className="sm:col-span-2 flex items-end">
+            <Button
+              className="w-full text-xs font-semibold h-9 cursor-pointer"
+              disabled={!targetUserId.trim() || manageCreditsMutation.isPending}
+              onClick={() =>
+                manageCreditsMutation.mutate({
+                  userId: targetUserId.trim(),
+                  tier: selectedUserTier as any,
+                  bonusLiveCredits,
+                  bonusEssays,
+                  resetUsageCount: resetUsage,
+                })
+              }
+            >
+              {manageCreditsMutation.isPending ? (
+                <Loader2 className="size-3.5 animate-spin mr-1.5" />
+              ) : (
+                <CheckCircle2 className="size-3.5 mr-1.5 text-emerald-400" />
+              )}
+              Apply User Quota &amp; Tier
+            </Button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

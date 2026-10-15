@@ -1,5 +1,8 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import {
+  ArrowRight,
   Award,
   BookOpen,
   CheckCircle2,
@@ -7,6 +10,7 @@ import {
   HelpCircle,
   Layers,
   LineChart,
+  Lock,
   RotateCcw,
   Sliders,
   Sparkles,
@@ -25,6 +29,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { getMe } from "@/lib/account.functions";
 import {
   CAMBRIDGE_DIAGRAM_DRILLS,
   calculateMetrics,
@@ -47,6 +52,19 @@ export const Route = createFileRoute("/_authenticated/diagram-lab")({
 });
 
 function DiagramLabPage() {
+  const navigate = useNavigate();
+  const getMeFn = useServerFn(getMe);
+  const meQuery = useQuery({
+    queryKey: ["me"],
+    queryFn: () => getMeFn(),
+    staleTime: 30_000,
+  });
+
+  const sub = meQuery.data?.subscription;
+  const isAdmin = meQuery.data?.isAdmin ?? false;
+  const isHigherTier = sub?.tier === "mastery" || sub?.tier === "elite";
+  const hasAccess = isAdmin || isHigherTier;
+
   const [activeTab, setActiveTab] = useState<"sandbox" | "drills">("sandbox");
   const [preset, setPreset] = useState<DiagramPreset>("tax");
   const [state, setState] = useState<DiagramState>(DEFAULT_DIAGRAM_STATES.tax);
@@ -55,6 +73,43 @@ function DiagramLabPage() {
   const [activeDrillIndex, setActiveDrillIndex] = useState(0);
   const activeDrill = CAMBRIDGE_DIAGRAM_DRILLS[activeDrillIndex]!;
   const [drillEvaluated, setDrillEvaluated] = useState(false);
+
+  if (!meQuery.isLoading && !hasAccess) {
+    return (
+      <div className="mx-auto max-w-3xl px-5 py-16 text-center">
+        <div className="mx-auto mb-6 flex size-16 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10 text-primary shadow-inner">
+          <Sparkles className="size-8" />
+        </div>
+        <Badge variant="outline" className="mb-4 border-amber-500/40 bg-amber-500/10 text-amber-400">
+          Experimental Lab · Higher Tier &amp; Admin Preview
+        </Badge>
+        <h1 className="text-3xl font-bold tracking-tight text-foreground">
+          Interactive Diagram CAD &amp; Geometry Lab
+        </h1>
+        <p className="mx-auto mt-4 max-w-lg text-sm text-muted-foreground leading-relaxed">
+          The Diagram CAD Lab is an experimental Cambridge 9708 vector modeling engine reserved for A* Mastery Sprint, Cambridge Elite scholars, and platform administrators.
+        </p>
+        <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
+          <Button
+            size="lg"
+            className="w-full sm:w-auto font-medium"
+            onClick={() => navigate({ to: "/pricing" })}
+          >
+            View Plans &amp; Unlock Labs
+            <ArrowRight className="ml-2 size-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size="lg"
+            className="w-full sm:w-auto"
+            onClick={() => navigate({ to: "/dashboard" })}
+          >
+            Return to Dashboard
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   // Switch preset
   const handlePresetChange = (newPreset: DiagramPreset) => {

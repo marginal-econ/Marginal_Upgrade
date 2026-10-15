@@ -45,6 +45,7 @@ import {
 } from "@/lib/diagrams.functions";
 import { checkQuestionGrounding, gradeEssaySubmission } from "@/lib/grading.functions";
 import { checkWritingQuality } from "@/lib/writing-check.functions";
+import { getMe } from "@/lib/account.functions";
 import type { Grading } from "@/lib/examiner/types";
 
 // Optional prefill from the Question bank ("Practice this" links here with
@@ -94,6 +95,16 @@ function GradePage() {
   const describeDiagramImg = useServerFn(describeDiagramImage);
   const describeDiagramLink = useServerFn(describeDiagramUrl);
   const listDiagrams = useServerFn(listDiagramLibrary);
+
+  const getMeFn = useServerFn(getMe);
+  const meQuery = useQuery({
+    queryKey: ["me"],
+    queryFn: () => getMeFn(),
+    staleTime: 30_000,
+  });
+  const sub = meQuery.data?.subscription;
+  const isAdmin = meQuery.data?.isAdmin ?? false;
+  const isLimitReached = !isAdmin && sub !== undefined && !sub.canGradeEssay;
 
   const [question, setQuestion] = useState(search.q ?? "");
 
@@ -215,7 +226,9 @@ function GradePage() {
     onError: (error: Error) => {
       const isPlanLimit =
         error.message.includes("Plan limit reached") ||
-        error.message.includes("Upgrade to Foundation");
+        error.message.includes("Upgrade to Foundation") ||
+        error.message.includes("free Cambridge essay gradings") ||
+        error.message.includes("Monthly essay quota reached");
       toast.error(error.message, {
         action: isPlanLimit
           ? {
@@ -223,8 +236,11 @@ function GradePage() {
               onClick: () => navigate({ to: "/pricing" }),
             }
           : undefined,
-        duration: isPlanLimit ? 8000 : 4000,
+        duration: isPlanLimit ? 6000 : 4000,
       });
+      if (isPlanLimit) {
+        navigate({ to: "/pricing" });
+      }
     },
   });
 
@@ -253,6 +269,13 @@ function GradePage() {
   }
 
   function handleMarkClick() {
+    if (isLimitReached) {
+      toast.error("Plan limit reached: You've completed your 2 free essays. Redirecting to pricing...", {
+        duration: 4000,
+      });
+      navigate({ to: "/pricing" });
+      return;
+    }
     if (!readyToMark) {
       checkMutation.mutate();
       return;
@@ -267,7 +290,32 @@ function GradePage() {
         description="Marked to Cambridge 9708 standards, grounded in your own coursebook and mark schemes, then independently audited for central-tendency bias."
       />
 
-      <div className="px-5 pt-6 pb-0 md:px-8">
+      <div className="px-5 pt-6 pb-0 md:px-8 space-y-3">
+        {isLimitReached && (
+          <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-amber-200">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="size-5 shrink-0 text-amber-400 mt-0.5" />
+                <div>
+                  <h4 className="text-sm font-semibold text-amber-300">
+                    Free Tier Essay Limit Reached ({sub?.essaysGradedCount ?? 2}/2 Essays Used)
+                  </h4>
+                  <p className="text-xs text-amber-200/80 mt-0.5 leading-relaxed">
+                    You have reached the 2-essay limit on the Free plan. Upgrade to a paid plan for monthly essay allowances, real-time Live Examiner keystroke coaching, and priority Cambridge marking.
+                  </p>
+                </div>
+              </div>
+              <Button
+                size="sm"
+                className="bg-amber-500 text-black hover:bg-amber-400 shrink-0 font-medium cursor-pointer"
+                onClick={() => navigate({ to: "/pricing" })}
+              >
+                Upgrade to Mark More
+              </Button>
+            </div>
+          </div>
+        )}
+
         <div className="flex items-center gap-2.5 rounded-xl border border-primary/20 bg-primary/[0.04] px-4 py-2.5 text-xs text-muted-foreground">
           <ShieldCheck className="size-4 shrink-0 text-primary" />
           <p className="leading-relaxed">
@@ -605,16 +653,22 @@ function GradePage() {
           ) : null}
 
           <Button
-            className="w-full"
+            className={`w-full ${isLimitReached ? "bg-amber-600 hover:bg-amber-500 text-white font-medium" : ""}`}
             disabled={
-              mutation.isPending ||
-              checkMutation.isPending ||
-              question.trim().length < 10 ||
-              words < 20
+              !isLimitReached && (
+                mutation.isPending ||
+                checkMutation.isPending ||
+                question.trim().length < 10 ||
+                words < 20
+              )
             }
             onClick={handleMarkClick}
           >
-            {checkMutation.isPending ? (
+            {isLimitReached ? (
+              <>
+                <Sparkles className="size-4" /> Upgrade Plan to Mark Essay (Limit Reached)
+              </>
+            ) : checkMutation.isPending ? (
               <>
                 <SpellCheck className="size-4 animate-pulse" /> Checking spelling &amp; grammar…
               </>

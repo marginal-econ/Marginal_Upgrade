@@ -29,6 +29,8 @@ import {
   getPaymentConfig,
   activateSubscriptionTier,
 } from "@/lib/payment.functions";
+import { getPlatformPricing } from "@/lib/pricing.functions";
+import { DEFAULT_PRICING_PLANS } from "@/lib/pricing-plans";
 import { getMe } from "@/lib/account.functions";
 import { TIER_LIMITS, type PlanTier } from "@/lib/usage-limits";
 import { cn } from "@/lib/utils";
@@ -106,6 +108,25 @@ function PaymentPortalPage() {
     queryFn: () => fetchMe(),
   });
 
+  const fetchPlatformPricing = useServerFn(getPlatformPricing);
+  const platformPricingQuery = useQuery({
+    queryKey: ["platform-pricing"],
+    queryFn: () => fetchPlatformPricing(),
+    staleTime: 30_000,
+  });
+
+  const activePlans = platformPricingQuery.data?.plans ?? DEFAULT_PRICING_PLANS;
+  const currentPlan = activePlans[selectedTier] ?? DEFAULT_PRICING_PLANS[selectedTier];
+  const pricing = {
+    monthly: currentPlan.monthlyPrice,
+    annual: currentPlan.annualPrice,
+    annualMonthlyEq: currentPlan.annualEquivalentMonthly,
+    savePct: currentPlan.savePct,
+    tagline: currentPlan.tagline,
+  };
+  const limits = TIER_LIMITS[selectedTier];
+  const finalPrice = cycle === "annual" ? pricing.annual : pricing.monthly;
+
   const activateMutation = useServerFn(activateSubscriptionTier);
 
   // Load Razorpay script dynamically
@@ -118,10 +139,6 @@ function PaymentPortalPage() {
     script.async = true;
     document.body.appendChild(script);
   }, []);
-
-  const pricing = TIER_PRICING[selectedTier];
-  const limits = TIER_LIMITS[selectedTier];
-  const finalPrice = cycle === "annual" ? pricing.annual : pricing.monthly;
 
   const handleActivation = async (isSimulation = false) => {
     setIsProcessing(true);
@@ -296,7 +313,13 @@ function PaymentPortalPage() {
               {/* Tiers List */}
               <div className="space-y-3">
                 {(["foundation", "pro", "mastery", "elite"] as PlanTier[]).map((tierKey) => {
-                  const tPricing = TIER_PRICING[tierKey];
+                  const pPlan = activePlans[tierKey] ?? DEFAULT_PRICING_PLANS[tierKey];
+                  const tPricing = {
+                    monthly: pPlan.monthlyPrice,
+                    annual: pPlan.annualPrice,
+                    annualMonthlyEq: pPlan.annualEquivalentMonthly,
+                    tagline: pPlan.tagline,
+                  };
                   const tLimits = TIER_LIMITS[tierKey];
                   const isSelected = selectedTier === tierKey;
                   const priceShow =

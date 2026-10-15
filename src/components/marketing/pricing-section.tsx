@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { Link } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import {
   ArrowRight,
   Building2,
@@ -16,6 +18,8 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { getPlatformPricing } from "@/lib/pricing.functions";
+import { DEFAULT_PRICING_PLANS, FREE_STARTER_TIER } from "@/lib/pricing-plans";
 
 type Audience = "students" | "schools";
 type BillingCycle = "monthly" | "annual";
@@ -222,6 +226,67 @@ export function PricingSection({ className }: { className?: string }) {
   const [audience, setAudience] = useState<Audience>("students");
   const [cycle, setCycle] = useState<BillingCycle>("annual");
 
+  const fetchPlatformPricing = useServerFn(getPlatformPricing);
+  const pricingQuery = useQuery({
+    queryKey: ["platform-pricing"],
+    queryFn: () => fetchPlatformPricing(),
+    staleTime: 30_000,
+  });
+
+  const activePlans = pricingQuery.data?.plans ?? DEFAULT_PRICING_PLANS;
+
+  const dynamicStudentTiers: StudentTier[] = [
+    {
+      id: "foundation",
+      name: activePlans.foundation.name,
+      tagline: activePlans.foundation.tagline,
+      monthlyPrice: activePlans.foundation.monthlyPrice,
+      annualPrice: activePlans.foundation.annualPrice,
+      annualEquivalentMonthly: activePlans.foundation.annualEquivalentMonthly,
+      savePct: activePlans.foundation.savePct,
+      quota: `${activePlans.foundation.essaysPerMonth} Graded Essays / mo · ${activePlans.foundation.liveCredits} Live Credits`,
+      badge: "Most Accessible",
+      features: activePlans.foundation.features,
+    },
+    {
+      id: "pro",
+      name: activePlans.pro.name,
+      tagline: activePlans.pro.tagline,
+      monthlyPrice: activePlans.pro.monthlyPrice,
+      annualPrice: activePlans.pro.annualPrice,
+      annualEquivalentMonthly: activePlans.pro.annualEquivalentMonthly,
+      savePct: activePlans.pro.savePct,
+      quota: `${activePlans.pro.essaysPerMonth} Graded Essays / mo · ${activePlans.pro.liveCredits} Live Credits`,
+      badge: "Most Popular",
+      popular: true,
+      features: activePlans.pro.features,
+    },
+    {
+      id: "mastery",
+      name: activePlans.mastery.name,
+      tagline: activePlans.mastery.tagline,
+      monthlyPrice: activePlans.mastery.monthlyPrice,
+      annualPrice: activePlans.mastery.annualPrice,
+      annualEquivalentMonthly: activePlans.mastery.annualEquivalentMonthly,
+      savePct: activePlans.mastery.savePct,
+      quota: `${activePlans.mastery.essaysPerMonth} Graded Essays / mo · ${activePlans.mastery.liveCredits} Live Credits`,
+      badge: "A* Target · Labs Preview",
+      features: activePlans.mastery.features,
+    },
+    {
+      id: "elite",
+      name: activePlans.elite.name,
+      tagline: activePlans.elite.tagline,
+      monthlyPrice: activePlans.elite.monthlyPrice,
+      annualPrice: activePlans.elite.annualPrice,
+      annualEquivalentMonthly: activePlans.elite.annualEquivalentMonthly,
+      savePct: activePlans.elite.savePct,
+      quota: `Unlimited Essays · ${activePlans.elite.liveCredits}+ Live Credits`,
+      badge: "VIP All-Access · Full Labs",
+      features: activePlans.elite.features,
+    },
+  ];
+
   return (
     <section
       id="pricing"
@@ -317,8 +382,62 @@ export function PricingSection({ className }: { className?: string }) {
 
         {/* ── Pricing Cards Grid ── */}
         {audience === "students" ? (
-          <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            {STUDENT_TIERS.map((tier) => {
+          <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+            {/* ── Column 1: Get Started for Free ── */}
+            <div className="relative flex flex-col justify-between rounded-2xl border border-border/80 bg-card/60 p-5 transition-all duration-300 hover:border-primary/40 sm:p-6">
+              <div className="absolute -top-3 left-6">
+                <Badge className="bg-muted text-foreground border border-border text-[10px] font-bold uppercase tracking-wider">
+                  {FREE_STARTER_TIER.badge}
+                </Badge>
+              </div>
+
+              <div>
+                <h3 className="text-lg font-bold text-foreground">{FREE_STARTER_TIER.name}</h3>
+                <p className="mt-1.5 text-xs text-muted-foreground leading-relaxed">
+                  {FREE_STARTER_TIER.tagline}
+                </p>
+
+                <div className="mt-5 border-y border-border/60 py-4">
+                  <div className="flex items-baseline gap-1">
+                    <span className="text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">
+                      {FREE_STARTER_TIER.price}
+                    </span>
+                    <span className="text-xs text-muted-foreground">/ {FREE_STARTER_TIER.period}</span>
+                  </div>
+                  <p className="mt-1 text-[11px] text-muted-foreground">
+                    Zero card required · Instant start
+                  </p>
+                  <div className="mt-2.5 inline-flex items-center gap-1.5 rounded-md bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                    <Check className="size-3" />
+                    {FREE_STARTER_TIER.quota}
+                  </div>
+                </div>
+
+                <ul className="mt-5 space-y-2.5 text-xs text-muted-foreground">
+                  {FREE_STARTER_TIER.features.map((feature, idx) => (
+                    <li key={idx} className="flex items-start gap-2">
+                      <Check className="size-4 shrink-0 text-emerald-600 dark:text-emerald-400 mt-0.5" />
+                      <span className="leading-snug">{feature}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className="mt-8 pt-4">
+                <Button
+                  asChild
+                  variant="outline"
+                  className="w-full text-xs font-semibold h-10 shadow-xs border-primary/30 hover:bg-primary/10"
+                >
+                  <Link to="/grade">
+                    Start Free (2 Essays) <ArrowRight className="size-3.5 ml-1.5" />
+                  </Link>
+                </Button>
+              </div>
+            </div>
+
+            {/* ── Columns 2-5: Dynamic Paid Student Tiers ── */}
+            {dynamicStudentTiers.map((tier) => {
               const displayPrice =
                 cycle === "annual" ? `₹${tier.annualEquivalentMonthly}` : `₹${tier.monthlyPrice}`;
               const periodText = cycle === "annual" ? "/ mo (billed annually)" : "/ mo";

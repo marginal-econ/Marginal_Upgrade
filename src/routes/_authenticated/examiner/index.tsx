@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
+import { getMe } from "@/lib/account.functions";
 import {
   GraduationCap,
   Plus,
@@ -53,15 +54,53 @@ export const Route = createFileRoute("/_authenticated/examiner/")({
 });
 
 function ExaminerDashboardPage() {
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
   const [paperFilter, setPaperFilter] = useState<"all" | "custom" | "official">("all");
+
+  const getMeFn = useServerFn(getMe);
+  const meQuery = useQuery({
+    queryKey: ["me"],
+    queryFn: () => getMeFn(),
+    staleTime: 30_000,
+  });
+
+  const isAdmin = meQuery.data?.isAdmin ?? false;
 
   const getWorkspace = useServerFn(getMySchoolWorkspace);
   const getSessions = useServerFn(listMarkingSessions);
   const getBenchmarks = useServerFn(getReliabilityBenchmarks);
   const getPapers = useServerFn(listExaminerPapers);
   const deletePaperFn = useServerFn(deleteExaminerPaper);
+
+  if (!meQuery.isLoading && !isAdmin) {
+    return (
+      <div className="mx-auto max-w-3xl px-5 py-16 text-center">
+        <div className="mx-auto mb-6 flex size-16 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10 text-primary shadow-inner">
+          <GraduationCap className="size-8" />
+        </div>
+        <Badge variant="outline" className="mb-4 border-primary/40 bg-primary/10 text-primary">
+          Special Admin Compartment
+        </Badge>
+        <h1 className="text-3xl font-bold tracking-tight text-foreground">
+          Cambridge 9708 Teacher Examiner Platform
+        </h1>
+        <p className="mx-auto mt-4 max-w-lg text-sm text-muted-foreground leading-relaxed">
+          The Teacher Examiner marking desk and script ingestion platform is currently housed in the administrative compartment. Only authorized administrators have access.
+        </p>
+        <div className="mt-8 flex justify-center">
+          <Button
+            variant="outline"
+            size="lg"
+            onClick={() => navigate({ to: "/dashboard" })}
+          >
+            Return to Dashboard
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   const workspaceQuery = useQuery({
     queryKey: ["examiner-workspace"],

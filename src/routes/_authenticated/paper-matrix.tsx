@@ -44,6 +44,7 @@ import {
   type MatrixArchiveEssay,
   type MatrixArchivePaper,
 } from "@/lib/paper-matrix/matrix.functions";
+import { getMe } from "@/lib/account.functions";
 
 export const Route = createFileRoute("/_authenticated/paper-matrix")({
   head: () => ({
@@ -61,6 +62,18 @@ export const Route = createFileRoute("/_authenticated/paper-matrix")({
 
 function PaperMatrixPage() {
   const navigate = useNavigate();
+  const getMeFn = useServerFn(getMe);
+  const meQuery = useQuery({
+    queryKey: ["me"],
+    queryFn: () => getMeFn(),
+    staleTime: 30_000,
+  });
+
+  const sub = meQuery.data?.subscription;
+  const isAdmin = meQuery.data?.isAdmin ?? false;
+  const isHigherTier = sub?.tier === "mastery" || sub?.tier === "elite";
+  const hasAccess = isAdmin || isHigherTier;
+
   const [mainTab, setMainTab] = useState<"matrix" | "archive">("matrix");
 
   // Cycle Matrix state
@@ -185,6 +198,43 @@ function PaperMatrixPage() {
       },
     });
   };
+
+  if (!meQuery.isLoading && !hasAccess) {
+    return (
+      <div className="mx-auto max-w-3xl px-5 py-16 text-center">
+        <div className="mx-auto mb-6 flex size-16 items-center justify-center rounded-2xl border border-amber-500/20 bg-amber-500/10 text-amber-500 shadow-inner">
+          <Flame className="size-8" />
+        </div>
+        <Badge variant="outline" className="mb-4 border-amber-500/40 bg-amber-500/10 text-amber-400">
+          Experimental Lab · Higher Tier &amp; Admin Preview
+        </Badge>
+        <h1 className="text-3xl font-bold tracking-tight text-foreground">
+          15-Year Past Paper Cycle Matrix &amp; Topic Predictor
+        </h1>
+        <p className="mx-auto mt-4 max-w-lg text-sm text-muted-foreground leading-relaxed">
+          The Cambridge 9708 15-Year Cycle Matrix and predictive probability model is an experimental research tool reserved for A* Mastery Sprint, Cambridge Elite scholars, and platform administrators.
+        </p>
+        <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
+          <Button
+            size="lg"
+            className="w-full sm:w-auto font-medium"
+            onClick={() => navigate({ to: "/pricing" })}
+          >
+            View Plans &amp; Unlock Labs
+            <ArrowRight className="ml-2 size-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size="lg"
+            className="w-full sm:w-auto"
+            onClick={() => navigate({ to: "/dashboard" })}
+          >
+            Return to Dashboard
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>

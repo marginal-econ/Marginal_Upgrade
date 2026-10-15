@@ -37,6 +37,7 @@ import { supabase } from "@/integrations/backend/client";
 import type { UserSubscriptionDetails } from "@/lib/usage-limits";
 import { cn } from "@/lib/utils";
 
+
 export type NavItem = {
   to: string;
   label: string;
@@ -44,12 +45,16 @@ export type NavItem = {
   badge?: string;
   staffOnly?: boolean;
   adminOnly?: boolean;
+  experimentalOnly?: boolean;
 };
 
 export type NavGroup = {
   id: string;
   label?: string;
   collapsible?: boolean;
+  adminOnly?: boolean;
+  staffOnly?: boolean;
+  experimentalOnly?: boolean;
   items: NavItem[];
 };
 
@@ -57,48 +62,50 @@ const SIDEBAR_COLLAPSED_STORAGE_KEY = "marginal.sidebarCollapsed";
 const COLLAPSED_GROUPS_STORAGE_KEY = "marginal.collapsedNavGroups";
 
 /**
- * Curated, uncluttered navigation groups for Cambridge 9708 candidates and teachers:
- * 1. Overview: Dashboard, Review & Analytics, Classes
- * 2. Examiner & Practice: Live Examiner, Essay Marking, MCQ Past Papers, Paper Predictor, Question Bank, Skills Coach
- * 3. Syllabus Hub: Syllabus & Definitions, Diagram CAD Lab
- * 4. Staff & Admin: Teacher Examiner, Admin Console, Staff Console
+ * Clean, decluttered navigation structure for Cambridge 9708:
+ * - Core Practice: Dashboard, Essay Marking, Live Examiner, MCQ Past Papers, Review & Progress
+ * - Syllabus & Technique: Definitions Hub, Question Bank, Command Words, Classes
+ * - Experimental Labs: Isolated compartment for Admin & Higher-Tier Candidates (Mastery / Elite)
+ * - Administration: Admin Console & Staff Console (Admin only)
  */
 const NAV_GROUPS: NavGroup[] = [
   {
-    id: "overview",
+    id: "core",
     items: [
       { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-      { to: "/review", label: "Review & Analytics", icon: ClipboardCheck },
+      { to: "/grade", label: "Essay Marking", icon: PenLine },
+      { to: "/live-examiner", label: "Live Examiner", icon: Sparkles, badge: "Live" },
+      { to: "/mcq-live", label: "MCQ Past Papers", icon: ListChecks },
+      { to: "/review", label: "Review & Progress", icon: ClipboardCheck },
+    ],
+  },
+  {
+    id: "syllabus",
+    label: "Syllabus & Technique",
+    items: [
+      { to: "/definitions", label: "Definitions Hub", icon: BookText },
+      { to: "/question-bank", label: "Question Bank", icon: BookMarked },
+      { to: "/command-words", label: "Command Words", icon: Target },
       { to: "/classes", label: "Classes", icon: UsersRound },
     ],
   },
   {
-    id: "practice",
-    label: "Examiner & Practice",
+    id: "labs",
+    label: "Experimental Labs",
+    experimentalOnly: true,
     items: [
-      { to: "/live-examiner", label: "Live Examiner", icon: Sparkles, badge: "Live" },
-      { to: "/grade", label: "Essay Marking", icon: PenLine },
-      { to: "/mcq-live", label: "MCQ Past Papers", icon: ListChecks },
-      { to: "/paper-matrix", label: "Paper Predictor", icon: Flame, badge: "Predict" },
-      { to: "/question-bank", label: "Question Bank", icon: BookMarked },
-      { to: "/practice", label: "Skills Coach", icon: Dumbbell },
+      { to: "/diagram-lab", label: "Diagram CAD Lab", icon: Sliders, badge: "Lab" },
+      { to: "/paper-matrix", label: "Paper Predictor", icon: Flame, badge: "15-Yr" },
+      { to: "/examiner", label: "Teacher Examiner", icon: GraduationCap, badge: "Admin", adminOnly: true },
     ],
   },
   {
-    id: "resources",
-    label: "Syllabus Hub",
+    id: "admin",
+    label: "Administration",
+    adminOnly: true,
     items: [
-      { to: "/definitions", label: "Syllabus & Definitions", icon: BookText },
-      { to: "/diagram-lab", label: "Diagram CAD Lab", icon: Sliders, badge: "New" },
-    ],
-  },
-  {
-    id: "staff",
-    label: "Staff & Admin",
-    items: [
-      { to: "/examiner", label: "Teacher Examiner", icon: GraduationCap, badge: "Schools", staffOnly: true },
-      { to: "/admin", label: "Admin Console", icon: ShieldCheck, adminOnly: true },
-      { to: "/knowledge", label: "Staff Console", icon: BookOpen, staffOnly: true },
+      { to: "/admin", label: "Admin Console", icon: ShieldCheck, badge: "Root" },
+      { to: "/knowledge", label: "Staff Console", icon: BookOpen },
     ],
   },
 ];
@@ -106,12 +113,23 @@ const NAV_GROUPS: NavGroup[] = [
 function filterGroupForRole(
   group: NavGroup,
   role: "student" | "teacher" | "admin",
+  subscription?: UserSubscriptionDetails,
 ): NavGroup | null {
+  const isAdmin = role === "admin" || Boolean(subscription?.isAdmin);
+  const isHigherTier =
+    subscription?.tier === "mastery" || subscription?.tier === "elite";
+
+  if (group.adminOnly && !isAdmin) return null;
+  if (group.staffOnly && role !== "teacher" && !isAdmin) return null;
+  if (group.experimentalOnly && !isAdmin && !isHigherTier) return null;
+
   const visibleItems = group.items.filter((item) => {
-    if (item.adminOnly) return role === "admin";
-    if (item.staffOnly) return role === "teacher" || role === "admin";
+    if (item.adminOnly && !isAdmin) return false;
+    if (item.staffOnly && role !== "teacher" && !isAdmin) return false;
+    if (item.experimentalOnly && !isAdmin && !isHigherTier) return false;
     return true;
   });
+
   if (visibleItems.length === 0) return null;
   return { ...group, items: visibleItems };
 }
@@ -186,10 +204,10 @@ export function AppShell({
   };
 
   const visibleGroups = useMemo(() => {
-    return NAV_GROUPS.map((g) => filterGroupForRole(g, role)).filter(
+    return NAV_GROUPS.map((g) => filterGroupForRole(g, role, subscription)).filter(
       (g): g is NavGroup => g !== null,
     );
-  }, [role]);
+  }, [role, subscription]);
 
   const classroomLabel = role === "student" ? "Join class" : "Classes";
 
@@ -353,62 +371,89 @@ export function AppShell({
 
         {/* User Status & Credit Widget */}
         {!sidebarCollapsed && subscription ? (
-          <div className="mb-2.5 rounded-xl border border-border/80 bg-muted/40 p-2.5 shrink-0">
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2 min-w-0">
-                <div className="size-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[10px] font-bold shrink-0">
-                  {candidateInitials}
+          role === "admin" || subscription.isAdmin ? (
+            <div className="mb-2.5 rounded-xl border border-amber-500/30 bg-amber-500/10 p-2.5 shrink-0">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="size-6 rounded-full bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center text-[10px] font-bold shrink-0">
+                    {candidateInitials}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold truncate text-foreground leading-tight">
+                      {name ?? "Vaquitavoid"}
+                    </p>
+                    <p className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold leading-tight">
+                      Administrator
+                    </p>
+                  </div>
                 </div>
-                <div className="min-w-0">
-                  <p className="text-xs font-semibold truncate text-foreground leading-tight">
-                    {name ?? "Candidate"}
-                  </p>
-                  <p className="text-[10px] text-muted-foreground capitalize leading-tight">
-                    {role}
-                  </p>
-                </div>
-              </div>
-
-              <Link to="/pricing">
-                <Badge
-                  variant="outline"
-                  className={cn(
-                    "text-[9.5px] px-1.5 py-0 font-bold shrink-0 cursor-pointer transition-colors hover:opacity-80",
-                    subscription.isPaid
-                      ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                      : "border-primary/30 bg-primary/10 text-primary"
-                  )}
-                >
-                  {subscription.isPaid ? subscription.tierName.split(" ")[0] : "Free Tier"}
+                <Badge className="bg-amber-500/20 text-amber-600 dark:text-amber-400 border-amber-500/30 text-[9px] font-extrabold uppercase">
+                  Root
                 </Badge>
-              </Link>
+              </div>
+              <div className="mt-2 pt-2 border-t border-amber-500/20 text-[10.5px] text-muted-foreground flex items-center gap-1.5 font-medium">
+                <ShieldCheck className="size-3.5 text-amber-500 shrink-0" />
+                <span className="text-foreground">Uncapped Godmode · No Limits</span>
+              </div>
             </div>
+          ) : (
+            <div className="mb-2.5 rounded-xl border border-border/80 bg-muted/40 p-2.5 shrink-0">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="size-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[10px] font-bold shrink-0">
+                    {candidateInitials}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold truncate text-foreground leading-tight">
+                      {name ?? "Candidate"}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground capitalize leading-tight">
+                      {role}
+                    </p>
+                  </div>
+                </div>
 
-            <div className="mt-2 pt-2 border-t border-border/50 space-y-1 text-[10.5px]">
-              <div className="flex items-center justify-between text-muted-foreground">
-                <span className="flex items-center gap-1">
-                  <PenLine className="size-3 text-primary" /> Essays Left
-                </span>
-                <span className="font-semibold text-foreground tabular-nums">
-                  {subscription.essaysLimit === 9999 ? "Unlimited" : `${subscription.essaysRemaining} / ${subscription.essaysLimit}`}
-                </span>
+                <Link to="/pricing">
+                  <Badge
+                    variant="outline"
+                    className={cn(
+                      "text-[9.5px] px-1.5 py-0 font-bold shrink-0 cursor-pointer transition-colors hover:opacity-80",
+                      subscription.isPaid
+                        ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                        : "border-primary/30 bg-primary/10 text-primary"
+                    )}
+                  >
+                    {subscription.isPaid ? subscription.tierName.split(" ")[0] : "Free Tier"}
+                  </Badge>
+                </Link>
               </div>
-              <div className="flex items-center justify-between text-muted-foreground">
-                <span className="flex items-center gap-1">
-                  <Zap className="size-3 text-amber-500" /> Live Credits
-                </span>
-                {subscription.liveExaminerCredits > 0 ? (
-                  <span className="font-semibold text-foreground tabular-nums">
-                    {subscription.liveExaminerCredits}
+
+              <div className="mt-2 pt-2 border-t border-border/50 space-y-1 text-[10.5px]">
+                <div className="flex items-center justify-between text-muted-foreground">
+                  <span className="flex items-center gap-1">
+                    <PenLine className="size-3 text-primary" /> Essays Left
                   </span>
-                ) : (
-                  <Link to="/pricing" className="text-[10px] font-bold text-primary hover:underline">
-                    Upgrade
-                  </Link>
-                )}
+                  <span className="font-semibold text-foreground tabular-nums">
+                    {subscription.essaysLimit === 9999 ? "Unlimited" : `${subscription.essaysRemaining} / ${subscription.essaysLimit}`}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-muted-foreground">
+                  <span className="flex items-center gap-1">
+                    <Zap className="size-3 text-amber-500" /> Live Credits
+                  </span>
+                  {subscription.liveExaminerCredits > 0 ? (
+                    <span className="font-semibold text-foreground tabular-nums">
+                      {subscription.liveExaminerCredits}
+                    </span>
+                  ) : (
+                    <Link to="/pricing" className="text-[10px] font-bold text-primary hover:underline">
+                      Upgrade
+                    </Link>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
+          )
         ) : null}
 
         {/* Scrollable Navigation Groups */}
@@ -489,18 +534,33 @@ export function AppShell({
                 </SheetHeader>
 
                 {subscription ? (
-                  <div className="mb-3 rounded-xl border border-border/80 bg-muted/40 p-2.5 shrink-0 text-xs">
-                    <div className="flex items-center justify-between">
-                      <span className="font-semibold">{name ?? "Candidate"}</span>
-                      <Badge variant="outline" className="text-[9px] px-1.5 py-0 font-bold">
-                        {subscription.isPaid ? subscription.tierName : "Free Tier"}
-                      </Badge>
+                  role === "admin" || subscription.isAdmin ? (
+                    <div className="mb-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-2.5 shrink-0 text-xs">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-foreground">{name ?? "Vaquitavoid"}</span>
+                        <Badge className="bg-amber-500/20 text-amber-600 dark:text-amber-400 border-amber-500/30 text-[9px] font-extrabold uppercase">
+                          Root Admin
+                        </Badge>
+                      </div>
+                      <div className="mt-2 pt-2 border-t border-amber-500/20 text-[10.5px] text-muted-foreground flex items-center gap-1.5 font-medium">
+                        <ShieldCheck className="size-3.5 text-amber-500" />
+                        <span>Uncapped Godmode · No Limits</span>
+                      </div>
                     </div>
-                    <div className="mt-2 pt-2 border-t border-border/50 flex justify-between text-[11px] text-muted-foreground">
-                      <span>Essays left: {subscription.essaysRemaining}</span>
-                      <span>Credits: {subscription.liveExaminerCredits}</span>
+                  ) : (
+                    <div className="mb-3 rounded-xl border border-border/80 bg-muted/40 p-2.5 shrink-0 text-xs">
+                      <div className="flex items-center justify-between">
+                        <span className="font-semibold">{name ?? "Candidate"}</span>
+                        <Badge variant="outline" className="text-[9px] px-1.5 py-0 font-bold">
+                          {subscription.isPaid ? subscription.tierName : "Free Tier"}
+                        </Badge>
+                      </div>
+                      <div className="mt-2 pt-2 border-t border-border/50 flex justify-between text-[11px] text-muted-foreground">
+                        <span>Essays left: {subscription.essaysRemaining}</span>
+                        <span>Credits: {subscription.liveExaminerCredits}</span>
+                      </div>
                     </div>
-                  </div>
+                  )
                 ) : null}
 
                 <div className="min-h-0 flex-1 overflow-y-auto space-y-2 pr-1">
