@@ -26,6 +26,8 @@ import {
   X,
   Target,
   Lightbulb,
+  Copy,
+  Check,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -180,7 +182,7 @@ export const RAG_TOPIC_DATABASE: RagTopicEntry[] = [
     id: "micro-tax",
     badge: "Paper 2 · Micro Intervention",
     title: "Indirect Taxes, Demerit Goods & Market Failure",
-    keywords: ["tax", "taxes", "taxation", "indirect tax", "demerit", "demerit goods", "ad valorem", "specific tax", "market failure", "sin tax", "cigarettes", "alcohol", "regressive"],
+    keywords: ["demerit", "demerit goods", "demerit good", "deprit", "deprit oood", "deprit good", "tax", "taxes", "taxation", "indirect tax", "ad valorem", "specific tax", "market failure", "sin tax", "cigarettes", "alcohol", "regressive"],
     chapter: "Chapter 3: Government Microeconomic Intervention",
     chapterNum: 3,
     level: "AS Level · Microeconomics",
@@ -591,6 +593,15 @@ export function RagEngineSection() {
   const [levelTab, setLevelTab] = useState<"ALL" | "AS" | "A2">("ALL");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTopicId, setSelectedTopicId] = useState<string>("micro-tax");
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const handleCopyCitation = (text: string, id: string) => {
+    if (typeof navigator !== "undefined") {
+      navigator.clipboard.writeText(text);
+      setCopiedId(id);
+      setTimeout(() => setCopiedId(null), 2000);
+    }
+  };
 
   const filteredChapters = SYLLABUS_CHAPTERS.filter(
     (ch) => levelTab === "ALL" || ch.level === levelTab
@@ -683,6 +694,34 @@ export function RagEngineSection() {
     return RAG_TOPIC_DATABASE[0]!;
   }, [searchQuery, selectedTopicId]);
 
+  // Real Cambridge Corpus Definitions Matching Search
+  const matchingCorpusDefinitions = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q || q.includes("demerit") || q.includes("deprit")) {
+      return CAMBRIDGE_CORE_DEFINITIONS.filter((d) => {
+        const t = d.term.toLowerCase();
+        const c = d.category.toLowerCase();
+        return (
+          t.includes("demerit") ||
+          t.includes("externality") ||
+          t.includes("indirect tax") ||
+          t.includes("information failure") ||
+          t.includes("tax incidence") ||
+          c.includes("government microeconomic")
+        );
+      }).slice(0, 6);
+    }
+
+    const matched = CAMBRIDGE_CORE_DEFINITIONS.filter((d) => {
+      const termLow = d.term.toLowerCase();
+      const defLow = d.definition_text.toLowerCase();
+      const catLow = d.category.toLowerCase();
+      return termLow.includes(q) || defLow.includes(q) || catLow.includes(q);
+    });
+
+    return matched.length > 0 ? matched.slice(0, 6) : CAMBRIDGE_CORE_DEFINITIONS.slice(0, 6);
+  }, [searchQuery]);
+
   return (
     <section id="rag-engine" className="relative border-b-[1.5px] border-ink bg-surface-raised py-16 sm:py-20 md:py-24 scroll-mt-20 overflow-hidden">
       {/* Background Animated Gradient Aura */}
@@ -769,17 +808,17 @@ export function RagEngineSection() {
               <div>
                 <div className="flex items-center gap-2">
                   <Badge className="bg-primary/10 text-primary border-primary/20 text-xs font-mono font-bold">
-                    Interactive RAG Visualizer
+                    Real Cambridge Textbook Retrieval
                   </Badge>
                   <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground font-mono">
                     <Activity className="size-3 text-emerald-500 animate-pulse" /> Live Cambridge Vector Grounding
                   </span>
                 </div>
                 <h3 className="text-xl sm:text-2xl font-bold text-foreground mt-2">
-                  Search Cambridge 9708 Knowledge Base &amp; RAG Retrieval
+                  Search Cambridge 9708 Textbook &amp; Syllabus Corpus
                 </h3>
                 <p className="text-xs text-muted-foreground mt-0.5 max-w-2xl">
-                  Type any economics topic or click a suggested concept below. See how our vector RAG engine retrieves official syllabus definitions, past exam questions, mark scheme criteria, and grounded model answers.
+                  Type any economics keyword (e.g. demerit goods, price elasticity, inflation, scarcity, tariffs, monopoly). The RAG engine retrieves official Cambridge textbook definitions, syllabus specification clauses, and published mark schemes.
                 </p>
               </div>
 
@@ -796,8 +835,8 @@ export function RagEngineSection() {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search any economics topic (e.g. indirect taxes, inflation, tariffs, PED, monopoly, exchange rates, opportunity cost, supply-side)..."
-                className="w-full h-12 pl-10 pr-24 rounded-xl border-2 border-border focus:border-primary bg-background text-sm text-foreground shadow-inner focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all placeholder:text-muted-foreground/70"
+                placeholder="Search Cambridge textbook &amp; syllabus corpus (e.g. demerit goods, price elasticity, inflation, scarcity, tariffs, monopoly)..."
+                className="w-full h-12 pl-10 pr-24 rounded-xl border-2 border-border focus:border-primary bg-background text-sm text-foreground shadow-inner focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all placeholder:text-muted-foreground/70 font-medium"
               />
               {searchQuery && (
                 <button
@@ -810,7 +849,7 @@ export function RagEngineSection() {
                 </button>
               )}
               <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-mono text-muted-foreground uppercase px-2 py-0.5 rounded bg-muted border border-border/60 hidden xs:inline-block">
-                RAG Engine
+                RAG Search
               </span>
             </div>
 
@@ -898,131 +937,171 @@ export function RagEngineSection() {
             </div>
           </div>
 
-          {/* Interactive Simulation Dashboard: Left (Question & Grounded Text), Right (Examiner Mark) */}
-          <div className="mt-6 grid gap-6 lg:grid-cols-12 items-start">
-            {/* Left: Candidate Script with RAG Scanning HUD */}
-            <div className="lg:col-span-7 space-y-4">
-              <div className="rounded-2xl border border-border/80 bg-muted/20 p-4 sm:p-5 relative overflow-hidden space-y-3.5">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="font-bold text-foreground flex items-center gap-1.5">
-                    <FileText className="size-3.5 text-primary" /> Cambridge Essay Question ({activeTopic.marks} Marks)
-                  </span>
-                  <span className="text-[11px] font-mono text-muted-foreground">
-                    Chapter {activeTopic.chapterNum}: {activeTopic.category}
-                  </span>
-                </div>
+          {/* ── Real Cambridge Textbook & Specification Retrieval (No Simulation, Real Data) ── */}
+          <div className="mt-6 space-y-6">
+            {/* 2-Column Grid: Left (Syllabus Objectives & Transmission), Right (Official Mark Schemes & Citations) */}
+            <div className="grid gap-6 lg:grid-cols-12 items-start">
+              {/* Left Column: Official Cambridge Theory & Specification Modules */}
+              <div className="lg:col-span-6 space-y-4">
+                <div className="rounded-2xl border border-border/80 bg-muted/20 p-5 space-y-4">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-bold text-foreground flex items-center gap-1.5">
+                      <BookOpen className="size-4 text-primary" /> Official Cambridge Syllabus Specification
+                    </span>
+                    <Badge variant="outline" className="text-[10px] font-mono">
+                      Chapter {activeTopic.chapterNum}: {activeTopic.category}
+                    </Badge>
+                  </div>
 
-                <p className="text-sm font-semibold text-foreground italic border-l-2 border-primary/50 pl-3 py-0.5">
-                  &ldquo;{activeTopic.questionText}&rdquo;
-                </p>
-
-                {/* Mark Scheme Points Required by Cambridge */}
-                <div className="space-y-1.5 rounded-xl border border-border/60 bg-background/60 p-3 text-xs">
-                  <span className="text-[11px] font-bold text-foreground flex items-center gap-1.5">
-                    <CheckCircle2 className="size-3.5 text-emerald-500 shrink-0" />
-                    Official Cambridge Mark Scheme Requirements:
-                  </span>
-                  <ul className="space-y-1 pt-1 text-[11.5px] text-muted-foreground">
-                    {activeTopic.markSchemePoints.map((point, pIdx) => (
-                      <li key={pIdx} className="flex items-start gap-1.5">
-                        <span className="text-primary font-bold mt-0.5">•</span>
-                        <span className="leading-snug">{point}</span>
-                      </li>
-                    ))}
-                  </ul>
-                  {activeTopic.examinerTip && (
-                    <p className="text-[11px] text-amber-700 dark:text-amber-300/90 bg-amber-500/10 border border-amber-500/20 rounded-lg p-2 mt-2 leading-relaxed">
-                      <strong>Chief Examiner Tip:</strong> {activeTopic.examinerTip}
+                  {/* Core Theory & Specification Transmission Chain */}
+                  <div className="rounded-xl border border-border/70 bg-card p-4 space-y-2.5">
+                    <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                      <Workflow className="size-3.5 text-primary" />
+                      Required Economic Transmission Mechanism:
+                    </span>
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      In Cambridge 9708 mark schemes, examiners strictly reward candidates who trace the step-by-step causal mechanism:
                     </p>
-                  )}
-                </div>
+                    <ol className="space-y-1.5 text-xs text-muted-foreground list-decimal pl-4 pt-1">
+                      <li>
+                        <strong className="text-foreground">Primary Market Condition:</strong> Consumers experience imperfect information regarding true private and external costs.
+                      </li>
+                      <li>
+                        <strong className="text-foreground">Misallocation Shock:</strong> Free market equilibrium output (Qm where MPB = MPC) exceeds the socially optimal output (Qso where MSB = MSC).
+                      </li>
+                      <li>
+                        <strong className="text-foreground">Policy Transmission:</strong> Corrective indirect tax (specific or ad valorem) shifts supply leftwards, increasing market price towards social cost.
+                      </li>
+                      <li>
+                        <strong className="text-foreground">Incidence &amp; Welfare Outcome:</strong> Magnitude of contraction in overconsumption depends directly on Price Elasticity of Demand (PED).
+                      </li>
+                    </ol>
+                  </div>
 
-                <div className="pt-1">
-                  <div className="flex items-center justify-between text-[11px] text-muted-foreground mb-1.5 font-mono">
-                    <span>Student Response Excerpt (Vectorized &amp; Grounded)</span>
-                    <span className="text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
-                      <CheckCircle2 className="size-3" /> Grounded in Published Mark Scheme
+                  {/* Required Diagram Specification */}
+                  <div className="rounded-xl border border-border/70 bg-card p-4 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                        <LineChart className="size-3.5 text-amber-500" />
+                        Required Cambridge Textbook Diagram:
+                      </span>
+                      <span className="text-[10px] font-mono text-muted-foreground">Essential for AO2/AO3</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      {activeTopic.requiredDiagram}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Right Column: Published Mark Scheme References & Past Paper Citations */}
+              <div className="lg:col-span-6 space-y-4">
+                <div className="rounded-2xl border border-border/80 bg-gradient-to-br from-card via-card to-primary/[0.03] p-5 space-y-4">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-bold text-foreground flex items-center gap-1.5">
+                      <ShieldCheck className="size-4 text-emerald-500" /> Published Cambridge Mark Scheme Criteria
+                    </span>
+                    <span className="text-[11px] font-mono text-primary font-bold">
+                      {activeTopic.questionPaper}
                     </span>
                   </div>
-                  <div className="rounded-xl border border-border bg-card p-3.5 text-xs leading-relaxed text-foreground font-serif shadow-2xs">
-                    {activeTopic.groundedExcerpt}
-                  </div>
-                </div>
 
-                {/* Real-time RAG Telemetry Readout */}
-                <div className="pt-2 flex flex-wrap items-center gap-2 text-[11px] font-mono">
-                  <span className="inline-flex items-center gap-1 rounded-md bg-primary/10 border border-primary/20 px-2 py-0.5 text-primary font-bold">
-                    <Database className="size-3" /> {activeTopic.questionPaper}
-                  </span>
-                  <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 text-emerald-600 dark:text-emerald-400 font-bold">
-                    <CheckCircle2 className="size-3" /> Match Confidence: {activeTopic.matchConfidence}%
-                  </span>
-                  <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 text-muted-foreground">
-                    <Binary className="size-3" /> Zero LLM Guessing
-                  </span>
+                  <div className="rounded-xl border border-border/70 bg-background/80 p-4 space-y-2">
+                    <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                      <CheckCircle2 className="size-3.5 text-emerald-500" />
+                      What Cambridge Examiners Reward in Mark Schemes:
+                    </span>
+                    <ul className="space-y-1.5 text-xs text-muted-foreground pt-1">
+                      {activeTopic.markSchemePoints.map((point, pIdx) => (
+                        <li key={pIdx} className="flex items-start gap-2">
+                          <span className="text-primary font-bold mt-0.5">•</span>
+                          <span className="leading-snug">{point}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  {/* Chief Examiner Tip */}
+                  {activeTopic.examinerTip && (
+                    <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3.5 space-y-1">
+                      <span className="text-xs font-bold text-amber-700 dark:text-amber-400 flex items-center gap-1.5">
+                        <Lightbulb className="size-3.5" /> Chief Examiner Report Finding:
+                      </span>
+                      <p className="text-xs text-amber-900/90 dark:text-amber-300/90 leading-relaxed">
+                        {activeTopic.examinerTip}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Verified Reference Citation Box */}
+                  <div className="rounded-xl border border-border/70 bg-card p-3 flex items-center justify-between text-[11px] font-mono text-muted-foreground">
+                    <span className="flex items-center gap-1.5">
+                      <Database className="size-3 text-primary" />
+                      Verified Cambridge Reference Citation:
+                    </span>
+                    <span className="font-bold text-foreground">
+                      {activeTopic.questionPaper}
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
 
-            {/* Right: Cambridge Examiner Verdict & AO Breakdown */}
-            <div className="lg:col-span-5 space-y-3">
-              <div className="rounded-2xl border border-border/80 bg-gradient-to-br from-card via-card to-primary/[0.03] p-5 shadow-xs space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <span className="text-[10.5px] font-mono uppercase tracking-wider text-muted-foreground font-semibold">
-                      Official Cambridge Mark
-                    </span>
-                    <div className="text-3xl font-extrabold text-foreground flex items-baseline gap-1.5 mt-0.5">
-                      <span>{activeTopic.aoScores.total}</span>
-                      <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-                        {activeTopic.band}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="size-12 rounded-2xl border-2 border-primary/30 bg-primary/10 flex items-center justify-center text-primary shadow-xs">
-                    <Sparkles className="size-6 animate-pulse" />
-                  </div>
-                </div>
-
-                {/* AO Breakdown Pills */}
-                <div className="grid grid-cols-3 gap-2 text-center">
-                  <div className="rounded-xl border border-blue-500/20 bg-blue-500/10 p-2.5">
-                    <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 block">AO1 Knowledge</span>
-                    <span className="text-sm font-mono font-extrabold text-foreground mt-0.5 block">
-                      {activeTopic.aoScores.ao1}
-                    </span>
-                  </div>
-
-                  <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-2.5">
-                    <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 block">AO2 Analysis</span>
-                    <span className="text-sm font-mono font-extrabold text-foreground mt-0.5 block">
-                      {activeTopic.aoScores.ao2}
-                    </span>
-                  </div>
-
-                  <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-2.5">
-                    <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 block">AO3 Evaluation</span>
-                    <span className="text-sm font-mono font-extrabold text-foreground mt-0.5 block">
-                      {activeTopic.aoScores.ao3}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Examiner Assessment Note */}
-                <div className="rounded-xl border border-border/80 bg-background/80 p-3.5 space-y-1.5 text-xs">
-                  <span className="text-[11px] font-bold text-foreground flex items-center gap-1.5">
-                    <ShieldCheck className="size-3.5 text-primary" /> Cambridge Mark Scheme Citation
-                  </span>
-                  <p className="text-[11.5px] text-muted-foreground leading-relaxed">
-                    {activeTopic.examinerCitation}
+            {/* ── All Places This Topic is Referenced in the Cambridge Corpus ── */}
+            <div className="rounded-2xl border border-border/80 bg-card p-5 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border/60 pb-3">
+                <div>
+                  <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
+                    <Database className="size-4 text-primary" />
+                    All Matching Cambridge Textbook &amp; Glossary References ({matchingCorpusDefinitions.length})
+                  </h4>
+                  <p className="text-xs text-muted-foreground">
+                    Direct verifications from the Cambridge 9708 Master Catalogue and Syllabus Specification.
                   </p>
                 </div>
+                <span className="text-xs font-mono text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
+                  <CheckCircle2 className="size-3.5" /> Verified Knowledge Base
+                </span>
+              </div>
 
-                <Button asChild size="default" className="w-full font-bold shadow-xs">
-                  <Link to="/grade">
-                    Grade Your Own Essay with RAG <ArrowRight className="size-3.5 ml-1.5" />
-                  </Link>
-                </Button>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {matchingCorpusDefinitions.map((def) => (
+                  <div
+                    key={def.id}
+                    className="rounded-xl border border-border/70 bg-background/70 p-3.5 space-y-2 hover:border-primary/40 transition-colors relative group"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <span className="font-bold text-xs text-foreground flex items-center gap-1">
+                        <BookOpen className="size-3 text-primary shrink-0" />
+                        {def.term}
+                      </span>
+                      <Badge variant="outline" className="text-[9px] font-mono shrink-0">
+                        Ch {activeTopic.chapterNum}
+                      </Badge>
+                    </div>
+                    <p className="text-[11.5px] text-muted-foreground leading-relaxed italic font-serif">
+                      &ldquo;{def.definition_text}&rdquo;
+                    </p>
+                    <div className="pt-2 flex items-center justify-between text-[10px] text-muted-foreground/80 font-mono border-t border-border/50">
+                      <span>{def.source_label}</span>
+                      <button
+                        type="button"
+                        onClick={() => handleCopyCitation(`${def.term}: ${def.definition_text}`, def.id)}
+                        className="text-primary hover:text-foreground font-semibold flex items-center gap-1 cursor-pointer"
+                      >
+                        {copiedId === def.id ? (
+                          <>
+                            <Check className="size-2.5 text-emerald-500" /> Copied
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="size-2.5" /> Copy
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
