@@ -5,6 +5,7 @@ import {
   ArrowLeft,
   Check,
   CheckCircle2,
+  Clock,
   Copy,
   CreditCard,
   GraduationCap,
@@ -31,6 +32,7 @@ import { fireConfetti } from "@/lib/confetti";
 import {
   getPaymentConfig,
   activateSubscriptionTier,
+  submitUpiPaymentRequest,
 } from "@/lib/payment.functions";
 import { getPlatformPricing } from "@/lib/pricing.functions";
 import { DEFAULT_PRICING_PLANS } from "@/lib/pricing-plans";
@@ -134,6 +136,7 @@ function PaymentPortalPage() {
   const finalPrice = cycle === "annual" ? pricing.annual : pricing.monthly;
 
   const activateMutation = useServerFn(activateSubscriptionTier);
+  const submitUpiMutation = useServerFn(submitUpiPaymentRequest);
 
   // Load Razorpay script dynamically
   useEffect(() => {
@@ -233,30 +236,27 @@ function PaymentPortalPage() {
   };
 
   const handleUpiActivation = async () => {
-    if (!utrNumber.trim() || utrNumber.trim().length < 6) {
-      toast.error("Please enter a valid 12-digit UPI Reference (UTR) Number.");
+    const cleanUtr = utrNumber.trim().replace(/\s+/g, "");
+    if (!/^\d{12}$/.test(cleanUtr)) {
+      toast.error("Please enter the exact 12-digit numeric UPI reference number (UTR) from your receipt.");
       return;
     }
     setIsProcessing(true);
     try {
-      const res = await activateMutation({
+      const res = await submitUpiMutation({
         data: {
           tier: selectedTier,
           billingCycle: cycle,
-          method: "upi_direct",
-          utrReference: utrNumber.trim(),
+          amount: finalPrice,
+          utrReference: cleanUtr,
         },
       });
 
-      fireConfetti();
-      toast.success(res.message, { duration: 5000 });
-      await queryClient.invalidateQueries({ queryKey: ["me"] });
-
-      setTimeout(() => {
-        navigate({ to: "/dashboard" });
-      }, 1200);
+      toast.success(res.message, { duration: 8000 });
+      await queryClient.invalidateQueries({ queryKey: ["payment-config"] });
+      setUtrNumber("");
     } catch (err: any) {
-      toast.error(err?.message || "UPI activation failed. Please try again.");
+      toast.error(err?.message || "UPI verification request failed. Please check your UTR or contact administrator.");
     } finally {
       setIsProcessing(false);
     }
@@ -302,6 +302,28 @@ function PaymentPortalPage() {
             scoring higher with official mark scheme calibrations.
           </p>
         </div>
+
+        {/* Pending Verification Banner if any */}
+        {configQuery.data?.pendingRequest && (
+          <div className="mb-6 rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-xs">
+            <div className="flex items-start gap-3">
+              <Clock className="size-5 shrink-0 text-amber-500 mt-0.5 animate-pulse" />
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <p className="font-bold text-amber-900 dark:text-amber-200 text-sm">
+                    UPI Payment Under Admin Verification
+                  </p>
+                  <Badge variant="outline" className="border-amber-500/50 text-[10px] text-amber-700 dark:text-amber-300 font-mono">
+                    Pending Approval
+                  </Badge>
+                </div>
+                <p className="text-muted-foreground dark:text-amber-200/90 leading-relaxed">
+                  Your transaction reference (UTR: <code className="font-bold text-foreground font-mono">#{configQuery.data.pendingRequest.utr}</code>) for the <strong className="text-foreground capitalize">{configQuery.data.pendingRequest.tier}</strong> plan (₹{configQuery.data.pendingRequest.amount}) has been received. Our administrator is checking it against our bank statement. Your plan will activate automatically upon approval.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Razorpay Status Notice */}
         <div className="mb-8 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-xs text-foreground/90">
@@ -631,9 +653,12 @@ function PaymentPortalPage() {
                     disabled={isProcessing || !utrNumber.trim()}
                     className="w-full h-10 text-xs font-bold gap-2 bg-emerald-600 hover:bg-emerald-700 text-white shadow-md cursor-pointer"
                   >
-                    <CheckCircle2 className="size-4" />
-                    {isProcessing ? "Verifying..." : "Verify & Activate Plan"}
+                    <Clock className="size-4" />
+                    {isProcessing ? "Submitting Reference..." : "Submit UTR for Admin Verification"}
                   </Button>
+                  <p className="text-[10px] text-center text-muted-foreground pt-0.5">
+                    12-digit UTR is verified against bank credits by our administrator within 10–15 minutes.
+                  </p>
                 </div>
               )}
 
