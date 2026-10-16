@@ -321,19 +321,19 @@ export function DashboardPage() {
           />
         </div>
 
-        {/* Sleek 1-Line Cambridge Examiner Tip */}
-        <div className="flex items-center justify-between gap-3 rounded-xl border border-primary/20 bg-primary/[0.04] px-4 py-2 text-xs">
-          <div className="flex items-center gap-2 min-w-0">
-            <span className="font-bold text-primary shrink-0 flex items-center gap-1">
-              <ShieldCheck className="size-3.5" /> Cambridge 9708 Tip:
+        {/* Sleek Cambridge Examiner Tip */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-4 rounded-xl border border-primary/20 bg-primary/[0.04] px-4 py-2.5 text-xs leading-relaxed">
+          <div className="flex flex-wrap items-baseline gap-1.5 min-w-0 flex-1">
+            <span className="font-bold text-primary inline-flex items-center gap-1.5 shrink-0">
+              <ShieldCheck className="size-3.5 shrink-0" /> Cambridge 9708 Tip:
             </span>
             <span className="font-semibold text-foreground shrink-0">{currentTip.title} —</span>
-            <span className="text-muted-foreground truncate">{currentTip.tip}</span>
+            <span className="text-muted-foreground text-pretty">{currentTip.tip}</span>
           </div>
           <button
             type="button"
             onClick={() => setTipIndex((prev) => prev + 1)}
-            className="shrink-0 text-muted-foreground hover:text-foreground text-[11px] font-semibold flex items-center gap-1 hover:underline cursor-pointer"
+            className="self-end sm:self-center shrink-0 text-muted-foreground hover:text-foreground text-[11px] font-semibold inline-flex items-center gap-1 px-2.5 py-1 rounded-md border border-border/60 hover:bg-muted/60 transition-colors cursor-pointer"
           >
             <RefreshCw className="size-3" /> Next
           </button>

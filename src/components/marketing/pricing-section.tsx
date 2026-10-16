@@ -383,16 +383,16 @@ export function PricingSection({ className }: { className?: string }) {
 
         {/* ── Pricing Cards Grid ── */}
         {audience === "students" ? (
-          <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+          <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 items-stretch">
             {/* ── Column 1: Get Started for Free ── */}
-            <div className="relative flex flex-col justify-between rounded-2xl border border-border/80 bg-card/60 p-5 transition-all duration-300 hover:border-primary/40 sm:p-6">
+            <div className="relative flex flex-col justify-between rounded-2xl border border-border/80 bg-card/60 p-5 sm:p-6 transition-all duration-300 hover:border-primary/40 h-full">
               <div className="absolute -top-3 left-6">
                 <Badge className="bg-muted text-foreground border border-border text-[10px] font-bold uppercase tracking-wider">
                   {FREE_STARTER_TIER.badge}
                 </Badge>
               </div>
 
-              <div>
+              <div className="flex-1 flex flex-col">
                 <h3 className="text-lg font-bold text-foreground">{FREE_STARTER_TIER.name}</h3>
                 <p className="mt-1.5 text-xs text-muted-foreground leading-relaxed">
                   {FREE_STARTER_TIER.tagline}
@@ -414,7 +414,7 @@ export function PricingSection({ className }: { className?: string }) {
                   </div>
                 </div>
 
-                <ul className="mt-5 space-y-2.5 text-xs text-muted-foreground">
+                <ul className="mt-5 space-y-2.5 text-xs text-muted-foreground flex-1">
                   {FREE_STARTER_TIER.features.map((feature, idx) => (
                     <li key={idx} className="flex items-start gap-2">
                       <Check className="size-4 shrink-0 text-emerald-600 dark:text-emerald-400 mt-0.5" />
@@ -424,11 +424,11 @@ export function PricingSection({ className }: { className?: string }) {
                 </ul>
               </div>
 
-              <div className="mt-8 pt-4">
+              <div className="mt-auto pt-6">
                 <Button
                   asChild
                   variant="outline"
-                  className="w-full text-xs font-semibold h-10 shadow-xs border-primary/30 hover:bg-primary/10"
+                  className="w-full text-xs font-semibold h-10 shadow-xs border-primary/30 hover:bg-primary/10 cursor-pointer"
                 >
                   <Link to="/grade">
                     Start Free (2 Essays) <ArrowRight className="size-3.5 ml-1.5" />
@@ -447,10 +447,10 @@ export function PricingSection({ className }: { className?: string }) {
                 <div
                   key={tier.id}
                   className={cn(
-                    "relative flex flex-col justify-between rounded-2xl border p-6 transition-all duration-300 sm:p-7",
+                    "relative flex flex-col justify-between rounded-2xl border p-5 sm:p-6 transition-all duration-300 h-full",
                     tier.popular
                       ? "border-primary/50 bg-card shadow-lg ring-2 ring-primary/20"
-                      : "border-border bg-card/60 hover:border-border/80",
+                      : "border-border/80 bg-card/60 hover:border-primary/40",
                   )}
                 >
                   {tier.badge ? (
@@ -468,7 +468,7 @@ export function PricingSection({ className }: { className?: string }) {
                     </div>
                   ) : null}
 
-                  <div>
+                  <div className="flex-1 flex flex-col">
                     <h3 className="text-lg font-bold text-foreground">{tier.name}</h3>
                     <p className="mt-1.5 text-xs text-muted-foreground leading-relaxed">
                       {tier.tagline}
@@ -496,7 +496,7 @@ export function PricingSection({ className }: { className?: string }) {
                       </div>
                     </div>
 
-                    <ul className="mt-5 space-y-2.5 text-xs text-muted-foreground">
+                    <ul className="mt-5 space-y-2.5 text-xs text-muted-foreground flex-1">
                       {tier.features.map((feature, idx) => (
                         <li key={idx} className="flex items-start gap-2">
                           <Check className="size-4 shrink-0 text-emerald-600 dark:text-emerald-400 mt-0.5" />
@@ -506,11 +506,11 @@ export function PricingSection({ className }: { className?: string }) {
                     </ul>
                   </div>
 
-                  <div className="mt-8 pt-4">
+                  <div className="mt-auto pt-6">
                     <Button
                       asChild
                       variant={tier.popular ? "default" : "outline"}
-                      className="w-full text-xs font-semibold h-10 shadow-xs"
+                      className="w-full text-xs font-semibold h-10 shadow-xs cursor-pointer"
                     >
                       <Link
                         to="/payment"
@@ -528,7 +528,7 @@ export function PricingSection({ className }: { className?: string }) {
             })}
           </div>
         ) : (
-          <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4 items-stretch">
             {SCHOOL_TIERS.map((tier) => {
               const displayPrice = cycle === "annual" ? tier.annualPrice : tier.monthlyPrice;
               const periodText = cycle === "annual" ? " / year" : " / month";
@@ -537,10 +537,10 @@ export function PricingSection({ className }: { className?: string }) {
                 <div
                   key={tier.id}
                   className={cn(
-                    "relative flex flex-col justify-between rounded-2xl border p-6 transition-all duration-300 sm:p-7",
+                    "relative flex flex-col justify-between rounded-2xl border p-5 sm:p-6 transition-all duration-300 h-full",
                     tier.popular
                       ? "border-primary/50 bg-card shadow-lg ring-2 ring-primary/20"
-                      : "border-border bg-card/60 hover:border-border/80",
+                      : "border-border/80 bg-card/60 hover:border-primary/40",
                   )}
                 >
                   {tier.badge ? (
@@ -558,7 +558,7 @@ export function PricingSection({ className }: { className?: string }) {
                     </div>
                   ) : null}
 
-                  <div>
+                  <div className="flex-1 flex flex-col">
                     <h3 className="text-lg font-bold text-foreground">{tier.name}</h3>
                     <p className="mt-1.5 text-xs text-muted-foreground leading-relaxed">
                       {tier.tagline}
@@ -585,7 +585,7 @@ export function PricingSection({ className }: { className?: string }) {
                       </div>
                     </div>
 
-                    <ul className="mt-5 space-y-2.5 text-xs text-muted-foreground">
+                    <ul className="mt-5 space-y-2.5 text-xs text-muted-foreground flex-1">
                       {tier.features.map((feature, idx) => (
                         <li key={idx} className="flex items-start gap-2">
                           <Check className="size-4 shrink-0 text-emerald-600 dark:text-emerald-400 mt-0.5" />
@@ -595,11 +595,11 @@ export function PricingSection({ className }: { className?: string }) {
                     </ul>
                   </div>
 
-                  <div className="mt-8 pt-4">
+                  <div className="mt-auto pt-6">
                     <Button
                       asChild
                       variant={tier.popular ? "default" : "outline"}
-                      className="w-full text-xs font-semibold h-10 shadow-xs"
+                      className="w-full text-xs font-semibold h-10 shadow-xs cursor-pointer"
                     >
                       <a href="mailto:licensing@marginal.app?subject=Cambridge%209708%20School%20License%20Inquiry">
                         Request School Demo <ArrowRight className="size-3.5 ml-1.5" />
