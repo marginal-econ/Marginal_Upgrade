@@ -2012,3 +2012,20 @@ html.theme-shifting * {
   background-color: var(--plum);
   color: var(--plum-foreground);
 }
+
+@utility scrollbar-none {
+  &::-webkit-scrollbar {
+    display: none !important;
+  }
+  -ms-overflow-style: none !important;
+  scrollbar-width: none !important;
+}
+
+@utility no-scrollbar {
+  &::-webkit-scrollbar {
+    display: none !important;
+  }
+  -ms-overflow-style: none !important;
+  scrollbar-width: none !important;
+}
+

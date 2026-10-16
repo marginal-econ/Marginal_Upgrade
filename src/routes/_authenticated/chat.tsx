@@ -634,12 +634,12 @@ export function GroundedChatPage() {
       </div>
 
       {/* Main Conversation Stream — Claude Style */}
-      <div className="flex-1 overflow-y-auto py-4 space-y-5 px-1 sm:px-2">
+      <div className="flex-1 overflow-y-auto py-2 space-y-4 px-1 sm:px-2 scrollbar-none [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
         {/* Welcome Empty State (Claude Style) */}
         {messages.length === 0 && (
-          <div className="max-w-2xl mx-auto py-8 sm:py-12 space-y-6 text-center">
-            <div className="space-y-2">
-              <h2 className="text-2xl sm:text-3xl font-serif font-bold tracking-tight text-foreground">
+          <div className="flex flex-col items-center justify-center my-auto py-3 sm:py-6 px-1 max-w-2xl mx-auto w-full text-center space-y-4">
+            <div className="space-y-1.5">
+              <h2 className="text-xl sm:text-2xl md:text-3xl font-serif font-bold tracking-tight text-foreground">
                 How can I help you explore Cambridge Economics today?
               </h2>
               <p className="text-xs sm:text-sm text-muted-foreground max-w-md mx-auto">
@@ -648,15 +648,15 @@ export function GroundedChatPage() {
             </div>
 
             {/* Claude-style 2x2 Starter Grid */}
-            <div className="grid gap-3 sm:grid-cols-2 text-left pt-2">
+            <div className="grid gap-2.5 sm:grid-cols-2 text-left pt-1 w-full">
               {TOPIC_STARTERS.map((item, idx) => (
                 <button
                   key={idx}
                   type="button"
                   onClick={() => handleSend(item.topic)}
-                  className="group flex flex-col justify-between p-4 rounded-2xl border border-border/70 bg-card/50 hover:bg-card hover:border-primary/40 hover:shadow-md transition-all duration-200 cursor-pointer text-left space-y-2"
+                  className="group flex flex-col justify-between p-3.5 rounded-2xl border border-border/70 bg-card/60 hover:bg-card hover:border-primary/40 hover:shadow-md transition-all duration-200 cursor-pointer text-left space-y-1.5"
                 >
-                  <div className="space-y-1">
+                  <div className="space-y-0.5">
                     <span className="inline-block text-[10px] font-bold uppercase tracking-wider text-primary">
                       {item.category}
                     </span>
@@ -665,7 +665,7 @@ export function GroundedChatPage() {
                     </p>
                   </div>
                   <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-1 border-t border-border/40">
-                    <span className="truncate">{item.chapter}</span>
+                    <span className="truncate text-[11px]">{item.chapter}</span>
                     <span className="text-[10px] font-mono text-muted-foreground/80 shrink-0">
                       {item.paper}
                     </span>
@@ -830,7 +830,7 @@ export function GroundedChatPage() {
 
       {/* Floating Bottom Input Dock — Claude Style */}
       <div className="pt-2 pb-1 shrink-0">
-        <div className="max-w-4xl mx-auto rounded-2xl sm:rounded-3xl border border-border/70 bg-card/80 backdrop-blur-xl shadow-lg p-2.5 sm:p-3 space-y-2">
+        <div className="max-w-3xl sm:max-w-4xl mx-auto rounded-2xl sm:rounded-3xl border border-border/70 bg-card/85 backdrop-blur-xl shadow-lg p-2.5 sm:p-3 space-y-2">
           {/* Textarea */}
           <textarea
             ref={textareaRef}
@@ -839,50 +839,49 @@ export function GroundedChatPage() {
             onKeyDown={handleKeyDown}
             placeholder="Ask anything Cambridge 9708 (e.g. why is PED inelastic in short run, tax incidence, tariffs vs quotas)..."
             rows={1}
-            className="w-full resize-none bg-transparent px-2 text-xs sm:text-sm text-foreground placeholder:text-muted-foreground/70 focus:outline-none leading-relaxed max-h-40"
+            className="w-full resize-none bg-transparent px-2 text-xs sm:text-sm text-foreground placeholder:text-muted-foreground/70 focus:outline-none leading-relaxed max-h-36 scrollbar-none"
           />
 
           {/* Action Row */}
-          <div className="flex items-center justify-between gap-2 pt-1 border-t border-border/40">
-            {/* Quick chips or active indicator */}
-            <div className="flex items-center gap-1.5 overflow-x-auto py-0.5 no-scrollbar">
-              <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-muted-foreground px-1 shrink-0">
-                {!aiMode ? (
-                  <>
-                    <Zap className="size-3 text-amber-500" />
-                    <span className="text-amber-600 dark:text-amber-400">Fast Local RAG (₹0)</span>
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="size-3 text-primary" />
-                    <span className="text-primary">Deep AI Examiner</span>
-                  </>
-                )}
-              </span>
-
-              {/* Quick suggestion pills */}
-              {SUGGESTED_QUICK_CHIPS.map((chip, idx) => (
-                <button
-                  key={idx}
-                  type="button"
-                  onClick={() => handleSend(chip)}
-                  className="rounded-full bg-muted/70 hover:bg-muted text-muted-foreground hover:text-foreground px-2 py-0.5 text-[10px] font-medium transition-colors shrink-0 cursor-pointer"
-                >
-                  {chip}
-                </button>
-              ))}
-            </div>
+          <div className="flex items-center justify-between gap-2 pt-1.5 border-t border-border/40">
+            {/* Mode Switcher Toggle Pill */}
+            <button
+              type="button"
+              onClick={() => setAiMode(!aiMode)}
+              className={cn(
+                "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[11px] font-medium transition-all cursor-pointer border",
+                !aiMode
+                  ? "bg-amber-500/10 border-amber-500/25 text-amber-600 dark:text-amber-400 font-semibold"
+                  : "bg-primary/10 border-primary/25 text-primary font-semibold"
+              )}
+              title="Click to toggle between Zero-Token Fast RAG and Gemini Deep AI"
+            >
+              {!aiMode ? (
+                <>
+                  <Zap className="size-3 text-amber-500" />
+                  <span>Fast RAG (₹0 Token Cost)</span>
+                </>
+              ) : (
+                <>
+                  <Sparkles className="size-3 text-primary" />
+                  <span>Deep AI Examiner (Gemini)</span>
+                </>
+              )}
+            </button>
 
             {/* Right Tools: Voice Mode & Send */}
             <div className="flex items-center gap-1.5 shrink-0">
-              <button
+              <Button
                 type="button"
+                size="sm"
+                variant="outline"
                 onClick={openVoiceMode}
-                className="size-8 rounded-xl flex items-center justify-center text-muted-foreground hover:text-emerald-500 hover:bg-emerald-500/10 transition-colors cursor-pointer"
+                className="h-8 rounded-xl px-2.5 gap-1.5 text-xs text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10 font-medium"
                 title="Launch ChatGPT-Style Voice Mode"
               >
-                <Mic className="size-4" />
-              </button>
+                <Mic className="size-3.5" />
+                <span className="hidden sm:inline">Voice Mode</span>
+              </Button>
 
               <button
                 type="button"
