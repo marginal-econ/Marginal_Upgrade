@@ -3578,7 +3578,8 @@ function PaymentApprovalsAdminPanel() {
   const configQuery = useQuery({
     queryKey: ["payment-config"],
     queryFn: () => getPricingConfigFn(),
-    staleTime: 30_000,
+    staleTime: 0,
+    refetchOnMount: "always",
   });
 
   const [upiInput, setUpiInput] = useState("");
@@ -3587,7 +3588,7 @@ function PaymentApprovalsAdminPanel() {
   const [searchQuery, setSearchQuery] = useState("");
 
   const requests = paymentsQuery.data?.requests || [];
-  const activeMerchantUpi = configQuery.data?.merchantUpiId || "marginal.study@okaxis";
+  const activeMerchantUpi = configQuery.data?.merchantUpiId || "8754256082-2@ybl";
 
   const updateUpiMutation = useMutation({
     mutationFn: (data: { upiId: string }) => updateUpiFn({ data }),

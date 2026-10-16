@@ -2,6 +2,7 @@ import { getSettings, saveSettings } from "./settings";
 import { publicSettings, validateSettings, matchesBlockedDomain } from "../lib/site-settings";
 import { bulkSignups, getAdminSummary, parseFilters, querySignups } from "./admin-waitlist";
 import { invalidateWaitlistCount, resolveReferrer } from "./waitlist";
+import { getSupabaseAdmin } from "./supabase";
 /**
  * The site's own HTTP API, mounted ahead of the router in `src/server.ts`.
  *
@@ -133,6 +134,9 @@ export async function handleApiRequest(request: Request): Promise<Response | nul
       } catch (error) {
         return serverError("read public settings", error);
       }
+    case "/api/payment-config":
+      if (request.method !== "GET") return methodNotAllowed("GET");
+      return getPublicPaymentConfig();
     case "/api/admin/settings":
       if (!["GET", "PUT"].includes(request.method)) return methodNotAllowed("GET, PUT");
       return adminSettings(request);
@@ -672,3 +676,55 @@ async function adminBulk(request: Request): Promise<Response> {
     return serverError("bulk waitlist action", error);
   }
 }
+
+async function getPublicPaymentConfig(): Promise<Response> {
+  let merchantUpiId =
+    readEnv("MERCHANT_UPI_ID") ||
+    readEnv("VITE_MERCHANT_UPI_ID") ||
+    "8754256082-2@ybl";
+
+  try {
+    const supabase = getSupabaseAdmin();
+    // 1. Primary: check site_settings table
+    const { data: settingsRow } = await supabase
+      .from("site_settings")
+      .select("value")
+      .eq("id", 1)
+      .maybeSingle();
+
+    if (
+      settingsRow?.value &&
+      typeof settingsRow.value === "object" &&
+      (settingsRow.value as any).merchant_upi_id
+    ) {
+      merchantUpiId = String((settingsRow.value as any).merchant_upi_id).trim();
+    } else {
+      // 2. Secondary: check ai_usage_log table
+      const { data: upiLogs } = await supabase
+        .from("ai_usage_log")
+        .select("error_message")
+        .eq("feature", "merchant_upi_config")
+        .order("created_at", { ascending: false })
+        .limit(1);
+
+      if (upiLogs && upiLogs.length > 0 && upiLogs[0]?.error_message) {
+        merchantUpiId = upiLogs[0].error_message.trim();
+      }
+    }
+  } catch (err) {
+    console.warn("Exception reading payment config in api.ts:", err);
+  }
+
+  const keyId =
+    readEnv("RAZORPAY_KEY_ID") ||
+    readEnv("VITE_RAZORPAY_KEY_ID") ||
+    "rzp_test_marginal_placeholder";
+
+  return json({
+    success: true,
+    merchantUpiId,
+    keyId,
+    isTestMode: keyId.startsWith("rzp_test_") || keyId.includes("placeholder"),
+  });
+}
+

@@ -107,7 +107,43 @@ function PaymentPortalPage() {
   const fetchConfig = useServerFn(getPaymentConfig);
   const configQuery = useQuery({
     queryKey: ["payment-config"],
-    queryFn: () => fetchConfig(),
+    queryFn: async () => {
+      try {
+        const res = await fetchConfig();
+        if (res?.merchantUpiId) return res;
+      } catch (err) {
+        console.warn("getPaymentConfig serverFn threw, falling back to /api/payment-config:", err);
+      }
+      try {
+        const apiRes = await fetch("/api/payment-config");
+        if (apiRes.ok) {
+          const apiData = await apiRes.json();
+          if (apiData?.merchantUpiId) {
+            return {
+              merchantUpiId: apiData.merchantUpiId,
+              keyId: apiData.keyId,
+              isTestMode: apiData.isTestMode,
+              currentTier: "free" as const,
+              tierDetails: TIER_LIMITS,
+              pendingRequest: null,
+            };
+          }
+        }
+      } catch {
+        /* fallback */
+      }
+      return {
+        merchantUpiId: "8754256082-2@ybl",
+        keyId: "rzp_test_marginal_placeholder",
+        isTestMode: true,
+        currentTier: "free" as const,
+        tierDetails: TIER_LIMITS,
+        pendingRequest: null,
+      };
+    },
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
   });
 
   const fetchMe = useServerFn(getMe);
@@ -224,7 +260,7 @@ function PaymentPortalPage() {
     }
   };
 
-  const merchantUpi = configQuery.data?.merchantUpiId || "marginal.study@okaxis";
+  const merchantUpi = configQuery.data?.merchantUpiId || "8754256082-2@ybl";
 
   const handleCopyUpi = () => {
     if (typeof navigator !== "undefined" && navigator.clipboard) {
@@ -236,6 +272,17 @@ function PaymentPortalPage() {
   };
 
   const handleUpiActivation = async () => {
+    if (!meQuery.data?.userId && !meQuery.isLoading) {
+      toast.error("Please sign in or create an account first so your subscription can be verified.", {
+        action: {
+          label: "Sign In",
+          onClick: () => navigate({ to: "/auth" }),
+        },
+        duration: 8000,
+      });
+      return;
+    }
+
     const cleanUtr = utrNumber.trim().replace(/\s+/g, "");
     if (!/^\d{12}$/.test(cleanUtr)) {
       toast.error("Please enter the exact 12-digit numeric UPI reference number (UTR) from your receipt.");
