@@ -8,6 +8,7 @@ import {
   FileText,
   ChevronDown,
   ChevronUp,
+  Workflow,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -355,6 +356,50 @@ export function RagEngineSection() {
             </div>
           </div>
         )}
+
+        {/* Short Brief: How the Cambridge 9708 RAG Engine Works */}
+        <div className="pt-4 border-t border-border/60 max-w-xl mx-auto space-y-2.5">
+          <div className="flex items-center justify-between text-xs text-muted-foreground font-semibold">
+            <span className="flex items-center gap-1.5 text-foreground font-bold">
+              <Workflow className="size-3.5 text-primary" /> How Our Cambridge RAG Engine Marks:
+            </span>
+            <span className="text-[10.5px] font-mono text-primary font-bold">Dual-Pass Auditor</span>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-left">
+            <div className="rounded-xl border border-border/70 bg-card p-2.5 space-y-1 shadow-2xs">
+              <span className="text-[10px] font-mono font-bold text-primary block">01 · Corpus</span>
+              <div className="text-xs font-bold text-foreground">15 Yrs Papers</div>
+              <p className="text-[11px] text-muted-foreground leading-snug">
+                1,400+ mark schemes, examiner reports &amp; 449 definitions.
+              </p>
+            </div>
+
+            <div className="rounded-xl border border-border/70 bg-card p-2.5 space-y-1 shadow-2xs">
+              <span className="text-[10px] font-mono font-bold text-sky-500 block">02 · Grounding</span>
+              <div className="text-xs font-bold text-foreground">Exact Rubric</div>
+              <p className="text-[11px] text-muted-foreground leading-snug">
+                Vector-retrieves authentic syllabus mark schemes per essay claim.
+              </p>
+            </div>
+
+            <div className="rounded-xl border border-border/70 bg-card p-2.5 space-y-1 shadow-2xs">
+              <span className="text-[10px] font-mono font-bold text-amber-500 block">03 · Calibration</span>
+              <div className="text-xs font-bold text-foreground">Zero Central Bias</div>
+              <p className="text-[11px] text-muted-foreground leading-snug">
+                Independent auditor eliminates generic AI middle-band clumping.
+              </p>
+            </div>
+
+            <div className="rounded-xl border border-border/70 bg-card p-2.5 space-y-1 shadow-2xs">
+              <span className="text-[10px] font-mono font-bold text-emerald-500 block">04 · Verdict</span>
+              <div className="text-xs font-bold text-foreground">Next-Band Plan</div>
+              <p className="text-[11px] text-muted-foreground leading-snug">
+                Exact AO1, AO2, AO3 tariffs with line-by-line rewrite guidance.
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
     </section>
   );
