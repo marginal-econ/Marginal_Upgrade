@@ -97,8 +97,8 @@ function PaymentPortalPage() {
   const queryClient = useQueryClient();
 
   const [selectedTier, setSelectedTier] = useState<PlanTier>(search.tier || "pro");
-  const [cycle, setCycle] = useState<"monthly" | "annual">(search.cycle || "monthly");
-  const [paymentMethod, setPaymentMethod] = useState<"razorpay" | "upi">("razorpay");
+  const [paymentMethod, setPaymentMethod] = useState<"razorpay" | "upi">("upi");
+  const [isLockShaking, setIsLockShaking] = useState(false);
   const [utrNumber, setUtrNumber] = useState("");
   const [copiedUpi, setCopiedUpi] = useState(false);
   const [phone, setPhone] = useState("");
@@ -262,6 +262,16 @@ function PaymentPortalPage() {
 
   const merchantUpi = configQuery.data?.merchantUpiId || "8754256082-2@ybl";
 
+  const handleRazorpayClick = () => {
+    setIsLockShaking(true);
+    setTimeout(() => setIsLockShaking(false), 500);
+    toast.info("Razorpay Gateway is temporarily locked for recalibration. Please use Direct UPI (GPay/PhonePe).", {
+      icon: "🔒",
+      duration: 5000,
+    });
+    setPaymentMethod("razorpay");
+  };
+
   const handleCopyUpi = () => {
     if (typeof navigator !== "undefined" && navigator.clipboard) {
       navigator.clipboard.writeText(merchantUpi);
@@ -339,7 +349,7 @@ function PaymentPortalPage() {
       <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6 md:py-12">
         <div className="mb-8 text-center sm:text-left">
           <Badge className="bg-primary/10 text-primary border-primary/20 text-xs font-semibold mb-2">
-            Dedicated Razorpay Portal
+            Verified Official Checkout
           </Badge>
           <h1 className="text-2xl font-bold tracking-tight sm:text-3xl md:text-4xl">
             Complete Your Cambridge 9708 Subscription
@@ -372,18 +382,23 @@ function PaymentPortalPage() {
           </div>
         )}
 
-        {/* Razorpay Status Notice */}
+        {/* Razorpay Locked Status Notice */}
         <div className="mb-8 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-xs text-foreground/90">
           <div className="flex items-start gap-3">
-            <Sparkles className="size-4 shrink-0 text-amber-500 mt-0.5" />
+            <div className="relative flex items-center justify-center size-8 rounded-lg bg-amber-500/20 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5">
+              <Lock className="size-4 animate-pulse" />
+            </div>
             <div>
-              <p className="font-semibold text-foreground">
-                Razorpay Merchant Account Verification Notice:
-              </p>
-              <p className="mt-1 leading-relaxed text-muted-foreground">
-                Our official Razorpay payment gateway is in final verification. You can test live
-                card/UPI processing or use our <strong>Instant Sandbox Activation</strong> button
-                below to activate your tier and credits right now without delay.
+              <div className="flex items-center gap-2">
+                <p className="font-bold text-amber-900 dark:text-amber-200 text-sm">
+                  Razorpay Gateway Temporarily Locked
+                </p>
+                <Badge variant="outline" className="border-amber-500/50 text-[10px] text-amber-700 dark:text-amber-300 font-mono">
+                  Locked for Maintenance
+                </Badge>
+              </div>
+              <p className="mt-1 leading-relaxed text-muted-foreground dark:text-amber-200/90">
+                Razorpay card &amp; netbanking checkout is temporarily locked for merchant account recalibration. All Cambridge 9708 subscriptions are currently being processed with 0% extra surcharge via <strong>Direct UPI (Instant QR / GPay / PhonePe)</strong> below.
               </p>
             </div>
           </div>
@@ -588,54 +603,105 @@ function PaymentPortalPage() {
                 <div className="grid grid-cols-2 gap-2 mb-3">
                   <button
                     type="button"
-                    onClick={() => setPaymentMethod("razorpay")}
+                    onClick={handleRazorpayClick}
                     className={cn(
-                      "flex items-center justify-center gap-1.5 p-2 rounded-lg border text-xs font-semibold transition-all cursor-pointer",
+                      "relative flex items-center justify-center gap-1.5 p-2 rounded-lg border text-xs font-semibold transition-all cursor-pointer overflow-hidden",
                       paymentMethod === "razorpay"
-                        ? "border-primary bg-primary/10 text-primary shadow-xs font-bold"
-                        : "border-border text-muted-foreground hover:bg-muted"
+                        ? "border-amber-500/70 bg-amber-500/10 text-amber-700 dark:text-amber-300 shadow-xs font-bold"
+                        : "border-border text-muted-foreground hover:bg-muted/70",
+                      isLockShaking && "lock-shake"
                     )}
                   >
-                    <CreditCard className="size-3.5" />
-                    <span>Razorpay Portal</span>
+                    <CreditCard className="size-3.5 opacity-60" />
+                    <span>Razorpay</span>
+                    <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-700 dark:text-amber-300 text-[9px] font-mono font-bold">
+                      <Lock className="size-2.5 animate-pulse text-amber-500" />
+                      Locked
+                    </span>
                   </button>
                   <button
                     type="button"
                     onClick={() => setPaymentMethod("upi")}
                     className={cn(
-                      "flex items-center justify-center gap-1.5 p-2 rounded-lg border text-xs font-semibold transition-all cursor-pointer",
+                      "relative flex items-center justify-center gap-1.5 p-2 rounded-lg border text-xs font-semibold transition-all cursor-pointer",
                       paymentMethod === "upi"
-                        ? "border-emerald-500 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 shadow-xs font-bold"
+                        ? "border-emerald-500 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 shadow-xs font-bold ring-1 ring-emerald-500/30"
                         : "border-border text-muted-foreground hover:bg-muted"
                     )}
                   >
-                    <Smartphone className="size-3.5" />
+                    <Smartphone className="size-3.5 text-emerald-500" />
                     <span>Direct UPI (GPay/QR)</span>
+                    <span className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 text-[9px] font-bold">
+                      Active
+                    </span>
                   </button>
                 </div>
               </div>
 
               {/* Checkout Action Area */}
               {paymentMethod === "razorpay" ? (
-                <div className="space-y-3 pt-1">
-                  <Button
-                    onClick={handleRazorpayCheckout}
-                    disabled={isProcessing}
-                    className="w-full h-11 text-xs font-bold gap-2 bg-primary hover:bg-primary/90 text-primary-foreground shadow-md cursor-pointer"
-                  >
-                    <CreditCard className="size-4" />
-                    {isProcessing ? "Processing..." : `Pay ₹${finalPrice.toLocaleString()} via Razorpay`}
-                  </Button>
+                <div className="space-y-4 rounded-xl border border-amber-500/30 bg-gradient-to-b from-amber-500/[0.08] to-amber-500/[0.02] p-5 text-center shadow-xs">
+                  <div className="relative mx-auto size-14 flex items-center justify-center">
+                    <span className="absolute inset-0 rounded-2xl bg-amber-500/20 animate-ping opacity-35" />
+                    <div
+                      className={cn(
+                        "relative size-12 rounded-2xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-500 shadow-inner transition-transform",
+                        isLockShaking ? "lock-shake" : "animate-pulse"
+                      )}
+                    >
+                      <Lock className="size-6 text-amber-500" />
+                    </div>
+                  </div>
 
-                  <Button
-                    variant="outline"
-                    onClick={() => handleActivation(true)}
-                    disabled={isProcessing}
-                    className="w-full h-10 text-xs font-semibold gap-1.5 border-dashed border-primary/50 text-primary hover:bg-primary/5 cursor-pointer"
-                  >
-                    <Sparkles className="size-3.5" />
-                    Instant Sandbox Activation (Verification Pending)
-                  </Button>
+                  <div className="space-y-1.5">
+                    <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-700 dark:text-amber-300 text-[11px] font-semibold">
+                      <Lock className="size-3 text-amber-500 animate-pulse" /> Razorpay Gateway Temporarily Locked
+                    </div>
+                    <h3 className="text-sm font-bold text-foreground">
+                      Gateway Under Recalibration
+                    </h3>
+                    <p className="text-xs text-muted-foreground max-w-sm mx-auto leading-relaxed">
+                      Standard Razorpay card &amp; netbanking checkout is temporarily locked for merchant maintenance. All student subscriptions are being fulfilled through <strong>Direct UPI (Instant QR / GPay / PhonePe)</strong> with 0% extra surcharge.
+                    </p>
+                  </div>
+
+                  <div className="space-y-2 pt-1">
+                    <Button
+                      type="button"
+                      onClick={() => {
+                        setIsLockShaking(true);
+                        setTimeout(() => setIsLockShaking(false), 500);
+                        toast.error("Razorpay is locked. Please switch to Direct UPI below to activate your plan.");
+                      }}
+                      className={cn(
+                        "w-full h-10 text-xs font-bold gap-2 bg-muted text-muted-foreground border border-border cursor-not-allowed opacity-80 hover:bg-muted",
+                        isLockShaking && "lock-shake"
+                      )}
+                    >
+                      <Lock className="size-3.5 text-amber-500" />
+                      Pay ₹{finalPrice.toLocaleString()} via Razorpay (Locked)
+                    </Button>
+
+                    <Button
+                      type="button"
+                      onClick={() => setPaymentMethod("upi")}
+                      className="w-full h-11 text-xs font-bold gap-2 bg-emerald-600 hover:bg-emerald-700 text-white shadow-md cursor-pointer transition-all hover:scale-[1.01]"
+                    >
+                      <Smartphone className="size-4 animate-bounce" />
+                      Pay via Direct UPI (Instant GPay / QR) →
+                    </Button>
+
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleActivation(true)}
+                      disabled={isProcessing}
+                      className="text-[11px] text-muted-foreground hover:text-foreground gap-1.5 cursor-pointer mt-1"
+                    >
+                      <Sparkles className="size-3 text-amber-500" />
+                      Instant Sandbox Testing Access
+                    </Button>
+                  </div>
                 </div>
               ) : (
                 <div className="space-y-3 rounded-xl border border-emerald-500/30 bg-emerald-500/[0.04] p-3.5 text-xs">

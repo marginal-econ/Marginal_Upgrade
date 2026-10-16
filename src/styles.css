@@ -829,6 +829,22 @@ html.motion-ready .reveal-pop:not([data-revealed="true"]) {
   animation: spin-slow 18s linear infinite;
 }
 
+@keyframes lock-shake {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  20%, 60% {
+    transform: translateX(-5px) rotate(-1.5deg);
+  }
+  40%, 80% {
+    transform: translateX(5px) rotate(1.5deg);
+  }
+}
+
+@utility lock-shake {
+  animation: lock-shake 0.45s ease-in-out;
+}
+
 @keyframes grow-bar {
   from {
     transform: scaleX(0);
