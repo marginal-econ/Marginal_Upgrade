@@ -65,17 +65,17 @@ export type LiveExaminerSessionUsage = {
 };
 
 // Rapid adaptive cadence:
-// - Instant deterministic pre-pass: fires immediately (< 25ms) in-browser
-// - Sentence completion (punctuation or newline): fires in 300ms
-// - Mid-sentence pause: 1,000ms
-// - Minimum request interval: 1,800ms
-// - Minimum changed characters: 6 chars
+// - Instant deterministic pre-pass: fires immediately (< 25ms) in-browser (grammar, typos, definitions)
+// - Sentence completion (punctuation or newline): fires in 1,200ms
+// - Mid-sentence pause: 2,000ms
+// - Minimum request interval: 3,500ms
+// - Minimum changed characters: 16 chars
 const INSTANT_LOCAL_PAUSE_MS = 25;
-const TYPING_PAUSE_MS = 1000;
-const SENTENCE_COMPLETE_PAUSE_MS = 300;
-const MIN_REQUEST_INTERVAL_MS = 1800;
-const MIN_CHANGED_CHARS = 6;
-const MIN_TEXT_LENGTH = 15;
+const TYPING_PAUSE_MS = 2000;
+const SENTENCE_COMPLETE_PAUSE_MS = 1200;
+const MIN_REQUEST_INTERVAL_MS = 3500;
+const MIN_CHANGED_CHARS = 16;
+const MIN_TEXT_LENGTH = 20;
 
 function issueId(issue: Pick<LiveExaminerIssue, "context" | "original" | "category">): string {
   return `${issue.category}::${issue.context.trim().toLowerCase()}::${issue.original.trim().toLowerCase()}`;

@@ -64,28 +64,28 @@ const TIER_PRICING = {
     annual: 1199,
     annualMonthlyEq: 99,
     savePct: 33,
-    tagline: "Foundation Scholar — Daily 30m live coaching and 10 essays/mo",
+    tagline: "Foundation Scholar — 5 essays/mo and 12 Live Examiner sessions",
   },
   pro: {
     monthly: 399,
     annual: 3599,
     annualMonthlyEq: 299,
     savePct: 25,
-    tagline: "Pro Accelerator — 45m exam timing sessions, 30 essays/mo, arbitration",
+    tagline: "Pro Accelerator — 15 essays/mo, 30 Live Examiner sessions, arbitration",
   },
   mastery: {
     monthly: 599,
     annual: 5999,
     annualMonthlyEq: 499,
     savePct: 17,
-    tagline: "A* Mastery Sprint — 60m revision sprint, 75 essays/mo, handwriting OCR",
+    tagline: "A* Mastery Sprint — 35 essays/mo, 60 Live sessions, handwriting OCR",
   },
   elite: {
     monthly: 999,
     annual: 9599,
     annualMonthlyEq: 799,
     savePct: 20,
-    tagline: "Cambridge Elite Pass — Unlimited essays and maximum Live Examiner credits",
+    tagline: "Cambridge Elite Pass — 75 essays/mo and 120 Live Examiner sessions",
   },
 };
 
