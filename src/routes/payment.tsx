@@ -324,38 +324,39 @@ function PaymentPortalPage() {
     <div className="min-h-screen bg-background text-foreground">
       {/* Top Header */}
       <header className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur-md">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3 sm:px-6">
-          <Link to="/" className="group flex items-center gap-2.5">
+        <div className="mx-auto flex max-w-5xl items-center justify-between px-3 sm:px-6 py-3">
+          <Link to="/" className="group flex items-center gap-2 sm:gap-2.5 shrink-0">
             <img
               src="/marginal-m-icon-clean.png"
               alt="Marginal"
-              className="size-8 object-contain transition-transform group-hover:-rotate-6"
+              className="size-7 sm:size-8 object-contain transition-transform group-hover:-rotate-6"
             />
-            <span className="text-base font-bold tracking-tight">Marginal</span>
+            <span className="text-sm sm:text-base font-bold tracking-tight">Marginal</span>
           </Link>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-              <Lock className="size-3.5 text-emerald-500" /> 256-bit SSL Secured
+              <Lock className="size-3.5 text-emerald-500 shrink-0" />
+              <span className="hidden sm:inline">256-bit SSL Secured</span>
             </span>
-            <Button asChild variant="ghost" size="sm" className="text-xs">
+            <Button asChild variant="ghost" size="sm" className="text-xs px-2.5 sm:px-3 h-8">
               <Link to="/pricing">
-                <ArrowLeft className="mr-1.5 size-3.5" /> Back to Plans
+                <ArrowLeft className="mr-1 sm:mr-1.5 size-3.5" /> Back to Plans
               </Link>
             </Button>
           </div>
         </div>
       </header>
 
-      <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6 md:py-12">
-        <div className="mb-8 text-center sm:text-left">
+      <main className="mx-auto max-w-5xl px-3 sm:px-6 py-6 sm:py-8 md:py-12">
+        <div className="mb-6 sm:mb-8 text-center sm:text-left">
           <Badge className="bg-primary/10 text-primary border-primary/20 text-xs font-semibold mb-2">
             Verified Official Checkout
           </Badge>
-          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl md:text-4xl">
+          <h1 className="text-xl sm:text-3xl md:text-4xl font-bold tracking-tight">
             Complete Your Cambridge 9708 Subscription
           </h1>
-          <p className="mt-2 text-sm text-muted-foreground max-w-2xl">
+          <p className="mt-2 text-xs sm:text-sm text-muted-foreground max-w-2xl">
             Choose your Cambridge study tier, unlock instant Live Examiner AI credits, and begin
             scoring higher with official mark scheme calibrations.
           </p>
@@ -405,19 +406,19 @@ function PaymentPortalPage() {
           </div>
         </div>
 
-        <div className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr]">
+        <div className="grid gap-6 lg:gap-8 lg:grid-cols-[1.1fr_0.9fr]">
           {/* Left Column: Plan & Billing Selector */}
           <div className="space-y-6">
-            <div className="rounded-2xl border border-border bg-card p-5 sm:p-6 shadow-xs">
+            <div className="rounded-2xl border border-border bg-card p-4 sm:p-6 shadow-xs">
               <h2 className="text-base font-semibold mb-4">1. Select Revision Tier</h2>
 
               {/* Billing Cycle Toggle */}
-              <div className="mb-5 flex items-center justify-between rounded-xl bg-muted/60 p-1.5 text-xs">
+              <div className="mb-5 flex items-center justify-between rounded-xl bg-muted/60 p-1 text-xs sm:p-1.5">
                 <button
                   type="button"
                   onClick={() => setCycle("monthly")}
                   className={cn(
-                    "flex-1 rounded-lg py-2 font-medium transition-all",
+                    "flex-1 rounded-lg py-2 font-medium transition-all text-center text-xs",
                     cycle === "monthly"
                       ? "bg-background text-foreground shadow-xs font-semibold"
                       : "text-muted-foreground hover:text-foreground"
@@ -429,14 +430,14 @@ function PaymentPortalPage() {
                   type="button"
                   onClick={() => setCycle("annual")}
                   className={cn(
-                    "flex-1 rounded-lg py-2 font-medium transition-all flex items-center justify-center gap-1.5",
+                    "flex-1 rounded-lg py-2 font-medium transition-all flex flex-wrap sm:flex-nowrap items-center justify-center gap-1 sm:gap-1.5 text-xs text-center",
                     cycle === "annual"
                       ? "bg-background text-foreground shadow-xs font-semibold"
                       : "text-muted-foreground hover:text-foreground"
                   )}
                 >
-                  Annual Billing
-                  <span className="rounded-full bg-emerald-500/15 border border-emerald-500/30 px-1.5 py-0.2 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+                  <span>Annual Billing</span>
+                  <span className="rounded-full bg-emerald-500/15 border border-emerald-500/30 px-1.5 py-0.5 text-[9px] sm:text-[10px] font-bold text-emerald-600 dark:text-emerald-400 whitespace-nowrap">
                     Save up to 33%
                   </span>
                 </button>
@@ -462,17 +463,17 @@ function PaymentPortalPage() {
                       key={tierKey}
                       onClick={() => setSelectedTier(tierKey)}
                       className={cn(
-                        "cursor-pointer rounded-xl border p-4 transition-all duration-200",
+                        "cursor-pointer rounded-xl border p-3.5 sm:p-4 transition-all duration-200",
                         isSelected
                           ? "border-primary bg-primary/[0.04] ring-2 ring-primary/20 shadow-xs"
                           : "border-border hover:border-border/80 bg-background/50"
                       )}
                     >
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-2.5">
+                      <div className="flex items-center justify-between gap-2.5 sm:gap-3">
+                        <div className="flex items-center gap-2.5 min-w-0 flex-1">
                           <div
                             className={cn(
-                              "flex size-5 items-center justify-center rounded-full border text-[10px]",
+                              "flex size-5 shrink-0 items-center justify-center rounded-full border text-[10px]",
                               isSelected
                                 ? "border-primary bg-primary text-primary-foreground font-bold"
                                 : "border-muted-foreground/30 text-transparent"
@@ -480,21 +481,21 @@ function PaymentPortalPage() {
                           >
                             ✓
                           </div>
-                          <div>
-                            <span className="text-sm font-bold text-foreground">
+                          <div className="min-w-0 flex-1">
+                            <span className="text-sm font-bold text-foreground block truncate">
                               {tLimits.name}
                             </span>
-                            <p className="text-[11px] text-muted-foreground leading-snug">
+                            <p className="text-[11px] text-muted-foreground leading-snug break-words">
                               {tPricing.tagline}
                             </p>
                           </div>
                         </div>
 
-                        <div className="text-right shrink-0">
-                          <span className="text-base font-extrabold tabular-nums">
+                        <div className="text-right shrink-0 pl-1">
+                          <span className="text-sm sm:text-base font-extrabold tabular-nums">
                             {priceShow}
                           </span>
-                          <span className="text-[10px] text-muted-foreground block">
+                          <span className="text-[9px] sm:text-[10px] text-muted-foreground block whitespace-nowrap">
                             {cycle === "annual" ? "/mo (billed annually)" : "/month"}
                           </span>
                         </div>
@@ -506,7 +507,7 @@ function PaymentPortalPage() {
             </div>
 
             {/* Customer Information */}
-            <div className="rounded-2xl border border-border bg-card p-5 sm:p-6 shadow-xs">
+            <div className="rounded-2xl border border-border bg-card p-4 sm:p-6 shadow-xs">
               <h2 className="text-base font-semibold mb-4">2. Candidate Contact</h2>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-1.5">
@@ -538,7 +539,7 @@ function PaymentPortalPage() {
 
           {/* Right Column: Order Summary & Checkout */}
           <div className="space-y-6">
-            <div className="sticky top-20 rounded-2xl border border-border bg-card p-6 shadow-md">
+            <div className="sticky top-20 rounded-2xl border border-border bg-card p-4 sm:p-6 shadow-md">
               <div className="flex items-center justify-between border-b border-border/80 pb-4">
                 <h2 className="text-base font-bold">Order Summary</h2>
                 <Badge className="bg-primary/10 text-primary border-primary/20 text-[10px]">
@@ -606,16 +607,18 @@ function PaymentPortalPage() {
                     type="button"
                     onClick={handleRazorpayClick}
                     className={cn(
-                      "relative flex items-center justify-center gap-1.5 p-2 rounded-lg border text-xs font-semibold transition-all cursor-pointer overflow-hidden",
+                      "relative flex flex-col xs:flex-row items-center justify-center gap-1 sm:gap-1.5 p-2 rounded-lg border text-xs font-semibold transition-all cursor-pointer overflow-hidden",
                       paymentMethod === "razorpay"
                         ? "border-amber-500/70 bg-amber-500/10 text-amber-700 dark:text-amber-300 shadow-xs font-bold"
                         : "border-border text-muted-foreground hover:bg-muted/70",
                       isLockShaking && "lock-shake"
                     )}
                   >
-                    <CreditCard className="size-3.5 opacity-60" />
-                    <span>Razorpay</span>
-                    <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-700 dark:text-amber-300 text-[9px] font-mono font-bold">
+                    <div className="flex items-center gap-1.5">
+                      <CreditCard className="size-3.5 opacity-60 shrink-0" />
+                      <span>Razorpay</span>
+                    </div>
+                    <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-700 dark:text-amber-300 text-[8px] sm:text-[9px] font-mono font-bold">
                       <Lock className="size-2.5 animate-pulse text-amber-500" />
                       Locked
                     </span>
@@ -624,15 +627,17 @@ function PaymentPortalPage() {
                     type="button"
                     onClick={() => setPaymentMethod("upi")}
                     className={cn(
-                      "relative flex items-center justify-center gap-1.5 p-2 rounded-lg border text-xs font-semibold transition-all cursor-pointer",
+                      "relative flex flex-col xs:flex-row items-center justify-center gap-1 sm:gap-1.5 p-2 rounded-lg border text-xs font-semibold transition-all cursor-pointer",
                       paymentMethod === "upi"
                         ? "border-emerald-500 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 shadow-xs font-bold ring-1 ring-emerald-500/30"
                         : "border-border text-muted-foreground hover:bg-muted"
                     )}
                   >
-                    <Smartphone className="size-3.5 text-emerald-500" />
-                    <span>Direct UPI (GPay/QR)</span>
-                    <span className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 text-[9px] font-bold">
+                    <div className="flex items-center gap-1.5">
+                      <Smartphone className="size-3.5 text-emerald-500 shrink-0" />
+                      <span>Direct UPI</span>
+                    </div>
+                    <span className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 text-[8px] sm:text-[9px] font-bold">
                       Active
                     </span>
                   </button>
@@ -641,7 +646,7 @@ function PaymentPortalPage() {
 
               {/* Checkout Action Area */}
               {paymentMethod === "razorpay" ? (
-                <div className="space-y-4 rounded-xl border border-amber-500/30 bg-gradient-to-b from-amber-500/[0.08] to-amber-500/[0.02] p-5 text-center shadow-xs">
+                <div className="space-y-4 rounded-xl border border-amber-500/30 bg-gradient-to-b from-amber-500/[0.08] to-amber-500/[0.02] p-4 sm:p-5 text-center shadow-xs">
                   <div className="relative mx-auto size-14 flex items-center justify-center">
                     <span className="absolute inset-0 rounded-2xl bg-amber-500/20 animate-ping opacity-35" />
                     <div
@@ -705,28 +710,42 @@ function PaymentPortalPage() {
                   </div>
                 </div>
               ) : (
-                <div className="space-y-3 rounded-xl border border-emerald-500/30 bg-emerald-500/[0.04] p-3.5 text-xs">
+                <div className="space-y-3.5 rounded-xl border border-emerald-500/30 bg-emerald-500/[0.04] p-3.5 sm:p-4 text-xs">
                   <div className="flex items-center justify-between">
                     <span className="font-semibold text-emerald-700 dark:text-emerald-300 flex items-center gap-1.5">
-                      <QrCode className="size-4" /> Scan &amp; Pay via Any UPI App
+                      <QrCode className="size-4 shrink-0" /> Scan &amp; Pay via Any UPI App
                     </span>
                     <Badge variant="outline" className="border-emerald-500/30 text-[10px] text-emerald-600">
                       Instant GPay / PhonePe
                     </Badge>
                   </div>
 
-                  <div className="flex flex-col sm:flex-row items-center gap-3 pt-1">
-                    <div className="size-24 shrink-0 rounded-lg border border-border bg-white p-1 shadow-xs flex items-center justify-center">
+                  {/* 1-Tap Mobile Launch button for phones */}
+                  <div className="sm:hidden pt-1">
+                    <a
+                      href={`upi://pay?pa=${encodeURIComponent(merchantUpi)}&pn=${encodeURIComponent("Marginal Economics")}&am=${finalPrice}&cu=INR`}
+                      className="flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white py-2.5 px-3 text-xs font-bold shadow-sm transition-all text-center"
+                    >
+                      <Smartphone className="size-4 shrink-0" />
+                      <span>Tap to Open in UPI App (GPay / PhonePe)</span>
+                    </a>
+                    <p className="text-[10px] text-center text-muted-foreground mt-1">
+                      Opens your phone's UPI app with the exact ₹{finalPrice.toLocaleString()} pre-filled.
+                    </p>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row items-center sm:items-start text-center sm:text-left gap-3.5 pt-1">
+                    <div className="size-28 sm:size-24 shrink-0 rounded-lg border border-border bg-white p-1.5 shadow-xs flex items-center justify-center mx-auto sm:mx-0">
                       <img
                         src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(`upi://pay?pa=${merchantUpi}&pn=Marginal%20Economics&am=${finalPrice}&cu=INR`)}`}
                         alt="UPI Payment QR Code"
                         className="size-full object-contain"
                       />
                     </div>
-                    <div className="space-y-1 flex-1 min-w-0">
+                    <div className="space-y-1.5 flex-1 min-w-0 w-full sm:w-auto">
                       <p className="text-[11px] text-muted-foreground">Merchant UPI ID:</p>
-                      <div className="flex items-center gap-1.5">
-                        <code className="text-xs font-mono font-bold bg-muted px-2 py-0.5 rounded-md text-foreground select-all">
+                      <div className="flex items-center justify-center sm:justify-start gap-1.5 flex-wrap">
+                        <code className="text-xs font-mono font-bold bg-muted px-2 py-1 rounded-md text-foreground select-all break-all inline-block max-w-full">
                           {merchantUpi}
                         </code>
                         <Button
@@ -734,28 +753,40 @@ function PaymentPortalPage() {
                           variant="ghost"
                           size="sm"
                           onClick={handleCopyUpi}
-                          className="h-6 px-1.5 text-[10px] gap-1 cursor-pointer"
+                          className="h-7 px-2 text-[11px] gap-1 cursor-pointer shrink-0"
                         >
-                          {copiedUpi ? <Check className="size-3 text-emerald-500" /> : <Copy className="size-3" />}
+                          {copiedUpi ? <Check className="size-3.5 text-emerald-500" /> : <Copy className="size-3.5" />}
                           {copiedUpi ? "Copied" : "Copy"}
                         </Button>
                       </div>
-                      <p className="text-[10px] text-muted-foreground">
-                        Amount: <strong className="text-foreground">₹{finalPrice.toLocaleString()}</strong>
+                      <p className="text-[11px] text-muted-foreground">
+                        Amount: <strong className="text-foreground font-bold">₹{finalPrice.toLocaleString()}</strong>
                       </p>
                     </div>
                   </div>
 
                   <div className="space-y-1.5 pt-2 border-t border-emerald-500/20">
-                    <Label htmlFor="utr-input" className="text-xs font-semibold text-foreground">
-                      Enter 12-Digit UPI Reference (UTR) Number
-                    </Label>
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="utr-input" className="text-xs font-semibold text-foreground">
+                        Enter 12-Digit UPI Reference (UTR) Number
+                      </Label>
+                      <span className={cn("text-[10px] font-mono font-bold", utrNumber.length === 12 ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground")}>
+                        {utrNumber.length}/12 digits
+                      </span>
+                    </div>
                     <Input
                       id="utr-input"
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      maxLength={12}
                       placeholder="e.g. 428190342156"
                       value={utrNumber}
-                      onChange={(e) => setUtrNumber(e.target.value)}
-                      className="h-9 text-xs font-mono bg-background"
+                      onChange={(e) => {
+                        const clean = e.target.value.replace(/\D/g, "").slice(0, 12);
+                        setUtrNumber(clean);
+                      }}
+                      className="h-10 text-xs sm:text-sm font-mono tracking-wider bg-background"
                     />
                     <p className="text-[10px] text-muted-foreground">
                       Found in your GPay / PhonePe / Paytm receipt after transfer.
@@ -764,10 +795,10 @@ function PaymentPortalPage() {
 
                   <Button
                     onClick={handleUpiActivation}
-                    disabled={isProcessing || !utrNumber.trim()}
-                    className="w-full h-10 text-xs font-bold gap-2 bg-emerald-600 hover:bg-emerald-700 text-white shadow-md cursor-pointer"
+                    disabled={isProcessing || utrNumber.length !== 12}
+                    className="w-full h-11 text-xs sm:text-sm font-bold gap-2 bg-emerald-600 hover:bg-emerald-700 text-white shadow-md cursor-pointer disabled:opacity-50"
                   >
-                    <Clock className="size-4" />
+                    <Clock className="size-4 shrink-0" />
                     {isProcessing ? "Submitting Reference..." : "Submit UTR for Admin Verification"}
                   </Button>
                   <p className="text-[10px] text-center text-muted-foreground pt-0.5">

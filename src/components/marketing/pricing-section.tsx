@@ -308,37 +308,37 @@ export function PricingSection({ className }: { className?: string }) {
           </p>
 
           {/* ── Audience Selector (Students vs Schools) ── */}
-          <div className="mt-8 inline-flex items-center rounded-xl border border-border bg-muted/60 p-1.5 shadow-xs">
+          <div className="mt-8 inline-flex max-w-full flex-wrap sm:flex-nowrap items-center justify-center rounded-xl border border-border bg-muted/60 p-1 sm:p-1.5 shadow-xs gap-1 sm:gap-0">
             <button
               type="button"
               onClick={() => setAudience("students")}
               className={cn(
-                "flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-semibold transition-all sm:text-sm",
+                "flex items-center justify-center gap-1.5 sm:gap-2 rounded-lg px-3 sm:px-4 py-2 text-xs font-semibold transition-all sm:text-sm",
                 audience === "students"
                   ? "bg-background text-foreground shadow-xs"
                   : "text-muted-foreground hover:text-foreground",
               )}
             >
-              <GraduationCap className="size-4 text-primary" />
-              For Students &amp; Candidates
+              <GraduationCap className="size-4 text-primary shrink-0" />
+              <span>For Students &amp; Candidates</span>
             </button>
             <button
               type="button"
               onClick={() => setAudience("schools")}
               className={cn(
-                "flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-semibold transition-all sm:text-sm",
+                "flex items-center justify-center gap-1.5 sm:gap-2 rounded-lg px-3 sm:px-4 py-2 text-xs font-semibold transition-all sm:text-sm",
                 audience === "schools"
                   ? "bg-background text-foreground shadow-xs"
                   : "text-muted-foreground hover:text-foreground",
               )}
             >
-              <School className="size-4 text-primary" />
-              For Schools &amp; Departments
+              <School className="size-4 text-primary shrink-0" />
+              <span>For Schools &amp; Departments</span>
             </button>
           </div>
 
           {/* ── Billing Cycle Toggle ── */}
-          <div className="mt-6 flex items-center justify-center gap-3">
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-2.5 sm:gap-3">
             <span
               className={cn(
                 "text-xs font-medium transition-colors sm:text-sm",
@@ -373,7 +373,7 @@ export function PricingSection({ className }: { className?: string }) {
               Annual Billing
               <Badge
                 variant="secondary"
-                className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-[10px] font-bold"
+                className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-[10px] font-bold whitespace-nowrap"
               >
                 Save up to 33%
               </Badge>

@@ -40,14 +40,14 @@ function PricingPage() {
           </Link>
 
           <div className="flex items-center gap-2">
-            <Button asChild variant="outline" size="sm" className="text-xs">
+            <Button asChild variant="outline" size="sm" className="text-xs px-2.5 sm:px-3">
               <Link to="/dashboard">
-                Go to Dashboard <ArrowRight className="ml-1.5 size-3.5" />
+                <span className="hidden sm:inline">Go to </span>Dashboard <ArrowRight className="ml-1 sm:ml-1.5 size-3.5" />
               </Link>
             </Button>
-            <Button asChild variant="ghost" size="sm" className="text-xs">
+            <Button asChild variant="ghost" size="sm" className="text-xs px-2 sm:px-3">
               <Link to="/">
-                <ArrowLeft className="mr-1.5 size-3.5" /> Home
+                <ArrowLeft className="mr-1 sm:mr-1.5 size-3.5" /> Home
               </Link>
             </Button>
           </div>
@@ -55,18 +55,18 @@ function PricingPage() {
       </header>
 
       {/* Free Tier Onboarding Banner */}
-      <section className="border-b border-border bg-primary/[0.03] py-4 px-4 sm:px-6">
+      <section className="border-b border-border bg-primary/[0.03] py-3.5 sm:py-4 px-4 sm:px-6">
         <div className="mx-auto flex max-w-5xl flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-left">
           <div className="flex items-center gap-2.5">
             <Sparkles className="size-4 text-primary shrink-0" />
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-muted-foreground leading-relaxed">
               <strong className="text-foreground font-semibold">Get Started Free:</strong> Every student gets{" "}
               <strong className="text-foreground font-semibold">2 Free Graded Essays</strong> and{" "}
               <strong className="text-foreground font-semibold">30 Days of MCQ Past Papers</strong> with zero upfront payment.
             </p>
           </div>
 
-          <Button asChild size="sm" variant="secondary" className="text-xs font-semibold shrink-0 h-8">
+          <Button asChild size="sm" variant="secondary" className="text-xs font-semibold shrink-0 h-auto sm:h-8 py-2 sm:py-0 w-full sm:w-auto">
             <Link to="/dashboard">
               Continue with Free Tier (2 Free Essays) <ArrowRight className="ml-1 size-3" />
             </Link>
