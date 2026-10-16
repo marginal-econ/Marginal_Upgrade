@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import {
   ArrowRight,
   BookOpen,
+  Cpu,
   ExternalLink,
   Gift,
   LineChart,
@@ -317,12 +318,17 @@ function Index() {
           <div>
             <Reveal>
               <div className="flex flex-wrap items-center gap-2">
-                <span className="chip-soft">
+                <span className="chip-soft shadow-xs flex items-center gap-1.5 border border-primary/20 bg-primary/5">
+                  <span className="relative flex size-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                    <span className="relative inline-flex rounded-full size-2 bg-primary"></span>
+                  </span>
                   <Sparkles className="size-3.5 text-primary" />
                   Cambridge 9708 Examiner Calibration
                 </span>
-                <span className="rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 text-[10.5px] font-mono font-semibold text-emerald-600 dark:text-emerald-400">
-                  May/June 2026 Aligned
+                <span className="rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 text-[10.5px] font-mono font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+                  <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  RAG Grounded · May/June 2026
                 </span>
               </div>
             </Reveal>
@@ -402,7 +408,16 @@ function Index() {
                 <span className="inline-flex items-center gap-1.5 font-medium text-foreground bg-muted/60 px-2.5 py-1 rounded-md border border-border/60">
                   <Target className="size-3.5 text-primary" /> Papers 1, 2, 3 &amp; 4
                 </span>
-                <a href="#graded-exemplar" className="nav-link font-semibold text-primary inline-flex items-center gap-1 ml-1">
+                <a
+                  href="#rag-engine"
+                  className="inline-flex items-center gap-1.5 font-bold text-foreground bg-primary/10 hover:bg-primary/20 transition-colors px-2.5 py-1 rounded-md border border-primary/30"
+                >
+                  <Cpu className="size-3.5 text-primary animate-pulse" /> Cambridge RAG Engine ↓
+                </a>
+                <a
+                  href="#graded-exemplar"
+                  className="nav-link font-semibold text-primary inline-flex items-center gap-1 ml-1"
+                >
                   Inspect real graded essay below ↓
                 </a>
               </div>

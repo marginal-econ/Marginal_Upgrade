@@ -28,6 +28,7 @@ import {
   Lock,
   LineChart,
   Trophy,
+  ArrowRight,
 } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
@@ -155,6 +156,37 @@ function filterGroupForRole(
   return { ...group, items: visibleItems };
 }
 
+const GROUP_META: Record<
+  string,
+  { dot: string; text: string; bg: string }
+> = {
+  grading: {
+    dot: "bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.6)]",
+    text: "text-indigo-600 dark:text-indigo-400",
+    bg: "hover:bg-indigo-500/10",
+  },
+  classroom_progress: {
+    dot: "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]",
+    text: "text-emerald-600 dark:text-emerald-400",
+    bg: "hover:bg-emerald-500/10",
+  },
+  syllabus: {
+    dot: "bg-sky-500 shadow-[0_0_8px_rgba(14,165,233,0.6)]",
+    text: "text-sky-600 dark:text-sky-400",
+    bg: "hover:bg-sky-500/10",
+  },
+  experimental: {
+    dot: "bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.6)]",
+    text: "text-amber-600 dark:text-amber-400",
+    bg: "hover:bg-amber-500/10",
+  },
+  admin: {
+    dot: "bg-purple-500 shadow-[0_0_8px_rgba(168,85,247,0.6)]",
+    text: "text-purple-600 dark:text-purple-400",
+    bg: "hover:bg-purple-500/10",
+  },
+};
+
 export function AppShell({
   children,
   role,
@@ -251,9 +283,9 @@ export function AppShell({
   };
 
   const renderNavGroup = (group: NavGroup, isMobile = false) => {
-    const isGroupCollapsed = group.collapsible && collapsedGroups.has(group.id);
-    const hasActiveItem = group.items.some((item) => isItemActive(item.to));
-    const forceOpen = hasActiveItem || !isGroupCollapsed;
+    const isCollapsed = collapsedGroups.has(group.id);
+    const isOpen = !isCollapsed;
+    const meta = GROUP_META[group.id];
 
     return (
       <div key={group.id} className="space-y-0.5">
@@ -264,20 +296,31 @@ export function AppShell({
             <button
               type="button"
               onClick={() => group.collapsible && toggleGroup(group.id)}
-              className="w-full flex items-center justify-between px-2.5 pt-3 pb-1 text-[10px] font-bold tracking-wider text-muted-foreground/70 uppercase select-none hover:text-foreground transition-colors group cursor-pointer text-left"
-              title={forceOpen ? "Collapse section" : "Expand section"}
+              className={cn(
+                "w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-[10.5px] font-bold tracking-tight uppercase select-none transition-all duration-200 group cursor-pointer text-left",
+                meta?.bg ?? "hover:bg-sidebar-accent/50",
+                isOpen ? (meta?.text ?? "text-foreground") : "text-muted-foreground/70 hover:text-foreground",
+              )}
+              title={isOpen ? "Collapse section" : "Expand section"}
             >
-              <span className="flex items-center gap-1.5 truncate">
+              <span className="flex items-center gap-2 truncate">
+                <span
+                  className={cn(
+                    "size-1.5 rounded-full transition-transform duration-200 shrink-0",
+                    meta?.dot ?? "bg-primary/70",
+                    isOpen && "scale-125",
+                  )}
+                />
+                <span className="truncate">{group.label}</span>
                 {group.isExperimental && !isHigherTierUser ? (
                   <Lock className="size-3 text-amber-500 shrink-0" />
                 ) : null}
-                <span>{group.label}</span>
               </span>
               {group.collapsible ? (
                 <ChevronDown
                   className={cn(
-                    "size-3 text-muted-foreground/50 transition-transform duration-200 group-hover:text-foreground shrink-0",
-                    !forceOpen && "-rotate-90",
+                    "size-3 text-muted-foreground/50 transition-transform duration-300 ease-out group-hover:text-foreground shrink-0",
+                    !isOpen && "-rotate-90 text-muted-foreground/30",
                   )}
                 />
               ) : null}
@@ -285,97 +328,118 @@ export function AppShell({
           )
         ) : null}
 
-        {(forceOpen || (sidebarCollapsed && !isMobile)) && (
-          <nav className="flex flex-col gap-0.5">
-            {group.items.map((item) => {
-              const active = isItemActive(item.to);
-              const label = item.to === "/classes" ? classroomLabel : item.label;
+        <div
+          className={cn(
+            "grid transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] overflow-hidden",
+            isOpen || (sidebarCollapsed && !isMobile)
+              ? "grid-rows-[1fr] opacity-100"
+              : "grid-rows-[0fr] opacity-0 pointer-events-none",
+          )}
+        >
+          <div className="min-h-0 overflow-hidden space-y-0.5">
+            <nav className="flex flex-col gap-0.5 pt-0.5 pb-1">
+              {group.items.map((item) => {
+                const active = isItemActive(item.to);
+                const label = item.to === "/classes" ? classroomLabel : item.label;
 
-              const isChainedPaid = item.requiresPaid && !canLiveExaminer;
-              const isChainedEssay = item.to === "/grade" && !isUserAdmin && Boolean(subscription) && !subscription.canGradeEssay;
-              const isChainedMCQ = item.to === "/mcq-live" && !isUserAdmin && Boolean(subscription) && !subscription.canUseMCQ;
-              const isLockedExperimental = item.requiresHigherTier && !isHigherTierUser;
-              const isLocked = isChainedPaid || isChainedEssay || isChainedMCQ || isLockedExperimental;
+                const isChainedPaid = item.requiresPaid && !canLiveExaminer;
+                const isChainedEssay =
+                  item.to === "/grade" &&
+                  !isUserAdmin &&
+                  Boolean(subscription) &&
+                  !subscription.canGradeEssay;
+                const isChainedMCQ =
+                  item.to === "/mcq-live" &&
+                  !isUserAdmin &&
+                  Boolean(subscription) &&
+                  !subscription.canUseMCQ;
+                const isLockedExperimental = item.requiresHigherTier && !isHigherTierUser;
+                const isLocked =
+                  isChainedPaid || isChainedEssay || isChainedMCQ || isLockedExperimental;
 
-              if (isLocked) {
-                const lockType: LockedFeatureType = isChainedPaid
-                  ? "live_examiner"
-                  : isChainedEssay
-                  ? "essay_limit"
-                  : isChainedMCQ
-                  ? "mcq_limit"
-                  : "experimental";
-                const isChained = isChainedPaid || isChainedEssay || isChainedMCQ;
+                if (isLocked) {
+                  const lockType: LockedFeatureType = isChainedPaid
+                    ? "live_examiner"
+                    : isChainedEssay
+                    ? "essay_limit"
+                    : isChainedMCQ
+                    ? "mcq_limit"
+                    : "experimental";
+                  const isChained = isChainedPaid || isChainedEssay || isChainedMCQ;
+
+                  return (
+                    <button
+                      key={item.to}
+                      type="button"
+                      onClick={() => {
+                        if (isMobile) setMobileDrawerOpen(false);
+                        setLockedModalType(lockType);
+                      }}
+                      className={cn(
+                        "group relative flex w-full items-center rounded-xl py-2 text-xs font-medium text-sidebar-foreground/75 transition-all duration-200 text-left cursor-pointer",
+                        sidebarCollapsed && !isMobile ? "justify-center px-2" : "gap-2.5 px-2.5",
+                        "hover:bg-sidebar-accent/70 hover:text-sidebar-accent-foreground hover:translate-x-1",
+                      )}
+                      title={`${label} (${isChained ? "Chained · Limit Reached" : "Mastery Pass"})`}
+                    >
+                      <item.icon
+                        className={cn(
+                          "size-4 shrink-0 transition-transform duration-200 group-hover:scale-110",
+                          isChained
+                            ? "text-amber-500/90"
+                            : "text-muted-foreground/70 group-hover:text-amber-500",
+                        )}
+                      />
+                      <span className={cn("truncate", sidebarCollapsed && !isMobile && "sr-only")}>
+                        {label}
+                      </span>
+                      {!sidebarCollapsed || isMobile ? (
+                        <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 text-[9px] font-bold text-amber-600 dark:text-amber-400 shadow-2xs group-hover:bg-amber-500/25 transition-colors">
+                          <Lock className="size-2.5 animate-pulse" />
+                          {isChained ? "Chained" : "Locked"}
+                        </span>
+                      ) : null}
+                    </button>
+                  );
+                }
 
                 return (
-                  <button
+                  <Link
                     key={item.to}
-                    type="button"
-                    onClick={() => {
-                      if (isMobile) setMobileDrawerOpen(false);
-                      setLockedModalType(lockType);
-                    }}
+                    to={item.to}
+                    onClick={() => isMobile && setMobileDrawerOpen(false)}
                     className={cn(
-                      "group relative flex w-full items-center rounded-lg py-1.5 text-xs font-medium text-sidebar-foreground/75 transition-all duration-150 text-left cursor-pointer",
+                      "group relative flex items-center rounded-xl py-2 text-xs font-medium transition-all duration-200",
                       sidebarCollapsed && !isMobile ? "justify-center px-2" : "gap-2.5 px-2.5",
-                      "hover:bg-sidebar-accent/80 hover:text-sidebar-accent-foreground",
+                      active
+                        ? "bg-sidebar-accent text-sidebar-accent-foreground font-semibold shadow-2xs"
+                        : "text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground hover:translate-x-1",
                     )}
-                    title={`${label} (${isChained ? "Chained · Limit Reached" : "Mastery Pass"})`}
+                    title={label}
                   >
+                    {active && (!sidebarCollapsed || isMobile) ? (
+                      <span className="absolute left-0.5 top-2 bottom-2 w-1 rounded-full bg-primary shadow-[0_0_8px_rgba(var(--primary),0.6)]" />
+                    ) : null}
                     <item.icon
                       className={cn(
-                        "size-4 shrink-0 transition-transform group-hover:scale-105",
-                        isChained ? "text-amber-500/80" : "text-muted-foreground/70",
+                        "size-4 shrink-0 transition-transform duration-200 group-hover:scale-110",
+                        active ? "text-primary" : "text-muted-foreground/80 group-hover:text-foreground",
                       )}
                     />
                     <span className={cn("truncate", sidebarCollapsed && !isMobile && "sr-only")}>
                       {label}
                     </span>
-                    {!sidebarCollapsed || isMobile ? (
-                      <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-amber-500/15 border border-amber-500/30 px-1.5 py-0.2 text-[9px] font-bold text-amber-600 dark:text-amber-400">
-                        <Lock className="size-2.5" />
-                        {isChained ? "Chained" : "Locked"}
+                    {item.badge && (!sidebarCollapsed || isMobile) ? (
+                      <span className="ml-auto rounded-full bg-emerald-500/15 border border-emerald-500/20 px-1.5 py-0.2 text-[9px] font-bold text-emerald-600 dark:text-emerald-400 shadow-2xs group-hover:bg-emerald-500/25 transition-colors">
+                        {item.badge}
                       </span>
                     ) : null}
-                  </button>
+                  </Link>
                 );
-              }
-
-              return (
-                <Link
-                  key={item.to}
-                  to={item.to}
-                  onClick={() => isMobile && setMobileDrawerOpen(false)}
-                  className={cn(
-                    "group relative flex items-center rounded-lg py-1.5 text-xs font-medium text-sidebar-foreground/80 transition-all duration-150",
-                    sidebarCollapsed && !isMobile ? "justify-center px-2" : "gap-2.5 px-2.5",
-                    "hover:bg-sidebar-accent/80 hover:text-sidebar-accent-foreground",
-                    active && "bg-sidebar-accent font-semibold text-sidebar-accent-foreground shadow-2xs",
-                  )}
-                  title={label}
-                >
-                  {active && (!sidebarCollapsed || isMobile) ? (
-                    <span className="absolute left-0 top-1.5 bottom-1.5 w-1 rounded-r-full bg-primary" />
-                  ) : null}
-                  <item.icon
-                    className={cn(
-                      "size-4 shrink-0 transition-transform group-hover:scale-105",
-                      active ? "text-primary" : "text-muted-foreground/80",
-                    )}
-                  />
-                  <span className={cn("truncate", sidebarCollapsed && !isMobile && "sr-only")}>
-                    {label}
-                  </span>
-                  {item.badge && (!sidebarCollapsed || isMobile) ? (
-                    <span className="ml-auto rounded-full bg-emerald-500/15 border border-emerald-500/20 px-1.5 py-0.2 text-[9px] font-bold text-emerald-600 dark:text-emerald-400">
-                      {item.badge}
-                    </span>
-                  ) : null}
-                </Link>
-              );
-            })}
-          </nav>
-        )}
+              })}
+            </nav>
+          </div>
+        </div>
       </div>
     );
   };
@@ -453,42 +517,46 @@ export function AppShell({
         {/* User Status & Credit Widget */}
         {!sidebarCollapsed && subscription ? (
           role === "admin" || subscription.isAdmin ? (
-            <div className="mb-2.5 rounded-xl border border-amber-500/30 bg-amber-500/10 p-2.5 shrink-0">
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2 min-w-0">
-                  <div className="size-6 rounded-full bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center text-[10px] font-bold shrink-0">
+            <div className="mb-3 rounded-2xl border border-amber-500/30 bg-gradient-to-br from-amber-500/15 via-card to-amber-500/5 p-3 shrink-0 shadow-sm relative overflow-hidden group">
+              <div className="absolute -right-6 -top-6 size-20 bg-amber-500/15 rounded-full blur-xl pointer-events-none group-hover:scale-125 transition-transform duration-500" />
+              <div className="flex items-center justify-between gap-2 relative z-10">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="relative size-8 rounded-xl bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center text-xs font-bold shrink-0 border border-amber-500/30 shadow-xs">
                     {candidateInitials}
+                    <span className="absolute -bottom-0.5 -right-0.5 size-2 rounded-full bg-emerald-500 border-2 border-background animate-pulse" />
                   </div>
                   <div className="min-w-0">
                     <p className="text-xs font-bold truncate text-foreground leading-tight">
                       {name ?? "Vaquitavoid"}
                     </p>
-                    <p className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold leading-tight">
-                      Administrator
+                    <p className="text-[10px] text-amber-600 dark:text-amber-400 font-bold leading-tight flex items-center gap-1 mt-0.5">
+                      <ShieldCheck className="size-3" /> Administrator
                     </p>
                   </div>
                 </div>
-                <Badge className="bg-amber-500/20 text-amber-600 dark:text-amber-400 border-amber-500/30 text-[9px] font-extrabold uppercase">
+                <Badge className="bg-amber-500/25 text-amber-600 dark:text-amber-400 border-amber-500/40 text-[9px] font-extrabold uppercase shadow-2xs">
                   Root
                 </Badge>
               </div>
-              <div className="mt-2 pt-2 border-t border-amber-500/20 text-[10.5px] text-muted-foreground flex items-center gap-1.5 font-medium">
-                <ShieldCheck className="size-3.5 text-amber-500 shrink-0" />
-                <span className="text-foreground">Uncapped Godmode · No Limits</span>
+              <div className="mt-2.5 pt-2 border-t border-amber-500/20 text-[10.5px] text-muted-foreground flex items-center gap-1.5 font-medium relative z-10">
+                <Sparkles className="size-3 text-amber-500 shrink-0 animate-pulse" />
+                <span className="text-foreground font-semibold">Uncapped Godmode · No Limits</span>
               </div>
             </div>
           ) : (
-            <div className="mb-2.5 rounded-xl border border-border/80 bg-muted/40 p-2.5 shrink-0">
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2 min-w-0">
-                  <div className="size-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[10px] font-bold shrink-0">
+            <div className="mb-3 rounded-2xl border border-border/80 bg-gradient-to-br from-card via-card to-primary/[0.04] p-3 shrink-0 shadow-sm relative overflow-hidden group">
+              <div className="absolute -right-6 -top-6 size-20 bg-primary/10 rounded-full blur-xl pointer-events-none group-hover:scale-125 transition-transform duration-500" />
+              <div className="flex items-center justify-between gap-2 relative z-10">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="relative size-8 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 text-primary flex items-center justify-center text-xs font-bold shrink-0 border border-primary/25 shadow-xs">
                     {candidateInitials}
+                    <span className="absolute -bottom-0.5 -right-0.5 size-2 rounded-full bg-emerald-500 border-2 border-background animate-pulse" />
                   </div>
                   <div className="min-w-0">
-                    <p className="text-xs font-semibold truncate text-foreground leading-tight">
+                    <p className="text-xs font-bold truncate text-foreground leading-tight">
                       {name ?? "Candidate"}
                     </p>
-                    <p className="text-[10px] text-muted-foreground capitalize leading-tight">
+                    <p className="text-[10px] text-muted-foreground capitalize leading-tight mt-0.5 font-medium">
                       {role}
                     </p>
                   </div>
@@ -498,10 +566,10 @@ export function AppShell({
                   <Badge
                     variant="outline"
                     className={cn(
-                      "text-[9.5px] px-1.5 py-0 font-bold shrink-0 cursor-pointer transition-colors hover:opacity-80",
+                      "text-[9.5px] px-2 py-0.5 font-extrabold shrink-0 cursor-pointer transition-all hover:scale-105 shadow-2xs",
                       subscription.isPaid
                         ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                        : "border-primary/30 bg-primary/10 text-primary"
+                        : "border-primary/30 bg-primary/10 text-primary",
                     )}
                   >
                     {subscription.isPaid ? subscription.tierName.split(" ")[0] : "Free Tier"}
@@ -509,28 +577,69 @@ export function AppShell({
                 </Link>
               </div>
 
-              <div className="mt-2 pt-2 border-t border-border/50 space-y-1 text-[10.5px]">
-                <div className="flex items-center justify-between text-muted-foreground">
-                  <span className="flex items-center gap-1">
-                    <PenLine className="size-3 text-primary" /> Essays Left
-                  </span>
-                  <span className="font-semibold text-foreground tabular-nums">
-                    {subscription.essaysLimit === 9999 ? "Unlimited" : `${subscription.essaysRemaining} / ${subscription.essaysLimit}`}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between text-muted-foreground">
-                  <span className="flex items-center gap-1">
-                    <Zap className="size-3 text-amber-500" /> Live Credits
-                  </span>
-                  {subscription.liveExaminerCredits > 0 ? (
-                    <span className="font-semibold text-foreground tabular-nums">
-                      {subscription.liveExaminerCredits}
+              {/* Progress Meters with Glowing Bars */}
+              <div className="mt-3 pt-2.5 border-t border-border/60 space-y-2 relative z-10">
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between text-[10.5px]">
+                    <span className="flex items-center gap-1.5 text-muted-foreground font-medium">
+                      <PenLine className="size-3 text-primary" /> Essays Remaining
                     </span>
-                  ) : (
-                    <Link to="/pricing" className="text-[10px] font-bold text-primary hover:underline">
-                      Upgrade
-                    </Link>
-                  )}
+                    <span className="font-bold text-foreground tabular-nums text-[11px]">
+                      {subscription.essaysLimit === 9999
+                        ? "Unlimited"
+                        : `${subscription.essaysRemaining} / ${subscription.essaysLimit}`}
+                    </span>
+                  </div>
+                  <div className="h-1.5 w-full rounded-full bg-muted/80 overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-primary to-indigo-500 transition-all duration-500"
+                      style={{
+                        width:
+                          subscription.essaysLimit === 9999
+                            ? "100%"
+                            : `${Math.min(
+                                100,
+                                Math.max(
+                                  0,
+                                  (subscription.essaysRemaining / subscription.essaysLimit) * 100,
+                                ),
+                              )}%`,
+                      }}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between text-[10.5px]">
+                    <span className="flex items-center gap-1.5 text-muted-foreground font-medium">
+                      <Zap className="size-3 text-amber-500" /> Live Credits
+                    </span>
+                    {subscription.liveExaminerCredits > 0 ? (
+                      <span className="font-bold text-foreground tabular-nums text-[11px]">
+                        {subscription.liveExaminerCredits}
+                      </span>
+                    ) : (
+                      <Link
+                        to="/pricing"
+                        className="text-[10px] font-bold text-primary hover:underline flex items-center gap-0.5"
+                      >
+                        <span>Upgrade</span> <ArrowRight className="size-2.5" />
+                      </Link>
+                    )}
+                  </div>
+                  {subscription.liveExaminerCredits > 0 ? (
+                    <div className="h-1.5 w-full rounded-full bg-muted/80 overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-gradient-to-r from-amber-500 to-orange-500 transition-all duration-500"
+                        style={{
+                          width: `${Math.min(
+                            100,
+                            Math.max(10, (subscription.liveExaminerCredits / 75) * 100),
+                          )}%`,
+                        }}
+                      />
+                    </div>
+                  ) : null}
                 </div>
               </div>
             </div>
@@ -616,29 +725,51 @@ export function AppShell({
 
                 {subscription ? (
                   role === "admin" || subscription.isAdmin ? (
-                    <div className="mb-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-2.5 shrink-0 text-xs">
+                    <div className="mb-3 rounded-2xl border border-amber-500/30 bg-gradient-to-br from-amber-500/15 via-card to-amber-500/5 p-3 shrink-0 shadow-sm relative overflow-hidden">
                       <div className="flex items-center justify-between">
-                        <span className="font-bold text-foreground">{name ?? "Vaquitavoid"}</span>
-                        <Badge className="bg-amber-500/20 text-amber-600 dark:text-amber-400 border-amber-500/30 text-[9px] font-extrabold uppercase">
+                        <div className="flex items-center gap-2">
+                          <div className="size-6 rounded-lg bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center text-[10px] font-bold shrink-0">
+                            {candidateInitials}
+                          </div>
+                          <span className="font-bold text-foreground text-xs">{name ?? "Vaquitavoid"}</span>
+                        </div>
+                        <Badge className="bg-amber-500/25 text-amber-600 dark:text-amber-400 border-amber-500/40 text-[9px] font-extrabold uppercase shadow-2xs">
                           Root Admin
                         </Badge>
                       </div>
-                      <div className="mt-2 pt-2 border-t border-amber-500/20 text-[10.5px] text-muted-foreground flex items-center gap-1.5 font-medium">
-                        <ShieldCheck className="size-3.5 text-amber-500" />
-                        <span>Uncapped Godmode · No Limits</span>
+                      <div className="mt-2 pt-2 border-t border-amber-500/20 text-[10px] text-muted-foreground flex items-center gap-1.5 font-medium">
+                        <Sparkles className="size-3 text-amber-500 animate-pulse" />
+                        <span className="text-foreground">Uncapped Godmode · No Limits</span>
                       </div>
                     </div>
                   ) : (
-                    <div className="mb-3 rounded-xl border border-border/80 bg-muted/40 p-2.5 shrink-0 text-xs">
+                    <div className="mb-3 rounded-2xl border border-border/80 bg-gradient-to-br from-card via-card to-primary/[0.04] p-3 shrink-0 shadow-sm">
                       <div className="flex items-center justify-between">
-                        <span className="font-semibold">{name ?? "Candidate"}</span>
-                        <Badge variant="outline" className="text-[9px] px-1.5 py-0 font-bold">
-                          {subscription.isPaid ? subscription.tierName : "Free Tier"}
+                        <div className="flex items-center gap-2">
+                          <div className="size-6 rounded-lg bg-primary/10 text-primary flex items-center justify-center text-[10px] font-bold shrink-0">
+                            {candidateInitials}
+                          </div>
+                          <span className="font-bold text-xs text-foreground">{name ?? "Candidate"}</span>
+                        </div>
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            "text-[9px] px-1.5 py-0 font-bold",
+                            subscription.isPaid
+                              ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                              : "border-primary/30 bg-primary/10 text-primary"
+                          )}
+                        >
+                          {subscription.isPaid ? subscription.tierName.split(" ")[0] : "Free Tier"}
                         </Badge>
                       </div>
-                      <div className="mt-2 pt-2 border-t border-border/50 flex justify-between text-[11px] text-muted-foreground">
-                        <span>Essays left: {subscription.essaysRemaining}</span>
-                        <span>Credits: {subscription.liveExaminerCredits}</span>
+                      <div className="mt-2.5 pt-2 border-t border-border/60 flex justify-between text-[10.5px] text-muted-foreground">
+                        <span className="flex items-center gap-1 font-medium">
+                          <PenLine className="size-3 text-primary" /> Essays: {subscription.essaysLimit === 9999 ? "Unlimited" : `${subscription.essaysRemaining}/${subscription.essaysLimit}`}
+                        </span>
+                        <span className="flex items-center gap-1 font-medium">
+                          <Zap className="size-3 text-amber-500" /> Credits: {subscription.liveExaminerCredits}
+                        </span>
                       </div>
                     </div>
                   )
