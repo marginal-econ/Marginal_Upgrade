@@ -71,8 +71,8 @@ export const CAMBRIDGE_PAST_PAPERS_CORPUS: PastPaperReference[] = [
 
 const POPULAR_QUICK_SEARCHES = [
   "AD",
+  "PED",
   "Demerit Goods",
-  "Price Elasticity (PED)",
   "Tariffs",
   "Inflation",
   "Monopoly",
@@ -84,7 +84,7 @@ export function RagEngineSection() {
   const [searchQuery, setSearchQuery] = useState("AD");
   const [showDetails, setShowDetails] = useState(false);
 
-  // Fast, direct corpus retrieval for ANY keyword (e.g. "AD", "demerit goods", "tariffs")
+  // Fast, direct corpus retrieval for ANY keyword (e.g. "AD", "PED", "demerit goods", "tariffs")
   const searchResults = useMemo(() => {
     const raw = searchQuery.trim();
     if (!raw) {
@@ -96,79 +96,85 @@ export function RagEngineSection() {
       };
     }
 
-    const low = raw.toLowerCase().replace(/['"“”‘’]/g, "");
-    const phrases: string[] = [low];
+    const clean = raw.toLowerCase().replace(/['"“”‘’()]/g, " ").replace(/\s+/g, " ").trim();
+    const rawLow = raw.toLowerCase();
+    const phrases: string[] = [rawLow, clean];
 
     // Typo corrections
-    if (low.includes("deprit")) phrases.push("demerit", "demerit good", "negative externality", "indirect tax");
-    if (low.includes("oood")) phrases.push("good", "demerit good");
-    if (low.includes("oppurtunity") || low.includes("oppertunity")) phrases.push("opportunity cost", "ppc");
-    if (low.includes("elasticy")) phrases.push("elasticity", "ped", "pes");
-    if (low.includes("inflaton")) phrases.push("inflation", "demand-pull", "cost-push");
-    if (low.includes("terriff")) phrases.push("tariff", "protectionism");
-    if (low.includes("monoply")) phrases.push("monopoly");
-    if (low.includes("scarsity")) phrases.push("scarcity");
+    if (clean.includes("deprit")) phrases.push("demerit", "demerit good", "negative externality", "indirect tax");
+    if (clean.includes("oood")) phrases.push("good", "demerit good");
+    if (clean.includes("oppurtunity") || clean.includes("oppertunity")) phrases.push("opportunity cost", "ppc");
+    if (clean.includes("elasticy")) phrases.push("elasticity", "ped", "pes");
+    if (clean.includes("inflaton")) phrases.push("inflation", "demand-pull", "cost-push");
+    if (clean.includes("terriff")) phrases.push("tariff", "protectionism");
+    if (clean.includes("monoply")) phrases.push("monopoly");
+    if (clean.includes("scarsity")) phrases.push("scarcity");
 
-    // Cambridge acronym expansions
-    if (low === "ad" || low === "aggregate demand") {
+    // Token extraction
+    const tokens = clean.split(" ").filter((w) => w.length > 0);
+
+    // Cambridge acronym expansions (handles lowercase, uppercase, with or without parentheses)
+    if (tokens.includes("ped") || clean === "ped" || clean.includes("price elasticity") || clean.includes("elasticity")) {
+      phrases.push("ped", "price elasticity of demand", "price elasticity", "elasticity of demand", "elasticity");
+    }
+    if (tokens.includes("pes") || clean === "pes") {
+      phrases.push("pes", "price elasticity of supply", "elasticity of supply");
+    }
+    if (tokens.includes("yed") || clean === "yed") {
+      phrases.push("yed", "income elasticity of demand", "income elasticity");
+    }
+    if (tokens.includes("xed") || clean === "xed") {
+      phrases.push("xed", "cross elasticity of demand", "cross elasticity");
+    }
+    if (tokens.includes("ad") || clean === "ad" || clean.includes("aggregate demand")) {
       phrases.push("aggregate demand", "ad/as", "ad-as", "aggregate demand (ad)");
-    } else if (low === "as" || low === "aggregate supply") {
+    }
+    if (tokens.includes("as") || clean === "as" || clean.includes("aggregate supply")) {
       phrases.push("aggregate supply", "sras", "lras");
-    } else if (low === "ped") {
-      phrases.push("price elasticity of demand", "ped");
-    } else if (low === "pes") {
-      phrases.push("price elasticity of supply", "pes");
-    } else if (low === "yed") {
-      phrases.push("income elasticity of demand");
-    } else if (low === "xed") {
-      phrases.push("cross elasticity of demand");
-    } else if (low === "ppc" || low === "ppf") {
-      phrases.push("production possibility curve", "opportunity cost");
-    } else if (low === "bop") {
+    }
+    if (tokens.includes("ppc") || tokens.includes("ppf") || clean === "ppc" || clean === "ppf" || clean.includes("production possibility")) {
+      phrases.push("production possibility curve", "opportunity cost", "ppc", "ppf");
+    }
+    if (tokens.includes("bop") || clean === "bop") {
       phrases.push("balance of payments", "current account");
-    } else if (low === "cpi") {
+    }
+    if (tokens.includes("cpi") || clean === "cpi") {
       phrases.push("consumer price index", "inflation");
     }
 
-    const isShortAcronym = low.length <= 3;
-    const wordRegex = isShortAcronym ? new RegExp(`\\b${low}\\b`, "i") : null;
+    const textMatches = (text: string) => {
+      const t = text.toLowerCase();
+      // 1. Direct phrase or acronym match
+      for (const phrase of phrases) {
+        if (phrase.length >= 2 && t.includes(phrase)) return true;
+      }
+      // 2. Individual tokens match (e.g. if searching multi-word query, matches if words appear)
+      if (tokens.length >= 2 && tokens.every((tok) => t.includes(tok))) {
+        return true;
+      }
+      // 3. Whole-word match for short tokens like "ped", "ad", "ppc"
+      for (const tok of tokens) {
+        if (tok.length <= 4) {
+          const re = new RegExp(`\\b${tok}\\b`, "i");
+          if (re.test(t)) return true;
+        }
+      }
+      return false;
+    };
 
     // 1. Match Cambridge Master Definitions
     const matchedDefs = CAMBRIDGE_CORE_DEFINITIONS.filter((d) => {
-      const termLow = d.term.toLowerCase();
-      const textLow = d.definition_text.toLowerCase();
-      const catLow = d.category.toLowerCase();
-
-      for (const phrase of phrases) {
-        if (termLow.includes(phrase) || textLow.includes(phrase) || catLow.includes(phrase)) return true;
-      }
-      if (wordRegex && (wordRegex.test(d.term) || wordRegex.test(d.definition_text))) return true;
-      return false;
+      return textMatches(d.term) || textMatches(d.definition_text) || textMatches(d.category);
     });
 
     // 2. Match Past Papers & Mark Schemes
     const matchedPapers = CAMBRIDGE_PAST_PAPERS_CORPUS.filter((p) => {
-      const stemLow = p.stem.toLowerCase();
-      const codeLow = p.paperCode.toLowerCase();
-      const titleLow = p.topicTitle.toLowerCase();
-
-      for (const phrase of phrases) {
-        if (stemLow.includes(phrase) || codeLow.includes(phrase) || titleLow.includes(phrase)) return true;
-      }
-      if (wordRegex && (wordRegex.test(p.stem) || wordRegex.test(p.topicTitle))) return true;
-      return false;
+      return textMatches(p.stem) || textMatches(p.paperCode) || textMatches(p.topicTitle);
     });
 
     // 3. Match Syllabus Chapters
     const matchedChapters = SYLLABUS_CHAPTERS.filter((ch) => {
-      const titleLow = ch.title.toLowerCase();
-      const conceptsLow = ch.concepts.join(" ").toLowerCase();
-
-      for (const phrase of phrases) {
-        if (titleLow.includes(phrase) || conceptsLow.includes(phrase)) return true;
-      }
-      if (wordRegex && (wordRegex.test(ch.title) || wordRegex.test(conceptsLow))) return true;
-      return false;
+      return textMatches(ch.title) || ch.concepts.some((c) => textMatches(c)) || textMatches(ch.category);
     });
 
     return {
