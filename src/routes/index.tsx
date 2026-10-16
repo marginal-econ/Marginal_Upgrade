@@ -5,19 +5,33 @@ import { useEffect, useState } from "react";
 import {
   ArrowRight,
   BookOpen,
+  Check,
+  Copy,
   Cpu,
   ExternalLink,
   Gift,
   LineChart,
   ListChecks,
   Mail,
+  MessageCircle,
   PenLine,
   Scan,
+  Send,
+  Share2,
   ShieldCheck,
   Sparkles,
   Target,
   TrendingUp,
+  Users,
 } from "lucide-react";
+import { toast } from "sonner";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 import { Button } from "@/components/ui/button";
 
@@ -259,6 +273,32 @@ function Index() {
   const [invitedBy, setInvitedBy] = useState<string | null>(null);
   useEffect(() => setInvitedBy(captureReferralCode()), []);
 
+  const [shareOpen, setShareOpen] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
+  const [copiedMessage, setCopiedMessage] = useState(false);
+
+  const shareOrigin = typeof window !== "undefined" ? window.location.origin : "https://marginal.vaquitavoid.workers.dev";
+  const shareUrl = `${shareOrigin}${invitedBy ? `?ref=${encodeURIComponent(invitedBy)}` : ""}`;
+  const shareMessage = `Hey! I'm using Marginal for Cambridge AS & A Level Economics (9708). It breaks down essays into real AO1/AO2/AO3 marks grounded in official Cambridge mark schemes, plus instant examiner rewrite feedback. You get 2 free essays and 30 days of MCQ drills:\n${shareUrl}`;
+
+  const handleCopyLink = () => {
+    if (typeof navigator !== "undefined" && navigator.clipboard) {
+      navigator.clipboard.writeText(shareUrl);
+      setCopiedLink(true);
+      toast.success("Invite link copied to clipboard!");
+      setTimeout(() => setCopiedLink(false), 2000);
+    }
+  };
+
+  const handleCopyMessage = () => {
+    if (typeof navigator !== "undefined" && navigator.clipboard) {
+      navigator.clipboard.writeText(shareMessage);
+      setCopiedMessage(true);
+      toast.success("Study group message copied to clipboard!");
+      setTimeout(() => setCopiedMessage(false), 2000);
+    }
+  };
+
   return (
     <div className="min-h-screen overflow-x-hidden bg-background">
       <CustomCursor />
@@ -376,14 +416,14 @@ function Index() {
                   </Link>
                 </Button>
                 <Button
-                  asChild
+                  type="button"
                   variant="outline"
                   size="lg"
-                  className="h-11 px-5 text-sm font-semibold border-2 hover:bg-muted"
+                  onClick={() => setShareOpen(true)}
+                  className="h-11 px-5 text-sm font-semibold border-2 hover:bg-muted gap-2 shadow-xs group cursor-pointer"
                 >
-                  <Link to="/exemplar">
-                    Real Graded Essay (10/12) <ExternalLink className="size-3.5 ml-1.5 text-primary" />
-                  </Link>
+                  <Share2 className="size-4 text-primary transition-transform group-hover:scale-110" />
+                  <span>Share with Classmates</span>
                 </Button>
               </div>
               <p className="mt-2 text-xs text-muted-foreground">
@@ -752,7 +792,7 @@ function Index() {
                     size="lg"
                     className="h-11 px-4 text-xs sm:text-sm font-semibold text-plum-foreground/80 hover:text-plum-foreground hover:bg-white/10"
                   >
-                    <Link to="/exemplar">View 10/12 Exemplar</Link>
+                    <a href="#graded-exemplar">View 10/12 Exemplar ↓</a>
                   </Button>
                 </div>
 
@@ -773,6 +813,146 @@ function Index() {
           </div>
         </Reveal>
       </section>
+
+      {/* ── Share with Classmates Modal ──────────────────────────────────── */}
+      <Dialog open={shareOpen} onOpenChange={setShareOpen}>
+        <DialogContent className="max-w-md sm:max-w-lg border-2 border-border p-6 rounded-2xl shadow-xl">
+          <DialogHeader className="space-y-2 text-left">
+            <div className="flex items-center gap-2.5">
+              <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary border border-primary/20">
+                <Users className="size-5" />
+              </span>
+              <div>
+                <DialogTitle className="text-lg font-bold sm:text-xl">
+                  Share Marginal with Classmates
+                </DialogTitle>
+                <DialogDescription className="text-xs text-muted-foreground mt-0.5">
+                  Invite your study group to practice with official Cambridge 9708 mark schemes &amp; live feedback.
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+
+          <div className="space-y-4 pt-2">
+            {/* Free Classmate Benefit Callout */}
+            <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3.5 text-xs text-emerald-950 dark:text-emerald-200 flex items-start gap-2.5">
+              <Gift className="size-4 shrink-0 text-emerald-600 dark:text-emerald-400 mt-0.5" />
+              <div className="space-y-0.5">
+                <p className="font-semibold text-emerald-700 dark:text-emerald-300">
+                  2 Free Graded Essays + 30-Day MCQ Drills
+                </p>
+                <p className="text-muted-foreground dark:text-emerald-200/80 leading-relaxed">
+                  Anyone who joins through your link gets instant access to 2 full essays marked by our Cambridge 9708 examiner engine, with no credit card required.
+                </p>
+              </div>
+            </div>
+
+            {/* Quick Share Buttons */}
+            <div>
+              <label className="text-xs font-semibold text-foreground mb-2 block">
+                Quick Share via Social &amp; Chat
+              </label>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <a
+                  href={`https://api.whatsapp.com/send?text=${encodeURIComponent(shareMessage)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl border border-border bg-card hover:bg-emerald-500/10 hover:border-emerald-500/30 hover:text-emerald-600 transition-all text-xs font-semibold group cursor-pointer text-center"
+                >
+                  <MessageCircle className="size-5 text-emerald-600 transition-transform group-hover:scale-110" />
+                  <span>WhatsApp</span>
+                </a>
+                <a
+                  href={`https://t.me/share/url?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent("Check out Marginal for Cambridge AS & A Level Economics (9708) — 2 free essays graded + 30-day MCQ drills!")}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl border border-border bg-card hover:bg-sky-500/10 hover:border-sky-500/30 hover:text-sky-600 transition-all text-xs font-semibold group cursor-pointer text-center"
+                >
+                  <Send className="size-5 text-sky-500 transition-transform group-hover:scale-110" />
+                  <span>Telegram</span>
+                </a>
+                <a
+                  href={`https://twitter.com/intent/tweet?text=${encodeURIComponent("Preparing for Cambridge AS & A Level Economics (9708) with Marginal — 2 free essays graded + 30-day MCQ drills:")}&url=${encodeURIComponent(shareUrl)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl border border-border bg-card hover:bg-primary/10 hover:border-primary/30 hover:text-primary transition-all text-xs font-semibold group cursor-pointer text-center"
+                >
+                  <Share2 className="size-5 text-primary transition-transform group-hover:scale-110" />
+                  <span>X / Twitter</span>
+                </a>
+                <a
+                  href={`mailto:?subject=${encodeURIComponent("Cambridge 9708 Economics Prep — 2 Free Graded Essays on Marginal")}&body=${encodeURIComponent(shareMessage)}`}
+                  className="flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl border border-border bg-card hover:bg-muted hover:border-border transition-all text-xs font-semibold group cursor-pointer text-center"
+                >
+                  <Mail className="size-5 text-muted-foreground transition-transform group-hover:scale-110 group-hover:text-foreground" />
+                  <span>Email</span>
+                </a>
+              </div>
+            </div>
+
+            {/* Direct Copy Link Input */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-foreground">
+                Your Shareable Link
+              </label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  readOnly
+                  value={shareUrl}
+                  className="flex-1 rounded-lg border border-border bg-muted/50 px-3 py-2 text-xs font-mono text-foreground focus:outline-hidden"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleCopyLink}
+                  className="gap-1.5 shrink-0 h-9 font-semibold border-2 cursor-pointer"
+                >
+                  {copiedLink ? (
+                    <>
+                      <Check className="size-3.5 text-emerald-500" />
+                      <span>Copied</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="size-3.5" />
+                      <span>Copy</span>
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+
+            {/* Study Group Quick Message */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-semibold text-foreground">
+                  Ready-made message for Discord or group chats
+                </label>
+                <button
+                  type="button"
+                  onClick={handleCopyMessage}
+                  className="text-[11px] font-bold text-primary hover:underline inline-flex items-center gap-1 cursor-pointer"
+                >
+                  {copiedMessage ? (
+                    <>
+                      <Check className="size-3 text-emerald-500" /> Copied
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="size-3" /> Copy full message
+                    </>
+                  )}
+                </button>
+              </div>
+              <div className="rounded-lg border border-border bg-muted/40 p-3 text-xs text-muted-foreground leading-relaxed font-sans select-all">
+                {shareMessage}
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <SiteFooter />
     </div>
@@ -881,9 +1061,9 @@ function SpecimenCard() {
               </ul>
               <div className="mt-4 pt-3 border-t border-border flex items-center justify-between">
                 <span className="text-[11px] text-muted-foreground">Calibrated against real 9708 candidates</span>
-                <Link to="/exemplar" className="text-xs font-bold text-primary hover:underline inline-flex items-center gap-1">
-                  View Full 10/12 Script Exemplar →
-                </Link>
+                <a href="#graded-exemplar" className="text-xs font-bold text-primary hover:underline inline-flex items-center gap-1">
+                  View Full 10/12 Script Exemplar ↓
+                </a>
               </div>
             </div>
           </>
