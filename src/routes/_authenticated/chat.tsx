@@ -228,16 +228,48 @@ export function GroundedChatPage() {
       .replace(/[*_#>`~]/g, "")
       .replace(/\[Source:[^\]]+\]/g, "")
       .replace(/\[Mark Scheme[^\]]+\]/g, "")
-      .replace(/\n+/g, ". ");
+      .replace(/\n+/g, ". ")
+      .trim();
 
-    const utterance = new SpeechSynthesisUtterance(cleanSpeechText);
-    utterance.rate = 1.0;
-    utterance.pitch = 1.0;
-    utterance.onend = () => setSpeakingMsgId(null);
-    utterance.onerror = () => setSpeakingMsgId(null);
+    if (!cleanSpeechText) return;
 
-    setSpeakingMsgId(msgId);
-    window.speechSynthesis.speak(utterance);
+    // Async timeout prevents Chrome from cancelling the queued utterance
+    setTimeout(() => {
+      try {
+        const utterance = new SpeechSynthesisUtterance(cleanSpeechText);
+        utterance.rate = 1.0;
+        utterance.pitch = 1.0;
+
+        const voices = window.speechSynthesis.getVoices();
+        const enVoice = voices.find(
+          (v) => v.lang.startsWith("en") && !v.name.toLowerCase().includes("whisper")
+        );
+        if (enVoice) utterance.voice = enVoice;
+
+        utterance.onstart = () => setSpeakingMsgId(msgId);
+        utterance.onend = () => setSpeakingMsgId(null);
+        utterance.onerror = (e) => {
+          console.warn("Speech synthesis event error:", e);
+          setSpeakingMsgId(null);
+        };
+
+        setSpeakingMsgId(msgId);
+        window.speechSynthesis.speak(utterance);
+
+        // Keep-alive timer for Chromium
+        const timer = setInterval(() => {
+          if (!window.speechSynthesis.speaking) {
+            clearInterval(timer);
+          } else {
+            window.speechSynthesis.pause();
+            window.speechSynthesis.resume();
+          }
+        }, 5000);
+      } catch (err) {
+        console.warn("Could not speak utterance:", err);
+        setSpeakingMsgId(null);
+      }
+    }, 60);
   };
 
   // Primary Message Sender
@@ -306,32 +338,41 @@ export function GroundedChatPage() {
             .replace(/[*_#>`~]/g, "")
             .replace(/\[Source:[^\]]+\]/g, "")
             .replace(/\[Mark Scheme[^\]]+\]/g, "")
-            .replace(/\n+/g, ". ");
+            .replace(/\n+/g, ". ")
+            .trim();
 
-          const utterance = new SpeechSynthesisUtterance(speechText);
-          utterance.rate = 1.05;
-          utterance.pitch = 1.0;
+          setTimeout(() => {
+            const utterance = new SpeechSynthesisUtterance(speechText);
+            utterance.rate = 1.05;
+            utterance.pitch = 1.0;
 
-          utterance.onend = () => {
-            // Conversational Loop: automatically listen for candidate's follow-up!
-            if (voiceModeOpen) {
-              setVoiceStatus("listening");
-              startVoiceRecognition();
-            } else {
-              setVoiceStatus("idle");
-            }
-          };
+            const voices = window.speechSynthesis.getVoices();
+            const enVoice = voices.find(
+              (v) => v.lang.startsWith("en") && !v.name.toLowerCase().includes("whisper")
+            );
+            if (enVoice) utterance.voice = enVoice;
 
-          utterance.onerror = () => {
-            if (voiceModeOpen) {
-              setVoiceStatus("listening");
-              startVoiceRecognition();
-            } else {
-              setVoiceStatus("idle");
-            }
-          };
+            utterance.onend = () => {
+              if (voiceModeOpen) {
+                setVoiceStatus("listening");
+                startVoiceRecognition();
+              } else {
+                setVoiceStatus("idle");
+              }
+            };
 
-          window.speechSynthesis.speak(utterance);
+            utterance.onerror = (e) => {
+              console.warn("Speech synthesis error in voice mode:", e);
+              if (voiceModeOpen) {
+                setVoiceStatus("listening");
+                startVoiceRecognition();
+              } else {
+                setVoiceStatus("idle");
+              }
+            };
+
+            window.speechSynthesis.speak(utterance);
+          }, 60);
         }
       }
     } catch (err: any) {
@@ -345,7 +386,7 @@ export function GroundedChatPage() {
   };
 
   // Start Web Speech Recognition Engine
-  const startVoiceRecognition = () => {
+  const startVoiceRecognition = async () => {
     if (typeof window === "undefined") return;
 
     const SpeechRec =
@@ -353,6 +394,21 @@ export function GroundedChatPage() {
 
     if (!SpeechRec) {
       setMicErrorNote("Speech recognition is not supported in this browser. Please use Chrome, Edge, or Safari.");
+      setVoiceStatus("error");
+      return;
+    }
+
+    // Explicitly verify/request microphone stream to trigger or verify browser site permission
+    try {
+      if (navigator.mediaDevices?.getUserMedia) {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        stream.getTracks().forEach((track) => track.stop());
+      }
+    } catch (err: any) {
+      console.warn("getUserMedia failed:", err);
+      setMicErrorNote(
+        "Microphone permission was denied by your browser. Please click the tune/lock icon in your URL bar, set Microphone to 'Allow', and tap retry."
+      );
       setVoiceStatus("error");
       return;
     }
@@ -1168,85 +1224,143 @@ export function GroundedChatPage() {
  * Clean Claude-Style Markdown Formatter
  */
 function MarkdownContent({ text }: { text: string }) {
-  const blocks = text.split(/\n\s*\n/);
+  const lines = text.split("\n");
+  const elements: React.ReactNode[] = [];
+  let currentList: { type: "ul" | "ol"; items: string[] } | null = null;
+  let currentQuote: string[] = [];
 
-  return (
-    <div className="space-y-3 text-xs sm:text-sm leading-relaxed text-foreground/90">
-      {blocks.map((block, idx) => {
-        const trimmed = block.trim();
-        if (!trimmed) return null;
+  const flushList = () => {
+    if (currentList) {
+      const isOl = currentList.type === "ol";
+      elements.push(
+        isOl ? (
+          <ol key={`ol-${elements.length}`} className="space-y-1.5 pl-1 my-2">
+            {currentList.items.map((it, i) => (
+              <li key={i} className="flex items-start gap-2 text-xs sm:text-sm text-foreground/90">
+                <span className="inline-flex size-4 items-center justify-center rounded-full bg-primary/10 text-primary font-bold text-[10px] mt-0.5 shrink-0">
+                  {i + 1}
+                </span>
+                <span className="leading-relaxed">{renderInlineMarkdown(it)}</span>
+              </li>
+            ))}
+          </ol>
+        ) : (
+          <ul key={`ul-${elements.length}`} className="space-y-1.5 pl-1 my-2">
+            {currentList.items.map((it, i) => (
+              <li key={i} className="flex items-start gap-2 text-xs sm:text-sm text-foreground/90">
+                <span className="size-1.5 rounded-full bg-primary/70 mt-1.5 shrink-0" />
+                <span className="leading-relaxed">{renderInlineMarkdown(it)}</span>
+              </li>
+            ))}
+          </ul>
+        )
+      );
+      currentList = null;
+    }
+  };
 
-        // Headings: ###
-        if (trimmed.startsWith("### ")) {
-          return (
-            <h3
-              key={idx}
-              className="text-sm sm:text-base font-bold tracking-tight text-foreground pt-1.5 flex items-center gap-2"
-            >
-              <span className="size-1.5 rounded-full bg-primary" />
-              {renderInlineMarkdown(trimmed.replace(/^###\s+/, ""))}
-            </h3>
-          );
-        }
+  const flushQuote = () => {
+    if (currentQuote.length > 0) {
+      elements.push(
+        <div
+          key={`quote-${elements.length}`}
+          className="rounded-xl border-l-4 border-primary/80 bg-primary/5 px-4 py-3 my-2 text-xs sm:text-sm italic text-foreground shadow-2xs space-y-1"
+        >
+          {currentQuote.map((q, i) => (
+            <p key={i} className="leading-relaxed">
+              {renderInlineMarkdown(q)}
+            </p>
+          ))}
+        </div>
+      );
+      currentQuote = [];
+    }
+  };
 
-        if (trimmed.startsWith("## ")) {
-          return (
-            <h2 key={idx} className="text-base sm:text-lg font-bold tracking-tight text-foreground pt-1.5">
-              {renderInlineMarkdown(trimmed.replace(/^##\s+/, ""))}
-            </h2>
-          );
-        }
+  for (let idx = 0; idx < lines.length; idx++) {
+    const rawLine = lines[idx]!;
+    const trimmed = rawLine.trim();
 
-        // Horizontal Rule
-        if (trimmed === "---") {
-          return <hr key={idx} className="border-border/50 my-2" />;
-        }
+    if (!trimmed) {
+      flushList();
+      flushQuote();
+      continue;
+    }
 
-        // Blockquotes / Cambridge Definitions
-        if (trimmed.startsWith(">")) {
-          const content = trimmed.replace(/^>\s*/gm, "");
-          return (
-            <div
-              key={idx}
-              className="rounded-xl border-l-4 border-primary/70 bg-primary/5 px-3.5 py-2.5 text-xs sm:text-sm italic text-foreground/95 shadow-2xs"
-            >
-              {renderInlineMarkdown(content)}
-            </div>
-          );
-        }
+    // Horizontal Rule: --- or ***
+    if (trimmed === "---" || trimmed === "***") {
+      flushList();
+      flushQuote();
+      elements.push(<hr key={`hr-${idx}`} className="border-border/50 my-3" />);
+      continue;
+    }
 
-        // Bullet lists or numbered points
-        if (
-          trimmed.startsWith("- ") ||
-          trimmed.startsWith("• ") ||
-          trimmed.startsWith("* ") ||
-          /^\d+\.\s/.test(trimmed)
-        ) {
-          const lines = trimmed.split("\n");
-          return (
-            <ul key={idx} className="space-y-1.5 pl-1">
-              {lines.map((line, lIdx) => {
-                const lineContent = line.replace(/^([-•*]|\d+\.)\s*/, "");
-                return (
-                  <li key={lIdx} className="flex items-start gap-2 text-xs sm:text-sm text-foreground/90">
-                    <span className="size-1 rounded-full bg-primary/60 mt-2 shrink-0" />
-                    <span>{renderInlineMarkdown(lineContent)}</span>
-                  </li>
-                );
-              })}
-            </ul>
-          );
-        }
+    // Markdown Headings: #, ##, ###, ####
+    if (/^#{1,4}\s+/.test(trimmed)) {
+      flushList();
+      flushQuote();
+      const level = trimmed.match(/^(#{1,4})\s+/)?.[1]?.length || 3;
+      const headingText = trimmed.replace(/^#{1,4}\s+/, "");
+      elements.push(
+        <h3
+          key={`h-${idx}`}
+          className={cn(
+            "font-bold tracking-tight text-foreground flex items-center gap-2",
+            level === 1 ? "text-base sm:text-lg pt-3" : "text-sm sm:text-base pt-2 text-primary"
+          )}
+        >
+          <span className="size-1.5 rounded-full bg-primary shrink-0" />
+          <span>{renderInlineMarkdown(headingText)}</span>
+        </h3>
+      );
+      continue;
+    }
 
-        // Standard paragraph
-        return (
-          <p key={idx} className="leading-relaxed">
-            {renderInlineMarkdown(trimmed)}
-          </p>
-        );
-      })}
-    </div>
-  );
+    // Quotes / Cambridge Definitions: >
+    if (trimmed.startsWith(">")) {
+      flushList();
+      currentQuote.push(trimmed.replace(/^>\s*/, ""));
+      continue;
+    }
+
+    // Numbered List / Steps: 1. , 2. , 3.
+    const numMatch = trimmed.match(/^(\d+)\.\s+(.*)/);
+    if (numMatch) {
+      flushQuote();
+      if (!currentList || currentList.type !== "ol") {
+        flushList();
+        currentList = { type: "ol", items: [] };
+      }
+      currentList.items.push(numMatch[2]!);
+      continue;
+    }
+
+    // Bullet List: - , * , •
+    const bulletMatch = trimmed.match(/^[-*•]\s+(.*)/);
+    if (bulletMatch) {
+      flushQuote();
+      if (!currentList || currentList.type !== "ul") {
+        flushList();
+        currentList = { type: "ul", items: [] };
+      }
+      currentList.items.push(bulletMatch[1]!);
+      continue;
+    }
+
+    // Standard Prose Line / Paragraph
+    flushList();
+    flushQuote();
+    elements.push(
+      <p key={`p-${idx}`} className="text-xs sm:text-sm leading-relaxed text-foreground/90 my-1">
+        {renderInlineMarkdown(trimmed)}
+      </p>
+    );
+  }
+
+  flushList();
+  flushQuote();
+
+  return <div className="space-y-1">{elements}</div>;
 }
 
 function renderInlineMarkdown(str: string) {

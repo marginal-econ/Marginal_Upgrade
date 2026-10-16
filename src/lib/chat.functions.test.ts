@@ -47,6 +47,15 @@ describe("Cambridge Grounded Chat Engine (chat.functions)", () => {
       expect(reply.sources.some((s) => s.chapter.includes("Basic Economic Ideas") || s.title.includes("Basic Economic Ideas"))).toBe(true);
       expect(reply.diagramGuidance).toContain("PPC");
     });
+
+    it("correctly matches elasticity and tax incidence without defaulting to scarcity", () => {
+      const query = "Elasticity & tax incidence";
+      const reply = generateFastRagReply(query, query.toLowerCase());
+
+      expect(reply.sources.some((s) => s.title.toLowerCase().includes("elasticity") || s.title.toLowerCase().includes("tax"))).toBe(true);
+      expect(reply.reply).not.toContain("fundamental economic problem that resources are finite");
+      expect(reply.reply).toContain("Tax");
+    });
   });
 
   describe("Auto-Draft Essay Generation", () => {
