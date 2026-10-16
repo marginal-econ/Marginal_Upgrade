@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { isVaquitavoid } from "@/lib/auth-admin";
 import {
   FREE_TIER_ESSAY_LIMIT,
+  MCQ_FREE_TRIAL_DAYS,
   TIER_LIMITS,
   type PlanTier,
   type UserSubscriptionDetails,
@@ -31,6 +32,7 @@ export async function getUserSubscriptionDetails(
       liveExaminerCredits: 999,
       canUseLiveExaminer: true,
       mcqFreeDaysRemaining: 365,
+      canUseMCQ: true,
     };
   }
 
@@ -100,6 +102,28 @@ export async function getUserSubscriptionDetails(
   const remainingCredits = Math.max(0, allocatedCredits - liveCreditsUsed);
   const canUseLiveExaminer = limits.liveExaminerEnabled && remainingCredits > 0;
 
+  let mcqFreeDaysRemaining = limits.mcqFreeDays;
+  let canUseMCQ = true;
+
+  if (activeTier === "free") {
+    try {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("created_at")
+        .eq("id", userId)
+        .maybeSingle();
+
+      if (profile?.created_at) {
+        const createdDate = new Date(profile.created_at);
+        const daysSinceCreation = Math.floor((Date.now() - createdDate.getTime()) / (1000 * 60 * 60 * 24));
+        mcqFreeDaysRemaining = Math.max(0, MCQ_FREE_TRIAL_DAYS - daysSinceCreation);
+      }
+    } catch {
+      /* fallback to default */
+    }
+    canUseMCQ = mcqFreeDaysRemaining > 0;
+  }
+
   return {
     tier: activeTier,
     tierName: limits.name,
@@ -111,7 +135,8 @@ export async function getUserSubscriptionDetails(
     canGradeEssay,
     liveExaminerCredits: remainingCredits,
     canUseLiveExaminer,
-    mcqFreeDaysRemaining: limits.mcqFreeDays,
+    mcqFreeDaysRemaining,
+    canUseMCQ,
   };
 }
 

@@ -20,6 +20,7 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { PageHeader } from "@/components/app/app-shell";
+import { ChainedChamber } from "@/components/app/chained-chamber";
 import { SyllabusNavTabs } from "@/components/app/syllabus-nav";
 import { InteractiveDiagramCanvas } from "@/components/diagram-lab/interactive-diagram-canvas";
 import { Badge } from "@/components/ui/badge";
@@ -76,38 +77,29 @@ function DiagramLabPage() {
 
   if (!meQuery.isLoading && !hasAccess) {
     return (
-      <div className="mx-auto max-w-3xl px-5 py-16 text-center">
-        <div className="mx-auto mb-6 flex size-16 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10 text-primary shadow-inner">
-          <Sparkles className="size-8" />
-        </div>
-        <Badge variant="outline" className="mb-4 border-amber-500/40 bg-amber-500/10 text-amber-400">
-          Experimental Lab · Higher Tier &amp; Admin Preview
-        </Badge>
-        <h1 className="text-3xl font-bold tracking-tight text-foreground">
-          Interactive Diagram CAD &amp; Geometry Lab
-        </h1>
-        <p className="mx-auto mt-4 max-w-lg text-sm text-muted-foreground leading-relaxed">
-          The Diagram CAD Lab is an experimental Cambridge 9708 vector modeling engine reserved for A* Mastery Sprint, Cambridge Elite scholars, and platform administrators.
-        </p>
-        <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
-          <Button
-            size="lg"
-            className="w-full sm:w-auto font-medium"
-            onClick={() => navigate({ to: "/pricing" })}
-          >
-            View Plans &amp; Unlock Labs
-            <ArrowRight className="ml-2 size-4" />
-          </Button>
-          <Button
-            variant="outline"
-            size="lg"
-            className="w-full sm:w-auto"
-            onClick={() => navigate({ to: "/dashboard" })}
-          >
-            Return to Dashboard
-          </Button>
-        </div>
-      </div>
+      <ChainedChamber
+        badgeText="Experimental Lab · Locked"
+        title="Interactive Diagram CAD & Geometry Lab"
+        description="The Diagram CAD Lab is an experimental Cambridge 9708 vector modeling engine reserved for A* Mastery Sprint, Cambridge Elite scholars, and platform administrators."
+        primaryCtaText="Unlock Mastery Pass (from ₹799/mo)"
+        primaryCtaLink="/pricing"
+        secondaryCtaText="Return to Dashboard"
+        secondaryCtaLink="/dashboard"
+        features={[
+          {
+            icon: Sliders,
+            iconColor: "text-violet-500",
+            title: "Dynamic Curve Shifts & Geometry",
+            description: "Manipulate price elasticity, tax burden incidence, and deadweight loss triangles in real-time.",
+          },
+          {
+            icon: Sparkles,
+            iconColor: "text-primary",
+            title: "Cambridge Syllabus Benchmark Drills",
+            description: "Interactive diagram challenge questions directly aligned with 9708 mark scheme criteria.",
+          },
+        ]}
+      />
     );
   }
 

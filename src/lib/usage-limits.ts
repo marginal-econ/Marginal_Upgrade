@@ -76,6 +76,7 @@ export interface UserSubscriptionDetails {
   liveExaminerCredits: number;
   canUseLiveExaminer: boolean;
   mcqFreeDaysRemaining: number;
+  canUseMCQ: boolean;
 }
 
 export function essayLimitMessage(limit: number): string {

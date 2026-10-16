@@ -292,29 +292,40 @@ export function AppShell({
               const label = item.to === "/classes" ? classroomLabel : item.label;
 
               const isChainedPaid = item.requiresPaid && !canLiveExaminer;
+              const isChainedEssay = item.to === "/grade" && !isUserAdmin && Boolean(subscription) && !subscription.canGradeEssay;
+              const isChainedMCQ = item.to === "/mcq-live" && !isUserAdmin && Boolean(subscription) && !subscription.canUseMCQ;
               const isLockedExperimental = item.requiresHigherTier && !isHigherTierUser;
-              const isLocked = isChainedPaid || isLockedExperimental;
+              const isLocked = isChainedPaid || isChainedEssay || isChainedMCQ || isLockedExperimental;
 
               if (isLocked) {
+                const lockType: LockedFeatureType = isChainedPaid
+                  ? "live_examiner"
+                  : isChainedEssay
+                  ? "essay_limit"
+                  : isChainedMCQ
+                  ? "mcq_limit"
+                  : "experimental";
+                const isChained = isChainedPaid || isChainedEssay || isChainedMCQ;
+
                 return (
                   <button
                     key={item.to}
                     type="button"
                     onClick={() => {
                       if (isMobile) setMobileDrawerOpen(false);
-                      setLockedModalType(isChainedPaid ? "live_examiner" : "experimental");
+                      setLockedModalType(lockType);
                     }}
                     className={cn(
                       "group relative flex w-full items-center rounded-lg py-1.5 text-xs font-medium text-sidebar-foreground/75 transition-all duration-150 text-left cursor-pointer",
                       sidebarCollapsed && !isMobile ? "justify-center px-2" : "gap-2.5 px-2.5",
                       "hover:bg-sidebar-accent/80 hover:text-sidebar-accent-foreground",
                     )}
-                    title={`${label} (${isChainedPaid ? "Paid Only" : "Pro Plan"})`}
+                    title={`${label} (${isChained ? "Chained · Limit Reached" : "Mastery Pass"})`}
                   >
                     <item.icon
                       className={cn(
                         "size-4 shrink-0 transition-transform group-hover:scale-105",
-                        isChainedPaid ? "text-amber-500/80" : "text-muted-foreground/70",
+                        isChained ? "text-amber-500/80" : "text-muted-foreground/70",
                       )}
                     />
                     <span className={cn("truncate", sidebarCollapsed && !isMobile && "sr-only")}>
@@ -323,7 +334,7 @@ export function AppShell({
                     {!sidebarCollapsed || isMobile ? (
                       <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-amber-500/15 border border-amber-500/30 px-1.5 py-0.2 text-[9px] font-bold text-amber-600 dark:text-amber-400">
                         <Lock className="size-2.5" />
-                        {isChainedPaid ? "Chained" : "Locked"}
+                        {isChained ? "Chained" : "Locked"}
                       </span>
                     ) : null}
                   </button>

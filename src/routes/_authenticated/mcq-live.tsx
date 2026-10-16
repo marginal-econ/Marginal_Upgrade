@@ -23,6 +23,7 @@ import { toast } from "sonner";
 import { z } from "zod";
 
 import { PageHeader } from "@/components/app/app-shell";
+import { ChainedChamber } from "@/components/app/chained-chamber";
 import { getMe } from "@/lib/account.functions";
 import {
   McqReviewPanel,
@@ -212,6 +213,7 @@ function McqLivePage() {
   const queryClient = useQueryClient();
   const fetchMe = useServerFn(getMe);
   const me = useQuery({ queryKey: ["me"], queryFn: () => fetchMe() });
+  const isLimitReached = !me.data?.isAdmin && Boolean(me.data?.subscription) && !me.data?.subscription?.canUseMCQ;
   const [stage, setStage] = useState<"library" | "practice">("library");
   const [libraryTab, setLibraryTab] = useState<"catalog" | "picker">("catalog");
   const [selectedPaperId, setSelectedPaperId] = useState<string | null>(null);
@@ -427,6 +429,13 @@ function McqLivePage() {
       questions: GradedQuestion[];
     },
   ) {
+    if (isLimitReached) {
+      toast.error(
+        "MCQ Past Papers are chained: Your 30-day Free Trial has expired. Please upgrade your plan.",
+        { duration: 5000 },
+      );
+      return;
+    }
     setSelectedPaperId(paper.id);
     setPaperTitle(paper.title);
     setLevel(paper.level);
@@ -767,7 +776,29 @@ function McqLivePage() {
         description="Practice straight off a real past paper — answer from the button panel beside it."
       />
 
-      {stage === "library" ? (
+      {isLimitReached ? (
+        <ChainedChamber
+          badgeText="Feature Chained · 30-Day Trial Expired"
+          title="MCQ Past Papers are Chained"
+          description="Your 30-day Free Trial for Cambridge 9708 Multiple Choice Past Papers has concluded. Upgrade to Foundation Scholar, Pro, or Mastery to unlock unlimited past paper practice, mark schemes, and topic diagnostics."
+          primaryCtaText="Unlock MCQ Papers (from ₹149/mo)"
+          primaryCtaLink="/pricing"
+          features={[
+            {
+              icon: Sparkles,
+              iconColor: "text-primary",
+              title: "Full Past Paper Archive Access",
+              description: "Practice all Cambridge 9708 Paper 1 (AS) and Paper 3 (A Level) exam sessions from 2016–2025.",
+            },
+            {
+              icon: TrendingUp,
+              iconColor: "text-amber-500",
+              title: "Instant Answer Key & Topic Breakdown",
+              description: "Pinpoint weak syllabus areas across micro and macro with question-level examiner diagnostics.",
+            },
+          ]}
+        />
+      ) : stage === "library" ? (
         <div className="mx-auto grid max-w-5xl gap-8 px-5 py-10 md:px-8 lg:grid-cols-[1fr_20rem]">
           <div className="min-w-0 max-w-2xl">
             <div className="mb-5 flex items-center justify-between gap-2">

@@ -29,6 +29,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { PageHeader } from "@/components/app/app-shell";
+import { ChainedChamber } from "@/components/app/chained-chamber";
 import { LiveExaminerEditor } from "@/components/app/live-examiner-editor";
 import {
   LiveExaminerHistoryPanel,
@@ -864,79 +865,29 @@ function LiveExaminerPage() {
       />
 
       {meQuery.data?.subscription && !meQuery.data.subscription.canUseLiveExaminer && !isAdmin ? (
-        <div className="mx-auto max-w-2xl px-5 py-16 text-center">
-          {/* Metallic Chains & Padlock Graphic */}
-          <div className="relative mx-auto size-24 flex items-center justify-center mb-6">
-            <svg
-              viewBox="0 0 100 100"
-              className="absolute inset-0 size-full text-muted-foreground/40 stroke-current"
-              fill="none"
-              strokeWidth="3.5"
-              strokeLinecap="round"
-            >
-              <path d="M15 15 L35 35 M45 45 L55 55 M65 65 L85 85" strokeDasharray="6 3" />
-              <path d="M85 15 L65 35 M55 45 L45 55 M35 65 L15 85" strokeDasharray="6 3" />
-            </svg>
-            <div className="relative z-10 flex size-16 items-center justify-center rounded-2xl border-2 border-amber-500/50 bg-card shadow-xl shadow-amber-500/20 text-amber-500">
-              <LockKeyhole className="size-8 animate-pulse" />
-            </div>
-          </div>
-
-          <Badge
-            variant="outline"
-            className="mb-4 border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400 font-bold text-xs uppercase px-3 py-1"
-          >
-            Paid Feature · Chained
-          </Badge>
-
-          <h1 className="text-3xl font-extrabold tracking-tight text-foreground">
-            Cambridge Live Examiner is Chained
-          </h1>
-
-          <p className="mx-auto mt-3 max-w-lg text-sm text-muted-foreground leading-relaxed">
-            Real-time clause checking, instant AO breakdown, and keystroke coaching require an active subscription or live examiner credits.
-          </p>
-
-          <div className="mt-8 grid gap-3 sm:grid-cols-2 text-left max-w-xl mx-auto">
-            <div className="rounded-xl border border-border/80 bg-card p-4 space-y-1">
-              <span className="text-xs font-bold text-primary flex items-center gap-1.5">
-                <Sparkles className="size-3.5" /> Instant Live AO Feedback
-              </span>
-              <p className="text-[11.5px] text-muted-foreground">
-                Evaluates every sentence against Cambridge AO1, AO2, and AO3 criteria in real-time.
-              </p>
-            </div>
-
-            <div className="rounded-xl border border-border/80 bg-card p-4 space-y-1">
-              <span className="text-xs font-bold text-amber-500 flex items-center gap-1.5">
-                <Zap className="size-3.5" /> Next-Move Examiner Guidance
-              </span>
-              <p className="text-[11.5px] text-muted-foreground">
-                Socratic prompts that guide you to add required definitions and evaluative weigh-ups.
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
-            <Button
-              size="lg"
-              className="w-full sm:w-auto font-bold shadow-md"
-              onClick={() => navigate({ to: "/pricing" })}
-            >
-              <span>Unlock Live Examiner (from ₹149/mo)</span>
-              <ArrowRight className="ml-2 size-4" />
-            </Button>
-
-            <Button
-              variant="outline"
-              size="lg"
-              className="w-full sm:w-auto"
-              onClick={() => navigate({ to: "/grade" })}
-            >
-              Use Free Essay Grader (2 Free)
-            </Button>
-          </div>
-        </div>
+        <ChainedChamber
+          badgeText="Paid Feature · Chained"
+          title="Cambridge Live Examiner is Chained"
+          description="Real-time clause checking, instant AO breakdown, and keystroke coaching require an active subscription or live examiner credits."
+          primaryCtaText="Unlock Live Examiner (from ₹149/mo)"
+          primaryCtaLink="/pricing"
+          secondaryCtaText="Use Free Essay Grader (2 Free)"
+          secondaryCtaLink="/grade"
+          features={[
+            {
+              icon: Sparkles,
+              iconColor: "text-primary",
+              title: "Instant Live AO Feedback",
+              description: "Evaluates every sentence against Cambridge AO1, AO2, and AO3 criteria in real-time.",
+            },
+            {
+              icon: Zap,
+              iconColor: "text-amber-500",
+              title: "Next-Move Examiner Guidance",
+              description: "Socratic prompts that guide you to add required definitions and evaluative weigh-ups.",
+            },
+          ]}
+        />
       ) : !started ? (
         <div className="mx-auto max-w-5xl p-5 md:p-8">
           {hasActiveDailySession && todaySessionQuery.data ? (

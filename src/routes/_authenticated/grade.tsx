@@ -12,12 +12,15 @@ import {
   Sparkles,
   Upload,
   X,
+  PenLine,
+  Zap,
 } from "lucide-react";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 
 import { PageHeader } from "@/components/app/app-shell";
+import { ChainedChamber } from "@/components/app/chained-chamber";
 import { GradingProgress } from "@/components/app/grading-progress";
 import { HandwritingUpload } from "@/components/app/handwriting-upload";
 import { MarkBreakdown } from "@/components/app/mark-breakdown";
@@ -290,31 +293,45 @@ function GradePage() {
         description="Marked to Cambridge 9708 standards, grounded in your own coursebook and mark schemes, then independently audited for central-tendency bias."
       />
 
-      <div className="px-5 pt-6 pb-0 md:px-8 space-y-3">
-        {isLimitReached && (
-          <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-amber-200">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-              <div className="flex items-start gap-3">
-                <AlertTriangle className="size-5 shrink-0 text-amber-400 mt-0.5" />
-                <div>
-                  <h4 className="text-sm font-semibold text-amber-300">
-                    Free Tier Essay Limit Reached ({sub?.essaysGradedCount ?? 2}/2 Essays Used)
-                  </h4>
-                  <p className="text-xs text-amber-200/80 mt-0.5 leading-relaxed">
-                    You have reached the 2-essay limit on the Free plan. Upgrade to a paid plan for monthly essay allowances, real-time Live Examiner keystroke coaching, and priority Cambridge marking.
-                  </p>
-                </div>
-              </div>
-              <Button
-                size="sm"
-                className="bg-amber-500 text-black hover:bg-amber-400 shrink-0 font-medium cursor-pointer"
-                onClick={() => navigate({ to: "/pricing" })}
-              >
-                Upgrade to Mark More
-              </Button>
-            </div>
-          </div>
-        )}
+      {isLimitReached ? (
+        <ChainedChamber
+          badgeText={`Limit Reached · ${sub?.essaysGradedCount ?? 2}/${sub?.essaysLimit ?? 2} Essays Used`}
+          title="Essay Grader is Chained"
+          description={`You have completed your included Cambridge essay evaluations for your ${sub?.tierName ?? "Free Tier"} account. Upgrade your revision pass to unlock additional essay evaluations, Live Examiner credits, and full Cambridge mark schemes.`}
+          primaryCtaText="Unlock Plan from ₹149/mo"
+          primaryCtaLink="/pricing"
+          secondaryCtaText="View Previous Submissions"
+          secondaryCtaLink="/showcase"
+          features={[
+            {
+              icon: PenLine,
+              iconColor: "text-primary",
+              title: "Higher Monthly Essay Quota",
+              description: "Get 10 essays/mo on Foundation, 30 essays/mo on Pro, or Unlimited essays on Cambridge Elite.",
+            },
+            {
+              icon: Sparkles,
+              iconColor: "text-amber-500",
+              title: "Clause-by-Clause Cambridge Grounding",
+              description: "Audited against 1,400+ published mark schemes with sentence-level AO1/AO2/AO3 allocations.",
+            },
+            {
+              icon: Zap,
+              iconColor: "text-emerald-500",
+              title: "Live Examiner Keystroke Credits",
+              description: "Real-time socratic coaching and grammar checking as you draft your answers.",
+            },
+            {
+              icon: ShieldCheck,
+              iconColor: "text-blue-500",
+              title: "Dual-Pass Auditor Bias Elimination",
+              description: "Stops AI central-tendency clumping and awards genuine distinction marks.",
+            },
+          ]}
+        />
+      ) : (
+        <>
+          <div className="px-5 pt-6 pb-0 md:px-8 space-y-3">
 
         <div className="flex items-center gap-2.5 rounded-xl border border-primary/20 bg-primary/[0.04] px-4 py-2.5 text-xs text-muted-foreground">
           <ShieldCheck className="size-4 shrink-0 text-primary" />
@@ -726,6 +743,8 @@ function GradePage() {
           )}
         </div>
       </div>
+        </>
+      )}
     </>
   );
 }

@@ -25,6 +25,7 @@ import {
 import { useMemo, useState } from "react";
 
 import { PageHeader } from "@/components/app/app-shell";
+import { ChainedChamber } from "@/components/app/chained-chamber";
 import { SyllabusNavTabs } from "@/components/app/syllabus-nav";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -201,38 +202,29 @@ function PaperMatrixPage() {
 
   if (!meQuery.isLoading && !hasAccess) {
     return (
-      <div className="mx-auto max-w-3xl px-5 py-16 text-center">
-        <div className="mx-auto mb-6 flex size-16 items-center justify-center rounded-2xl border border-amber-500/20 bg-amber-500/10 text-amber-500 shadow-inner">
-          <Flame className="size-8" />
-        </div>
-        <Badge variant="outline" className="mb-4 border-amber-500/40 bg-amber-500/10 text-amber-400">
-          Experimental Lab · Higher Tier &amp; Admin Preview
-        </Badge>
-        <h1 className="text-3xl font-bold tracking-tight text-foreground">
-          15-Year Past Paper Cycle Matrix &amp; Topic Predictor
-        </h1>
-        <p className="mx-auto mt-4 max-w-lg text-sm text-muted-foreground leading-relaxed">
-          The Cambridge 9708 15-Year Cycle Matrix and predictive probability model is an experimental research tool reserved for A* Mastery Sprint, Cambridge Elite scholars, and platform administrators.
-        </p>
-        <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
-          <Button
-            size="lg"
-            className="w-full sm:w-auto font-medium"
-            onClick={() => navigate({ to: "/pricing" })}
-          >
-            View Plans &amp; Unlock Labs
-            <ArrowRight className="ml-2 size-4" />
-          </Button>
-          <Button
-            variant="outline"
-            size="lg"
-            className="w-full sm:w-auto"
-            onClick={() => navigate({ to: "/dashboard" })}
-          >
-            Return to Dashboard
-          </Button>
-        </div>
-      </div>
+      <ChainedChamber
+        badgeText="Experimental Lab · Locked"
+        title="15-Year Past Paper Cycle Matrix & Topic Predictor"
+        description="The Cambridge 9708 15-Year Cycle Matrix and predictive probability model is an experimental research tool reserved for A* Mastery Sprint, Cambridge Elite scholars, and platform administrators."
+        primaryCtaText="Unlock Mastery Pass (from ₹799/mo)"
+        primaryCtaLink="/pricing"
+        secondaryCtaText="Return to Dashboard"
+        secondaryCtaLink="/dashboard"
+        features={[
+          {
+            icon: Flame,
+            iconColor: "text-amber-500",
+            title: "15-Year Statistical Cycle Modeling",
+            description: "Deep recurrence frequency algorithms analyzing 15 years of Cambridge 9708 papers (2010–2025).",
+          },
+          {
+            icon: Zap,
+            iconColor: "text-primary",
+            title: "Overdue Exam Topic Alerts",
+            description: "Identifies high-probability topics and past essay stems with full mark schemes.",
+          },
+        ]}
+      />
     );
   }
 

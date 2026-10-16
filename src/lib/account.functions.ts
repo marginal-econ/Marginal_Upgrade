@@ -93,6 +93,7 @@ export const getMe = createServerFn({ method: "GET" })
           liveExaminerCredits: 0,
           canUseLiveExaminer: false,
           mcqFreeDaysRemaining: 30,
+          canUseMCQ: true,
         },
       };
     }

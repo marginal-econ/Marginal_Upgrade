@@ -20,7 +20,12 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
-export type LockedFeatureType = "live_examiner" | "experimental" | null;
+export type LockedFeatureType =
+  | "live_examiner"
+  | "essay_limit"
+  | "mcq_limit"
+  | "experimental"
+  | null;
 
 interface LockedFeatureModalProps {
   open: boolean;
@@ -35,7 +40,84 @@ export function LockedFeatureModal({
 }: LockedFeatureModalProps) {
   if (!type) return null;
 
-  const isLiveExaminer = type === "live_examiner";
+  const config = {
+    live_examiner: {
+      badge: "Paid Feature · Chained",
+      title: "Live Examiner is Chained",
+      desc: "Keystroke-level Cambridge 9708 live evaluation and real-time AO coaching are locked for Free accounts.",
+      items: [
+        {
+          icon: Sparkles,
+          color: "text-primary",
+          title: "Real-Time AO Evaluation",
+          desc: "Grammarly-style clause checking as you type for AO1 Knowledge, AO2 Analysis, and AO3 Evaluation.",
+        },
+        {
+          icon: Zap,
+          color: "text-amber-500",
+          title: "Dedicated Live Examiner Credits",
+          desc: "Upgrade to Foundation (30 credits) or Pro (75 credits) to run live question coaching sessions.",
+        },
+      ],
+    },
+    essay_limit: {
+      badge: "Feature Chained · Limit Reached",
+      title: "Essay Grader is Chained",
+      desc: "You have completed your included Cambridge essay evaluations for your current tier.",
+      items: [
+        {
+          icon: PenLine,
+          color: "text-primary",
+          title: "Higher Monthly Essay Quota",
+          desc: "Get 10 essays/mo on Foundation, 30 essays/mo on Pro, or Unlimited essays on Cambridge Elite.",
+        },
+        {
+          icon: ShieldAlert,
+          color: "text-emerald-500",
+          title: "Dual-Pass Auditor Grounding",
+          desc: "Submissions are audited against 1,400+ past mark schemes with sentence-level rewrite pathways.",
+        },
+      ],
+    },
+    mcq_limit: {
+      badge: "Feature Chained · Trial Expired",
+      title: "MCQ Past Papers are Chained",
+      desc: "Your 30-day Free Trial for Cambridge 9708 MCQ Past Papers has concluded.",
+      items: [
+        {
+          icon: Sparkles,
+          color: "text-primary",
+          title: "Full Past Paper Archive Access",
+          desc: "Practice all Cambridge 9708 Paper 1 (AS) and Paper 3 (A Level) exam sessions from 2016–2025.",
+        },
+        {
+          icon: Zap,
+          color: "text-amber-500",
+          title: "Instant Answer Key & Performance Analytics",
+          desc: "Identify topic-by-topic weak spots and trap questions with syllabus-locked examiner explanations.",
+        },
+      ],
+    },
+    experimental: {
+      badge: "Experimental Lab · Locked",
+      title: "Experimental Labs Locked",
+      desc: "Diagram CAD Lab, Past Paper Predictor, and Teacher Examiner Desk are reserved for Pro, Mastery, and Elite passes.",
+      items: [
+        {
+          icon: Flame,
+          color: "text-amber-500",
+          title: "15-Year Past Paper Matrix Predictor",
+          desc: "Statistical exam cycle modeling analyzing recurrence trends across 15 years of Cambridge papers.",
+        },
+        {
+          icon: Sliders,
+          color: "text-violet-500",
+          title: "Diagram CAD & Geometry Canvas",
+          desc: "Interactive vector lab to dynamically manipulate curve shifts, elasticity, and consumer surplus.",
+        },
+      ],
+    },
+  }[type];
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -71,70 +153,33 @@ export function LockedFeatureModal({
             variant="outline"
             className="mt-4 border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400 font-bold text-[11px] tracking-wide uppercase px-3 py-0.5"
           >
-            {isLiveExaminer ? "Paid Feature · Chained" : "Experimental Lab · Locked"}
+            {config.badge}
           </Badge>
 
           <DialogTitle className="mt-2 text-xl font-extrabold tracking-tight text-foreground">
-            {isLiveExaminer
-              ? "Live Examiner is Chained"
-              : "Experimental Labs Locked"}
+            {config.title}
           </DialogTitle>
 
           <DialogDescription className="mt-1 text-xs text-muted-foreground max-w-sm mx-auto leading-relaxed">
-            {isLiveExaminer
-              ? "Keystroke-level Cambridge 9708 live evaluation and real-time AO coaching are locked for Free accounts."
-              : "Diagram CAD Lab, Past Paper Predictor, and Teacher Examiner Desk are reserved for Pro, Mastery, and Elite candidate passes."}
+            {config.desc}
           </DialogDescription>
         </div>
 
         {/* Feature Highlights Grid */}
         <div className="p-5 space-y-4">
           <div className="space-y-2.5">
-            {isLiveExaminer ? (
-              <>
-                <div className="flex items-start gap-2.5 rounded-lg border border-border/70 bg-card/60 p-2.5 text-xs">
-                  <Sparkles className="size-4 shrink-0 text-primary mt-0.5" />
-                  <div>
-                    <span className="font-bold text-foreground">Real-Time AO Evaluation</span>
-                    <p className="text-[11px] text-muted-foreground mt-0.5">
-                      Grammarly-style clause checking as you type for AO1 Knowledge, AO2 Analysis, and AO3 Evaluation.
-                    </p>
-                  </div>
+            {config.items.map((item, idx) => (
+              <div
+                key={idx}
+                className="flex items-start gap-2.5 rounded-lg border border-border/70 bg-card/60 p-2.5 text-xs"
+              >
+                <item.icon className={`size-4 shrink-0 ${item.color} mt-0.5`} />
+                <div>
+                  <span className="font-bold text-foreground">{item.title}</span>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">{item.desc}</p>
                 </div>
-
-                <div className="flex items-start gap-2.5 rounded-lg border border-border/70 bg-card/60 p-2.5 text-xs">
-                  <Zap className="size-4 shrink-0 text-amber-500 mt-0.5" />
-                  <div>
-                    <span className="font-bold text-foreground">Dedicated Live Examiner Credits</span>
-                    <p className="text-[11px] text-muted-foreground mt-0.5">
-                      Upgrade to Foundation (30 credits) or Pro (75 credits) to run live question coaching sessions.
-                    </p>
-                  </div>
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="flex items-start gap-2.5 rounded-lg border border-border/70 bg-card/60 p-2.5 text-xs">
-                  <Flame className="size-4 shrink-0 text-amber-500 mt-0.5" />
-                  <div>
-                    <span className="font-bold text-foreground">15-Year Past Paper Matrix Predictor</span>
-                    <p className="text-[11px] text-muted-foreground mt-0.5">
-                      Statistical exam cycle modeling analyzing recurrence trends across 15 years of Cambridge papers.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-2.5 rounded-lg border border-border/70 bg-card/60 p-2.5 text-xs">
-                  <Sliders className="size-4 shrink-0 text-violet-500 mt-0.5" />
-                  <div>
-                    <span className="font-bold text-foreground">Diagram CAD &amp; Geometry Canvas</span>
-                    <p className="text-[11px] text-muted-foreground mt-0.5">
-                      Interactive vector lab to dynamically manipulate curve shifts, elasticity, and consumer surplus.
-                    </p>
-                  </div>
-                </div>
-              </>
-            )}
+              </div>
+            ))}
           </div>
 
           {/* Action CTAs */}
