@@ -21,20 +21,19 @@ import {
   Target,
   TrendingUp,
   Trophy,
-  UsersRound,
-  Wand2,
   Zap,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { PageHeader } from "@/components/app/app-shell";
-import { SiteFooter } from "@/components/marketing/footer";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { listMyEssays, getProgress } from "@/lib/grading.functions";
-import { getCommunityPulse, getMe } from "@/lib/account.functions";
+import { getMe } from "@/lib/account.functions";
 import { listDocuments } from "@/lib/knowledge.functions";
 import { cn } from "@/lib/utils";
 
@@ -90,7 +89,6 @@ export function DashboardPage() {
   const fetchEssays = useServerFn(listMyEssays);
   const fetchMe = useServerFn(getMe);
   const fetchDocs = useServerFn(listDocuments);
-  const fetchCommunityPulse = useServerFn(getCommunityPulse);
 
   const progress = useQuery({ queryKey: ["progress"], queryFn: () => fetchProgress() });
   const essays = useQuery({ queryKey: ["essays"], queryFn: () => fetchEssays() });
@@ -100,15 +98,11 @@ export function DashboardPage() {
     queryFn: () => fetchDocs(),
     enabled: me.data?.isStaff === true,
   });
-  const communityPulse = useQuery({
-    queryKey: ["community-pulse"],
-    queryFn: () => fetchCommunityPulse(),
-    refetchInterval: 60_000,
-  });
 
   const [activeTariff, setActiveTariff] = useState<number | "all">("all");
   const [essaySearch, setEssaySearch] = useState("");
   const [bandFilter, setBandFilter] = useState<"all" | "band1" | "band2" | "band3">("all");
+  const [showAllEssays, setShowAllEssays] = useState(false);
   const [tipIndex, setTipIndex] = useState(0);
   const [hoveredPoint, setHoveredPoint] = useState<{
     index: number;
@@ -200,6 +194,13 @@ export function DashboardPage() {
     });
   }, [essays.data, essaySearch, bandFilter]);
 
+  const visibleEssays = useMemo(() => {
+    if (showAllEssays || essaySearch.trim().length > 0 || bandFilter !== "all") {
+      return filteredEssays;
+    }
+    return filteredEssays.slice(0, 4);
+  }, [filteredEssays, showAllEssays, essaySearch, bandFilter]);
+
   // Greeting by hour
   const greeting = useMemo(() => {
     const hour = new Date().getHours();
@@ -231,131 +232,82 @@ export function DashboardPage() {
         }
       />
 
-      <div className="space-y-6 px-5 py-6 md:px-8">
-        {/* Transparent Cambridge Syllabus Disclaimer */}
-        <div className="flex items-center gap-2.5 rounded-xl border border-primary/20 bg-primary/[0.04] px-4 py-2.5 text-xs text-muted-foreground">
-          <ShieldCheck className="size-4 shrink-0 text-primary" />
-          <p className="leading-relaxed">
-            <strong className="text-foreground font-semibold">Cambridge 9708 Calibration:</strong>{" "}
-            Marking rubrics and feedback criteria are calibrated against published Cambridge
-            Assessment 9708 Economics syllabus standards and Principal Examiner reports. Marginal is
-            an independent study platform and not endorsed by Cambridge Assessment.
-          </p>
-        </div>
-
-        {/* Hero Interactive Greeting & Progress Meter */}
-        <section className="relative overflow-hidden rounded-2xl border border-border/80 bg-card p-6 shadow-xs sm:p-7 md:p-8">
-          <div className="relative flex flex-col justify-between gap-6 lg:flex-row lg:items-center">
-            <div className="space-y-2.5 max-w-xl">
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge
-                  variant="outline"
-                  className="border-primary/30 bg-primary/10 text-primary text-[11px] font-medium"
-                >
-                  Syllabus 9708
-                </Badge>
-                <Badge
-                  variant="outline"
-                  className="border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[11px] font-medium flex items-center gap-1.5"
-                >
-                  <span className="size-1.5 rounded-full bg-emerald-500" />
-                  Hybrid RRF RAG Active
-                </Badge>
-              </div>
-              <h2 className="text-2xl font-bold tracking-tight text-foreground md:text-3xl">
+      <div className="space-y-5 px-4 py-5 sm:px-6 md:px-8">
+        {/* Compact Candidate Status Strip */}
+        <section className="rounded-xl border border-border/80 bg-card p-4 sm:p-5 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
+              <h2 className="text-base sm:text-lg font-bold text-foreground">
                 {greeting}, {me.data?.fullName?.split(" ")[0] || "Economist"}!
               </h2>
-              <p className="text-sm leading-relaxed text-muted-foreground">
-                Your writing is evaluated against official Cambridge mark schemes and Principal
-                Examiner reports. Focus on consistent analytical chains and justified evaluation.
-              </p>
-              <div className="flex flex-wrap items-center gap-4 pt-1 text-xs text-muted-foreground">
-                <span className="flex items-center gap-1.5 font-medium text-foreground">
-                  <Flame className="size-3.5 text-amber-500" />
-                  {versions.length > 0
-                    ? `${versions.length} attempts completed`
-                    : "Ready for attempt #1"}
-                </span>
-                <span>•</span>
-                <span className="flex items-center gap-1.5">
-                  <Target className="size-3.5 text-primary" />
-                  Tariffs: 8, 12, and 20 marks
-                </span>
-              </div>
+              <Badge
+                variant="outline"
+                className="border-primary/30 bg-primary/10 text-primary text-[10px] font-semibold"
+              >
+                9708 RAG Grounded
+              </Badge>
             </div>
+            <p className="text-xs text-muted-foreground">
+              {versions.length > 0
+                ? `${versions.length} essay attempt${versions.length === 1 ? "" : "s"} evaluated against Cambridge mark schemes.`
+                : "Welcome to Marginal. Submit your first essay to calibrate your baseline."}
+            </p>
+          </div>
 
-            {/* Clean Cambridge Readiness Status Card */}
-            <div className="flex flex-col justify-between gap-3 rounded-xl border border-border/80 bg-muted/40 p-4 sm:min-w-[280px] shadow-xs">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
-                    Cambridge Status
-                  </p>
-                  <Badge
-                    variant="outline"
-                    className={cn("mt-1 px-2.5 py-0.5 text-xs font-semibold", progressBadge.color)}
-                  >
-                    {progressBadge.label}
-                  </Badge>
-                </div>
-                <div className="text-right">
-                  <span className="text-2xl font-bold tabular-nums tracking-tight text-foreground">
-                    {progressIndex}%
-                  </span>
-                  <p className="text-[10px] text-muted-foreground uppercase font-semibold">
-                    Readiness
-                  </p>
-                </div>
-              </div>
-
-              <div className="space-y-1 pt-1">
-                <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-                  <div
-                    className="h-full rounded-full bg-primary transition-all duration-700 ease-out"
-                    style={{ width: `${Math.min(100, Math.max(0, progressIndex))}%` }}
-                  />
-                </div>
-                <p className="text-[11px] text-muted-foreground pt-1">
-                  Based on {versions.length} attempts & AO parity
+          <div className="flex items-center gap-3 self-start sm:self-center shrink-0">
+            <Badge
+              variant="outline"
+              className={cn("px-2.5 py-1 text-xs font-semibold", progressBadge.color)}
+            >
+              {progressBadge.label}
+            </Badge>
+            <div className="flex items-center gap-2 border-l border-border/80 pl-3">
+              <div className="text-right">
+                <span className="text-sm font-bold tabular-nums text-foreground">
+                  {progressIndex}%
+                </span>
+                <p className="text-[9px] uppercase font-bold text-muted-foreground">
+                  Readiness
                 </p>
+              </div>
+              <div className="h-2 w-16 overflow-hidden rounded-full bg-muted">
+                <div
+                  className="h-full rounded-full bg-primary transition-all duration-700 ease-out"
+                  style={{ width: `${Math.min(100, Math.max(0, progressIndex))}%` }}
+                />
               </div>
             </div>
           </div>
         </section>
 
         {/* 4 Clean Stat Cards */}
-        <div className="grid gap-3.5 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <InteractiveStat
             label="Essays marked"
             value={String(versions.length)}
             badge={`${essays.data?.length ?? 0} threads`}
             hint="Total Cambridge submissions"
-            progressPercent={Math.min(100, (versions.length / 10) * 100)}
-            progressLabel="Target: 10 essays"
             loading={progress.isLoading}
             icon={PenLine}
           />
           <InteractiveStat
             label="Average mark"
-            value={versions.length ? average.toFixed(1) : "—"}
+            value={versions.length ? `${average.toFixed(1)}/12` : "—"}
             badge={delta !== 0 ? `${delta > 0 ? "+" : ""}${delta.toFixed(1)} trend` : "Baseline"}
             hint={
               versions.length
                 ? `${Math.round((average / 12) * 100)}% Cambridge benchmark`
                 : "Submit to calculate"
             }
-            progressPercent={Math.min(100, (average / 12) * 100)}
-            progressLabel="Avg score ratio"
             loading={progress.isLoading}
             icon={TrendingUp}
           />
           <InteractiveStat
             label="Personal best"
-            value={versions.length ? String(best) : "—"}
+            value={versions.length ? `${best}/12` : "—"}
             badge="Top attempt"
             hint="Highest single awarded mark"
-            progressPercent={Math.min(100, (best / 12) * 100)}
-            progressLabel="Peak achievement"
             loading={progress.isLoading}
             icon={Trophy}
           />
@@ -364,11 +316,27 @@ export function DashboardPage() {
             value={me.data?.isStaff ? String(readyDocs) : "58"}
             badge="RRF Grounded"
             hint="Syllabus & mark schemes active"
-            progressPercent={100}
-            progressLabel="100% groundable"
             loading={me.isLoading || (me.data?.isStaff === true && docs.isLoading)}
             icon={BookOpen}
           />
+        </div>
+
+        {/* Sleek 1-Line Cambridge Examiner Tip */}
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-primary/20 bg-primary/[0.04] px-4 py-2 text-xs">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="font-bold text-primary shrink-0 flex items-center gap-1">
+              <ShieldCheck className="size-3.5" /> Cambridge 9708 Tip:
+            </span>
+            <span className="font-semibold text-foreground shrink-0">{currentTip.title} —</span>
+            <span className="text-muted-foreground truncate">{currentTip.tip}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setTipIndex((prev) => prev + 1)}
+            className="shrink-0 text-muted-foreground hover:text-foreground text-[11px] font-semibold flex items-center gap-1 hover:underline cursor-pointer"
+          >
+            <RefreshCw className="size-3" /> Next
+          </button>
         </div>
 
         {/* Assessment Objective Mastery Console */}
@@ -713,7 +681,7 @@ export function DashboardPage() {
             </div>
           ) : (
             <ul className="divide-y divide-border">
-              {filteredEssays.map((essay) => {
+              {visibleEssays.map((essay) => {
                 const mark = essay.latest_mark ?? 0;
                 const max = essay.max_mark ?? 12;
                 const pct = max > 0 ? Math.round((mark / max) * 100) : 0;
@@ -725,15 +693,15 @@ export function DashboardPage() {
                     <Link
                       to="/essay/$essayId"
                       params={{ essayId: essay.id }}
-                      className="group flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-5 py-4 transition-colors hover:bg-accent/40"
+                      className="group flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 px-4 py-2.5 transition-colors hover:bg-muted/50"
                     >
-                      <div className="min-w-0 flex-1 space-y-1">
+                      <div className="min-w-0 flex-1 space-y-0.5">
                         <div className="flex items-center gap-2">
-                          <span className="truncate text-sm font-medium group-hover:text-primary transition-colors">
+                          <span className="truncate text-xs sm:text-sm font-semibold group-hover:text-primary transition-colors">
                             {essay.question}
                           </span>
                         </div>
-                        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                        <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
                           <span>
                             {new Date(essay.updated_at).toLocaleDateString(undefined, {
                               day: "numeric",
@@ -742,15 +710,15 @@ export function DashboardPage() {
                             })}
                           </span>
                           <span>•</span>
-                          <span>Tariff: {essay.max_mark} marks</span>
+                          <span>Tariff: {essay.max_mark}m</span>
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-3 shrink-0 self-end sm:self-center">
+                      <div className="flex items-center gap-2.5 shrink-0 self-end sm:self-center">
                         <Badge
                           variant="outline"
                           className={cn(
-                            "text-xs px-2.5 py-0.5 font-semibold",
+                            "text-[10px] px-2 py-0.5 font-semibold",
                             isTopBand
                               ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
                               : isMidBand
@@ -760,13 +728,13 @@ export function DashboardPage() {
                         >
                           {isTopBand ? "Band 1" : isMidBand ? "Band 2" : "Band 3"} • {pct}%
                         </Badge>
-                        <span className="text-sm font-bold tabular-nums">
+                        <span className="text-xs sm:text-sm font-bold tabular-nums">
                           {essay.latest_mark ?? "—"}
-                          <span className="text-muted-foreground font-normal">
+                          <span className="text-muted-foreground font-normal text-xs">
                             /{essay.max_mark}
                           </span>
                         </span>
-                        <ArrowUpRight className="size-4 shrink-0 text-muted-foreground transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-primary" />
+                        <ArrowUpRight className="size-3.5 shrink-0 text-muted-foreground transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-primary" />
                       </div>
                     </Link>
                   </li>
@@ -774,90 +742,29 @@ export function DashboardPage() {
               })}
             </ul>
           )}
+
+          {/* Expand / Collapse Toggle if more than 4 essays */}
+          {filteredEssays.length > 4 && !essaySearch.trim() && bandFilter === "all" ? (
+            <div className="border-t border-border/70 px-4 py-2 text-center bg-muted/20">
+              <button
+                type="button"
+                onClick={() => setShowAllEssays(!showAllEssays)}
+                className="text-xs font-semibold text-primary hover:underline cursor-pointer inline-flex items-center gap-1"
+              >
+                {showAllEssays ? (
+                  <>
+                    <ChevronUp className="size-3.5" /> Show fewer essays
+                  </>
+                ) : (
+                  <>
+                    <ChevronDown className="size-3.5" /> View all {filteredEssays.length} essays ({filteredEssays.length - 4} more)
+                  </>
+                )}
+              </button>
+            </div>
+          ) : null}
         </div>
-
-        {/* Community Pulse & Cambridge Examiner Advice */}
-        <section className="grid gap-5 lg:grid-cols-[1.1fr_1.9fr]">
-          {/* Live Study Hall */}
-          <div className="relative overflow-hidden rounded-xl border border-primary/20 bg-primary/[0.06] p-6 dark:bg-primary/[0.12] shadow-sm">
-            <div className="absolute -top-8 -right-6 size-28 rounded-full bg-primary/15 blur-2xl" />
-            <div className="relative">
-              <div className="flex items-center gap-2 text-sm font-semibold">
-                <span className="relative flex size-8 items-center justify-center rounded-full bg-primary text-primary-foreground">
-                  <UsersRound className="size-4" />
-                  <span className="absolute -right-0.5 -bottom-0.5 size-2.5 rounded-full border-2 border-background bg-emerald-400 animate-pulse" />
-                </span>
-                Live Study Hall
-              </div>
-              {communityPulse.isLoading ? (
-                <Skeleton className="mt-5 h-10 w-24" />
-              ) : (
-                <div className="mt-5 flex items-baseline gap-2">
-                  <p className="text-4xl font-bold tracking-tight tabular-nums">
-                    {communityPulse.data?.onlineCount ?? 1}
-                  </p>
-                  <span className="text-xs font-semibold text-emerald-500 flex items-center gap-1">
-                    <span className="size-1.5 rounded-full bg-emerald-500" /> Active session
-                    {communityPulse.data?.onlineCount === 1 ? "" : "s"}
-                  </span>
-                </div>
-              )}
-              <p className="mt-1 text-xs text-muted-foreground">
-                Active student accounts recorded in the last 2 minutes
-              </p>
-              <div className="mt-5 pt-4 border-t border-border/60 text-xs text-muted-foreground">
-                {communityPulse.data?.memberCount
-                  ? `${communityPulse.data.memberCount} registered students currently using Marginal.`
-                  : "Join fellow economics students practicing Cambridge 9708 essays."}
-              </div>
-            </div>
-          </div>
-
-          {/* Dynamic Cambridge Examiner Advice Card */}
-          <div className="panel p-6 shadow-sm flex flex-col justify-between">
-            <div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <ShieldCheck className="size-4 text-primary" />
-                  <h3 className="text-sm font-semibold">Cambridge Examiner Report Tip</h3>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Badge
-                    variant="outline"
-                    className="border-primary/30 bg-primary/10 text-primary text-[10px]"
-                  >
-                    {currentTip.ao} Target
-                  </Badge>
-                  <button
-                    type="button"
-                    onClick={() => setTipIndex((prev) => prev + 1)}
-                    className="rounded-full p-1 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-                    title="Next tip"
-                  >
-                    <RefreshCw className="size-3.5" />
-                  </button>
-                </div>
-              </div>
-
-              <div className="mt-3.5">
-                <h4 className="text-sm font-medium text-foreground">{currentTip.title}</h4>
-                <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
-                  "{currentTip.tip}"
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-4 pt-3 border-t border-border/60 flex items-center justify-between text-xs text-muted-foreground">
-              <span>Source: Cambridge 9708 Principal Examiner Guidelines</span>
-              <Link to="/command-words" className="text-primary hover:underline font-medium">
-                Command words guide →
-              </Link>
-            </div>
-          </div>
-        </section>
       </div>
-
-      <SiteFooter />
     </>
   );
 }
@@ -871,8 +778,6 @@ function InteractiveStat({
   value,
   badge,
   hint,
-  progressPercent,
-  progressLabel,
   loading,
   icon: Icon,
 }: {
@@ -880,53 +785,34 @@ function InteractiveStat({
   value: string;
   badge: string;
   hint: string;
-  progressPercent: number;
-  progressLabel: string;
   loading: boolean;
   icon: typeof PenLine;
 }) {
   return (
-    <div className="group rounded-xl border border-border/80 bg-card p-4 sm:p-5 shadow-xs transition-all duration-200 hover:border-primary/40 hover:shadow-sm flex flex-col justify-between">
-      <div>
-        <div className="flex items-center justify-between">
-          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            {label}
+    <div className="rounded-xl border border-border/80 bg-card p-3.5 sm:p-4 shadow-xs transition-all duration-200 hover:border-primary/40 hover:shadow-sm flex flex-col justify-between">
+      <div className="flex items-center justify-between">
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+          {label}
+        </p>
+        <div className="flex size-6 items-center justify-center rounded-md bg-primary/10 text-primary">
+          <Icon className="size-3.5" />
+        </div>
+      </div>
+
+      <div className="mt-2.5 flex items-baseline justify-between gap-2">
+        {loading ? (
+          <Skeleton className="h-7 w-16" />
+        ) : (
+          <p className="text-xl sm:text-2xl font-bold tracking-tight text-foreground tabular-nums">
+            {value}
           </p>
-          <div className="flex size-7 items-center justify-center rounded-lg bg-primary/10 text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
-            <Icon className="size-3.5" />
-          </div>
-        </div>
-
-        <div className="mt-3 flex items-baseline gap-2">
-          {loading ? (
-            <Skeleton className="h-8 w-16" />
-          ) : (
-            <p className="text-2xl font-bold tracking-tight text-foreground tabular-nums sm:text-3xl">
-              {value}
-            </p>
-          )}
-          <Badge variant="secondary" className="text-[10px] font-medium px-1.5 py-0.5">
-            {badge}
-          </Badge>
-        </div>
-
-        <p className="mt-1 text-xs text-muted-foreground">{hint}</p>
+        )}
+        <Badge variant="secondary" className="text-[10px] font-medium px-1.5 py-0.2">
+          {badge}
+        </Badge>
       </div>
 
-      <div className="mt-4 pt-3 border-t border-border/60 space-y-1.5">
-        <div className="flex items-center justify-between text-[11px]">
-          <span className="text-muted-foreground">{progressLabel}</span>
-          <span className="font-semibold text-foreground tabular-nums">
-            {Math.round(progressPercent)}%
-          </span>
-        </div>
-        <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
-          <div
-            className="h-full rounded-full bg-primary transition-all duration-500 ease-out"
-            style={{ width: `${Math.min(100, Math.max(0, progressPercent))}%` }}
-          />
-        </div>
-      </div>
+      <p className="mt-1 text-[11px] text-muted-foreground truncate">{hint}</p>
     </div>
   );
 }
@@ -1101,7 +987,7 @@ function PerformanceChart({
     <div className="w-full overflow-x-auto">
       <svg
         viewBox={`0 0 ${width} ${height}`}
-        className="w-full h-auto min-w-[550px] overflow-visible text-muted-foreground"
+        className="w-full h-auto overflow-visible text-muted-foreground"
       >
         <defs>
           <linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
@@ -1235,7 +1121,7 @@ function PerformanceChart({
         {/* Tooltip on hover */}
         {hoveredPoint !== null && points[hoveredPoint.index] ? (
           <g
-            transform={`translate(${Math.max(50, Math.min(width - 50, points[hoveredPoint.index]!.x))}, ${Math.max(35, points[hoveredPoint.index]!.y - 12)})`}
+            transform={`translate(${Math.max(50, Math.min(width - 50, points[hoveredPoint.index]?.x ?? 0))}, ${Math.max(35, (points[hoveredPoint.index]?.y ?? 0) - 12)})`}
           >
             <rect
               x="-48"

@@ -5,13 +5,16 @@ import {
   ArrowLeft,
   Check,
   CheckCircle2,
+  Copy,
   CreditCard,
   GraduationCap,
   HelpCircle,
   Lock,
   PenLine,
+  QrCode,
   RefreshCw,
   ShieldCheck,
+  Smartphone,
   Sparkles,
   Zap,
 } from "lucide-react";
@@ -93,6 +96,9 @@ function PaymentPortalPage() {
 
   const [selectedTier, setSelectedTier] = useState<PlanTier>(search.tier || "pro");
   const [cycle, setCycle] = useState<"monthly" | "annual">(search.cycle || "monthly");
+  const [paymentMethod, setPaymentMethod] = useState<"razorpay" | "upi">("razorpay");
+  const [utrNumber, setUtrNumber] = useState("");
+  const [copiedUpi, setCopiedUpi] = useState(false);
   const [phone, setPhone] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
 
@@ -212,6 +218,47 @@ function PaymentPortalPage() {
     } catch (err) {
       console.warn("Razorpay standard checkout failed, falling back to instant activation:", err);
       handleActivation(true);
+    }
+  };
+
+  const merchantUpi = configQuery.data?.merchantUpiId || "marginal.study@okaxis";
+
+  const handleCopyUpi = () => {
+    if (typeof navigator !== "undefined" && navigator.clipboard) {
+      navigator.clipboard.writeText(merchantUpi);
+      setCopiedUpi(true);
+      toast.success("Merchant UPI ID copied!");
+      setTimeout(() => setCopiedUpi(false), 2000);
+    }
+  };
+
+  const handleUpiActivation = async () => {
+    if (!utrNumber.trim() || utrNumber.trim().length < 6) {
+      toast.error("Please enter a valid 12-digit UPI Reference (UTR) Number.");
+      return;
+    }
+    setIsProcessing(true);
+    try {
+      const res = await activateMutation({
+        data: {
+          tier: selectedTier,
+          billingCycle: cycle,
+          method: "upi_direct",
+          utrReference: utrNumber.trim(),
+        },
+      });
+
+      fireConfetti();
+      toast.success(res.message, { duration: 5000 });
+      await queryClient.invalidateQueries({ queryKey: ["me"] });
+
+      setTimeout(() => {
+        navigate({ to: "/dashboard" });
+      }, 1200);
+    } catch (err: any) {
+      toast.error(err?.message || "UPI activation failed. Please try again.");
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -464,27 +511,131 @@ function PaymentPortalPage() {
                 </div>
               </div>
 
-              {/* Checkout Action Buttons */}
-              <div className="space-y-3 pt-2">
-                <Button
-                  onClick={handleRazorpayCheckout}
-                  disabled={isProcessing}
-                  className="w-full h-11 text-xs font-bold gap-2 bg-primary hover:bg-primary/90 text-primary-foreground shadow-md"
-                >
-                  <CreditCard className="size-4" />
-                  {isProcessing ? "Processing..." : `Pay ₹${finalPrice.toLocaleString()} via Razorpay`}
-                </Button>
-
-                <Button
-                  variant="outline"
-                  onClick={() => handleActivation(true)}
-                  disabled={isProcessing}
-                  className="w-full h-10 text-xs font-semibold gap-1.5 border-dashed border-primary/50 text-primary hover:bg-primary/5"
-                >
-                  <Sparkles className="size-3.5" />
-                  Instant Sandbox Activation (Verification Pending)
-                </Button>
+              {/* Payment Method Switcher */}
+              <div className="pt-2 border-t border-border/80">
+                <label className="text-xs font-semibold text-foreground mb-2 block">
+                  Select Payment Method:
+                </label>
+                <div className="grid grid-cols-2 gap-2 mb-3">
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod("razorpay")}
+                    className={cn(
+                      "flex items-center justify-center gap-1.5 p-2 rounded-lg border text-xs font-semibold transition-all cursor-pointer",
+                      paymentMethod === "razorpay"
+                        ? "border-primary bg-primary/10 text-primary shadow-xs font-bold"
+                        : "border-border text-muted-foreground hover:bg-muted"
+                    )}
+                  >
+                    <CreditCard className="size-3.5" />
+                    <span>Razorpay Portal</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod("upi")}
+                    className={cn(
+                      "flex items-center justify-center gap-1.5 p-2 rounded-lg border text-xs font-semibold transition-all cursor-pointer",
+                      paymentMethod === "upi"
+                        ? "border-emerald-500 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 shadow-xs font-bold"
+                        : "border-border text-muted-foreground hover:bg-muted"
+                    )}
+                  >
+                    <Smartphone className="size-3.5" />
+                    <span>Direct UPI (GPay/QR)</span>
+                  </button>
+                </div>
               </div>
+
+              {/* Checkout Action Area */}
+              {paymentMethod === "razorpay" ? (
+                <div className="space-y-3 pt-1">
+                  <Button
+                    onClick={handleRazorpayCheckout}
+                    disabled={isProcessing}
+                    className="w-full h-11 text-xs font-bold gap-2 bg-primary hover:bg-primary/90 text-primary-foreground shadow-md cursor-pointer"
+                  >
+                    <CreditCard className="size-4" />
+                    {isProcessing ? "Processing..." : `Pay ₹${finalPrice.toLocaleString()} via Razorpay`}
+                  </Button>
+
+                  <Button
+                    variant="outline"
+                    onClick={() => handleActivation(true)}
+                    disabled={isProcessing}
+                    className="w-full h-10 text-xs font-semibold gap-1.5 border-dashed border-primary/50 text-primary hover:bg-primary/5 cursor-pointer"
+                  >
+                    <Sparkles className="size-3.5" />
+                    Instant Sandbox Activation (Verification Pending)
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-3 rounded-xl border border-emerald-500/30 bg-emerald-500/[0.04] p-3.5 text-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-emerald-700 dark:text-emerald-300 flex items-center gap-1.5">
+                      <QrCode className="size-4" /> Scan &amp; Pay via Any UPI App
+                    </span>
+                    <Badge variant="outline" className="border-emerald-500/30 text-[10px] text-emerald-600">
+                      Instant GPay / PhonePe
+                    </Badge>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row items-center gap-3 pt-1">
+                    <div className="size-24 shrink-0 rounded-lg border border-border bg-white p-1 shadow-xs flex items-center justify-center">
+                      <img
+                        src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(`upi://pay?pa=${merchantUpi}&pn=Marginal%20Economics&am=${finalPrice}&cu=INR`)}`}
+                        alt="UPI Payment QR Code"
+                        className="size-full object-contain"
+                      />
+                    </div>
+                    <div className="space-y-1 flex-1 min-w-0">
+                      <p className="text-[11px] text-muted-foreground">Merchant UPI ID:</p>
+                      <div className="flex items-center gap-1.5">
+                        <code className="text-xs font-mono font-bold bg-muted px-2 py-0.5 rounded-md text-foreground select-all">
+                          {merchantUpi}
+                        </code>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={handleCopyUpi}
+                          className="h-6 px-1.5 text-[10px] gap-1 cursor-pointer"
+                        >
+                          {copiedUpi ? <Check className="size-3 text-emerald-500" /> : <Copy className="size-3" />}
+                          {copiedUpi ? "Copied" : "Copy"}
+                        </Button>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground">
+                        Amount: <strong className="text-foreground">₹{finalPrice.toLocaleString()}</strong>
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5 pt-2 border-t border-emerald-500/20">
+                    <Label htmlFor="utr-input" className="text-xs font-semibold text-foreground">
+                      Enter 12-Digit UPI Reference (UTR) Number
+                    </Label>
+                    <Input
+                      id="utr-input"
+                      placeholder="e.g. 428190342156"
+                      value={utrNumber}
+                      onChange={(e) => setUtrNumber(e.target.value)}
+                      className="h-9 text-xs font-mono bg-background"
+                    />
+                    <p className="text-[10px] text-muted-foreground">
+                      Found in your GPay / PhonePe / Paytm receipt after transfer.
+                    </p>
+                  </div>
+
+                  <Button
+                    onClick={handleUpiActivation}
+                    disabled={isProcessing || !utrNumber.trim()}
+                    className="w-full h-10 text-xs font-bold gap-2 bg-emerald-600 hover:bg-emerald-700 text-white shadow-md cursor-pointer"
+                  >
+                    <CheckCircle2 className="size-4" />
+                    {isProcessing ? "Verifying..." : "Verify & Activate Plan"}
+                  </Button>
+                </div>
+              )}
 
               <div className="mt-5 border-t border-border/60 pt-4 text-center">
                 <p className="text-[11px] text-muted-foreground flex items-center justify-center gap-1.5">

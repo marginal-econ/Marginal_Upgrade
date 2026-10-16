@@ -13,6 +13,8 @@ const ActivateInput = z.object({
   orderId: z.string().optional(),
   signature: z.string().optional(),
   isSimulation: z.boolean().optional(),
+  method: z.enum(["razorpay", "upi_direct", "sandbox"]).optional(),
+  utrReference: z.string().optional(),
 });
 
 export const getPaymentConfig = createServerFn({ method: "GET" })
@@ -22,6 +24,11 @@ export const getPaymentConfig = createServerFn({ method: "GET" })
       process.env.RAZORPAY_KEY_ID ||
       process.env.VITE_RAZORPAY_KEY_ID ||
       "rzp_test_marginal_placeholder";
+
+    const merchantUpiId =
+      process.env.MERCHANT_UPI_ID ||
+      process.env.VITE_MERCHANT_UPI_ID ||
+      "marginal.study@okaxis";
 
     const { supabase, userId } = context;
     const currentSub = await getUserSubscriptionDetails(
@@ -33,6 +40,7 @@ export const getPaymentConfig = createServerFn({ method: "GET" })
 
     return {
       keyId,
+      merchantUpiId,
       isTestMode: keyId.startsWith("rzp_test_") || keyId.includes("placeholder"),
       currentTier: currentSub.tier,
       tierDetails: TIER_LIMITS,
@@ -48,14 +56,18 @@ export const activateSubscriptionTier = createServerFn({ method: "POST" })
 
     // Log the transaction attempt
     try {
+      const errorMsg = data.utrReference
+        ? `Direct UPI UTR: ${data.utrReference}`
+        : data.isSimulation
+          ? "Activated via sandbox instant verification"
+          : `Razorpay payment ID: ${data.paymentId ?? "direct"}`;
+
       await supabaseAdmin.from("ai_usage_log").insert({
         user_id: userId,
         feature: "payment_activation",
         model: `tier_${tier}`,
         ok: true,
-        error_message: data.isSimulation
-          ? "Activated via sandbox instant verification"
-          : `Razorpay payment ID: ${data.paymentId ?? "direct"}`,
+        error_message: errorMsg,
       });
     } catch {
       /* logging failure is non-fatal */
