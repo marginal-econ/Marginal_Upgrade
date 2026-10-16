@@ -35,13 +35,8 @@ import { z } from "zod";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { getMe } from "@/lib/account.functions";
 import {
   sendGroundedChatMessage,
@@ -154,7 +149,11 @@ export function GroundedChatPage() {
   const [liveTranscript, setLiveTranscript] = useState("");
   const [lastVoiceReply, setLastVoiceReply] = useState<string>("");
   const [micErrorNote, setMicErrorNote] = useState<string | null>(null);
+  const [voiceTextInput, setVoiceTextInput] = useState("");
   const recognitionRef = useRef<any>(null);
+  const transcriptRef = useRef("");
+  const isListeningRef = useRef(false);
+  const silenceTimerRef = useRef<any>(null);
 
   // Auto-Draft Essay Studio State
   const [activeDraft, setActiveDraft] = useState<
@@ -185,6 +184,10 @@ export function GroundedChatPage() {
       if (typeof window !== "undefined" && window.speechSynthesis) {
         window.speechSynthesis.cancel();
       }
+      if (silenceTimerRef.current) {
+        clearTimeout(silenceTimerRef.current);
+      }
+      isListeningRef.current = false;
       if (recognitionRef.current) {
         try {
           recognitionRef.current.abort();
@@ -385,29 +388,21 @@ export function GroundedChatPage() {
     }
   };
 
-  // Start Web Speech Recognition Engine
-  const startVoiceRecognition = async () => {
+  // Start Web Speech Recognition Engine (Strictly synchronous to preserve user gesture activation)
+  const startVoiceRecognition = () => {
     if (typeof window === "undefined") return;
+
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
+    }
 
     const SpeechRec =
       (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
     if (!SpeechRec) {
-      setMicErrorNote("Speech recognition is not supported in this browser. Please use Chrome, Edge, or Safari.");
-      setVoiceStatus("error");
-      return;
-    }
-
-    // Explicitly verify/request microphone stream to trigger or verify browser site permission
-    try {
-      if (navigator.mediaDevices?.getUserMedia) {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        stream.getTracks().forEach((track) => track.stop());
-      }
-    } catch (err: any) {
-      console.warn("getUserMedia failed:", err);
       setMicErrorNote(
-        "Microphone permission was denied by your browser. Please click the tune/lock icon in your URL bar, set Microphone to 'Allow', and tap retry."
+        "Speech recognition is not natively supported in this browser. Please use Google Chrome, Microsoft Edge, or Apple Safari, or type your query in the bar below."
       );
       setVoiceStatus("error");
       return;
@@ -423,55 +418,156 @@ export function GroundedChatPage() {
       const recognition = new SpeechRec();
       recognition.lang = "en-US";
       recognition.interimResults = true;
-      recognition.continuous = false;
+      recognition.continuous = true;
+      recognition.maxAlternatives = 1;
+
+      transcriptRef.current = "";
+      setLiveTranscript("");
+      setMicErrorNote(null);
+      setVoiceStatus("listening");
+      isListeningRef.current = true;
 
       recognition.onstart = () => {
         setVoiceStatus("listening");
         setMicErrorNote(null);
-        setLiveTranscript("");
+        isListeningRef.current = true;
       };
 
       recognition.onresult = (event: any) => {
-        const transcript = Array.from(event.results)
-          .map((r: any) => r[0].transcript)
-          .join("");
-        setLiveTranscript(transcript);
-
-        // Check if finalized
-        if (event.results[0] && event.results[0].isFinal) {
-          if (transcript.trim().length >= 3) {
-            handleSend(transcript.trim(), true);
+        let fullTranscript = "";
+        for (let i = 0; i < event.results.length; i++) {
+          const res = event.results[i];
+          if (res && res[0]) {
+            fullTranscript += res[0].transcript + " ";
           }
+        }
+
+        const trimmed = fullTranscript.trim();
+        if (trimmed) {
+          transcriptRef.current = trimmed;
+          setLiveTranscript(trimmed);
+
+          // 2.2-second pause detector to automatically submit query
+          if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+          silenceTimerRef.current = setTimeout(() => {
+            if (transcriptRef.current.trim().length >= 3 && isListeningRef.current) {
+              const textToSend = transcriptRef.current.trim();
+              transcriptRef.current = "";
+              setLiveTranscript("");
+              isListeningRef.current = false;
+              if (recognitionRef.current) {
+                try {
+                  recognitionRef.current.stop();
+                } catch {}
+              }
+              handleSend(textToSend, true);
+            }
+          }, 2200);
         }
       };
 
       recognition.onerror = (event: any) => {
         console.warn("Speech recognition error:", event.error);
-        if (event.error === "not-allowed" || event.error === "service-not-allowed") {
-          setMicErrorNote(
-            "Microphone permission was denied by your browser. Please click the tune/lock icon in your URL bar, set Microphone to 'Allow', and tap retry."
-          );
-          setVoiceStatus("error");
-        } else if (event.error === "no-speech") {
-          // Keep listening peacefully
-          setVoiceStatus("idle");
-        } else {
-          setVoiceStatus("idle");
+        if (event.error === "no-speech") {
+          return;
         }
+        if (event.error === "aborted") {
+          return;
+        }
+        if (event.error === "not-allowed" || event.error === "service-not-allowed") {
+          isListeningRef.current = false;
+          setVoiceStatus("error");
+
+          if (typeof navigator !== "undefined" && (navigator as any).permissions?.query) {
+            (navigator as any).permissions
+              .query({ name: "microphone" as PermissionName })
+              .then((p: any) => {
+                if (p.state === "denied") {
+                  setMicErrorNote(
+                    "Microphone access is blocked in your browser. Click the site settings icon in your address bar, switch Microphone to 'Allow', and click 'Reload Page to Apply'."
+                  );
+                } else {
+                  setMicErrorNote(
+                    "Microphone permission is enabled in Chrome, but the browser speech service was interrupted. If you just toggled 'Allow', click 'Reload Page to Apply' below. Also verify Windows Settings → Privacy & Security → Microphone."
+                  );
+                }
+              })
+              .catch(() => {
+                setMicErrorNote(
+                  "Microphone permission was not confirmed. If you just updated permissions in your address bar, reload the page to apply."
+                );
+              });
+          } else {
+            setMicErrorNote(
+              "Microphone permission required. If you just toggled permission in your address bar, please reload the page to apply."
+            );
+          }
+          return;
+        }
+
+        setMicErrorNote(`Voice input note: ${event.error}. Click the orb to retry or use the question bar below.`);
       };
 
       recognition.onend = () => {
-        // If user finished speaking and we have a transcript
-        if (liveTranscript.trim().length >= 3 && voiceStatus === "listening") {
-          handleSend(liveTranscript.trim(), true);
+        if (isListeningRef.current && voiceStatus === "listening") {
+          try {
+            recognition.start();
+          } catch {}
         }
       };
 
       recognitionRef.current = recognition;
+      // Start synchronously within user gesture!
       recognition.start();
-    } catch (err) {
+    } catch (err: any) {
       console.warn("Could not initiate speech recognition:", err);
-      setVoiceStatus("idle");
+      setVoiceStatus("error");
+      setMicErrorNote(err.message || "Could not start speech recognition.");
+    }
+  };
+
+  // Central Orb Click Handler
+  const handleOrbClick = () => {
+    // 1. If examiner is currently speaking, tapping orb interrupts and listens immediately
+    if (voiceStatus === "speaking") {
+      if (typeof window !== "undefined" && window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+      }
+      setVoiceStatus("listening");
+      startVoiceRecognition();
+      return;
+    }
+
+    // 2. If listening and user has spoken text, tapping orb sends it immediately!
+    if (voiceStatus === "listening") {
+      if (transcriptRef.current.trim().length >= 3) {
+        if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+        const textToSend = transcriptRef.current.trim();
+        transcriptRef.current = "";
+        setLiveTranscript("");
+        isListeningRef.current = false;
+        if (recognitionRef.current) {
+          try {
+            recognitionRef.current.stop();
+          } catch {}
+        }
+        handleSend(textToSend, true);
+      } else {
+        // Just pause
+        isListeningRef.current = false;
+        if (recognitionRef.current) {
+          try {
+            recognitionRef.current.stop();
+          } catch {}
+        }
+        setVoiceStatus("idle");
+      }
+      return;
+    }
+
+    // 3. If idle or error, tap to speak
+    if (voiceStatus === "idle" || voiceStatus === "error") {
+      startVoiceRecognition();
     }
   };
 
@@ -489,6 +585,11 @@ export function GroundedChatPage() {
     if (typeof window !== "undefined" && window.speechSynthesis) {
       window.speechSynthesis.cancel();
     }
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
+    }
+    isListeningRef.current = false;
     if (recognitionRef.current) {
       try {
         recognitionRef.current.abort();
@@ -496,6 +597,9 @@ export function GroundedChatPage() {
     }
     setVoiceModeOpen(false);
     setVoiceStatus("idle");
+    setLiveTranscript("");
+    setMicErrorNote(null);
+    setVoiceTextInput("");
   };
 
   // Copy helpers
@@ -980,9 +1084,9 @@ export function GroundedChatPage() {
               </Button>
             </div>
 
-            {/* Center Piece: Animated Audio Orb Visualizer */}
-            <div className="my-auto py-6 flex flex-col items-center space-y-6">
-              <div className="relative flex items-center justify-center size-40 sm:size-48">
+            {/* Center Piece: Interactive Living Orb Visualizer */}
+            <div className="my-auto py-4 flex flex-col items-center space-y-4 w-full">
+              <div className="relative flex items-center justify-center size-36 sm:size-44">
                 {/* Outer Ambient Ripple Rings */}
                 {voiceStatus === "listening" && (
                   <>
@@ -999,58 +1103,160 @@ export function GroundedChatPage() {
                   <div className="absolute inset-0 rounded-full bg-primary/20 animate-pulse" />
                 )}
 
-                {/* Central Living Orb */}
-                <div
+                {/* Central Living Interactive Orb Button */}
+                <button
+                  type="button"
+                  onClick={handleOrbClick}
                   className={cn(
-                    "relative size-28 sm:size-32 rounded-full shadow-2xl flex items-center justify-center transition-all duration-300",
+                    "relative size-28 sm:size-32 rounded-full shadow-2xl flex items-center justify-center transition-all duration-300 cursor-pointer focus:outline-none focus:ring-4 focus:ring-primary/40 active:scale-95 select-none",
                     voiceStatus === "listening" &&
-                      "bg-gradient-to-tr from-emerald-500 to-teal-400 shadow-emerald-500/30 scale-105",
+                      "bg-gradient-to-tr from-emerald-500 to-teal-400 shadow-emerald-500/40 scale-105 hover:brightness-110",
                     voiceStatus === "thinking" &&
-                      "bg-gradient-to-tr from-violet-600 to-indigo-500 shadow-violet-500/30 animate-pulse",
+                      "bg-gradient-to-tr from-violet-600 to-indigo-500 shadow-violet-500/40 animate-pulse",
                     voiceStatus === "speaking" &&
-                      "bg-gradient-to-tr from-primary to-amber-500 shadow-primary/30 scale-110",
+                      "bg-gradient-to-tr from-primary to-amber-500 shadow-primary/40 scale-105 animate-pulse hover:brightness-110",
                     voiceStatus === "idle" &&
-                      "bg-gradient-to-tr from-muted-foreground/30 to-muted shadow-inner",
+                      "bg-gradient-to-tr from-muted-foreground/30 to-muted shadow-inner hover:scale-105",
                     voiceStatus === "error" &&
-                      "bg-gradient-to-tr from-red-500 to-rose-600 shadow-red-500/30"
+                      "bg-gradient-to-tr from-red-500 to-rose-600 shadow-red-500/40 hover:scale-105"
                   )}
+                  title={
+                    voiceStatus === "listening"
+                      ? "Listening... Tap to send or pause"
+                      : voiceStatus === "speaking"
+                        ? "Examiner speaking. Tap orb to interrupt"
+                        : "Tap orb to speak"
+                  }
                 >
                   {voiceStatus === "listening" && <Mic className="size-10 text-white animate-bounce" />}
                   {voiceStatus === "thinking" && <Sparkles className="size-10 text-white animate-spin" />}
                   {voiceStatus === "speaking" && <Volume2 className="size-10 text-white animate-pulse" />}
                   {voiceStatus === "idle" && <Mic className="size-10 text-muted-foreground" />}
                   {voiceStatus === "error" && <MicOff className="size-10 text-white" />}
-                </div>
+                </button>
               </div>
 
               {/* Status & Live Transcription */}
-              <div className="space-y-2 max-w-sm px-4">
-                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+              <div className="space-y-2 max-w-sm px-4 w-full text-center">
+                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground block">
                   {voiceStatus === "listening" && "Listening... Speak your economics question"}
-                  {voiceStatus === "thinking" && "Consulting Cambridge syllabus..."}
-                  {voiceStatus === "speaking" && "Cambridge Examiner Speaking..."}
-                  {voiceStatus === "idle" && "Tap the microphone to speak"}
-                  {voiceStatus === "error" && "Microphone Access Required"}
+                  {voiceStatus === "thinking" && "Consulting Cambridge 9708 syllabus..."}
+                  {voiceStatus === "speaking" && "Cambridge Examiner Speaking... (tap orb to interrupt)"}
+                  {voiceStatus === "idle" && "Tap the glowing orb to speak"}
+                  {voiceStatus === "error" && "Microphone Access Note"}
                 </span>
 
+                {/* Live Transcript Bubble */}
                 {liveTranscript && (
-                  <p className="text-sm font-semibold text-foreground italic bg-muted/40 rounded-xl p-2.5">
-                    "{liveTranscript}"
-                  </p>
-                )}
-
-                {micErrorNote && (
-                  <div className="text-xs text-rose-500 bg-rose-500/10 border border-rose-500/20 rounded-xl p-3 text-left space-y-1.5">
-                    <p className="font-semibold">{micErrorNote}</p>
-                    <button
-                      type="button"
-                      onClick={startVoiceRecognition}
-                      className="text-[11px] underline font-bold cursor-pointer hover:opacity-80"
-                    >
-                      Click here to retry microphone permission
-                    </button>
+                  <div className="bg-muted/50 border border-primary/20 rounded-2xl p-3 text-left space-y-2">
+                    <p className="text-xs sm:text-sm font-semibold text-foreground italic">
+                      "{liveTranscript}"
+                    </p>
+                    <div className="flex items-center justify-between pt-1 border-t border-border/40">
+                      <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
+                        <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                        Listening actively...
+                      </span>
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={() => {
+                          if (transcriptRef.current.trim()) {
+                            const textToSend = transcriptRef.current.trim();
+                            transcriptRef.current = "";
+                            setLiveTranscript("");
+                            if (recognitionRef.current) {
+                              try {
+                                recognitionRef.current.stop();
+                              } catch {}
+                            }
+                            handleSend(textToSend, true);
+                          }
+                        }}
+                        className="h-6 text-[11px] px-2.5 rounded-lg gap-1 font-bold"
+                      >
+                        <Send className="size-3" />
+                        <span>Send Now</span>
+                      </Button>
+                    </div>
                   </div>
                 )}
+
+                {/* Actionable Error Guidance */}
+                {micErrorNote && (
+                  <div className="text-xs text-rose-500 bg-rose-500/10 border border-rose-500/25 rounded-2xl p-3 text-left space-y-2 shadow-xs">
+                    <p className="font-semibold leading-relaxed">{micErrorNote}</p>
+                    <div className="flex flex-wrap items-center gap-2 pt-0.5">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="destructive"
+                        onClick={startVoiceRecognition}
+                        className="h-7 text-xs rounded-xl gap-1"
+                      >
+                        <Mic className="size-3" />
+                        <span>Try Again</span>
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => window.location.reload()}
+                        className="h-7 text-xs rounded-xl gap-1 border-rose-500/30 text-rose-600 dark:text-rose-400 hover:bg-rose-500/10"
+                      >
+                        <RefreshCw className="size-3" />
+                        <span>Reload Page to Apply</span>
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Direct Voice Query Input Fallback */}
+              <div className="w-full max-w-sm px-4 pt-1 space-y-2">
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    if (voiceTextInput.trim()) {
+                      handleSend(voiceTextInput.trim(), true);
+                      setVoiceTextInput("");
+                    }
+                  }}
+                  className="flex items-center gap-1.5"
+                >
+                  <Input
+                    value={voiceTextInput}
+                    onChange={(e) => setVoiceTextInput(e.target.value)}
+                    placeholder="Or type voice question to Examiner..."
+                    className="h-8 text-xs rounded-xl bg-card border-border/70"
+                  />
+                  <Button
+                    type="submit"
+                    size="sm"
+                    disabled={!voiceTextInput.trim() || isSending}
+                    className="h-8 text-xs px-2.5 rounded-xl shrink-0"
+                  >
+                    <Send className="size-3" />
+                  </Button>
+                </form>
+
+                {/* Quick Topic Prompts */}
+                <div className="flex flex-wrap items-center justify-center gap-1.5">
+                  {[
+                    "Elasticity & tax incidence",
+                    "PPC & opportunity cost",
+                    "Monetary policy inflation",
+                  ].map((topic) => (
+                    <button
+                      key={topic}
+                      type="button"
+                      onClick={() => handleSend(topic, true)}
+                      className="text-[10px] px-2 py-0.5 rounded-lg bg-muted/60 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer border border-border/40 truncate"
+                    >
+                      {topic}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
 
@@ -1084,7 +1290,12 @@ export function GroundedChatPage() {
                   variant={voiceStatus === "listening" ? "destructive" : "default"}
                   onClick={() => {
                     if (voiceStatus === "listening") {
-                      if (recognitionRef.current) recognitionRef.current.stop();
+                      isListeningRef.current = false;
+                      if (recognitionRef.current) {
+                        try {
+                          recognitionRef.current.stop();
+                        } catch {}
+                      }
                       setVoiceStatus("idle");
                     } else {
                       startVoiceRecognition();
