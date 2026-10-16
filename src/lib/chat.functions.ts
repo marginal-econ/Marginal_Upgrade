@@ -47,19 +47,36 @@ export const sendGroundedChatMessage = createServerFn({ method: "POST" })
   .handler(async ({ data, context }): Promise<GroundedChatReply> => {
     const { supabase, userId } = context;
 
-    // Verify User Role & Subscription Tier
-    const { data: userProfile } = await supabase
-      .from("profiles")
-      .select("role, subscription_tier")
-      .eq("id", userId)
-      .maybeSingle();
+    const { isVaquitavoid } = await import("@/lib/auth-admin");
+    const isVaqlAdmin = isVaquitavoid({
+      userId,
+      email: (context as any).email,
+      claims: (context as any).claims,
+    });
 
-    const role = userProfile?.role || "student";
-    const tier = userProfile?.subscription_tier || "free";
+    let role = "student";
+    let tier = "free";
 
-    // Chat is strictly locked for free tier users; free for all paid tiers & admins
-    const isPaid = ["foundation", "pro", "mastery", "elite"].includes(tier);
-    const isAdmin = role === "admin" || role === "teacher";
+    try {
+      const { data: userProfile } = await supabase
+        .from("profiles")
+        .select("role, subscription_tier")
+        .eq("id", userId)
+        .maybeSingle();
+      if (userProfile?.role) role = userProfile.role;
+      if (userProfile?.subscription_tier) tier = userProfile.subscription_tier;
+    } catch {}
+
+    const { getUserSubscriptionDetails } = await import("./subscription.server");
+    const sub = await getUserSubscriptionDetails(
+      supabase,
+      userId,
+      (context as any).email,
+      (context as any).claims
+    );
+
+    const isAdmin = isVaqlAdmin || role === "admin" || role === "teacher" || Boolean(sub.isAdmin);
+    const isPaid = sub.isPaid || ["foundation", "pro", "mastery", "elite"].includes(tier) || sub.tier !== "free";
 
     if (!isPaid && !isAdmin) {
       throw new Error(

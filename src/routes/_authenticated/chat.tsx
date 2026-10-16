@@ -8,7 +8,6 @@ import {
   Check,
   CheckCircle2,
   Copy,
-  Database,
   ExternalLink,
   Flame,
   HelpCircle,
@@ -25,12 +24,15 @@ import {
   Volume2,
   VolumeX,
   Zap,
+  Radio,
+  X,
+  RotateCcw,
+  Headphones,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 
-import { PageHeader } from "@/components/app/app-shell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -40,7 +42,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Switch } from "@/components/ui/switch";
 import { getMe } from "@/lib/account.functions";
 import {
   sendGroundedChatMessage,
@@ -60,7 +61,7 @@ export const Route = createFileRoute("/_authenticated/chat")({
       {
         name: "description",
         content:
-          "Syllabus-grounded Cambridge 9708 Economics AI chat co-pilot with official mark scheme citations, voice discussion, and 1-click essay drafting.",
+          "Syllabus-grounded Cambridge 9708 Economics AI chat co-pilot with official mark scheme citations, ChatGPT-style voice mode, and 1-click essay drafting.",
       },
     ],
   }),
@@ -79,44 +80,46 @@ interface ChatMessageItem {
   timestamp: Date;
 }
 
-const INITIAL_GREETING: ChatMessageItem = {
-  id: "greeting",
-  role: "assistant",
-  content: `Hello! I am your **Cambridge 9708 Economics Chat Co-Pilot**, strictly grounded in the official Cambridge International AS & A Level syllabus and 1,400+ published mark schemes.
-
-Ask me any economics concept, essay question, diagram requirement, or mark scheme criteria. Every answer cites official Cambridge sources.
-
-**Tip:** You can speak via voice (tap 🎙️), toggle between **Fast Zero-Cost RAG** and **Deep AI Co-Pilot**, and generate a complete **Auto-Draft Essay** for any topic with one click!`,
-  sources: [
-    {
-      title: "Cambridge 9708 Economics Specification (2023–2025)",
-      chapter: "All 11 Syllabus Chapters",
-      type: "syllabus",
-    },
-    {
-      title: "Cambridge Master Definitions Catalogue",
-      chapter: "Micro & Macro Units",
-      type: "definition",
-    },
-  ],
-  usedAi: false,
-  costEstimate: "₹0.00 (Zero Token Local RAG Engine)",
-  timestamp: new Date(),
-};
-
-const SUGGESTED_PROMPTS = [
-  "Why is an indirect tax on cigarettes regressive?",
-  "Explain the Marshall-Lerner condition & J-curve",
-  "Are monopolies always allocatively inefficient?",
-  "PPC movement along vs outward shift",
-  "How does contractionary monetary policy curb inflation?",
-  "Tariffs vs import quotas: welfare deadweight loss",
+const TOPIC_STARTERS = [
+  {
+    topic: "Why are indirect taxes on cigarettes regressive?",
+    category: "Microeconomics",
+    chapter: "Chapter 3 · Market Failure & Intervention",
+    paper: "Cambridge 9708/s23/ms_22",
+  },
+  {
+    topic: "How does contractionary monetary policy curb demand-pull inflation?",
+    category: "Macro Policy",
+    chapter: "Chapter 5 · Macroeconomic Intervention",
+    paper: "Cambridge 9708/w22/ms_23",
+  },
+  {
+    topic: "Explain the Marshall-Lerner condition & the J-Curve time path.",
+    category: "International Trade",
+    chapter: "Chapter 4 · The Macroeconomy",
+    paper: "Cambridge 9708/m23/ms_22",
+  },
+  {
+    topic: "PPC movement along the curve vs outward economic growth shift.",
+    category: "Basic Economic Ideas",
+    chapter: "Chapter 1 · Resource Allocation",
+    paper: "Cambridge 9708/s22/ms_21",
+  },
 ];
 
-function GroundedChatPage() {
+const SUGGESTED_QUICK_CHIPS = [
+  "Elasticity & tax incidence",
+  "Tariffs vs import quotas",
+  "Are monopolies allocatively inefficient?",
+  "Current account deficit causes",
+  "Fiscal multiplier & crowding out",
+];
+
+export function GroundedChatPage() {
   const navigate = useNavigate();
   const search = Route.useSearch();
   const getMeFn = useServerFn(getMe);
+
   const meQuery = useQuery({
     queryKey: ["me"],
     queryFn: () => getMeFn(),
@@ -124,113 +127,90 @@ function GroundedChatPage() {
   });
 
   const sub = meQuery.data?.subscription;
-  const isAdmin = meQuery.data?.isAdmin || meQuery.data?.role === "teacher";
-  const isPaid = sub?.tier && sub.tier !== "free";
-  const isUnlocked = isPaid || isAdmin;
+  const isAdmin = Boolean(
+    meQuery.data?.isAdmin ||
+    meQuery.data?.role === "admin" ||
+    meQuery.data?.role === "teacher"
+  );
+  const isPaid = Boolean(sub?.isPaid || (sub?.tier && sub.tier !== "free"));
+  // Admin ALWAYS has full access
+  const isUnlocked = isAdmin || isPaid;
 
-  // Chat State
-  const [messages, setMessages] = useState<ChatMessageItem[]>([INITIAL_GREETING]);
+  // Conversational state
+  const [messages, setMessages] = useState<ChatMessageItem[]>([]);
   const [inputMessage, setInputMessage] = useState(search.q || "");
-  const [aiMode, setAiMode] = useState<boolean>(false); // default to Fast RAG (0 tokens / cheap)
+  const [aiMode, setAiMode] = useState<boolean>(false); // false = Fast RAG (₹0 tokens), true = Deep AI (Gemini Flash)
   const [isSending, setIsSending] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  // Voice Speech-to-Text State
-  const [isListening, setIsListening] = useState(false);
-  const recognitionRef = useRef<any>(null);
-
-  // Text-to-Speech State
+  // Audio Speech Synthesis (Text-to-Speech)
   const [speakingMsgId, setSpeakingMsgId] = useState<string | null>(null);
 
-  // Auto-Draft Modal State
-  const [activeDraft, setActiveDraft] = useState<GroundedChatReply["autoDraftPrompt"] | null>(null);
+  // ChatGPT-Style Voice Mode Overlay State
+  const [voiceModeOpen, setVoiceModeOpen] = useState(false);
+  const [voiceStatus, setVoiceStatus] = useState<
+    "idle" | "listening" | "thinking" | "speaking" | "error"
+  >("idle");
+  const [liveTranscript, setLiveTranscript] = useState("");
+  const [lastVoiceReply, setLastVoiceReply] = useState<string>("");
+  const [micErrorNote, setMicErrorNote] = useState<string | null>(null);
+  const recognitionRef = useRef<any>(null);
+
+  // Auto-Draft Essay Studio State
+  const [activeDraft, setActiveDraft] = useState<
+    GroundedChatReply["autoDraftPrompt"] | null
+  >(null);
   const [draftModalOpen, setDraftModalOpen] = useState(false);
   const [copiedDraft, setCopiedDraft] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const sendFn = useServerFn(sendGroundedChatMessage);
 
-  // Scroll to bottom when messages change
+  // Auto-scroll on new message
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isSending]);
 
-  // Handle URL search param prefill
+  // Handle URL query prefill
   useEffect(() => {
-    if (search.q && isUnlocked && messages.length === 1) {
+    if (search.q && isUnlocked && messages.length === 0) {
       handleSend(search.q);
     }
   }, [search.q, isUnlocked]);
 
-  // Clean up speech synthesis on unmount
+  // Clean up Web Speech on unmount
   useEffect(() => {
     return () => {
       if (typeof window !== "undefined" && window.speechSynthesis) {
         window.speechSynthesis.cancel();
       }
       if (recognitionRef.current) {
-        recognitionRef.current.abort();
+        try {
+          recognitionRef.current.abort();
+        } catch {}
       }
     };
   }, []);
 
-  // Web Speech API: Voice Input
-  const toggleVoiceInput = () => {
-    if (typeof window === "undefined") return;
-
-    const SpeechRec = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRec) {
-      toast.error("Speech recognition is not supported in this browser. Please use Chrome, Edge, or Safari.");
-      return;
-    }
-
-    if (isListening) {
-      if (recognitionRef.current) {
-        recognitionRef.current.stop();
-      }
-      setIsListening(false);
-      return;
-    }
-
-    try {
-      const recognition = new SpeechRec();
-      recognition.lang = "en-US";
-      recognition.interimResults = true;
-      recognition.continuous = false;
-
-      recognition.onstart = () => {
-        setIsListening(true);
-        toast.info("Listening... Speak your economics question.", { duration: 3000 });
-      };
-
-      recognition.onresult = (event: any) => {
-        const transcript = Array.from(event.results)
-          .map((r: any) => r[0].transcript)
-          .join("");
-        setInputMessage(transcript);
-      };
-
-      recognition.onerror = (event: any) => {
-        console.warn("Speech recognition error:", event.error);
-        setIsListening(false);
-        if (event.error === "not-allowed") {
-          toast.error("Microphone access was denied. Please allow microphone permissions.");
-        }
-      };
-
-      recognition.onend = () => {
-        setIsListening(false);
-      };
-
-      recognitionRef.current = recognition;
-      recognition.start();
-    } catch (err) {
-      console.warn("Could not start speech recognition:", err);
-      setIsListening(false);
+  // Textarea auto-resize
+  const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setInputMessage(e.target.value);
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "auto";
+      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 180)}px`;
     }
   };
 
-  // Web Speech API: Text-to-Speech Read Aloud
+  // Keyboard shortcut: Enter sends, Shift+Enter new line
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  };
+
+  // Text-to-Speech Read Aloud
   const handleToggleSpeak = (msgId: string, text: string) => {
     if (typeof window === "undefined" || !window.speechSynthesis) {
       toast.error("Text-to-speech is not supported on this device.");
@@ -244,7 +224,6 @@ function GroundedChatPage() {
     }
 
     window.speechSynthesis.cancel();
-    // Strip markdown formatting for natural voice output
     const cleanSpeechText = text
       .replace(/[*_#>`~]/g, "")
       .replace(/\[Source:[^\]]+\]/g, "")
@@ -261,12 +240,13 @@ function GroundedChatPage() {
     window.speechSynthesis.speak(utterance);
   };
 
-  const handleSend = async (overrideText?: string) => {
+  // Primary Message Sender
+  const handleSend = async (overrideText?: string, isFromVoice = false) => {
     const textToSend = (overrideText || inputMessage).trim();
     if (!textToSend || isSending) return;
 
     if (!isUnlocked) {
-      toast.error("Cambridge Grounded AI Chat is exclusively unlocked for paid students.");
+      toast.error("Cambridge Grounded AI Chat is unlocked for paid students and Admins.");
       return;
     }
 
@@ -279,11 +259,17 @@ function GroundedChatPage() {
 
     setMessages((prev) => [...prev, userMsg]);
     setInputMessage("");
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "auto";
+    }
     setIsSending(true);
+
+    if (isFromVoice) {
+      setVoiceStatus("thinking");
+    }
 
     try {
       const history = messages
-        .filter((m) => m.id !== "greeting")
         .slice(-6)
         .map((m) => ({ role: m.role, content: m.content }));
 
@@ -308,15 +294,157 @@ function GroundedChatPage() {
       };
 
       setMessages((prev) => [...prev, assistantMsg]);
+
+      // If in ChatGPT Voice Mode, speak aloud and auto-loop
+      if (isFromVoice || voiceModeOpen) {
+        setLastVoiceReply(res.reply);
+        setVoiceStatus("speaking");
+
+        if (typeof window !== "undefined" && window.speechSynthesis) {
+          window.speechSynthesis.cancel();
+          const speechText = res.reply
+            .replace(/[*_#>`~]/g, "")
+            .replace(/\[Source:[^\]]+\]/g, "")
+            .replace(/\[Mark Scheme[^\]]+\]/g, "")
+            .replace(/\n+/g, ". ");
+
+          const utterance = new SpeechSynthesisUtterance(speechText);
+          utterance.rate = 1.05;
+          utterance.pitch = 1.0;
+
+          utterance.onend = () => {
+            // Conversational Loop: automatically listen for candidate's follow-up!
+            if (voiceModeOpen) {
+              setVoiceStatus("listening");
+              startVoiceRecognition();
+            } else {
+              setVoiceStatus("idle");
+            }
+          };
+
+          utterance.onerror = () => {
+            if (voiceModeOpen) {
+              setVoiceStatus("listening");
+              startVoiceRecognition();
+            } else {
+              setVoiceStatus("idle");
+            }
+          };
+
+          window.speechSynthesis.speak(utterance);
+        }
+      }
     } catch (err: any) {
-      toast.error(err?.message || "Failed to retrieve grounded answer. Please try again.");
+      toast.error(err.message || "Failed to retrieve grounded answer.");
+      if (isFromVoice) {
+        setVoiceStatus("idle");
+      }
     } finally {
       setIsSending(false);
     }
   };
 
-  const handleCopy = (id: string, text: string) => {
-    if (typeof navigator !== "undefined" && navigator.clipboard) {
+  // Start Web Speech Recognition Engine
+  const startVoiceRecognition = () => {
+    if (typeof window === "undefined") return;
+
+    const SpeechRec =
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+
+    if (!SpeechRec) {
+      setMicErrorNote("Speech recognition is not supported in this browser. Please use Chrome, Edge, or Safari.");
+      setVoiceStatus("error");
+      return;
+    }
+
+    try {
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.abort();
+        } catch {}
+      }
+
+      const recognition = new SpeechRec();
+      recognition.lang = "en-US";
+      recognition.interimResults = true;
+      recognition.continuous = false;
+
+      recognition.onstart = () => {
+        setVoiceStatus("listening");
+        setMicErrorNote(null);
+        setLiveTranscript("");
+      };
+
+      recognition.onresult = (event: any) => {
+        const transcript = Array.from(event.results)
+          .map((r: any) => r[0].transcript)
+          .join("");
+        setLiveTranscript(transcript);
+
+        // Check if finalized
+        if (event.results[0] && event.results[0].isFinal) {
+          if (transcript.trim().length >= 3) {
+            handleSend(transcript.trim(), true);
+          }
+        }
+      };
+
+      recognition.onerror = (event: any) => {
+        console.warn("Speech recognition error:", event.error);
+        if (event.error === "not-allowed" || event.error === "service-not-allowed") {
+          setMicErrorNote(
+            "Microphone permission was denied by your browser. Please click the tune/lock icon in your URL bar, set Microphone to 'Allow', and tap retry."
+          );
+          setVoiceStatus("error");
+        } else if (event.error === "no-speech") {
+          // Keep listening peacefully
+          setVoiceStatus("idle");
+        } else {
+          setVoiceStatus("idle");
+        }
+      };
+
+      recognition.onend = () => {
+        // If user finished speaking and we have a transcript
+        if (liveTranscript.trim().length >= 3 && voiceStatus === "listening") {
+          handleSend(liveTranscript.trim(), true);
+        }
+      };
+
+      recognitionRef.current = recognition;
+      recognition.start();
+    } catch (err) {
+      console.warn("Could not initiate speech recognition:", err);
+      setVoiceStatus("idle");
+    }
+  };
+
+  // Launch ChatGPT-Style Voice Mode
+  const openVoiceMode = () => {
+    setVoiceModeOpen(true);
+    setLiveTranscript("");
+    setMicErrorNote(null);
+    setVoiceStatus("listening");
+    startVoiceRecognition();
+  };
+
+  // Close Voice Mode
+  const closeVoiceMode = () => {
+    if (typeof window !== "undefined" && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.abort();
+      } catch {}
+    }
+    setVoiceModeOpen(false);
+    setVoiceStatus("idle");
+  };
+
+  // Copy helpers
+  const handleCopy = (text: string, id: string) => {
+    if (typeof navigator !== "undefined") {
       navigator.clipboard.writeText(text);
       setCopiedId(id);
       toast.success("Copied to clipboard!");
@@ -324,12 +452,14 @@ function GroundedChatPage() {
     }
   };
 
-  const handleOpenDraftModal = (prompt: GroundedChatReply["autoDraftPrompt"]) => {
+  // Open Cambridge Essay Studio
+  const handleOpenDraftModal = (prompt?: GroundedChatReply["autoDraftPrompt"]) => {
     if (!prompt) return;
     setActiveDraft(prompt);
     setDraftModalOpen(true);
   };
 
+  // Transfer Draft to /grade
   const handleTransferToGrader = () => {
     if (!activeDraft) return;
     try {
@@ -347,73 +477,60 @@ function GroundedChatPage() {
     });
   };
 
-  // Locked View for Free Tier Users
+  // Free Tier Locked State (Non-Admins only)
   if (!meQuery.isLoading && !isUnlocked) {
     return (
-      <div className="space-y-6 max-w-5xl mx-auto px-4 py-8">
-        <PageHeader
-          title="Cambridge AI Grounded Chat"
-          description="Syllabus-grounded interactive economics discussions and instant essay drafting."
-        />
-
-        <div className="rounded-3xl border-2 border-primary/30 bg-card p-6 sm:p-10 shadow-xl text-center space-y-6 relative overflow-hidden">
-          <div className="absolute top-0 right-0 p-8 opacity-10 pointer-events-none">
-            <Lock className="size-48 text-primary" />
-          </div>
-
-          <div className="size-16 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary mx-auto shadow-inner">
+      <div className="space-y-6 max-w-4xl mx-auto px-4 py-12">
+        <div className="rounded-3xl border border-border/80 bg-gradient-to-b from-card via-card/90 to-background p-8 sm:p-12 shadow-2xl text-center space-y-6 relative overflow-hidden">
+          <div className="size-16 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-500 mx-auto shadow-inner">
             <Lock className="size-8 animate-pulse text-amber-500" />
           </div>
 
           <div className="space-y-2 max-w-lg mx-auto">
-            <Badge className="bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/20 text-xs font-semibold">
-              Exclusive Subscriber Feature
+            <Badge className="bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30 text-xs font-semibold px-3 py-0.5">
+              Cambridge Pass Exclusive
             </Badge>
-            <h2 className="text-2xl sm:text-3xl font-extrabold text-foreground">
+            <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">
               Cambridge Grounded AI Chat is Locked
             </h2>
             <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
-              Real-time voice discussions, syllabus-grounded mark scheme explanations, and 1-click Auto-Draft Essays are unlocked for all Cambridge Pass subscribers.
+              ChatGPT-style conversational voice mode, syllabus-grounded mark scheme explanations, and 1-click Auto-Draft Essays are unlocked for paid subscribers and educators.
             </p>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-3 max-w-2xl mx-auto text-left text-xs">
-            <div className="rounded-xl border border-border/80 bg-background/60 p-3.5 space-y-1">
+            <div className="p-3.5 rounded-xl border border-border/70 bg-card/60 space-y-1">
               <span className="font-bold text-foreground flex items-center gap-1.5">
-                <Database className="size-4 text-primary" /> 100% Grounded
+                <CheckCircle2 className="size-3.5 text-primary" />
+                100% Syllabus Grounded
               </span>
-              <p className="text-[11px] text-muted-foreground">
-                Grounded in 1,400+ published Cambridge mark schemes with exact citations.
-              </p>
+              <p className="text-[11px] text-muted-foreground">Every answer cites exact Cambridge 9708 chapters, definitions & past papers.</p>
             </div>
-            <div className="rounded-xl border border-border/80 bg-background/60 p-3.5 space-y-1">
+            <div className="p-3.5 rounded-xl border border-border/70 bg-card/60 space-y-1">
               <span className="font-bold text-foreground flex items-center gap-1.5">
-                <Mic className="size-4 text-emerald-500" /> Voice Discussion
+                <Headphones className="size-3.5 text-amber-500" />
+                ChatGPT Voice Mode
               </span>
-              <p className="text-[11px] text-muted-foreground">
-                Speak your questions naturally via microphone and listen to voice explanations.
-              </p>
+              <p className="text-[11px] text-muted-foreground">Hands-free speech conversation with examiner text-to-speech audio.</p>
             </div>
-            <div className="rounded-xl border border-border/80 bg-background/60 p-3.5 space-y-1">
+            <div className="p-3.5 rounded-xl border border-border/70 bg-card/60 space-y-1">
               <span className="font-bold text-foreground flex items-center gap-1.5">
-                <PenLine className="size-4 text-amber-500" /> Auto-Draft Essays
+                <PenLine className="size-3.5 text-emerald-500" />
+                Auto-Draft Essays
               </span>
-              <p className="text-[11px] text-muted-foreground">
-                Convert any theoretical query into a complete Cambridge essay draft in 1 click.
-              </p>
+              <p className="text-[11px] text-muted-foreground">Converts chat discussions into 5-paragraph Cambridge essays ready to grade.</p>
             </div>
           </div>
 
           <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
-            <Button asChild size="default" className="w-full sm:w-auto font-bold gap-2 shadow-md">
-              <Link to="/payment" search={{ tier: "foundation", cycle: "monthly" }}>
-                <Zap className="size-4" /> Unlock with Foundation (₹99/mo)
+            <Button asChild size="lg" className="w-full sm:w-auto font-bold shadow-lg">
+              <Link to="/pricing">
+                <span>Unlock Foundation Pass (₹149/mo)</span>
+                <ArrowRight className="ml-2 size-4" />
               </Link>
             </Button>
-            <Button asChild variant="outline" size="default" className="w-full sm:w-auto font-semibold gap-2">
-              <Link to="/pricing">
-                View All Revision Plans <ArrowRight className="size-4" />
-              </Link>
+            <Button asChild variant="outline" size="lg" className="w-full sm:w-auto">
+              <Link to="/dashboard">Back to Dashboard</Link>
             </Button>
           </div>
         </div>
@@ -422,201 +539,288 @@ function GroundedChatPage() {
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-4rem)] max-w-5xl mx-auto px-3 sm:px-6 py-4">
-      {/* Top Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border pb-3 shrink-0">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-lg sm:text-xl font-bold tracking-tight text-foreground flex items-center gap-2">
-              <MessageSquare className="size-5 text-primary" /> Cambridge AI Grounded Chat
-            </h1>
-            <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 text-[10px] font-mono">
-              Grounded &amp; Active
-            </Badge>
+    <div className="flex flex-col h-[calc(100vh-4.25rem)] max-w-5xl mx-auto px-3 sm:px-6 py-2 overflow-hidden">
+      {/* Top Header Bar — Claude Style */}
+      <div className="flex items-center justify-between py-2 border-b border-border/50 shrink-0 gap-2">
+        <div className="flex items-center gap-3">
+          <div className="size-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shadow-2xs">
+            <BookOpen className="size-4 text-primary" />
           </div>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Discuss Cambridge 9708 syllabus concepts with authentic mark scheme citations.
-          </p>
+          <div>
+            <div className="flex items-center gap-2">
+              <h1 className="text-sm sm:text-base font-semibold tracking-tight text-foreground">
+                Cambridge 9708 Co-Pilot
+              </h1>
+              {isAdmin ? (
+                <Badge className="bg-purple-500/15 border-purple-500/30 text-purple-600 dark:text-purple-300 text-[10px] font-bold px-2 py-0">
+                  <ShieldCheck className="size-2.5 mr-1" />
+                  Admin Pass
+                </Badge>
+              ) : (
+                <Badge className="bg-emerald-500/15 border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold px-2 py-0">
+                  Grounded
+                </Badge>
+              )}
+            </div>
+            <p className="text-[11px] text-muted-foreground hidden sm:block">
+              Syllabus-locked knowledge, authentic mark scheme citations, & voice discussion
+            </p>
+          </div>
         </div>
 
-        {/* AI Engine Cost Controller Switch */}
-        <div className="flex items-center gap-3 bg-muted/60 px-3 py-1.5 rounded-xl border border-border/80 text-xs self-start sm:self-auto">
-          <div className="flex items-center gap-2">
-            <span className={cn("text-[11px] font-semibold transition-colors", !aiMode ? "text-primary font-bold" : "text-muted-foreground")}>
-              ⚡ Fast RAG (0 Tokens)
-            </span>
-            <Switch
-              checked={aiMode}
-              onCheckedChange={(checked) => {
-                setAiMode(checked);
-                toast.info(
-                  checked
-                    ? "Deep AI Mode ON: Powered by Gemini Flash with syllabus grounding."
-                    : "Fast RAG Mode ON: Zero AI tokens consumed, instant local corpus lookup."
-                );
-              }}
-            />
-            <span className={cn("text-[11px] font-semibold transition-colors", aiMode ? "text-primary font-bold" : "text-muted-foreground")}>
-              🤖 Deep AI Co-Pilot
-            </span>
+        {/* Top Controls: Mode Switcher & Voice Mode CTA */}
+        <div className="flex items-center gap-2">
+          {/* Dual AI Mode Pill Switcher */}
+          <div className="flex items-center rounded-xl bg-muted/60 p-0.5 border border-border/60 text-xs">
+            <button
+              type="button"
+              onClick={() => setAiMode(false)}
+              className={cn(
+                "flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all cursor-pointer",
+                !aiMode
+                  ? "bg-background text-foreground shadow-2xs font-semibold"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+              title="Fast RAG operates purely from Cambridge database at ₹0.00 token cost"
+            >
+              <Zap className="size-3 text-amber-500" />
+              <span>Fast RAG (₹0)</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setAiMode(true)}
+              className={cn(
+                "flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all cursor-pointer",
+                aiMode
+                  ? "bg-background text-primary shadow-2xs font-semibold"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+              title="Deep AI Examiner uses Gemini Flash with Cambridge prompt grounding"
+            >
+              <Sparkles className="size-3 text-primary" />
+              <span>Deep Examiner</span>
+            </button>
           </div>
 
+          {/* ChatGPT Voice Mode Button */}
           <Button
-            variant="ghost"
+            type="button"
             size="sm"
-            onClick={() => setMessages([INITIAL_GREETING])}
-            className="h-7 px-2 text-[11px] text-muted-foreground hover:text-foreground gap-1"
-            title="Reset conversation"
+            onClick={openVoiceMode}
+            className="h-8 gap-1.5 px-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-medium shadow-sm transition-all"
           >
-            <RefreshCw className="size-3" /> Clear
+            <Radio className="size-3.5 animate-pulse text-white" />
+            <span className="hidden sm:inline text-xs">Voice Mode</span>
+            <span className="sm:hidden text-xs">Voice</span>
           </Button>
+
+          {/* Clear conversation */}
+          {messages.length > 0 && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="size-8 rounded-lg text-muted-foreground hover:text-foreground"
+              onClick={() => {
+                setMessages([]);
+                toast.info("Conversation cleared.");
+              }}
+              title="Start fresh conversation"
+            >
+              <RotateCcw className="size-3.5" />
+            </Button>
+          )}
         </div>
       </div>
 
-      {/* Messages Stream */}
-      <div className="flex-1 overflow-y-auto py-4 space-y-4 pr-1">
+      {/* Main Conversation Stream — Claude Style */}
+      <div className="flex-1 overflow-y-auto py-4 space-y-5 px-1 sm:px-2">
+        {/* Welcome Empty State (Claude Style) */}
+        {messages.length === 0 && (
+          <div className="max-w-2xl mx-auto py-8 sm:py-12 space-y-6 text-center">
+            <div className="space-y-2">
+              <h2 className="text-2xl sm:text-3xl font-serif font-bold tracking-tight text-foreground">
+                How can I help you explore Cambridge Economics today?
+              </h2>
+              <p className="text-xs sm:text-sm text-muted-foreground max-w-md mx-auto">
+                Ask any concept, diagram requirement, or essay topic. Every answer is strictly grounded in the Cambridge 9708 specification.
+              </p>
+            </div>
+
+            {/* Claude-style 2x2 Starter Grid */}
+            <div className="grid gap-3 sm:grid-cols-2 text-left pt-2">
+              {TOPIC_STARTERS.map((item, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => handleSend(item.topic)}
+                  className="group flex flex-col justify-between p-4 rounded-2xl border border-border/70 bg-card/50 hover:bg-card hover:border-primary/40 hover:shadow-md transition-all duration-200 cursor-pointer text-left space-y-2"
+                >
+                  <div className="space-y-1">
+                    <span className="inline-block text-[10px] font-bold uppercase tracking-wider text-primary">
+                      {item.category}
+                    </span>
+                    <p className="text-xs sm:text-sm font-semibold text-foreground group-hover:text-primary transition-colors leading-snug">
+                      "{item.topic}"
+                    </p>
+                  </div>
+                  <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-1 border-t border-border/40">
+                    <span className="truncate">{item.chapter}</span>
+                    <span className="text-[10px] font-mono text-muted-foreground/80 shrink-0">
+                      {item.paper}
+                    </span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Message Thread */}
         {messages.map((msg) => {
           const isUser = msg.role === "user";
-          const isSpeaking = speakingMsgId === msg.id;
 
+          if (isUser) {
+            return (
+              <div key={msg.id} className="flex justify-end pl-8">
+                <div className="max-w-xl rounded-2xl bg-primary text-primary-foreground px-4 py-3 text-sm shadow-sm">
+                  <p className="leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+                  <span className="block text-[10px] opacity-75 mt-1 text-right">
+                    {msg.timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                  </span>
+                </div>
+              </div>
+            );
+          }
+
+          // Assistant Message — Claude Style
           return (
-            <div
-              key={msg.id}
-              className={cn("flex flex-col", isUser ? "items-end" : "items-start")}
-            >
-              <div
-                className={cn(
-                  "max-w-3xl rounded-2xl p-4 sm:p-5 text-xs sm:text-sm leading-relaxed transition-all shadow-xs",
-                  isUser
-                    ? "bg-primary text-primary-foreground font-medium rounded-br-xs"
-                    : "bg-card border border-border/90 text-foreground rounded-bl-xs"
-                )}
-              >
-                {!isUser && (
-                  <div className="flex items-center justify-between gap-2 border-b border-border/60 pb-2.5 mb-3 text-xs text-muted-foreground">
-                    <span className="font-bold text-foreground flex items-center gap-1.5 text-xs font-mono">
-                      <Bot className="size-3.5 text-primary" /> Cambridge Principal Examiner Co-Pilot
-                    </span>
-                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-muted text-muted-foreground border border-border/50">
-                      {msg.costEstimate || (msg.usedAi ? "Gemini Flash" : "Zero-Token RAG")}
+            <div key={msg.id} className="flex items-start gap-3 sm:gap-4 pr-2 sm:pr-8">
+              {/* Cambridge Avatar */}
+              <div className="size-8 rounded-xl bg-card border border-border/80 flex items-center justify-center text-primary shadow-xs shrink-0 mt-0.5">
+                <BookOpen className="size-4 text-primary" />
+              </div>
+
+              {/* Message Body */}
+              <div className="flex-1 space-y-3 min-w-0">
+                {/* Meta info badge row */}
+                <div className="flex items-center justify-between gap-2 text-xs">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-foreground text-xs">Cambridge Examiner</span>
+                    <span className="text-[11px] text-muted-foreground">
+                      {msg.costEstimate || "₹0.00 (Zero Token Local RAG)"}
                     </span>
                   </div>
-                )}
-
-                {/* Message Body */}
-                <div className="prose prose-xs dark:prose-invert max-w-none space-y-2 whitespace-pre-wrap font-sans">
-                  {msg.content}
                 </div>
 
-                {/* Grounding Sources Citations */}
-                {!isUser && msg.sources && msg.sources.length > 0 && (
-                  <div className="mt-4 pt-3 border-t border-border/60 space-y-1.5">
-                    <div className="flex items-center gap-1.5 text-[10.5px] font-mono font-bold text-muted-foreground uppercase tracking-wider">
-                      <ShieldCheck className="size-3 text-emerald-500" />
-                      Verified Cambridge Sources:
-                    </div>
-                    <div className="flex flex-wrap gap-1.5">
-                      {msg.sources.map((s, idx) => (
-                        <span
-                          key={idx}
-                          className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 text-[10px] font-mono text-foreground border border-border/50"
-                        >
-                          <BookOpen className="size-2.5 text-primary" />
-                          <span>{s.title}</span>
-                          {s.paperCode && (
-                            <span className="text-primary font-bold">({s.paperCode})</span>
-                          )}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                {/* Formatted Content */}
+                <div className="rounded-2xl border border-border/60 bg-card/40 p-4 sm:p-5 shadow-xs space-y-3">
+                  <MarkdownContent text={msg.content} />
 
-                {/* Action Bar for Assistant Messages */}
-                {!isUser && msg.id !== "greeting" && (
-                  <div className="mt-3.5 pt-2.5 border-t border-border/40 flex flex-wrap items-center justify-between gap-2 text-xs">
-                    <div className="flex items-center gap-1.5">
-                      {/* Text-to-Speech Button */}
-                      <Button
+                  {/* Cambridge Sources Pill Tray */}
+                  {msg.sources && msg.sources.length > 0 && (
+                    <div className="pt-3 border-t border-border/50 space-y-1.5">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                        <CheckCircle2 className="size-3 text-emerald-500" />
+                        Verified Cambridge 9708 References
+                      </span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {msg.sources.map((src, sIdx) => (
+                          <span
+                            key={sIdx}
+                            className="inline-flex items-center gap-1 rounded-lg border border-border/70 bg-background/80 px-2 py-0.5 text-[11px] font-medium text-foreground/90 shadow-2xs"
+                          >
+                            <BookOpen className="size-2.5 text-primary" />
+                            <span>{src.title}</span>
+                            {src.paperCode && (
+                              <span className="text-[10px] font-mono text-muted-foreground">
+                                · {src.paperCode}
+                              </span>
+                            )}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Interactive Action Bar on Every Assistant Message */}
+                  <div className="pt-2 flex flex-wrap items-center justify-between gap-2 border-t border-border/40 text-xs">
+                    <div className="flex items-center gap-2">
+                      {/* Read Aloud Button */}
+                      <button
                         type="button"
-                        variant="ghost"
-                        size="sm"
                         onClick={() => handleToggleSpeak(msg.id, msg.content)}
                         className={cn(
-                          "h-7 px-2 text-[11px] gap-1 cursor-pointer",
-                          isSpeaking && "text-primary font-bold bg-primary/10"
+                          "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-colors cursor-pointer",
+                          speakingMsgId === msg.id
+                            ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 font-semibold"
+                            : "hover:bg-muted text-muted-foreground hover:text-foreground"
                         )}
-                        title={isSpeaking ? "Stop speaking" : "Listen aloud"}
+                        title="Listen to Cambridge examiner explanation"
                       >
-                        {isSpeaking ? (
+                        {speakingMsgId === msg.id ? (
                           <>
-                            <VolumeX className="size-3 text-amber-500" /> Stop
+                            <VolumeX className="size-3.5 text-amber-500 animate-pulse" />
+                            <span>Stop Audio</span>
                           </>
                         ) : (
                           <>
-                            <Volume2 className="size-3 text-muted-foreground" /> Listen
+                            <Volume2 className="size-3.5" />
+                            <span>Read Aloud</span>
                           </>
                         )}
-                      </Button>
+                      </button>
 
-                      {/* Copy Text Button */}
-                      <Button
+                      {/* Copy Button */}
+                      <button
                         type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleCopy(msg.id, msg.content)}
-                        className="h-7 px-2 text-[11px] gap-1 text-muted-foreground hover:text-foreground cursor-pointer"
+                        onClick={() => handleCopy(msg.content, msg.id)}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
+                        title="Copy text"
                       >
                         {copiedId === msg.id ? (
                           <>
-                            <Check className="size-3 text-emerald-500" /> Copied
+                            <Check className="size-3.5 text-emerald-500" />
+                            <span className="text-emerald-600 dark:text-emerald-400">Copied</span>
                           </>
                         ) : (
                           <>
-                            <Copy className="size-3" /> Copy
+                            <Copy className="size-3.5" />
+                            <span>Copy</span>
                           </>
                         )}
-                      </Button>
+                      </button>
                     </div>
 
                     {/* Auto-Draft Essay Button */}
                     {msg.autoDraftPrompt && (
                       <Button
                         type="button"
-                        variant="secondary"
                         size="sm"
+                        variant="outline"
                         onClick={() => handleOpenDraftModal(msg.autoDraftPrompt)}
-                        className="h-7 px-2.5 text-[11px] font-bold gap-1.5 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/25 cursor-pointer shadow-2xs"
+                        className="h-7 text-xs gap-1.5 rounded-lg border-primary/30 text-primary hover:bg-primary/10 font-semibold"
                       >
-                        <PenLine className="size-3" />
-                        <span>Auto-Draft Essay ({msg.autoDraftPrompt.marks}m)</span>
+                        <PenLine className="size-3 text-primary" />
+                        <span>Auto-Draft Cambridge Essay</span>
                       </Button>
                     )}
                   </div>
-                )}
+                </div>
               </div>
-
-              <span className="text-[10px] text-muted-foreground font-mono mt-1 px-1">
-                {msg.timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-              </span>
             </div>
           );
         })}
 
+        {/* Loading Spinner Indicator */}
         {isSending && (
-          <div className="flex items-start">
-            <div className="rounded-2xl rounded-bl-xs border border-border bg-card p-4 space-y-2 text-xs">
-              <div className="flex items-center gap-2 text-primary font-bold">
-                <RefreshCw className="size-3.5 animate-spin" />
-                <span>
-                  {aiMode
-                    ? "Deep AI Examiner vectorizing query & synthesizing..."
-                    : "Zero-Cost Fast RAG matching Cambridge mark schemes..."}
-                </span>
-              </div>
-              <p className="text-[11px] text-muted-foreground">
-                Grounding against 1,400+ published Cambridge mark schemes &amp; 11 chapters.
-              </p>
+          <div className="flex items-start gap-3 pl-1">
+            <div className="size-8 rounded-xl bg-card border border-border/80 flex items-center justify-center text-primary shadow-xs shrink-0">
+              <BookOpen className="size-4 text-primary animate-pulse" />
+            </div>
+            <div className="rounded-2xl border border-border/60 bg-card/40 px-4 py-3 text-xs text-muted-foreground flex items-center gap-2">
+              <span className="size-2 rounded-full bg-primary animate-ping" />
+              <span>Verifying Cambridge 9708 syllabus mark schemes & definitions...</span>
             </div>
           </div>
         )}
@@ -624,134 +828,448 @@ function GroundedChatPage() {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Suggested Quick Prompts */}
+      {/* Floating Bottom Input Dock — Claude Style */}
       <div className="pt-2 pb-1 shrink-0">
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs no-scrollbar">
-          <span className="text-[10px] font-mono text-muted-foreground whitespace-nowrap">Suggested:</span>
-          {SUGGESTED_PROMPTS.map((p, idx) => (
-            <button
-              key={idx}
-              type="button"
-              onClick={() => handleSend(p)}
-              disabled={isSending}
-              className="rounded-full bg-muted/60 hover:bg-muted text-muted-foreground hover:text-foreground px-2.5 py-0.5 text-[11px] font-medium border border-border/60 transition-colors whitespace-nowrap cursor-pointer shrink-0 disabled:opacity-50"
-            >
-              {p}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Input Bar */}
-      <div className="pt-2 border-t border-border shrink-0">
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            handleSend();
-          }}
-          className="relative flex items-center gap-2"
-        >
-          {/* Voice Microphone Input Button */}
-          <Button
-            type="button"
-            variant="outline"
-            size="icon"
-            onClick={toggleVoiceInput}
-            className={cn(
-              "size-11 shrink-0 rounded-xl transition-all cursor-pointer",
-              isListening
-                ? "bg-rose-500/20 border-rose-500 text-rose-600 animate-pulse ring-2 ring-rose-500/30"
-                : "text-muted-foreground hover:text-foreground"
-            )}
-            title={isListening ? "Listening... click to stop" : "Speak question via voice"}
-          >
-            {isListening ? <Mic className="size-5 text-rose-500 animate-bounce" /> : <Mic className="size-5" />}
-          </Button>
-
-          <input
-            type="text"
+        <div className="max-w-4xl mx-auto rounded-2xl sm:rounded-3xl border border-border/70 bg-card/80 backdrop-blur-xl shadow-lg p-2.5 sm:p-3 space-y-2">
+          {/* Textarea */}
+          <textarea
+            ref={textareaRef}
             value={inputMessage}
-            onChange={(e) => setInputMessage(e.target.value)}
-            placeholder={
-              isListening
-                ? "Listening to voice input..."
-                : "Ask anything Cambridge 9708 (e.g. explain deadweight loss from tariffs, PED tax incidence)..."
-            }
-            disabled={isSending}
-            className="flex-1 h-11 px-4 rounded-xl border border-border bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-muted-foreground"
+            onChange={handleTextareaChange}
+            onKeyDown={handleKeyDown}
+            placeholder="Ask anything Cambridge 9708 (e.g. why is PED inelastic in short run, tax incidence, tariffs vs quotas)..."
+            rows={1}
+            className="w-full resize-none bg-transparent px-2 text-xs sm:text-sm text-foreground placeholder:text-muted-foreground/70 focus:outline-none leading-relaxed max-h-40"
           />
 
-          <Button
-            type="submit"
-            disabled={!inputMessage.trim() || isSending}
-            className="size-11 shrink-0 rounded-xl font-bold bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm cursor-pointer disabled:opacity-40"
-          >
-            <Send className="size-4" />
-          </Button>
-        </form>
+          {/* Action Row */}
+          <div className="flex items-center justify-between gap-2 pt-1 border-t border-border/40">
+            {/* Quick chips or active indicator */}
+            <div className="flex items-center gap-1.5 overflow-x-auto py-0.5 no-scrollbar">
+              <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-muted-foreground px-1 shrink-0">
+                {!aiMode ? (
+                  <>
+                    <Zap className="size-3 text-amber-500" />
+                    <span className="text-amber-600 dark:text-amber-400">Fast Local RAG (₹0)</span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="size-3 text-primary" />
+                    <span className="text-primary">Deep AI Examiner</span>
+                  </>
+                )}
+              </span>
 
-        <div className="flex items-center justify-between text-[10px] text-muted-foreground pt-1.5 px-1 font-mono">
-          <span>
-            {aiMode ? "🤖 Deep AI Mode (Gemini Flash Grounded)" : "⚡ Fast RAG Mode (0 Token Cost · Local Corpus)"}
-          </span>
-          <span>100% Free for Paid Students</span>
+              {/* Quick suggestion pills */}
+              {SUGGESTED_QUICK_CHIPS.map((chip, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => handleSend(chip)}
+                  className="rounded-full bg-muted/70 hover:bg-muted text-muted-foreground hover:text-foreground px-2 py-0.5 text-[10px] font-medium transition-colors shrink-0 cursor-pointer"
+                >
+                  {chip}
+                </button>
+              ))}
+            </div>
+
+            {/* Right Tools: Voice Mode & Send */}
+            <div className="flex items-center gap-1.5 shrink-0">
+              <button
+                type="button"
+                onClick={openVoiceMode}
+                className="size-8 rounded-xl flex items-center justify-center text-muted-foreground hover:text-emerald-500 hover:bg-emerald-500/10 transition-colors cursor-pointer"
+                title="Launch ChatGPT-Style Voice Mode"
+              >
+                <Mic className="size-4" />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleSend()}
+                disabled={!inputMessage.trim() || isSending}
+                className={cn(
+                  "size-8 rounded-xl flex items-center justify-center transition-all cursor-pointer",
+                  inputMessage.trim() && !isSending
+                    ? "bg-primary text-primary-foreground shadow-sm hover:opacity-90"
+                    : "bg-muted text-muted-foreground/40 cursor-not-allowed"
+                )}
+                title="Send query"
+              >
+                <Send className="size-3.5" />
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Auto-Draft Cambridge Essay Dialog */}
-      <Dialog open={draftModalOpen} onOpenChange={setDraftModalOpen}>
-        <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col p-6">
-          <DialogHeader className="border-b border-border pb-3">
-            <div className="flex items-center justify-between">
-              <Badge className="bg-primary/10 text-primary border-primary/20 text-xs font-semibold">
-                Auto-Draft Cambridge Essay ({activeDraft?.marks || 12} Marks)
-              </Badge>
-              <span className="text-xs font-mono text-muted-foreground">Grounded in Chat</span>
+      {/* FULL CHATGPT-STYLE VOICE MODE MODAL */}
+      <Dialog open={voiceModeOpen} onOpenChange={setVoiceModeOpen}>
+        <DialogContent className="sm:max-w-lg p-0 overflow-hidden border border-border/80 bg-gradient-to-b from-card via-card/95 to-background shadow-2xl rounded-3xl">
+          <div className="relative p-6 sm:p-8 flex flex-col items-center justify-between min-h-[460px] text-center">
+            {/* Top Bar inside Voice Modal */}
+            <div className="w-full flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="size-2 rounded-full bg-emerald-500 animate-ping" />
+                <span className="text-xs font-bold tracking-wide uppercase text-foreground">
+                  ChatGPT Voice Mode · Cambridge 9708
+                </span>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={closeVoiceMode}
+                className="size-8 rounded-full text-muted-foreground hover:text-foreground"
+              >
+                <X className="size-4" />
+              </Button>
             </div>
-            <DialogTitle className="text-base sm:text-lg font-bold mt-1 text-left">
-              {activeDraft?.question}
-            </DialogTitle>
-            <DialogDescription className="text-xs text-muted-foreground text-left">
-              Generated following Cambridge AO1 Knowledge, AO2 Analysis causal chains, and AO3 Evaluation criteria.
-            </DialogDescription>
+
+            {/* Center Piece: Animated Audio Orb Visualizer */}
+            <div className="my-auto py-6 flex flex-col items-center space-y-6">
+              <div className="relative flex items-center justify-center size-40 sm:size-48">
+                {/* Outer Ambient Ripple Rings */}
+                {voiceStatus === "listening" && (
+                  <>
+                    <div className="absolute inset-0 rounded-full bg-emerald-500/15 animate-ping" />
+                    <div className="absolute inset-2 rounded-full bg-teal-500/20 animate-pulse" />
+                  </>
+                )}
+
+                {voiceStatus === "thinking" && (
+                  <div className="absolute inset-0 rounded-full border-2 border-primary/40 border-t-primary animate-spin" />
+                )}
+
+                {voiceStatus === "speaking" && (
+                  <div className="absolute inset-0 rounded-full bg-primary/20 animate-pulse" />
+                )}
+
+                {/* Central Living Orb */}
+                <div
+                  className={cn(
+                    "relative size-28 sm:size-32 rounded-full shadow-2xl flex items-center justify-center transition-all duration-300",
+                    voiceStatus === "listening" &&
+                      "bg-gradient-to-tr from-emerald-500 to-teal-400 shadow-emerald-500/30 scale-105",
+                    voiceStatus === "thinking" &&
+                      "bg-gradient-to-tr from-violet-600 to-indigo-500 shadow-violet-500/30 animate-pulse",
+                    voiceStatus === "speaking" &&
+                      "bg-gradient-to-tr from-primary to-amber-500 shadow-primary/30 scale-110",
+                    voiceStatus === "idle" &&
+                      "bg-gradient-to-tr from-muted-foreground/30 to-muted shadow-inner",
+                    voiceStatus === "error" &&
+                      "bg-gradient-to-tr from-red-500 to-rose-600 shadow-red-500/30"
+                  )}
+                >
+                  {voiceStatus === "listening" && <Mic className="size-10 text-white animate-bounce" />}
+                  {voiceStatus === "thinking" && <Sparkles className="size-10 text-white animate-spin" />}
+                  {voiceStatus === "speaking" && <Volume2 className="size-10 text-white animate-pulse" />}
+                  {voiceStatus === "idle" && <Mic className="size-10 text-muted-foreground" />}
+                  {voiceStatus === "error" && <MicOff className="size-10 text-white" />}
+                </div>
+              </div>
+
+              {/* Status & Live Transcription */}
+              <div className="space-y-2 max-w-sm px-4">
+                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  {voiceStatus === "listening" && "Listening... Speak your economics question"}
+                  {voiceStatus === "thinking" && "Consulting Cambridge syllabus..."}
+                  {voiceStatus === "speaking" && "Cambridge Examiner Speaking..."}
+                  {voiceStatus === "idle" && "Tap the microphone to speak"}
+                  {voiceStatus === "error" && "Microphone Access Required"}
+                </span>
+
+                {liveTranscript && (
+                  <p className="text-sm font-semibold text-foreground italic bg-muted/40 rounded-xl p-2.5">
+                    "{liveTranscript}"
+                  </p>
+                )}
+
+                {micErrorNote && (
+                  <div className="text-xs text-rose-500 bg-rose-500/10 border border-rose-500/20 rounded-xl p-3 text-left space-y-1.5">
+                    <p className="font-semibold">{micErrorNote}</p>
+                    <button
+                      type="button"
+                      onClick={startVoiceRecognition}
+                      className="text-[11px] underline font-bold cursor-pointer hover:opacity-80"
+                    >
+                      Click here to retry microphone permission
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Bottom Controls inside Voice Mode */}
+            <div className="w-full flex items-center justify-between pt-4 border-t border-border/40 gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  if (lastVoiceReply) {
+                    const prompt = messages[messages.length - 1]?.autoDraftPrompt;
+                    if (prompt) {
+                      setVoiceModeOpen(false);
+                      handleOpenDraftModal(prompt);
+                    } else {
+                      toast.info("Ask an economics question first to draft an essay.");
+                    }
+                  } else {
+                    toast.info("Ask an economics question first to draft an essay.");
+                  }
+                }}
+                className="text-xs gap-1.5 rounded-xl border-primary/30 text-primary"
+              >
+                <PenLine className="size-3.5" />
+                <span>Auto-Draft Essay</span>
+              </Button>
+
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  variant={voiceStatus === "listening" ? "destructive" : "default"}
+                  onClick={() => {
+                    if (voiceStatus === "listening") {
+                      if (recognitionRef.current) recognitionRef.current.stop();
+                      setVoiceStatus("idle");
+                    } else {
+                      startVoiceRecognition();
+                    }
+                  }}
+                  className="rounded-xl text-xs gap-1.5"
+                >
+                  <Mic className="size-3.5" />
+                  <span>{voiceStatus === "listening" ? "Pause" : "Resume"}</span>
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={closeVoiceMode}
+                  className="rounded-xl text-xs"
+                >
+                  Exit Voice
+                </Button>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* CAMBRIDGE ESSAY STUDIO MODAL */}
+      <Dialog open={draftModalOpen} onOpenChange={setDraftModalOpen}>
+        <DialogContent className="sm:max-w-2xl max-h-[85vh] flex flex-col p-0 overflow-hidden border border-border/80 shadow-2xl rounded-3xl">
+          <DialogHeader className="p-5 border-b border-border/60 bg-muted/20 shrink-0">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <div className="size-8 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">
+                  <PenLine className="size-4" />
+                </div>
+                <div>
+                  <DialogTitle className="text-base font-bold">
+                    Cambridge 9708 Essay Studio
+                  </DialogTitle>
+                  <DialogDescription className="text-xs">
+                    Structured 5-Paragraph Draft with official Assessment Objective (AO) allocation.
+                  </DialogDescription>
+                </div>
+              </div>
+              <Badge className="bg-primary/10 text-primary border-primary/30 text-xs font-bold">
+                [{activeDraft?.marks ?? 12} Marks]
+              </Badge>
+            </div>
           </DialogHeader>
 
-          <div className="flex-1 overflow-y-auto py-4">
-            <div className="rounded-xl border border-border bg-muted/20 p-4 text-xs sm:text-sm leading-relaxed text-foreground font-serif whitespace-pre-wrap select-all">
-              {activeDraft?.essayDraft}
+          {/* Assessment Objective Marks Breakdown */}
+          <div className="grid grid-cols-3 gap-2 px-5 py-2.5 bg-muted/40 border-b border-border/50 text-center text-xs shrink-0">
+            <div className="p-1.5 rounded-lg bg-card/60 border border-border/50">
+              <span className="block font-bold text-foreground">AO1 Knowledge</span>
+              <span className="text-[11px] text-muted-foreground">3 Marks · Definitions</span>
+            </div>
+            <div className="p-1.5 rounded-lg bg-card/60 border border-border/50">
+              <span className="block font-bold text-foreground">AO2 Analysis</span>
+              <span className="text-[11px] text-muted-foreground">5 Marks · Causal Chains</span>
+            </div>
+            <div className="p-1.5 rounded-lg bg-card/60 border border-border/50">
+              <span className="block font-bold text-foreground">AO3 Evaluation</span>
+              <span className="text-[11px] text-muted-foreground">4 Marks · Synthesis</span>
             </div>
           </div>
 
-          <div className="border-t border-border pt-4 flex flex-col sm:flex-row items-center justify-between gap-3">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                if (activeDraft?.essayDraft && typeof navigator !== "undefined") {
-                  navigator.clipboard.writeText(activeDraft.essayDraft);
-                  setCopiedDraft(true);
-                  toast.success("Essay draft copied!");
-                  setTimeout(() => setCopiedDraft(false), 2000);
-                }
-              }}
-              className="w-full sm:w-auto text-xs gap-1.5 cursor-pointer"
-            >
-              {copiedDraft ? <Check className="size-3.5 text-emerald-500" /> : <Copy className="size-3.5" />}
-              {copiedDraft ? "Copied" : "Copy Draft"}
-            </Button>
+          {/* Essay Draft Content */}
+          <div className="flex-1 overflow-y-auto p-5 space-y-4 text-xs sm:text-sm leading-relaxed">
+            <div className="rounded-xl border border-primary/20 bg-primary/5 p-3 text-xs">
+              <span className="font-bold text-foreground block mb-0.5">Examination Prompt:</span>
+              <p className="text-foreground/90 font-medium italic">"{activeDraft?.question}"</p>
+            </div>
+
+            <div className="rounded-xl border border-border/70 bg-card p-4 shadow-inner space-y-3 font-serif">
+              <MarkdownContent text={activeDraft?.essayDraft || ""} />
+            </div>
+          </div>
+
+          {/* Studio Footer with 1-Click Transfer to Grader */}
+          <div className="p-4 border-t border-border/60 bg-muted/20 flex flex-col sm:flex-row items-center justify-between gap-2.5 shrink-0">
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  if (activeDraft?.essayDraft) {
+                    navigator.clipboard.writeText(activeDraft.essayDraft);
+                    setCopiedDraft(true);
+                    toast.success("Essay draft copied to clipboard!");
+                    setTimeout(() => setCopiedDraft(false), 2000);
+                  }
+                }}
+                className="w-full sm:w-auto text-xs gap-1.5 rounded-xl"
+              >
+                {copiedDraft ? (
+                  <>
+                    <Check className="size-3.5 text-emerald-500" />
+                    <span>Copied!</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="size-3.5" />
+                    <span>Copy Draft</span>
+                  </>
+                )}
+              </Button>
+
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  if (activeDraft?.essayDraft) {
+                    handleToggleSpeak("essay-draft-preview", activeDraft.essayDraft);
+                  }
+                }}
+                className="w-full sm:w-auto text-xs gap-1.5 rounded-xl"
+              >
+                <Volume2 className="size-3.5" />
+                <span>Listen to Essay</span>
+              </Button>
+            </div>
 
             <Button
-              type="button"
+              size="sm"
               onClick={handleTransferToGrader}
-              className="w-full sm:w-auto text-xs font-bold gap-2 bg-emerald-600 hover:bg-emerald-700 text-white shadow-md cursor-pointer"
+              className="w-full sm:w-auto text-xs font-bold gap-1.5 rounded-xl shadow-md bg-primary text-primary-foreground hover:opacity-90"
             >
-              <PenLine className="size-3.5" />
-              <span>Transfer to Essay Grader (/grade) →</span>
+              <span>Transfer to Official Essay Grader (/grade)</span>
+              <ArrowRight className="size-3.5" />
             </Button>
           </div>
         </DialogContent>
       </Dialog>
     </div>
   );
+}
+
+/**
+ * Clean Claude-Style Markdown Formatter
+ */
+function MarkdownContent({ text }: { text: string }) {
+  const blocks = text.split(/\n\s*\n/);
+
+  return (
+    <div className="space-y-3 text-xs sm:text-sm leading-relaxed text-foreground/90">
+      {blocks.map((block, idx) => {
+        const trimmed = block.trim();
+        if (!trimmed) return null;
+
+        // Headings: ###
+        if (trimmed.startsWith("### ")) {
+          return (
+            <h3
+              key={idx}
+              className="text-sm sm:text-base font-bold tracking-tight text-foreground pt-1.5 flex items-center gap-2"
+            >
+              <span className="size-1.5 rounded-full bg-primary" />
+              {renderInlineMarkdown(trimmed.replace(/^###\s+/, ""))}
+            </h3>
+          );
+        }
+
+        if (trimmed.startsWith("## ")) {
+          return (
+            <h2 key={idx} className="text-base sm:text-lg font-bold tracking-tight text-foreground pt-1.5">
+              {renderInlineMarkdown(trimmed.replace(/^##\s+/, ""))}
+            </h2>
+          );
+        }
+
+        // Horizontal Rule
+        if (trimmed === "---") {
+          return <hr key={idx} className="border-border/50 my-2" />;
+        }
+
+        // Blockquotes / Cambridge Definitions
+        if (trimmed.startsWith(">")) {
+          const content = trimmed.replace(/^>\s*/gm, "");
+          return (
+            <div
+              key={idx}
+              className="rounded-xl border-l-4 border-primary/70 bg-primary/5 px-3.5 py-2.5 text-xs sm:text-sm italic text-foreground/95 shadow-2xs"
+            >
+              {renderInlineMarkdown(content)}
+            </div>
+          );
+        }
+
+        // Bullet lists or numbered points
+        if (
+          trimmed.startsWith("- ") ||
+          trimmed.startsWith("• ") ||
+          trimmed.startsWith("* ") ||
+          /^\d+\.\s/.test(trimmed)
+        ) {
+          const lines = trimmed.split("\n");
+          return (
+            <ul key={idx} className="space-y-1.5 pl-1">
+              {lines.map((line, lIdx) => {
+                const lineContent = line.replace(/^([-•*]|\d+\.)\s*/, "");
+                return (
+                  <li key={lIdx} className="flex items-start gap-2 text-xs sm:text-sm text-foreground/90">
+                    <span className="size-1 rounded-full bg-primary/60 mt-2 shrink-0" />
+                    <span>{renderInlineMarkdown(lineContent)}</span>
+                  </li>
+                );
+              })}
+            </ul>
+          );
+        }
+
+        // Standard paragraph
+        return (
+          <p key={idx} className="leading-relaxed">
+            {renderInlineMarkdown(trimmed)}
+          </p>
+        );
+      })}
+    </div>
+  );
+}
+
+function renderInlineMarkdown(str: string) {
+  const parts = str.split(/(\*\*[^*]+\*\*|`[^`]+`)/g);
+  return parts.map((part, i) => {
+    if (part.startsWith("**") && part.endsWith("**")) {
+      return (
+        <strong key={i} className="font-semibold text-foreground">
+          {part.slice(2, -2)}
+        </strong>
+      );
+    }
+    if (part.startsWith("`") && part.endsWith("`")) {
+      return (
+        <code
+          key={i}
+          className="rounded bg-muted px-1.5 py-0.5 font-mono text-[11px] text-primary font-medium"
+        >
+          {part.slice(1, -1)}
+        </code>
+      );
+    }
+    return part;
+  });
 }
