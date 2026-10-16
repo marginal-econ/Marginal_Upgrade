@@ -15,7 +15,7 @@ import {
   PenLine,
   Zap,
 } from "lucide-react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 
@@ -119,6 +119,25 @@ function GradePage() {
   });
   const [essayText, setEssayText] = useState("");
   const [maxMark, setMaxMark] = useState(search.marks ? String(search.marks) : "12");
+
+  // Load auto-drafted essay from Cambridge Chat if transferred
+  useEffect(() => {
+    try {
+      const prefillDraft = sessionStorage.getItem("marginal_prefill_draft");
+      const prefillQ = sessionStorage.getItem("marginal_prefill_q");
+      if (prefillDraft) {
+        setEssayText(prefillDraft);
+        sessionStorage.removeItem("marginal_prefill_draft");
+        toast.info("Auto-drafted Cambridge essay loaded into grader.");
+      }
+      if (prefillQ && !question) {
+        setQuestion(prefillQ);
+        sessionStorage.removeItem("marginal_prefill_q");
+      }
+    } catch {
+      // Ignore sessionStorage errors
+    }
+  }, [question]);
   const [auditPass, setAuditPass] = useState(true);
   // Spelling/grammar is a proofreading nicety, not a hard gate — some
   // people want it every time, others (especially re-marking a script

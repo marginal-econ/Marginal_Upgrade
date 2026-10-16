@@ -25,6 +25,7 @@ export type LockedFeatureType =
   | "essay_limit"
   | "mcq_limit"
   | "experimental"
+  | "chat"
   | null;
 
 interface LockedFeatureModalProps {
@@ -41,6 +42,25 @@ export function LockedFeatureModal({
   if (!type) return null;
 
   const config = {
+    chat: {
+      badge: "Paid Feature · Grounded Chat",
+      title: "Cambridge AI Grounded Chat is Locked",
+      desc: "Instant syllabus-grounded economics discussions, voice speech recognition, and automated essay drafting are reserved for paid members.",
+      items: [
+        {
+          icon: Sparkles,
+          color: "text-primary",
+          title: "100% Authentic Syllabus Grounding",
+          desc: "Every answer strictly cites Cambridge 9708 syllabus chapters, definitions, and official past mark schemes.",
+        },
+        {
+          icon: Zap,
+          color: "text-amber-500",
+          title: "Voice Chat & 1-Click Auto-Draft",
+          desc: "Talk via microphone, listen aloud with natural voice speech, and auto-draft 5-paragraph Cambridge essays straight to the grader.",
+        },
+      ],
+    },
     live_examiner: {
       badge: "Paid Feature · Chained",
       title: "Live Examiner is Chained",

@@ -21,6 +21,7 @@ import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as AuthenticatedCalibrationRouteImport } from './routes/_authenticated/calibration'
+import { Route as AuthenticatedChatRouteImport } from './routes/_authenticated/chat'
 import { Route as AuthenticatedClassesRouteImport } from './routes/_authenticated/classes'
 import { Route as AuthenticatedCommandWordsRouteImport } from './routes/_authenticated/command-words'
 import { Route as AuthenticatedContentAdminRouteImport } from './routes/_authenticated/content-admin'
@@ -110,6 +111,11 @@ const AuthenticatedCalibrationRoute =
     path: '/calibration',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedChatRoute = AuthenticatedChatRouteImport.update({
+  id: '/chat',
+  path: '/chat',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedClassesRoute = AuthenticatedClassesRouteImport.update({
   id: '/classes',
   path: '/classes',
@@ -279,6 +285,7 @@ export interface FileRoutesByFullPath {
   '/terms': typeof TermsRoute
   '/admin': typeof AuthenticatedAdminRoute
   '/calibration': typeof AuthenticatedCalibrationRoute
+  '/chat': typeof AuthenticatedChatRoute
   '/classes': typeof AuthenticatedClassesRoute
   '/command-words': typeof AuthenticatedCommandWordsRoute
   '/content-admin': typeof AuthenticatedContentAdminRoute
@@ -320,6 +327,7 @@ export interface FileRoutesByTo {
   '/terms': typeof TermsRoute
   '/admin': typeof AuthenticatedAdminRoute
   '/calibration': typeof AuthenticatedCalibrationRoute
+  '/chat': typeof AuthenticatedChatRoute
   '/classes': typeof AuthenticatedClassesRoute
   '/command-words': typeof AuthenticatedCommandWordsRoute
   '/content-admin': typeof AuthenticatedContentAdminRoute
@@ -363,6 +371,7 @@ export interface FileRoutesById {
   '/terms': typeof TermsRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRoute
   '/_authenticated/calibration': typeof AuthenticatedCalibrationRoute
+  '/_authenticated/chat': typeof AuthenticatedChatRoute
   '/_authenticated/classes': typeof AuthenticatedClassesRoute
   '/_authenticated/command-words': typeof AuthenticatedCommandWordsRoute
   '/_authenticated/content-admin': typeof AuthenticatedContentAdminRoute
@@ -406,6 +415,7 @@ export interface FileRouteTypes {
     | '/terms'
     | '/admin'
     | '/calibration'
+    | '/chat'
     | '/classes'
     | '/command-words'
     | '/content-admin'
@@ -447,6 +457,7 @@ export interface FileRouteTypes {
     | '/terms'
     | '/admin'
     | '/calibration'
+    | '/chat'
     | '/classes'
     | '/command-words'
     | '/content-admin'
@@ -489,6 +500,7 @@ export interface FileRouteTypes {
     | '/terms'
     | '/_authenticated/admin'
     | '/_authenticated/calibration'
+    | '/_authenticated/chat'
     | '/_authenticated/classes'
     | '/_authenticated/command-words'
     | '/_authenticated/content-admin'
@@ -616,6 +628,13 @@ declare module '@tanstack/react-router' {
       path: '/calibration'
       fullPath: '/calibration'
       preLoaderRoute: typeof AuthenticatedCalibrationRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/chat': {
+      id: '/_authenticated/chat'
+      path: '/chat'
+      fullPath: '/chat'
+      preLoaderRoute: typeof AuthenticatedChatRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/classes': {
@@ -820,6 +839,7 @@ declare module '@tanstack/react-router' {
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedAdminRoute: typeof AuthenticatedAdminRoute
   AuthenticatedCalibrationRoute: typeof AuthenticatedCalibrationRoute
+  AuthenticatedChatRoute: typeof AuthenticatedChatRoute
   AuthenticatedClassesRoute: typeof AuthenticatedClassesRoute
   AuthenticatedCommandWordsRoute: typeof AuthenticatedCommandWordsRoute
   AuthenticatedContentAdminRoute: typeof AuthenticatedContentAdminRoute
@@ -853,6 +873,7 @@ interface AuthenticatedRouteRouteChildren {
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAdminRoute: AuthenticatedAdminRoute,
   AuthenticatedCalibrationRoute: AuthenticatedCalibrationRoute,
+  AuthenticatedChatRoute: AuthenticatedChatRoute,
   AuthenticatedClassesRoute: AuthenticatedClassesRoute,
   AuthenticatedCommandWordsRoute: AuthenticatedCommandWordsRoute,
   AuthenticatedContentAdminRoute: AuthenticatedContentAdminRoute,

@@ -27,6 +27,7 @@ import {
   Zap,
   Lock,
   LineChart,
+  MessageSquare,
   Trophy,
   ArrowRight,
 } from "lucide-react";
@@ -86,6 +87,13 @@ const NAV_GROUPS: NavGroup[] = [
         label: "Live Examiner",
         icon: Sparkles,
         badge: "Live",
+        requiresPaid: true,
+      },
+      {
+        to: "/chat",
+        label: "Cambridge Chat",
+        icon: MessageSquare,
+        badge: "Grounded",
         requiresPaid: true,
       },
       { to: "/showcase", label: "Exemplars & Submissions", icon: Trophy },
@@ -268,6 +276,7 @@ export function AppShell({
   const isUserAdmin = role === "admin" || Boolean(subscription?.isAdmin);
   const isHigherTierUser = isUserAdmin || subscription?.tier === "mastery" || subscription?.tier === "elite";
   const canLiveExaminer = isUserAdmin || Boolean(subscription?.canUseLiveExaminer);
+  const isPaidUser = isUserAdmin || Boolean(subscription?.isPaid);
 
   const isItemActive = (to: string) => {
     if (to === "/dashboard") return pathname === "/dashboard";
@@ -342,7 +351,9 @@ export function AppShell({
                 const active = isItemActive(item.to);
                 const label = item.to === "/classes" ? classroomLabel : item.label;
 
-                const isChainedPaid = item.requiresPaid && !canLiveExaminer;
+                const isChainedPaid =
+                  item.requiresPaid &&
+                  (item.to === "/chat" ? !isPaidUser : !canLiveExaminer);
                 const isChainedEssay =
                   item.to === "/grade" &&
                   !isUserAdmin &&
@@ -358,13 +369,16 @@ export function AppShell({
                   isChainedPaid || isChainedEssay || isChainedMCQ || isLockedExperimental;
 
                 if (isLocked) {
-                  const lockType: LockedFeatureType = isChainedPaid
-                    ? "live_examiner"
-                    : isChainedEssay
-                    ? "essay_limit"
-                    : isChainedMCQ
-                    ? "mcq_limit"
-                    : "experimental";
+                  const lockType: LockedFeatureType =
+                    item.to === "/chat"
+                      ? "chat"
+                      : isChainedPaid
+                      ? "live_examiner"
+                      : isChainedEssay
+                      ? "essay_limit"
+                      : isChainedMCQ
+                      ? "mcq_limit"
+                      : "experimental";
                   const isChained = isChainedPaid || isChainedEssay || isChainedMCQ;
 
                   return (
