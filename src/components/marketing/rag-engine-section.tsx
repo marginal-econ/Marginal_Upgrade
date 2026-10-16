@@ -130,26 +130,26 @@ const SYLLABUS_CHAPTERS: SyllabusChapter[] = [
 const RAG_PIPELINE_STEPS = [
   {
     step: "01",
-    title: "Syllabus Ingestion & Semantic Chunking",
-    desc: "1,400+ official Cambridge 9708 mark schemes (2010–2025), syllabus guides, and principal examiner reports are chunked into high-dimensional vector embeddings with economic entity tags.",
+    title: "15 Years of Cambridge Grounding",
+    desc: "Calibrated directly against 1,400+ official Cambridge 9708 mark schemes (2010–2025), syllabus guides, and chief examiner reports across all 11 AS and A Level chapters.",
     icon: Database,
   },
   {
     step: "02",
-    title: "Context-Grounded Vector Retrieval",
-    desc: "When a student submits an essay or prompt, our hybrid cosine similarity retrieval engine queries the knowledge base in < 40ms to extract the exact Cambridge mark scheme criteria.",
+    title: "Official Mark Scheme Matching",
+    desc: "Every essay topic is instantly cross-referenced against authentic Cambridge Assessment rubrics, guaranteeing that your arguments are marked to official exam standards.",
     icon: Search,
   },
   {
     step: "03",
-    title: "Dual-Pass Independent Audit",
-    desc: "A second independent model re-evaluates the paper without seeing the first pass. This eliminates AI central-tendency bias (where generic LLMs clump every essay around 55%).",
+    title: "Bias-Free Examiner Calibration",
+    desc: "Generic AI suffers from central-tendency bias, clustering every essay around 50%. Marginal's calibrated intelligence accurately scores real Band 1 fails and Band 4 distinctions.",
     icon: ShieldCheck,
   },
   {
     step: "04",
-    title: "AO Breakdown & Causal Synthesis",
-    desc: "The response is partitioned into strict AO1 Knowledge, AO2 Analysis, and AO3 Evaluation mark quotas, citing exact Cambridge rubrics with rewrite pathways to the next band.",
+    title: "Clause-by-Clause Rewrite Blueprint",
+    desc: "Receive exact clause-level allocations for AO1 (Knowledge), AO2 (Analysis), and AO3 (Evaluation) with clear rewrite steps to lift your draft to the highest mark band.",
     icon: Network,
   },
 ];
@@ -167,13 +167,13 @@ export function RagEngineSection() {
         {/* Section Header */}
         <div className="mx-auto max-w-3xl text-center space-y-3">
           <Badge variant="outline" className="border-primary/30 bg-primary/10 text-primary text-xs font-semibold px-3 py-1">
-            <Cpu className="size-3.5 mr-1.5" /> Cambridge 9708 Retrieval-Augmented Generation
+            <Cpu className="size-3.5 mr-1.5" /> Proprietary Cambridge 9708 Intelligence
           </Badge>
           <h2 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl md:text-4xl">
             11 Syllabus Chapters. <span className="aurora-text">1,400+ Mark Schemes.</span> Zero Hallucinations.
           </h2>
           <p className="text-sm text-muted-foreground leading-relaxed">
-            Generic AI models guess what sounds like economics. Marginal's proprietary RAG knowledge engine vectorizes every chapter of the official Cambridge 9708 syllabus to mark your essays against published Cambridge Assessment standards.
+            Generic AI models guess what sounds like economics. Marginal's proprietary intelligence is locked strictly to published Cambridge 9708 mark schemes and chief examiner reports — delivering syllabus-grounded precision without generic AI hallucinations.
           </p>
         </div>
 
@@ -186,21 +186,21 @@ export function RagEngineSection() {
           </div>
 
           <div className="rounded-xl border border-border/80 bg-card p-5 shadow-xs space-y-1">
-            <span className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Past Papers Grounded</span>
+            <span className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Exam Grounding</span>
             <div className="text-2xl sm:text-3xl font-extrabold text-foreground">1,400+ Papers</div>
             <p className="text-[11.5px] text-muted-foreground">2010–2025 mark schemes, examiner reports &amp; candidate rubrics.</p>
           </div>
 
           <div className="rounded-xl border border-border/80 bg-card p-5 shadow-xs space-y-1">
-            <span className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Retrieval Latency</span>
-            <div className="text-2xl sm:text-3xl font-extrabold text-foreground">&lt; 40ms</div>
-            <p className="text-[11.5px] text-muted-foreground">Sub-second vector cosine similarity on high-speed edge workers.</p>
+            <span className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Feedback Speed</span>
+            <div className="text-2xl sm:text-3xl font-extrabold text-foreground">Real-Time</div>
+            <p className="text-[11.5px] text-muted-foreground">Instant clause evaluation and Cambridge marks as you type.</p>
           </div>
 
           <div className="rounded-xl border border-border/80 bg-card p-5 shadow-xs space-y-1">
-            <span className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Central-Tendency Bias</span>
+            <span className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Scoring Bias</span>
             <div className="text-2xl sm:text-3xl font-extrabold text-emerald-600 dark:text-emerald-400">Eliminated</div>
-            <p className="text-[11.5px] text-muted-foreground">Dual-pass independent auditor stops clustering in middle bands.</p>
+            <p className="text-[11.5px] text-muted-foreground">Calibrated against official Cambridge grade boundaries.</p>
           </div>
         </div>
 
@@ -210,14 +210,14 @@ export function RagEngineSection() {
             <div>
               <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
                 <Network className="size-5 text-primary" />
-                How Marginal's RAG Architecture Works
+                Why Marginal Outperforms Generic AI
               </h3>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Every student essay travels through a 4-stage pipeline grounded in Cambridge Assessment evidence.
+                Every student answer is audited across four Cambridge Assessment pillars to ensure examiner precision.
               </p>
             </div>
             <Badge className="bg-primary/10 text-primary border-primary/20 text-xs font-mono self-start sm:self-auto">
-              Real-time Ingestion
+              Syllabus-Locked
             </Badge>
           </div>
 

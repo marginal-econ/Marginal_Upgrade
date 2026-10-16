@@ -37,24 +37,27 @@ const CLAUSES: Clause[] = [
   },
 ];
 
-const AO_META: Record<Ao, { label: string; dot: string; tint: string; ink: string }> = {
+const AO_META: Record<Ao, { label: string; code: string; dot: string; badge: string; card: string }> = {
   ao1: {
-    label: "AO1",
-    dot: "bg-ao1",
-    tint: "var(--ao1)",
-    ink: "var(--ao1)",
+    label: "Knowledge & Understanding",
+    code: "AO1",
+    dot: "bg-blue-500",
+    badge: "border-blue-500/40 bg-blue-500/15 text-blue-600 dark:text-blue-400",
+    card: "border-blue-500/30 bg-blue-500/5",
   },
   ao2: {
-    label: "AO2",
-    dot: "bg-ao2",
-    tint: "var(--ao2)",
-    ink: "var(--ao2)",
+    label: "Analysis & Causal Chains",
+    code: "AO2",
+    dot: "bg-emerald-500",
+    badge: "border-emerald-500/40 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
+    card: "border-emerald-500/30 bg-emerald-500/5",
   },
   ao3: {
-    label: "AO3",
-    dot: "bg-ao3",
-    tint: "var(--ao3)",
-    ink: "var(--ao3)",
+    label: "Evaluation & Judgement",
+    code: "AO3",
+    dot: "bg-amber-500",
+    badge: "border-amber-500/45 bg-amber-500/20 text-amber-700 dark:text-amber-400",
+    card: "border-amber-500/35 bg-amber-500/10",
   },
 };
 
@@ -108,9 +111,10 @@ export function LiveExaminer({ className }: { className?: string }) {
   });
 
   const isFinished = typedChars >= fullTextLength;
-  const activeNote = [...renderedClauses]
+  const activeCompleted = [...renderedClauses]
     .reverse()
-    .find((row) => row.isCompleted)?.clause.note;
+    .find((row) => row.isCompleted);
+  const activeClause = activeCompleted?.clause;
 
   const completedCount = renderedClauses.filter((row) => row.isCompleted).length;
   const runningMark = Math.min(
@@ -136,19 +140,31 @@ export function LiveExaminer({ className }: { className?: string }) {
         className,
       )}
     >
-      {/* ── Header Chrome ── */}
-      <div className="flex items-center gap-2.5 border-b border-border bg-plum px-4 py-2.5 text-plum-foreground">
-        <span className="relative flex size-2.5" aria-hidden="true">
-          {!isFinished ? (
-            <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-400 opacity-80" />
+      {/* ── Header Chrome (Exact inside live examiner styling) ── */}
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/70 bg-muted/60 px-4 py-2.5">
+        <div className="flex items-center gap-2">
+          <span className="relative flex size-2.5" aria-hidden="true">
+            {!isFinished ? (
+              <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-500 opacity-80" />
+            ) : null}
+            <span className="relative inline-flex size-2.5 rounded-full bg-emerald-500" />
+          </span>
+          <span className="text-xs font-bold text-foreground tracking-tight">Live Feedback Active</span>
+          <span className="text-[10.5px] font-medium text-muted-foreground hidden sm:inline">
+            · Cambridge 9708 Examiner
+          </span>
+        </div>
+
+        <div className="flex items-center gap-1.5 ml-auto">
+          <span className="rounded-md border border-border/70 bg-card px-2 py-0.5 font-mono text-[10px] font-semibold text-muted-foreground">
+            Paper 2 · Section B [12 Marks]
+          </span>
+          {runningMark > 0 ? (
+            <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+              Est. {runningMark}/12
+            </span>
           ) : null}
-          <span className="relative inline-flex size-2.5 rounded-full bg-emerald-400" />
-        </span>
-        <span className="text-xs font-bold tracking-tight">Live Examiner</span>
-        <Radio className="size-3.5 opacity-80" aria-hidden="true" />
-        <span className="ml-auto font-mono text-[10.5px] font-semibold tracking-wide opacity-80">
-          Paper 2 · Section B [12 Marks]
-        </span>
+        </div>
       </div>
 
       {/* ── Typewriter Script Area ── */}
@@ -164,10 +180,10 @@ export function LiveExaminer({ className }: { className?: string }) {
             <span
               key={index}
               className={cn(
-                "transition-colors duration-300",
-                isCompleted && clause.ao === "ao1" && "bg-ao1/20 rounded px-1 text-foreground",
-                isCompleted && clause.ao === "ao2" && "bg-ao2/20 rounded px-1 text-foreground",
-                isCompleted && clause.ao === "ao3" && "bg-ao3/20 rounded px-1 text-foreground",
+                "transition-all duration-300",
+                isCompleted && clause.ao === "ao1" && "bg-blue-500/10 text-foreground decoration-blue-500 underline decoration-2 underline-offset-4 rounded px-1",
+                isCompleted && clause.ao === "ao2" && "bg-emerald-500/10 text-foreground decoration-emerald-500 underline decoration-2 underline-offset-4 rounded px-1",
+                isCompleted && clause.ao === "ao3" && "bg-amber-500/10 text-foreground decoration-amber-500 underline decoration-2 underline-offset-4 rounded px-1",
               )}
             >
               {clause.text.slice(0, visibleLength)}
@@ -179,18 +195,27 @@ export function LiveExaminer({ className }: { className?: string }) {
         </p>
       </div>
 
-      {/* ── Live Examiner Margin Note ── */}
-      <div className="min-h-[3.25rem] px-4 pb-3 md:px-5">
-        {activeNote ? (
-          <p
-            key={activeNote}
-            className="note-in flex gap-2 rounded-lg border border-primary/20 bg-primary/[0.06] p-2.5 text-xs text-foreground leading-relaxed"
+      {/* ── Live Examiner Margin Note (Exact inside semantic card) ── */}
+      <div className="min-h-[3.75rem] px-4 pb-3 md:px-5">
+        {activeClause ? (
+          <div
+            key={activeClause.note}
+            className={cn(
+              "note-in flex flex-col sm:flex-row sm:items-center gap-2 rounded-xl border p-2.5 text-xs text-foreground leading-relaxed shadow-2xs transition-colors",
+              AO_META[activeClause.ao].card,
+            )}
           >
-            <span className="shrink-0 font-mono text-[10px] uppercase font-bold text-primary flex items-center gap-1">
-              <Sparkles className="size-3" /> Examiner
+            <span
+              className={cn(
+                "shrink-0 inline-flex items-center gap-1 rounded-md border px-2 py-0.5 font-mono text-[10px] font-bold uppercase",
+                AO_META[activeClause.ao].badge,
+              )}
+            >
+              <Sparkles className="size-3" />
+              {AO_META[activeClause.ao].code}
             </span>
-            <span>{activeNote}</span>
-          </p>
+            <span className="text-xs font-medium">{activeClause.note}</span>
+          </div>
         ) : (
           <p className="text-xs text-muted-foreground/60 italic py-2">
             Evaluating sentence structures for Cambridge 9708 criteria…
@@ -198,28 +223,38 @@ export function LiveExaminer({ className }: { className?: string }) {
         )}
       </div>
 
-      {/* ── Real-Time Running Mark & AO Meters ── */}
+      {/* ── Real-Time Running Mark & Inside-Styled AO Meters ── */}
       <div className="flex items-center gap-4 border-t border-border bg-muted/40 px-4 py-3 md:px-5">
         <div>
-          <p className="text-[10px] uppercase font-bold text-muted-foreground">
+          <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">
             {isFinished ? "Calibrated Mark" : "Running Mark"}
           </p>
-          <p className="text-2xl font-black text-foreground tabular-nums leading-none mt-1">
-            {runningMark}
-            <span className="text-xs font-normal text-muted-foreground">/{TOTAL_MARKS}</span>
-          </p>
+          <div className="flex items-baseline gap-1.5 mt-0.5">
+            <span className="text-2xl font-black text-foreground tabular-nums leading-none">
+              {runningMark}
+            </span>
+            <span className="text-xs font-semibold text-muted-foreground">/{TOTAL_MARKS}</span>
+            {runningMark >= 10 ? (
+              <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded px-1.5 py-0.2">
+                Band 4
+              </span>
+            ) : null}
+          </div>
         </div>
 
-        <div className="ml-auto flex-1 space-y-1.5 max-w-[200px]">
+        <div className="ml-auto flex-1 space-y-1.5 max-w-[220px]">
           {aoProgress.map(({ ao, percent }) => (
             <div key={ao} className="flex items-center gap-2 text-[10px]">
               <span className={cn("size-2 shrink-0 rounded-full", AO_META[ao].dot)} />
-              <span className="w-7 font-mono font-bold text-muted-foreground uppercase">{ao}</span>
-              <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
+              <span className="w-8 font-mono font-bold text-muted-foreground uppercase">{AO_META[ao].code}</span>
+              <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted border border-border/40">
                 <span
                   className={cn("block h-full rounded-full transition-all duration-500 ease-out", AO_META[ao].dot)}
                   style={{ width: `${percent}%` }}
                 />
+              </span>
+              <span className="w-7 text-right font-mono text-[9px] text-muted-foreground font-semibold">
+                {percent}%
               </span>
             </div>
           ))}

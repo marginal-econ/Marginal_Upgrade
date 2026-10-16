@@ -1061,7 +1061,7 @@ function PerformanceChart({
 }) {
   const width = 800;
   const height = 220;
-  const padding = { top: 24, right: 75, bottom: 30, left: 35 };
+  const padding = { top: 24, right: 120, bottom: 30, left: 40 };
 
   const chartWidth = width - padding.left - padding.right;
   const chartHeight = height - padding.top - padding.bottom;
@@ -1115,18 +1115,27 @@ function PerformanceChart({
         <line
           x1={padding.left}
           y1={padding.top + chartHeight * (1 - 0.75)}
-          x2={width - padding.right}
+          x2={padding.left + chartWidth + 6}
           y2={padding.top + chartHeight * (1 - 0.75)}
           stroke="currentColor"
           strokeDasharray="4 4"
-          className="text-emerald-500/35"
+          className="text-emerald-500/40"
+          strokeWidth="1"
+        />
+        <rect
+          x={width - 105}
+          y={padding.top + chartHeight * (1 - 0.75) - 8}
+          width="95"
+          height="16"
+          rx="4"
+          className="fill-background/90 stroke-emerald-500/30"
           strokeWidth="1"
         />
         <text
-          x={width - 8}
-          y={padding.top + chartHeight * (1 - 0.75) + 3}
-          textAnchor="end"
-          className="text-[9.5px] fill-emerald-500 font-semibold select-none"
+          x={width - 57}
+          y={padding.top + chartHeight * (1 - 0.75) + 3.5}
+          textAnchor="middle"
+          className="text-[9.5px] fill-emerald-600 dark:fill-emerald-400 font-semibold select-none"
         >
           Band 1 (75%+)
         </text>
@@ -1135,18 +1144,27 @@ function PerformanceChart({
         <line
           x1={padding.left}
           y1={padding.top + chartHeight * (1 - 0.5)}
-          x2={width - padding.right}
+          x2={padding.left + chartWidth + 6}
           y2={padding.top + chartHeight * (1 - 0.5)}
           stroke="currentColor"
           strokeDasharray="4 4"
-          className="text-blue-500/35"
+          className="text-blue-500/40"
+          strokeWidth="1"
+        />
+        <rect
+          x={width - 105}
+          y={padding.top + chartHeight * (1 - 0.5) - 8}
+          width="95"
+          height="16"
+          rx="4"
+          className="fill-background/90 stroke-blue-500/30"
           strokeWidth="1"
         />
         <text
-          x={width - 8}
-          y={padding.top + chartHeight * (1 - 0.5) + 3}
-          textAnchor="end"
-          className="text-[9.5px] fill-blue-500 font-semibold select-none"
+          x={width - 57}
+          y={padding.top + chartHeight * (1 - 0.5) + 3.5}
+          textAnchor="middle"
+          className="text-[9.5px] fill-blue-600 dark:fill-blue-400 font-semibold select-none"
         >
           Band 2 (50%+)
         </text>
@@ -1155,18 +1173,27 @@ function PerformanceChart({
         <line
           x1={padding.left}
           y1={padding.top + chartHeight * (1 - 0.35)}
-          x2={width - padding.right}
+          x2={padding.left + chartWidth + 6}
           y2={padding.top + chartHeight * (1 - 0.35)}
           stroke="currentColor"
           strokeDasharray="4 4"
-          className="text-amber-500/35"
+          className="text-amber-500/40"
+          strokeWidth="1"
+        />
+        <rect
+          x={width - 105}
+          y={padding.top + chartHeight * (1 - 0.35) - 8}
+          width="95"
+          height="16"
+          rx="4"
+          className="fill-background/90 stroke-amber-500/30"
           strokeWidth="1"
         />
         <text
-          x={width - 8}
-          y={padding.top + chartHeight * (1 - 0.35) + 3}
-          textAnchor="end"
-          className="text-[9.5px] fill-amber-500 font-semibold select-none"
+          x={width - 57}
+          y={padding.top + chartHeight * (1 - 0.35) + 3.5}
+          textAnchor="middle"
+          className="text-[9.5px] fill-amber-600 dark:fill-amber-400 font-semibold select-none"
         >
           Band 3 (35%+)
         </text>

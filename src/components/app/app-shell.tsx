@@ -25,6 +25,9 @@ import {
   Settings,
   CreditCard,
   Zap,
+  Lock,
+  LineChart,
+  Trophy,
 } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
@@ -32,11 +35,11 @@ import { useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { LockedFeatureModal, type LockedFeatureType } from "@/components/app/locked-feature-modal";
 import { usePresenceHeartbeat } from "@/hooks/use-presence";
 import { supabase } from "@/integrations/backend/client";
 import type { UserSubscriptionDetails } from "@/lib/usage-limits";
 import { cn } from "@/lib/utils";
-
 
 export type NavItem = {
   to: string;
@@ -45,16 +48,17 @@ export type NavItem = {
   badge?: string;
   staffOnly?: boolean;
   adminOnly?: boolean;
-  experimentalOnly?: boolean;
+  requiresPaid?: boolean;
+  requiresHigherTier?: boolean;
 };
 
 export type NavGroup = {
   id: string;
-  label?: string;
+  label: string;
   collapsible?: boolean;
   adminOnly?: boolean;
   staffOnly?: boolean;
-  experimentalOnly?: boolean;
+  isExperimental?: boolean;
   items: NavItem[];
 };
 
@@ -62,40 +66,60 @@ const SIDEBAR_COLLAPSED_STORAGE_KEY = "marginal.sidebarCollapsed";
 const COLLAPSED_GROUPS_STORAGE_KEY = "marginal.collapsedNavGroups";
 
 /**
- * Clean, decluttered navigation structure for Cambridge 9708:
- * - Core Practice: Dashboard, Essay Marking, Live Examiner, MCQ Past Papers, Review & Progress
- * - Syllabus & Technique: Definitions Hub, Question Bank, Command Words, Classes
- * - Experimental Labs: Isolated compartment for Admin & Higher-Tier Candidates (Mastery / Elite)
- * - Administration: Admin Console & Staff Console (Admin only)
+ * Intuitive, Cambridge 9708 organized navigation:
+ * 1. Essay Marking & Live: Grade Essay, Live Examiner (Chained for Free), Exemplars & Submissions
+ * 2. Classroom & Progress: Dashboard, Classes, Review & Diagnostics (Together!)
+ * 3. Syllabus & Knowledge: Definitions Hub, Diagram Library (Required!), Command Words, MCQ Past Papers, Question Bank
+ * 4. Experimental Labs: Diagram CAD Lab, Past Paper Predictor, Teacher Examiner (Chained for Free, Unlocked for Pro/Mastery/Elite/Admin)
+ * 5. Administration: Admin Console & Staff Console (Admin only)
  */
 const NAV_GROUPS: NavGroup[] = [
   {
-    id: "core",
+    id: "grading",
+    label: "Essay Marking & Live",
+    collapsible: true,
+    items: [
+      { to: "/grade", label: "Grade Essay", icon: PenLine },
+      {
+        to: "/live-examiner",
+        label: "Live Examiner",
+        icon: Sparkles,
+        badge: "Live",
+        requiresPaid: true,
+      },
+      { to: "/showcase", label: "Exemplars & Submissions", icon: Trophy },
+    ],
+  },
+  {
+    id: "classroom_progress",
+    label: "Classroom & Progress",
+    collapsible: true,
     items: [
       { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-      { to: "/grade", label: "Essay Marking", icon: PenLine },
-      { to: "/live-examiner", label: "Live Examiner", icon: Sparkles, badge: "Live" },
-      { to: "/mcq-live", label: "MCQ Past Papers", icon: ListChecks },
-      { to: "/review", label: "Review & Progress", icon: ClipboardCheck },
+      { to: "/classes", label: "Classes", icon: UsersRound },
+      { to: "/review", label: "Review & Diagnostics", icon: ClipboardCheck },
     ],
   },
   {
     id: "syllabus",
-    label: "Syllabus & Technique",
+    label: "Syllabus & Knowledge",
+    collapsible: true,
     items: [
       { to: "/definitions", label: "Definitions Hub", icon: BookText },
-      { to: "/question-bank", label: "Question Bank", icon: BookMarked },
+      { to: "/diagrams", label: "Diagram Library", icon: LineChart },
       { to: "/command-words", label: "Command Words", icon: Target },
-      { to: "/classes", label: "Classes", icon: UsersRound },
+      { to: "/mcq-live", label: "MCQ Past Papers", icon: ListChecks },
+      { to: "/question-bank", label: "Question Bank", icon: BookMarked },
     ],
   },
   {
-    id: "labs",
+    id: "experimental",
     label: "Experimental Labs",
-    experimentalOnly: true,
+    collapsible: true,
+    isExperimental: true,
     items: [
-      { to: "/diagram-lab", label: "Diagram CAD Lab", icon: Sliders, badge: "Lab" },
-      { to: "/paper-matrix", label: "Paper Predictor", icon: Flame, badge: "15-Yr" },
+      { to: "/paper-matrix", label: "Paper Predictor", icon: Flame, badge: "15-Yr", requiresHigherTier: true },
+      { to: "/diagram-lab", label: "Diagram CAD Lab", icon: Sliders, badge: "Lab", requiresHigherTier: true },
       { to: "/examiner", label: "Teacher Examiner", icon: GraduationCap, badge: "Admin", adminOnly: true },
     ],
   },
@@ -103,6 +127,7 @@ const NAV_GROUPS: NavGroup[] = [
     id: "admin",
     label: "Administration",
     adminOnly: true,
+    collapsible: true,
     items: [
       { to: "/admin", label: "Admin Console", icon: ShieldCheck, badge: "Root" },
       { to: "/knowledge", label: "Staff Console", icon: BookOpen },
@@ -116,17 +141,13 @@ function filterGroupForRole(
   subscription?: UserSubscriptionDetails,
 ): NavGroup | null {
   const isAdmin = role === "admin" || Boolean(subscription?.isAdmin);
-  const isHigherTier =
-    subscription?.tier === "mastery" || subscription?.tier === "elite";
 
   if (group.adminOnly && !isAdmin) return null;
   if (group.staffOnly && role !== "teacher" && !isAdmin) return null;
-  if (group.experimentalOnly && !isAdmin && !isHigherTier) return null;
 
   const visibleItems = group.items.filter((item) => {
     if (item.adminOnly && !isAdmin) return false;
     if (item.staffOnly && role !== "teacher" && !isAdmin) return false;
-    if (item.experimentalOnly && !isAdmin && !isHigherTier) return false;
     return true;
   });
 
@@ -155,6 +176,7 @@ export function AppShell({
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => new Set());
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
+  const [lockedModalType, setLockedModalType] = useState<LockedFeatureType>(null);
 
   useEffect(() => {
     try {
@@ -211,10 +233,15 @@ export function AppShell({
 
   const classroomLabel = role === "student" ? "Join class" : "Classes";
 
+  const isUserAdmin = role === "admin" || Boolean(subscription?.isAdmin);
+  const isHigherTierUser = isUserAdmin || subscription?.tier === "mastery" || subscription?.tier === "elite";
+  const canLiveExaminer = isUserAdmin || Boolean(subscription?.canUseLiveExaminer);
+
   const isItemActive = (to: string) => {
     if (to === "/dashboard") return pathname === "/dashboard";
-    if (pathname.startsWith(to)) return true;
-    if (to === "/definitions" && ["/diagrams", "/command-words", "/showcase"].some((p) => pathname.startsWith(p))) {
+    if (pathname === to) return true;
+    if (to !== "/dashboard" && pathname.startsWith(to)) {
+      if (to === "/grade") return pathname === "/grade" || pathname.startsWith("/essay");
       return true;
     }
     if ((to === "/admin" || to === "/knowledge") && ["/calibration", "/content-admin", "/mcq-papers-admin"].some((p) => pathname.startsWith(p))) {
@@ -234,23 +261,27 @@ export function AppShell({
           sidebarCollapsed && !isMobile ? (
             <div className="my-2 border-t border-sidebar-border/60" />
           ) : (
-            <div className="flex items-center justify-between px-2.5 pt-3 pb-1 text-[10px] font-bold tracking-wider text-muted-foreground/60 uppercase select-none">
-              <span>{group.label}</span>
+            <button
+              type="button"
+              onClick={() => group.collapsible && toggleGroup(group.id)}
+              className="w-full flex items-center justify-between px-2.5 pt-3 pb-1 text-[10px] font-bold tracking-wider text-muted-foreground/70 uppercase select-none hover:text-foreground transition-colors group cursor-pointer text-left"
+              title={forceOpen ? "Collapse section" : "Expand section"}
+            >
+              <span className="flex items-center gap-1.5 truncate">
+                {group.isExperimental && !isHigherTierUser ? (
+                  <Lock className="size-3 text-amber-500 shrink-0" />
+                ) : null}
+                <span>{group.label}</span>
+              </span>
               {group.collapsible ? (
-                <button
-                  type="button"
-                  onClick={() => toggleGroup(group.id)}
-                  className="rounded p-0.5 text-muted-foreground/50 hover:bg-sidebar-accent hover:text-sidebar-foreground transition-colors"
-                  title={forceOpen ? "Collapse section" : "Expand section"}
-                >
-                  {forceOpen ? (
-                    <ChevronDown className="size-3" />
-                  ) : (
-                    <ChevronRight className="size-3" />
+                <ChevronDown
+                  className={cn(
+                    "size-3 text-muted-foreground/50 transition-transform duration-200 group-hover:text-foreground shrink-0",
+                    !forceOpen && "-rotate-90",
                   )}
-                </button>
+                />
               ) : null}
-            </div>
+            </button>
           )
         ) : null}
 
@@ -259,6 +290,45 @@ export function AppShell({
             {group.items.map((item) => {
               const active = isItemActive(item.to);
               const label = item.to === "/classes" ? classroomLabel : item.label;
+
+              const isChainedPaid = item.requiresPaid && !canLiveExaminer;
+              const isLockedExperimental = item.requiresHigherTier && !isHigherTierUser;
+              const isLocked = isChainedPaid || isLockedExperimental;
+
+              if (isLocked) {
+                return (
+                  <button
+                    key={item.to}
+                    type="button"
+                    onClick={() => {
+                      if (isMobile) setMobileDrawerOpen(false);
+                      setLockedModalType(isChainedPaid ? "live_examiner" : "experimental");
+                    }}
+                    className={cn(
+                      "group relative flex w-full items-center rounded-lg py-1.5 text-xs font-medium text-sidebar-foreground/75 transition-all duration-150 text-left cursor-pointer",
+                      sidebarCollapsed && !isMobile ? "justify-center px-2" : "gap-2.5 px-2.5",
+                      "hover:bg-sidebar-accent/80 hover:text-sidebar-accent-foreground",
+                    )}
+                    title={`${label} (${isChainedPaid ? "Paid Only" : "Pro Plan"})`}
+                  >
+                    <item.icon
+                      className={cn(
+                        "size-4 shrink-0 transition-transform group-hover:scale-105",
+                        isChainedPaid ? "text-amber-500/80" : "text-muted-foreground/70",
+                      )}
+                    />
+                    <span className={cn("truncate", sidebarCollapsed && !isMobile && "sr-only")}>
+                      {label}
+                    </span>
+                    {!sidebarCollapsed || isMobile ? (
+                      <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-amber-500/15 border border-amber-500/30 px-1.5 py-0.2 text-[9px] font-bold text-amber-600 dark:text-amber-400">
+                        <Lock className="size-2.5" />
+                        {isChainedPaid ? "Chained" : "Locked"}
+                      </span>
+                    ) : null}
+                  </button>
+                );
+              }
 
               return (
                 <Link
@@ -616,6 +686,14 @@ export function AppShell({
 
         <main className="flex-1">{children}</main>
       </div>
+
+      <LockedFeatureModal
+        open={lockedModalType !== null}
+        onOpenChange={(open) => {
+          if (!open) setLockedModalType(null);
+        }}
+        type={lockedModalType}
+      />
     </div>
   );
 }

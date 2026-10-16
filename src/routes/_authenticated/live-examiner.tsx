@@ -863,29 +863,83 @@ function LiveExaminerPage() {
         description="Write your answer and get instant, syllabus-grounded feedback as you go — grammar, clarity, economics accuracy, analysis, application, evaluation and terminology."
       />
 
-      {!started ? (
-        <div className="mx-auto max-w-5xl p-5 md:p-8">
-          {meQuery.data?.subscription && !meQuery.data.subscription.canUseLiveExaminer && !isAdmin ? (
-            <div
-              role="alert"
-              className="mb-6 rounded-xl border border-amber-500/30 bg-amber-500/10 p-5 text-amber-950 dark:text-amber-100 flex flex-col md:flex-row md:items-center justify-between gap-4"
+      {meQuery.data?.subscription && !meQuery.data.subscription.canUseLiveExaminer && !isAdmin ? (
+        <div className="mx-auto max-w-2xl px-5 py-16 text-center">
+          {/* Metallic Chains & Padlock Graphic */}
+          <div className="relative mx-auto size-24 flex items-center justify-center mb-6">
+            <svg
+              viewBox="0 0 100 100"
+              className="absolute inset-0 size-full text-muted-foreground/40 stroke-current"
+              fill="none"
+              strokeWidth="3.5"
+              strokeLinecap="round"
             >
-              <div className="space-y-1">
-                <div className="flex items-center gap-2 font-semibold text-amber-900 dark:text-amber-300">
-                  <LockKeyhole className="size-4" />
-                  <span>Live Examiner is a Paid Feature</span>
-                </div>
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  Your Free Tier includes up to 2 free graded essays and 30 days of MCQ practice.
-                  Upgrade to Foundation (₹149/mo) or Pro (₹399/mo) to unlock Live Examiner credits,
-                  real-time Cambridge keystroke coaching, and examiner next-move guidance.
-                </p>
-              </div>
-              <Button size="sm" asChild className="shrink-0">
-                <Link to="/pricing">Unlock Live Credits</Link>
-              </Button>
+              <path d="M15 15 L35 35 M45 45 L55 55 M65 65 L85 85" strokeDasharray="6 3" />
+              <path d="M85 15 L65 35 M55 45 L45 55 M35 65 L15 85" strokeDasharray="6 3" />
+            </svg>
+            <div className="relative z-10 flex size-16 items-center justify-center rounded-2xl border-2 border-amber-500/50 bg-card shadow-xl shadow-amber-500/20 text-amber-500">
+              <LockKeyhole className="size-8 animate-pulse" />
             </div>
-          ) : hasActiveDailySession && todaySessionQuery.data ? (
+          </div>
+
+          <Badge
+            variant="outline"
+            className="mb-4 border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400 font-bold text-xs uppercase px-3 py-1"
+          >
+            Paid Feature · Chained
+          </Badge>
+
+          <h1 className="text-3xl font-extrabold tracking-tight text-foreground">
+            Cambridge Live Examiner is Chained
+          </h1>
+
+          <p className="mx-auto mt-3 max-w-lg text-sm text-muted-foreground leading-relaxed">
+            Real-time clause checking, instant AO breakdown, and keystroke coaching require an active subscription or live examiner credits.
+          </p>
+
+          <div className="mt-8 grid gap-3 sm:grid-cols-2 text-left max-w-xl mx-auto">
+            <div className="rounded-xl border border-border/80 bg-card p-4 space-y-1">
+              <span className="text-xs font-bold text-primary flex items-center gap-1.5">
+                <Sparkles className="size-3.5" /> Instant Live AO Feedback
+              </span>
+              <p className="text-[11.5px] text-muted-foreground">
+                Evaluates every sentence against Cambridge AO1, AO2, and AO3 criteria in real-time.
+              </p>
+            </div>
+
+            <div className="rounded-xl border border-border/80 bg-card p-4 space-y-1">
+              <span className="text-xs font-bold text-amber-500 flex items-center gap-1.5">
+                <Zap className="size-3.5" /> Next-Move Examiner Guidance
+              </span>
+              <p className="text-[11.5px] text-muted-foreground">
+                Socratic prompts that guide you to add required definitions and evaluative weigh-ups.
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
+            <Button
+              size="lg"
+              className="w-full sm:w-auto font-bold shadow-md"
+              onClick={() => navigate({ to: "/pricing" })}
+            >
+              <span>Unlock Live Examiner (from ₹149/mo)</span>
+              <ArrowRight className="ml-2 size-4" />
+            </Button>
+
+            <Button
+              variant="outline"
+              size="lg"
+              className="w-full sm:w-auto"
+              onClick={() => navigate({ to: "/grade" })}
+            >
+              Use Free Essay Grader (2 Free)
+            </Button>
+          </div>
+        </div>
+      ) : !started ? (
+        <div className="mx-auto max-w-5xl p-5 md:p-8">
+          {hasActiveDailySession && todaySessionQuery.data ? (
             <div
               role="alert"
               className="mb-6 rounded-lg border border-primary/40 bg-primary/5 p-4 space-y-3"
