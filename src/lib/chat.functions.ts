@@ -21,6 +21,8 @@ const ChatInputSchema = z.object({
 
 export interface GroundedChatReply {
   reply: string;
+  voiceoverSummary?: string;
+  isEssayDraftRequest?: boolean;
   sources: Array<{
     title: string;
     chapter: string;
@@ -119,6 +121,9 @@ GUIDELINES:
 4. Mention the exact economic diagram that candidates must draw to earn maximum marks.
 5. Explicitly cite authentic Cambridge source references (e.g. [Source: Cambridge 9708 Syllabus Chapter X · Paper Code]).
 6. Keep your reply concise, academic, and formatted in clear markdown sections.
+7. CALIBRATION & CORRECTIONS: Handle conversational follow-ups, user corrections, and syllabus calibrations seamlessly (e.g., AS Level Paper 2 vs A Level Paper 4, micro vs macro, elastic vs inelastic demand, market failure vs government failure). When the user asks to calibrate or correct an assumption, acknowledge the change and immediately recalibrate your economic reasoning.
+8. VOICEOVER COMMENTARY: At the very end of your response, ALWAYS include a single line:
+[VOICEOVER: A 2-to-3 sentence natural spoken summary of the core economic insight and examiner strategy, without reading citations, bullet characters, or markdown formatting, suitable for clear text-to-speech audio.]
 
 GROUNDING FACTS FROM CAMBRIDGE KNOWLEDGE BASE:
 ${groundingContext}`;
@@ -139,16 +144,45 @@ ${groundingContext}`;
         temperature: 0.2, // Low temperature for high grounding accuracy
       });
 
-      const replyText = result.text.trim();
-      const sources = extractSourcesFromReply(replyText, matchedDefinitions);
+      const rawReply = result.text.trim();
+      let cleanReplyText = rawReply;
+      let voiceoverSummary = "";
+
+      const voiceoverMatch = rawReply.match(/\[VOICEOVER:\s*([^\]]+)\]/i);
+      if (voiceoverMatch) {
+        voiceoverSummary = voiceoverMatch[1]?.trim() || "";
+        cleanReplyText = rawReply.replace(/\[VOICEOVER:\s*[^\]]+\]/i, "").trim();
+      }
+
+      const sources = extractSourcesFromReply(cleanReplyText, matchedDefinitions);
+
+      // Check if user specifically requested an essay draft by voice or text
+      const isEssayDraftRequest =
+        (lowerQuery.includes("draft") && (lowerQuery.includes("essay") || lowerQuery.includes("paper"))) ||
+        lowerQuery.includes("write an essay") ||
+        lowerQuery.includes("auto draft") ||
+        lowerQuery.includes("draft a");
+
+      if (isEssayDraftRequest) {
+        voiceoverSummary = `I have drafted a Cambridge 9708 essay on this topic for you, allocating marks across AO1 Knowledge, AO2 Analysis, and AO3 Evaluation. You can review the draft on your screen and transfer it to the essay grader.`;
+      } else if (!voiceoverSummary) {
+        const firstDef = matchedDefinitions[0];
+        if (firstDef) {
+          voiceoverSummary = `According to Cambridge 9708, ${firstDef.term} is defined as ${firstDef.definition_text.slice(0, 160)}. Remember to trace the causal mechanism step-by-step and evaluate key elasticity nuances.`;
+        } else {
+          voiceoverSummary = `Here is the official Cambridge 9708 analysis. Make sure to sketch the required diagram and evaluate the short-run versus long-run trade-offs to reach high-band distinction.`;
+        }
+      }
 
       // Synthesize an Auto-Draft Essay object for 1-click export to /grade
-      const draftPrompt = buildAutoDraftPrompt(query, replyText, sources);
+      const draftPrompt = buildAutoDraftPrompt(query, cleanReplyText, sources);
 
       return {
-        reply: replyText,
+        reply: cleanReplyText,
+        voiceoverSummary,
+        isEssayDraftRequest,
         sources,
-        diagramGuidance: extractDiagramNote(replyText),
+        diagramGuidance: extractDiagramNote(cleanReplyText),
         autoDraftPrompt: draftPrompt,
         usedAi: true,
         costEstimate: "₹0.003 (Gemini 2.5 Flash Grounded)",
@@ -318,10 +352,24 @@ ${evalNuance}
     },
   ];
 
+  const isEssayDraftRequest =
+    (lower.includes("draft") && (lower.includes("essay") || lower.includes("paper"))) ||
+    lower.includes("write an essay") ||
+    lower.includes("auto draft") ||
+    lower.includes("draft a");
+
+  let voiceoverSummary = `According to Cambridge 9708, ${bestDef.term} is defined as ${bestDef.definition_text.slice(0, 160)}. To earn distinction marks, trace the causal transmission mechanism and evaluate key elasticity parameters.`;
+
+  if (isEssayDraftRequest) {
+    voiceoverSummary = `I have drafted a 12-mark Cambridge 9708 essay on ${bestDef.term} for you, broken down by AO1 Knowledge, AO2 Analysis, and AO3 Evaluation. You can inspect the draft on screen now.`;
+  }
+
   const draftPrompt = buildAutoDraftPrompt(query, reply, sources);
 
   return {
     reply,
+    voiceoverSummary,
+    isEssayDraftRequest,
     sources,
     diagramGuidance: diagramReq,
     autoDraftPrompt: draftPrompt,

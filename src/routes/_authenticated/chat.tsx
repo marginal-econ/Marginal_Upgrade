@@ -67,6 +67,7 @@ interface ChatMessageItem {
   id: string;
   role: "user" | "assistant";
   content: string;
+  voiceoverSummary?: string;
   sources?: GroundedChatReply["sources"];
   diagramGuidance?: string;
   autoDraftPrompt?: GroundedChatReply["autoDraftPrompt"];
@@ -141,7 +142,11 @@ export function GroundedChatPage() {
   // Audio Speech Synthesis (Text-to-Speech)
   const [speakingMsgId, setSpeakingMsgId] = useState<string | null>(null);
 
-  // ChatGPT-Style Voice Mode Overlay State
+  // Feature 1: Voice Command (Dictation in Input Bar)
+  const [isDictating, setIsDictating] = useState(false);
+  const dictationRecRef = useRef<any>(null);
+
+  // Feature 2: AI Voiceover Studio (ChatGPT Conversational Voice Mode)
   const [voiceModeOpen, setVoiceModeOpen] = useState(false);
   const [voiceStatus, setVoiceStatus] = useState<
     "idle" | "listening" | "thinking" | "speaking" | "error"
@@ -150,6 +155,7 @@ export function GroundedChatPage() {
   const [lastVoiceReply, setLastVoiceReply] = useState<string>("");
   const [micErrorNote, setMicErrorNote] = useState<string | null>(null);
   const [voiceTextInput, setVoiceTextInput] = useState("");
+  const [voiceoverMuted, setVoiceoverMuted] = useState(false);
   const recognitionRef = useRef<any>(null);
   const transcriptRef = useRef("");
   const isListeningRef = useRef(false);
@@ -193,6 +199,11 @@ export function GroundedChatPage() {
           recognitionRef.current.abort();
         } catch {}
       }
+      if (dictationRecRef.current) {
+        try {
+          dictationRecRef.current.abort();
+        } catch {}
+      }
     };
   }, []);
 
@@ -213,7 +224,7 @@ export function GroundedChatPage() {
     }
   };
 
-  // Text-to-Speech Read Aloud
+  // Text-to-Speech Read Aloud (Speaks concise examiner commentary, not raw citations)
   const handleToggleSpeak = (msgId: string, text: string) => {
     if (typeof window === "undefined" || !window.speechSynthesis) {
       toast.error("Text-to-speech is not supported on this device.");
@@ -227,19 +238,17 @@ export function GroundedChatPage() {
     }
 
     window.speechSynthesis.cancel();
-    const cleanSpeechText = text
-      .replace(/[*_#>`~]/g, "")
-      .replace(/\[Source:[^\]]+\]/g, "")
-      .replace(/\[Mark Scheme[^\]]+\]/g, "")
-      .replace(/\n+/g, ". ")
-      .trim();
 
-    if (!cleanSpeechText) return;
+    // Prefer concise spoken voiceover summary if available
+    const msg = messages.find((m) => m.id === msgId);
+    const spokenContent = msg?.voiceoverSummary || cleanSpeechText(text);
+
+    if (!spokenContent) return;
 
     // Async timeout prevents Chrome from cancelling the queued utterance
     setTimeout(() => {
       try {
-        const utterance = new SpeechSynthesisUtterance(cleanSpeechText);
+        const utterance = new SpeechSynthesisUtterance(spokenContent);
         utterance.rate = 1.0;
         utterance.pitch = 1.0;
 
@@ -275,8 +284,84 @@ export function GroundedChatPage() {
     }, 60);
   };
 
+  // Feature 1: Voice Command (Dictation in Input Bar - SILENT response, no auto-voice)
+  const toggleVoiceDictation = () => {
+    if (typeof window === "undefined") return;
+
+    if (isDictating) {
+      if (dictationRecRef.current) {
+        try {
+          dictationRecRef.current.stop();
+        } catch {}
+      }
+      setIsDictating(false);
+      return;
+    }
+
+    const SpeechRec =
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+
+    if (!SpeechRec) {
+      toast.error("Voice dictation is not supported in this browser. Please use Chrome, Edge, or Safari.");
+      return;
+    }
+
+    try {
+      const rec = new SpeechRec();
+      rec.lang = "en-US";
+      rec.interimResults = true;
+      rec.continuous = true;
+
+      rec.onstart = () => {
+        setIsDictating(true);
+        toast.info("Voice Command active: Speak your economics question...");
+      };
+
+      rec.onresult = (event: any) => {
+        let fullTranscript = "";
+        for (let i = 0; i < event.results.length; i++) {
+          const res = event.results[i];
+          if (res && res[0]) {
+            fullTranscript += res[0].transcript + " ";
+          }
+        }
+        const text = fullTranscript.trim();
+        setInputMessage(text);
+        if (textareaRef.current) {
+          textareaRef.current.style.height = "auto";
+          textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 180)}px`;
+        }
+      };
+
+      rec.onerror = (event: any) => {
+        if (event.error !== "no-speech") {
+          console.warn("Dictation error:", event.error);
+        }
+        setIsDictating(false);
+      };
+
+      rec.onend = () => {
+        setIsDictating(false);
+      };
+
+      dictationRecRef.current = rec;
+      rec.start();
+    } catch (err: any) {
+      console.warn("Could not start dictation:", err);
+      setIsDictating(false);
+    }
+  };
+
   // Primary Message Sender
   const handleSend = async (overrideText?: string, isFromVoice = false) => {
+    // If dictation was active, stop it
+    if (isDictating && dictationRecRef.current) {
+      try {
+        dictationRecRef.current.stop();
+      } catch {}
+      setIsDictating(false);
+    }
+
     const textToSend = (overrideText || inputMessage).trim();
     if (!textToSend || isSending) return;
 
@@ -320,6 +405,7 @@ export function GroundedChatPage() {
         id: `asst-${Date.now()}`,
         role: "assistant",
         content: res.reply,
+        voiceoverSummary: res.voiceoverSummary,
         sources: res.sources,
         diagramGuidance: res.diagramGuidance,
         autoDraftPrompt: res.autoDraftPrompt,
@@ -330,22 +416,33 @@ export function GroundedChatPage() {
 
       setMessages((prev) => [...prev, assistantMsg]);
 
-      // If in ChatGPT Voice Mode, speak aloud and auto-loop
+      // Feature 2: ONLY in AI Voiceover Studio does the examiner speak aloud
       if (isFromVoice || voiceModeOpen) {
-        setLastVoiceReply(res.reply);
+        setLastVoiceReply(res.voiceoverSummary || res.reply);
         setVoiceStatus("speaking");
+        isListeningRef.current = false;
+
+        // Auto-trigger Essay Studio if voice essay draft was requested
+        if (res.isEssayDraftRequest && res.autoDraftPrompt) {
+          setActiveDraft(res.autoDraftPrompt);
+          setDraftModalOpen(true);
+          toast.success("Essay drafted! Opened Cambridge 9708 Essay Studio.");
+        }
+
+        // If user has muted voiceover in the studio, don't speak audio
+        if (voiceoverMuted) {
+          setVoiceStatus("listening");
+          startVoiceRecognition();
+          return;
+        }
 
         if (typeof window !== "undefined" && window.speechSynthesis) {
           window.speechSynthesis.cancel();
-          const speechText = res.reply
-            .replace(/[*_#>`~]/g, "")
-            .replace(/\[Source:[^\]]+\]/g, "")
-            .replace(/\[Mark Scheme[^\]]+\]/g, "")
-            .replace(/\n+/g, ". ")
-            .trim();
+          // ONLY speak the concise, natural 2-sentence voiceover commentary (NEVER raw markdown or citations)
+          const spokenScript = res.voiceoverSummary || cleanSpeechText(res.reply);
 
           setTimeout(() => {
-            const utterance = new SpeechSynthesisUtterance(speechText);
+            const utterance = new SpeechSynthesisUtterance(spokenScript);
             utterance.rate = 1.05;
             utterance.pitch = 1.0;
 
@@ -762,16 +859,17 @@ export function GroundedChatPage() {
             </button>
           </div>
 
-          {/* ChatGPT Voice Mode Button */}
+          {/* AI Voiceover Studio Button */}
           <Button
             type="button"
             size="sm"
             onClick={openVoiceMode}
-            className="h-8 gap-1.5 px-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-medium shadow-sm transition-all"
+            className="h-8 gap-1.5 px-3 rounded-xl bg-gradient-to-r from-emerald-600 via-teal-600 to-indigo-600 hover:opacity-95 text-white font-medium shadow-sm transition-all"
+            title="Launch Interactive AI Voiceover Studio (ChatGPT Conversational Voice)"
           >
             <Radio className="size-3.5 animate-pulse text-white" />
-            <span className="hidden sm:inline text-xs">Voice Mode</span>
-            <span className="sm:hidden text-xs">Voice</span>
+            <span className="hidden sm:inline text-xs font-semibold">AI Voiceover Studio</span>
+            <span className="sm:hidden text-xs font-semibold">Voiceover</span>
           </Button>
 
           {/* Clear conversation */}
@@ -997,7 +1095,11 @@ export function GroundedChatPage() {
             value={inputMessage}
             onChange={handleTextareaChange}
             onKeyDown={handleKeyDown}
-            placeholder="Ask anything Cambridge 9708 (e.g. why is PED inelastic in short run, tax incidence, tariffs vs quotas)..."
+            placeholder={
+              isDictating
+                ? "🎙️ Listening... Speak your economics question now (Voice Command active)..."
+                : "Ask anything Cambridge 9708 (e.g. why is PED inelastic in short run, tax incidence, tariffs vs quotas)..."
+            }
             rows={1}
             className="w-full resize-none bg-transparent px-2 text-xs sm:text-sm text-foreground placeholder:text-muted-foreground/70 focus:outline-none leading-relaxed max-h-36 scrollbar-none"
           />
@@ -1029,18 +1131,25 @@ export function GroundedChatPage() {
               )}
             </button>
 
-            {/* Right Tools: Voice Mode & Send */}
+            {/* Right Tools: Voice Command (Dictate) & Send */}
             <div className="flex items-center gap-1.5 shrink-0">
               <Button
                 type="button"
                 size="sm"
-                variant="outline"
-                onClick={openVoiceMode}
-                className="h-8 rounded-xl px-2.5 gap-1.5 text-xs text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10 font-medium"
-                title="Launch ChatGPT-Style Voice Mode"
+                variant={isDictating ? "destructive" : "outline"}
+                onClick={toggleVoiceDictation}
+                className={cn(
+                  "h-8 rounded-xl px-2.5 gap-1.5 text-xs font-medium transition-all",
+                  isDictating
+                    ? "bg-rose-500 text-white animate-pulse border-rose-600 shadow-md hover:bg-rose-600"
+                    : "text-muted-foreground border-border/70 hover:bg-muted hover:text-foreground"
+                )}
+                title={isDictating ? "Click to stop dictation" : "Voice Command: Dictate question into chat box"}
               >
-                <Mic className="size-3.5" />
-                <span className="hidden sm:inline">Voice Mode</span>
+                <Mic className={cn("size-3.5", isDictating && "animate-bounce text-white")} />
+                <span className="hidden sm:inline">
+                  {isDictating ? "Listening..." : "Voice Command"}
+                </span>
               </Button>
 
               <button
@@ -1062,30 +1171,59 @@ export function GroundedChatPage() {
         </div>
       </div>
 
-      {/* FULL CHATGPT-STYLE VOICE MODE MODAL */}
+      {/* FULL AI VOICEOVER STUDIO (CONVERSATIONAL TALK-OVER & ESSAY DRAFTING) */}
       <Dialog open={voiceModeOpen} onOpenChange={setVoiceModeOpen}>
         <DialogContent className="sm:max-w-lg p-0 overflow-hidden border border-border/80 bg-gradient-to-b from-card via-card/95 to-background shadow-2xl rounded-3xl">
-          <div className="relative p-6 sm:p-8 flex flex-col items-center justify-between min-h-[460px] text-center">
-            {/* Top Bar inside Voice Modal */}
-            <div className="w-full flex items-center justify-between">
+          <div className="relative p-6 sm:p-8 flex flex-col items-center justify-between min-h-[480px] text-center">
+            {/* Top Bar inside Voiceover Studio Modal */}
+            <div className="w-full flex items-center justify-between pb-3 border-b border-border/40">
               <div className="flex items-center gap-2">
                 <span className="size-2 rounded-full bg-emerald-500 animate-ping" />
                 <span className="text-xs font-bold tracking-wide uppercase text-foreground">
-                  ChatGPT Voice Mode · Cambridge 9708
+                  AI Voiceover Studio · Cambridge 9708
                 </span>
+                <Badge variant="outline" className="text-[10px] bg-primary/5 text-primary border-primary/20 hidden sm:inline-flex">
+                  Talk-Over Active
+                </Badge>
               </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={closeVoiceMode}
-                className="size-8 rounded-full text-muted-foreground hover:text-foreground"
-              >
-                <X className="size-4" />
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    const next = !voiceoverMuted;
+                    setVoiceoverMuted(next);
+                    if (next && typeof window !== "undefined" && window.speechSynthesis) {
+                      window.speechSynthesis.cancel();
+                      setVoiceStatus("listening");
+                      startVoiceRecognition();
+                    }
+                    toast.info(next ? "Voiceover Muted" : "Voiceover Audio Enabled");
+                  }}
+                  className={cn(
+                    "h-7 px-2 text-xs rounded-xl gap-1 border cursor-pointer",
+                    voiceoverMuted
+                      ? "text-muted-foreground border-border/60 hover:bg-muted"
+                      : "text-emerald-600 border-emerald-500/30 bg-emerald-500/10 font-semibold"
+                  )}
+                  title="Toggle examiner spoken audio"
+                >
+                  {voiceoverMuted ? <VolumeX className="size-3" /> : <Volume2 className="size-3" />}
+                  <span className="text-[11px]">{voiceoverMuted ? "Muted" : "Voiceover On"}</span>
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={closeVoiceMode}
+                  className="size-7 rounded-full text-muted-foreground hover:text-foreground cursor-pointer"
+                >
+                  <X className="size-4" />
+                </Button>
+              </div>
             </div>
 
             {/* Center Piece: Interactive Living Orb Visualizer */}
-            <div className="my-auto py-4 flex flex-col items-center space-y-4 w-full">
+            <div className="my-auto py-3 flex flex-col items-center space-y-4 w-full">
               <div className="relative flex items-center justify-center size-36 sm:size-44">
                 {/* Outer Ambient Ripple Rings */}
                 {voiceStatus === "listening" && (
@@ -1139,7 +1277,7 @@ export function GroundedChatPage() {
               {/* Status & Live Transcription */}
               <div className="space-y-2 max-w-sm px-4 w-full text-center">
                 <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground block">
-                  {voiceStatus === "listening" && "Listening... Speak your economics question"}
+                  {voiceStatus === "listening" && "Listening... Speak your economics question or correction"}
                   {voiceStatus === "thinking" && "Consulting Cambridge 9708 syllabus..."}
                   {voiceStatus === "speaking" && "Cambridge Examiner Speaking... (tap orb to interrupt)"}
                   {voiceStatus === "idle" && "Tap the glowing orb to speak"}
@@ -1227,7 +1365,7 @@ export function GroundedChatPage() {
                   <Input
                     value={voiceTextInput}
                     onChange={(e) => setVoiceTextInput(e.target.value)}
-                    placeholder="Or type voice question to Examiner..."
+                    placeholder="Type voice query or correction..."
                     className="h-8 text-xs rounded-xl bg-card border-border/70"
                   />
                   <Button
@@ -1240,18 +1378,19 @@ export function GroundedChatPage() {
                   </Button>
                 </form>
 
-                {/* Quick Topic Prompts */}
-                <div className="flex flex-wrap items-center justify-center gap-1.5">
+                {/* Voice Calibration & Correction Prompts */}
+                <div className="flex flex-wrap items-center justify-center gap-1.5 pt-0.5">
                   {[
-                    "Elasticity & tax incidence",
-                    "PPC & opportunity cost",
-                    "Monetary policy inflation",
+                    "Calibrate: AS Level (Paper 2)",
+                    "Calibrate: A Level (Paper 4)",
+                    "Auto-Draft 12-Mark Essay",
+                    "Focus on Inelastic PED",
                   ].map((topic) => (
                     <button
                       key={topic}
                       type="button"
                       onClick={() => handleSend(topic, true)}
-                      className="text-[10px] px-2 py-0.5 rounded-lg bg-muted/60 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer border border-border/40 truncate"
+                      className="text-[10px] px-2 py-0.5 rounded-lg bg-muted/60 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer border border-border/40 truncate font-medium"
                     >
                       {topic}
                     </button>
@@ -1278,7 +1417,7 @@ export function GroundedChatPage() {
                     toast.info("Ask an economics question first to draft an essay.");
                   }
                 }}
-                className="text-xs gap-1.5 rounded-xl border-primary/30 text-primary"
+                className="text-xs gap-1.5 rounded-xl border-primary/30 text-primary cursor-pointer"
               >
                 <PenLine className="size-3.5" />
                 <span>Auto-Draft Essay</span>
@@ -1301,7 +1440,7 @@ export function GroundedChatPage() {
                       startVoiceRecognition();
                     }
                   }}
-                  className="rounded-xl text-xs gap-1.5"
+                  className="rounded-xl text-xs gap-1.5 cursor-pointer"
                 >
                   <Mic className="size-3.5" />
                   <span>{voiceStatus === "listening" ? "Pause" : "Resume"}</span>
@@ -1310,7 +1449,7 @@ export function GroundedChatPage() {
                   variant="ghost"
                   size="sm"
                   onClick={closeVoiceMode}
-                  className="rounded-xl text-xs"
+                  className="rounded-xl text-xs cursor-pointer"
                 >
                   Exit Voice
                 </Button>
