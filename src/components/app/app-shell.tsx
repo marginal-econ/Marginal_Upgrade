@@ -89,13 +89,6 @@ const NAV_GROUPS: NavGroup[] = [
         badge: "Live",
         requiresPaid: true,
       },
-      {
-        to: "/chat",
-        label: "Cambridge Chat",
-        icon: MessageSquare,
-        badge: "Grounded",
-        requiresPaid: true,
-      },
       { to: "/showcase", label: "Exemplars & Submissions", icon: Trophy },
     ],
   },
@@ -127,6 +120,7 @@ const NAV_GROUPS: NavGroup[] = [
     collapsible: true,
     isExperimental: true,
     items: [
+      { to: "/chat", label: "Cambridge Chat Lab", icon: MessageSquare, badge: "Lab", requiresHigherTier: true },
       { to: "/paper-matrix", label: "Paper Predictor", icon: Flame, badge: "15-Yr", requiresHigherTier: true },
       { to: "/diagram-lab", label: "Diagram CAD Lab", icon: Sliders, badge: "Lab", requiresHigherTier: true },
       { to: "/examiner", label: "Teacher Examiner", icon: GraduationCap, badge: "Admin", adminOnly: true },
@@ -351,9 +345,7 @@ export function AppShell({
                 const active = isItemActive(item.to);
                 const label = item.to === "/classes" ? classroomLabel : item.label;
 
-                const isChainedPaid =
-                  item.requiresPaid &&
-                  (item.to === "/chat" ? !isPaidUser : !canLiveExaminer);
+                const isChainedPaid = item.requiresPaid && !canLiveExaminer;
                 const isChainedEssay =
                   item.to === "/grade" &&
                   !isUserAdmin &&
@@ -370,8 +362,8 @@ export function AppShell({
 
                 if (isLocked) {
                   const lockType: LockedFeatureType =
-                    item.to === "/chat"
-                      ? "chat"
+                    isLockedExperimental
+                      ? "experimental"
                       : isChainedPaid
                       ? "live_examiner"
                       : isChainedEssay

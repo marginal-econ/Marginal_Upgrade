@@ -78,11 +78,14 @@ export const sendGroundedChatMessage = createServerFn({ method: "POST" })
     );
 
     const isAdmin = isVaqlAdmin || role === "admin" || role === "teacher" || Boolean(sub.isAdmin);
-    const isPaid = sub.isPaid || ["foundation", "pro", "mastery", "elite"].includes(tier) || sub.tier !== "free";
+    const isHigherTier =
+      ["mastery", "elite"].includes(tier) ||
+      ["mastery", "elite"].includes(sub.tier as string);
+    const hasAccess = isAdmin || isHigherTier;
 
-    if (!isPaid && !isAdmin) {
+    if (!hasAccess) {
       throw new Error(
-        "Cambridge Grounded AI Chat is an exclusive feature for Cambridge Pass subscribers. Upgrade to Foundation (₹99/mo) or Pro to unlock unlimited chat."
+        "Cambridge Grounded AI Chat & Voiceover Studio is an experimental lab reserved for A* Mastery Sprint, Cambridge Elite scholars, and platform administrators."
       );
     }
 

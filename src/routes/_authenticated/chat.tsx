@@ -28,11 +28,13 @@ import {
   X,
   RotateCcw,
   Headphones,
+  FlaskConical,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 
+import { ChainedChamber } from "@/components/app/chained-chamber";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -52,11 +54,11 @@ export const Route = createFileRoute("/_authenticated/chat")({
   validateSearch: searchSchema,
   head: () => ({
     meta: [
-      { title: "Cambridge AI Grounded Chat — Marginal Economics" },
+      { title: "Cambridge Grounded Chat Lab (Experimental) — Cambridge 9708" },
       {
         name: "description",
         content:
-          "Syllabus-grounded Cambridge 9708 Economics AI chat co-pilot with official mark scheme citations, ChatGPT-style voice mode, and 1-click essay drafting.",
+          "Experimental Cambridge 9708 syllabus dialogue engine and voiceover studio. Ask economics questions grounded strictly in official mark schemes.",
       },
     ],
   }),
@@ -128,9 +130,9 @@ export function GroundedChatPage() {
     meQuery.data?.role === "admin" ||
     meQuery.data?.role === "teacher"
   );
-  const isPaid = Boolean(sub?.isPaid || (sub?.tier && sub.tier !== "free"));
-  // Admin ALWAYS has full access
-  const isUnlocked = isAdmin || isPaid;
+  const isHigherTier = sub?.tier === "mastery" || sub?.tier === "elite";
+  // Experimental Labs: Unlocked for platform admins and A* Mastery / Elite scholars
+  const hasAccess = isAdmin || isHigherTier;
 
   // Conversational state
   const [messages, setMessages] = useState<ChatMessageItem[]>([]);
@@ -734,64 +736,38 @@ export function GroundedChatPage() {
     });
   };
 
-  // Free Tier Locked State (Non-Admins only)
-  if (!meQuery.isLoading && !isUnlocked) {
+  // Experimental Lab Locked State (Higher-Tier & Admin Only)
+  if (!meQuery.isLoading && !hasAccess) {
     return (
-      <div className="space-y-6 max-w-4xl mx-auto px-4 py-12">
-        <div className="rounded-3xl border border-border/80 bg-gradient-to-b from-card via-card/90 to-background p-8 sm:p-12 shadow-2xl text-center space-y-6 relative overflow-hidden">
-          <div className="size-16 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-500 mx-auto shadow-inner">
-            <Lock className="size-8 animate-pulse text-amber-500" />
-          </div>
-
-          <div className="space-y-2 max-w-lg mx-auto">
-            <Badge className="bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30 text-xs font-semibold px-3 py-0.5">
-              Cambridge Pass Exclusive
-            </Badge>
-            <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">
-              Cambridge Grounded AI Chat is Locked
-            </h2>
-            <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
-              ChatGPT-style conversational voice mode, syllabus-grounded mark scheme explanations, and 1-click Auto-Draft Essays are unlocked for paid subscribers and educators.
-            </p>
-          </div>
-
-          <div className="grid gap-3 sm:grid-cols-3 max-w-2xl mx-auto text-left text-xs">
-            <div className="p-3.5 rounded-xl border border-border/70 bg-card/60 space-y-1">
-              <span className="font-bold text-foreground flex items-center gap-1.5">
-                <CheckCircle2 className="size-3.5 text-primary" />
-                100% Syllabus Grounded
-              </span>
-              <p className="text-[11px] text-muted-foreground">Every answer cites exact Cambridge 9708 chapters, definitions & past papers.</p>
-            </div>
-            <div className="p-3.5 rounded-xl border border-border/70 bg-card/60 space-y-1">
-              <span className="font-bold text-foreground flex items-center gap-1.5">
-                <Headphones className="size-3.5 text-amber-500" />
-                ChatGPT Voice Mode
-              </span>
-              <p className="text-[11px] text-muted-foreground">Hands-free speech conversation with examiner text-to-speech audio.</p>
-            </div>
-            <div className="p-3.5 rounded-xl border border-border/70 bg-card/60 space-y-1">
-              <span className="font-bold text-foreground flex items-center gap-1.5">
-                <PenLine className="size-3.5 text-emerald-500" />
-                Auto-Draft Essays
-              </span>
-              <p className="text-[11px] text-muted-foreground">Converts chat discussions into 5-paragraph Cambridge essays ready to grade.</p>
-            </div>
-          </div>
-
-          <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
-            <Button asChild size="lg" className="w-full sm:w-auto font-bold shadow-lg">
-              <Link to="/pricing">
-                <span>Unlock Foundation Pass (₹149/mo)</span>
-                <ArrowRight className="ml-2 size-4" />
-              </Link>
-            </Button>
-            <Button asChild variant="outline" size="lg" className="w-full sm:w-auto">
-              <Link to="/dashboard">Back to Dashboard</Link>
-            </Button>
-          </div>
-        </div>
-      </div>
+      <ChainedChamber
+        badgeText="Experimental Lab · Locked"
+        title="Cambridge AI Grounded Chat & Voiceover Lab"
+        description="The Cambridge Grounded Chat & Voiceover Studio is an experimental AI dialogue engine reserved for A* Mastery Sprint, Cambridge Elite scholars, and platform administrators."
+        primaryCtaText="Unlock Mastery Pass (from ₹799/mo)"
+        primaryCtaLink="/pricing"
+        secondaryCtaText="Return to Dashboard"
+        secondaryCtaLink="/dashboard"
+        features={[
+          {
+            icon: Sparkles,
+            iconColor: "text-primary",
+            title: "100% Authentic Syllabus Grounding",
+            description: "Every response strictly cites Cambridge 9708 syllabus chapters, definitions, and official past mark schemes.",
+          },
+          {
+            icon: Headphones,
+            iconColor: "text-amber-500",
+            title: "Interactive Voiceover Studio",
+            description: "Natural conversational voice dialogue with talk-over interruptibility, calibrations, and concise examiner summaries.",
+          },
+          {
+            icon: PenLine,
+            iconColor: "text-emerald-500",
+            title: "Voice-to-Essay Auto-Drafting",
+            description: "Convert voice discussions directly into 5-paragraph Cambridge 9708 essays ready for the examiner desk.",
+          },
+        ]}
+      />
     );
   }
 
@@ -808,6 +784,10 @@ export function GroundedChatPage() {
               <h1 className="text-sm sm:text-base font-semibold tracking-tight text-foreground">
                 Cambridge 9708 Co-Pilot
               </h1>
+              <Badge className="bg-amber-500/15 border-amber-500/30 text-amber-600 dark:text-amber-400 text-[10px] font-bold px-2 py-0">
+                <FlaskConical className="size-2.5 mr-1" />
+                Experimental Lab
+              </Badge>
               {isAdmin ? (
                 <Badge className="bg-purple-500/15 border-purple-500/30 text-purple-600 dark:text-purple-300 text-[10px] font-bold px-2 py-0">
                   <ShieldCheck className="size-2.5 mr-1" />

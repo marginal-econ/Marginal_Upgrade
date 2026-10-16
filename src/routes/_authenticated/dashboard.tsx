@@ -12,6 +12,7 @@ import {
   LibraryBig,
   ListChecks,
   BookText,
+  MessageSquare,
   PenLine,
   RefreshCw,
   Search,
@@ -578,7 +579,14 @@ export function DashboardPage() {
                   </span>
                 </div>
               </div>
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-4 sm:grid-cols-3">
+                <QuickActionCard
+                  to="/chat"
+                  icon={MessageSquare}
+                  title="Cambridge Chat Lab"
+                  badge="Voice AI"
+                  description="Interactive conversational economics examiner with 100% syllabus grounding, voiceover studio, and auto-draft essays."
+                />
                 <QuickActionCard
                   to="/diagram-lab"
                   icon={Sliders}
