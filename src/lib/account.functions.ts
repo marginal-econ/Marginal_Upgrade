@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
 import { requireSupabaseAuth } from "@/integrations/backend/auth-middleware";
-import { isVaquitavoid } from "@/lib/auth-admin";
+import { isMarginalAdmin } from "@/lib/auth-admin";
 
 export type AppRole = "student" | "teacher" | "admin";
 
@@ -10,7 +10,7 @@ export const getMe = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { supabase, userId } = context;
-    const isVaquita = isVaquitavoid({
+    const isMarginal = isMarginalAdmin({
       userId,
       email: (context as any).email,
       claims: (context as any).claims,
@@ -63,11 +63,11 @@ export const getMe = createServerFn({ method: "GET" })
 
       return {
         userId,
-        fullName: profile?.full_name ?? (isVaquita ? "Marginal Admin" : null),
+        fullName: profile?.full_name ?? (isMarginal ? "Marginal Admin" : null),
         school: profile?.school ?? null,
         role,
-        isAdmin: isVaquita || role === "admin",
-        isStaff: isVaquita || role === "teacher",
+        isAdmin: isMarginal || role === "admin",
+        isStaff: isMarginal || role === "teacher",
         tutorialCompleted: profile?.tutorial_completed ?? true,
         subscription,
       };
@@ -75,17 +75,17 @@ export const getMe = createServerFn({ method: "GET" })
       console.warn("Exception in getMe, returning fallback role:", err);
       return {
         userId,
-        fullName: isVaquita ? "Vaquitavoid" : null,
+        fullName: isMarginal ? "Marginal Admin" : null,
         school: null,
-        role: isVaquita ? ("admin" as AppRole) : ("student" as AppRole),
-        isAdmin: isVaquita,
-        isStaff: isVaquita,
+        role: isMarginal ? ("admin" as AppRole) : ("student" as AppRole),
+        isAdmin: isMarginal,
+        isStaff: isMarginal,
         tutorialCompleted: true,
         subscription: {
           tier: "free" as const,
           tierName: "Free Tier",
           isPaid: false,
-          isAdmin: isVaquita,
+          isAdmin: isMarginal,
           essaysGradedCount: 0,
           essaysLimit: 2,
           essaysRemaining: 2,

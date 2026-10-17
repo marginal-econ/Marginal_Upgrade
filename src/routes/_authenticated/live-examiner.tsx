@@ -91,7 +91,7 @@ import {
   type MaxOutSuggestion,
   type MaxOutResponse,
 } from "@/lib/live-examiner.functions";
-import { isVaquitavoid } from "@/lib/auth-admin";
+import { isMarginalAdmin } from "@/lib/auth-admin";
 import { getMe } from "@/lib/account.functions";
 import { topicsFor } from "@/lib/diagrams/catalog";
 import { isDailyLimitError, DEFAULT_LIVE_EXAMINER_DURATION_MINUTES } from "@/lib/usage-limits";
@@ -510,10 +510,10 @@ function LiveExaminerPage() {
   const routeContext = Route.useRouteContext() as { user?: { id?: string; email?: string } } | undefined;
   const routeUser = routeContext?.user;
   const isAdmin = Boolean(
-    isVaquitavoid({ userId: routeUser?.id, email: routeUser?.email }) ||
+    isMarginalAdmin({ userId: routeUser?.id, email: routeUser?.email }) ||
       todaySessionQuery.data?.isAdmin ||
       meQuery.data?.role === "admin" ||
-      (meQuery.data?.userId && isVaquitavoid({ userId: meQuery.data.userId }))
+      (meQuery.data?.userId && isMarginalAdmin({ userId: meQuery.data.userId }))
   );
 
   const DURATION_SECONDS = DEFAULT_LIVE_EXAMINER_DURATION_MINUTES * 60;

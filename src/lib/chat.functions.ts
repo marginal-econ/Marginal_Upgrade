@@ -49,8 +49,8 @@ export const sendGroundedChatMessage = createServerFn({ method: "POST" })
   .handler(async ({ data, context }): Promise<GroundedChatReply> => {
     const { supabase, userId } = context;
 
-    const { isVaquitavoid } = await import("@/lib/auth-admin");
-    const isVaqlAdmin = isVaquitavoid({
+    const { isMarginalAdmin } = await import("@/lib/auth-admin");
+    const isMarginal = isMarginalAdmin({
       userId,
       email: (context as any).email,
       claims: (context as any).claims,
@@ -77,7 +77,7 @@ export const sendGroundedChatMessage = createServerFn({ method: "POST" })
       (context as any).claims
     );
 
-    const isAdmin = isVaqlAdmin || role === "admin" || role === "teacher" || Boolean(sub.isAdmin);
+    const isAdmin = isMarginal || role === "admin" || role === "teacher" || Boolean(sub.isAdmin);
     const isHigherTier =
       ["mastery", "elite"].includes(tier) ||
       ["mastery", "elite"].includes(sub.tier as string);

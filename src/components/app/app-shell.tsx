@@ -550,7 +550,7 @@ export function AppShell({
                   </div>
                   <div className="min-w-0">
                     <p className="text-xs font-bold truncate text-foreground leading-tight">
-                      {name ?? "Vaquitavoid"}
+                      {name ?? "Marginal Admin"}
                     </p>
                     <p className="text-[10px] text-amber-600 dark:text-amber-400 font-bold leading-tight flex items-center gap-1 mt-0.5">
                       <ShieldCheck className="size-3" /> Administrator
@@ -754,7 +754,7 @@ export function AppShell({
                           <div className="size-6 rounded-lg bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center text-[10px] font-bold shrink-0">
                             {candidateInitials}
                           </div>
-                          <span className="font-bold text-foreground text-xs">{name ?? "Vaquitavoid"}</span>
+                          <span className="font-bold text-foreground text-xs">{name ?? "Marginal Admin"}</span>
                         </div>
                         <Badge className="bg-amber-500/25 text-amber-600 dark:text-amber-400 border-amber-500/40 text-[9px] font-extrabold uppercase shadow-2xs">
                           Root Admin

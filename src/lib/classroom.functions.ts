@@ -4,7 +4,7 @@ import { z } from "zod";
 
 import { requireSupabaseAuth } from "@/integrations/backend/auth-middleware";
 import type { Database } from "@/integrations/supabase/types";
-import { isVaquitavoid } from "@/lib/auth-admin";
+import { isMarginalAdmin } from "@/lib/auth-admin";
 
 const classroomInput = z.object({
   name: z.string().trim().min(1, "Give the class a name.").max(100),
@@ -15,14 +15,14 @@ const classroomInput = z.object({
 const classroomIdInput = z.object({ classroomId: z.string().uuid() });
 
 async function assertAdmin(context: { supabase: SupabaseClient<Database>; userId: string }) {
-  if (isVaquitavoid({ userId: context.userId, claims: (context as any).claims, email: (context as any).email })) {
+  if (isMarginalAdmin({ userId: context.userId, claims: (context as any).claims, email: (context as any).email })) {
     return;
   }
-  throw new Error("Administrator privileges are required to create or remove classrooms. Vaquitavoid is the platform administrator.");
+  throw new Error("Administrator privileges are required to create or remove classrooms. Marginal is the platform administrator.");
 }
 
 async function assertTeacher(context: { supabase: SupabaseClient<Database>; userId: string }) {
-  if (isVaquitavoid({ userId: context.userId, claims: (context as any).claims, email: (context as any).email })) {
+  if (isMarginalAdmin({ userId: context.userId, claims: (context as any).claims, email: (context as any).email })) {
     return;
   }
   const { data, error } = await context.supabase
@@ -48,7 +48,7 @@ async function getClassroomAuthority(userId: string, classroomId: string) {
     admin.from("user_roles").select("role").eq("user_id", userId),
   ]);
   if (error || !classroom) throw new Error(error?.message || "Classroom not found.");
-  const isAdmin = isVaquitavoid({ userId });
+  const isAdmin = isMarginalAdmin({ userId });
 
   let collaborator: { id: string } | null = null;
   try {

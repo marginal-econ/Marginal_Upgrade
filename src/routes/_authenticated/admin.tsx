@@ -54,6 +54,7 @@ import {
   useUserActivity,
 } from "@/components/app/admin-access";
 import { PageHeader } from "@/components/app/app-shell";
+import { MARGINAL_ADMIN_USER_ID, MARGINAL_ADMIN_EMAIL } from "@/lib/auth-admin";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -370,7 +371,7 @@ function AdminPage() {
         <ShieldCheck className="mx-auto size-8 text-muted-foreground" />
         <h1 className="mt-4 text-lg font-semibold">Admin access required</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          This console is reserved exclusively for the platform administrator (vaquitavoid).
+          This console is reserved exclusively for the platform administrator ({MARGINAL_ADMIN_EMAIL}).
         </p>
       </div>
     );
@@ -392,7 +393,7 @@ function AdminPage() {
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
                 <span className="relative inline-flex size-2 rounded-full bg-emerald-500" />
               </span>
-              <span>Root: vaquitavoid</span>
+              <span>Root: Marginal Admin</span>
             </div>
             <Button
               variant="outline"
@@ -2350,7 +2351,7 @@ function UsersPanel() {
                   </p>
                 </div>
                 <div className="ml-auto flex items-center gap-1.5">
-                  {user.id === "84ff607d-83f8-43ee-aa20-b632d1e84c14" || extra?.email?.toLowerCase().includes("vaquitavoid") ? (
+                  {user.id === MARGINAL_ADMIN_USER_ID || extra?.email?.toLowerCase().trim() === MARGINAL_ADMIN_EMAIL.toLowerCase() ? (
                     <Badge variant="outline" className="h-8 px-2.5 font-semibold border-amber-500/40 text-amber-600 dark:text-amber-400 bg-amber-500/10">
                       Sole Admin
                     </Badge>
@@ -2386,7 +2387,7 @@ function UsersPanel() {
                   >
                     <Eraser className="size-4" />
                   </Button>
-                  {!(user.id === "84ff607d-83f8-43ee-aa20-b632d1e84c14" || extra?.email?.toLowerCase().includes("vaquitavoid")) && (
+                  {!(user.id === MARGINAL_ADMIN_USER_ID || extra?.email?.toLowerCase().trim() === MARGINAL_ADMIN_EMAIL.toLowerCase()) && (
                     <Button
                       type="button"
                       size="icon"
@@ -3324,7 +3325,7 @@ function PricingAdminPanel() {
             </div>
             <div>
               <h3 className="text-sm font-bold text-foreground">
-                Administrator Root: vaquitavoid
+                Administrator Root: Marginal Admin
               </h3>
               <p className="text-xs text-muted-foreground mt-0.5">
                 Admin account operates with <strong>Uncapped Godmode</strong>. Zero credit counters, no daily essay caps, and unrestricted bypass across all candidate features and experimental labs.

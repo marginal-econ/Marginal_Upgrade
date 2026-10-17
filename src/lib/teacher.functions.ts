@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/backend/auth-middleware";
-import { isVaquitavoid } from "@/lib/auth-admin";
+import { isMarginalAdmin } from "@/lib/auth-admin";
 
 const RegisterTeacherInput = z.object({
   fullName: z.string().min(2, "Full name must be at least 2 characters."),
@@ -132,9 +132,9 @@ export const getTeacherProfileStatus = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { supabase, userId } = context;
-    const isVaquita = isVaquitavoid({ userId, email: (context as any).email, claims: (context as any).claims });
+    const isMarginal = isMarginalAdmin({ userId, email: (context as any).email, claims: (context as any).claims });
 
-    if (isVaquita) {
+    if (isMarginal) {
       return { status: "approved" as const, isStaff: true, isAdmin: true };
     }
 
@@ -162,12 +162,12 @@ export const getTeacherProfileStatus = createServerFn({ method: "GET" })
 export const listTeacherApplications = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const isVaquita = isVaquitavoid({
+    const isMarginal = isMarginalAdmin({
       userId: context.userId,
       email: (context as any).email,
       claims: (context as any).claims,
     });
-    if (!isVaquita) {
+    if (!isMarginal) {
       throw new Error("Admin access required.");
     }
 
@@ -232,12 +232,12 @@ export const approveTeacherApplication = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => z.object({ userId: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
-    const isVaquita = isVaquitavoid({
+    const isMarginal = isMarginalAdmin({
       userId: context.userId,
       email: (context as any).email,
       claims: (context as any).claims,
     });
-    if (!isVaquita) throw new Error("Admin access required.");
+    if (!isMarginal) throw new Error("Admin access required.");
 
     const { supabaseAdmin } = await import("@/integrations/backend/client.server");
     const { readEnv } = await import("@/server/env");
@@ -328,12 +328,12 @@ export const rejectTeacherApplication = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => z.object({ userId: z.string().uuid(), reason: z.string().optional() }).parse(input))
   .handler(async ({ data, context }) => {
-    const isVaquita = isVaquitavoid({
+    const isMarginal = isMarginalAdmin({
       userId: context.userId,
       email: (context as any).email,
       claims: (context as any).claims,
     });
-    if (!isVaquita) throw new Error("Admin access required.");
+    if (!isMarginal) throw new Error("Admin access required.");
 
     const { supabaseAdmin } = await import("@/integrations/backend/client.server");
 

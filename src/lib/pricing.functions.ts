@@ -3,7 +3,7 @@ import { z } from "zod";
 
 import { requireSupabaseAuth } from "@/integrations/backend/auth-middleware";
 import { supabaseAdmin } from "@/integrations/backend/client.server";
-import { isVaquitavoid } from "@/lib/auth-admin";
+import { isMarginalAdmin } from "@/lib/auth-admin";
 import { DEFAULT_PRICING_PLANS, type PlatformPricingPlans } from "./pricing-plans";
 import { assignUserSubscriptionTier } from "./subscription.server";
 import type { PlanTier } from "./usage-limits";
@@ -58,7 +58,7 @@ export const updatePlatformPricing = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const isAdmin =
       Boolean((context as any).isAdmin) ||
-      isVaquitavoid({
+      isMarginalAdmin({
         userId: context.userId,
         claims: (context as any).claims,
         email: (context as any).email,
@@ -149,7 +149,7 @@ export const adminManageUserCredits = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const isAdmin =
       Boolean((context as any).isAdmin) ||
-      isVaquitavoid({
+      isMarginalAdmin({
         userId: context.userId,
         claims: (context as any).claims,
         email: (context as any).email,

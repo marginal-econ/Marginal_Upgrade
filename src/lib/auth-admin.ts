@@ -6,11 +6,7 @@
 export const MARGINAL_ADMIN_USER_ID = "00296414-0221-4d5b-aa1c-04dc9366a218";
 export const MARGINAL_ADMIN_EMAIL = "marginal.econ.ai@gmail.com";
 
-// Legacy export compatibility
-export const VAQUITAVOID_USER_ID = MARGINAL_ADMIN_USER_ID;
-export const VAQUITAVOID_EMAIL = MARGINAL_ADMIN_EMAIL;
-
-export function isVaquitavoid(opts?: {
+export function isMarginalAdmin(opts?: {
   userId?: string | null;
   email?: string | null;
   claims?: any;
@@ -39,5 +35,5 @@ export function isVaquitavoid(opts?: {
 }
 
 export function isUserAdmin(userId?: string | null): boolean {
-  return isVaquitavoid({ userId });
+  return isMarginalAdmin({ userId });
 }

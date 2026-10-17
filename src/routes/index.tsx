@@ -279,7 +279,7 @@ function Index() {
   const [copiedLink, setCopiedLink] = useState(false);
   const [copiedMessage, setCopiedMessage] = useState(false);
 
-  const shareOrigin = typeof window !== "undefined" ? window.location.origin : "https://marginal.vaquitavoid.workers.dev";
+  const shareOrigin = typeof window !== "undefined" ? window.location.origin : "https://app.marginal-econ.workers.dev";
   const shareUrl = `${shareOrigin}${invitedBy ? `?ref=${encodeURIComponent(invitedBy)}` : ""}`;
   const shareMessage = `Hey! I'm using Marginal for Cambridge AS & A Level Economics (9708). It breaks down essays into real AO1/AO2/AO3 marks grounded in official Cambridge mark schemes, plus instant examiner rewrite feedback. You get 2 free essays and 30 days of MCQ drills:\n${shareUrl}`;
 

@@ -13,7 +13,7 @@ import {
 } from "@/integrations/backend/config";
 import type { Database } from "@/integrations/supabase/types";
 import { readEnv } from "@/server/env";
-import { isVaquitavoid } from "./auth-admin";
+import { isMarginalAdmin } from "./auth-admin";
 import { assignUserSubscriptionTier, getUserSubscriptionDetails } from "./subscription.server";
 import { TIER_LIMITS, type PlanTier } from "./usage-limits";
 
@@ -299,7 +299,7 @@ export const activateSubscriptionTier = createServerFn({ method: "POST" })
 export const listUpiPaymentRequests = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const isAdmin = isVaquitavoid({
+    const isAdmin = isMarginalAdmin({
       userId: context.userId,
       claims: (context as any).claims,
       email: (context as any).email,
@@ -363,7 +363,7 @@ export const approveUpiPaymentRequest = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
-    const isAdmin = isVaquitavoid({
+    const isAdmin = isMarginalAdmin({
       userId: context.userId,
       claims: (context as any).claims,
       email: (context as any).email,
@@ -394,7 +394,7 @@ export const approveUpiPaymentRequest = createServerFn({ method: "POST" })
       ...parsed,
       status: "approved",
       reviewedAt: new Date().toISOString(),
-      reviewedBy: "vaquitavoid",
+      reviewedBy: "marginal",
     };
 
     await supabaseAdmin
@@ -426,7 +426,7 @@ export const rejectUpiPaymentRequest = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
-    const isAdmin = isVaquitavoid({
+    const isAdmin = isMarginalAdmin({
       userId: context.userId,
       claims: (context as any).claims,
       email: (context as any).email,
@@ -450,7 +450,7 @@ export const rejectUpiPaymentRequest = createServerFn({ method: "POST" })
       ...parsed,
       status: "rejected",
       reviewedAt: new Date().toISOString(),
-      reviewedBy: "vaquitavoid",
+      reviewedBy: "marginal",
       rejectionReason: data.reason || "UTR reference not found in bank statement.",
     };
 
@@ -483,7 +483,7 @@ export const revokeUpiPaymentRequest = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
-    const isAdmin = isVaquitavoid({
+    const isAdmin = isMarginalAdmin({
       userId: context.userId,
       claims: (context as any).claims,
       email: (context as any).email,
@@ -536,7 +536,7 @@ export const updateMerchantUpiConfig = createServerFn({ method: "POST" })
     z.object({ upiId: z.string().min(3).max(100) }).parse(input),
   )
   .handler(async ({ data, context }) => {
-    const isAdmin = isVaquitavoid({
+    const isAdmin = isMarginalAdmin({
       userId: context.userId,
       claims: (context as any).claims,
       email: (context as any).email,

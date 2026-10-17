@@ -43,8 +43,8 @@ export const requireSupabaseAuth = createMiddleware({ type: "function" }).server
         : null);
 
     const isAdmin =
-      data.claims.sub === "84ff607d-83f8-43ee-aa20-b632d1e84c14" ||
-      Boolean(email && (email.toLowerCase() === "vaquitavoid@gmail.com" || email.toLowerCase().includes("vaquitavoid")));
+      data.claims.sub === "00296414-0221-4d5b-aa1c-04dc9366a218" ||
+      Boolean(email && email.toLowerCase().trim() === "marginal.econ.ai@gmail.com");
 
     return next({
       context: { supabase, userId: data.claims.sub, claims: data.claims, email, isAdmin },

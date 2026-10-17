@@ -13,7 +13,7 @@ import { analyzeGrammarAndMechanics } from "@/lib/live-examiner/grammar-engine";
 import { diffSentences, splitSentences } from "@/lib/writing-check/sentence-diff";
 import { AO_DEFINITIONS, defaultSplitForMaxMark } from "@/lib/examiner/config";
 
-import { isVaquitavoid } from "@/lib/auth-admin";
+import { isMarginalAdmin } from "@/lib/auth-admin";
 
 /**
  * HARD limit: a non-admin gets ONE Live Examiner session per day, locked to
@@ -32,7 +32,7 @@ async function assertLiveExaminerSessionAllowed(
 ) {
   const isAdmin =
     Boolean(context?.isAdmin) ||
-    isVaquitavoid({
+    isMarginalAdmin({
       userId: context?.userId,
       claims: context?.claims,
       email: context?.email,
@@ -632,7 +632,7 @@ export const checkEssayWriting = createServerFn({ method: "POST" })
 
     const isAdmin =
       Boolean((context as any).isAdmin) ||
-      isVaquitavoid({
+      isMarginalAdmin({
         userId: context.userId,
         claims: (context as any).claims,
         email: (context as any).email,
@@ -1125,10 +1125,10 @@ export const getTodayLiveExaminerSession = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     try {
-      // 1. Check if user is Vaquitavoid / holds admin role (admins are exempt from 1 session/day)
+      // 1. Check if user is Marginal Admin / holds admin role (admins are exempt from 1 session/day)
       const isAdmin =
         Boolean((context as any).isAdmin) ||
-        isVaquitavoid({
+        isMarginalAdmin({
           userId: context.userId,
           claims: (context as any).claims,
           email: (context as any).email,

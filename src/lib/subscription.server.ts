@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { isVaquitavoid } from "@/lib/auth-admin";
+import { isMarginalAdmin } from "@/lib/auth-admin";
 import {
   FREE_TIER_ESSAY_LIMIT,
   MCQ_FREE_TRIAL_DAYS,
@@ -17,7 +17,7 @@ export async function getUserSubscriptionDetails(
   userEmail?: string | null,
   userClaims?: any,
 ): Promise<UserSubscriptionDetails> {
-  const isAdminUser = isVaquitavoid({ userId, email: userEmail, claims: userClaims });
+  const isAdminUser = isMarginalAdmin({ userId, email: userEmail, claims: userClaims });
 
   if (isAdminUser) {
     return {
