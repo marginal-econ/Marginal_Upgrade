@@ -28,7 +28,11 @@ export function getSupabaseAdmin(): SupabaseClient {
   const secretKey =
     readEnv("BACKEND_SERVICE_ROLE_KEY") ??
     readEnv("SUPABASE_SECRET_KEY") ??
-    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRtdWhwbm9yanlkZmlqam90dm9jIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MjIwOTQyNywiZXhwIjoyMTA3Nzg1NDI3fQ.WXBjD-Z797BZmO5D8i7NFHOm-1LhsRxuZm0wYSBitaw";
+    (typeof process !== "undefined" ? process.env["BACKEND_SERVICE_ROLE_KEY"] || process.env["SUPABASE_SECRET_KEY"] : undefined);
+
+  if (!secretKey) {
+    throw new Error("Missing BACKEND_SERVICE_ROLE_KEY / SUPABASE_SECRET_KEY in server environment");
+  }
 
   // Cached across requests in the same isolate, but keyed on the credentials
   // so a rotated secret is picked up without a redeploy of this module.

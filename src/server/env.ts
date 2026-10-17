@@ -26,6 +26,9 @@ export function readEnv(name: string): string | undefined {
   const fromWorker = runtimeEnv?.[name];
   if (typeof fromWorker === "string" && fromWorker.length > 0) return fromWorker;
 
+  const fromGlobalEnv = (globalThis as any)?.__env__?.[name];
+  if (typeof fromGlobalEnv === "string" && fromGlobalEnv.length > 0) return fromGlobalEnv;
+
   // `globalThis.process` is guarded rather than assumed: it exists in dev and
   // in Node deployments, and is simply absent on a bare Worker.
   const proc = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process;

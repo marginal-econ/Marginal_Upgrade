@@ -43,13 +43,15 @@ async function assertTeacher(context: { supabase: SupabaseClient<Database>; user
     return;
   }
 
-  const { data: tp } = await admin
-    .from("teacher_profiles")
-    .select("status")
-    .eq("user_id", context.userId)
-    .maybeSingle();
+  try {
+    const { data: tp } = await admin
+      .from("teacher_profiles")
+      .select("status")
+      .eq("user_id", context.userId)
+      .maybeSingle();
 
-  if (tp?.status === "approved") return;
+    if (tp?.status === "approved") return;
+  } catch {}
 
   throw new Error("Teacher access is required.");
 }

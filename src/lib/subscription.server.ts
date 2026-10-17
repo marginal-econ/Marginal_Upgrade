@@ -38,8 +38,8 @@ export async function getUserSubscriptionDetails(
     };
   }
 
-  // Authoritative server-side database access (bypasses RLS on internal definition stores)
-  const db: SupabaseClient<any, any, any> = supabaseAdmin ?? supabase;
+  // Authoritative server-side database access (uses passed client, with admin fallback)
+  const db: SupabaseClient<any, any, any> = supabase ?? supabaseAdmin;
 
   // 1. Resolve tier from persistent subscription store and claims
   let activeTier: PlanTier = "free";

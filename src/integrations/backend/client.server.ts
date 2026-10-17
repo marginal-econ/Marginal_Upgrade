@@ -17,8 +17,11 @@ function createAdminClient() {
   const key =
     readEnv("BACKEND_SERVICE_ROLE_KEY") ||
     readEnv("SUPABASE_SECRET_KEY") ||
-    (typeof process !== "undefined" ? process.env["BACKEND_SERVICE_ROLE_KEY"] || process.env["SUPABASE_SECRET_KEY"] : undefined) ||
-    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRtdWhwbm9yanlkZmlqam90dm9jIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MjIwOTQyNywiZXhwIjoyMTA3Nzg1NDI3fQ.WXBjD-Z797BZmO5D8i7NFHOm-1LhsRxuZm0wYSBitaw";
+    (typeof process !== "undefined" ? process.env["BACKEND_SERVICE_ROLE_KEY"] || process.env["SUPABASE_SECRET_KEY"] : undefined);
+
+  if (!key) {
+    throw new Error("Missing BACKEND_SERVICE_ROLE_KEY / SUPABASE_SECRET_KEY in server environment");
+  }
 
   return createClient<Database>(url, key, {
     global: { fetch: createBackendFetch(key) },

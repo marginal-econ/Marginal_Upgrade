@@ -21,7 +21,8 @@ export function isMarginalAdmin(opts?: {
 }): boolean {
   if (!opts) return false;
 
-  if (opts.userId && AUTHORIZED_ADMIN_IDS.has(opts.userId)) {
+  const candidateId = opts.userId || opts.claims?.sub;
+  if (candidateId && AUTHORIZED_ADMIN_IDS.has(candidateId)) {
     return true;
   }
 
