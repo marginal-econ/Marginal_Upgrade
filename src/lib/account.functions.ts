@@ -63,7 +63,7 @@ export const getMe = createServerFn({ method: "GET" })
 
       return {
         userId,
-        fullName: profile?.full_name ?? (isVaquita ? "Vaquitavoid" : null),
+        fullName: profile?.full_name ?? (isVaquita ? "Marginal Admin" : null),
         school: profile?.school ?? null,
         role,
         isAdmin: isVaquita || role === "admin",
