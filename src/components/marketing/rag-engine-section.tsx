@@ -9,6 +9,8 @@ import {
   ChevronDown,
   ChevronUp,
   Workflow,
+  Cpu,
+  Sparkles,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -187,216 +189,228 @@ export function RagEngineSection() {
   }, [searchQuery]);
 
   return (
-    <section id="rag-engine" className="relative border-b-[1.5px] border-ink bg-surface-raised py-8 sm:py-10 scroll-mt-20">
-      <div className="relative mx-auto max-w-3xl px-4 sm:px-6 space-y-4 text-center">
-        {/* Simple, Compact Header */}
-        <div className="space-y-1">
-          <div className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-3 py-0.5 text-xs font-bold text-primary">
-            <Database className="size-3.5" />
-            <span>Cambridge 9708 Knowledge Corpus</span>
-          </div>
-          <h2 className="text-xl sm:text-2xl font-extrabold tracking-tight text-foreground">
-            Search Cambridge 9708 References
-          </h2>
-          <p className="text-xs text-muted-foreground">
-            Instant vector check across 449 textbook definitions, 1,400+ past papers, and all 11 chapters.
-          </p>
-        </div>
+    <section id="rag-engine" className="relative border-b-[1.5px] border-ink bg-surface-raised py-12 sm:py-16 scroll-mt-20 overflow-hidden">
+      {/* Ambient background glow spotlight */}
+      <div className="absolute inset-0 pointer-events-none flex items-center justify-center -z-0">
+        <div className="w-[650px] h-[360px] bg-primary/10 rounded-full blur-[110px] -translate-y-8 opacity-70" />
+      </div>
 
-        {/* ONE Simple Search Bar */}
-        <div className="space-y-2.5 max-w-xl mx-auto">
-          <div className="relative">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-primary pointer-events-none" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Type any keyword (e.g. AD, demerit goods, tariffs, PED, scarcity)..."
-              className="w-full h-11 pl-10 pr-9 rounded-xl border-2 border-border focus:border-primary bg-background text-sm text-foreground shadow-2xs focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all font-medium"
-            />
-            {searchQuery && (
-              <button
-                type="button"
-                onClick={() => setSearchQuery("")}
-                className="absolute right-3 top-1/2 -translate-y-1/2 size-5 rounded hover:bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center transition-colors cursor-pointer text-xs"
-                title="Clear"
-              >
-                <X className="size-3" />
-              </button>
-            )}
+      <div className="relative z-10 mx-auto max-w-3xl px-4 sm:px-6">
+        {/* Spotlight Card Frame */}
+        <div className="relative rounded-2xl sm:rounded-3xl border-2 border-primary/30 bg-card/95 shadow-xl p-5 sm:p-7 backdrop-blur-md text-center space-y-5 ring-1 ring-primary/20">
+          
+          {/* Pivotal Feature Badge & Header */}
+          <div className="space-y-2">
+            <div className="inline-flex items-center gap-2 rounded-full border border-primary/40 bg-primary/10 px-3.5 py-1 text-xs font-bold text-primary shadow-2xs">
+              <Cpu className="size-3.5 text-primary animate-pulse" />
+              <span className="font-mono text-[11px] tracking-wide uppercase">Pivotal Intelligence Engine</span>
+              <span className="inline-block size-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            </div>
+            <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">
+              Official Cambridge 9708 RAG Knowledge Engine
+            </h2>
+            <p className="text-xs sm:text-sm text-muted-foreground max-w-xl mx-auto leading-relaxed">
+              The vector intelligence grounding every mark in official Cambridge 9708 mark schemes. Tested across 449 textbook definitions, 1,400+ past papers, and all 11 syllabus units with zero hallucination.
+            </p>
           </div>
 
-          {/* Quick Click Tags */}
-          <div className="flex flex-wrap items-center justify-center gap-1.5 text-xs">
-            <span className="text-[11px] font-semibold text-muted-foreground mr-1">Quick Check:</span>
-            {POPULAR_QUICK_SEARCHES.map((tag) => (
-              <button
-                key={tag}
-                type="button"
-                onClick={() => setSearchQuery(tag)}
-                className={cn(
-                  "rounded-md px-2 py-0.5 text-xs font-semibold transition-all cursor-pointer border",
-                  searchQuery.trim().toLowerCase() === tag.toLowerCase()
-                    ? "bg-primary text-primary-foreground border-primary shadow-xs font-bold"
-                    : "bg-muted/40 hover:bg-muted text-muted-foreground hover:text-foreground border-border/60"
-                )}
-              >
-                {tag}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Compact Number of References Display */}
-        {searchQuery.trim() && (
-          <div className="pt-1 max-w-xl mx-auto">
-            <div className="rounded-xl border border-primary/25 bg-card/90 p-3.5 text-left space-y-2.5 shadow-2xs">
-              <div className="flex items-center justify-between text-xs sm:text-sm font-bold text-foreground border-b border-border/70 pb-2">
-                <span className="flex items-center gap-1.5 text-foreground">
-                  <CheckCircle2 className="size-4 text-emerald-500 shrink-0" />
-                  <span>
-                    <strong>{searchResults.totalCount}</strong> Cambridge References for &ldquo;<strong>{searchQuery.trim()}</strong>&rdquo;
-                  </span>
-                </span>
-                <Badge variant="outline" className="text-[10px] font-mono border-primary/30 text-primary">
-                  100% Vector Grounded
-                </Badge>
-              </div>
-
-              {/* 3 Metric Pills */}
-              <div className="grid grid-cols-3 gap-2 text-center text-xs">
-                <div className="rounded-lg bg-muted/30 p-2 border border-border/50 space-y-0.5">
-                  <div className="text-base sm:text-lg font-black text-foreground">{searchResults.definitions.length}</div>
-                  <div className="text-[10.5px] text-muted-foreground font-medium flex items-center justify-center gap-1">
-                    <BookOpen className="size-3 text-primary" /> Definitions
-                  </div>
-                </div>
-                <div className="rounded-lg bg-muted/30 p-2 border border-border/50 space-y-0.5">
-                  <div className="text-base sm:text-lg font-black text-foreground">{searchResults.pastPapers.length}</div>
-                  <div className="text-[10.5px] text-muted-foreground font-medium flex items-center justify-center gap-1">
-                    <FileText className="size-3 text-emerald-500" /> Past Papers
-                  </div>
-                </div>
-                <div className="rounded-lg bg-muted/30 p-2 border border-border/50 space-y-0.5">
-                  <div className="text-base sm:text-lg font-black text-foreground">{searchResults.chapters.length}</div>
-                  <div className="text-[10.5px] text-muted-foreground font-medium flex items-center justify-center gap-1">
-                    <Database className="size-3 text-amber-500" /> Chapters
-                  </div>
-                </div>
-              </div>
-
-              {/* Subtle Toggle for Details */}
-              <div className="pt-1 text-center">
+          {/* ONE Simple Search Bar */}
+          <div className="space-y-2.5 max-w-xl mx-auto">
+            <div className="relative">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-primary pointer-events-none" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Type any keyword (e.g. AD, demerit goods, tariffs, PED, scarcity)..."
+                className="w-full h-11 pl-10 pr-9 rounded-xl border-2 border-primary/35 focus:border-primary bg-background text-sm text-foreground shadow-xs focus:outline-none focus:ring-2 focus:ring-primary/25 transition-all font-medium"
+              />
+              {searchQuery && (
                 <button
                   type="button"
-                  onClick={() => setShowDetails(!showDetails)}
-                  className="text-[11px] font-semibold text-primary hover:underline inline-flex items-center gap-1 cursor-pointer"
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 size-5 rounded hover:bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center transition-colors cursor-pointer text-xs"
+                  title="Clear"
                 >
-                  {showDetails ? (
-                    <>
-                      <ChevronUp className="size-3" /> Hide reference titles
-                    </>
-                  ) : (
-                    <>
-                      <ChevronDown className="size-3" /> Preview matched reference titles ({searchResults.totalCount})
-                    </>
-                  )}
+                  <X className="size-3" />
                 </button>
-              </div>
-
-              {/* Collapsed by default - only renders compact title pills when toggled */}
-              {showDetails && (
-                <div className="pt-2 border-t border-border/60 space-y-2 text-xs">
-                  {searchResults.definitions.length > 0 && (
-                    <div className="space-y-1">
-                      <span className="text-[10.5px] font-bold text-muted-foreground uppercase tracking-wider block">
-                        Cambridge Definitions:
-                      </span>
-                      <div className="flex flex-wrap gap-1">
-                        {searchResults.definitions.map((d) => (
-                          <span key={d.id} className="rounded bg-muted px-1.5 py-0.5 text-[11px] text-foreground font-medium border border-border/60">
-                            {d.term}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {searchResults.pastPapers.length > 0 && (
-                    <div className="space-y-1 pt-1">
-                      <span className="text-[10.5px] font-bold text-muted-foreground uppercase tracking-wider block">
-                        Past Paper Stems:
-                      </span>
-                      <div className="flex flex-wrap gap-1">
-                        {searchResults.pastPapers.map((p) => (
-                          <span key={p.id} className="rounded bg-muted px-1.5 py-0.5 text-[11px] text-foreground font-medium border border-border/60">
-                            {p.paperCode} {p.questionNumber} ({p.topicTitle})
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {searchResults.chapters.length > 0 && (
-                    <div className="space-y-1 pt-1">
-                      <span className="text-[10.5px] font-bold text-muted-foreground uppercase tracking-wider block">
-                        Syllabus Objectives:
-                      </span>
-                      <div className="flex flex-wrap gap-1">
-                        {searchResults.chapters.map((ch) => (
-                          <span key={ch.num} className="rounded bg-muted px-1.5 py-0.5 text-[11px] text-foreground font-medium border border-border/60">
-                            Ch {ch.num}: {ch.title}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
               )}
             </div>
+
+            {/* Quick Click Tags */}
+            <div className="flex flex-wrap items-center justify-center gap-1.5 text-xs">
+              <span className="text-[11px] font-semibold text-muted-foreground mr-1">Quick Check:</span>
+              {POPULAR_QUICK_SEARCHES.map((tag) => (
+                <button
+                  key={tag}
+                  type="button"
+                  onClick={() => setSearchQuery(tag)}
+                  className={cn(
+                    "rounded-md px-2.5 py-0.5 text-xs font-semibold transition-all cursor-pointer border",
+                    searchQuery.trim().toLowerCase() === tag.toLowerCase()
+                      ? "bg-primary text-primary-foreground border-primary shadow-xs font-bold"
+                      : "bg-muted/40 hover:bg-muted text-muted-foreground hover:text-foreground border-border/60"
+                  )}
+                >
+                  {tag}
+                </button>
+              ))}
+            </div>
           </div>
-        )}
 
-        {/* Short Brief: How the Cambridge 9708 RAG Engine Works */}
-        <div className="pt-4 border-t border-border/60 max-w-xl mx-auto space-y-2.5">
-          <div className="flex items-center justify-between text-xs text-muted-foreground font-semibold">
-            <span className="flex items-center gap-1.5 text-foreground font-bold">
-              <Workflow className="size-3.5 text-primary" /> How Our Cambridge RAG Engine Marks:
-            </span>
-            <span className="text-[10.5px] font-mono text-primary font-bold">Dual-Pass Auditor</span>
-          </div>
+          {/* Compact Number of References Display */}
+          {searchQuery.trim() && (
+            <div className="pt-1 max-w-xl mx-auto">
+              <div className="rounded-xl border border-primary/30 bg-muted/20 p-3.5 text-left space-y-2.5 shadow-2xs">
+                <div className="flex items-center justify-between text-xs sm:text-sm font-bold text-foreground border-b border-border/70 pb-2">
+                  <span className="flex items-center gap-1.5 text-foreground">
+                    <CheckCircle2 className="size-4 text-emerald-500 shrink-0" />
+                    <span>
+                      <strong>{searchResults.totalCount}</strong> Cambridge References for &ldquo;<strong>{searchQuery.trim()}</strong>&rdquo;
+                    </span>
+                  </span>
+                  <Badge variant="outline" className="text-[10px] font-mono border-emerald-500/40 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10">
+                    100% Vector Grounded
+                  </Badge>
+                </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-left">
-            <div className="rounded-xl border border-border/70 bg-card p-2.5 space-y-1 shadow-2xs">
-              <span className="text-[10px] font-mono font-bold text-primary block">01 · Corpus</span>
-              <div className="text-xs font-bold text-foreground">15 Yrs Papers</div>
-              <p className="text-[11px] text-muted-foreground leading-snug">
-                1,400+ mark schemes, examiner reports &amp; 449 definitions.
-              </p>
+                {/* 3 Metric Pills */}
+                <div className="grid grid-cols-3 gap-2 text-center text-xs">
+                  <div className="rounded-lg bg-card p-2 border border-border/70 space-y-0.5 shadow-2xs">
+                    <div className="text-base sm:text-lg font-black text-foreground">{searchResults.definitions.length}</div>
+                    <div className="text-[10.5px] text-muted-foreground font-medium flex items-center justify-center gap-1">
+                      <BookOpen className="size-3 text-primary" /> Definitions
+                    </div>
+                  </div>
+                  <div className="rounded-lg bg-card p-2 border border-border/70 space-y-0.5 shadow-2xs">
+                    <div className="text-base sm:text-lg font-black text-foreground">{searchResults.pastPapers.length}</div>
+                    <div className="text-[10.5px] text-muted-foreground font-medium flex items-center justify-center gap-1">
+                      <FileText className="size-3 text-emerald-500" /> Past Papers
+                    </div>
+                  </div>
+                  <div className="rounded-lg bg-card p-2 border border-border/70 space-y-0.5 shadow-2xs">
+                    <div className="text-base sm:text-lg font-black text-foreground">{searchResults.chapters.length}</div>
+                    <div className="text-[10.5px] text-muted-foreground font-medium flex items-center justify-center gap-1">
+                      <Database className="size-3 text-amber-500" /> Chapters
+                    </div>
+                  </div>
+                </div>
+
+                {/* Subtle Toggle for Details */}
+                <div className="pt-1 text-center">
+                  <button
+                    type="button"
+                    onClick={() => setShowDetails(!showDetails)}
+                    className="text-[11px] font-semibold text-primary hover:underline inline-flex items-center gap-1 cursor-pointer"
+                  >
+                    {showDetails ? (
+                      <>
+                        <ChevronUp className="size-3" /> Hide reference titles
+                      </>
+                    ) : (
+                      <>
+                        <ChevronDown className="size-3" /> Preview matched reference titles ({searchResults.totalCount})
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                {/* Collapsed by default - only renders compact title pills when toggled */}
+                {showDetails && (
+                  <div className="pt-2 border-t border-border/60 space-y-2 text-xs">
+                    {searchResults.definitions.length > 0 && (
+                      <div className="space-y-1">
+                        <span className="text-[10.5px] font-bold text-muted-foreground uppercase tracking-wider block">
+                          Cambridge Definitions:
+                        </span>
+                        <div className="flex flex-wrap gap-1">
+                          {searchResults.definitions.map((d) => (
+                            <span key={d.id} className="rounded bg-muted px-1.5 py-0.5 text-[11px] text-foreground font-medium border border-border/60">
+                              {d.term}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {searchResults.pastPapers.length > 0 && (
+                      <div className="space-y-1 pt-1">
+                        <span className="text-[10.5px] font-bold text-muted-foreground uppercase tracking-wider block">
+                          Past Paper Stems:
+                        </span>
+                        <div className="flex flex-wrap gap-1">
+                          {searchResults.pastPapers.map((p) => (
+                            <span key={p.id} className="rounded bg-muted px-1.5 py-0.5 text-[11px] text-foreground font-medium border border-border/60">
+                              {p.paperCode} {p.questionNumber} ({p.topicTitle})
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {searchResults.chapters.length > 0 && (
+                      <div className="space-y-1 pt-1">
+                        <span className="text-[10.5px] font-bold text-muted-foreground uppercase tracking-wider block">
+                          Syllabus Objectives:
+                        </span>
+                        <div className="flex flex-wrap gap-1">
+                          {searchResults.chapters.map((ch) => (
+                            <span key={ch.num} className="rounded bg-muted px-1.5 py-0.5 text-[11px] text-foreground font-medium border border-border/60">
+                              Ch {ch.num}: {ch.title}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Short Brief: How the Cambridge 9708 RAG Engine Works */}
+          <div className="pt-4 border-t border-border/60 max-w-xl mx-auto space-y-2.5">
+            <div className="flex items-center justify-between text-xs text-muted-foreground font-semibold">
+              <span className="flex items-center gap-1.5 text-foreground font-bold">
+                <Workflow className="size-3.5 text-primary" /> How Our Cambridge RAG Engine Marks:
+              </span>
+              <span className="text-[10.5px] font-mono text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/30">
+                Dual-Pass Auditor
+              </span>
             </div>
 
-            <div className="rounded-xl border border-border/70 bg-card p-2.5 space-y-1 shadow-2xs">
-              <span className="text-[10px] font-mono font-bold text-sky-500 block">02 · Grounding</span>
-              <div className="text-xs font-bold text-foreground">Exact Rubric</div>
-              <p className="text-[11px] text-muted-foreground leading-snug">
-                Vector-retrieves authentic syllabus mark schemes per essay claim.
-              </p>
-            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-left">
+              <div className="rounded-xl border border-border/70 bg-background/80 p-2.5 space-y-1 shadow-2xs hover:border-primary/40 transition-colors">
+                <span className="text-[10px] font-mono font-bold text-primary block">01 · Corpus</span>
+                <div className="text-xs font-bold text-foreground">15 Yrs Papers</div>
+                <p className="text-[11px] text-muted-foreground leading-snug">
+                  1,400+ mark schemes, examiner reports &amp; 449 definitions.
+                </p>
+              </div>
 
-            <div className="rounded-xl border border-border/70 bg-card p-2.5 space-y-1 shadow-2xs">
-              <span className="text-[10px] font-mono font-bold text-amber-500 block">03 · Calibration</span>
-              <div className="text-xs font-bold text-foreground">Zero Central Bias</div>
-              <p className="text-[11px] text-muted-foreground leading-snug">
-                Independent auditor eliminates generic AI middle-band clumping.
-              </p>
-            </div>
+              <div className="rounded-xl border border-border/70 bg-background/80 p-2.5 space-y-1 shadow-2xs hover:border-sky-500/40 transition-colors">
+                <span className="text-[10px] font-mono font-bold text-sky-500 block">02 · Grounding</span>
+                <div className="text-xs font-bold text-foreground">Exact Rubric</div>
+                <p className="text-[11px] text-muted-foreground leading-snug">
+                  Vector-retrieves authentic syllabus mark schemes per essay claim.
+                </p>
+              </div>
 
-            <div className="rounded-xl border border-border/70 bg-card p-2.5 space-y-1 shadow-2xs">
-              <span className="text-[10px] font-mono font-bold text-emerald-500 block">04 · Verdict</span>
-              <div className="text-xs font-bold text-foreground">Next-Band Plan</div>
-              <p className="text-[11px] text-muted-foreground leading-snug">
-                Exact AO1, AO2, AO3 tariffs with line-by-line rewrite guidance.
-              </p>
+              <div className="rounded-xl border border-border/70 bg-background/80 p-2.5 space-y-1 shadow-2xs hover:border-amber-500/40 transition-colors">
+                <span className="text-[10px] font-mono font-bold text-amber-500 block">03 · Calibration</span>
+                <div className="text-xs font-bold text-foreground">Zero Central Bias</div>
+                <p className="text-[11px] text-muted-foreground leading-snug">
+                  Independent auditor eliminates generic AI middle-band clumping.
+                </p>
+              </div>
+
+              <div className="rounded-xl border border-border/70 bg-background/80 p-2.5 space-y-1 shadow-2xs hover:border-emerald-500/40 transition-colors">
+                <span className="text-[10px] font-mono font-bold text-emerald-500 block">04 · Verdict</span>
+                <div className="text-xs font-bold text-foreground">Next-Band Plan</div>
+                <p className="text-[11px] text-muted-foreground leading-snug">
+                  Exact AO1, AO2, AO3 tariffs with line-by-line rewrite guidance.
+                </p>
+              </div>
             </div>
           </div>
         </div>

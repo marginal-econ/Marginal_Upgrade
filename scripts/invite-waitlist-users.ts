@@ -44,7 +44,7 @@ loadEnv();
 
 const TARGET_URL = process.env.BACKEND_URL || "https://tmuhpnorjydfijjotvoc.supabase.co";
 const TARGET_KEY = process.env.BACKEND_SERVICE_ROLE_KEY || "";
-const SITE_URL = process.env.PUBLIC_SITE_URL || "https://marginal.marginal-econ.workers.dev";
+const SITE_URL = process.env.PUBLIC_SITE_URL || "https://app.marginal-econ.workers.dev";
 const MAILJET_API_KEY = process.env.MAILJET_API_KEY || "";
 const MAILJET_SECRET_KEY = process.env.MAILJET_SECRET_KEY || "";
 const MAILJET_SENDER_EMAIL = process.env.MAILJET_SENDER_EMAIL || "marginal.econ.ai@gmail.com";
