@@ -38,8 +38,12 @@ function AuthenticatedLayout() {
   const user = context?.user;
   const [privacyResolved, setPrivacyResolved] = useState(false);
   const handlePrivacyResolved = useCallback(() => setPrivacyResolved(true), []);
-  const fetchMe = useServerFn(getMe);
-  const { data } = useQuery({ queryKey: ["me"], queryFn: () => fetchMe() });
+  const { data } = useQuery({
+    queryKey: ["me"],
+    queryFn: () => fetchMe(),
+    staleTime: 0,
+    refetchOnMount: "always",
+  });
 
   if (!user) {
     return null;

@@ -28,7 +28,7 @@ import {
   ClipboardCheck,
   UsersRound,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 
 import { PageHeader } from "@/components/app/app-shell";
 import { Badge } from "@/components/ui/badge";
@@ -40,6 +40,7 @@ import { getMe } from "@/lib/account.functions";
 import { listDocuments } from "@/lib/knowledge.functions";
 import { TIER_LIMITS } from "@/lib/usage-limits";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/backend/client";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({
@@ -96,15 +97,27 @@ export function DashboardPage() {
 
   const progress = useQuery({ queryKey: ["progress"], queryFn: () => fetchProgress() });
   const essays = useQuery({ queryKey: ["essays"], queryFn: () => fetchEssays() });
-  const me = useQuery({ queryKey: ["me"], queryFn: () => fetchMe() });
+  const me = useQuery({
+    queryKey: ["me"],
+    queryFn: () => fetchMe(),
+    staleTime: 0,
+    refetchOnMount: "always",
+  });
   const docs = useQuery({
     queryKey: ["documents"],
     queryFn: () => fetchDocs(),
     enabled: me.data?.isStaff === true,
   });
 
+  const [clientSessionUser, setClientSessionUser] = useState<any>(null);
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      if (data?.user) setClientSessionUser(data.user);
+    });
+  }, []);
+
   const routeContext = Route.useRouteContext();
-  const sessionUser = (routeContext as any)?.user;
+  const sessionUser = (routeContext as any)?.user || clientSessionUser;
 
   const rawUserTier =
     me.data?.subscription?.tier ??
