@@ -296,7 +296,7 @@ function GradePage() {
 
   function handleMarkClick() {
     if (isTeacherUnpaid) {
-      toast.error("Personal AI essay grading for teacher accounts requires an active School Department License or Faculty Pass.", {
+      toast.error("Teacher accounts require an active Educator AI Pass (from ₹149/mo) or School Department License to use the AI Essay Grader.", {
         duration: 5000,
       });
       navigate({ to: "/pricing" });
@@ -327,22 +327,28 @@ function GradePage() {
         <ChainedChamber
           badgeText={
             isTeacherUnpaid
-              ? "School License Required"
+              ? "Teacher AI Pass Required"
               : `Limit Reached · ${sub?.essaysGradedCount ?? 2}/${sub?.essaysLimit ?? 2} Essays Used`
           }
-          title={isTeacherUnpaid ? "Faculty AI Grading Requires a School License" : "Essay Grader is Chained"}
+          title={isTeacherUnpaid ? "Unlock Teacher AI Grading & Moderation" : "Essay Grader is Chained"}
           description={
             isTeacherUnpaid
-              ? "Personal AI essay grading for teacher accounts requires an active School Department License or Faculty Pass. Student homework submissions assigned in your Cambridge classrooms are covered under your students' accounts."
+              ? "Teacher accounts require an active Educator AI Pass (from ₹149/mo) or School Department License to grade essays directly. Student homework assignments in your Cambridge classrooms are covered under your students' accounts."
               : `You have completed your included Cambridge essay evaluations for your ${sub?.tierName ?? "Free Tier"} account. Upgrade your revision pass to unlock additional essay evaluations, Live Examiner credits, and full Cambridge mark schemes.`
           }
-          primaryCtaText={isTeacherUnpaid ? "View School Licensing (from ₹4,999/mo)" : "Unlock Plan from ₹149/mo"}
+          primaryCtaText={isTeacherUnpaid ? "Unlock Educator AI Pass (from ₹149/mo)" : "Unlock Plan from ₹149/mo"}
           primaryCtaLink="/pricing"
-          secondaryCtaText={isTeacherUnpaid ? "Go to Classrooms" : "View Previous Submissions"}
-          secondaryCtaLink={isTeacherUnpaid ? "/classes" : "/showcase"}
+          secondaryCtaText={isTeacherUnpaid ? "View School Department Licensing" : "View Previous Submissions"}
+          secondaryCtaLink={isTeacherUnpaid ? "/pricing" : "/showcase"}
           features={
             isTeacherUnpaid
               ? [
+                  {
+                    icon: Sparkles,
+                    iconColor: "text-amber-500",
+                    title: "Educator AI Pass (From ₹149/mo)",
+                    description: "Subscribe individually to grade student essays, test mark schemes, and generate exemplar Cambridge answers.",
+                  },
                   {
                     icon: Building2,
                     iconColor: "text-primary",
@@ -354,12 +360,6 @@ function GradePage() {
                     iconColor: "text-purple-500",
                     title: "Students Submit with Their Own Quotas",
                     description: "Students enrolled in your classrooms submit essay assignments using their own student tier quotas (2 free + upgrades).",
-                  },
-                  {
-                    icon: ShieldCheck,
-                    iconColor: "text-emerald-500",
-                    title: "Curriculum Ingestion & Anchor Calibration",
-                    description: "Upload internal coursebooks and align your department to Cambridge 9708 Level 4 & 5 mark schemes.",
                   },
                 ]
               : [

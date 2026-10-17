@@ -46,15 +46,21 @@ export function LockedFeatureModal({
 
   const config = {
     school_license: {
-      badge: "School License Required",
-      title: "School Department License Required",
-      desc: "Teacher accounts require an active School Department License or Faculty Pass to use personal AI essay grading and live coaching. Classroom homework submissions submitted by your students are funded through their individual student quotas.",
-      ctaText: "View School Licensing (from ₹4,999/mo)",
+      badge: "Educator AI Pass Required",
+      title: "Teacher AI Grading & Live Coaching",
+      desc: "Teacher accounts require an active Educator AI Pass (from ₹149/mo) or School Department License to use personal AI essay grading and live coaching. Classroom homework submissions submitted by your students are funded through their individual student quotas.",
+      ctaText: "Unlock Educator AI Pass (from ₹149/mo)",
       items: [
+        {
+          icon: Sparkles,
+          color: "text-amber-500",
+          title: "Individual Educator AI Pass",
+          desc: "Subscribe from ₹149/mo to grade student essays, test Cambridge mark schemes, and run live classroom coaching.",
+        },
         {
           icon: School,
           color: "text-purple-500",
-          title: "School Cohort Licensing",
+          title: "School Department Licensing",
           desc: "Empower your entire department with 50 to 400+ student seats, faculty admin desks, and batch moderation.",
         },
         {

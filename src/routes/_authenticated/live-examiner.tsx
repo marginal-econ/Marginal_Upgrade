@@ -872,20 +872,26 @@ function LiveExaminerPage() {
 
       {(isTeacherUnpaid || (meQuery.data?.subscription && !meQuery.data.subscription.canUseLiveExaminer && !isAdmin)) ? (
         <ChainedChamber
-          badgeText={isTeacherUnpaid ? "School License Required" : "Paid Feature · Chained"}
-          title={isTeacherUnpaid ? "Live Examiner Requires a School Department License" : "Cambridge Live Examiner is Chained"}
+          badgeText={isTeacherUnpaid ? "Teacher Live Examiner Pass Required" : "Paid Feature · Chained"}
+          title={isTeacherUnpaid ? "Unlock Teacher Live Examiner Coaching" : "Cambridge Live Examiner is Chained"}
           description={
             isTeacherUnpaid
-              ? "Live Examiner real-time keystroke coaching for teacher accounts requires an active School Department License or Faculty Pass. To demonstrate Live Examiner to your class or unlock faculty credits, activate a School Pass."
+              ? "Live Examiner real-time keystroke coaching for teacher accounts requires an active Educator AI Pass (from ₹149/mo) or School Department License. Upgrade to run live Cambridge coaching demonstrations or test model answers."
               : "Real-time clause checking, instant AO breakdown, and keystroke coaching require an active subscription or live examiner credits."
           }
-          primaryCtaText={isTeacherUnpaid ? "View School Licensing (from ₹4,999/mo)" : "Unlock Live Examiner (from ₹149/mo)"}
+          primaryCtaText={isTeacherUnpaid ? "Unlock Educator Pass (from ₹149/mo)" : "Unlock Live Examiner (from ₹149/mo)"}
           primaryCtaLink="/pricing"
-          secondaryCtaText={isTeacherUnpaid ? "Go to Classrooms" : "Use Free Essay Grader (2 Free)"}
-          secondaryCtaLink={isTeacherUnpaid ? "/classes" : "/grade"}
+          secondaryCtaText={isTeacherUnpaid ? "View School Department Licensing" : "Use Free Essay Grader (2 Free)"}
+          secondaryCtaLink={isTeacherUnpaid ? "/pricing" : "/grade"}
           features={
             isTeacherUnpaid
               ? [
+                  {
+                    icon: Sparkles,
+                    iconColor: "text-amber-500",
+                    title: "Educator AI Pass (From ₹149/mo)",
+                    description: "Unlock dedicated Live Examiner credits to run classroom demonstrations, verify student arguments, and test exemplar answers.",
+                  },
                   {
                     icon: Building2,
                     iconColor: "text-primary",
@@ -897,12 +903,6 @@ function LiveExaminerPage() {
                     iconColor: "text-purple-500",
                     title: "Student Quotas are Independent",
                     description: "Students enrolled in your classrooms submit essay assignments using their own student tier quotas (2 free + upgrades).",
-                  },
-                  {
-                    icon: Sparkles,
-                    iconColor: "text-emerald-500",
-                    title: "Curriculum Ingestion & Anchor Calibration",
-                    description: "Upload internal coursebooks and align your department to Cambridge 9708 Level 4 & 5 mark schemes.",
                   },
                 ]
               : [

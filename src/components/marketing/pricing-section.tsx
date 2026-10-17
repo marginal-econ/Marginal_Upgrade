@@ -320,7 +320,7 @@ export function PricingSection({ className }: { className?: string }) {
               )}
             >
               <GraduationCap className="size-4 text-primary shrink-0" />
-              <span>For Students &amp; Candidates</span>
+              <span>For Students &amp; Educators</span>
             </button>
             <button
               type="button"

@@ -91,10 +91,10 @@ export const FREE_ESSAY_LIMIT_MESSAGE =
   `Upgrade to Foundation Scholar (₹149/mo), Pro (₹399/mo), or Mastery to continue grading essays with line-by-line mark scheme matching.`;
 
 export const TEACHER_SCHOOL_LICENSE_REQUIRED_MESSAGE =
-  "Teacher accounts require an active School Department License or Faculty Pass to use the AI Essay Grader. Student submissions to your classrooms are covered under your students' accounts.";
+  "Teacher accounts require an active Educator AI Pass (from ₹149/mo) or School Department License to use the AI Essay Grader. Student submissions to your classrooms are covered under student quotas.";
 
 export const TEACHER_LIVE_EXAMINER_REQUIRED_MESSAGE =
-  "Teacher accounts require an active School Department License or Faculty Pass to use the Live Examiner. To demonstrate or test Live Examiner, please activate a School Pass.";
+  "Teacher accounts require an active Educator AI Pass (from ₹149/mo) or School Department License to use the Live Examiner. To demonstrate or test Live Examiner, please activate an Educator Pass or School License.";
 
 export const LIVE_EXAMINER_PAID_ONLY_MESSAGE =
   `Live Examiner is a premium feature available on paid plans. ` +
@@ -113,7 +113,8 @@ export function isDailyLimitError(error: unknown): boolean {
     message.startsWith(TIER_LIMIT_PREFIX) ||
     message.includes("Live Examiner is a premium feature") ||
     message.includes("exhausted your Live Examiner credits") ||
-    message.includes("School Department License")
+    message.includes("School Department License") ||
+    message.includes("Educator AI Pass")
   );
 }
 
