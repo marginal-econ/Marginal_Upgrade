@@ -16,6 +16,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { CAMBRIDGE_CORE_DEFINITIONS } from "@/lib/cambridge-definitions";
+import { CosmicAtmosphere } from "./cosmic-atmosphere";
 
 interface SyllabusChapter {
   num: number;
@@ -190,10 +191,7 @@ export function RagEngineSection() {
 
   return (
     <section id="rag-engine" className="relative border-b-[1.5px] border-ink bg-surface-raised py-12 sm:py-16 scroll-mt-20 overflow-hidden">
-      {/* Ambient background glow spotlight */}
-      <div className="absolute inset-0 pointer-events-none flex items-center justify-center -z-0">
-        <div className="w-[650px] h-[360px] bg-primary/10 rounded-full blur-[110px] -translate-y-8 opacity-70" />
-      </div>
+      <CosmicAtmosphere variant="cyan" sparkles={true} density="medium" />
 
       <div className="relative z-10 mx-auto max-w-3xl px-4 sm:px-6">
         {/* Spotlight Card Frame */}

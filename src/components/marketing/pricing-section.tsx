@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { getPlatformPricing } from "@/lib/pricing.functions";
 import { DEFAULT_PRICING_PLANS, FREE_STARTER_TIER } from "@/lib/pricing-plans";
+import { CosmicAtmosphere } from "./cosmic-atmosphere";
 
 type Audience = "students" | "schools";
 type BillingCycle = "monthly" | "annual";
@@ -291,9 +292,10 @@ export function PricingSection({ className }: { className?: string }) {
   return (
     <section
       id="pricing"
-      className={cn("relative scroll-mt-20 px-4 py-16 sm:px-6 md:px-8 lg:py-24", className)}
+      className={cn("relative scroll-mt-20 px-4 py-16 sm:px-6 md:px-8 lg:py-24 overflow-hidden border-b-[1.5px] border-ink", className)}
     >
-      <div className="mx-auto max-w-7xl">
+      <CosmicAtmosphere variant="hero" sparkles={true} density="high" />
+      <div className="relative z-10 mx-auto max-w-7xl">
         {/* ── Section Header ── */}
         <div className="mx-auto max-w-3xl text-center">
           <p className="eyebrow eyebrow-accent">Transparent Cambridge Economics Pricing</p>

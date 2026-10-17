@@ -22,6 +22,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { CosmicAtmosphere } from "./cosmic-atmosphere";
 
 interface EssayClause {
   ao: "AO1" | "AO2" | "AO3";
@@ -95,8 +96,9 @@ export function RealEssayShowcase() {
   const currentClause = activeSentence !== null ? ESSAY_CLAUSES[activeSentence] : null;
 
   return (
-    <section id="graded-exemplar" className="relative border-b-[1.5px] border-ink bg-card/40 py-16 sm:py-20 md:py-24 scroll-mt-20">
-      <div className="mx-auto max-w-6xl px-4 sm:px-6 md:px-8 space-y-10">
+    <section id="graded-exemplar" className="relative border-b-[1.5px] border-ink bg-card/40 py-16 sm:py-20 md:py-24 scroll-mt-20 overflow-hidden">
+      <CosmicAtmosphere variant="emerald" sparkles={true} density="medium" />
+      <div className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6 md:px-8 space-y-10">
         {/* Section Header */}
         <div className="mx-auto max-w-3xl text-center space-y-3">
           <Badge variant="outline" className="border-primary/30 bg-primary/10 text-primary text-xs font-semibold px-3 py-1">

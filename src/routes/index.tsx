@@ -65,6 +65,7 @@ import { PricingSection } from "@/components/marketing/pricing-section";
 import { RealEssayShowcase } from "@/components/marketing/real-essay-showcase";
 import { RagEngineSection } from "@/components/marketing/rag-engine-section";
 import { TeachersSection } from "@/components/marketing/teachers-section";
+import { CosmicAtmosphere } from "@/components/marketing/cosmic-atmosphere";
 import { captureReferralCode } from "@/lib/waitlist-client";
 
 export const Route = createFileRoute("/")({
@@ -344,12 +345,11 @@ function Index() {
 
       {/* ── Hero ─────────────────────────────────────────────────────────── */}
       <section className="relative overflow-hidden border-b-[1.5px] border-ink pb-14">
-        {/* Three background layers, back to front: the CSS aurora wash (which
-            is also the fallback), the WebGL curtain, and the star-field that
-            only appears at night. All pointer-transparent. */}
+        {/* Three background layers, back to front: the CSS aurora wash, WebGL curtain,
+            cosmic twinkling starfield, and paper-grid overlay. */}
         <div className="aurora-wash pointer-events-none absolute inset-0" aria-hidden="true" />
         <AuroraCanvas />
-        <div className="starfield" aria-hidden="true" />
+        <CosmicAtmosphere variant="hero" sparkles={true} density="high" />
         <div className="paper-grid pointer-events-none absolute inset-0" aria-hidden="true" />
 
         <Drift speed={0.1} className="top-52 left-[1%] hidden xl:block">
@@ -367,25 +367,25 @@ function Index() {
           <div>
             <Reveal>
               <div className="flex flex-wrap items-center gap-2">
-                <span className="chip-soft shadow-xs flex items-center gap-1.5 border border-primary/20 bg-primary/5">
+                <span className="chip-soft shadow-xs flex items-center gap-1.5 border border-primary/30 bg-primary/10 text-primary font-semibold">
                   <span className="relative flex size-2">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
                     <span className="relative inline-flex rounded-full size-2 bg-primary"></span>
                   </span>
-                  <Sparkles className="size-3.5 text-primary" />
+                  <Sparkles className="size-3.5 text-primary animate-pulse" />
                   Cambridge 9708 Examiner Calibration
                 </span>
-                <span className="rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 text-[10.5px] font-mono font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+                <span className="rounded-full bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-0.5 text-[10.5px] font-mono font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5 shadow-2xs">
                   <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  RAG Grounded · May/June 2026
+                  RAG Grounded · May/June 2026 Series
                 </span>
               </div>
             </Reveal>
 
             <Reveal delay={60}>
-              <h1 className="mt-5 text-[2.25rem] leading-[1.06] font-bold text-balance min-[380px]:text-4xl md:text-[3.25rem] tracking-tight">
+              <h1 className="mt-5 text-[2.35rem] leading-[1.05] font-extrabold text-balance min-[380px]:text-4xl md:text-[3.35rem] tracking-tight">
                 {settings.heroTitle}{" "}
-                <span className="highlight highlight-deep shadow-xs">{settings.heroHighlight}</span>
+                <span className="highlight highlight-deep shadow-xs text-primary dark:text-amber-300">{settings.heroHighlight}</span>
               </h1>
             </Reveal>
 
@@ -412,16 +412,35 @@ function Index() {
               </p>
             </Reveal>
 
+            {/* Live Cambridge Metric Highlights */}
+            <Reveal delay={180}>
+              <div className="mt-5 grid grid-cols-3 gap-2.5 sm:gap-3 max-w-lg">
+                <div className="rounded-xl border border-primary/25 bg-card/70 p-3 text-center backdrop-blur-md shadow-xs hover:border-primary/50 transition-colors">
+                  <span className="text-xl sm:text-2xl font-black text-foreground tracking-tight block">1,400+</span>
+                  <span className="text-[10px] sm:text-[11px] text-muted-foreground font-semibold leading-tight block mt-0.5">Mark Schemes</span>
+                </div>
+                <div className="rounded-xl border border-emerald-500/25 bg-card/70 p-3 text-center backdrop-blur-md shadow-xs hover:border-emerald-500/50 transition-colors">
+                  <span className="text-xl sm:text-2xl font-black text-foreground tracking-tight block">AO1/2/3</span>
+                  <span className="text-[10px] sm:text-[11px] text-muted-foreground font-semibold leading-tight block mt-0.5">Clause Auditing</span>
+                </div>
+                <div className="rounded-xl border border-amber-500/25 bg-card/70 p-3 text-center backdrop-blur-md shadow-xs hover:border-amber-500/50 transition-colors">
+                  <span className="text-xl sm:text-2xl font-black text-foreground tracking-tight block">2 Free</span>
+                  <span className="text-[10px] sm:text-[11px] text-muted-foreground font-semibold leading-tight block mt-0.5">Instant Gradings</span>
+                </div>
+              </div>
+            </Reveal>
+
             {/* Direct candidate conversion actions */}
             <Reveal delay={210}>
-              <div className="mt-7 flex flex-wrap items-center gap-3">
+              <div className="mt-6 flex flex-wrap items-center gap-3">
                 <Button
                   asChild
                   size="lg"
-                  className="h-11 px-6 text-sm font-bold shadow-md bg-primary hover:bg-primary/90 text-primary-foreground"
+                  className="h-12 px-6 text-sm font-extrabold shadow-lg shadow-primary/25 bg-primary hover:bg-primary/90 text-primary-foreground transition-all hover:scale-[1.02] cursor-pointer"
                 >
                   <Link to="/auth">
-                    Get Started Free (2 Free Essays) <ArrowRight className="size-4 ml-1.5" />
+                    <span>Get Started Free (2 Free Essays)</span>
+                    <ArrowRight className="size-4 ml-2" />
                   </Link>
                 </Button>
                 <Button
@@ -429,7 +448,7 @@ function Index() {
                   variant="outline"
                   size="lg"
                   onClick={() => setShareOpen(true)}
-                  className="h-11 px-5 text-sm font-semibold border-2 hover:bg-muted gap-2 shadow-xs group cursor-pointer"
+                  className="h-12 px-5 text-sm font-semibold border-2 hover:bg-muted gap-2 shadow-xs group cursor-pointer"
                 >
                   <Share2 className="size-4 text-primary transition-transform group-hover:scale-110" />
                   <span>Share with Classmates</span>
@@ -475,7 +494,9 @@ function Index() {
 
           {/* Compact, Non-Overflowing Live Examiner Showcase Card */}
           <Reveal variant="pop" delay={120} className="relative">
-            <ExaminerStage className="relative mx-auto w-full max-w-lg min-w-0">
+            {/* Ambient Stage Halo Glow */}
+            <div className="absolute -inset-2 rounded-3xl bg-gradient-to-r from-primary/30 via-violet-500/20 to-amber-500/20 blur-xl opacity-75 -z-10 animate-pulse" />
+            <ExaminerStage className="relative mx-auto w-full max-w-lg min-w-0 shadow-2xl border-2 border-primary/35 rounded-2xl overflow-hidden backdrop-blur-xl ring-1 ring-primary/20">
               <LiveExaminer />
             </ExaminerStage>
           </Reveal>
@@ -497,11 +518,12 @@ function Index() {
       <TeachersSection />
 
       {/* ── What you get back ────────────────────────────────────────────── */}
-      <section id="result" className="relative border-b-[1.5px] border-ink scroll-mt-20">
+      <section id="result" className="relative border-b-[1.5px] border-ink scroll-mt-20 overflow-hidden">
+        <CosmicAtmosphere variant="amber" sparkles={true} density="medium" />
         <Drift speed={-0.08} className="top-24 right-[3%] hidden xl:block">
           <CircleScribble className="w-24 text-primary/35" />
         </Drift>
-        <div className="mx-auto grid max-w-6xl items-center gap-12 px-5 py-16 md:px-8 md:py-20 lg:grid-cols-2">
+        <div className="relative z-10 mx-auto grid max-w-6xl items-center gap-12 px-5 py-16 md:px-8 md:py-20 lg:grid-cols-2">
           <div>
             <Reveal>
               <p className="eyebrow eyebrow-accent">What you get back</p>
@@ -553,8 +575,9 @@ function Index() {
       {/* ── What's inside ────────────────────────────────────────────────── */}
       <section
         id="tools"
-        className="relative border-b-[1.5px] border-ink bg-surface-raised scroll-mt-20"
+        className="relative border-b-[1.5px] border-ink bg-surface-raised scroll-mt-20 overflow-hidden"
       >
+        <CosmicAtmosphere variant="default" sparkles={true} density="high" />
         <div className="relative z-10 mx-auto max-w-6xl px-5 py-16 md:px-8 md:py-20">
           <Reveal>
             <SectionHeading
@@ -616,14 +639,15 @@ function Index() {
       </section>
 
       {/* ── How it works ─────────────────────────────────────────────────── */}
-      <section id="how" className="relative border-b-[1.5px] border-ink scroll-mt-20">
-        <Drift speed={-0.09} className="top-16 right-[5%] hidden lg:block">
+      <section id="how" className="relative border-b-[1.5px] border-ink scroll-mt-20 overflow-hidden">
+        <CosmicAtmosphere variant="cyan" sparkles={true} density="medium" />
+        <Drift speed={-0.09} className="top-16 right-[5%] hidden lg:block pointer-events-none">
           <Waves className="w-24 text-primary/40" />
         </Drift>
-        <Drift speed={0.07} className="bottom-20 left-[4%] hidden xl:block">
+        <Drift speed={0.07} className="bottom-20 left-[4%] hidden xl:block pointer-events-none">
           <Curl className="w-20 -scale-x-100 text-ao1/40" />
         </Drift>
-        <div className="mx-auto max-w-5xl px-5 py-16 md:px-8 md:py-20">
+        <div className="relative z-10 mx-auto max-w-5xl px-5 py-16 md:px-8 md:py-20">
           <Reveal>
             <SectionHeading
               eyebrow="How it works"
@@ -633,13 +657,13 @@ function Index() {
           </Reveal>
 
           <Reveal variant="pop" delay={80}>
-            <ol className="pop mt-12 divide-y-[1.5px] divide-ink/12 overflow-hidden">
+            <ol className="pop mt-12 divide-y-[1.5px] divide-ink/12 overflow-hidden bg-card/80 backdrop-blur-xs border border-border/70 shadow-sm">
               {STEPS.map((step) => (
                 <li
                   key={step.n}
                   className="group flex flex-col gap-4 p-6 transition-colors duration-200 hover:bg-accent/40 md:flex-row md:gap-8 md:p-8"
                 >
-                  <span className="pop-sm flex size-10 shrink-0 items-center justify-center bg-primary font-mono text-sm font-semibold text-primary-foreground transition-transform duration-300 group-hover:-rotate-12 group-hover:scale-110">
+                  <span className="pop-sm flex size-10 shrink-0 items-center justify-center bg-primary font-mono text-sm font-semibold text-primary-foreground transition-transform duration-300 group-hover:-rotate-12 group-hover:scale-110 shadow-sm">
                     {step.n}
                   </span>
                   <div className="min-w-0">
@@ -658,8 +682,9 @@ function Index() {
       {/* ── Command-word drill ───────────────────────────────────────────── */}
       <section
         id="drill"
-        className="relative border-b-[1.5px] border-ink bg-surface-raised scroll-mt-20"
+        className="relative border-b-[1.5px] border-ink bg-surface-raised scroll-mt-20 overflow-hidden"
       >
+        <CosmicAtmosphere variant="purple" sparkles={true} density="medium" />
         <div className="starfield" aria-hidden="true" />
         <div className="relative z-10 mx-auto grid max-w-6xl items-center gap-12 px-5 py-16 md:px-8 md:py-20 lg:grid-cols-[0.85fr_1.15fr]">
           <Reveal>
@@ -684,8 +709,9 @@ function Index() {
       </section>
 
       {/* ── Why trust it ─────────────────────────────────────────────────── */}
-      <section id="trust" className="border-b-[1.5px] border-ink scroll-mt-20">
-        <div className="mx-auto max-w-6xl px-5 py-16 md:px-8 md:py-20">
+      <section id="trust" className="relative border-b-[1.5px] border-ink scroll-mt-20 overflow-hidden">
+        <CosmicAtmosphere variant="amber" sparkles={true} density="medium" />
+        <div className="relative z-10 mx-auto max-w-6xl px-5 py-16 md:px-8 md:py-20">
           <Reveal>
             <SectionHeading
               eyebrow="Why the mark is worth something"
@@ -698,7 +724,7 @@ function Index() {
             {TRUST.map((item, index) => (
               <Reveal key={item.title} variant="pop" delay={index * 80}>
                 <TiltCard max={7} lift={12} className="h-full">
-                  <div className="pop flex h-full flex-col p-6">
+                  <div className="pop flex h-full flex-col p-6 backdrop-blur-xs bg-card/85 border border-border/70 hover:border-amber-500/40 transition-colors shadow-sm">
                     <span className="layer-1 flex size-10 items-center justify-center rounded-lg bg-primary/12 text-primary">
                       <item.icon className="size-5" />
                     </span>
@@ -725,14 +751,15 @@ function Index() {
       <PricingSection />
 
       {/* ── FAQ ──────────────────────────────────────────────────────────── */}
-      <section id="faq" className="border-b-[1.5px] border-ink bg-surface-raised scroll-mt-20">
-        <div className="mx-auto max-w-4xl px-5 py-16 md:px-8 md:py-20">
+      <section id="faq" className="relative border-b-[1.5px] border-ink bg-surface-raised scroll-mt-20 overflow-hidden">
+        <CosmicAtmosphere variant="default" sparkles={true} density="low" />
+        <div className="relative z-10 mx-auto max-w-4xl px-5 py-16 md:px-8 md:py-20">
           <Reveal>
             <SectionHeading eyebrow="Questions" title="Frequently asked, honestly answered" />
           </Reveal>
 
           <Reveal variant="pop" delay={80}>
-            <Accordion type="single" collapsible className="pop mt-12 px-6 md:px-8">
+            <Accordion type="single" collapsible className="pop mt-12 px-6 md:px-8 backdrop-blur-xs bg-card/80 border border-border/70 shadow-sm">
               {FAQS.map((faq, index) => (
                 <AccordionItem key={faq.q} value={faq.q} className="border-ink/12 last:border-0">
                   <AccordionTrigger className="gap-4 py-5 text-left hover:no-underline">
@@ -756,17 +783,19 @@ function Index() {
       {/* ── Candidate Onboarding CTA ──────────────────────────────────── */}
       <section
         id="join"
-        className="relative scroll-mt-20 px-4 py-14 sm:px-5 sm:py-16 md:px-8 md:py-20"
+        className="relative scroll-mt-20 px-4 py-14 sm:px-5 sm:py-16 md:px-8 md:py-20 overflow-hidden"
       >
-        <div className="aurora-wash pointer-events-none absolute inset-0" aria-hidden="true" />
-        <Reveal variant="pop" className="relative">
-          <div className="pop relative mx-auto max-w-5xl overflow-hidden bg-plum bg-linear-to-br from-plum-soft via-plum to-plum-deep px-4 py-10 sm:px-6 sm:py-14 md:px-12">
+        <CosmicAtmosphere variant="hero" sparkles={true} density="high" />
+        <div className="aurora-wash pointer-events-none absolute inset-0 opacity-40" aria-hidden="true" />
+        <Reveal variant="pop" className="relative z-10">
+          <div className="pop relative mx-auto max-w-5xl overflow-hidden bg-plum bg-linear-to-br from-plum-soft via-plum to-plum-deep px-4 py-10 sm:px-6 sm:py-14 md:px-12 border border-plum-soft/40 shadow-2xl">
+            <CosmicAtmosphere variant="hero" sparkles={true} density="medium" />
             <div
               className="paper-grid pointer-events-none absolute inset-0 opacity-20"
               aria-hidden="true"
             />
             <div className="starfield" aria-hidden="true" />
-            <div className="relative grid items-center gap-10 md:grid-cols-[1.15fr_0.85fr]">
+            <div className="relative z-10 grid items-center gap-10 md:grid-cols-[1.15fr_0.85fr]">
               <div className="text-center md:text-left">
                 <span className="chip-soft bg-plum-foreground/15 text-plum-foreground">
                   <Sparkles className="size-3.5" />

@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { ArrowRight, BookOpen, CheckCircle2, FileCheck2, GraduationCap, Layers, LineChart, Lock, School, ShieldCheck, Sparkles, Users } from "lucide-react";
 import { Reveal } from "./reveal";
 import { Button } from "@/components/ui/button";
+import { CosmicAtmosphere } from "./cosmic-atmosphere";
 
 export function TeachersSection() {
   const capabilities = [
@@ -36,8 +37,9 @@ export function TeachersSection() {
   ];
 
   return (
-    <section id="teachers-section" className="relative border-b-[1.5px] border-ink bg-card/40 py-20 md:py-24 scroll-mt-16">
-      <div className="mx-auto max-w-6xl px-5 md:px-8">
+    <section id="teachers-section" className="relative border-b-[1.5px] border-ink bg-card/40 py-20 md:py-24 scroll-mt-16 overflow-hidden">
+      <CosmicAtmosphere variant="purple" sparkles={true} density="medium" />
+      <div className="relative z-10 mx-auto max-w-6xl px-5 md:px-8">
         {/* Section Header */}
         <div className="text-center max-w-3xl mx-auto">
           <Reveal>
