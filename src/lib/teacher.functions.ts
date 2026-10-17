@@ -138,14 +138,17 @@ export const getTeacherProfileStatus = createServerFn({ method: "GET" })
       return { status: "approved" as const, isStaff: true, isAdmin: true };
     }
 
-    const { data: roles } = await supabase
+    const { supabaseAdmin } = await import("@/integrations/backend/client.server");
+    const db = supabaseAdmin ?? supabase;
+
+    const { data: roles } = await db
       .from("user_roles")
       .select("role")
       .eq("user_id", userId);
 
     const roleList = (roles ?? []).map((r: any) => r.role);
 
-    if (roleList.includes("teacher")) {
+    if (roleList.includes("teacher") || (context as any).claims?.user_metadata?.role === "teacher") {
       return { status: "approved" as const, isStaff: true, isAdmin: false };
     }
 

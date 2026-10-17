@@ -100,6 +100,7 @@ const NAV_GROUPS: NavGroup[] = [
       { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
       { to: "/classes", label: "Classes", icon: UsersRound },
       { to: "/review", label: "Review & Diagnostics", icon: ClipboardCheck },
+      { to: "/examiner", label: "Teacher Examiner", icon: GraduationCap, staffOnly: true },
     ],
   },
   {
@@ -125,7 +126,6 @@ const NAV_GROUPS: NavGroup[] = [
       { to: "/chat", label: "Cambridge Chat Lab", icon: MessageSquare, badge: "Lab", requiresHigherTier: true },
       { to: "/paper-matrix", label: "Paper Predictor", icon: Flame, badge: "15-Yr", requiresHigherTier: true },
       { to: "/diagram-lab", label: "Diagram CAD Lab", icon: Sliders, badge: "Lab", requiresHigherTier: true },
-      { to: "/examiner", label: "Teacher Examiner", icon: GraduationCap, badge: "Admin", adminOnly: true },
     ],
   },
   {

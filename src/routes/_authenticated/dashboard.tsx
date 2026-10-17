@@ -259,9 +259,20 @@ export function DashboardPage() {
               <h2 className="text-base sm:text-lg font-bold text-foreground">
                 {greeting}, {me.data?.fullName?.split(" ")[0] || "Economist"}!
               </h2>
+              {me.data?.role === "teacher" && (
+                <Badge className="bg-purple-500/20 text-purple-600 dark:text-purple-400 border-purple-500/30 text-[10px] font-bold">
+                  Authorized Educator
+                </Badge>
+              )}
               {me.data?.subscription?.isPaid ? (
                 <Badge className="bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 text-[10px] font-bold">
                   {me.data.subscription.tierName}
+                </Badge>
+              ) : me.data?.role === "teacher" ? (
+                <Badge asChild variant="outline" className="border-purple-500/30 bg-purple-500/10 text-purple-600 dark:text-purple-400 text-[10px] font-semibold cursor-pointer">
+                  <Link to="/payment" search={{ tier: "foundation", role: "teacher" }}>
+                    Educator Pass (from ₹99/mo)
+                  </Link>
                 </Badge>
               ) : (
                 <Badge
@@ -304,6 +315,49 @@ export function DashboardPage() {
             </div>
           </div>
         </section>
+
+        {/* Educator Workspace Quick Banner */}
+        {me.data?.role === "teacher" && (
+          <div className="rounded-xl border border-purple-500/30 bg-purple-500/[0.06] p-4 text-xs shadow-xs">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <div className="size-9 rounded-lg bg-purple-500/15 border border-purple-500/30 flex items-center justify-center text-purple-600 dark:text-purple-400 shrink-0">
+                  <GraduationCap className="size-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-foreground text-sm">Cambridge 9708 Educator Workspace</h3>
+                  <p className="text-muted-foreground mt-0.5">
+                    Organize Cambridge cohorts, assign essays, ingest mark schemes, and run examiner moderation.
+                  </p>
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button asChild size="sm" variant="outline" className="h-8 text-xs border-purple-500/30 hover:bg-purple-500/10">
+                  <Link to="/classes">
+                    <UsersRound className="size-3.5 mr-1 text-purple-500" /> My Classes
+                  </Link>
+                </Button>
+                <Button asChild size="sm" variant="outline" className="h-8 text-xs border-purple-500/30 hover:bg-purple-500/10">
+                  <Link to="/examiner">
+                    <GraduationCap className="size-3.5 mr-1 text-purple-500" /> Marking Desk
+                  </Link>
+                </Button>
+                <Button asChild size="sm" variant="outline" className="h-8 text-xs border-purple-500/30 hover:bg-purple-500/10">
+                  <Link to="/knowledge">
+                    <BookOpen className="size-3.5 mr-1 text-purple-500" /> Mark Schemes
+                  </Link>
+                </Button>
+                {!me.data?.subscription?.isPaid && (
+                  <Button asChild size="sm" className="h-8 text-xs bg-purple-600 hover:bg-purple-700 text-white font-semibold">
+                    <Link to="/payment" search={{ tier: "foundation", role: "teacher" }}>
+                      Unlock Educator Pass (₹99/mo)
+                    </Link>
+                  </Button>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* 4 Clean Stat Cards */}
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">

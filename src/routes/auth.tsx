@@ -9,9 +9,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useServerFn } from "@tanstack/react-start";
 import { captureReferralCode } from "@/lib/waitlist-client";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/backend/client";
+import { getMe } from "@/lib/account.functions";
 
 /**
  * A progress bar for waits with no real percentage to report (a single
@@ -122,6 +124,30 @@ function readRecoveryLinkState(): "recovery" | "error" | null {
 function AuthPage() {
   const navigate = useNavigate();
   const search = Route.useSearch();
+  const fetchMe = useServerFn(getMe);
+
+  const routeUserByRole = async () => {
+    if (search.redirect && search.redirect.startsWith("/") && search.redirect !== "/pricing" && search.redirect !== "/dashboard") {
+      navigate({ to: search.redirect, replace: true });
+      return;
+    }
+    try {
+      const me = await fetchMe();
+      if (me?.isAdmin) {
+        navigate({ to: "/admin", replace: true });
+        return;
+      }
+      if (me?.role === "teacher") {
+        toast.success("Welcome back, Educator!");
+        navigate({ to: "/classes", replace: true });
+        return;
+      }
+    } catch {
+      // fallback
+    }
+    navigate({ to: "/dashboard", replace: true });
+  };
+
   const targetRedirect =
     search.redirect && search.redirect.startsWith("/") && search.redirect !== "/pricing"
       ? search.redirect
@@ -221,7 +247,7 @@ function AuthPage() {
       // than closed over, so this can't act on a stale "credentials" value.
       setView((current) => {
         if (data.session && current !== "recovery" && current !== "verifying") {
-          navigate({ to: targetRedirect, replace: true });
+          routeUserByRole();
         }
         if (data.session && current === "verifying") return "recovery";
         return current;
@@ -244,10 +270,10 @@ function AuthPage() {
   const signIn = async (event: React.FormEvent) => {
     event.preventDefault();
     setBusy(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
     setBusy(false);
     if (error) return toast.error(error.message);
-    navigate({ to: targetRedirect, replace: true });
+    await routeUserByRole();
   };
 
   const sendResetLink = async (event: React.FormEvent) => {

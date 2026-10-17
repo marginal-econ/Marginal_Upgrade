@@ -67,6 +67,8 @@ function ExaminerDashboardPage() {
   });
 
   const isAdmin = meQuery.data?.isAdmin ?? false;
+  const isTeacher = meQuery.data?.role === "teacher" || Boolean(meQuery.data?.isStaff);
+  const isAuthorized = isAdmin || isTeacher;
 
   const getWorkspace = useServerFn(getMySchoolWorkspace);
   const getSessions = useServerFn(listMarkingSessions);
@@ -74,25 +76,30 @@ function ExaminerDashboardPage() {
   const getPapers = useServerFn(listExaminerPapers);
   const deletePaperFn = useServerFn(deleteExaminerPaper);
 
-  if (!meQuery.isLoading && !isAdmin) {
+  if (!meQuery.isLoading && !isAuthorized) {
     return (
       <div className="mx-auto max-w-3xl px-5 py-16 text-center">
         <div className="mx-auto mb-6 flex size-16 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10 text-primary shadow-inner">
           <GraduationCap className="size-8" />
         </div>
         <Badge variant="outline" className="mb-4 border-primary/40 bg-primary/10 text-primary">
-          Special Admin Compartment
+          Authorized Educators Only
         </Badge>
         <h1 className="text-3xl font-bold tracking-tight text-foreground">
           Cambridge 9708 Teacher Examiner Platform
         </h1>
         <p className="mx-auto mt-4 max-w-lg text-sm text-muted-foreground leading-relaxed">
-          The Teacher Examiner marking desk and script ingestion platform is currently housed in the administrative compartment. Only authorized administrators have access.
+          The Teacher Examiner marking desk and script ingestion platform is exclusively accessible to verified Cambridge 9708 educators and institutional staff.
         </p>
-        <div className="mt-8 flex justify-center">
+        <div className="mt-8 flex justify-center gap-3">
+          <Button
+            variant="default"
+            onClick={() => navigate({ to: "/teacher-auth" })}
+          >
+            Apply for Teacher Verification
+          </Button>
           <Button
             variant="outline"
-            size="lg"
             onClick={() => navigate({ to: "/dashboard" })}
           >
             Return to Dashboard

@@ -25,7 +25,9 @@ async function assertTeacher(context: { supabase: SupabaseClient<Database>; user
   if (isMarginalAdmin({ userId: context.userId, claims: (context as any).claims, email: (context as any).email })) {
     return;
   }
-  const { data, error } = await context.supabase
+  const { getSupabaseAdmin } = await import("@/server/supabase");
+  const admin = getSupabaseAdmin();
+  const { data, error } = await admin
     .from("user_roles")
     .select("role")
     .eq("user_id", context.userId)
@@ -181,6 +183,7 @@ export const listClassrooms = createServerFn({ method: "GET" })
       .from("user_roles")
       .select("role")
       .eq("user_id", context.userId);
+    const roleList = (roles ?? []).map((r: any) => r.role);
     const isMarginal = isMarginalAdmin({
       userId: context.userId,
       email: (context as any).email,
@@ -318,15 +321,22 @@ export const listClassrooms = createServerFn({ method: "GET" })
     };
   });
 
-// ONLY ADMINS CAN CREATE CLASSROOMS
+// ADMINS AND VERIFIED TEACHERS CAN CREATE CLASSROOMS
 export const createClassroom = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => classroomInput.parse(input))
   .handler(async ({ data, context }) => {
-    await assertAdmin(context);
+    const isMarginal = isMarginalAdmin({
+      userId: context.userId,
+      claims: (context as any).claims,
+      email: (context as any).email,
+    });
+    if (!isMarginal) {
+      await assertTeacher(context);
+    }
     const { getSupabaseAdmin } = await import("@/server/supabase");
     const admin = getSupabaseAdmin();
-    const assignedTeacherId = data.teacherId || context.userId;
+    const assignedTeacherId = isMarginal && data.teacherId ? data.teacherId : context.userId;
 
     const { data: row, error } = await admin
       .from("classrooms")
@@ -337,15 +347,16 @@ export const createClassroom = createServerFn({ method: "POST" })
     return row;
   });
 
-// ONLY ADMINS CAN ARCHIVE/REMOVE CLASSROOMS
+// TEACHER (OWNER) OR ADMIN CAN ARCHIVE CLASSROOMS
 export const archiveClassroom = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => z.object({ classroomId: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
-    await assertAdmin(context);
-    const { getSupabaseAdmin } = await import("@/server/supabase");
-    const admin = getSupabaseAdmin();
-    const { error } = await admin
+    const authority = await getClassroomAuthority(context.userId, data.classroomId);
+    if (!authority.isAdmin && !authority.isOwner) {
+      throw new Error("Only the classroom teacher or administrator can archive this classroom.");
+    }
+    const { error } = await authority.admin
       .from("classrooms")
       .update({ archived: true })
       .eq("id", data.classroomId);
@@ -353,15 +364,16 @@ export const archiveClassroom = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-// ONLY ADMINS CAN PERMANENTLY DELETE CLASSROOMS
+// TEACHER (OWNER) OR ADMIN CAN PERMANENTLY DELETE CLASSROOMS
 export const deleteClassroom = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => z.object({ classroomId: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
-    await assertAdmin(context);
-    const { getSupabaseAdmin } = await import("@/server/supabase");
-    const admin = getSupabaseAdmin();
-    const { error } = await admin.from("classrooms").delete().eq("id", data.classroomId);
+    const authority = await getClassroomAuthority(context.userId, data.classroomId);
+    if (!authority.isAdmin && !authority.isOwner) {
+      throw new Error("Only the classroom teacher or administrator can remove this classroom.");
+    }
+    const { error } = await authority.admin.from("classrooms").delete().eq("id", data.classroomId);
     if (error) throw new Error(error.message);
     return { ok: true };
   });

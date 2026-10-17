@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -18,12 +18,76 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { getMe } from "@/lib/account.functions";
 import { getPlatformPricing } from "@/lib/pricing.functions";
 import { DEFAULT_PRICING_PLANS, FREE_STARTER_TIER } from "@/lib/pricing-plans";
 import { CosmicAtmosphere } from "./cosmic-atmosphere";
 
-type Audience = "students" | "schools";
+type Audience = "students" | "educators" | "schools";
 type BillingCycle = "monthly" | "annual";
+
+const EDUCATOR_TIERS = [
+  {
+    id: "foundation",
+    name: "Individual Educator AI Pass",
+    tagline: "Essential AI marking, custom mark schemes, and live coaching for Cambridge 9708 educators.",
+    monthlyPrice: 99,
+    annualPrice: 1188,
+    annualEquivalentMonthly: 99,
+    savePct: 0,
+    quota: "8 Mock Essays / mo · 3 Live Examiner Demo Credits",
+    badge: "Most Popular for Teachers",
+    popular: true,
+    features: [
+      "Authorised Cambridge 9708 Teacher & Examiner Platform Access",
+      "Ingest Custom School Mark Schemes into Classroom RAG",
+      "Anchor Calibration Suite: Lock Exam-Board Standard Exemplars",
+      "8 AI First-Pass Mock Evaluations & Diagnostic Reports / mo",
+      "3 Live Socratic Examiner Demo Credits / mo",
+      "Create Unlimited Cambridge Cohorts & Class Assignments",
+      "Class Diagnostic Heatmaps & Weakness Analytics",
+      "Gradebook CSV & Spreadsheet Exports",
+    ],
+  },
+  {
+    id: "pro",
+    name: "Department Lead Pass",
+    tagline: "For active departmental heads and high-volume Cambridge mock evaluation.",
+    monthlyPrice: 399,
+    annualPrice: 3499,
+    annualEquivalentMonthly: 291,
+    savePct: 27,
+    quota: "20 Mock Essays / mo · 10 Live Examiner Credits",
+    badge: "Head of Economics",
+    features: [
+      "Everything in Individual Educator Pass",
+      "20 Cambridge Graded Mock Essays / month",
+      "10 Live Examiner Demo Credits / month",
+      "Dual-Model Principal Examiner Arbitration",
+      "Unlimited Custom Mark Schemes & Syllabus Uploads",
+      "Section-Wise Cohort Comparison Matrix",
+      "Model Answer Generator for Classroom Demonstrations",
+    ],
+  },
+  {
+    id: "school-starter",
+    name: "Department Starter",
+    tagline: "Full school department licensing with 50 student seats and 2 teacher admins.",
+    monthlyPrice: 4999,
+    annualPrice: 49999,
+    annualEquivalentMonthly: 4166,
+    savePct: 17,
+    quota: "50 Student Seats · 15 essays / student / mo",
+    badge: "School License",
+    features: [
+      "50 active student seats included with independent student quotas",
+      "2 Teacher Admin accounts with full classroom manager",
+      "School mark scheme & curriculum RAG ingestion",
+      "Cambridge AO distribution & cohort mark breakdowns",
+      "Gradebook CSV & spreadsheet exports",
+    ],
+  },
+];
 
 interface StudentTier {
   id: string;
@@ -224,8 +288,21 @@ const SCHOOL_TIERS: SchoolTier[] = [
 ];
 
 export function PricingSection({ className }: { className?: string }) {
+  const getMeFn = useServerFn(getMe);
+  const meQuery = useQuery({
+    queryKey: ["me"],
+    queryFn: () => getMeFn(),
+    staleTime: 60_000,
+  });
+
   const [audience, setAudience] = useState<Audience>("students");
   const [cycle, setCycle] = useState<BillingCycle>("annual");
+
+  useEffect(() => {
+    if (meQuery.data?.role === "teacher" || meQuery.data?.isStaff) {
+      setAudience("educators");
+    }
+  }, [meQuery.data?.role, meQuery.data?.isStaff]);
 
   const fetchPlatformPricing = useServerFn(getPlatformPricing);
   const pricingQuery = useQuery({
@@ -308,7 +385,7 @@ export function PricingSection({ className }: { className?: string }) {
             <span className="font-semibold text-foreground">₹99 / month</span>.
           </p>
 
-          {/* ── Audience Selector (Students vs Schools) ── */}
+          {/* ── Audience Selector (Students vs Educators vs Schools) ── */}
           <div className="mt-8 inline-flex max-w-full flex-wrap sm:flex-nowrap items-center justify-center rounded-xl border border-border bg-muted/60 p-1 sm:p-1.5 shadow-xs gap-1 sm:gap-0">
             <button
               type="button"
@@ -321,7 +398,20 @@ export function PricingSection({ className }: { className?: string }) {
               )}
             >
               <GraduationCap className="size-4 text-primary shrink-0" />
-              <span>For Students &amp; Educators</span>
+              <span>For Students</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setAudience("educators")}
+              className={cn(
+                "flex items-center justify-center gap-1.5 sm:gap-2 rounded-lg px-3 sm:px-4 py-2 text-xs font-semibold transition-all sm:text-sm",
+                audience === "educators"
+                  ? "bg-background text-foreground shadow-xs"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              <ShieldCheck className="size-4 text-purple-500 shrink-0" />
+              <span>Educator AI Pass (from ₹99/mo)</span>
             </button>
             <button
               type="button"
@@ -334,7 +424,7 @@ export function PricingSection({ className }: { className?: string }) {
               )}
             >
               <School className="size-4 text-primary shrink-0" />
-              <span>For Schools &amp; Departments</span>
+              <span>For School Departments</span>
             </button>
           </div>
 
@@ -383,7 +473,106 @@ export function PricingSection({ className }: { className?: string }) {
         </div>
 
         {/* ── Pricing Cards Grid ── */}
-        {audience === "students" ? (
+        {audience === "educators" ? (
+          <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3 max-w-5xl mx-auto items-stretch">
+            {EDUCATOR_TIERS.map((tier) => {
+              const displayPrice =
+                cycle === "annual" ? `₹${tier.annualEquivalentMonthly}` : `₹${tier.monthlyPrice}`;
+              const periodText = cycle === "annual" ? "/ mo (billed annually)" : "/ mo";
+
+              return (
+                <div
+                  key={tier.id}
+                  className={cn(
+                    "relative flex flex-col justify-between rounded-2xl border p-5 sm:p-6 transition-all duration-300 h-full",
+                    tier.popular
+                      ? "border-purple-500/50 bg-card shadow-lg ring-2 ring-purple-500/20"
+                      : "border-border/80 bg-card/60 hover:border-purple-500/40",
+                  )}
+                >
+                  {tier.badge ? (
+                    <div className="absolute -top-3 left-6">
+                      <Badge
+                        className={cn(
+                          "text-[10px] font-bold uppercase tracking-wider",
+                          tier.popular
+                            ? "bg-purple-600 text-white"
+                            : "bg-muted text-foreground border border-border",
+                        )}
+                      >
+                        {tier.badge}
+                      </Badge>
+                    </div>
+                  ) : null}
+
+                  <div className="flex-1 flex flex-col">
+                    <h3 className="text-lg font-bold text-foreground min-h-[28px] flex items-center">
+                      {tier.name}
+                    </h3>
+                    <p className="mt-1.5 text-xs text-muted-foreground leading-relaxed min-h-[38px] flex items-start">
+                      {tier.tagline}
+                    </p>
+
+                    <div className="mt-5 border-y border-border/60 py-4 min-h-[148px] flex flex-col justify-between">
+                      <div>
+                        <div className="flex items-baseline gap-1">
+                          <span className="text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">
+                            {displayPrice}
+                          </span>
+                          <span className="text-xs text-muted-foreground">{periodText}</span>
+                        </div>
+                        {cycle === "annual" ? (
+                          <p className="mt-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400 min-h-[16px]">
+                            ₹{tier.annualPrice.toLocaleString()} / year (Save {tier.savePct}%)
+                          </p>
+                        ) : (
+                          <p className="mt-1 text-[11px] text-muted-foreground min-h-[16px]">
+                            Billed monthly · Cancel anytime
+                          </p>
+                        )}
+                      </div>
+                      <div className="w-full min-h-[44px] flex items-center justify-center rounded-md bg-purple-500/10 px-2.5 py-1 text-center text-[11px] font-semibold text-purple-600 dark:text-purple-400 leading-tight">
+                        <Zap className="size-3 shrink-0 mr-1.5" />
+                        <span>{tier.quota}</span>
+                      </div>
+                    </div>
+
+                    <ul className="mt-5 space-y-2.5 text-xs text-muted-foreground flex-1">
+                      {tier.features.map((feature, idx) => (
+                        <li key={idx} className="flex items-start gap-2">
+                          <Check className="size-4 shrink-0 text-emerald-600 dark:text-emerald-400 mt-0.5" />
+                          <span className="leading-snug">{feature}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  <div className="mt-auto pt-6">
+                    <Button
+                      asChild
+                      variant={tier.popular ? "default" : "outline"}
+                      className={cn(
+                        "w-full text-xs font-semibold h-10 shadow-xs cursor-pointer",
+                        tier.popular ? "bg-purple-600 hover:bg-purple-700 text-white" : ""
+                      )}
+                    >
+                      <Link
+                        to="/payment"
+                        search={{
+                          tier: (tier.id === "school-starter" ? "pro" : tier.id) as any,
+                          cycle: cycle,
+                          role: "teacher" as any,
+                        }}
+                      >
+                        Unlock {tier.name} <ArrowRight className="size-3.5 ml-1.5" />
+                      </Link>
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : audience === "students" ? (
           <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 items-stretch">
             {/* ── Column 1: Get Started for Free ── */}
             <div className="relative flex flex-col justify-between rounded-2xl border border-border/80 bg-card/60 p-5 sm:p-6 transition-all duration-300 hover:border-primary/40 h-full">

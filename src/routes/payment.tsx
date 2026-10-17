@@ -41,8 +41,9 @@ import { TIER_LIMITS, type PlanTier } from "@/lib/usage-limits";
 import { cn } from "@/lib/utils";
 
 const searchSchema = z.object({
-  tier: z.enum(["foundation", "pro", "mastery", "elite"]).optional().default("pro"),
+  tier: z.enum(["foundation", "pro", "mastery", "elite"]).optional().default("foundation"),
   cycle: z.enum(["monthly", "annual"]).optional().default("monthly"),
+  role: z.enum(["student", "teacher"]).optional(),
 });
 
 export const Route = createFileRoute("/payment")({
@@ -153,6 +154,14 @@ function PaymentPortalPage() {
     queryKey: ["me"],
     queryFn: () => fetchMe(),
   });
+
+  const isTeacherMode = search.role === "teacher" || meQuery.data?.role === "teacher" || Boolean(meQuery.data?.isStaff);
+
+  useEffect(() => {
+    if (search.role === "teacher" && !search.tier) {
+      setSelectedTier("foundation");
+    }
+  }, [search.role, search.tier]);
 
   const fetchPlatformPricing = useServerFn(getPlatformPricing);
   const platformPricingQuery = useQuery({
@@ -365,15 +374,16 @@ function PaymentPortalPage() {
 
       <main className="mx-auto max-w-5xl px-3 sm:px-6 py-6 sm:py-8 md:py-12">
         <div className="mb-6 sm:mb-8 text-center sm:text-left">
-          <Badge className="bg-primary/10 text-primary border-primary/20 text-xs font-semibold mb-2">
-            Verified Official Checkout
+          <Badge className={cn("border text-xs font-semibold mb-2", isTeacherMode ? "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/30" : "bg-primary/10 text-primary border-primary/20")}>
+            {isTeacherMode ? "Educator AI Pass Checkout" : "Verified Official Checkout"}
           </Badge>
           <h1 className="text-xl sm:text-3xl md:text-4xl font-bold tracking-tight">
-            Complete Your Cambridge 9708 Subscription
+            {isTeacherMode ? "Complete Your Educator AI Pass Subscription" : "Complete Your Cambridge 9708 Subscription"}
           </h1>
           <p className="mt-2 text-xs sm:text-sm text-muted-foreground max-w-2xl">
-            Choose your Cambridge study tier, unlock instant Live Examiner AI credits, and begin
-            scoring higher with official mark scheme calibrations.
+            {isTeacherMode
+              ? "Unlock personal Cambridge 9708 examiner AI marking, custom school mark scheme ingestion, and live Socratic coaching from ₹99/mo."
+              : "Choose your Cambridge study tier, unlock instant Live Examiner AI credits, and begin scoring higher with official mark scheme calibrations."}
           </p>
         </div>
 
@@ -507,6 +517,27 @@ function PaymentPortalPage() {
                   const priceShow =
                     cycle === "annual" ? `₹${tPricing.annualMonthlyEq}` : `₹${tPricing.monthly}`;
 
+                  let tierTitle = tLimits.name;
+                  let tierSubtitle = tPricing.tagline;
+                  let tierBadge: string | null = null;
+
+                  if (isTeacherMode) {
+                    if (tierKey === "foundation") {
+                      tierTitle = "Individual Educator AI Pass";
+                      tierSubtitle = "Essential Educator Pass — Mark scheme ingestion, 8 mock evaluations/mo, 3 Live Examiner coaching credits, full classroom manager";
+                      tierBadge = "Educator AI Pass";
+                    } else if (tierKey === "pro") {
+                      tierTitle = "Department Lead Pass";
+                      tierSubtitle = "20 Cambridge mock evaluations / mo, 10 Live Examiner Credits, Dual-Model Principal Examiner Arbitration";
+                    } else if (tierKey === "mastery") {
+                      tierTitle = "Mastery Department Pass";
+                      tierSubtitle = "45 mock evaluations/mo, 20 Live Examiner credits, OCR handwriting scan";
+                    } else if (tierKey === "elite") {
+                      tierTitle = "Elite Institutional Pass";
+                      tierSubtitle = "80 mock evaluations/mo, 35 Live Examiner credits, full mock suite";
+                    }
+                  }
+
                   return (
                     <div
                       key={tierKey}
@@ -514,7 +545,9 @@ function PaymentPortalPage() {
                       className={cn(
                         "cursor-pointer rounded-xl border p-3.5 sm:p-4 transition-all duration-200",
                         isSelected
-                          ? "border-primary bg-primary/[0.04] ring-2 ring-primary/20 shadow-xs"
+                          ? isTeacherMode
+                            ? "border-purple-500 bg-purple-500/[0.04] ring-2 ring-purple-500/20 shadow-xs"
+                            : "border-primary bg-primary/[0.04] ring-2 ring-primary/20 shadow-xs"
                           : "border-border hover:border-border/80 bg-background/50"
                       )}
                     >
@@ -524,18 +557,27 @@ function PaymentPortalPage() {
                             className={cn(
                               "flex size-5 shrink-0 items-center justify-center rounded-full border text-[10px]",
                               isSelected
-                                ? "border-primary bg-primary text-primary-foreground font-bold"
+                                ? isTeacherMode
+                                  ? "border-purple-600 bg-purple-600 text-white font-bold"
+                                  : "border-primary bg-primary text-primary-foreground font-bold"
                                 : "border-muted-foreground/30 text-transparent"
                             )}
                           >
                             ✓
                           </div>
                           <div className="min-w-0 flex-1">
-                            <span className="text-sm font-bold text-foreground block truncate">
-                              {tLimits.name}
-                            </span>
-                            <p className="text-[11px] text-muted-foreground leading-snug break-words">
-                              {tPricing.tagline}
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="text-sm font-bold text-foreground block truncate">
+                                {tierTitle}
+                              </span>
+                              {tierBadge && (
+                                <Badge className="bg-purple-500/15 border border-purple-500/30 text-purple-600 dark:text-purple-400 text-[9px] font-bold px-1.5 py-0">
+                                  {tierBadge}
+                                </Badge>
+                              )}
+                            </div>
+                            <p className="text-[11px] text-muted-foreground leading-snug break-words mt-0.5">
+                              {tierSubtitle}
                             </p>
                           </div>
                         </div>
@@ -557,11 +599,13 @@ function PaymentPortalPage() {
 
             {/* Customer Information */}
             <div className="rounded-2xl border border-border bg-card p-4 sm:p-6 shadow-xs">
-              <h2 className="text-base font-semibold mb-4">2. Candidate Contact</h2>
+              <h2 className="text-base font-semibold mb-4">
+                {isTeacherMode ? "2. Educator Contact" : "2. Candidate Contact"}
+              </h2>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-1.5">
                   <Label htmlFor="cust-name" className="text-xs">
-                    Candidate Full Name
+                    {isTeacherMode ? "Educator Full Name" : "Candidate Full Name"}
                   </Label>
                   <Input
                     id="cust-name"

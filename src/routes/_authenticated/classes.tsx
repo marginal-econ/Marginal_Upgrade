@@ -273,7 +273,7 @@ export function ClassesPage() {
           </div>
 
           <div className="flex items-center gap-3 w-full sm:w-auto">
-            {isAdmin ? (
+            {isAdmin || isTeacher ? (
               <CreateClassDialog
                 onCreated={() => queryClient.invalidateQueries({ queryKey: ["classrooms"] })}
               />
@@ -300,13 +300,11 @@ export function ClassesPage() {
             <School className="h-16 w-16 text-slate-600 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-slate-300">No classes found</h3>
             <p className="text-sm text-slate-500 max-w-md mx-auto mt-2 mb-6">
-              {isAdmin
-                ? "You have not created any classrooms yet. Click 'Create Class' above to launch your institution's cohorts."
-                : isTeacher
-                  ? "You have not been assigned to any classrooms yet. Contact an administrator to add your class."
-                  : "You haven't joined any classrooms yet. Ask your Economics teacher for a 6-character class code to join."}
+              {isAdmin || isTeacher
+                ? "You have not created any classrooms yet. Click 'Create Class' above to launch your Cambridge cohorts."
+                : "You haven't joined any classrooms yet. Ask your Economics teacher for a 6-character class code to join."}
             </p>
-            {isAdmin ? (
+            {isAdmin || isTeacher ? (
               <CreateClassDialog
                 onCreated={() => queryClient.invalidateQueries({ queryKey: ["classrooms"] })}
               />

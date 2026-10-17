@@ -17,11 +17,14 @@ export const getMe = createServerFn({ method: "GET" })
     });
 
     try {
+      const { supabaseAdmin } = await import("@/integrations/backend/client.server");
+      const db = supabaseAdmin ?? supabase;
+
       let profile: { id: string; full_name: string | null; school: string | null; tutorial_completed: boolean } | null = null;
       let roles: { role: string }[] | null = null;
 
       try {
-        const profileRes = await supabase
+        const profileRes = await db
           .from("profiles")
           .select("id, full_name, school, tutorial_completed")
           .eq("id", userId)
@@ -32,7 +35,7 @@ export const getMe = createServerFn({ method: "GET" })
       }
 
       try {
-        const rolesRes = await supabase
+        const rolesRes = await db
           .from("user_roles")
           .select("role")
           .eq("user_id", userId);
@@ -47,15 +50,19 @@ export const getMe = createServerFn({ method: "GET" })
       // Only Marginal Admin can ever hold admin role or privileges
       if (isMarginal) {
         role = "admin";
-      } else if (roleList.includes("teacher")) {
+      } else if (roleList.includes("teacher") || (context as any).claims?.user_metadata?.role === "teacher") {
         role = "teacher";
       } else {
         role = "student";
       }
 
+      const metaName = (context as any).claims?.user_metadata?.full_name || (context as any).claims?.user_metadata?.name;
+      const emailPrefix = (context as any).email ? (context as any).email.split("@")[0] : null;
+      const resolvedName = profile?.full_name || metaName || (isMarginal ? "Marginal Admin" : emailPrefix);
+
       const { getUserSubscriptionDetails } = await import("./subscription.server");
       const subscription = await getUserSubscriptionDetails(
-        supabase,
+        db,
         userId,
         (context as any).email,
         (context as any).claims,
@@ -63,8 +70,8 @@ export const getMe = createServerFn({ method: "GET" })
 
       return {
         userId,
-        fullName: profile?.full_name ?? (isMarginal ? "Marginal Admin" : null),
-        school: profile?.school ?? null,
+        fullName: resolvedName,
+        school: profile?.school ?? (context as any).claims?.user_metadata?.school ?? null,
         role,
         isAdmin: isMarginal,
         isStaff: isMarginal || role === "teacher",

@@ -187,7 +187,11 @@ export async function getUserSubscriptionDetails(
 
   return {
     tier: activeTier,
-    tierName: isTeacher && !isPaid ? "Teacher Workspace (School License Required for AI Grading)" : limits.name,
+    tierName: isTeacher
+      ? isPaid
+        ? `Educator AI Pass (${limits.name})`
+        : "Teacher Workspace (Educator Pass Required)"
+      : limits.name,
     isPaid,
     isAdmin: false,
     isTeacher,
