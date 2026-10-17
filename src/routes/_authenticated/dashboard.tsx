@@ -25,6 +25,8 @@ import {
   Zap,
   ChevronDown,
   ChevronUp,
+  ClipboardCheck,
+  UsersRound,
 } from "lucide-react";
 import { useMemo, useState } from "react";
 
@@ -218,18 +220,33 @@ export function DashboardPage() {
         title="Dashboard"
         description="Cambridge 9708 Economics performance analytics, AO mastery breakdown, and live study progress."
         action={
-          <div className="flex flex-wrap items-center gap-2">
-            <Button asChild variant="outline" size="sm">
-              <Link to="/live-examiner">
-                <Sparkles className="size-3.5 text-primary" /> Live Examiner
-              </Link>
-            </Button>
-            <Button asChild size="sm">
-              <Link to="/grade">
-                <PenLine className="size-3.5" /> Mark an essay
-              </Link>
-            </Button>
-          </div>
+          me.data?.role === "teacher" ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <Button asChild variant="outline" size="sm">
+                <Link to="/review">
+                  <ClipboardCheck className="size-3.5 text-primary" /> Review &amp; Diagnostics
+                </Link>
+              </Button>
+              <Button asChild size="sm">
+                <Link to="/classes">
+                  <UsersRound className="size-3.5" /> Manage Classes
+                </Link>
+              </Button>
+            </div>
+          ) : (
+            <div className="flex flex-wrap items-center gap-2">
+              <Button asChild variant="outline" size="sm">
+                <Link to="/live-examiner">
+                  <Sparkles className="size-3.5 text-primary" /> Live Examiner
+                </Link>
+              </Button>
+              <Button asChild size="sm">
+                <Link to="/grade">
+                  <PenLine className="size-3.5" /> Mark an essay
+                </Link>
+              </Button>
+            </div>
+          )
         }
       />
 

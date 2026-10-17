@@ -13,6 +13,8 @@ import {
   Upload,
   X,
   PenLine,
+  Building2,
+  Users,
   Zap,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -107,7 +109,9 @@ function GradePage() {
   });
   const sub = meQuery.data?.subscription;
   const isAdmin = meQuery.data?.isAdmin ?? false;
-  const isLimitReached = !isAdmin && sub !== undefined && !sub.canGradeEssay;
+  const isTeacher = meQuery.data?.role === "teacher" || Boolean(sub?.isTeacher);
+  const isTeacherUnpaid = isTeacher && !sub?.isPaid && !isAdmin;
+  const isLimitReached = !isAdmin && (isTeacherUnpaid || (sub !== undefined && !sub.canGradeEssay));
 
   const [question, setQuestion] = useState(search.q ?? "");
 
@@ -291,6 +295,13 @@ function GradePage() {
   }
 
   function handleMarkClick() {
+    if (isTeacherUnpaid) {
+      toast.error("Personal AI essay grading for teacher accounts requires an active School Department License or Faculty Pass.", {
+        duration: 5000,
+      });
+      navigate({ to: "/pricing" });
+      return;
+    }
     if (isLimitReached) {
       toast.error("Plan limit reached: You've completed your 2 free essays. Redirecting to pricing...", {
         duration: 4000,
@@ -314,39 +325,70 @@ function GradePage() {
 
       {isLimitReached ? (
         <ChainedChamber
-          badgeText={`Limit Reached · ${sub?.essaysGradedCount ?? 2}/${sub?.essaysLimit ?? 2} Essays Used`}
-          title="Essay Grader is Chained"
-          description={`You have completed your included Cambridge essay evaluations for your ${sub?.tierName ?? "Free Tier"} account. Upgrade your revision pass to unlock additional essay evaluations, Live Examiner credits, and full Cambridge mark schemes.`}
-          primaryCtaText="Unlock Plan from ₹149/mo"
+          badgeText={
+            isTeacherUnpaid
+              ? "School License Required"
+              : `Limit Reached · ${sub?.essaysGradedCount ?? 2}/${sub?.essaysLimit ?? 2} Essays Used`
+          }
+          title={isTeacherUnpaid ? "Faculty AI Grading Requires a School License" : "Essay Grader is Chained"}
+          description={
+            isTeacherUnpaid
+              ? "Personal AI essay grading for teacher accounts requires an active School Department License or Faculty Pass. Student homework submissions assigned in your Cambridge classrooms are covered under your students' accounts."
+              : `You have completed your included Cambridge essay evaluations for your ${sub?.tierName ?? "Free Tier"} account. Upgrade your revision pass to unlock additional essay evaluations, Live Examiner credits, and full Cambridge mark schemes.`
+          }
+          primaryCtaText={isTeacherUnpaid ? "View School Licensing (from ₹4,999/mo)" : "Unlock Plan from ₹149/mo"}
           primaryCtaLink="/pricing"
-          secondaryCtaText="View Previous Submissions"
-          secondaryCtaLink="/showcase"
-          features={[
-            {
-              icon: PenLine,
-              iconColor: "text-primary",
-              title: "Higher Monthly Essay Quota",
-              description: "Get 10 essays/mo on Foundation, 30 essays/mo on Pro, or Unlimited essays on Cambridge Elite.",
-            },
-            {
-              icon: Sparkles,
-              iconColor: "text-amber-500",
-              title: "Clause-by-Clause Cambridge Grounding",
-              description: "Audited against 1,400+ published mark schemes with sentence-level AO1/AO2/AO3 allocations.",
-            },
-            {
-              icon: Zap,
-              iconColor: "text-emerald-500",
-              title: "Live Examiner Keystroke Credits",
-              description: "Real-time socratic coaching and grammar checking as you draft your answers.",
-            },
-            {
-              icon: ShieldCheck,
-              iconColor: "text-blue-500",
-              title: "Dual-Pass Auditor Bias Elimination",
-              description: "Stops AI central-tendency clumping and awards genuine distinction marks.",
-            },
-          ]}
+          secondaryCtaText={isTeacherUnpaid ? "Go to Classrooms" : "View Previous Submissions"}
+          secondaryCtaLink={isTeacherUnpaid ? "/classes" : "/showcase"}
+          features={
+            isTeacherUnpaid
+              ? [
+                  {
+                    icon: Building2,
+                    iconColor: "text-primary",
+                    title: "School Department Licensing",
+                    description: "License 50 to 400+ student seats for your department with teacher administrative seats and moderation tools.",
+                  },
+                  {
+                    icon: Users,
+                    iconColor: "text-purple-500",
+                    title: "Students Submit with Their Own Quotas",
+                    description: "Students enrolled in your classrooms submit essay assignments using their own student tier quotas (2 free + upgrades).",
+                  },
+                  {
+                    icon: ShieldCheck,
+                    iconColor: "text-emerald-500",
+                    title: "Curriculum Ingestion & Anchor Calibration",
+                    description: "Upload internal coursebooks and align your department to Cambridge 9708 Level 4 & 5 mark schemes.",
+                  },
+                ]
+              : [
+                  {
+                    icon: PenLine,
+                    iconColor: "text-primary",
+                    title: "Higher Monthly Essay Quota",
+                    description: "Get 10 essays/mo on Foundation, 30 essays/mo on Pro, or Unlimited essays on Cambridge Elite.",
+                  },
+                  {
+                    icon: Sparkles,
+                    iconColor: "text-amber-500",
+                    title: "Clause-by-Clause Cambridge Grounding",
+                    description: "Audited against 1,400+ published mark schemes with sentence-level AO1/AO2/AO3 allocations.",
+                  },
+                  {
+                    icon: Zap,
+                    iconColor: "text-emerald-500",
+                    title: "Live Examiner Keystroke Credits",
+                    description: "Real-time socratic coaching and grammar checking as you draft your answers.",
+                  },
+                  {
+                    icon: ShieldCheck,
+                    iconColor: "text-blue-500",
+                    title: "Dual-Pass Auditor Bias Elimination",
+                    description: "Stops AI central-tendency clumping and awards genuine distinction marks.",
+                  },
+                ]
+          }
         />
       ) : (
         <>

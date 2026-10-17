@@ -197,7 +197,7 @@ export function TeacherAuthPage() {
                 </div>
                 <h1 className="text-2xl font-bold">Teacher &amp; Department Workspace</h1>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Ingest school coursebooks, calibrate marking anchors, manage student cohorts, and review batch mock papers.
+                  Organize Cambridge classrooms, issue essay homework, review student diagnostic heatmaps, and calibrate department standards.
                 </p>
               </div>
 

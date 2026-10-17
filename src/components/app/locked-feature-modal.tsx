@@ -4,9 +4,11 @@ import {
   Flame,
   Lock,
   PenLine,
+  School,
   ShieldAlert,
   Sliders,
   Sparkles,
+  Users,
   Zap,
 } from "lucide-react";
 
@@ -26,6 +28,7 @@ export type LockedFeatureType =
   | "mcq_limit"
   | "experimental"
   | "chat"
+  | "school_license"
   | null;
 
 interface LockedFeatureModalProps {
@@ -42,6 +45,26 @@ export function LockedFeatureModal({
   if (!type) return null;
 
   const config = {
+    school_license: {
+      badge: "School License Required",
+      title: "School Department License Required",
+      desc: "Teacher accounts require an active School Department License or Faculty Pass to use personal AI essay grading and live coaching. Classroom homework submissions submitted by your students are funded through their individual student quotas.",
+      ctaText: "View School Licensing (from ₹4,999/mo)",
+      items: [
+        {
+          icon: School,
+          color: "text-purple-500",
+          title: "School Cohort Licensing",
+          desc: "Empower your entire department with 50 to 400+ student seats, faculty admin desks, and batch moderation.",
+        },
+        {
+          icon: Users,
+          color: "text-primary",
+          title: "Student Quotas are Independent",
+          desc: "Students in your classrooms submit essay assignments using their own student tier quotas (2 free + upgrades).",
+        },
+      ],
+    },
     chat: {
       badge: "Paid Feature · Grounded Chat",
       title: "Cambridge AI Grounded Chat is Locked",
@@ -212,7 +235,7 @@ export function LockedFeatureModal({
           <div className="pt-2 flex flex-col gap-2">
             <Button asChild size="default" className="w-full font-bold shadow-md">
               <Link to="/pricing" onClick={() => onOpenChange(false)}>
-                <span>Unlock Plan from ₹149/mo</span>
+                <span>{(config as any).ctaText ?? "Unlock Plan from ₹149/mo"}</span>
                 <ArrowRight className="ml-1.5 size-4" />
               </Link>
             </Button>

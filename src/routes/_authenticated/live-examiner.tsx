@@ -23,6 +23,9 @@ import {
   Sparkles,
   Target,
   Upload,
+  Users,
+  Building2,
+  Zap,
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -514,6 +517,9 @@ function LiveExaminerPage() {
   );
 
   const DURATION_SECONDS = DEFAULT_LIVE_EXAMINER_DURATION_MINUTES * 60;
+  const sub = meQuery.data?.subscription;
+  const isTeacher = meQuery.data?.role === "teacher" || Boolean(sub?.isTeacher);
+  const isTeacherUnpaid = isTeacher && !sub?.isPaid && !isAdmin;
   const isTimeExceeded =
     Boolean(todaySessionQuery.data?.sessionStartedAt) &&
     (Date.now() - (todaySessionQuery.data?.sessionStartedAt ?? 0)) >= DURATION_SECONDS * 1000;
@@ -864,29 +870,56 @@ function LiveExaminerPage() {
         description="Write your answer and get instant, syllabus-grounded feedback as you go — grammar, clarity, economics accuracy, analysis, application, evaluation and terminology."
       />
 
-      {meQuery.data?.subscription && !meQuery.data.subscription.canUseLiveExaminer && !isAdmin ? (
+      {(isTeacherUnpaid || (meQuery.data?.subscription && !meQuery.data.subscription.canUseLiveExaminer && !isAdmin)) ? (
         <ChainedChamber
-          badgeText="Paid Feature · Chained"
-          title="Cambridge Live Examiner is Chained"
-          description="Real-time clause checking, instant AO breakdown, and keystroke coaching require an active subscription or live examiner credits."
-          primaryCtaText="Unlock Live Examiner (from ₹149/mo)"
+          badgeText={isTeacherUnpaid ? "School License Required" : "Paid Feature · Chained"}
+          title={isTeacherUnpaid ? "Live Examiner Requires a School Department License" : "Cambridge Live Examiner is Chained"}
+          description={
+            isTeacherUnpaid
+              ? "Live Examiner real-time keystroke coaching for teacher accounts requires an active School Department License or Faculty Pass. To demonstrate Live Examiner to your class or unlock faculty credits, activate a School Pass."
+              : "Real-time clause checking, instant AO breakdown, and keystroke coaching require an active subscription or live examiner credits."
+          }
+          primaryCtaText={isTeacherUnpaid ? "View School Licensing (from ₹4,999/mo)" : "Unlock Live Examiner (from ₹149/mo)"}
           primaryCtaLink="/pricing"
-          secondaryCtaText="Use Free Essay Grader (2 Free)"
-          secondaryCtaLink="/grade"
-          features={[
-            {
-              icon: Sparkles,
-              iconColor: "text-primary",
-              title: "Instant Live AO Feedback",
-              description: "Evaluates every sentence against Cambridge AO1, AO2, and AO3 criteria in real-time.",
-            },
-            {
-              icon: Zap,
-              iconColor: "text-amber-500",
-              title: "Next-Move Examiner Guidance",
-              description: "Socratic prompts that guide you to add required definitions and evaluative weigh-ups.",
-            },
-          ]}
+          secondaryCtaText={isTeacherUnpaid ? "Go to Classrooms" : "Use Free Essay Grader (2 Free)"}
+          secondaryCtaLink={isTeacherUnpaid ? "/classes" : "/grade"}
+          features={
+            isTeacherUnpaid
+              ? [
+                  {
+                    icon: Building2,
+                    iconColor: "text-primary",
+                    title: "School Department Licensing",
+                    description: "License 50 to 400+ student seats for your department with teacher administrative seats and moderation tools.",
+                  },
+                  {
+                    icon: Users,
+                    iconColor: "text-purple-500",
+                    title: "Student Quotas are Independent",
+                    description: "Students enrolled in your classrooms submit essay assignments using their own student tier quotas (2 free + upgrades).",
+                  },
+                  {
+                    icon: Sparkles,
+                    iconColor: "text-emerald-500",
+                    title: "Curriculum Ingestion & Anchor Calibration",
+                    description: "Upload internal coursebooks and align your department to Cambridge 9708 Level 4 & 5 mark schemes.",
+                  },
+                ]
+              : [
+                  {
+                    icon: Sparkles,
+                    iconColor: "text-primary",
+                    title: "Instant Live AO Feedback",
+                    description: "Evaluates every sentence against Cambridge AO1, AO2, and AO3 criteria in real-time.",
+                  },
+                  {
+                    icon: Zap,
+                    iconColor: "text-amber-500",
+                    title: "Next-Move Examiner Guidance",
+                    description: "Socratic prompts that guide you to add required definitions and evaluative weigh-ups.",
+                  },
+                ]
+          }
         />
       ) : !started ? (
         <div className="mx-auto max-w-5xl p-5 md:p-8">

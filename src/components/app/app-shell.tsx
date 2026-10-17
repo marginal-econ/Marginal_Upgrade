@@ -107,6 +107,8 @@ const NAV_GROUPS: NavGroup[] = [
     label: "Syllabus & Knowledge",
     collapsible: true,
     items: [
+      { to: "/knowledge", label: "School Mark Schemes", icon: BookOpen, staffOnly: true },
+      { to: "/calibration", label: "Anchor Calibration", icon: ShieldCheck, staffOnly: true },
       { to: "/definitions", label: "Definitions Hub", icon: BookText },
       { to: "/diagrams", label: "Diagram Library", icon: LineChart },
       { to: "/command-words", label: "Command Words", icon: Target },
@@ -133,7 +135,6 @@ const NAV_GROUPS: NavGroup[] = [
     collapsible: true,
     items: [
       { to: "/admin", label: "Admin Console", icon: ShieldCheck, badge: "Root" },
-      { to: "/knowledge", label: "Staff Console", icon: BookOpen },
     ],
   },
 ];
@@ -349,12 +350,18 @@ export function AppShell({
                 const active = isItemActive(item.to);
                 const label = item.to === "/classes" ? classroomLabel : item.label;
 
+                const isTeacherUser = role === "teacher" || Boolean(subscription?.isTeacher);
+                const isTeacherUnpaid = isTeacherUser && !isPaidUser && !isUserAdmin;
+
                 const isChainedPaid = item.requiresPaid && !canLiveExaminer;
                 const isChainedEssay =
                   item.to === "/grade" &&
                   !isUserAdmin &&
-                  Boolean(subscription) &&
-                  !subscription.canGradeEssay;
+                  (isTeacherUnpaid || (Boolean(subscription) && !subscription.canGradeEssay));
+                const isChainedLiveExaminer =
+                  item.to === "/live-examiner" &&
+                  !isUserAdmin &&
+                  (isTeacherUnpaid || isChainedPaid);
                 const isChainedMCQ =
                   item.to === "/mcq-live" &&
                   !isUserAdmin &&
@@ -362,20 +369,22 @@ export function AppShell({
                   !subscription.canUseMCQ;
                 const isLockedExperimental = item.requiresHigherTier && !isHigherTierUser;
                 const isLocked =
-                  isChainedPaid || isChainedEssay || isChainedMCQ || isLockedExperimental;
+                  isChainedPaid || isChainedEssay || isChainedLiveExaminer || isChainedMCQ || isLockedExperimental;
 
                 if (isLocked) {
                   const lockType: LockedFeatureType =
-                    isLockedExperimental
+                    isTeacherUnpaid && (item.to === "/grade" || item.to === "/live-examiner")
+                      ? "school_license"
+                      : isLockedExperimental
                       ? "experimental"
-                      : isChainedPaid
+                      : isChainedLiveExaminer || isChainedPaid
                       ? "live_examiner"
                       : isChainedEssay
                       ? "essay_limit"
                       : isChainedMCQ
                       ? "mcq_limit"
-                      : "experimental";
-                  const isChained = isChainedPaid || isChainedEssay || isChainedMCQ;
+                      : "school_license";
+                  const isChained = isChainedPaid || isChainedEssay || isChainedLiveExaminer || isChainedMCQ;
 
                   return (
                     <button
@@ -390,7 +399,7 @@ export function AppShell({
                         sidebarCollapsed && !isMobile ? "justify-center px-2" : "gap-2.5 px-2.5",
                         "hover:bg-sidebar-accent/70 hover:text-sidebar-accent-foreground hover:translate-x-1",
                       )}
-                      title={`${label} (${isChained ? "Chained · Limit Reached" : "Mastery Pass"})`}
+                      title={`${label} (${isTeacherUnpaid ? "School Department License Required" : isChained ? "Chained · Limit Reached" : "Mastery Pass"})`}
                     >
                       <item.icon
                         className={cn(
@@ -406,7 +415,11 @@ export function AppShell({
                       {!sidebarCollapsed || isMobile ? (
                         <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 text-[9px] font-bold text-amber-600 dark:text-amber-400 shadow-2xs group-hover:bg-amber-500/25 transition-colors">
                           <Lock className="size-2.5 animate-pulse" />
-                          {isChained ? "Chained" : "Locked"}
+                          {isTeacherUnpaid && (item.to === "/grade" || item.to === "/live-examiner")
+                            ? "School Pass"
+                            : isChained
+                            ? "Chained"
+                            : "Locked"}
                         </span>
                       ) : null}
                     </button>

@@ -69,6 +69,7 @@ export interface UserSubscriptionDetails {
   tierName: string;
   isPaid: boolean;
   isAdmin: boolean;
+  isTeacher?: boolean;
   essaysGradedCount: number;
   essaysLimit: number;
   essaysRemaining: number;
@@ -89,6 +90,12 @@ export const FREE_ESSAY_LIMIT_MESSAGE =
   `${TIER_LIMIT_PREFIX}: You have used your 2 free Cambridge essay gradings on the Free Tier. ` +
   `Upgrade to Foundation Scholar (₹149/mo), Pro (₹399/mo), or Mastery to continue grading essays with line-by-line mark scheme matching.`;
 
+export const TEACHER_SCHOOL_LICENSE_REQUIRED_MESSAGE =
+  "Teacher accounts require an active School Department License or Faculty Pass to use the AI Essay Grader. Student submissions to your classrooms are covered under your students' accounts.";
+
+export const TEACHER_LIVE_EXAMINER_REQUIRED_MESSAGE =
+  "Teacher accounts require an active School Department License or Faculty Pass to use the Live Examiner. To demonstrate or test Live Examiner, please activate a School Pass.";
+
 export const LIVE_EXAMINER_PAID_ONLY_MESSAGE =
   `Live Examiner is a premium feature available on paid plans. ` +
   `Upgrade your plan to unlock Live Examiner credits, real-time Cambridge keystroke coaching, and examiner next-move guidance.`;
@@ -105,7 +112,8 @@ export function isDailyLimitError(error: unknown): boolean {
     message.startsWith(DAILY_LIMIT_PREFIX) ||
     message.startsWith(TIER_LIMIT_PREFIX) ||
     message.includes("Live Examiner is a premium feature") ||
-    message.includes("exhausted your Live Examiner credits")
+    message.includes("exhausted your Live Examiner credits") ||
+    message.includes("School Department License")
   );
 }
 

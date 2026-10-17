@@ -38,6 +38,7 @@ export async function getUserSubscriptionDetails(
 
   // 1. Check roles in user_roles table
   let activeTier: PlanTier = "free";
+  let isTeacher = false;
   try {
     const { data: roles } = await supabase
       .from("user_roles")
@@ -55,6 +56,10 @@ export async function getUserSubscriptionDetails(
       activeTier = "pro";
     } else if (roleNames.includes("tier_foundation") || roleNames.includes("foundation")) {
       activeTier = "foundation";
+    }
+
+    if (roleNames.includes("teacher") || userClaims?.user_metadata?.role === "teacher") {
+      isTeacher = true;
     }
   } catch (err) {
     console.warn("Could not query user_roles for subscription, defaulting to free:", err);
@@ -92,14 +97,17 @@ export async function getUserSubscriptionDetails(
 
   let essaysLimit = limits.maxEssaysPerMonth;
   if (activeTier === "free") {
-    essaysLimit = FREE_TIER_ESSAY_LIMIT;
+    // Teachers do NOT get free candidate grading quota; personal AI marking requires a School License.
+    essaysLimit = isTeacher ? 0 : FREE_TIER_ESSAY_LIMIT;
   }
 
   const essaysRemaining = Math.max(0, essaysLimit - essaysGradedCount);
-  const canGradeEssay = essaysRemaining > 0;
+  // An unpaid teacher cannot grade personal essays without a School License
+  const canGradeEssay = isTeacher ? (isPaid && essaysRemaining > 0) : (essaysRemaining > 0);
 
   const allocatedCredits = limits.liveExaminerCredits;
   const remainingCredits = Math.max(0, allocatedCredits - liveCreditsUsed);
+  // Live examiner is strictly for paid accounts with remaining credits
   const canUseLiveExaminer = limits.liveExaminerEnabled && remainingCredits > 0;
 
   let mcqFreeDaysRemaining = limits.mcqFreeDays;
@@ -126,9 +134,10 @@ export async function getUserSubscriptionDetails(
 
   return {
     tier: activeTier,
-    tierName: limits.name,
+    tierName: isTeacher && !isPaid ? "Teacher Workspace (School License Required for AI Grading)" : limits.name,
     isPaid,
     isAdmin: false,
+    isTeacher,
     essaysGradedCount,
     essaysLimit,
     essaysRemaining,

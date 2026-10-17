@@ -50,6 +50,10 @@ async function assertLiveExaminerSessionAllowed(
     context?.claims,
   );
   if (!sub.canUseLiveExaminer) {
+    if (sub.isTeacher && !sub.isPaid) {
+      const { TEACHER_LIVE_EXAMINER_REQUIRED_MESSAGE } = await import("./usage-limits");
+      throw new Error(TEACHER_LIVE_EXAMINER_REQUIRED_MESSAGE);
+    }
     if (!sub.isPaid) {
       throw new Error(LIVE_EXAMINER_PAID_ONLY_MESSAGE);
     } else {
