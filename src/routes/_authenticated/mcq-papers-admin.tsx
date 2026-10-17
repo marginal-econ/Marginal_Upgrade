@@ -34,6 +34,7 @@ import { supabase } from "@/integrations/backend/client";
 import { getMe } from "@/lib/account.functions";
 import { extractPdfText, parseAnswerKeyFromText, type Letter } from "@/lib/mcq-parse";
 import { addMcqPapers, deleteMcqPaper, listMcqPapers } from "@/lib/mcq-papers.functions";
+import { isMarginalAdmin } from "@/lib/auth-admin";
 
 const EXAM_SERIES_OPTIONS = ["Feb/March", "May/June", "Oct/Nov"] as const;
 type ExamSeries = (typeof EXAM_SERIES_OPTIONS)[number];
@@ -44,7 +45,10 @@ const EXAM_YEARS = Array.from({ length: 16 }, (_, i) => CURRENT_YEAR - i);
 export const Route = createFileRoute("/_authenticated/mcq-papers-admin")({
   beforeLoad: async () => {
     const { data, error } = await supabase.auth.getUser();
-    if (error || !data.user) throw redirect({ to: "/auth" });
+    if (error || !data?.user) throw redirect({ to: "/auth" });
+    if (!isMarginalAdmin({ userId: data.user.id, email: data.user.email, claims: data.user.user_metadata })) {
+      throw redirect({ to: "/dashboard" });
+    }
   },
   component: McqPapersAdminPage,
 });
@@ -114,11 +118,11 @@ function McqPapersAdminPage() {
   // Gate render, not route access — beforeLoad only confirms "signed in";
   // this confirms "signed in AND staff", same two-step admin.tsx uses.
   if (meQuery.isLoading) return null;
-  if (!meQuery.data?.isStaff) {
+  if (!meQuery.data?.isAdmin) {
     return (
       <div className="mx-auto max-w-md px-5 py-16 text-center">
         <p className="text-sm text-muted-foreground">
-          This page is for administrators. Head to MCQ Live to practice a paper instead.
+          This console is reserved exclusively for the platform administrator.
         </p>
       </div>
     );

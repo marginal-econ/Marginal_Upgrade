@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
 import { requireSupabaseAuth } from "@/integrations/backend/auth-middleware";
+import { isMarginalAdmin } from "@/lib/auth-admin";
 
 export type ShowcaseAoScore = {
   awarded: number;
@@ -603,13 +604,12 @@ export const listShowcaseEssays = createServerFn({ method: "GET" })
 export const adminListShowcaseEssays = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { data: roleRow } = await context.supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", context.userId)
-      .eq("role", "admin")
-      .maybeSingle();
-    if (!roleRow) throw new Error("Administrator permissions required.");
+    const isAdmin = isMarginalAdmin({
+      userId: context.userId,
+      email: (context as any).email,
+      claims: (context as any).claims,
+    });
+    if (!isAdmin) throw new Error("Administrator permissions required. Marginal is the platform administrator.");
 
     const allItems: ShowcaseEssayItem[] = [];
 
@@ -776,13 +776,12 @@ export const adminToggleShowcaseVisibility = createServerFn({ method: "POST" })
     z.object({ versionId: z.string(), hidden: z.boolean() }).parse(input),
   )
   .handler(async ({ data, context }) => {
-    const { data: roleRow } = await context.supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", context.userId)
-      .eq("role", "admin")
-      .maybeSingle();
-    if (!roleRow) throw new Error("Administrator permissions required.");
+    const isAdmin = isMarginalAdmin({
+      userId: context.userId,
+      email: (context as any).email,
+      claims: (context as any).claims,
+    });
+    if (!isAdmin) throw new Error("Administrator permissions required. Marginal is the platform administrator.");
 
     if (data.hidden) {
       ADMIN_HIDDEN_ESSAY_IDS.add(data.versionId);
@@ -818,13 +817,12 @@ export const adminAddShowcaseExemplar = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
-    const { data: roleRow } = await context.supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", context.userId)
-      .eq("role", "admin")
-      .maybeSingle();
-    if (!roleRow) throw new Error("Administrator permissions required.");
+    const isAdmin = isMarginalAdmin({
+      userId: context.userId,
+      email: (context as any).email,
+      claims: (context as any).claims,
+    });
+    if (!isAdmin) throw new Error("Administrator permissions required. Marginal is the platform administrator.");
 
     const id = `custom-ex-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
     const newExemplar: ShowcaseEssayItem = {
@@ -884,13 +882,12 @@ export const adminDeleteShowcaseExemplar = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => z.object({ id: z.string() }).parse(input))
   .handler(async ({ data, context }) => {
-    const { data: roleRow } = await context.supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", context.userId)
-      .eq("role", "admin")
-      .maybeSingle();
-    if (!roleRow) throw new Error("Administrator permissions required.");
+    const isAdmin = isMarginalAdmin({
+      userId: context.userId,
+      email: (context as any).email,
+      claims: (context as any).claims,
+    });
+    if (!isAdmin) throw new Error("Administrator permissions required. Marginal is the platform administrator.");
 
     // Remove from custom exemplars if present
     const customIdx = ADMIN_CUSTOM_EXEMPLARS.findIndex(

@@ -4,16 +4,24 @@ import { z } from "zod";
 
 import { requireSupabaseAuth } from "@/integrations/backend/auth-middleware";
 import type { Database } from "@/integrations/supabase/types";
+import { isMarginalAdmin } from "@/lib/auth-admin";
 
 const LevelSchema = z.enum(["as", "a2"]);
 const ExamSeriesSchema = z.enum(["Feb/March", "May/June", "Oct/Nov"]);
 
 async function assertLibraryStaff(context: { supabase: SupabaseClient<Database>; userId: string }) {
+  const isMarginal = isMarginalAdmin({
+    userId: context.userId,
+    email: (context as any).email,
+    claims: (context as any).claims,
+  });
+  if (isMarginal) return;
+
   const { data, error } = await context.supabase
     .from("user_roles")
     .select("role")
     .eq("user_id", context.userId)
-    .in("role", ["teacher", "admin"]);
+    .in("role", ["teacher"]);
   if (error) throw new Error(error.message);
   if (!data?.length) throw new Error("Only an administrator or teacher can manage MCQ papers.");
 }

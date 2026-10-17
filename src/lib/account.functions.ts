@@ -44,8 +44,8 @@ export const getMe = createServerFn({ method: "GET" })
       const roleList = (roles ?? []).map((row: any) => row.role);
       let role: AppRole = "student";
 
-      // Admin check
-      if (isVaquita || roleList.includes("admin")) {
+      // Only Marginal Admin can ever hold admin role or privileges
+      if (isMarginal) {
         role = "admin";
       } else if (roleList.includes("teacher")) {
         role = "teacher";
@@ -66,7 +66,7 @@ export const getMe = createServerFn({ method: "GET" })
         fullName: profile?.full_name ?? (isMarginal ? "Marginal Admin" : null),
         school: profile?.school ?? null,
         role,
-        isAdmin: isMarginal || role === "admin",
+        isAdmin: isMarginal,
         isStaff: isMarginal || role === "teacher",
         tutorialCompleted: profile?.tutorial_completed ?? true,
         subscription,

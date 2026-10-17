@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
@@ -54,7 +54,7 @@ import {
   useUserActivity,
 } from "@/components/app/admin-access";
 import { PageHeader } from "@/components/app/app-shell";
-import { MARGINAL_ADMIN_USER_ID, MARGINAL_ADMIN_EMAIL } from "@/lib/auth-admin";
+import { MARGINAL_ADMIN_USER_ID, MARGINAL_ADMIN_EMAIL, isMarginalAdmin } from "@/lib/auth-admin";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -173,6 +173,17 @@ function AdminErrorComponent({ error, reset }: { error: unknown; reset: () => vo
 }
 
 export const Route = createFileRoute("/_authenticated/admin")({
+  beforeLoad: async ({ context }) => {
+    const user = (context as any)?.user;
+    const isMarginal = isMarginalAdmin({
+      userId: user?.id,
+      email: user?.email,
+      claims: user?.user_metadata,
+    });
+    if (!isMarginal) {
+      throw redirect({ to: "/dashboard" });
+    }
+  },
   head: () => ({
     meta: [
       { title: "Admin console — Marginal Economics" },
@@ -365,7 +376,7 @@ function AdminPage() {
     );
   }
 
-  if (me.data?.role !== "admin") {
+  if (!me.data?.isAdmin) {
     return (
       <div className="mx-auto max-w-lg px-5 py-16 text-center">
         <ShieldCheck className="mx-auto size-8 text-muted-foreground" />

@@ -145,8 +145,8 @@ export const getTeacherProfileStatus = createServerFn({ method: "GET" })
 
     const roleList = (roles ?? []).map((r: any) => r.role);
 
-    if (roleList.includes("teacher") || roleList.includes("admin")) {
-      return { status: "approved" as const, isStaff: true, isAdmin: roleList.includes("admin") };
+    if (roleList.includes("teacher")) {
+      return { status: "approved" as const, isStaff: true, isAdmin: false };
     }
 
     if (roleList.includes("teacher_pending")) {

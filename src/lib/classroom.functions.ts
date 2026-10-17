@@ -181,8 +181,12 @@ export const listClassrooms = createServerFn({ method: "GET" })
       .from("user_roles")
       .select("role")
       .eq("user_id", context.userId);
-    const roleList = (roles ?? []).map((row) => row.role);
-    const activeRole = roleList.includes("admin")
+    const isMarginal = isMarginalAdmin({
+      userId: context.userId,
+      email: (context as any).email,
+      claims: (context as any).claims,
+    });
+    const activeRole = isMarginal
       ? ("admin" as const)
       : roleList.includes("teacher")
         ? ("teacher" as const)

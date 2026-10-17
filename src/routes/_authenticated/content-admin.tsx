@@ -1,10 +1,22 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 
 import { PageHeader } from "@/components/app/app-shell";
 import { AdminNavTabs } from "@/components/app/admin-nav";
 import { QuestionBankAdmin } from "@/components/app/question-bank-admin";
+import { supabase } from "@/integrations/backend/client";
+import { isMarginalAdmin } from "@/lib/auth-admin";
+import { getMe } from "@/lib/account.functions";
 
 export const Route = createFileRoute("/_authenticated/content-admin")({
+  beforeLoad: async () => {
+    const { data, error } = await supabase.auth.getUser();
+    if (error || !data?.user) throw redirect({ to: "/auth" });
+    if (!isMarginalAdmin({ userId: data.user.id, email: data.user.email, claims: data.user.user_metadata })) {
+      throw redirect({ to: "/dashboard" });
+    }
+  },
   head: () => ({
     meta: [
       { title: "Content admin — Marginal Economics" },
@@ -18,10 +30,21 @@ export const Route = createFileRoute("/_authenticated/content-admin")({
   component: ContentAdminPage,
 });
 
-// Staff-only (teacher or admin), same as Knowledge base — enforced by the
-// bank_* RLS policies, not by a client-side redirect (nav already hides
-// this route from students; a direct hit is rejected server-side).
 function ContentAdminPage() {
+  const fetchMe = useServerFn(getMe);
+  const meQuery = useQuery({ queryKey: ["me"], queryFn: () => fetchMe() });
+
+  if (meQuery.isLoading) return null;
+  if (!meQuery.data?.isAdmin) {
+    return (
+      <div className="mx-auto max-w-md px-5 py-16 text-center">
+        <p className="text-sm text-muted-foreground">
+          This console is reserved exclusively for the platform administrator.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div>
       <PageHeader
