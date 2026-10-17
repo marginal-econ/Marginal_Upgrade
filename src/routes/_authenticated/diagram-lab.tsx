@@ -61,10 +61,7 @@ function DiagramLabPage() {
     staleTime: 30_000,
   });
 
-  const sub = meQuery.data?.subscription;
   const isAdmin = meQuery.data?.isAdmin ?? false;
-  const isHigherTier = sub?.tier === "mastery" || sub?.tier === "elite";
-  const hasAccess = isAdmin || isHigherTier;
 
   const [activeTab, setActiveTab] = useState<"sandbox" | "drills">("sandbox");
   const [preset, setPreset] = useState<DiagramPreset>("tax");
@@ -75,32 +72,10 @@ function DiagramLabPage() {
   const activeDrill = CAMBRIDGE_DIAGRAM_DRILLS[activeDrillIndex]!;
   const [drillEvaluated, setDrillEvaluated] = useState(false);
 
-  if (!meQuery.isLoading && !hasAccess) {
-    return (
-      <ChainedChamber
-        badgeText="Experimental Lab · Locked"
-        title="Interactive Diagram CAD & Geometry Lab"
-        description="The Diagram CAD Lab is an experimental Cambridge 9708 vector modeling engine reserved for A* Mastery Sprint, Cambridge Elite scholars, and platform administrators."
-        primaryCtaText="Unlock Mastery Pass (from ₹799/mo)"
-        primaryCtaLink="/pricing"
-        secondaryCtaText="Return to Dashboard"
-        secondaryCtaLink="/dashboard"
-        features={[
-          {
-            icon: Sliders,
-            iconColor: "text-violet-500",
-            title: "Dynamic Curve Shifts & Geometry",
-            description: "Manipulate price elasticity, tax burden incidence, and deadweight loss triangles in real-time.",
-          },
-          {
-            icon: Sparkles,
-            iconColor: "text-primary",
-            title: "Cambridge Syllabus Benchmark Drills",
-            description: "Interactive diagram challenge questions directly aligned with 9708 mark scheme criteria.",
-          },
-        ]}
-      />
-    );
+  // Experimental Labs are strictly confidential to platform administrators
+  if (!meQuery.isLoading && !isAdmin) {
+    navigate({ to: "/dashboard", replace: true });
+    return null;
   }
 
   // Switch preset

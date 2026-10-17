@@ -6,6 +6,20 @@ import { Button } from "@/components/ui/button";
 export function TeachersSection() {
   const capabilities = [
     {
+      icon: Users,
+      title: "Interactive Cambridge Classroom Manager",
+      lead: "The central hub for your Cambridge 9708 cohorts",
+      desc: "Create and organize distinct classes for AS and A2 Level cohorts. Issue structured essay assignments, track student submissions in real time, monitor deadlines, and lead focused academic discussion streams.",
+      badge: "Highlight Feature",
+    },
+    {
+      icon: LineChart,
+      title: "Holistic Review & Diagnostic Analysis",
+      lead: "Pinpoint syllabus weaknesses across your entire class",
+      desc: "Audit automated AO1 (Knowledge), AO2 (Analysis), and AO3 (Evaluation) diagnostic heatmaps. Track individual candidate trajectories and cohort-wide mastery to focus revision before exam series.",
+      badge: "Diagnostic Analysis",
+    },
+    {
       icon: BookOpen,
       title: "School Mark Scheme & RAG Ingestion",
       lead: "Ground AI evaluation in your school's curriculum",
@@ -18,20 +32,6 @@ export function TeachersSection() {
       lead: "Lock grading standards to Cambridge examiner levels",
       desc: "Calibrate exemplar student essays against Cambridge 9708 Level 4 and Level 5 grade boundaries to guarantee department-wide marking consistency.",
       badge: "Exam Calibration",
-    },
-    {
-      icon: FileCheck2,
-      title: "Desktop Batch Marking Desk & Moderation",
-      lead: "Grade 30 candidate mock papers in minutes",
-      desc: "Review AI first-pass marks on our desktop marking desk. Inspect AI vs Teacher discrepancies, apply mark adjustments with one click, and attach formal examiner notes.",
-      badge: "Marking Desk",
-    },
-    {
-      icon: LineChart,
-      title: "Cohort Diagnostic Analytics & Classes",
-      lead: "Pinpoint syllabus weaknesses across your entire class",
-      desc: "Set mock paper assignments, manage class cohorts, and audit automated AO1, AO2, and AO3 diagnostic heatmaps to target revision before exam series.",
-      badge: "Cohort Analytics",
     },
   ];
 
@@ -49,7 +49,7 @@ export function TeachersSection() {
               Transform Your Economics Department’s Marking &amp; Assessment
             </h2>
             <p className="mt-4 text-base md:text-lg text-muted-foreground leading-relaxed text-pretty">
-              Marginal gives Cambridge Economics teachers the administrative tools to ingest internal mark schemes, calibrate standardized grading anchors, and batch-evaluate mock scripts with examiner precision.
+              Marginal gives Cambridge Economics teachers the dedicated tools to organize interactive classrooms, conduct deep AO diagnostic reviews, ingest internal mark schemes, and calibrate standardized grading anchors with examiner precision.
             </p>
           </Reveal>
         </div>

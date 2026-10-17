@@ -128,13 +128,10 @@ export function GroundedChatPage() {
   const isAdmin = Boolean(
     meQuery.data?.isAdmin ||
     meQuery.data?.role === "admin" ||
-    meQuery.data?.role === "teacher" ||
     sub?.isAdmin
   );
-  const isHigherTier = sub?.tier === "mastery" || sub?.tier === "elite";
-  // Experimental Labs: Unlocked for platform admins and A* Mastery / Elite scholars
-  const hasAccess = isAdmin || isHigherTier;
-  const isUnlocked = hasAccess;
+  // Experimental Labs: Confidential to platform administrators only
+  const isUnlocked = isAdmin;
 
   // Conversational state
   const [messages, setMessages] = useState<ChatMessageItem[]>([]);
@@ -738,39 +735,10 @@ export function GroundedChatPage() {
     });
   };
 
-  // Experimental Lab Locked State (Higher-Tier & Admin Only)
-  if (!meQuery.isLoading && !hasAccess) {
-    return (
-      <ChainedChamber
-        badgeText="Experimental Lab · Locked"
-        title="Cambridge AI Grounded Chat & Voiceover Lab"
-        description="The Cambridge Grounded Chat & Voiceover Studio is an experimental AI dialogue engine reserved for A* Mastery Sprint, Cambridge Elite scholars, and platform administrators."
-        primaryCtaText="Unlock Mastery Pass (from ₹799/mo)"
-        primaryCtaLink="/pricing"
-        secondaryCtaText="Return to Dashboard"
-        secondaryCtaLink="/dashboard"
-        features={[
-          {
-            icon: Sparkles,
-            iconColor: "text-primary",
-            title: "100% Authentic Syllabus Grounding",
-            description: "Every response strictly cites Cambridge 9708 syllabus chapters, definitions, and official past mark schemes.",
-          },
-          {
-            icon: Headphones,
-            iconColor: "text-amber-500",
-            title: "Interactive Voiceover Studio",
-            description: "Natural conversational voice dialogue with talk-over interruptibility, calibrations, and concise examiner summaries.",
-          },
-          {
-            icon: PenLine,
-            iconColor: "text-emerald-500",
-            title: "Voice-to-Essay Auto-Drafting",
-            description: "Convert voice discussions directly into 5-paragraph Cambridge 9708 essays ready for the examiner desk.",
-          },
-        ]}
-      />
-    );
+  // Experimental Labs are strictly confidential to platform administrators
+  if (!meQuery.isLoading && !isAdmin) {
+    navigate({ to: "/dashboard", replace: true });
+    return null;
   }
 
   return (

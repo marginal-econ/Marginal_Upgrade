@@ -70,10 +70,7 @@ function PaperMatrixPage() {
     staleTime: 30_000,
   });
 
-  const sub = meQuery.data?.subscription;
   const isAdmin = meQuery.data?.isAdmin ?? false;
-  const isHigherTier = sub?.tier === "mastery" || sub?.tier === "elite";
-  const hasAccess = isAdmin || isHigherTier;
 
   const [mainTab, setMainTab] = useState<"matrix" | "archive">("matrix");
 
@@ -200,32 +197,10 @@ function PaperMatrixPage() {
     });
   };
 
-  if (!meQuery.isLoading && !hasAccess) {
-    return (
-      <ChainedChamber
-        badgeText="Experimental Lab · Locked"
-        title="15-Year Past Paper Cycle Matrix & Topic Predictor"
-        description="The Cambridge 9708 15-Year Cycle Matrix and predictive probability model is an experimental research tool reserved for A* Mastery Sprint, Cambridge Elite scholars, and platform administrators."
-        primaryCtaText="Unlock Mastery Pass (from ₹799/mo)"
-        primaryCtaLink="/pricing"
-        secondaryCtaText="Return to Dashboard"
-        secondaryCtaLink="/dashboard"
-        features={[
-          {
-            icon: Flame,
-            iconColor: "text-amber-500",
-            title: "15-Year Statistical Cycle Modeling",
-            description: "Deep recurrence frequency algorithms analyzing 15 years of Cambridge 9708 papers (2010–2025).",
-          },
-          {
-            icon: Zap,
-            iconColor: "text-primary",
-            title: "Overdue Exam Topic Alerts",
-            description: "Identifies high-probability topics and past essay stems with full mark schemes.",
-          },
-        ]}
-      />
-    );
+  // Experimental Labs are strictly confidential to platform administrators
+  if (!meQuery.isLoading && !isAdmin) {
+    navigate({ to: "/dashboard", replace: true });
+    return null;
   }
 
   return (

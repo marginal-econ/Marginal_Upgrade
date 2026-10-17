@@ -104,9 +104,9 @@ const STUDENT_TIERS: StudentTier[] = [
     annualEquivalentMonthly: 499,
     savePct: 17,
     quota: "35 Graded Essays / mo · 60 Live Examiner Sessions",
-    badge: "A* Target",
+    badge: "A* Target Cohort",
     features: [
-      "★ Early Access to Experimental Labs (Diagram CAD & Paper Predictor)",
+      "Multi-Paper Diagnostic Feedback & Evaluative Refinements",
       "35 Cambridge Graded Essays / month",
       "60 Live Examiner Sessions / month (60m extended AI coaching, priority queue)",
       "Unlimited Instant In-Browser Grammar & Mechanics Checks",
@@ -125,9 +125,9 @@ const STUDENT_TIERS: StudentTier[] = [
     annualEquivalentMonthly: 799,
     savePct: 20,
     quota: "75 Graded Essays / mo · 120 Live Examiner Sessions",
-    badge: "VIP All-Access",
+    badge: "VIP All-Access Pass",
     features: [
-      "★ Full Experimental Labs Access (CAD Engine, Paper Predictor & Preview Suites)",
+      "Comprehensive Cambridge Mock Suite (Papers 1, 2, 3 & 4 Coverage)",
       "75 Cambridge Graded Essays / month & Reworks",
       "120 Live Examiner Sessions / month (90m sprint revision AI coaching per session)",
       "Unlimited Instant In-Browser Grammar & Terminology Checks",
@@ -155,7 +155,7 @@ const SCHOOL_TIERS: SchoolTier[] = [
     features: [
       "Up to 50 active student seats",
       "2 Teacher Admin accounts with full dashboard",
-      "Batch homework submissions in 1-click",
+      "Interactive Cambridge classroom cohort manager",
       "Cambridge AO distribution & mark breakdowns",
       "Gradebook CSV & spreadsheet exports",
     ],
@@ -195,7 +195,7 @@ const SCHOOL_TIERS: SchoolTier[] = [
     features: [
       "Up to 400 active student seats",
       "15 Teacher Admin seats with custom permissions",
-      "Handwritten OCR script batch uploads",
+      "School mark scheme & curriculum RAG ingestion",
       "Full syllabus topic mastery analytics",
       "Examiner arbitration on disputed marks",
       "Priority SLA and dedicated support line",
@@ -271,7 +271,7 @@ export function PricingSection({ className }: { className?: string }) {
       annualEquivalentMonthly: activePlans.mastery.annualEquivalentMonthly,
       savePct: activePlans.mastery.savePct,
       quota: `${activePlans.mastery.essaysPerMonth} Graded Essays / mo · ${activePlans.mastery.liveCredits} Live Credits`,
-      badge: "A* Target · Labs Preview",
+      badge: "A* Target Cohort",
       features: activePlans.mastery.features,
     },
     {
@@ -283,7 +283,7 @@ export function PricingSection({ className }: { className?: string }) {
       annualEquivalentMonthly: activePlans.elite.annualEquivalentMonthly,
       savePct: activePlans.elite.savePct,
       quota: `Unlimited Essays · ${activePlans.elite.liveCredits}+ Live Credits`,
-      badge: "VIP All-Access · Full Labs",
+      badge: "VIP All-Access Pass",
       features: activePlans.elite.features,
     },
   ];
@@ -393,24 +393,26 @@ export function PricingSection({ className }: { className?: string }) {
               </div>
 
               <div className="flex-1 flex flex-col">
-                <h3 className="text-lg font-bold text-foreground">{FREE_STARTER_TIER.name}</h3>
-                <p className="mt-1.5 text-xs text-muted-foreground leading-relaxed">
+                <h3 className="text-lg font-bold text-foreground min-h-[28px] flex items-center">{FREE_STARTER_TIER.name}</h3>
+                <p className="mt-1.5 text-xs text-muted-foreground leading-relaxed min-h-[38px] flex items-start">
                   {FREE_STARTER_TIER.tagline}
                 </p>
 
-                <div className="mt-5 border-y border-border/60 py-4">
-                  <div className="flex items-baseline gap-1">
-                    <span className="text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">
-                      {FREE_STARTER_TIER.price}
-                    </span>
-                    <span className="text-xs text-muted-foreground">/ {FREE_STARTER_TIER.period}</span>
+                <div className="mt-5 border-y border-border/60 py-4 min-h-[148px] flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">
+                        {FREE_STARTER_TIER.price}
+                      </span>
+                      <span className="text-xs text-muted-foreground">/ {FREE_STARTER_TIER.period}</span>
+                    </div>
+                    <p className="mt-1 text-[11px] text-muted-foreground min-h-[16px]">
+                      Zero card required · Instant start
+                    </p>
                   </div>
-                  <p className="mt-1 text-[11px] text-muted-foreground">
-                    Zero card required · Instant start
-                  </p>
-                  <div className="mt-2.5 inline-flex items-center gap-1.5 rounded-md bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-                    <Check className="size-3" />
-                    {FREE_STARTER_TIER.quota}
+                  <div className="w-full min-h-[44px] flex items-center justify-center rounded-md bg-emerald-500/10 px-2.5 py-1 text-center text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 leading-tight">
+                    <Check className="size-3 shrink-0 mr-1.5" />
+                    <span>{FREE_STARTER_TIER.quota}</span>
                   </div>
                 </div>
 
@@ -469,30 +471,32 @@ export function PricingSection({ className }: { className?: string }) {
                   ) : null}
 
                   <div className="flex-1 flex flex-col">
-                    <h3 className="text-lg font-bold text-foreground">{tier.name}</h3>
-                    <p className="mt-1.5 text-xs text-muted-foreground leading-relaxed">
+                    <h3 className="text-lg font-bold text-foreground min-h-[28px] flex items-center">{tier.name}</h3>
+                    <p className="mt-1.5 text-xs text-muted-foreground leading-relaxed min-h-[38px] flex items-start">
                       {tier.tagline}
                     </p>
 
-                    <div className="mt-5 border-y border-border/60 py-4">
-                      <div className="flex items-baseline gap-1">
-                        <span className="text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">
-                          {displayPrice}
-                        </span>
-                        <span className="text-xs text-muted-foreground">{periodText}</span>
+                    <div className="mt-5 border-y border-border/60 py-4 min-h-[148px] flex flex-col justify-between">
+                      <div>
+                        <div className="flex items-baseline gap-1">
+                          <span className="text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">
+                            {displayPrice}
+                          </span>
+                          <span className="text-xs text-muted-foreground">{periodText}</span>
+                        </div>
+                        {cycle === "annual" ? (
+                          <p className="mt-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400 min-h-[16px]">
+                            ₹{tier.annualPrice.toLocaleString()} / year (Save {tier.savePct}%)
+                          </p>
+                        ) : (
+                          <p className="mt-1 text-[11px] text-muted-foreground min-h-[16px]">
+                            Billed monthly · Cancel anytime
+                          </p>
+                        )}
                       </div>
-                      {cycle === "annual" ? (
-                        <p className="mt-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
-                          ₹{tier.annualPrice.toLocaleString()} / year (Save {tier.savePct}%)
-                        </p>
-                      ) : (
-                        <p className="mt-1 text-[11px] text-muted-foreground">
-                          Billed monthly · Cancel anytime
-                        </p>
-                      )}
-                      <div className="mt-2.5 inline-flex items-center gap-1.5 rounded-md bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">
-                        <Zap className="size-3" />
-                        {tier.quota}
+                      <div className="w-full min-h-[44px] flex items-center justify-center rounded-md bg-primary/10 px-2.5 py-1 text-center text-[11px] font-semibold text-primary leading-tight">
+                        <Zap className="size-3 shrink-0 mr-1.5" />
+                        <span>{tier.quota}</span>
                       </div>
                     </div>
 
@@ -559,21 +563,23 @@ export function PricingSection({ className }: { className?: string }) {
                   ) : null}
 
                   <div className="flex-1 flex flex-col">
-                    <h3 className="text-lg font-bold text-foreground">{tier.name}</h3>
-                    <p className="mt-1.5 text-xs text-muted-foreground leading-relaxed">
+                    <h3 className="text-lg font-bold text-foreground min-h-[28px] flex items-center">{tier.name}</h3>
+                    <p className="mt-1.5 text-xs text-muted-foreground leading-relaxed min-h-[38px] flex items-start">
                       {tier.tagline}
                     </p>
 
-                    <div className="mt-5 border-y border-border/60 py-4">
-                      <div className="flex items-baseline gap-1">
-                        <span className="text-2xl font-extrabold tracking-tight text-foreground sm:text-3xl">
-                          {displayPrice}
-                        </span>
-                        <span className="text-xs text-muted-foreground">{periodText}</span>
+                    <div className="mt-5 border-y border-border/60 py-4 min-h-[148px] flex flex-col justify-between">
+                      <div>
+                        <div className="flex items-baseline gap-1">
+                          <span className="text-2xl font-extrabold tracking-tight text-foreground sm:text-3xl">
+                            {displayPrice}
+                          </span>
+                          <span className="text-xs text-muted-foreground">{periodText}</span>
+                        </div>
+                        <p className="mt-1 text-[11px] font-semibold text-primary min-h-[16px]">
+                          {tier.effectiveCostPerStudent}
+                        </p>
                       </div>
-                      <p className="mt-1 text-[11px] font-semibold text-primary">
-                        {tier.effectiveCostPerStudent}
-                      </p>
 
                       <div className="mt-3 flex flex-wrap gap-1.5">
                         <Badge variant="outline" className="text-[10px] bg-muted/50">

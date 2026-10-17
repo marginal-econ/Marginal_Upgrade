@@ -148,13 +148,13 @@ function filterGroupForRole(
 
   if (group.adminOnly && !isAdmin) return null;
   if (group.staffOnly && role !== "teacher" && !isAdmin) return null;
-  // Hide experimental labs entirely for non-paid or unallowed users
-  if (group.isExperimental && !isPaid) return null;
+  // Experimental labs and features are confidential and visible strictly to administrators
+  if (group.isExperimental && !isAdmin) return null;
 
   const visibleItems = group.items.filter((item) => {
     if (item.adminOnly && !isAdmin) return false;
     if (item.staffOnly && role !== "teacher" && !isAdmin) return false;
-    if (item.requiresHigherTier && !isPaid) return false;
+    if (item.requiresHigherTier && !isAdmin) return false;
     return true;
   });
 

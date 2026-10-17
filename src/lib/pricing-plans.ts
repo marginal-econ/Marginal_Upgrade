@@ -73,9 +73,9 @@ export const DEFAULT_PRICING_PLANS: PlatformPricingPlans = {
     savePct: 17,
     essaysPerMonth: 35,
     liveCredits: 60,
-    hasExperimentalLabs: true,
+    hasExperimentalLabs: false,
     features: [
-      "★ Early Access to Experimental Labs (Diagram CAD & Paper Predictor)",
+      "Multi-Paper Diagnostic Feedback & Evaluative Refinements",
       "35 Cambridge Graded Essays / month",
       "60 Live Examiner Sessions / month (60m extended AI coaching, priority queue)",
       "Unlimited Instant In-Browser Grammar & Mechanics Checks",
@@ -94,9 +94,9 @@ export const DEFAULT_PRICING_PLANS: PlatformPricingPlans = {
     savePct: 20,
     essaysPerMonth: 75,
     liveCredits: 120,
-    hasExperimentalLabs: true,
+    hasExperimentalLabs: false,
     features: [
-      "★ Full Experimental Labs Access (CAD Engine, Paper Predictor & Preview Suites)",
+      "Comprehensive Cambridge Mock Suite (Papers 1, 2, 3 & 4 Coverage)",
       "75 Cambridge Graded Essays / month & Reworks",
       "120 Live Examiner Sessions / month (90m sprint revision AI coaching per session)",
       "Unlimited Instant In-Browser Grammar & Terminology Checks",

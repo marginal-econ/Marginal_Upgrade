@@ -560,12 +560,8 @@ export function DashboardPage() {
             />
           </div>
 
-          {/* Conditional Experimental Labs Compartment (Admin & Higher-Tier Only) */}
-          {Boolean(
-            me.data?.isAdmin ||
-              me.data?.subscription?.tier === "mastery" ||
-              me.data?.subscription?.tier === "elite"
-          ) ? (
+          {/* Conditional Experimental Labs Compartment (Admin Only) */}
+          {Boolean(me.data?.isAdmin) ? (
             <div className="mt-6 rounded-2xl border border-primary/30 bg-primary/[0.03] p-5">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
@@ -573,9 +569,7 @@ export function DashboardPage() {
                     Experimental Labs
                   </Badge>
                   <span className="text-xs text-muted-foreground font-medium">
-                    {me.data?.isAdmin
-                      ? "Administrator Access"
-                      : "Higher-Tier Preview (Mastery / Elite)"}
+                    Administrator Access
                   </span>
                 </div>
               </div>
