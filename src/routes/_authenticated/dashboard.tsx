@@ -259,12 +259,18 @@ export function DashboardPage() {
               <h2 className="text-base sm:text-lg font-bold text-foreground">
                 {greeting}, {me.data?.fullName?.split(" ")[0] || "Economist"}!
               </h2>
-              <Badge
-                variant="outline"
-                className="border-primary/30 bg-primary/10 text-primary text-[10px] font-semibold"
-              >
-                9708 RAG Grounded
-              </Badge>
+              {me.data?.subscription?.isPaid ? (
+                <Badge className="bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 text-[10px] font-bold">
+                  {me.data.subscription.tierName}
+                </Badge>
+              ) : (
+                <Badge
+                  variant="outline"
+                  className="border-primary/30 bg-primary/10 text-primary text-[10px] font-semibold"
+                >
+                  9708 RAG Grounded
+                </Badge>
+              )}
             </div>
             <p className="text-xs text-muted-foreground">
               {versions.length > 0

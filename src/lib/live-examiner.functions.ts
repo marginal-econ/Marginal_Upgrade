@@ -1203,7 +1203,7 @@ export const getTodayLiveExaminerSession = createServerFn({ method: "GET" })
       const isExpired = !isAdmin && (elapsedSeconds >= DEFAULT_LIVE_EXAMINER_DURATION_MINUTES * 60);
 
       return {
-        hasActiveDailySession: !isAdmin,
+        hasActiveDailySession: !isAdmin && !isExpired,
         isAdmin,
         isExpired,
         claimedQuestion: matchingSession?.question ?? usageRow.detail,

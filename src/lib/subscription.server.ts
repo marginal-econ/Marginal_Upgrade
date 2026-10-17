@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isMarginalAdmin } from "@/lib/auth-admin";
+import { supabaseAdmin } from "@/integrations/backend/client.server";
 import {
   FREE_TIER_ESSAY_LIMIT,
   MCQ_FREE_TRIAL_DAYS,
@@ -10,6 +11,7 @@ import {
 
 /**
  * Resolves the full subscription, credit balance, and usage state for a given user.
+ * Always utilizes authoritative server admin access to read definitions, avoiding RLS blocking.
  */
 export async function getUserSubscriptionDetails(
   supabase: SupabaseClient<any, any, any>,
@@ -36,13 +38,16 @@ export async function getUserSubscriptionDetails(
     };
   }
 
+  // Authoritative server-side database access (bypasses RLS on internal definition stores)
+  const db: SupabaseClient<any, any, any> = supabaseAdmin ?? supabase;
+
   // 1. Resolve tier from persistent subscription store and claims
   let activeTier: PlanTier = "free";
   let isTeacher = false;
 
   // 1a. Check persistent subscription in definitions table (__USER_SUB_<userId>)
   try {
-    const { data: subRow } = await supabase
+    const { data: subRow } = await db
       .from("definitions")
       .select("definition_text")
       .eq("term", `__USER_SUB_${userId}`)
@@ -63,7 +68,7 @@ export async function getUserSubscriptionDetails(
   // 1b. Check approved UPI payment request if not yet set
   if (activeTier === "free") {
     try {
-      const { data: upiLogs } = await supabase
+      const { data: upiLogs } = await db
         .from("definitions")
         .select("definition_text")
         .eq("category", "upi_payment_request")
@@ -96,7 +101,7 @@ export async function getUserSubscriptionDetails(
 
   // 1d. Check roles in user_roles table
   try {
-    const { data: roles } = await supabase
+    const { data: roles } = await db
       .from("user_roles")
       .select("role")
       .eq("user_id", userId);
@@ -116,7 +121,7 @@ export async function getUserSubscriptionDetails(
   // 2. Count total essays submitted
   let essaysGradedCount = 0;
   try {
-    const { count, error } = await supabase
+    const { count, error } = await db
       .from("essays")
       .select("id", { count: "exact", head: true })
       .eq("user_id", userId);
@@ -131,7 +136,7 @@ export async function getUserSubscriptionDetails(
   // 3. Count Live Examiner session credits used this cycle
   let liveCreditsUsed = 0;
   try {
-    const { count } = await supabase
+    const { count } = await db
       .from("live_examiner_sessions")
       .select("id", { count: "exact", head: true })
       .eq("user_id", userId);
@@ -163,7 +168,7 @@ export async function getUserSubscriptionDetails(
 
   if (activeTier === "free") {
     try {
-      const { data: profile } = await supabase
+      const { data: profile } = await db
         .from("profiles")
         .select("created_at")
         .eq("id", userId)
@@ -201,25 +206,26 @@ export async function getUserSubscriptionDetails(
  * Assigns or upgrades a subscription tier for a user.
  */
 export async function assignUserSubscriptionTier(
-  supabaseAdmin: SupabaseClient<any, any, any>,
+  client: SupabaseClient<any, any, any>,
   userId: string,
   tier: PlanTier,
 ): Promise<{ success: boolean; message: string }> {
   try {
+    const db = supabaseAdmin ?? client;
     const termKey = `__USER_SUB_${userId}`;
     const payload = JSON.stringify({
       tier,
       updatedAt: new Date().toISOString(),
     });
 
-    const { data: existing } = await supabaseAdmin
+    const { data: existing } = await db
       .from("definitions")
       .select("id")
       .eq("term", termKey)
       .maybeSingle();
 
     if (existing?.id) {
-      await supabaseAdmin
+      await db
         .from("definitions")
         .update({
           definition_text: payload,
@@ -227,7 +233,7 @@ export async function assignUserSubscriptionTier(
         })
         .eq("id", existing.id);
     } else {
-      await supabaseAdmin.from("definitions").insert({
+      await db.from("definitions").insert({
         term: termKey,
         definition_text: payload,
         category: "user_subscription",
@@ -237,7 +243,7 @@ export async function assignUserSubscriptionTier(
 
     // Also attempt updating user auth app_metadata if accessible
     try {
-      await supabaseAdmin.auth.admin.updateUserById(userId, {
+      await db.auth.admin.updateUserById(userId, {
         app_metadata: { tier },
       });
     } catch {}

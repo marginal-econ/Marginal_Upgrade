@@ -145,6 +145,7 @@ function PaymentPortalPage() {
     staleTime: 0,
     refetchOnMount: "always",
     refetchOnWindowFocus: true,
+    refetchInterval: (query) => (query.state.data?.pendingRequest ? 3000 : false),
   });
 
   const fetchMe = useServerFn(getMe);
@@ -185,6 +186,20 @@ function PaymentPortalPage() {
     script.async = true;
     document.body.appendChild(script);
   }, []);
+
+  // When an admin verifies a pending UPI payment, immediately invalidate queries and activate access
+  const prevPending = useRef<boolean>(false);
+  useEffect(() => {
+    const isPending = Boolean(configQuery.data?.pendingRequest);
+    if (prevPending.current && !isPending && configQuery.data?.currentTier !== "free") {
+      queryClient.invalidateQueries({ queryKey: ["me"] });
+      queryClient.invalidateQueries({ queryKey: ["payment-config"] });
+      toast.success("Payment verified! Your Cambridge plan and credits are now unlocked.", {
+        duration: 8000,
+      });
+    }
+    prevPending.current = isPending;
+  }, [configQuery.data?.pendingRequest, configQuery.data?.currentTier, queryClient]);
 
   const handleActivation = async (isSimulation = false) => {
     setIsProcessing(true);
@@ -361,6 +376,40 @@ function PaymentPortalPage() {
             scoring higher with official mark scheme calibrations.
           </p>
         </div>
+
+        {/* Active Paid Subscription Banner */}
+        {meQuery.data?.subscription?.isPaid && (
+          <div className="mb-6 rounded-2xl border border-emerald-500/40 bg-gradient-to-r from-emerald-500/15 via-emerald-500/10 to-transparent p-5 text-xs shadow-sm">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div className="flex items-start gap-3">
+                <div className="size-10 rounded-xl bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-500/30 shadow-xs">
+                  <Sparkles className="size-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-sm sm:text-base font-bold text-foreground">
+                      Active Plan: {meQuery.data.subscription.tierName}
+                    </h2>
+                    <Badge className="bg-emerald-500 text-white font-mono text-[10px] uppercase">
+                      Active
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Essays Remaining: <strong className="text-foreground">{meQuery.data.subscription.essaysLimit === 9999 ? "Unlimited" : `${meQuery.data.subscription.essaysRemaining} / ${meQuery.data.subscription.essaysLimit}`}</strong> · Live Examiner Credits: <strong className="text-foreground">{meQuery.data.subscription.liveExaminerCredits}</strong>
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button asChild size="sm" className="h-8 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-semibold">
+                  <Link to="/live-examiner">Go to Live Examiner</Link>
+                </Button>
+                <Button asChild variant="outline" size="sm" className="h-8 text-xs">
+                  <Link to="/grade">Grade Essay</Link>
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Pending Verification Banner if any */}
         {configQuery.data?.pendingRequest && (
