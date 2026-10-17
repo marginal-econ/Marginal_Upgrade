@@ -842,7 +842,15 @@ export function AppShell({
 
           <div className="flex items-center gap-2">
             <Link to="/pricing">
-              <Badge variant="outline" className="text-[10px] font-bold text-primary border-primary/30">
+              <Badge
+                variant="outline"
+                className={cn(
+                  "text-[10px] font-bold",
+                  subscription?.isPaid
+                    ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                    : "text-primary border-primary/30",
+                )}
+              >
                 {subscription?.isPaid ? subscription.tierName.split(" ")[0] : "Free Tier"}
               </Badge>
             </Link>

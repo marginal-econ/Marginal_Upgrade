@@ -97,7 +97,7 @@ function PaymentPortalPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  const [selectedTier, setSelectedTier] = useState<PlanTier>(search.tier || "pro");
+  const [selectedTier, setSelectedTier] = useState<PlanTier>(search.tier || "foundation");
   const [cycle, setCycle] = useState<"monthly" | "annual">(search.cycle || "monthly");
   const [paymentMethod, setPaymentMethod] = useState<"razorpay" | "upi">("upi");
   const [isLockShaking, setIsLockShaking] = useState(false);

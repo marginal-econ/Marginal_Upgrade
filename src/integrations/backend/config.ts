@@ -8,11 +8,11 @@ const metaEnv = typeof import.meta !== "undefined" ? (import.meta as any).env : 
 export const BACKEND_URL =
   metaEnv?.["VITE_BACKEND_URL"] ||
   (typeof process !== "undefined" ? process.env["BACKEND_URL"] || process.env["VITE_BACKEND_URL"] : undefined) ||
-  "";
+  "https://tmuhpnorjydfijjotvoc.supabase.co";
 export const BACKEND_PUBLISHABLE_KEY =
   metaEnv?.["VITE_BACKEND_PUBLISHABLE_KEY"] ||
   (typeof process !== "undefined" ? process.env["BACKEND_PUBLISHABLE_KEY"] || process.env["VITE_BACKEND_PUBLISHABLE_KEY"] : undefined) ||
-  "";
+  "sb_publishable_OjodijuvlKGW8FBiuSZU7g_EUggDP77";
 
 export function requireBackendConfig(): void {
   if (!BACKEND_URL || !BACKEND_PUBLISHABLE_KEY) {

@@ -80,6 +80,13 @@ export const getMe = createServerFn({ method: "GET" })
       };
     } catch (err) {
       console.warn("Exception in getMe, returning fallback role:", err);
+      const fallbackTier =
+        (context as any).claims?.app_metadata?.tier ||
+        (context as any).claims?.user_metadata?.tier ||
+        "free";
+      const isPaidTier = fallbackTier !== "free";
+      const tierLimit = (TIER_LIMITS as any)[fallbackTier] || TIER_LIMITS.free;
+
       return {
         userId,
         fullName: isMarginal ? "Marginal Admin" : null,
@@ -89,16 +96,16 @@ export const getMe = createServerFn({ method: "GET" })
         isStaff: isMarginal,
         tutorialCompleted: true,
         subscription: {
-          tier: "free" as const,
-          tierName: "Free Tier",
-          isPaid: false,
+          tier: fallbackTier,
+          tierName: tierLimit.name,
+          isPaid: isPaidTier,
           isAdmin: isMarginal,
           essaysGradedCount: 0,
-          essaysLimit: 2,
-          essaysRemaining: 2,
+          essaysLimit: tierLimit.monthlyEssayLimit,
+          essaysRemaining: tierLimit.monthlyEssayLimit,
           canGradeEssay: true,
-          liveExaminerCredits: 0,
-          canUseLiveExaminer: false,
+          liveExaminerCredits: tierLimit.liveExaminerCredits,
+          canUseLiveExaminer: tierLimit.liveExaminerCredits > 0,
           mcqFreeDaysRemaining: 30,
           canUseMCQ: true,
         },

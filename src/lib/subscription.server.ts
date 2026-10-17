@@ -245,10 +245,11 @@ export async function assignUserSubscriptionTier(
       });
     }
 
-    // Also attempt updating user auth app_metadata if accessible
+    // Also attempt updating user auth app_metadata and user_metadata if accessible
     try {
       await db.auth.admin.updateUserById(userId, {
         app_metadata: { tier },
+        user_metadata: { tier },
       });
     } catch {}
 

@@ -5,9 +5,18 @@
   "compatibility_date": "2026-08-25",
   "compatibility_flags": ["nodejs_compat"],
   "vars": {
-    "PUBLIC_SITE_URL": "https://app.marginal-econ.workers.dev"
+    "PUBLIC_SITE_URL": "https://app.marginal-econ.workers.dev",
+    "BACKEND_URL": "https://tmuhpnorjydfijjotvoc.supabase.co",
+    "BACKEND_PUBLISHABLE_KEY": "sb_publishable_OjodijuvlKGW8FBiuSZU7g_EUggDP77",
+    "SUPABASE_URL": "https://tmuhpnorjydfijjotvoc.supabase.co",
+    "SUPABASE_PUBLISHABLE_KEY": "sb_publishable_OjodijuvlKGW8FBiuSZU7g_EUggDP77",
+    "VITE_BACKEND_URL": "https://tmuhpnorjydfijjotvoc.supabase.co",
+    "VITE_BACKEND_PUBLISHABLE_KEY": "sb_publishable_OjodijuvlKGW8FBiuSZU7g_EUggDP77",
+    "VITE_SUPABASE_URL": "https://tmuhpnorjydfijjotvoc.supabase.co",
+    "VITE_SUPABASE_PUBLISHABLE_KEY": "sb_publishable_OjodijuvlKGW8FBiuSZU7g_EUggDP77",
+    "MAILJET_SENDER_EMAIL": "marginal.econ.ai@gmail.com"
   },
   "observability": {
-    "enabled": true,
-  },
+    "enabled": true
+  }
 }
