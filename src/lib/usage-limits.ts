@@ -31,32 +31,32 @@ export const TIER_LIMITS = {
   foundation: {
     name: "Foundation Scholar",
     maxEssaysTotal: Infinity,
-    maxEssaysPerMonth: 5,
-    liveExaminerCredits: 5,
+    maxEssaysPerMonth: 8,
+    liveExaminerCredits: 3,
     liveExaminerEnabled: true,
     mcqFreeDays: 365,
   },
   pro: {
     name: "Pro Accelerator",
     maxEssaysTotal: Infinity,
-    maxEssaysPerMonth: 15,
-    liveExaminerCredits: 15,
+    maxEssaysPerMonth: 20,
+    liveExaminerCredits: 10,
     liveExaminerEnabled: true,
     mcqFreeDays: 365,
   },
   mastery: {
     name: "A* Mastery Sprint",
     maxEssaysTotal: Infinity,
-    maxEssaysPerMonth: 35,
-    liveExaminerCredits: 30,
+    maxEssaysPerMonth: 45,
+    liveExaminerCredits: 20,
     liveExaminerEnabled: true,
     mcqFreeDays: 365,
   },
   elite: {
     name: "Cambridge Elite Pass",
     maxEssaysTotal: Infinity,
-    maxEssaysPerMonth: 75,
-    liveExaminerCredits: 50,
+    maxEssaysPerMonth: 80,
+    liveExaminerCredits: 35,
     liveExaminerEnabled: true,
     mcqFreeDays: 365,
   },
@@ -88,13 +88,13 @@ export function essayLimitMessage(limit: number): string {
 
 export const FREE_ESSAY_LIMIT_MESSAGE =
   `${TIER_LIMIT_PREFIX}: You have used your 2 free Cambridge essay gradings on the Free Tier. ` +
-  `Upgrade to Foundation Scholar (₹249/mo), Pro (₹499/mo), or Mastery to continue grading essays with line-by-line mark scheme matching.`;
+  `Upgrade to Foundation Scholar (₹149/mo), Pro (₹399/mo), or Mastery to continue grading essays with line-by-line mark scheme matching.`;
 
 export const TEACHER_SCHOOL_LICENSE_REQUIRED_MESSAGE =
-  "Teacher accounts require an active Educator AI Pass (from ₹249/mo) or School Department License to use the AI Essay Grader. Student submissions to your classrooms are covered under student quotas.";
+  "Teacher accounts require an active Educator AI Pass (from ₹149/mo) or School Department License to use the AI Essay Grader. Student submissions to your classrooms are covered under student quotas.";
 
 export const TEACHER_LIVE_EXAMINER_REQUIRED_MESSAGE =
-  "Teacher accounts require an active Educator AI Pass (from ₹249/mo) or School Department License to use the Live Examiner. To demonstrate or test Live Examiner, please activate an Educator Pass or School License.";
+  "Teacher accounts require an active Educator AI Pass (from ₹149/mo) or School Department License to use the Live Examiner. To demonstrate or test Live Examiner, please activate an Educator Pass or School License.";
 
 export const LIVE_EXAMINER_PAID_ONLY_MESSAGE =
   `Live Examiner is a premium feature available on paid plans. ` +

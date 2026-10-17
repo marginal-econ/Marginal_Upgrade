@@ -30,7 +30,7 @@ export function ChainedChamber({
   title,
   description,
   features,
-  primaryCtaText = "Unlock Plan from ₹249/mo",
+  primaryCtaText = "Unlock Plan from ₹149/mo",
   primaryCtaLink = "/pricing",
   secondaryCtaText,
   secondaryCtaLink,

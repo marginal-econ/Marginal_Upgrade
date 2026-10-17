@@ -876,10 +876,10 @@ function LiveExaminerPage() {
           title={isTeacherUnpaid ? "Unlock Teacher Live Examiner Coaching" : "Cambridge Live Examiner is Chained"}
           description={
             isTeacherUnpaid
-              ? "Live Examiner real-time keystroke coaching for teacher accounts requires an active Educator AI Pass (from ₹249/mo) or School Department License. Upgrade to run live Cambridge coaching demonstrations or test model answers."
+              ? "Live Examiner real-time keystroke coaching for teacher accounts requires an active Educator AI Pass (from ₹149/mo) or School Department License. Upgrade to run live Cambridge coaching demonstrations or test model answers."
               : "Real-time clause checking, instant AO breakdown, and keystroke coaching require an active subscription or live examiner credits."
           }
-          primaryCtaText={isTeacherUnpaid ? "Unlock Educator Pass (from ₹249/mo)" : "Unlock Live Examiner (from ₹249/mo)"}
+          primaryCtaText={isTeacherUnpaid ? "Unlock Educator Pass (from ₹149/mo)" : "Unlock Live Examiner (from ₹149/mo)"}
           primaryCtaLink="/pricing"
           secondaryCtaText={isTeacherUnpaid ? "View School Department Licensing" : "Use Free Essay Grader (2 Free)"}
           secondaryCtaLink={isTeacherUnpaid ? "/pricing" : "/grade"}
@@ -889,7 +889,7 @@ function LiveExaminerPage() {
                   {
                     icon: Sparkles,
                     iconColor: "text-amber-500",
-                    title: "Educator AI Pass (From ₹249/mo)",
+                    title: "Educator AI Pass (From ₹149/mo)",
                     description: "Unlock dedicated Live Examiner credits to run classroom demonstrations, verify student arguments, and test exemplar answers.",
                   },
                   {

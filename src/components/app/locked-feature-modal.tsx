@@ -48,14 +48,14 @@ export function LockedFeatureModal({
     school_license: {
       badge: "Educator AI Pass Required",
       title: "Teacher AI Grading & Live Coaching",
-      desc: "Teacher accounts require an active Educator AI Pass (from ₹249/mo) or School Department License to use personal AI essay grading and live coaching. Classroom homework submissions submitted by your students are funded through their individual student quotas.",
-      ctaText: "Unlock Educator AI Pass (from ₹249/mo)",
+      desc: "Teacher accounts require an active Educator AI Pass (from ₹149/mo) or School Department License to use personal AI essay grading and live coaching. Classroom homework submissions submitted by your students are funded through their individual student quotas.",
+      ctaText: "Unlock Educator AI Pass (from ₹149/mo)",
       items: [
         {
           icon: Sparkles,
           color: "text-amber-500",
           title: "Individual Educator AI Pass",
-          desc: "Subscribe from ₹249/mo to grade student essays, test Cambridge mark schemes, and run live classroom coaching.",
+          desc: "Subscribe from ₹149/mo to grade student essays, test Cambridge mark schemes, and run live classroom coaching.",
         },
         {
           icon: School,
@@ -105,7 +105,7 @@ export function LockedFeatureModal({
           icon: Zap,
           color: "text-amber-500",
           title: "Dedicated Live Examiner Credits",
-          desc: "Upgrade to Foundation (30 credits) or Pro (75 credits) to run live question coaching sessions.",
+          desc: "Upgrade to Foundation (3 credits) or Pro (10 credits) to run live question coaching sessions.",
         },
       ],
     },
@@ -118,7 +118,7 @@ export function LockedFeatureModal({
           icon: PenLine,
           color: "text-primary",
           title: "Higher Monthly Essay Quota",
-          desc: "Get 10 essays/mo on Foundation, 30 essays/mo on Pro, or Unlimited essays on Cambridge Elite.",
+          desc: "Get 8 essays/mo on Foundation, 20 essays/mo on Pro, or 80 essays/mo on Cambridge Elite.",
         },
         {
           icon: ShieldAlert,
@@ -241,7 +241,7 @@ export function LockedFeatureModal({
           <div className="pt-2 flex flex-col gap-2">
             <Button asChild size="default" className="w-full font-bold shadow-md">
               <Link to="/pricing" onClick={() => onOpenChange(false)}>
-                <span>{(config as any).ctaText ?? "Unlock Plan from ₹249/mo"}</span>
+                <span>{(config as any).ctaText ?? "Unlock Plan from ₹149/mo"}</span>
                 <ArrowRight className="ml-1.5 size-4" />
               </Link>
             </Button>
