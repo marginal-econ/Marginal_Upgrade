@@ -27,15 +27,31 @@ async function assertTeacher(context: { supabase: SupabaseClient<Database>; user
   }
   const { getSupabaseAdmin } = await import("@/server/supabase");
   const admin = getSupabaseAdmin();
-  const { data, error } = await admin
+  const { data } = await admin
     .from("user_roles")
     .select("role")
     .eq("user_id", context.userId)
     .in("role", ["teacher"])
     .limit(1)
     .maybeSingle();
-  if (error) throw new Error(error.message);
-  if (!data) throw new Error("Teacher access is required.");
+  if (data?.role === "teacher") return;
+
+  if (
+    (context as any).claims?.user_metadata?.role === "teacher" ||
+    (context as any).claims?.app_metadata?.role === "teacher"
+  ) {
+    return;
+  }
+
+  const { data: tp } = await admin
+    .from("teacher_profiles")
+    .select("status")
+    .eq("user_id", context.userId)
+    .maybeSingle();
+
+  if (tp?.status === "approved") return;
+
+  throw new Error("Teacher access is required.");
 }
 
 async function getClassroomAuthority(userId: string, classroomId: string) {

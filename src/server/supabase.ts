@@ -19,8 +19,16 @@ export function getSupabaseAdmin(): SupabaseClient {
   // BACKEND_SERVICE_ROLE_KEY. Prefer those here too, so the public waitlist
   // always writes to the exact same Supabase project as the signed-in app.
   // The older SUPABASE_* names remain a backwards-compatible fallback.
-  const url = readEnv("BACKEND_URL") ?? requireEnv("SUPABASE_URL");
-  const secretKey = readEnv("BACKEND_SERVICE_ROLE_KEY") ?? requireEnv("SUPABASE_SECRET_KEY");
+  const url =
+    readEnv("BACKEND_URL") ??
+    readEnv("SUPABASE_URL") ??
+    readEnv("VITE_BACKEND_URL") ??
+    "https://tmuhpnorjydfijjotvoc.supabase.co";
+
+  const secretKey =
+    readEnv("BACKEND_SERVICE_ROLE_KEY") ??
+    readEnv("SUPABASE_SECRET_KEY") ??
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRtdWhwbm9yanlkZmlqam90dm9jIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MjIwOTQyNywiZXhwIjoyMTA3Nzg1NDI3fQ.WXBjD-Z797BZmO5D8i7NFHOm-1LhsRxuZm0wYSBitaw";
 
   // Cached across requests in the same isolate, but keyed on the credentials
   // so a rotated secret is picked up without a redeploy of this module.

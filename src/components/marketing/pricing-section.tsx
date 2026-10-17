@@ -295,7 +295,20 @@ export function PricingSection({ className }: { className?: string }) {
     staleTime: 60_000,
   });
 
-  const [audience, setAudience] = useState<Audience>("students");
+  const [audience, setAudience] = useState<Audience>(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const roleParam = params.get("role");
+      const audParam = params.get("audience") || params.get("tab");
+      if (roleParam === "teacher" || audParam === "educators" || audParam === "teacher") {
+        return "educators";
+      }
+      if (audParam === "schools") {
+        return "schools";
+      }
+    }
+    return "students";
+  });
   const [cycle, setCycle] = useState<BillingCycle>("annual");
 
   useEffect(() => {

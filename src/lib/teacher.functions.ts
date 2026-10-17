@@ -148,12 +148,29 @@ export const getTeacherProfileStatus = createServerFn({ method: "GET" })
 
     const roleList = (roles ?? []).map((r: any) => r.role);
 
-    if (roleList.includes("teacher") || (context as any).claims?.user_metadata?.role === "teacher") {
+    if (
+      roleList.includes("teacher") ||
+      (context as any).claims?.user_metadata?.role === "teacher" ||
+      (context as any).claims?.app_metadata?.role === "teacher"
+    ) {
       return { status: "approved" as const, isStaff: true, isAdmin: false };
     }
 
-    if (roleList.includes("teacher_pending")) {
-      return { status: "pending" as const, isStaff: false, isAdmin: false };
+    try {
+      const { data: tp } = await db
+        .from("teacher_profiles")
+        .select("status")
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      if (tp?.status === "approved") {
+        return { status: "approved" as const, isStaff: true, isAdmin: false };
+      }
+      if (tp?.status === "pending" || roleList.includes("teacher_pending")) {
+        return { status: "pending" as const, isStaff: false, isAdmin: false };
+      }
+    } catch {
+      /* ignore */
     }
 
     return { status: "none" as const, isStaff: false, isAdmin: false };

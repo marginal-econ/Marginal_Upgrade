@@ -45,12 +45,32 @@ export const getMe = createServerFn({ method: "GET" })
       }
 
       const roleList = (roles ?? []).map((row: any) => row.role);
+      let isTeacherUser =
+        roleList.includes("teacher") ||
+        (context as any).claims?.user_metadata?.role === "teacher" ||
+        (context as any).claims?.app_metadata?.role === "teacher";
+
+      if (!isTeacherUser) {
+        try {
+          const { data: tp } = await db
+            .from("teacher_profiles")
+            .select("status")
+            .eq("user_id", userId)
+            .maybeSingle();
+          if (tp?.status === "approved") {
+            isTeacherUser = true;
+          }
+        } catch {
+          /* fallback */
+        }
+      }
+
       let role: AppRole = "student";
 
       // Only Marginal Admin can ever hold admin role or privileges
       if (isMarginal) {
         role = "admin";
-      } else if (roleList.includes("teacher") || (context as any).claims?.user_metadata?.role === "teacher") {
+      } else if (isTeacherUser) {
         role = "teacher";
       } else {
         role = "student";

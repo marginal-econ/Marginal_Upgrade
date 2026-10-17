@@ -155,13 +155,30 @@ function PaymentPortalPage() {
     queryFn: () => fetchMe(),
   });
 
-  const isTeacherMode = search.role === "teacher" || meQuery.data?.role === "teacher" || Boolean(meQuery.data?.isStaff);
+  const [planAudience, setPlanAudience] = useState<"student" | "teacher">(() => {
+    if (search.role === "teacher") return "teacher";
+    if (typeof window !== "undefined") {
+      const p = new URLSearchParams(window.location.search);
+      if (p.get("role") === "teacher" || p.get("audience") === "educators" || p.get("tab") === "educators") {
+        return "teacher";
+      }
+    }
+    return "student";
+  });
 
   useEffect(() => {
-    if (search.role === "teacher" && !search.tier) {
+    if (search.role === "teacher" || meQuery.data?.role === "teacher" || Boolean(meQuery.data?.isStaff)) {
+      setPlanAudience("teacher");
+    }
+  }, [search.role, meQuery.data?.role, meQuery.data?.isStaff]);
+
+  const isTeacherMode = planAudience === "teacher";
+
+  useEffect(() => {
+    if (isTeacherMode && !search.tier) {
       setSelectedTier("foundation");
     }
-  }, [search.role, search.tier]);
+  }, [isTeacherMode, search.tier]);
 
   const fetchPlatformPricing = useServerFn(getPlatformPricing);
   const platformPricingQuery = useQuery({
@@ -469,7 +486,37 @@ function PaymentPortalPage() {
           {/* Left Column: Plan & Billing Selector */}
           <div className="space-y-6">
             <div className="rounded-2xl border border-border bg-card p-4 sm:p-6 shadow-xs">
-              <h2 className="text-base font-semibold mb-4">1. Select Revision Tier</h2>
+              <h2 className="text-base font-semibold mb-3">1. Select Revision Tier</h2>
+
+              {/* Audience Selector: Students vs Educators */}
+              <div className="mb-4 inline-flex w-full items-center justify-center rounded-xl border border-border bg-muted/60 p-1 text-xs">
+                <button
+                  type="button"
+                  onClick={() => setPlanAudience("student")}
+                  className={cn(
+                    "flex-1 flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-semibold transition-all cursor-pointer",
+                    !isTeacherMode
+                      ? "bg-background text-foreground shadow-xs"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  <GraduationCap className="size-3.5 text-primary" />
+                  <span>Student Revision Plans</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPlanAudience("teacher")}
+                  className={cn(
+                    "flex-1 flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-semibold transition-all cursor-pointer",
+                    isTeacherMode
+                      ? "bg-background text-foreground shadow-xs text-purple-600 dark:text-purple-400"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  <ShieldCheck className="size-3.5 text-purple-500" />
+                  <span>Educator AI Pass (from ₹99/mo)</span>
+                </button>
+              </div>
 
               {/* Billing Cycle Toggle */}
               <div className="mb-5 flex items-center justify-between rounded-xl bg-muted/60 p-1 text-xs sm:p-1.5">
