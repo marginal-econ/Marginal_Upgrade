@@ -19,7 +19,7 @@ async function listAcceptedAuthUsers(): Promise<User[]> {
         break;
       }
       if (!data?.users) break;
-      users.push(...data.users.filter((user) => Boolean(user.last_sign_in_at)));
+      users.push(...data.users);
       if (data.users.length < 1000) break;
     }
     return users;

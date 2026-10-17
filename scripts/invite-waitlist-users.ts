@@ -60,8 +60,36 @@ const supabase = createClient(TARGET_URL, TARGET_KEY, {
 
 async function sendEmail(member: { email: string; name: string | null }, actionLink: string) {
   if (!MAILJET_API_KEY || !MAILJET_SECRET_KEY) {
-    console.log(`ℹ️ [No Mailjet Keys] Generated Invite Link for ${member.email}:`);
-    console.log(`   ${actionLink}\n`);
+    console.log(`ℹ️ [No Mailjet Keys] Using Supabase Auth native email delivery...`);
+
+    const { data: usersData } = await supabase.auth.admin.listUsers();
+    const isExistingUser = usersData?.users?.some((u) => u.email?.toLowerCase() === member.email.toLowerCase());
+
+    if (isExistingUser) {
+      const otpRes = await supabase.auth.signInWithOtp({
+        email: member.email,
+        options: {
+          emailRedirectTo: `${SITE_URL}/auth`,
+        },
+      });
+      if (!otpRes.error) {
+        console.log(`   📨 Magic Login Link Email delivered to inbox: ${member.email}`);
+      } else {
+        console.warn(`   ⚠️ Supabase email dispatch: ${otpRes.error.message}`);
+      }
+    } else {
+      const inviteRes = await supabase.auth.admin.inviteUserByEmail(member.email, {
+        redirectTo: `${SITE_URL}/auth`,
+        data: { full_name: member.name || "" },
+      });
+      if (!inviteRes.error) {
+        console.log(`   📨 Official Invitation Email delivered to inbox: ${member.email}`);
+      } else {
+        console.warn(`   ⚠️ Supabase email dispatch: ${inviteRes.error.message}`);
+      }
+    }
+
+    console.log(`   Direct Action Link:\n   ${actionLink}\n`);
     return true;
   }
 
@@ -176,7 +204,17 @@ async function run() {
         },
       });
 
-      if (!generated.data?.properties?.action_link && generated.error?.message?.includes("already been registered")) {
+      if (!generated.data?.properties?.action_link) {
+        generated = await supabase.auth.admin.generateLink({
+          type: "recovery",
+          email: m.email,
+          options: {
+            redirectTo: `${SITE_URL}/auth`,
+          },
+        });
+      }
+
+      if (!generated.data?.properties?.action_link) {
         generated = await supabase.auth.admin.generateLink({
           type: "magiclink",
           email: m.email,
@@ -204,6 +242,7 @@ async function run() {
         await supabase.from("waitlist").update({ status: "invited" }).eq("id", m.id);
         console.log(`   ✅ Successfully invited ${m.email} and updated status to 'invited'.`);
       }
+      await new Promise((res) => setTimeout(res, 300));
     } catch (err: any) {
       console.error(`   ❌ Error inviting ${m.email}:`, err.message);
     }

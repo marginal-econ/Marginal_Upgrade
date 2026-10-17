@@ -20,6 +20,7 @@ import {
   Layers,
   LineChart,
   Loader2,
+  Mail,
   Plug,
   Plus,
   RefreshCw,
@@ -40,6 +41,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 import { AdminGodmodeDashboard } from "@/components/app/admin-godmode";
+import { PublicWaitlistPanel } from "@/components/app/public-waitlist-admin";
 import {
   AccessPanel,
   ActivityOverview,
@@ -230,6 +232,15 @@ const ADMIN_SECTIONS: Record<string, AdminSectionMeta> = {
     subtitle: "Administer per-user daily essay allowances, global request quotas, and VIP token overrides.",
     icon: Coins,
   },
+  waitlist: {
+    id: "waitlist",
+    category: "Users & Access",
+    title: "Public Waitlist & Access Invitations",
+    subtitle: "Manage early signups, preview invitation templates, and send official access invitations via Mailjet.",
+    icon: Mail,
+    badge: "Mailjet Live",
+    badgeColor: "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/30",
+  },
   pricing: {
     id: "pricing",
     category: "Monetization & Plans",
@@ -290,7 +301,7 @@ const ADMIN_CATEGORIES = [
   },
   {
     title: "Users & Access",
-    items: [ADMIN_SECTIONS.users, ADMIN_SECTIONS.access],
+    items: [ADMIN_SECTIONS.users, ADMIN_SECTIONS.access, ADMIN_SECTIONS.waitlist],
   },
   {
     title: "Monetization & Plans",
@@ -518,6 +529,7 @@ function AdminPage() {
             {activeTab === "godmode" && <AdminGodmodeDashboard />}
             {activeTab === "users" && <UsersPanel />}
             {activeTab === "access" && <AccessPanel />}
+            {activeTab === "waitlist" && <PublicWaitlistPanel />}
             {activeTab === "pricing" && <PricingAdminPanel />}
             {activeTab === "payments" && <PaymentApprovalsAdminPanel />}
             {activeTab === "showcase" && <ShowcaseAdminPanel />}

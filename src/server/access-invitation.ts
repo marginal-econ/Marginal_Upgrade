@@ -36,8 +36,18 @@ export async function sendAccessInvitation(
     throw new Error(generated.error?.message ?? "Supabase did not create an invitation link.");
   }
 
+  let rawActionLink = generated.data.properties.action_link;
+  if (
+    rawActionLink.includes("redirect_to=http%3A%2F%2Flocalhost%3A3000") ||
+    rawActionLink.includes("redirect_to=http://localhost:3000")
+  ) {
+    rawActionLink = rawActionLink
+      .replace("redirect_to=http%3A%2F%2Flocalhost%3A3000", `redirect_to=${encodeURIComponent(redirectTo)}`)
+      .replace("redirect_to=http://localhost:3000", `redirect_to=${encodeURIComponent(redirectTo)}`);
+  }
+
   const firstName = escapeHtml(member.name?.trim().split(/\s+/)[0] || "there");
-  const actionLink = escapeHtml(generated.data.properties.action_link);
+  const actionLink = escapeHtml(rawActionLink);
   const sender = requireEnv("MAILJET_SENDER_EMAIL");
   const response = await fetch("https://api.mailjet.com/v3.1/send", {
     method: "POST",
