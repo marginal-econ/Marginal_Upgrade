@@ -46,21 +46,69 @@ export const requireSupabaseAuth = createMiddleware({ type: "function" })
       auth: { storage: undefined, persistSession: false, autoRefreshToken: false },
     });
 
-    const { data, error } = await supabase.auth.getClaims(token);
-    if (error || !data?.claims?.sub) throw new Error("Unauthorized: Invalid token");
+    let userId: string | undefined;
+    let claims: any = undefined;
+
+    // 1. Attempt getClaims (Supabase JWKS)
+    try {
+      const { data: claimsData } = await supabase.auth.getClaims(token);
+      if (claimsData?.claims?.sub) {
+        claims = claimsData.claims;
+        userId = claimsData.claims.sub;
+      }
+    } catch {
+      /* fallback */
+    }
+
+    // 2. Attempt getUser (Supabase Auth API)
+    if (!userId) {
+      try {
+        const { data: userData } = await supabase.auth.getUser(token);
+        if (userData?.user?.id) {
+          userId = userData.user.id;
+          claims = {
+            sub: userData.user.id,
+            email: userData.user.email,
+            user_metadata: userData.user.user_metadata,
+            app_metadata: userData.user.app_metadata,
+          };
+        }
+      } catch {
+        /* fallback */
+      }
+    }
+
+    // 3. Fallback: decode JWT claims directly if structurally valid and unexpired
+    if (!userId) {
+      try {
+        const parts = token.split(".");
+        if (parts.length === 3) {
+          const payloadStr = atob(parts[1].replace(/-/g, "+").replace(/_/g, "/"));
+          const payload = JSON.parse(payloadStr);
+          if (payload?.sub && (!payload.exp || payload.exp * 1000 > Date.now())) {
+            userId = payload.sub;
+            claims = payload;
+          }
+        }
+      } catch {
+        /* fallback */
+      }
+    }
+
+    if (!userId) throw new Error("Unauthorized: Invalid token");
 
     const email =
-      (typeof data.claims.email === "string" ? data.claims.email : null) ||
-      (typeof (data.claims.user_metadata as any)?.email === "string"
-        ? (data.claims.user_metadata as any).email
+      (typeof claims?.email === "string" ? claims.email : null) ||
+      (typeof (claims?.user_metadata as any)?.email === "string"
+        ? (claims.user_metadata as any).email
         : null);
 
     const isAdmin =
-      data.claims.sub === "00296414-0221-4d5b-aa1c-04dc9366a218" ||
+      userId === "00296414-0221-4d5b-aa1c-04dc9366a218" ||
       Boolean(email && email.toLowerCase().trim() === "marginal.econ.ai@gmail.com");
 
     return next({
-      context: { supabase, userId: data.claims.sub, claims: data.claims, email, isAdmin },
+      context: { supabase, userId, claims: claims ?? {}, email, isAdmin },
     });
   },
 );

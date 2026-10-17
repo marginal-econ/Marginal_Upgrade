@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { requireSupabaseAuth } from "@/integrations/backend/auth-middleware";
 import { isMarginalAdmin } from "@/lib/auth-admin";
+import { TIER_LIMITS } from "@/lib/usage-limits";
 
 export type AppRole = "student" | "teacher" | "admin";
 

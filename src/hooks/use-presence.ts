@@ -13,10 +13,19 @@ export function usePresenceHeartbeat(pathname: string, userId: string) {
   useEffect(() => {
     let cancelled = false;
     let analyticsAllowed = readPrivacyConsent(userId)?.analytics === true;
+    let rpcSupported = true;
 
     const ping = () => {
-      if (cancelled || !analyticsAllowed || document.visibilityState !== "visible") return;
-      void Promise.resolve(supabase.rpc("touch_presence", { p_path: pathname })).catch(() => {});
+      if (cancelled || !analyticsAllowed || !rpcSupported || document.visibilityState !== "visible") return;
+      void Promise.resolve(supabase.rpc("touch_presence", { p_path: pathname }))
+        .then((res: any) => {
+          if (res?.error) {
+            rpcSupported = false;
+          }
+        })
+        .catch(() => {
+          rpcSupported = false;
+        });
     };
 
     const onConsentChanged = (event: Event) => {
