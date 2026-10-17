@@ -13,7 +13,7 @@ export const Route = createFileRoute("/pricing")({
       {
         name: "description",
         content:
-          "Official Cambridge International 9708 Economics pricing for students and schools. 4 B2C student tiers starting from ₹99/mo (billed annually) or ₹149/mo, plus institutional school packages.",
+          "Official Cambridge International 9708 Economics pricing for students and schools. 4 B2C student tiers starting from ₹166/mo (billed annually) or ₹249/mo, plus institutional school packages.",
       },
       {
         property: "og:title",

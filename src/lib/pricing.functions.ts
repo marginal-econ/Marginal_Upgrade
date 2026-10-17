@@ -13,6 +13,31 @@ import type { PlanTier } from "./usage-limits";
  * Dynamic: reads custom prices set by Admin from site_settings (or defaults).
  */
 export const getPlatformPricing = createServerFn({ method: "GET" }).handler(async () => {
+  // 1. Primary: definitions table
+  try {
+    const { data: defRow } = await supabaseAdmin
+      .from("definitions")
+      .select("definition_text")
+      .eq("term", "__SYS_PRICING_PLANS__")
+      .maybeSingle();
+
+    if (defRow?.definition_text) {
+      const customPlans = JSON.parse(defRow.definition_text);
+      return {
+        plans: {
+          foundation: { ...DEFAULT_PRICING_PLANS.foundation, ...customPlans.foundation },
+          pro: { ...DEFAULT_PRICING_PLANS.pro, ...customPlans.pro },
+          mastery: { ...DEFAULT_PRICING_PLANS.mastery, ...customPlans.mastery },
+          elite: { ...DEFAULT_PRICING_PLANS.elite, ...customPlans.elite },
+        } as PlatformPricingPlans,
+        isCustom: true,
+      };
+    }
+  } catch (err) {
+    console.warn("Exception reading custom pricing from definitions:", err);
+  }
+
+  // 2. Secondary: site_settings table
   try {
     const { data } = await supabaseAdmin
       .from("site_settings")
@@ -113,17 +138,46 @@ export const updatePlatformPricing = createServerFn({ method: "POST" })
       [tierKey]: updatedTier,
     };
 
-    const { error } = await supabaseAdmin.from("site_settings").upsert({
-      id: 1,
-      value: {
-        ...existingValue,
-        pricing_plans: nextPricing,
-      },
-      updated_at: new Date().toISOString(),
-    });
+    // 1. Primary: Save to definitions table (persistent, reliable)
+    try {
+      const { data: existing } = await supabaseAdmin
+        .from("definitions")
+        .select("id")
+        .eq("term", "__SYS_PRICING_PLANS__")
+        .maybeSingle();
 
-    if (error) {
-      throw new Error(`Failed to save pricing plans: ${error.message}`);
+      if (existing?.id) {
+        await supabaseAdmin
+          .from("definitions")
+          .update({
+            definition_text: JSON.stringify(nextPricing),
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", existing.id);
+      } else {
+        await supabaseAdmin.from("definitions").insert({
+          term: "__SYS_PRICING_PLANS__",
+          definition_text: JSON.stringify(nextPricing),
+          category: "system_config",
+          source_label: "admin_pricing_plans",
+        });
+      }
+    } catch (err) {
+      console.warn("Failed saving pricing plans to definitions table:", err);
+    }
+
+    // 2. Secondary: site_settings table (if available)
+    try {
+      await supabaseAdmin.from("site_settings").upsert({
+        id: 1,
+        value: {
+          ...existingValue,
+          pricing_plans: nextPricing,
+        },
+        updated_at: new Date().toISOString(),
+      });
+    } catch {
+      /* non-fatal fallback */
     }
 
     return {

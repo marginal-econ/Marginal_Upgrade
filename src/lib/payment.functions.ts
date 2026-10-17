@@ -12,7 +12,6 @@ import {
   requireBackendConfig,
 } from "@/integrations/backend/config";
 import type { Database } from "@/integrations/supabase/types";
-import { readEnv } from "@/server/env";
 import { isMarginalAdmin } from "./auth-admin";
 import { assignUserSubscriptionTier, getUserSubscriptionDetails } from "./subscription.server";
 import { TIER_LIMITS, type PlanTier } from "./usage-limits";
@@ -35,58 +34,131 @@ const UpiSubmissionInput = z.object({
   utrReference: z.string().min(6).max(30),
 });
 
+export async function getActiveMerchantUpiFromStore(): Promise<string> {
+  // 1. Primary Store: definitions table (guaranteed active in Supabase)
+  try {
+    const { data: defRow } = await supabaseAdmin
+      .from("definitions")
+      .select("definition_text")
+      .eq("term", "__SYS_MERCHANT_UPI__")
+      .maybeSingle();
+
+    if (defRow?.definition_text && defRow.definition_text.trim()) {
+      return defRow.definition_text.trim();
+    }
+  } catch (err) {
+    console.warn("Failed reading merchant UPI from definitions:", err);
+  }
+
+  // 2. Secondary Store: site_settings table (if table exists)
+  try {
+    const { data: settingsRow } = await supabaseAdmin
+      .from("site_settings")
+      .select("value")
+      .eq("id", 1)
+      .maybeSingle();
+
+    if (
+      settingsRow?.value &&
+      typeof settingsRow.value === "object" &&
+      (settingsRow.value as any).merchant_upi_id
+    ) {
+      return String((settingsRow.value as any).merchant_upi_id).trim();
+    }
+  } catch {
+    /* fallback */
+  }
+
+  // 3. Fallback: Environment variable
+  let envUpi: string | undefined;
+  try {
+    const { readEnv } = await import("@/server/env");
+    envUpi = readEnv("MERCHANT_UPI_ID") || readEnv("VITE_MERCHANT_UPI_ID");
+  } catch {
+    /* server env not loaded yet */
+  }
+  if (!envUpi && typeof process !== "undefined") {
+    envUpi = process.env?.MERCHANT_UPI_ID || process.env?.VITE_MERCHANT_UPI_ID;
+  }
+
+  if (envUpi && envUpi.trim()) {
+    return envUpi.trim();
+  }
+
+  return "8754256082-2@ybl";
+}
+
+export async function setActiveMerchantUpiInStore(trimmedUpi: string): Promise<void> {
+  // 1. Primary Store: definitions table
+  try {
+    const { data: existing } = await supabaseAdmin
+      .from("definitions")
+      .select("id")
+      .eq("term", "__SYS_MERCHANT_UPI__")
+      .maybeSingle();
+
+    if (existing?.id) {
+      await supabaseAdmin
+        .from("definitions")
+        .update({
+          definition_text: trimmedUpi,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", existing.id);
+    } else {
+      await supabaseAdmin.from("definitions").insert({
+        term: "__SYS_MERCHANT_UPI__",
+        definition_text: trimmedUpi,
+        category: "system_config",
+        source_label: "admin_upi_setting",
+      });
+    }
+  } catch (err) {
+    console.error("Critical: Failed saving UPI to definitions table:", err);
+    throw new Error(`Failed to persist UPI ID in database: ${err instanceof Error ? err.message : String(err)}`);
+  }
+
+  // 2. Secondary Store: site_settings table (for forward compatibility)
+  try {
+    const { data: row } = await supabaseAdmin
+      .from("site_settings")
+      .select("value")
+      .eq("id", 1)
+      .maybeSingle();
+
+    const existing = (row?.value as Record<string, any>) || {};
+    await supabaseAdmin
+      .from("site_settings")
+      .upsert({
+        id: 1,
+        value: {
+          ...existing,
+          merchant_upi_id: trimmedUpi,
+        },
+        updated_at: new Date().toISOString(),
+      });
+  } catch {
+    /* non-fatal fallback */
+  }
+}
+
 export const getPaymentConfig = createServerFn({ method: "GET" })
   .handler(async () => {
-    const keyId =
-      readEnv("RAZORPAY_KEY_ID") ||
-      readEnv("VITE_RAZORPAY_KEY_ID") ||
-      (typeof process !== "undefined"
-        ? process.env.RAZORPAY_KEY_ID || process.env.VITE_RAZORPAY_KEY_ID
-        : undefined) ||
-      "rzp_test_marginal_placeholder";
-
-    let merchantUpiId =
-      readEnv("MERCHANT_UPI_ID") ||
-      readEnv("VITE_MERCHANT_UPI_ID") ||
-      (typeof process !== "undefined"
-        ? process.env.MERCHANT_UPI_ID || process.env.VITE_MERCHANT_UPI_ID
-        : undefined) ||
-      "8754256082-2@ybl";
-
-    // 1. First priority: Check site_settings table
+    let keyId: string | undefined;
     try {
-      const { data: settingsRow } = await supabaseAdmin
-        .from("site_settings")
-        .select("value")
-        .eq("id", 1)
-        .maybeSingle();
-      if (
-        settingsRow?.value &&
-        typeof settingsRow.value === "object" &&
-        (settingsRow.value as any).merchant_upi_id
-      ) {
-        merchantUpiId = String((settingsRow.value as any).merchant_upi_id).trim();
-      }
+      const { readEnv } = await import("@/server/env");
+      keyId = readEnv("RAZORPAY_KEY_ID") || readEnv("VITE_RAZORPAY_KEY_ID");
     } catch {
-      /* fallback to ai_usage_log or default */
+      /* ignore */
     }
-
-    // 2. Second priority: Check ai_usage_log for dynamically configured merchant UPI
-    try {
-      const { data: upiLogs } = await supabaseAdmin
-        .from("ai_usage_log")
-        .select("error_message")
-        .eq("feature", "merchant_upi_config")
-        .order("created_at", { ascending: false })
-        .limit(1);
-      if (upiLogs && upiLogs.length > 0 && upiLogs[0]?.error_message) {
-        merchantUpiId = upiLogs[0].error_message.trim();
-      }
-    } catch {
-      /* non-fatal fallback */
+    if (!keyId && typeof process !== "undefined") {
+      keyId = process.env?.RAZORPAY_KEY_ID || process.env?.VITE_RAZORPAY_KEY_ID;
     }
+    keyId = keyId || "rzp_test_marginal_placeholder";
 
-    // 3. Optional Authentication: extract student details if session is active
+    const merchantUpiId = await getActiveMerchantUpiFromStore();
+
+    // 2. Optional Authentication: extract student details if session is active
     let currentTier: PlanTier = "free";
     let pendingRequest: {
       id: string;
@@ -129,20 +201,20 @@ export const getPaymentConfig = createServerFn({ method: "GET" })
             );
             currentTier = currentSub.tier;
 
-            // Check if this student has an active pending UPI payment request
+            // Check if this student has an active pending UPI payment request in definitions
             const { data: userLogs } = await supabaseAdmin
-              .from("ai_usage_log")
-              .select("id, error_message, created_at, ok")
-              .eq("user_id", userId)
-              .eq("feature", "upi_payment_request")
+              .from("definitions")
+              .select("id, definition_text, created_at")
+              .eq("category", "upi_payment_request")
+              .ilike("definition_text", `%"userId":"${userId}"%`)
               .order("created_at", { ascending: false })
               .limit(5);
 
             if (userLogs && userLogs.length > 0) {
               for (const log of userLogs) {
-                if (log.error_message) {
+                if (log.definition_text) {
                   try {
-                    const parsed = JSON.parse(log.error_message);
+                    const parsed = JSON.parse(log.definition_text);
                     if (parsed.status === "pending") {
                       pendingRequest = {
                         id: log.id,
@@ -196,15 +268,15 @@ export const submitUpiPaymentRequest = createServerFn({ method: "POST" })
     }
 
     // 2. Prevent duplicate UTR usage across all accounts
+    const utrTerm = `__UPI_REQ_${cleanUtr}`;
     try {
-      const { data: duplicates } = await supabaseAdmin
-        .from("ai_usage_log")
-        .select("id, error_message")
-        .eq("feature", "upi_payment_request")
-        .ilike("error_message", `%"utr":"${cleanUtr}"%`)
-        .limit(1);
+      const { data: duplicate } = await supabaseAdmin
+        .from("definitions")
+        .select("id")
+        .eq("term", utrTerm)
+        .maybeSingle();
 
-      if (duplicates && duplicates.length > 0) {
+      if (duplicate?.id) {
         throw new Error(
           "This 12-digit UPI reference (UTR) has already been submitted for verification. If you have an inquiry, please contact administrator support.",
         );
@@ -215,24 +287,24 @@ export const submitUpiPaymentRequest = createServerFn({ method: "POST" })
       }
     }
 
-    // 3. Log the pending payment request
+    // 3. Log the pending payment request in definitions
     const userEmail = (context as any).email || (context as any).claims?.email || "";
     const payload = {
       utr: cleanUtr,
       tier: data.tier,
       amount: data.amount,
       billingCycle: data.billingCycle,
+      userId,
       userEmail,
       status: "pending",
       submittedAt: new Date().toISOString(),
     };
 
-    await supabaseAdmin.from("ai_usage_log").insert({
-      user_id: userId,
-      feature: "upi_payment_request",
-      model: `tier_${data.tier}`,
-      ok: false, // false denotes pending verification
-      error_message: JSON.stringify(payload),
+    await supabaseAdmin.from("definitions").insert({
+      term: utrTerm,
+      definition_text: JSON.stringify(payload),
+      category: "upi_payment_request",
+      source_label: cleanUtr,
     });
 
     const limits = TIER_LIMITS[data.tier];
@@ -308,10 +380,10 @@ export const listUpiPaymentRequests = createServerFn({ method: "GET" })
       throw new Error("Unauthorized: Only the platform administrator can review payment approvals.");
     }
 
-    const { data: logs, error } = await supabaseAdmin
-      .from("ai_usage_log")
-      .select("id, user_id, feature, model, ok, error_message, created_at")
-      .eq("feature", "upi_payment_request")
+    const { data: rows, error } = await supabaseAdmin
+      .from("definitions")
+      .select("id, term, definition_text, created_at, updated_at")
+      .eq("category", "upi_payment_request")
       .order("created_at", { ascending: false })
       .limit(100);
 
@@ -319,26 +391,26 @@ export const listUpiPaymentRequests = createServerFn({ method: "GET" })
       throw new Error(error.message);
     }
 
-    // Map logs to clean typed request objects
-    const requests = (logs || []).map((log) => {
+    // Map rows to clean typed request objects
+    const requests = (rows || []).map((row) => {
       let parsed: any = {};
       try {
-        if (log.error_message) {
-          parsed = JSON.parse(log.error_message);
+        if (row.definition_text) {
+          parsed = JSON.parse(row.definition_text);
         }
       } catch {
-        parsed = { utr: log.error_message || "UNKNOWN", status: log.ok ? "approved" : "pending" };
+        parsed = { utr: row.term.replace("__UPI_REQ_", ""), status: "pending" };
       }
 
       return {
-        id: log.id,
-        userId: log.user_id || "",
-        userEmail: parsed.userEmail || "Student (User " + (log.user_id?.slice(0, 8) || "") + ")",
-        tier: (parsed.tier || log.model.replace("tier_", "")) as PlanTier,
-        amount: parsed.amount || (parsed.tier === "foundation" ? 149 : parsed.tier === "pro" ? 399 : parsed.tier === "mastery" ? 599 : 999),
-        utr: parsed.utr || "N/A",
-        status: (parsed.status || (log.ok ? "approved" : "pending")) as "pending" | "approved" | "rejected",
-        submittedAt: parsed.submittedAt || log.created_at,
+        id: row.id,
+        userId: parsed.userId || "",
+        userEmail: parsed.userEmail || "Student (" + (parsed.userId?.slice(0, 8) || "") + ")",
+        tier: (parsed.tier || "foundation") as PlanTier,
+        amount: parsed.amount || (parsed.tier === "foundation" ? 249 : parsed.tier === "pro" ? 499 : parsed.tier === "mastery" ? 799 : 1299),
+        utr: parsed.utr || row.term.replace("__UPI_REQ_", ""),
+        status: (parsed.status || "pending") as "pending" | "approved" | "rejected",
+        submittedAt: parsed.submittedAt || row.created_at,
         reviewedAt: parsed.reviewedAt,
         reviewedBy: parsed.reviewedBy,
         rejectionReason: parsed.rejectionReason,
@@ -378,32 +450,34 @@ export const approveUpiPaymentRequest = createServerFn({ method: "POST" })
       throw new Error(result.message);
     }
 
-    // 2. Update log record with approved state
-    const { data: logRow } = await supabaseAdmin
-      .from("ai_usage_log")
-      .select("error_message")
+    // 2. Update log record in definitions with approved state
+    const { data: row } = await supabaseAdmin
+      .from("definitions")
+      .select("id, definition_text")
       .eq("id", data.logId)
       .maybeSingle();
 
     let parsed: any = {};
     try {
-      if (logRow?.error_message) parsed = JSON.parse(logRow.error_message);
+      if (row?.definition_text) parsed = JSON.parse(row.definition_text);
     } catch {}
 
     const updatedPayload = {
       ...parsed,
       status: "approved",
       reviewedAt: new Date().toISOString(),
-      reviewedBy: "marginal",
+      reviewedBy: "Marginal Admin",
     };
 
-    await supabaseAdmin
-      .from("ai_usage_log")
-      .update({
-        ok: true,
-        error_message: JSON.stringify(updatedPayload),
-      })
-      .eq("id", data.logId);
+    if (row?.id) {
+      await supabaseAdmin
+        .from("definitions")
+        .update({
+          definition_text: JSON.stringify(updatedPayload),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", row.id);
+    }
 
     const limits = TIER_LIMITS[data.tier];
     return {
@@ -435,32 +509,34 @@ export const rejectUpiPaymentRequest = createServerFn({ method: "POST" })
       throw new Error("Unauthorized: Only the platform administrator can reject payments.");
     }
 
-    const { data: logRow } = await supabaseAdmin
-      .from("ai_usage_log")
-      .select("error_message")
+    const { data: row } = await supabaseAdmin
+      .from("definitions")
+      .select("id, definition_text")
       .eq("id", data.logId)
       .maybeSingle();
 
     let parsed: any = {};
     try {
-      if (logRow?.error_message) parsed = JSON.parse(logRow.error_message);
+      if (row?.definition_text) parsed = JSON.parse(row.definition_text);
     } catch {}
 
     const updatedPayload = {
       ...parsed,
       status: "rejected",
       reviewedAt: new Date().toISOString(),
-      reviewedBy: "marginal",
+      reviewedBy: "Marginal Admin",
       rejectionReason: data.reason || "UTR reference not found in bank statement.",
     };
 
-    await supabaseAdmin
-      .from("ai_usage_log")
-      .update({
-        ok: false,
-        error_message: JSON.stringify(updatedPayload),
-      })
-      .eq("id", data.logId);
+    if (row?.id) {
+      await supabaseAdmin
+        .from("definitions")
+        .update({
+          definition_text: JSON.stringify(updatedPayload),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", row.id);
+    }
 
     return {
       success: true,
@@ -495,15 +571,15 @@ export const revokeUpiPaymentRequest = createServerFn({ method: "POST" })
     // Reset user to free tier
     await assignUserSubscriptionTier(supabaseAdmin, data.userId, "free");
 
-    const { data: logRow } = await supabaseAdmin
-      .from("ai_usage_log")
-      .select("error_message")
+    const { data: row } = await supabaseAdmin
+      .from("definitions")
+      .select("id, definition_text")
       .eq("id", data.logId)
       .maybeSingle();
 
     let parsed: any = {};
     try {
-      if (logRow?.error_message) parsed = JSON.parse(logRow.error_message);
+      if (row?.definition_text) parsed = JSON.parse(row.definition_text);
     } catch {}
 
     const updatedPayload = {
@@ -513,13 +589,15 @@ export const revokeUpiPaymentRequest = createServerFn({ method: "POST" })
       rejectionReason: data.reason || "Subscription access revoked by administrator.",
     };
 
-    await supabaseAdmin
-      .from("ai_usage_log")
-      .update({
-        ok: false,
-        error_message: JSON.stringify(updatedPayload),
-      })
-      .eq("id", data.logId);
+    if (row?.id) {
+      await supabaseAdmin
+        .from("definitions")
+        .update({
+          definition_text: JSON.stringify(updatedPayload),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", row.id);
+    }
 
     return {
       success: true,
@@ -528,7 +606,8 @@ export const revokeUpiPaymentRequest = createServerFn({ method: "POST" })
   });
 
 /**
- * Admin action: updates the active Merchant UPI ID dynamically in site_settings.
+ * Admin action: updates the active Merchant UPI ID dynamically.
+ * Persists immediately and reflects across all pages in real time.
  */
 export const updateMerchantUpiConfig = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -547,45 +626,12 @@ export const updateMerchantUpiConfig = createServerFn({ method: "POST" })
 
     const trimmedUpi = data.upiId.trim();
 
-    // 1. Update site_settings table
-    try {
-      const { data: row } = await supabaseAdmin
-        .from("site_settings")
-        .select("value")
-        .eq("id", 1)
-        .maybeSingle();
-
-      const existing = (row?.value as Record<string, any>) || {};
-      await supabaseAdmin
-        .from("site_settings")
-        .upsert({
-          id: 1,
-          value: {
-            ...existing,
-            merchant_upi_id: trimmedUpi,
-          },
-          updated_at: new Date().toISOString(),
-        });
-    } catch (err) {
-      console.warn("Failed saving UPI to site_settings:", err);
-    }
-
-    // 2. Also record in ai_usage_log for dual resilience and fallback
-    try {
-      await supabaseAdmin.from("ai_usage_log").insert({
-        user_id: context.userId,
-        feature: "merchant_upi_config",
-        model: "upi",
-        ok: true,
-        error_message: trimmedUpi,
-      });
-    } catch (err) {
-      console.warn("Failed saving UPI to ai_usage_log:", err);
-    }
+    // Persist to database definitions and site_settings
+    await setActiveMerchantUpiInStore(trimmedUpi);
 
     return {
       success: true,
       merchantUpiId: trimmedUpi,
-      message: `Merchant UPI handle updated to ${trimmedUpi}!`,
+      message: `Merchant UPI handle updated to ${trimmedUpi}! Reflecting live across the platform.`,
     };
   });

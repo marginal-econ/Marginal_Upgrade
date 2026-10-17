@@ -685,30 +685,29 @@ async function getPublicPaymentConfig(): Promise<Response> {
 
   try {
     const supabase = getSupabaseAdmin();
-    // 1. Primary: check site_settings table
-    const { data: settingsRow } = await supabase
-      .from("site_settings")
-      .select("value")
-      .eq("id", 1)
+    // 1. Primary: check definitions table for active merchant UPI
+    const { data: defRow } = await supabase
+      .from("definitions")
+      .select("definition_text")
+      .eq("term", "__SYS_MERCHANT_UPI__")
       .maybeSingle();
 
-    if (
-      settingsRow?.value &&
-      typeof settingsRow.value === "object" &&
-      (settingsRow.value as any).merchant_upi_id
-    ) {
-      merchantUpiId = String((settingsRow.value as any).merchant_upi_id).trim();
+    if (defRow?.definition_text && defRow.definition_text.trim()) {
+      merchantUpiId = defRow.definition_text.trim();
     } else {
-      // 2. Secondary: check ai_usage_log table
-      const { data: upiLogs } = await supabase
-        .from("ai_usage_log")
-        .select("error_message")
-        .eq("feature", "merchant_upi_config")
-        .order("created_at", { ascending: false })
-        .limit(1);
+      // 2. Secondary: check site_settings table
+      const { data: settingsRow } = await supabase
+        .from("site_settings")
+        .select("value")
+        .eq("id", 1)
+        .maybeSingle();
 
-      if (upiLogs && upiLogs.length > 0 && upiLogs[0]?.error_message) {
-        merchantUpiId = upiLogs[0].error_message.trim();
+      if (
+        settingsRow?.value &&
+        typeof settingsRow.value === "object" &&
+        (settingsRow.value as any).merchant_upi_id
+      ) {
+        merchantUpiId = String((settingsRow.value as any).merchant_upi_id).trim();
       }
     }
   } catch (err) {

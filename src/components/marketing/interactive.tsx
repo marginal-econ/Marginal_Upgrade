@@ -833,7 +833,7 @@ export function LiveMarkDemo() {
           <div className="pt-2">
             <Button asChild className="w-full font-bold shadow-md gap-2" size="lg">
               <Link to="/auth">
-                <span>Start Full Live Examiner Session</span>
+                <span>Launch Full Live Examiner</span>
                 <ArrowRight className="size-4" />
               </Link>
             </Button>

@@ -62,6 +62,8 @@ export const listDefinitions = createServerFn({ method: "GET" })
             "knowledge_documents(title, doc_type, source_name), " +
             "topics(name)",
         )
+        .not("category", "in", '("system_config","upi_payment_request")')
+        .not("term", "ilike", "__%")
         .order("term", { ascending: true });
 
       if (data.search) {

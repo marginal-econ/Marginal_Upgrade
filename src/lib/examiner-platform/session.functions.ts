@@ -1,7 +1,11 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/backend/auth-middleware";
-import { getSupabaseAdmin } from "@/server/supabase";
+import { supabaseAdmin } from "@/integrations/backend/client.server";
+
+function getSupabaseAdmin() {
+  return supabaseAdmin as any;
+}
 import {
   getPaperConfig,
   getPaperConfigWithDb,

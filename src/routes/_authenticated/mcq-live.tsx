@@ -781,7 +781,7 @@ function McqLivePage() {
           badgeText="Feature Chained · 30-Day Trial Expired"
           title="MCQ Past Papers are Chained"
           description="Your 30-day Free Trial for Cambridge 9708 Multiple Choice Past Papers has concluded. Upgrade to Foundation Scholar, Pro, or Mastery to unlock unlimited past paper practice, mark schemes, and topic diagnostics."
-          primaryCtaText="Unlock MCQ Papers (from ₹149/mo)"
+          primaryCtaText="Unlock MCQ Papers (from ₹249/mo)"
           primaryCtaLink="/pricing"
           features={[
             {

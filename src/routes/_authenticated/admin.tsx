@@ -3617,9 +3617,10 @@ function PaymentApprovalsAdminPanel() {
 
   const updateUpiMutation = useMutation({
     mutationFn: (data: { upiId: string }) => updateUpiFn({ data }),
-    onSuccess: (res: any) => {
+    onSuccess: async (res: any) => {
       toast.success(res?.message || "Merchant UPI updated!");
-      queryClient.invalidateQueries({ queryKey: ["payment-config"] });
+      await queryClient.invalidateQueries({ queryKey: ["payment-config"] });
+      configQuery.refetch();
       setUpiInput("");
     },
     onError: (err: any) => toast.error(err?.message || "Failed to update UPI ID."),

@@ -58,16 +58,16 @@ const STUDENT_TIERS: StudentTier[] = [
   {
     id: "foundation",
     name: "Foundation Scholar",
-    tagline: "Accessible entry point: less than a coffee, zero friction.",
-    monthlyPrice: 149,
-    annualPrice: 1199,
-    annualEquivalentMonthly: 99,
+    tagline: "Essential Cambridge exam practice: 5 essays and 5 Live Examiner credits.",
+    monthlyPrice: 249,
+    annualPrice: 1999,
+    annualEquivalentMonthly: 166,
     savePct: 33,
-    quota: "5 Graded Essays / mo · 12 Live Examiner Sessions",
+    quota: "5 Graded Essays / mo · 5 Live Examiner Credits",
     badge: "Most Accessible",
     features: [
       "5 Cambridge Graded Essays / month",
-      "12 Live Examiner Sessions / month (30m AI coaching per session)",
+      "5 Live Examiner Credits / month (Real-time Socratic AI Coaching)",
       "Unlimited Instant In-Browser Grammar & Economics Terminology Checks (< 50ms)",
       "Full AO1, AO2, AO3 Diagnostic Reports",
       "Cambridge Definitions Hub & Drills",
@@ -78,16 +78,16 @@ const STUDENT_TIERS: StudentTier[] = [
     id: "pro",
     name: "Pro Accelerator",
     tagline: "The benchmark for serious Cambridge candidates studying year-round.",
-    monthlyPrice: 399,
-    annualPrice: 3599,
-    annualEquivalentMonthly: 299,
+    monthlyPrice: 499,
+    annualPrice: 4499,
+    annualEquivalentMonthly: 375,
     savePct: 25,
-    quota: "15 Graded Essays / mo · 30 Live Examiner Sessions",
+    quota: "15 Graded Essays / mo · 15 Live Examiner Credits",
     badge: "Most Popular",
     popular: true,
     features: [
       "15 Cambridge Graded Essays / month",
-      "30 Live Examiner Sessions / month (45m official exam timing AI coaching)",
+      "15 Live Examiner Credits / month (45m official exam timing AI coaching)",
       "Unlimited Instant In-Browser Grammar & Terminology Checks",
       "Sub-second Cambridge AO Sentence Diagnostics & Causal Chains",
       "Perfect Essay Generator (AI Model Answers)",
@@ -100,16 +100,16 @@ const STUDENT_TIERS: StudentTier[] = [
     id: "mastery",
     name: "A* Mastery Sprint",
     tagline: "Peak revision powerhouse for Oct/Nov & May/June exam series.",
-    monthlyPrice: 599,
-    annualPrice: 5999,
-    annualEquivalentMonthly: 499,
-    savePct: 17,
-    quota: "35 Graded Essays / mo · 60 Live Examiner Sessions",
+    monthlyPrice: 799,
+    annualPrice: 7499,
+    annualEquivalentMonthly: 625,
+    savePct: 22,
+    quota: "35 Graded Essays / mo · 30 Live Examiner Credits",
     badge: "A* Target Cohort",
     features: [
       "Multi-Paper Diagnostic Feedback & Evaluative Refinements",
       "35 Cambridge Graded Essays / month",
-      "60 Live Examiner Sessions / month (60m extended AI coaching, priority queue)",
+      "30 Live Examiner Credits / month (Extended AI coaching, priority queue)",
       "Unlimited Instant In-Browser Grammar & Mechanics Checks",
       "Handwritten Essay OCR Scanning (Photo Uploads)",
       "Holistic Review Panel & Syllabus Weakness Heatmap",
@@ -121,20 +121,19 @@ const STUDENT_TIERS: StudentTier[] = [
     id: "elite",
     name: "Cambridge Elite Pass",
     tagline: "VIP all-inclusive pass for complete syllabus and exam dominance.",
-    monthlyPrice: 999,
-    annualPrice: 9599,
-    annualEquivalentMonthly: 799,
-    savePct: 20,
-    quota: "75 Graded Essays / mo · 120 Live Examiner Sessions",
+    monthlyPrice: 1299,
+    annualPrice: 11999,
+    annualEquivalentMonthly: 999,
+    savePct: 23,
+    quota: "75 Graded Essays / mo · 50 Live Examiner Credits",
     badge: "VIP All-Access Pass",
     features: [
       "Comprehensive Cambridge Mock Suite (Papers 1, 2, 3 & 4 Coverage)",
       "75 Cambridge Graded Essays / month & Reworks",
-      "120 Live Examiner Sessions / month (90m sprint revision AI coaching per session)",
+      "50 Live Examiner Credits / month (Comprehensive Mock Suite)",
       "Unlimited Instant In-Browser Grammar & Terminology Checks",
       "Dedicated High-Speed Flash Acceleration Queue",
       "Bespoke Past Paper Mock Series Generation",
-      "Personalized Examiner Video & Audio Commentary",
       "Direct 1-on-1 examiner support channel",
       "All Mastery features included",
     ],
@@ -306,7 +305,7 @@ export function PricingSection({ className }: { className?: string }) {
             Private 1-on-1 Cambridge tutoring costs{" "}
             <span className="font-semibold text-foreground">₹2,500 – ₹5,000 / hour</span>. Marginal
             delivers 24/7 instant AO1/AO2/AO3 feedback and live coaching starting at just{" "}
-            <span className="font-semibold text-foreground">₹99 / month</span> (billed annually) or ₹149 / month.
+            <span className="font-semibold text-foreground">₹166 / month</span> (billed annually) or ₹249 / month.
           </p>
 
           {/* ── Audience Selector (Students vs Schools) ── */}
@@ -654,9 +653,9 @@ export function PricingSection({ className }: { className?: string }) {
                 <Clock className="size-5" />
               </span>
               <div>
-                <h4 className="text-sm font-semibold">Timed Cambridge Sessions</h4>
+                <h4 className="text-sm font-semibold">Live Examiner AI Credits</h4>
                 <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
-                  Deep AI AO analysis runs for 30–90 min per session. Instant in-browser grammar, mechanics, and terminology checks remain unlimited.
+                  Real-time Cambridge AO guidance powered by transparent per-essay examiner credits. In-browser grammar, mechanics, and syllabus terminology checks remain unlimited.
                 </p>
               </div>
             </div>
