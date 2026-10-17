@@ -85,7 +85,7 @@ describe("Subscription Details & Entitlements", () => {
     expect(details.canUseLiveExaminer).toBe(false);
   });
 
-  it("correctly identifies unpaid teachers and restricts personal essay quota without pass", async () => {
+  it("correctly identifies teachers with evaluation desk access and grading privileges", async () => {
     const mockDb = {
       from: vi.fn((table: string) => ({
         select: vi.fn(() => ({
@@ -108,7 +108,7 @@ describe("Subscription Details & Entitlements", () => {
 
     expect(details.isTeacher).toBe(true);
     expect(details.isPaid).toBe(false);
-    expect(details.essaysLimit).toBe(0); // Personal AI grading requires Educator Pass
-    expect(details.canGradeEssay).toBe(false);
+    expect(details.essaysLimit).toBe(50);
+    expect(details.canGradeEssay).toBe(true);
   });
 });

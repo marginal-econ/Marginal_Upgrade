@@ -110,8 +110,7 @@ function GradePage() {
   const sub = meQuery.data?.subscription;
   const isAdmin = meQuery.data?.isAdmin ?? false;
   const isTeacher = meQuery.data?.role === "teacher" || Boolean(sub?.isTeacher);
-  const isTeacherUnpaid = isTeacher && !sub?.isPaid && !isAdmin;
-  const isLimitReached = !isAdmin && (isTeacherUnpaid || (sub !== undefined && !sub.canGradeEssay));
+  const isLimitReached = !isAdmin && !isTeacher && (sub !== undefined && !sub.canGradeEssay);
 
   const [question, setQuestion] = useState(search.q ?? "");
 

@@ -139,6 +139,30 @@ const NAV_GROUPS: NavGroup[] = [
   },
 ];
 
+const TEACHER_NAV_GROUPS: NavGroup[] = [
+  {
+    id: "teaching_cohorts",
+    label: "Teaching & Cohorts",
+    collapsible: true,
+    items: [
+      { to: "/dashboard", label: "Educator Dashboard", icon: LayoutDashboard },
+      { to: "/classes", label: "Classes & Cohorts", icon: UsersRound },
+      { to: "/review", label: "Cohort Analytics", icon: ClipboardCheck },
+    ],
+  },
+  {
+    id: "evaluation_curriculum",
+    label: "Evaluation & Moderation",
+    collapsible: true,
+    items: [
+      { to: "/grade", label: "Essay Grader", icon: PenLine },
+      { to: "/examiner", label: "Marking Desk", icon: GraduationCap },
+      { to: "/knowledge", label: "School Mark Schemes", icon: BookOpen },
+      { to: "/calibration", label: "Anchor Calibration", icon: ShieldCheck },
+    ],
+  },
+];
+
 function filterGroupForRole(
   group: NavGroup,
   role: "student" | "teacher" | "admin",
@@ -177,6 +201,16 @@ const GROUP_META: Record<
     text: "text-emerald-600 dark:text-emerald-400",
     bg: "hover:bg-emerald-500/10",
   },
+  teaching_cohorts: {
+    dot: "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]",
+    text: "text-emerald-600 dark:text-emerald-400",
+    bg: "hover:bg-emerald-500/10",
+  },
+  evaluation_curriculum: {
+    dot: "bg-purple-500 shadow-[0_0_8px_rgba(168,85,247,0.6)]",
+    text: "text-purple-600 dark:text-purple-400",
+    bg: "hover:bg-purple-500/10",
+  },
   syllabus: {
     dot: "bg-sky-500 shadow-[0_0_8px_rgba(14,165,233,0.6)]",
     text: "text-sky-600 dark:text-sky-400",
@@ -198,12 +232,14 @@ export function AppShell({
   children,
   role,
   name,
+  school,
   userId,
   subscription,
 }: {
   children: ReactNode;
   role: "student" | "teacher" | "admin";
   name: string | null;
+  school?: string | null;
   userId: string;
   subscription?: UserSubscriptionDetails;
 }) {
@@ -264,11 +300,16 @@ export function AppShell({
     navigate({ to: "/auth", replace: true });
   };
 
+  const isTeacherUser = role === "teacher" || Boolean(subscription?.isTeacher);
+
   const visibleGroups = useMemo(() => {
+    if (isTeacherUser && role !== "admin" && !subscription?.isAdmin) {
+      return TEACHER_NAV_GROUPS;
+    }
     return NAV_GROUPS.map((g) => filterGroupForRole(g, role, subscription)).filter(
       (g): g is NavGroup => g !== null,
     );
-  }, [role, subscription]);
+  }, [role, subscription, isTeacherUser]);
 
   const classroomLabel = role === "student" ? "Join class" : "Classes";
 
@@ -351,17 +392,18 @@ export function AppShell({
                 const label = item.to === "/classes" ? classroomLabel : item.label;
 
                 const isTeacherUser = role === "teacher" || Boolean(subscription?.isTeacher);
-                const isTeacherUnpaid = isTeacherUser && !isPaidUser && !isUserAdmin;
+                const isTeacherUnpaid = false;
 
                 const isChainedPaid = item.requiresPaid && !canLiveExaminer;
                 const isChainedEssay =
                   item.to === "/grade" &&
                   !isUserAdmin &&
-                  (isTeacherUnpaid || (Boolean(subscription) && !subscription.canGradeEssay));
+                  !isTeacherUser &&
+                  (Boolean(subscription) && !subscription.canGradeEssay);
                 const isChainedLiveExaminer =
                   item.to === "/live-examiner" &&
                   !isUserAdmin &&
-                  (isTeacherUnpaid || isChainedPaid);
+                  isChainedPaid;
                 const isChainedMCQ =
                   item.to === "/mcq-live" &&
                   !isUserAdmin &&
@@ -566,6 +608,33 @@ export function AppShell({
                 <span className="text-foreground font-semibold">Uncapped Godmode · No Limits</span>
               </div>
             </div>
+          ) : role === "teacher" || subscription.isTeacher ? (
+            <div className="mb-3 rounded-2xl border border-purple-500/30 bg-gradient-to-br from-purple-500/15 via-card to-purple-500/5 p-3 shrink-0 shadow-sm relative overflow-hidden group">
+              <div className="absolute -right-6 -top-6 size-20 bg-purple-500/15 rounded-full blur-xl pointer-events-none group-hover:scale-125 transition-transform duration-500" />
+              <div className="flex items-center justify-between gap-2 relative z-10">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="relative size-8 rounded-xl bg-purple-500/20 text-purple-600 dark:text-purple-400 flex items-center justify-center text-xs font-bold shrink-0 border border-purple-500/30 shadow-xs">
+                    {candidateInitials}
+                    <span className="absolute -bottom-0.5 -right-0.5 size-2 rounded-full bg-emerald-500 border-2 border-background animate-pulse" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold truncate text-foreground leading-tight">
+                      {name ?? "Educator"}
+                    </p>
+                    <p className="text-[10px] text-purple-600 dark:text-purple-400 font-bold leading-tight flex items-center gap-1 mt-0.5 truncate">
+                      <GraduationCap className="size-3 shrink-0" /> {school || "CS Academy"}
+                    </p>
+                  </div>
+                </div>
+                <Badge className="bg-purple-500/25 text-purple-600 dark:text-purple-400 border-purple-500/40 text-[9px] font-extrabold uppercase shadow-2xs">
+                  Educator
+                </Badge>
+              </div>
+              <div className="mt-2.5 pt-2 border-t border-purple-500/20 text-[10.5px] text-muted-foreground flex items-center gap-1.5 font-medium relative z-10">
+                <ShieldCheck className="size-3 text-purple-500 shrink-0" />
+                <span className="text-foreground font-semibold">Evaluation Desk · Full Access</span>
+              </div>
+            </div>
           ) : (
             <div className="mb-3 rounded-2xl border border-border/80 bg-gradient-to-br from-card via-card to-primary/[0.04] p-3 shrink-0 shadow-sm relative overflow-hidden group">
               <div className="absolute -right-6 -top-6 size-20 bg-primary/10 rounded-full blur-xl pointer-events-none group-hover:scale-125 transition-transform duration-500" />
@@ -765,6 +834,27 @@ export function AppShell({
                         <span className="text-foreground">Uncapped Godmode · No Limits</span>
                       </div>
                     </div>
+                  ) : role === "teacher" || subscription.isTeacher ? (
+                    <div className="mb-3 rounded-2xl border border-purple-500/30 bg-gradient-to-br from-purple-500/15 via-card to-purple-500/5 p-3 shrink-0 shadow-sm relative overflow-hidden">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div className="size-6 rounded-lg bg-purple-500/20 text-purple-600 dark:text-purple-400 flex items-center justify-center text-[10px] font-bold shrink-0">
+                            {candidateInitials}
+                          </div>
+                          <div className="min-w-0">
+                            <span className="font-bold text-xs text-foreground block truncate">{name ?? "Educator"}</span>
+                            <span className="text-[10px] text-purple-600 dark:text-purple-400 font-medium block truncate">{school || "CS Academy"}</span>
+                          </div>
+                        </div>
+                        <Badge className="bg-purple-500/25 text-purple-600 dark:text-purple-400 border-purple-500/40 text-[9px] font-extrabold uppercase shadow-2xs">
+                          Educator
+                        </Badge>
+                      </div>
+                      <div className="mt-2 pt-2 border-t border-purple-500/20 text-[10px] text-muted-foreground flex items-center gap-1.5 font-medium">
+                        <ShieldCheck className="size-3 text-purple-500 shrink-0" />
+                        <span className="text-foreground">Evaluation Desk Active</span>
+                      </div>
+                    </div>
                   ) : (
                     <div className="mb-3 rounded-2xl border border-border/80 bg-gradient-to-br from-card via-card to-primary/[0.04] p-3 shrink-0 shadow-sm">
                       <div className="flex items-center justify-between">
@@ -846,12 +936,18 @@ export function AppShell({
                 variant="outline"
                 className={cn(
                   "text-[10px] font-bold",
-                  subscription?.isPaid
+                  role === "teacher" || subscription?.isTeacher
+                    ? "border-purple-500/30 bg-purple-500/10 text-purple-600 dark:text-purple-400"
+                    : subscription?.isPaid
                     ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
                     : "text-primary border-primary/30",
                 )}
               >
-                {subscription?.isPaid ? subscription.tierName.split(" ")[0] : "Free Tier"}
+                {role === "teacher" || subscription?.isTeacher
+                  ? "Educator"
+                  : subscription?.isPaid
+                  ? subscription.tierName.split(" ")[0]
+                  : "Free Tier"}
               </Badge>
             </Link>
           </div>

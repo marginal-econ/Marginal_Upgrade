@@ -38,6 +38,7 @@ function AuthenticatedLayout() {
   const user = context?.user;
   const [privacyResolved, setPrivacyResolved] = useState(false);
   const handlePrivacyResolved = useCallback(() => setPrivacyResolved(true), []);
+  const fetchMe = useServerFn(getMe);
   const { data } = useQuery({
     queryKey: ["me"],
     queryFn: () => fetchMe(),
@@ -92,6 +93,7 @@ function AuthenticatedLayout() {
     <AppShell
       role={resolvedRole}
       name={resolvedName}
+      school={data?.school || (user.user_metadata as any)?.school || null}
       userId={user.id}
       subscription={userSub}
     >

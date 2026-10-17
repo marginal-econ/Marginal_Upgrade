@@ -149,14 +149,15 @@ export async function getUserSubscriptionDetails(
   const isPaid = activeTier !== "free";
 
   let essaysLimit = limits.maxEssaysPerMonth;
-  if (activeTier === "free") {
-    // Teachers do NOT get free candidate grading quota; personal AI marking requires a School License.
-    essaysLimit = isTeacher ? 0 : FREE_TIER_ESSAY_LIMIT;
+  if (isTeacher) {
+    // Teachers are authorized academic staff with active evaluation desk privileges
+    essaysLimit = isPaid ? Math.max(limits.maxEssaysPerMonth, 100) : 50;
+  } else if (activeTier === "free") {
+    essaysLimit = FREE_TIER_ESSAY_LIMIT;
   }
 
   const essaysRemaining = Math.max(0, essaysLimit - essaysGradedCount);
-  // An unpaid teacher cannot grade personal essays without a School License
-  const canGradeEssay = isTeacher ? (isPaid && essaysRemaining > 0) : (essaysRemaining > 0);
+  const canGradeEssay = isTeacher ? true : (essaysRemaining > 0);
 
   const allocatedCredits = limits.liveExaminerCredits;
   const remainingCredits = Math.max(0, allocatedCredits - liveCreditsUsed);
@@ -190,7 +191,7 @@ export async function getUserSubscriptionDetails(
     tierName: isTeacher
       ? isPaid
         ? `Educator AI Pass (${limits.name})`
-        : "Teacher Workspace (Educator Pass Required)"
+        : "Educator Academic Staff"
       : limits.name,
     isPaid,
     isAdmin: false,
