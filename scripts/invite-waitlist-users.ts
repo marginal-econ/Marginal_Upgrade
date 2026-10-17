@@ -131,11 +131,33 @@ async function run() {
   console.log(`Found ${members.length} waitlist records.`);
 
   if (isDryRun) {
-    console.log(`\n[DRY RUN PREVIEW] Listing members:`);
+    console.log(`\n[DRY RUN PREVIEW] Listing all 48 migrated members:`);
     members.forEach((m, idx) => {
       console.log(`  ${idx + 1}. ${m.email} (${m.name || "Unknown"}) — Status: [${m.status}] — Location: ${m.city || "N/A"}, ${m.country || "N/A"}`);
     });
-    console.log(`\nTo send invites, run: npx tsx scripts/invite-waitlist-users.ts --all`);
+
+    console.log(`\n======================================================`);
+    console.log(`✉️  WHAT INVITATION WILL GO TO THE CANDIDATE:`);
+    console.log(`======================================================`);
+    console.log(`FROM:    Marginal Economics <marginal.econ.ai@gmail.com>`);
+    console.log(`SUBJECT: Your access invitation to Marginal Economics (9708)`);
+    console.log(`\nBODY PREVIEW:`);
+    console.log(`------------------------------------------------------`);
+    console.log(`Welcome to Marginal Economics, [Student Name]!`);
+    console.log(``);
+    console.log(`You've been invited to use Marginal for Cambridge AS & A Level`);
+    console.log(`Economics (9708). Click below to create your password and access`);
+    console.log(`your student account:`);
+    console.log(``);
+    console.log(`  👉 [Set Up My Account →]`);
+    console.log(`  Link: https://app.marginal-econ.workers.dev/auth?...`);
+    console.log(``);
+    console.log(`This invitation is intended for [email].`);
+    console.log(`------------------------------------------------------`);
+    console.log(`\nTo send invites or print links, run:`);
+    console.log(`  - Single candidate: npx tsx scripts/invite-waitlist-users.ts --email <email>`);
+    console.log(`  - All candidates:   npx tsx scripts/invite-waitlist-users.ts --all`);
+    console.log(`======================================================\n`);
     return;
   }
 
@@ -145,7 +167,7 @@ async function run() {
     console.log(`Processing invitation for: ${m.email} (${m.name || "Member"})...`);
 
     try {
-      const generated = await supabase.auth.admin.generateLink({
+      let generated = await supabase.auth.admin.generateLink({
         type: "invite",
         email: m.email,
         options: {
@@ -154,10 +176,27 @@ async function run() {
         },
       });
 
-      const actionLink = generated.data?.properties?.action_link;
+      if (!generated.data?.properties?.action_link && generated.error?.message?.includes("already been registered")) {
+        generated = await supabase.auth.admin.generateLink({
+          type: "magiclink",
+          email: m.email,
+          options: {
+            redirectTo: `${SITE_URL}/auth`,
+          },
+        });
+      }
+
+      let actionLink = generated.data?.properties?.action_link;
       if (!actionLink) {
         console.warn(`   ⚠️ Could not generate action link for ${m.email}:`, generated.error?.message);
         continue;
+      }
+
+      // Ensure redirect_to points to our live production app URL
+      if (actionLink.includes("redirect_to=http%3A%2F%2Flocalhost%3A3000") || actionLink.includes("redirect_to=http://localhost:3000")) {
+        actionLink = actionLink
+          .replace("redirect_to=http%3A%2F%2Flocalhost%3A3000", `redirect_to=${encodeURIComponent(`${SITE_URL}/auth`)}`)
+          .replace("redirect_to=http://localhost:3000", `redirect_to=${encodeURIComponent(`${SITE_URL}/auth`)}`);
       }
 
       const sent = await sendEmail(m, actionLink);
