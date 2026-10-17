@@ -128,11 +128,13 @@ export function GroundedChatPage() {
   const isAdmin = Boolean(
     meQuery.data?.isAdmin ||
     meQuery.data?.role === "admin" ||
-    meQuery.data?.role === "teacher"
+    meQuery.data?.role === "teacher" ||
+    sub?.isAdmin
   );
   const isHigherTier = sub?.tier === "mastery" || sub?.tier === "elite";
   // Experimental Labs: Unlocked for platform admins and A* Mastery / Elite scholars
   const hasAccess = isAdmin || isHigherTier;
+  const isUnlocked = hasAccess;
 
   // Conversational state
   const [messages, setMessages] = useState<ChatMessageItem[]>([]);
