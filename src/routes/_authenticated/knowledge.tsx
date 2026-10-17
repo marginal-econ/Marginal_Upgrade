@@ -1,26 +1,36 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { FileText, Layers, Loader2, RefreshCw, Search, Trash2, Upload } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import {
+  BookOpen,
+  FileText,
+  Filter,
+  Loader2,
+  Plus,
+  RefreshCw,
+  Search,
+  Sparkles,
+  Trash2,
+  Upload,
+  ExternalLink,
+  CheckCircle2,
+  AlertCircle,
+} from "lucide-react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { PageHeader } from "@/components/app/app-shell";
-import { AdminNavTabs } from "@/components/app/admin-nav";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
@@ -31,10 +41,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
-import { splitIntoChapters, type ChapterSplit } from "@/lib/chapter-split";
 import { extractTextFromFile } from "@/lib/extract-text";
+import { isPdfFile, ocrPdf } from "@/lib/pdf-ocr";
 import { getMe } from "@/lib/account.functions";
 import { cn } from "@/lib/utils";
 import {
@@ -42,1017 +51,530 @@ import {
   embedNextBatch,
   ingestDocument,
   listDocuments,
-  listEmbeddingProviderOptions,
-  reembedAllDocuments,
   searchKnowledge,
 } from "@/lib/knowledge.functions";
-import { isPdfFile, ocrPdf } from "@/lib/pdf-ocr";
 
 const DOC_TYPES = [
-  { value: "coursebook", label: "Coursebook" },
+  { value: "mark_scheme", label: "Mark Scheme" },
   { value: "syllabus", label: "Syllabus" },
-  { value: "mark_scheme", label: "Mark scheme" },
-  { value: "past_paper", label: "Past paper" },
-  { value: "examiner_report", label: "Examiner report" },
-  { value: "notes", label: "Class notes" },
+  { value: "past_paper", label: "Past Paper" },
+  { value: "examiner_report", label: "Examiner Report" },
+  { value: "coursebook", label: "Coursebook" },
+  { value: "notes", label: "Class Notes" },
   { value: "other", label: "Other" },
 ] as const;
 
 export const Route = createFileRoute("/_authenticated/knowledge")({
   head: () => ({
     meta: [
-      { title: "Knowledge base — Marginal Economics" },
+      { title: "Knowledge Base — Marginal Economics" },
       {
         name: "description",
         content:
-          "Upload your Economics coursebook, syllabus, mark schemes and examiner reports so every essay is marked against your own materials.",
-      },
-      { property: "og:title", content: "Knowledge base — Marginal Economics" },
-      {
-        property: "og:description",
-        content: "Add PDFs and notes that ground every mark in real Cambridge source material.",
+          "Instant search across official Cambridge 9708 mark schemes, past papers, syllabus guides, and coursebooks.",
       },
     ],
   }),
   component: KnowledgePage,
 });
 
-type QueueStatus =
-  "pending" | "reading" | "chunking" | "embedding" | "done" | "duplicate" | "failed";
-type QueueItem = { id: string; title: string; status: QueueStatus; detail: string };
-
-// A single PDF that splits into >= this many chapters gets a preview so a
-// teacher can confirm/exclude before anything is written, rather than the
-// heuristic silently deciding for them.
-const MIN_PREVIEW_CHAPTERS = 2;
-
-function KnowledgePage() {
+export function KnowledgePage() {
   const queryClient = useQueryClient();
   const fetchMe = useServerFn(getMe);
   const me = useQuery({ queryKey: ["me"], queryFn: () => fetchMe() });
+
+  const fetchDocs = useServerFn(listDocuments);
+  const searchFn = useServerFn(searchKnowledge);
   const ingest = useServerFn(ingestDocument);
   const embedBatch = useServerFn(embedNextBatch);
   const removeDoc = useServerFn(deleteDocument);
-  const fetchDocs = useServerFn(listDocuments);
-  const search = useServerFn(searchKnowledge);
-  const reembedAll = useServerFn(reembedAllDocuments);
 
-  const docs = useQuery({ queryKey: ["documents"], queryFn: () => fetchDocs() });
+  const docsQuery = useQuery({
+    queryKey: ["knowledge-documents"],
+    queryFn: () => fetchDocs(),
+  });
 
-  // Course materials — coursebook, syllabus, mark schemes, past papers,
-  // examiner reports, notes — everything that grounds marking and coaching.
-  const scopedDocs = docs.data ?? [];
-  const [recalibrating, setRecalibrating] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedType, setSelectedType] = useState<string>("all");
+  const [addModalOpen, setAddModalOpen] = useState(false);
 
-  const handleRecalibrate = async () => {
-    setRecalibrating(true);
-    try {
-      const result = await reembedAll();
-      queryClient.invalidateQueries({ queryKey: ["documents"] });
-      toast.success(
-        result.queued > 0
-          ? `Queued ${result.queued} documents for recalibration under the active embedding provider.`
-          : "No documents in library to recalibrate.",
-      );
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Recalibration failed.");
-    } finally {
-      setRecalibrating(false);
-    }
-  };
-
-  const fileRef = useRef<HTMLInputElement>(null);
-  const [title, setTitle] = useState("");
-  const [docType, setDocType] = useState<string>("coursebook");
+  // Easy Add form state
+  const [newTitle, setNewTitle] = useState("");
+  const [newType, setNewType] = useState<string>("mark_scheme");
+  const [newText, setNewText] = useState("");
   const [examSeries, setExamSeries] = useState("");
-  const [pastedText, setPastedText] = useState("");
-  const [files, setFiles] = useState<File[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<{ step: string; percent: number } | null>(null);
 
-  // Set only when a single PDF is selected and it looks like a chaptered
-  // coursebook — lets the teacher confirm the split before anything is added.
-  const [chapterPreview, setChapterPreview] = useState<{
-    file: File;
-    chapters: ChapterSplit[];
-    included: boolean[];
-  } | null>(null);
-
-  const [busy, setBusy] = useState(false);
-  const [overallProgress, setOverallProgress] = useState(0);
-  const [queue, setQueue] = useState<QueueItem[]>([]);
-  // Mirrors `queue` synchronously so runQueue can read a just-updated item's
-  // final status right after awaiting it, without racing React's batching.
-  const queueRef = useRef<QueueItem[]>([]);
-
-  const [query, setQuery] = useState("");
+  // Search execution
   const searchMutation = useMutation({
-    mutationFn: (value: string) => search({ data: { query: value } }),
-    onError: (error: Error) => toast.error(error.message),
+    mutationFn: async (query: string) => {
+      if (!query.trim() || query.trim().length < 2) return [];
+      return searchFn({ data: { query: query.trim() } });
+    },
   });
 
-  // Which saved embedding key this specific ingestion job should use — lets
-  // a teacher pick per-call instead of always inheriting whatever is active
-  // in Admin → Embeddings. Defaults to "" (= use the active one / fallback).
-  const listEmbeddingOptions = useServerFn(listEmbeddingProviderOptions);
-  const embeddingOptions = useQuery({
-    queryKey: ["embedding-provider-options"],
-    queryFn: () => listEmbeddingOptions(),
-    staleTime: 60_000,
-  });
-  const [embeddingProviderId, setEmbeddingProviderId] = useState<string>("");
-
-  const isStaff = me.data?.isStaff ?? false;
-
-  // Documents can be left sitting at "processing" — by a migration that
-  // reset embeddings, a closed tab mid-upload, a crashed request — and
-  // nothing else ever re-queues them: embedNextBatch only ever gets called
-  // from inside ingestOne, right after a fresh upload. Re-uploading the
-  // same file doesn't help either, since the duplicate check matches it
-  // straight back to the stuck row and returns before embedding runs. So
-  // pick up any "processing" document the moment the library loads (or a
-  // teacher hits Retry) and drive it to completion here instead.
-  const resumingRef = useRef<Set<string>>(new Set());
-  const [resumingIds, setResumingIds] = useState<Set<string>>(new Set());
-  const [deletingId, setDeletingId] = useState<string | null>(null);
-
-  const resumeDocument = (documentId: string) => {
-    if (resumingRef.current.has(documentId)) return;
-    resumingRef.current.add(documentId);
-    setResumingIds(new Set(resumingRef.current));
-
-    (async () => {
-      try {
-        let done = false;
-        let guard = 0;
-        while (!done && guard < 500) {
-          guard += 1;
-          const batch = await embedBatch({
-            data: { documentId, embeddingProviderId: embeddingProviderId || undefined },
-          });
-          done = batch.done;
-        }
-      } catch {
-        // embedNextBatch already writes status: "failed" + error_message
-        // on the document itself before rethrowing — the refreshed list
-        // below shows that, nothing more to do here.
-      } finally {
-        resumingRef.current.delete(documentId);
-        setResumingIds(new Set(resumingRef.current));
-        queryClient.invalidateQueries({ queryKey: ["documents"] });
-      }
-    })();
-  };
-
-  useEffect(() => {
-    (docs.data ?? [])
-      .filter((doc) => doc.status === "processing" && !resumingRef.current.has(doc.id))
-      .forEach((doc) => resumeDocument(doc.id));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [docs.data]);
-
-  const reset = () => {
-    setTitle("");
-    setExamSeries("");
-    setPastedText("");
-    setFiles([]);
-    setChapterPreview(null);
-    if (fileRef.current) fileRef.current.value = "";
-    setOverallProgress(0);
-    setQueue([]);
-    queueRef.current = [];
-  };
-
-  const updateQueueItem = (id: string, patch: Partial<QueueItem>) => {
-    setQueue((current) => {
-      const next = current.map((item) => (item.id === id ? { ...item, ...patch } : item));
-      queueRef.current = next;
-      return next;
-    });
-  };
-
-  /** Read a single File into plain text, routing PDFs through the OCR pipeline. */
-  const readFile = async (file: File, onProgress: (label: string) => void): Promise<string> => {
-    if (isPdfFile(file)) {
-      const outcome = await ocrPdf(file, onProgress);
-      if (outcome.failedPages.length > 0) {
-        toast.warning(
-          `${outcome.failedPages.length} page(s) of "${file.name}" couldn't be OCR'd and were skipped.`,
-        );
-      }
-      return outcome.text;
+  const handleSearchSubmit = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (searchQuery.trim().length >= 2) {
+      searchMutation.mutate(searchQuery);
     }
-    onProgress("Reading file…");
-    return file.text();
   };
 
-  /** Ingest one already-extracted document: chunk, store, then embed to completion. */
-  const ingestOne = async (params: {
-    id: string;
-    text: string;
-    title: string;
-    sourceName?: string;
-  }) => {
-    if (params.text.trim().length < 200) {
-      updateQueueItem(params.id, {
-        status: "failed",
-        detail:
-          params.text.trim().length === 0
-            ? "No readable text came back from this file — if it's a scanned/photographed paper, OCR found nothing. Try a clearer scan."
-            : `Only ${params.text.trim().length} characters of readable text came back — too little to index. If this is a scan, check it's not blank/upside-down pages.`,
-      });
+  // Filtered documents for browse mode
+  const allDocs = useMemo(() => docsQuery.data ?? [], [docsQuery.data]);
+  const filteredDocs = useMemo(() => {
+    return allDocs.filter((doc) => {
+      const matchesType = selectedType === "all" || doc.doc_type === selectedType;
+      const matchesQuery =
+        !searchQuery.trim() ||
+        doc.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        doc.doc_type.toLowerCase().includes(searchQuery.toLowerCase());
+      return matchesType && matchesQuery;
+    });
+  }, [allDocs, selectedType, searchQuery]);
+
+  // File drop/upload parser
+  const handleFileChange = async (file: File) => {
+    try {
+      setIsUploading(true);
+      setUploadProgress({ step: "Reading file...", percent: 25 });
+      if (!newTitle) {
+        setNewTitle(file.name.replace(/\.[^/.]+$/, ""));
+      }
+
+      let extracted = "";
+      if (isPdfFile(file)) {
+        setUploadProgress({ step: "Extracting text / OCR...", percent: 50 });
+        extracted = await ocrPdf(file);
+      } else {
+        extracted = await extractTextFromFile(file);
+      }
+
+      setNewText(extracted);
+      setUploadProgress({ step: "File loaded successfully", percent: 100 });
+      toast.success(`Extracted ${extracted.length.toLocaleString()} characters.`);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to parse document");
+    } finally {
+      setIsUploading(false);
+      setTimeout(() => setUploadProgress(null), 1500);
+    }
+  };
+
+  // Easy Ingest Handler
+  const handleIngest = async () => {
+    if (!newTitle.trim()) {
+      toast.error("Please enter a document title.");
+      return;
+    }
+    if (!newText.trim()) {
+      toast.error("Please provide document text or upload a file.");
       return;
     }
 
-    updateQueueItem(params.id, {
-      status: "chunking",
-      detail: "Splitting into searchable sections…",
-    });
+    try {
+      setIsUploading(true);
+      setUploadProgress({ step: "Chunking & staging document...", percent: 40 });
 
-    const result = await ingest({
-      data: {
-        title: params.title,
-        docType: docType as (typeof DOC_TYPES)[number]["value"],
-        sourceName: params.sourceName,
-        examSeries: examSeries.trim() || undefined,
-        text: params.text,
-      },
-    });
-
-    if (result.duplicateOf) {
-      updateQueueItem(params.id, {
-        status: "duplicate",
-        detail: `Already in your library as "${result.duplicateOf}".`,
-      });
-      return;
-    }
-
-    let done = false;
-    let embedded = 0;
-    while (!done) {
-      const batch = await embedBatch({
+      const res = await ingest({
         data: {
-          documentId: result.documentId,
-          embeddingProviderId: embeddingProviderId || undefined,
+          title: newTitle.trim(),
+          docType: newType as any,
+          examSeries: examSeries.trim() || undefined,
+          text: newText,
         },
       });
-      embedded += batch.embedded;
-      done = batch.done;
-      const total = embedded + batch.remaining;
-      updateQueueItem(params.id, {
-        status: "embedding",
-        detail: `Indexing ${embedded} of ${total} sections…`,
-      });
-    }
 
-    updateQueueItem(params.id, { status: "done", detail: "Ready." });
-  };
-
-  const runQueue = async (
-    items: { id: string; title: string; text: string; sourceName?: string }[],
-  ) => {
-    setBusy(true);
-    const initial: QueueItem[] = items.map((item) => ({
-      id: item.id,
-      title: item.title,
-      status: "pending",
-      detail: "",
-    }));
-    setQueue(initial);
-    queueRef.current = initial;
-    setOverallProgress(0);
-
-    // Tracked locally rather than read back off the `queue` state, since
-    // React state updates are async/batched — reading `queue` right after
-    // the loop below returned stale data and made the closing toast always
-    // say "success" even when every item had actually failed or turned out
-    // to be a duplicate, which is what made an upload look like it "did
-    // nothing": the toast lied, so nobody thought to check the doc list.
-    const outcomes: { id: string; title: string; status: QueueStatus }[] = [];
-
-    let completed = 0;
-    for (const item of items) {
-      try {
-        await ingestOne(item);
-        const finalStatus = queueRef.current.find((row) => row.id === item.id)?.status ?? "done";
-        outcomes.push({ id: item.id, title: item.title, status: finalStatus });
-      } catch (error) {
-        updateQueueItem(item.id, {
-          status: "failed",
-          detail: error instanceof Error ? error.message : "Failed to add this document.",
-        });
-        outcomes.push({ id: item.id, title: item.title, status: "failed" });
+      if (res.duplicateOf) {
+        toast.info(`Document already indexed as "${res.duplicateOf}".`);
+        setAddModalOpen(false);
+        return;
       }
-      completed += 1;
-      setOverallProgress(Math.round((completed / items.length) * 100));
-    }
 
-    setBusy(false);
-    queryClient.invalidateQueries({ queryKey: ["documents"] });
-
-    const doneCount = outcomes.filter((o) => o.status === "done").length;
-    const duplicateCount = outcomes.filter((o) => o.status === "duplicate").length;
-    const failedCount = outcomes.filter((o) => o.status === "failed").length;
-
-    if (doneCount > 0 && failedCount === 0 && duplicateCount === 0) {
-      toast.success(
-        doneCount === 1
-          ? "Document added to the knowledge base."
-          : `Added ${doneCount} documents to the knowledge base.`,
-      );
-    } else if (doneCount === 0 && duplicateCount > 0 && failedCount === 0) {
-      toast.info(
-        duplicateCount === 1
-          ? `Already in the knowledge base as "${outcomes.find((o) => o.status === "duplicate")?.title}".`
-          : `${duplicateCount} file(s) were already in the knowledge base.`,
-      );
-    } else if (doneCount === 0 && failedCount > 0) {
-      toast.error(
-        failedCount === 1
-          ? "That document could not be added — see the error below."
-          : `${failedCount} document(s) could not be added — see the errors below.`,
-      );
-    } else {
-      // Mixed outcome: some added, some duplicate/failed.
-      toast.warning(
-        `Added ${doneCount} of ${items.length}. ${[
-          duplicateCount > 0 ? `${duplicateCount} already existed` : "",
-          failedCount > 0 ? `${failedCount} failed` : "",
-        ]
-          .filter(Boolean)
-          .join(", ")}.`,
-      );
-    }
-
-    // Only clear the form (and the queue detail the person might need to
-    // read) once nothing failed. On any failure, leave the queue panel
-    // showing so the per-file error is visible instead of vanishing.
-    if (failedCount === 0) {
-      reset();
-    }
-  };
-
-  /** Called once files are chosen: extract text and decide single-doc vs preview. */
-  const handleFilesSelected = async (selected: File[]) => {
-    setFiles(selected);
-    setChapterPreview(null);
-    if (selected.length === 1 && !title) {
-      setTitle(selected[0]!.name.replace(/\.[^.]+$/, ""));
-    }
-
-    // Chapter-split preview only makes sense for a single PDF — with several
-    // files queued at once we just add each one as its own document (or,
-    // if it happens to split into chapters, those are added automatically
-    // without an interactive preview, since previewing several files' worth
-    // of chapters at once isn't manageable in this UI).
-    // Chapter-split preview applies to any single coursebook PDF or text file
-    if (
-      selected.length !== 1 ||
-      (!isPdfFile(selected[0]!) &&
-        !selected[0]!.type.startsWith("text/") &&
-        !selected[0]!.name.endsWith(".txt") &&
-        !selected[0]!.name.endsWith(".md"))
-    )
-      return;
-
-    const file = selected[0]!;
-    try {
-      setBusy(true);
-      setQueue([{ id: "preview", title: file.name, status: "reading", detail: "Reading file…" }]);
-      const text = await readFile(file, (label) => updateQueueItem("preview", { detail: label }));
-      const baseTitle = title.trim() || file.name.replace(/\.[^.]+$/, "");
-      const chapters = splitIntoChapters(text, baseTitle);
-      if (chapters.length >= MIN_PREVIEW_CHAPTERS) {
-        setChapterPreview({ file, chapters, included: chapters.map(() => true) });
+      setUploadProgress({ step: "Embedding vector chunks...", percent: 75 });
+      let done = false;
+      let iterations = 0;
+      while (!done && iterations < 30) {
+        const batchRes = await embedBatch({ data: { documentId: res.documentId } });
+        done = batchRes.done;
+        iterations += 1;
       }
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not read that file.");
+
+      setUploadProgress({ step: "Ready!", percent: 100 });
+      toast.success("Document indexed and embedded into Knowledge Base!");
+      queryClient.invalidateQueries({ queryKey: ["knowledge-documents"] });
+      setAddModalOpen(false);
+      setNewTitle("");
+      setNewText("");
+      setExamSeries("");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to ingest document");
     } finally {
-      setBusy(false);
-      setQueue([]);
+      setIsUploading(false);
+      setUploadProgress(null);
     }
   };
 
-  const handleAddChapters = async () => {
-    if (!chapterPreview) return;
-    const selected = chapterPreview.chapters.filter((_, index) => chapterPreview.included[index]);
-    if (selected.length === 0) {
-      toast.error("Select at least one chapter to add.");
-      return;
-    }
-    const currentBaseTitle = title.trim();
-    await runQueue(
-      selected.map((chapter, index) => {
-        // If teacher modified the Title input, ensure the chapter title reflects that updated base title
-        let chapterTitle = chapter.title;
-        if (
-          currentBaseTitle &&
-          !chapterTitle.toLowerCase().startsWith(currentBaseTitle.toLowerCase())
-        ) {
-          chapterTitle = `${currentBaseTitle} — ${chapter.title.replace(/^.*? — /, "")}`;
-        }
-        return {
-          id: `chapter-${index}`,
-          title: chapterTitle,
-          text: chapter.text,
-          sourceName: chapterPreview.file.name,
-        };
-      }),
-    );
-  };
-
-  const handleAddAsSingleDocument = async () => {
-    if (!chapterPreview) return;
-    const text = chapterPreview.chapters.map((chapter) => chapter.text).join("\n\n");
-    await runQueue([
-      {
-        id: "single",
-        title: title.trim() || chapterPreview.file.name.replace(/\.[^.]+$/, ""),
-        text,
-        sourceName: chapterPreview.file.name,
-      },
-    ]);
-  };
-
-  const handleUpload = async () => {
-    if (chapterPreview) {
-      await handleAddChapters();
-      return;
-    }
-
-    try {
-      if (files.length === 0) {
-        const text = pastedText.trim();
-        const baseTitle = title.trim() || "Coursebook Notes";
-        const chapters = splitIntoChapters(text, baseTitle);
-        if (chapters.length > 1) {
-          await runQueue(
-            chapters.map((ch, idx) => ({
-              id: `pasted-ch${idx}`,
-              title: ch.title,
-              text: ch.text,
-            })),
-          );
-        } else {
-          await runQueue([{ id: "pasted", title: baseTitle, text }]);
-        }
-        return;
-      }
-
-      setBusy(true);
-      setQueue(
-        files.map((file, index) => ({
-          id: `file-${index}`,
-          title: file.name,
-          status: "pending",
-          detail: "",
-        })),
-      );
-      setBusy(false);
-
-      const items: { id: string; title: string; text: string; sourceName?: string }[] = [];
-      for (let index = 0; index < files.length; index++) {
-        const file = files[index]!;
-        const id = `file-${index}`;
-        updateQueueItem(id, { status: "reading", detail: "Reading file…" });
-        try {
-          const text = await readFile(file, (label) => updateQueueItem(id, { detail: label }));
-          const singleTitle =
-            files.length === 1
-              ? title.trim() || file.name.replace(/\.[^.]+$/, "")
-              : file.name.replace(/\.[^.]+$/, "");
-
-          // Automatically split into chapters so RAG retrieval and citations are accurate
-          const chapters = splitIntoChapters(text, singleTitle);
-
-          if (chapters.length > 1) {
-            chapters.forEach((chapter, chapterIndex) => {
-              items.push({
-                id: `${id}-ch${chapterIndex}`,
-                title: chapter.title,
-                text: chapter.text,
-                sourceName: file.name,
-              });
-            });
-          } else {
-            items.push({
-              id,
-              title: chapters[0]!.title,
-              text: chapters[0]!.text,
-              sourceName: file.name,
-            });
-          }
-        } catch (error) {
-          updateQueueItem(id, {
-            status: "failed",
-            detail: error instanceof Error ? error.message : "Could not read this file.",
-          });
-        }
-      }
-
-      if (items.length === 0) {
-        toast.error("Nothing readable was found in the selected file(s).");
-        setBusy(false);
-        return;
-      }
-
-      await runQueue(items);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Upload failed.");
-      setBusy(false);
-    }
-  };
-
-  const canSubmit = chapterPreview
-    ? chapterPreview.included.some(Boolean)
-    : files.length > 0 || pastedText.trim().length >= 200;
+  const isStaff = Boolean(me.data?.role === "teacher" || me.data?.isStaff || me.data?.isAdmin);
 
   return (
-    <>
+    <div className="min-h-screen bg-background">
       <PageHeader
-        title="Knowledge base"
-        description="Add your coursebook, the 9708 syllabus, mark schemes and examiner reports. Every mark is then grounded in these documents and cited back to them."
-      />
-      <AdminNavTabs role={me.data?.isAdmin ? "admin" : "teacher"} />
-
-      {me.isLoading ? null : !isStaff ? (
-        <div className="px-5 py-16 md:px-8">
-          <div className="panel mx-auto max-w-md px-6 py-10 text-center">
-            <h2 className="text-sm font-semibold">Administrators only</h2>
-            <p className="mt-2 text-sm text-muted-foreground">
-              The shared knowledge library is managed by administrators. Everything in it already
-              grounds your marking and coaching automatically.
-            </p>
-          </div>
-        </div>
-      ) : (
-        <>
-          <div className="grid gap-6 px-5 py-6 md:px-8 lg:grid-cols-[minmax(0,420px)_minmax(0,1fr)]">
-            <div className="space-y-6">
-              <div className="panel space-y-4 p-5">
-                <h2 className="text-sm font-semibold">Add documents</h2>
-
-                <div className="space-y-1.5">
-                  <Label htmlFor="file">PDF or text file(s)</Label>
-                  <Input
-                    id="file"
-                    ref={fileRef}
-                    type="file"
-                    accept=".pdf,.txt,.md,application/pdf,text/plain"
-                    multiple
-                    disabled={busy}
-                    onChange={(event) => {
-                      const selected = Array.from(event.target.files ?? []);
-                      void handleFilesSelected(selected);
-                    }}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Select several files to bulk-add them in one go. A single coursebook PDF with
-                    "Chapter N" headings is automatically offered as separate chapter documents —
-                    typed PDFs are read directly, scanned ones with OCR.
-                  </p>
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label htmlFor="title">
-                    Title{files.length > 1 ? " (used per file name)" : ""}
-                  </Label>
-                  <Input
-                    id="title"
-                    value={title}
-                    disabled={busy || files.length > 1}
-                    placeholder="Cambridge International AS & A Level Economics Coursebook"
-                    onChange={(event) => setTitle(event.target.value)}
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="docType">Type</Label>
-                    <Select value={docType} onValueChange={setDocType} disabled={busy}>
-                      <SelectTrigger id="docType">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {DOC_TYPES.map((type) => (
-                          <SelectItem key={type.value} value={type.value}>
-                            {type.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="series">Series (optional)</Label>
-                    <Input
-                      id="series"
-                      value={examSeries}
-                      disabled={busy}
-                      placeholder="Nov 2024"
-                      onChange={(event) => setExamSeries(event.target.value)}
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label htmlFor="embeddingProvider">Embedding model</Label>
-                  <Select
-                    value={embeddingProviderId || "__active__"}
-                    onValueChange={(value) =>
-                      setEmbeddingProviderId(value === "__active__" ? "" : value)
-                    }
-                    disabled={busy}
-                  >
-                    <SelectTrigger id="embeddingProvider">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__active__">
-                        Use active embedding provider (Admin → Embeddings)
-                      </SelectItem>
-                      {(embeddingOptions.data ?? []).map((option) => (
-                        <SelectItem key={option.id} value={option.id}>
-                          {option.label} · {option.provider}
-                          {option.isActive ? " (active)" : ""}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <p className="text-[11px] text-muted-foreground">
-                    Pick a specific saved embedding key for this batch, or leave on the active one.
-                    Mixing providers across your library reduces retrieval accuracy — keep
-                    everything on one provider once you're happy with results.
-                  </p>
-                </div>
-
-                {files.length === 0 ? (
-                  <div className="space-y-1.5">
-                    <Label htmlFor="paste">Or paste text</Label>
-                    <Textarea
-                      id="paste"
-                      rows={5}
-                      disabled={busy}
-                      placeholder="Paste syllabus sections, mark scheme wording or class notes…"
-                      value={pastedText}
-                      onChange={(event) => setPastedText(event.target.value)}
-                    />
-                  </div>
-                ) : null}
-
-                {chapterPreview ? (
-                  <div className="space-y-2 rounded-md border border-border p-3">
-                    <div className="flex items-center justify-between gap-1.5">
-                      <div className="flex items-center gap-1.5 text-xs font-semibold">
-                        <Layers className="size-3.5 text-primary" />
-                        Detected {chapterPreview.chapters.length} chapters / sections in "
-                        {chapterPreview.file.name}"
-                      </div>
-                      <span className="text-[11px] text-muted-foreground">
-                        {Math.round(
-                          chapterPreview.chapters.reduce((acc, c) => acc + c.text.length, 0) / 1000,
-                        )}
-                        k chars total
-                      </span>
-                    </div>
-                    <div className="rounded bg-primary/10 px-2 py-1 text-[11px] font-medium text-primary flex items-center gap-1.5">
-                      <span>✓ Recommended for RAG:</span>
-                      <span className="text-muted-foreground font-normal">
-                        Each chapter is indexed with the textbook name for pinpoint search &
-                        citations.
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-                      <span>Add each section as its own document, or uncheck any to exclude:</span>
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          className="hover:underline font-medium text-primary cursor-pointer"
-                          disabled={busy}
-                          onClick={() =>
-                            setChapterPreview((curr) =>
-                              curr ? { ...curr, included: curr.chapters.map(() => true) } : curr,
-                            )
-                          }
-                        >
-                          Select all
-                        </button>
-                        <span>·</span>
-                        <button
-                          type="button"
-                          className="hover:underline font-medium text-muted-foreground cursor-pointer"
-                          disabled={busy}
-                          onClick={() =>
-                            setChapterPreview((curr) =>
-                              curr ? { ...curr, included: curr.chapters.map(() => false) } : curr,
-                            )
-                          }
-                        >
-                          Deselect all
-                        </button>
-                      </div>
-                    </div>
-                    <ul className="max-h-56 space-y-1.5 overflow-y-auto pr-1">
-                      {chapterPreview.chapters.map((chapter, index) => (
-                        <li key={index} className="flex items-start gap-2">
-                          <Checkbox
-                            checked={chapterPreview.included[index]}
-                            onCheckedChange={(checked) =>
-                              setChapterPreview((current) => {
-                                if (!current) return current;
-                                const included = [...current.included];
-                                included[index] = checked === true;
-                                return { ...current, included };
-                              })
-                            }
-                            disabled={busy}
-                          />
-                          <span className="text-xs leading-snug">
-                            {chapter.title}
-                            <span className="text-muted-foreground">
-                              {" "}
-                              · {Math.round(chapter.text.length / 1000)}k characters
-                            </span>
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="w-full text-xs text-muted-foreground hover:text-foreground"
-                      disabled={busy}
-                      onClick={handleAddAsSingleDocument}
-                    >
-                      Add as one giant document instead (not recommended)
-                    </Button>
-                  </div>
-                ) : null}
-
-                {queue.length > 0 ? (
-                  <div className="space-y-2">
-                    {busy ? <Progress value={overallProgress} className="h-1.5" /> : null}
-                    <ul className="max-h-48 space-y-1 overflow-y-auto text-xs">
-                      {queue.map((item) => (
-                        <li key={item.id} className="flex items-center justify-between gap-2">
-                          <span className="truncate">{item.title}</span>
-                          <span
-                            className={
-                              item.status === "failed"
-                                ? "text-destructive"
-                                : item.status === "done"
-                                  ? "text-emerald-600 dark:text-emerald-400"
-                                  : "text-muted-foreground"
-                            }
-                          >
-                            {item.status === "pending" ? "Queued…" : item.detail || item.status}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ) : null}
-
-                <Button className="w-full" disabled={busy || !canSubmit} onClick={handleUpload}>
-                  {busy ? (
-                    <>
-                      <Loader2 className="size-4 animate-spin" /> Working…
-                    </>
-                  ) : chapterPreview ? (
-                    <>
-                      <Upload className="size-4" />
-                      Add {chapterPreview.included.filter(Boolean).length} chapters
-                    </>
-                  ) : (
-                    <>
-                      <Upload className="size-4" />
-                      Add to knowledge base
-                    </>
-                  )}
+        title="Knowledge Base"
+        description="Search across official Cambridge 9708 mark schemes, past papers, syllabus guides, and verified examiner materials."
+        action={
+          isStaff ? (
+            <Dialog open={addModalOpen} onOpenChange={setAddModalOpen}>
+              <DialogTrigger asChild>
+                <Button size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold text-xs shadow-xs">
+                  <Plus className="size-3.5 mr-1.5" /> Easy Add Document
                 </Button>
-              </div>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-xl">
+                <DialogHeader>
+                  <DialogTitle className="text-base font-bold">Easy Add Knowledge Document</DialogTitle>
+                  <DialogDescription className="text-xs text-muted-foreground">
+                    Upload a mark scheme, syllabus guide, or past paper to ground Cambridge evaluations in official criteria.
+                  </DialogDescription>
+                </DialogHeader>
 
-              <div className="panel space-y-3 p-5">
-                <h2 className="text-sm font-semibold">Test retrieval</h2>
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="e.g. evaluation of price ceilings"
-                    value={query}
-                    onChange={(event) => setQuery(event.target.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter" && query.trim().length > 1) {
-                        searchMutation.mutate(query.trim());
-                      }
-                    }}
-                  />
+                <div className="space-y-4 py-2 text-xs">
+                  <div>
+                    <Label className="text-xs font-semibold">Document Title *</Label>
+                    <Input
+                      placeholder="e.g. 9708/22 Oct/Nov 2024 Mark Scheme"
+                      value={newTitle}
+                      onChange={(e) => setNewTitle(e.target.value)}
+                      className="mt-1 h-8.5 text-xs"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label className="text-xs font-semibold">Document Type</Label>
+                      <Select value={newType} onValueChange={setNewType}>
+                        <SelectTrigger className="mt-1 h-8.5 text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {DOC_TYPES.map((t) => (
+                            <SelectItem key={t.value} value={t.value} className="text-xs">
+                              {t.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div>
+                      <Label className="text-xs font-semibold">Exam Series (Optional)</Label>
+                      <Input
+                        placeholder="e.g. 2024_w22"
+                        value={examSeries}
+                        onChange={(e) => setExamSeries(e.target.value)}
+                        className="mt-1 h-8.5 text-xs"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs font-semibold">Upload File or Paste Text</Label>
+                      <label className="text-[11px] font-semibold text-primary hover:underline cursor-pointer flex items-center gap-1">
+                        <Upload className="size-3" /> Choose PDF / Text
+                        <input
+                          type="file"
+                          accept=".pdf,.txt,.md"
+                          className="hidden"
+                          onChange={(e) => {
+                            const f = e.target.files?.[0];
+                            if (f) handleFileChange(f);
+                          }}
+                        />
+                      </label>
+                    </div>
+                    <Textarea
+                      placeholder="Paste text directly, or click 'Choose PDF / Text' above to extract from file..."
+                      value={newText}
+                      onChange={(e) => setNewText(e.target.value)}
+                      rows={6}
+                      className="mt-1.5 text-xs font-mono"
+                    />
+                  </div>
+
+                  {uploadProgress && (
+                    <div className="space-y-1.5 rounded-lg border border-primary/20 bg-primary/5 p-3">
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span className="font-semibold text-primary">{uploadProgress.step}</span>
+                        <span className="font-bold tabular-nums">{uploadProgress.percent}%</span>
+                      </div>
+                      <Progress value={uploadProgress.percent} className="h-1.5" />
+                    </div>
+                  )}
+                </div>
+
+                <DialogFooter className="gap-2 sm:gap-0">
                   <Button
                     variant="outline"
-                    disabled={query.trim().length < 2 || searchMutation.isPending}
-                    onClick={() => searchMutation.mutate(query.trim())}
+                    size="sm"
+                    onClick={() => setAddModalOpen(false)}
+                    disabled={isUploading}
+                    className="text-xs"
                   >
-                    {searchMutation.isPending ? (
-                      <Loader2 className="size-4 animate-spin" />
+                    Cancel
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={handleIngest}
+                    disabled={isUploading || !newTitle.trim() || !newText.trim()}
+                    className="text-xs font-semibold bg-primary text-primary-foreground"
+                  >
+                    {isUploading ? (
+                      <>
+                        <Loader2 className="size-3.5 mr-1.5 animate-spin" /> Ingesting...
+                      </>
                     ) : (
-                      <Search className="size-4" />
+                      <>
+                        <Sparkles className="size-3.5 mr-1.5" /> Ingest &amp; Embed
+                      </>
                     )}
                   </Button>
-                </div>
-                {searchMutation.data?.length ? (
-                  <ul className="space-y-2.5">
-                    {searchMutation.data.map((hit, index) => (
-                      <li key={index} className="rounded-md border border-border p-3">
-                        <p className="text-xs font-medium">
-                          {hit.documentTitle}
-                          {hit.heading ? ` — ${hit.heading}` : ""}{" "}
-                          <span className="text-muted-foreground">
-                            ({Math.round(hit.similarity * 100)}%)
-                          </span>
-                        </p>
-                        <p className="mt-1 line-clamp-3 text-xs text-muted-foreground">
-                          {hit.snippet}
-                        </p>
-                      </li>
-                    ))}
-                  </ul>
-                ) : searchMutation.isSuccess ? (
-                  <p className="text-xs text-muted-foreground">
-                    No matches yet — add more documents.
-                  </p>
-                ) : null}
-              </div>
-            </div>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          ) : null
+        }
+      />
 
-            <div className="panel">
-              <div className="border-b border-border px-5 py-3.5 flex flex-wrap items-center justify-between gap-2">
-                <div>
-                  <h2 className="text-sm font-semibold">Library</h2>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    {scopedDocs.length} documents ·{" "}
-                    {scopedDocs.reduce((acc, d) => acc + d.chunk_count, 0)} sections indexed
-                  </p>
-                </div>
-                {scopedDocs.length > 0 ? (
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="text-xs gap-1.5"
-                        disabled={busy || recalibrating || resumingIds.size > 0}
-                      >
-                        <RefreshCw
-                          className={cn(
-                            "size-3.5",
-                            (recalibrating || resumingIds.size > 0) && "animate-spin",
-                          )}
-                        />
-                        {resumingIds.size > 0
-                          ? `Recalibrating (${resumingIds.size})…`
-                          : "Recalibrate library"}
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Recalibrate Knowledge Library?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          This re-indexes every document and chapter in your knowledge base under
-                          the active embedding provider. It brings all stored vectors and lexical
-                          index structures up to date for maximum RAG retrieval precision, chapter
-                          matching, and authoritative grading citations.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleRecalibrate}>
-                          Recalibrate now
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                ) : null}
-              </div>
-
-              {docs.isLoading ? (
-                <div className="space-y-2 p-5">
-                  <Skeleton className="h-14 w-full" />
-                  <Skeleton className="h-14 w-full" />
-                </div>
-              ) : scopedDocs.length === 0 ? (
-                <p className="px-5 py-12 text-center text-sm text-muted-foreground">
-                  Nothing here yet. Start with the 9708 syllabus and your coursebook.
-                </p>
-              ) : (
-                <ul className="divide-y divide-border">
-                  {scopedDocs.map((doc) => (
-                    <li key={doc.id} className="flex items-center gap-3 px-5 py-3.5">
-                      <FileText className="size-4 shrink-0 text-muted-foreground" />
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm">{doc.title}</p>
-                        <p className="mt-0.5 text-xs text-muted-foreground">
-                          {doc.doc_type.replace(/_/g, " ")} · {doc.chunk_count} sections ·{" "}
-                          {Math.round(doc.char_count / 1000)}k characters
-                          {doc.exam_series ? ` · ${doc.exam_series}` : ""}
-                        </p>
-                        {doc.error_message ? (
-                          <p className="mt-1 text-xs text-destructive">{doc.error_message}</p>
-                        ) : null}
-                      </div>
-                      <Badge
-                        variant={
-                          doc.status === "ready"
-                            ? "default"
-                            : doc.status === "failed"
-                              ? "destructive"
-                              : "secondary"
-                        }
-                        className={cn(
-                          doc.status === "processing" && "inline-flex items-center gap-1",
-                        )}
-                      >
-                        {doc.status === "processing" && resumingIds.has(doc.id) ? (
-                          <Loader2 className="size-3 animate-spin" />
-                        ) : null}
-                        {doc.status === "processing" && resumingIds.has(doc.id)
-                          ? "resuming…"
-                          : doc.status}
-                      </Badge>
-                      {doc.status === "failed" ? (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          disabled={resumingIds.has(doc.id)}
-                          onClick={() => resumeDocument(doc.id)}
-                        >
-                          Retry
-                        </Button>
-                      ) : null}
-                      {doc.status === "processing" && !resumingIds.has(doc.id) ? (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => resumeDocument(doc.id)}
-                          title="Picks up embedding exactly where it left off — already-embedded sections aren't redone."
-                        >
-                          Continue
-                        </Button>
-                      ) : null}
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            aria-label={`Remove ${doc.title}`}
-                            disabled={deletingId === doc.id}
-                          >
-                            {deletingId === doc.id ? (
-                              <Loader2 className="size-4 animate-spin" />
-                            ) : (
-                              <Trash2 className="size-4" />
-                            )}
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Remove "{doc.title}"?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              This deletes every chunk and embedding for this document from the
-                              knowledge base. Anything graded or generated using it already stays
-                              as-is, but it won't be used for retrieval anymore. This can't be
-                              undone.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction
-                              onClick={async (e) => {
-                                e.preventDefault();
-                                setDeletingId(doc.id);
-                                try {
-                                  await removeDoc({ data: { id: doc.id } });
-                                  queryClient.invalidateQueries({ queryKey: ["documents"] });
-                                  toast.success("Removed.");
-                                } catch (error) {
-                                  toast.error(
-                                    error instanceof Error
-                                      ? "Only administrators can remove documents."
-                                      : "Delete failed.",
-                                  );
-                                } finally {
-                                  setDeletingId(null);
-                                }
-                              }}
-                            >
-                              Remove
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    </li>
-                  ))}
-                </ul>
+      <div className="space-y-5 px-4 py-6 sm:px-6 md:px-8 max-w-7xl mx-auto">
+        {/* Sleek Search Header */}
+        <div className="rounded-2xl border border-border/80 bg-card p-4 sm:p-5 shadow-xs space-y-3">
+          <form onSubmit={handleSearchSubmit} className="flex flex-col sm:flex-row gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+              <Input
+                placeholder="Search Cambridge 9708 mark schemes, concepts, questions, or syllabus terms..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9.5 pr-4 h-10 text-xs sm:text-sm bg-background"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground"
+                >
+                  ✕
+                </button>
               )}
             </div>
+            <div className="flex items-center gap-2">
+              <Select value={selectedType} onValueChange={setSelectedType}>
+                <SelectTrigger className="w-[150px] h-10 text-xs bg-background">
+                  <Filter className="size-3.5 mr-1.5 text-muted-foreground" />
+                  <SelectValue placeholder="All Types" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all" className="text-xs">All Types</SelectItem>
+                  {DOC_TYPES.map((t) => (
+                    <SelectItem key={t.value} value={t.value} className="text-xs">
+                      {t.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button type="submit" size="sm" className="h-10 px-4 text-xs font-semibold shrink-0">
+                {searchMutation.isPending ? (
+                  <Loader2 className="size-3.5 animate-spin" />
+                ) : (
+                  "Search"
+                )}
+              </Button>
+            </div>
+          </form>
+
+          {/* Quick RAG statistics */}
+          <div className="flex flex-wrap items-center justify-between gap-2 pt-1 text-[11px] text-muted-foreground">
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="flex items-center gap-1.5">
+                <span className="size-1.5 rounded-full bg-emerald-500" />
+                <strong>{allDocs.length}</strong> Indexed Documents
+              </span>
+              <span>•</span>
+              <span>2048-Dim Grounded Retrieval</span>
+              <span>•</span>
+              <span>Cambridge 9708 Economics</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => docsQuery.refetch()}
+                className="h-6 text-[10.5px] px-2 text-muted-foreground hover:text-foreground"
+              >
+                <RefreshCw className={cn("size-3 mr-1", docsQuery.isFetching && "animate-spin")} /> Refresh
+              </Button>
+            </div>
           </div>
-        </>
-      )}
-    </>
+        </div>
+
+        {/* Semantic Search Results (when search is run) */}
+        {searchMutation.data && searchMutation.data.length > 0 ? (
+          <section className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold text-foreground flex items-center gap-1.5">
+                <Sparkles className="size-4 text-primary" /> Semantic Citations ({searchMutation.data.length})
+              </h3>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => searchMutation.reset()}
+                className="text-xs text-muted-foreground h-7"
+              >
+                Clear Search
+              </Button>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              {searchMutation.data.map((res: any, idx: number) => (
+                <div
+                  key={idx}
+                  className="rounded-xl border border-primary/20 bg-primary/[0.02] p-4 shadow-2xs space-y-2 hover:border-primary/40 transition-colors"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-semibold text-xs text-foreground truncate">
+                      {res.documentTitle || "Cambridge Document"}
+                    </span>
+                    <Badge variant="outline" className="text-[10px] font-mono shrink-0">
+                      {(res.similarity * 100).toFixed(0)}% Match
+                    </Badge>
+                  </div>
+                  {res.heading && (
+                    <p className="text-[11px] font-medium text-primary">{res.heading}</p>
+                  )}
+                  <p className="text-xs text-muted-foreground line-clamp-4 leading-relaxed font-sans">
+                    {res.content}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </section>
+        ) : null}
+
+        {/* Knowledge Documents Browse List */}
+        <section className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-bold text-foreground">
+              {searchQuery ? `Matching Documents (${filteredDocs.length})` : `All Knowledge Documents (${filteredDocs.length})`}
+            </h3>
+            {selectedType !== "all" && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSelectedType("all")}
+                className="text-xs text-muted-foreground h-7"
+              >
+                Reset Filter
+              </Button>
+            )}
+          </div>
+
+          {docsQuery.isLoading ? (
+            <div className="p-12 text-center text-xs text-muted-foreground">
+              <Loader2 className="size-6 animate-spin mx-auto mb-2 text-primary" />
+              Loading knowledge documents...
+            </div>
+          ) : filteredDocs.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-border p-8 text-center bg-card/40">
+              <BookOpen className="mx-auto size-8 text-muted-foreground/50 mb-2" />
+              <h4 className="font-semibold text-foreground text-sm">No documents found</h4>
+              <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
+                {searchQuery
+                  ? "No mark schemes or documents match your search. Try another keyword or reset filters."
+                  : "No documents have been indexed yet."}
+              </p>
+              {isStaff && (
+                <Button
+                  size="sm"
+                  onClick={() => setAddModalOpen(true)}
+                  className="mt-3 text-xs font-semibold"
+                >
+                  <Plus className="size-3.5 mr-1" /> Add First Document
+                </Button>
+              )}
+            </div>
+          ) : (
+            <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+              {filteredDocs.map((doc) => (
+                <div
+                  key={doc.id}
+                  className="rounded-xl border border-border/80 bg-card p-3.5 shadow-2xs hover:border-primary/40 transition-colors flex flex-col justify-between"
+                >
+                  <div className="space-y-1.5">
+                    <div className="flex items-start justify-between gap-2">
+                      <Badge
+                        variant="secondary"
+                        className="text-[10px] capitalize font-medium shrink-0"
+                      >
+                        {doc.doc_type.replace("_", " ")}
+                      </Badge>
+                      <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                        {doc.status === "ready" ? (
+                          <>
+                            <CheckCircle2 className="size-3 text-emerald-500" /> Ready
+                          </>
+                        ) : doc.status === "failed" ? (
+                          <>
+                            <AlertCircle className="size-3 text-destructive" /> Failed
+                          </>
+                        ) : (
+                          <>
+                            <Loader2 className="size-3 animate-spin text-amber-500" /> Ingesting
+                          </>
+                        )}
+                      </span>
+                    </div>
+
+                    <h4 className="text-xs font-bold text-foreground line-clamp-2 leading-snug">
+                      {doc.title}
+                    </h4>
+
+                    {doc.exam_series && (
+                      <p className="text-[10.5px] font-mono text-muted-foreground">
+                        Series: {doc.exam_series}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="mt-3 pt-2 border-t border-border/60 flex items-center justify-between text-[11px] text-muted-foreground">
+                    <span>{doc.chunk_count || 0} chunks</span>
+                    {isStaff && (
+                      <button
+                        onClick={async () => {
+                          if (confirm(`Remove "${doc.title}" from Knowledge Base?`)) {
+                            try {
+                              await removeDoc({ data: { documentId: doc.id } });
+                              toast.success("Document removed.");
+                              queryClient.invalidateQueries({ queryKey: ["knowledge-documents"] });
+                            } catch (err: any) {
+                              toast.error(err.message || "Failed to delete");
+                            }
+                          }
+                        }}
+                        className="text-muted-foreground hover:text-destructive p-1 rounded"
+                        title="Delete document"
+                      >
+                        <Trash2 className="size-3.5" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      </div>
+    </div>
   );
 }

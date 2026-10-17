@@ -14,6 +14,7 @@ export const DAILY_LIMIT_PREFIX = "Daily limit reached";
 export const TIER_LIMIT_PREFIX = "Plan limit reached";
 
 export const FREE_TIER_ESSAY_LIMIT = 2;
+export const FREE_TEACHER_ESSAY_LIMIT = 3;
 export const MCQ_FREE_TRIAL_DAYS = 30;
 
 export const LIVE_EXAMINER_DAILY_LIMIT = 1;
@@ -89,6 +90,10 @@ export function essayLimitMessage(limit: number): string {
 export const FREE_ESSAY_LIMIT_MESSAGE =
   `${TIER_LIMIT_PREFIX}: You have used your 2 free Cambridge essay gradings on the Free Tier. ` +
   `Upgrade to Foundation Scholar (₹99/mo), Pro (₹399/mo), or Mastery to continue grading essays with line-by-line mark scheme matching.`;
+
+export const TEACHER_FREE_ESSAY_LIMIT_MESSAGE =
+  `${TIER_LIMIT_PREFIX}: You have used your 3 free trial essay evaluations for educators. ` +
+  `Upgrade to an Educator AI Pass (from ₹99/mo) or School Department License to continue grading personal essays. Student classroom submissions can still be reviewed anytime.`;
 
 export const TEACHER_SCHOOL_LICENSE_REQUIRED_MESSAGE =
   "Teacher accounts require an active Educator AI Pass (from ₹99/mo) or School Department License to use the AI Essay Grader. Student submissions to your classrooms are covered under student quotas.";

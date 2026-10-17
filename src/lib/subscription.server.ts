@@ -3,6 +3,7 @@ import { isMarginalAdmin } from "@/lib/auth-admin";
 import { supabaseAdmin } from "@/integrations/backend/client.server";
 import {
   FREE_TIER_ESSAY_LIMIT,
+  FREE_TEACHER_ESSAY_LIMIT,
   MCQ_FREE_TRIAL_DAYS,
   TIER_LIMITS,
   type PlanTier,
@@ -150,18 +151,18 @@ export async function getUserSubscriptionDetails(
 
   let essaysLimit = limits.maxEssaysPerMonth;
   if (isTeacher) {
-    // Teachers are authorized academic staff with active evaluation desk privileges
-    essaysLimit = isPaid ? Math.max(limits.maxEssaysPerMonth, 100) : 50;
+    // Teachers get 3 free trial essay evaluations; paid educator pass gets full tier limits.
+    essaysLimit = isPaid ? limits.maxEssaysPerMonth : FREE_TEACHER_ESSAY_LIMIT;
   } else if (activeTier === "free") {
     essaysLimit = FREE_TIER_ESSAY_LIMIT;
   }
 
   const essaysRemaining = Math.max(0, essaysLimit - essaysGradedCount);
-  const canGradeEssay = isTeacher ? true : (essaysRemaining > 0);
+  const canGradeEssay = essaysRemaining > 0;
 
   const allocatedCredits = limits.liveExaminerCredits;
   const remainingCredits = Math.max(0, allocatedCredits - liveCreditsUsed);
-  // Live examiner is strictly for paid accounts with remaining credits
+  // Live examiner is strictly for paid accounts with remaining credits (both teachers and students must pay)
   const canUseLiveExaminer = limits.liveExaminerEnabled && remainingCredits > 0;
 
   let mcqFreeDaysRemaining = limits.mcqFreeDays;

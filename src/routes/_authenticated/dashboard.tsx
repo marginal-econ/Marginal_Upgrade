@@ -1372,72 +1372,97 @@ function EducatorDashboardView({
           </div>
         </section>
 
-        {/* 4 Metric Cards */}
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="rounded-xl border border-border/80 bg-card p-4.5 shadow-2xs hover:border-primary/40 transition-colors">
-            <div className="flex items-center justify-between">
-              <p className="text-xs font-medium text-muted-foreground">Active Cohorts</p>
-              <div className="size-8 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
-                <UsersRound className="size-4" />
+        {/* If teacher has no classrooms, prominently guide them to create one */}
+        {classrooms.length === 0 ? (
+          <section className="rounded-2xl border border-dashed border-purple-500/40 bg-purple-500/[0.04] p-8 text-center">
+            <div className="mx-auto size-12 rounded-2xl bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center mb-3">
+              <UsersRound className="size-6" />
+            </div>
+            <h3 className="text-base sm:text-lg font-bold text-foreground">No Classrooms Created Yet</h3>
+            <p className="mt-1.5 text-xs text-muted-foreground max-w-md mx-auto leading-relaxed">
+              Create your first Cambridge 9708 classroom cohort to invite students, set essay homework, and unlock cohort-level performance analytics.
+            </p>
+            <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
+              <Button asChild size="sm" className="bg-purple-600 hover:bg-purple-700 text-white font-semibold text-xs px-4">
+                <Link to="/classes">
+                  <UsersRound className="size-3.5 mr-1.5" /> Create Your First Classroom
+                </Link>
+              </Button>
+              <Button asChild variant="outline" size="sm" className="text-xs">
+                <Link to="/grade">
+                  <PenLine className="size-3.5 mr-1.5" /> Grade an Essay Now
+                </Link>
+              </Button>
+            </div>
+          </section>
+        ) : (
+          /* 4 Metric Cards for active cohorts */
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="rounded-xl border border-border/80 bg-card p-4.5 shadow-2xs hover:border-primary/40 transition-colors">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-medium text-muted-foreground">Active Cohorts</p>
+                <div className="size-8 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+                  <UsersRound className="size-4" />
+                </div>
+              </div>
+              <p className="mt-2 text-2xl font-bold tracking-tight text-foreground">{classrooms.length}</p>
+              <div className="mt-2 flex items-center justify-between text-xs">
+                <span className="text-muted-foreground">Classrooms enrolled</span>
+                <Link to="/classes" className="font-semibold text-primary hover:underline flex items-center gap-0.5">
+                  Manage <ArrowUpRight className="size-3" />
+                </Link>
               </div>
             </div>
-            <p className="mt-2 text-2xl font-bold tracking-tight text-foreground">{classrooms.length}</p>
-            <div className="mt-2 flex items-center justify-between text-xs">
-              <span className="text-muted-foreground">Classrooms enrolled</span>
-              <Link to="/classes" className="font-semibold text-primary hover:underline flex items-center gap-0.5">
-                Manage <ArrowUpRight className="size-3" />
-              </Link>
-            </div>
-          </div>
 
-          <div className="rounded-xl border border-border/80 bg-card p-4.5 shadow-2xs hover:border-primary/40 transition-colors">
-            <div className="flex items-center justify-between">
-              <p className="text-xs font-medium text-muted-foreground">Syllabus Mark Schemes</p>
-              <div className="size-8 rounded-lg bg-sky-500/10 text-sky-600 dark:text-sky-400 flex items-center justify-center">
-                <BookOpen className="size-4" />
+            <div className="rounded-xl border border-border/80 bg-card p-4.5 shadow-2xs hover:border-primary/40 transition-colors">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-medium text-muted-foreground">Knowledge Base</p>
+                <div className="size-8 rounded-lg bg-sky-500/10 text-sky-600 dark:text-sky-400 flex items-center justify-center">
+                  <BookOpen className="size-4" />
+                </div>
+              </div>
+              <p className="mt-2 text-2xl font-bold tracking-tight text-foreground">{readyDocs}</p>
+              <div className="mt-2 flex items-center justify-between text-xs">
+                <span className="text-muted-foreground">Ingested RAG documents</span>
+                <Link to="/knowledge" className="font-semibold text-primary hover:underline flex items-center gap-0.5">
+                  Search &amp; Add <ArrowUpRight className="size-3" />
+                </Link>
               </div>
             </div>
-            <p className="mt-2 text-2xl font-bold tracking-tight text-foreground">{readyDocs}</p>
-            <div className="mt-2 flex items-center justify-between text-xs">
-              <span className="text-muted-foreground">Ingested RAG documents</span>
-              <Link to="/knowledge" className="font-semibold text-primary hover:underline flex items-center gap-0.5">
-                Ingest <ArrowUpRight className="size-3" />
-              </Link>
-            </div>
-          </div>
 
-          <div className="rounded-xl border border-border/80 bg-card p-4.5 shadow-2xs hover:border-primary/40 transition-colors">
-            <div className="flex items-center justify-between">
-              <p className="text-xs font-medium text-muted-foreground">Calibrated Anchors</p>
-              <div className="size-8 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center">
-                <ShieldCheck className="size-4" />
+            <div className="rounded-xl border border-border/80 bg-card p-4.5 shadow-2xs hover:border-primary/40 transition-colors">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-medium text-muted-foreground">Calibrated Anchors</p>
+                <div className="size-8 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+                  <ShieldCheck className="size-4" />
+                </div>
+              </div>
+              <p className="mt-2 text-2xl font-bold tracking-tight text-foreground">{activeAnchors}</p>
+              <div className="mt-2 flex items-center justify-between text-xs">
+                <span className="text-muted-foreground">Standardized benchmarks</span>
+                <Link to="/calibration" className="font-semibold text-primary hover:underline flex items-center gap-0.5">
+                  Calibrate <ArrowUpRight className="size-3" />
+                </Link>
               </div>
             </div>
-            <p className="mt-2 text-2xl font-bold tracking-tight text-foreground">{activeAnchors}</p>
-            <div className="mt-2 flex items-center justify-between text-xs">
-              <span className="text-muted-foreground">Standardized benchmarks</span>
-              <Link to="/calibration" className="font-semibold text-primary hover:underline flex items-center gap-0.5">
-                Calibrate <ArrowUpRight className="size-3" />
-              </Link>
-            </div>
-          </div>
 
-          <div className="rounded-xl border border-border/80 bg-card p-4.5 shadow-2xs hover:border-primary/40 transition-colors">
-            <div className="flex items-center justify-between">
-              <p className="text-xs font-medium text-muted-foreground">Evaluated Submissions</p>
-              <div className="size-8 rounded-lg bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center">
-                <GraduationCap className="size-4" />
+            <div className="rounded-xl border border-border/80 bg-card p-4.5 shadow-2xs hover:border-primary/40 transition-colors">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-medium text-muted-foreground">Evaluated Submissions</p>
+                <div className="size-8 rounded-lg bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center">
+                  <GraduationCap className="size-4" />
+                </div>
+              </div>
+              <p className="mt-2 text-2xl font-bold tracking-tight text-foreground">{essays.length}</p>
+              <div className="mt-2 flex items-center justify-between text-xs">
+                <span className="text-muted-foreground">Candidate essay threads</span>
+                <Link to="/examiner" className="font-semibold text-primary hover:underline flex items-center gap-0.5">
+                  Moderation <ArrowUpRight className="size-3" />
+                </Link>
               </div>
             </div>
-            <p className="mt-2 text-2xl font-bold tracking-tight text-foreground">{essays.length}</p>
-            <div className="mt-2 flex items-center justify-between text-xs">
-              <span className="text-muted-foreground">Candidate essay threads</span>
-              <Link to="/examiner" className="font-semibold text-primary hover:underline flex items-center gap-0.5">
-                Moderation <ArrowUpRight className="size-3" />
-              </Link>
-            </div>
           </div>
-        </div>
+        )}
 
         {/* The 4 Dedicated Educator Core Tools */}
         <section className="space-y-4">
@@ -1512,16 +1537,16 @@ function EducatorDashboardView({
                   <BookOpen className="size-5" />
                 </div>
                 <div>
-                  <h4 className="text-base font-bold text-foreground">School Mark Schemes & Ingestion</h4>
+                  <h4 className="text-base font-bold text-foreground">Knowledge Base</h4>
                   <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
-                    Ingest official Cambridge mark schemes, specimen papers, and internal school assessments into the RAG vector store. Grounded citations verify every evaluated criterion.
+                    Search and ingest official Cambridge mark schemes, specimen papers, and internal school assessments into the RAG vector store. Grounded citations verify every evaluated criterion.
                   </p>
                 </div>
               </div>
               <div className="mt-4 pt-4 border-t border-border/60">
                 <Button asChild size="sm" className="bg-sky-600 hover:bg-sky-700 text-white font-semibold text-xs">
                   <Link to="/knowledge">
-                    <BookOpen className="size-3.5 mr-1" /> Ingest Mark Schemes
+                    <BookOpen className="size-3.5 mr-1" /> Open Knowledge Base
                   </Link>
                 </Button>
               </div>

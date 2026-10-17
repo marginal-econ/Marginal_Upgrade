@@ -52,8 +52,8 @@ export const gradeEssaySubmission = createServerFn({ method: "POST" })
     const sub = await getUserSubscriptionDetails(supabase, userId, (context as any).email, (context as any).claims);
     if (!sub.canGradeEssay) {
       if (sub.isTeacher && !sub.isPaid) {
-        const { TEACHER_SCHOOL_LICENSE_REQUIRED_MESSAGE } = await import("./usage-limits");
-        throw new Error(TEACHER_SCHOOL_LICENSE_REQUIRED_MESSAGE);
+        const { TEACHER_FREE_ESSAY_LIMIT_MESSAGE } = await import("./usage-limits");
+        throw new Error(TEACHER_FREE_ESSAY_LIMIT_MESSAGE);
       }
       if (!sub.isPaid) {
         throw new Error(FREE_ESSAY_LIMIT_MESSAGE);

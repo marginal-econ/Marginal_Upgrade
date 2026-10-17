@@ -108,7 +108,9 @@ describe("Subscription Details & Entitlements", () => {
 
     expect(details.isTeacher).toBe(true);
     expect(details.isPaid).toBe(false);
-    expect(details.essaysLimit).toBe(50);
+    expect(details.essaysLimit).toBe(3);
     expect(details.canGradeEssay).toBe(true);
+    expect(details.liveExaminerCredits).toBe(0);
+    expect(details.canUseLiveExaminer).toBe(false);
   });
 });

@@ -108,7 +108,7 @@ const NAV_GROUPS: NavGroup[] = [
     label: "Syllabus & Knowledge",
     collapsible: true,
     items: [
-      { to: "/knowledge", label: "School Mark Schemes", icon: BookOpen, staffOnly: true },
+      { to: "/knowledge", label: "Knowledge Base", icon: BookOpen, staffOnly: true },
       { to: "/calibration", label: "Anchor Calibration", icon: ShieldCheck, staffOnly: true },
       { to: "/definitions", label: "Definitions Hub", icon: BookText },
       { to: "/diagrams", label: "Diagram Library", icon: LineChart },
@@ -157,7 +157,7 @@ const TEACHER_NAV_GROUPS: NavGroup[] = [
     items: [
       { to: "/grade", label: "Essay Grader", icon: PenLine },
       { to: "/examiner", label: "Marking Desk", icon: GraduationCap },
-      { to: "/knowledge", label: "School Mark Schemes", icon: BookOpen },
+      { to: "/knowledge", label: "Knowledge Base", icon: BookOpen },
       { to: "/calibration", label: "Anchor Calibration", icon: ShieldCheck },
     ],
   },
