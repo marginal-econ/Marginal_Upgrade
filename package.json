@@ -11,7 +11,8 @@
     "preview": "vite preview",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "harvest:papers": "npx tsx --env-file=.env scripts/harvest-papers.ts"
+    "harvest:papers": "npx tsx --env-file=.env scripts/harvest-papers.ts",
+    "migrate:db": "npx tsx scripts/migrate-databases.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
