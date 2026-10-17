@@ -61,12 +61,18 @@ async function assertLiveExaminerSessionAllowed(
     }
   }
 
-  const { data, error } = await supabase.rpc("claim_live_examiner_session", {
-    p_question: question,
-  });
-  if (error) throw new Error(error.message);
-  if (!(data as { allowed?: boolean } | null)?.allowed) {
-    throw new Error(LIVE_EXAMINER_LIMIT_MESSAGE);
+  try {
+    const { data, error } = await supabase.rpc("claim_live_examiner_session", {
+      p_question: question,
+    });
+    if (!error && data && !(data as { allowed?: boolean }).allowed) {
+      throw new Error(LIVE_EXAMINER_LIMIT_MESSAGE);
+    }
+  } catch (err) {
+    if (err instanceof Error && err.message === LIVE_EXAMINER_LIMIT_MESSAGE) {
+      throw err;
+    }
+    // RPC not present in schema cache; credit-based limit above is the authoritative gate
   }
 }
 

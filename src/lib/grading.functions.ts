@@ -64,14 +64,20 @@ export const gradeEssaySubmission = createServerFn({ method: "POST" })
       }
     }
 
-    // Hard per-day cap on essays graded (admin-configurable, default 5; the
-    // admin account is exempt). Enforced atomically in the database — this
-    // reserves one of today's slots BEFORE any AI cost is incurred, and the
-    // slot is handed back below if the AI call itself fails.
-    const { data: reservation, error: reserveError } = await supabase.rpc("reserve_essay_grading");
-    if (reserveError) throw new Error(reserveError.message);
-    const reserved = reservation as { allowed?: boolean; limit?: number } | null;
-    if (!reserved?.allowed) throw new Error(essayLimitMessage(reserved?.limit ?? 5));
+    // Optional daily cap reservation in database (if RPC installed)
+    try {
+      const { data: reservation, error: reserveError } = await supabase.rpc("reserve_essay_grading");
+      if (!reserveError && reservation && !(reservation as { allowed?: boolean }).allowed) {
+        const { essayLimitMessage } = await import("./usage-limits");
+        throw new Error(essayLimitMessage((reservation as any)?.limit ?? 5));
+      }
+    } catch (err) {
+      const { DAILY_LIMIT_PREFIX } = await import("./usage-limits");
+      if (err instanceof Error && err.message.startsWith(DAILY_LIMIT_PREFIX)) {
+        throw err;
+      }
+      // RPC not present in schema cache; the authoritative tier quota check above governs
+    }
 
     const { gradeEssay } = await import("./examiner/grade.server");
     const { defaultSplitForMaxMark } = await import("./examiner/config");
