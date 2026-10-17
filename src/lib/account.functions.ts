@@ -44,8 +44,8 @@ export const getMe = createServerFn({ method: "GET" })
       const roleList = (roles ?? []).map((row: any) => row.role);
       let role: AppRole = "student";
 
-      // Vaquitavoid is hardcoded as the one and only admin
-      if (isVaquita) {
+      // Admin check
+      if (isVaquita || roleList.includes("admin")) {
         role = "admin";
       } else if (roleList.includes("teacher")) {
         role = "teacher";
