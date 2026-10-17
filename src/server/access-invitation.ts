@@ -32,22 +32,16 @@ export async function sendAccessInvitation(
       options: { redirectTo },
     });
   }
-  if (generated.error || !generated.data.properties?.action_link) {
+  if (generated.error || !generated.data.properties?.hashed_token) {
     throw new Error(generated.error?.message ?? "Supabase did not create an invitation link.");
   }
 
-  let rawActionLink = generated.data.properties.action_link;
-  if (
-    rawActionLink.includes("redirect_to=http%3A%2F%2Flocalhost%3A3000") ||
-    rawActionLink.includes("redirect_to=http://localhost:3000")
-  ) {
-    rawActionLink = rawActionLink
-      .replace("redirect_to=http%3A%2F%2Flocalhost%3A3000", `redirect_to=${encodeURIComponent(redirectTo)}`)
-      .replace("redirect_to=http://localhost:3000", `redirect_to=${encodeURIComponent(redirectTo)}`);
-  }
+  const tokenHash = generated.data.properties.hashed_token;
+  const verificationType = generated.data.properties.verification_type || (member.status === "invited" ? "recovery" : "invite");
+  const directActionLink = `${new URL(redirectTo).origin}/auth?token_hash=${tokenHash}&type=${verificationType}`;
 
   const firstName = escapeHtml(member.name?.trim().split(/\s+/)[0] || "there");
-  const actionLink = escapeHtml(rawActionLink);
+  const actionLink = escapeHtml(directActionLink);
   const sender = requireEnv("MAILJET_SENDER_EMAIL");
   const response = await fetch("https://api.mailjet.com/v3.1/send", {
     method: "POST",

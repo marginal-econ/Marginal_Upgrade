@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 const NAV_SECTIONS = [
   { id: "graded-exemplar", label: "Real Graded Essay" },
   { id: "rag-engine", label: "RAG Engine & Syllabus" },
+  { id: "teachers-section", label: "For Teachers" },
   { id: "tools", label: "Features" },
   { id: "pricing", label: "Pricing", to: "/pricing" },
   { id: "faq", label: "FAQ" },

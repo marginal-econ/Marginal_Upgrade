@@ -109,6 +109,8 @@ function readRecoveryLinkState(): "recovery" | "error" | null {
   const errorCode = hash.get("error_code") || query.get("error_code");
   if (errorCode) return "error";
 
+  if (query.get("token_hash")) return "recovery";
+
   const type = hash.get("type") || query.get("type");
   if (type === "recovery" || type === "invite") return "recovery";
   if (hash.get("access_token") && !type) return "recovery"; // older Supabase links omit type
@@ -160,6 +162,44 @@ function AuthPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
 
   useEffect(() => {
+    // 1. Check for error parameters (e.g. from expired links)
+    const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+    const queryParams = new URLSearchParams(window.location.search);
+    const errCode = hashParams.get("error_code") || queryParams.get("error_code");
+    if (errCode) {
+      setLinkError(true);
+      setView("forgot");
+      toast.error("That link has expired or was already used. Request a fresh one below.");
+      return;
+    }
+
+    // 2. Direct OTP verification if token_hash is present
+    const tokenHash = queryParams.get("token_hash");
+    const tokenType = (queryParams.get("type") || "recovery") as any;
+
+    if (tokenHash) {
+      setView("verifying");
+      supabase.auth.verifyOtp({ token_hash: tokenHash, type: tokenType }).then(({ data, error }) => {
+        // Clean URL so refresh does not re-verify consumed token
+        const cleanUrl = new URL(window.location.href);
+        cleanUrl.searchParams.delete("token_hash");
+        cleanUrl.searchParams.delete("type");
+        window.history.replaceState({}, document.title, cleanUrl.pathname + cleanUrl.search + cleanUrl.hash);
+
+        if (error) {
+          console.error("Token verification error:", error);
+          setLinkError(true);
+          toast.error(error.message || "This invitation or reset link is invalid or has expired.");
+          setView("forgot");
+        } else {
+          toast.success("Identity verified. Please set your password to continue.");
+          setLinkError(false);
+          setView("recovery");
+        }
+      });
+      return;
+    }
+
     // Bail out of "verifying" if Supabase never turns the link into a
     // session (expired/already-used links redirect back with an error in
     // the URL, which readRecoveryLinkState already caught, but a silent
@@ -380,6 +420,13 @@ function AuthPage() {
                         "Sign in"
                       )}
                     </Button>
+
+                    <div className="pt-2 text-center text-xs text-muted-foreground">
+                      Are you a Cambridge economics teacher?{" "}
+                      <Link to="/teacher-auth" className="font-semibold text-purple-600 dark:text-purple-400 hover:underline">
+                        Teacher Portal →
+                      </Link>
+                    </div>
                   </form>
                 </TabsContent>
 

@@ -10,6 +10,7 @@ import {
   Cpu,
   ExternalLink,
   Gift,
+  GraduationCap,
   LineChart,
   ListChecks,
   Mail,
@@ -63,6 +64,7 @@ import { Magnetic, TiltCard } from "@/components/marketing/three-d";
 import { PricingSection } from "@/components/marketing/pricing-section";
 import { RealEssayShowcase } from "@/components/marketing/real-essay-showcase";
 import { RagEngineSection } from "@/components/marketing/rag-engine-section";
+import { TeachersSection } from "@/components/marketing/teachers-section";
 import { captureReferralCode } from "@/lib/waitlist-client";
 
 export const Route = createFileRoute("/")({
@@ -316,6 +318,13 @@ function Index() {
           <div className="flex items-center gap-2">
             <SiteNavMobile />
             <Link
+              to="/teacher-auth"
+              className="hidden rounded-lg px-2.5 py-1.5 text-xs font-semibold text-purple-600 dark:text-purple-400 border border-purple-500/30 bg-purple-500/10 hover:bg-purple-500/20 transition-colors sm:inline-flex items-center gap-1.5"
+            >
+              <GraduationCap className="size-3.5" />
+              Teacher Portal
+            </Link>
+            <Link
               to="/auth"
               className="hidden rounded-lg px-3 py-2 text-sm font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground sm:inline-flex"
             >
@@ -483,6 +492,9 @@ function Index() {
 
       {/* ── Cambridge Syllabus Coverage & RAG Knowledge Engine ────────────── */}
       <RagEngineSection />
+
+      {/* ── Cambridge Teachers & Department Workspace ──────────────────────── */}
+      <TeachersSection />
 
       {/* ── What you get back ────────────────────────────────────────────── */}
       <section id="result" className="relative border-b-[1.5px] border-ink scroll-mt-20">

@@ -224,17 +224,15 @@ async function run() {
         });
       }
 
-      let actionLink = generated.data?.properties?.action_link;
+      const tokenHash = generated.data?.properties?.hashed_token;
+      const verificationType = generated.data?.properties?.verification_type || "invite";
+      let actionLink = tokenHash
+        ? `${SITE_URL}/auth?token_hash=${tokenHash}&type=${verificationType}`
+        : generated.data?.properties?.action_link;
+
       if (!actionLink) {
         console.warn(`   ⚠️ Could not generate action link for ${m.email}:`, generated.error?.message);
         continue;
-      }
-
-      // Ensure redirect_to points to our live production app URL
-      if (actionLink.includes("redirect_to=http%3A%2F%2Flocalhost%3A3000") || actionLink.includes("redirect_to=http://localhost:3000")) {
-        actionLink = actionLink
-          .replace("redirect_to=http%3A%2F%2Flocalhost%3A3000", `redirect_to=${encodeURIComponent(`${SITE_URL}/auth`)}`)
-          .replace("redirect_to=http://localhost:3000", `redirect_to=${encodeURIComponent(`${SITE_URL}/auth`)}`);
       }
 
       const sent = await sendEmail(m, actionLink);

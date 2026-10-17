@@ -25,9 +25,9 @@ export async function sendPasswordResetEmail(email: string): Promise<void> {
   // Do not reveal whether an address has an account. The public endpoint
   // returns the same success response either way and sends mail only when
   // Supabase can create a valid recovery link.
-  if (error || !data.properties?.action_link) return;
+  if (error || !data.properties?.hashed_token) return;
 
-  const actionLink = data.properties.action_link;
+  const actionLink = `${siteUrl.origin}/auth?token_hash=${data.properties.hashed_token}&type=recovery`;
   const safeActionLink = escapeHtml(actionLink);
   const safeEmail = escapeHtml(email);
   const sender = requireEnv("MAILJET_SENDER_EMAIL");

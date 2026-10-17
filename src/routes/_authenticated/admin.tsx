@@ -15,6 +15,7 @@ import {
   ExternalLink,
   Eye,
   EyeOff,
+  GraduationCap,
   ImagePlus,
   KeyRound,
   Layers,
@@ -42,6 +43,7 @@ import { cn } from "@/lib/utils";
 
 import { AdminGodmodeDashboard } from "@/components/app/admin-godmode";
 import { PublicWaitlistPanel } from "@/components/app/public-waitlist-admin";
+import { TeacherApprovalsPanel } from "@/components/app/teacher-approvals-admin";
 import {
   AccessPanel,
   ActivityOverview,
@@ -225,6 +227,15 @@ const ADMIN_SECTIONS: Record<string, AdminSectionMeta> = {
     subtitle: "Manage registered student and teacher accounts, grant staff privileges, and audit account states.",
     icon: Users,
   },
+  teachers: {
+    id: "teachers",
+    category: "Users & Access",
+    title: "Teacher Verification Desk",
+    subtitle: "Verify Cambridge 9708 educators, review compulsory school domains, and approve staff access to Knowledge Base & Classrooms.",
+    icon: GraduationCap,
+    badge: "Staff Verification",
+    badgeColor: "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/30",
+  },
   access: {
     id: "access",
     category: "Users & Access",
@@ -301,7 +312,7 @@ const ADMIN_CATEGORIES = [
   },
   {
     title: "Users & Access",
-    items: [ADMIN_SECTIONS.users, ADMIN_SECTIONS.access, ADMIN_SECTIONS.waitlist],
+    items: [ADMIN_SECTIONS.users, ADMIN_SECTIONS.teachers, ADMIN_SECTIONS.access, ADMIN_SECTIONS.waitlist],
   },
   {
     title: "Monetization & Plans",
@@ -528,6 +539,7 @@ function AdminPage() {
             )}
             {activeTab === "godmode" && <AdminGodmodeDashboard />}
             {activeTab === "users" && <UsersPanel />}
+            {activeTab === "teachers" && <TeacherApprovalsPanel />}
             {activeTab === "access" && <AccessPanel />}
             {activeTab === "waitlist" && <PublicWaitlistPanel />}
             {activeTab === "pricing" && <PricingAdminPanel />}

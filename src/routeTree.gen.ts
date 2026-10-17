@@ -18,6 +18,7 @@ import { Route as HelpRouteImport } from './routes/help'
 import { Route as PaymentRouteImport } from './routes/payment'
 import { Route as PricingRouteImport } from './routes/pricing'
 import { Route as PrivacyRouteImport } from './routes/privacy'
+import { Route as TeacherAuthRouteImport } from './routes/teacher-auth'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as AuthenticatedCalibrationRouteImport } from './routes/_authenticated/calibration'
@@ -93,6 +94,11 @@ const PricingRoute = PricingRouteImport.update({
 const PrivacyRoute = PrivacyRouteImport.update({
   id: '/privacy',
   path: '/privacy',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TeacherAuthRoute = TeacherAuthRouteImport.update({
+  id: '/teacher-auth',
+  path: '/teacher-auth',
   getParentRoute: () => rootRouteImport,
 } as any)
 const TermsRoute = TermsRouteImport.update({
@@ -282,6 +288,7 @@ export interface FileRoutesByFullPath {
   '/payment': typeof PaymentRoute
   '/pricing': typeof PricingRoute
   '/privacy': typeof PrivacyRoute
+  '/teacher-auth': typeof TeacherAuthRoute
   '/terms': typeof TermsRoute
   '/admin': typeof AuthenticatedAdminRoute
   '/calibration': typeof AuthenticatedCalibrationRoute
@@ -324,6 +331,7 @@ export interface FileRoutesByTo {
   '/payment': typeof PaymentRoute
   '/pricing': typeof PricingRoute
   '/privacy': typeof PrivacyRoute
+  '/teacher-auth': typeof TeacherAuthRoute
   '/terms': typeof TermsRoute
   '/admin': typeof AuthenticatedAdminRoute
   '/calibration': typeof AuthenticatedCalibrationRoute
@@ -368,6 +376,7 @@ export interface FileRoutesById {
   '/payment': typeof PaymentRoute
   '/pricing': typeof PricingRoute
   '/privacy': typeof PrivacyRoute
+  '/teacher-auth': typeof TeacherAuthRoute
   '/terms': typeof TermsRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRoute
   '/_authenticated/calibration': typeof AuthenticatedCalibrationRoute
@@ -412,6 +421,7 @@ export interface FileRouteTypes {
     | '/payment'
     | '/pricing'
     | '/privacy'
+    | '/teacher-auth'
     | '/terms'
     | '/admin'
     | '/calibration'
@@ -454,6 +464,7 @@ export interface FileRouteTypes {
     | '/payment'
     | '/pricing'
     | '/privacy'
+    | '/teacher-auth'
     | '/terms'
     | '/admin'
     | '/calibration'
@@ -497,6 +508,7 @@ export interface FileRouteTypes {
     | '/payment'
     | '/pricing'
     | '/privacy'
+    | '/teacher-auth'
     | '/terms'
     | '/_authenticated/admin'
     | '/_authenticated/calibration'
@@ -541,6 +553,7 @@ export interface RootRouteChildren {
   PaymentRoute: typeof PaymentRoute
   PricingRoute: typeof PricingRoute
   PrivacyRoute: typeof PrivacyRoute
+  TeacherAuthRoute: typeof TeacherAuthRoute
   TermsRoute: typeof TermsRoute
 }
 
@@ -607,6 +620,13 @@ declare module '@tanstack/react-router' {
       path: '/privacy'
       fullPath: '/privacy'
       preLoaderRoute: typeof PrivacyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/teacher-auth': {
+      id: '/teacher-auth'
+      path: '/teacher-auth'
+      fullPath: '/teacher-auth'
+      preLoaderRoute: typeof TeacherAuthRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/terms': {
@@ -919,6 +939,7 @@ const rootRouteChildren: RootRouteChildren = {
   PaymentRoute: PaymentRoute,
   PricingRoute: PricingRoute,
   PrivacyRoute: PrivacyRoute,
+  TeacherAuthRoute: TeacherAuthRoute,
   TermsRoute: TermsRoute,
 }
 export const routeTree = rootRouteImport
