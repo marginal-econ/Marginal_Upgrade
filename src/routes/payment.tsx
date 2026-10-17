@@ -62,11 +62,11 @@ export const Route = createFileRoute("/payment")({
 
 const TIER_PRICING = {
   foundation: {
-    monthly: 149,
-    annual: 1199,
+    monthly: 99,
+    annual: 1188,
     annualMonthlyEq: 99,
-    savePct: 33,
-    tagline: "Foundation Scholar — 8 essays/mo and 3 Live Examiner credits",
+    savePct: 0,
+    tagline: "Foundation Scholar — 8 essays/mo and 3 Live Examiner credits (₹99/mo flat)",
   },
   pro: {
     monthly: 399,

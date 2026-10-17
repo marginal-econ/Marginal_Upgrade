@@ -26,11 +26,11 @@ export interface PlatformPricingPlans {
 export const DEFAULT_PRICING_PLANS: PlatformPricingPlans = {
   foundation: {
     name: "Foundation Scholar",
-    tagline: "Accessible entry point: less than a coffee, 8 essays & 3 Live Examiner credits.",
-    monthlyPrice: 149,
-    annualPrice: 1199,
+    tagline: "Accessible entry point: less than a coffee, flat ₹99/mo for 8 essays & 3 Live Examiner credits.",
+    monthlyPrice: 99,
+    annualPrice: 1188,
     annualEquivalentMonthly: 99,
-    savePct: 33,
+    savePct: 0,
     essaysPerMonth: 8,
     liveCredits: 3,
     hasExperimentalLabs: false,

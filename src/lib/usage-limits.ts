@@ -88,13 +88,13 @@ export function essayLimitMessage(limit: number): string {
 
 export const FREE_ESSAY_LIMIT_MESSAGE =
   `${TIER_LIMIT_PREFIX}: You have used your 2 free Cambridge essay gradings on the Free Tier. ` +
-  `Upgrade to Foundation Scholar (₹149/mo), Pro (₹399/mo), or Mastery to continue grading essays with line-by-line mark scheme matching.`;
+  `Upgrade to Foundation Scholar (₹99/mo), Pro (₹399/mo), or Mastery to continue grading essays with line-by-line mark scheme matching.`;
 
 export const TEACHER_SCHOOL_LICENSE_REQUIRED_MESSAGE =
-  "Teacher accounts require an active Educator AI Pass (from ₹149/mo) or School Department License to use the AI Essay Grader. Student submissions to your classrooms are covered under student quotas.";
+  "Teacher accounts require an active Educator AI Pass (from ₹99/mo) or School Department License to use the AI Essay Grader. Student submissions to your classrooms are covered under student quotas.";
 
 export const TEACHER_LIVE_EXAMINER_REQUIRED_MESSAGE =
-  "Teacher accounts require an active Educator AI Pass (from ₹149/mo) or School Department License to use the Live Examiner. To demonstrate or test Live Examiner, please activate an Educator Pass or School License.";
+  "Teacher accounts require an active Educator AI Pass (from ₹99/mo) or School Department License to use the Live Examiner. To demonstrate or test Live Examiner, please activate an Educator Pass or School License.";
 
 export const LIVE_EXAMINER_PAID_ONLY_MESSAGE =
   `Live Examiner is a premium feature available on paid plans. ` +

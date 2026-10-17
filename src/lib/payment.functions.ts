@@ -407,7 +407,7 @@ export const listUpiPaymentRequests = createServerFn({ method: "GET" })
         userId: parsed.userId || "",
         userEmail: parsed.userEmail || "Student (" + (parsed.userId?.slice(0, 8) || "") + ")",
         tier: (parsed.tier || "foundation") as PlanTier,
-        amount: parsed.amount || (parsed.tier === "foundation" ? 149 : parsed.tier === "pro" ? 399 : parsed.tier === "mastery" ? 699 : 999),
+        amount: parsed.amount || (parsed.tier === "foundation" ? 99 : parsed.tier === "pro" ? 399 : parsed.tier === "mastery" ? 699 : 999),
         utr: parsed.utr || row.term.replace("__UPI_REQ_", ""),
         status: (parsed.status || "pending") as "pending" | "approved" | "rejected",
         submittedAt: parsed.submittedAt || row.created_at,

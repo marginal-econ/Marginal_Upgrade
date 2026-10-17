@@ -48,14 +48,14 @@ export function LockedFeatureModal({
     school_license: {
       badge: "Educator AI Pass Required",
       title: "Teacher AI Grading & Live Coaching",
-      desc: "Teacher accounts require an active Educator AI Pass (from ₹149/mo) or School Department License to use personal AI essay grading and live coaching. Classroom homework submissions submitted by your students are funded through their individual student quotas.",
-      ctaText: "Unlock Educator AI Pass (from ₹149/mo)",
+      desc: "Teacher accounts require an active Educator AI Pass (from ₹99/mo) or School Department License to use personal AI essay grading and live coaching. Classroom homework submissions submitted by your students are funded through their individual student quotas.",
+      ctaText: "Unlock Educator AI Pass (from ₹99/mo)",
       items: [
         {
           icon: Sparkles,
           color: "text-amber-500",
           title: "Individual Educator AI Pass",
-          desc: "Subscribe from ₹149/mo to grade student essays, test Cambridge mark schemes, and run live classroom coaching.",
+          desc: "Subscribe from ₹99/mo to grade student essays, test Cambridge mark schemes, and run live classroom coaching.",
         },
         {
           icon: School,
@@ -241,7 +241,7 @@ export function LockedFeatureModal({
           <div className="pt-2 flex flex-col gap-2">
             <Button asChild size="default" className="w-full font-bold shadow-md">
               <Link to="/pricing" onClick={() => onOpenChange(false)}>
-                <span>{(config as any).ctaText ?? "Unlock Plan from ₹149/mo"}</span>
+                <span>{(config as any).ctaText ?? "Unlock Plan from ₹99/mo"}</span>
                 <ArrowRight className="ml-1.5 size-4" />
               </Link>
             </Button>

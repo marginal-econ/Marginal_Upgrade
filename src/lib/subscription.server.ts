@@ -36,9 +36,65 @@ export async function getUserSubscriptionDetails(
     };
   }
 
-  // 1. Check roles in user_roles table
+  // 1. Resolve tier from persistent subscription store and claims
   let activeTier: PlanTier = "free";
   let isTeacher = false;
+
+  // 1a. Check persistent subscription in definitions table (__USER_SUB_<userId>)
+  try {
+    const { data: subRow } = await supabase
+      .from("definitions")
+      .select("definition_text")
+      .eq("term", `__USER_SUB_${userId}`)
+      .maybeSingle();
+
+    if (subRow?.definition_text) {
+      try {
+        const parsed = JSON.parse(subRow.definition_text);
+        if (parsed.tier && ["foundation", "pro", "mastery", "elite"].includes(parsed.tier)) {
+          activeTier = parsed.tier as PlanTier;
+        }
+      } catch {}
+    }
+  } catch (err) {
+    console.warn("Could not query definitions for user sub:", err);
+  }
+
+  // 1b. Check approved UPI payment request if not yet set
+  if (activeTier === "free") {
+    try {
+      const { data: upiLogs } = await supabase
+        .from("definitions")
+        .select("definition_text")
+        .eq("category", "upi_payment_request")
+        .ilike("definition_text", `%"userId":"${userId}"%`)
+        .limit(10);
+
+      if (upiLogs && upiLogs.length > 0) {
+        for (const log of upiLogs) {
+          if (log.definition_text) {
+            try {
+              const parsed = JSON.parse(log.definition_text);
+              if (parsed.status === "approved" && parsed.tier && ["foundation", "pro", "mastery", "elite"].includes(parsed.tier)) {
+                activeTier = parsed.tier as PlanTier;
+                break;
+              }
+            } catch {}
+          }
+        }
+      }
+    } catch {}
+  }
+
+  // 1c. Check claims app_metadata / user_metadata
+  if (activeTier === "free") {
+    const claimTier = userClaims?.app_metadata?.tier || userClaims?.user_metadata?.tier;
+    if (claimTier && ["foundation", "pro", "mastery", "elite"].includes(claimTier)) {
+      activeTier = claimTier as PlanTier;
+    }
+  }
+
+  // 1d. Check roles in user_roles table
   try {
     const { data: roles } = await supabase
       .from("user_roles")
@@ -46,16 +102,8 @@ export async function getUserSubscriptionDetails(
       .eq("user_id", userId);
 
     const roleNames = (roles ?? []).map((r: any) => r.role);
-    if (roleNames.includes("admin")) {
+    if (roleNames.includes("admin") && isMarginalAdmin({ userId })) {
       activeTier = "elite";
-    } else if (roleNames.includes("tier_elite") || roleNames.includes("elite")) {
-      activeTier = "elite";
-    } else if (roleNames.includes("tier_mastery") || roleNames.includes("mastery")) {
-      activeTier = "mastery";
-    } else if (roleNames.includes("tier_pro") || roleNames.includes("pro")) {
-      activeTier = "pro";
-    } else if (roleNames.includes("tier_foundation") || roleNames.includes("foundation")) {
-      activeTier = "foundation";
     }
 
     if (roleNames.includes("teacher") || userClaims?.user_metadata?.role === "teacher") {
@@ -158,18 +206,41 @@ export async function assignUserSubscriptionTier(
   tier: PlanTier,
 ): Promise<{ success: boolean; message: string }> {
   try {
-    // Delete any existing tier_* role
-    const tierRoles = ["tier_foundation", "tier_pro", "tier_mastery", "tier_elite", "foundation", "pro", "mastery", "elite"];
-    for (const r of tierRoles) {
-      await supabaseAdmin.from("user_roles").delete().eq("user_id", userId).eq("role", r);
-    }
+    const termKey = `__USER_SUB_${userId}`;
+    const payload = JSON.stringify({
+      tier,
+      updatedAt: new Date().toISOString(),
+    });
 
-    if (tier !== "free") {
-      await supabaseAdmin.from("user_roles").insert({
-        user_id: userId,
-        role: `tier_${tier}`,
+    const { data: existing } = await supabaseAdmin
+      .from("definitions")
+      .select("id")
+      .eq("term", termKey)
+      .maybeSingle();
+
+    if (existing?.id) {
+      await supabaseAdmin
+        .from("definitions")
+        .update({
+          definition_text: payload,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", existing.id);
+    } else {
+      await supabaseAdmin.from("definitions").insert({
+        term: termKey,
+        definition_text: payload,
+        category: "user_subscription",
+        source_label: "subscription_manager",
       });
     }
+
+    // Also attempt updating user auth app_metadata if accessible
+    try {
+      await supabaseAdmin.auth.admin.updateUserById(userId, {
+        app_metadata: { tier },
+      });
+    } catch {}
 
     return {
       success: true,
