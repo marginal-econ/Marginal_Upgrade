@@ -31,6 +31,38 @@ const s1 = createClient(S1_URL, S1_KEY, { auth: { persistSession: false } });
 const s2 = createClient(S2_URL, S2_KEY, { auth: { persistSession: false } });
 const target = createClient(TARGET_URL, TARGET_KEY, { auth: { persistSession: false } });
 
+async function syncAuthUsers(sourceClient: any, label: string) {
+  try {
+    const { data, error } = await sourceClient.auth.admin.listUsers({ perPage: 1000 });
+    if (error) {
+      console.warn(`⚠️ Could not list users from ${label}:`, error.message);
+      return new Set<string>();
+    }
+    const createdIds = new Set<string>();
+    console.log(`Found ${data.users.length} Auth users in ${label}. Creating in target...`);
+    for (const u of data.users) {
+      try {
+        const { error: err } = await target.auth.admin.createUser({
+          id: u.id,
+          email: u.email,
+          email_confirm: true,
+          user_metadata: u.user_metadata,
+          app_metadata: u.app_metadata,
+        });
+        if (err && !err.message.includes("already registered") && !err.message.includes("already exists")) {
+          // ignore already existing
+        }
+        createdIds.add(u.id);
+      } catch {}
+    }
+    console.log(`✅ Auth users from ${label} synchronized.`);
+    return createdIds;
+  } catch (err: any) {
+    console.warn(`⚠️ Auth sync error for ${label}:`, err.message);
+    return new Set<string>();
+  }
+}
+
 async function copyTable(
   sourceClient: any,
   sourceName: string,
@@ -114,55 +146,44 @@ async function run() {
   console.log(`2️⃣ User & Waitlist Source: ${S2_URL}`);
   console.log(`🎯 Target Deployment Database: ${TARGET_URL}\n`);
 
-  // Phase A: Auth Users & Profiles from Source 2
-  console.log(`--- PHASE A: Users, Roles & Waitlist Leads ---`);
-  try {
-    const { data: usersData, error: userErr } = await s2.auth.admin.listUsers({ perPage: 1000 });
-    if (userErr) {
-      console.warn("⚠️ Could not list auth users from Source 2:", userErr.message);
-    } else {
-      console.log(`Found ${usersData.users.length} Auth users in Source 2. Creating in target...`);
-      for (const u of usersData.users) {
-        try {
-          const { error: createErr } = await target.auth.admin.createUser({
-            id: u.id,
-            email: u.email,
-            email_confirm: true,
-            user_metadata: u.user_metadata,
-            app_metadata: u.app_metadata,
-          });
-          if (createErr && !createErr.message.includes("already registered") && !createErr.message.includes("already exists")) {
-            console.warn(`   Auth user ${u.email}: ${createErr.message}`);
-          }
-        } catch {}
-      }
-      console.log(`✅ Auth user synchronization complete.`);
-    }
-  } catch (err: any) {
-    console.warn("⚠️ Auth user sync warning:", err.message);
-  }
+  // Step 1: Sync Auth Users from both sources so profiles & user_roles foreign keys are satisfied
+  console.log(`--- STEP 1: Synchronizing Auth Users ---`);
+  await syncAuthUsers(s2, "Source 2 (Users)");
+  await syncAuthUsers(s1, "Source 1 (Knowledge)");
 
+  // Step 2: User Profiles & Roles from Source 2
+  console.log(`\n--- STEP 2: Profiles, User Roles & Waitlist Leads ---`);
   await copyTable(s2, "Source 2 (Users)", target, "profiles");
   await copyTable(s2, "Source 2 (Users)", target, "user_roles");
   await copyTable(s2, "Source 2 (Users)", target, "waitlist");
 
-  // Phase B: AI Provider Keys (Merge from both Source 1 and Source 2)
-  console.log(`\n--- PHASE B: AI Provider Keys (BYOK) ---`);
-  await copyTable(s1, "Source 1 (Knowledge)", target, "ai_provider_keys");
-  await copyTable(s2, "Source 2 (Users)", target, "ai_provider_keys");
+  // Step 3: AI Provider Keys (Merge from both Source 1 and Source 2)
+  console.log(`\n--- STEP 3: AI Provider Keys (BYOK) ---`);
+  const nullCreatedBy = (row: any) => ({ ...row, created_by: null });
+  await copyTable(s1, "Source 1 (Knowledge)", target, "ai_provider_keys", { transform: nullCreatedBy });
+  await copyTable(s2, "Source 2 (Users)", target, "ai_provider_keys", { transform: nullCreatedBy });
 
-  // Phase C: Knowledge Documents & Vector Chunks (from Source 1)
-  console.log(`\n--- PHASE C: Knowledge Documents & 3,251 Vector Chunks ---`);
-  await copyTable(s1, "Source 1 (Knowledge)", target, "knowledge_documents");
+  // Step 4: Syllabus Hierarchy (Subjects, Units, Topics) from Source 1
+  console.log(`\n--- STEP 4: Syllabus Hierarchy (Subjects, Units, Topics) ---`);
+  await copyTable(s1, "Source 1 (Knowledge)", target, "subjects");
+  await copyTable(s1, "Source 1 (Knowledge)", target, "units");
+  await copyTable(s1, "Source 1 (Knowledge)", target, "topics");
+
+  // Step 5: Knowledge Documents & Vector Chunks (from Source 1)
+  console.log(`\n--- STEP 5: Knowledge Documents & 3,251 Vector Chunks ---`);
+  const cleanDoc = (row: any) => ({ ...row, uploaded_by: null });
+  await copyTable(s1, "Source 1 (Knowledge)", target, "knowledge_documents", { transform: cleanDoc });
   await copyTable(s1, "Source 1 (Knowledge)", target, "document_chunks", { batchSize: 50 });
 
-  // Phase D: Cambridge Definitions (448 items from Source 1)
-  console.log(`\n--- PHASE D: Cambridge 9708 Definitions Hub ---`);
-  await copyTable(s1, "Source 1 (Knowledge)", target, "definitions", { batchSize: 100 });
+  // Step 6: Cambridge Definitions (448 items from Source 1)
+  console.log(`\n--- STEP 6: Cambridge 9708 Definitions Hub ---`);
+  const cleanDef = (row: any) => ({ ...row, created_by: null, reviewed_by: null });
+  await copyTable(s1, "Source 1 (Knowledge)", target, "definitions", { batchSize: 100, transform: cleanDef });
 
-  // Phase E: MCQ Past Papers (68 papers with 30/30 mark schemes from Source 1)
-  console.log(`\n--- PHASE E: MCQ Past Papers Library ---`);
-  await copyTable(s1, "Source 1 (Knowledge)", target, "mcq_pdf_papers");
+  // Step 7: MCQ Past Papers (68 papers with 30/30 mark schemes from Source 1)
+  console.log(`\n--- STEP 7: MCQ Past Papers Library ---`);
+  const cleanPaper = (row: any) => ({ ...row, uploaded_by: null });
+  await copyTable(s1, "Source 1 (Knowledge)", target, "mcq_pdf_papers", { transform: cleanPaper });
 
   console.log(`\n======================================================`);
   console.log(`🎉 ALL DATABASES SUCCESSFULLY MERGED INTO TARGET!`);
