@@ -12,7 +12,8 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "harvest:papers": "npx tsx --env-file=.env scripts/harvest-papers.ts",
-    "migrate:db": "npx tsx scripts/migrate-databases.ts"
+    "migrate:db": "npx tsx scripts/migrate-databases.ts",
+    "invite:waitlist": "npx tsx scripts/invite-waitlist-users.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

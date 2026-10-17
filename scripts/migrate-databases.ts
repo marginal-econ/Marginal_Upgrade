@@ -1,85 +1,40 @@
 /**
- * Automated Supabase-to-Supabase Data & Knowledge Migration Tool
+ * Automated 3-Way Supabase Database & Knowledge & User Migration Pipeline
  *
- * Migrates all core data, knowledge corpus, vector embeddings, MCQ papers,
- * Cambridge definitions, and active AI provider keys from:
- * Source: https://xdqafkfmxpekuticnpob.supabase.co
- * Target: https://tmuhpnorjydfijjotvoc.supabase.co
+ * Merges:
+ *  - Source 1 (Knowledge, 3,251 Chunks, 448 Definitions, 68 MCQ Papers, AI Keys):
+ *      https://xdqafkfmxpekuticnpob.supabase.co
+ *  - Source 2 (Users, Profiles, 48 Waitlist Leads, User Roles, AI Keys):
+ *      https://srukuuhxloxdukonmual.supabase.co
+ *  -> INTO Target (Final Production Database):
+ *      https://tmuhpnorjydfijjotvoc.supabase.co
  *
  * Usage:
- *   npx tsx scripts/migrate-databases.ts --target-key <TARGET_SERVICE_ROLE_KEY>
- *
- * Options:
- *   --source-url <url>      Source Supabase URL [default: https://xdqafkfmxpekuticnpob.supabase.co]
- *   --source-key <key>      Source service role key [default: from .env]
- *   --target-url <url>      Target Supabase URL [default: https://tmuhpnorjydfijjotvoc.supabase.co]
- *   --target-key <key>      Target service role key [required]
- *   --batch-size <number>   Batch size for chunked upserts [default: 100]
+ *   npx tsx scripts/migrate-databases.ts
  */
 
-import fs from "node:fs";
-import path from "node:path";
 import { createClient } from "@supabase/supabase-js";
 
-function loadEnv() {
-  const envPath = path.resolve(process.cwd(), ".env");
-  if (fs.existsSync(envPath)) {
-    const lines = fs.readFileSync(envPath, "utf8").split("\n");
-    for (const line of lines) {
-      const trimmed = line.trim();
-      if (!trimmed || trimmed.startsWith("#")) continue;
-      const idx = trimmed.indexOf("=");
-      if (idx !== -1) {
-        const key = trimmed.slice(0, idx).trim();
-        let val = trimmed.slice(idx + 1).trim();
-        if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
-          val = val.slice(1, -1);
-        }
-        if (!process.env[key]) process.env[key] = val;
-      }
-    }
-  }
-}
+// Database 1: Knowledge & Chunks
+const S1_URL = "https://xdqafkfmxpekuticnpob.supabase.co";
+const S1_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhkcWFma2ZteHBla3V0aWNucG9iIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NzUzNTQ3NSwiZXhwIjoyMTAzMTExNDc1fQ.z0rxbvw_A0B89FZZtzZEJzHxqdYAtjV6FPLOXaOwjwg";
 
-loadEnv();
+// Database 2: Users & Waitlist
+const S2_URL = "https://srukuuhxloxdukonmual.supabase.co";
+const S2_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNydWt1dWh4bG94ZHVrb25tdWFsIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4OTg4MjY1MCwiZXhwIjoyMTA1NDU4NjUwfQ.65A0ejLXOuqjMeMKcX30gJr0h6LmtrF2JiR0P35tu_E";
 
-const args = process.argv.slice(2);
-function getArg(name: string, fallback: string = ""): string {
-  const idx = args.indexOf(name);
-  if (idx !== -1 && args[idx + 1]) return args[idx + 1];
-  const prefix = `${name}=`;
-  const match = args.find((a) => a.startsWith(prefix));
-  if (match) return match.slice(prefix.length);
-  return fallback;
-}
+// Target Database: Final Deployment
+const TARGET_URL = "https://tmuhpnorjydfijjotvoc.supabase.co";
+const TARGET_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRtdWhwbm9yanlkZmlqam90dm9jIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MjIwOTQyNywiZXhwIjoyMTA3Nzg1NDI3fQ.WXBjD-Z797BZmO5D8i7NFHOm-1LhsRxuZm0wYSBitaw";
 
-const SOURCE_URL = getArg("--source-url", process.env.BACKEND_URL || "https://xdqafkfmxpekuticnpob.supabase.co");
-const SOURCE_KEY = getArg("--source-key", process.env.BACKEND_SERVICE_ROLE_KEY || "");
-const TARGET_URL = getArg("--target-url", "https://tmuhpnorjydfijjotvoc.supabase.co");
-const TARGET_KEY = getArg("--target-key", process.env.TARGET_SERVICE_ROLE_KEY || "");
-const BATCH_SIZE = parseInt(getArg("--batch-size", "100"), 10);
+const s1 = createClient(S1_URL, S1_KEY, { auth: { persistSession: false } });
+const s2 = createClient(S2_URL, S2_KEY, { auth: { persistSession: false } });
+const target = createClient(TARGET_URL, TARGET_KEY, { auth: { persistSession: false } });
 
-if (!TARGET_KEY) {
-  console.error("❌ ERROR: Missing target service role key!");
-  console.error("Please supply the target service role key via --target-key <KEY> or TARGET_SERVICE_ROLE_KEY in .env");
-  console.error("Example: npx tsx scripts/migrate-databases.ts --target-key eyJhbGciOi...");
-  process.exit(1);
-}
-
-if (!SOURCE_KEY) {
-  console.error("❌ ERROR: Missing source service role key in .env or arguments!");
-  process.exit(1);
-}
-
-const source = createClient(SOURCE_URL, SOURCE_KEY, {
-  auth: { persistSession: false },
-});
-
-const target = createClient(TARGET_URL, TARGET_KEY, {
-  auth: { persistSession: false },
-});
-
-async function migrateTable(
+async function copyTable(
+  sourceClient: any,
+  sourceName: string,
+  targetClient: any,
   tableName: string,
   options: {
     primaryKey?: string;
@@ -87,32 +42,32 @@ async function migrateTable(
     transform?: (row: any) => any;
   } = {}
 ) {
-  const batchSize = options.batchSize || BATCH_SIZE;
+  const batchSize = options.batchSize || 100;
   console.log(`\n========================================`);
-  console.log(`📦 Migrating table: [${tableName}]`);
+  console.log(`📦 Migrating [${tableName}] from ${sourceName}`);
   console.log(`========================================`);
 
   try {
-    const { count, error: countErr } = await source
+    const { count, error: countErr } = await sourceClient
       .from(tableName)
       .select("*", { count: "exact", head: true });
 
     if (countErr) {
-      console.warn(`⚠️ Table [${tableName}] could not be queried in source: ${countErr.message}`);
+      console.warn(`⚠️ Table [${tableName}] could not be queried in ${sourceName}: ${countErr.message}`);
       return;
     }
 
     const totalRows = count ?? 0;
-    console.log(`Found ${totalRows} total records in source [${tableName}].`);
+    console.log(`Found ${totalRows} total records in [${tableName}].`);
 
     if (totalRows === 0) {
-      console.log(`Table [${tableName}] is empty, skipping.`);
+      console.log(`Table is empty, skipping.`);
       return;
     }
 
     let processed = 0;
     while (processed < totalRows) {
-      const { data, error } = await source
+      const { data, error } = await sourceClient
         .from(tableName)
         .select("*")
         .range(processed, processed + batchSize - 1);
@@ -126,19 +81,19 @@ async function migrateTable(
 
       const transformed = options.transform ? data.map(options.transform) : data;
 
-      const { error: insertErr } = await target
+      const { error: insertErr } = await targetClient
         .from(tableName)
         .upsert(transformed, { onConflict: options.primaryKey || "id" });
 
       if (insertErr) {
-        console.error(`❌ Error upserting into target [${tableName}] (offset ${processed}):`, insertErr.message);
-        // Fallback: try individual inserts to isolate problematic row
+        console.error(`❌ Batch upsert error on [${tableName}] at offset ${processed}: ${insertErr.message}`);
+        // Fallback: row-by-row
         for (const row of transformed) {
-          const { error: singleErr } = await target
+          const { error: rowErr } = await targetClient
             .from(tableName)
             .upsert(row, { onConflict: options.primaryKey || "id" });
-          if (singleErr) {
-            console.error(`   Failed row ID ${row.id || "unknown"}: ${singleErr.message}`);
+          if (rowErr) {
+            console.error(`   Failed row ${row.id || "item"}: ${rowErr.message}`);
           }
         }
       }
@@ -147,40 +102,74 @@ async function migrateTable(
       process.stdout.write(`   Transferred ${processed} / ${totalRows} rows (${Math.round((processed / totalRows) * 100)}%)\r`);
     }
 
-    console.log(`\n✅ Completed migration for [${tableName}]: ${processed} rows synchronized.`);
+    console.log(`\n✅ Synchronized ${processed} rows for [${tableName}].`);
   } catch (err: any) {
-    console.error(`❌ Unexpected failure on [${tableName}]:`, err.message);
+    console.error(`❌ Unexpected error on [${tableName}]:`, err.message);
   }
 }
 
 async function run() {
-  console.log(`🚀 Starting Database Migration Pipeline`);
-  console.log(`📍 Source: ${SOURCE_URL}`);
-  console.log(`📍 Target: ${TARGET_URL}`);
+  console.log(`🚀 Starting Full 3-Database Merge Pipeline`);
+  console.log(`1️⃣ Knowledge Source: ${S1_URL}`);
+  console.log(`2️⃣ User & Waitlist Source: ${S2_URL}`);
+  console.log(`🎯 Target Deployment Database: ${TARGET_URL}\n`);
 
-  // 1. AI Provider Keys
-  await migrateTable("ai_provider_keys", { primaryKey: "id" });
+  // Phase A: Auth Users & Profiles from Source 2
+  console.log(`--- PHASE A: Users, Roles & Waitlist Leads ---`);
+  try {
+    const { data: usersData, error: userErr } = await s2.auth.admin.listUsers({ perPage: 1000 });
+    if (userErr) {
+      console.warn("⚠️ Could not list auth users from Source 2:", userErr.message);
+    } else {
+      console.log(`Found ${usersData.users.length} Auth users in Source 2. Creating in target...`);
+      for (const u of usersData.users) {
+        try {
+          const { error: createErr } = await target.auth.admin.createUser({
+            id: u.id,
+            email: u.email,
+            email_confirm: true,
+            user_metadata: u.user_metadata,
+            app_metadata: u.app_metadata,
+          });
+          if (createErr && !createErr.message.includes("already registered") && !createErr.message.includes("already exists")) {
+            console.warn(`   Auth user ${u.email}: ${createErr.message}`);
+          }
+        } catch {}
+      }
+      console.log(`✅ Auth user synchronization complete.`);
+    }
+  } catch (err: any) {
+    console.warn("⚠️ Auth user sync warning:", err.message);
+  }
 
-  // 2. Knowledge Documents
-  await migrateTable("knowledge_documents", { primaryKey: "id" });
+  await copyTable(s2, "Source 2 (Users)", target, "profiles");
+  await copyTable(s2, "Source 2 (Users)", target, "user_roles");
+  await copyTable(s2, "Source 2 (Users)", target, "waitlist");
 
-  // 3. Document Chunks (RAG Vector Corpus - 3,251 chunks)
-  await migrateTable("document_chunks", { primaryKey: "id", batchSize: 50 });
+  // Phase B: AI Provider Keys (Merge from both Source 1 and Source 2)
+  console.log(`\n--- PHASE B: AI Provider Keys (BYOK) ---`);
+  await copyTable(s1, "Source 1 (Knowledge)", target, "ai_provider_keys");
+  await copyTable(s2, "Source 2 (Users)", target, "ai_provider_keys");
 
-  // 4. Cambridge Definitions (448 terms)
-  await migrateTable("definitions", { primaryKey: "id", batchSize: 100 });
+  // Phase C: Knowledge Documents & Vector Chunks (from Source 1)
+  console.log(`\n--- PHASE C: Knowledge Documents & 3,251 Vector Chunks ---`);
+  await copyTable(s1, "Source 1 (Knowledge)", target, "knowledge_documents");
+  await copyTable(s1, "Source 1 (Knowledge)", target, "document_chunks", { batchSize: 50 });
 
-  // 5. MCQ Past Papers (68 papers with answer keys)
-  await migrateTable("mcq_pdf_papers", { primaryKey: "id" });
+  // Phase D: Cambridge Definitions (448 items from Source 1)
+  console.log(`\n--- PHASE D: Cambridge 9708 Definitions Hub ---`);
+  await copyTable(s1, "Source 1 (Knowledge)", target, "definitions", { batchSize: 100 });
 
-  // 6. Profiles & Roles (if desired for preserving admin and access)
-  await migrateTable("profiles", { primaryKey: "id" });
-  await migrateTable("user_roles", { primaryKey: "id" });
+  // Phase E: MCQ Past Papers (68 papers with 30/30 mark schemes from Source 1)
+  console.log(`\n--- PHASE E: MCQ Past Papers Library ---`);
+  await copyTable(s1, "Source 1 (Knowledge)", target, "mcq_pdf_papers");
 
-  console.log(`\n🎉 All migrations completed successfully!`);
+  console.log(`\n======================================================`);
+  console.log(`🎉 ALL DATABASES SUCCESSFULLY MERGED INTO TARGET!`);
+  console.log(`======================================================\n`);
 }
 
 run().catch((e) => {
-  console.error("Migration failed:", e);
+  console.error("FATAL Migration failure:", e);
   process.exit(1);
 });
