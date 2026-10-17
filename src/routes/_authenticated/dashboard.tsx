@@ -38,6 +38,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { listMyEssays, getProgress } from "@/lib/grading.functions";
 import { getMe } from "@/lib/account.functions";
 import { listDocuments } from "@/lib/knowledge.functions";
+import { TIER_LIMITS } from "@/lib/usage-limits";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
@@ -101,6 +102,28 @@ export function DashboardPage() {
     queryFn: () => fetchDocs(),
     enabled: me.data?.isStaff === true,
   });
+
+  const routeContext = Route.useRouteContext();
+  const sessionUser = (routeContext as any)?.user;
+
+  const rawUserTier =
+    me.data?.subscription?.tier ??
+    (sessionUser?.app_metadata as any)?.tier ??
+    (sessionUser?.user_metadata as any)?.tier;
+  const isPaidUser = Boolean(
+    me.data?.subscription?.isPaid || (rawUserTier && rawUserTier !== "free")
+  );
+  const userTierName =
+    me.data?.subscription?.tierName ||
+    (rawUserTier ? (TIER_LIMITS as any)[rawUserTier]?.name : "Free Tier");
+  const isTeacherUser =
+    me.data?.role === "teacher" ||
+    (sessionUser?.user_metadata as any)?.role === "teacher" ||
+    (sessionUser?.app_metadata as any)?.role === "teacher";
+  const userDisplayName =
+    me.data?.fullName ||
+    (sessionUser?.user_metadata as any)?.full_name ||
+    (sessionUser?.email ? sessionUser.email.split("@")[0] : "Economist");
 
   const [activeTariff, setActiveTariff] = useState<number | "all">("all");
   const [essaySearch, setEssaySearch] = useState("");
@@ -257,18 +280,18 @@ export function DashboardPage() {
             <div className="flex items-center gap-2">
               <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
               <h2 className="text-base sm:text-lg font-bold text-foreground">
-                {greeting}, {me.data?.fullName?.split(" ")[0] || "Economist"}!
+                {greeting}, {userDisplayName.split(" ")[0]}!
               </h2>
-              {me.data?.role === "teacher" && (
+              {isTeacherUser && (
                 <Badge className="bg-purple-500/20 text-purple-600 dark:text-purple-400 border-purple-500/30 text-[10px] font-bold">
                   Authorized Educator
                 </Badge>
               )}
-              {me.data?.subscription?.isPaid ? (
+              {isPaidUser ? (
                 <Badge className="bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 text-[10px] font-bold">
-                  {me.data.subscription.tierName}
+                  {userTierName}
                 </Badge>
-              ) : me.data?.role === "teacher" ? (
+              ) : isTeacherUser ? (
                 <Badge asChild variant="outline" className="border-purple-500/30 bg-purple-500/10 text-purple-600 dark:text-purple-400 text-[10px] font-semibold cursor-pointer">
                   <Link to="/payment" search={{ tier: "foundation", role: "teacher" }}>
                     Educator Pass (from ₹99/mo)
@@ -317,7 +340,7 @@ export function DashboardPage() {
         </section>
 
         {/* Educator Workspace Quick Banner */}
-        {me.data?.role === "teacher" && (
+        {isTeacherUser && (
           <div className="rounded-xl border border-purple-500/30 bg-purple-500/[0.06] p-4 text-xs shadow-xs">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div className="flex items-center gap-2.5">
@@ -347,7 +370,7 @@ export function DashboardPage() {
                     <BookOpen className="size-3.5 mr-1 text-purple-500" /> Mark Schemes
                   </Link>
                 </Button>
-                {!me.data?.subscription?.isPaid && (
+                {!isPaidUser && (
                   <Button asChild size="sm" className="h-8 text-xs bg-purple-600 hover:bg-purple-700 text-white font-semibold">
                     <Link to="/payment" search={{ tier: "foundation", role: "teacher" }}>
                       Unlock Educator Pass (₹99/mo)

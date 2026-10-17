@@ -8,6 +8,7 @@ import { OnboardingTutorial } from "@/components/app/onboarding-tutorial";
 import { PrivacyConsent } from "@/components/app/privacy-consent";
 import { supabase } from "@/integrations/backend/client";
 import { getMe } from "@/lib/account.functions";
+import { TIER_LIMITS, type PlanTier } from "@/lib/usage-limits";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
@@ -44,17 +45,54 @@ function AuthenticatedLayout() {
     return null;
   }
 
+  // Derive instant attributes directly from authenticated user session metadata
+  const userRole =
+    (user.user_metadata as any)?.role === "teacher" ||
+    (user.app_metadata as any)?.role === "teacher"
+      ? "teacher"
+      : "student";
+
+  const rawTier =
+    ((user.app_metadata as any)?.tier as PlanTier) ||
+    ((user.user_metadata as any)?.tier as PlanTier) ||
+    "free";
+  const validTier = (TIER_LIMITS as any)[rawTier] ? rawTier : "free";
+  const tierLimits = TIER_LIMITS[validTier as keyof typeof TIER_LIMITS];
+
+  const userSub = data?.subscription ?? {
+    tier: validTier,
+    tierName: tierLimits.name,
+    isPaid: validTier !== "free",
+    isAdmin:
+      user.id === "00296414-0221-4d5b-aa1c-04dc9366a218" ||
+      user.email?.toLowerCase().trim() === "marginal.econ.ai@gmail.com",
+    essaysGradedCount: 0,
+    essaysLimit: tierLimits.monthlyEssayLimit,
+    essaysRemaining: tierLimits.monthlyEssayLimit,
+    canGradeEssay: true,
+    liveExaminerCredits: tierLimits.liveExaminerCredits,
+    canUseLiveExaminer: tierLimits.liveExaminerCredits > 0,
+    mcqFreeDaysRemaining: 30,
+    canUseMCQ: true,
+  };
+
+  const resolvedName =
+    data?.fullName ||
+    (user.user_metadata as any)?.full_name ||
+    (user.user_metadata as any)?.name ||
+    (user.email ? user.email.split("@")[0] : null);
+
+  const resolvedRole = data?.role ?? userRole;
+
   return (
     <AppShell
-      role={data?.role ?? "student"}
-      name={data?.fullName ?? null}
+      role={resolvedRole}
+      name={resolvedName}
       userId={user.id}
-      subscription={data?.subscription}
+      subscription={userSub}
     >
       <Outlet />
       <PrivacyConsent userId={user.id} onResolved={handlePrivacyResolved} />
-      {/* Only ever true for a freshly-created account; flips to true for
-          good the first time the dialog is dismissed either way. */}
       <OnboardingTutorial
         open={privacyResolved && data?.tutorialCompleted === false}
         onFinished={() => {}}

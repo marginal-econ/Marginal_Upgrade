@@ -9,9 +9,22 @@ import {
   createBackendFetch,
   requireBackendConfig,
 } from "./config";
+import { supabase as clientSupabase } from "./client";
 
-export const requireSupabaseAuth = createMiddleware({ type: "function" }).server(
-  async ({ next }) => {
+export const requireSupabaseAuth = createMiddleware({ type: "function" })
+  .client(async ({ next }) => {
+    let token: string | undefined;
+    try {
+      const { data } = await clientSupabase.auth.getSession();
+      token = data.session?.access_token;
+    } catch {
+      /* non-browser environment */
+    }
+    return next({
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+  })
+  .server(async ({ next }) => {
     const request = getRequest();
     if (!request?.headers) throw new Error("Unauthorized: No request headers available");
 
