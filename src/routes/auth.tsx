@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { ArrowLeft, CheckCircle2, Hourglass, KeyRound, Loader2 } from "lucide-react";
+import { ArrowLeft, CheckCircle2, GraduationCap, Hourglass, KeyRound, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -186,6 +186,7 @@ function AuthPage() {
   const [resetSent, setResetSent] = useState(false);
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [teacherDeclineWarning, setTeacherDeclineWarning] = useState<string | null>(null);
 
   useEffect(() => {
     // 1. Check for error parameters (e.g. from expired links)
@@ -247,7 +248,17 @@ function AuthPage() {
       // than closed over, so this can't act on a stale "credentials" value.
       setView((current) => {
         if (data.session && current !== "recovery" && current !== "verifying") {
-          routeUserByRole();
+          fetchMe().then((me) => {
+            if (me?.role === "teacher" && !me?.isAdmin) {
+              supabase.auth.signOut().then(() => {
+                setTeacherDeclineWarning(
+                  "This account is registered as an authorized Cambridge Educator. Teacher accounts cannot access the student portal. Please sign in via the Teacher Portal.",
+                );
+              });
+            } else {
+              routeUserByRole();
+            }
+          });
         }
         if (data.session && current === "verifying") return "recovery";
         return current;
@@ -270,9 +281,29 @@ function AuthPage() {
   const signIn = async (event: React.FormEvent) => {
     event.preventDefault();
     setBusy(true);
+    setTeacherDeclineWarning(null);
     const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+    if (error) {
+      setBusy(false);
+      return toast.error(error.message);
+    }
+
+    try {
+      const me = await fetchMe();
+      if (me?.role === "teacher" && !me?.isAdmin) {
+        await supabase.auth.signOut();
+        setBusy(false);
+        setTeacherDeclineWarning(
+          "This account is registered as an authorized Cambridge Educator. Teacher accounts cannot access the student portal. Please sign in via the Teacher Portal.",
+        );
+        toast.error("Educator account detected. Please sign in via the Teacher Portal.");
+        return;
+      }
+    } catch {
+      // safe fallback
+    }
+
     setBusy(false);
-    if (error) return toast.error(error.message);
     await routeUserByRole();
   };
 
@@ -401,6 +432,25 @@ function AuthPage() {
                   value="signin"
                   className="animate-in fade-in slide-in-from-bottom-1 duration-300"
                 >
+                  {teacherDeclineWarning && (
+                    <div className="mt-4 rounded-xl border border-purple-500/30 bg-purple-500/10 p-4 text-xs text-purple-700 dark:text-purple-300 space-y-2.5">
+                      <div className="flex items-center gap-2 font-bold text-sm text-foreground">
+                        <GraduationCap className="size-4 text-purple-500 shrink-0" />
+                        Educator Account Detected
+                      </div>
+                      <p className="leading-relaxed">{teacherDeclineWarning}</p>
+                      <Button
+                        asChild
+                        size="sm"
+                        className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold text-xs shadow-xs"
+                      >
+                        <Link to="/teacher-auth">
+                          Switch to Teacher Portal →
+                        </Link>
+                      </Button>
+                    </div>
+                  )}
+
                   <form onSubmit={signIn} className="mt-5 space-y-4">
                     <Field
                       id="email"

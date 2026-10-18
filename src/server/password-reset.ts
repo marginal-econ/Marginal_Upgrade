@@ -9,17 +9,21 @@ function escapeHtml(value: string): string {
   );
 }
 
-export async function sendPasswordResetEmail(email: string): Promise<void> {
+export async function sendPasswordResetEmail(
+  email: string,
+  portal: "student" | "teacher" = "student",
+): Promise<void> {
   const siteUrl = new URL(requireEnv("PUBLIC_SITE_URL"));
   if (siteUrl.protocol !== "https:" && siteUrl.hostname !== "localhost") {
     throw new Error("PUBLIC_SITE_URL must use HTTPS.");
   }
 
   const client = getSupabaseAdmin();
+  const redirectPath = portal === "teacher" ? "/teacher-auth" : "/auth";
   const { data, error } = await client.auth.admin.generateLink({
     type: "recovery",
     email,
-    options: { redirectTo: new URL("/auth", siteUrl).href },
+    options: { redirectTo: new URL(redirectPath, siteUrl).href },
   });
 
   // Do not reveal whether an address has an account. The public endpoint
@@ -27,10 +31,15 @@ export async function sendPasswordResetEmail(email: string): Promise<void> {
   // Supabase can create a valid recovery link.
   if (error || !data.properties?.hashed_token) return;
 
-  const actionLink = `${siteUrl.origin}/auth?token_hash=${data.properties.hashed_token}&type=recovery`;
+  const actionLink = `${siteUrl.origin}${redirectPath}?token_hash=${data.properties.hashed_token}&type=recovery`;
   const safeActionLink = escapeHtml(actionLink);
   const safeEmail = escapeHtml(email);
   const sender = requireEnv("MAILJET_SENDER_EMAIL");
+  const isTeacher = portal === "teacher";
+  const subject = isTeacher
+    ? "Reset your Marginal Educator password"
+    : "Reset your Marginal password";
+  const portalName = isTeacher ? "Educator & Department Portal" : "Student Workspace";
   const response = await fetch("https://api.mailjet.com/v3.1/send", {
     method: "POST",
     headers: {
@@ -46,8 +55,8 @@ export async function sendPasswordResetEmail(email: string): Promise<void> {
           From: { Email: sender, Name: "Marginal Accounts" },
           ReplyTo: { Email: sender, Name: "Marginal Support" },
           To: [{ Email: email }],
-          Subject: "Reset your Marginal password",
-          TextPart: `Reset your Marginal password\n\nWe received a request to reset the password for ${email}.\n\nChoose a new password using this secure link:\n${actionLink}\n\nFor your security, this link can be used only once. If Marginal emails are filtered, please mark this message as not spam and add Marginal to your trusted senders.\n\nIf you did not request a password reset, you can safely ignore this email; your password will remain unchanged.\n\nMarginal\nAS and A Level Economics (9708)`,
+          Subject: subject,
+          TextPart: `${subject}\n\nWe received a request to reset the password for ${email} on the ${portalName}.\n\nChoose a new password using this secure link:\n${actionLink}\n\nFor your security, this link can be used only once. If Marginal emails are filtered, please mark this message as not spam and add Marginal to your trusted senders.\n\nIf you did not request a password reset, you can safely ignore this email; your password will remain unchanged.\n\nMarginal\nAS and A Level Economics (9708)`,
           HTMLPart: `<!doctype html>
 <html lang="en"><body style="margin:0;background:#f7f4ff;font-family:Arial,Helvetica,sans-serif;color:#181323">
   <div style="display:none;max-height:0;overflow:hidden">Use this secure link to choose a new Marginal password.</div>

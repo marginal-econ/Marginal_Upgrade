@@ -292,14 +292,15 @@ export function AppShell({
     });
   };
 
+  const isTeacherUser = role === "teacher" || Boolean(subscription?.isTeacher);
+
   const signOut = async () => {
     await queryClient.cancelQueries();
     queryClient.clear();
     await supabase.auth.signOut();
-    navigate({ to: "/auth", replace: true });
+    const target = isTeacherUser ? "/teacher-auth" : "/auth";
+    navigate({ to: target, replace: true });
   };
-
-  const isTeacherUser = role === "teacher" || Boolean(subscription?.isTeacher);
 
   const visibleGroups = useMemo(() => {
     if (isTeacherUser && role !== "admin" && !subscription?.isAdmin) {
@@ -900,9 +901,13 @@ export function AppShell({
                           Educator
                         </Badge>
                       </div>
-                      <div className="mt-2 pt-2 border-t border-purple-500/20 text-[10px] text-muted-foreground flex items-center gap-1.5 font-medium">
-                        <ShieldCheck className="size-3 text-purple-500 shrink-0" />
-                        <span className="text-foreground">Evaluation Desk Active</span>
+                      <div className="mt-2.5 pt-2 border-t border-purple-500/20 flex justify-between text-[10.5px] text-muted-foreground">
+                        <span className="flex items-center gap-1 font-medium">
+                          <PenLine className="size-3 text-purple-500" /> Essays: {subscription.essaysLimit === 9999 ? "Unlimited" : `${subscription.essaysRemaining}/${subscription.essaysLimit}`}
+                        </span>
+                        <span className="flex items-center gap-1 font-medium">
+                          <Sparkles className="size-3 text-purple-500" /> Live: {subscription.liveExaminerCredits > 0 ? `${subscription.liveExaminerCredits}` : "Paid"}
+                        </span>
                       </div>
                     </div>
                   ) : (

@@ -189,15 +189,16 @@ async function postPasswordReset(request: Request): Promise<Response> {
   }
 
   try {
-    const body = (await readJsonBody(request, 16 * 1024)) as { email?: unknown };
+    const body = (await readJsonBody(request, 16 * 1024)) as { email?: unknown; portal?: unknown };
     const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
+    const portal = body.portal === "teacher" ? ("teacher" as const) : ("student" as const);
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) {
       return json(
         { success: false, code: "INVALID_EMAIL", message: "Enter a valid email address." },
         400,
       );
     }
-    await sendPasswordResetEmail(email);
+    await sendPasswordResetEmail(email, portal);
     return json({
       success: true,
       message:
