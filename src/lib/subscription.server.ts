@@ -47,6 +47,7 @@ export async function getUserSubscriptionDetails(
   let isTeacher = false;
 
   // 1a. Check persistent subscription in definitions table (__USER_SUB_<userId>)
+  let userQuotaResetAt: string | null = null;
   try {
     const { data: subRow } = await db
       .from("definitions")
@@ -60,13 +61,31 @@ export async function getUserSubscriptionDetails(
         if (parsed.tier && ["foundation", "pro", "mastery", "elite"].includes(parsed.tier)) {
           activeTier = parsed.tier as PlanTier;
         }
+        if (parsed.quotaResetAt) {
+          userQuotaResetAt = parsed.quotaResetAt;
+        }
       } catch {}
     }
   } catch (err) {
     console.warn("Could not query definitions for user sub:", err);
   }
 
-  // 1b. Check approved UPI payment request if not yet set
+  // 1b. Check global quota baseline reset timestamp
+  let globalResetAt: string | null = null;
+  try {
+    const { data: globalResetRow } = await db
+      .from("definitions")
+      .select("definition_text")
+      .eq("term", "__GLOBAL_QUOTA_BASELINE_RESET")
+      .maybeSingle();
+    if (globalResetRow?.definition_text) {
+      globalResetAt = globalResetRow.definition_text;
+    }
+  } catch {}
+
+  const effectiveResetAt = userQuotaResetAt || globalResetAt;
+
+  // 1c. Check approved UPI payment request if not yet set
   if (activeTier === "free") {
     try {
       const { data: upiLogs } = await db
@@ -92,7 +111,7 @@ export async function getUserSubscriptionDetails(
     } catch {}
   }
 
-  // 1c. Check claims app_metadata / user_metadata
+  // 1d. Check claims app_metadata / user_metadata
   if (activeTier === "free") {
     const claimTier = userClaims?.app_metadata?.tier || userClaims?.user_metadata?.tier;
     if (claimTier && ["foundation", "pro", "mastery", "elite"].includes(claimTier)) {
@@ -100,7 +119,7 @@ export async function getUserSubscriptionDetails(
     }
   }
 
-  // 1d. Check roles in user_roles table
+  // 1e. Check roles in user_roles table
   try {
     const { data: roles } = await db
       .from("user_roles")
@@ -119,13 +138,19 @@ export async function getUserSubscriptionDetails(
     console.warn("Could not query user_roles for subscription, defaulting to free:", err);
   }
 
-  // 2. Count total essays submitted
+  // 2. Count essays submitted within current cycle
   let essaysGradedCount = 0;
   try {
-    const { count, error } = await db
+    let query = db
       .from("essays")
       .select("id", { count: "exact", head: true })
       .eq("user_id", userId);
+
+    if (effectiveResetAt && typeof query.gte === "function") {
+      query = query.gte("created_at", effectiveResetAt);
+    }
+
+    const { count, error } = await query;
 
     if (!error && typeof count === "number") {
       essaysGradedCount = count;
@@ -137,10 +162,16 @@ export async function getUserSubscriptionDetails(
   // 3. Count Live Examiner session credits used this cycle
   let liveCreditsUsed = 0;
   try {
-    const { count } = await db
+    let query = db
       .from("live_examiner_sessions")
       .select("id", { count: "exact", head: true })
       .eq("user_id", userId);
+
+    if (effectiveResetAt && typeof query.gte === "function") {
+      query = query.gte("created_at", effectiveResetAt);
+    }
+
+    const { count } = await query;
     liveCreditsUsed = count ?? 0;
   } catch {
     /* table might be empty */
@@ -222,6 +253,7 @@ export async function assignUserSubscriptionTier(
     const payload = JSON.stringify({
       tier,
       updatedAt: new Date().toISOString(),
+      quotaResetAt: new Date().toISOString(),
     });
 
     const { data: existing } = await db
@@ -264,6 +296,59 @@ export async function assignUserSubscriptionTier(
     return {
       success: false,
       message: err?.message || "Failed to assign subscription tier.",
+    };
+  }
+}
+
+/**
+ * Resets all user limits across the platform to baseline according to their account tier.
+ */
+export async function resetAllUserLimitsToBaseline(
+  client?: SupabaseClient<any, any, any>,
+): Promise<{ success: boolean; resetAt: string; message: string }> {
+  try {
+    const db = client ?? supabaseAdmin;
+    const now = new Date().toISOString();
+
+    // 1. Set global baseline reset timestamp in definitions
+    const { data: existing } = await db
+      .from("definitions")
+      .select("id")
+      .eq("term", "__GLOBAL_QUOTA_BASELINE_RESET")
+      .maybeSingle();
+
+    if (existing?.id) {
+      await db
+        .from("definitions")
+        .update({ definition_text: now, updated_at: now })
+        .eq("id", existing.id);
+    } else {
+      await db.from("definitions").insert({
+        term: "__GLOBAL_QUOTA_BASELINE_RESET",
+        definition_text: now,
+        category: "system_quota",
+        source_label: "admin_quota_manager",
+      });
+    }
+
+    // 2. Clear all daily locks from daily_feature_usage
+    try {
+      await db.from("daily_feature_usage").delete().neq("uses", -9999);
+    } catch (err) {
+      console.warn("Could not clear daily_feature_usage:", err);
+    }
+
+    return {
+      success: true,
+      resetAt: now,
+      message: "All user limits have been successfully reset to baseline according to their account tier.",
+    };
+  } catch (err: any) {
+    console.error("Failed to reset user limits:", err);
+    return {
+      success: false,
+      resetAt: new Date().toISOString(),
+      message: err?.message || "Failed to reset limits.",
     };
   }
 }
