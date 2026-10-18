@@ -352,7 +352,7 @@ function Index() {
       </header>
 
       {/* ── Hero ─────────────────────────────────────────────────────────── */}
-      <section className="relative overflow-hidden border-b-[1.5px] border-ink pb-14">
+      <section className="relative overflow-hidden border-b-[1.5px] border-ink pb-10 sm:pb-12 md:pb-14">
         {/* Three background layers, back to front: the CSS aurora wash, WebGL curtain,
             cosmic twinkling starfield, and paper-grid overlay. */}
         <div className="aurora-wash pointer-events-none absolute inset-0" aria-hidden="true" />
@@ -371,7 +371,7 @@ function Index() {
         </Drift>
         <Star className="doodle absolute top-32 left-[46%] hidden size-4 text-ao3/30 md:block" />
 
-        <div className="relative z-10 mx-auto grid max-w-7xl 2xl:max-w-[1440px] items-start gap-10 lg:gap-12 xl:gap-16 px-4 pt-6 pb-12 sm:px-6 sm:pt-8 sm:pb-14 md:px-10 md:pt-10 md:pb-16 lg:grid-cols-[1.1fr_1fr] xl:grid-cols-[1.15fr_1fr]">
+        <div className="relative z-10 mx-auto grid max-w-7xl 2xl:max-w-[1440px] items-center gap-8 lg:gap-10 xl:gap-14 px-4 py-8 sm:px-6 sm:py-10 md:px-10 md:py-12 lg:grid-cols-[1.1fr_1fr] xl:grid-cols-[1.15fr_1fr]">
           <div>
             <Reveal>
               <div className="flex flex-wrap items-center gap-2">
@@ -504,8 +504,8 @@ function Index() {
             </Reveal>
           </div>
 
-          {/* Expanded, Commanding Live Examiner Showcase & Unboxed Founder Statement */}
-          <Reveal variant="pop" delay={120} className="relative w-full space-y-3.5 lg:-mt-4 xl:-mt-8">
+          {/* Centered Live Examiner Showcase & Unboxed Founder Statement */}
+          <Reveal variant="pop" delay={120} className="relative w-full space-y-3 sm:space-y-3.5">
             <div className="relative w-full">
               {/* Ambient Stage Halo Glow */}
               <div className="absolute -inset-2 rounded-3xl bg-gradient-to-r from-primary/30 via-violet-500/20 to-amber-500/20 blur-xl opacity-75 -z-10 animate-pulse" />
@@ -515,11 +515,11 @@ function Index() {
             </div>
 
             {/* Founder Mission & Inspiration — Unboxed Normal Text, Highly Visible and Bold */}
-            <div className="mx-auto w-full max-w-xl xl:max-w-2xl 2xl:max-w-[680px] px-1 pt-1 space-y-2">
-              <p className="text-sm sm:text-base font-bold leading-relaxed text-foreground">
+            <div className="mx-auto w-full max-w-xl xl:max-w-2xl 2xl:max-w-[680px] px-1 pt-1 space-y-1.5">
+              <p className="text-xs sm:text-sm md:text-[14px] font-bold leading-relaxed text-foreground">
                 “I personally lost critical marks in IGCSE Economics on structured answers despite knowing the theory. I refused to let that happen again in AS &amp; A Level. That is why I created Marginal — to give myself and all economics students the exact line-by-line mark scheme diagnosis and examiner structuring needed to master the top band.”
               </p>
-              <p className="text-xs sm:text-[13px] font-extrabold text-foreground tracking-wide flex flex-wrap items-center gap-2">
+              <p className="text-xs sm:text-[12.5px] font-extrabold text-foreground tracking-wide flex flex-wrap items-center gap-2">
                 <span className="text-primary font-black">— Saikrish</span>
                 <span className="text-muted-foreground/60 font-normal">|</span>
                 <span className="font-bold text-foreground">CS Academy</span>
@@ -532,7 +532,7 @@ function Index() {
 
         <Ribbon
           items={RIBBON_ITEMS}
-          className="right-12 bottom-10 left-12 -rotate-[1deg] md:right-24 md:left-24"
+          className="right-8 bottom-3 left-8 -rotate-[1deg] md:right-20 md:bottom-4 md:left-20"
         />
       </section>
 

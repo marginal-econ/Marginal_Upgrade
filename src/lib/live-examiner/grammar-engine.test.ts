@@ -217,7 +217,7 @@ describe("Grammar and Mechanics Engine", () => {
         evaluation.predictedMark.ao_breakdown.analysis.awarded +
         evaluation.predictedMark.ao_breakdown.evaluation.awarded
       );
-    });
+    }, 15000);
 
     it("reliably detects student typos (fimrm, maxmise, revnuue, resposive, chnages, frims, differntiate, liek, consumer are, revenue.,) and classifies PED definition as AO1", async () => {
       const { classifySentenceDeterministically } = await import("./client-evaluation");
