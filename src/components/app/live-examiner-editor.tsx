@@ -347,6 +347,18 @@ export function computeRanges(
           explanation: auto.explanation,
         };
       }
+      // Evaluative criteria (AO3) detected deterministically (however, on the other hand, depends on, etc.)
+      // should never be downgraded to AO2 by older server classifications.
+      if (auto.ao === "AO3") {
+        return {
+          id: matched?.id || `auto-${auto.ao}-${sStart}`,
+          original: trimmed,
+          context: trimmed,
+          ao: "AO3",
+          explanation:
+            matched?.ao === "AO3" && matched.explanation ? matched.explanation : auto.explanation,
+        };
+      }
       if (matched) return matched;
       return {
         id: `auto-${auto.ao}-${sStart}`,

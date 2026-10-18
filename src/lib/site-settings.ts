@@ -1,15 +1,15 @@
 export const DEFAULT_SETTINGS = {
-  heroTitle: "Economics essays marked",
-  heroHighlight: "like an examiner.",
+  heroTitle: "Why do strong Economics essays still miss the top band?",
+  heroHighlight: "Examiner-grade structuring.",
   heroDescription:
-    "The Live Examiner reads your essay as you write it — marking each clause into AO1, AO2 or AO3 and naming the reasoning that never arrived.",
+    "Marginal is the complete Cambridge 9708 Economics mastery platform — uniting line-by-line AI Essay Grading, the real-time Live Examiner, Paper 1 & 3 MCQ question banks, and causal transmission structuring grounded in official Cambridge mark schemes.",
   heroNotice:
-    "It isn't open yet. Put your email in and you'll be told once — the moment your place in the first cohort comes up.",
-  joinTitle: "Be there for the first cohort.",
+    "Start immediately with 2 free essay evaluations and 30-day past paper MCQ drills. Instant AO1/AO2/AO3 breakdowns, syllabus citations, and line-by-line mark scheme matching.",
+  joinTitle: "Master Cambridge 9708 Economics.",
   joinDescription:
-    "Bring one essay you're unsure about, and you'll know within minutes which assessment objective is costing you the grade.",
-  cta: "Join the waitlist",
-  successMessage: "You're on the waitlist!",
+    "Bring one essay you're unsure about, and you'll know within seconds which assessment objective and causal chain is costing you the top grade.",
+  cta: "Start Free Today",
+  successMessage: "You're all set!",
   closedMessage: "Signups are paused for now. Please check back soon.",
   signupOpen: true,
   requireName: true,

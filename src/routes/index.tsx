@@ -448,7 +448,7 @@ function Index() {
                 >
                   <Link to="/auth">
                     <span>Get Started Free (2 Free Essays)</span>
-                    <ArrowRight className="size-4 ml-2" />
+                    <ArrowRight className="size-4" />
                   </Link>
                 </Button>
                 <Button

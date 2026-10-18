@@ -31,12 +31,13 @@ const AO2_PATTERNS = [
 ];
 
 const AO3_PATTERNS = [
-  /\b(however|in contrast|on the other hand|whereas|nevertheless|conversely|alternatively)\b/i,
-  /\b(depends on|depending on|contingent on|contingent upon|is determined by the extent)\b/i,
-  /\b(not fully accurate|merely estimates|assumes? ceteris paribus|temporal validity|past data|data may be outdated|difficult to measure)\b/i,
-  /\b(short run versus long run|in the short run.*in the long run|time lag|time lags)\b/i,
-  /\b(more important than|most critical factor|greater significance|weighing up|overall|in conclusion|to conclude|ultimately|balanced judgement)\b/i,
-  /\b(not always|only effective if|effective when|limitation|drawbacks?|trade-?off|unintended consequence|market distortion)\b/i,
+  /\b(how+ev+e?r|however|in contrast|by contrast|on the other hand|on the one hand|whereas|nevertheless|nonetheless|conversely|alternatively|despite this|in spite of|on the contrary|notwithstanding|yet|although|even though)\b/i,
+  /\b(depends on|depend on|depending on|depends upon|depending upon|contingent on|contingent upon|is determined by the extent|to the extent that|the extent to which|to what extent|degree to which|critical factor determining|crucial factor|pivotal factor)\b/i,
+  /\b(elasticity of demand determines|depends on the elasticity|ped of the good|ped is inelastic|ped is elastic|pes is inelastic|pes is elastic|magnitude of the shift|size of the tax|size of the subsidy|scale of the intervention)\b/i,
+  /\b(not fully accurate|merely estimates|assumes? ceteris paribus|ceteris paribus assumption|in reality|temporal validity|past data|data may be outdated|difficult to measure|imperfect information|asymmetric information)\b/i,
+  /\b(short run versus long run|short run vs long run|short-run vs long-run|in the short run.*in the long run|in the short-?run|in the long-?run|time lag|time lags|over time|takes time to|immediate effect)\b/i,
+  /\b(more important than|most critical factor|greater significance|weighing up|overall|in conclusion|to conclude|in summary|to summarise|ultimately|on balance|all things considered|balanced judgement|final judgement|judgement|priority should be|more effective than|the most effective policy)\b/i,
+  /\b(not always|only effective if|effective when|ineffective|limitation|limitations|drawbacks?|trade-?off|trade-offs|unintended consequence|unintended consequences|market distortion|government failure|opportunity cost of government)\b/i,
 ];
 
 export function classifySentenceDeterministically(sentence: string): {
@@ -66,7 +67,7 @@ export function classifySentenceDeterministically(sentence: string): {
   // 2. Evaluative criteria, dependencies, trade-offs, judgements (AO3 Evaluation)
   const isAo3 =
     AO3_PATTERNS.some((p) => p.test(lower)) ||
-    /\b(however|although|on the other hand|nevertheless|in contrast|whereas|conversely|depends on|dependent on|critical factor determining|extent to which|contingent upon|time lag|unintended consequence|in conclusion|overall|ultimately|to conclude|judgement|weighing|effective|ineffective|limitation|drawback|trade-?off)\b/i.test(
+    /\b(how+ev+e?r|however|although|on the other hand|nevertheless|in contrast|whereas|conversely|depends on|depends upon|dependent on|critical factor determining|extent to which|contingent upon|time lag|unintended consequence|in conclusion|overall|ultimately|to conclude|judgement|weighing|effective|ineffective|limitation|drawback|trade-?off)\b/i.test(
       lower,
     );
   if (isAo3) {
@@ -157,26 +158,28 @@ export function evaluateCambridgeAnswer(
   }
 
   let ao2Awarded = 0;
-  // Analysis requires developing causal transmission mechanisms - never awarded on short opening definitions
-  if (wordCount >= 300 && ao2Count >= 4) {
-    ao2Awarded = Math.min(split.ao2_marks, Math.max(5, Math.round(split.ao2_marks * 0.85)));
-  } else if (wordCount >= 150 && ao2Count >= 3) {
-    ao2Awarded = Math.min(split.ao2_marks, Math.max(4, Math.round(split.ao2_marks * 0.75)));
-  } else if (wordCount >= 80 && ao2Count >= 2) {
-    ao2Awarded = Math.min(split.ao2_marks, Math.max(2, Math.round(split.ao2_marks * 0.5)));
+  // Analysis requires developing causal transmission mechanisms
+  if (wordCount >= 320 && ao2Count >= 4) {
+    // Top-band analysis: 5 or 6 out of 6
+    ao2Awarded = Math.min(split.ao2_marks, Math.max(5, Math.round(split.ao2_marks * 0.95)));
+  } else if (wordCount >= 220 && ao2Count >= 3) {
+    ao2Awarded = Math.min(split.ao2_marks, Math.max(4, Math.round(split.ao2_marks * 0.8)));
+  } else if (wordCount >= 140 && ao2Count >= 2) {
+    ao2Awarded = Math.min(split.ao2_marks, Math.max(3, Math.round(split.ao2_marks * 0.6)));
   } else if (wordCount >= 50 && ao2Count >= 1) {
-    ao2Awarded = Math.min(split.ao2_marks, Math.max(1, Math.round(split.ao2_marks * 0.25)));
+    ao2Awarded = Math.min(split.ao2_marks, Math.max(1, Math.round(split.ao2_marks * 0.3)));
   }
 
   let ao3Awarded = 0;
-  // Evaluation requires weighing up, conditions, and judgements - never awarded on opening text
+  // Evaluation requires weighing up, conditions, and judgements
   if (split.ao3_marks > 0 && wordCount >= 75) {
-    if (wordCount >= 300 && ao3Count >= 3) {
+    if (wordCount >= 280 && ao3Count >= 2) {
+      // Top-band evaluation: full 4 marks
       ao3Awarded = split.ao3_marks;
-    } else if (ao3Count >= 2 && wordCount >= 160) {
-      ao3Awarded = Math.min(split.ao3_marks, Math.max(2, Math.round(split.ao3_marks * 0.6)));
+    } else if (ao3Count >= 1 && wordCount >= 140) {
+      ao3Awarded = Math.min(split.ao3_marks, Math.max(2, Math.round(split.ao3_marks * 0.65)));
     } else if (ao3Count >= 1) {
-      ao3Awarded = Math.min(split.ao3_marks, Math.max(1, Math.round(split.ao3_marks * 0.3)));
+      ao3Awarded = Math.min(split.ao3_marks, Math.max(1, Math.round(split.ao3_marks * 0.35)));
     }
   }
 
