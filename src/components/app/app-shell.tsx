@@ -77,8 +77,18 @@ const COLLAPSED_GROUPS_STORAGE_KEY = "marginal.collapsedNavGroups";
  */
 const NAV_GROUPS: NavGroup[] = [
   {
+    id: "dashboard_analytics",
+    label: "Dashboard & Analytics",
+    collapsible: true,
+    items: [
+      { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+      { to: "/review", label: "Analytics & Diagnostics", icon: ClipboardCheck },
+      { to: "/classes", label: "Classes", icon: UsersRound },
+    ],
+  },
+  {
     id: "grading",
-    label: "Essay Marking & Live",
+    label: "Exam Practice & Live",
     collapsible: true,
     items: [
       { to: "/grade", label: "Grade Essay", icon: PenLine },
@@ -89,43 +99,19 @@ const NAV_GROUPS: NavGroup[] = [
         badge: "Live",
         requiresPaid: true,
       },
-      { to: "/showcase", label: "Exemplars & Submissions", icon: Trophy },
-    ],
-  },
-  {
-    id: "classroom_progress",
-    label: "Classroom & Progress",
-    collapsible: true,
-    items: [
-      { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-      { to: "/classes", label: "Classes", icon: UsersRound },
-      { to: "/review", label: "Review & Diagnostics", icon: ClipboardCheck },
+      { to: "/mcq-live", label: "MCQ Past Papers", icon: ListChecks },
     ],
   },
   {
     id: "syllabus",
-    label: "Syllabus & Knowledge",
+    label: "Syllabus Resources",
     collapsible: true,
     items: [
-      { to: "/knowledge", label: "Knowledge Base", icon: BookOpen, staffOnly: true },
-      { to: "/calibration", label: "Anchor Calibration", icon: ShieldCheck, staffOnly: true },
       { to: "/definitions", label: "Definitions Hub", icon: BookText },
+      { to: "/question-bank", label: "Question Bank", icon: BookMarked },
       { to: "/diagrams", label: "Diagram Library", icon: LineChart },
       { to: "/command-words", label: "Command Words", icon: Target },
-      { to: "/mcq-live", label: "MCQ Past Papers", icon: ListChecks },
-      { to: "/question-bank", label: "Question Bank", icon: BookMarked },
-    ],
-  },
-  {
-    id: "experimental",
-    label: "Experimental Labs",
-    collapsible: true,
-    isExperimental: true,
-    items: [
-      { to: "/chat", label: "Cambridge Chat Lab", icon: MessageSquare, badge: "Lab", requiresHigherTier: true },
-      { to: "/paper-matrix", label: "Paper Predictor", icon: Flame, badge: "15-Yr", requiresHigherTier: true },
-      { to: "/diagram-lab", label: "Diagram CAD Lab", icon: Sliders, badge: "Lab", requiresHigherTier: true },
-      { to: "/examiner", label: "Institutional Multi-Paper Grader", icon: GraduationCap, badge: "Exp", adminOnly: true },
+      { to: "/showcase", label: "Exemplars Showcase", icon: Trophy },
     ],
   },
   {
@@ -141,21 +127,35 @@ const NAV_GROUPS: NavGroup[] = [
 
 const TEACHER_NAV_GROUPS: NavGroup[] = [
   {
-    id: "teaching_classrooms",
-    label: "Teaching & Classrooms",
+    id: "dashboard_analytics",
+    label: "Dashboard & Classrooms",
     collapsible: true,
     items: [
       { to: "/dashboard", label: "Educator Dashboard", icon: LayoutDashboard },
       { to: "/classes", label: "My Classrooms", icon: UsersRound },
+      { to: "/review", label: "Analytics & Diagnostics", icon: ClipboardCheck },
     ],
   },
   {
-    id: "evaluation_curriculum",
-    label: "Evaluation & Curriculum",
+    id: "grading",
+    label: "Exam Practice & Live",
     collapsible: true,
     items: [
       { to: "/grade", label: "Essay Grader", icon: PenLine },
       { to: "/live-examiner", label: "Live Examiner", icon: Sparkles, requiresPaid: true },
+      { to: "/mcq-live", label: "MCQ Past Papers", icon: ListChecks },
+    ],
+  },
+  {
+    id: "syllabus",
+    label: "Syllabus Resources",
+    collapsible: true,
+    items: [
+      { to: "/definitions", label: "Definitions Hub", icon: BookText },
+      { to: "/question-bank", label: "Question Bank", icon: BookMarked },
+      { to: "/diagrams", label: "Diagram Library", icon: LineChart },
+      { to: "/command-words", label: "Command Words", icon: Target },
+      { to: "/showcase", label: "Exemplars Showcase", icon: Trophy },
       { to: "/knowledge", label: "Knowledge Base", icon: BookOpen },
       { to: "/calibration", label: "Anchor Calibration", icon: ShieldCheck },
     ],
@@ -190,35 +190,20 @@ const GROUP_META: Record<
   string,
   { dot: string; text: string; bg: string }
 > = {
+  dashboard_analytics: {
+    dot: "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]",
+    text: "text-emerald-600 dark:text-emerald-400",
+    bg: "hover:bg-emerald-500/10",
+  },
   grading: {
     dot: "bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.6)]",
     text: "text-indigo-600 dark:text-indigo-400",
     bg: "hover:bg-indigo-500/10",
   },
-  classroom_progress: {
-    dot: "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]",
-    text: "text-emerald-600 dark:text-emerald-400",
-    bg: "hover:bg-emerald-500/10",
-  },
-  teaching_classrooms: {
-    dot: "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]",
-    text: "text-emerald-600 dark:text-emerald-400",
-    bg: "hover:bg-emerald-500/10",
-  },
-  evaluation_curriculum: {
-    dot: "bg-purple-500 shadow-[0_0_8px_rgba(168,85,247,0.6)]",
-    text: "text-purple-600 dark:text-purple-400",
-    bg: "hover:bg-purple-500/10",
-  },
   syllabus: {
     dot: "bg-sky-500 shadow-[0_0_8px_rgba(14,165,233,0.6)]",
     text: "text-sky-600 dark:text-sky-400",
     bg: "hover:bg-sky-500/10",
-  },
-  experimental: {
-    dot: "bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.6)]",
-    text: "text-amber-600 dark:text-amber-400",
-    bg: "hover:bg-amber-500/10",
   },
   admin: {
     dot: "bg-purple-500 shadow-[0_0_8px_rgba(168,85,247,0.6)]",

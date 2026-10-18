@@ -845,14 +845,14 @@ function ReviewResults({ data }: { data: Eligible }) {
               </div>
             </div>
 
-            <div className="rounded-xl border border-border/80 bg-background/60 p-4 sm:max-w-xs">
-              <div className="flex items-center justify-between text-xs">
-                <span className="font-medium text-muted-foreground">Target Distance:</span>
-                <span className="font-semibold text-primary">
+            <div className="rounded-xl border border-border/80 bg-background/60 p-4 sm:max-w-md w-full sm:w-auto shrink-0 space-y-2.5">
+              <div className="space-y-1">
+                <span className="text-[11px] font-medium text-muted-foreground block">Target Distance:</span>
+                <p className="text-xs font-semibold text-primary leading-relaxed break-words">
                   {gradeProjection.marksToNextGrade}
-                </span>
+                </p>
               </div>
-              <div className="mt-2 flex items-center justify-between text-xs">
+              <div className="flex items-center justify-between text-xs border-t border-border/50 pt-2">
                 <span className="font-medium text-muted-foreground">Model Confidence:</span>
                 <Badge
                   variant="secondary"
@@ -866,7 +866,7 @@ function ReviewResults({ data }: { data: Eligible }) {
                   {gradeProjection.confidence}
                 </Badge>
               </div>
-              <p className="mt-2 text-[11px] text-muted-foreground leading-snug">
+              <p className="text-[11px] text-muted-foreground leading-snug">
                 Calibrated against official Cambridge 9708 grade boundaries.
               </p>
             </div>
