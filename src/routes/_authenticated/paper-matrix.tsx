@@ -26,7 +26,6 @@ import { useMemo, useState } from "react";
 
 import { PageHeader } from "@/components/app/app-shell";
 import { ChainedChamber } from "@/components/app/chained-chamber";
-import { SyllabusNavTabs } from "@/components/app/syllabus-nav";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -214,7 +213,6 @@ function PaperMatrixPage() {
           </Badge>
         }
       />
-      <SyllabusNavTabs />
 
       <div className="mx-auto max-w-7xl space-y-6 p-4 md:p-8">
         {/* PRIMARY ARCHIVE & PREDICTOR TAB SWITCHER */}

@@ -17,7 +17,6 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { PageHeader } from "@/components/app/app-shell";
-import { SyllabusNavTabs } from "@/components/app/syllabus-nav";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -180,7 +179,6 @@ function DefinitionsPage() {
         title="Definitions hub"
         description="Precise Cambridge 9708 definitions, organised by syllabus topic. Command words are explained separately below."
       />
-      <SyllabusNavTabs />
       <div className="flex flex-1 flex-col gap-7 p-4 sm:p-5 md:p-8">
         <section className="relative overflow-hidden rounded-2xl border border-primary/20 bg-linear-to-br from-primary/[0.10] via-card to-card p-5 sm:p-6">
           <div className="paper-grid pointer-events-none absolute inset-0 opacity-20" />

@@ -21,7 +21,6 @@ import { toast } from "sonner";
 
 import { PageHeader } from "@/components/app/app-shell";
 import { ChainedChamber } from "@/components/app/chained-chamber";
-import { SyllabusNavTabs } from "@/components/app/syllabus-nav";
 import { InteractiveDiagramCanvas } from "@/components/diagram-lab/interactive-diagram-canvas";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -128,7 +127,6 @@ function DiagramLabPage() {
           </Badge>
         }
       />
-      <SyllabusNavTabs />
 
       <div className="mx-auto max-w-7xl space-y-6 p-4 md:p-8">
         {/* Top Control Bar */}

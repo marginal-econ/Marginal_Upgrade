@@ -5,7 +5,6 @@ import { AlertTriangle, BookMarked, Globe2, Lightbulb, Search, Tags } from "luci
 import { useMemo, useState } from "react";
 
 import { PageHeader } from "@/components/app/app-shell";
-import { SyllabusNavTabs } from "@/components/app/syllabus-nav";
 import { EconomicsDiagram } from "@/components/diagrams/economics-diagram";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -91,7 +90,6 @@ function DiagramLibraryPage() {
         title="Diagram library"
         description={`${DIAGRAMS.length} Cambridge 9708 diagrams drawn to exam convention — with label definitions, examiner tips, common mistakes and real-world examples.`}
       />
-      <SyllabusNavTabs />
 
       <div className="grid min-h-0 flex-1 gap-0 lg:grid-cols-[300px_1fr]">
         <aside className="border-border lg:border-r">

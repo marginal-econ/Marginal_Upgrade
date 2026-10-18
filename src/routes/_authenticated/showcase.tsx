@@ -19,7 +19,6 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { PageHeader } from "@/components/app/app-shell";
-import { SyllabusNavTabs } from "@/components/app/syllabus-nav";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -328,7 +327,6 @@ function ShowcasePage() {
         title="Exemplar Showcase"
         description="Top-scoring Cambridge 9708 essays automatically showcased for master-level study and revision."
       />
-      <SyllabusNavTabs />
 
       <div className="flex flex-1 flex-col gap-6 p-4 sm:p-5 md:p-8">
         {/* Banner */}
