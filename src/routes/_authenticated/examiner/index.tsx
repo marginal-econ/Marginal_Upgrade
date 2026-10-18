@@ -67,8 +67,7 @@ function ExaminerDashboardPage() {
   });
 
   const isAdmin = meQuery.data?.isAdmin ?? false;
-  const isTeacher = meQuery.data?.role === "teacher" || Boolean(meQuery.data?.isStaff);
-  const isAuthorized = isAdmin || isTeacher;
+  const isAuthorized = isAdmin;
 
   const getWorkspace = useServerFn(getMySchoolWorkspace);
   const getSessions = useServerFn(listMarkingSessions);
@@ -79,24 +78,24 @@ function ExaminerDashboardPage() {
   if (!meQuery.isLoading && !isAuthorized) {
     return (
       <div className="mx-auto max-w-3xl px-5 py-16 text-center">
-        <div className="mx-auto mb-6 flex size-16 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10 text-primary shadow-inner">
+        <div className="mx-auto mb-6 flex size-16 items-center justify-center rounded-2xl border border-amber-500/20 bg-amber-500/10 text-amber-500 shadow-inner">
           <GraduationCap className="size-8" />
         </div>
-        <Badge variant="outline" className="mb-4 border-primary/40 bg-primary/10 text-primary">
-          Authorized Educators Only
+        <Badge variant="outline" className="mb-4 border-amber-500/40 bg-amber-500/10 text-amber-500">
+          Experimental Lab & Institutional Admin Only
         </Badge>
         <h1 className="text-3xl font-bold tracking-tight text-foreground">
-          Cambridge 9708 Teacher Examiner Platform
+          Institutional Multi-Paper Grader (Experimental)
         </h1>
         <p className="mx-auto mt-4 max-w-lg text-sm text-muted-foreground leading-relaxed">
-          The Teacher Examiner marking desk and script ingestion platform is exclusively accessible to verified Cambridge 9708 educators and institutional staff.
+          The whole-paper examiner and bulk script ingestion platform is an experimental module restricted to administrative institutional research. Standard classroom essay evaluation is available via the Essay Grader.
         </p>
         <div className="mt-8 flex justify-center gap-3">
           <Button
             variant="default"
-            onClick={() => navigate({ to: "/teacher-auth" })}
+            onClick={() => navigate({ to: "/grade" })}
           >
-            Apply for Teacher Verification
+            Go to Essay Grader
           </Button>
           <Button
             variant="outline"

@@ -100,7 +100,6 @@ const NAV_GROUPS: NavGroup[] = [
       { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
       { to: "/classes", label: "Classes", icon: UsersRound },
       { to: "/review", label: "Review & Diagnostics", icon: ClipboardCheck },
-      { to: "/examiner", label: "Teacher Examiner", icon: GraduationCap, staffOnly: true },
     ],
   },
   {
@@ -126,6 +125,7 @@ const NAV_GROUPS: NavGroup[] = [
       { to: "/chat", label: "Cambridge Chat Lab", icon: MessageSquare, badge: "Lab", requiresHigherTier: true },
       { to: "/paper-matrix", label: "Paper Predictor", icon: Flame, badge: "15-Yr", requiresHigherTier: true },
       { to: "/diagram-lab", label: "Diagram CAD Lab", icon: Sliders, badge: "Lab", requiresHigherTier: true },
+      { to: "/examiner", label: "Institutional Multi-Paper Grader", icon: GraduationCap, badge: "Exp", adminOnly: true },
     ],
   },
   {
@@ -141,22 +141,20 @@ const NAV_GROUPS: NavGroup[] = [
 
 const TEACHER_NAV_GROUPS: NavGroup[] = [
   {
-    id: "teaching_cohorts",
-    label: "Teaching & Cohorts",
+    id: "teaching_classrooms",
+    label: "Teaching & Classrooms",
     collapsible: true,
     items: [
       { to: "/dashboard", label: "Educator Dashboard", icon: LayoutDashboard },
-      { to: "/classes", label: "Classes & Cohorts", icon: UsersRound },
-      { to: "/review", label: "Cohort Analytics", icon: ClipboardCheck },
+      { to: "/classes", label: "My Classrooms", icon: UsersRound },
     ],
   },
   {
     id: "evaluation_curriculum",
-    label: "Evaluation & Moderation",
+    label: "Evaluation & Curriculum",
     collapsible: true,
     items: [
       { to: "/grade", label: "Essay Grader", icon: PenLine },
-      { to: "/examiner", label: "Marking Desk", icon: GraduationCap },
       { to: "/knowledge", label: "Knowledge Base", icon: BookOpen },
       { to: "/calibration", label: "Anchor Calibration", icon: ShieldCheck },
     ],
@@ -201,7 +199,7 @@ const GROUP_META: Record<
     text: "text-emerald-600 dark:text-emerald-400",
     bg: "hover:bg-emerald-500/10",
   },
-  teaching_cohorts: {
+  teaching_classrooms: {
     dot: "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]",
     text: "text-emerald-600 dark:text-emerald-400",
     bg: "hover:bg-emerald-500/10",

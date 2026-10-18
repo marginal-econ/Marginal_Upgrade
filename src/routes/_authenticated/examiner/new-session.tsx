@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
+import { getMe } from "@/lib/account.functions";
 import {
   Upload,
   FileText,
@@ -81,12 +82,39 @@ function NewMarkingSessionPage() {
   const createSessionFn = useServerFn(createMarkingSession);
   const uploadBatchFn = useServerFn(uploadCandidateScriptBatch);
 
+  const getMeFn = useServerFn(getMe);
+  const meQuery = useQuery({
+    queryKey: ["me"],
+    queryFn: () => getMeFn(),
+    staleTime: 30_000,
+  });
+
   // Papers Query
   const papersQuery = useQuery({
     queryKey: ["examiner-papers"],
     queryFn: () => listPapersFn(),
+    enabled: Boolean(meQuery.data?.isAdmin),
   });
   const papers = papersQuery.data?.papers || [];
+
+  if (!meQuery.isLoading && !meQuery.data?.isAdmin) {
+    return (
+      <div className="mx-auto max-w-3xl px-5 py-16 text-center">
+        <Badge variant="outline" className="mb-4 border-amber-500/40 bg-amber-500/10 text-amber-500">
+          Admin Only
+        </Badge>
+        <h1 className="text-2xl font-bold tracking-tight">Access Restricted</h1>
+        <p className="mt-2 text-sm text-muted-foreground">
+          New session creation for whole-paper examiner batches is restricted to administrators.
+        </p>
+        <div className="mt-6">
+          <Button variant="default" onClick={() => navigate({ to: "/dashboard" })}>
+            Return to Dashboard
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   const [selectedPaperId, setSelectedPaperId] = useState<string>(
     initialPaperId || "builtin_9708_22_2024_mj",

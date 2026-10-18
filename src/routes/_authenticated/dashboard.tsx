@@ -404,13 +404,13 @@ export function DashboardPage() {
                   </Link>
                 </Button>
                 <Button asChild size="sm" variant="outline" className="h-8 text-xs border-purple-500/30 hover:bg-purple-500/10">
-                  <Link to="/examiner">
-                    <GraduationCap className="size-3.5 mr-1 text-purple-500" /> Marking Desk
+                  <Link to="/grade">
+                    <PenLine className="size-3.5 mr-1 text-purple-500" /> Essay Grader
                   </Link>
                 </Button>
                 <Button asChild size="sm" variant="outline" className="h-8 text-xs border-purple-500/30 hover:bg-purple-500/10">
                   <Link to="/knowledge">
-                    <BookOpen className="size-3.5 mr-1 text-purple-500" /> Mark Schemes
+                    <BookOpen className="size-3.5 mr-1 text-purple-500" /> Knowledge Base
                   </Link>
                 </Button>
                 {!isPaidUser && (
@@ -1316,12 +1316,12 @@ function EducatorDashboardView({
     <div className="min-h-screen bg-background">
       <PageHeader
         title="Educator Command Center"
-        description="Cambridge 9708 Economics moderation desk, cohort analytics, mark schemes, and calibrated anchors."
+        description="Cambridge 9708 Economics educator workspace, classrooms, mark schemes, and calibrated anchors."
         action={
           <div className="flex flex-wrap items-center gap-2">
             <Button asChild variant="outline" size="sm">
-              <Link to="/review">
-                <ClipboardCheck className="size-3.5 text-primary mr-1.5" /> Cohort Analytics
+              <Link to="/classes">
+                <UsersRound className="size-3.5 text-primary mr-1.5" /> My Classrooms
               </Link>
             </Button>
             <Button asChild size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground">
@@ -1353,26 +1353,26 @@ function EducatorDashboardView({
                 ) : null}
               </div>
               <p className="text-xs text-muted-foreground">
-                Your academic evaluation desk is active. You can grade candidate essays, evaluate cohort performance, ingest mark schemes, and calibrate standard anchors.
+                Your academic workspace is active. Manage your classrooms, evaluate candidate essays, ingest mark schemes, and calibrate standard anchors.
               </p>
             </div>
 
             <div className="flex items-center gap-2 shrink-0">
               <Button asChild size="sm" variant="outline" className="border-purple-500/30 hover:bg-purple-500/10 text-xs">
-                <Link to="/examiner">
-                  <GraduationCap className="size-3.5 mr-1 text-purple-600 dark:text-purple-400" /> Marking Desk
+                <Link to="/classes">
+                  <UsersRound className="size-3.5 mr-1 text-purple-600 dark:text-purple-400" /> My Classrooms
                 </Link>
               </Button>
               <Button asChild size="sm" className="bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold shadow-xs">
                 <Link to="/grade">
-                  <PenLine className="size-3.5 mr-1" /> New Evaluation
+                  <PenLine className="size-3.5 mr-1" /> Grade Essay
                 </Link>
               </Button>
             </div>
           </div>
         </section>
 
-        {/* If teacher has no classrooms, prominently guide them to create one */}
+        {/* If teacher has no classrooms, guide them to create one */}
         {classrooms.length === 0 ? (
           <section className="rounded-2xl border border-dashed border-purple-500/40 bg-purple-500/[0.04] p-8 text-center">
             <div className="mx-auto size-12 rounded-2xl bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center mb-3">
@@ -1380,7 +1380,7 @@ function EducatorDashboardView({
             </div>
             <h3 className="text-base sm:text-lg font-bold text-foreground">No Classrooms Created Yet</h3>
             <p className="mt-1.5 text-xs text-muted-foreground max-w-md mx-auto leading-relaxed">
-              Create your first Cambridge 9708 classroom cohort to invite students, set essay homework, and unlock cohort-level performance analytics.
+              Create your first Cambridge 9708 classroom to invite students, set homework essays, and view student progress.
             </p>
             <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
               <Button asChild size="sm" className="bg-purple-600 hover:bg-purple-700 text-white font-semibold text-xs px-4">
@@ -1396,86 +1396,127 @@ function EducatorDashboardView({
             </div>
           </section>
         ) : (
-          /* 4 Metric Cards for active cohorts */
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="rounded-xl border border-border/80 bg-card p-4.5 shadow-2xs hover:border-primary/40 transition-colors">
-              <div className="flex items-center justify-between">
-                <p className="text-xs font-medium text-muted-foreground">Active Cohorts</p>
-                <div className="size-8 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
-                  <UsersRound className="size-4" />
+          /* Metric Cards & Active Classrooms when classrooms exist */
+          <>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="rounded-xl border border-border/80 bg-card p-4.5 shadow-2xs hover:border-primary/40 transition-colors">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-medium text-muted-foreground">Classrooms</p>
+                  <div className="size-8 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+                    <UsersRound className="size-4" />
+                  </div>
+                </div>
+                <p className="mt-2 text-2xl font-bold tracking-tight text-foreground">{classrooms.length}</p>
+                <div className="mt-2 flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">Active classrooms</span>
+                  <Link to="/classes" className="font-semibold text-primary hover:underline flex items-center gap-0.5">
+                    Manage <ArrowUpRight className="size-3" />
+                  </Link>
                 </div>
               </div>
-              <p className="mt-2 text-2xl font-bold tracking-tight text-foreground">{classrooms.length}</p>
-              <div className="mt-2 flex items-center justify-between text-xs">
-                <span className="text-muted-foreground">Classrooms enrolled</span>
-                <Link to="/classes" className="font-semibold text-primary hover:underline flex items-center gap-0.5">
-                  Manage <ArrowUpRight className="size-3" />
-                </Link>
+
+              <div className="rounded-xl border border-border/80 bg-card p-4.5 shadow-2xs hover:border-primary/40 transition-colors">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-medium text-muted-foreground">Knowledge Base</p>
+                  <div className="size-8 rounded-lg bg-sky-500/10 text-sky-600 dark:text-sky-400 flex items-center justify-center">
+                    <BookOpen className="size-4" />
+                  </div>
+                </div>
+                <p className="mt-2 text-2xl font-bold tracking-tight text-foreground">{readyDocs}</p>
+                <div className="mt-2 flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">Ingested RAG documents</span>
+                  <Link to="/knowledge" className="font-semibold text-primary hover:underline flex items-center gap-0.5">
+                    Search &amp; Add <ArrowUpRight className="size-3" />
+                  </Link>
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-border/80 bg-card p-4.5 shadow-2xs hover:border-primary/40 transition-colors">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-medium text-muted-foreground">Calibrated Anchors</p>
+                  <div className="size-8 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+                    <ShieldCheck className="size-4" />
+                  </div>
+                </div>
+                <p className="mt-2 text-2xl font-bold tracking-tight text-foreground">{activeAnchors}</p>
+                <div className="mt-2 flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">Standardized benchmarks</span>
+                  <Link to="/calibration" className="font-semibold text-primary hover:underline flex items-center gap-0.5">
+                    Calibrate <ArrowUpRight className="size-3" />
+                  </Link>
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-border/80 bg-card p-4.5 shadow-2xs hover:border-primary/40 transition-colors">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-medium text-muted-foreground">Evaluated Essays</p>
+                  <div className="size-8 rounded-lg bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center">
+                    <PenLine className="size-4" />
+                  </div>
+                </div>
+                <p className="mt-2 text-2xl font-bold tracking-tight text-foreground">{essays.length}</p>
+                <div className="mt-2 flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">Submissions evaluated</span>
+                  <Link to="/grade" className="font-semibold text-primary hover:underline flex items-center gap-0.5">
+                    Grade <ArrowUpRight className="size-3" />
+                  </Link>
+                </div>
               </div>
             </div>
 
-            <div className="rounded-xl border border-border/80 bg-card p-4.5 shadow-2xs hover:border-primary/40 transition-colors">
+            {/* Enrolled Classrooms Grid */}
+            <section className="space-y-3">
               <div className="flex items-center justify-between">
-                <p className="text-xs font-medium text-muted-foreground">Knowledge Base</p>
-                <div className="size-8 rounded-lg bg-sky-500/10 text-sky-600 dark:text-sky-400 flex items-center justify-center">
-                  <BookOpen className="size-4" />
+                <div>
+                  <h3 className="text-base font-bold text-foreground">Enrolled Classrooms</h3>
+                  <p className="text-xs text-muted-foreground">
+                    Classroom analytics, assignment submissions, and student performance diagnostic gradebooks are accessed directly inside your classrooms.
+                  </p>
                 </div>
+                <Button asChild variant="outline" size="sm" className="text-xs">
+                  <Link to="/classes">
+                    <UsersRound className="size-3.5 mr-1" /> View All Classrooms
+                  </Link>
+                </Button>
               </div>
-              <p className="mt-2 text-2xl font-bold tracking-tight text-foreground">{readyDocs}</p>
-              <div className="mt-2 flex items-center justify-between text-xs">
-                <span className="text-muted-foreground">Ingested RAG documents</span>
-                <Link to="/knowledge" className="font-semibold text-primary hover:underline flex items-center gap-0.5">
-                  Search &amp; Add <ArrowUpRight className="size-3" />
-                </Link>
-              </div>
-            </div>
 
-            <div className="rounded-xl border border-border/80 bg-card p-4.5 shadow-2xs hover:border-primary/40 transition-colors">
-              <div className="flex items-center justify-between">
-                <p className="text-xs font-medium text-muted-foreground">Calibrated Anchors</p>
-                <div className="size-8 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center">
-                  <ShieldCheck className="size-4" />
-                </div>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {classrooms.map((cls) => (
+                  <div key={cls.id} className="rounded-xl border border-border/80 bg-card p-4 shadow-2xs hover:border-primary/40 transition-colors">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <h4 className="font-bold text-foreground text-sm">{cls.name}</h4>
+                        <p className="text-[11px] text-muted-foreground capitalize mt-0.5">
+                          {cls.level.toUpperCase()} Level Cambridge Economics
+                        </p>
+                      </div>
+                      <Badge variant="outline" className="text-[10px] font-mono font-bold shrink-0">
+                        Code: {cls.join_code}
+                      </Badge>
+                    </div>
+                    <div className="mt-3 pt-2.5 border-t border-border/60 flex items-center justify-between text-xs">
+                      <span className="text-muted-foreground">Student Roster &amp; Grades</span>
+                      <Link to="/classes" className="font-semibold text-primary hover:underline flex items-center gap-1">
+                        Open Classroom &amp; Grades →
+                      </Link>
+                    </div>
+                  </div>
+                ))}
               </div>
-              <p className="mt-2 text-2xl font-bold tracking-tight text-foreground">{activeAnchors}</p>
-              <div className="mt-2 flex items-center justify-between text-xs">
-                <span className="text-muted-foreground">Standardized benchmarks</span>
-                <Link to="/calibration" className="font-semibold text-primary hover:underline flex items-center gap-0.5">
-                  Calibrate <ArrowUpRight className="size-3" />
-                </Link>
-              </div>
-            </div>
-
-            <div className="rounded-xl border border-border/80 bg-card p-4.5 shadow-2xs hover:border-primary/40 transition-colors">
-              <div className="flex items-center justify-between">
-                <p className="text-xs font-medium text-muted-foreground">Evaluated Submissions</p>
-                <div className="size-8 rounded-lg bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center">
-                  <GraduationCap className="size-4" />
-                </div>
-              </div>
-              <p className="mt-2 text-2xl font-bold tracking-tight text-foreground">{essays.length}</p>
-              <div className="mt-2 flex items-center justify-between text-xs">
-                <span className="text-muted-foreground">Candidate essay threads</span>
-                <Link to="/examiner" className="font-semibold text-primary hover:underline flex items-center gap-0.5">
-                  Moderation <ArrowUpRight className="size-3" />
-                </Link>
-              </div>
-            </div>
-          </div>
+            </section>
+          </>
         )}
 
-        {/* The 4 Dedicated Educator Core Tools */}
+        {/* The 3 Dedicated Core Educator Tools */}
         <section className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-base font-bold text-foreground">Core Educator Workspace</h3>
-              <p className="text-xs text-muted-foreground">
-                Dedicated tools designed specifically for Cambridge 9708 Economics teachers.
-              </p>
-            </div>
+          <div>
+            <h3 className="text-base font-bold text-foreground">Core Educator Workspace</h3>
+            <p className="text-xs text-muted-foreground">
+              Essential evaluation and curriculum tools for Cambridge 9708 Economics teachers.
+            </p>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-4 sm:grid-cols-3">
             {/* Tool 1: Essay Grader */}
             <div className="rounded-2xl border border-border/80 bg-card p-5 shadow-xs flex flex-col justify-between hover:border-purple-500/50 hover:shadow-md transition-all group">
               <div className="space-y-3">
@@ -1483,54 +1524,22 @@ function EducatorDashboardView({
                   <PenLine className="size-5" />
                 </div>
                 <div>
-                  <h4 className="text-base font-bold text-foreground">Grade Essay & Marking Desk</h4>
+                  <h4 className="text-base font-bold text-foreground">Essay Grader</h4>
                   <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
-                    Evaluate candidate submissions with Cambridge 9708 official mark schemes. Detailed AO1 (Knowledge), AO2 (Analysis), and AO3 (Evaluation) criteria breakdowns with maximum tariff benchmarking.
+                    Evaluate candidate submissions with Cambridge 9708 mark schemes. Detailed AO1, AO2, and AO3 criteria breakdowns with maximum tariff benchmarking.
                   </p>
                 </div>
               </div>
-              <div className="mt-4 pt-4 border-t border-border/60 flex items-center gap-2">
-                <Button asChild size="sm" className="bg-purple-600 hover:bg-purple-700 text-white font-semibold text-xs">
+              <div className="mt-4 pt-4 border-t border-border/60">
+                <Button asChild size="sm" className="bg-purple-600 hover:bg-purple-700 text-white font-semibold text-xs w-full">
                   <Link to="/grade">
                     <PenLine className="size-3.5 mr-1" /> Launch Grader
                   </Link>
                 </Button>
-                <Button asChild variant="outline" size="sm" className="text-xs">
-                  <Link to="/examiner">
-                    <GraduationCap className="size-3.5 mr-1" /> Marking Desk
-                  </Link>
-                </Button>
               </div>
             </div>
 
-            {/* Tool 2: Cohort Analytics */}
-            <div className="rounded-2xl border border-border/80 bg-card p-5 shadow-xs flex flex-col justify-between hover:border-emerald-500/50 hover:shadow-md transition-all group">
-              <div className="space-y-3">
-                <div className="size-10 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center border border-emerald-500/20 group-hover:scale-105 transition-transform">
-                  <ClipboardCheck className="size-5" />
-                </div>
-                <div>
-                  <h4 className="text-base font-bold text-foreground">Cohort Analytics & Diagnostics</h4>
-                  <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
-                    Review candidate performance distributions, assessment objective strengths and weaknesses, common economic misconceptions, and syllabus diagnostic heatmaps.
-                  </p>
-                </div>
-              </div>
-              <div className="mt-4 pt-4 border-t border-border/60 flex items-center gap-2">
-                <Button asChild size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs">
-                  <Link to="/review">
-                    <ClipboardCheck className="size-3.5 mr-1" /> View Diagnostics
-                  </Link>
-                </Button>
-                <Button asChild variant="outline" size="sm" className="text-xs">
-                  <Link to="/classes">
-                    <UsersRound className="size-3.5 mr-1" /> Cohort Roster
-                  </Link>
-                </Button>
-              </div>
-            </div>
-
-            {/* Tool 3: Document Ingestion */}
+            {/* Tool 2: Knowledge Base */}
             <div className="rounded-2xl border border-border/80 bg-card p-5 shadow-xs flex flex-col justify-between hover:border-sky-500/50 hover:shadow-md transition-all group">
               <div className="space-y-3">
                 <div className="size-10 rounded-xl bg-sky-500/10 text-sky-600 dark:text-sky-400 flex items-center justify-center border border-sky-500/20 group-hover:scale-105 transition-transform">
@@ -1539,12 +1548,12 @@ function EducatorDashboardView({
                 <div>
                   <h4 className="text-base font-bold text-foreground">Knowledge Base</h4>
                   <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
-                    Search and ingest official Cambridge mark schemes, specimen papers, and internal school assessments into the RAG vector store. Grounded citations verify every evaluated criterion.
+                    Search and ingest official Cambridge mark schemes, specimen papers, and school assessments. Grounded citations verify every evaluated criterion.
                   </p>
                 </div>
               </div>
               <div className="mt-4 pt-4 border-t border-border/60">
-                <Button asChild size="sm" className="bg-sky-600 hover:bg-sky-700 text-white font-semibold text-xs">
+                <Button asChild size="sm" className="bg-sky-600 hover:bg-sky-700 text-white font-semibold text-xs w-full">
                   <Link to="/knowledge">
                     <BookOpen className="size-3.5 mr-1" /> Open Knowledge Base
                   </Link>
@@ -1552,7 +1561,7 @@ function EducatorDashboardView({
               </div>
             </div>
 
-            {/* Tool 4: Anchor Calibration */}
+            {/* Tool 3: Anchor Calibration */}
             <div className="rounded-2xl border border-border/80 bg-card p-5 shadow-xs flex flex-col justify-between hover:border-amber-500/50 hover:shadow-md transition-all group">
               <div className="space-y-3">
                 <div className="size-10 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center border border-amber-500/20 group-hover:scale-105 transition-transform">
@@ -1561,12 +1570,12 @@ function EducatorDashboardView({
                 <div>
                   <h4 className="text-base font-bold text-foreground">Anchor Calibration</h4>
                   <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
-                    Anchor the evaluation standard across Level 1 to Level 4 bands with verified essays and confirmed marks. Anchors enforce strict Cambridge marking consistency across student attempts.
+                    Lock the evaluation standard across Level 1 to Level 4 bands with verified candidate exemplars and confirmed marks to prevent mark drift.
                   </p>
                 </div>
               </div>
               <div className="mt-4 pt-4 border-t border-border/60">
-                <Button asChild size="sm" className="bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs">
+                <Button asChild size="sm" className="bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs w-full">
                   <Link to="/calibration">
                     <ShieldCheck className="size-3.5 mr-1" /> Calibrate Anchors
                   </Link>
@@ -1574,57 +1583,6 @@ function EducatorDashboardView({
               </div>
             </div>
           </div>
-        </section>
-
-        {/* Cohort Classrooms Section */}
-        <section className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h3 className="text-base font-bold text-foreground">Enrolled Classrooms</h3>
-            <Button asChild variant="outline" size="sm" className="text-xs">
-              <Link to="/classes">
-                <UsersRound className="size-3.5 mr-1" /> Manage Classrooms
-              </Link>
-            </Button>
-          </div>
-
-          {classrooms.length > 0 ? (
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {classrooms.map((cls) => (
-                <div key={cls.id} className="rounded-xl border border-border/80 bg-card p-4 shadow-2xs hover:border-primary/40 transition-colors">
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <h4 className="font-bold text-foreground text-sm">{cls.name}</h4>
-                      <p className="text-[11px] text-muted-foreground capitalize mt-0.5">
-                        {cls.level.toUpperCase()} Level Cambridge Economics
-                      </p>
-                    </div>
-                    <Badge variant="outline" className="text-[10px] font-mono font-bold shrink-0">
-                      Code: {cls.join_code}
-                    </Badge>
-                  </div>
-                  <div className="mt-3 pt-2.5 border-t border-border/60 flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground">Invite code active</span>
-                    <Link to="/classes" className="font-semibold text-primary hover:underline">
-                      Open Roster →
-                    </Link>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="rounded-xl border border-dashed border-border p-8 text-center bg-card/40">
-              <UsersRound className="mx-auto size-8 text-muted-foreground/60 mb-2" />
-              <h4 className="font-bold text-foreground text-sm">No classrooms created yet</h4>
-              <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
-                Create your first Cambridge 9708 classroom cohort to invite students, set homework essays, and track moderation progress.
-              </p>
-              <Button asChild size="sm" className="mt-4 text-xs font-semibold">
-                <Link to="/classes">
-                  <UsersRound className="size-3.5 mr-1" /> Create Classroom
-                </Link>
-              </Button>
-            </div>
-          )}
         </section>
       </div>
     </div>
