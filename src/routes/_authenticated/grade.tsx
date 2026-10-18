@@ -109,6 +109,8 @@ function GradePage() {
   });
   const sub = meQuery.data?.subscription;
   const isAdmin = meQuery.data?.isAdmin ?? false;
+  const isTeacher = meQuery.data?.role === "teacher" || Boolean(sub?.isTeacher);
+  const isTeacherUnpaid = isTeacher && !sub?.isPaid && !isAdmin;
   const isLimitReached = !isAdmin && (sub !== undefined && !sub.canGradeEssay);
 
   const [question, setQuestion] = useState(search.q ?? "");
@@ -293,17 +295,15 @@ function GradePage() {
   }
 
   function handleMarkClick() {
-    if (isTeacherUnpaid) {
-      toast.error("Teacher accounts require an active Educator AI Pass (from ₹99/mo) or School Department License to use the AI Essay Grader.", {
-        duration: 5000,
-      });
-      navigate({ to: "/pricing" });
-      return;
-    }
     if (isLimitReached) {
-      toast.error("Plan limit reached: You've completed your 2 free essays. Redirecting to pricing...", {
-        duration: 4000,
-      });
+      toast.error(
+        isTeacher
+          ? "Plan limit reached: You've completed your 3 free educator trial evaluations. Upgrade to an Educator AI Pass (from ₹99/mo) to continue."
+          : "Plan limit reached: You've completed your 2 free essays. Redirecting to pricing...",
+        {
+          duration: 4000,
+        }
+      );
       navigate({ to: "/pricing" });
       return;
     }

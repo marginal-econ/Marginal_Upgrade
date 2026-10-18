@@ -138,4 +138,99 @@ describe("Subscription Details & Entitlements", () => {
     expect(details.liveExaminerCredits).toBe(0);
     expect(details.canUseLiveExaminer).toBe(false);
   });
+
+  it("enforces compulsory 2-essay free student trial and locks after 2 essays", async () => {
+    function createMockWithEssayCount(essayCount: number) {
+      return {
+        from: vi.fn((table: string) => {
+          if (table === "essays") {
+            return {
+              select: vi.fn(() => ({
+                eq: vi.fn(() => Promise.resolve({ count: essayCount, error: null })),
+              })),
+            };
+          }
+          return {
+            select: vi.fn(() => ({
+              eq: vi.fn(() => ({
+                maybeSingle: vi.fn(async () => ({ data: null, error: null })),
+                ilike: vi.fn(() => ({ limit: vi.fn(async () => ({ data: [], error: null })) })),
+                limit: vi.fn(async () => ({ data: [], error: null })),
+              })),
+            })),
+          };
+        }),
+      } as any;
+    }
+
+    const freeStudentFresh = await getUserSubscriptionDetails(
+      createMockWithEssayCount(0),
+      "student-0",
+      "student0@test.com"
+    );
+    expect(freeStudentFresh.essaysLimit).toBe(2);
+    expect(freeStudentFresh.essaysRemaining).toBe(2);
+    expect(freeStudentFresh.canGradeEssay).toBe(true);
+
+    const freeStudentOneUsed = await getUserSubscriptionDetails(
+      createMockWithEssayCount(1),
+      "student-1",
+      "student1@test.com"
+    );
+    expect(freeStudentOneUsed.essaysRemaining).toBe(1);
+    expect(freeStudentOneUsed.canGradeEssay).toBe(true);
+
+    const freeStudentExhausted = await getUserSubscriptionDetails(
+      createMockWithEssayCount(2),
+      "student-2",
+      "student2@test.com"
+    );
+    expect(freeStudentExhausted.essaysRemaining).toBe(0);
+    expect(freeStudentExhausted.canGradeEssay).toBe(false);
+  });
+
+  it("enforces educator 3-essay trial and locks after 3 essays", async () => {
+    function createTeacherMockWithEssayCount(essayCount: number) {
+      return {
+        from: vi.fn((table: string) => {
+          if (table === "essays") {
+            return {
+              select: vi.fn(() => ({
+                eq: vi.fn(() => Promise.resolve({ count: essayCount, error: null })),
+              })),
+            };
+          }
+          return {
+            select: vi.fn(() => ({
+              eq: vi.fn(() => ({
+                maybeSingle: vi.fn(async () => ({ data: null, error: null })),
+                ilike: vi.fn(() => ({ limit: vi.fn(async () => ({ data: [], error: null })) })),
+                limit: vi.fn(async () => ({ data: [], error: null })),
+              })),
+            })),
+          };
+        }),
+      } as any;
+    }
+
+    const teacherFresh = await getUserSubscriptionDetails(
+      createTeacherMockWithEssayCount(0),
+      "teacher-0",
+      "teacher@test.com",
+      { user_metadata: { role: "teacher" } }
+    );
+    expect(teacherFresh.isTeacher).toBe(true);
+    expect(teacherFresh.essaysLimit).toBe(3);
+    expect(teacherFresh.essaysRemaining).toBe(3);
+    expect(teacherFresh.canGradeEssay).toBe(true);
+
+    const teacherExhausted = await getUserSubscriptionDetails(
+      createTeacherMockWithEssayCount(3),
+      "teacher-3",
+      "teacher@test.com",
+      { user_metadata: { role: "teacher" } }
+    );
+    expect(teacherExhausted.essaysRemaining).toBe(0);
+    expect(teacherExhausted.canGradeEssay).toBe(false);
+  });
 });

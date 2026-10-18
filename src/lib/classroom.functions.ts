@@ -349,6 +349,10 @@ export const createClassroom = createServerFn({ method: "POST" })
       claims: (context as any).claims,
       email: (context as any).email,
     });
+    const { getSupabaseAdmin } = await import("@/server/supabase");
+    const admin = getSupabaseAdmin();
+    const assignedTeacherId = isMarginal && data.teacherId ? data.teacherId : context.userId;
+
     if (!isMarginal) {
       await assertTeacher(context);
       const { count, error: countErr } = await admin
@@ -363,9 +367,6 @@ export const createClassroom = createServerFn({ method: "POST" })
         );
       }
     }
-    const { getSupabaseAdmin } = await import("@/server/supabase");
-    const admin = getSupabaseAdmin();
-    const assignedTeacherId = isMarginal && data.teacherId ? data.teacherId : context.userId;
 
     const { data: row, error } = await admin
       .from("classrooms")
