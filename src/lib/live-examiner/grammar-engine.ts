@@ -478,7 +478,157 @@ const RULES: RuleDefinition[] = [
     evidence:
       "The long run is a period of time in which all factors of production and costs can be varied.",
   },
+  {
+    id: "sv_consumer_are",
+    category: "grammar",
+    severity: "high",
+    pattern: /\bconsumer\s+are\b/i,
+    getSuggestion: () => "consumers are",
+    explanation: "Subject-verb agreement: use plural 'consumers are' or 'the consumer is'.",
+  },
+  {
+    id: "double_punctuation_typo",
+    category: "grammar",
+    severity: "low",
+    pattern: /\b(\w+)\s*\.,/i,
+    getSuggestion: (m) => `${m[1]},`,
+    explanation: "Accidental repeated punctuation (period followed by comma).",
+  },
 ];
+
+export const COMMON_TYPOS: Readonly<Record<string, string>> = {
+  fimrm: "firm",
+  fimrs: "firms",
+  frim: "firm",
+  frims: "firms",
+  maxmise: "maximise",
+  maximse: "maximise",
+  maxmize: "maximize",
+  minmise: "minimise",
+  minimse: "minimise",
+  minmize: "minimize",
+  revnuue: "revenue",
+  revenu: "revenue",
+  reveneu: "revenue",
+  resposive: "responsive",
+  responsiv: "responsive",
+  chnages: "changes",
+  chagnes: "changes",
+  chages: "changes",
+  differntiate: "differentiate",
+  diferentiate: "differentiate",
+  differenciate: "differentiate",
+  liek: "like",
+  liekd: "liked",
+  becuase: "because",
+  becasue: "because",
+  beacuse: "because",
+  faliure: "failure",
+  faliures: "failures",
+  failur: "failure",
+  externailties: "externalities",
+  externailty: "externality",
+  externalites: "externalities",
+  exteranlities: "externalities",
+  inelastc: "inelastic",
+  elasticty: "elasticity",
+  elastcity: "elasticity",
+  equillibrium: "equilibrium",
+  equilibirum: "equilibrium",
+  equlibrium: "equilibrium",
+  oppurtunity: "opportunity",
+  oportunity: "opportunity",
+  govrenment: "government",
+  goverment: "government",
+  governmnet: "government",
+  consumr: "consumer",
+  consumrs: "consumers",
+  cosnumers: "consumers",
+  comsumers: "consumers",
+  monoploy: "monopoly",
+  monoply: "monopoly",
+  inflatoin: "inflation",
+  inflaton: "inflation",
+  subsidie: "subsidy",
+  subsidies: "subsidies",
+  subsidey: "subsidy",
+  effeciency: "efficiency",
+  efficency: "efficiency",
+  effiency: "efficiency",
+  aggreagte: "aggregate",
+  agregate: "aggregate",
+  unemploymnet: "unemployment",
+  unemploymnt: "unemployment",
+  sustanable: "sustainable",
+  sustainble: "sustainable",
+  competion: "competition",
+  competetion: "competition",
+  intervetion: "intervention",
+  intervension: "intervention",
+  produciton: "production",
+  porduction: "production",
+  producitvity: "productivity",
+  allcoation: "allocation",
+  allocaton: "allocation",
+  determinte: "determine",
+  stragetic: "strategic",
+  startegic: "strategic",
+  stratergy: "strategy",
+  stratagy: "strategy",
+  yeild: "yield",
+  yeilds: "yields",
+  defict: "deficit",
+  deficet: "deficit",
+  suplus: "surplus",
+  surlus: "surplus",
+  tarrif: "tariff",
+  tarrifs: "tariffs",
+  privatisation: "privatisation",
+  privitisation: "privatisation",
+  comodity: "commodity",
+  comodities: "commodities",
+  neccessary: "necessary",
+  necesary: "necessary",
+  seperate: "separate",
+  definately: "definitely",
+  untill: "until",
+  recieve: "receive",
+  occured: "occurred",
+  occuring: "occurring",
+  occurance: "occurrence",
+  enviroment: "environment",
+  beneifit: "benefit",
+  beneifits: "benefits",
+  benefite: "benefit",
+  signficant: "significant",
+  signifcant: "significant",
+  signifacnt: "significant",
+  inelasticly: "inelastically",
+  elasticly: "elastically",
+  subsitute: "substitute",
+  subsitutes: "substitutes",
+  catagorise: "categorise",
+  catagories: "categories",
+  responsivness: "responsiveness",
+  responsivnes: "responsiveness",
+  resposiveness: "responsiveness",
+  allign: "align",
+  alligned: "aligned",
+  argumen: "argument",
+  argumet: "argument",
+  evalution: "evaluation",
+  evaluaton: "evaluation",
+  conclution: "conclusion",
+  conclussion: "conclusion",
+};
+
+function preserveCase(original: string, replacement: string): string {
+  if (original === original.toUpperCase()) return replacement.toUpperCase();
+  if (original[0] === original[0].toUpperCase()) {
+    return replacement[0].toUpperCase() + replacement.slice(1);
+  }
+  return replacement.toLowerCase();
+}
 
 /**
  * Executes multi-layer deterministic grammar, clarity, and economic accuracy checks.
@@ -489,6 +639,7 @@ export function analyzeGrammarAndMechanics(sentences: string[]): GrammarRuleIssu
   const seenKeys = new Set<string>();
 
   for (const sentence of sentences) {
+    // 1. Check specialized Cambridge mechanics and misconception rules
     for (const rule of RULES) {
       const regex = new RegExp(rule.pattern.source, rule.pattern.flags);
       let match: RegExpExecArray | null;
@@ -497,7 +648,6 @@ export function analyzeGrammarAndMechanics(sentences: string[]): GrammarRuleIssu
         const matchedText = match[0];
         const lowerMatched = matchedText.toLowerCase().trim();
 
-        // 1. Whitelist Check: never flag approved economic terminology
         if (CAMBRIDGE_ECONOMICS_WHITELIST.has(lowerMatched)) {
           if (!regex.global) break;
           continue;
@@ -523,6 +673,36 @@ export function analyzeGrammarAndMechanics(sentences: string[]): GrammarRuleIssu
         }
 
         if (!regex.global) break;
+      }
+    }
+
+    // 2. High-speed, zero-token spelling & typo detection
+    const wordRegex = /\b[A-Za-z]{2,}\b/g;
+    let wordMatch: RegExpExecArray | null;
+    while ((wordMatch = wordRegex.exec(sentence)) !== null) {
+      const originalWord = wordMatch[0];
+      const lowerWord = originalWord.toLowerCase();
+
+      if (CAMBRIDGE_ECONOMICS_WHITELIST.has(lowerWord)) continue;
+
+      const corrected = COMMON_TYPOS[lowerWord];
+      if (corrected && corrected.toLowerCase() !== lowerWord) {
+        const dedupeKey = `typo::${sentence.trim().toLowerCase()}::${originalWord.toLowerCase()}`;
+        if (!seenKeys.has(dedupeKey)) {
+          seenKeys.add(dedupeKey);
+          const suggestion = preserveCase(originalWord, corrected);
+          issues.push({
+            original: originalWord,
+            suggestion,
+            category: "grammar",
+            severity: "high",
+            explanation: `Spelling typo: '${originalWord}' should be '${suggestion}'.`,
+            context: sentence,
+            ruleId: `typo_${lowerWord}`,
+            startOffset: wordMatch.index,
+            endOffset: wordMatch.index + originalWord.length,
+          });
+        }
       }
     }
   }

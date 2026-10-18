@@ -65,16 +65,16 @@ export type LiveExaminerSessionUsage = {
 };
 
 // Rapid adaptive cadence:
-// - Instant deterministic pre-pass: fires immediately (< 25ms) in-browser (grammar, typos, definitions)
-// - Sentence completion (punctuation or newline): fires in 1,200ms
-// - Mid-sentence pause: 2,000ms
-// - Minimum request interval: 3,500ms
-// - Minimum changed characters: 16 chars
+// - Instant deterministic pre-pass: fires immediately (< 25ms) in-browser (grammar, typos, definitions) with ZERO tokens
+// - Sentence completion pause: 2,500ms
+// - Mid-sentence pause: 3,500ms
+// - Minimum request interval: 8,000ms
+// - Minimum changed characters: 25 chars
 const INSTANT_LOCAL_PAUSE_MS = 25;
-const TYPING_PAUSE_MS = 2000;
-const SENTENCE_COMPLETE_PAUSE_MS = 1200;
-const MIN_REQUEST_INTERVAL_MS = 3500;
-const MIN_CHANGED_CHARS = 16;
+const TYPING_PAUSE_MS = 3500;
+const SENTENCE_COMPLETE_PAUSE_MS = 2500;
+const MIN_REQUEST_INTERVAL_MS = 8000;
+const MIN_CHANGED_CHARS = 25;
 const MIN_TEXT_LENGTH = 20;
 
 function issueId(issue: Pick<LiveExaminerIssue, "context" | "original" | "category">): string {
@@ -218,6 +218,7 @@ export function useLiveExaminerCheck(params: {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const localTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastEstimatedMarkAtRef = useRef<number>(0);
+  const lastEstimatedLengthRef = useRef<number>(0);
   const requestIdRef = useRef(0);
   const inFlightRef = useRef(false);
   const lastRequestAtRef = useRef(0);
@@ -315,12 +316,16 @@ export function useLiveExaminerCheck(params: {
       const previousText = force ? undefined : lastCheckedTextRef.current || undefined;
       const previousIssues = force ? [] : issuesRef.current;
 
-      const isSentenceOrThoughtEnd = /(?:[.!?]|\n)\s*$/.test(currentText);
       const timeSinceLastEstimate = Date.now() - lastEstimatedMarkAtRef.current;
+      const charsSinceLastEstimate = Math.abs(currentText.length - lastEstimatedLengthRef.current);
+      // Predicted mark estimation is decoupled and throttled: only run at most once every 45s
+      // and when at least 120 chars changed, or for the initial estimate when the text first reaches 80 chars.
       const shouldIncludeEstimate =
-        isSentenceOrThoughtEnd || timeSinceLastEstimate > 10_000 || !predictedMark;
+        (!predictedMark && currentText.trim().length >= 80) ||
+        (timeSinceLastEstimate >= 45_000 && charsSinceLastEstimate >= 120);
       if (shouldIncludeEstimate) {
         lastEstimatedMarkAtRef.current = Date.now();
+        lastEstimatedLengthRef.current = currentText.length;
       }
 
       const coachingExpired = !isAdminRef.current && (remainingSeconds <= 0 || aiCoachingExpired);
@@ -494,7 +499,8 @@ export function useLiveExaminerCheck(params: {
     }
 
     const completedThought = /(?:[.!?]|\n)\s*$/.test(text);
-    if (!completedThought && changedAmount(text, lastCheckedTextRef.current) < MIN_CHANGED_CHARS) {
+    const minChars = completedThought ? 15 : MIN_CHANGED_CHARS;
+    if (changedAmount(text, lastCheckedTextRef.current) < minChars) {
       return;
     }
 

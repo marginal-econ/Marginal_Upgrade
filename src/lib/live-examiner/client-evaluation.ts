@@ -31,12 +31,12 @@ const AO2_PATTERNS = [
 ];
 
 const AO3_PATTERNS = [
-  /\b(however|depends on|depending on|in contrast|on the other hand|overall)\b/i,
-  /\b(production capacity|maximum production capacity|capacity constraint|bottleneck)\b/i,
-  /\b(short run|long run|in the short term|in the long term)\b/i,
-  /\b(budget deficit|deficit for the government|national debt|inflationary pressure)\b/i,
-  /\b(not always|may only lead to|only effective if|effective when|limitation)\b/i,
-  /\b(if that is true|level of increase depends|trade-?off)\b/i,
+  /\b(however|in contrast|on the other hand|whereas|nevertheless|conversely|alternatively)\b/i,
+  /\b(depends on|depending on|contingent on|contingent upon|is determined by the extent)\b/i,
+  /\b(not fully accurate|merely estimates|assumes? ceteris paribus|temporal validity|past data|data may be outdated|difficult to measure)\b/i,
+  /\b(short run versus long run|in the short run.*in the long run|time lag|time lags)\b/i,
+  /\b(more important than|most critical factor|greater significance|weighing up|overall|in conclusion|to conclude|ultimately|balanced judgement)\b/i,
+  /\b(not always|only effective if|effective when|limitation|drawbacks?|trade-?off|unintended consequence|market distortion)\b/i,
 ];
 
 export function classifySentenceDeterministically(sentence: string): {
@@ -46,10 +46,27 @@ export function classifySentenceDeterministically(sentence: string): {
   const trimmed = sentence.trim();
   const lower = trimmed.toLowerCase();
 
-  // 1. Evaluative criteria, dependencies, trade-offs, judgements (AO3)
+  // 1. Explicit definition phrasing, formulas, and baseline concept definitions (AO1 Knowledge)
+  const isExplicitDef =
+    /\b(is defined as|is the degree of responsiveness|is a measure of|is the measure of|measures the percentage change|refers to|definition of|occurs when|measures how|is calculated as|is equal to|are goods that are|can be defined as|formula for|is the percentage change|are defined as)\b/i.test(
+      lower,
+    ) ||
+    /^(?:ped|yed|pes|xed|price elasticity|income elasticity|cross elasticity|elasticity of supply|inflation|gdp|cpi|opportunity cost|fiscal policy|monetary policy)\s+(?:is|measures|refers to|represents)\b/i.test(
+      lower,
+    ) ||
+    /\b(demerit goods? are|merit goods? are|public goods? are|free riders? are)\b/i.test(lower);
+
+  if (isExplicitDef) {
+    return {
+      ao: "AO1",
+      explanation: "AO1 Knowledge: Accurate Cambridge 9708 definition, formula, or economic concept foundation.",
+    };
+  }
+
+  // 2. Evaluative criteria, dependencies, trade-offs, judgements (AO3 Evaluation)
   const isAo3 =
     AO3_PATTERNS.some((p) => p.test(lower)) ||
-    /\b(however|although|on the other hand|nevertheless|in contrast|whereas|depends on|dependent on|critical factor|extent to which|contingent|elasticity|ped|pes|yed|inelastic|elastic|short[- ]run|long[- ]run|time lag|in the long run|in the short run|unintended consequence|black market|informal market|smuggling|shadow economy|in conclusion|overall|ultimately|to conclude|judgement|balanced|weighing|effective|ineffective|limitation|drawback|barrier of entry|scale of|magnitude|quality of life|better welfare)\b/i.test(
+    /\b(however|although|on the other hand|nevertheless|in contrast|whereas|conversely|depends on|dependent on|critical factor determining|extent to which|contingent upon|time lag|unintended consequence|in conclusion|overall|ultimately|to conclude|judgement|weighing|effective|ineffective|limitation|drawback|trade-?off)\b/i.test(
       lower,
     );
   if (isAo3) {
@@ -59,21 +76,10 @@ export function classifySentenceDeterministically(sentence: string): {
     };
   }
 
-  // 2. Explicit definition phrasing (AO1 Knowledge)
-  const isExplicitDef = /\b(is a|are goods that are|is defined as|refers to|definition of|occurs when|government intervention set above|overconsumed|underconsumed)\b/i.test(
-    lower,
-  );
-  if (isExplicitDef) {
-    return {
-      ao: "AO1",
-      explanation: "AO1 Knowledge: Accurate Cambridge 9708 definition, formula, or economic concept foundation.",
-    };
-  }
-
-  // 3. Analysis, causal mechanisms, transmission links, application (AO2)
+  // 3. Analysis, causal mechanisms, transmission links, application (AO2 Analysis)
   const isAo2 =
     AO2_PATTERNS.some((p) => p.test(lower)) ||
-    /\b(causes|leading to|leads to|results in|resulting in|means that|this means|contraction in|expansion in|shift|shifts|excess supply|excess demand|surplus|shortage|as prices? rise|as prices? fall|higher prices?|lower prices?|incentive|disincentive|signals?|rationing|allocative|fall by a|increase by a|percentage|quantity demanded|quantity supplied|constrained|producers?|consumers?|firms?|output|sales?|profit|for example|for instance|such as|case of)\b/i.test(
+    /\b(causes|leading to|leads to|results in|resulting in|means that|this means|contraction in|expansion in|shift|shifts|excess supply|excess demand|surplus|shortage|as prices? rise|as prices? fall|higher prices?|lower prices?|incentive|disincentive|signals?|rationing|allocative|fall by a|increase by a|percentage|quantity demanded|quantity supplied|constrained|producers?|consumers?|firms?|output|sales?|profit|revenue|maximise|maximize|for example|for instance|such as|case of|toyota|cars)\b/i.test(
       lower,
     );
   if (isAo2) {

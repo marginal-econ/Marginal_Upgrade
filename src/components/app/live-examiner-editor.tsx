@@ -257,15 +257,6 @@ export function computeRanges(
   // 2. Locate sentences in document order and apply AO classifications + issues seamlessly
   const allSentences = splitSentences(text);
 
-  const aoPriority: Record<"AO3" | "AO2" | "AO1", number> = {
-    AO3: 3,
-    AO2: 2,
-    AO1: 1,
-  };
-  const sortedClassifications = [...classifications].sort(
-    (a, b) => (aoPriority[b.ao] ?? 0) - (aoPriority[a.ao] ?? 0),
-  );
-
   const rawRanges: Range[] = [];
   let cursor = 0;
 
@@ -304,32 +295,67 @@ export function computeRanges(
     if (sStart >= sEnd || overlapsProtected(sStart, sEnd)) continue;
 
     // Determine the Assessment Objective for this complete sentence:
-    // Match against server classifications (prioritizing AO3 > AO2 > AO1), or fallback to deterministic
-    const matched = sortedClassifications.find((c) => {
-      const cContext = (c.context || "").trim();
-      const cOrig = (c.original || "").trim();
-      return (
-        cContext === trimmed ||
-        cOrig === trimmed ||
-        cContext.includes(trimmed) ||
-        trimmed.includes(cContext) ||
-        cOrig.includes(trimmed) ||
-        trimmed.includes(cOrig)
-      );
+    const target = trimmed.toLowerCase();
+    const aoRank: Record<string, number> = { AO3: 3, AO2: 2, AO1: 1 };
+
+    // 1. Exact match against server classifications (check original and context)
+    const exactMatches = classifications.filter((c) => {
+      const cContext = (c.context || "").trim().toLowerCase();
+      const cOrig = (c.original || "").trim().toLowerCase();
+      return cOrig === target || cContext === target;
     });
 
-    const activeClassification: ActiveAoClassification = matched
-      ? matched
-      : (() => {
-          const auto = classifySentenceDeterministically(trimmed);
-          return {
-            id: `auto-${auto.ao}-${sStart}`,
-            original: trimmed,
-            context: trimmed,
-            ao: auto.ao,
-            explanation: auto.explanation,
-          };
-        })();
+    let matched: ActiveAoClassification | undefined;
+    if (exactMatches.length > 0) {
+      matched = exactMatches.sort((a, b) => {
+        const aFull = (a.original || "").trim().toLowerCase() === target ? 1 : 0;
+        const bFull = (b.original || "").trim().toLowerCase() === target ? 1 : 0;
+        if (aFull !== bFull) return bFull - aFull;
+        return (aoRank[b.ao] ?? 0) - (aoRank[a.ao] ?? 0);
+      })[0];
+    }
+
+    // 2. High overlap match (at least 75% length agreement)
+    if (!matched) {
+      const overlapMatches = classifications.filter((c) => {
+        const cContext = (c.context || "").trim().toLowerCase();
+        const cOrig = (c.original || "").trim().toLowerCase();
+        if (cContext && cContext.length >= 10 && target.length >= 10) {
+          if (cContext.includes(target) && target.length >= cContext.length * 0.75) return true;
+          if (target.includes(cContext) && cContext.length >= target.length * 0.75) return true;
+        }
+        if (cOrig && cOrig.length >= 10 && target.length >= 10) {
+          if (cOrig.includes(target) && target.length >= cOrig.length * 0.75) return true;
+          if (target.includes(cOrig) && cOrig.length >= target.length * 0.75) return true;
+        }
+        return false;
+      });
+      if (overlapMatches.length > 0) {
+        matched = overlapMatches.sort((a, b) => (aoRank[b.ao] ?? 0) - (aoRank[a.ao] ?? 0))[0];
+      }
+    }
+
+    const activeClassification: ActiveAoClassification = (() => {
+      const auto = classifySentenceDeterministically(trimmed);
+      // Unmistakable explicit definitions must always remain AO1 Knowledge
+      if (auto.ao === "AO1" && auto.explanation.includes("definition")) {
+        return {
+          id: `auto-${auto.ao}-${sStart}`,
+          original: trimmed,
+          context: trimmed,
+          ao: auto.ao,
+          explanation: auto.explanation,
+        };
+      }
+      if (matched) return matched;
+      return {
+        id: `auto-${auto.ao}-${sStart}`,
+        original: trimmed,
+        context: trimmed,
+        ao: auto.ao,
+        explanation: auto.explanation,
+      };
+    })();
 
     // Check for issues that lie strictly inside this sentence
     const sentenceIssues = locatedIssues

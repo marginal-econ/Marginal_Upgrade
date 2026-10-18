@@ -218,5 +218,33 @@ describe("Grammar and Mechanics Engine", () => {
         evaluation.predictedMark.ao_breakdown.evaluation.awarded
       );
     });
+
+    it("reliably detects student typos (fimrm, maxmise, revnuue, resposive, chnages, frims, differntiate, liek, consumer are, revenue.,) and classifies PED definition as AO1", async () => {
+      const { classifySentenceDeterministically } = await import("./client-evaluation");
+
+      const typosSentence = "A fimrm aims to maxmise revnuue., but demand is not resposive to chnages in price because consumer are liek that. Other frims differntiate products.";
+      const results = analyzeGrammarAndMechanics([typosSentence]);
+      const flaggedWords = results.map((r) => r.original.toLowerCase());
+
+      expect(flaggedWords).toContain("fimrm");
+      expect(flaggedWords).toContain("maxmise");
+      expect(flaggedWords).toContain("revnuue");
+      expect(flaggedWords).toContain("resposive");
+      expect(flaggedWords).toContain("chnages");
+      expect(flaggedWords).toContain("consumer are");
+      expect(flaggedWords).toContain("liek");
+      expect(flaggedWords).toContain("frims");
+      expect(flaggedWords).toContain("differntiate");
+
+      // Verify double punctuation typo
+      const punctIssue = results.find((r) => r.ruleId === "double_punctuation_typo");
+      expect(punctIssue).toBeDefined();
+
+      // Verify PED definition is classified as AO1 Knowledge, not AO3 Evaluation
+      const pedDefinition = "PED is the degree of responsiveness of quantity demanded to a change in price.";
+      const classification = classifySentenceDeterministically(pedDefinition);
+      expect(classification.ao).toBe("AO1");
+      expect(classification.explanation).toContain("definition");
+    });
   });
 });

@@ -330,9 +330,9 @@ FEEDBACK RULES:
 
 CRITICAL ASSESSMENT OBJECTIVE COVERAGE (100% COVERAGE REQUIRED):
 You MUST classify EVERY SINGLE SENTENCE in 'SENTENCES TO CHECK' into its corresponding Cambridge Assessment Objective. Do NOT leave any sentence unclassified!
-- AO1 (Knowledge & Understanding): Definitions of economic terms, concept introductions, factual statements, baseline syllabus theory.
-- AO2 (Analysis): Causal transmission mechanisms ("causes...", "leads to...", "this means that..."), market chain reactions, diagrams/shifts, application to context/goods.
-- AO3 (Evaluation): Evaluative criteria, dependencies (PED, PES, elasticity), counter-arguments ("However...", "On the other hand...", "Although..."), time horizons (short-run vs long-run), unintended consequences, magnitude/scale, prioritized conclusions/judgements.
+- AO1 (Knowledge & Understanding): Explicit definitions of economic concepts (e.g. PED, PES, YED, inflation, opportunity cost), formulas, concept introductions, textbook facts.
+- AO2 (Analysis): Causal transmission mechanisms ("causes...", "leads to...", "this means that..."), market chain reactions, diagrams/shifts, application of theory to specific firms/markets (e.g. car manufacturers, agricultural products).
+- AO3 (Evaluation): Critical evaluative commentary, weighting factors, counter-arguments ("However...", "On the other hand...", "Although..."), questioning assumptions/ceteris paribus, time horizons (short-run vs long-run), assessing the reliability of elasticity estimates, magnitude/scale, and justified final judgements. NOTE: Merely defining or explaining PED/YED is AO1/AO2; only evaluating the usefulness/limitations of PED or balancing it against other factors qualifies as AO3.
 
 For EVERY sentence index from 1 to N in 'SENTENCES TO CHECK', include an entry in 'classifications' with:
 - "sentence_index": <number>
@@ -674,8 +674,8 @@ export const checkEssayWriting = createServerFn({ method: "POST" })
     const currLen = data.essayText.trim().length;
     const shouldEstimateMark =
       data.includePredictedMark &&
-      currLen >= 60 &&
-      (Math.abs(currLen - prevLen) >= 40 || prevLen === 0);
+      currLen >= 80 &&
+      (Math.abs(currLen - prevLen) >= 80 || prevLen === 0);
 
     try {
       const { chat } = await import("./ai.server");
@@ -699,7 +699,7 @@ export const checkEssayWriting = createServerFn({ method: "POST" })
           model: MODEL_LIVE_CANDIDATE,
           temperature: 0,
           json: true,
-          maxCompletionTokens: 2500,
+          maxCompletionTokens: 700,
           messages: [
             {
               role: "system",
@@ -718,7 +718,7 @@ export const checkEssayWriting = createServerFn({ method: "POST" })
               model: MODEL_ESTIMATE,
               temperature: 0,
               json: true,
-              maxCompletionTokens: 1000,
+              maxCompletionTokens: 350,
               messages: [
                 {
                   role: "system",
@@ -909,10 +909,11 @@ export const checkEssayWriting = createServerFn({ method: "POST" })
             model: MODEL_LIVE_CHECK,
             temperature: 0,
             json: true,
+            maxCompletionTokens: 400,
             messages: [
               {
                 role: "system",
-                content: buildVerifierSystemPrompt(data.question, data.contextBlock),
+                content: buildVerifierSystemPrompt(data.question, compactContext),
               },
               { role: "user", content: `CANDIDATES:\n\n${candidateBlock}` },
             ],
