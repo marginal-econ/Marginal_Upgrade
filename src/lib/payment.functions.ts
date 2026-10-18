@@ -430,7 +430,7 @@ export const approveUpiPaymentRequest = createServerFn({ method: "POST" })
       .object({
         logId: z.string(),
         userId: z.string(),
-        tier: z.enum(["foundation", "pro", "mastery", "elite"]),
+        tier: z.enum(["foundation", "scholar_plus", "pro", "mastery", "elite"]),
       })
       .parse(input),
   )

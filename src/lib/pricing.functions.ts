@@ -191,7 +191,7 @@ export const updatePlatformPricing = createServerFn({ method: "POST" })
 
 const AdminManageCreditsSchema = z.object({
   targetUserId: z.string().uuid(),
-  tier: z.enum(["free", "foundation", "pro", "mastery", "elite"]).optional(),
+  tier: z.enum(["free", "foundation", "scholar_plus", "pro", "mastery", "elite"]).optional(),
   additionalCredits: z.number().int().optional(),
 });
 
