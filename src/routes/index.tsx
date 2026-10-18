@@ -371,7 +371,7 @@ function Index() {
         </Drift>
         <Star className="doodle absolute top-32 left-[46%] hidden size-4 text-ao3/30 md:block" />
 
-        <div className="relative z-10 mx-auto grid max-w-7xl 2xl:max-w-[1440px] items-center gap-10 lg:gap-12 xl:gap-16 px-4 py-10 sm:px-6 sm:py-14 md:px-10 md:py-16 lg:grid-cols-[1.1fr_1fr] xl:grid-cols-[1.15fr_1fr]">
+        <div className="relative z-10 mx-auto grid max-w-7xl 2xl:max-w-[1440px] items-start gap-10 lg:gap-12 xl:gap-16 px-4 pt-6 pb-12 sm:px-6 sm:pt-8 sm:pb-14 md:px-10 md:pt-10 md:pb-16 lg:grid-cols-[1.1fr_1fr] xl:grid-cols-[1.15fr_1fr]">
           <div>
             <Reveal>
               <div className="flex flex-wrap items-center gap-2">
@@ -504,8 +504,8 @@ function Index() {
             </Reveal>
           </div>
 
-          {/* Expanded, Commanding Live Examiner Showcase Card & Student Trust Card */}
-          <Reveal variant="pop" delay={120} className="relative w-full space-y-3.5">
+          {/* Expanded, Commanding Live Examiner Showcase & Unboxed Founder Statement */}
+          <Reveal variant="pop" delay={120} className="relative w-full space-y-3.5 lg:-mt-4 xl:-mt-8">
             <div className="relative w-full">
               {/* Ambient Stage Halo Glow */}
               <div className="absolute -inset-2 rounded-3xl bg-gradient-to-r from-primary/30 via-violet-500/20 to-amber-500/20 blur-xl opacity-75 -z-10 animate-pulse" />
@@ -514,24 +514,18 @@ function Index() {
               </ExaminerStage>
             </div>
 
-            {/* Created for Economics by Economics Students · Founder Mission & Inspiration */}
-            <div className="mx-auto w-full max-w-xl xl:max-w-2xl 2xl:max-w-[680px] rounded-2xl border border-primary/30 bg-card/85 backdrop-blur-md p-4 sm:p-5 shadow-md space-y-2.5">
-              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/70 pb-2.5">
-                <span className="inline-flex items-center gap-2 text-xs font-bold text-foreground">
-                  <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
-                  Mission &amp; Inspiration · Created for Economics by Economics Students
-                </span>
-                <span className="rounded-full bg-primary/10 border border-primary/30 px-2.5 py-0.5 text-[10.5px] font-mono font-bold text-primary">
-                  Cambridge 9708
-                </span>
-              </div>
-              <blockquote className="text-xs sm:text-[13px] text-foreground/90 italic leading-relaxed">
+            {/* Founder Mission & Inspiration — Unboxed Normal Text, Highly Visible and Bold */}
+            <div className="mx-auto w-full max-w-xl xl:max-w-2xl 2xl:max-w-[680px] px-1 pt-1 space-y-2">
+              <p className="text-sm sm:text-base font-bold leading-relaxed text-foreground">
                 “I personally lost critical marks in IGCSE Economics on structured answers despite knowing the theory. I refused to let that happen again in AS &amp; A Level. That is why I created Marginal — to give myself and all economics students the exact line-by-line mark scheme diagnosis and examiner structuring needed to master the top band.”
-              </blockquote>
-              <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-0.5 font-medium">
-                <span className="text-primary font-semibold">— Founder's Mission</span>
-                <span className="font-mono text-[10.5px]">Why Marginal Exists</span>
-              </div>
+              </p>
+              <p className="text-xs sm:text-[13px] font-extrabold text-foreground tracking-wide flex flex-wrap items-center gap-2">
+                <span className="text-primary font-black">— Saikrish</span>
+                <span className="text-muted-foreground/60 font-normal">|</span>
+                <span className="font-bold text-foreground">CS Academy</span>
+                <span className="text-muted-foreground/60 font-normal">|</span>
+                <span className="text-muted-foreground font-semibold">Founder, Marginal</span>
+              </p>
             </div>
           </Reveal>
         </div>
@@ -774,27 +768,17 @@ function Index() {
           </div>
 
           <Reveal delay={100} className="mt-8">
-            <div className="mx-auto max-w-3xl rounded-2xl border border-primary/30 bg-card/90 backdrop-blur-md p-5 sm:p-6 shadow-md relative overflow-hidden">
-              <div className="flex items-start gap-4">
-                <div className="hidden sm:flex size-11 rounded-xl bg-primary/10 border border-primary/30 items-center justify-center shrink-0 text-primary font-black text-xl">
-                  “
-                </div>
-                <div className="space-y-2">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-xs font-bold uppercase tracking-wider text-primary">
-                      The Founder's Inspiration
-                    </span>
-                    <span className="text-muted-foreground text-xs">&bull;</span>
-                    <span className="text-xs text-muted-foreground font-mono">From Student to Examiner AI</span>
-                  </div>
-                  <p className="text-sm leading-relaxed text-foreground/95 italic">
-                    “I personally lost critical marks in IGCSE Economics on structured answers despite knowing the theory inside out. I refused to let that repeat in AS &amp; A Level. That is why I built Marginal — to give myself and every economics student the exact line-by-line mark scheme diagnosis, causal structuring, and live exam calibration needed to master the top band.”
-                  </p>
-                  <p className="text-xs font-semibold text-muted-foreground pt-1">
-                    — Built by Cambridge Economics Students for Cambridge Economics Candidates
-                  </p>
-                </div>
-              </div>
+            <div className="mx-auto max-w-3xl px-3 py-2 text-center sm:text-left space-y-2">
+              <p className="text-sm sm:text-base font-bold leading-relaxed text-foreground">
+                “I personally lost critical marks in IGCSE Economics on structured answers despite knowing the theory inside out. I refused to let that repeat in AS &amp; A Level. That is why I built Marginal — to give myself and every economics student the exact line-by-line mark scheme diagnosis, causal structuring, and live exam calibration needed to master the top band.”
+              </p>
+              <p className="text-xs sm:text-[13px] font-extrabold text-foreground tracking-wide flex flex-wrap items-center justify-center sm:justify-start gap-2">
+                <span className="text-primary font-black">— Saikrish</span>
+                <span className="text-muted-foreground/60 font-normal">|</span>
+                <span className="font-bold text-foreground">CS Academy</span>
+                <span className="text-muted-foreground/60 font-normal">|</span>
+                <span className="text-muted-foreground font-semibold">Founder, Marginal</span>
+              </p>
             </div>
           </Reveal>
 
