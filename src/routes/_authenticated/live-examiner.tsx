@@ -1181,12 +1181,12 @@ function LiveExaminerPage() {
           </p>
         </div>
       ) : (
-        <div className="space-y-6 p-4 md:p-6 lg:p-8 max-w-[1680px] mx-auto">
+        <div className="space-y-4 sm:space-y-6 p-3 sm:p-4 md:p-6 lg:p-8 max-w-[1680px] mx-auto">
           {/* Top Control Bar */}
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 pb-4">
+          <div className="flex flex-wrap items-center justify-between gap-2.5 sm:gap-3 border-b border-border/60 pb-3 sm:pb-4">
             <div className="flex items-center gap-2">
-              <Badge variant="outline" className="text-xs font-semibold px-2.5 py-1 bg-muted/40">
-                {level === "a2" ? "A Level" : "AS Level"} · {maxMark} Marks
+              <Badge variant="outline" className="text-xs font-semibold px-2 py-0.5 sm:px-2.5 sm:py-1 bg-muted/40">
+                {level === "a2" ? "A Level" : "AS Level"} · {maxMark}m
               </Badge>
               {topic ? (
                 <span className="text-xs text-muted-foreground hidden sm:inline truncate max-w-[220px]">
@@ -1196,11 +1196,11 @@ function LiveExaminerPage() {
             </div>
 
             {/* Running Score Pill, Word Count, and Timer */}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
               {predictedMark ? (
-                <div className="flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400 transition-all duration-300 shadow-sm">
+                <div className="flex items-center gap-1.5 sm:gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 sm:px-3 py-0.5 sm:py-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400 transition-all duration-300 shadow-sm">
                   <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
-                  <span>Est. {predictedMark.total_mark} / {maxMark} marks</span>
+                  <span>Est. {predictedMark.total_mark} / {maxMark}</span>
                   <span className="text-[10px] opacity-75 font-normal hidden md:inline">
                     (AO1: {predictedMark.ao_breakdown.knowledge.awarded} · AO2: {predictedMark.ao_breakdown.analysis.awarded} · AO3: {predictedMark.ao_breakdown.evaluation.awarded})
                   </span>
@@ -1213,7 +1213,7 @@ function LiveExaminerPage() {
 
               <div className="flex items-center gap-1 text-xs text-muted-foreground font-mono">
                 <Clock className="size-3.5" />
-                <span>{isAdmin ? "Admin (Unlimited)" : formattedTimeRemaining}</span>
+                <span>{isAdmin ? "Admin" : formattedTimeRemaining}</span>
               </div>
 
               {autosave === "saving" ? (
@@ -1228,32 +1228,34 @@ function LiveExaminerPage() {
             </div>
 
             {/* Actions */}
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1 sm:gap-1.5 flex-wrap">
               <Button
                 type="button"
                 size="sm"
-                className="h-8 gap-1.5 text-xs font-medium"
+                className="h-8 gap-1 px-2.5 sm:px-3 text-xs font-medium"
                 onClick={handleGradeNow}
               >
-                <CheckCircle2 className="size-3.5" /> Grade now
+                <CheckCircle2 className="size-3.5" />
+                <span className="hidden sm:inline">Grade now</span>
+                <span className="sm:hidden">Grade</span>
               </Button>
 
               <Button
                 type="button"
                 size="sm"
                 variant="outline"
-                className="h-8 text-xs gap-1.5"
+                className="h-8 text-xs gap-1 px-2 sm:px-2.5"
                 onClick={() => setDiagramDialogOpen(true)}
               >
                 <ImagePlus className="size-3.5" />
-                {diagrams.length > 0 ? `Diagram (${diagrams.length})` : "Diagram"}
+                <span>{diagrams.length > 0 ? `(${diagrams.length})` : "Diagram"}</span>
               </Button>
 
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button type="button" size="sm" variant="outline" className="h-8 text-xs gap-1.5">
+                  <Button type="button" size="sm" variant="outline" className="h-8 text-xs gap-1 px-2 sm:px-2.5">
                     <ClipboardPaste className="size-3.5" />
-                    {markSchemeImages.length > 0 ? `MS (${markSchemeImages.length})` : "Mark Scheme"}
+                    <span>{markSchemeImages.length > 0 ? `MS (${markSchemeImages.length})` : "MS"}</span>
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-80 space-y-2" align="end">
@@ -1272,18 +1274,20 @@ function LiveExaminerPage() {
                 type="button"
                 size="sm"
                 variant="outline"
-                className="h-8 text-xs border-amber-500/30 bg-amber-500/5 text-amber-700 dark:text-amber-300 hover:bg-amber-500/10 font-medium"
+                className="h-8 text-xs border-amber-500/30 bg-amber-500/5 text-amber-700 dark:text-amber-300 hover:bg-amber-500/10 font-medium px-2 sm:px-2.5 gap-1"
                 onClick={handleOpenScoreMaximizer}
                 title="Open Score Maximizer guidance"
               >
-                <Sparkles className="size-3.5 text-amber-500" /> Maximizer
+                <Sparkles className="size-3.5 text-amber-500" />
+                <span className="hidden sm:inline">Maximizer</span>
+                <span className="sm:hidden">Tips</span>
               </Button>
 
               <Button
                 type="button"
                 size="sm"
                 variant={zenMode ? "secondary" : "outline"}
-                className="h-8 text-xs"
+                className="h-8 text-xs px-2 sm:px-2.5"
                 onClick={() => setZenMode((prev) => !prev)}
                 title="Toggle Zen / Focus Mode"
               >
@@ -1294,7 +1298,7 @@ function LiveExaminerPage() {
                 type="button"
                 size="sm"
                 variant="ghost"
-                className="h-8 text-xs text-muted-foreground hover:text-foreground"
+                className="h-8 text-xs text-muted-foreground hover:text-foreground px-2"
                 onClick={() => setRestartDialogOpen(true)}
                 title="Clear & restart exam"
               >
@@ -1304,39 +1308,39 @@ function LiveExaminerPage() {
           </div>
 
           {/* Unified 2-Column Workspace: Left Paper + Right Examiner Panel */}
-          <div className={cn("grid gap-6 transition-all duration-300 items-start", zenMode ? "grid-cols-1 max-w-5xl mx-auto" : "grid-cols-1 lg:grid-cols-[1fr_360px] xl:grid-cols-[1fr_380px]")}>
+          <div className={cn("grid gap-4 sm:gap-6 transition-all duration-300 items-start", zenMode ? "grid-cols-1 max-w-5xl mx-auto" : "grid-cols-1 lg:grid-cols-[1fr_360px] xl:grid-cols-[1fr_380px]")}>
             {/* Official Cambridge Examination Answer Script Paper */}
             <main className="min-w-0">
               <div className="relative mx-auto w-full overflow-hidden rounded-2xl border border-border/80 bg-card/95 shadow-xl backdrop-blur-sm transition-all duration-200">
                 {/* Cambridge Official Script Header Banner */}
-                <div className="border-b border-border/70 bg-muted/30 px-6 py-4">
+                <div className="border-b border-border/70 bg-muted/30 px-3.5 py-3 sm:px-6 sm:py-4">
                   <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div className="flex items-center gap-3">
-                      <div className="flex size-9 items-center justify-center rounded-lg border border-primary/30 bg-primary/10 text-primary">
-                        <GraduationCap className="size-5" />
+                    <div className="flex items-center gap-2.5 sm:gap-3">
+                      <div className="flex size-8 sm:size-9 items-center justify-center rounded-lg border border-primary/30 bg-primary/10 text-primary shrink-0">
+                        <GraduationCap className="size-4 sm:size-5" />
                       </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] font-bold tracking-widest text-muted-foreground uppercase">
-                            Cambridge Assessment International Education
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-[9px] sm:text-[10px] font-bold tracking-wider sm:tracking-widest text-muted-foreground uppercase">
+                            Cambridge Assessment
                           </span>
                           <Badge variant="outline" className="text-[9px] font-semibold py-0 px-1.5 border-primary/30 text-primary bg-primary/5">
-                            9708 SYLLABUS
+                            9708
                           </Badge>
                         </div>
-                        <h3 className="text-sm font-semibold text-foreground tracking-tight">
-                          Economics {level === "a2" ? "A Level · Paper 4" : "AS Level · Paper 2"} Digital Answer Script
+                        <h3 className="text-xs sm:text-sm font-semibold text-foreground tracking-tight truncate">
+                          Economics {level === "a2" ? "A Level · Paper 4" : "AS Level · Paper 2"} Digital Script
                         </h3>
                       </div>
                     </div>
 
                     <div className="flex items-center gap-2 text-xs">
-                      <div className="flex items-center gap-1.5 rounded-md border border-border/70 bg-background/80 px-2.5 py-1 text-muted-foreground font-mono">
+                      <div className="flex items-center gap-1.5 rounded-md border border-border/70 bg-background/80 px-2 py-0.5 sm:px-2.5 sm:py-1 text-muted-foreground font-mono text-[11px] sm:text-xs">
                         <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                        <span>Script Active</span>
+                        <span>Active</span>
                       </div>
-                      <Badge variant="secondary" className="font-semibold text-xs">
-                        Max Tariff: [{maxMark} Marks]
+                      <Badge variant="secondary" className="font-semibold text-[11px] sm:text-xs">
+                        [{maxMark}m]
                       </Badge>
                     </div>
                   </div>

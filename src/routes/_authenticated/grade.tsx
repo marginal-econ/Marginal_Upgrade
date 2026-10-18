@@ -172,12 +172,21 @@ function GradePage() {
 
   const [writingCheck, setWritingCheck] = useState<WritingCheck | null>(null);
   const [checkedTextSnapshot, setCheckedTextSnapshot] = useState<string | null>(null);
+  const resultRef = useRef<HTMLDivElement>(null);
 
   const diagramLibraryQuery = useQuery({
     queryKey: ["diagram-library"],
     queryFn: () => listDiagrams(),
     staleTime: 10 * 60_000,
   });
+
+  useEffect(() => {
+    if (resultRef.current && (mutation.isPending || result)) {
+      if (typeof window !== "undefined" && window.innerWidth < 1024) {
+        resultRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    }
+  }, [mutation.isPending, result]);
 
   const describeDiagramImageMutation = useMutation({
     mutationFn: ({ image, label }: { image: string; label?: string }) =>
@@ -811,7 +820,7 @@ function GradePage() {
           </Button>
         </div>
 
-        <div>
+        <div ref={resultRef}>
           {mutation.isPending ? (
             <GradingProgress
               active
@@ -840,7 +849,7 @@ function GradePage() {
               ) : null}
             </div>
           ) : (
-            <div className="panel flex h-full min-h-64 flex-col items-center justify-center p-8 text-center">
+            <div className="panel hidden lg:flex h-full min-h-64 flex-col items-center justify-center p-8 text-center">
               <Sparkles className="size-6 text-muted-foreground" />
               <p className="mt-3 max-w-xs text-sm text-muted-foreground">
                 Your mark, AO breakdown, missing elements and rewrite plan will appear here.

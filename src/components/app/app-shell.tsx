@@ -843,8 +843,8 @@ export function AppShell({
       </aside>
 
       {/* ── Main Content & Mobile Header ── */}
-      <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex items-center justify-between border-b border-border bg-card/80 px-4 py-2.5 backdrop-blur-sm md:hidden sticky top-0 z-40">
+      <div className="flex min-w-0 flex-1 flex-col overflow-x-hidden">
+        <header className="flex items-center justify-between border-b border-border bg-card/80 px-4 py-2.5 backdrop-blur-sm md:hidden sticky top-0 z-40 w-full max-w-full">
           <div className="flex items-center gap-2.5">
             <Sheet open={mobileDrawerOpen} onOpenChange={setMobileDrawerOpen}>
               <SheetTrigger asChild>
@@ -1008,7 +1008,7 @@ export function AppShell({
           </div>
         </header>
 
-        <main className="flex-1">{children}</main>
+        <main className="flex-1 min-w-0 overflow-x-hidden">{children}</main>
       </div>
 
       <LockedFeatureModal
@@ -1032,15 +1032,15 @@ export function PageHeader({
   action?: ReactNode;
 }) {
   return (
-    <div className="border-b border-border bg-card/60 px-5 py-5 sm:px-6 md:px-8">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-xl font-bold tracking-tight text-foreground sm:text-2xl">{title}</h1>
+    <div className="border-b border-border bg-card/60 px-4 py-3.5 sm:px-6 sm:py-5 md:px-8">
+      <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <h1 className="text-lg font-bold tracking-tight text-foreground sm:text-2xl">{title}</h1>
           {description ? (
-            <p className="mt-1 text-xs text-muted-foreground sm:text-sm">{description}</p>
+            <p className="mt-0.5 text-xs text-muted-foreground sm:mt-1 sm:text-sm leading-relaxed">{description}</p>
           ) : null}
         </div>
-        {action ? <div className="shrink-0">{action}</div> : null}
+        {action ? <div className="shrink-0 pt-0.5 sm:pt-0">{action}</div> : null}
       </div>
     </div>
   );

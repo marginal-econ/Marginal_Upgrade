@@ -318,7 +318,7 @@ export function DashboardPage() {
 
       <div className="space-y-5 px-4 py-5 sm:px-6 md:px-8">
         {/* Compact Candidate Status Strip */}
-        <section className="rounded-xl border border-border/80 bg-card p-4 sm:p-5 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <section className="rounded-xl border border-border/80 bg-card p-3.5 sm:p-5 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 sm:gap-4">
           <div className="space-y-1">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="size-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
@@ -466,7 +466,7 @@ export function DashboardPage() {
         </div>
 
         {/* Sleek Cambridge Examiner Tip */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-4 rounded-xl border border-primary/20 bg-primary/[0.04] px-4 py-2.5 text-xs leading-relaxed">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-4 rounded-xl border border-primary/20 bg-primary/[0.04] px-3.5 py-2.5 sm:px-4 text-xs leading-relaxed">
           <div className="flex flex-wrap items-baseline gap-1.5 min-w-0 flex-1">
             <span className="font-bold text-primary inline-flex items-center gap-1.5 shrink-0">
               <ShieldCheck className="size-3.5 shrink-0" /> Cambridge 9708 Tip:
@@ -484,8 +484,8 @@ export function DashboardPage() {
         </div>
 
         {/* Assessment Objective Mastery Console */}
-        <div className="rounded-2xl border border-border/80 bg-card p-6 shadow-xs">
-          <div className="flex flex-wrap items-center justify-between gap-4 border-b border-border/80 pb-4">
+        <div className="rounded-2xl border border-border/80 bg-card p-3.5 sm:p-5 md:p-6 shadow-xs">
+          <div className="flex flex-wrap items-center justify-between gap-3 sm:gap-4 border-b border-border/80 pb-3 sm:pb-4">
             <div className="space-y-1">
               <h2 className="flex items-center gap-2 text-base font-semibold tracking-tight">
                 <Award className="size-4 text-primary" /> Cambridge Assessment Objective (AO)
@@ -497,12 +497,12 @@ export function DashboardPage() {
               </p>
             </div>
 
-            <div className="flex items-center gap-1.5 rounded-lg border border-border bg-muted/40 p-1 text-xs">
+            <div className="flex items-center gap-1 sm:gap-1.5 rounded-lg border border-border bg-muted/40 p-1 text-xs overflow-x-auto max-w-full">
               <button
                 type="button"
                 onClick={() => setActiveTariff("all")}
                 className={cn(
-                  "rounded-md px-2.5 py-1 font-medium transition-colors",
+                  "rounded-md px-2 sm:px-2.5 py-1 font-medium transition-colors whitespace-nowrap",
                   activeTariff === "all"
                     ? "bg-background text-foreground shadow-sm"
                     : "text-muted-foreground hover:text-foreground",
@@ -514,7 +514,7 @@ export function DashboardPage() {
                 type="button"
                 onClick={() => setActiveTariff(12)}
                 className={cn(
-                  "rounded-md px-2.5 py-1 font-medium transition-colors",
+                  "rounded-md px-2 sm:px-2.5 py-1 font-medium transition-colors whitespace-nowrap",
                   activeTariff === 12
                     ? "bg-background text-foreground shadow-sm"
                     : "text-muted-foreground hover:text-foreground",
@@ -526,7 +526,7 @@ export function DashboardPage() {
                 type="button"
                 onClick={() => setActiveTariff(8)}
                 className={cn(
-                  "rounded-md px-2.5 py-1 font-medium transition-colors",
+                  "rounded-md px-2 sm:px-2.5 py-1 font-medium transition-colors whitespace-nowrap",
                   activeTariff === 8
                     ? "bg-background text-foreground shadow-sm"
                     : "text-muted-foreground hover:text-foreground",
@@ -538,7 +538,7 @@ export function DashboardPage() {
                 type="button"
                 onClick={() => setActiveTariff(20)}
                 className={cn(
-                  "rounded-md px-2.5 py-1 font-medium transition-colors",
+                  "rounded-md px-2 sm:px-2.5 py-1 font-medium transition-colors whitespace-nowrap",
                   activeTariff === 20
                     ? "bg-background text-foreground shadow-sm"
                     : "text-muted-foreground hover:text-foreground",
@@ -600,8 +600,8 @@ export function DashboardPage() {
         </div>
 
         {/* Interactive Performance Trajectory Graph */}
-        <section className="panel p-6 shadow-sm">
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/80 pb-4">
+        <section className="panel p-3.5 sm:p-5 md:p-6 shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/80 pb-3 sm:pb-4">
             <div>
               <h2 className="text-base font-semibold tracking-tight flex items-center gap-2">
                 <TrendingUp className="size-4 text-primary" /> Essay Mark Trajectory
@@ -745,7 +745,7 @@ export function DashboardPage() {
 
         {/* Recent Essays Interactive Feed */}
         <div className="panel overflow-hidden shadow-sm">
-          <div className="flex flex-col gap-3 border-b border-border/80 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-3 border-b border-border/80 px-3.5 py-3 sm:px-5 sm:py-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 className="text-sm font-semibold">Your Recent Essays</h2>
               <p className="text-xs text-muted-foreground">
@@ -754,7 +754,7 @@ export function DashboardPage() {
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              <div className="relative w-44 sm:w-56">
+              <div className="relative w-full sm:w-56">
                 <Search className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   placeholder="Search questions…"
@@ -1129,10 +1129,10 @@ function PerformanceChart({
   }, [pathD, points, padding.top, chartHeight]);
 
   return (
-    <div className="w-full overflow-x-auto">
+    <div className="w-full overflow-x-auto pb-1">
       <svg
         viewBox={`0 0 ${width} ${height}`}
-        className="w-full h-auto overflow-visible text-muted-foreground"
+        className="w-full h-auto overflow-hidden sm:overflow-visible text-muted-foreground min-w-[520px] sm:min-w-0"
       >
         <defs>
           <linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
@@ -1342,12 +1342,12 @@ function EducatorDashboardView({
         }
       />
 
-      <div className="space-y-6 px-4 py-6 sm:px-6 md:px-8 max-w-7xl mx-auto">
+      <div className="space-y-4 sm:space-y-6 px-3.5 py-4 sm:px-6 sm:py-6 md:px-8 max-w-7xl mx-auto">
         {/* Top Educator Status Strip */}
-        <section className="rounded-2xl border border-purple-500/30 bg-gradient-to-br from-purple-500/10 via-card to-card p-5 shadow-xs relative overflow-hidden">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative z-10">
+        <section className="rounded-2xl border border-purple-500/30 bg-gradient-to-br from-purple-500/10 via-card to-card p-3.5 sm:p-5 shadow-xs relative overflow-hidden">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 sm:gap-4 relative z-10">
             <div className="space-y-1">
-              <div className="flex flex-wrap items-center gap-2.5">
+              <div className="flex flex-wrap items-center gap-2">
                 <div className="size-2 rounded-full bg-emerald-500 animate-pulse" />
                 <h2 className="text-lg sm:text-xl font-bold text-foreground">
                   Welcome back, {userName}!
@@ -1366,7 +1366,7 @@ function EducatorDashboardView({
               </p>
             </div>
 
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex items-center gap-2 shrink-0 self-start sm:self-center">
               <Button asChild size="sm" variant="outline" className="border-purple-500/30 hover:bg-purple-500/10 text-xs">
                 <Link to="/classes">
                   <UsersRound className="size-3.5 mr-1 text-purple-600 dark:text-purple-400" /> My Classrooms
@@ -1383,7 +1383,7 @@ function EducatorDashboardView({
 
         {/* If teacher has no classrooms, guide them to create one */}
         {classList.length === 0 ? (
-          <section className="rounded-2xl border border-dashed border-purple-500/40 bg-purple-500/[0.04] p-8 text-center">
+          <section className="rounded-2xl border border-dashed border-purple-500/40 bg-purple-500/[0.04] p-5 sm:p-8 text-center">
             <div className="mx-auto size-12 rounded-2xl bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center mb-3">
               <UsersRound className="size-6" />
             </div>

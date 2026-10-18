@@ -93,14 +93,14 @@ export function MarkBreakdown({ grading }: { grading: Grading }) {
         </div>
       )}
 
-      <div className="panel relative overflow-hidden flex flex-wrap items-center gap-6 p-6 border-primary/20 shadow-sm">
+      <div className="panel relative overflow-hidden flex flex-wrap items-center gap-4 sm:gap-6 p-4 sm:p-6 border-primary/20 shadow-sm">
         <div className="flex items-baseline gap-1">
-          <span className="text-5xl font-bold tracking-tight tabular-nums bg-gradient-to-r from-foreground to-foreground/80 bg-clip-text text-transparent">
+          <span className="text-4xl sm:text-5xl font-bold tracking-tight tabular-nums bg-gradient-to-r from-foreground to-foreground/80 bg-clip-text text-transparent">
             {grading.total_mark}
           </span>
-          <span className="text-xl font-medium text-muted-foreground">/{grading.max_mark}</span>
+          <span className="text-lg sm:text-xl font-medium text-muted-foreground">/{grading.max_mark}</span>
         </div>
-        <div className="min-w-48 flex-1 space-y-3">
+        <div className="min-w-0 sm:min-w-48 flex-1 space-y-3">
           <div className="flex flex-wrap items-center gap-2">
             <Badge
               variant="outline"
@@ -142,7 +142,7 @@ export function MarkBreakdown({ grading }: { grading: Grading }) {
           const score = grading.ao_breakdown[meta.key];
           const width = score.out_of > 0 ? (score.awarded / score.out_of) * 100 : 0;
           return (
-            <div key={meta.key} className="panel p-4">
+            <div key={meta.key} className="panel p-3.5 sm:p-4">
               <div className="flex items-baseline justify-between">
                 <span className="text-xs font-medium text-muted-foreground">{meta.label}</span>
                 <span className={cn("text-sm font-semibold tabular-nums", meta.text)}>
@@ -162,7 +162,7 @@ export function MarkBreakdown({ grading }: { grading: Grading }) {
       </div>
 
       {grading.examiner_summary ? (
-        <div className="panel p-5">
+        <div className="panel p-3.5 sm:p-5">
           <h3 className="text-sm font-semibold">Examiner summary</h3>
           <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
             {grading.examiner_summary}
@@ -178,7 +178,7 @@ export function MarkBreakdown({ grading }: { grading: Grading }) {
       <MissingElements grading={grading} />
 
       {grading.actionable_feedback.length > 0 ? (
-        <div className="panel p-5">
+        <div className="panel p-3.5 sm:p-5">
           <h3 className="text-sm font-semibold">How to improve this answer</h3>
           <ol className="mt-3 space-y-2.5">
             {grading.actionable_feedback.map((item, index) => (
@@ -195,7 +195,7 @@ export function MarkBreakdown({ grading }: { grading: Grading }) {
 
       <div className="grid gap-3 md:grid-cols-2">
         {grading.suggested_practice.length > 0 ? (
-          <div className="panel p-5">
+          <div className="panel p-3.5 sm:p-5">
             <h3 className="text-sm font-semibold">Practise next</h3>
             <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
               {grading.suggested_practice.map((item, index) => (
@@ -205,7 +205,7 @@ export function MarkBreakdown({ grading }: { grading: Grading }) {
           </div>
         ) : null}
         {grading.suggested_resources.length > 0 ? (
-          <div className="panel p-5">
+          <div className="panel p-3.5 sm:p-5">
             <h3 className="text-sm font-semibold">Revise</h3>
             <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
               {grading.suggested_resources.map((item, index) => (
@@ -216,8 +216,8 @@ export function MarkBreakdown({ grading }: { grading: Grading }) {
         ) : null}
       </div>
 
-      <div className="panel p-5">
-        <div className="flex items-center justify-between gap-2">
+      <div className="panel p-3.5 sm:p-5">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <h3 className="text-sm font-semibold">Grounding — what this mark was checked against</h3>
           {grading.sources.length > 0 ? (
             <Badge variant="outline" className="border-emerald-500/30 bg-emerald-500/10 text-emerald-400 text-xs">
@@ -277,7 +277,7 @@ function PointList({
   if (items.length === 0) return null;
   const Icon = tone === "good" ? Check : X;
   return (
-    <div className="panel p-5">
+    <div className="panel p-3.5 sm:p-5">
       <h3 className="text-sm font-semibold">{title}</h3>
       <ul className="mt-3 space-y-2">
         {items.map((item, index) => (
@@ -308,7 +308,7 @@ function MissingElements({ grading }: { grading: Grading }) {
   if (groups.length === 0) return null;
 
   return (
-    <div className="panel p-5">
+    <div className="panel p-3.5 sm:p-5">
       <h3 className="text-sm font-semibold">Missing from this answer</h3>
       <div className="mt-3 grid gap-4 sm:grid-cols-2">
         {groups.map((group) => (

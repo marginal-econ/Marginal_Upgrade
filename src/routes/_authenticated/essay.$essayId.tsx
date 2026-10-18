@@ -160,21 +160,19 @@ function EssayPage() {
         }
       />
 
-      <div className="space-y-6 px-5 py-6 md:px-8">
+      <div className="space-y-4 sm:space-y-6 px-3.5 py-4 sm:px-6 sm:py-6 md:px-8">
         {/* Transparent Cambridge Syllabus Disclaimer */}
-        <div className="flex items-center gap-2.5 rounded-xl border border-primary/20 bg-primary/[0.04] px-4 py-2.5 text-xs text-muted-foreground">
-          <ShieldCheck className="size-4 shrink-0 text-primary" />
-          <p className="leading-relaxed">
+        <div className="flex items-center gap-2 rounded-xl border border-primary/20 bg-primary/[0.04] px-3 py-2 sm:px-4 sm:py-2.5 text-[11px] sm:text-xs text-muted-foreground">
+          <ShieldCheck className="size-3.5 sm:size-4 shrink-0 text-primary" />
+          <p className="leading-snug sm:leading-relaxed">
             <strong className="text-foreground font-semibold">Cambridge 9708 Standard:</strong>{" "}
-            Marking bands, AO ratios, and model feedback are calibrated against published Cambridge
-            Assessment guidelines. Marginal is an independent study platform and not endorsed by
-            Cambridge Assessment.
+            Calibrated against published Cambridge guidelines. Independent study platform.
           </p>
         </div>
 
         {/* Attempt Selector & History Timeline */}
-        <div className="rounded-xl border border-border/80 bg-card p-4 shadow-sm">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="rounded-xl border border-border/80 bg-card p-3.5 sm:p-4 shadow-sm">
+          <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-2">
               <History className="size-4 text-primary" />
               <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -188,37 +186,43 @@ function EssayPage() {
                 type="button"
                 onClick={() => setViewMode("split")}
                 className={cn(
-                  "flex items-center gap-1.5 rounded-md px-2.5 py-1 font-medium transition-colors",
+                  "flex items-center gap-1 sm:gap-1.5 rounded-md px-2 sm:px-2.5 py-1 font-medium transition-colors",
                   viewMode === "split"
                     ? "bg-background text-foreground shadow-sm"
                     : "text-muted-foreground hover:text-foreground",
                 )}
               >
-                <Columns2 className="size-3.5" /> Side-by-Side
+                <Columns2 className="size-3.5" />
+                <span className="hidden sm:inline">Side-by-Side</span>
+                <span className="sm:hidden">Split</span>
               </button>
               <button
                 type="button"
                 onClick={() => setViewMode("report")}
                 className={cn(
-                  "flex items-center gap-1.5 rounded-md px-2.5 py-1 font-medium transition-colors",
+                  "flex items-center gap-1 sm:gap-1.5 rounded-md px-2 sm:px-2.5 py-1 font-medium transition-colors",
                   viewMode === "report"
                     ? "bg-background text-foreground shadow-sm"
                     : "text-muted-foreground hover:text-foreground",
                 )}
               >
-                <Sparkles className="size-3.5" /> Report Only
+                <Sparkles className="size-3.5" />
+                <span className="hidden sm:inline">Report Only</span>
+                <span className="sm:hidden">Report</span>
               </button>
               <button
                 type="button"
                 onClick={() => setViewMode("script")}
                 className={cn(
-                  "flex items-center gap-1.5 rounded-md px-2.5 py-1 font-medium transition-colors",
+                  "flex items-center gap-1 sm:gap-1.5 rounded-md px-2 sm:px-2.5 py-1 font-medium transition-colors",
                   viewMode === "script"
                     ? "bg-background text-foreground shadow-sm"
                     : "text-muted-foreground hover:text-foreground",
                 )}
               >
-                <FileText className="size-3.5" /> Script Only
+                <FileText className="size-3.5" />
+                <span className="hidden sm:inline">Script Only</span>
+                <span className="sm:hidden">Script</span>
               </button>
             </div>
           </div>
