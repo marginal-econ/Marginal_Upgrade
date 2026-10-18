@@ -5,6 +5,8 @@ import {
   Award,
   BookOpen,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   Eraser,
   Flag,
   History,
@@ -252,18 +254,46 @@ function McqLivePage() {
   // On-demand explanation per question number, fetched only when the
   // student presses "Explain" in the post-attempt review list.
   const [explanations, setExplanations] = useState<Record<number, ExplanationState>>({});
+  // Active question number currently selected / being viewed
+  const [activeQuestion, setActiveQuestion] = useState<number>(1);
+  // Map of question number -> PDF page number (1-indexed)
+  const [questionPages, setQuestionPages] = useState<Record<number, number>>({});
+  // Mobile bottom sheets
+  const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
+  const [mobileReviewOpen, setMobileReviewOpen] = useState(false);
+  // Currently visible PDF page during scrolling
+  const [visiblePage, setVisiblePage] = useState<number>(1);
+
   // Which question number to visually pulse right now (set briefly when a
   // student clicks a row in the review list), so the matching row in the
   // answer side panel is easy to find among dozens of others.
   const [highlightNumber, setHighlightNumber] = useState<number | null>(null);
   const answerRowRefs = useRef<Map<number, HTMLDivElement>>(new Map());
 
-  function goToQuestion(number: number) {
-    const el = answerRowRefs.current.get(number);
-    el?.scrollIntoView({ behavior: "smooth", block: "center" });
-    setHighlightNumber(number);
-    window.setTimeout(() => setHighlightNumber((cur) => (cur === number ? null : cur)), 2000);
-  }
+  const goToQuestion = useCallback(
+    (number: number, options?: { skipScrollPaper?: boolean }) => {
+      setActiveQuestion(number);
+      setHighlightNumber(number);
+
+      // 1. Scroll PDF paper directly to the page containing this question
+      if (!options?.skipScrollPaper) {
+        const targetPage =
+          questionPages[number] ??
+          Math.min(pages.length, Math.max(1, Math.ceil(number / 2) + 1));
+        const pageEl = document.getElementById(`mcq-page-${targetPage}`);
+        if (pageEl) {
+          pageEl.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+      }
+
+      // 2. Scroll answer row in the desktop side panel
+      const el = answerRowRefs.current.get(number);
+      el?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+
+      window.setTimeout(() => setHighlightNumber((cur) => (cur === number ? null : cur)), 2000);
+    },
+    [pages.length, questionPages],
+  );
 
   // ---- timer ----
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
@@ -416,6 +446,50 @@ function McqLivePage() {
     }
   }
 
+/**
+ * Interpolates or estimates PDF page locations for any questions not cleanly
+ * captured by OCR text-layer parsing, guaranteeing every question maps to a real page.
+ */
+function fillMissingQuestionPages(
+  map: Record<number, number>,
+  totalQuestions: number,
+  numPages: number,
+): Record<number, number> {
+  const result: Record<number, number> = { ...map };
+  for (let q = 1; q <= totalQuestions; q++) {
+    if (result[q]) continue;
+    let prevQ = -1;
+    for (let k = q - 1; k >= 1; k--) {
+      if (result[k]) {
+        prevQ = k;
+        break;
+      }
+    }
+    let nextQ = -1;
+    for (let k = q + 1; k <= totalQuestions; k++) {
+      if (result[k]) {
+        nextQ = k;
+        break;
+      }
+    }
+
+    if (prevQ !== -1 && nextQ !== -1) {
+      const fraction = (q - prevQ) / (nextQ - prevQ);
+      const estPage = Math.round(result[prevQ] + fraction * (result[nextQ] - result[prevQ]));
+      result[q] = Math.max(1, Math.min(numPages, estPage));
+    } else if (prevQ !== -1) {
+      const estPage = Math.min(numPages, result[prevQ] + Math.floor((q - prevQ) / 2));
+      result[q] = estPage;
+    } else if (nextQ !== -1) {
+      const estPage = Math.max(1, result[nextQ] - Math.ceil((nextQ - q) / 2));
+      result[q] = estPage;
+    } else {
+      result[q] = Math.min(numPages, Math.max(1, Math.ceil(q / 2) + 1));
+    }
+  }
+  return result;
+}
+
   /* ---------------- start practice: fetch the picked library paper + its cached overlay ----------------
    *
    * Renders every page of the PDF plainly and pulls a rough stem-text
@@ -517,6 +591,7 @@ function McqLivePage() {
 
       const built: PageImage[] = [];
       const stems: StemBlob[] = [];
+      const rawPageMap: Record<number, number> = {};
       for (let p = 1; p <= doc.numPages; p++) {
         const page = await doc.getPage(p);
         const viewport = page.getViewport({ scale: RENDER_SCALE });
@@ -530,11 +605,24 @@ function McqLivePage() {
         built.push({ pageNumber: p, canvas });
 
         const content = await page.getTextContent();
-        stems.push(...extractQuestionStems(content.items as PdfTextItem[]));
+        const pageStems = extractQuestionStems(content.items as PdfTextItem[]);
+        stems.push(...pageStems);
+        for (const s of pageStems) {
+          if (s.number >= 1 && s.number <= paper.questionCount && !rawPageMap[s.number]) {
+            rawPageMap[s.number] = p;
+          }
+        }
       }
 
+      const completedPageMap = fillMissingQuestionPages(
+        rawPageMap,
+        paper.questionCount,
+        doc.numPages,
+      );
+      setQuestionPages(completedPageMap);
       setPages(built);
       setStemBlobs(stems);
+      setActiveQuestion(1);
       setStage("practice");
       if (me.data?.userId && !completedAttempt) {
         window.localStorage.setItem(
@@ -568,6 +656,35 @@ function McqLivePage() {
     beginPractice(paper);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search.paperId, papersQuery.data, stage, me.data?.userId]);
+
+  // Track currently visible page during scrolling so questions on the viewed page are known
+  useEffect(() => {
+    if (stage !== "practice" || pages.length === 0) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            const pageNum = parseInt(entry.target.id.replace("mcq-page-", ""), 10);
+            if (!isNaN(pageNum)) {
+              setVisiblePage(pageNum);
+            }
+          }
+        }
+      },
+      {
+        rootMargin: "-15% 0px -60% 0px",
+        threshold: 0,
+      },
+    );
+
+    for (let p = 1; p <= pages.length; p++) {
+      const el = document.getElementById(`mcq-page-${p}`);
+      if (el) observer.observe(el);
+    }
+
+    return () => observer.disconnect();
+  }, [stage, pages.length]);
 
   /* ---------------- countdown timer ----------------
    *
@@ -774,10 +891,12 @@ function McqLivePage() {
 
   return (
     <div>
-      <PageHeader
-        title="MCQ Live"
-        description="Practice straight off a real past paper — answer from the button panel beside it."
-      />
+      {stage === "library" || isLimitReached ? (
+        <PageHeader
+          title="MCQ Live"
+          description="Practice straight off a real past paper — answer from the button panel beside it."
+        />
+      ) : null}
 
       {isLimitReached ? (
         <ChainedChamber
@@ -891,81 +1010,100 @@ function McqLivePage() {
         </div>
       ) : (
         <div>
-          <div className="sticky top-0 z-30 flex flex-wrap items-center gap-3 border-b border-border bg-background/90 px-5 py-3 backdrop-blur md:px-8">
-            <Button size="sm" variant="ghost" onClick={leavePractice}>
-              ← Papers
-            </Button>
-
-            {timeLeft !== null ? (
-              <>
-                <Button
-                  size="sm"
-                  variant={timerEnabled ? "default" : "outline"}
-                  onClick={() => setTimerEnabled((v) => !v)}
-                  className="gap-1.5"
-                  title={
-                    timerEnabled
-                      ? "Turn the timer off — it pauses, nothing is submitted early."
-                      : "Turn the timer back on — it resumes from where it paused."
-                  }
-                >
-                  <TimerIcon className="h-3.5 w-3.5" />
-                  Timer
-                </Button>
-
-                {timerEnabled ? (
-                  <div
-                    className={[
-                      "flex items-center gap-1.5 rounded-full border px-2.5 py-1 font-mono text-xs font-semibold whitespace-nowrap tabular-nums",
-                      timeLeft === 0
-                        ? "border-destructive/40 bg-destructive/10 text-destructive"
-                        : timeLeft <= LOW_TIME_WARNING_SECONDS
-                          ? "animate-pulse border-destructive/40 bg-destructive/10 text-destructive"
-                          : "border-border bg-muted/50 text-foreground",
-                    ].join(" ")}
-                    title={`${level === "a2" ? "Paper 3 (A Level)" : "Paper 1 (AS)"} — ${
-                      PAPER_DURATION_SECONDS[level] / 60
-                    } minutes`}
-                  >
-                    {formatTime(timeLeft)}
-                  </div>
-                ) : null}
-              </>
-            ) : null}
-
-            <Button
-              size="sm"
-              variant={annotateMode ? "default" : "outline"}
-              onClick={() => setAnnotateMode((v) => !v)}
-              className="gap-1.5"
-            >
-              <Pencil className="h-3.5 w-3.5" />
-              Annotate
-            </Button>
-
-            <div className="min-w-[6rem] flex-1">
-              <Progress value={(answeredCount / Math.max(qCount, 1)) * 100} />
+          <div className="sticky top-0 z-30 flex items-center justify-between gap-2 border-b border-border bg-background/95 px-3 py-2.5 backdrop-blur md:px-6">
+            <div className="flex items-center gap-2 min-w-0">
+              <Button size="sm" variant="ghost" onClick={leavePractice} className="h-8 px-2 text-xs gap-1 shrink-0">
+                <ChevronLeft className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Papers</span>
+              </Button>
+              <div className="min-w-0">
+                <h2 className="text-xs sm:text-sm font-semibold truncate text-foreground max-w-[130px] sm:max-w-xs md:max-w-md" title={paperTitle}>
+                  {paperTitle}
+                </h2>
+              </div>
             </div>
-            <span className="whitespace-nowrap font-mono text-xs text-muted-foreground">
-              {answeredCount} / {qCount} answered
-            </span>
-            {flagged.size > 0 ? (
-              <UiBadge
-                variant="outline"
-                className="gap-1 border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400 font-mono text-xs"
+
+            <div className="flex items-center gap-2 shrink-0">
+              {timeLeft !== null ? (
+                <div className="flex items-center gap-1.5">
+                  <Button
+                    size="sm"
+                    variant={timerEnabled ? "default" : "outline"}
+                    onClick={() => setTimerEnabled((v) => !v)}
+                    className="h-8 px-2 text-xs gap-1 hidden sm:inline-flex"
+                    title={
+                      timerEnabled
+                        ? "Turn the timer off — it pauses, nothing is submitted early."
+                        : "Turn the timer back on — it resumes from where it paused."
+                    }
+                  >
+                    <TimerIcon className="h-3.5 w-3.5" />
+                    <span>Timer</span>
+                  </Button>
+
+                  {timerEnabled ? (
+                    <div
+                      className={cn(
+                        "flex items-center gap-1 rounded-full border px-2 py-0.5 font-mono text-xs font-semibold whitespace-nowrap tabular-nums",
+                        timeLeft === 0
+                          ? "border-destructive/40 bg-destructive/10 text-destructive"
+                          : timeLeft <= LOW_TIME_WARNING_SECONDS
+                            ? "animate-pulse border-destructive/40 bg-destructive/10 text-destructive"
+                            : "border-border bg-muted/60 text-foreground"
+                      )}
+                      title={`${level === "a2" ? "Paper 3 (A Level)" : "Paper 1 (AS)"} — ${
+                        PAPER_DURATION_SECONDS[level] / 60
+                      } minutes`}
+                    >
+                      <TimerIcon className="h-3 w-3 sm:hidden" />
+                      {formatTime(timeLeft)}
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+
+              <Button
+                size="sm"
+                variant={annotateMode ? "default" : "outline"}
+                onClick={() => setAnnotateMode((v) => !v)}
+                className="h-8 px-2 text-xs gap-1"
+                title="Toggle freehand pen markup"
               >
-                <Flag className="h-3 w-3 fill-amber-500 text-amber-500" />
-                {flagged.size} flagged
-              </UiBadge>
-            ) : null}
-            <Button size="sm" onClick={gradeAndSave} disabled={!!busyLabel}>
-              {busyLabel ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              Submit &amp; mark
-            </Button>
+                <Pencil className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Annotate</span>
+              </Button>
+
+              <div className="hidden md:flex items-center gap-2 min-w-[7rem]">
+                <Progress value={(answeredCount / Math.max(qCount, 1)) * 100} className="h-2" />
+                <span className="whitespace-nowrap font-mono text-xs text-muted-foreground">
+                  {answeredCount}/{qCount}
+                </span>
+              </div>
+
+              {flagged.size > 0 ? (
+                <UiBadge
+                  variant="outline"
+                  className="gap-1 border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400 font-mono text-xs px-2 py-0.5 hidden xs:inline-flex"
+                >
+                  <Flag className="h-3 w-3 fill-amber-500 text-amber-500" />
+                  <span>{flagged.size}</span>
+                </UiBadge>
+              ) : null}
+
+              <Button
+                size="sm"
+                onClick={gradeAndSave}
+                disabled={!!busyLabel}
+                className="h-8 px-3 text-xs font-semibold gap-1.5 shadow-sm"
+              >
+                {busyLabel ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                <span>Submit</span>
+              </Button>
+            </div>
           </div>
 
           {annotateMode ? (
-            <div className="sticky top-[52px] z-30 flex flex-wrap items-center gap-3 border-b border-border bg-card/95 px-5 py-2 backdrop-blur md:px-8">
+            <div className="sticky top-[53px] z-30 flex flex-wrap items-center gap-3 border-b border-border bg-card/95 px-3 py-2 backdrop-blur md:px-6">
               <span className="text-xs text-muted-foreground">Mark up the page:</span>
               <div className="flex items-center gap-1.5">
                 {ANNOTATE_COLORS.map((c) => (
@@ -990,17 +1128,17 @@ function McqLivePage() {
                 size="sm"
                 variant={annotateTool === "eraser" ? "default" : "outline"}
                 onClick={() => setAnnotateTool("eraser")}
-                className="gap-1.5"
+                className="h-7 px-2 text-xs gap-1.5"
               >
                 <Eraser className="h-3.5 w-3.5" />
                 Eraser
               </Button>
-              <Button size="sm" variant="outline" onClick={clearAllAnnotations} className="gap-1.5">
+              <Button size="sm" variant="outline" onClick={clearAllAnnotations} className="h-7 px-2 text-xs gap-1.5">
                 <Trash2 className="h-3.5 w-3.5" />
-                Clear marks
+                Clear
               </Button>
-              <span className="text-xs text-muted-foreground">
-                Marks are just for you while you work — they aren't saved or graded.
+              <span className="text-xs text-muted-foreground hidden sm:inline">
+                Marks are personal scratchpad notes — not saved or graded.
               </span>
             </div>
           ) : null}
@@ -1035,13 +1173,22 @@ function McqLivePage() {
 
           <div
             ref={scrollRef}
-            className="flex flex-col gap-6 px-3 py-6 lg:flex-row lg:items-start lg:justify-center"
+            className="w-full max-w-7xl mx-auto px-2 sm:px-4 py-4 flex flex-col lg:flex-row lg:items-start lg:justify-center gap-6 pb-36 lg:pb-12"
           >
-            <div className="flex flex-col items-center gap-6">
+            {/* Paper Column */}
+            <div className="flex-1 min-w-0 max-w-[820px] mx-auto flex flex-col items-center gap-8">
               {pages.map((page) => (
                 <PageCanvas
                   key={page.pageNumber}
                   page={page}
+                  totalPages={pages.length}
+                  pageQuestions={Object.entries(questionPages)
+                    .filter(([, p]) => p === page.pageNumber)
+                    .map(([q]) => Number(q))
+                    .sort((a, b) => a - b)}
+                  answers={answers}
+                  activeQuestion={activeQuestion}
+                  onSelectQuestion={goToQuestion}
                   annotateMode={annotateMode}
                   annotateTool={annotateTool}
                   annotateColor={annotateColor}
@@ -1050,11 +1197,12 @@ function McqLivePage() {
               ))}
             </div>
 
+            {/* Desktop Side Panel (Sticky) */}
             <div
-              className={[
-                "lg:sticky lg:top-[52px] lg:max-h-[calc(100vh-72px)] lg:shrink-0 lg:overflow-y-auto",
-                graded ? "lg:w-80" : "lg:w-72",
-              ].join(" ")}
+              className={cn(
+                "hidden lg:block shrink-0 sticky top-16 self-start max-h-[calc(100vh-5rem)] overflow-y-auto pr-1",
+                graded ? "w-80 xl:w-96" : "w-72 xl:w-80"
+              )}
             >
               {graded ? (
                 <McqQuestionReviewList
@@ -1078,6 +1226,8 @@ function McqLivePage() {
                       highlightNumber={highlightNumber}
                       rowRefs={answerRowRefs}
                       onJumpToQuestion={goToQuestion}
+                      activeQuestion={activeQuestion}
+                      questionPages={questionPages}
                     />
                   </CardContent>
                 </Card>
@@ -1086,7 +1236,7 @@ function McqLivePage() {
           </div>
 
           {graded && attemptTopics.length > 0 ? (
-            <div className="mx-auto max-w-md space-y-4 px-5 pb-10">
+            <div className="mx-auto max-w-2xl space-y-4 px-4 pb-12">
               <McqDomainBreakdown domains={attemptDomains} title="This paper: micro vs macro" />
               <McqReviewPanel
                 topics={attemptTopics}
@@ -1095,6 +1245,202 @@ function McqLivePage() {
               />
             </div>
           ) : null}
+
+          {/* Mobile floating bottom answering dock */}
+          <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-card/95 backdrop-blur-md border-t border-border shadow-2xl px-3 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+            {graded ? (
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-sm">
+                    Score: {result?.score ?? 0} / {result?.total ?? qCount}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    ({Math.round(((result?.score ?? 0) / Math.max(result?.total ?? qCount, 1)) * 100)}%)
+                  </span>
+                </div>
+                <Button
+                  size="sm"
+                  onClick={() => setMobileReviewOpen(true)}
+                  className="gap-1.5 h-9"
+                >
+                  <BookOpen className="size-3.5" />
+                  Review &amp; Explain
+                </Button>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-2">
+                {/* Top navigation row: Prev, Active Question info & flag, Sheet toggle, Next */}
+                <div className="flex items-center justify-between gap-1">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={activeQuestion <= 1}
+                    onClick={() => goToQuestion(Math.max(1, activeQuestion - 1))}
+                    className="h-8 px-2 text-xs gap-1"
+                  >
+                    <ChevronLeft className="h-3.5 w-3.5" />
+                    <span className="hidden xs:inline">Prev</span>
+                  </Button>
+
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => toggleFlag(activeQuestion)}
+                      className={cn(
+                        "flex h-7 w-7 items-center justify-center rounded-md border transition-colors",
+                        flagged.has(activeQuestion)
+                          ? "border-amber-500 bg-amber-500/15 text-amber-500"
+                          : "border-border text-muted-foreground hover:text-foreground"
+                      )}
+                      title={flagged.has(activeQuestion) ? "Unflag" : "Flag"}
+                    >
+                      <Flag className={cn("h-3.5 w-3.5", flagged.has(activeQuestion) && "fill-amber-500")} />
+                    </button>
+
+                    <span className="font-mono font-bold text-sm text-foreground">
+                      Q{activeQuestion}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      / {qCount}
+                    </span>
+
+                    {answers[activeQuestion] ? (
+                      <span className="rounded-full bg-primary/10 border border-primary/30 px-2 py-0.5 font-mono text-[11px] font-bold text-primary">
+                        {answers[activeQuestion]}
+                      </span>
+                    ) : (
+                      <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">
+                        —
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-1.5">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => setMobileSheetOpen(true)}
+                      className="h-8 px-2.5 text-xs gap-1 font-mono"
+                      title="Open full question sheet"
+                    >
+                      <LayoutGrid className="h-3.5 w-3.5" />
+                      <span>{answeredCount}/{qCount}</span>
+                    </Button>
+
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={activeQuestion >= qCount}
+                      onClick={() => goToQuestion(Math.min(qCount, activeQuestion + 1))}
+                      className="h-8 px-2 text-xs gap-1"
+                    >
+                      <span className="hidden xs:inline">Next</span>
+                      <ChevronRight className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Bottom row: Four large touch buttons for A, B, C, D */}
+                <div className="grid grid-cols-4 gap-2">
+                  {(["A", "B", "C", "D"] as Letter[]).map((l) => {
+                    const isPicked = answers[activeQuestion] === l;
+                    return (
+                      <button
+                        key={l}
+                        type="button"
+                        onClick={() => {
+                          pick(activeQuestion, l);
+                          if (activeQuestion < qCount) {
+                            window.setTimeout(() => {
+                              goToQuestion(activeQuestion + 1);
+                            }, 250);
+                          }
+                        }}
+                        className={cn(
+                          "h-11 rounded-xl font-bold text-base transition-all flex items-center justify-center border shadow-sm active:scale-95",
+                          isPicked
+                            ? "bg-primary text-primary-foreground border-primary shadow-md font-extrabold ring-2 ring-primary/40"
+                            : "bg-background border-border/80 text-foreground hover:bg-muted"
+                        )}
+                      >
+                        {l}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Mobile Question Grid Sheet */}
+          <Sheet open={mobileSheetOpen} onOpenChange={setMobileSheetOpen}>
+            <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto p-4 sm:p-6 rounded-t-2xl">
+              <SheetHeader className="pb-3 border-b">
+                <SheetTitle className="flex items-center justify-between text-base">
+                  <span>Answer Sheet Matrix</span>
+                  <span className="font-mono text-xs font-normal text-muted-foreground">
+                    {answeredCount} / {qCount} answered
+                  </span>
+                </SheetTitle>
+              </SheetHeader>
+              <div className="py-4">
+                <AnswerSidePanel
+                  numbers={questionNumbers}
+                  answers={answers}
+                  answerKey={answerKey}
+                  graded={graded}
+                  onPick={pick}
+                  flagged={flagged}
+                  onToggleFlag={toggleFlag}
+                  highlightNumber={highlightNumber}
+                  rowRefs={answerRowRefs}
+                  onJumpToQuestion={(q) => {
+                    goToQuestion(q);
+                    setMobileSheetOpen(false);
+                  }}
+                  activeQuestion={activeQuestion}
+                  questionPages={questionPages}
+                />
+              </div>
+            </SheetContent>
+          </Sheet>
+
+          {/* Mobile Review Sheet */}
+          <Sheet open={mobileReviewOpen} onOpenChange={setMobileReviewOpen}>
+            <SheetContent side="bottom" className="max-h-[88vh] overflow-y-auto p-4 sm:p-6 rounded-t-2xl">
+              <SheetHeader className="pb-3 border-b">
+                <SheetTitle className="flex items-center justify-between text-base">
+                  <span>Question Review &amp; Explanations</span>
+                  {result ? (
+                    <span className="font-mono text-xs font-bold text-primary">
+                      {result.score} / {result.total} ({Math.round((result.score / Math.max(result.total, 1)) * 100)}%)
+                    </span>
+                  ) : null}
+                </SheetTitle>
+              </SheetHeader>
+              <div className="py-4 space-y-4">
+                <McqQuestionReviewList
+                  questions={reviewQuestions}
+                  onSelect={(q) => {
+                    goToQuestion(q);
+                    setMobileReviewOpen(false);
+                  }}
+                  onExplain={handleExplain}
+                  explanations={explanations}
+                  title="Review & explain"
+                />
+                {attemptTopics.length > 0 ? (
+                  <div className="space-y-4 pt-4 border-t">
+                    <McqDomainBreakdown domains={attemptDomains} title="Micro vs Macro" />
+                    <McqReviewPanel topics={attemptTopics} title="Topic Breakdown" />
+                  </div>
+                ) : null}
+              </div>
+            </SheetContent>
+          </Sheet>
         </div>
       )}
 
@@ -1303,41 +1649,97 @@ function PastAttemptSheet({
 
 function PageCanvas({
   page,
+  totalPages,
+  pageQuestions,
+  answers,
+  activeQuestion,
+  onSelectQuestion,
   annotateMode,
   annotateTool,
   annotateColor,
   onRegisterAnnotationCanvas,
 }: {
   page: PageImage;
+  totalPages: number;
+  pageQuestions: number[];
+  answers: Record<number, Letter>;
+  activeQuestion: number;
+  onSelectQuestion: (number: number) => void;
   annotateMode: boolean;
   annotateTool: AnnotateTool;
   annotateColor: string;
   onRegisterAnnotationCanvas: (pageNumber: number, el: HTMLCanvasElement | null) => void;
 }) {
   const imgRef = useRef<HTMLImageElement>(null);
-  const dataUrl = page.canvas.toDataURL("image/png");
+  const dataUrl = useMemo(() => page.canvas.toDataURL("image/png"), [page.canvas]);
 
   return (
     <div
-      className="relative overflow-hidden rounded-sm shadow-2xl"
-      style={{ width: page.canvas.width, height: page.canvas.height }}
+      id={`mcq-page-${page.pageNumber}`}
+      className="w-full max-w-[820px] scroll-mt-20 flex flex-col gap-2"
     >
-      <img
-        ref={imgRef}
-        src={dataUrl}
-        width={page.canvas.width}
-        height={page.canvas.height}
-        alt=""
-      />
+      <div className="flex items-center justify-between px-2 text-xs text-muted-foreground">
+        <div className="flex items-center gap-1.5 font-medium">
+          <span className="font-semibold text-foreground">Page {page.pageNumber}</span>
+          <span className="opacity-60">/ {totalPages}</span>
+        </div>
 
-      <AnnotationLayer
-        width={page.canvas.width}
-        height={page.canvas.height}
-        enabled={annotateMode}
-        tool={annotateTool}
-        color={annotateColor}
-        registerCanvas={(el) => onRegisterAnnotationCanvas(page.pageNumber, el)}
-      />
+        {pageQuestions && pageQuestions.length > 0 ? (
+          <div className="flex items-center gap-1.5 flex-wrap justify-end">
+            <span className="text-[11px] text-muted-foreground hidden sm:inline">Questions:</span>
+            <div className="flex items-center gap-1">
+              {pageQuestions.map((q) => {
+                const hasAns = !!answers[q];
+                const isCur = activeQuestion === q;
+                return (
+                  <button
+                    key={q}
+                    type="button"
+                    onClick={() => onSelectQuestion(q)}
+                    className={cn(
+                      "px-2 py-0.5 rounded text-xs font-mono font-medium transition-all flex items-center gap-1 border",
+                      isCur
+                        ? "border-primary bg-primary text-primary-foreground shadow-sm font-bold scale-105"
+                        : hasAns
+                          ? "border-primary/30 bg-primary/10 text-primary hover:bg-primary/20"
+                          : "border-border bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground"
+                    )}
+                    title={`Jump to Question ${q}${hasAns ? ` (Answer: ${answers[q]})` : ""}`}
+                  >
+                    <span>Q{q}</span>
+                    {hasAns ? (
+                      <span className="text-[10px] font-bold opacity-90">{answers[q]}</span>
+                    ) : null}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ) : (
+          <span className="text-[11px] italic opacity-60">Cover / Instructions</span>
+        )}
+      </div>
+
+      <div
+        className="relative w-full overflow-hidden rounded-md shadow-xl border border-border/80 bg-white dark:bg-card select-none"
+        style={{ aspectRatio: `${page.canvas.width} / ${page.canvas.height}` }}
+      >
+        <img
+          ref={imgRef}
+          src={dataUrl}
+          alt={`Page ${page.pageNumber}`}
+          className="w-full h-full object-contain pointer-events-none block"
+        />
+
+        <AnnotationLayer
+          width={page.canvas.width}
+          height={page.canvas.height}
+          enabled={annotateMode}
+          tool={annotateTool}
+          color={annotateColor}
+          registerCanvas={(el) => onRegisterAnnotationCanvas(page.pageNumber, el)}
+        />
+      </div>
     </div>
   );
 }
@@ -1460,6 +1862,8 @@ function AnswerSidePanel({
   highlightNumber,
   rowRefs,
   onJumpToQuestion,
+  activeQuestion,
+  questionPages,
 }: {
   numbers: number[];
   answers: Record<number, Letter>;
@@ -1472,6 +1876,8 @@ function AnswerSidePanel({
   highlightNumber?: number | null;
   rowRefs: React.MutableRefObject<Map<number, HTMLDivElement>>;
   onJumpToQuestion?: (number: number) => void;
+  activeQuestion?: number;
+  questionPages?: Record<number, number>;
 }) {
   const [filter, setFilter] = useState<"all" | "flagged" | "unanswered">("all");
   const [showGrid, setShowGrid] = useState(false);
@@ -1525,7 +1931,8 @@ function AnswerSidePanel({
               {numbers.map((n) => {
                 const isAnswered = !!answers[n];
                 const isFlagged = flagged.has(n);
-                const isCurrent = highlightNumber === n;
+                const isCurrent = activeQuestion === n || highlightNumber === n;
+                const pageNum = questionPages?.[n];
                 return (
                   <button
                     key={n}
@@ -1539,13 +1946,13 @@ function AnswerSidePanel({
                     className={cn(
                       "relative h-7 text-[11px] font-mono rounded border flex items-center justify-center transition-all",
                       isCurrent
-                        ? "ring-2 ring-primary border-primary font-bold"
+                        ? "ring-2 ring-primary border-primary font-bold bg-primary/15 text-primary"
                         : isAnswered
                           ? "bg-primary/10 border-primary/30 text-primary hover:bg-primary/20"
                           : "bg-background border-border/60 text-muted-foreground hover:bg-muted",
                       isFlagged && "border-amber-400 bg-amber-500/10 text-amber-600 dark:text-amber-400"
                     )}
-                    title={`Question ${n}${isFlagged ? " (Flagged)" : ""}${isAnswered ? " (Answered)" : " (Unanswered)"}`}
+                    title={`Question ${n}${pageNum ? ` (Page ${pageNum})` : ""}${isFlagged ? " (Flagged)" : ""}${isAnswered ? ` (Answer: ${answers[n]})` : " (Unanswered)"}`}
                   >
                     {n}
                     {isFlagged ? (
@@ -1623,6 +2030,8 @@ function AnswerSidePanel({
         <div className="grid grid-cols-1 gap-1.5">
           {filteredNumbers.map((number) => {
             const isFlagged = flagged.has(number);
+            const isCurrent = activeQuestion === number || highlightNumber === number;
+            const pageNum = questionPages?.[number];
             return (
               <div
                 key={number}
@@ -1632,14 +2041,14 @@ function AnswerSidePanel({
                 }}
                 className={cn(
                   "flex items-center justify-between gap-1.5 rounded-md border px-2 py-1.5 transition-all",
-                  highlightNumber === number
-                    ? "border-amber-400 bg-amber-400/15 shadow-sm"
+                  isCurrent
+                    ? "border-primary bg-primary/10 shadow-sm ring-1 ring-primary/40 font-medium"
                     : isFlagged
                       ? "border-amber-500/30 bg-amber-500/5"
                       : "border-transparent hover:border-border/40 hover:bg-muted/30"
                 )}
               >
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1.5">
                   {onToggleFlag ? (
                     <button
                       type="button"
@@ -1656,9 +2065,24 @@ function AnswerSidePanel({
                       <span className="sr-only">Flag Q{number}</span>
                     </button>
                   ) : null}
-                  <span className="w-6 shrink-0 text-right font-mono text-xs font-medium text-muted-foreground">
-                    {number}
-                  </span>
+                  <button
+                    type="button"
+                    onClick={() => onJumpToQuestion?.(number)}
+                    className="flex items-baseline gap-1 text-left group/btn"
+                    title={`Jump paper to Question ${number}${pageNum ? ` (Page ${pageNum})` : ""}`}
+                  >
+                    <span className={cn(
+                      "font-mono text-xs font-semibold group-hover/btn:text-primary transition-colors",
+                      isCurrent ? "text-primary font-bold" : "text-muted-foreground"
+                    )}>
+                      {number}
+                    </span>
+                    {pageNum ? (
+                      <span className="text-[10px] text-muted-foreground/60 font-mono group-hover/btn:text-primary">
+                        p.{pageNum}
+                      </span>
+                    ) : null}
+                  </button>
                 </div>
                 <div className="flex gap-1.5">
                   {(["A", "B", "C", "D"] as Letter[]).map((l) => (
@@ -1668,7 +2092,10 @@ function AnswerSidePanel({
                       picked={answers[number] === l}
                       correct={graded && answerKey[number] === l}
                       wrong={graded && answers[number] === l && answerKey[number] !== l}
-                      onClick={() => onPick(number, l)}
+                      onClick={() => {
+                        onPick(number, l);
+                        onJumpToQuestion?.(number);
+                      }}
                     />
                   ))}
                 </div>
@@ -1698,17 +2125,17 @@ function AnswerOptionButton({
     <button
       type="button"
       onClick={onClick}
-      className={[
-        "flex h-7 w-7 items-center justify-center rounded-full border text-xs font-bold transition-all duration-150",
-        "hover:scale-110",
+      className={cn(
+        "flex h-7 w-7 items-center justify-center rounded-full border text-xs font-bold transition-all duration-150 active:scale-95",
+        "hover:scale-105",
         picked
-          ? "scale-110 border-primary bg-primary text-primary-foreground shadow-[0_4px_14px_-4px_var(--primary)]"
-          : "border-foreground/25 bg-background/75 text-foreground/80",
+          ? "border-primary bg-primary text-primary-foreground shadow-sm ring-1 ring-primary/40 font-extrabold"
+          : "border-border/80 bg-background/90 text-foreground hover:bg-muted",
         correct
-          ? "border-primary bg-primary text-primary-foreground shadow-[0_0_0_4px_var(--primary)]/25"
+          ? "border-emerald-500 bg-emerald-500 text-white shadow-sm ring-2 ring-emerald-500/30"
           : "",
-        wrong ? "badge-shake border-destructive bg-destructive text-white" : "",
-      ].join(" ")}
+        wrong ? "badge-shake border-destructive bg-destructive text-white" : ""
+      )}
     >
       {letter}
     </button>
