@@ -83,7 +83,19 @@ export async function getUserSubscriptionDetails(
     }
   } catch {}
 
-  const effectiveResetAt = userQuotaResetAt || globalResetAt;
+  let effectiveResetAt: string | null = null;
+  if (userQuotaResetAt && globalResetAt) {
+    try {
+      effectiveResetAt =
+        new Date(userQuotaResetAt) > new Date(globalResetAt)
+          ? userQuotaResetAt
+          : globalResetAt;
+    } catch {
+      effectiveResetAt = userQuotaResetAt || globalResetAt;
+    }
+  } else {
+    effectiveResetAt = userQuotaResetAt || globalResetAt;
+  }
 
   // 1c. Check approved UPI payment request if not yet set
   if (activeTier === "free") {

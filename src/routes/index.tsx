@@ -391,9 +391,13 @@ function Index() {
             </Reveal>
 
             <Reveal delay={60}>
-              <h1 className="mt-5 text-[2.35rem] leading-[1.06] font-extrabold text-balance min-[380px]:text-4xl md:text-[3.25rem] lg:text-[3.5rem] xl:text-[3.85rem] tracking-tight">
+              <h1 className="mt-5 text-[2.35rem] leading-[1.08] font-extrabold text-balance min-[380px]:text-4xl md:text-[3.25rem] lg:text-[3.5rem] xl:text-[3.85rem] tracking-tight">
                 {settings.heroTitle}{" "}
-                <span className="highlight highlight-deep shadow-xs text-primary dark:text-amber-300">{settings.heroHighlight}</span>
+                <span className="relative inline-block mt-1 sm:mt-1.5 px-3 py-1 rounded-xl bg-purple-950/60 dark:bg-purple-950/70 border border-purple-500/40 text-amber-300 shadow-[0_0_20px_rgba(168,85,247,0.25)] backdrop-blur-md">
+                  <span className="bg-gradient-to-r from-amber-300 via-yellow-200 to-amber-400 bg-clip-text text-transparent font-black tracking-tight">
+                    {settings.heroHighlight}
+                  </span>
+                </span>
               </h1>
             </Reveal>
 
@@ -500,13 +504,35 @@ function Index() {
             </Reveal>
           </div>
 
-          {/* Expanded, Commanding Live Examiner Showcase Card */}
-          <Reveal variant="pop" delay={120} className="relative w-full">
-            {/* Ambient Stage Halo Glow */}
-            <div className="absolute -inset-2 rounded-3xl bg-gradient-to-r from-primary/30 via-violet-500/20 to-amber-500/20 blur-xl opacity-75 -z-10 animate-pulse" />
-            <ExaminerStage className="relative mx-auto w-full max-w-xl xl:max-w-2xl 2xl:max-w-[680px] min-w-0 shadow-2xl border-2 border-primary/35 rounded-2xl overflow-hidden backdrop-blur-xl ring-1 ring-primary/20">
-              <LiveExaminer />
-            </ExaminerStage>
+          {/* Expanded, Commanding Live Examiner Showcase Card & Student Trust Card */}
+          <Reveal variant="pop" delay={120} className="relative w-full space-y-3.5">
+            <div className="relative w-full">
+              {/* Ambient Stage Halo Glow */}
+              <div className="absolute -inset-2 rounded-3xl bg-gradient-to-r from-primary/30 via-violet-500/20 to-amber-500/20 blur-xl opacity-75 -z-10 animate-pulse" />
+              <ExaminerStage className="relative mx-auto w-full max-w-xl xl:max-w-2xl 2xl:max-w-[680px] min-w-0 shadow-2xl border-2 border-primary/35 rounded-2xl overflow-hidden backdrop-blur-xl ring-1 ring-primary/20">
+                <LiveExaminer />
+              </ExaminerStage>
+            </div>
+
+            {/* Created for Economics by Economics Students · Founder Quote Card */}
+            <div className="mx-auto w-full max-w-xl xl:max-w-2xl 2xl:max-w-[680px] rounded-2xl border border-primary/30 bg-card/80 backdrop-blur-md p-4 sm:p-5 shadow-md space-y-2.5">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/70 pb-2.5">
+                <span className="inline-flex items-center gap-2 text-xs font-bold text-foreground">
+                  <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
+                  Created for Economics by Cambridge Economics Students
+                </span>
+                <span className="rounded-full bg-primary/10 border border-primary/30 px-2.5 py-0.5 text-[10.5px] font-mono font-bold text-primary">
+                  100% 9708 Calibrated
+                </span>
+              </div>
+              <blockquote className="text-xs sm:text-[13px] text-foreground/90 italic leading-relaxed">
+                “ChatGPT gives generic praise and suffers from middle-band central bias. We built Marginal specifically for Cambridge 9708: auditing every sentence clause against official mark scheme descriptors so you know exactly where your AO1, AO2, and AO3 marks are won or lost.”
+              </blockquote>
+              <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-0.5 font-medium">
+                <span className="text-primary font-semibold">— Founder &amp; Student Engineering Team</span>
+                <span className="font-mono text-[10.5px]">Zero Hallucination Vector Grounding</span>
+              </div>
+            </div>
           </Reveal>
         </div>
 
