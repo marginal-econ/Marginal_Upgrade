@@ -18,7 +18,7 @@ import { useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
-import { filesToPageImages } from "@/lib/handwriting-images";
+import { filesToPageImages, rotateImageDataUrl } from "@/lib/handwriting-images";
 import { transcribeHandwriting } from "@/lib/ocr.functions";
 import { ocrPdf } from "@/lib/pdf-ocr";
 
@@ -47,7 +47,8 @@ export type StagedHandwritingPage = {
  *    needed to read handwriting reliably; Tesseract cannot.
  *
  * Students can stage multiple pages, review thumbnails, see and adjust page
- * numbering (Page 1, Page 2, Page 3), move earlier/later, and transcribe.
+ * numbering (Page 1, Page 2, Page 3), move earlier/later, rotate orientation,
+ * and transcribe.
  */
 export function HandwritingUpload({
   hint,
@@ -64,10 +65,28 @@ export function HandwritingUpload({
   const [typedStage, setTypedStage] = useState<string | null>(null);
   const [handwrittenStage, setHandwrittenStage] = useState<string | null>(null);
   const [stagedPages, setStagedPages] = useState<StagedHandwritingPage[]>([]);
+  const [rotatingId, setRotatingId] = useState<string | null>(null);
   const [isProcessingUpload, setIsProcessingUpload] = useState(false);
   const [totalPages, setTotalPages] = useState(0);
   const [readPages, setReadPages] = useState(0);
   const [outstanding, setOutstanding] = useState<OutstandingPage[]>([]);
+
+  async function handleRotatePage(id: string) {
+    const page = stagedPages.find((p) => p.id === id);
+    if (!page) return;
+    setRotatingId(id);
+    try {
+      const rotated = await rotateImageDataUrl(page.dataUrl, 90);
+      setStagedPages((current) =>
+        current.map((p) => (p.id === id ? { ...p, dataUrl: rotated } : p)),
+      );
+      toast.success("Page rotated 90° clockwise.");
+    } catch {
+      toast.error("Could not rotate page image.");
+    } finally {
+      setRotatingId(null);
+    }
+  }
 
   const typedMutation = useMutation({
     mutationFn: async (files: File[]) => {
@@ -392,21 +411,33 @@ export function HandwritingUpload({
                 key={page.id}
                 className="group relative flex flex-col rounded-lg border border-border/80 bg-card overflow-hidden shadow-2xs hover:border-primary/50 transition-all"
               >
-                {/* Header with Page Number Badge */}
+                {/* Header with Page Number Badge and Controls */}
                 <div className="flex items-center justify-between px-2.5 py-1.5 bg-muted/70 border-b border-border/60">
                   <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-primary">
                     <span className="size-1.5 rounded-full bg-primary animate-pulse" />
                     Page {idx + 1}
                   </span>
-                  <button
-                    type="button"
-                    onClick={() => removePage(page.id)}
-                    aria-label={`Remove page ${idx + 1}`}
-                    className="text-muted-foreground hover:text-destructive transition-colors p-0.5 rounded cursor-pointer"
-                    title="Remove page"
-                  >
-                    <Trash2 className="size-3" />
-                  </button>
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      disabled={rotatingId === page.id}
+                      onClick={() => void handleRotatePage(page.id)}
+                      aria-label={`Rotate page ${idx + 1} 90° clockwise`}
+                      className="text-muted-foreground hover:text-primary transition-colors p-1 rounded cursor-pointer disabled:opacity-40"
+                      title="Rotate 90° clockwise"
+                    >
+                      <RotateCw className={`size-3.5 ${rotatingId === page.id ? "animate-spin text-primary" : ""}`} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => removePage(page.id)}
+                      aria-label={`Remove page ${idx + 1}`}
+                      className="text-muted-foreground hover:text-destructive transition-colors p-1 rounded cursor-pointer"
+                      title="Remove page"
+                    >
+                      <Trash2 className="size-3.5" />
+                    </button>
+                  </div>
                 </div>
 
                 {/* Page Thumbnail */}
@@ -421,7 +452,7 @@ export function HandwritingUpload({
                   </div>
                 </div>
 
-                {/* Reordering Controls */}
+                {/* Reordering and Rotate Controls */}
                 <div className="flex items-center justify-between p-1 bg-background border-t border-border/60">
                   <Button
                     type="button"
@@ -434,6 +465,18 @@ export function HandwritingUpload({
                   >
                     <ChevronLeft className="size-3" />
                     Earlier
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    disabled={rotatingId === page.id}
+                    onClick={() => void handleRotatePage(page.id)}
+                    className="h-6 px-1.5 text-[10px] gap-1 font-medium cursor-pointer text-muted-foreground hover:text-primary"
+                    title="Rotate 90° clockwise"
+                  >
+                    <RotateCw className={`size-3 ${rotatingId === page.id ? "animate-spin" : ""}`} />
+                    Rotate
                   </Button>
                   <Button
                     type="button"

@@ -18,6 +18,15 @@ export const transcribeHandwriting = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => TranscribeInput.parse(input))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
+
+    // Quota guard: ensure the student has remaining essay grading allowance before invoking vision OCR
+    const { getUserSubscriptionDetails } = await import("./subscription.server");
+    const sub = await getUserSubscriptionDetails(supabase, userId, (context as any).email, (context as any).claims);
+    if (!sub.canGradeEssay) {
+      const { FREE_ESSAY_LIMIT_MESSAGE, TEACHER_FREE_ESSAY_LIMIT_MESSAGE } = await import("./usage-limits");
+      throw new Error(sub.isTeacher && !sub.isPaid ? TEACHER_FREE_ESSAY_LIMIT_MESSAGE : FREE_ESSAY_LIMIT_MESSAGE);
+    }
+
     const { transcribeWithGemini } = await import("./ocr/gemini.server");
 
     try {

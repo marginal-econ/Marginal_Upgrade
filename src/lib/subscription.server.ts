@@ -150,7 +150,7 @@ export async function getUserSubscriptionDetails(
     console.warn("Could not query user_roles for subscription, defaulting to free:", err);
   }
 
-  // 2. Count essays submitted within current cycle
+  // 2. Count essays and evaluated versions within current cycle (prevents rewrite loophole)
   let essaysGradedCount = 0;
   try {
     let query = db
@@ -163,9 +163,23 @@ export async function getUserSubscriptionDetails(
     }
 
     const { count, error } = await query;
-
     if (!error && typeof count === "number") {
       essaysGradedCount = count;
+    }
+
+    // Also count total essay versions evaluated to ensure rewrites are strictly counted
+    let evQuery = db
+      .from("essay_versions")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userId);
+
+    if (effectiveResetAt && typeof evQuery.gte === "function") {
+      evQuery = evQuery.gte("created_at", effectiveResetAt);
+    }
+
+    const { count: evCount, error: evError } = await evQuery;
+    if (!evError && typeof evCount === "number") {
+      essaysGradedCount = Math.max(essaysGradedCount, evCount);
     }
   } catch (err) {
     console.warn("Could not query essays count for user:", err);

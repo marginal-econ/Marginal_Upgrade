@@ -170,6 +170,13 @@ export const describeDiagramImage = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => DiagramImageInput.parse(input))
   .handler(async ({ data, context }) => {
+    const { getUserSubscriptionDetails } = await import("./subscription.server");
+    const sub = await getUserSubscriptionDetails(context.supabase, context.userId, (context as any).email, (context as any).claims);
+    if (!sub.canGradeEssay) {
+      const { FREE_ESSAY_LIMIT_MESSAGE } = await import("./usage-limits");
+      throw new Error(FREE_ESSAY_LIMIT_MESSAGE);
+    }
+
     const { describeDiagramFromDataUrl } = await import("./diagrams/describe.server");
     try {
       const tag = await describeDiagramFromDataUrl(data.image);

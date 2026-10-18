@@ -2,13 +2,11 @@
 // downscaled and PDF scans are rasterised in the tab, so only compact JPEGs
 // travel to the server.
 
-// Cambridge handwriting is small and dense; 1600px on the long edge was
-// blurring thin pen strokes and faint pencil after JPEG compression, which
-// was the single biggest cause of bad transcriptions. 2600px + higher JPEG
-// quality keeps files well within Gemini's per-request limits while giving
-// the model enough resolution to actually resolve individual letters.
-const MAX_EDGE = 2600;
-const JPEG_QUALITY = 0.92;
+// Cambridge handwriting is small and dense. 2048px on the long edge is
+// Gemini's optimal native tile resolution, providing pin-sharp clarity for
+// thin pen strokes and pencil while keeping JPEG payloads compact and fast.
+const MAX_EDGE = 2048;
+const JPEG_QUALITY = 0.88;
 
 export type PageProgress = (done: number, total: number) => void;
 
@@ -48,15 +46,62 @@ function fitted(width: number, height: number): { width: number; height: number 
   return { width: Math.round(width * scale), height: Math.round(height * scale) };
 }
 
+/**
+ * Rotate an existing page image data URL by a given number of degrees (default 90° CW).
+ * Useful when mobile phone cameras capture handwriting sideways or upside-down.
+ */
+export async function rotateImageDataUrl(dataUrl: string, degrees = 90): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const rads = (degrees * Math.PI) / 180;
+      const swap = Math.abs(degrees % 180) === 90;
+      const canvas = document.createElement("canvas");
+      canvas.width = swap ? img.height : img.width;
+      canvas.height = swap ? img.width : img.height;
+
+      const context = canvas.getContext("2d");
+      if (!context) return resolve(dataUrl);
+
+      // Solid white background prevents transparent pixels turning black in JPEG
+      context.fillStyle = "#ffffff";
+      context.fillRect(0, 0, canvas.width, canvas.height);
+      context.imageSmoothingEnabled = true;
+      context.imageSmoothingQuality = "high";
+
+      context.translate(canvas.width / 2, canvas.height / 2);
+      context.rotate(rads);
+      context.drawImage(img, -img.width / 2, -img.height / 2);
+
+      resolve(canvasToDataUrl(canvas));
+    };
+    img.onerror = () => reject(new Error("Could not process image rotation."));
+    img.src = dataUrl;
+  });
+}
+
 async function imageToDataUrl(file: File): Promise<string> {
   try {
-    const bitmap = await createImageBitmap(file);
+    let bitmap: ImageBitmap;
+    try {
+      // imageOrientation: "from-image" respects EXIF orientation metadata from mobile phone cameras
+      bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
+    } catch {
+      bitmap = await createImageBitmap(file);
+    }
+
     const size = fitted(bitmap.width, bitmap.height);
     const canvas = document.createElement("canvas");
     canvas.width = size.width;
     canvas.height = size.height;
     const context = canvas.getContext("2d");
     if (!context) throw new Error("This browser could not process the image.");
+
+    // Fill with solid white before drawing so PNG/transparent pixels or margins don't turn black
+    context.fillStyle = "#ffffff";
+    context.fillRect(0, 0, size.width, size.height);
+    context.imageSmoothingEnabled = true;
+    context.imageSmoothingQuality = "high";
     context.drawImage(bitmap, 0, 0, size.width, size.height);
     bitmap.close();
     return canvasToDataUrl(canvas);
@@ -75,6 +120,11 @@ async function imageToDataUrl(file: File): Promise<string> {
         canvas.height = size.height;
         const context = canvas.getContext("2d");
         if (!context) return reject(new Error("This browser could not process the image."));
+
+        context.fillStyle = "#ffffff";
+        context.fillRect(0, 0, size.width, size.height);
+        context.imageSmoothingEnabled = true;
+        context.imageSmoothingQuality = "high";
         context.drawImage(img, 0, 0, size.width, size.height);
         resolve(canvasToDataUrl(canvas));
       };

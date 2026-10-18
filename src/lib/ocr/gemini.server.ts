@@ -18,47 +18,61 @@ const GOOGLE_MODEL = "models/gemini-3.7-flash";
 const GOOGLE_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta";
 
 /**
- * Gateway fallback chain. IMPORTANT: this must only ever contain models the
- * Lovable AI gateway actually serves (see AI_PROVIDERS in ai/providers.ts —
- * "google/gemini-3.6-flash", "openai/gpt-5.6-sol", "openai/gpt-5.6-terra").
- * A previous version of this list led with "google/gemini-3.7-flash", which
- * the gateway does not serve — every page burned 3 guaranteed-failed attempts
- * (with backoff) on a non-existent model before ever reaching a working one,
- * which both slowed every transcription down and made pages fail outright
- * under load, since the wasted retries increased the odds of a genuine rate
- * limit on the models that do work. Keep this list gateway-verified.
+ * Gateway fallback chain. IMPORTANT: this must only ever contain vision-capable
+ * models the Lovable AI gateway actually serves (see AI_PROVIDERS in ai/providers.ts —
+ * "google/gemini-3.6-flash", "google/gemini-2.5-pro", "openai/gpt-5.6-sol").
+ * gemini-3.6-flash runs first (fast and low token cost), followed by
+ * gemini-2.5-pro (the most powerful vision model for challenging handwriting).
  */
-const GATEWAY_MODELS = ["google/gemini-3.6-flash", "openai/gpt-5.6-sol", "openai/gpt-5.6-terra"];
+const GATEWAY_MODELS = [
+  "google/gemini-3.6-flash",
+  "google/gemini-2.5-pro",
+  "openai/gpt-5.6-sol",
+];
 const ATTEMPTS_PER_MODEL = 2;
 const CONCURRENCY = 3;
 const MAX_OUTPUT_TOKENS = 16384; // dense pages with several diagram tags can run long
 
 const SYSTEM_PROMPT = [
-  "You are an OCR engine specialised in Cambridge examination papers. Read handwritten English exactly as written.",
-  "Preserve spelling mistakes, grammar mistakes, punctuation and line breaks. Never improve or rewrite the student's wording.",
-  "This is a photographed or scanned exam script: handwriting may be cursive, cramped, faint pencil, or written over crossed-out text.",
-  "Look closely at individual letter shapes before deciding a word is unreadable — use the surrounding sentence to resolve a genuinely",
-  "ambiguous letter (e.g. a vs o, n vs u, or a word split across a line break), but never invent a word that isn't visually supported.",
-  "If a word cannot be confidently read after that, replace only that word with [?]. Do not guess wildly.",
+  "You are an expert OCR engine specialised in transcribing handwritten Cambridge Economics examination papers.",
+  "Your PRIMARY and MOST CRITICAL task is to read and transcribe all handwritten English text on the page accurately into plain text.",
   "",
-  "HAND-DRAWN DIAGRAMS: if the page contains a drawn economics diagram (axes, curves, shifts, arrows, shaded areas),",
-  "do NOT skip it and do NOT invent handwriting for it. Insert a single structured tag at the exact point in the flow",
-  "where the diagram appears, on its own line, in this format:",
-  "[DIAGRAM: <best-guess standard name, e.g. AD/AS, demand and supply with price ceiling, PPC, monopoly, Lorenz curve>",
-  "| axes: <x-axis label / y-axis label exactly as drawn, or 'unlabelled'>",
-  "| curves: <curves drawn and any shifts/directions, e.g. 'AD shifts right AD1->AD2, SRAS static'>",
-  "| labels: <equilibrium points, prices, quantities, shaded areas, annotations written on the diagram>",
-  "| accuracy: <short factual note on what is correct, missing or mislabelled — no marks, no praise>]",
-  "Describe only what is actually drawn. If a feature is missing (e.g. no axis labels), say so in that field.",
-  "Do not summarise. Do not explain. Output only the transcription and any diagram tags.",
+  "TRANSCRIPTION RULES:",
+  "- Transcribe every handwritten sentence from top to bottom, exactly as written.",
+  "- Preserve the student's original wording, spelling mistakes, punctuation, line breaks, and question numbering (e.g., '1(a)', 'Question 2'). Do not fix, rewrite, or polish the student's English.",
+  "- Carefully examine letter shapes in context (e.g. distinguishing a vs o, n vs u). Only if a specific word is genuinely illegible after careful visual inspection, replace that single word with [?]. Never hallucinate or invent text.",
+  "- Lined notebook paper: Horizontal ruled lines, margins, headers, and underlines are standard features of student answer scripts. Do NOT confuse ruled notebook paper with a diagram.",
+  "- Strikethroughs: If text is cleanly crossed out by the student, omit it and transcribe the final intended answer.",
   "",
-  "This page WILL contain something to transcribe — every page comes from a real, non-blank exam script. If the",
-  "handwriting is faint, small or partly obscured, do your best rather than giving up; use [?] only for individual",
-  "words you genuinely cannot resolve. If there is genuinely no writing or diagram on this page, return '[Blank page]'.",
+  "HAND-DRAWN ECONOMICS DIAGRAMS:",
+  "- If and only if the student has drawn an actual economics diagram/graph (e.g. Demand and Supply, AD/AS, PPC, Monopoly, Lorenz Curve, Externalities):",
+  "  insert an inline tag at that position: [DIAGRAM: <name> | axes: <labels> | curves: <curves & shifts> | labels: <points/prices>]",
+  "- CRITICAL: Never replace or omit handwritten text because of a diagram. ALWAYS transcribe all written text before and after any diagram.",
+  "",
+  "OUTPUT REQUIREMENTS:",
+  "- Output ONLY the transcribed English text and any inline [DIAGRAM: ...] tags.",
+  "- Do not include any introductory remarks, commentary, apologies, or greetings (never output 'nothing visible' or 'Here is the transcription').",
+  "- If this image genuinely has zero handwritten words or drawings, output '[Blank page]'.",
 ].join("\n");
 
 const PAGE_PROMPT =
-  "Transcribe the handwriting on this page exactly as written, and tag any hand-drawn diagram using the [DIAGRAM: ...] format. Ignore page numbers and printed exam instructions.";
+  "Transcribe all handwritten text on this page into plain text. Read every line accurately.";
+
+export function isBlankOrUnread(text: string | null | undefined): boolean {
+  if (!text) return true;
+  const cleaned = text.trim();
+  if (!cleaned) return true;
+  if (/^\[blank page.*\]$/i.test(cleaned)) return true;
+  if (
+    /^(nothing visible|no handwriting( (detected|found|visible))?|no text (found|detected|visible)|unreadable page|blank)\.?$/i.test(
+      cleaned,
+    )
+  )
+    return true;
+  if (/^\[diagram:[^\]]*accuracy:\s*(nothing visible|unlabelled|none)[^\]]*\]$/i.test(cleaned))
+    return true;
+  return false;
+}
 
 export type PageTranscription = { page: number; text: string | null; error: string | null };
 
@@ -120,7 +134,7 @@ async function transcribeViaGoogle(apiKey: string, model: string, dataUrl: strin
   const { mimeType, data } = await prepareDataUrl(dataUrl);
   const primary = model.startsWith("models/") ? model : `models/${model}`;
   const candidateModels = Array.from(
-    new Set([primary, "models/gemini-3.8-flash", "models/gemini-3.7-flash", "models/gemini-3.6-flash"]),
+    new Set([primary, "models/gemini-2.5-pro", "models/gemini-2.5-flash", "models/gemini-2.0-flash"]),
   );
 
   let lastErr: unknown = null;
@@ -141,7 +155,7 @@ async function transcribeViaGoogle(apiKey: string, model: string, dataUrl: strin
             },
           ],
           generationConfig: {
-            thinkingConfig: { thinkingBudget: 0 },
+            temperature: 0.1,
             mediaResolution: "MEDIA_RESOLUTION_HIGH",
             maxOutputTokens: MAX_OUTPUT_TOKENS,
           },
@@ -161,9 +175,8 @@ async function transcribeViaGoogle(apiKey: string, model: string, dataUrl: strin
         .map((part) => part.text ?? "")
         .join("")
         .trim();
-      if (text) return text;
-      // If the candidate model stopped without text, it resolved the page as blank
-      return "[Blank page / no handwriting detected]";
+      if (text && !isBlankOrUnread(text)) return text;
+      lastErr = new Error(`Google (${m}) returned empty or unreadable handwriting output.`);
     } catch (err) {
       lastErr = err;
     }
@@ -182,7 +195,9 @@ async function transcribeViaGateway(model: string, dataUrl: string, hint?: strin
     maxCompletionTokens: MAX_OUTPUT_TOKENS,
   });
   const text = result.text.trim();
-  if (!text) return "[Blank page]";
+  if (isBlankOrUnread(text)) {
+    throw new Error(`Model ${model} found no legible handwriting on this page.`);
+  }
   return text;
 }
 
@@ -222,7 +237,7 @@ async function transcribePage(
                 overrideProvider: visionConfig,
               })
             ).text.trim();
-      if (!text) throw new Error(`${visionConfig.label} returned no text for this page.`);
+      if (!text || isBlankOrUnread(text)) throw new Error(`${visionConfig.label} returned no legible handwriting.`);
       usedModels.add(`${visionConfig.provider}:${visionConfig.model}`);
       return { text, error: null };
     } catch (error) {
@@ -310,29 +325,32 @@ export async function transcribeWithGemini(
   // is what turns "usually works" into "works every time" — most first-pass
   // failures are transient (a momentary 429 or network blip), not a page
   // that is genuinely unreadable.
-  const stillFailed = results.filter((page) => !page.text).map((page) => page.page - 1);
+  const stillFailed = results.filter((page) => !page.text || isBlankOrUnread(page.text)).map((page) => page.page - 1);
   if (stillFailed.length > 0) {
     await transcribeAll(results, imageDataUrls, stillFailed, visionConfig, hint, usedModels, 1);
   }
 
-  const failedPages = results.filter((page) => !page.text).map((page) => page.page);
+  const successfulResults = results.filter((page) => page.text && !isBlankOrUnread(page.text));
+  const failedPages = results.filter((page) => !page.text || isBlankOrUnread(page.text)).map((page) => page.page);
   const pageErrors = Object.fromEntries(
-    results.filter((page) => !page.text).map((page) => [page.page, page.error ?? "Unknown error"]),
+    results
+      .filter((page) => !page.text || isBlankOrUnread(page.text))
+      .map((page) => [page.page, page.error ?? "No legible handwriting detected. Try a brighter, upright photo."]),
   );
-  const text = results
-    .filter((page) => page.text)
+
+  const text = successfulResults
     .map((page) => page.text!.trim())
     .join("\n\n");
 
-  if (!text) {
+  if (!text || successfulResults.length === 0) {
     throw new Error(
-      "No handwriting could be read from those pages. Try a brighter, straight-on photo of the full page.",
+      "No legible handwriting could be read from the uploaded image(s). Please make sure the photo is upright, well-lit, and in focus.",
     );
   }
 
   return {
     text,
-    pageTexts: results.map((page) => page.text),
+    pageTexts: results.map((page) => (page.text && !isBlankOrUnread(page.text) ? page.text : null)),
     model: [...usedModels].join(", ") || GATEWAY_MODELS[0]!,
     pages: results.length,
     failedPages,
