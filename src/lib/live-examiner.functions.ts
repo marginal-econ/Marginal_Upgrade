@@ -668,14 +668,10 @@ export const checkEssayWriting = createServerFn({ method: "POST" })
       };
     }
 
-    // Whether this call bothers estimating a mark at all: decoupled so rapid
-    // keystroke checks do not pay for an extra model call on every sentence edit.
-    const prevLen = data.previousText?.trim().length ?? 0;
+    // Whether this call bothers estimating a mark at all: decoupled and controlled
+    // by the client's cadence and progress checks.
     const currLen = data.essayText.trim().length;
-    const shouldEstimateMark =
-      data.includePredictedMark &&
-      currLen >= 80 &&
-      (Math.abs(currLen - prevLen) >= 80 || prevLen === 0);
+    const shouldEstimateMark = Boolean(data.includePredictedMark) && currLen >= 40;
 
     try {
       const { chat } = await import("./ai.server");

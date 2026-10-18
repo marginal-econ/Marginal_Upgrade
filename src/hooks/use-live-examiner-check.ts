@@ -13,6 +13,7 @@ import { deterministicTerminologyIssues } from "@/lib/live-examiner/economics-gl
 import { analyzeGrammarAndMechanics } from "@/lib/live-examiner/grammar-engine";
 import { splitSentences } from "@/lib/writing-check/sentence-diff";
 import { cleanSuggestion } from "@/lib/live-examiner/clean-suggestion";
+import { evaluateCambridgeAnswer } from "@/lib/live-examiner/client-evaluation";
 
 export type { PredictedMark, ExaminerChallenge };
 export { cleanSuggestion };
@@ -78,6 +79,9 @@ const MIN_CHANGED_CHARS = 25;
 const MIN_TEXT_LENGTH = 20;
 
 function issueId(issue: Pick<LiveExaminerIssue, "context" | "original" | "category">): string {
+  if (issue.category === "grammar" || issue.category === "terminology") {
+    return `${issue.category}::${issue.original.trim().toLowerCase()}`;
+  }
   return `${issue.category}::${issue.context.trim().toLowerCase()}::${issue.original.trim().toLowerCase()}`;
 }
 
@@ -262,34 +266,80 @@ export function useLiveExaminerCheck(params: {
         })),
       ];
 
+      setSessionUsage((prev) => ({
+        ...prev,
+        instantChecksCount: prev.instantChecksCount + 1,
+        tokensSaved: prev.tokensSaved + (instantIssues.length > 0 ? 1200 * instantIssues.length : 0),
+        lastLatencyMs: 15,
+        lastCheckType: "instant",
+      }));
+
+      // Instant deterministic issues (grammar, spelling, mechanics, terminology) are authoritative.
+      // Filter out stale grammar issues from previous keystrokes, preserving only valid server issues
+      // (like analysis or clarity) that still match text.
+      setIssues((prev) => {
+        const map = new Map<string, ActiveIssue>();
+        for (const item of prev) {
+          if (item.category !== "grammar" && item.category !== "terminology") {
+            if (text.includes(item.context) || text.includes(item.original)) {
+              map.set(item.id, item);
+            }
+          }
+        }
+        for (const item of instantIssues) {
+          map.set(item.id, item);
+        }
+        return Array.from(map.values());
+      });
+
       if (instantIssues.length > 0) {
-        setSessionUsage((prev) => ({
-          ...prev,
-          instantChecksCount: prev.instantChecksCount + 1,
-          tokensSaved: prev.tokensSaved + 1200 * instantIssues.length,
-          lastLatencyMs: 15,
-          lastCheckType: "instant",
-        }));
-        setIssues((prev) => {
-          const map = new Map<string, ActiveIssue>();
-          // Keep existing issues still present in text
-          for (const item of prev) {
-            if (text.includes(item.context)) map.set(item.id, item);
-          }
-          // Layer fresh instant issues
-          for (const item of instantIssues) {
-            map.set(item.id, item);
-          }
-          return Array.from(map.values());
-        });
         recordHistory(instantIssues);
+      }
+
+      // Automatically transition active history entries to accepted if their target typo/word was corrected
+      setHistory((prev) => {
+        const textLower = text.toLowerCase();
+        let changed = false;
+        const next = prev.map((entry) => {
+          if (
+            entry.status === "active" &&
+            (entry.category === "grammar" || entry.category === "terminology") &&
+            !textLower.includes(entry.original.toLowerCase())
+          ) {
+            changed = true;
+            return { ...entry, status: "accepted" as const, resolvedAt: Date.now() };
+          }
+          return entry;
+        });
+        return changed ? next : prev;
+      });
+
+      // Smooth real-time Cambridge mark evaluation fallback:
+      // When the student writes a developed essay, never leave the running mark stuck at 2/12.
+      if (text.trim().length >= 40) {
+        try {
+          const clientEval = evaluateCambridgeAnswer(text, maxMark, level);
+          if (clientEval.predictedMark) {
+            setPredictedMark((current) => {
+              if (!current) return clientEval.predictedMark;
+              // If client evaluated score is higher (student wrote more words & causal chains)
+              // or current mark was an early draft score that hasn't refreshed:
+              if (clientEval.predictedMark.total_mark > current.total_mark) {
+                return clientEval.predictedMark;
+              }
+              return current;
+            });
+          }
+        } catch {
+          // Fallback silently if rubric parsing encounters edge case
+        }
       }
     }, INSTANT_LOCAL_PAUSE_MS);
 
     return () => {
       if (localTimerRef.current) clearTimeout(localTimerRef.current);
     };
-  }, [text, enabled, question, recordHistory]);
+  }, [text, enabled, question, maxMark, level, recordHistory]);
 
   const runCheck = useCallback(
     (currentText: string, force: boolean) => {
@@ -318,11 +368,12 @@ export function useLiveExaminerCheck(params: {
 
       const timeSinceLastEstimate = Date.now() - lastEstimatedMarkAtRef.current;
       const charsSinceLastEstimate = Math.abs(currentText.length - lastEstimatedLengthRef.current);
-      // Predicted mark estimation is decoupled and throttled: only run at most once every 45s
-      // and when at least 120 chars changed, or for the initial estimate when the text first reaches 80 chars.
+      // Predicted mark estimation is decoupled and throttled:
+      // Run for the initial estimate at 40+ chars, or whenever 50+ chars changed after 20s, or when 120+ chars changed.
       const shouldIncludeEstimate =
-        (!predictedMark && currentText.trim().length >= 80) ||
-        (timeSinceLastEstimate >= 45_000 && charsSinceLastEstimate >= 120);
+        (!predictedMark && currentText.trim().length >= 40) ||
+        (timeSinceLastEstimate >= 20_000 && charsSinceLastEstimate >= 50) ||
+        charsSinceLastEstimate >= 120;
       if (shouldIncludeEstimate) {
         lastEstimatedMarkAtRef.current = Date.now();
         lastEstimatedLengthRef.current = currentText.length;
@@ -361,18 +412,40 @@ export function useLiveExaminerCheck(params: {
           // Always accept predicted mark if returned, otherwise preserve or compute client evaluation
           if (result.predictedMark) {
             setPredictedMark(result.predictedMark);
+          } else if (latestText.trim().length >= 40) {
+            try {
+              const fallbackEval = evaluateCambridgeAnswer(latestText, maxMark, level);
+              if (fallbackEval.predictedMark) {
+                setPredictedMark((curr) => {
+                  if (!curr || fallbackEval.predictedMark.total_mark > curr.total_mark) {
+                    return fallbackEval.predictedMark;
+                  }
+                  return curr;
+                });
+              }
+            } catch {
+              // Silent fallback
+            }
           }
 
           // Layer server issues that are valid in latest text
           const fresh = result.issues
-            .filter((issue) => latestText.includes(issue.context))
+            .filter((issue) => latestText.includes(issue.context) || latestText.includes(issue.original))
             .map((issue) => ({ ...issue, id: issueId(issue) }));
 
           setIssues((prev) => {
             const map = new Map<string, ActiveIssue>();
             // Keep local/existing issues still valid in latestText
             for (const item of prev) {
-              if (latestText.includes(item.context)) map.set(item.id, item);
+              if (item.category !== "grammar" && item.category !== "terminology") {
+                if (latestText.includes(item.context) || latestText.includes(item.original)) {
+                  map.set(item.id, item);
+                }
+              } else {
+                if (latestText.toLowerCase().includes(item.original.toLowerCase())) {
+                  map.set(item.id, item);
+                }
+              }
             }
             // Add server issues
             for (const item of fresh) {

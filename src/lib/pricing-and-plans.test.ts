@@ -5,13 +5,13 @@ describe("Pricing Plans & Tier Specifications", () => {
   it("defines all student plan tiers with exact limits", () => {
     expect(TIER_LIMITS.free.maxEssaysPerMonth).toBe(2);
     expect(TIER_LIMITS.foundation.maxEssaysPerMonth).toBe(8);
-    expect(TIER_LIMITS.foundation.liveExaminerCredits).toBe(3);
+    expect(TIER_LIMITS.foundation.liveExaminerCredits).toBe(2);
     expect(TIER_LIMITS.scholar_plus.maxEssaysPerMonth).toBe(15);
-    expect(TIER_LIMITS.scholar_plus.liveExaminerCredits).toBe(5);
-    expect(TIER_LIMITS.pro.maxEssaysPerMonth).toBe(20);
-    expect(TIER_LIMITS.mastery.maxEssaysPerMonth).toBe(45);
-    expect(TIER_LIMITS.elite.maxEssaysPerMonth).toBe(80);
-    expect(TIER_LIMITS.elite.liveExaminerCredits).toBe(35);
+    expect(TIER_LIMITS.scholar_plus.liveExaminerCredits).toBe(4);
+    expect(TIER_LIMITS.pro.maxEssaysPerMonth).toBe(25);
+    expect(TIER_LIMITS.mastery.maxEssaysPerMonth).toBe(50);
+    expect(TIER_LIMITS.elite.maxEssaysPerMonth).toBe(75);
+    expect(TIER_LIMITS.elite.liveExaminerCredits).toBe(22);
   });
 
   it("educator plans structure aligns with ₹99/mo starting price", () => {

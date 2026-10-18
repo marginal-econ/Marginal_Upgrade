@@ -1725,7 +1725,7 @@ function LiveExaminerPage() {
       </Dialog>
 
       <Dialog open={gradeDialogOpen} onOpenChange={setGradeDialogOpen}>
-        <DialogContent className="sm:max-w-xl">
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl pr-4">
           <DialogHeader>
             <DialogTitle>Grade now</DialogTitle>
             <DialogDescription>

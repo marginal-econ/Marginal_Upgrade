@@ -7,21 +7,21 @@ import {
 
 describe("Live Examiner Session Duration & Limits", () => {
   it("defines appropriate duration limits per price tier", () => {
-    // Foundation tier: 30 minutes timed drill
-    expect(LIVE_EXAMINER_DURATION_MINUTES.foundation).toBe(30);
+    // Foundation tier: 25 minutes timed drill
+    expect(LIVE_EXAMINER_DURATION_MINUTES.foundation).toBe(25);
 
-    // Pro tier: 45 minutes official Cambridge 9708 exam timing
-    expect(LIVE_EXAMINER_DURATION_MINUTES.pro).toBe(45);
+    // Pro tier: 35 minutes timed drill
+    expect(LIVE_EXAMINER_DURATION_MINUTES.pro).toBe(35);
 
-    // Mastery tier: 60 minutes extended revision
-    expect(LIVE_EXAMINER_DURATION_MINUTES.mastery).toBe(60);
+    // Mastery tier: 40 minutes extended revision
+    expect(LIVE_EXAMINER_DURATION_MINUTES.mastery).toBe(40);
 
-    // Elite tier: 90 minutes sprint revision
-    expect(LIVE_EXAMINER_DURATION_MINUTES.elite).toBe(90);
+    // Elite tier: 45 minutes Cambridge exam timing
+    expect(LIVE_EXAMINER_DURATION_MINUTES.elite).toBe(45);
   });
 
-  it("defaults to official Cambridge 45-minute exam duration", () => {
-    expect(DEFAULT_LIVE_EXAMINER_DURATION_MINUTES).toBe(45);
+  it("defaults to official Cambridge 35-minute exam duration", () => {
+    expect(DEFAULT_LIVE_EXAMINER_DURATION_MINUTES).toBe(35);
   });
 
   it("enforces daily question session limits", () => {
@@ -31,20 +31,20 @@ describe("Live Examiner Session Duration & Limits", () => {
   it("computes countdown seconds correctly", () => {
     const durationMinutes = LIVE_EXAMINER_DURATION_MINUTES.pro;
     const durationSeconds = durationMinutes * 60;
-    expect(durationSeconds).toBe(2700);
+    expect(durationSeconds).toBe(2100);
 
     // Elapsed 10 minutes (600s)
     const elapsedSeconds = 600;
     const remainingSeconds = Math.max(0, durationSeconds - elapsedSeconds);
-    expect(remainingSeconds).toBe(2100);
+    expect(remainingSeconds).toBe(1500);
 
     const mins = Math.floor(remainingSeconds / 60);
     const secs = remainingSeconds % 60;
     const formatted = `${mins}:${secs < 10 ? "0" : ""}${secs}`;
-    expect(formatted).toBe("35:00");
+    expect(formatted).toBe("25:00");
 
-    // Elapsed past duration (2800s) -> expired for regular student
-    const expiredElapsed = 2800;
+    // Elapsed past duration (2200s) -> expired for regular student
+    const expiredElapsed = 2200;
     const expiredRemaining = Math.max(0, durationSeconds - expiredElapsed);
     expect(expiredRemaining).toBe(0);
     const isExpired = expiredRemaining <= 0;

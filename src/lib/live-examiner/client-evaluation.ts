@@ -158,7 +158,9 @@ export function evaluateCambridgeAnswer(
 
   let ao2Awarded = 0;
   // Analysis requires developing causal transmission mechanisms - never awarded on short opening definitions
-  if (wordCount >= 150 && ao2Count >= 3) {
+  if (wordCount >= 300 && ao2Count >= 4) {
+    ao2Awarded = Math.min(split.ao2_marks, Math.max(5, Math.round(split.ao2_marks * 0.85)));
+  } else if (wordCount >= 150 && ao2Count >= 3) {
     ao2Awarded = Math.min(split.ao2_marks, Math.max(4, Math.round(split.ao2_marks * 0.75)));
   } else if (wordCount >= 80 && ao2Count >= 2) {
     ao2Awarded = Math.min(split.ao2_marks, Math.max(2, Math.round(split.ao2_marks * 0.5)));
@@ -169,7 +171,9 @@ export function evaluateCambridgeAnswer(
   let ao3Awarded = 0;
   // Evaluation requires weighing up, conditions, and judgements - never awarded on opening text
   if (split.ao3_marks > 0 && wordCount >= 75) {
-    if (ao3Count >= 2 && wordCount >= 160) {
+    if (wordCount >= 300 && ao3Count >= 3) {
+      ao3Awarded = split.ao3_marks;
+    } else if (ao3Count >= 2 && wordCount >= 160) {
       ao3Awarded = Math.min(split.ao3_marks, Math.max(2, Math.round(split.ao3_marks * 0.6)));
     } else if (ao3Count >= 1) {
       ao3Awarded = Math.min(split.ao3_marks, Math.max(1, Math.round(split.ao3_marks * 0.3)));
@@ -182,10 +186,10 @@ export function evaluateCambridgeAnswer(
   const terms = deterministicTerminologyIssues(sentences);
   const grammar = analyzeGrammarAndMechanics(sentences);
   const rawIssues: ActiveIssue[] = [
-    ...terms.map((t) => ({ ...t, id: `${t.category}::${t.context.trim().toLowerCase()}::${t.original.trim().toLowerCase()}` })),
+    ...terms.map((t) => ({ ...t, id: `${t.category}::${t.original.trim().toLowerCase()}` })),
     ...grammar.map(({ ruleId: _r, startOffset: _s, endOffset: _e, ...g }) => ({
       ...g,
-      id: `${g.category}::${g.context.trim().toLowerCase()}::${g.original.trim().toLowerCase()}`,
+      id: `${g.category}::${g.original.trim().toLowerCase()}`,
     })),
   ];
   const issues: ActiveIssue[] = Array.from(new Map(rawIssues.map((item) => [item.id, item])).values());

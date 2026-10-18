@@ -42,7 +42,7 @@ describe("Subscription Details & Entitlements", () => {
     expect(details.canGradeEssay).toBe(true);
   });
 
-  it("resolves foundation tier correctly with 8 essays and 3 Live Examiner credits", async () => {
+  it("resolves foundation tier correctly with 8 essays and 2 Live Examiner credits", async () => {
     const mockDb = createMockSupabase([
       {
         term: "__USER_SUB_user-foundation-123",
@@ -62,12 +62,12 @@ describe("Subscription Details & Entitlements", () => {
     expect(details.tierName).toBe("Foundation Scholar");
     expect(details.essaysLimit).toBe(8);
     expect(details.essaysRemaining).toBe(8);
-    expect(details.liveExaminerCredits).toBe(3);
+    expect(details.liveExaminerCredits).toBe(2);
     expect(details.canUseLiveExaminer).toBe(true);
     expect(details.canGradeEssay).toBe(true);
   });
 
-  it("resolves scholar_plus tier correctly with 15 essays and 5 Live Examiner credits", async () => {
+  it("resolves scholar_plus tier correctly with 15 essays and 4 Live Examiner credits", async () => {
     const mockDb = createMockSupabase([
       {
         term: "__USER_SUB_user-scholar-plus-123",
@@ -87,7 +87,7 @@ describe("Subscription Details & Entitlements", () => {
     expect(details.tierName).toBe("Scholar Plus");
     expect(details.essaysLimit).toBe(15);
     expect(details.essaysRemaining).toBe(15);
-    expect(details.liveExaminerCredits).toBe(5);
+    expect(details.liveExaminerCredits).toBe(4);
     expect(details.canUseLiveExaminer).toBe(true);
     expect(details.canGradeEssay).toBe(true);
   });
