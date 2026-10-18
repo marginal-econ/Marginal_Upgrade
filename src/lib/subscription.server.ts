@@ -58,7 +58,7 @@ export async function getUserSubscriptionDetails(
     if (subRow?.definition_text) {
       try {
         const parsed = JSON.parse(subRow.definition_text);
-        if (parsed.tier && ["foundation", "pro", "mastery", "elite"].includes(parsed.tier)) {
+        if (parsed.tier && ["foundation", "scholar_plus", "pro", "mastery", "elite"].includes(parsed.tier)) {
           activeTier = parsed.tier as PlanTier;
         }
         if (parsed.quotaResetAt) {
@@ -100,7 +100,7 @@ export async function getUserSubscriptionDetails(
           if (log.definition_text) {
             try {
               const parsed = JSON.parse(log.definition_text);
-              if (parsed.status === "approved" && parsed.tier && ["foundation", "pro", "mastery", "elite"].includes(parsed.tier)) {
+              if (parsed.status === "approved" && parsed.tier && ["foundation", "scholar_plus", "pro", "mastery", "elite"].includes(parsed.tier)) {
                 activeTier = parsed.tier as PlanTier;
                 break;
               }
@@ -114,7 +114,7 @@ export async function getUserSubscriptionDetails(
   // 1d. Check claims app_metadata / user_metadata
   if (activeTier === "free") {
     const claimTier = userClaims?.app_metadata?.tier || userClaims?.user_metadata?.tier;
-    if (claimTier && ["foundation", "pro", "mastery", "elite"].includes(claimTier)) {
+    if (claimTier && ["foundation", "scholar_plus", "pro", "mastery", "elite"].includes(claimTier)) {
       activeTier = claimTier as PlanTier;
     }
   }

@@ -41,7 +41,7 @@ import { TIER_LIMITS, type PlanTier } from "@/lib/usage-limits";
 import { cn } from "@/lib/utils";
 
 const searchSchema = z.object({
-  tier: z.enum(["foundation", "pro", "mastery", "elite"]).optional().default("foundation"),
+  tier: z.enum(["foundation", "scholar_plus", "pro", "mastery", "elite"]).optional().default("foundation"),
   cycle: z.enum(["monthly", "annual"]).optional().default("monthly"),
   role: z.enum(["student", "teacher"]).optional(),
 });
@@ -68,6 +68,13 @@ const TIER_PRICING = {
     annualMonthlyEq: 99,
     savePct: 0,
     tagline: "Foundation Scholar — 8 essays/mo and 3 Live Examiner credits (₹99/mo flat)",
+  },
+  scholar_plus: {
+    monthly: 199,
+    annual: 1999,
+    annualMonthlyEq: 166,
+    savePct: 16,
+    tagline: "Scholar Plus — 15 essays/mo and 6 Live Examiner credits (₹199/mo)",
   },
   pro: {
     monthly: 399,
@@ -551,7 +558,7 @@ function PaymentPortalPage() {
 
               {/* Tiers List */}
               <div className="space-y-3">
-                {(["foundation", "pro", "mastery", "elite"] as PlanTier[]).map((tierKey) => {
+                {(["foundation", "scholar_plus", "pro", "mastery", "elite"] as PlanTier[]).map((tierKey) => {
                   const pPlan = activePlans[tierKey] ?? DEFAULT_PRICING_PLANS[tierKey];
                   const tPricing = {
                     monthly: pPlan.monthlyPrice,
@@ -571,17 +578,21 @@ function PaymentPortalPage() {
                   if (isTeacherMode) {
                     if (tierKey === "foundation") {
                       tierTitle = "Individual Educator AI Pass";
-                      tierSubtitle = "Essential Educator Pass — Mark scheme ingestion, 8 mock evaluations/mo, 3 Live Examiner coaching credits, full classroom manager";
+                      tierSubtitle = "Essential Educator Pass — Mark scheme ingestion, 8 Graded Essay evaluations/mo, 3 Live Examiner coaching credits, full classroom manager";
                       tierBadge = "Educator AI Pass";
+                    } else if (tierKey === "scholar_plus") {
+                      tierTitle = "Senior Educator Pass";
+                      tierSubtitle = "15 Cambridge Graded Essay evaluations / mo, 6 Live Examiner Credits, custom curriculum mark schemes";
+                      tierBadge = "Senior Educator";
                     } else if (tierKey === "pro") {
                       tierTitle = "Department Lead Pass";
-                      tierSubtitle = "20 Cambridge mock evaluations / mo, 10 Live Examiner Credits, Dual-Model Principal Examiner Arbitration";
+                      tierSubtitle = "20 Cambridge Graded Essay evaluations / mo, 10 Live Examiner Credits, Dual-Model Principal Examiner Arbitration";
                     } else if (tierKey === "mastery") {
                       tierTitle = "Mastery Department Pass";
-                      tierSubtitle = "45 mock evaluations/mo, 20 Live Examiner credits, OCR handwriting scan";
+                      tierSubtitle = "45 Graded Essay evaluations/mo, 20 Live Examiner credits, OCR handwriting scan";
                     } else if (tierKey === "elite") {
                       tierTitle = "Elite Institutional Pass";
-                      tierSubtitle = "80 mock evaluations/mo, 35 Live Examiner credits, full mock suite";
+                      tierSubtitle = "80 Graded Essay evaluations/mo, 35 Live Examiner credits, full evaluation suite";
                     }
                   }
 

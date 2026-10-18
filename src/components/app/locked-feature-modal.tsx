@@ -105,7 +105,7 @@ export function LockedFeatureModal({
           icon: Zap,
           color: "text-amber-500",
           title: "Dedicated Live Examiner Credits",
-          desc: "Upgrade to Foundation (3 credits) or Pro (10 credits) to run live question coaching sessions.",
+          desc: "Upgrade to Foundation (3 credits), Scholar Plus (6 credits), or Pro (10 credits) to run live question coaching sessions.",
         },
       ],
     },
@@ -118,7 +118,7 @@ export function LockedFeatureModal({
           icon: PenLine,
           color: "text-primary",
           title: "Higher Monthly Essay Quota",
-          desc: "Get 8 essays/mo on Foundation, 20 essays/mo on Pro, or 80 essays/mo on Cambridge Elite.",
+          desc: "Get 8 essays/mo on Foundation, 15 essays/mo on Scholar Plus, 20 on Pro, or 80 on Cambridge Elite.",
         },
         {
           icon: ShieldAlert,

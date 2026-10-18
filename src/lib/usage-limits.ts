@@ -4,10 +4,11 @@
  *
  * Tier Rules:
  * - Free: Up to 2 graded essays alone. MCQ past papers free for 30 days. Live Examiner is PAID ONLY (0 credits).
- * - Foundation: 10 graded essays / month, 30 Live Examiner credits, full syllabus access.
- * - Pro: 30 graded essays / month, 75 Live Examiner credits, arbitration & models.
- * - Mastery: 75 graded essays / month, 150 Live Examiner credits, OCR handwriting.
- * - Elite: Unlimited graded essays, 999+ Live Examiner credits, priority queue.
+ * - Foundation: 8 graded essays / month, 3 Live Examiner credits, full syllabus access.
+ * - Scholar Plus: 15 graded essays / month, 6 Live Examiner credits, enhanced drills.
+ * - Pro: 20 graded essays / month, 10 Live Examiner credits, arbitration & models.
+ * - Mastery: 45 graded essays / month, 20 Live Examiner credits, OCR handwriting.
+ * - Elite: 80 graded essays / month, 35 Live Examiner credits, priority queue.
  */
 
 export const DAILY_LIMIT_PREFIX = "Daily limit reached";
@@ -34,6 +35,14 @@ export const TIER_LIMITS = {
     maxEssaysTotal: Infinity,
     maxEssaysPerMonth: 8,
     liveExaminerCredits: 3,
+    liveExaminerEnabled: true,
+    mcqFreeDays: 365,
+  },
+  scholar_plus: {
+    name: "Scholar Plus",
+    maxEssaysTotal: Infinity,
+    maxEssaysPerMonth: 15,
+    liveExaminerCredits: 6,
     liveExaminerEnabled: true,
     mcqFreeDays: 365,
   },
@@ -89,7 +98,7 @@ export function essayLimitMessage(limit: number): string {
 
 export const FREE_ESSAY_LIMIT_MESSAGE =
   `${TIER_LIMIT_PREFIX}: You have used your 2 free Cambridge essay gradings on the Free Tier. ` +
-  `Upgrade to Foundation Scholar (₹99/mo), Pro (₹399/mo), or Mastery to continue grading essays with line-by-line mark scheme matching.`;
+  `Upgrade to Foundation Scholar (₹99/mo), Scholar Plus (₹199/mo), Pro (₹399/mo), or Mastery to continue grading essays with line-by-line mark scheme matching.`;
 
 export const TEACHER_FREE_ESSAY_LIMIT_MESSAGE =
   `${TIER_LIMIT_PREFIX}: You have used your 3 free trial essay evaluations for educators. ` +
@@ -129,6 +138,7 @@ export function isDailyLimitError(error: unknown): boolean {
 export const LIVE_EXAMINER_DURATION_MINUTES = {
   free: 0,
   foundation: 30, // 30 min timed drill
+  scholar_plus: 35, // 35 min timed drill
   pro: 45,        // 45 min official Cambridge exam essay timing
   mastery: 60,    // 60 min extended evaluative revision
   elite: 90,      // 90 min sprint revision

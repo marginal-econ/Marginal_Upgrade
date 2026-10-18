@@ -67,6 +67,31 @@ describe("Subscription Details & Entitlements", () => {
     expect(details.canGradeEssay).toBe(true);
   });
 
+  it("resolves scholar_plus tier correctly with 15 essays and 6 Live Examiner credits", async () => {
+    const mockDb = createMockSupabase([
+      {
+        term: "__USER_SUB_user-scholar-plus-123",
+        definition_text: JSON.stringify({ tier: "scholar_plus" }),
+      },
+    ]);
+
+    const details = await getUserSubscriptionDetails(
+      mockDb,
+      "user-scholar-plus-123",
+      "scholar@example.com"
+    );
+
+    expect(details.isAdmin).toBe(false);
+    expect(details.isPaid).toBe(true);
+    expect(details.tier).toBe("scholar_plus");
+    expect(details.tierName).toBe("Scholar Plus");
+    expect(details.essaysLimit).toBe(15);
+    expect(details.essaysRemaining).toBe(15);
+    expect(details.liveExaminerCredits).toBe(6);
+    expect(details.canUseLiveExaminer).toBe(true);
+    expect(details.canGradeEssay).toBe(true);
+  });
+
   it("restricts free tier user to 2 essays and 0 Live Examiner credits", async () => {
     const mockDb = createMockSupabase([]);
 

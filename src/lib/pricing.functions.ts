@@ -50,6 +50,7 @@ export const getPlatformPricing = createServerFn({ method: "GET" }).handler(asyn
       return {
         plans: {
           foundation: { ...DEFAULT_PRICING_PLANS.foundation, ...customPlans.foundation },
+          scholar_plus: { ...DEFAULT_PRICING_PLANS.scholar_plus, ...customPlans.scholar_plus },
           pro: { ...DEFAULT_PRICING_PLANS.pro, ...customPlans.pro },
           mastery: { ...DEFAULT_PRICING_PLANS.mastery, ...customPlans.mastery },
           elite: { ...DEFAULT_PRICING_PLANS.elite, ...customPlans.elite },
@@ -65,7 +66,7 @@ export const getPlatformPricing = createServerFn({ method: "GET" }).handler(asyn
 });
 
 const TierUpdateSchema = z.object({
-  tier: z.enum(["foundation", "pro", "mastery", "elite"]),
+  tier: z.enum(["foundation", "scholar_plus", "pro", "mastery", "elite"]),
   monthlyPrice: z.number().int().min(0).max(100000),
   annualPrice: z.number().int().min(0).max(1000000),
   essaysPerMonth: z.number().int().min(1).max(99999),

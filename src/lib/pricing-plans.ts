@@ -18,6 +18,7 @@ export interface PricingTierConfig {
 
 export interface PlatformPricingPlans {
   foundation: PricingTierConfig;
+  scholar_plus: PricingTierConfig;
   pro: PricingTierConfig;
   mastery: PricingTierConfig;
   elite: PricingTierConfig;
@@ -41,6 +42,26 @@ export const DEFAULT_PRICING_PLANS: PlatformPricingPlans = {
       "Full AO1, AO2, AO3 Diagnostic Reports",
       "Cambridge Definitions Hub & Drills",
       "Exemplar Showcase & Past MCQ Papers",
+    ],
+  },
+  scholar_plus: {
+    name: "Scholar Plus",
+    tagline: "Focused exam booster: flat ₹199/mo for 15 essays & 6 Live Examiner credits.",
+    monthlyPrice: 199,
+    annualPrice: 1999,
+    annualEquivalentMonthly: 166,
+    savePct: 16,
+    essaysPerMonth: 15,
+    liveCredits: 6,
+    hasExperimentalLabs: false,
+    features: [
+      "15 Cambridge Graded Essays / month",
+      "6 Live Examiner Credits / month (Real-time Socratic AI Coaching)",
+      "Unlimited Instant In-Browser Grammar & Economics Terminology Checks (< 50ms)",
+      "Full AO1, AO2, AO3 Diagnostic Reports & Mark Scheme Matching",
+      "Cambridge Definitions Hub & Drills",
+      "Exemplar Showcase & Past MCQ Papers with Explanations",
+      "All Foundation features included",
     ],
   },
   pro: {

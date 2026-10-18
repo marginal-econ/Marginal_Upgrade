@@ -139,6 +139,26 @@ const STUDENT_TIERS: StudentTier[] = [
     ],
   },
   {
+    id: "scholar_plus",
+    name: "Scholar Plus",
+    tagline: "Focused exam booster: flat ₹199/mo for 15 essays & 6 Live Examiner credits.",
+    monthlyPrice: 199,
+    annualPrice: 1999,
+    annualEquivalentMonthly: 166,
+    savePct: 16,
+    quota: "15 Graded Essays / mo · 6 Live Examiner Credits",
+    badge: "Great Value",
+    features: [
+      "15 Cambridge Graded Essays / month",
+      "6 Live Examiner Credits / month (Real-time Socratic AI Coaching)",
+      "Unlimited Instant In-Browser Grammar & Economics Terminology Checks (< 50ms)",
+      "Full AO1, AO2, AO3 Diagnostic Reports & Mark Scheme Matching",
+      "Cambridge Definitions Hub & Drills",
+      "Exemplar Showcase & Past MCQ Papers with Explanations",
+      "All Foundation features included",
+    ],
+  },
+  {
     id: "pro",
     name: "Pro Accelerator",
     tagline: "The benchmark for serious Cambridge candidates studying year-round.",
@@ -340,6 +360,18 @@ export function PricingSection({ className }: { className?: string }) {
       features: activePlans.foundation.features,
     },
     {
+      id: "scholar_plus",
+      name: activePlans.scholar_plus.name,
+      tagline: activePlans.scholar_plus.tagline,
+      monthlyPrice: activePlans.scholar_plus.monthlyPrice,
+      annualPrice: activePlans.scholar_plus.annualPrice,
+      annualEquivalentMonthly: activePlans.scholar_plus.annualEquivalentMonthly,
+      savePct: activePlans.scholar_plus.savePct,
+      quota: `${activePlans.scholar_plus.essaysPerMonth} Graded Essays / mo · ${activePlans.scholar_plus.liveCredits} Live Credits`,
+      badge: "Great Value",
+      features: activePlans.scholar_plus.features,
+    },
+    {
       id: "pro",
       name: activePlans.pro.name,
       tagline: activePlans.pro.tagline,
@@ -372,7 +404,7 @@ export function PricingSection({ className }: { className?: string }) {
       annualPrice: activePlans.elite.annualPrice,
       annualEquivalentMonthly: activePlans.elite.annualEquivalentMonthly,
       savePct: activePlans.elite.savePct,
-      quota: `Unlimited Essays · ${activePlans.elite.liveCredits}+ Live Credits`,
+      quota: `${activePlans.elite.essaysPerMonth} Graded Essays / mo · ${activePlans.elite.liveCredits} Live Credits`,
       badge: "VIP All-Access Pass",
       features: activePlans.elite.features,
     },
@@ -586,7 +618,7 @@ export function PricingSection({ className }: { className?: string }) {
             })}
           </div>
         ) : audience === "students" ? (
-          <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 items-stretch">
+          <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3 items-stretch">
             {/* ── Column 1: Get Started for Free ── */}
             <div className="relative flex flex-col justify-between rounded-2xl border border-border/80 bg-card/60 p-5 sm:p-6 transition-all duration-300 hover:border-primary/40 h-full">
               <div className="absolute -top-3 left-6">

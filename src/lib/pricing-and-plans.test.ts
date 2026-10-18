@@ -6,14 +6,17 @@ describe("Pricing Plans & Tier Specifications", () => {
     expect(TIER_LIMITS.free.maxEssaysPerMonth).toBe(2);
     expect(TIER_LIMITS.foundation.maxEssaysPerMonth).toBe(8);
     expect(TIER_LIMITS.foundation.liveExaminerCredits).toBe(3);
+    expect(TIER_LIMITS.scholar_plus.maxEssaysPerMonth).toBe(15);
+    expect(TIER_LIMITS.scholar_plus.liveExaminerCredits).toBe(6);
     expect(TIER_LIMITS.pro.maxEssaysPerMonth).toBe(20);
     expect(TIER_LIMITS.mastery.maxEssaysPerMonth).toBe(45);
     expect(TIER_LIMITS.elite.maxEssaysPerMonth).toBe(80);
+    expect(TIER_LIMITS.elite.liveExaminerCredits).toBe(35);
   });
 
   it("educator plans structure aligns with ₹99/mo starting price", () => {
-    // ₹99 foundation, ₹399 pro, ₹699 mastery, ₹999 elite
-    const tiers: PlanTier[] = ["foundation", "pro", "mastery", "elite"];
+    // ₹99 foundation, ₹199 scholar_plus, ₹399 pro, ₹699 mastery, ₹999 elite
+    const tiers: PlanTier[] = ["foundation", "scholar_plus", "pro", "mastery", "elite"];
     tiers.forEach((tier) => {
       expect(TIER_LIMITS[tier]).toBeDefined();
       expect(TIER_LIMITS[tier].liveExaminerCredits).toBeGreaterThan(0);

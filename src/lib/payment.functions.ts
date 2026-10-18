@@ -17,7 +17,7 @@ import { assignUserSubscriptionTier, getUserSubscriptionDetails } from "./subscr
 import { TIER_LIMITS, type PlanTier } from "./usage-limits";
 
 const ActivateInput = z.object({
-  tier: z.enum(["foundation", "pro", "mastery", "elite"]),
+  tier: z.enum(["foundation", "scholar_plus", "pro", "mastery", "elite"]),
   billingCycle: z.enum(["monthly", "annual"]).default("monthly"),
   paymentId: z.string().optional(),
   orderId: z.string().optional(),
@@ -28,7 +28,7 @@ const ActivateInput = z.object({
 });
 
 const UpiSubmissionInput = z.object({
-  tier: z.enum(["foundation", "pro", "mastery", "elite"]),
+  tier: z.enum(["foundation", "scholar_plus", "pro", "mastery", "elite"]),
   billingCycle: z.enum(["monthly", "annual"]).default("monthly"),
   amount: z.number().int().min(1),
   utrReference: z.string().min(6).max(30),
@@ -407,7 +407,7 @@ export const listUpiPaymentRequests = createServerFn({ method: "GET" })
         userId: parsed.userId || "",
         userEmail: parsed.userEmail || "Student (" + (parsed.userId?.slice(0, 8) || "") + ")",
         tier: (parsed.tier || "foundation") as PlanTier,
-        amount: parsed.amount || (parsed.tier === "foundation" ? 99 : parsed.tier === "pro" ? 399 : parsed.tier === "mastery" ? 699 : 999),
+        amount: parsed.amount || (parsed.tier === "foundation" ? 99 : parsed.tier === "scholar_plus" ? 199 : parsed.tier === "pro" ? 399 : parsed.tier === "mastery" ? 699 : 999),
         utr: parsed.utr || row.term.replace("__UPI_REQ_", ""),
         status: (parsed.status || "pending") as "pending" | "approved" | "rejected",
         submittedAt: parsed.submittedAt || row.created_at,

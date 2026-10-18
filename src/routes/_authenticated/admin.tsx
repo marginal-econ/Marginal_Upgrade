@@ -3265,7 +3265,7 @@ function PricingAdminPanel() {
     >
   >({});
 
-  const getTierState = (tier: "foundation" | "pro" | "mastery" | "elite") => {
+  const getTierState = (tier: "foundation" | "scholar_plus" | "pro" | "mastery" | "elite") => {
     if (tierForms[tier]) return tierForms[tier];
     const plan = activePlans[tier];
     return {
@@ -3279,7 +3279,7 @@ function PricingAdminPanel() {
 
   const updateTierMutation = useMutation({
     mutationFn: (data: {
-      tier: "foundation" | "pro" | "mastery" | "elite";
+      tier: "foundation" | "scholar_plus" | "pro" | "mastery" | "elite";
       monthlyPrice: number;
       annualPrice: number;
       essaysPerMonth: number;
@@ -3318,8 +3318,9 @@ function PricingAdminPanel() {
     onError: (err: any) => toast.error(err?.message || "Failed to update user credits."),
   });
 
-  const tiers: ("foundation" | "pro" | "mastery" | "elite")[] = [
+  const tiers: ("foundation" | "scholar_plus" | "pro" | "mastery" | "elite")[] = [
     "foundation",
+    "scholar_plus",
     "pro",
     "mastery",
     "elite",
@@ -3532,6 +3533,7 @@ function PricingAdminPanel() {
               <SelectContent>
                 <SelectItem value="free">Free Starter (2 essays)</SelectItem>
                 <SelectItem value="foundation">Foundation Scholar</SelectItem>
+                <SelectItem value="scholar_plus">Scholar Plus</SelectItem>
                 <SelectItem value="pro">Pro Accelerator</SelectItem>
                 <SelectItem value="mastery">A* Mastery Sprint</SelectItem>
                 <SelectItem value="elite">Cambridge Elite Pass</SelectItem>
