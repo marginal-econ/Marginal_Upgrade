@@ -709,7 +709,8 @@ function fillMissingQuestionPages(
         }
       },
       {
-        rootMargin: "-15% 0px -60% 0px",
+        root: scrollRef.current,
+        rootMargin: "-10% 0px -55% 0px",
         threshold: 0,
       },
     );
@@ -721,6 +722,21 @@ function fillMissingQuestionPages(
 
     return () => observer.disconnect();
   }, [stage, pages.length]);
+
+  // When visible page updates as student scrolls the paper, gently scroll the side panel to keep those questions in view
+  useEffect(() => {
+    if (stage !== "practice" || !visiblePage) return;
+    const pageQuestions = Object.entries(questionPages)
+      .filter(([, p]) => p === visiblePage)
+      .map(([q]) => Number(q))
+      .sort((a, b) => a - b);
+    if (pageQuestions.length > 0) {
+      const firstQ = pageQuestions[0];
+      const el = answerRowRefs.current.get(firstQ);
+      el?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+  }, [visiblePage, questionPages, stage]);
+
 
   /* ---------------- countdown timer ----------------
    *
@@ -1045,8 +1061,8 @@ function fillMissingQuestionPages(
           </div>
         </div>
       ) : (
-        <div>
-          <div className="sticky top-0 z-30 flex items-center justify-between gap-2 border-b border-border bg-background/95 px-3 py-2.5 backdrop-blur md:px-6">
+        <div className="flex flex-col h-[calc(100dvh-3.5rem)] md:h-[100dvh] overflow-hidden bg-background">
+          <div className="shrink-0 z-30 flex items-center justify-between gap-2 border-b border-border bg-background/95 px-3 py-2.5 backdrop-blur md:px-6">
             <div className="flex items-center gap-2 min-w-0">
               <Button size="sm" variant="ghost" onClick={leavePractice} className="h-8 px-2 text-xs gap-1 shrink-0">
                 <ChevronLeft className="h-3.5 w-3.5" />
@@ -1139,7 +1155,7 @@ function fillMissingQuestionPages(
           </div>
 
           {annotateMode ? (
-            <div className="sticky top-[53px] z-30 flex flex-wrap items-center gap-3 border-b border-border bg-card/95 px-3 py-2 backdrop-blur md:px-6">
+            <div className="shrink-0 z-20 flex flex-wrap items-center gap-3 border-b border-border bg-card/95 px-3 py-2 backdrop-blur md:px-6">
               <span className="text-xs text-muted-foreground">Mark up the page:</span>
               <div className="flex items-center gap-1.5">
                 {ANNOTATE_COLORS.map((c) => (
@@ -1180,7 +1196,7 @@ function fillMissingQuestionPages(
           ) : null}
 
           {timeUp ? (
-            <div className="border-b border-destructive/30 bg-destructive/10 px-5 py-2 text-center text-xs text-destructive md:px-8">
+            <div className="shrink-0 border-b border-destructive/30 bg-destructive/10 px-5 py-2 text-center text-xs text-destructive md:px-8">
               Time's up — this attempt has been submitted automatically.
             </div>
           ) : null}
@@ -1192,7 +1208,7 @@ function fillMissingQuestionPages(
                 return (
                   <div
                     className={[
-                      "animate-in fade-in slide-in-from-top-2 zoom-in-95 flex flex-col items-center justify-center gap-1.5 border-b px-5 py-6 text-center duration-300",
+                      "shrink-0 animate-in fade-in slide-in-from-top-2 zoom-in-95 flex flex-col items-center justify-center gap-1.5 border-b px-5 py-5 text-center duration-300",
                       tier.className,
                     ].join(" ")}
                   >
@@ -1207,80 +1223,80 @@ function fillMissingQuestionPages(
               })()
             : null}
 
-          <div
-            ref={scrollRef}
-            className="w-full max-w-7xl mx-auto px-2 sm:px-4 py-4 flex flex-col lg:flex-row lg:items-start lg:justify-center gap-6 pb-36 lg:pb-12"
-          >
-            {/* Paper Column */}
-            <div className="flex-1 min-w-0 max-w-[820px] mx-auto flex flex-col items-center gap-8">
-              {pages.map((page) => (
-                <PageCanvas
-                  key={page.pageNumber}
-                  page={page}
-                  totalPages={pages.length}
-                  pageQuestions={Object.entries(questionPages)
-                    .filter(([, p]) => p === page.pageNumber)
-                    .map(([q]) => Number(q))
-                    .sort((a, b) => a - b)}
-                  answers={answers}
-                  activeQuestion={activeQuestion}
-                  onSelectQuestion={goToQuestion}
-                  annotateMode={annotateMode}
-                  annotateTool={annotateTool}
-                  annotateColor={annotateColor}
-                  onRegisterAnnotationCanvas={registerAnnotationCanvas}
-                />
-              ))}
+          <div className="flex-1 min-h-0 flex flex-col lg:flex-row overflow-hidden relative">
+            {/* Paper Column: Independently scrollable, only the paper scrolls */}
+            <div
+              ref={scrollRef}
+              className="flex-1 min-w-0 h-full overflow-y-auto px-2 sm:px-4 py-4 scroll-smooth"
+            >
+              <div className="w-full max-w-[820px] mx-auto flex flex-col items-center gap-8 pb-36 lg:pb-16">
+                {pages.map((page) => (
+                  <PageCanvas
+                    key={page.pageNumber}
+                    page={page}
+                    totalPages={pages.length}
+                    pageQuestions={Object.entries(questionPages)
+                      .filter(([, p]) => p === page.pageNumber)
+                      .map(([q]) => Number(q))
+                      .sort((a, b) => a - b)}
+                    answers={answers}
+                    activeQuestion={activeQuestion}
+                    onSelectQuestion={goToQuestion}
+                    annotateMode={annotateMode}
+                    annotateTool={annotateTool}
+                    annotateColor={annotateColor}
+                    onRegisterAnnotationCanvas={registerAnnotationCanvas}
+                  />
+                ))}
+
+                {graded && attemptTopics.length > 0 ? (
+                  <div className="w-full max-w-2xl space-y-4 pt-4 pb-12">
+                    <McqDomainBreakdown domains={attemptDomains} title="This paper: micro vs macro" />
+                    <McqReviewPanel
+                      topics={attemptTopics}
+                      title="This paper, in short"
+                      emptyLabel="No topics tagged."
+                    />
+                  </div>
+                ) : null}
+              </div>
             </div>
 
-            {/* Desktop Side Panel (Sticky) */}
-            <div
+            {/* Desktop Side Panel: Permanently FIXED right beside the paper, NEVER disappears */}
+            <aside
               className={cn(
-                "hidden lg:block shrink-0 sticky top-16 self-start max-h-[calc(100vh-5rem)] overflow-y-auto pr-1",
-                graded ? "w-80 xl:w-96" : "w-72 xl:w-80"
+                "hidden lg:flex flex-col shrink-0 h-full border-l border-border/80 bg-card/40 backdrop-blur-xs z-10",
+                graded ? "w-80 xl:w-96" : "w-72 xl:w-84"
               )}
             >
-              {graded ? (
-                <McqQuestionReviewList
-                  questions={reviewQuestions}
-                  onSelect={goToQuestion}
-                  onExplain={handleExplain}
-                  explanations={explanations}
-                  title="Review & explain"
-                />
-              ) : (
-                <Card className="border-border/80 shadow-md">
-                  <CardContent className="p-3 sm:p-4">
-                    <AnswerSidePanel
-                      numbers={questionNumbers}
-                      answers={answers}
-                      answerKey={answerKey}
-                      graded={graded}
-                      onPick={pick}
-                      flagged={flagged}
-                      onToggleFlag={toggleFlag}
-                      highlightNumber={highlightNumber}
-                      rowRefs={answerRowRefs}
-                      onJumpToQuestion={goToQuestion}
-                      activeQuestion={activeQuestion}
-                      questionPages={questionPages}
-                    />
-                  </CardContent>
-                </Card>
-              )}
-            </div>
+              <div className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-4">
+                {graded ? (
+                  <McqQuestionReviewList
+                    questions={reviewQuestions}
+                    onSelect={goToQuestion}
+                    onExplain={handleExplain}
+                    explanations={explanations}
+                    title="Review & explain"
+                  />
+                ) : (
+                  <AnswerSidePanel
+                    numbers={questionNumbers}
+                    answers={answers}
+                    answerKey={answerKey}
+                    graded={graded}
+                    onPick={pick}
+                    flagged={flagged}
+                    onToggleFlag={toggleFlag}
+                    highlightNumber={highlightNumber}
+                    rowRefs={answerRowRefs}
+                    onJumpToQuestion={goToQuestion}
+                    activeQuestion={activeQuestion}
+                    questionPages={questionPages}
+                  />
+                )}
+              </div>
+            </aside>
           </div>
-
-          {graded && attemptTopics.length > 0 ? (
-            <div className="mx-auto max-w-2xl space-y-4 px-4 pb-12">
-              <McqDomainBreakdown domains={attemptDomains} title="This paper: micro vs macro" />
-              <McqReviewPanel
-                topics={attemptTopics}
-                title="This paper, in short"
-                emptyLabel="No topics tagged."
-              />
-            </div>
-          ) : null}
 
           {/* Mobile floating bottom answering dock */}
           <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-card/95 backdrop-blur-md border-t border-border shadow-2xl px-3 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
