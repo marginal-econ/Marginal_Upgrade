@@ -53,6 +53,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import {
   classifyMcqTopics,
   explainMcqAnswer,
+  fetchPaperPdf,
   getMcqTopicPerformance,
   getMyPaperHistory,
   getPdfMcqAttempt,
@@ -209,9 +210,20 @@ type PageImage = {
   canvas: HTMLCanvasElement;
 };
 
+function base64ToArrayBuffer(base64: string): ArrayBuffer {
+  const binaryString = atob(base64);
+  const len = binaryString.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  return bytes.buffer;
+}
+
 /* -------------------------------------------------------------------- */
 /* Component                                                             */
 /* -------------------------------------------------------------------- */
+
 
 function McqLivePage() {
   const search = Route.useSearch();
@@ -330,6 +342,7 @@ function McqLivePage() {
   const classifyTopicsFn = useServerFn(classifyMcqTopics);
   const submitAttemptFn = useServerFn(submitPdfMcqAttempt);
   const explainFn = useServerFn(explainMcqAnswer);
+  const fetchPaperPdfFn = useServerFn(fetchPaperPdf);
 
   /** Fetches a short written explanation for one question, on demand — only
    *  ever called from the post-attempt review list, never during the attempt. */
@@ -584,10 +597,24 @@ function fillMissingQuestionPages(
     setBusyLabel("Fetching the paper…");
     try {
       const pdfjs = await loadPdfjs();
-      const res = await fetch(paper.qpUrl);
-      if (!res.ok) throw new Error("Could not download that paper.");
-      const buf = await res.arrayBuffer();
-      const doc = await pdfjs.getDocument({ data: buf }).promise;
+      let buf: ArrayBuffer;
+      try {
+        const res = await fetch(paper.qpUrl);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        buf = await res.arrayBuffer();
+      } catch (directErr) {
+        // Fallback to server-side proxy download (handles CORS, ISP/network blocks, missing headers)
+        try {
+          const { base64 } = await fetchPaperPdfFn({ data: { qpUrl: paper.qpUrl } });
+          buf = base64ToArrayBuffer(base64);
+        } catch (proxyErr) {
+          throw new Error("Could not download the question paper file.");
+        }
+      }
+
+      const doc = await pdfjs.getDocument({
+        data: new Uint8Array(buf),
+      }).promise;
 
       const built: PageImage[] = [];
       const stems: StemBlob[] = [];
@@ -601,16 +628,20 @@ function fillMissingQuestionPages(
         canvas.height = viewport.height;
         const ctx = canvas.getContext("2d");
         if (!ctx) continue;
-        await page.render({ canvas, canvasContext: ctx, viewport }).promise;
+        await page.render({ canvasContext: ctx, viewport }).promise;
         built.push({ pageNumber: p, canvas });
 
-        const content = await page.getTextContent();
-        const pageStems = extractQuestionStems(content.items as PdfTextItem[]);
-        stems.push(...pageStems);
-        for (const s of pageStems) {
-          if (s.number >= 1 && s.number <= paper.questionCount && !rawPageMap[s.number]) {
-            rawPageMap[s.number] = p;
+        try {
+          const content = await page.getTextContent();
+          const pageStems = extractQuestionStems(content.items as PdfTextItem[]);
+          stems.push(...pageStems);
+          for (const s of pageStems) {
+            if (s.number >= 1 && s.number <= paper.questionCount && !rawPageMap[s.number]) {
+              rawPageMap[s.number] = p;
+            }
           }
+        } catch (textErr) {
+          console.warn(`Text extraction skipped for page ${p}:`, textErr);
         }
       }
 
@@ -636,7 +667,12 @@ function fillMissingQuestionPages(
         );
       }
     } catch (err) {
-      toast.error("Couldn't process that PDF.");
+      console.error("MCQ PDF practice load error:", err);
+      toast.error(
+        err instanceof Error
+          ? `Could not load PDF: ${err.message}`
+          : "Couldn't process that PDF.",
+      );
     } finally {
       setBusyLabel(null);
     }

@@ -217,3 +217,22 @@ export const getPdfMcqAttempt = createServerFn({ method: "GET" })
       }>,
     };
   });
+
+/** Proxy paper PDF download on the server to prevent any client CORS or network filter blocks. */
+export const fetchPaperPdf = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z
+      .object({
+        qpUrl: z.string().url(),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data }) => {
+    const res = await fetch(data.qpUrl);
+    if (!res.ok) throw new Error(`Could not fetch PDF from storage (${res.status} ${res.statusText})`);
+    const arrayBuffer = await res.arrayBuffer();
+    const base64 = Buffer.from(arrayBuffer).toString("base64");
+    return { base64 };
+  });
+
