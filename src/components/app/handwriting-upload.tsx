@@ -154,6 +154,11 @@ export function HandwritingUpload({
     setStagedPages([]);
   }
 
+  function handleTranscribeStaged() {
+    if (stagedPages.length === 0) return;
+    handwrittenMutation.mutate(stagedPages.map((p) => p.dataUrl));
+  }
+
   const handwrittenMutation = useMutation({
     mutationFn: async (images: string[]) => {
       setHandwrittenStage(

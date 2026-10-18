@@ -399,123 +399,122 @@ function GradePage() {
         />
       ) : (
         <>
-          <div className="px-3.5 pt-5 pb-0 sm:px-6 md:px-8 space-y-3">
-
-        <div className="flex items-center gap-2.5 rounded-xl border border-primary/20 bg-primary/[0.04] px-3.5 py-2.5 text-xs text-muted-foreground">
-          <ShieldCheck className="size-4 shrink-0 text-primary" />
-          <p className="leading-relaxed">
-            <strong className="text-foreground font-semibold">Cambridge 9708 Standard:</strong>{" "}
-            Marking bands, AO ratios, and model feedback are calibrated against published Cambridge
-            Assessment guidelines. Marginal is an independent study platform and not endorsed by
-            Cambridge Assessment.
-          </p>
-        </div>
-      </div>
-
-      <div className="grid gap-6 px-3.5 py-5 sm:px-6 md:px-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
-        <div className="panel space-y-4 p-4 sm:p-5">
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-xs text-muted-foreground">
-              Not sure how to lay out your answer?{" "}
-              <Link
-                to="/response-structure"
-                className="font-medium text-foreground underline underline-offset-2"
-              >
-                See how to structure a response
-              </Link>
-              .
-            </p>
-          </div>
-
-          <div className="space-y-1.5">
-            <Label htmlFor="question">Exam question</Label>
-            <Textarea
-              id="question"
-              rows={3}
-              placeholder="Discuss whether a rise in the minimum wage will always reduce employment."
-              value={question}
-              onChange={(event) => setQuestion(event.target.value)}
-            />
-            {question.trim().length >= 15 ? (
-              groundingQuery.isLoading ? (
-                <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground animate-pulse">
-                  <Loader2 className="size-3 animate-spin" />
-                  Checking Knowledge Base for official Cambridge mark schemes...
-                </p>
-              ) : groundingQuery.data?.grounded ? (
-                <div className="flex items-center gap-1.5 text-[11px] text-emerald-400 font-medium">
-                  <CheckCircle2 className="size-3.5 shrink-0" />
-                  <span>
-                    Knowledge Base Grounded: Verified against {groundingQuery.data.topMatchTitle} ({Math.round((groundingQuery.data.topSimilarity ?? 0) * 100)}% match)
-                  </span>
-                </div>
-              ) : (
-                <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-2 text-[11px] text-amber-300">
-                  <div className="flex items-start gap-1.5">
-                    <AlertTriangle className="size-3.5 mt-0.5 shrink-0 text-amber-400" />
-                    <div className="space-y-0.5">
-                      <span className="font-semibold">No specific mark scheme found in Knowledge Base</span>
-                      <p className="text-amber-200/80 leading-normal">
-                        Paste or attach a screenshot of the official mark scheme below for question-specific grounding, or this essay will be marked against standard Cambridge AO level rubrics.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )
-            ) : null}
-          </div>
-
-          <div className="space-y-1.5">
-            <Label htmlFor="maxMark">Question type</Label>
-            <Select
-              value={maxMark}
-              onValueChange={(value) => {
-                setMaxMark(value);
-                setWritingCheck(null);
-              }}
-            >
-              <SelectTrigger id="maxMark">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="8">
-                  8 marks (normal 8-mark question — AO1 2 / AO2 4 / AO3 2)
-                </SelectItem>
-                <SelectItem value="12">
-                  12 marks (AS evaluative essay — AO1 2 / AO2 6 / AO3 4)
-                </SelectItem>
-                <SelectItem value="20">
-                  20 marks (A Level extended essay — AO1 2 / AO2 12 / AO3 6)
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-1.5">
-            <div className="flex items-baseline justify-between">
-              <Label htmlFor="essay">Your answer</Label>
-              <span className="text-xs text-muted-foreground">{words} words</span>
+          <div className="px-3.5 pt-3 pb-0 sm:px-6 sm:pt-4 md:px-8">
+            <div className="flex items-center gap-2 rounded-lg border border-primary/20 bg-primary/[0.03] px-3 py-2 text-[11px] sm:text-xs text-muted-foreground">
+              <ShieldCheck className="size-3.5 sm:size-4 shrink-0 text-primary" />
+              <p className="leading-snug sm:leading-relaxed">
+                <span className="text-foreground font-semibold">Cambridge 9708 Standard:</span>{" "}
+                Calibrated against official assessment guidelines. Independent study platform.
+              </p>
             </div>
-            <Textarea
-              id="essay"
-              rows={16}
-              className="font-sans text-[15px] leading-[1.8] p-4 rounded-xl"
-              placeholder="Paste or type your full essay here…"
-              value={essayText}
-              onChange={(event) => {
-                setEssayText(event.target.value);
-                setWritingCheck(null);
-              }}
-            />
           </div>
 
-          <HandwritingUpload
-            hint={question}
-            onText={(text) => {
-              setEssayText((current) => (current.trim() ? `${current.trim()}\n\n${text}` : text));
-              setWritingCheck(null);
-            }}
-          />
+          <div className="grid gap-4 sm:gap-6 px-3.5 py-3 sm:py-5 sm:px-6 md:px-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
+            <div className="panel space-y-3.5 sm:space-y-4 p-3.5 sm:p-5">
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between gap-2">
+                  <Label htmlFor="question" className="text-xs sm:text-sm font-semibold text-foreground">
+                    Exam question
+                  </Label>
+                  <Link
+                    to="/response-structure"
+                    className="text-[11px] text-muted-foreground hover:text-foreground underline underline-offset-2 transition-colors shrink-0"
+                  >
+                    Structure guide
+                  </Link>
+                </div>
+                <Textarea
+                  id="question"
+                  rows={2}
+                  className="min-h-[64px] sm:min-h-[80px] text-xs sm:text-sm"
+                  placeholder="Discuss whether a rise in the minimum wage will always reduce employment."
+                  value={question}
+                  onChange={(event) => setQuestion(event.target.value)}
+                />
+                {question.trim().length >= 15 ? (
+                  groundingQuery.isLoading ? (
+                    <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground animate-pulse">
+                      <Loader2 className="size-3 animate-spin" />
+                      Checking Knowledge Base for official Cambridge mark schemes...
+                    </p>
+                  ) : groundingQuery.data?.grounded ? (
+                    <div className="flex items-center gap-1.5 text-[11px] text-emerald-400 font-medium">
+                      <CheckCircle2 className="size-3.5 shrink-0" />
+                      <span>
+                        Knowledge Base Grounded: Verified against {groundingQuery.data.topMatchTitle} ({Math.round((groundingQuery.data.topSimilarity ?? 0) * 100)}% match)
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-2 text-[11px] text-amber-300">
+                      <div className="flex items-start gap-1.5">
+                        <AlertTriangle className="size-3.5 mt-0.5 shrink-0 text-amber-400" />
+                        <div className="space-y-0.5">
+                          <span className="font-semibold">No specific mark scheme found in Knowledge Base</span>
+                          <p className="text-amber-200/80 leading-normal">
+                            Paste or attach a screenshot of the official mark scheme below for question-specific grounding, or this essay will be marked against standard Cambridge AO level rubrics.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                ) : null}
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="maxMark" className="text-xs sm:text-sm font-semibold text-foreground">
+                  Question type
+                </Label>
+                <Select
+                  value={maxMark}
+                  onValueChange={(value) => {
+                    setMaxMark(value);
+                    setWritingCheck(null);
+                  }}
+                >
+                  <SelectTrigger id="maxMark" className="h-9 sm:h-10 text-xs sm:text-sm">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="8">
+                      8 marks (normal 8-mark question — AO1 2 / AO2 4 / AO3 2)
+                    </SelectItem>
+                    <SelectItem value="12">
+                      12 marks (AS evaluative essay — AO1 2 / AO2 6 / AO3 4)
+                    </SelectItem>
+                    <SelectItem value="20">
+                      20 marks (A Level extended essay — AO1 2 / AO2 12 / AO3 6)
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <div className="flex items-baseline justify-between">
+                  <Label htmlFor="essay" className="text-xs sm:text-sm font-semibold text-foreground">
+                    Your answer
+                  </Label>
+                  <span className="text-[11px] sm:text-xs text-muted-foreground font-mono">{words} words</span>
+                </div>
+                <Textarea
+                  id="essay"
+                  rows={8}
+                  className="font-sans text-xs sm:text-[15px] leading-relaxed sm:leading-[1.8] p-3 sm:p-4 rounded-xl min-h-[160px] sm:min-h-[280px]"
+                  placeholder="Paste or type your full essay here, or upload handwritten pages below…"
+                  value={essayText}
+                  onChange={(event) => {
+                    setEssayText(event.target.value);
+                    setWritingCheck(null);
+                  }}
+                />
+              </div>
+
+              <HandwritingUpload
+                hint={question}
+                onText={(text) => {
+                  setEssayText((current) => (current.trim() ? `${current.trim()}\n\n${text}` : text));
+                  setWritingCheck(null);
+                }}
+              />
 
           <div className="space-y-3 rounded-lg border border-border bg-muted/30 p-4">
             <Label className="text-sm font-medium">Diagram references (optional)</Label>
