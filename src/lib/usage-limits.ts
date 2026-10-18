@@ -5,7 +5,7 @@
  * Tier Rules:
  * - Free: Up to 2 graded essays alone. MCQ past papers free for 30 days. Live Examiner is PAID ONLY (0 credits).
  * - Foundation: 8 graded essays / month, 3 Live Examiner credits, full syllabus access.
- * - Scholar Plus: 15 graded essays / month, 6 Live Examiner credits, enhanced drills.
+ * - Scholar Plus: 15 graded essays / month, 5 Live Examiner credits, enhanced drills.
  * - Pro: 20 graded essays / month, 10 Live Examiner credits, arbitration & models.
  * - Mastery: 45 graded essays / month, 20 Live Examiner credits, OCR handwriting.
  * - Elite: 80 graded essays / month, 35 Live Examiner credits, priority queue.
@@ -42,7 +42,7 @@ export const TIER_LIMITS = {
     name: "Scholar Plus",
     maxEssaysTotal: Infinity,
     maxEssaysPerMonth: 15,
-    liveExaminerCredits: 6,
+    liveExaminerCredits: 5,
     liveExaminerEnabled: true,
     mcqFreeDays: 365,
   },

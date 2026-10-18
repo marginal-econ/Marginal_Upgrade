@@ -74,7 +74,7 @@ const TIER_PRICING = {
     annual: 1999,
     annualMonthlyEq: 166,
     savePct: 16,
-    tagline: "Scholar Plus — 15 essays/mo and 6 Live Examiner credits (₹199/mo)",
+    tagline: "Scholar Plus — 15 essays/mo and 5 Live Examiner credits (₹199/mo)",
   },
   pro: {
     monthly: 399,
@@ -582,7 +582,7 @@ function PaymentPortalPage() {
                       tierBadge = "Educator AI Pass";
                     } else if (tierKey === "scholar_plus") {
                       tierTitle = "Senior Educator Pass";
-                      tierSubtitle = "15 Cambridge Graded Essay evaluations / mo, 6 Live Examiner Credits, custom curriculum mark schemes";
+                      tierSubtitle = "15 Cambridge Graded Essay evaluations / mo, 5 Live Examiner Credits, custom curriculum mark schemes";
                       tierBadge = "Senior Educator";
                     } else if (tierKey === "pro") {
                       tierTitle = "Department Lead Pass";

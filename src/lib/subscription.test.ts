@@ -67,7 +67,7 @@ describe("Subscription Details & Entitlements", () => {
     expect(details.canGradeEssay).toBe(true);
   });
 
-  it("resolves scholar_plus tier correctly with 15 essays and 6 Live Examiner credits", async () => {
+  it("resolves scholar_plus tier correctly with 15 essays and 5 Live Examiner credits", async () => {
     const mockDb = createMockSupabase([
       {
         term: "__USER_SUB_user-scholar-plus-123",
@@ -87,7 +87,7 @@ describe("Subscription Details & Entitlements", () => {
     expect(details.tierName).toBe("Scholar Plus");
     expect(details.essaysLimit).toBe(15);
     expect(details.essaysRemaining).toBe(15);
-    expect(details.liveExaminerCredits).toBe(6);
+    expect(details.liveExaminerCredits).toBe(5);
     expect(details.canUseLiveExaminer).toBe(true);
     expect(details.canGradeEssay).toBe(true);
   });

@@ -29,7 +29,7 @@ export const Route = createFileRoute("/about")({
 
 const founders = [
   {
-    name: "Sai Krish Karthikeyan",
+    name: "Saikrish Karthikeyan",
     initials: "SK",
     role: "Co-founder and CEO",
     linkedin: "https://www.linkedin.com/in/saikrish-karthikeyan-074453400/",
@@ -112,7 +112,7 @@ function AboutPage() {
               ))}
             </div>
             <span className="text-sm font-medium text-plum-foreground/85">
-              Built by Sai Krish and Suthir
+              Built by Saikrish and Suthir
             </span>
           </div>
           <div className="mt-7 flex flex-wrap gap-2">

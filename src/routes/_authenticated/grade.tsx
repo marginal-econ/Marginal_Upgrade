@@ -207,22 +207,25 @@ function GradePage() {
     onError: (error: Error) => toast.error(error.message),
   });
 
-  function handleDiagramFile(file: File | undefined) {
-    if (!file) return;
-    const isImage =
-      file.type.startsWith("image/") ||
-      /\.(jpe?g|png|webp|heic|heif|bmp|gif|avif|tiff?)$/i.test(file.name);
-    if (!isImage) {
-      toast.error("Please upload an image file (PNG, JPEG, WebP, HEIC, etc.).");
-      return;
+  function handleDiagramFiles(files: FileList | File[] | null | undefined) {
+    if (!files || files.length === 0) return;
+    const fileArray = Array.from(files);
+    for (const file of fileArray) {
+      const isImage =
+        file.type.startsWith("image/") ||
+        /\.(jpe?g|png|webp|heic|heif|bmp|gif|avif|tiff?)$/i.test(file.name);
+      if (!isImage) {
+        toast.error(`${file.name} is not an image file (PNG, JPEG, WebP, HEIC).`);
+        continue;
+      }
+      const reader = new FileReader();
+      reader.onload = () => {
+        const dataUrl = reader.result as string;
+        describeDiagramImageMutation.mutate({ image: dataUrl, label: file.name });
+      };
+      reader.onerror = () => toast.error(`Could not read diagram image: ${file.name}`);
+      reader.readAsDataURL(file);
     }
-    const reader = new FileReader();
-    reader.onload = () => {
-      const dataUrl = reader.result as string;
-      describeDiagramImageMutation.mutate({ image: dataUrl, label: file.name });
-    };
-    reader.onerror = () => toast.error("Could not read that diagram image file.");
-    reader.readAsDataURL(file);
   }
 
   const checkMutation = useMutation({
@@ -396,9 +399,9 @@ function GradePage() {
         />
       ) : (
         <>
-          <div className="px-5 pt-6 pb-0 md:px-8 space-y-3">
+          <div className="px-3.5 pt-5 pb-0 sm:px-6 md:px-8 space-y-3">
 
-        <div className="flex items-center gap-2.5 rounded-xl border border-primary/20 bg-primary/[0.04] px-4 py-2.5 text-xs text-muted-foreground">
+        <div className="flex items-center gap-2.5 rounded-xl border border-primary/20 bg-primary/[0.04] px-3.5 py-2.5 text-xs text-muted-foreground">
           <ShieldCheck className="size-4 shrink-0 text-primary" />
           <p className="leading-relaxed">
             <strong className="text-foreground font-semibold">Cambridge 9708 Standard:</strong>{" "}
@@ -409,8 +412,8 @@ function GradePage() {
         </div>
       </div>
 
-      <div className="grid gap-6 px-5 py-6 md:px-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
-        <div className="panel space-y-4 p-5">
+      <div className="grid gap-6 px-3.5 py-5 sm:px-6 md:px-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
+        <div className="panel space-y-4 p-4 sm:p-5">
           <div className="flex items-center justify-between gap-3">
             <p className="text-xs text-muted-foreground">
               Not sure how to lay out your answer?{" "}
@@ -572,9 +575,10 @@ function GradePage() {
                   ref={diagramFileInputRef}
                   type="file"
                   accept="image/*,.heic,.heif"
+                  multiple
                   className="hidden"
                   onChange={(e) => {
-                    handleDiagramFile(e.target.files?.[0]);
+                    handleDiagramFiles(e.target.files);
                     e.target.value = "";
                   }}
                 />
@@ -584,9 +588,10 @@ function GradePage() {
                   type="file"
                   accept="image/*"
                   capture="environment"
+                  multiple
                   className="hidden"
                   onChange={(e) => {
-                    handleDiagramFile(e.target.files?.[0]);
+                    handleDiagramFiles(e.target.files);
                     e.target.value = "";
                   }}
                 />
@@ -605,10 +610,10 @@ function GradePage() {
                     }
                   }}
                   onPaste={(e) => {
-                    const item = e.clipboardData?.files?.[0];
-                    if (item && (item.type.startsWith("image/") || /\.(jpe?g|png|webp|heic|heif|bmp)$/i.test(item.name))) {
+                    const items = e.clipboardData?.files;
+                    if (items && items.length > 0) {
                       e.preventDefault();
-                      handleDiagramFile(item);
+                      handleDiagramFiles(items);
                     }
                   }}
                   onDragOver={(e) => {
@@ -619,9 +624,9 @@ function GradePage() {
                   onDrop={(e) => {
                     e.preventDefault();
                     setIsDiagramDragging(false);
-                    const file = e.dataTransfer?.files?.[0];
-                    if (file && (file.type.startsWith("image/") || /\.(jpe?g|png|webp|heic|heif|bmp)$/i.test(file.name))) {
-                      handleDiagramFile(file);
+                    const files = e.dataTransfer?.files;
+                    if (files && files.length > 0) {
+                      handleDiagramFiles(files);
                     }
                   }}
                   className={`flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-4 text-center cursor-pointer transition-colors focus:outline-none focus:ring-2 focus:ring-ring ${

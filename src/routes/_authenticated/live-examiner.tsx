@@ -200,22 +200,25 @@ function LiveExaminerPage() {
     staleTime: 10 * 60_000,
   });
 
-  function handleDiagramFile(file: File | undefined) {
-    if (!file) return;
-    const isImage =
-      file.type.startsWith("image/") ||
-      /\.(jpe?g|png|webp|heic|heif|bmp|gif|avif|tiff?)$/i.test(file.name);
-    if (!isImage) {
-      toast.error("Please select an image or photo.");
-      return;
+  function handleDiagramFiles(files: FileList | File[] | null | undefined) {
+    if (!files || files.length === 0) return;
+    const fileArray = Array.from(files);
+    for (const file of fileArray) {
+      const isImage =
+        file.type.startsWith("image/") ||
+        /\.(jpe?g|png|webp|heic|heif|bmp|gif|avif|tiff?)$/i.test(file.name);
+      if (!isImage) {
+        toast.error("Please select a valid image or photo.");
+        continue;
+      }
+      const reader = new FileReader();
+      reader.onload = () => {
+        const dataUrl = reader.result as string;
+        describeDiagramMutation.mutate(dataUrl);
+      };
+      reader.onerror = () => toast.error(`Couldn't read ${file.name} — try again.`);
+      reader.readAsDataURL(file);
     }
-    const reader = new FileReader();
-    reader.onload = () => {
-      const dataUrl = reader.result as string;
-      describeDiagramMutation.mutate(dataUrl);
-    };
-    reader.onerror = () => toast.error("Couldn't read that photo — try again.");
-    reader.readAsDataURL(file);
   }
 
   function applyLibraryDiagram(id: string) {
@@ -1591,9 +1594,10 @@ function LiveExaminerPage() {
                 ref={diagramFileRef}
                 type="file"
                 accept="image/*,.heic,.heif"
+                multiple
                 className="hidden"
                 onChange={(event) => {
-                  handleDiagramFile(event.target.files?.[0]);
+                  handleDiagramFiles(event.target.files);
                   event.target.value = "";
                 }}
               />
@@ -1603,9 +1607,10 @@ function LiveExaminerPage() {
                 type="file"
                 accept="image/*"
                 capture="environment"
+                multiple
                 className="hidden"
                 onChange={(event) => {
-                  handleDiagramFile(event.target.files?.[0]);
+                  handleDiagramFiles(event.target.files);
                   event.target.value = "";
                 }}
               />
@@ -1624,10 +1629,10 @@ function LiveExaminerPage() {
                   }
                 }}
                 onPaste={(e) => {
-                  const file = e.clipboardData?.files?.[0];
-                  if (file && (file.type.startsWith("image/") || /\.(jpe?g|png|webp|heic|heif|bmp)$/i.test(file.name))) {
+                  const files = e.clipboardData?.files;
+                  if (files && files.length > 0) {
                     e.preventDefault();
-                    handleDiagramFile(file);
+                    handleDiagramFiles(files);
                   }
                 }}
                 onDragOver={(e) => {
@@ -1638,9 +1643,9 @@ function LiveExaminerPage() {
                 onDrop={(e) => {
                   e.preventDefault();
                   setDiagramDragging(false);
-                  const file = e.dataTransfer?.files?.[0];
-                  if (file && (file.type.startsWith("image/") || /\.(jpe?g|png|webp|heic|heif|bmp)$/i.test(file.name))) {
-                    handleDiagramFile(file);
+                  const files = e.dataTransfer?.files;
+                  if (files && files.length > 0) {
+                    handleDiagramFiles(files);
                   }
                 }}
                 className={`flex flex-col items-center justify-center gap-1.5 rounded-lg border-2 border-dashed p-4 text-center cursor-pointer transition-colors focus:outline-none focus:ring-2 focus:ring-ring ${

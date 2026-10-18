@@ -7,7 +7,7 @@ describe("Pricing Plans & Tier Specifications", () => {
     expect(TIER_LIMITS.foundation.maxEssaysPerMonth).toBe(8);
     expect(TIER_LIMITS.foundation.liveExaminerCredits).toBe(3);
     expect(TIER_LIMITS.scholar_plus.maxEssaysPerMonth).toBe(15);
-    expect(TIER_LIMITS.scholar_plus.liveExaminerCredits).toBe(6);
+    expect(TIER_LIMITS.scholar_plus.liveExaminerCredits).toBe(5);
     expect(TIER_LIMITS.pro.maxEssaysPerMonth).toBe(20);
     expect(TIER_LIMITS.mastery.maxEssaysPerMonth).toBe(45);
     expect(TIER_LIMITS.elite.maxEssaysPerMonth).toBe(80);
