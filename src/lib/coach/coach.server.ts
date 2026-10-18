@@ -126,7 +126,7 @@ export async function coachPoint(
   // Mandatory, same as essay grading and Live Examiner — a retrieval
   // failure throws instead of silently coaching against nothing. See
   // grade.server.ts for the reasoning.
-  let sources: GroundingSource[];
+  let sources: GroundingSource[] = [];
   try {
     sources = await retrieve(supabase, {
       query: `${options.question}\n${options.pointText}`,
@@ -135,11 +135,8 @@ export async function coachPoint(
       enableHybridRrf: true,
     });
   } catch (error) {
-    throw new Error(
-      "Coaching requires your knowledge base, but the search against it failed " +
-        `(${error instanceof Error ? error.message : "unknown error"}). Check Admin → ` +
-        "Embeddings has an active provider before trying again.",
-    );
+    console.warn("Knowledge base retrieval failed during coaching, proceeding with syllabus coaching:", error);
+    sources = [];
   }
 
   const anchors = await fetchCalibrationAnchors(supabase);

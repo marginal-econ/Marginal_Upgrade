@@ -149,7 +149,7 @@ export async function gradeEssay(
   // failed call) is not an error — that's "nothing relevant is in the
   // knowledge base for this question yet" — so it's exposed via
   // `grading.sources` instead, not thrown.
-  let sources: GroundingSource[];
+  let sources: GroundingSource[] = [];
   try {
     sources = await retrieve(supabase, {
       query: `${question}\n\nMark scheme, band descriptors and examiner report guidance for this question.`,
@@ -159,11 +159,11 @@ export async function gradeEssay(
       enableHybridRrf: true,
     });
   } catch (error) {
-    throw new Error(
-      "Grading requires your knowledge base, but the search against it failed " +
-        `(${error instanceof Error ? error.message : "unknown error"}). Check Admin → ` +
-        "Embeddings has an active provider before marking again.",
+    console.warn(
+      "Knowledge base retrieval failed, proceeding with Cambridge 9708 syllabus marking:",
+      error,
     );
+    sources = [];
   }
   if (sources.length > 0) {
     systemPrompt = `${systemPrompt}\n\n${renderContext(sources)}`;

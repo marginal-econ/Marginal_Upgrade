@@ -428,7 +428,7 @@ async function embedViaGoogle(
   for (let offset = 0; offset < inputs.length; offset += EMBED_BATCH_LIMIT) {
     const batch = inputs.slice(offset, offset + EMBED_BATCH_LIMIT);
     const data = await withRetry429(async () => {
-      const response = await fetch(`${GOOGLE_EMBED_ENDPOINT}/${googleModel}:batchEmbedContents`, {
+      let response = await fetch(`${GOOGLE_EMBED_ENDPOINT}/${googleModel}:batchEmbedContents`, {
         method: "POST",
         headers: { "content-type": "application/json", "x-goog-api-key": apiKeyValue },
         body: JSON.stringify({
@@ -442,6 +442,39 @@ async function embedViaGoogle(
 
       if (!response.ok) {
         const detail = await response.text().catch(() => "");
+        // If Google Generative Language REST endpoint returns location error (e.g. from Cloudflare worker edge IPs),
+        // try Google's OpenAI-compatible endpoint /v1beta/openai/embeddings as an alternative
+        if (
+          detail.includes("User location is not supported") ||
+          detail.includes("FAILED_PRECONDITION") ||
+          response.status === 400
+        ) {
+          try {
+            const cleanModel = googleModel.replace(/^models\//, "");
+            const altRes = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/embeddings", {
+              method: "POST",
+              headers: {
+                "content-type": "application/json",
+                authorization: `Bearer ${apiKeyValue}`,
+              },
+              body: JSON.stringify({
+                model: cleanModel,
+                input: batch,
+                dimensions: outputDimensionality,
+              }),
+            });
+            if (altRes.ok) {
+              const altJson = (await altRes.json()) as {
+                data?: { index: number; embedding: number[] }[];
+              };
+              if (altJson.data && altJson.data.length > 0) {
+                return { embeddings: altJson.data.map((d) => ({ values: d.embedding })) };
+              }
+            }
+          } catch (altErr) {
+            console.warn("Google embeddings OpenAI-compatible endpoint fallback failed:", altErr);
+          }
+        }
         throw new AiGatewayError(
           `Google embeddings returned ${response.status}. ${detail.slice(0, 300)}`,
           response.status,
