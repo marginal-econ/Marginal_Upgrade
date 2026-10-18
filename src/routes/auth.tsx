@@ -54,12 +54,15 @@ function WaitingBar({ active, label }: { active: boolean; label: string }) {
   );
 }
 
-const authSearchSchema = z.object({
-  redirect: z.string().optional(),
-});
+const authSearchSchema = z
+  .object({
+    redirect: z.string().optional().catch(undefined),
+  })
+  .passthrough()
+  .catch({});
 
 export const Route = createFileRoute("/auth")({
-  validateSearch: authSearchSchema,
+  validateSearch: (search: Record<string, unknown>) => authSearchSchema.parse(search),
   head: () => ({
     meta: [
       { title: "Sign in — Marginal | AS/A Level Economics marking" },

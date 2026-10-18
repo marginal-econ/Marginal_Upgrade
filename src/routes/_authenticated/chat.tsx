@@ -46,12 +46,15 @@ import {
 } from "@/lib/chat.functions";
 import { cn } from "@/lib/utils";
 
-const searchSchema = z.object({
-  q: z.string().optional(),
-});
+const searchSchema = z
+  .object({
+    q: z.string().optional().catch(undefined),
+  })
+  .passthrough()
+  .catch({});
 
 export const Route = createFileRoute("/_authenticated/chat")({
-  validateSearch: searchSchema,
+  validateSearch: (search: Record<string, unknown>) => searchSchema.parse(search),
   head: () => ({
     meta: [
       { title: "Cambridge Grounded Chat Lab (Experimental) — Cambridge 9708" },

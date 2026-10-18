@@ -40,14 +40,28 @@ import { getMe } from "@/lib/account.functions";
 import { TIER_LIMITS, type PlanTier } from "@/lib/usage-limits";
 import { cn } from "@/lib/utils";
 
-const searchSchema = z.object({
-  tier: z.enum(["foundation", "scholar_plus", "pro", "mastery", "elite"]).optional().default("foundation"),
-  cycle: z.enum(["monthly", "annual"]).optional().default("monthly"),
-  role: z.enum(["student", "teacher"]).optional(),
-});
+const searchSchema = z
+  .object({
+    tier: z
+      .enum(["foundation", "scholar_plus", "pro", "mastery", "elite"])
+      .optional()
+      .default("foundation")
+      .catch("foundation"),
+    cycle: z
+      .enum(["monthly", "annual"])
+      .optional()
+      .default("monthly")
+      .catch("monthly"),
+    role: z.enum(["student", "teacher"]).optional().catch(undefined),
+  })
+  .passthrough()
+  .catch({
+    tier: "foundation",
+    cycle: "monthly",
+  });
 
 export const Route = createFileRoute("/payment")({
-  validateSearch: searchSchema,
+  validateSearch: (search: Record<string, unknown>) => searchSchema.parse(search),
   head: () => ({
     meta: [
       { title: "Dedicated Payment Portal — Marginal Economics" },

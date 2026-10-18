@@ -78,12 +78,15 @@ const RENDER_SCALE = 1.6;
 
 // Optional paperId prefill lets a paper-library link start a specific paper.
 // Direct navigation still opens the library picker.
-const mcqLiveSearchSchema = z.object({
-  paperId: z.string().uuid().optional(),
-});
+const mcqLiveSearchSchema = z
+  .object({
+    paperId: z.string().uuid().optional().catch(undefined),
+  })
+  .passthrough()
+  .catch({});
 
 export const Route = createFileRoute("/_authenticated/mcq-live")({
-  validateSearch: mcqLiveSearchSchema,
+  validateSearch: (search: Record<string, unknown>) => mcqLiveSearchSchema.parse(search),
   component: McqLivePage,
 });
 

@@ -57,13 +57,27 @@ import type { Grading } from "@/lib/examiner/types";
 
 // Optional prefill from the Question bank ("Practice this" links here with
 // a real past-paper question already picked).
-const gradeSearchSchema = z.object({
-  q: z.string().trim().max(2000).optional(),
-  marks: z.union([z.literal(8), z.literal(12), z.literal(20)]).optional(),
-});
+const gradeSearchSchema = z
+  .object({
+    q: z.string().trim().max(2000).optional().catch(undefined),
+    marks: z
+      .union([
+        z.literal(8),
+        z.literal(12),
+        z.literal(20),
+        z.literal("8"),
+        z.literal("12"),
+        z.literal("20"),
+      ])
+      .optional()
+      .transform((val) => (val ? (Number(val) as 8 | 12 | 20) : undefined))
+      .catch(undefined),
+  })
+  .passthrough()
+  .catch({});
 
 export const Route = createFileRoute("/_authenticated/grade")({
-  validateSearch: gradeSearchSchema,
+  validateSearch: (search: Record<string, unknown>) => gradeSearchSchema.parse(search),
   head: () => ({
     meta: [
       { title: "Mark an essay — Marginal Economics" },
@@ -180,14 +194,6 @@ function GradePage() {
     staleTime: 10 * 60_000,
   });
 
-  useEffect(() => {
-    if (resultRef.current && (mutation.isPending || result)) {
-      if (typeof window !== "undefined" && window.innerWidth < 1024) {
-        resultRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
-      }
-    }
-  }, [mutation.isPending, result]);
-
   const describeDiagramImageMutation = useMutation({
     mutationFn: ({ image, label }: { image: string; label?: string }) =>
       describeDiagramImg({ data: { image } }).then((res) => ({ ...res, label })),
@@ -287,6 +293,14 @@ function GradePage() {
       }
     },
   });
+
+  useEffect(() => {
+    if (resultRef.current && (mutation.isPending || result)) {
+      if (typeof window !== "undefined" && window.innerWidth < 1024) {
+        resultRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    }
+  }, [mutation.isPending, result]);
 
   const words = essayText.trim() ? essayText.trim().split(/\s+/).length : 0;
 
