@@ -12,7 +12,7 @@ function createAdminClient() {
     readEnv("SUPABASE_URL") ||
     readEnv("VITE_BACKEND_URL") ||
     BACKEND_URL ||
-    "https://tmuhpnorjydfijjotvoc.supabase.co";
+    "https://srukuuhxloxdukonmual.supabase.co";
 
   const key =
     readEnv("BACKEND_SERVICE_ROLE_KEY") ||

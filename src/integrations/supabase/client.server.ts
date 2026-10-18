@@ -38,7 +38,7 @@ function createSupabaseAdminClient() {
     readEnv("SUPABASE_URL") ||
     readEnv("BACKEND_URL") ||
     (typeof process !== "undefined" ? process.env["SUPABASE_URL"] : undefined) ||
-    "https://tmuhpnorjydfijjotvoc.supabase.co";
+    "https://srukuuhxloxdukonmual.supabase.co";
   const SUPABASE_SERVICE_ROLE_KEY =
     readEnv("BACKEND_SERVICE_ROLE_KEY") ||
     readEnv("SUPABASE_SECRET_KEY") ||

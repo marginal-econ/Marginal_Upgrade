@@ -23,7 +23,7 @@ export function getSupabaseAdmin(): SupabaseClient {
     readEnv("BACKEND_URL") ??
     readEnv("SUPABASE_URL") ??
     readEnv("VITE_BACKEND_URL") ??
-    "https://tmuhpnorjydfijjotvoc.supabase.co";
+    "https://srukuuhxloxdukonmual.supabase.co";
 
   const secretKey =
     readEnv("BACKEND_SERVICE_ROLE_KEY") ??
