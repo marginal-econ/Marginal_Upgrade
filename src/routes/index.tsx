@@ -514,23 +514,23 @@ function Index() {
               </ExaminerStage>
             </div>
 
-            {/* Created for Economics by Economics Students · Founder Quote Card */}
-            <div className="mx-auto w-full max-w-xl xl:max-w-2xl 2xl:max-w-[680px] rounded-2xl border border-primary/30 bg-card/80 backdrop-blur-md p-4 sm:p-5 shadow-md space-y-2.5">
+            {/* Created for Economics by Economics Students · Founder Mission & Inspiration */}
+            <div className="mx-auto w-full max-w-xl xl:max-w-2xl 2xl:max-w-[680px] rounded-2xl border border-primary/30 bg-card/85 backdrop-blur-md p-4 sm:p-5 shadow-md space-y-2.5">
               <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/70 pb-2.5">
                 <span className="inline-flex items-center gap-2 text-xs font-bold text-foreground">
                   <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
-                  Created for Economics by Cambridge Economics Students
+                  Mission &amp; Inspiration · Created for Economics by Economics Students
                 </span>
                 <span className="rounded-full bg-primary/10 border border-primary/30 px-2.5 py-0.5 text-[10.5px] font-mono font-bold text-primary">
-                  100% 9708 Calibrated
+                  Cambridge 9708
                 </span>
               </div>
               <blockquote className="text-xs sm:text-[13px] text-foreground/90 italic leading-relaxed">
-                “ChatGPT gives generic praise and suffers from middle-band central bias. We built Marginal specifically for Cambridge 9708: auditing every sentence clause against official mark scheme descriptors so you know exactly where your AO1, AO2, and AO3 marks are won or lost.”
+                “I personally lost critical marks in IGCSE Economics on structured answers despite knowing the theory. I refused to let that happen again in AS &amp; A Level. That is why I created Marginal — to give myself and all economics students the exact line-by-line mark scheme diagnosis and examiner structuring needed to master the top band.”
               </blockquote>
               <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-0.5 font-medium">
-                <span className="text-primary font-semibold">— Founder &amp; Student Engineering Team</span>
-                <span className="font-mono text-[10.5px]">Zero Hallucination Vector Grounding</span>
+                <span className="text-primary font-semibold">— Founder's Mission</span>
+                <span className="font-mono text-[10.5px]">Why Marginal Exists</span>
               </div>
             </div>
           </Reveal>
@@ -773,8 +773,33 @@ function Index() {
             ))}
           </div>
 
+          <Reveal delay={100} className="mt-8">
+            <div className="mx-auto max-w-3xl rounded-2xl border border-primary/30 bg-card/90 backdrop-blur-md p-5 sm:p-6 shadow-md relative overflow-hidden">
+              <div className="flex items-start gap-4">
+                <div className="hidden sm:flex size-11 rounded-xl bg-primary/10 border border-primary/30 items-center justify-center shrink-0 text-primary font-black text-xl">
+                  “
+                </div>
+                <div className="space-y-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-xs font-bold uppercase tracking-wider text-primary">
+                      The Founder's Inspiration
+                    </span>
+                    <span className="text-muted-foreground text-xs">&bull;</span>
+                    <span className="text-xs text-muted-foreground font-mono">From Student to Examiner AI</span>
+                  </div>
+                  <p className="text-sm leading-relaxed text-foreground/95 italic">
+                    “I personally lost critical marks in IGCSE Economics on structured answers despite knowing the theory inside out. I refused to let that repeat in AS &amp; A Level. That is why I built Marginal — to give myself and every economics student the exact line-by-line mark scheme diagnosis, causal structuring, and live exam calibration needed to master the top band.”
+                  </p>
+                  <p className="text-xs font-semibold text-muted-foreground pt-1">
+                    — Built by Cambridge Economics Students for Cambridge Economics Candidates
+                  </p>
+                </div>
+              </div>
+            </div>
+          </Reveal>
+
           <Reveal delay={120}>
-            <p className="mx-auto mt-10 max-w-2xl text-center text-sm leading-relaxed text-pretty text-muted-foreground">
+            <p className="mx-auto mt-8 max-w-2xl text-center text-sm leading-relaxed text-pretty text-muted-foreground">
               It still isn't a Cambridge examiner. Treat the mark as a second opinion that shows its
               reasoning — then argue with it. That argument is where most of the learning happens.
             </p>
