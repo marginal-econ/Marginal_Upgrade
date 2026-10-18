@@ -1,5 +1,7 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { Link } from "@tanstack/react-router";
 import {
+  ArrowRight,
   BookOpen,
   CheckCircle2,
   Database,
@@ -14,8 +16,10 @@ import {
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { CAMBRIDGE_CORE_DEFINITIONS } from "@/lib/cambridge-definitions";
+import { supabase } from "@/integrations/backend/client";
 import { CosmicAtmosphere } from "./cosmic-atmosphere";
 
 interface SyllabusChapter {
@@ -87,6 +91,13 @@ const POPULAR_QUICK_SEARCHES = [
 export function RagEngineSection() {
   const [searchQuery, setSearchQuery] = useState("AD");
   const [showDetails, setShowDetails] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      setIsAuthenticated(Boolean(data.session));
+    });
+  }, []);
 
   // Fast, direct corpus retrieval for ANY keyword (e.g. "AD", "PED", "demerit goods", "tariffs")
   const searchResults = useMemo(() => {
@@ -409,6 +420,23 @@ export function RagEngineSection() {
                   Exact AO1, AO2, AO3 tariffs with line-by-line rewrite guidance.
                 </p>
               </div>
+            </div>
+
+            {/* View Engine Action CTA */}
+            <div className="mt-4 pt-4 border-t border-border/70 flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-left">
+              <div>
+                <p className="text-xs font-bold text-foreground">Ready to test the Cambridge 9708 RAG Engine on your own essay?</p>
+                <p className="text-[11px] text-muted-foreground">Get instant AO1/AO2/AO3 clause feedback with 2 full essays completely free.</p>
+              </div>
+              <Button asChild size="sm" className="font-bold shadow-xs shrink-0 cursor-pointer">
+                <Link
+                  to={isAuthenticated ? "/grade" : "/auth"}
+                  search={isAuthenticated ? undefined : ({ redirect: "/grade" } as any)}
+                >
+                  <span>View Engine</span>
+                  <ArrowRight className="size-3.5 ml-1.5" />
+                </Link>
+              </Button>
             </div>
           </div>
         </div>

@@ -335,6 +335,7 @@ export function PricingSection({ className }: { className?: string }) {
     queryFn: () => getMeFn(),
     staleTime: 60_000,
   });
+  const isAuthenticated = Boolean(meQuery.data?.userId);
 
   const [audience, setAudience] = useState<Audience>(() => {
     if (typeof window !== "undefined") {
@@ -623,12 +624,18 @@ export function PricingSection({ className }: { className?: string }) {
                       )}
                     >
                       <Link
-                        to="/payment"
-                        search={{
-                          tier: (tier.id === "school-starter" ? "pro" : tier.id) as any,
-                          cycle: cycle,
-                          role: "teacher" as any,
-                        }}
+                        to={isAuthenticated ? "/payment" : "/auth"}
+                        search={
+                          isAuthenticated
+                            ? ({
+                                tier: (tier.id === "school-starter" ? "pro" : tier.id) as any,
+                                cycle: cycle,
+                                role: "teacher" as any,
+                              } as any)
+                            : ({
+                                redirect: `/payment?tier=${tier.id === "school-starter" ? "pro" : tier.id}&cycle=${cycle}&role=teacher`,
+                              } as any)
+                        }
                       >
                         Unlock {tier.name} <ArrowRight className="size-3.5 ml-1.5" />
                       </Link>
@@ -688,7 +695,10 @@ export function PricingSection({ className }: { className?: string }) {
                   variant="outline"
                   className="w-full text-xs font-semibold h-10 shadow-xs border-primary/30 hover:bg-primary/10 cursor-pointer"
                 >
-                  <Link to="/grade">
+                  <Link
+                    to={isAuthenticated ? "/grade" : "/auth"}
+                    search={isAuthenticated ? undefined : ({ redirect: "/grade" } as any)}
+                  >
                     Start Free (2 Essays) <ArrowRight className="size-3.5 ml-1.5" />
                   </Link>
                 </Button>
@@ -773,11 +783,17 @@ export function PricingSection({ className }: { className?: string }) {
                       className="w-full text-xs font-semibold h-10 shadow-xs cursor-pointer"
                     >
                       <Link
-                        to="/payment"
-                        search={{
-                          tier: tier.id as any,
-                          cycle: cycle,
-                        }}
+                        to={isAuthenticated ? "/payment" : "/auth"}
+                        search={
+                          isAuthenticated
+                            ? ({
+                                tier: tier.id as any,
+                                cycle: cycle,
+                              } as any)
+                            : ({
+                                redirect: `/payment?tier=${tier.id}&cycle=${cycle}`,
+                              } as any)
+                        }
                       >
                         Choose {tier.name} <ArrowRight className="size-3.5 ml-1.5" />
                       </Link>

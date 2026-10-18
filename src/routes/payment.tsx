@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
   ArrowLeft,
+  ArrowRight,
   Check,
   CheckCircle2,
   Clock,
@@ -10,6 +11,7 @@ import {
   CreditCard,
   GraduationCap,
   HelpCircle,
+  Loader2,
   Lock,
   PenLine,
   QrCode,
@@ -19,7 +21,7 @@ import {
   Sparkles,
   Zap,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 
@@ -248,7 +250,38 @@ function PaymentPortalPage() {
     prevPending.current = isPending;
   }, [configQuery.data?.pendingRequest, configQuery.data?.currentTier, queryClient]);
 
+  // Ensure user is signed in to pay
+  useEffect(() => {
+    if (!meQuery.isLoading && !meQuery.data?.userId) {
+      const currentUrl =
+        typeof window !== "undefined"
+          ? window.location.pathname + window.location.search
+          : "/payment";
+      toast.info("Please sign in or create an account to proceed with subscription payment.", {
+        id: "auth-required-payment",
+        duration: 4000,
+      });
+      navigate({
+        to: "/auth",
+        search: { redirect: currentUrl },
+      });
+    }
+  }, [meQuery.isLoading, meQuery.data?.userId, navigate]);
+
   const handleActivation = async (isSimulation = false) => {
+    if (!meQuery.data?.userId) {
+      toast.error("Please sign in or create an account first to complete payment.");
+      navigate({
+        to: "/auth",
+        search: {
+          redirect:
+            typeof window !== "undefined"
+              ? window.location.pathname + window.location.search
+              : "/payment",
+        },
+      });
+      return;
+    }
     setIsProcessing(true);
     try {
       const res = await activateMutation({
@@ -326,6 +359,19 @@ function PaymentPortalPage() {
   const merchantUpi = configQuery.data?.merchantUpiId || "8754256082-2@ybl";
 
   const handleRazorpayClick = () => {
+    if (!meQuery.data?.userId) {
+      toast.error("Please sign in or create an account first to complete payment.");
+      navigate({
+        to: "/auth",
+        search: {
+          redirect:
+            typeof window !== "undefined"
+              ? window.location.pathname + window.location.search
+              : "/payment",
+        },
+      });
+      return;
+    }
     setIsLockShaking(true);
     setTimeout(() => setIsLockShaking(false), 500);
     toast.info("Razorpay Gateway is temporarily locked for recalibration. Please use Direct UPI (GPay/PhonePe).", {
@@ -345,11 +391,20 @@ function PaymentPortalPage() {
   };
 
   const handleUpiActivation = async () => {
-    if (!meQuery.data?.userId && !meQuery.isLoading) {
+    if (!meQuery.data?.userId) {
       toast.error("Please sign in or create an account first so your subscription can be verified.", {
         action: {
           label: "Sign In",
-          onClick: () => navigate({ to: "/auth" }),
+          onClick: () =>
+            navigate({
+              to: "/auth",
+              search: {
+                redirect:
+                  typeof window !== "undefined"
+                    ? window.location.pathname + window.location.search
+                    : "/payment",
+              },
+            }),
         },
         duration: 8000,
       });
@@ -381,6 +436,44 @@ function PaymentPortalPage() {
       setIsProcessing(false);
     }
   };
+
+  if (meQuery.isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center p-4 bg-background">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="size-8 text-primary animate-spin" />
+          <p className="text-xs font-semibold text-muted-foreground">Checking authentication status...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!meQuery.data?.userId) {
+    const currentUrl =
+      typeof window !== "undefined"
+        ? window.location.pathname + window.location.search
+        : "/payment";
+    return (
+      <div className="flex min-h-screen items-center justify-center p-4 bg-background">
+        <Card className="max-w-md w-full p-6 text-center space-y-4 shadow-xl border-border">
+          <div className="size-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mx-auto">
+            <Lock className="size-6" />
+          </div>
+          <div className="space-y-1">
+            <h2 className="text-xl font-bold tracking-tight text-foreground">Sign In Required to Pay</h2>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Please sign in to your Marginal account so your Cambridge subscription plan and Live Examiner credits are linked to your profile.
+            </p>
+          </div>
+          <Button asChild className="w-full font-bold shadow-md">
+            <Link to="/auth" search={{ redirect: currentUrl }}>
+              Sign In to Continue <ArrowRight className="ml-1.5 size-4" />
+            </Link>
+          </Button>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background text-foreground">

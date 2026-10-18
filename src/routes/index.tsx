@@ -67,6 +67,7 @@ import { RagEngineSection } from "@/components/marketing/rag-engine-section";
 import { TeachersSection } from "@/components/marketing/teachers-section";
 import { CosmicAtmosphere } from "@/components/marketing/cosmic-atmosphere";
 import { captureReferralCode } from "@/lib/waitlist-client";
+import { supabase } from "@/integrations/backend/client";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -275,6 +276,13 @@ function Index() {
   // runs first is the one that cleans the query string.
   const [invitedBy, setInvitedBy] = useState<string | null>(null);
   useEffect(() => setInvitedBy(captureReferralCode()), []);
+
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      setIsAuthenticated(Boolean(data.session));
+    });
+  }, []);
 
   const [shareOpen, setShareOpen] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
@@ -591,7 +599,8 @@ function Index() {
             {TOOLS.map((tool, index) => (
               <Reveal key={tool.title} variant="pop" delay={index * 35}>
                 <Link
-                  to={tool.href}
+                  to={isAuthenticated ? tool.href : "/auth"}
+                  search={isAuthenticated ? undefined : ({ redirect: tool.href } as any)}
                   className="pop pop-press group flex h-full flex-col justify-between p-5 sm:p-6 transition-all duration-300 hover:-translate-y-1 hover:border-primary/60 hover:shadow-xl bg-card border-2 cursor-pointer no-underline block"
                 >
                   <div>
@@ -627,7 +636,7 @@ function Index() {
                       Cambridge 9708 Engine
                     </span>
                     <span className="inline-flex items-center gap-1 text-primary text-[11px] font-bold group-hover:translate-x-1 transition-transform">
-                      <span>Explore engine</span>
+                      <span>View engine</span>
                       <span aria-hidden="true">→</span>
                     </span>
                   </div>
