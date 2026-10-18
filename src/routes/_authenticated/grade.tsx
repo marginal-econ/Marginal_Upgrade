@@ -4,8 +4,10 @@ import { useServerFn } from "@tanstack/react-start";
 import {
   AlertCircle,
   AlertTriangle,
+  Camera,
   CheckCircle2,
   ImagePlus,
+  Images,
   Loader2,
   ShieldCheck,
   SpellCheck,
@@ -160,6 +162,7 @@ function GradePage() {
   const [diagramLibraryId, setDiagramLibraryId] = useState<string>("");
   const [diagramUrl, setDiagramUrl] = useState("");
   const diagramFileInputRef = useRef<HTMLInputElement>(null);
+  const diagramCameraInputRef = useRef<HTMLInputElement>(null);
   const [isDiagramDragging, setIsDiagramDragging] = useState(false);
 
   // A pasted screenshot of the mark scheme, sent to the examiner as an
@@ -206,8 +209,11 @@ function GradePage() {
 
   function handleDiagramFile(file: File | undefined) {
     if (!file) return;
-    if (!file.type.startsWith("image/")) {
-      toast.error("Please upload an image file (PNG, JPEG, WebP, etc.).");
+    const isImage =
+      file.type.startsWith("image/") ||
+      /\.(jpe?g|png|webp|heic|heif|bmp|gif|avif|tiff?)$/i.test(file.name);
+    if (!isImage) {
+      toast.error("Please upload an image file (PNG, JPEG, WebP, HEIC, etc.).");
       return;
     }
     const reader = new FileReader();
@@ -561,8 +567,20 @@ function GradePage() {
 
             {diagramMode === "upload" ? (
               <div className="space-y-2">
+                {/* Photo Library / Gallery Input - uncaptured to open photo gallery */}
                 <input
                   ref={diagramFileInputRef}
+                  type="file"
+                  accept="image/*,.heic,.heif"
+                  className="hidden"
+                  onChange={(e) => {
+                    handleDiagramFile(e.target.files?.[0]);
+                    e.target.value = "";
+                  }}
+                />
+                {/* Camera Input - explicit environment capture */}
+                <input
+                  ref={diagramCameraInputRef}
                   type="file"
                   accept="image/*"
                   capture="environment"
@@ -588,7 +606,7 @@ function GradePage() {
                   }}
                   onPaste={(e) => {
                     const item = e.clipboardData?.files?.[0];
-                    if (item && item.type.startsWith("image/")) {
+                    if (item && (item.type.startsWith("image/") || /\.(jpe?g|png|webp|heic|heif|bmp)$/i.test(item.name))) {
                       e.preventDefault();
                       handleDiagramFile(item);
                     }
@@ -602,7 +620,7 @@ function GradePage() {
                     e.preventDefault();
                     setIsDiagramDragging(false);
                     const file = e.dataTransfer?.files?.[0];
-                    if (file && file.type.startsWith("image/")) {
+                    if (file && (file.type.startsWith("image/") || /\.(jpe?g|png|webp|heic|heif|bmp)$/i.test(file.name))) {
                       handleDiagramFile(file);
                     }
                   }}
@@ -624,11 +642,36 @@ function GradePage() {
                         Click to upload diagram image, drag &amp; drop, or paste (Ctrl+V)
                       </div>
                       <p className="text-[11px] text-muted-foreground">
-                        Supports PNG, JPEG, WebP, photos of hand-drawn diagrams, or digital exports
+                        Supports PNG, JPEG, WebP, HEIC photos of hand-drawn diagrams, or digital exports
                       </p>
                     </>
                   )}
                 </div>
+
+                {!describeDiagramImageMutation.isPending ? (
+                  <div className="flex items-center justify-center gap-2 pt-0.5">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => diagramFileInputRef.current?.click()}
+                      className="h-8 gap-1.5 text-xs font-medium"
+                    >
+                      <Images className="size-3.5 text-primary" />
+                      Photos / Gallery
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => diagramCameraInputRef.current?.click()}
+                      className="h-8 gap-1.5 text-xs font-medium"
+                    >
+                      <Camera className="size-3.5 text-primary" />
+                      Take Photo
+                    </Button>
+                  </div>
+                ) : null}
               </div>
             ) : null}
 

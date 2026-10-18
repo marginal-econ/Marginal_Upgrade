@@ -1,9 +1,11 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { getMe } from "@/lib/account.functions";
 import {
+  Camera,
+  Images,
   Upload,
   FileText,
   FileCheck2,
@@ -131,6 +133,8 @@ function NewMarkingSessionPage() {
   // Script Batch State
   const [uploadedScripts, setUploadedScripts] = useState<UploadItem[]>([]);
   const [isProcessingFiles, setIsProcessingFiles] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   // Find active paper
   const selectedPaper =
@@ -555,24 +559,69 @@ Question 2(a): Productive efficiency requires operation at minimum average cost 
 
         <CardContent className="space-y-4">
           {/* Dropzone */}
-          <label className="flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border/80 bg-muted/20 p-6 cursor-pointer hover:border-primary/60 hover:bg-muted/40 transition-colors text-center">
-            <Upload className="size-8 text-muted-foreground" />
-            <div className="space-y-1">
-              <p className="text-xs font-semibold text-foreground">
-                Drop scanned exam scripts here, or click to browse
-              </p>
-              <p className="text-[11px] text-muted-foreground">
-                Supports PDF, JPEG, PNG · Multi-page documents and bulk class uploads supported
-              </p>
-            </div>
+          <div className="space-y-2">
             <input
+              ref={fileInputRef}
               type="file"
               multiple
-              accept=".pdf,image/png,image/jpeg"
+              accept="application/pdf,image/*,.heic,.heif"
               className="hidden"
               onChange={handleFileUpload}
             />
-          </label>
+            <input
+              ref={cameraInputRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              className="hidden"
+              onChange={handleFileUpload}
+            />
+            <div
+              role="button"
+              tabIndex={0}
+              onClick={() => fileInputRef.current?.click()}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  fileInputRef.current?.click();
+                }
+              }}
+              className="flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border/80 bg-muted/20 p-6 cursor-pointer hover:border-primary/60 hover:bg-muted/40 transition-colors text-center focus:outline-none focus:ring-2 focus:ring-ring"
+            >
+              <Upload className="size-8 text-muted-foreground" />
+              <div className="space-y-1">
+                <p className="text-xs font-semibold text-foreground">
+                  Drop scanned exam scripts here, or click to browse
+                </p>
+                <p className="text-[11px] text-muted-foreground">
+                  Supports PDF, Photos/Gallery images (JPEG, PNG, HEIC) · Multi-page documents and bulk class uploads supported
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-center gap-2 pt-0.5">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => fileInputRef.current?.click()}
+                className="h-8 gap-1.5 text-xs font-medium"
+              >
+                <Images className="size-3.5 text-primary" />
+                Upload from Gallery / Files
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => cameraInputRef.current?.click()}
+                className="h-8 gap-1.5 text-xs font-medium"
+              >
+                <Camera className="size-3.5 text-primary" />
+                Take Photo / Scan
+              </Button>
+            </div>
+          </div>
 
           {/* Script Queue List */}
           {uploadedScripts.length > 0 ? (

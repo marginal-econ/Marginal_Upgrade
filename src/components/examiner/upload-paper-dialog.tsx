@@ -419,7 +419,7 @@ export function UploadPaperDialog({ open, onOpenChange, onSuccess }: UploadPaper
                 <div className="border border-dashed border-border/80 hover:border-primary/50 transition-colors rounded-md p-3 text-center cursor-pointer relative bg-muted/20">
                   <input
                     type="file"
-                    accept="application/pdf"
+                    accept="application/pdf,image/*,.heic,.heif"
                     className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
                     onChange={(e) => {
                       const file = e.target.files?.[0];
@@ -434,7 +434,7 @@ export function UploadPaperDialog({ open, onOpenChange, onSuccess }: UploadPaper
                   ) : (
                     <div className="space-y-1">
                       <Upload className="size-4 text-muted-foreground mx-auto" />
-                      <p className="text-[11px] text-muted-foreground">Click or drop Question Paper PDF</p>
+                      <p className="text-[11px] text-muted-foreground">Click or drop Question Paper PDF / photo</p>
                     </div>
                   )}
                 </div>
@@ -457,7 +457,7 @@ export function UploadPaperDialog({ open, onOpenChange, onSuccess }: UploadPaper
                 <div className="border border-dashed border-border/80 hover:border-primary/50 transition-colors rounded-md p-3 text-center cursor-pointer relative bg-muted/20">
                   <input
                     type="file"
-                    accept="application/pdf"
+                    accept="application/pdf,image/*,.heic,.heif"
                     className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
                     onChange={(e) => {
                       const file = e.target.files?.[0];
@@ -472,7 +472,7 @@ export function UploadPaperDialog({ open, onOpenChange, onSuccess }: UploadPaper
                   ) : (
                     <div className="space-y-1">
                       <Upload className="size-4 text-muted-foreground mx-auto" />
-                      <p className="text-[11px] text-muted-foreground">Click or drop Mark Scheme PDF</p>
+                      <p className="text-[11px] text-muted-foreground">Click or drop Mark Scheme PDF / photo</p>
                     </div>
                   )}
                 </div>

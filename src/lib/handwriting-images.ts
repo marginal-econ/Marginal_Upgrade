@@ -20,9 +20,13 @@ export async function filesToPageImages(
 
   for (const file of files) {
     const name = file.name.toLowerCase();
+    const isImage =
+      file.type.startsWith("image/") ||
+      /\.(jpe?g|png|webp|heic|heif|bmp|gif|avif|tiff?)$/i.test(name);
+
     if (name.endsWith(".pdf") || file.type === "application/pdf") {
       pages.push(...(await pdfToImages(file)));
-    } else if (file.type.startsWith("image/")) {
+    } else if (isImage) {
       pages.push(await imageToDataUrl(file));
     } else {
       throw new Error(`${file.name} is not a photo or PDF scan.`);
@@ -45,16 +49,42 @@ function fitted(width: number, height: number): { width: number; height: number 
 }
 
 async function imageToDataUrl(file: File): Promise<string> {
-  const bitmap = await createImageBitmap(file);
-  const size = fitted(bitmap.width, bitmap.height);
-  const canvas = document.createElement("canvas");
-  canvas.width = size.width;
-  canvas.height = size.height;
-  const context = canvas.getContext("2d");
-  if (!context) throw new Error("This browser could not process the image.");
-  context.drawImage(bitmap, 0, 0, size.width, size.height);
-  bitmap.close();
-  return canvasToDataUrl(canvas);
+  try {
+    const bitmap = await createImageBitmap(file);
+    const size = fitted(bitmap.width, bitmap.height);
+    const canvas = document.createElement("canvas");
+    canvas.width = size.width;
+    canvas.height = size.height;
+    const context = canvas.getContext("2d");
+    if (!context) throw new Error("This browser could not process the image.");
+    context.drawImage(bitmap, 0, 0, size.width, size.height);
+    bitmap.close();
+    return canvasToDataUrl(canvas);
+  } catch {
+    // Mobile fallback for WebViews or formats where createImageBitmap fails
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        const w = img.naturalWidth || img.width;
+        const h = img.naturalHeight || img.height;
+        const size = fitted(w, h);
+        const canvas = document.createElement("canvas");
+        canvas.width = size.width;
+        canvas.height = size.height;
+        const context = canvas.getContext("2d");
+        if (!context) return reject(new Error("This browser could not process the image."));
+        context.drawImage(img, 0, 0, size.width, size.height);
+        resolve(canvasToDataUrl(canvas));
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        reject(new Error(`Could not load ${file.name}. Please ensure it is a valid photo.`));
+      };
+      img.src = url;
+    });
+  }
 }
 
 async function pdfToImages(file: File): Promise<string[]> {

@@ -6,6 +6,7 @@ import {
   AlertTriangle,
   ArrowRight,
   BookOpen,
+  Camera,
   Check,
   CheckCircle2,
   ChevronRight,
@@ -14,6 +15,7 @@ import {
   Copy,
   GraduationCap,
   ImagePlus,
+  Images,
   Loader2,
   LockKeyhole,
   MapPin,
@@ -168,6 +170,7 @@ function LiveExaminerPage() {
   const [diagrams, setDiagrams] = useState<AttachedDiagram[]>([]);
   const [diagramDialogOpen, setDiagramDialogOpen] = useState(false);
   const diagramFileRef = useRef<HTMLInputElement>(null);
+  const diagramCameraRef = useRef<HTMLInputElement>(null);
   const [diagramDragging, setDiagramDragging] = useState(false);
 
   // --- Mark scheme screenshot: pasted straight in, sent to the examiner
@@ -199,6 +202,13 @@ function LiveExaminerPage() {
 
   function handleDiagramFile(file: File | undefined) {
     if (!file) return;
+    const isImage =
+      file.type.startsWith("image/") ||
+      /\.(jpe?g|png|webp|heic|heif|bmp|gif|avif|tiff?)$/i.test(file.name);
+    if (!isImage) {
+      toast.error("Please select an image or photo.");
+      return;
+    }
     const reader = new FileReader();
     reader.onload = () => {
       const dataUrl = reader.result as string;
@@ -1576,8 +1586,20 @@ function LiveExaminerPage() {
 
             <div className="space-y-1.5">
               <Label>Photo or image of your diagram</Label>
+              {/* Photo Library / Gallery Input - uncaptured to open photo gallery */}
               <input
                 ref={diagramFileRef}
+                type="file"
+                accept="image/*,.heic,.heif"
+                className="hidden"
+                onChange={(event) => {
+                  handleDiagramFile(event.target.files?.[0]);
+                  event.target.value = "";
+                }}
+              />
+              {/* Camera Input - explicit environment capture */}
+              <input
+                ref={diagramCameraRef}
                 type="file"
                 accept="image/*"
                 capture="environment"
@@ -1603,7 +1625,7 @@ function LiveExaminerPage() {
                 }}
                 onPaste={(e) => {
                   const file = e.clipboardData?.files?.[0];
-                  if (file && file.type.startsWith("image/")) {
+                  if (file && (file.type.startsWith("image/") || /\.(jpe?g|png|webp|heic|heif|bmp)$/i.test(file.name))) {
                     e.preventDefault();
                     handleDiagramFile(file);
                   }
@@ -1617,7 +1639,7 @@ function LiveExaminerPage() {
                   e.preventDefault();
                   setDiagramDragging(false);
                   const file = e.dataTransfer?.files?.[0];
-                  if (file && file.type.startsWith("image/")) {
+                  if (file && (file.type.startsWith("image/") || /\.(jpe?g|png|webp|heic|heif|bmp)$/i.test(file.name))) {
                     handleDiagramFile(file);
                   }
                 }}
@@ -1643,6 +1665,31 @@ function LiveExaminerPage() {
                   </>
                 )}
               </div>
+
+              {!describeDiagramMutation.isPending ? (
+                <div className="flex items-center justify-center gap-2 pt-0.5">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => diagramFileRef.current?.click()}
+                    className="h-8 gap-1.5 text-xs font-medium"
+                  >
+                    <Images className="size-3.5 text-primary" />
+                    Photos / Gallery
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => diagramCameraRef.current?.click()}
+                    className="h-8 gap-1.5 text-xs font-medium"
+                  >
+                    <Camera className="size-3.5 text-primary" />
+                    Take Photo
+                  </Button>
+                </div>
+              ) : null}
             </div>
 
             <div className="space-y-1.5">

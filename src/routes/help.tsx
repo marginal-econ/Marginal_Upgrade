@@ -332,7 +332,7 @@ function HelpPage() {
                     ref={attachmentInput}
                     type="file"
                     className="sr-only"
-                    accept="image/*,.pdf,.doc,.docx,.txt"
+                    accept="image/*,.heic,.heif,.pdf,.doc,.docx,.txt"
                     multiple
                     onChange={(event) => {
                       const selectedFiles = Array.from(event.target.files ?? []);

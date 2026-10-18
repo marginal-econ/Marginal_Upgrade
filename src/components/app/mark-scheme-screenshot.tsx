@@ -1,6 +1,7 @@
-import { Upload, X } from "lucide-react";
+import { Camera, Images, Upload, X } from "lucide-react";
 import { useRef, useState, type ClipboardEvent, type DragEvent } from "react";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
 
 /**
  * Lets a student upload, drag-and-drop, or paste (Ctrl+V) a screenshot or
@@ -43,6 +44,7 @@ export function MarkSchemeScreenshots({
   onRemove: (id: string) => void;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const atLimit = images.length >= MAX_IMAGES;
 
@@ -51,7 +53,10 @@ export function MarkSchemeScreenshots({
       toast.error(`You can attach up to ${MAX_IMAGES} mark scheme screenshots.`);
       return;
     }
-    if (!file.type.startsWith("image/")) {
+    const isImage =
+      file.type.startsWith("image/") ||
+      /\.(jpe?g|png|webp|heic|heif|bmp|gif|avif|tiff?)$/i.test(file.name);
+    if (!isImage) {
       toast.error("That item isn't an image — upload a screenshot or photo.");
       return;
     }
@@ -95,7 +100,7 @@ export function MarkSchemeScreenshots({
     if (files && files.length > 0) {
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
-        if (file && file.type.startsWith("image/")) {
+        if (file && (file.type.startsWith("image/") || /\.(jpe?g|png|webp|heic|heif|bmp|gif)$/i.test(file.name))) {
           handleFile(file);
         }
       }
@@ -107,11 +112,21 @@ export function MarkSchemeScreenshots({
 
   return (
     <div className="space-y-2">
+      {/* Photo Library / Gallery Input - uncaptured to open photo gallery */}
       <input
         ref={fileInputRef}
         type="file"
-        accept="image/*"
+        accept="image/*,.heic,.heif"
         multiple
+        className="hidden"
+        onChange={handleFileInput}
+      />
+      {/* Camera Input - explicit environment capture */}
+      <input
+        ref={cameraInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
         className="hidden"
         onChange={handleFileInput}
       />
@@ -149,10 +164,35 @@ export function MarkSchemeScreenshots({
         </p>
         {!atLimit ? (
           <p className="text-[11px] text-muted-foreground">
-            Supports PNG, JPEG, WebP, or clipboard screenshots of mark schemes
+            Supports PNG, JPEG, WebP, HEIC photos, or clipboard screenshots
           </p>
         ) : null}
       </div>
+
+      {!atLimit ? (
+        <div className="flex items-center justify-center gap-2 pt-0.5">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => fileInputRef.current?.click()}
+            className="h-8 gap-1.5 text-xs font-medium"
+          >
+            <Images className="size-3.5 text-primary" />
+            Photos / Gallery
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => cameraInputRef.current?.click()}
+            className="h-8 gap-1.5 text-xs font-medium"
+          >
+            <Camera className="size-3.5 text-primary" />
+            Take Photo
+          </Button>
+        </div>
+      ) : null}
 
       {images.length > 0 ? (
         <ul className="grid grid-cols-4 gap-2">

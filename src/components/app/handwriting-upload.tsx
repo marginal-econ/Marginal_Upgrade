@@ -1,6 +1,6 @@
 import { useMutation } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { AlertCircle, FileType, Loader2, PenLine, RotateCw } from "lucide-react";
+import { AlertCircle, Camera, FileType, Images, Loader2, PenLine, RotateCw } from "lucide-react";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -35,7 +35,8 @@ export function HandwritingUpload({
   onText: (text: string) => void;
 }) {
   const typedInput = useRef<HTMLInputElement>(null);
-  const handwrittenInput = useRef<HTMLInputElement>(null);
+  const galleryInput = useRef<HTMLInputElement>(null);
+  const cameraInput = useRef<HTMLInputElement>(null);
   const transcribe = useServerFn(transcribeHandwriting);
 
   const [typedStage, setTypedStage] = useState<string | null>(null);
@@ -207,28 +208,44 @@ export function HandwritingUpload({
         </div>
 
         <div className="space-y-1.5 rounded-lg border border-dashed border-border p-3">
-          <div className="flex items-center gap-1.5 text-xs font-medium">
-            <PenLine className="size-3.5" />
-            Handwritten answer
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5 text-xs font-medium">
+              <PenLine className="size-3.5 text-primary" />
+              Handwritten answer
+            </div>
+            <span className="text-[10px] text-muted-foreground font-medium">Photos & Scans</span>
           </div>
           <p className="text-[11px] text-muted-foreground">
-            Photos, or a PDF scan of handwriting — read by AI. Up to 12 pages.
+            Directly upload photos from your phone gallery or take new camera snaps. Up to 12 pages.
           </p>
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            className="w-full"
-            disabled={handwrittenMutation.isPending}
-            onClick={() => handwrittenInput.current?.click()}
-          >
-            {handwrittenMutation.isPending ? (
-              <Loader2 className="size-4 animate-spin" />
-            ) : (
-              <PenLine className="size-4" />
-            )}
-            Upload photo / scan
-          </Button>
+          <div className="grid grid-cols-2 gap-1.5 pt-0.5">
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="w-full text-xs"
+              disabled={handwrittenMutation.isPending}
+              onClick={() => galleryInput.current?.click()}
+            >
+              {handwrittenMutation.isPending ? (
+                <Loader2 className="size-3.5 animate-spin mr-1.5" />
+              ) : (
+                <Images className="size-3.5 mr-1.5 text-primary" />
+              )}
+              Gallery / Photos
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="w-full text-xs"
+              disabled={handwrittenMutation.isPending}
+              onClick={() => cameraInput.current?.click()}
+            >
+              <Camera className="size-3.5 mr-1.5 text-emerald-500" />
+              Take Photo
+            </Button>
+          </div>
           {handwrittenStage ? (
             <p className="text-[11px] text-muted-foreground">{handwrittenStage}</p>
           ) : handwrittenMutation.isSuccess && totalPages > 0 ? (
@@ -236,12 +253,26 @@ export function HandwritingUpload({
               {readPages} of {totalPages} page{totalPages === 1 ? "" : "s"} read.
             </p>
           ) : null}
+          {/* Gallery / Photos: standard file picker without capture, directly opening Photo Library & Gallery on mobile */}
           <input
-            ref={handwrittenInput}
+            ref={galleryInput}
             type="file"
-            accept="image/jpeg,image/jpg,image/png,application/pdf"
+            accept="image/*,.heic,.heif,application/pdf"
             multiple
+            className="hidden"
+            onChange={(event) => {
+              const files = Array.from(event.target.files ?? []);
+              event.target.value = "";
+              if (files.length > 0) handwrittenMutation.mutate(files);
+            }}
+          />
+          {/* Camera: capture="environment" for live camera viewfinder snaps */}
+          <input
+            ref={cameraInput}
+            type="file"
+            accept="image/*"
             capture="environment"
+            multiple
             className="hidden"
             onChange={(event) => {
               const files = Array.from(event.target.files ?? []);
