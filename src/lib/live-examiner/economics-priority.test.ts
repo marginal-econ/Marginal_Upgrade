@@ -113,4 +113,46 @@ Here is a very long script that was 4000 characters long and should be stripped 
     expect(parsed.suggestions[0].placement).toBe("Paragraph 1 (Introduction & Core Definitions)");
     expect(parsed.suggestions[0].placement_rationale).toBe("Establishes baseline knowledge early.");
   });
+
+  it("accurately classifies 'but' phrases as AO3 Evaluation", async () => {
+    const { classifySentenceDeterministically } = await import("./client-evaluation");
+    
+    // Test direct 'but' counter-argument
+    const res1 = classifySentenceDeterministically(
+      "Price ceilings protect low-income consumers, but they create persistent shortages in the market."
+    );
+    expect(res1.ao).toBe("AO3");
+    expect(res1.explanation).toContain("Evaluation");
+
+    // Test 'however' counter-argument
+    const res2 = classifySentenceDeterministically(
+      "However, the policy effectiveness depends on the price elasticity of demand."
+    );
+    expect(res2.ao).toBe("AO3");
+
+    // Test that deadweight loss remains AO2 Analysis
+    const res3 = classifySentenceDeterministically(
+      "This distortion generates deadweight welfare loss as mutually beneficial trades are eliminated."
+    );
+    expect(res3.ao).toBe("AO2");
+  });
+
+  it("awards 11/12 distinction when student provides strong AO2 chains and multiple AO3 evaluations", async () => {
+    const { evaluateCambridgeAnswer } = await import("./client-evaluation");
+
+    const answer = `
+      A minimum price is a legally mandated price floor set above the free-market equilibrium price.
+      This policy incentivises profit-seeking suppliers to expand output to Q2 along their supply curve.
+      Consequently, higher consumer prices contract demand to Q1 along the demand curve, creating excess supply.
+      Furthermore, this generates deadweight welfare loss as trades above equilibrium cost are prevented.
+      However, the overall policy effectiveness is compromised if demerit goods have highly inelastic demand.
+      Moreover, price floors may protect producer incomes, but they inevitably create informal black markets where goods trade below the legal rate.
+    `;
+
+    const result = evaluateCambridgeAnswer(answer, "Assess whether minimum prices are effective.", 12);
+    expect(result.predictedMark.total_mark).toBeGreaterThanOrEqual(11);
+    expect(result.classifications.filter((c) => c.ao === "AO3").length).toBeGreaterThanOrEqual(2);
+    expect(result.classifications.filter((c) => c.ao === "AO2").length).toBeGreaterThanOrEqual(3);
+  });
 });
+

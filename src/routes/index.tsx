@@ -317,7 +317,7 @@ function Index() {
 
       {/* ── Header ───────────────────────────────────────────────────────── */}
       <header className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur-xl">
-        <div className="relative mx-auto flex max-w-6xl items-center justify-between gap-2 px-4 py-2.5 sm:gap-3 sm:px-5 sm:py-3 md:px-8">
+        <div className="relative mx-auto flex max-w-7xl 2xl:max-w-[1440px] items-center justify-between gap-3 px-4 py-2.5 sm:px-6 md:px-10 lg:px-12 xl:px-16 sm:py-3">
           <Link to="/">
             <Wordmark />
           </Link>
@@ -371,7 +371,7 @@ function Index() {
         </Drift>
         <Star className="doodle absolute top-32 left-[46%] hidden size-4 text-ao3/30 md:block" />
 
-        <div className="relative z-10 mx-auto grid max-w-6xl items-center gap-10 px-4 py-10 sm:px-5 sm:py-14 md:px-8 md:py-16 lg:grid-cols-[0.95fr_1.05fr] lg:gap-10">
+        <div className="relative z-10 mx-auto grid max-w-7xl 2xl:max-w-[1440px] items-center gap-10 lg:gap-12 xl:gap-16 px-4 py-10 sm:px-6 sm:py-14 md:px-10 md:py-16 lg:grid-cols-[1.1fr_1fr] xl:grid-cols-[1.15fr_1fr]">
           <div>
             <Reveal>
               <div className="flex flex-wrap items-center gap-2">
@@ -391,7 +391,7 @@ function Index() {
             </Reveal>
 
             <Reveal delay={60}>
-              <h1 className="mt-5 text-[2.35rem] leading-[1.05] font-extrabold text-balance min-[380px]:text-4xl md:text-[3.35rem] tracking-tight">
+              <h1 className="mt-5 text-[2.35rem] leading-[1.06] font-extrabold text-balance min-[380px]:text-4xl md:text-[3.25rem] lg:text-[3.5rem] xl:text-[3.85rem] tracking-tight">
                 {settings.heroTitle}{" "}
                 <span className="highlight highlight-deep shadow-xs text-primary dark:text-amber-300">{settings.heroHighlight}</span>
               </h1>
@@ -409,20 +409,20 @@ function Index() {
             </Reveal>
 
             <Reveal delay={110}>
-              <p className="mt-4 max-w-lg text-base leading-relaxed text-pretty text-muted-foreground md:text-lg dark:text-foreground/90">
+              <p className="mt-4 max-w-2xl text-base sm:text-lg leading-relaxed text-pretty text-muted-foreground dark:text-foreground/90">
                 {settings.heroDescription}
               </p>
             </Reveal>
 
             <Reveal delay={160}>
-              <p className="mt-3 max-w-lg text-sm leading-relaxed text-pretty text-muted-foreground md:text-base dark:text-foreground/80">
+              <p className="mt-3 max-w-2xl text-sm sm:text-base leading-relaxed text-pretty text-muted-foreground dark:text-foreground/80">
                 {settings.heroNotice}
               </p>
             </Reveal>
 
             {/* Live Cambridge Metric Highlights */}
             <Reveal delay={180}>
-              <div className="mt-5 grid grid-cols-3 gap-2.5 sm:gap-3 max-w-lg">
+              <div className="mt-5 grid grid-cols-3 gap-2.5 sm:gap-3 max-w-xl">
                 <div className="rounded-xl border border-primary/25 bg-card/70 p-3 text-center backdrop-blur-md shadow-xs hover:border-primary/50 transition-colors">
                   <span className="text-xl sm:text-2xl font-black text-foreground tracking-tight block">1,400+</span>
                   <span className="text-[10px] sm:text-[11px] text-muted-foreground font-semibold leading-tight block mt-0.5">Mark Schemes</span>
@@ -440,15 +440,15 @@ function Index() {
 
             {/* Direct candidate conversion actions */}
             <Reveal delay={210}>
-              <div className="mt-6 flex flex-wrap items-center gap-3">
+              <div className="mt-6 flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-3">
                 <Button
                   asChild
                   size="lg"
-                  className="h-12 px-6 text-sm font-extrabold shadow-lg shadow-primary/25 bg-primary hover:bg-primary/90 text-primary-foreground transition-all hover:scale-[1.02] cursor-pointer"
+                  className="h-12 px-6 text-sm font-extrabold shadow-lg shadow-primary/25 bg-primary hover:bg-primary/90 text-primary-foreground transition-all hover:scale-[1.02] cursor-pointer w-full sm:w-auto inline-flex items-center justify-center gap-2"
                 >
                   <Link to="/auth">
                     <span>Get Started Free (2 Free Essays)</span>
-                    <ArrowRight className="size-4" />
+                    <ArrowRight className="size-4 shrink-0" />
                   </Link>
                 </Button>
                 <Button
@@ -456,9 +456,9 @@ function Index() {
                   variant="outline"
                   size="lg"
                   onClick={() => setShareOpen(true)}
-                  className="h-12 px-5 text-sm font-semibold border-2 hover:bg-muted gap-2 shadow-xs group cursor-pointer"
+                  className="h-12 px-5 text-sm font-semibold border-2 hover:bg-muted gap-2 shadow-xs group cursor-pointer w-full sm:w-auto inline-flex items-center justify-center"
                 >
-                  <Share2 className="size-4 text-primary transition-transform group-hover:scale-110" />
+                  <Share2 className="size-4 text-primary shrink-0 transition-transform group-hover:scale-110" />
                   <span>Share with Classmates</span>
                 </Button>
               </div>
@@ -470,29 +470,29 @@ function Index() {
             {invitedBy ? (
               <Reveal delay={240}>
                 <p className="mt-3.5 inline-flex items-center gap-2 text-xs text-muted-foreground">
-                  <Gift className="size-3.5 text-primary" aria-hidden="true" />
+                  <Gift className="size-3.5 text-primary shrink-0" aria-hidden="true" />
                   Invited with code <span className="font-semibold text-foreground">{invitedBy.toLowerCase()}</span> — 2 free essays ready.
                 </p>
               </Reveal>
             ) : null}
 
             <Reveal delay={260}>
-              <div className="mt-5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground dark:text-foreground/70">
-                <span className="inline-flex items-center gap-1.5 font-medium text-foreground bg-muted/60 px-2.5 py-1 rounded-md border border-border/60">
-                  <ShieldCheck className="size-3.5 text-emerald-500" /> Grounded in 9708 mark schemes
+              <div className="mt-5 flex flex-wrap items-center gap-2.5 text-xs text-muted-foreground dark:text-foreground/70">
+                <span className="inline-flex items-center gap-1.5 font-medium text-foreground bg-card/80 backdrop-blur-md px-3 py-1.5 rounded-lg border border-border/80 shadow-2xs">
+                  <ShieldCheck className="size-3.5 text-emerald-500 shrink-0" /> Grounded in 9708 mark schemes
                 </span>
-                <span className="inline-flex items-center gap-1.5 font-medium text-foreground bg-muted/60 px-2.5 py-1 rounded-md border border-border/60">
-                  <Target className="size-3.5 text-primary" /> Papers 1, 2, 3 &amp; 4
+                <span className="inline-flex items-center gap-1.5 font-medium text-foreground bg-card/80 backdrop-blur-md px-3 py-1.5 rounded-lg border border-border/80 shadow-2xs">
+                  <Target className="size-3.5 text-primary shrink-0" /> Papers 1, 2, 3 &amp; 4
                 </span>
                 <a
                   href="#rag-engine"
-                  className="inline-flex items-center gap-1.5 font-bold text-foreground bg-primary/10 hover:bg-primary/20 transition-colors px-2.5 py-1 rounded-md border border-primary/30"
+                  className="inline-flex items-center gap-1.5 font-bold text-foreground bg-primary/10 hover:bg-primary/20 transition-colors px-3 py-1.5 rounded-lg border border-primary/30 shadow-2xs"
                 >
-                  <Cpu className="size-3.5 text-primary animate-pulse" /> Cambridge RAG Engine ↓
+                  <Cpu className="size-3.5 text-primary animate-pulse shrink-0" /> Cambridge RAG Engine ↓
                 </a>
                 <a
                   href="#graded-exemplar"
-                  className="nav-link font-semibold text-primary inline-flex items-center gap-1 ml-1"
+                  className="inline-flex items-center gap-1.5 font-bold text-primary bg-primary/10 hover:bg-primary/20 transition-colors px-3 py-1.5 rounded-lg border border-primary/30 shadow-2xs"
                 >
                   Inspect real graded essay below ↓
                 </a>
@@ -500,11 +500,11 @@ function Index() {
             </Reveal>
           </div>
 
-          {/* Compact, Non-Overflowing Live Examiner Showcase Card */}
-          <Reveal variant="pop" delay={120} className="relative">
+          {/* Expanded, Commanding Live Examiner Showcase Card */}
+          <Reveal variant="pop" delay={120} className="relative w-full">
             {/* Ambient Stage Halo Glow */}
             <div className="absolute -inset-2 rounded-3xl bg-gradient-to-r from-primary/30 via-violet-500/20 to-amber-500/20 blur-xl opacity-75 -z-10 animate-pulse" />
-            <ExaminerStage className="relative mx-auto w-full max-w-lg min-w-0 shadow-2xl border-2 border-primary/35 rounded-2xl overflow-hidden backdrop-blur-xl ring-1 ring-primary/20">
+            <ExaminerStage className="relative mx-auto w-full max-w-xl xl:max-w-2xl 2xl:max-w-[680px] min-w-0 shadow-2xl border-2 border-primary/35 rounded-2xl overflow-hidden backdrop-blur-xl ring-1 ring-primary/20">
               <LiveExaminer />
             </ExaminerStage>
           </Reveal>
@@ -531,7 +531,7 @@ function Index() {
         <Drift speed={-0.08} className="top-24 right-[3%] hidden xl:block">
           <CircleScribble className="w-24 text-primary/35" />
         </Drift>
-        <div className="relative z-10 mx-auto grid max-w-6xl items-center gap-12 px-5 py-16 md:px-8 md:py-20 lg:grid-cols-2">
+        <div className="relative z-10 mx-auto grid max-w-7xl 2xl:max-w-[1440px] items-center gap-12 px-4 sm:px-6 md:px-10 lg:px-12 xl:px-16 py-16 md:py-20 lg:grid-cols-2">
           <div>
             <Reveal>
               <p className="eyebrow eyebrow-accent">What you get back</p>
@@ -586,7 +586,7 @@ function Index() {
         className="relative border-b-[1.5px] border-ink bg-surface-raised scroll-mt-20 overflow-hidden"
       >
         <CosmicAtmosphere variant="default" sparkles={true} density="high" />
-        <div className="relative z-10 mx-auto max-w-6xl px-5 py-16 md:px-8 md:py-20">
+        <div className="relative z-10 mx-auto max-w-7xl 2xl:max-w-[1440px] px-4 sm:px-6 md:px-10 lg:px-12 xl:px-16 py-16 md:py-20">
           <Reveal>
             <SectionHeading
               eyebrow="What's inside"
@@ -695,7 +695,7 @@ function Index() {
       >
         <CosmicAtmosphere variant="purple" sparkles={true} density="medium" />
         <div className="starfield" aria-hidden="true" />
-        <div className="relative z-10 mx-auto grid max-w-6xl items-center gap-12 px-5 py-16 md:px-8 md:py-20 lg:grid-cols-[0.85fr_1.15fr]">
+        <div className="relative z-10 mx-auto grid max-w-7xl 2xl:max-w-[1440px] items-center gap-12 px-4 sm:px-6 md:px-10 lg:px-12 xl:px-16 py-16 md:py-20 lg:grid-cols-[0.85fr_1.15fr]">
           <Reveal>
             <p className="eyebrow eyebrow-accent">Two minutes, four words</p>
             <h2 className="mt-2.5 text-2xl font-bold text-balance md:text-4xl">
@@ -720,7 +720,7 @@ function Index() {
       {/* ── Why trust it ─────────────────────────────────────────────────── */}
       <section id="trust" className="relative border-b-[1.5px] border-ink scroll-mt-20 overflow-hidden">
         <CosmicAtmosphere variant="amber" sparkles={true} density="medium" />
-        <div className="relative z-10 mx-auto max-w-6xl px-5 py-16 md:px-8 md:py-20">
+        <div className="relative z-10 mx-auto max-w-7xl 2xl:max-w-[1440px] px-4 sm:px-6 md:px-10 lg:px-12 xl:px-16 py-16 md:py-20">
           <Reveal>
             <SectionHeading
               eyebrow="Why the mark is worth something"

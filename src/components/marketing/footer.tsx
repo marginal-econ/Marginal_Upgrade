@@ -93,7 +93,7 @@ function FooterWordmark() {
         </filter>
       </svg>
 
-      <div className="mx-auto max-w-6xl px-5 md:px-8">
+      <div className="mx-auto max-w-7xl 2xl:max-w-[1440px] px-4 sm:px-6 md:px-10 lg:px-12 xl:px-16">
         <div className="relative">
           {/* Base: the solid word, reduced to its own edge by the filter. */}
           <p
@@ -141,7 +141,7 @@ export function SiteFooter() {
         aria-hidden="true"
       />
 
-      <div className="relative mx-auto max-w-6xl px-5 py-14 md:px-8 md:py-16">
+      <div className="relative mx-auto max-w-7xl 2xl:max-w-[1440px] px-4 sm:px-6 md:px-10 lg:px-12 xl:px-16 py-14 md:py-16">
         <div className="grid gap-10 md:grid-cols-2 xl:grid-cols-[1.35fr_1.15fr_0.8fr_0.8fr] xl:gap-12">
           <div>
             <span className="flex items-center gap-2.5">

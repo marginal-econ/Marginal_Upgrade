@@ -118,8 +118,8 @@ export function LiveExaminer({ className }: { className?: string }) {
 
   const completedCount = renderedClauses.filter((row) => row.isCompleted).length;
   const runningMark = Math.min(
-    10,
-    Math.round((completedCount / CLAUSES.length) * 10),
+    11,
+    Math.round((completedCount / CLAUSES.length) * 11),
   );
 
   const aoProgress = (Object.keys(AO_META) as Ao[]).map((ao) => {

@@ -23,15 +23,17 @@ const AO1_PATTERNS = [
 
 const AO2_PATTERNS = [
   /\b(leads to|leading to|causes|causing|as a result|consequently|therefore)\b/i,
-  /\b(because|due to their|means that|meaning that|results in|resulting in)\b/i,
+  /\b(because|due to their|means that|meaning that|results in|resulting in|generates?)\b/i,
   /\b(incentivised to produce|incentivized to produce|profit motive|job opportunities)\b/i,
   /\b(shifts outward|shifts inward|shifts right|shifts left|contracts demand|expands demand)\b/i,
   /\b(increases production|increase in production|rises|rising|reduces|reducing|contracts)\b/i,
   /\b(tax revenue rises|corporate tax rises|income tax|budget for the government|government revenue)\b/i,
+  /\b(deadweight (?:welfare )?loss|welfare loss|consumer surplus|producer surplus|allocative (?:in)?efficiency|multiplier effect|crowding out|transmission mechanism)\b/i,
 ];
 
 const AO3_PATTERNS = [
-  /\b(how+ev+e?r|however|in contrast|by contrast|on the other hand|on the one hand|whereas|nevertheless|nonetheless|conversely|alternatively|despite this|in spite of|on the contrary|notwithstanding|yet|although|even though)\b/i,
+  /\b(but|how+ev+e?r|however|in contrast|by contrast|on the other hand|on the one hand|whereas|nevertheless|nonetheless|conversely|alternatively|despite this|in spite of|on the contrary|notwithstanding|yet|although|even though)\b/i,
+  /\b(but\s+(?:this|in|the|it|if|when|whether|there|consumers?|firms?|producers?|governments?|only|may|might|could|creates?|leads?|results?|depends?|is not|are not|cannot))\b/i,
   /\b(depends on|depend on|depending on|depends upon|depending upon|contingent on|contingent upon|is determined by the extent|to the extent that|the extent to which|to what extent|degree to which|critical factor determining|crucial factor|pivotal factor)\b/i,
   /\b(elasticity of demand determines|depends on the elasticity|ped of the good|ped is inelastic|ped is elastic|pes is inelastic|pes is elastic|magnitude of the shift|size of the tax|size of the subsidy|scale of the intervention)\b/i,
   /\b(not fully accurate|merely estimates|assumes? ceteris paribus|ceteris paribus assumption|in reality|temporal validity|past data|data may be outdated|difficult to measure|imperfect information|asymmetric information)\b/i,
@@ -67,7 +69,7 @@ export function classifySentenceDeterministically(sentence: string): {
   // 2. Evaluative criteria, dependencies, trade-offs, judgements (AO3 Evaluation)
   const isAo3 =
     AO3_PATTERNS.some((p) => p.test(lower)) ||
-    /\b(how+ev+e?r|however|although|on the other hand|nevertheless|in contrast|whereas|conversely|depends on|depends upon|dependent on|critical factor determining|extent to which|contingent upon|time lag|unintended consequence|in conclusion|overall|ultimately|to conclude|judgement|weighing|effective|ineffective|limitation|drawback|trade-?off)\b/i.test(
+    /\b(but\b|how+ev+e?r|however|although|on the other hand|nevertheless|in contrast|whereas|conversely|depends on|depends upon|dependent on|critical factor determining|extent to which|contingent upon|time lag|unintended consequence|in conclusion|overall|ultimately|to conclude|judgement|weighing|effective|ineffective|limitation|drawback|trade-?off)\b/i.test(
       lower,
     );
   if (isAo3) {
@@ -80,7 +82,7 @@ export function classifySentenceDeterministically(sentence: string): {
   // 3. Analysis, causal mechanisms, transmission links, application (AO2 Analysis)
   const isAo2 =
     AO2_PATTERNS.some((p) => p.test(lower)) ||
-    /\b(causes|leading to|leads to|results in|resulting in|means that|this means|contraction in|expansion in|shift|shifts|excess supply|excess demand|surplus|shortage|as prices? rise|as prices? fall|higher prices?|lower prices?|incentive|disincentive|signals?|rationing|allocative|fall by a|increase by a|percentage|quantity demanded|quantity supplied|constrained|producers?|consumers?|firms?|output|sales?|profit|revenue|maximise|maximize|for example|for instance|such as|case of|toyota|cars)\b/i.test(
+    /\b(causes|leading to|leads to|results in|resulting in|generates?|deadweight|welfare loss|distortion|means that|this means|contraction in|expansion in|shift|shifts|excess supply|excess demand|surplus|shortage|as prices? rise|as prices? fall|higher prices?|lower prices?|incentive|disincentive|signals?|rationing|allocative|fall by a|increase by a|percentage|quantity demanded|quantity supplied|constrained|producers?|consumers?|firms?|output|sales?|profit|revenue|maximise|maximize|for example|for instance|such as|case of|toyota|cars)\b/i.test(
       lower,
     );
   if (isAo2) {
@@ -151,7 +153,7 @@ export function evaluateCambridgeAnswer(
 
   // Calculate marks calibrated to Cambridge 9708 tariffs
   let ao1Awarded = 0;
-  if (wordCount >= 80 && ao1Count >= 2) {
+  if ((wordCount >= 60 && ao1Count >= 1) || ao1Count >= 2) {
     ao1Awarded = split.ao1_marks;
   } else if (ao1Count >= 1 || wordCount >= 20) {
     ao1Awarded = Math.min(split.ao1_marks, Math.max(1, Math.floor(split.ao1_marks * 0.5)));
@@ -159,24 +161,29 @@ export function evaluateCambridgeAnswer(
 
   let ao2Awarded = 0;
   // Analysis requires developing causal transmission mechanisms
-  if (wordCount >= 320 && ao2Count >= 4) {
+  if (
+    (wordCount >= 180 && ao2Count >= 4) ||
+    (ao2Count >= 4 && ao3Count >= 2) ||
+    (ao2Count >= 3 && ao3Count >= 2) ||
+    (ao2Count >= 5)
+  ) {
     // Top-band analysis: 5 or 6 out of 6
     ao2Awarded = Math.min(split.ao2_marks, Math.max(5, Math.round(split.ao2_marks * 0.95)));
-  } else if (wordCount >= 220 && ao2Count >= 3) {
+  } else if ((wordCount >= 120 && ao2Count >= 3) || ao2Count >= 3) {
     ao2Awarded = Math.min(split.ao2_marks, Math.max(4, Math.round(split.ao2_marks * 0.8)));
-  } else if (wordCount >= 140 && ao2Count >= 2) {
+  } else if (wordCount >= 70 && ao2Count >= 2) {
     ao2Awarded = Math.min(split.ao2_marks, Math.max(3, Math.round(split.ao2_marks * 0.6)));
-  } else if (wordCount >= 50 && ao2Count >= 1) {
+  } else if (wordCount >= 30 && ao2Count >= 1) {
     ao2Awarded = Math.min(split.ao2_marks, Math.max(1, Math.round(split.ao2_marks * 0.3)));
   }
 
   let ao3Awarded = 0;
   // Evaluation requires weighing up, conditions, and judgements
-  if (split.ao3_marks > 0 && wordCount >= 75) {
-    if (wordCount >= 280 && ao3Count >= 2) {
-      // Top-band evaluation: full 4 marks
+  if (split.ao3_marks > 0 && (wordCount >= 50 || ao3Count >= 1)) {
+    if ((wordCount >= 150 && ao3Count >= 2) || (ao3Count >= 2 && ao2Count >= 3) || ao3Count >= 3) {
+      // Top-band evaluation: full marks or 3/4
       ao3Awarded = split.ao3_marks;
-    } else if (ao3Count >= 1 && wordCount >= 140) {
+    } else if (ao3Count >= 1 && wordCount >= 100) {
       ao3Awarded = Math.min(split.ao3_marks, Math.max(2, Math.round(split.ao3_marks * 0.65)));
     } else if (ao3Count >= 1) {
       ao3Awarded = Math.min(split.ao3_marks, Math.max(1, Math.round(split.ao3_marks * 0.35)));

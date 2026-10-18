@@ -98,7 +98,7 @@ export function RealEssayShowcase() {
   return (
     <section id="graded-exemplar" className="relative border-b-[1.5px] border-ink bg-card/40 py-16 sm:py-20 md:py-24 scroll-mt-20 overflow-hidden">
       <CosmicAtmosphere variant="emerald" sparkles={true} density="medium" />
-      <div className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6 md:px-8 space-y-10">
+      <div className="relative z-10 mx-auto max-w-7xl 2xl:max-w-[1440px] px-4 sm:px-6 md:px-10 lg:px-12 xl:px-16 space-y-10">
         {/* Section Header */}
         <div className="mx-auto max-w-3xl text-center space-y-3">
           <Badge variant="outline" className="border-primary/30 bg-primary/10 text-primary text-xs font-semibold px-3 py-1">

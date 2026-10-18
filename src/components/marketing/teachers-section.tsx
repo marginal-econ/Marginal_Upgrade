@@ -39,7 +39,7 @@ export function TeachersSection() {
   return (
     <section id="teachers-section" className="relative border-b-[1.5px] border-ink bg-card/40 py-20 md:py-24 scroll-mt-16 overflow-hidden">
       <CosmicAtmosphere variant="purple" sparkles={true} density="medium" />
-      <div className="relative z-10 mx-auto max-w-6xl px-5 md:px-8">
+      <div className="relative z-10 mx-auto max-w-7xl 2xl:max-w-[1440px] px-4 sm:px-6 md:px-10 lg:px-12 xl:px-16">
         {/* Section Header */}
         <div className="text-center max-w-3xl mx-auto">
           <Reveal>
