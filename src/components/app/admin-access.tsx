@@ -8,6 +8,7 @@ import {
   PauseCircle,
   Save,
   Search,
+  Sparkles,
   Users,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -398,28 +399,22 @@ export function AccessPanel() {
   const settings = useQuery({ queryKey: ["admin-settings"], queryFn: () => fetchSettings() });
 
   const [maxUsers, setMaxUsers] = useState("100");
-  const [essayLimit, setEssayLimit] = useState("20");
 
   useEffect(() => {
     if (settings.data) {
       setMaxUsers(String(settings.data.maxUsers || 100));
-      setEssayLimit(String(settings.data.essayDailyLimit || 20));
     }
   }, [settings.data]);
 
   const parsedMax = Number(maxUsers);
-  const parsedEssay = Number(essayLimit);
   const validMax = Number.isInteger(parsedMax) && parsedMax >= 1 && parsedMax <= 10000;
-  const validEssay = Number.isInteger(parsedEssay) && parsedEssay >= 1 && parsedEssay <= 500;
-  const dirty =
-    !!settings.data &&
-    (parsedMax !== settings.data.maxUsers || parsedEssay !== settings.data.essayDailyLimit);
+  const dirty = !!settings.data && parsedMax !== settings.data.maxUsers;
 
   const saveMutation = useMutation({
-    mutationFn: () => saveSettings({ data: { maxUsers: parsedMax, essayDailyLimit: parsedEssay } }),
+    mutationFn: () => saveSettings({ data: { maxUsers: parsedMax } }),
     onSuccess: async (data) => {
       toast.success(
-        `Limits updated: Cap is now ${data.maxUsers} users (${data.essayDailyLimit} essays/day).`,
+        `Platform capacity updated: Active seat cap is now ${data.maxUsers} users.`,
       );
       queryClient.setQueryData(["admin-settings"], data);
       await Promise.all([
@@ -466,7 +461,6 @@ export function AccessPanel() {
 
   const ai = settings.data;
   const USER_PRESETS = [50, 100, 250, 500, 1000, 2500, 5000];
-  const ESSAY_PRESETS = [5, 10, 20, 50, 100];
 
   return (
     <div className="space-y-6">
@@ -629,44 +623,40 @@ export function AccessPanel() {
             </div>
           </div>
 
-          {/* Daily Essay Limit Configuration */}
-          <div className="space-y-3">
-            <div className="space-y-1">
-              <Label htmlFor="essay-limit" className="text-xs font-semibold">
-                Daily Essays Graded Per Student
+          {/* Tier-Based Quotas (Active Subscription Architecture) */}
+          <div className="space-y-3 rounded-lg border border-border/70 bg-card/60 p-3.5">
+            <div className="flex items-center justify-between">
+              <Label className="text-xs font-semibold flex items-center gap-1.5">
+                <Sparkles className="size-3.5 text-primary" /> Tier-Based Capacity &amp; Quotas
               </Label>
-              <Input
-                id="essay-limit"
-                type="number"
-                inputMode="numeric"
-                min={1}
-                max={500}
-                value={essayLimit}
-                onChange={(event) => setEssayLimit(event.target.value)}
-                className="font-mono text-sm"
-              />
+              <Badge variant="outline" className="text-[10px] border-primary/30 text-primary">
+                Plan-Governed
+              </Badge>
             </div>
-
-            {/* Quick Presets */}
-            <div className="space-y-1">
-              <p className="text-[11px] text-muted-foreground">Quick presets:</p>
-              <div className="flex flex-wrap gap-1.5">
-                {ESSAY_PRESETS.map((preset) => (
-                  <button
-                    key={preset}
-                    type="button"
-                    onClick={() => setEssayLimit(String(preset))}
-                    className={cn(
-                      "rounded-md border px-2 py-1 text-xs font-medium transition-colors",
-                      parsedEssay === preset
-                        ? "border-primary bg-primary/10 text-primary"
-                        : "border-border bg-background text-muted-foreground hover:text-foreground",
-                    )}
-                  >
-                    {preset}/day
-                  </button>
-                ))}
+            <p className="text-[11px] text-muted-foreground leading-relaxed">
+              Essay limits and Live Examiner credits are governed strictly by subscription tier quotas rather than an arbitrary global daily cap.
+            </p>
+            <div className="grid grid-cols-2 gap-2 text-[11px]">
+              <div className="rounded border border-border/50 bg-background/50 p-2">
+                <div className="font-semibold text-foreground">Free Tier</div>
+                <div className="text-muted-foreground">2 essays total · 0 live credits</div>
               </div>
+              <div className="rounded border border-border/50 bg-background/50 p-2">
+                <div className="font-semibold text-foreground">Foundation Scholar</div>
+                <div className="text-muted-foreground">8 essays/mo · 3 live credits</div>
+              </div>
+              <div className="rounded border border-border/50 bg-background/50 p-2">
+                <div className="font-semibold text-foreground">Pro Accelerator</div>
+                <div className="text-muted-foreground">20 essays/mo · 10 live credits</div>
+              </div>
+              <div className="rounded border border-border/50 bg-background/50 p-2">
+                <div className="font-semibold text-foreground">A* Mastery Sprint</div>
+                <div className="text-muted-foreground">45 essays/mo · 20 live credits</div>
+              </div>
+            </div>
+            <div className="pt-1 text-[10px] text-muted-foreground flex items-center justify-between">
+              <span>Elite Pass: 80 essays/mo · 35 live credits</span>
+              <span>Educators: 3 trial evaluations</span>
             </div>
           </div>
         </div>
@@ -674,18 +664,18 @@ export function AccessPanel() {
         <div className="flex items-center gap-3 pt-2 border-t border-border/60">
           <Button
             onClick={() => saveMutation.mutate()}
-            disabled={!dirty || !validMax || !validEssay || saveMutation.isPending}
+            disabled={!dirty || !validMax || saveMutation.isPending}
           >
             {saveMutation.isPending ? (
               <Loader2 className="size-4 animate-spin" />
             ) : (
               <Save className="size-4" />
             )}
-            Save capacity changes
+            Save seat capacity
           </Button>
-          {!validMax || !validEssay ? (
+          {!validMax ? (
             <p className="text-xs text-destructive">
-              Users: 1–10,000 · Essays per day: 1–500 (whole numbers).
+              Users: 1–10,000 (whole numbers).
             </p>
           ) : dirty ? (
             <p className="text-xs text-amber-500 font-medium">Unsaved changes</p>
