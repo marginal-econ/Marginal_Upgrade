@@ -67,6 +67,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  addClassroomStudent,
   addClassroomTeacher,
   addComment,
   archiveClassroom,
@@ -597,8 +598,8 @@ function CreateClassDialog({ onCreated }: { onCreated: () => void }) {
         onClick={() => setOpen(true)}
         className="bg-purple-600 hover:bg-purple-500 text-white font-medium shadow-md shadow-purple-950/40"
       >
-        <Shield className="h-4 w-4 mr-2 text-purple-300" />
-        Create Class (Admin)
+        <School className="h-4 w-4 mr-2 text-purple-300" />
+        Create Classroom
       </Button>
 
       {open && (
@@ -607,7 +608,7 @@ function CreateClassDialog({ onCreated }: { onCreated: () => void }) {
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-bold text-white flex items-center gap-2">
                 <School className="h-5 w-5 text-purple-400" />
-                Create Classroom (Admin Only)
+                Create Cambridge Classroom
               </h3>
               <button
                 onClick={() => setOpen(false)}
@@ -646,8 +647,7 @@ function CreateClassDialog({ onCreated }: { onCreated: () => void }) {
             </div>
 
             <div className="p-3 rounded-xl bg-purple-950/30 border border-purple-900/40 text-xs text-purple-300">
-              Only Administrators have permission to create or delete classrooms. Once created,
-              teachers can assign work and grade essays.
+              Teachers can create up to 3 active classrooms. Once created, you can invite co-teachers and students, assign essays, and review grades.
             </div>
 
             <div className="flex items-center justify-end gap-3 pt-2">
@@ -2422,6 +2422,7 @@ function PeopleTab({
   const getTeachersFn = useServerFn(getClassroomTeachers);
   const getRosterFn = useServerFn(getClassroomRoster);
   const addTeacherFn = useServerFn(addClassroomTeacher);
+  const addStudentFn = useServerFn(addClassroomStudent);
   const removeTeacherFn = useServerFn(removeClassroomTeacher);
   const removeMemberFn = useServerFn(removeClassroomMember);
   const leaveClassFn = useServerFn(leaveClassroom);
@@ -2430,6 +2431,8 @@ function PeopleTab({
   const [search, setSearch] = useState("");
   const [inviteTeacherOpen, setInviteTeacherOpen] = useState(false);
   const [teacherEmail, setTeacherEmail] = useState("");
+  const [inviteStudentOpen, setInviteStudentOpen] = useState(false);
+  const [studentEmail, setStudentEmail] = useState("");
   const [selectedStudentForInsights, setSelectedStudentForInsights] = useState<{
     id: string;
     name: string;
@@ -2473,6 +2476,24 @@ function PeopleTab({
       setTeacherEmail("");
       setInviteTeacherOpen(false);
       queryClient.invalidateQueries({ queryKey: ["classroom_teachers", classroom.id] });
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const addStudentMutation = useMutation({
+    mutationFn: async () => {
+      return addStudentFn({
+        data: {
+          classroomId: classroom.id,
+          email: studentEmail.trim(),
+        },
+      });
+    },
+    onSuccess: () => {
+      toast.success("Student enrolled successfully!");
+      setStudentEmail("");
+      setInviteStudentOpen(false);
+      queryClient.invalidateQueries({ queryKey: ["classroom_roster", classroom.id] });
     },
     onError: (err: Error) => toast.error(err.message),
   });
@@ -2573,13 +2594,25 @@ function PeopleTab({
             </p>
           </div>
 
-          <div className="w-full sm:w-64">
-            <Input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search students..."
-              className="bg-slate-950 border-slate-700 text-xs text-white"
-            />
+          <div className="flex flex-wrap items-center gap-2.5">
+            <div className="w-full sm:w-56">
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search students..."
+                className="bg-slate-950 border-slate-700 text-xs text-white"
+              />
+            </div>
+            {isStaff && (
+              <Button
+                size="sm"
+                onClick={() => setInviteStudentOpen(true)}
+                className="bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold shrink-0"
+              >
+                <UserPlus className="h-3.5 w-3.5 mr-1.5" />
+                Add Student
+              </Button>
+            )}
           </div>
         </div>
 
@@ -2734,6 +2767,58 @@ function PeopleTab({
                 className="bg-purple-600 hover:bg-purple-500 text-white font-medium"
               >
                 {addTeacherMutation.isPending ? "Adding..." : "Add Co-Teacher"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Invite Student Modal */}
+      {inviteStudentOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
+          <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl space-y-5 text-left">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                <UserPlus className="h-5 w-5 text-purple-400" />
+                Enroll Student
+              </h3>
+              <button
+                onClick={() => setInviteStudentOpen(false)}
+                className="text-slate-400 hover:text-white"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-400">
+              Enter the email address of the student to add them directly to this classroom. Alternatively, students can join anytime using class code <span className="font-mono font-bold text-purple-400">{classroom.join_code}</span>.
+            </p>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-slate-300">Student Email</Label>
+              <Input
+                type="email"
+                value={studentEmail}
+                onChange={(e) => setStudentEmail(e.target.value)}
+                placeholder="student@school.edu"
+                className="bg-slate-950 border-slate-700 text-white"
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <Button
+                variant="ghost"
+                onClick={() => setInviteStudentOpen(false)}
+                className="text-slate-400 hover:text-white"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={() => addStudentMutation.mutate()}
+                disabled={!studentEmail.trim() || addStudentMutation.isPending}
+                className="bg-purple-600 hover:bg-purple-500 text-white font-medium"
+              >
+                {addStudentMutation.isPending ? "Enrolling..." : "Enroll Student"}
               </Button>
             </div>
           </div>

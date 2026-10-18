@@ -155,6 +155,7 @@ const TEACHER_NAV_GROUPS: NavGroup[] = [
     collapsible: true,
     items: [
       { to: "/grade", label: "Essay Grader", icon: PenLine },
+      { to: "/live-examiner", label: "Live Examiner", icon: Sparkles, requiresPaid: true },
       { to: "/knowledge", label: "Knowledge Base", icon: BookOpen },
       { to: "/calibration", label: "Anchor Calibration", icon: ShieldCheck },
     ],
@@ -309,7 +310,7 @@ export function AppShell({
     );
   }, [role, subscription, isTeacherUser]);
 
-  const classroomLabel = role === "student" ? "Join class" : "Classes";
+  const classroomLabel = role === "student" ? "Classroom" : "Classes";
 
   const isUserAdmin = role === "admin" || Boolean(subscription?.isAdmin);
   const isHigherTierUser = isUserAdmin || subscription?.tier === "mastery" || subscription?.tier === "elite";
@@ -396,7 +397,6 @@ export function AppShell({
                 const isChainedEssay =
                   item.to === "/grade" &&
                   !isUserAdmin &&
-                  !isTeacherUser &&
                   (Boolean(subscription) && !subscription.canGradeEssay);
                 const isChainedLiveExaminer =
                   item.to === "/live-examiner" &&
@@ -624,13 +624,65 @@ export function AppShell({
                     </p>
                   </div>
                 </div>
-                <Badge className="bg-purple-500/25 text-purple-600 dark:text-purple-400 border-purple-500/40 text-[9px] font-extrabold uppercase shadow-2xs">
-                  Educator
-                </Badge>
+                <Link to="/pricing">
+                  <Badge
+                    variant="outline"
+                    className={cn(
+                      "text-[9px] font-extrabold uppercase shadow-2xs cursor-pointer transition-all hover:scale-105",
+                      subscription.isPaid
+                        ? "bg-purple-500/25 text-purple-600 dark:text-purple-400 border-purple-500/40"
+                        : "bg-purple-500/15 text-purple-600 dark:text-purple-400 border-purple-500/30",
+                    )}
+                  >
+                    {subscription.isPaid ? subscription.tierName.split(" ")[0] : "Trial (3)"}
+                  </Badge>
+                </Link>
               </div>
-              <div className="mt-2.5 pt-2 border-t border-purple-500/20 text-[10.5px] text-muted-foreground flex items-center gap-1.5 font-medium relative z-10">
-                <ShieldCheck className="size-3 text-purple-500 shrink-0" />
-                <span className="text-foreground font-semibold">Evaluation Desk · Full Access</span>
+
+              {/* Teacher Quota Status */}
+              <div className="mt-3 pt-2.5 border-t border-purple-500/20 space-y-2 relative z-10">
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between text-[10.5px]">
+                    <span className="flex items-center gap-1.5 text-muted-foreground font-medium">
+                      <PenLine className="size-3 text-purple-500" /> Essays Remaining
+                    </span>
+                    <span className="font-bold text-foreground tabular-nums text-[11px]">
+                      {subscription.essaysLimit === 9999
+                        ? "Unlimited"
+                        : `${subscription.essaysRemaining} / ${subscription.essaysLimit}`}
+                    </span>
+                  </div>
+                  <div className="h-1.5 w-full rounded-full bg-muted/80 overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-purple-500 to-indigo-500 transition-all duration-500"
+                      style={{
+                        width:
+                          subscription.essaysLimit === 9999
+                            ? "100%"
+                            : `${Math.min(
+                                100,
+                                Math.max(
+                                  0,
+                                  (subscription.essaysRemaining /
+                                    Math.max(1, subscription.essaysLimit)) *
+                                    100,
+                                ),
+                              )}%`,
+                      }}
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between text-[10.5px] pt-1 border-t border-purple-500/15">
+                  <span className="flex items-center gap-1.5 text-muted-foreground font-medium">
+                    <Sparkles className="size-3 text-purple-500" /> Live Examiner
+                  </span>
+                  <span className="font-bold text-foreground tabular-nums text-[11px]">
+                    {subscription.liveExaminerCredits > 0
+                      ? `${subscription.liveExaminerCredits} credits`
+                      : "Paid Only"}
+                  </span>
+                </div>
               </div>
             </div>
           ) : (

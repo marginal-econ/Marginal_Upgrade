@@ -272,7 +272,7 @@ export function DashboardPage() {
         userName={userDisplayName}
         school={me.data?.school ?? (sessionUser?.user_metadata as any)?.school ?? null}
         tierName={userTierName}
-        classrooms={classrooms.data ?? []}
+        classrooms={classrooms.data?.classes ?? (Array.isArray(classrooms.data) ? classrooms.data : [])}
         docs={docs.data ?? []}
         anchors={anchors.data ?? []}
         essays={essays.data ?? []}
@@ -1304,13 +1304,22 @@ function EducatorDashboardView({
   userName: string;
   school: string | null;
   tierName: string;
-  classrooms: any[];
+  classrooms: any;
   docs: any[];
   anchors: any[];
   essays: any[];
 }) {
-  const readyDocs = docs.filter((d) => d.status === "ready").length;
-  const activeAnchors = anchors.filter((a) => a.active !== false).length;
+  const classList: any[] = Array.isArray(classrooms)
+    ? classrooms
+    : classrooms?.classes && Array.isArray(classrooms.classes)
+      ? classrooms.classes
+      : [];
+  const safeDocs = Array.isArray(docs) ? docs : [];
+  const safeAnchors = Array.isArray(anchors) ? anchors : [];
+  const safeEssays = Array.isArray(essays) ? essays : [];
+
+  const readyDocs = safeDocs.filter((d) => d.status === "ready").length;
+  const activeAnchors = safeAnchors.filter((a) => a.active !== false).length;
 
   return (
     <div className="min-h-screen bg-background">
@@ -1373,7 +1382,7 @@ function EducatorDashboardView({
         </section>
 
         {/* If teacher has no classrooms, guide them to create one */}
-        {classrooms.length === 0 ? (
+        {classList.length === 0 ? (
           <section className="rounded-2xl border border-dashed border-purple-500/40 bg-purple-500/[0.04] p-8 text-center">
             <div className="mx-auto size-12 rounded-2xl bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center mb-3">
               <UsersRound className="size-6" />
@@ -1406,7 +1415,7 @@ function EducatorDashboardView({
                     <UsersRound className="size-4" />
                   </div>
                 </div>
-                <p className="mt-2 text-2xl font-bold tracking-tight text-foreground">{classrooms.length}</p>
+                <p className="mt-2 text-2xl font-bold tracking-tight text-foreground">{classList.length}</p>
                 <div className="mt-2 flex items-center justify-between text-xs">
                   <span className="text-muted-foreground">Active classrooms</span>
                   <Link to="/classes" className="font-semibold text-primary hover:underline flex items-center gap-0.5">
@@ -1454,7 +1463,7 @@ function EducatorDashboardView({
                     <PenLine className="size-4" />
                   </div>
                 </div>
-                <p className="mt-2 text-2xl font-bold tracking-tight text-foreground">{essays.length}</p>
+                <p className="mt-2 text-2xl font-bold tracking-tight text-foreground">{safeEssays.length}</p>
                 <div className="mt-2 flex items-center justify-between text-xs">
                   <span className="text-muted-foreground">Submissions evaluated</span>
                   <Link to="/grade" className="font-semibold text-primary hover:underline flex items-center gap-0.5">
@@ -1481,7 +1490,7 @@ function EducatorDashboardView({
               </div>
 
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {classrooms.map((cls) => (
+                {classList.map((cls) => (
                   <div key={cls.id} className="rounded-xl border border-border/80 bg-card p-4 shadow-2xs hover:border-primary/40 transition-colors">
                     <div className="flex items-start justify-between gap-2">
                       <div>

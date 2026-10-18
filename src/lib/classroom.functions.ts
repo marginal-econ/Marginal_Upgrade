@@ -351,6 +351,17 @@ export const createClassroom = createServerFn({ method: "POST" })
     });
     if (!isMarginal) {
       await assertTeacher(context);
+      const { count, error: countErr } = await admin
+        .from("classrooms")
+        .select("id", { count: "exact", head: true })
+        .eq("teacher_id", assignedTeacherId)
+        .eq("archived", false);
+
+      if (!countErr && typeof count === "number" && count >= 3) {
+        throw new Error(
+          "Teachers can create a maximum of 3 active classrooms. Please archive or remove an existing classroom first.",
+        );
+      }
     }
     const { getSupabaseAdmin } = await import("@/server/supabase");
     const admin = getSupabaseAdmin();
@@ -564,7 +575,14 @@ export const addClassroomTeacher = createServerFn({ method: "POST" })
       .in("role", ["teacher", "admin"])
       .limit(1)
       .maybeSingle();
-    if (!role) throw new Error("Set this account's role to Teacher before adding it.");
+
+    if (!role) {
+      // Auto-assign teacher role so invited educator can co-teach
+      await authority.admin.from("user_roles").upsert({
+        user_id: target.id,
+        role: "teacher",
+      });
+    }
 
     const { error } = await authority.admin.from("classroom_teachers").upsert(
       {
@@ -573,6 +591,42 @@ export const addClassroomTeacher = createServerFn({ method: "POST" })
         added_by: context.userId,
       },
       { onConflict: "classroom_id,teacher_id" },
+    );
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const addClassroomStudent = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({ classroomId: z.string().uuid(), email: z.string().trim().email() }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const authority = await getClassroomAuthority(context.userId, data.classroomId);
+    if (!authority.isStaff)
+      throw new Error("Only the classroom teacher or administrator can add students.");
+
+    const normalizedEmail = data.email.toLowerCase();
+    let target: { id: string; email?: string } | undefined;
+
+    for (let page = 1; page <= 10 && !target; page += 1) {
+      const result = await authority.admin.auth.admin.listUsers({ page, perPage: 1000 });
+      if (result.error) throw new Error(result.error.message);
+      target = result.data.users.find((user) => user.email?.toLowerCase() === normalizedEmail);
+      if (result.data.users.length < 1000) break;
+    }
+    if (!target) {
+      throw new Error(
+        "No Marginal account found with that email. Please check the email or have the student join using the class code.",
+      );
+    }
+
+    const { error } = await authority.admin.from("classroom_members").upsert(
+      {
+        classroom_id: data.classroomId,
+        student_id: target.id,
+      },
+      { onConflict: "classroom_id,student_id" },
     );
     if (error) throw new Error(error.message);
     return { ok: true };
