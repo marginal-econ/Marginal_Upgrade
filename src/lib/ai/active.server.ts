@@ -3,6 +3,9 @@ import { providerMeta } from "./providers";
 export type ProviderConfig = {
   provider: string;
   apiKey: string;
+  paidPrimaryKey?: string;
+  paidSecondaryKey?: string;
+  budgetPoolKeys?: string[];
   apiKeys?: string[];
   baseUrl: string;
   model: string;
@@ -22,17 +25,52 @@ export function normaliseConfig(row: {
   label: string;
 }): ProviderConfig {
   const meta = providerMeta(row.provider);
-  const rawKeys = row.api_key
-    ? row.api_key
-        .split(/[\n\r,;]+/)
-        .map((k) => k.trim())
-        .filter((k) => k.length > 5)
-    : [];
-  const apiKeys = rawKeys.length > 0 ? rawKeys : [row.api_key];
+  let paidPrimary = "";
+  let paidSecondary = "";
+  let budgetPool: string[] = [];
+  let allKeys: string[] = [];
+
+  const raw = row.api_key ? row.api_key.trim() : "";
+  if (raw.startsWith("{") && raw.endsWith("}")) {
+    try {
+      const parsed = JSON.parse(raw);
+      paidPrimary = typeof parsed.paidPrimary === "string" ? parsed.paidPrimary.trim() : "";
+      paidSecondary = typeof parsed.paidSecondary === "string" ? parsed.paidSecondary.trim() : "";
+      if (Array.isArray(parsed.budgetPool)) {
+        budgetPool = parsed.budgetPool
+          .map((k: unknown) => String(k).trim())
+          .filter((k: string) => k.length > 5);
+      } else if (typeof parsed.budgetPool === "string") {
+        budgetPool = parsed.budgetPool
+          .split(/[\n\r,;]+/)
+          .map((k: string) => k.trim())
+          .filter((k: string) => k.length > 5);
+      }
+      allKeys = Array.from(new Set([paidPrimary, paidSecondary, ...budgetPool].filter(Boolean)));
+    } catch {
+      // fallback to plain text parsing
+    }
+  }
+
+  if (allKeys.length === 0 && raw) {
+    allKeys = raw
+      .split(/[\n\r,;]+/)
+      .map((k) => k.trim())
+      .filter((k) => k.length > 5);
+    paidPrimary = allKeys[0] || raw;
+    paidSecondary = allKeys[1] || "";
+    budgetPool = allKeys;
+  }
+
+  const primaryKey = paidPrimary || allKeys[0] || raw;
+
   return {
     provider: row.provider,
-    apiKey: apiKeys[0] || row.api_key,
-    apiKeys,
+    apiKey: primaryKey,
+    paidPrimaryKey: primaryKey,
+    paidSecondaryKey: paidSecondary || undefined,
+    budgetPoolKeys: budgetPool.length > 0 ? budgetPool : [primaryKey],
+    apiKeys: allKeys.length > 0 ? allKeys : [raw],
     baseUrl: (row.base_url?.trim() || meta.baseUrl).replace(/\/+$/, ""),
     model: row.model,
     label: row.label,

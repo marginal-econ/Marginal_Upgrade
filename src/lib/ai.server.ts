@@ -260,15 +260,27 @@ async function chatViaProvider(
   options: ChatOptions,
 ): Promise<Omit<ChatResult, "latencyMs">> {
   const isBudget = options.isBudgetTier === true;
-  const configuredKeys =
-    config.apiKeys && config.apiKeys.length > 0 ? config.apiKeys : [config.apiKey];
 
-  // High-tier users (> 199, school, teacher, admin) always use the dedicated primary key with zero rotation delays.
-  // Budget users (<= 199: 0, 99, 199) automatically hop across the configured key pool on 429/503.
-  const activeKeysToTry =
-    isBudget && configuredKeys.length > 1
-      ? [getAvailableKey(configuredKeys), ...configuredKeys.filter((k) => k !== getAvailableKey(configuredKeys))]
-      : [configuredKeys[0]!];
+  let activeKeysToTry: string[] = [];
+  if (isBudget) {
+    // Budget tier (<= 199: 0, 99, 199): uses the budget pool with auto-rotation on 429/503
+    const pool =
+      config.budgetPoolKeys && config.budgetPoolKeys.length > 0
+        ? config.budgetPoolKeys
+        : config.apiKeys && config.apiKeys.length > 0
+          ? config.apiKeys
+          : [config.apiKey];
+    const bestKey = getAvailableKey(pool);
+    activeKeysToTry =
+      pool.length > 1 ? [bestKey, ...pool.filter((k) => k !== bestKey)] : [pool[0]!];
+  } else {
+    // High-tier users (> 199, school, teacher, admin):
+    // Dedicated Primary Paid Key first. If it ever hits 429/503, fails over to Secondary Paid Key!
+    const paidKeys = [config.paidPrimaryKey || config.apiKey, config.paidSecondaryKey].filter(
+      Boolean,
+    ) as string[];
+    activeKeysToTry = paidKeys.length > 0 ? paidKeys : [config.apiKey];
+  }
 
   if (config.provider === "anthropic") {
     const system = options.messages

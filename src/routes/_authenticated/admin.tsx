@@ -592,9 +592,11 @@ function ProvidersPanel() {
     queryFn: () => list({ data: { purpose: "chat" } }),
   });
 
-  const [provider, setProvider] = useState<string>("anthropic");
+  const [provider, setProvider] = useState<string>("google");
   const [label, setLabel] = useState("");
-  const [apiKey, setApiKey] = useState("");
+  const [paidPrimaryKey, setPaidPrimaryKey] = useState("");
+  const [paidSecondaryKey, setPaidSecondaryKey] = useState("");
+  const [budgetPoolKeys, setBudgetPoolKeys] = useState("");
   const [model, setModel] = useState("");
   const [baseUrl, setBaseUrl] = useState("");
   const [activateNow, setActivateNow] = useState(true);
@@ -605,20 +607,37 @@ function ProvidersPanel() {
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["provider-keys", "chat"] });
 
   const saveMutation = useMutation({
-    mutationFn: () =>
-      save({
+    mutationFn: () => {
+      let finalKey = paidPrimaryKey.trim();
+      const hasSecondary = paidSecondaryKey.trim().length > 0;
+      const hasBudgetPool = budgetPoolKeys.trim().length > 0;
+      if (hasSecondary || hasBudgetPool) {
+        finalKey = JSON.stringify({
+          paidPrimary: paidPrimaryKey.trim(),
+          paidSecondary: paidSecondaryKey.trim(),
+          budgetPool: budgetPoolKeys
+            .split(/[\n\r,;]+/)
+            .map((k) => k.trim())
+            .filter(Boolean),
+        });
+      }
+
+      return save({
         data: {
           provider: provider as never,
           label: label || meta.label,
-          apiKey,
+          apiKey: finalKey,
           baseUrl,
           model: model || meta.models[0] || "",
           activate: activateNow,
         },
-      }),
+      });
+    },
     onSuccess: async () => {
-      toast.success("Key saved. AI features will use it immediately.");
-      setApiKey("");
+      toast.success("AI keys saved. AI features will use them immediately.");
+      setPaidPrimaryKey("");
+      setPaidSecondaryKey("");
+      setBudgetPoolKeys("");
       setLabel("");
       await refresh();
     },
@@ -709,17 +728,71 @@ function ProvidersPanel() {
             />
           </div>
 
-          <div className="space-y-1.5">
-            <Label>API key</Label>
-            <Input
-              type="password"
-              value={apiKey}
-              onChange={(event) => setApiKey(event.target.value)}
-              placeholder={meta.keyHint}
-            />
-            <p className="text-[11px] text-muted-foreground">
-              Tip: Enter multiple keys (comma or newline-separated) for an auto-rotating pool. Lower-tier users (≤ ₹199) hop keys automatically when rate limits occur, while higher tiers keep priority dedicated access.
-            </p>
+          {/* Multi-Tier Keys Section */}
+          <div className="space-y-3 rounded-xl border border-border/80 bg-muted/20 p-3">
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                  <span className="inline-block h-2 w-2 rounded-full bg-emerald-500" />
+                  Primary Paid Key (Users &gt; ₹199: Pro, Mastery, Elite, Teachers)
+                </Label>
+                <Badge variant="outline" className="text-[10px] text-emerald-600 border-emerald-500/30">
+                  Priority Access
+                </Badge>
+              </div>
+              <Input
+                type="password"
+                value={paidPrimaryKey}
+                onChange={(event) => setPaidPrimaryKey(event.target.value)}
+                placeholder="AIza... (High-priority dedicated key for paid users)"
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Dedicated key for higher-tier users. Bypasses queue delays and runs on premium models (e.g. Gemini 2.5 Pro).
+              </p>
+            </div>
+
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                  <span className="inline-block h-2 w-2 rounded-full bg-blue-500" />
+                  Secondary Paid Key (Optional Failover)
+                </Label>
+                <Badge variant="outline" className="text-[10px] text-muted-foreground">
+                  Paid Failover
+                </Badge>
+              </div>
+              <Input
+                type="password"
+                value={paidSecondaryKey}
+                onChange={(event) => setPaidSecondaryKey(event.target.value)}
+                placeholder="AIza... (Optional backup key if primary hits a temporary blip)"
+              />
+              <p className="text-[11px] text-muted-foreground">
+                If the primary paid key ever returns 429 or 503, paid users instantly failover to this key without degradation.
+              </p>
+            </div>
+
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                  <span className="inline-block h-2 w-2 rounded-full bg-amber-500" />
+                  Free &amp; Budget Tier Pool (0, ₹99, ₹199 Users)
+                </Label>
+                <Badge variant="outline" className="text-[10px] text-amber-600 border-amber-500/30">
+                  Auto-Rotating Pool
+                </Badge>
+              </div>
+              <textarea
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs font-mono shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                rows={2}
+                value={budgetPoolKeys}
+                onChange={(event) => setBudgetPoolKeys(event.target.value)}
+                placeholder="AIzaSyFree1..., AIzaSyFree2... (Enter 1 or more keys separated by commas or newlines)"
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Budget users automatically cycle through this pool when rate limits occur, falling back to Flash models if needed.
+              </p>
+            </div>
           </div>
 
           <div className="space-y-1.5">
@@ -769,10 +842,13 @@ function ProvidersPanel() {
           <Button
             className="w-full"
             onClick={() => saveMutation.mutate()}
-            disabled={saveMutation.isPending || apiKey.trim().length < 8}
+            disabled={
+              saveMutation.isPending ||
+              (paidPrimaryKey.trim().length < 8 && budgetPoolKeys.trim().length < 8)
+            }
           >
             {saveMutation.isPending ? <Loader2 className="size-4 animate-spin" /> : null}
-            Save key
+            Save provider configuration
           </Button>
         </div>
       </section>

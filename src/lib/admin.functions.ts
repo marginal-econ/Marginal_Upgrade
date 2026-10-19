@@ -189,6 +189,24 @@ export const removePublicWaitlistMember = createServerFn({ method: "POST" })
   });
 
 function maskKey(key: string): string {
+  if (key.startsWith("{") && key.endsWith("}")) {
+    try {
+      const parsed = JSON.parse(key);
+      const primary = parsed.paidPrimary || "";
+      const primaryMasked =
+        primary.length > 8 ? `${primary.slice(0, 4)}••••${primary.slice(-4)}` : "Paid key set";
+      const secondary = parsed.paidSecondary ? " + 1 backup" : "";
+      const poolCount = Array.isArray(parsed.budgetPool)
+        ? parsed.budgetPool.length
+        : typeof parsed.budgetPool === "string" && parsed.budgetPool.length > 5
+          ? parsed.budgetPool.split(/[\n\r,;]+/).filter((k: string) => k.trim().length > 5).length
+          : 0;
+      const poolText = poolCount > 0 ? ` (${poolCount} free pool keys)` : "";
+      return `${primaryMasked}${secondary}${poolText}`;
+    } catch {
+      // fall through
+    }
+  }
   if (key.length <= 8) return "••••";
   return `${key.slice(0, 4)}••••${key.slice(-4)}`;
 }
