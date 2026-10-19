@@ -10,14 +10,14 @@ export const AI_PROVIDERS = [
     baseUrl: "https://ai.gateway.lovable.dev/v1",
     keyHint: "Managed automatically — no key needed",
     models: [
-      "google/gemini-2.5-pro",
-      "google/gemini-3.6-flash",
+      "google/gemini-3.1-pro",
+      "google/gemini-3.8-flash",
       "openai/gpt-5.6-sol",
       "openai/gpt-5.6-terra",
     ],
     embeddingCapable: false,
     visionCapable: true,
-    visionModels: ["google/gemini-2.5-pro", "google/gemini-3.6-flash", "openai/gpt-5.6-sol"],
+    visionModels: ["google/gemini-3.1-pro", "google/gemini-3.8-flash", "openai/gpt-5.6-sol"],
   },
   {
     id: "openai",
@@ -45,7 +45,7 @@ export const AI_PROVIDERS = [
     label: "Google (Gemini)",
     baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai",
     keyHint: "AIza... (single key or comma-separated pool for auto-rotation)",
-    models: ["gemini-3.8-flash", "gemini-3.1-pro-preview", "gemini-3.1-flash"],
+    models: ["gemini-3.8-flash", "gemini-3.1-pro", "gemini-3.1-flash"],
     embeddingModels: ["models/gemini-embedding-001"],
     embeddingCapable: true,
     // Gemini reads dense/cramped handwriting and exam figures better than
@@ -54,7 +54,7 @@ export const AI_PROVIDERS = [
     // (used directly by src/lib/ocr/gemini.server.ts), not the OpenAI-
     // compatible alias used for chat/embeddings.
     visionCapable: true,
-    visionModels: ["models/gemini-3.8-flash", "models/gemini-3.7-flash", "models/gemini-3.1-pro-preview"],
+    visionModels: ["models/gemini-3.8-flash", "models/gemini-3.1-flash", "models/gemini-3.1-pro"],
   },
   {
     id: "xai",
@@ -81,11 +81,11 @@ export const AI_PROVIDERS = [
     label: "OpenRouter",
     baseUrl: "https://openrouter.ai/api/v1",
     keyHint: "sk-or-...",
-    models: ["anthropic/claude-sonnet-4.5", "google/gemini-2.5-pro", "openai/gpt-4.1"],
+    models: ["anthropic/claude-sonnet-4.5", "google/gemini-3.1-pro", "openai/gpt-4.1"],
     embeddingModels: ["nvidia/nemotron-3-embed-1b:free", "openai/text-embedding-3-large"],
     embeddingCapable: true,
     visionCapable: true,
-    visionModels: ["anthropic/claude-sonnet-4.5", "google/gemini-2.5-pro", "openai/gpt-4.1"],
+    visionModels: ["anthropic/claude-sonnet-4.5", "google/gemini-3.1-pro", "openai/gpt-4.1"],
   },
   {
     id: "mistral",

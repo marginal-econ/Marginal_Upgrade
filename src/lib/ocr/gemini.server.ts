@@ -14,7 +14,7 @@ import type { ProviderConfig } from "../ai/active.server";
 // 2.5 Flash and is the only line that supports mediaResolution — the biggest
 // lever we have for legibility. This is used ONLY for the direct Google AI
 // Studio path (an admin-saved key calling Google's API directly).
-const GOOGLE_MODEL = "models/gemini-3.7-flash";
+const GOOGLE_MODEL = "models/gemini-3.8-flash";
 const GOOGLE_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta";
 
 /**
@@ -25,8 +25,8 @@ const GOOGLE_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta";
  * gemini-2.5-pro (the most powerful vision model for challenging handwriting).
  */
 const GATEWAY_MODELS = [
-  "google/gemini-3.6-flash",
-  "google/gemini-2.5-pro",
+  "google/gemini-3.8-flash",
+  "google/gemini-3.1-pro",
   "openai/gpt-5.6-sol",
 ];
 const ATTEMPTS_PER_MODEL = 2;
@@ -134,7 +134,7 @@ async function transcribeViaGoogle(apiKey: string, model: string, dataUrl: strin
   const { mimeType, data } = await prepareDataUrl(dataUrl);
   const primary = model.startsWith("models/") ? model : `models/${model}`;
   const candidateModels = Array.from(
-    new Set([primary, "models/gemini-3.8-flash", "models/gemini-3.7-flash", "models/gemini-2.5-pro"]),
+    new Set([primary, "models/gemini-3.8-flash", "models/gemini-3.1-flash", "models/gemini-3.1-pro"]),
   );
 
   let lastErr: unknown = null;

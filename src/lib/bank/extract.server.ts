@@ -80,7 +80,7 @@ const DIAGRAM_MATCH_RULES_VISION = [
 /** Cap on how many page images go into a single vision extraction call — keeps token/latency bounded. */
 const VISION_MAX_PAGES = 14;
 /** Gateway-safe default model id, only used when no admin vision/chat override is configured. */
-export const VISION_FALLBACK_MODEL = "google/gemini-3.6-flash";
+export const VISION_FALLBACK_MODEL = "google/gemini-3.8-flash";
 
 /**
  * Runs one extraction prompt either as a text-only chat() call (legacy path,

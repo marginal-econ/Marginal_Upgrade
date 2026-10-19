@@ -956,8 +956,14 @@ export const testSpecificKey = createServerFn({ method: "POST" })
       data.model?.trim() || (data.provider === "google" ? "gemini-3.8-flash" : "gpt-4o-mini");
     if (data.provider === "google") {
       const cleaned = testModel.replace(/^(google\/|models\/)/, "");
-      if (cleaned === "gemini-2.5-pro") testModel = "gemini-3.1-pro-preview";
-      else if (cleaned === "gemini-2.5-flash" || cleaned === "gemini-2.0-flash")
+      if (cleaned === "gemini-2.5-pro" || cleaned === "gemini-3.1-pro-preview")
+        testModel = "gemini-3.1-pro";
+      else if (
+        cleaned === "gemini-2.5-flash" ||
+        cleaned === "gemini-2.0-flash" ||
+        cleaned === "gemini-3.6-flash" ||
+        cleaned === "gemini-3.7-flash"
+      )
         testModel = "gemini-3.8-flash";
     }
 

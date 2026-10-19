@@ -140,7 +140,7 @@ async function fetchAsDataUrl(url: string): Promise<string> {
 // ocr/gemini.server.ts) — "google/gemini-3.7-flash" is NOT served by the
 // gateway and was previously first in this list, burning a guaranteed-failed
 // attempt on every diagram description before ever reaching a working model.
-const GATEWAY_MODELS = ["google/gemini-3.6-flash", "openai/gpt-5.6-sol", "openai/gpt-5.6-terra"];
+const GATEWAY_MODELS = ["google/gemini-3.8-flash", "openai/gpt-5.6-sol", "openai/gpt-5.6-terra"];
 
 const MAX_DATA_URL_BYTES = MAX_IMAGE_BYTES;
 

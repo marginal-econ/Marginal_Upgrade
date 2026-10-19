@@ -82,7 +82,7 @@ export const MAX_ANCHORS_PER_BAND = 2;
  *    interactive live keystroke checking, writing diagnostics, mark estimation,
  *    question generation, and one-point skills drills.
  */
-export const MODEL_EXAMINER = "google/gemini-2.5-pro";
+export const MODEL_EXAMINER = "google/gemini-3.1-pro";
 export const MODEL_FAST = "google/gemini-3.8-flash";
 
 /**

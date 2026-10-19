@@ -22,11 +22,11 @@ import {
 } from "./config";
 
 describe("Examiner Configuration & Gemini Model Allocation", () => {
-  it("allocates Gemini 2.5 Pro for deep evaluative grading and arbitration", () => {
-    expect(MODEL_EXAMINER).toBe("google/gemini-2.5-pro");
-    expect(MODEL_GRADING).toBe("google/gemini-2.5-pro");
-    expect(MODEL_AUDIT).toBe("google/gemini-2.5-pro");
-    expect(MODEL_ARBITRATION).toBe("google/gemini-2.5-pro");
+  it("allocates Gemini 3.1 Pro for deep evaluative grading and arbitration", () => {
+    expect(MODEL_EXAMINER).toBe("google/gemini-3.1-pro");
+    expect(MODEL_GRADING).toBe("google/gemini-3.1-pro");
+    expect(MODEL_AUDIT).toBe("google/gemini-3.1-pro");
+    expect(MODEL_ARBITRATION).toBe("google/gemini-3.1-pro");
   });
 
   it("allocates Gemini 3.8 Flash for high-frequency live typing and diagnostic tasks", () => {

@@ -252,7 +252,7 @@ export const autofillDiagramFromImage = createServerFn({ method: "POST" })
     ].join("\n");
 
     const GATEWAY_MODELS = [
-      "google/gemini-3.6-flash",
+      "google/gemini-3.8-flash",
       "openai/gpt-5.6-sol",
       "openai/gpt-5.6-terra",
     ];

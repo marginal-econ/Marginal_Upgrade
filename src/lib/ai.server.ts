@@ -17,7 +17,7 @@ import { EMBEDDING_DIMS } from "./examiner/config";
  *  as a literal here (matches MODEL_FAST in examiner/config.ts) rather than
  *  imported, so ai.server.ts's one central gateway function never depends on
  *  a feature-specific config module. */
-const ECONOMY_MODEL = "google/gemini-3.6-flash";
+const ECONOMY_MODEL = "google/gemini-3.8-flash";
 /** Token ceilings applied by the non-"max" modes — a real lever on cost,
  *  independent of which model ends up handling the call. */
 const BALANCED_TOKEN_CAP = 2000;
@@ -366,8 +366,14 @@ async function chatViaProvider(
 
   function resolveGoogleModel(rawModel: string): string {
     const cleaned = rawModel.replace(/^(google\/|models\/)/, "");
-    if (cleaned === "gemini-2.5-pro") return "gemini-3.1-pro-preview";
-    if (cleaned === "gemini-2.5-flash" || cleaned === "gemini-2.0-flash") return "gemini-3.8-flash";
+    if (cleaned === "gemini-2.5-pro" || cleaned === "gemini-3.1-pro-preview") return "gemini-3.1-pro";
+    if (
+      cleaned === "gemini-2.5-flash" ||
+      cleaned === "gemini-2.0-flash" ||
+      cleaned === "gemini-3.6-flash" ||
+      cleaned === "gemini-3.7-flash"
+    )
+      return "gemini-3.8-flash";
     return cleaned;
   }
 
@@ -375,7 +381,7 @@ async function chatViaProvider(
     config.provider === "google" ? resolveGoogleModel(config.model) : config.model;
 
   // High-tier users (> 199) preserve their premium model (falling back to flash only if 404/429/503 occurs).
-  // Budget users (<= 199) degrade through the Flash hierarchy.
+  // Budget users (<= 199) degrade strictly through: gemini-3.8-flash -> gemini-3.1-flash.
   const candidateModels =
     config.provider === "google"
       ? isBudget
@@ -384,7 +390,6 @@ async function chatViaProvider(
               resolvedBaseModel,
               "gemini-3.8-flash",
               "gemini-3.1-flash",
-              "gemini-3.6-flash",
             ]),
           )
         : Array.from(new Set([resolvedBaseModel, "gemini-3.8-flash", "gemini-3.1-flash"]))

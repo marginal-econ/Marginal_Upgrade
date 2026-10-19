@@ -43,7 +43,7 @@ export const coachAoPoint = createServerFn({ method: "POST" })
       await supabase.from("ai_usage_log").insert({
         user_id: userId,
         feature: `coach_${data.ao}`,
-        model: "google/gemini-3.6-flash",
+        model: "google/gemini-3.8-flash",
         ok: false,
         error_message: error instanceof Error ? error.message : "Unknown error",
       });

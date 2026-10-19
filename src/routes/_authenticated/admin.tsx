@@ -1956,7 +1956,7 @@ function VisionPanel() {
             ) : null}
             {provider === "google" ? (
               <p className="pt-1 text-[11px] text-muted-foreground">
-                Use the Google AI Studio id (e.g. <code>models/gemini-3.7-flash</code>) — the
+                Use the Google AI Studio id (e.g. <code>models/gemini-3.8-flash</code>) — the
                 handwriting OCR path calls Google's API directly for the highest legibility.
               </p>
             ) : null}

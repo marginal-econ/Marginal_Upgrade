@@ -117,7 +117,7 @@ export const gradeEssaySubmission = createServerFn({ method: "POST" })
       await supabase.from("ai_usage_log").insert({
         user_id: userId,
         feature: "grade_essay",
-        model: "google/gemini-2.5-pro",
+        model: "google/gemini-3.1-pro",
         ok: false,
         error_message: error instanceof Error ? error.message : "Unknown error",
       });
