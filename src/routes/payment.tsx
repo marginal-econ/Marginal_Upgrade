@@ -192,6 +192,9 @@ function PaymentPortalPage() {
   const [utrNumber, setUtrNumber] = useState("");
   const [copiedUpi, setCopiedUpi] = useState(false);
   const [phone, setPhone] = useState("");
+  const [fullName, setFullName] = useState("");
+  const [location, setLocation] = useState("");
+  const [school, setSchool] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
 
   const fetchConfig = useServerFn(getPaymentConfig);
@@ -242,6 +245,18 @@ function PaymentPortalPage() {
     queryKey: ["me"],
     queryFn: () => fetchMe(),
   });
+
+  // Prefill user details if already available
+  useEffect(() => {
+    if (meQuery.data) {
+      if (!fullName && meQuery.data.fullName) {
+        setFullName(meQuery.data.fullName);
+      }
+      if (!school && (meQuery.data as any)?.school) {
+        setSchool((meQuery.data as any).school);
+      }
+    }
+  }, [meQuery.data]);
 
   const isExplicitStudent =
     search.role === "student" ||
@@ -440,7 +455,29 @@ function PaymentPortalPage() {
     }
   }, [meQuery.isLoading, meQuery.data?.userId, navigate]);
 
+  const validateCustomerDetails = (): boolean => {
+    if (!fullName.trim()) {
+      toast.error("Please enter your Full Name before proceeding with payment.");
+      return false;
+    }
+    const cleanPhone = phone.trim().replace(/\D/g, "");
+    if (!phone.trim() || cleanPhone.length < 7) {
+      toast.error("Please enter a valid Phone Number for SMS/WhatsApp activation receipt.");
+      return false;
+    }
+    if (!location.trim()) {
+      toast.error("Please enter your Location (City / Country) before proceeding.");
+      return false;
+    }
+    if (!school.trim()) {
+      toast.error("Please enter your School or Institution name before proceeding.");
+      return false;
+    }
+    return true;
+  };
+
   const handleActivation = async (isSimulation = false) => {
+    if (!validateCustomerDetails()) return;
     if (!meQuery.data?.userId) {
       toast.error("Please sign in or create an account first to complete payment.");
       navigate({
@@ -462,6 +499,10 @@ function PaymentPortalPage() {
           billingCycle: cycle,
           isSimulation,
           couponCode: appliedCoupon?.code,
+          fullName: fullName.trim(),
+          phoneNumber: phone.trim(),
+          location: location.trim(),
+          school: school.trim(),
         },
       });
 
@@ -481,6 +522,7 @@ function PaymentPortalPage() {
   };
 
   const handleRazorpayCheckout = () => {
+    if (!validateCustomerDetails()) return;
     const key = configQuery.data?.keyId;
     const rzp = (window as any).Razorpay;
 
@@ -503,9 +545,9 @@ function PaymentPortalPage() {
         description: `${activePlanName} (${cycle === "annual" ? "Annual" : "Monthly"})`,
         image: "/marginal-m-icon-clean.png",
         prefill: {
-          name: meQuery.data?.fullName || "",
+          name: fullName.trim() || meQuery.data?.fullName || "",
           email: "",
-          contact: phone || "",
+          contact: phone.trim() || "",
         },
         theme: {
           color: "#4f46e5",
@@ -532,6 +574,7 @@ function PaymentPortalPage() {
   const merchantUpi = configQuery.data?.merchantUpiId || "8754256082-2@ybl";
 
   const handleRazorpayClick = () => {
+    if (!validateCustomerDetails()) return;
     if (!meQuery.data?.userId) {
       toast.error("Please sign in or create an account first to complete payment.");
       navigate({
@@ -595,6 +638,7 @@ function PaymentPortalPage() {
   };
 
   const handleUpiActivation = async () => {
+    if (!validateCustomerDetails()) return;
     if (!meQuery.data?.userId) {
       toast.error("Please sign in or create an account first so your subscription can be verified.", {
         action: {
@@ -629,6 +673,10 @@ function PaymentPortalPage() {
           amount: finalPrice,
           utrReference: cleanUtr,
           couponCode: appliedCoupon?.code,
+          fullName: fullName.trim(),
+          phoneNumber: phone.trim(),
+          location: location.trim(),
+          school: school.trim(),
         },
       });
 
@@ -1155,30 +1203,67 @@ function PaymentPortalPage() {
 
             {/* Customer Information */}
             <div className="rounded-2xl border border-border bg-card p-4 sm:p-6 shadow-xs">
-              <h2 className="text-base font-semibold mb-4">
-                {isSchoolMode ? "2. School Coordinator Contact" : isTeacherMode ? "2. Educator Contact" : "2. Candidate Contact"}
-              </h2>
+              <div className="flex items-center justify-between mb-2">
+                <h2 className="text-base font-semibold">
+                  {isSchoolMode ? "2. School Coordinator Contact" : isTeacherMode ? "2. Educator Contact" : "2. Candidate Information"}
+                </h2>
+                <span className="text-[10px] font-semibold text-amber-600 dark:text-amber-400 bg-amber-500/10 border border-amber-500/30 px-2 py-0.5 rounded-full">
+                  All 4 fields mandatory
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground mb-4">
+                Required before activating your Cambridge 9708 subscription to ensure official syllabus entitlement and WhatsApp/SMS delivery.
+              </p>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-1.5">
-                  <Label htmlFor="cust-name" className="text-xs">
-                    {isSchoolMode ? "Coordinator / Head of Department Name" : isTeacherMode ? "Educator Full Name" : "Candidate Full Name"}
+                  <Label htmlFor="cust-name" className="text-xs flex items-center justify-between font-semibold">
+                    <span>{isSchoolMode ? "Coordinator / Head of Dept" : isTeacherMode ? "Educator Full Name" : "Candidate Full Name"}</span>
+                    <span className="text-[10px] text-destructive font-bold">*Required</span>
                   </Label>
                   <Input
                     id="cust-name"
-                    value={meQuery.data?.fullName || "Cambridge Candidate"}
-                    readOnly
-                    className="h-9 text-xs bg-muted/40"
+                    placeholder="e.g. Rahul Sharma"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    className="h-9 text-xs"
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="cust-phone" className="text-xs">
-                    Phone Number (for SMS confirmation)
+                  <Label htmlFor="cust-phone" className="text-xs flex items-center justify-between font-semibold">
+                    <span>Phone Number (SMS / WhatsApp)</span>
+                    <span className="text-[10px] text-destructive font-bold">*Required</span>
                   </Label>
                   <Input
                     id="cust-phone"
                     placeholder="+91 98765 43210"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
+                    className="h-9 text-xs"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="cust-location" className="text-xs flex items-center justify-between font-semibold">
+                    <span>Location (City, Country)</span>
+                    <span className="text-[10px] text-destructive font-bold">*Required</span>
+                  </Label>
+                  <Input
+                    id="cust-location"
+                    placeholder="e.g. Mumbai, India or Singapore"
+                    value={location}
+                    onChange={(e) => setLocation(e.target.value)}
+                    className="h-9 text-xs"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="cust-school" className="text-xs flex items-center justify-between font-semibold">
+                    <span>School / Institution Name</span>
+                    <span className="text-[10px] text-destructive font-bold">*Required</span>
+                  </Label>
+                  <Input
+                    id="cust-school"
+                    placeholder="e.g. The International School Bangalore"
+                    value={school}
+                    onChange={(e) => setSchool(e.target.value)}
                     className="h-9 text-xs"
                   />
                 </div>

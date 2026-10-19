@@ -27,6 +27,10 @@ const ActivateInput = z.object({
   method: z.enum(["razorpay", "upi_direct", "sandbox"]).optional(),
   utrReference: z.string().optional(),
   couponCode: z.string().optional(),
+  fullName: z.string().optional(),
+  phoneNumber: z.string().optional(),
+  location: z.string().optional(),
+  school: z.string().optional(),
 });
 
 const UpiSubmissionInput = z.object({
@@ -35,6 +39,10 @@ const UpiSubmissionInput = z.object({
   amount: z.number().int().min(1),
   utrReference: z.string().min(6).max(30),
   couponCode: z.string().optional(),
+  fullName: z.string().optional(),
+  phoneNumber: z.string().optional(),
+  location: z.string().optional(),
+  school: z.string().optional(),
 });
 
 export async function getActiveMerchantUpiFromStore(): Promise<string> {
@@ -300,9 +308,27 @@ export const submitUpiPaymentRequest = createServerFn({ method: "POST" })
       couponCode: data.couponCode ? data.couponCode.trim().toUpperCase() : null,
       userId,
       userEmail,
+      fullName: data.fullName || null,
+      phoneNumber: data.phoneNumber || null,
+      location: data.location || null,
+      school: data.school || null,
       status: "pending",
       submittedAt: new Date().toISOString(),
     };
+
+    try {
+      if (data.fullName || data.school) {
+        await supabaseAdmin
+          .from("profiles")
+          .update({
+            ...(data.fullName ? { full_name: data.fullName } : {}),
+            ...(data.school ? { school: data.school } : {}),
+          })
+          .eq("id", userId);
+      }
+    } catch {
+      /* ignore profile sync errors */
+    }
 
     await supabaseAdmin.from("definitions").insert({
       term: utrTerm,
@@ -341,13 +367,29 @@ export const activateSubscriptionTier = createServerFn({ method: "POST" })
     const isSchoolTier = data.tier.startsWith("school_");
     const mappedTier: PlanTier = isSchoolTier ? "elite" : (data.tier as PlanTier);
 
+    // Sync profile details if provided
+    try {
+      if (data.fullName || data.school) {
+        await supabaseAdmin
+          .from("profiles")
+          .update({
+            ...(data.fullName ? { full_name: data.fullName } : {}),
+            ...(data.school ? { school: data.school } : {}),
+          })
+          .eq("id", userId);
+      }
+    } catch {
+      /* ignore profile sync errors */
+    }
+
     // Log the transaction attempt
     try {
+      const contactInfo = `[Cust: ${data.fullName || "N/A"} | Ph: ${data.phoneNumber || "N/A"} | Loc: ${data.location || "N/A"} | Sch: ${data.school || "N/A"}]`;
       const errorMsg = data.utrReference
-        ? `Direct UPI UTR: ${data.utrReference}`
+        ? `Direct UPI UTR: ${data.utrReference} ${contactInfo}`
         : data.isSimulation
-          ? `Activated via sandbox instant verification${data.couponCode ? ` (Coupon: ${data.couponCode})` : ""}`
-          : `Razorpay payment ID: ${data.paymentId ?? "direct"}${data.couponCode ? ` (Coupon: ${data.couponCode})` : ""}`;
+          ? `Activated via sandbox instant verification${data.couponCode ? ` (Coupon: ${data.couponCode})` : ""} ${contactInfo}`
+          : `Razorpay payment ID: ${data.paymentId ?? "direct"}${data.couponCode ? ` (Coupon: ${data.couponCode})` : ""} ${contactInfo}`;
 
       await supabaseAdmin.from("ai_usage_log").insert({
         user_id: userId,

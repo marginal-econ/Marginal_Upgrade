@@ -314,25 +314,19 @@ export function useLiveExaminerCheck(params: {
         return changed ? next : prev;
       });
 
-      // Smooth real-time Cambridge mark evaluation fallback:
-      // When the student writes a developed essay, never leave the running mark stuck at 2/12.
-      if (text.trim().length >= 40) {
+      // Real-time dynamic Cambridge mark evaluation on every keystroke:
+      // Updates marks and AO breakdown progressively as the student writes.
+      if (text.trim().length >= 20) {
         try {
           const clientEval = evaluateCambridgeAnswer(text, maxMark, level);
           if (clientEval.predictedMark && Number.isFinite(clientEval.predictedMark.total_mark)) {
-            setPredictedMark((current) => {
-              if (!current || !Number.isFinite(current.total_mark)) return clientEval.predictedMark;
-              // If client evaluated score is higher (student wrote more words & causal chains)
-              // or current mark was an early draft score that hasn't refreshed:
-              if (clientEval.predictedMark.total_mark > current.total_mark) {
-                return clientEval.predictedMark;
-              }
-              return current;
-            });
+            setPredictedMark(clientEval.predictedMark);
           }
         } catch {
           // Fallback silently if rubric parsing encounters edge case
         }
+      } else {
+        setPredictedMark(null);
       }
     }, INSTANT_LOCAL_PAUSE_MS);
 
@@ -413,16 +407,11 @@ export function useLiveExaminerCheck(params: {
           // Always accept predicted mark if returned, otherwise preserve or compute client evaluation
           if (result.predictedMark && Number.isFinite(result.predictedMark.total_mark)) {
             setPredictedMark(result.predictedMark);
-          } else if (latestText.trim().length >= 40) {
+          } else if (latestText.trim().length >= 20) {
             try {
               const fallbackEval = evaluateCambridgeAnswer(latestText, maxMark, level);
               if (fallbackEval.predictedMark && Number.isFinite(fallbackEval.predictedMark.total_mark)) {
-                setPredictedMark((curr) => {
-                  if (!curr || !Number.isFinite(curr.total_mark) || fallbackEval.predictedMark.total_mark > curr.total_mark) {
-                    return fallbackEval.predictedMark;
-                  }
-                  return curr;
-                });
+                setPredictedMark(fallbackEval.predictedMark);
               }
             } catch {
               // Silent fallback

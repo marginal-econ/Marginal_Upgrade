@@ -270,9 +270,8 @@ async function chatViaProvider(
 
   let activeKeysToTry: string[] = [];
   if (isBudget) {
-    // Budget tier (<= 199: 0, 99, 199):
-    // 1. Try all priority pool keys in configured priority order (Priority 1, 2, 3...)
-    // 2. If all priority keys hit rate limits (429/503), seamlessly use the VIP access keys as last resort!
+    // Budget tier (<= 199: free, foundation, scholar_plus):
+    // Strictly use ONLY the free/pool keys configured for budget tiers. NEVER touch paid VIP keys!
     const pool =
       config.budgetPoolKeys && config.budgetPoolKeys.length > 0
         ? config.budgetPoolKeys
@@ -284,22 +283,20 @@ async function chatViaProvider(
       (k): k is string => Boolean(k && k.length > 5),
     );
 
-    // Keep pool keys distinct from VIP keys so VIP keys are strictly tried at the end
+    // Keep pool keys strictly distinct: EXCLUDE paid/VIP keys completely for budget tier
     const purePoolKeys = pool.filter((k) => !vipKeys.includes(k));
     const poolKeysToOrder = purePoolKeys.length > 0 ? purePoolKeys : pool;
-    purePoolKeysCount = purePoolKeys.length;
+    purePoolKeysCount = poolKeysToOrder.length;
 
     // Filter available (not in cooldown) pool keys preserving their priority order,
     // followed by cooled-down pool keys (in priority order)
     const now = Date.now();
     const availablePoolKeys = poolKeysToOrder.filter((k) => (keyCooldowns.get(k) ?? 0) <= now);
     const cooledPoolKeys = poolKeysToOrder.filter((k) => (keyCooldowns.get(k) ?? 0) > now);
-    const orderedPoolKeys = [...availablePoolKeys, ...cooledPoolKeys];
-
-    // Append VIP keys as last resort (avoiding duplicates if any were already in the pool)
-    const fallbackVipKeys = vipKeys.filter((k) => !orderedPoolKeys.includes(k));
-
-    activeKeysToTry = [...orderedPoolKeys, ...fallbackVipKeys];
+    activeKeysToTry = [...availablePoolKeys, ...cooledPoolKeys];
+    if (activeKeysToTry.length === 0) {
+      activeKeysToTry = poolKeysToOrder;
+    }
   } else {
     // High-tier users (> 199, school, teacher, admin):
     // Dedicated Primary Paid Key first. If it ever hits 429/503, fails over to Secondary Paid Key,
