@@ -3,6 +3,7 @@ import { providerMeta } from "./providers";
 export type ProviderConfig = {
   provider: string;
   apiKey: string;
+  apiKeys?: string[];
   baseUrl: string;
   model: string;
   label: string;
@@ -21,9 +22,17 @@ export function normaliseConfig(row: {
   label: string;
 }): ProviderConfig {
   const meta = providerMeta(row.provider);
+  const rawKeys = row.api_key
+    ? row.api_key
+        .split(/[\n\r,;]+/)
+        .map((k) => k.trim())
+        .filter((k) => k.length > 5)
+    : [];
+  const apiKeys = rawKeys.length > 0 ? rawKeys : [row.api_key];
   return {
     provider: row.provider,
-    apiKey: row.api_key,
+    apiKey: apiKeys[0] || row.api_key,
+    apiKeys,
     baseUrl: (row.base_url?.trim() || meta.baseUrl).replace(/\/+$/, ""),
     model: row.model,
     label: row.label,

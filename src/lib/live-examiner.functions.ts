@@ -673,6 +673,27 @@ export const checkEssayWriting = createServerFn({ method: "POST" })
     const currLen = data.essayText.trim().length;
     const shouldEstimateMark = Boolean(data.includePredictedMark) && currLen >= 40;
 
+    let isBudgetTier = true;
+    if (isAdmin || (context as any).isTeacher) {
+      isBudgetTier = false;
+    } else {
+      try {
+        const { getUserSubscriptionDetails } = await import("./subscription.server");
+        const sub = await getUserSubscriptionDetails(
+          context.supabase,
+          context.userId,
+          (context as any).email,
+          (context as any).claims,
+        );
+        isBudgetTier =
+          !sub.isAdmin &&
+          !sub.isTeacher &&
+          (sub.tier === "free" || sub.tier === "foundation" || sub.tier === "scholar_plus");
+      } catch {
+        isBudgetTier = true;
+      }
+    }
+
     try {
       const { chat } = await import("./ai.server");
       const { MODEL_LIVE_CHECK, MODEL_LIVE_CANDIDATE, MODEL_ESTIMATE } =
@@ -695,6 +716,7 @@ export const checkEssayWriting = createServerFn({ method: "POST" })
           model: MODEL_LIVE_CANDIDATE,
           temperature: 0,
           json: true,
+          isBudgetTier,
           maxCompletionTokens: 700,
           messages: [
             {
@@ -714,6 +736,7 @@ export const checkEssayWriting = createServerFn({ method: "POST" })
               model: MODEL_ESTIMATE,
               temperature: 0,
               json: true,
+              isBudgetTier,
               maxCompletionTokens: 350,
               messages: [
                 {
@@ -905,6 +928,7 @@ export const checkEssayWriting = createServerFn({ method: "POST" })
             model: MODEL_LIVE_CHECK,
             temperature: 0,
             json: true,
+            isBudgetTier,
             maxCompletionTokens: 400,
             messages: [
               {

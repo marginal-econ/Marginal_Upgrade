@@ -44,8 +44,8 @@ export const AI_PROVIDERS = [
     id: "google",
     label: "Google (Gemini)",
     baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai",
-    keyHint: "AIza...",
-    models: ["gemini-2.5-pro", "gemini-2.5-flash"],
+    keyHint: "AIza... (single key or comma-separated pool for auto-rotation)",
+    models: ["gemini-2.5-pro", "gemini-3.8-flash", "gemini-3.1-flash", "gemini-2.5-flash"],
     embeddingModels: ["models/gemini-embedding-001"],
     embeddingCapable: true,
     // Gemini reads dense/cramped handwriting and exam figures better than
@@ -54,7 +54,7 @@ export const AI_PROVIDERS = [
     // (used directly by src/lib/ocr/gemini.server.ts), not the OpenAI-
     // compatible alias used for chat/embeddings.
     visionCapable: true,
-    visionModels: ["models/gemini-3.7-flash", "models/gemini-2.5-pro", "models/gemini-2.5-flash"],
+    visionModels: ["models/gemini-3.8-flash", "models/gemini-3.7-flash", "models/gemini-2.5-pro", "models/gemini-2.5-flash"],
   },
   {
     id: "xai",

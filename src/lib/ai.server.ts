@@ -93,6 +93,12 @@ export type ChatOptions = {
   reasoningEffort?: "none" | "low" | "medium" | "high";
   /** Bypass the stored override (used by the admin "test key" action). */
   overrideProvider?: ProviderConfig | null;
+  /**
+   * When true (budget tiers <= 199: free, foundation, scholar_plus), enables
+   * dynamic key rotation across the configured pool and graceful fallback to Flash models.
+   * High-tier users (> 199, school, teacher, admin) retain dedicated keys and premium models without degradation.
+   */
+  isBudgetTier?: boolean;
 };
 
 export type ChatResult = {
@@ -217,6 +223,35 @@ export async function chat(rawOptions: ChatOptions): Promise<ChatResult> {
 }
 
 /**
+ * In-memory cooldown registry for provider keys in a rotation pool.
+ * If a key returns 429 (rate limit) or 503 (model busy), it is temporarily
+ * cooled down (default 60s) so subsequent requests immediately use an active key.
+ */
+const keyCooldowns = new Map<string, number>();
+
+function getAvailableKey(keys: string[]): string {
+  if (!keys || keys.length === 0) return "";
+  const now = Date.now();
+  for (const k of keys) {
+    const cd = keyCooldowns.get(k) ?? 0;
+    if (now >= cd) return k;
+  }
+  return keys.reduce((earliest, k) => {
+    const cd = keyCooldowns.get(k) ?? 0;
+    const earliestCd = keyCooldowns.get(earliest) ?? 0;
+    return cd < earliestCd ? k : earliest;
+  }, keys[0]!);
+}
+
+function markKeyRateLimited(key: string, cooldownMs = 60_000) {
+  keyCooldowns.set(key, Date.now() + cooldownMs);
+}
+
+function markKeyHealthy(key: string) {
+  keyCooldowns.delete(key);
+}
+
+/**
  * Bring-your-own-key path. Anthropic has its own request shape; every other
  * supported provider accepts the OpenAI chat-completions body.
  */
@@ -224,38 +259,64 @@ async function chatViaProvider(
   config: ProviderConfig,
   options: ChatOptions,
 ): Promise<Omit<ChatResult, "latencyMs">> {
+  const isBudget = options.isBudgetTier === true;
+  const configuredKeys =
+    config.apiKeys && config.apiKeys.length > 0 ? config.apiKeys : [config.apiKey];
+
+  // High-tier users (> 199, school, teacher, admin) always use the dedicated primary key with zero rotation delays.
+  // Budget users (<= 199: 0, 99, 199) automatically hop across the configured key pool on 429/503.
+  const activeKeysToTry =
+    isBudget && configuredKeys.length > 1
+      ? [getAvailableKey(configuredKeys), ...configuredKeys.filter((k) => k !== getAvailableKey(configuredKeys))]
+      : [configuredKeys[0]!];
+
   if (config.provider === "anthropic") {
     const system = options.messages
       .filter((m) => m.role === "system")
       .map((m) => m.content)
       .join("\n\n");
     const data = await withRetry429(async () => {
-      const response = await fetch(`${config.baseUrl}/messages`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": config.apiKey,
-          "anthropic-version": "2023-06-01",
-        },
-        body: JSON.stringify({
-          model: config.model,
-          max_tokens: options.maxCompletionTokens ?? 8000,
-          ...(system ? { system } : {}),
-          ...(typeof options.temperature === "number" ? { temperature: options.temperature } : {}),
-          messages: options.messages
-            .filter((m) => m.role !== "system")
-            .map((m) => ({ role: m.role, content: m.content })),
-        }),
-      });
+      let lastErrStatus = 500;
+      let lastErrDetail = "";
+      for (let kIdx = 0; kIdx < activeKeysToTry.length; kIdx++) {
+        const currentKey = activeKeysToTry[kIdx]!;
+        const response = await fetch(`${config.baseUrl}/messages`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": currentKey,
+            "anthropic-version": "2023-06-01",
+          },
+          body: JSON.stringify({
+            model: config.model,
+            max_tokens: options.maxCompletionTokens ?? 8000,
+            ...(system ? { system } : {}),
+            ...(typeof options.temperature === "number" ? { temperature: options.temperature } : {}),
+            messages: options.messages
+              .filter((m) => m.role !== "system")
+              .map((m) => ({ role: m.role, content: m.content })),
+          }),
+        });
 
-      if (!response.ok) {
-        throw new AiGatewayError(explain(response.status, await response.text()), response.status);
+        if (response.ok) {
+          markKeyHealthy(currentKey);
+          return (await response.json()) as {
+            content?: { type: string; text?: string }[];
+            usage?: { input_tokens?: number; output_tokens?: number };
+          };
+        }
+
+        const text = await response.text();
+        lastErrStatus = response.status;
+        lastErrDetail = text;
+        if (response.status === 429 || response.status === 503) {
+          markKeyRateLimited(currentKey, 60_000);
+          console.warn(`[chatViaProvider:anthropic] Key returned ${response.status}. Rotating key...`);
+          if (kIdx + 1 < activeKeysToTry.length) continue;
+        }
+        throw new AiGatewayError(explain(response.status, text), response.status);
       }
-
-      return (await response.json()) as {
-        content?: { type: string; text?: string }[];
-        usage?: { input_tokens?: number; output_tokens?: number };
-      };
+      throw new AiGatewayError(explain(lastErrStatus, lastErrDetail), lastErrStatus);
     }, CHAT_RETRY_OPTS);
     return {
       text: (data.content ?? [])
@@ -291,16 +352,21 @@ async function chatViaProvider(
   if (options.json) body.response_format = { type: "json_object" };
   if (options.maxCompletionTokens) body.max_completion_tokens = options.maxCompletionTokens;
 
+  // High-tier users (> 199) strictly preserve their premium model (no degradation down to flash).
+  // Budget users (<= 199) degrade to modern Flash models when 429/503 happens, but NEVER below flash.
   const candidateModels =
     config.provider === "google"
-      ? Array.from(
-          new Set([
-            config.model.replace(/^(google\/|models\/)/, ""),
-            "gemini-3.8-flash",
-            "gemini-3.6-flash",
-            "gemini-3.7-flash",
-          ]),
-        )
+      ? isBudget
+        ? Array.from(
+            new Set([
+              config.model.replace(/^(google\/|models\/)/, ""),
+              "gemini-3.8-flash",
+              "gemini-3.1-flash",
+              "gemini-3.6-flash",
+              "gemini-2.5-flash",
+            ]),
+          )
+        : [config.model.replace(/^(google\/|models\/)/, "")]
       : [config.model];
 
   let usedModel = candidateModels[0];
@@ -311,37 +377,48 @@ async function chatViaProvider(
     for (const m of candidateModels) {
       usedModel = m;
       const modelBody = { ...body, model: m };
-      const response = await fetch(`${config.baseUrl}/chat/completions`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${config.apiKey}`,
-        },
-        body: JSON.stringify(modelBody),
-      });
 
-      if (response.ok) {
-        return (await response.json()) as {
-          choices?: { message?: { content?: string } }[];
-          usage?: { prompt_tokens?: number; completion_tokens?: number };
-        };
+      for (let kIdx = 0; kIdx < activeKeysToTry.length; kIdx++) {
+        const currentKey = activeKeysToTry[kIdx]!;
+        const response = await fetch(`${config.baseUrl}/chat/completions`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${currentKey}`,
+          },
+          body: JSON.stringify(modelBody),
+        });
+
+        if (response.ok) {
+          markKeyHealthy(currentKey);
+          return (await response.json()) as {
+            choices?: { message?: { content?: string } }[];
+            usage?: { prompt_tokens?: number; completion_tokens?: number };
+          };
+        }
+
+        const text = await response.text();
+        lastErrStatus = response.status;
+        lastErrDetail = text;
+
+        // Rate limit or server error on this specific model/key — rotate key or try next candidate model
+        if (response.status === 429 || response.status === 503) {
+          markKeyRateLimited(currentKey, 60_000);
+          console.warn(
+            `[chatViaProvider] Model ${m} (key ...${currentKey.slice(-4)}) returned ${response.status}. Attempting key rotation / fallback...`,
+          );
+          if (kIdx + 1 < activeKeysToTry.length) {
+            continue; // Try next key on this same model
+          }
+          break; // All keys exhausted on this model, step to next candidate model
+        }
+
+        // Any other client error (e.g. 401 unauthorized, 400 bad request) fails immediately
+        throw new AiGatewayError(explain(response.status, text), response.status);
       }
-
-      const text = await response.text();
-      lastErrStatus = response.status;
-      lastErrDetail = text;
-
-      // Rate limit or server error on this specific model — try next candidate model
-      if (response.status === 429 || response.status === 503) {
-        console.warn(`[chatViaProvider] Model ${m} returned ${response.status}. Attempting fallback candidate model...`);
-        continue;
-      }
-
-      // Any other client error (e.g. 401 unauthorized, 400 bad request) fails immediately
-      throw new AiGatewayError(explain(response.status, text), response.status);
     }
 
-    // If all models failed with 429/503, throw so withRetry429 can backoff if 429
+    // If all models and keys failed with 429/503, throw so withRetry429 can backoff
     throw new AiGatewayError(explain(lastErrStatus, lastErrDetail), lastErrStatus);
   }, CHAT_RETRY_OPTS);
 
@@ -407,7 +484,7 @@ async function withRetry429<T>(
     } catch (error) {
       lastError = error;
       const status = error instanceof AiGatewayError ? error.status : null;
-      if (status !== 429 || i === opts.maxRetries) throw error;
+      if ((status !== 429 && status !== 503) || i === opts.maxRetries) throw error;
       const delay = opts.baseMs * 2 ** i + Math.random() * 250;
       await new Promise((resolve) => setTimeout(resolve, delay));
     }

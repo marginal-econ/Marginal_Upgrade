@@ -368,12 +368,13 @@ export function useLiveExaminerCheck(params: {
 
       const timeSinceLastEstimate = Date.now() - lastEstimatedMarkAtRef.current;
       const charsSinceLastEstimate = Math.abs(currentText.length - lastEstimatedLengthRef.current);
-      // Predicted mark estimation is decoupled and throttled:
-      // Run for the initial estimate at 40+ chars, or whenever 50+ chars changed after 20s, or when 120+ chars changed.
+      // Buffer method: trigger mark estimate on milestone boundaries (initial 40+ chars, paragraph breaks with 60+ chars, or 30s+ with 100+ chars)
+      const isParagraphBreak = /(?:\n\s*\n|[.!?]\s*\n)/.test(currentText.slice(-30));
       const shouldIncludeEstimate =
         (!predictedMark && currentText.trim().length >= 40) ||
-        (timeSinceLastEstimate >= 20_000 && charsSinceLastEstimate >= 50) ||
-        charsSinceLastEstimate >= 120;
+        (isParagraphBreak && charsSinceLastEstimate >= 60) ||
+        (timeSinceLastEstimate >= 30_000 && charsSinceLastEstimate >= 100) ||
+        charsSinceLastEstimate >= 200;
       if (shouldIncludeEstimate) {
         lastEstimatedMarkAtRef.current = Date.now();
         lastEstimatedLengthRef.current = currentText.length;

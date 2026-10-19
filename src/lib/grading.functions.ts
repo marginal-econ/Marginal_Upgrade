@@ -91,6 +91,11 @@ export const gradeEssaySubmission = createServerFn({ method: "POST" })
       ? `${data.essayText}\n\n${data.diagramReference}`
       : data.essayText;
 
+    const isBudgetTier =
+      !sub.isAdmin &&
+      !sub.isTeacher &&
+      (sub.tier === "free" || sub.tier === "foundation" || sub.tier === "scholar_plus");
+
     let outcome;
     try {
       outcome = await gradeEssay(supabase, {
@@ -100,6 +105,7 @@ export const gradeEssaySubmission = createServerFn({ method: "POST" })
         split,
         auditPass: data.auditPass,
         markSchemeImageDataUrls: data.markSchemeImageDataUrls,
+        isBudgetTier,
       });
     } catch (error) {
       // The grading never happened, so it shouldn't use up today's allowance.

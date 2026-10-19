@@ -717,6 +717,9 @@ function ProvidersPanel() {
               onChange={(event) => setApiKey(event.target.value)}
               placeholder={meta.keyHint}
             />
+            <p className="text-[11px] text-muted-foreground">
+              Tip: Enter multiple keys (comma or newline-separated) for an auto-rotating pool. Lower-tier users (≤ ₹199) hop keys automatically when rate limits occur, while higher tiers keep priority dedicated access.
+            </p>
           </div>
 
           <div className="space-y-1.5">

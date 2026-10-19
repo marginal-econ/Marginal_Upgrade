@@ -94,6 +94,7 @@ export type GradeOptions = {
    * replacement for it.
    */
   markSchemeImageDataUrls?: string[];
+  isBudgetTier?: boolean;
 };
 
 export type GradeOutcome = {
@@ -227,6 +228,7 @@ export async function gradeEssay(
         model: MODEL_EXAMINER,
         temperature: TEMPERATURE_EXAMINER,
         json: true,
+        isBudgetTier: options.isBudgetTier,
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userMessage },
@@ -265,6 +267,7 @@ export async function gradeEssay(
             model: MODEL_EXAMINER,
             temperature: TEMPERATURE_EXAMINER,
             json: true,
+            isBudgetTier: options.isBudgetTier,
             messages: [
               { role: "system", content: auditSystemPrompt },
               { role: "user", content: auditUserMessage },
