@@ -29,17 +29,17 @@ describe("Examiner Configuration & Gemini Model Allocation", () => {
     expect(MODEL_ARBITRATION).toBe("google/gemini-2.5-pro");
   });
 
-  it("allocates Gemini 3.6 Flash for high-frequency live typing and diagnostic tasks", () => {
-    expect(MODEL_FAST).toBe("google/gemini-3.6-flash");
-    expect(MODEL_LIVE_CHECK).toBe("google/gemini-3.6-flash");
-    expect(MODEL_LIVE_CANDIDATE).toBe("google/gemini-3.6-flash");
-    expect(MODEL_ESTIMATE).toBe("google/gemini-3.6-flash");
-    expect(MODEL_MECHANICAL).toBe("google/gemini-3.6-flash");
-    expect(MODEL_EXTRACT).toBe("google/gemini-3.6-flash");
-    expect(MODEL_COACH).toBe("google/gemini-3.6-flash");
-    expect(MODEL_CHALLENGE).toBe("google/gemini-3.6-flash");
-    expect(MODEL_QUESTION_GEN).toBe("google/gemini-3.6-flash");
-    expect(MODEL_ANALYSIS).toBe("google/gemini-3.6-flash");
+  it("allocates Gemini 3.8 Flash for high-frequency live typing and diagnostic tasks", () => {
+    expect(MODEL_FAST).toBe("google/gemini-3.8-flash");
+    expect(MODEL_LIVE_CHECK).toBe("google/gemini-3.8-flash");
+    expect(MODEL_LIVE_CANDIDATE).toBe("google/gemini-3.8-flash");
+    expect(MODEL_ESTIMATE).toBe("google/gemini-3.8-flash");
+    expect(MODEL_MECHANICAL).toBe("google/gemini-3.8-flash");
+    expect(MODEL_EXTRACT).toBe("google/gemini-3.8-flash");
+    expect(MODEL_COACH).toBe("google/gemini-3.8-flash");
+    expect(MODEL_CHALLENGE).toBe("google/gemini-3.8-flash");
+    expect(MODEL_QUESTION_GEN).toBe("google/gemini-3.8-flash");
+    expect(MODEL_ANALYSIS).toBe("google/gemini-3.8-flash");
   });
 
   it("preserves authoritative Cambridge 9708 AO splits across tariffs", () => {

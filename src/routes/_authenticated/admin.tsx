@@ -613,7 +613,7 @@ function ProvidersPanel() {
   const [keyTestState, setKeyTestState] = useState<
     Record<string, { status: "testing" | "success" | "error"; message: string }>
   >({});
-  const [model, setModel] = useState("");
+  const [model, setModel] = useState("gemini-2.5-pro");
   const [baseUrl, setBaseUrl] = useState("");
   const [activateNow, setActivateNow] = useState(true);
   const [rotatingId, setRotatingId] = useState<string | null>(null);
@@ -674,12 +674,13 @@ function ProvidersPanel() {
       ...prev,
       [slotId]: { status: "testing", message: "Connecting to provider..." },
     }));
+    const testModel = (model || meta.models[0] || "gemini-2.5-pro").trim();
     try {
       const res = await testSpecific({
         data: {
           provider,
           apiKey: trimmed,
-          model: model || undefined,
+          model: testModel,
           baseUrl: baseUrl || undefined,
         },
       });

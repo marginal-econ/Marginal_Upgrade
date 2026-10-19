@@ -134,7 +134,7 @@ async function transcribeViaGoogle(apiKey: string, model: string, dataUrl: strin
   const { mimeType, data } = await prepareDataUrl(dataUrl);
   const primary = model.startsWith("models/") ? model : `models/${model}`;
   const candidateModels = Array.from(
-    new Set([primary, "models/gemini-2.5-pro", "models/gemini-2.5-flash", "models/gemini-2.0-flash"]),
+    new Set([primary, "models/gemini-3.8-flash", "models/gemini-3.7-flash", "models/gemini-2.5-pro"]),
   );
 
   let lastErr: unknown = null;

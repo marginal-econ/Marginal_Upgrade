@@ -141,7 +141,7 @@ ${groundingContext}`;
       ];
 
       const result = await chat({
-        model: MODEL_FAST || "google/gemini-2.5-flash",
+        model: MODEL_FAST || "google/gemini-3.8-flash",
         messages: chatMessages,
         maxCompletionTokens: 2500, // Ample token space for full Cambridge essay and examiner guidance
         temperature: 0.2, // Low temperature for high grounding accuracy
