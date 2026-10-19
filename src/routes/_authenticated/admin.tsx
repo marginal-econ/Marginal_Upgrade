@@ -3,6 +3,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
   Activity,
+  ArrowDown,
+  ArrowUp,
   BookOpen,
   Check,
   CheckCircle2,
@@ -98,6 +100,7 @@ import {
   setUserRole,
   testEmbeddingProviderKey,
   testProviderKey,
+  testSpecificKey,
   testVisionProviderKey,
 } from "@/lib/admin.functions";
 import { getMe } from "@/lib/account.functions";
@@ -585,6 +588,7 @@ function ProvidersPanel() {
   const activate = useServerFn(activateProviderKey);
   const remove = useServerFn(deleteProviderKey);
   const test = useServerFn(testProviderKey);
+  const testSpecific = useServerFn(testSpecificKey);
   const rotate = useServerFn(rotateProviderKey);
 
   const keys = useQuery({
@@ -592,11 +596,23 @@ function ProvidersPanel() {
     queryFn: () => list({ data: { purpose: "chat" } }),
   });
 
+  type PoolKeyItem = {
+    id: string;
+    key: string;
+    label: string;
+    priority: number;
+  };
+
   const [provider, setProvider] = useState<string>("google");
   const [label, setLabel] = useState("");
   const [paidPrimaryKey, setPaidPrimaryKey] = useState("");
   const [paidSecondaryKey, setPaidSecondaryKey] = useState("");
-  const [budgetPoolKeys, setBudgetPoolKeys] = useState("");
+  const [poolKeys, setPoolKeys] = useState<PoolKeyItem[]>([
+    { id: "pool-1", key: "", label: "Extra Key 1", priority: 1 },
+  ]);
+  const [keyTestState, setKeyTestState] = useState<
+    Record<string, { status: "testing" | "success" | "error"; message: string }>
+  >({});
   const [model, setModel] = useState("");
   const [baseUrl, setBaseUrl] = useState("");
   const [activateNow, setActivateNow] = useState(true);
@@ -606,19 +622,110 @@ function ProvidersPanel() {
   const meta = providerMeta(provider);
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["provider-keys", "chat"] });
 
+  const handleAddPoolKey = () => {
+    setPoolKeys((prev) => [
+      ...prev,
+      {
+        id: `pool-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        key: "",
+        label: `Extra Key ${prev.length + 1}`,
+        priority: prev.length + 1,
+      },
+    ]);
+  };
+
+  const handleRemovePoolKey = (id: string) => {
+    setPoolKeys((prev) => {
+      const next = prev.filter((item) => item.id !== id);
+      return next.map((item, index) => ({
+        ...item,
+        priority: index + 1,
+      }));
+    });
+  };
+
+  const handleUpdatePoolKey = (id: string, updates: Partial<PoolKeyItem>) => {
+    setPoolKeys((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, ...updates } : item))
+    );
+  };
+
+  const handleMovePoolKey = (index: number, direction: "up" | "down") => {
+    setPoolKeys((prev) => {
+      const targetIndex = direction === "up" ? index - 1 : index + 1;
+      if (targetIndex < 0 || targetIndex >= prev.length) return prev;
+      const copy = [...prev];
+      const [item] = copy.splice(index, 1);
+      copy.splice(targetIndex, 0, item);
+      return copy.map((k, idx) => ({
+        ...k,
+        priority: idx + 1,
+      }));
+    });
+  };
+
+  const handleTestSingleKey = async (slotId: string, keyValue: string) => {
+    const trimmed = keyValue.trim();
+    if (!trimmed || trimmed.length < 5) {
+      toast.error("Please enter a valid key before testing");
+      return;
+    }
+    setKeyTestState((prev) => ({
+      ...prev,
+      [slotId]: { status: "testing", message: "Connecting to provider..." },
+    }));
+    try {
+      const res = await testSpecific({
+        data: {
+          provider,
+          apiKey: trimmed,
+          model: model || undefined,
+          baseUrl: baseUrl || undefined,
+        },
+      });
+      if (res.ok) {
+        setKeyTestState((prev) => ({
+          ...prev,
+          [slotId]: { status: "success", message: `Passed (${res.model})` },
+        }));
+        toast.success(`Key verified successfully with ${res.model}`);
+      } else {
+        setKeyTestState((prev) => ({
+          ...prev,
+          [slotId]: { status: "error", message: res.reply.slice(0, 70) },
+        }));
+        toast.error(`Key test failed: ${res.reply}`);
+      }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Key test failed";
+      setKeyTestState((prev) => ({
+        ...prev,
+        [slotId]: { status: "error", message: message.slice(0, 70) },
+      }));
+      toast.error(message);
+    }
+  };
+
   const saveMutation = useMutation({
     mutationFn: () => {
-      let finalKey = paidPrimaryKey.trim();
+      const validPool = poolKeys
+        .filter((k) => k.key.trim().length > 5)
+        .map((k, index) => ({
+          key: k.key.trim(),
+          label: k.label.trim() || `Extra Key ${index + 1}`,
+          priority: k.priority || index + 1,
+        }));
+
+      const primary = paidPrimaryKey.trim() || (validPool[0]?.key ?? "");
+      let finalKey = primary;
       const hasSecondary = paidSecondaryKey.trim().length > 0;
-      const hasBudgetPool = budgetPoolKeys.trim().length > 0;
+      const hasBudgetPool = validPool.length > 0;
+
       if (hasSecondary || hasBudgetPool) {
         finalKey = JSON.stringify({
-          paidPrimary: paidPrimaryKey.trim(),
+          paidPrimary: primary,
           paidSecondary: paidSecondaryKey.trim(),
-          budgetPool: budgetPoolKeys
-            .split(/[\n\r,;]+/)
-            .map((k) => k.trim())
-            .filter(Boolean),
+          budgetPool: validPool,
         });
       }
 
@@ -637,7 +744,8 @@ function ProvidersPanel() {
       toast.success("AI keys saved. AI features will use them immediately.");
       setPaidPrimaryKey("");
       setPaidSecondaryKey("");
-      setBudgetPoolKeys("");
+      setPoolKeys([{ id: "pool-1", key: "", label: "Extra Key 1", priority: 1 }]);
+      setKeyTestState({});
       setLabel("");
       await refresh();
     },
@@ -683,16 +791,18 @@ function ProvidersPanel() {
   });
 
   const activeKey = (keys.data ?? []).find((row) => row.isActive);
+  const hasValidPaid = paidPrimaryKey.trim().length >= 8;
+  const hasValidPool = poolKeys.some((k) => k.key.trim().length >= 8);
 
   return (
-    <div className="grid gap-5 lg:grid-cols-[420px_1fr]">
+    <div className="grid gap-5 lg:grid-cols-[440px_1fr]">
       <section className="panel rounded-xl border border-border p-5">
         <h2 className="flex items-center gap-2 text-sm font-semibold">
-          <KeyRound className="size-4 text-primary" /> Add a provider key
+          <KeyRound className="size-4 text-primary" /> Configure AI Provider Keys
         </h2>
         <p className="mt-1 text-xs text-muted-foreground">
-          Bring your own Claude, Gemini, Grok, OpenAI, Groq, OpenRouter, Mistral or DeepSeek key.
-          Keys stay server-side and are never sent to the browser.
+          Connect your API keys with multi-tier routing: dedicated keys for paying students, and
+          an auto-rotating key pool with priority order for free &amp; budget tiers.
         </p>
 
         <div className="mt-4 space-y-3">
@@ -720,7 +830,7 @@ function ProvidersPanel() {
           </div>
 
           <div className="space-y-1.5">
-            <Label>Name</Label>
+            <Label>Configuration Name</Label>
             <Input
               value={label}
               onChange={(event) => setLabel(event.target.value)}
@@ -729,69 +839,325 @@ function ProvidersPanel() {
           </div>
 
           {/* Multi-Tier Keys Section */}
-          <div className="space-y-3 rounded-xl border border-border/80 bg-muted/20 p-3">
+          <div className="space-y-3.5 rounded-xl border border-border/80 bg-muted/20 p-3">
+            {/* Primary Paid Key */}
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <Label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
                   <span className="inline-block h-2 w-2 rounded-full bg-emerald-500" />
-                  Primary Paid Key (Users &gt; ₹199: Pro, Mastery, Elite, Teachers)
+                  Primary Paid Key (Users &gt; ₹199)
                 </Label>
-                <Badge variant="outline" className="text-[10px] text-emerald-600 border-emerald-500/30">
-                  Priority Access
-                </Badge>
+                <div className="flex items-center gap-1.5">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-6 px-2 text-[10px] gap-1"
+                    onClick={() => handleTestSingleKey("paid-primary", paidPrimaryKey)}
+                    disabled={
+                      keyTestState["paid-primary"]?.status === "testing" ||
+                      paidPrimaryKey.trim().length < 5
+                    }
+                  >
+                    {keyTestState["paid-primary"]?.status === "testing" ? (
+                      <>
+                        <Loader2 className="size-2.5 animate-spin" /> Testing
+                      </>
+                    ) : keyTestState["paid-primary"]?.status === "success" ? (
+                      <>
+                        <CheckCircle2 className="size-2.5 text-emerald-500" /> Pass
+                      </>
+                    ) : keyTestState["paid-primary"]?.status === "error" ? (
+                      <>
+                        <XCircle className="size-2.5 text-destructive" /> Retry
+                      </>
+                    ) : (
+                      <>
+                        <Zap className="size-2.5 text-emerald-500" /> Test Key
+                      </>
+                    )}
+                  </Button>
+                  <Badge variant="outline" className="text-[10px] text-emerald-600 border-emerald-500/30">
+                    VIP Access
+                  </Badge>
+                </div>
               </div>
               <Input
                 type="password"
                 value={paidPrimaryKey}
                 onChange={(event) => setPaidPrimaryKey(event.target.value)}
-                placeholder="AIza... (High-priority dedicated key for paid users)"
+                placeholder="AIza... (Pro, Mastery, Elite & Teachers)"
               />
+              {keyTestState["paid-primary"] && (
+                <div
+                  className={cn(
+                    "text-[10px] px-2 py-0.5 rounded flex items-center gap-1 font-mono",
+                    keyTestState["paid-primary"].status === "testing" && "text-muted-foreground bg-muted/40",
+                    keyTestState["paid-primary"].status === "success" &&
+                      "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10",
+                    keyTestState["paid-primary"].status === "error" &&
+                      "text-destructive bg-destructive/10"
+                  )}
+                >
+                  {keyTestState["paid-primary"].status === "testing" ? (
+                    <Loader2 className="size-2.5 animate-spin" />
+                  ) : keyTestState["paid-primary"].status === "success" ? (
+                    <CheckCircle2 className="size-2.5" />
+                  ) : (
+                    <XCircle className="size-2.5" />
+                  )}
+                  <span className="truncate">{keyTestState["paid-primary"].message}</span>
+                </div>
+              )}
               <p className="text-[11px] text-muted-foreground">
-                Dedicated key for higher-tier users. Bypasses queue delays and runs on premium models (e.g. Gemini 2.5 Pro).
+                High-priority dedicated key for paying users. Zero queue delays and premium model access (e.g. Gemini 2.5 Pro).
               </p>
             </div>
 
+            {/* Secondary Paid Key */}
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <Label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
                   <span className="inline-block h-2 w-2 rounded-full bg-blue-500" />
-                  Secondary Paid Key (Optional Failover)
+                  Secondary Paid Key (Failover)
                 </Label>
-                <Badge variant="outline" className="text-[10px] text-muted-foreground">
-                  Paid Failover
-                </Badge>
+                <div className="flex items-center gap-1.5">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-6 px-2 text-[10px] gap-1"
+                    onClick={() => handleTestSingleKey("paid-secondary", paidSecondaryKey)}
+                    disabled={
+                      keyTestState["paid-secondary"]?.status === "testing" ||
+                      paidSecondaryKey.trim().length < 5
+                    }
+                  >
+                    {keyTestState["paid-secondary"]?.status === "testing" ? (
+                      <>
+                        <Loader2 className="size-2.5 animate-spin" /> Testing
+                      </>
+                    ) : keyTestState["paid-secondary"]?.status === "success" ? (
+                      <>
+                        <CheckCircle2 className="size-2.5 text-blue-500" /> Pass
+                      </>
+                    ) : keyTestState["paid-secondary"]?.status === "error" ? (
+                      <>
+                        <XCircle className="size-2.5 text-destructive" /> Retry
+                      </>
+                    ) : (
+                      <>
+                        <Zap className="size-2.5 text-blue-500" /> Test Key
+                      </>
+                    )}
+                  </Button>
+                  <Badge variant="outline" className="text-[10px] text-muted-foreground">
+                    Optional
+                  </Badge>
+                </div>
               </div>
               <Input
                 type="password"
                 value={paidSecondaryKey}
                 onChange={(event) => setPaidSecondaryKey(event.target.value)}
-                placeholder="AIza... (Optional backup key if primary hits a temporary blip)"
+                placeholder="AIza... (Instant backup if primary paid key hits a blip)"
               />
+              {keyTestState["paid-secondary"] && (
+                <div
+                  className={cn(
+                    "text-[10px] px-2 py-0.5 rounded flex items-center gap-1 font-mono",
+                    keyTestState["paid-secondary"].status === "testing" && "text-muted-foreground bg-muted/40",
+                    keyTestState["paid-secondary"].status === "success" &&
+                      "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10",
+                    keyTestState["paid-secondary"].status === "error" &&
+                      "text-destructive bg-destructive/10"
+                  )}
+                >
+                  {keyTestState["paid-secondary"].status === "testing" ? (
+                    <Loader2 className="size-2.5 animate-spin" />
+                  ) : keyTestState["paid-secondary"].status === "success" ? (
+                    <CheckCircle2 className="size-2.5" />
+                  ) : (
+                    <XCircle className="size-2.5" />
+                  )}
+                  <span className="truncate">{keyTestState["paid-secondary"].message}</span>
+                </div>
+              )}
               <p className="text-[11px] text-muted-foreground">
-                If the primary paid key ever returns 429 or 503, paid users instantly failover to this key without degradation.
+                If the primary paid key ever encounters a 429 or 503, paid users immediately failover to this key without delay.
               </p>
             </div>
 
-            <div className="space-y-1.5">
+            {/* Individual Budget Pool Keys with Priorities */}
+            <div className="space-y-2 pt-1 border-t border-border/60">
               <div className="flex items-center justify-between">
-                <Label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
-                  <span className="inline-block h-2 w-2 rounded-full bg-amber-500" />
-                  Free &amp; Budget Tier Pool (0, ₹99, ₹199 Users)
-                </Label>
+                <div>
+                  <Label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                    <span className="inline-block h-2 w-2 rounded-full bg-amber-500" />
+                    Extra Pool Keys (₹0, ₹99, ₹199 Users)
+                  </Label>
+                  <p className="text-[11px] text-muted-foreground">
+                    Tried in priority order (Priority 1 first). Hops automatically on 429 rate limits.
+                  </p>
+                </div>
                 <Badge variant="outline" className="text-[10px] text-amber-600 border-amber-500/30">
-                  Auto-Rotating Pool
+                  {poolKeys.length} {poolKeys.length === 1 ? "Slot" : "Slots"}
                 </Badge>
               </div>
-              <textarea
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs font-mono shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-                rows={2}
-                value={budgetPoolKeys}
-                onChange={(event) => setBudgetPoolKeys(event.target.value)}
-                placeholder="AIzaSyFree1..., AIzaSyFree2... (Enter 1 or more keys separated by commas or newlines)"
-              />
-              <p className="text-[11px] text-muted-foreground">
-                Budget users automatically cycle through this pool when rate limits occur, falling back to Flash models if needed.
-              </p>
+
+              {poolKeys.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-border/80 p-3 text-center">
+                  <p className="text-xs text-muted-foreground">No extra keys added to pool.</p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="mt-2 text-xs"
+                    onClick={handleAddPoolKey}
+                  >
+                    <Plus className="mr-1.5 size-3" /> Add Pool Key
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-2.5">
+                  {poolKeys.map((item, index) => {
+                    const testState = keyTestState[item.id];
+                    return (
+                      <div
+                        key={item.id}
+                        className="rounded-lg border border-border/80 bg-background/60 p-2.5 space-y-2 shadow-xs"
+                      >
+                        <div className="flex items-center justify-between gap-1.5">
+                          <div className="flex items-center gap-1.5">
+                            <Badge
+                              variant="secondary"
+                              className="h-5 px-1.5 text-[10px] font-mono font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"
+                            >
+                              Priority #{item.priority}
+                              {index === 0 ? " (Tried 1st)" : ""}
+                            </Badge>
+                            <div className="flex items-center">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 text-muted-foreground hover:text-foreground disabled:opacity-30"
+                                disabled={index === 0}
+                                onClick={() => handleMovePoolKey(index, "up")}
+                                title="Increase priority (move up)"
+                              >
+                                <ArrowUp className="size-3" />
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 text-muted-foreground hover:text-foreground disabled:opacity-30"
+                                disabled={index === poolKeys.length - 1}
+                                onClick={() => handleMovePoolKey(index, "down")}
+                                title="Decrease priority (move down)"
+                              >
+                                <ArrowDown className="size-3" />
+                              </Button>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-1">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="h-6 px-2 text-[10px] gap-1"
+                              onClick={() => handleTestSingleKey(item.id, item.key)}
+                              disabled={testState?.status === "testing" || item.key.trim().length < 5}
+                            >
+                              {testState?.status === "testing" ? (
+                                <>
+                                  <Loader2 className="size-2.5 animate-spin" /> Testing
+                                </>
+                              ) : testState?.status === "success" ? (
+                                <>
+                                  <CheckCircle2 className="size-2.5 text-emerald-500" /> Pass
+                                </>
+                              ) : testState?.status === "error" ? (
+                                <>
+                                  <XCircle className="size-2.5 text-destructive" /> Retry
+                                </>
+                              ) : (
+                                <>
+                                  <Zap className="size-2.5 text-amber-500" /> Test Key
+                                </>
+                              )}
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                              onClick={() => handleRemovePoolKey(item.id)}
+                              title="Delete this key slot"
+                            >
+                              <Trash2 className="size-3" />
+                            </Button>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-[120px_1fr] gap-2">
+                          <Input
+                            value={item.label}
+                            onChange={(e) =>
+                              handleUpdatePoolKey(item.id, { label: e.target.value })
+                            }
+                            placeholder="Key label"
+                            className="h-8 text-xs font-medium"
+                          />
+                          <Input
+                            type="password"
+                            value={item.key}
+                            onChange={(e) =>
+                              handleUpdatePoolKey(item.id, { key: e.target.value })
+                            }
+                            placeholder="AIzaSy... (API Key)"
+                            className="h-8 text-xs font-mono"
+                          />
+                        </div>
+
+                        {testState && (
+                          <div
+                            className={cn(
+                              "text-[10px] px-2 py-0.5 rounded flex items-center gap-1 font-mono",
+                              testState.status === "testing" && "text-muted-foreground bg-muted/40",
+                              testState.status === "success" &&
+                                "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10",
+                              testState.status === "error" &&
+                                "text-destructive bg-destructive/10"
+                            )}
+                          >
+                            {testState.status === "testing" ? (
+                              <Loader2 className="size-2.5 animate-spin" />
+                            ) : testState.status === "success" ? (
+                              <CheckCircle2 className="size-2.5" />
+                            ) : (
+                              <XCircle className="size-2.5" />
+                            )}
+                            <span className="truncate">{testState.message}</span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="w-full text-xs border-dashed gap-1 text-muted-foreground hover:text-foreground"
+                    onClick={handleAddPoolKey}
+                  >
+                    <Plus className="size-3.5" /> Add Another Pool Key
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
 
@@ -842,10 +1208,7 @@ function ProvidersPanel() {
           <Button
             className="w-full"
             onClick={() => saveMutation.mutate()}
-            disabled={
-              saveMutation.isPending ||
-              (paidPrimaryKey.trim().length < 8 && budgetPoolKeys.trim().length < 8)
-            }
+            disabled={saveMutation.isPending || (!hasValidPaid && !hasValidPool)}
           >
             {saveMutation.isPending ? <Loader2 className="size-4 animate-spin" /> : null}
             Save provider configuration
@@ -930,7 +1293,38 @@ function ProvidersPanel() {
             </div>
             {rotatingId === row.id ? (
               <div className="mt-3 space-y-2 rounded-lg border border-border p-3">
-                <Label htmlFor={`rotate-${row.id}`}>New API key</Label>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor={`rotate-${row.id}`}>New API key</Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-6 px-2 text-[10px] gap-1"
+                    onClick={() => handleTestSingleKey(`rotate-${row.id}`, rotateValue)}
+                    disabled={
+                      keyTestState[`rotate-${row.id}`]?.status === "testing" ||
+                      rotateValue.trim().length < 5
+                    }
+                  >
+                    {keyTestState[`rotate-${row.id}`]?.status === "testing" ? (
+                      <>
+                        <Loader2 className="size-2.5 animate-spin" /> Testing
+                      </>
+                    ) : keyTestState[`rotate-${row.id}`]?.status === "success" ? (
+                      <>
+                        <CheckCircle2 className="size-2.5 text-emerald-500" /> Pass
+                      </>
+                    ) : keyTestState[`rotate-${row.id}`]?.status === "error" ? (
+                      <>
+                        <XCircle className="size-2.5 text-destructive" /> Retry
+                      </>
+                    ) : (
+                      <>
+                        <Zap className="size-2.5 text-amber-500" /> Test Key
+                      </>
+                    )}
+                  </Button>
+                </div>
                 <div className="flex flex-wrap gap-2">
                   <Input
                     id={`rotate-${row.id}`}
@@ -948,6 +1342,28 @@ function ProvidersPanel() {
                     Save new key
                   </Button>
                 </div>
+                {keyTestState[`rotate-${row.id}`] && (
+                  <div
+                    className={cn(
+                      "text-[10px] px-2 py-0.5 rounded flex items-center gap-1 font-mono",
+                      keyTestState[`rotate-${row.id}`].status === "testing" &&
+                        "text-muted-foreground bg-muted/40",
+                      keyTestState[`rotate-${row.id}`].status === "success" &&
+                        "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10",
+                      keyTestState[`rotate-${row.id}`].status === "error" &&
+                        "text-destructive bg-destructive/10"
+                    )}
+                  >
+                    {keyTestState[`rotate-${row.id}`].status === "testing" ? (
+                      <Loader2 className="size-2.5 animate-spin" />
+                    ) : keyTestState[`rotate-${row.id}`].status === "success" ? (
+                      <CheckCircle2 className="size-2.5" />
+                    ) : (
+                      <XCircle className="size-2.5" />
+                    )}
+                    <span className="truncate">{keyTestState[`rotate-${row.id}`].message}</span>
+                  </div>
+                )}
                 <p className="text-xs text-muted-foreground">
                   Provider, model and active state stay the same — only the secret changes.
                 </p>

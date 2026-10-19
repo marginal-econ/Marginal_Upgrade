@@ -769,7 +769,7 @@ const KeyInput = z.object({
   ]),
   purpose: z.enum(["chat", "embedding", "vision"]).default("chat"),
   label: z.string().trim().min(2, "Give this key a name.").max(80),
-  apiKey: z.string().trim().min(8, "Paste the full API key.").max(400),
+  apiKey: z.string().trim().min(8, "Paste the full API key.").max(4000),
   baseUrl: z.string().trim().max(300).optional().or(z.literal("")),
   model: z.string().trim().min(2, "Set the model id.").max(120),
   activate: z.boolean().default(false),
@@ -882,7 +882,7 @@ export const rotateProviderKey = createServerFn({ method: "POST" })
     z
       .object({
         id: z.string().uuid(),
-        apiKey: z.string().trim().min(8, "Paste the new API key.").max(400),
+        apiKey: z.string().trim().min(8, "Paste the new API key.").max(4000),
       })
       .parse(input),
   )
@@ -928,6 +928,60 @@ export const testProviderKey = createServerFn({ method: "POST" })
         ok: false,
         reply: err instanceof Error ? err.message : "Unknown error",
         model: null,
+      };
+    }
+  });
+
+/**
+ * Tests an individual raw key string directly from the UI without needing to save first.
+ * Used to verify Paid Primary, Paid Secondary, and individual Pool keys.
+ */
+export const testSpecificKey = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z
+      .object({
+        provider: z.string().default("google"),
+        apiKey: z.string().trim().min(5, "API key is too short"),
+        model: z.string().optional(),
+        baseUrl: z.string().optional(),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context);
+    const { chat } = await import("./ai.server");
+    const { normaliseConfig } = await import("./ai/active.server");
+    const testModel = data.model || (data.provider === "google" ? "gemini-2.5-flash" : "gpt-4o-mini");
+    const config = normaliseConfig({
+      provider: data.provider,
+      api_key: data.apiKey,
+      base_url: data.baseUrl || null,
+      model: testModel,
+      label: "Direct Key Test",
+    });
+
+    const started = Date.now();
+    try {
+      const result = await chat({
+        model: testModel,
+        overrideProvider: config,
+        messages: [{ role: "user", content: "Reply with exactly: OK" }],
+        maxCompletionTokens: 10,
+        isBudgetTier: false,
+      });
+      return {
+        ok: true,
+        reply: result.text.trim().slice(0, 80) || "OK",
+        model: result.model,
+        latencyMs: Date.now() - started,
+      };
+    } catch (err) {
+      return {
+        ok: false,
+        reply: err instanceof Error ? err.message : "Connection failed",
+        model: null,
+        latencyMs: Date.now() - started,
       };
     }
   });

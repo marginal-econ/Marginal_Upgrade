@@ -37,8 +37,20 @@ export function normaliseConfig(row: {
       paidPrimary = typeof parsed.paidPrimary === "string" ? parsed.paidPrimary.trim() : "";
       paidSecondary = typeof parsed.paidSecondary === "string" ? parsed.paidSecondary.trim() : "";
       if (Array.isArray(parsed.budgetPool)) {
-        budgetPool = parsed.budgetPool
-          .map((k: unknown) => String(k).trim())
+        const sortedItems = [...parsed.budgetPool].sort((a: any, b: any) => {
+          const pA =
+            typeof a === "object" && a !== null && typeof a.priority === "number" ? a.priority : 99;
+          const pB =
+            typeof b === "object" && b !== null && typeof b.priority === "number" ? b.priority : 99;
+          return pA - pB;
+        });
+        budgetPool = sortedItems
+          .map((k: unknown) => {
+            if (typeof k === "object" && k !== null && "key" in k) {
+              return String((k as { key: string }).key).trim();
+            }
+            return String(k).trim();
+          })
           .filter((k: string) => k.length > 5);
       } else if (typeof parsed.budgetPool === "string") {
         budgetPool = parsed.budgetPool
