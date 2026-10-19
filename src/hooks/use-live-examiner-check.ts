@@ -13,7 +13,6 @@ import { deterministicTerminologyIssues } from "@/lib/live-examiner/economics-gl
 import { analyzeGrammarAndMechanics } from "@/lib/live-examiner/grammar-engine";
 import { splitSentences } from "@/lib/writing-check/sentence-diff";
 import { cleanSuggestion } from "@/lib/live-examiner/clean-suggestion";
-import { evaluateCambridgeAnswer } from "@/lib/live-examiner/client-evaluation";
 
 export type { PredictedMark, ExaminerChallenge };
 export { cleanSuggestion };
@@ -66,22 +65,19 @@ export type LiveExaminerSessionUsage = {
 };
 
 // Rapid adaptive cadence:
-// - Instant deterministic pre-pass: fires immediately (< 25ms) in-browser (grammar, typos, definitions) with ZERO tokens
-// - Sentence completion pause: 2,500ms
-// - Mid-sentence pause: 3,500ms
-// - Minimum request interval: 8,000ms
-// - Minimum changed characters: 25 chars
+// - Instant deterministic pre-pass: fires immediately (< 25ms) in-browser (grammar, typos, definitions)
+// - Sentence completion (punctuation or newline): fires in 1,200ms
+// - Mid-sentence pause: 2,000ms
+// - Minimum request interval: 3,500ms
+// - Minimum changed characters: 16 chars
 const INSTANT_LOCAL_PAUSE_MS = 25;
-const TYPING_PAUSE_MS = 3500;
-const SENTENCE_COMPLETE_PAUSE_MS = 2500;
-const MIN_REQUEST_INTERVAL_MS = 8000;
-const MIN_CHANGED_CHARS = 25;
+const TYPING_PAUSE_MS = 2000;
+const SENTENCE_COMPLETE_PAUSE_MS = 1200;
+const MIN_REQUEST_INTERVAL_MS = 3500;
+const MIN_CHANGED_CHARS = 16;
 const MIN_TEXT_LENGTH = 20;
 
 function issueId(issue: Pick<LiveExaminerIssue, "context" | "original" | "category">): string {
-  if (issue.category === "grammar" || issue.category === "terminology") {
-    return `${issue.category}::${issue.original.trim().toLowerCase()}`;
-  }
   return `${issue.category}::${issue.context.trim().toLowerCase()}::${issue.original.trim().toLowerCase()}`;
 }
 
@@ -222,7 +218,6 @@ export function useLiveExaminerCheck(params: {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const localTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastEstimatedMarkAtRef = useRef<number>(0);
-  const lastEstimatedLengthRef = useRef<number>(0);
   const requestIdRef = useRef(0);
   const inFlightRef = useRef(false);
   const lastRequestAtRef = useRef(0);
@@ -266,74 +261,34 @@ export function useLiveExaminerCheck(params: {
         })),
       ];
 
-      setSessionUsage((prev) => ({
-        ...prev,
-        instantChecksCount: prev.instantChecksCount + 1,
-        tokensSaved: prev.tokensSaved + (instantIssues.length > 0 ? 1200 * instantIssues.length : 0),
-        lastLatencyMs: 15,
-        lastCheckType: "instant",
-      }));
-
-      // Instant deterministic issues (grammar, spelling, mechanics, terminology) are authoritative.
-      // Filter out stale grammar issues from previous keystrokes, preserving only valid server issues
-      // (like analysis or clarity) that still match text.
-      setIssues((prev) => {
-        const map = new Map<string, ActiveIssue>();
-        for (const item of prev) {
-          if (item.category !== "grammar" && item.category !== "terminology") {
-            if (text.includes(item.context) || text.includes(item.original)) {
-              map.set(item.id, item);
-            }
-          }
-        }
-        for (const item of instantIssues) {
-          map.set(item.id, item);
-        }
-        return Array.from(map.values());
-      });
-
       if (instantIssues.length > 0) {
-        recordHistory(instantIssues);
-      }
-
-      // Automatically transition active history entries to accepted if their target typo/word was corrected
-      setHistory((prev) => {
-        const textLower = text.toLowerCase();
-        let changed = false;
-        const next = prev.map((entry) => {
-          if (
-            entry.status === "active" &&
-            (entry.category === "grammar" || entry.category === "terminology") &&
-            !textLower.includes(entry.original.toLowerCase())
-          ) {
-            changed = true;
-            return { ...entry, status: "accepted" as const, resolvedAt: Date.now() };
+        setSessionUsage((prev) => ({
+          ...prev,
+          instantChecksCount: prev.instantChecksCount + 1,
+          tokensSaved: prev.tokensSaved + 1200 * instantIssues.length,
+          lastLatencyMs: 15,
+          lastCheckType: "instant",
+        }));
+        setIssues((prev) => {
+          const map = new Map<string, ActiveIssue>();
+          // Keep existing issues still present in text
+          for (const item of prev) {
+            if (text.includes(item.context)) map.set(item.id, item);
           }
-          return entry;
+          // Layer fresh instant issues
+          for (const item of instantIssues) {
+            map.set(item.id, item);
+          }
+          return Array.from(map.values());
         });
-        return changed ? next : prev;
-      });
-
-      // Real-time dynamic Cambridge mark evaluation on every keystroke:
-      // Updates marks and AO breakdown progressively as the student writes.
-      if (text.trim().length >= 20) {
-        try {
-          const clientEval = evaluateCambridgeAnswer(text, maxMark, level);
-          if (clientEval.predictedMark && Number.isFinite(clientEval.predictedMark.total_mark)) {
-            setPredictedMark(clientEval.predictedMark);
-          }
-        } catch {
-          // Fallback silently if rubric parsing encounters edge case
-        }
-      } else {
-        setPredictedMark(null);
+        recordHistory(instantIssues);
       }
     }, INSTANT_LOCAL_PAUSE_MS);
 
     return () => {
       if (localTimerRef.current) clearTimeout(localTimerRef.current);
     };
-  }, [text, enabled, question, maxMark, level, recordHistory]);
+  }, [text, enabled, question, recordHistory]);
 
   const runCheck = useCallback(
     (currentText: string, force: boolean) => {
@@ -360,18 +315,12 @@ export function useLiveExaminerCheck(params: {
       const previousText = force ? undefined : lastCheckedTextRef.current || undefined;
       const previousIssues = force ? [] : issuesRef.current;
 
+      const isSentenceOrThoughtEnd = /(?:[.!?]|\n)\s*$/.test(currentText);
       const timeSinceLastEstimate = Date.now() - lastEstimatedMarkAtRef.current;
-      const charsSinceLastEstimate = Math.abs(currentText.length - lastEstimatedLengthRef.current);
-      // Buffer method: trigger mark estimate on milestone boundaries (initial 40+ chars, paragraph breaks with 60+ chars, or 30s+ with 100+ chars)
-      const isParagraphBreak = /(?:\n\s*\n|[.!?]\s*\n)/.test(currentText.slice(-30));
       const shouldIncludeEstimate =
-        (!predictedMark && currentText.trim().length >= 40) ||
-        (isParagraphBreak && charsSinceLastEstimate >= 60) ||
-        (timeSinceLastEstimate >= 30_000 && charsSinceLastEstimate >= 100) ||
-        charsSinceLastEstimate >= 200;
+        isSentenceOrThoughtEnd || timeSinceLastEstimate > 10_000 || !predictedMark;
       if (shouldIncludeEstimate) {
         lastEstimatedMarkAtRef.current = Date.now();
-        lastEstimatedLengthRef.current = currentText.length;
       }
 
       const coachingExpired = !isAdminRef.current && (remainingSeconds <= 0 || aiCoachingExpired);
@@ -405,37 +354,20 @@ export function useLiveExaminerCheck(params: {
           const latestText = latestTextRef.current;
 
           // Always accept predicted mark if returned, otherwise preserve or compute client evaluation
-          if (result.predictedMark && Number.isFinite(result.predictedMark.total_mark)) {
+          if (result.predictedMark) {
             setPredictedMark(result.predictedMark);
-          } else if (latestText.trim().length >= 20) {
-            try {
-              const fallbackEval = evaluateCambridgeAnswer(latestText, maxMark, level);
-              if (fallbackEval.predictedMark && Number.isFinite(fallbackEval.predictedMark.total_mark)) {
-                setPredictedMark(fallbackEval.predictedMark);
-              }
-            } catch {
-              // Silent fallback
-            }
           }
 
           // Layer server issues that are valid in latest text
           const fresh = result.issues
-            .filter((issue) => latestText.includes(issue.context) || latestText.includes(issue.original))
+            .filter((issue) => latestText.includes(issue.context))
             .map((issue) => ({ ...issue, id: issueId(issue) }));
 
           setIssues((prev) => {
             const map = new Map<string, ActiveIssue>();
             // Keep local/existing issues still valid in latestText
             for (const item of prev) {
-              if (item.category !== "grammar" && item.category !== "terminology") {
-                if (latestText.includes(item.context) || latestText.includes(item.original)) {
-                  map.set(item.id, item);
-                }
-              } else {
-                if (latestText.toLowerCase().includes(item.original.toLowerCase())) {
-                  map.set(item.id, item);
-                }
-              }
+              if (latestText.includes(item.context)) map.set(item.id, item);
             }
             // Add server issues
             for (const item of fresh) {
@@ -562,8 +494,7 @@ export function useLiveExaminerCheck(params: {
     }
 
     const completedThought = /(?:[.!?]|\n)\s*$/.test(text);
-    const minChars = completedThought ? 15 : MIN_CHANGED_CHARS;
-    if (changedAmount(text, lastCheckedTextRef.current) < minChars) {
+    if (!completedThought && changedAmount(text, lastCheckedTextRef.current) < MIN_CHANGED_CHARS) {
       return;
     }
 

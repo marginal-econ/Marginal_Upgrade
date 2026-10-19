@@ -340,11 +340,11 @@ export function computeRanges(
       // Unmistakable explicit definitions must always remain AO1 Knowledge
       if (auto.ao === "AO1" && auto.explanation.includes("definition")) {
         return {
-          id: `auto-${auto.ao}-${sStart}`,
+          id: matched?.id || `auto-${auto.ao}-${sStart}`,
           original: trimmed,
           context: trimmed,
           ao: auto.ao,
-          explanation: auto.explanation,
+          explanation: matched?.explanation || auto.explanation,
         };
       }
       // Evaluative criteria (AO3) detected deterministically (however, on the other hand, depends on, etc.)

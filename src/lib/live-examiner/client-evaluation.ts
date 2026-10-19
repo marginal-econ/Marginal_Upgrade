@@ -168,40 +168,42 @@ export function evaluateCambridgeAnswer(
     }
   }
 
-  // Calculate marks calibrated progressively to Cambridge 9708 assessment criteria
-  // 1. AO1 Knowledge & Understanding (definitions, formula, concepts)
+  // Calculate marks calibrated to Cambridge 9708 tariffs
   let ao1Awarded = 0;
-  if ((wordCount >= 40 && ao1Count >= 2) || ao1Count >= 2) {
+  if ((wordCount >= 60 && ao1Count >= 1) || ao1Count >= 2) {
     ao1Awarded = split.ao1_marks;
-  } else if (ao1Count >= 1 || wordCount >= 15) {
-    ao1Awarded = Math.min(split.ao1_marks, Math.max(1, Math.round(split.ao1_marks * 0.5)));
+  } else if (ao1Count >= 1 || wordCount >= 20) {
+    ao1Awarded = Math.min(split.ao1_marks, Math.max(1, Math.floor(split.ao1_marks * 0.5)));
   }
 
-  // 2. AO2 Analysis & Application (causal mechanisms, market reactions, transmission chains)
   let ao2Awarded = 0;
-  if ((ao2Count >= 4 && (wordCount >= 160 || ao3Count >= 2)) || (ao2Count >= 3 && ao3Count >= 2 && wordCount >= 75)) {
-    ao2Awarded = split.ao2_marks;
-  } else if ((ao2Count >= 3 && wordCount >= 120) || (ao2Count >= 3 && ao3Count >= 1) || (ao2Count >= 4)) {
-    ao2Awarded = Math.min(split.ao2_marks, Math.max(4, Math.round(split.ao2_marks * 0.85)));
-  } else if ((ao2Count >= 2 && wordCount >= 70) || (ao2Count >= 2 && ao3Count >= 1) || ao2Count >= 3) {
-    ao2Awarded = Math.min(split.ao2_marks, Math.max(3, Math.round(split.ao2_marks * 0.65)));
-  } else if (ao2Count >= 2 || (ao2Count >= 1 && wordCount >= 40)) {
-    ao2Awarded = Math.min(split.ao2_marks, Math.max(2, Math.round(split.ao2_marks * 0.45)));
-  } else if (ao2Count >= 1) {
-    ao2Awarded = Math.min(split.ao2_marks, Math.max(1, Math.round(split.ao2_marks * 0.25)));
+  // Analysis requires developing causal transmission mechanisms
+  if (
+    (wordCount >= 180 && ao2Count >= 4) ||
+    (ao2Count >= 4 && ao3Count >= 2) ||
+    (ao2Count >= 3 && ao3Count >= 2) ||
+    (ao2Count >= 5)
+  ) {
+    // Top-band analysis: 5 or 6 out of 6
+    ao2Awarded = Math.min(split.ao2_marks, Math.max(5, Math.round(split.ao2_marks * 0.95)));
+  } else if ((wordCount >= 120 && ao2Count >= 3) || ao2Count >= 3) {
+    ao2Awarded = Math.min(split.ao2_marks, Math.max(4, Math.round(split.ao2_marks * 0.8)));
+  } else if (wordCount >= 70 && ao2Count >= 2) {
+    ao2Awarded = Math.min(split.ao2_marks, Math.max(3, Math.round(split.ao2_marks * 0.6)));
+  } else if (wordCount >= 30 && ao2Count >= 1) {
+    ao2Awarded = Math.min(split.ao2_marks, Math.max(1, Math.round(split.ao2_marks * 0.3)));
   }
 
-  // 3. AO3 Evaluation & Judgement (counter-arguments, elasticity conditions, trade-offs, judgements)
   let ao3Awarded = 0;
-  if (split.ao3_marks > 0 && ao3Count >= 1) {
-    if ((ao3Count >= 3 && wordCount >= 180) || (ao3Count >= 2 && ao2Count >= 3 && wordCount >= 75)) {
+  // Evaluation requires weighing up, conditions, and judgements
+  if (split.ao3_marks > 0 && (wordCount >= 50 || ao3Count >= 1)) {
+    if ((wordCount >= 150 && ao3Count >= 2) || (ao3Count >= 2 && ao2Count >= 3) || ao3Count >= 3) {
+      // Top-band evaluation: full marks or 3/4
       ao3Awarded = split.ao3_marks;
-    } else if ((ao3Count >= 2 && wordCount >= 110) || (ao3Count >= 2 && ao2Count >= 2) || (ao3Count >= 1 && ao2Count >= 3)) {
-      ao3Awarded = Math.min(split.ao3_marks, Math.max(2, Math.round(split.ao3_marks * 0.75)));
-    } else if (ao3Count >= 1 && wordCount >= 50) {
-      ao3Awarded = Math.min(split.ao3_marks, Math.max(1, Math.round(split.ao3_marks * 0.5)));
+    } else if (ao3Count >= 1 && wordCount >= 100) {
+      ao3Awarded = Math.min(split.ao3_marks, Math.max(2, Math.round(split.ao3_marks * 0.65)));
     } else if (ao3Count >= 1) {
-      ao3Awarded = Math.min(split.ao3_marks, Math.max(1, Math.round(split.ao3_marks * 0.25)));
+      ao3Awarded = Math.min(split.ao3_marks, Math.max(1, Math.round(split.ao3_marks * 0.35)));
     }
   }
 
@@ -223,23 +225,10 @@ export function evaluateCambridgeAnswer(
   ];
   const issues: ActiveIssue[] = Array.from(new Map(rawIssues.map((item) => [item.id, item])).values());
 
-  let dynamicHeadline = `${totalMark}/${maxMark} marks calibrated against Cambridge 9708 criteria`;
-  if (wordCount < 30) {
-    dynamicHeadline = `${totalMark}/${maxMark} marks · State key definitions and concepts`;
-  } else if (safeAo2 === 0) {
-    dynamicHeadline = `${totalMark}/${maxMark} marks · Add causal transmission steps (causes / leads to)`;
-  } else if (safeAo3 === 0 && split.ao3_marks > 0) {
-    dynamicHeadline = `${totalMark}/${maxMark} marks · Introduce evaluative criteria (however / depends on PED)`;
-  } else if (totalMark < maxMark) {
-    dynamicHeadline = `${totalMark}/${maxMark} marks · Developing response; deepen analytical mechanism`;
-  } else {
-    dynamicHeadline = `${totalMark}/${maxMark} marks · Comprehensive Cambridge 9708 examiner standard`;
-  }
-
   const predictedMark: PredictedMark = {
     total_mark: totalMark,
-    confidence: wordCount > 250 ? 0.9 : wordCount > 100 ? 0.8 : 0.7,
-    headline: dynamicHeadline,
+    confidence: wordCount > 150 ? 0.85 : 0.65,
+    headline: `${totalMark}/${maxMark} marks calibrated against Cambridge 9708 assessment criteria`,
     ao_breakdown: {
       knowledge: { awarded: safeAo1, out_of: split.ao1_marks || 2 },
       analysis: { awarded: safeAo2, out_of: split.ao2_marks || 6 },

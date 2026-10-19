@@ -674,10 +674,14 @@ export const checkEssayWriting = createServerFn({ method: "POST" })
       };
     }
 
-    // Whether this call bothers estimating a mark at all: decoupled and controlled
-    // by the client's cadence and progress checks.
+    // Whether this call bothers estimating a mark at all: decoupled so rapid
+    // keystroke checks do not pay for an extra model call on every sentence edit.
+    const prevLen = data.previousText?.trim().length ?? 0;
     const currLen = data.essayText.trim().length;
-    const shouldEstimateMark = Boolean(data.includePredictedMark) && currLen >= 40;
+    const shouldEstimateMark =
+      data.includePredictedMark &&
+      currLen >= 60 &&
+      (Math.abs(currLen - prevLen) >= 40 || prevLen === 0);
 
     let isBudgetTier = true;
     if (isAdmin || (context as any).isTeacher) {
@@ -723,7 +727,7 @@ export const checkEssayWriting = createServerFn({ method: "POST" })
           temperature: 0,
           json: true,
           isBudgetTier,
-          maxCompletionTokens: 700,
+          maxCompletionTokens: 2500,
           messages: [
             {
               role: "system",
@@ -743,7 +747,7 @@ export const checkEssayWriting = createServerFn({ method: "POST" })
               temperature: 0,
               json: true,
               isBudgetTier,
-              maxCompletionTokens: 350,
+              maxCompletionTokens: 1000,
               messages: [
                 {
                   role: "system",
@@ -941,7 +945,6 @@ export const checkEssayWriting = createServerFn({ method: "POST" })
             temperature: 0,
             json: true,
             isBudgetTier,
-            maxCompletionTokens: 400,
             messages: [
               {
                 role: "system",
