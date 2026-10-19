@@ -29,6 +29,7 @@ import {
   ShieldCheck,
   ShieldPlus,
   Sparkles,
+  Tag,
   Target,
   Trash2,
   Trophy,
@@ -42,6 +43,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 import { AdminGodmodeDashboard } from "@/components/app/admin-godmode";
+import { CouponsAdminPanel } from "@/components/app/coupons-admin";
 import { PublicWaitlistPanel } from "@/components/app/public-waitlist-admin";
 import { TeacherApprovalsPanel } from "@/components/app/teacher-approvals-admin";
 import {
@@ -315,6 +317,13 @@ const ADMIN_SECTIONS: Record<string, AdminSectionMeta> = {
     subtitle: "Verify incoming student UPI transaction references (UTR) against your bank credits, approve subscriptions with 1 click, or reject invalid entries.",
     icon: Coins,
   },
+  coupons: {
+    id: "coupons",
+    category: "Monetization & Plans",
+    title: "Coupon Codes & Discounts",
+    subtitle: "Create, manipulate, pause, or cancel promotional discount codes. Configure flat ₹ or % cuts, caps, and expirations.",
+    icon: Tag,
+  },
 };
 
 const ADMIN_CATEGORIES = [
@@ -328,7 +337,7 @@ const ADMIN_CATEGORIES = [
   },
   {
     title: "Monetization & Plans",
-    items: [ADMIN_SECTIONS.pricing, ADMIN_SECTIONS.payments],
+    items: [ADMIN_SECTIONS.pricing, ADMIN_SECTIONS.payments, ADMIN_SECTIONS.coupons],
   },
   {
     title: "Curriculum & Content",
@@ -556,6 +565,7 @@ function AdminPage() {
             {activeTab === "waitlist" && <PublicWaitlistPanel />}
             {activeTab === "pricing" && <PricingAdminPanel />}
             {activeTab === "payments" && <PaymentApprovalsAdminPanel />}
+            {activeTab === "coupons" && <CouponsAdminPanel />}
             {activeTab === "showcase" && <ShowcaseAdminPanel />}
             {activeTab === "diagrams" && <DiagramsPanel />}
             {activeTab === "providers" && <ProvidersPanel />}
@@ -3880,6 +3890,11 @@ function PaymentApprovalsAdminPanel() {
                     >
                       {req.tier} · ₹{req.amount}
                     </Badge>
+                    {(req as any).couponCode && (
+                      <Badge variant="outline" className="bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-[10px] gap-1 font-mono font-bold">
+                        <Tag className="size-2.5" /> {(req as any).couponCode}
+                      </Badge>
+                    )}
                     {req.status === "pending" && (
                       <Badge className="bg-amber-500 text-white text-[10px] gap-1 font-semibold">
                         <Clock className="size-3 animate-pulse" /> Pending Verification

@@ -13,6 +13,7 @@ import {
 } from "@/integrations/backend/config";
 import type { Database } from "@/integrations/supabase/types";
 import { isMarginalAdmin } from "./auth-admin";
+import { recordCouponUsageInDb } from "./coupon.functions";
 import { assignUserSubscriptionTier, getUserSubscriptionDetails } from "./subscription.server";
 import { TIER_LIMITS, type PlanTier } from "./usage-limits";
 
@@ -25,6 +26,7 @@ const ActivateInput = z.object({
   isSimulation: z.boolean().optional(),
   method: z.enum(["razorpay", "upi_direct", "sandbox"]).optional(),
   utrReference: z.string().optional(),
+  couponCode: z.string().optional(),
 });
 
 const UpiSubmissionInput = z.object({
@@ -32,6 +34,7 @@ const UpiSubmissionInput = z.object({
   billingCycle: z.enum(["monthly", "annual"]).default("monthly"),
   amount: z.number().int().min(1),
   utrReference: z.string().min(6).max(30),
+  couponCode: z.string().optional(),
 });
 
 export async function getActiveMerchantUpiFromStore(): Promise<string> {
@@ -294,6 +297,7 @@ export const submitUpiPaymentRequest = createServerFn({ method: "POST" })
       tier: data.tier,
       amount: data.amount,
       billingCycle: data.billingCycle,
+      couponCode: data.couponCode ? data.couponCode.trim().toUpperCase() : null,
       userId,
       userEmail,
       status: "pending",
@@ -333,8 +337,8 @@ export const activateSubscriptionTier = createServerFn({ method: "POST" })
       const errorMsg = data.utrReference
         ? `Direct UPI UTR: ${data.utrReference}`
         : data.isSimulation
-          ? "Activated via sandbox instant verification"
-          : `Razorpay payment ID: ${data.paymentId ?? "direct"}`;
+          ? `Activated via sandbox instant verification${data.couponCode ? ` (Coupon: ${data.couponCode})` : ""}`
+          : `Razorpay payment ID: ${data.paymentId ?? "direct"}${data.couponCode ? ` (Coupon: ${data.couponCode})` : ""}`;
 
       await supabaseAdmin.from("ai_usage_log").insert({
         user_id: userId,
@@ -350,6 +354,10 @@ export const activateSubscriptionTier = createServerFn({ method: "POST" })
     const result = await assignUserSubscriptionTier(supabaseAdmin, userId, tier);
     if (!result.success) {
       throw new Error(result.message);
+    }
+
+    if (data.couponCode) {
+      await recordCouponUsageInDb(data.couponCode);
     }
 
     const limits = TIER_LIMITS[tier];
@@ -414,6 +422,7 @@ export const listUpiPaymentRequests = createServerFn({ method: "GET" })
         reviewedAt: parsed.reviewedAt,
         reviewedBy: parsed.reviewedBy,
         rejectionReason: parsed.rejectionReason,
+        couponCode: parsed.couponCode || null,
       };
     });
 
@@ -477,6 +486,10 @@ export const approveUpiPaymentRequest = createServerFn({ method: "POST" })
           updated_at: new Date().toISOString(),
         })
         .eq("id", row.id);
+    }
+
+    if (parsed.couponCode) {
+      await recordCouponUsageInDb(parsed.couponCode);
     }
 
     const limits = TIER_LIMITS[data.tier];

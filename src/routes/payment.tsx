@@ -19,6 +19,8 @@ import {
   ShieldCheck,
   Smartphone,
   Sparkles,
+  Tag,
+  X,
   Zap,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -31,6 +33,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { fireConfetti } from "@/lib/confetti";
+import { validateCouponCode } from "@/lib/coupon.functions";
 import {
   getPaymentConfig,
   activateSubscriptionTier,
@@ -220,7 +223,68 @@ function PaymentPortalPage() {
     tagline: currentPlan.tagline,
   };
   const limits = TIER_LIMITS[selectedTier];
-  const finalPrice = cycle === "annual" ? pricing.annual : pricing.monthly;
+  const finalBasePrice = cycle === "annual" ? pricing.annual : pricing.monthly;
+
+  const [couponInput, setCouponInput] = useState("");
+  const [appliedCoupon, setAppliedCoupon] = useState<{
+    code: string;
+    type: "percentage" | "fixed";
+    value: number;
+    discountAmount: number;
+    finalAmount: number;
+    description?: string;
+  } | null>(null);
+  const [isValidatingCoupon, setIsValidatingCoupon] = useState(false);
+
+  const validateCouponMutation = useServerFn(validateCouponCode);
+
+  // Dynamically calculate discount based on active plan price
+  const discountAmount = appliedCoupon
+    ? appliedCoupon.type === "percentage"
+      ? Math.round((finalBasePrice * appliedCoupon.value) / 100)
+      : Math.min(appliedCoupon.value, finalBasePrice)
+    : 0;
+  const payableAmount = Math.max(0, finalBasePrice - discountAmount);
+  // Alias for backward compatibility with existing component references
+  const finalPrice = payableAmount;
+
+  const handleApplyCoupon = async (codeToTry?: string) => {
+    const code = (codeToTry ?? couponInput).trim();
+    if (!code) {
+      toast.error("Please enter a coupon code.");
+      return;
+    }
+    setIsValidatingCoupon(true);
+    try {
+      const res = await validateCouponMutation({
+        data: {
+          code,
+          tier: selectedTier,
+          billingCycle: cycle,
+          baseAmount: finalBasePrice,
+        },
+      });
+      setAppliedCoupon({
+        code: res.code,
+        type: res.type as "percentage" | "fixed",
+        value: res.value,
+        discountAmount: res.discountAmount,
+        finalAmount: res.finalAmount,
+        description: res.description,
+      });
+      toast.success(res.message);
+    } catch (err: any) {
+      toast.error(err?.message || "Invalid coupon code.");
+    } finally {
+      setIsValidatingCoupon(false);
+    }
+  };
+
+  const handleRemoveCoupon = () => {
+    setAppliedCoupon(null);
+    setCouponInput("");
+    toast.info("Coupon code removed.");
+  };
 
   const activateMutation = useServerFn(activateSubscriptionTier);
   const submitUpiMutation = useServerFn(submitUpiPaymentRequest);
@@ -289,6 +353,7 @@ function PaymentPortalPage() {
           tier: selectedTier,
           billingCycle: cycle,
           isSimulation,
+          couponCode: appliedCoupon?.code,
         },
       });
 
@@ -424,6 +489,7 @@ function PaymentPortalPage() {
           billingCycle: cycle,
           amount: finalPrice,
           utrReference: cleanUtr,
+          couponCode: appliedCoupon?.code,
         },
       });
 
@@ -808,7 +874,7 @@ function PaymentPortalPage() {
               <div className="my-5 space-y-3.5 text-xs">
                 <div className="flex justify-between items-baseline">
                   <span className="font-medium text-foreground">{limits.name} Plan</span>
-                  <span className="font-bold text-sm">₹{finalPrice.toLocaleString()}</span>
+                  <span className="font-bold text-sm">₹{finalBasePrice.toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between text-muted-foreground text-[11px]">
                   <span>Billing Frequency</span>
@@ -821,6 +887,73 @@ function PaymentPortalPage() {
                     <span>Save {pricing.savePct}%</span>
                   </div>
                 ) : null}
+
+                {/* Coupon Code Section */}
+                <div className="border-t border-border/60 pt-3">
+                  {appliedCoupon ? (
+                    <div className="flex items-center justify-between p-2.5 rounded-xl border border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Tag className="size-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                        <div className="min-w-0">
+                          <p className="font-bold text-xs flex items-center gap-1.5">
+                            <span className="font-mono tracking-wider">{appliedCoupon.code}</span>
+                            <Badge className="bg-emerald-600/20 text-emerald-700 dark:text-emerald-300 border-none text-[9px] px-1.5 py-0 font-bold">
+                              {appliedCoupon.type === "percentage" ? `${appliedCoupon.value}% OFF` : `₹${appliedCoupon.value} OFF`}
+                            </Badge>
+                          </p>
+                          <p className="text-[10px] text-muted-foreground truncate">
+                            {appliedCoupon.description || "Discount coupon applied"}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="font-bold text-xs text-emerald-600 dark:text-emerald-400 tabular-nums">
+                          -₹{discountAmount.toLocaleString()}
+                        </span>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={handleRemoveCoupon}
+                          className="size-6 text-muted-foreground hover:text-destructive hover:bg-destructive/10 cursor-pointer"
+                          title="Remove coupon"
+                        >
+                          <X className="size-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-1.5">
+                      <div className="flex gap-1.5">
+                        <div className="relative flex-1">
+                          <Tag className="absolute left-2.5 top-2.5 size-3.5 text-muted-foreground" />
+                          <Input
+                            placeholder="Have a coupon? (e.g. SAVE20)"
+                            value={couponInput}
+                            onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                e.preventDefault();
+                                handleApplyCoupon();
+                              }
+                            }}
+                            className="h-8 pl-8 text-xs font-mono tracking-wider uppercase placeholder:normal-case placeholder:font-sans"
+                          />
+                        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          disabled={!couponInput.trim() || isValidatingCoupon}
+                          onClick={() => handleApplyCoupon()}
+                          className="h-8 text-xs font-semibold px-3 shrink-0 cursor-pointer"
+                        >
+                          {isValidatingCoupon ? <Loader2 className="size-3 animate-spin" /> : "Apply"}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
 
                 <div className="border-t border-dashed border-border/80 pt-3 space-y-2">
                   <p className="font-semibold text-foreground">Included Quota & Credits:</p>
@@ -847,11 +980,20 @@ function PaymentPortalPage() {
                 <div className="border-t border-border pt-3.5 flex justify-between items-baseline">
                   <div>
                     <span className="text-sm font-bold text-foreground">Total Due Now</span>
-                    <p className="text-[10px] text-muted-foreground">Includes all platform taxes</p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {appliedCoupon ? `Discount applied (saved ₹${discountAmount.toLocaleString()})` : "Includes all platform taxes"}
+                    </p>
                   </div>
-                  <span className="text-2xl font-black text-primary tabular-nums">
-                    ₹{finalPrice.toLocaleString()}
-                  </span>
+                  <div className="text-right">
+                    {appliedCoupon && discountAmount > 0 ? (
+                      <span className="text-xs line-through text-muted-foreground mr-1.5 tabular-nums">
+                        ₹{finalBasePrice.toLocaleString()}
+                      </span>
+                    ) : null}
+                    <span className="text-2xl font-black text-primary tabular-nums">
+                      ₹{payableAmount.toLocaleString()}
+                    </span>
+                  </div>
                 </div>
               </div>
 
