@@ -1576,13 +1576,20 @@ function EmbeddingsPanel() {
           </div>
 
           <div className="space-y-1.5">
-            <Label>API key</Label>
-            <Input
-              type="password"
+            <div className="flex items-center justify-between">
+              <Label>API Key(s)</Label>
+              <span className="text-[10px] text-primary font-mono font-medium">Auto key-hopping</span>
+            </div>
+            <Textarea
+              rows={2}
               value={apiKey}
               onChange={(event) => setApiKey(event.target.value)}
-              placeholder={meta.keyHint}
+              placeholder={`${meta.keyHint} (one per line or comma-separated for automatic key hopping)`}
+              className="font-mono text-xs"
             />
+            <p className="text-[11px] text-muted-foreground">
+              Enter one or multiple keys. During large ingestion or batch retrieval, rate-limited keys (429/503) automatically hop to the next active key.
+            </p>
           </div>
 
           <div className="space-y-1.5">
@@ -1924,13 +1931,20 @@ function VisionPanel() {
           </div>
 
           <div className="space-y-1.5">
-            <Label>API key</Label>
-            <Input
-              type="password"
+            <div className="flex items-center justify-between">
+              <Label>API Key(s)</Label>
+              <span className="text-[10px] text-primary font-mono font-medium">Auto key-hopping</span>
+            </div>
+            <Textarea
+              rows={2}
               value={apiKey}
               onChange={(event) => setApiKey(event.target.value)}
-              placeholder={meta.keyHint}
+              placeholder={`${meta.keyHint} (one per line or comma-separated for automatic key hopping)`}
+              className="font-mono text-xs"
             />
+            <p className="text-[11px] text-muted-foreground">
+              Enter one or multiple keys. During large exam OCR scans and handwritten past paper extractions, rate-limited keys (429/503) automatically hop to the next active key.
+            </p>
           </div>
 
           <div className="space-y-1.5">

@@ -201,11 +201,19 @@ function maskKey(key: string): string {
         : typeof parsed.budgetPool === "string" && parsed.budgetPool.length > 5
           ? parsed.budgetPool.split(/[\n\r,;]+/).filter((k: string) => k.trim().length > 5).length
           : 0;
-      const poolText = poolCount > 0 ? ` (${poolCount} free pool keys)` : "";
+      const poolText = poolCount > 0 ? ` (${poolCount} pool keys)` : "";
       return `${primaryMasked}${secondary}${poolText}`;
     } catch {
       // fall through
     }
+  }
+  const rawKeys = key
+    .split(/[\n\r,;]+/)
+    .map((k) => k.trim())
+    .filter((k) => k.length > 5);
+  if (rawKeys.length > 1) {
+    const first = rawKeys[0]!;
+    return `${first.slice(0, 4)}••••${first.slice(-4)} (+${rawKeys.length - 1} hopping keys)`;
   }
   if (key.length <= 8) return "••••";
   return `${key.slice(0, 4)}••••${key.slice(-4)}`;

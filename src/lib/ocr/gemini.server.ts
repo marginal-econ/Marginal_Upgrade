@@ -6,7 +6,13 @@
  * built-in Lovable AI gateway fallback chain, so transcription never dies
  * on config.
  */
-import { AiGatewayError, visionChat } from "../ai.server";
+import {
+  AiGatewayError,
+  visionChat,
+  getAvailableKey,
+  markKeyRateLimited,
+  markKeyHealthy,
+} from "../ai.server";
 import { getActiveVisionProvider, getActiveProvider } from "../ai/active.server";
 import type { ProviderConfig } from "../ai/active.server";
 
@@ -130,55 +136,82 @@ async function prepareDataUrl(input: string): Promise<{ mimeType: string; data: 
   return { mimeType: match[1]!, data: match[2]!, fullDataUrl: input };
 }
 
-async function transcribeViaGoogle(apiKey: string, model: string, dataUrl: string, hint?: string) {
+async function transcribeViaGoogle(
+  apiKeyInput: string | string[],
+  model: string,
+  dataUrl: string,
+  hint?: string,
+) {
   const { mimeType, data } = await prepareDataUrl(dataUrl);
   const primary = model.startsWith("models/") ? model : `models/${model}`;
   const candidateModels = Array.from(
     new Set([primary, "models/gemini-3.8-flash", "models/gemini-3.1-flash", "models/gemini-3.1-pro"]),
   );
 
+  const rawKeys = Array.isArray(apiKeyInput) ? apiKeyInput : [apiKeyInput];
+  const candidateKeys = rawKeys.filter((k) => k && k.length > 5);
+  const bestKey = getAvailableKey(candidateKeys);
+  const keysToTry =
+    candidateKeys.length > 1
+      ? [bestKey, ...candidateKeys.filter((k) => k !== bestKey)]
+      : candidateKeys;
+
   let lastErr: unknown = null;
   for (const m of candidateModels) {
-    try {
-      const response = await fetch(`${GOOGLE_ENDPOINT}/${m}:generateContent`, {
-        method: "POST",
-        headers: { "content-type": "application/json", "x-goog-api-key": apiKey },
-        body: JSON.stringify({
-          systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
-          contents: [
-            {
-              role: "user",
-              parts: [
-                { inlineData: { mimeType, data } },
-                { text: hint ? `${PAGE_PROMPT}\nContext: ${hint}` : PAGE_PROMPT },
-              ],
+    for (let kIdx = 0; kIdx < keysToTry.length; kIdx++) {
+      const currentKey = keysToTry[kIdx]!;
+      try {
+        const response = await fetch(`${GOOGLE_ENDPOINT}/${m}:generateContent`, {
+          method: "POST",
+          headers: { "content-type": "application/json", "x-goog-api-key": currentKey },
+          body: JSON.stringify({
+            systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+            contents: [
+              {
+                role: "user",
+                parts: [
+                  { inlineData: { mimeType, data } },
+                  { text: hint ? `${PAGE_PROMPT}\nContext: ${hint}` : PAGE_PROMPT },
+                ],
+              },
+            ],
+            generationConfig: {
+              temperature: 0.1,
+              mediaResolution: "MEDIA_RESOLUTION_HIGH",
+              maxOutputTokens: MAX_OUTPUT_TOKENS,
             },
-          ],
-          generationConfig: {
-            temperature: 0.1,
-            mediaResolution: "MEDIA_RESOLUTION_HIGH",
-            maxOutputTokens: MAX_OUTPUT_TOKENS,
-          },
-        }),
-      });
+          }),
+        });
 
-      if (!response.ok) {
-        const detail = await response.text().catch(() => "");
-        lastErr = new Error(`Google (${m}) returned ${response.status}. ${detail.slice(0, 200)}`);
-        continue;
+        if (!response.ok) {
+          const detail = await response.text().catch(() => "");
+          lastErr = new Error(`Google (${m}) returned ${response.status}. ${detail.slice(0, 200)}`);
+          if (response.status === 429 || response.status === 503) {
+            markKeyRateLimited(currentKey, 60_000);
+            console.warn(
+              `[transcribeViaGoogle] Key ...${currentKey.slice(-4)} returned ${response.status}. Hopping to next key...`,
+            );
+            if (kIdx + 1 < keysToTry.length) continue;
+          }
+          if (response.status === 404) {
+            break; // Model not available, try next candidate model
+          }
+          continue;
+        }
+
+        markKeyHealthy(currentKey);
+        const payload = (await response.json()) as {
+          candidates?: { content?: { parts?: { text?: string }[] } }[];
+        };
+        const text = (payload.candidates?.[0]?.content?.parts ?? [])
+          .map((part) => part.text ?? "")
+          .join("")
+          .trim();
+        if (text && !isBlankOrUnread(text)) return text;
+        lastErr = new Error(`Google (${m}) returned empty or unreadable handwriting output.`);
+      } catch (err) {
+        lastErr = err;
       }
-
-      const payload = (await response.json()) as {
-        candidates?: { content?: { parts?: { text?: string }[] } }[];
-      };
-      const text = (payload.candidates?.[0]?.content?.parts ?? [])
-        .map((part) => part.text ?? "")
-        .join("")
-        .trim();
-      if (text && !isBlankOrUnread(text)) return text;
-      lastErr = new Error(`Google (${m}) returned empty or unreadable handwriting output.`);
-    } catch (err) {
-      lastErr = err;
     }
   }
 
@@ -222,7 +255,9 @@ async function transcribePage(
       const text =
         visionConfig.provider === "google"
           ? await transcribeViaGoogle(
-              visionConfig.apiKey,
+              visionConfig.apiKeys && visionConfig.apiKeys.length > 0
+                ? visionConfig.apiKeys
+                : [visionConfig.apiKey],
               visionConfig.model || GOOGLE_MODEL,
               dataUrl,
               hint,

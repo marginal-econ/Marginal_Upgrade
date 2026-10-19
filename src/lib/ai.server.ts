@@ -227,9 +227,9 @@ export async function chat(rawOptions: ChatOptions): Promise<ChatResult> {
  * If a key returns 429 (rate limit) or 503 (model busy), it is temporarily
  * cooled down (default 60s) so subsequent requests immediately use an active key.
  */
-const keyCooldowns = new Map<string, number>();
+export const keyCooldowns = new Map<string, number>();
 
-function getAvailableKey(keys: string[]): string {
+export function getAvailableKey(keys: string[]): string {
   if (!keys || keys.length === 0) return "";
   const now = Date.now();
   for (const k of keys) {
@@ -243,11 +243,11 @@ function getAvailableKey(keys: string[]): string {
   }, keys[0]!);
 }
 
-function markKeyRateLimited(key: string, cooldownMs = 60_000) {
+export function markKeyRateLimited(key: string, cooldownMs = 60_000) {
   keyCooldowns.set(key, Date.now() + cooldownMs);
 }
 
-function markKeyHealthy(key: string) {
+export function markKeyHealthy(key: string) {
   keyCooldowns.delete(key);
 }
 
@@ -263,16 +263,35 @@ async function chatViaProvider(
 
   let activeKeysToTry: string[] = [];
   if (isBudget) {
-    // Budget tier (<= 199: 0, 99, 199): uses the budget pool with auto-rotation on 429/503
+    // Budget tier (<= 199: 0, 99, 199):
+    // 1. Try all priority pool keys in configured priority order (Priority 1, 2, 3...)
+    // 2. If all priority keys hit rate limits (429/503), seamlessly use the VIP access keys as last resort!
     const pool =
       config.budgetPoolKeys && config.budgetPoolKeys.length > 0
         ? config.budgetPoolKeys
         : config.apiKeys && config.apiKeys.length > 0
           ? config.apiKeys
           : [config.apiKey];
-    const bestKey = getAvailableKey(pool);
-    activeKeysToTry =
-      pool.length > 1 ? [bestKey, ...pool.filter((k) => k !== bestKey)] : [pool[0]!];
+
+    const vipKeys = [config.paidPrimaryKey, config.paidSecondaryKey].filter(
+      (k): k is string => Boolean(k && k.length > 5),
+    );
+
+    // Keep pool keys distinct from VIP keys so VIP keys are strictly tried at the end
+    const purePoolKeys = pool.filter((k) => !vipKeys.includes(k));
+    const poolKeysToOrder = purePoolKeys.length > 0 ? purePoolKeys : pool;
+
+    // Filter available (not in cooldown) pool keys preserving their priority order,
+    // followed by cooled-down pool keys (in priority order)
+    const now = Date.now();
+    const availablePoolKeys = poolKeysToOrder.filter((k) => (keyCooldowns.get(k) ?? 0) <= now);
+    const cooledPoolKeys = poolKeysToOrder.filter((k) => (keyCooldowns.get(k) ?? 0) > now);
+    const orderedPoolKeys = [...availablePoolKeys, ...cooledPoolKeys];
+
+    // Append VIP keys as last resort (avoiding duplicates if any were already in the pool)
+    const fallbackVipKeys = vipKeys.filter((k) => !orderedPoolKeys.includes(k));
+
+    activeKeysToTry = [...orderedPoolKeys, ...fallbackVipKeys];
   } else {
     // High-tier users (> 199, school, teacher, admin):
     // Dedicated Primary Paid Key first. If it ever hits 429/503, fails over to Secondary Paid Key!
@@ -525,33 +544,61 @@ async function withRetry429<T>(
   throw lastError;
 }
 
-/** Direct call to Google's embeddings API — no Lovable gateway involved. */
+/** Direct call to Google's embeddings API with automatic key hopping across configured keys. */
 async function embedViaGoogle(
   inputs: string[],
-  apiKeyValue: string,
-  model: string,
+  config: ProviderConfig,
   outputDimensionality: number,
 ): Promise<number[][]> {
   const vectors: number[][] = new Array(inputs.length);
-  const googleModel = model.startsWith("models/") ? model : GOOGLE_EMBED_MODEL;
+  const googleModel = config.model.startsWith("models/") ? config.model : GOOGLE_EMBED_MODEL;
+  const candidateKeys =
+    config.apiKeys && config.apiKeys.length > 0 ? config.apiKeys : [config.apiKey];
 
   for (let offset = 0; offset < inputs.length; offset += EMBED_BATCH_LIMIT) {
     const batch = inputs.slice(offset, offset + EMBED_BATCH_LIMIT);
     const data = await withRetry429(async () => {
-      let response = await fetch(`${GOOGLE_EMBED_ENDPOINT}/${googleModel}:batchEmbedContents`, {
-        method: "POST",
-        headers: { "content-type": "application/json", "x-goog-api-key": apiKeyValue },
-        body: JSON.stringify({
-          requests: batch.map((text) => ({
-            model: googleModel,
-            content: { parts: [{ text }] },
-            outputDimensionality,
-          })),
-        }),
-      });
+      const bestKey = getAvailableKey(candidateKeys);
+      const keysToTry =
+        candidateKeys.length > 1
+          ? [bestKey, ...candidateKeys.filter((k) => k !== bestKey)]
+          : candidateKeys;
 
-      if (!response.ok) {
+      let lastErrStatus = 500;
+      let lastErrDetail = "";
+
+      for (let kIdx = 0; kIdx < keysToTry.length; kIdx++) {
+        const currentKey = keysToTry[kIdx]!;
+        let response = await fetch(`${GOOGLE_EMBED_ENDPOINT}/${googleModel}:batchEmbedContents`, {
+          method: "POST",
+          headers: { "content-type": "application/json", "x-goog-api-key": currentKey },
+          body: JSON.stringify({
+            requests: batch.map((text) => ({
+              model: googleModel,
+              content: { parts: [{ text }] },
+              outputDimensionality,
+            })),
+          }),
+        });
+
+        if (response.ok) {
+          markKeyHealthy(currentKey);
+          return (await response.json()) as { embeddings?: { values: number[] }[] };
+        }
+
         const detail = await response.text().catch(() => "");
+        lastErrStatus = response.status;
+        lastErrDetail = detail;
+
+        // If rate limit or server error, mark cooldown and hop to next key
+        if (response.status === 429 || response.status === 503) {
+          markKeyRateLimited(currentKey, 60_000);
+          console.warn(
+            `[embedViaGoogle] Key ...${currentKey.slice(-4)} returned ${response.status}. Hopping to next key...`,
+          );
+          if (kIdx + 1 < keysToTry.length) continue;
+        }
+
         // If Google Generative Language REST endpoint returns location error (e.g. from Cloudflare worker edge IPs),
         // try Google's OpenAI-compatible endpoint /v1beta/openai/embeddings as an alternative
         if (
@@ -565,7 +612,7 @@ async function embedViaGoogle(
               method: "POST",
               headers: {
                 "content-type": "application/json",
-                authorization: `Bearer ${apiKeyValue}`,
+                authorization: `Bearer ${currentKey}`,
               },
               body: JSON.stringify({
                 model: cleanModel,
@@ -574,24 +621,37 @@ async function embedViaGoogle(
               }),
             });
             if (altRes.ok) {
+              markKeyHealthy(currentKey);
               const altJson = (await altRes.json()) as {
                 data?: { index: number; embedding: number[] }[];
               };
               if (altJson.data && altJson.data.length > 0) {
                 return { embeddings: altJson.data.map((d) => ({ values: d.embedding })) };
               }
+            } else if (altRes.status === 429 || altRes.status === 503) {
+              markKeyRateLimited(currentKey, 60_000);
+              console.warn(
+                `[embedViaGoogle alt] Key ...${currentKey.slice(-4)} returned ${altRes.status}. Hopping to next key...`,
+              );
+              if (kIdx + 1 < keysToTry.length) continue;
             }
           } catch (altErr) {
             console.warn("Google embeddings OpenAI-compatible endpoint fallback failed:", altErr);
           }
         }
-        throw new AiGatewayError(
-          `Google embeddings returned ${response.status}. ${detail.slice(0, 300)}`,
-          response.status,
-        );
+
+        if (response.status !== 429 && response.status !== 503) {
+          throw new AiGatewayError(
+            `Google embeddings returned ${response.status}. ${detail.slice(0, 300)}`,
+            response.status,
+          );
+        }
       }
 
-      return (await response.json()) as { embeddings?: { values: number[] }[] };
+      throw new AiGatewayError(
+        `Google embeddings returned ${lastErrStatus}. ${lastErrDetail.slice(0, 300)}`,
+        lastErrStatus,
+      );
     });
 
     (data.embeddings ?? []).forEach((item, i) => {
@@ -604,52 +664,73 @@ async function embedViaGoogle(
 
 /**
  * Direct call to any OpenAI-compatible /embeddings endpoint — covers
- * OpenAI, OpenRouter, Mistral, DeepSeek, and custom self-hosted endpoints.
- * (Anthropic, xAI and Groq don't expose an embeddings endpoint, so those
- * providers are excluded from the embedding-purpose picker in the console.)
+ * OpenAI, OpenRouter, Mistral, DeepSeek, and custom self-hosted endpoints
+ * with automatic key hopping across configured keys.
  */
 async function embedViaOpenAiCompatible(
   inputs: string[],
   config: ProviderConfig,
 ): Promise<number[][]> {
   const vectors: number[][] = new Array(inputs.length);
+  const candidateKeys =
+    config.apiKeys && config.apiKeys.length > 0 ? config.apiKeys : [config.apiKey];
 
   for (let offset = 0; offset < inputs.length; offset += EMBED_BATCH_LIMIT) {
     const batch = inputs.slice(offset, offset + EMBED_BATCH_LIMIT);
     const data = await withRetry429(async () => {
-      // OpenAI's text-embedding-3-* family (and OpenAI-compatible endpoints
-      // that mirror it, e.g. OpenRouter) natively return more than
-      // EMBEDDING_DIMS — 3072 for -large, 1536 for -small. Without this the
-      // vector comes back a different size than document_chunks.embedding
-      // is declared as and pgvector rejects the insert outright. Sending
-      // `dimensions` truncates it at the API side to the size the column
-      // actually is. Endpoints that don't support the param (Mistral,
-      // Nemotron, most custom ones) ignore an unknown field rather than
-      // erroring, and models already fixed at EMBEDDING_DIMS are unaffected.
       const supportsDimensionsParam =
         config.provider === "openai" || config.provider === "openrouter";
-      const response = await fetch(`${config.baseUrl}/embeddings`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${config.apiKey}`,
-        },
-        body: JSON.stringify({
-          model: config.model,
-          input: batch,
-          ...(supportsDimensionsParam ? { dimensions: EMBEDDING_DIMS } : {}),
-        }),
-      });
+      const bestKey = getAvailableKey(candidateKeys);
+      const keysToTry =
+        candidateKeys.length > 1
+          ? [bestKey, ...candidateKeys.filter((k) => k !== bestKey)]
+          : candidateKeys;
 
-      if (!response.ok) {
+      let lastErrStatus = 500;
+      let lastErrDetail = "";
+
+      for (let kIdx = 0; kIdx < keysToTry.length; kIdx++) {
+        const currentKey = keysToTry[kIdx]!;
+        const response = await fetch(`${config.baseUrl}/embeddings`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${currentKey}`,
+          },
+          body: JSON.stringify({
+            model: config.model,
+            input: batch,
+            ...(supportsDimensionsParam ? { dimensions: EMBEDDING_DIMS } : {}),
+          }),
+        });
+
+        if (response.ok) {
+          markKeyHealthy(currentKey);
+          return (await response.json()) as { data?: { index: number; embedding: number[] }[] };
+        }
+
         const detail = await response.text().catch(() => "");
+        lastErrStatus = response.status;
+        lastErrDetail = detail;
+
+        if (response.status === 429 || response.status === 503) {
+          markKeyRateLimited(currentKey, 60_000);
+          console.warn(
+            `[embedViaOpenAiCompatible] Key ...${currentKey.slice(-4)} returned ${response.status}. Hopping to next key...`,
+          );
+          if (kIdx + 1 < keysToTry.length) continue;
+        }
+
         throw new AiGatewayError(
           `${config.label || config.provider} embeddings returned ${response.status}. ${detail.slice(0, 300)}`,
           response.status,
         );
       }
 
-      return (await response.json()) as { data?: { index: number; embedding: number[] }[] };
+      throw new AiGatewayError(
+        `${config.label || config.provider} embeddings returned ${lastErrStatus}. ${lastErrDetail.slice(0, 300)}`,
+        lastErrStatus,
+      );
     });
 
     for (const item of data.data ?? []) {
@@ -662,7 +743,7 @@ async function embedViaOpenAiCompatible(
 
 async function embedViaConfig(inputs: string[], config: ProviderConfig): Promise<number[][]> {
   if (config.provider === "google") {
-    return embedViaGoogle(inputs, config.apiKey, config.model, EMBEDDING_DIMS);
+    return embedViaGoogle(inputs, config, EMBEDDING_DIMS);
   }
   return embedViaOpenAiCompatible(inputs, config);
 }
@@ -746,7 +827,7 @@ function splitImageDataUrl(dataUrl: string): { mimeType: string; data: string } 
   return { mimeType: match[1]!, data: match[2]! };
 }
 
-/** Anthropic's image-block shape differs from the OpenAI image_url shape. */
+/** Anthropic's image-block shape differs from the OpenAI image_url shape. Supports automatic key hopping across configured keys. */
 async function visionChatViaAnthropic(
   config: ProviderConfig,
   options: {
@@ -757,55 +838,84 @@ async function visionChatViaAnthropic(
     maxCompletionTokens?: number;
   },
 ): Promise<Omit<ChatResult, "latencyMs">> {
-  const response = await fetch(`${config.baseUrl}/messages`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": config.apiKey,
-      "anthropic-version": "2023-06-01",
-    },
-    body: JSON.stringify({
-      model: config.model,
-      max_tokens: options.maxCompletionTokens ?? 8000,
-      system: options.systemPrompt,
-      messages: [
-        {
-          role: "user",
-          content: [
-            { type: "text", text: options.prompt },
-            ...options.imageDataUrls.map((url) => {
-              const { mimeType, data } = splitImageDataUrl(url);
-              return {
-                type: "image" as const,
-                source: { type: "base64" as const, media_type: mimeType, data },
-              };
-            }),
-          ],
-        },
-      ],
-    }),
-  });
+  const candidateKeys =
+    config.apiKeys && config.apiKeys.length > 0 ? config.apiKeys : [config.apiKey];
+  const bestKey = getAvailableKey(candidateKeys);
+  const keysToTry =
+    candidateKeys.length > 1
+      ? [bestKey, ...candidateKeys.filter((k) => k !== bestKey)]
+      : candidateKeys;
 
-  if (!response.ok) {
-    throw new AiGatewayError(explain(response.status, await response.text()), response.status);
+  let lastStatus = 500;
+  let lastText = "";
+
+  for (let kIdx = 0; kIdx < keysToTry.length; kIdx++) {
+    const currentKey = keysToTry[kIdx]!;
+    const response = await fetch(`${config.baseUrl}/messages`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": currentKey,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: config.model,
+        max_tokens: options.maxCompletionTokens ?? 8000,
+        system: options.systemPrompt,
+        messages: [
+          {
+            role: "user",
+            content: [
+              { type: "text", text: options.prompt },
+              ...options.imageDataUrls.map((url) => {
+                const { mimeType, data } = splitImageDataUrl(url);
+                return {
+                  type: "image" as const,
+                  source: { type: "base64" as const, media_type: mimeType, data },
+                };
+              }),
+            ],
+          },
+        ],
+      }),
+    });
+
+    if (response.ok) {
+      markKeyHealthy(currentKey);
+      const data = (await response.json()) as {
+        content?: { type: string; text?: string }[];
+        usage?: { input_tokens?: number; output_tokens?: number };
+      };
+      return {
+        text: (data.content ?? [])
+          .filter((part) => part.type === "text")
+          .map((part) => part.text ?? "")
+          .join(""),
+        model: config.model,
+        promptTokens: data.usage?.input_tokens ?? null,
+        completionTokens: data.usage?.output_tokens ?? null,
+      };
+    }
+
+    const text = await response.text();
+    lastStatus = response.status;
+    lastText = text;
+
+    if (response.status === 429 || response.status === 503) {
+      markKeyRateLimited(currentKey, 60_000);
+      console.warn(
+        `[visionChatViaAnthropic] Key ...${currentKey.slice(-4)} returned ${response.status}. Hopping to next key...`,
+      );
+      if (kIdx + 1 < keysToTry.length) continue;
+    }
+
+    throw new AiGatewayError(explain(response.status, text), response.status);
   }
 
-  const data = (await response.json()) as {
-    content?: { type: string; text?: string }[];
-    usage?: { input_tokens?: number; output_tokens?: number };
-  };
-  return {
-    text: (data.content ?? [])
-      .filter((part) => part.type === "text")
-      .map((part) => part.text ?? "")
-      .join(""),
-    model: config.model,
-    promptTokens: data.usage?.input_tokens ?? null,
-    completionTokens: data.usage?.output_tokens ?? null,
-  };
+  throw new AiGatewayError(explain(lastStatus, lastText), lastStatus);
 }
 
-/** Every non-Anthropic provider in AI_PROVIDERS speaks the OpenAI image_url shape. */
+/** Every non-Anthropic provider in AI_PROVIDERS speaks the OpenAI image_url shape. Supports automatic key hopping across configured keys. */
 async function visionChatViaOpenAiCompatible(
   config: ProviderConfig,
   options: {
@@ -816,6 +926,14 @@ async function visionChatViaOpenAiCompatible(
     maxCompletionTokens?: number;
   },
 ): Promise<Omit<ChatResult, "latencyMs">> {
+  const candidateKeys =
+    config.apiKeys && config.apiKeys.length > 0 ? config.apiKeys : [config.apiKey];
+  const bestKey = getAvailableKey(candidateKeys);
+  const keysToTry =
+    candidateKeys.length > 1
+      ? [bestKey, ...candidateKeys.filter((k) => k !== bestKey)]
+      : candidateKeys;
+
   const body: Record<string, unknown> = {
     model: config.model,
     messages: [
@@ -834,29 +952,50 @@ async function visionChatViaOpenAiCompatible(
   };
   if (options.maxCompletionTokens) body.max_completion_tokens = options.maxCompletionTokens;
 
-  const response = await fetch(`${config.baseUrl}/chat/completions`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${config.apiKey}`,
-    },
-    body: JSON.stringify(body),
-  });
+  let lastStatus = 500;
+  let lastText = "";
 
-  if (!response.ok) {
-    throw new AiGatewayError(explain(response.status, await response.text()), response.status);
+  for (let kIdx = 0; kIdx < keysToTry.length; kIdx++) {
+    const currentKey = keysToTry[kIdx]!;
+    const response = await fetch(`${config.baseUrl}/chat/completions`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${currentKey}`,
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (response.ok) {
+      markKeyHealthy(currentKey);
+      const data = (await response.json()) as {
+        choices?: { message?: { content?: string } }[];
+        usage?: { prompt_tokens?: number; completion_tokens?: number };
+      };
+      return {
+        text: data.choices?.[0]?.message?.content ?? "",
+        model: config.model,
+        promptTokens: data.usage?.prompt_tokens ?? null,
+        completionTokens: data.usage?.completion_tokens ?? null,
+      };
+    }
+
+    const text = await response.text();
+    lastStatus = response.status;
+    lastText = text;
+
+    if (response.status === 429 || response.status === 503) {
+      markKeyRateLimited(currentKey, 60_000);
+      console.warn(
+        `[visionChatViaOpenAiCompatible] Key ...${currentKey.slice(-4)} returned ${response.status}. Hopping to next key...`,
+      );
+      if (kIdx + 1 < keysToTry.length) continue;
+    }
+
+    throw new AiGatewayError(explain(response.status, text), response.status);
   }
 
-  const data = (await response.json()) as {
-    choices?: { message?: { content?: string } }[];
-    usage?: { prompt_tokens?: number; completion_tokens?: number };
-  };
-  return {
-    text: data.choices?.[0]?.message?.content ?? "",
-    model: config.model,
-    promptTokens: data.usage?.prompt_tokens ?? null,
-    completionTokens: data.usage?.completion_tokens ?? null,
-  };
+  throw new AiGatewayError(explain(lastStatus, lastText), lastStatus);
 }
 
 /**
