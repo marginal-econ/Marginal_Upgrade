@@ -14,12 +14,28 @@ const AUTHORIZED_ADMIN_EMAILS = new Set([
   "marginal.econ.ai@gmail.com", // Marginal ONLY
 ]);
 
-export function isMarginalAdmin(opts?: {
-  userId?: string | null;
-  email?: string | null;
-  claims?: any;
-}): boolean {
+export function isMarginalAdmin(
+  opts?:
+    | {
+        userId?: string | null;
+        email?: string | null;
+        claims?: any;
+      }
+    | string
+    | null,
+): boolean {
   if (!opts) return false;
+
+  if (typeof opts === "string") {
+    const trimmed = opts.trim();
+    if (AUTHORIZED_ADMIN_IDS.has(trimmed)) {
+      return true;
+    }
+    if (AUTHORIZED_ADMIN_EMAILS.has(trimmed.toLowerCase())) {
+      return true;
+    }
+    return false;
+  }
 
   const candidateId = opts.userId || opts.claims?.sub;
   if (candidateId && AUTHORIZED_ADMIN_IDS.has(candidateId)) {

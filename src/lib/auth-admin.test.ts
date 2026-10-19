@@ -16,6 +16,14 @@ describe("Marginal Admin Security Authorization", () => {
     expect(isMarginalAdmin({ claims: { email: MARGINAL_ADMIN_EMAIL } })).toBe(true);
   });
 
+  it("authorizes when passed userId or email string directly", () => {
+    expect(isMarginalAdmin(MARGINAL_ADMIN_USER_ID)).toBe(true);
+    expect(isMarginalAdmin(MARGINAL_ADMIN_EMAIL)).toBe(true);
+    expect(isMarginalAdmin(" marginal.econ.ai@gmail.com ")).toBe(true);
+    expect(isMarginalAdmin("some-random-user-id")).toBe(false);
+    expect(isMarginalAdmin("random@example.com")).toBe(false);
+  });
+
   it("STRICTLY REJECTS ordinary students from admin permissions", () => {
     expect(isMarginalAdmin({ userId: "210ce19f-1b47-4012-ae4b-3362866f6acb", email: "saikrish.econ@gmail.com" })).toBe(false);
     expect(isMarginalAdmin({ userId: "some-random-uuid", email: "student@example.com" })).toBe(false);

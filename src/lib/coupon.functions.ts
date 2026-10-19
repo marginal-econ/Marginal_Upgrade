@@ -148,16 +148,44 @@ export const validateCouponCode = createServerFn({ method: "POST" })
     };
   });
 
+async function assertAdminAccess(context: {
+  userId: string;
+  email?: string | null;
+  claims?: any;
+  isAdmin?: boolean;
+}): Promise<void> {
+  const isAdmin =
+    Boolean((context as any).isAdmin) ||
+    isMarginalAdmin({
+      userId: context.userId,
+      claims: (context as any).claims,
+      email: (context as any).email,
+    }) ||
+    isMarginalAdmin(context.userId) ||
+    Boolean(context.email && isMarginalAdmin(context.email));
+
+  if (isAdmin) return;
+
+  // Extra safety fallback: check database auth records for user's email
+  try {
+    const { data } = await supabaseAdmin.auth.admin.getUserById(context.userId);
+    if (data?.user?.email && (isMarginalAdmin({ email: data.user.email }) || isMarginalAdmin(data.user.email))) {
+      return;
+    }
+  } catch {
+    // ignore
+  }
+
+  throw new Error("Unauthorized: Only platform administrators can manage coupon codes.");
+}
+
 /**
  * Lists all coupons for the Admin Panel.
  */
 export const listAllCoupons = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const adminCheck = await isMarginalAdmin(context.userId);
-    if (!adminCheck) {
-      throw new Error("Unauthorized: Only platform administrators can view coupon codes.");
-    }
+    await assertAdminAccess(context as any);
 
     const { data: rows, error } = await supabaseAdmin
       .from("definitions")
@@ -196,10 +224,7 @@ export const createCouponCode = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => CreateCouponInput.parse(input))
   .handler(async ({ data, context }) => {
-    const adminCheck = await isMarginalAdmin(context.userId);
-    if (!adminCheck) {
-      throw new Error("Unauthorized: Only platform administrators can create coupon codes.");
-    }
+    await assertAdminAccess(context as any);
 
     const cleanCode = normalizeCode(data.code);
     const term = `__COUPON_${cleanCode}`;
@@ -263,10 +288,7 @@ export const updateCouponCode = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => UpdateCouponInput.parse(input))
   .handler(async ({ data, context }) => {
-    const adminCheck = await isMarginalAdmin(context.userId);
-    if (!adminCheck) {
-      throw new Error("Unauthorized: Only platform administrators can update coupon codes.");
-    }
+    await assertAdminAccess(context as any);
 
     const { data: row, error: fetchErr } = await supabaseAdmin
       .from("definitions")
@@ -328,10 +350,7 @@ export const deleteCouponCode = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => z.object({ id: z.string() }).parse(input))
   .handler(async ({ data, context }) => {
-    const adminCheck = await isMarginalAdmin(context.userId);
-    if (!adminCheck) {
-      throw new Error("Unauthorized: Only platform administrators can delete coupon codes.");
-    }
+    await assertAdminAccess(context as any);
 
     const { error } = await supabaseAdmin
       .from("definitions")
@@ -355,10 +374,7 @@ export const deleteCouponCode = createServerFn({ method: "POST" })
 export const cancelAllCoupons = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const adminCheck = await isMarginalAdmin(context.userId);
-    if (!adminCheck) {
-      throw new Error("Unauthorized: Only platform administrators can deactivate all coupon codes.");
-    }
+    await assertAdminAccess(context as any);
 
     const { data: rows, error: fetchErr } = await supabaseAdmin
       .from("definitions")
