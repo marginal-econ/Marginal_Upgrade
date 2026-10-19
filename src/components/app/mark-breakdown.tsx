@@ -119,6 +119,41 @@ export function MarkBreakdown({ grading }: { grading: Grading }) {
             <span className="rounded-full bg-muted/60 px-2 py-0.5 text-xs text-muted-foreground tabular-nums">
               {Math.round(grading.confidence * 100)}% examiner confidence
             </span>
+            {grading.model ? (
+              <Badge
+                variant="outline"
+                className="border-border/60 bg-muted/40 text-muted-foreground text-[10px] font-mono"
+                title={`Evaluated with ${grading.model}`}
+              >
+                {grading.model.replace(/^(google\/|models\/)/, "")}
+              </Badge>
+            ) : null}
+            {grading.modelSwapped ? (
+              <Badge
+                variant="outline"
+                className="border-amber-500/40 bg-amber-500/10 text-amber-500 text-[10px] font-medium"
+                title="Switched to fallback model due to high traffic"
+              >
+                ⚡ Model Swapped ({grading.model?.replace(/^(google\/|models\/)/, "")})
+              </Badge>
+            ) : null}
+            {grading.activeKeyType === "vip_fallback" ? (
+              <Badge
+                variant="outline"
+                className="border-purple-500/40 bg-purple-500/10 text-purple-400 text-[10px] font-medium"
+                title="Priority keys exhausted; evaluated using VIP reserve key"
+              >
+                ⭐ VIP Reserve Key
+              </Badge>
+            ) : grading.keyRotated ? (
+              <Badge
+                variant="outline"
+                className="border-blue-500/40 bg-blue-500/10 text-blue-400 text-[10px] font-medium"
+                title="Key was auto-rotated to next active pool key on rate-limit"
+              >
+                🔄 Backup Key
+              </Badge>
+            ) : null}
           </div>
           <div className="space-y-1">
             <div className="flex justify-between text-[11px] text-muted-foreground">

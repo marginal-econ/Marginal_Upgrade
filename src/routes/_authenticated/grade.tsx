@@ -272,6 +272,15 @@ function GradePage() {
       queryClient.invalidateQueries({ queryKey: ["essays"] });
       queryClient.invalidateQueries({ queryKey: ["progress"] });
       toast.success(`Marked ${data.grading.total_mark}/${data.grading.max_mark}`);
+      if (data.grading.modelSwapped) {
+        toast.info(
+          `Engine fallback: Evaluated with ${data.grading.model?.replace(/^(google\/|models\/)/, "")} due to high traffic.`,
+        );
+      } else if (data.grading.activeKeyType === "vip_fallback") {
+        toast.info("Priority pool busy: Evaluated seamlessly using VIP reserve key.");
+      } else if (data.grading.keyRotated) {
+        toast.info("Key auto-hopped: Evaluated via backup key pool.");
+      }
     },
     onError: (error: Error) => {
       const isPlanLimit =

@@ -46,6 +46,10 @@ export type Grading = {
   off_syllabus?: boolean;
   detected_subject?: string;
   grounding_status?: "grounded" | "mark_scheme_image" | "unanchored";
+  model?: string;
+  keyRotated?: boolean;
+  modelSwapped?: boolean;
+  activeKeyType?: "primary" | "backup_pool" | "vip_fallback";
 };
 
 const EMPTY_MISSING: MissingElements = {

@@ -318,10 +318,14 @@ export async function gradeEssay(
   grading.sources = sources;
   grading.anchorsUsed = anchors.length;
   grading.grounding_status = groundingStatus;
+  grading.model = first.model || MODEL_EXAMINER;
+  grading.keyRotated = first.keyRotated;
+  grading.modelSwapped = first.modelSwapped;
+  grading.activeKeyType = first.activeKeyType;
 
   return {
     grading,
-    model: MODEL_EXAMINER,
+    model: first.model || MODEL_EXAMINER,
     promptTokens,
     completionTokens,
     latencyMs,

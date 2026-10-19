@@ -414,6 +414,10 @@ export const PredictedMarkSchema = z.object({
     analysis: { awarded: 0, out_of: 0 },
     evaluation: { awarded: 0, out_of: 0 },
   }),
+  model: z.string().optional(),
+  keyRotated: z.boolean().optional(),
+  modelSwapped: z.boolean().optional(),
+  activeKeyType: z.enum(["primary", "backup_pool", "vip_fallback"]).optional(),
 });
 
 export type PredictedMark = z.infer<typeof PredictedMarkSchema>;
@@ -768,6 +772,12 @@ export const checkEssayWriting = createServerFn({ method: "POST" })
             extractFirstJsonObject(predictedOutcome.value.text),
             data.maxMark,
           );
+          if (predictedMark) {
+            predictedMark.model = predictedOutcome.value.model || candidateResult?.model;
+            predictedMark.keyRotated = predictedOutcome.value.keyRotated || candidateResult?.keyRotated;
+            predictedMark.modelSwapped = predictedOutcome.value.modelSwapped || candidateResult?.modelSwapped;
+            predictedMark.activeKeyType = predictedOutcome.value.activeKeyType || candidateResult?.activeKeyType;
+          }
           await context.supabase.from("ai_usage_log").insert({
             user_id: context.userId,
             feature: "live_examiner_predicted_mark",
@@ -1007,6 +1017,10 @@ export const checkEssayWriting = createServerFn({ method: "POST" })
         clean: merged.length === 0,
         checkedText: data.essayText,
         predictedMark,
+        model: candidateResult?.model,
+        keyRotated: candidateResult?.keyRotated,
+        modelSwapped: candidateResult?.modelSwapped,
+        activeKeyType: candidateResult?.activeKeyType,
         usage: {
           promptTokens,
           completionTokens,

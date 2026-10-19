@@ -648,14 +648,51 @@ function PredictedMarkCard({
     );
   }
 
-  const { total_mark, ao_breakdown, headline, confidence } = predictedMark;
+  const { total_mark, ao_breakdown, headline, confidence, model, keyRotated, modelSwapped, activeKeyType } = predictedMark;
   const nextMove = getNextMove(ao_breakdown);
   return (
     <div className="overflow-hidden rounded-xl border border-primary/20 bg-gradient-to-b from-primary/[0.04] to-card shadow-sm">
-      <div className="flex items-center justify-between border-b border-border/70 px-3.5 py-2.5 bg-muted/30">
-        <span className="flex items-center gap-2 text-xs font-semibold text-foreground">
-          <Sparkles className="size-3.5 text-primary" /> Live Examiner
-        </span>
+      <div className="flex flex-wrap items-center justify-between gap-1.5 border-b border-border/70 px-3.5 py-2 bg-muted/30">
+        <div className="flex items-center gap-1.5">
+          <span className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+            <Sparkles className="size-3.5 text-primary" /> Live Examiner
+          </span>
+          {model ? (
+            <Badge
+              variant="outline"
+              className="font-mono text-[9px] border-border/60 bg-muted/40 text-muted-foreground px-1.5 py-0"
+              title={`Evaluated with ${model}`}
+            >
+              {model.replace(/^(google\/|models\/)/, "")}
+            </Badge>
+          ) : null}
+          {modelSwapped ? (
+            <Badge
+              variant="outline"
+              className="border-amber-500/40 bg-amber-500/10 text-amber-500 text-[9px] font-medium px-1.5 py-0"
+              title="Switched to fallback model due to high traffic"
+            >
+              ⚡ Swapped
+            </Badge>
+          ) : null}
+          {activeKeyType === "vip_fallback" ? (
+            <Badge
+              variant="outline"
+              className="border-purple-500/40 bg-purple-500/10 text-purple-400 text-[9px] font-medium px-1.5 py-0"
+              title="Priority keys exhausted; evaluated using VIP reserve key"
+            >
+              ⭐ VIP Key
+            </Badge>
+          ) : keyRotated ? (
+            <Badge
+              variant="outline"
+              className="border-blue-500/40 bg-blue-500/10 text-blue-400 text-[9px] font-medium px-1.5 py-0"
+              title="Key was auto-rotated to next active pool key on rate-limit"
+            >
+              🔄 Backup Key
+            </Badge>
+          ) : null}
+        </div>
         {aiCoachingExpired ? (
           <Badge
             variant="outline"

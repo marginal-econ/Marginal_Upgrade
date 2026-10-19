@@ -107,6 +107,12 @@ export type ChatResult = {
   promptTokens: number | null;
   completionTokens: number | null;
   latencyMs: number;
+  /** True when a rate-limit or failover caused the request to jump to a backup/extra key */
+  keyRotated?: boolean;
+  /** True when all keys failed on the primary model and degraded to a fallback model */
+  modelSwapped?: boolean;
+  /** Specific type of key that successfully resolved the call */
+  activeKeyType?: "primary" | "backup_pool" | "vip_fallback";
 };
 
 /**
@@ -260,6 +266,7 @@ async function chatViaProvider(
   options: ChatOptions,
 ): Promise<Omit<ChatResult, "latencyMs">> {
   const isBudget = options.isBudgetTier === true;
+  let purePoolKeysCount = 0;
 
   let activeKeysToTry: string[] = [];
   if (isBudget) {
@@ -280,6 +287,7 @@ async function chatViaProvider(
     // Keep pool keys distinct from VIP keys so VIP keys are strictly tried at the end
     const purePoolKeys = pool.filter((k) => !vipKeys.includes(k));
     const poolKeysToOrder = purePoolKeys.length > 0 ? purePoolKeys : pool;
+    purePoolKeysCount = purePoolKeys.length;
 
     // Filter available (not in cooldown) pool keys preserving their priority order,
     // followed by cooled-down pool keys (in priority order)
@@ -306,6 +314,7 @@ async function chatViaProvider(
       .filter((m) => m.role === "system")
       .map((m) => m.content)
       .join("\n\n");
+    let successfulAnthropicKeyIdx = 0;
     const data = await withRetry429(async () => {
       let lastErrStatus = 500;
       let lastErrDetail = "";
@@ -331,6 +340,7 @@ async function chatViaProvider(
 
         if (response.ok) {
           markKeyHealthy(currentKey);
+          successfulAnthropicKeyIdx = kIdx;
           return (await response.json()) as {
             content?: { type: string; text?: string }[];
             usage?: { input_tokens?: number; output_tokens?: number };
@@ -349,6 +359,15 @@ async function chatViaProvider(
       }
       throw new AiGatewayError(explain(lastErrStatus, lastErrDetail), lastErrStatus);
     }, CHAT_RETRY_OPTS);
+
+    const isVipFallback = isBudget && successfulAnthropicKeyIdx >= (purePoolKeysCount > 0 ? purePoolKeysCount : activeKeysToTry.length);
+    const isRotated = successfulAnthropicKeyIdx > 0;
+    const activeKeyType: "primary" | "backup_pool" | "vip_fallback" = isVipFallback
+      ? "vip_fallback"
+      : isRotated
+        ? "backup_pool"
+        : "primary";
+
     return {
       text: (data.content ?? [])
         .filter((part) => part.type === "text")
@@ -357,6 +376,9 @@ async function chatViaProvider(
       model: config.model,
       promptTokens: data.usage?.input_tokens ?? null,
       completionTokens: data.usage?.output_tokens ?? null,
+      keyRotated: isRotated,
+      modelSwapped: false,
+      activeKeyType,
     };
   }
 
@@ -415,6 +437,7 @@ async function chatViaProvider(
       : [config.model];
 
   let usedModel = candidateModels[0];
+  let successfulKeyIdx = 0;
   const data = await withRetry429(async () => {
     let lastErrStatus = 500;
     let lastErrDetail = "";
@@ -436,6 +459,7 @@ async function chatViaProvider(
 
         if (response.ok) {
           markKeyHealthy(currentKey);
+          successfulKeyIdx = kIdx;
           return (await response.json()) as {
             choices?: { message?: { content?: string } }[];
             usage?: { prompt_tokens?: number; completion_tokens?: number };
@@ -474,11 +498,23 @@ async function chatViaProvider(
     throw new AiGatewayError(explain(lastErrStatus, lastErrDetail), lastErrStatus);
   }, CHAT_RETRY_OPTS);
 
+  const isVipFallback = isBudget && successfulKeyIdx >= (purePoolKeysCount > 0 ? purePoolKeysCount : activeKeysToTry.length);
+  const isRotated = successfulKeyIdx > 0;
+  const isModelSwapped = usedModel !== candidateModels[0];
+  const activeKeyType: "primary" | "backup_pool" | "vip_fallback" = isVipFallback
+    ? "vip_fallback"
+    : isRotated
+      ? "backup_pool"
+      : "primary";
+
   return {
     text: data.choices?.[0]?.message?.content ?? "",
     model: usedModel,
     promptTokens: data.usage?.prompt_tokens ?? null,
     completionTokens: data.usage?.completion_tokens ?? null,
+    keyRotated: isRotated,
+    modelSwapped: isModelSwapped,
+    activeKeyType,
   };
 }
 
