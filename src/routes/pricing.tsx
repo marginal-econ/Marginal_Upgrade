@@ -3,6 +3,7 @@ import { ArrowRight, GraduationCap } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { PricingSection } from "@/components/marketing/pricing-section";
+import { AiComparisonSection } from "@/components/marketing/ai-comparison-section";
 import { SiteFooter } from "@/components/marketing/footer";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -102,8 +103,9 @@ function PricingPage() {
         </div>
       </header>
 
-      <main className="py-8">
+      <main className="py-8 space-y-12">
         <PricingSection />
+        <AiComparisonSection />
       </main>
 
       <SiteFooter />

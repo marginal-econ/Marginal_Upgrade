@@ -62,6 +62,7 @@ import { Ribbon } from "@/components/marketing/ribbon";
 import { SiteNavLinks, SiteNavMobile } from "@/components/marketing/site-nav";
 import { Magnetic, TiltCard } from "@/components/marketing/three-d";
 import { PricingSection } from "@/components/marketing/pricing-section";
+import { AiComparisonSection } from "@/components/marketing/ai-comparison-section";
 import { RealEssayShowcase } from "@/components/marketing/real-essay-showcase";
 import { RagEngineSection } from "@/components/marketing/rag-engine-section";
 import { TeachersSection } from "@/components/marketing/teachers-section";
@@ -790,6 +791,9 @@ function Index() {
           </Reveal>
         </div>
       </section>
+
+      {/* ── Why Marginal Beats Raw AI (Stress-Test Comparison) ─────────── */}
+      <AiComparisonSection />
 
       {/* ── Pricing ──────────────────────────────────────────────────────── */}
       <PricingSection />
