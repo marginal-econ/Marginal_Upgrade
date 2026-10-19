@@ -874,15 +874,34 @@ export function PricingSection({ className }: { className?: string }) {
                   </div>
 
                   <div className="mt-auto pt-6">
-                    <Button
-                      asChild
-                      variant={tier.popular ? "default" : "outline"}
-                      className="w-full text-xs font-semibold h-10 shadow-xs cursor-pointer"
-                    >
-                      <a href="mailto:licensing@marginal.app?subject=Cambridge%209708%20School%20License%20Inquiry">
-                        Request School Demo <ArrowRight className="size-3.5 ml-1.5" />
-                      </a>
-                    </Button>
+                    {tier.id === "school-enterprise" ? (
+                      <Button
+                        asChild
+                        variant="outline"
+                        className="w-full text-xs font-semibold h-10 shadow-xs cursor-pointer"
+                      >
+                        <a href="mailto:licensing@marginal.app?subject=Cambridge%209708%20Multi-Campus%20Enterprise%20Inquiry">
+                          Contact for Enterprise <ArrowRight className="size-3.5 ml-1.5" />
+                        </a>
+                      </Button>
+                    ) : (
+                      <Button
+                        asChild
+                        variant={tier.popular ? "default" : "outline"}
+                        className="w-full text-xs font-semibold h-10 shadow-xs cursor-pointer"
+                      >
+                        <Link
+                          to="/payment"
+                          search={{
+                            tier: tier.id.replace("-", "_"),
+                            audience: "schools",
+                            cycle,
+                          }}
+                        >
+                          Subscribe with Coupon <ArrowRight className="size-3.5 ml-1.5" />
+                        </Link>
+                      </Button>
+                    )}
                   </div>
                 </div>
               );

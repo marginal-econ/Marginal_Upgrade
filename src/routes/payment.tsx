@@ -16,10 +16,12 @@ import {
   PenLine,
   QrCode,
   RefreshCw,
+  School,
   ShieldCheck,
   Smartphone,
   Sparkles,
   Tag,
+  Users,
   X,
   Zap,
 } from "lucide-react";
@@ -48,7 +50,7 @@ import { cn } from "@/lib/utils";
 const searchSchema = z
   .object({
     tier: z
-      .enum(["foundation", "scholar_plus", "pro", "mastery", "elite"])
+      .string()
       .optional()
       .default("foundation")
       .catch("foundation"),
@@ -57,13 +59,69 @@ const searchSchema = z
       .optional()
       .default("monthly")
       .catch("monthly"),
-    role: z.enum(["student", "teacher"]).optional().catch(undefined),
+    role: z.enum(["student", "teacher", "school"]).optional().catch(undefined),
+    audience: z.enum(["students", "teachers", "schools", "student", "teacher", "school"]).optional().catch(undefined),
   })
   .passthrough()
   .catch({
     tier: "foundation",
     cycle: "monthly",
   });
+
+type PlanAudience = "student" | "teacher" | "school";
+
+const SCHOOL_PLANS: Record<
+  string,
+  {
+    name: string;
+    tagline: string;
+    monthlyPrice: number;
+    annualPrice: number;
+    annualEquivalentMonthly: number;
+    savePct: number;
+    studentCapacity: string;
+    teacherSeats: string;
+    quota: string;
+    badge: string;
+  }
+> = {
+  school_starter: {
+    name: "Department Starter",
+    tagline: "For boutique classes and small cohorts (up to 50 students, 2 teacher admins).",
+    monthlyPrice: 4999,
+    annualPrice: 49999,
+    annualEquivalentMonthly: 4166,
+    savePct: 17,
+    studentCapacity: "Up to 50 Students",
+    teacherSeats: "2 Teacher Admin Seats",
+    quota: "15 essays / student / mo",
+    badge: "Small Cohorts",
+  },
+  school_campus: {
+    name: "Campus Standard",
+    tagline: "Ideal for Cambridge international schools (up to 150 students, 5 teacher admins).",
+    monthlyPrice: 11999,
+    annualPrice: 119999,
+    annualEquivalentMonthly: 10000,
+    savePct: 17,
+    studentCapacity: "Up to 150 Students",
+    teacherSeats: "5 Teacher Admin Seats",
+    quota: "25 essays / student / mo",
+    badge: "Recommended for Schools",
+  },
+  school_institution: {
+    name: "Institution Premium",
+    tagline: "Comprehensive capacity for large high schools (up to 400 students, 15 teacher admins).",
+    monthlyPrice: 24999,
+    annualPrice: 249999,
+    annualEquivalentMonthly: 20833,
+    savePct: 17,
+    studentCapacity: "Up to 400 Students",
+    teacherSeats: "15 Teacher Admin Seats",
+    quota: "40 essays / student / mo",
+    badge: "Large Departments",
+  },
+};
 
 export const Route = createFileRoute("/payment")({
   validateSearch: (search: Record<string, unknown>) => searchSchema.parse(search),
@@ -123,7 +181,9 @@ function PaymentPortalPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  const [selectedTier, setSelectedTier] = useState<PlanTier>(search.tier || "foundation");
+  const [selectedTier, setSelectedTier] = useState<string>(
+    (search.tier || "foundation").replace("-", "_")
+  );
   const [cycle, setCycle] = useState<"monthly" | "annual">(search.cycle || "monthly");
   const [paymentMethod, setPaymentMethod] = useState<"razorpay" | "upi">("upi");
   const [isLockShaking, setIsLockShaking] = useState(false);
@@ -181,30 +241,35 @@ function PaymentPortalPage() {
     queryFn: () => fetchMe(),
   });
 
-  const [planAudience, setPlanAudience] = useState<"student" | "teacher">(() => {
-    if (search.role === "teacher") return "teacher";
+  const [planAudience, setPlanAudience] = useState<PlanAudience>(() => {
+    if (search.role === "teacher" || search.audience === "teachers" || search.audience === "teacher") return "teacher";
+    if (search.role === "school" || search.audience === "schools" || search.audience === "school") return "school";
+    if (search.tier?.startsWith("school_")) return "school";
     if (typeof window !== "undefined") {
       const p = new URLSearchParams(window.location.search);
-      if (p.get("role") === "teacher" || p.get("audience") === "educators" || p.get("tab") === "educators") {
-        return "teacher";
-      }
+      const r = p.get("role") || p.get("audience") || p.get("tab");
+      if (r === "teacher" || r === "teachers" || r === "educators") return "teacher";
+      if (r === "school" || r === "schools") return "school";
     }
     return "student";
   });
 
-  useEffect(() => {
-    if (search.role === "teacher" || meQuery.data?.role === "teacher" || Boolean(meQuery.data?.isStaff)) {
-      setPlanAudience("teacher");
-    }
-  }, [search.role, meQuery.data?.role, meQuery.data?.isStaff]);
-
+  const isSchoolMode = planAudience === "school";
   const isTeacherMode = planAudience === "teacher";
 
   useEffect(() => {
-    if (isTeacherMode && !search.tier) {
+    if (search.role === "teacher" || meQuery.data?.role === "teacher" || Boolean(meQuery.data?.isStaff)) {
+      if (!isSchoolMode) setPlanAudience("teacher");
+    }
+  }, [search.role, meQuery.data?.role, meQuery.data?.isStaff, isSchoolMode]);
+
+  useEffect(() => {
+    if (isSchoolMode && !selectedTier.startsWith("school_")) {
+      setSelectedTier("school_starter");
+    } else if (!isSchoolMode && selectedTier.startsWith("school_")) {
       setSelectedTier("foundation");
     }
-  }, [isTeacherMode, search.tier]);
+  }, [isSchoolMode]);
 
   const fetchPlatformPricing = useServerFn(getPlatformPricing);
   const platformPricingQuery = useQuery({
@@ -214,16 +279,40 @@ function PaymentPortalPage() {
   });
 
   const activePlans = platformPricingQuery.data?.plans ?? DEFAULT_PRICING_PLANS;
-  const currentPlan = activePlans[selectedTier] ?? DEFAULT_PRICING_PLANS[selectedTier];
-  const pricing = {
-    monthly: currentPlan.monthlyPrice,
-    annual: currentPlan.annualPrice,
-    annualMonthlyEq: currentPlan.annualEquivalentMonthly,
-    savePct: currentPlan.savePct,
-    tagline: currentPlan.tagline,
-  };
-  const limits = TIER_LIMITS[selectedTier];
-  const finalBasePrice = cycle === "annual" ? pricing.annual : pricing.monthly;
+
+  let finalBasePrice = 0;
+  let activePlanName = "";
+  let activePlanTagline = "";
+  let savePct = 0;
+
+  if (isSchoolMode) {
+    const sPlan = SCHOOL_PLANS[selectedTier] ?? SCHOOL_PLANS.school_starter;
+    finalBasePrice = cycle === "annual" ? sPlan.annualPrice : sPlan.monthlyPrice;
+    activePlanName = sPlan.name;
+    activePlanTagline = sPlan.tagline;
+    savePct = sPlan.savePct;
+  } else {
+    const pTier = (["foundation", "scholar_plus", "pro", "mastery", "elite"].includes(selectedTier)
+      ? selectedTier
+      : "foundation") as PlanTier;
+    const currentPlan = activePlans[pTier] ?? DEFAULT_PRICING_PLANS[pTier];
+    finalBasePrice = cycle === "annual" ? currentPlan.annualPrice : currentPlan.monthlyPrice;
+    activePlanName = isTeacherMode
+      ? pTier === "foundation"
+        ? "Individual Educator AI Pass"
+        : pTier === "scholar_plus"
+        ? "Senior Educator Pass"
+        : pTier === "pro"
+        ? "Department Lead Pass"
+        : pTier === "mastery"
+        ? "Mastery Department Pass"
+        : "Elite Institutional Pass"
+      : currentPlan.name;
+    activePlanTagline = currentPlan.tagline;
+    savePct = currentPlan.savePct;
+  }
+
+  const limits = TIER_LIMITS[selectedTier as PlanTier] ?? TIER_LIMITS.foundation;
 
   const [couponInput, setCouponInput] = useState("");
   const [appliedCoupon, setAppliedCoupon] = useState<{
@@ -260,6 +349,7 @@ function PaymentPortalPage() {
         data: {
           code,
           tier: selectedTier,
+          audience: planAudience,
           billingCycle: cycle,
           baseAmount: finalBasePrice,
         },
@@ -392,7 +482,7 @@ function PaymentPortalPage() {
         amount: finalPrice * 100, // in paise
         currency: "INR",
         name: "Marginal Economics",
-        description: `${limits.name} (${cycle === "annual" ? "Annual" : "Monthly"})`,
+        description: `${activePlanName} (${cycle === "annual" ? "Annual" : "Monthly"})`,
         image: "/marginal-m-icon-clean.png",
         prefill: {
           name: meQuery.data?.fullName || "",
@@ -571,14 +661,33 @@ function PaymentPortalPage() {
 
       <main className="mx-auto max-w-5xl px-3 sm:px-6 py-6 sm:py-8 md:py-12">
         <div className="mb-6 sm:mb-8 text-center sm:text-left">
-          <Badge className={cn("border text-xs font-semibold mb-2", isTeacherMode ? "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/30" : "bg-primary/10 text-primary border-primary/20")}>
-            {isTeacherMode ? "Educator AI Pass Checkout" : "Verified Official Checkout"}
+          <Badge
+            className={cn(
+              "border text-xs font-semibold mb-2",
+              isSchoolMode
+                ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30"
+                : isTeacherMode
+                ? "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/30"
+                : "bg-primary/10 text-primary border-primary/20"
+            )}
+          >
+            {isSchoolMode
+              ? "School Department Licensing Checkout"
+              : isTeacherMode
+              ? "Educator AI Pass Checkout"
+              : "Verified Official Checkout"}
           </Badge>
           <h1 className="text-xl sm:text-3xl md:text-4xl font-bold tracking-tight">
-            {isTeacherMode ? "Complete Your Educator AI Pass Subscription" : "Complete Your Cambridge 9708 Subscription"}
+            {isSchoolMode
+              ? "Complete Your School Cohort Licensing"
+              : isTeacherMode
+              ? "Complete Your Educator AI Pass Subscription"
+              : "Complete Your Cambridge 9708 Subscription"}
           </h1>
           <p className="mt-2 text-xs sm:text-sm text-muted-foreground max-w-2xl">
-            {isTeacherMode
+            {isSchoolMode
+              ? "Equip your economics department with bulk student essay allocations, teacher dashboard oversight, and shared mark scheme calibrations."
+              : isTeacherMode
               ? "Unlock personal Cambridge 9708 examiner AI marking, custom school mark scheme ingestion, and live Socratic coaching from ₹99/mo."
               : "Choose your Cambridge study tier, unlock instant Live Examiner AI credits, and begin scoring higher with official mark scheme calibrations."}
           </p>
@@ -668,33 +777,58 @@ function PaymentPortalPage() {
             <div className="rounded-2xl border border-border bg-card p-4 sm:p-6 shadow-xs">
               <h2 className="text-base font-semibold mb-3">1. Select Revision Tier</h2>
 
-              {/* Audience Selector: Students vs Educators */}
-              <div className="mb-4 inline-flex w-full items-center justify-center rounded-xl border border-border bg-muted/60 p-1 text-xs">
+              {/* Audience Selector: Students vs Educators vs Schools */}
+              <div className="mb-4 grid grid-cols-3 gap-1 rounded-xl border border-border bg-muted/60 p-1 text-xs">
                 <button
                   type="button"
-                  onClick={() => setPlanAudience("student")}
+                  onClick={() => {
+                    setPlanAudience("student");
+                    if (selectedTier.startsWith("school_")) setSelectedTier("foundation");
+                  }}
                   className={cn(
-                    "flex-1 flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-semibold transition-all cursor-pointer",
-                    !isTeacherMode
+                    "flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-semibold transition-all cursor-pointer",
+                    planAudience === "student"
                       ? "bg-background text-foreground shadow-xs"
                       : "text-muted-foreground hover:text-foreground"
                   )}
                 >
                   <GraduationCap className="size-3.5 text-primary" />
-                  <span>Student Revision Plans</span>
+                  <span className="hidden sm:inline">Student Plans</span>
+                  <span className="sm:hidden">Student</span>
                 </button>
                 <button
                   type="button"
-                  onClick={() => setPlanAudience("teacher")}
+                  onClick={() => {
+                    setPlanAudience("teacher");
+                    if (selectedTier.startsWith("school_")) setSelectedTier("foundation");
+                  }}
                   className={cn(
-                    "flex-1 flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-semibold transition-all cursor-pointer",
-                    isTeacherMode
-                      ? "bg-background text-foreground shadow-xs text-purple-600 dark:text-purple-400"
+                    "flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-semibold transition-all cursor-pointer",
+                    planAudience === "teacher"
+                      ? "bg-background text-purple-600 dark:text-purple-400 shadow-xs"
                       : "text-muted-foreground hover:text-foreground"
                   )}
                 >
                   <ShieldCheck className="size-3.5 text-purple-500" />
-                  <span>Educator AI Pass (from ₹99/mo)</span>
+                  <span className="hidden sm:inline">Educator Pass</span>
+                  <span className="sm:hidden">Teacher</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPlanAudience("school");
+                    if (!selectedTier.startsWith("school_")) setSelectedTier("school_starter");
+                  }}
+                  className={cn(
+                    "flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-semibold transition-all cursor-pointer",
+                    planAudience === "school"
+                      ? "bg-background text-emerald-600 dark:text-emerald-400 shadow-xs"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  <School className="size-3.5 text-emerald-500" />
+                  <span className="hidden sm:inline">School Licensing</span>
+                  <span className="sm:hidden">Schools</span>
                 </button>
               </div>
 
@@ -731,112 +865,173 @@ function PaymentPortalPage() {
 
               {/* Tiers List */}
               <div className="space-y-3">
-                {(["foundation", "scholar_plus", "pro", "mastery", "elite"] as PlanTier[]).map((tierKey) => {
-                  const pPlan = activePlans[tierKey] ?? DEFAULT_PRICING_PLANS[tierKey];
-                  const tPricing = {
-                    monthly: pPlan.monthlyPrice,
-                    annual: pPlan.annualPrice,
-                    annualMonthlyEq: pPlan.annualEquivalentMonthly,
-                    tagline: pPlan.tagline,
-                  };
-                  const tLimits = TIER_LIMITS[tierKey];
-                  const isSelected = selectedTier === tierKey;
-                  const priceShow =
-                    cycle === "annual" ? `₹${tPricing.annualMonthlyEq}` : `₹${tPricing.monthly}`;
+                {isSchoolMode ? (
+                  Object.entries(SCHOOL_PLANS).map(([tierKey, sPlan]) => {
+                    const isSelected = selectedTier === tierKey;
+                    const priceShow =
+                      cycle === "annual" ? `₹${sPlan.annualEquivalentMonthly}` : `₹${sPlan.monthlyPrice}`;
 
-                  let tierTitle = tLimits.name;
-                  let tierSubtitle = tPricing.tagline;
-                  let tierBadge: string | null = null;
-
-                  if (isTeacherMode) {
-                    if (tierKey === "foundation") {
-                      tierTitle = "Individual Educator AI Pass";
-                      tierSubtitle = "Essential Educator Pass — Mark scheme ingestion, 8 Graded Essay evaluations/mo, 3 Live Examiner coaching credits, full classroom manager";
-                      tierBadge = "Educator AI Pass";
-                    } else if (tierKey === "scholar_plus") {
-                      tierTitle = "Senior Educator Pass";
-                      tierSubtitle = "15 Cambridge Graded Essay evaluations / mo, 5 Live Examiner Credits, custom curriculum mark schemes";
-                      tierBadge = "Senior Educator";
-                    } else if (tierKey === "pro") {
-                      tierTitle = "Department Lead Pass";
-                      tierSubtitle = "20 Cambridge Graded Essay evaluations / mo, 10 Live Examiner Credits, Dual-Model Principal Examiner Arbitration";
-                    } else if (tierKey === "mastery") {
-                      tierTitle = "Mastery Department Pass";
-                      tierSubtitle = "45 Graded Essay evaluations/mo, 20 Live Examiner credits, OCR handwriting scan";
-                    } else if (tierKey === "elite") {
-                      tierTitle = "Elite Institutional Pass";
-                      tierSubtitle = "80 Graded Essay evaluations/mo, 35 Live Examiner credits, full evaluation suite";
-                    }
-                  }
-
-                  return (
-                    <div
-                      key={tierKey}
-                      onClick={() => setSelectedTier(tierKey)}
-                      className={cn(
-                        "cursor-pointer rounded-xl border p-3.5 sm:p-4 transition-all duration-200",
-                        isSelected
-                          ? isTeacherMode
-                            ? "border-purple-500 bg-purple-500/[0.04] ring-2 ring-purple-500/20 shadow-xs"
-                            : "border-primary bg-primary/[0.04] ring-2 ring-primary/20 shadow-xs"
-                          : "border-border hover:border-border/80 bg-background/50"
-                      )}
-                    >
-                      <div className="flex items-center justify-between gap-2.5 sm:gap-3">
-                        <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                          <div
-                            className={cn(
-                              "flex size-5 shrink-0 items-center justify-center rounded-full border text-[10px]",
-                              isSelected
-                                ? isTeacherMode
-                                  ? "border-purple-600 bg-purple-600 text-white font-bold"
-                                  : "border-primary bg-primary text-primary-foreground font-bold"
-                                : "border-muted-foreground/30 text-transparent"
-                            )}
-                          >
-                            ✓
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              <span className="text-sm font-bold text-foreground block truncate">
-                                {tierTitle}
-                              </span>
-                              {tierBadge && (
-                                <Badge className="bg-purple-500/15 border border-purple-500/30 text-purple-600 dark:text-purple-400 text-[9px] font-bold px-1.5 py-0">
-                                  {tierBadge}
-                                </Badge>
+                    return (
+                      <div
+                        key={tierKey}
+                        onClick={() => setSelectedTier(tierKey)}
+                        className={cn(
+                          "cursor-pointer rounded-xl border p-3.5 sm:p-4 transition-all duration-200",
+                          isSelected
+                            ? "border-emerald-500 bg-emerald-500/[0.04] ring-2 ring-emerald-500/20 shadow-xs"
+                            : "border-border hover:border-border/80 bg-background/50"
+                        )}
+                      >
+                        <div className="flex items-center justify-between gap-2.5 sm:gap-3">
+                          <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                            <div
+                              className={cn(
+                                "flex size-5 shrink-0 items-center justify-center rounded-full border text-[10px]",
+                                isSelected
+                                  ? "border-emerald-600 bg-emerald-600 text-white font-bold"
+                                  : "border-muted-foreground/30 text-transparent"
                               )}
+                            >
+                              ✓
                             </div>
-                            <p className="text-[11px] text-muted-foreground leading-snug break-words mt-0.5">
-                              {tierSubtitle}
-                            </p>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="text-sm font-bold text-foreground block truncate">
+                                  {sPlan.name}
+                                </span>
+                                <Badge className="bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-[9px] font-bold px-1.5 py-0">
+                                  {sPlan.studentCapacity}
+                                </Badge>
+                                <Badge variant="outline" className="text-[9px] font-mono text-muted-foreground px-1.5 py-0">
+                                  {sPlan.teacherSeats}
+                                </Badge>
+                              </div>
+                              <p className="text-[11px] text-muted-foreground leading-snug break-words mt-0.5">
+                                {sPlan.tagline} · <strong className="text-foreground">{sPlan.quota}</strong>
+                              </p>
+                            </div>
                           </div>
-                        </div>
 
-                        <div className="text-right shrink-0 pl-1">
-                          <span className="text-sm sm:text-base font-extrabold tabular-nums">
-                            {priceShow}
-                          </span>
-                          <span className="text-[9px] sm:text-[10px] text-muted-foreground block whitespace-nowrap">
-                            {cycle === "annual" ? "/mo (billed annually)" : "/month"}
-                          </span>
+                          <div className="text-right shrink-0 pl-1">
+                            <span className="text-sm sm:text-base font-extrabold tabular-nums text-foreground">
+                              {priceShow}
+                            </span>
+                            <span className="text-[9px] sm:text-[10px] text-muted-foreground block whitespace-nowrap">
+                              {cycle === "annual" ? "/mo (billed annually)" : "/month"}
+                            </span>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })
+                ) : (
+                  (["foundation", "scholar_plus", "pro", "mastery", "elite"] as PlanTier[]).map((tierKey) => {
+                    const pPlan = activePlans[tierKey] ?? DEFAULT_PRICING_PLANS[tierKey];
+                    const tPricing = {
+                      monthly: pPlan.monthlyPrice,
+                      annual: pPlan.annualPrice,
+                      annualMonthlyEq: pPlan.annualEquivalentMonthly,
+                      tagline: pPlan.tagline,
+                    };
+                    const tLimits = TIER_LIMITS[tierKey];
+                    const isSelected = selectedTier === tierKey;
+                    const priceShow =
+                      cycle === "annual" ? `₹${tPricing.annualMonthlyEq}` : `₹${tPricing.monthly}`;
+
+                    let tierTitle = tLimits.name;
+                    let tierSubtitle = tPricing.tagline;
+                    let tierBadge: string | null = null;
+
+                    if (isTeacherMode) {
+                      if (tierKey === "foundation") {
+                        tierTitle = "Individual Educator AI Pass";
+                        tierSubtitle = "Essential Educator Pass — Mark scheme ingestion, 8 Graded Essay evaluations/mo, 3 Live Examiner coaching credits, full classroom manager";
+                        tierBadge = "Educator AI Pass";
+                      } else if (tierKey === "scholar_plus") {
+                        tierTitle = "Senior Educator Pass";
+                        tierSubtitle = "15 Cambridge Graded Essay evaluations / mo, 5 Live Examiner Credits, custom curriculum mark schemes";
+                        tierBadge = "Senior Educator";
+                      } else if (tierKey === "pro") {
+                        tierTitle = "Department Lead Pass";
+                        tierSubtitle = "20 Cambridge Graded Essay evaluations / mo, 10 Live Examiner Credits, Dual-Model Principal Examiner Arbitration";
+                      } else if (tierKey === "mastery") {
+                        tierTitle = "Mastery Department Pass";
+                        tierSubtitle = "45 Graded Essay evaluations/mo, 20 Live Examiner credits, OCR handwriting scan";
+                      } else if (tierKey === "elite") {
+                        tierTitle = "Elite Institutional Pass";
+                        tierSubtitle = "80 Graded Essay evaluations/mo, 35 Live Examiner credits, full evaluation suite";
+                      }
+                    }
+
+                    return (
+                      <div
+                        key={tierKey}
+                        onClick={() => setSelectedTier(tierKey)}
+                        className={cn(
+                          "cursor-pointer rounded-xl border p-3.5 sm:p-4 transition-all duration-200",
+                          isSelected
+                            ? isTeacherMode
+                              ? "border-purple-500 bg-purple-500/[0.04] ring-2 ring-purple-500/20 shadow-xs"
+                              : "border-primary bg-primary/[0.04] ring-2 ring-primary/20 shadow-xs"
+                            : "border-border hover:border-border/80 bg-background/50"
+                        )}
+                      >
+                        <div className="flex items-center justify-between gap-2.5 sm:gap-3">
+                          <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                            <div
+                              className={cn(
+                                "flex size-5 shrink-0 items-center justify-center rounded-full border text-[10px]",
+                                isSelected
+                                  ? isTeacherMode
+                                    ? "border-purple-600 bg-purple-600 text-white font-bold"
+                                    : "border-primary bg-primary text-primary-foreground font-bold"
+                                  : "border-muted-foreground/30 text-transparent"
+                              )}
+                            >
+                              ✓
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="text-sm font-bold text-foreground block truncate">
+                                  {tierTitle}
+                                </span>
+                                {tierBadge && (
+                                  <Badge className="bg-purple-500/15 border border-purple-500/30 text-purple-600 dark:text-purple-400 text-[9px] font-bold px-1.5 py-0">
+                                    {tierBadge}
+                                  </Badge>
+                                )}
+                              </div>
+                              <p className="text-[11px] text-muted-foreground leading-snug break-words mt-0.5">
+                                {tierSubtitle}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="text-right shrink-0 pl-1">
+                            <span className="text-sm sm:text-base font-extrabold tabular-nums">
+                              {priceShow}
+                            </span>
+                            <span className="text-[9px] sm:text-[10px] text-muted-foreground block whitespace-nowrap">
+                              {cycle === "annual" ? "/mo (billed annually)" : "/month"}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
               </div>
             </div>
 
             {/* Customer Information */}
             <div className="rounded-2xl border border-border bg-card p-4 sm:p-6 shadow-xs">
               <h2 className="text-base font-semibold mb-4">
-                {isTeacherMode ? "2. Educator Contact" : "2. Candidate Contact"}
+                {isSchoolMode ? "2. School Coordinator Contact" : isTeacherMode ? "2. Educator Contact" : "2. Candidate Contact"}
               </h2>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-1.5">
                   <Label htmlFor="cust-name" className="text-xs">
-                    {isTeacherMode ? "Educator Full Name" : "Candidate Full Name"}
+                    {isSchoolMode ? "Coordinator / Head of Department Name" : isTeacherMode ? "Educator Full Name" : "Candidate Full Name"}
                   </Label>
                   <Input
                     id="cust-name"
@@ -866,14 +1061,23 @@ function PaymentPortalPage() {
             <div className="sticky top-20 rounded-2xl border border-border bg-card p-4 sm:p-6 shadow-md">
               <div className="flex items-center justify-between border-b border-border/80 pb-4">
                 <h2 className="text-base font-bold">Order Summary</h2>
-                <Badge className="bg-primary/10 text-primary border-primary/20 text-[10px]">
-                  Cambridge 9708 Pass
+                <Badge
+                  className={cn(
+                    "text-[10px]",
+                    isSchoolMode
+                      ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30"
+                      : isTeacherMode
+                      ? "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/30"
+                      : "bg-primary/10 text-primary border-primary/20"
+                  )}
+                >
+                  {isSchoolMode ? "School Cohort License" : isTeacherMode ? "Educator Pass" : "Cambridge 9708 Pass"}
                 </Badge>
               </div>
 
               <div className="my-5 space-y-3.5 text-xs">
                 <div className="flex justify-between items-baseline">
-                  <span className="font-medium text-foreground">{limits.name} Plan</span>
+                  <span className="font-medium text-foreground">{activePlanName}</span>
                   <span className="font-bold text-sm">₹{finalBasePrice.toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between text-muted-foreground text-[11px]">
@@ -884,7 +1088,7 @@ function PaymentPortalPage() {
                 {cycle === "annual" ? (
                   <div className="flex justify-between text-emerald-600 dark:text-emerald-400 font-semibold text-[11px]">
                     <span>Annual Discount Applied</span>
-                    <span>Save {pricing.savePct}%</span>
+                    <span>Save {savePct}%</span>
                   </div>
                 ) : null}
 
@@ -956,25 +1160,46 @@ function PaymentPortalPage() {
                 </div>
 
                 <div className="border-t border-dashed border-border/80 pt-3 space-y-2">
-                  <p className="font-semibold text-foreground">Included Quota & Credits:</p>
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <PenLine className="size-3.5 text-primary shrink-0" />
-                    <span>
-                      {limits.maxEssaysPerMonth === 9999
-                        ? "Unlimited"
-                        : `${limits.maxEssaysPerMonth} Graded Essays / month`}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <Zap className="size-3.5 text-amber-500 shrink-0" />
-                    <span className="font-medium text-foreground">
-                      {limits.liveExaminerCredits} Live Examiner AI Credits
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <CheckCircle2 className="size-3.5 text-emerald-500 shrink-0" />
-                    <span>365-Day MCQ Past Papers & Explanations</span>
-                  </div>
+                  <p className="font-semibold text-foreground">Included Quota &amp; Features:</p>
+                  {isSchoolMode ? (
+                    <>
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <Users className="size-3.5 text-emerald-500 shrink-0" />
+                        <span className="font-medium text-foreground">
+                          {SCHOOL_PLANS[selectedTier]?.studentCapacity ?? "Up to 50 Students"} ({SCHOOL_PLANS[selectedTier]?.teacherSeats ?? "2 Teacher Admins"})
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <PenLine className="size-3.5 text-primary shrink-0" />
+                        <span>{SCHOOL_PLANS[selectedTier]?.quota ?? "15 essays / student / mo"}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <Zap className="size-3.5 text-amber-500 shrink-0" />
+                        <span>Teacher Cohort Dashboard &amp; Shared School Mark Scheme Ingestion</span>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <PenLine className="size-3.5 text-primary shrink-0" />
+                        <span>
+                          {limits.maxEssaysPerMonth === 9999
+                            ? "Unlimited"
+                            : `${limits.maxEssaysPerMonth} Graded Essays / month`}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <Zap className="size-3.5 text-amber-500 shrink-0" />
+                        <span className="font-medium text-foreground">
+                          {limits.liveExaminerCredits} Live Examiner AI Credits
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <CheckCircle2 className="size-3.5 text-emerald-500 shrink-0" />
+                        <span>365-Day MCQ Past Papers &amp; Explanations</span>
+                      </div>
+                    </>
+                  )}
                 </div>
 
                 <div className="border-t border-border pt-3.5 flex justify-between items-baseline">

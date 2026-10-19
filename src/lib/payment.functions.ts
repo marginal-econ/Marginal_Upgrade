@@ -18,7 +18,7 @@ import { assignUserSubscriptionTier, getUserSubscriptionDetails } from "./subscr
 import { TIER_LIMITS, type PlanTier } from "./usage-limits";
 
 const ActivateInput = z.object({
-  tier: z.enum(["foundation", "scholar_plus", "pro", "mastery", "elite"]),
+  tier: z.string().min(1).max(50),
   billingCycle: z.enum(["monthly", "annual"]).default("monthly"),
   paymentId: z.string().optional(),
   orderId: z.string().optional(),
@@ -30,7 +30,7 @@ const ActivateInput = z.object({
 });
 
 const UpiSubmissionInput = z.object({
-  tier: z.enum(["foundation", "scholar_plus", "pro", "mastery", "elite"]),
+  tier: z.string().min(1).max(50),
   billingCycle: z.enum(["monthly", "annual"]).default("monthly"),
   amount: z.number().int().min(1),
   utrReference: z.string().min(6).max(30),
@@ -311,14 +311,22 @@ export const submitUpiPaymentRequest = createServerFn({ method: "POST" })
       source_label: cleanUtr,
     });
 
-    const limits = TIER_LIMITS[data.tier];
+    const planName =
+      data.tier === "school_starter"
+        ? "Department Starter (50 seats)"
+        : data.tier === "school_campus"
+        ? "Campus Standard (150 seats)"
+        : data.tier === "school_institution"
+        ? "Institution Premium (400 seats)"
+        : TIER_LIMITS[data.tier as PlanTier]?.name || data.tier;
+
     return {
       success: true,
       pending: true,
       utr: cleanUtr,
       tier: data.tier,
-      tierName: limits.name,
-      message: `Your payment reference (#${cleanUtr}) for the ${limits.name} plan has been submitted! It will be verified against our bank statement and activated shortly.`,
+      tierName: planName,
+      message: `Your payment reference (#${cleanUtr}) for the ${planName} plan has been submitted! It will be verified against our bank statement and activated shortly.`,
     };
   });
 
@@ -330,7 +338,8 @@ export const activateSubscriptionTier = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => ActivateInput.parse(input))
   .handler(async ({ data, context }) => {
     const { userId } = context;
-    const tier = data.tier as PlanTier;
+    const isSchoolTier = data.tier.startsWith("school_");
+    const mappedTier: PlanTier = isSchoolTier ? "elite" : (data.tier as PlanTier);
 
     // Log the transaction attempt
     try {
@@ -343,7 +352,7 @@ export const activateSubscriptionTier = createServerFn({ method: "POST" })
       await supabaseAdmin.from("ai_usage_log").insert({
         user_id: userId,
         feature: "payment_activation",
-        model: `tier_${tier}`,
+        model: `tier_${data.tier}`,
         ok: true,
         error_message: errorMsg,
       });
@@ -351,7 +360,7 @@ export const activateSubscriptionTier = createServerFn({ method: "POST" })
       /* logging failure is non-fatal */
     }
 
-    const result = await assignUserSubscriptionTier(supabaseAdmin, userId, tier);
+    const result = await assignUserSubscriptionTier(supabaseAdmin, userId, mappedTier);
     if (!result.success) {
       throw new Error(result.message);
     }
@@ -360,14 +369,23 @@ export const activateSubscriptionTier = createServerFn({ method: "POST" })
       await recordCouponUsageInDb(data.couponCode);
     }
 
-    const limits = TIER_LIMITS[tier];
+    const limits = TIER_LIMITS[mappedTier];
+    const planName =
+      data.tier === "school_starter"
+        ? "School Department Starter (50 seats)"
+        : data.tier === "school_campus"
+        ? "School Campus Standard (150 seats)"
+        : data.tier === "school_institution"
+        ? "School Institution Premium (400 seats)"
+        : limits.name;
+
     return {
       success: true,
-      tier,
-      tierName: limits.name,
+      tier: data.tier,
+      tierName: planName,
       liveExaminerCredits: limits.liveExaminerCredits,
       maxEssays: limits.maxEssaysPerMonth,
-      message: `Congratulations! Your ${limits.name} plan is now active with ${limits.liveExaminerCredits} Live Examiner credits.`,
+      message: `Congratulations! Your ${planName} is now active with ${limits.liveExaminerCredits} Live Examiner credits.`,
     };
   });
 
@@ -439,7 +457,7 @@ export const approveUpiPaymentRequest = createServerFn({ method: "POST" })
       .object({
         logId: z.string(),
         userId: z.string(),
-        tier: z.enum(["foundation", "scholar_plus", "pro", "mastery", "elite"]),
+        tier: z.string().min(1).max(50),
       })
       .parse(input),
   )
@@ -454,7 +472,9 @@ export const approveUpiPaymentRequest = createServerFn({ method: "POST" })
     }
 
     // 1. Upgrade user tier and assign credits
-    const result = await assignUserSubscriptionTier(supabaseAdmin, data.userId, data.tier);
+    const isSchoolTier = data.tier.startsWith("school_");
+    const mappedTier: PlanTier = isSchoolTier ? "elite" : (data.tier as PlanTier);
+    const result = await assignUserSubscriptionTier(supabaseAdmin, data.userId, mappedTier);
     if (!result.success) {
       throw new Error(result.message);
     }

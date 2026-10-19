@@ -52,18 +52,48 @@ import {
   deleteCouponCode,
   listAllCoupons,
   updateCouponCode,
+  type CouponAudience,
   type CouponRecord,
   type CouponType,
+  PLAN_DISPLAY_NAMES,
 } from "@/lib/coupon.functions";
 import { TIER_LIMITS, type PlanTier } from "@/lib/usage-limits";
 import { cn } from "@/lib/utils";
 
-const ALL_TIERS: { id: PlanTier; label: string }[] = [
-  { id: "foundation", label: "Foundation" },
-  { id: "scholar_plus", label: "Scholar Plus" },
-  { id: "pro", label: "Pro" },
-  { id: "mastery", label: "Mastery" },
-  { id: "elite", label: "Elite" },
+const AUDIENCE_OPTIONS: { id: CouponAudience; shortLabel: string; label: string; icon: string; description: string }[] = [
+  { id: "all", shortLabel: "All Audiences", label: "All Audiences (Universal)", icon: "🌐", description: "Universal coupon code valid across any Student, Teacher, or School checkout." },
+  { id: "students", shortLabel: "Students", label: "Students Only", icon: "🎒", description: "Valid only for Student Revision Plans (Foundation, Scholar Plus, Pro, Mastery, Elite)." },
+  { id: "teachers", shortLabel: "Teachers", label: "Teachers & Educators Only", icon: "🎓", description: "Valid only for Teacher & Educator passes (Individual Pass, Senior Educator, Department Lead)." },
+  { id: "schools", shortLabel: "Schools", label: "School Licensing Only", icon: "🏫", description: "Valid only for School Department Licenses (Department Starter 50, Campus Standard 150, Institution Premium 400)." },
+];
+
+const PLAN_PRESETS = [
+  {
+    group: "Student Revision Plans",
+    plans: [
+      { id: "foundation", label: "Foundation Scholar" },
+      { id: "scholar_plus", label: "Scholar Plus" },
+      { id: "pro", label: "Pro Accelerator" },
+      { id: "mastery", label: "A* Mastery Sprint" },
+      { id: "elite", label: "Cambridge Elite Pass" },
+    ],
+  },
+  {
+    group: "Teacher & Educator Passes",
+    plans: [
+      { id: "foundation", label: "Individual Educator AI Pass" },
+      { id: "scholar_plus", label: "Senior Educator Pass" },
+      { id: "pro", label: "Department Lead Pass" },
+    ],
+  },
+  {
+    group: "School Department Licensing",
+    plans: [
+      { id: "school_starter", label: "Department Starter (50 seats)" },
+      { id: "school_campus", label: "Campus Standard (150 seats)" },
+      { id: "school_institution", label: "Institution Premium (400 seats)" },
+    ],
+  },
 ];
 
 export function CouponsAdminPanel() {
@@ -80,7 +110,7 @@ export function CouponsAdminPanel() {
   });
 
   const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState<"all" | "active" | "inactive" | "expired">("all");
+  const [filter, setFilter] = useState<"all" | "active" | "inactive" | "expired" | "students" | "teachers" | "schools">("all");
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
 
   // Dialog states
@@ -93,17 +123,19 @@ export function CouponsAdminPanel() {
   const [formCode, setFormCode] = useState("");
   const [formType, setFormType] = useState<CouponType>("percentage");
   const [formValue, setFormValue] = useState<number>(20);
+  const [formAudience, setFormAudience] = useState<CouponAudience>("all");
   const [formMaxUses, setFormMaxUses] = useState<string>("");
   const [formExpiresAt, setFormExpiresAt] = useState<string>("");
   const [formMinAmount, setFormMinAmount] = useState<string>("");
   const [formDescription, setFormDescription] = useState<string>("");
   const [formActive, setFormActive] = useState<boolean>(true);
-  const [formTiers, setFormTiers] = useState<PlanTier[]>([]);
+  const [formTiers, setFormTiers] = useState<string[]>([]);
 
   const resetForm = () => {
     setFormCode("");
     setFormType("percentage");
     setFormValue(20);
+    setFormAudience("all");
     setFormMaxUses("");
     setFormExpiresAt("");
     setFormMinAmount("");
@@ -122,6 +154,7 @@ export function CouponsAdminPanel() {
     setFormCode(coupon.code);
     setFormType(coupon.type);
     setFormValue(coupon.value);
+    setFormAudience(coupon.targetAudience || "all");
     setFormMaxUses(coupon.maxUses ? String(coupon.maxUses) : "");
     setFormExpiresAt(coupon.expiresAt ? coupon.expiresAt.split("T")[0] : "");
     setFormMinAmount(coupon.minAmount ? String(coupon.minAmount) : "");
@@ -206,6 +239,7 @@ export function CouponsAdminPanel() {
       code: formCode.trim().toUpperCase(),
       type: formType,
       value: Number(formValue),
+      targetAudience: formAudience,
       maxUses: formMaxUses ? parseInt(formMaxUses, 10) : null,
       expiresAt: formExpiresAt ? new Date(formExpiresAt).toISOString() : null,
       minAmount: formMinAmount ? parseInt(formMinAmount, 10) : null,
@@ -230,6 +264,7 @@ export function CouponsAdminPanel() {
       id: editingCoupon.id,
       type: formType,
       value: Number(formValue),
+      targetAudience: formAudience,
       maxUses: formMaxUses ? parseInt(formMaxUses, 10) : null,
       expiresAt: formExpiresAt ? new Date(formExpiresAt).toISOString() : null,
       minAmount: formMinAmount ? parseInt(formMinAmount, 10) : null,
@@ -248,6 +283,9 @@ export function CouponsAdminPanel() {
     if (filter === "active" && (!c.active || isExpired)) return false;
     if (filter === "inactive" && c.active) return false;
     if (filter === "expired" && !isExpired) return false;
+    if (filter === "students" && c.targetAudience && c.targetAudience !== "students" && c.targetAudience !== "all") return false;
+    if (filter === "teachers" && c.targetAudience !== "teachers" && c.targetAudience !== "all") return false;
+    if (filter === "schools" && c.targetAudience !== "schools" && c.targetAudience !== "all") return false;
 
     if (search.trim()) {
       const q = search.toLowerCase().trim();
@@ -373,19 +411,29 @@ export function CouponsAdminPanel() {
         </div>
 
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
-          {(["all", "active", "inactive", "expired"] as const).map((tab) => (
+          {(
+            [
+              { id: "all", label: `All (${totalCoupons})` },
+              { id: "active", label: "Active" },
+              { id: "students", label: "🎒 Students" },
+              { id: "teachers", label: "🎓 Teachers" },
+              { id: "schools", label: "🏫 Schools" },
+              { id: "inactive", label: "Paused" },
+              { id: "expired", label: "Expired" },
+            ] as const
+          ).map((tab) => (
             <button
-              key={tab}
+              key={tab.id}
               type="button"
-              onClick={() => setFilter(tab)}
+              onClick={() => setFilter(tab.id as any)}
               className={cn(
-                "px-2.5 py-1 rounded-lg text-xs font-semibold capitalize transition-all cursor-pointer whitespace-nowrap",
-                filter === tab
-                  ? "bg-primary text-primary-foreground shadow-xs"
+                "px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer whitespace-nowrap",
+                filter === tab.id
+                  ? "bg-primary text-primary-foreground shadow-xs font-bold"
                   : "bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground",
               )}
             >
-              {tab === "all" ? `All (${totalCoupons})` : tab}
+              {tab.label}
             </button>
           ))}
         </div>
@@ -513,6 +561,26 @@ export function CouponsAdminPanel() {
                       ) : null}
                     </div>
 
+                    <div className="flex items-center gap-1.5 flex-wrap mt-1">
+                      {coupon.targetAudience === "teachers" ? (
+                        <Badge className="bg-purple-500/15 text-purple-600 dark:text-purple-400 border border-purple-500/30 text-[10px] font-bold">
+                          🎓 Teachers Only
+                        </Badge>
+                      ) : coupon.targetAudience === "schools" ? (
+                        <Badge className="bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border border-indigo-500/30 text-[10px] font-bold">
+                          🏫 Schools Only
+                        </Badge>
+                      ) : coupon.targetAudience === "students" ? (
+                        <Badge className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 text-[10px] font-bold">
+                          🎒 Students Only
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="border-border text-muted-foreground text-[10px]">
+                          🌐 Universal (All)
+                        </Badge>
+                      )}
+                    </div>
+
                     {coupon.description ? (
                       <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
                         {coupon.description}
@@ -561,9 +629,13 @@ export function CouponsAdminPanel() {
 
                     <div className="flex items-center justify-between text-[11px]">
                       <span>Applicable plans:</span>
-                      <span className="font-medium text-foreground">
+                      <span className="font-medium text-foreground text-right truncate max-w-[180px]" title={
+                        coupon.applicableTiers && coupon.applicableTiers.length > 0
+                          ? coupon.applicableTiers.map((t) => PLAN_DISPLAY_NAMES[t] || TIER_LIMITS[t as PlanTier]?.name || t).join(", ")
+                          : "All Plans"
+                      }>
                         {coupon.applicableTiers && coupon.applicableTiers.length > 0
-                          ? coupon.applicableTiers.map((t) => TIER_LIMITS[t]?.name.split(" ")[0] || t).join(", ")
+                          ? coupon.applicableTiers.map((t) => PLAN_DISPLAY_NAMES[t]?.split(" ")[0] || t).join(", ")
                           : "All Plans"}
                       </span>
                     </div>
@@ -647,6 +719,32 @@ export function CouponsAdminPanel() {
                 </p>
               </div>
             ) : null}
+
+            {/* Target Audience Selector */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Eligible Audience</Label>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 p-1 rounded-xl border bg-muted/40">
+                {AUDIENCE_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => setFormAudience(opt.id)}
+                    className={cn(
+                      "py-2 px-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer flex flex-col items-center gap-0.5 text-center",
+                      formAudience === opt.id
+                        ? "bg-background text-foreground shadow-xs font-bold border border-border"
+                        : "text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    <span className="text-base">{opt.icon}</span>
+                    <span className="text-[11px] leading-tight">{opt.shortLabel}</span>
+                  </button>
+                ))}
+              </div>
+              <p className="text-[10px] text-muted-foreground">
+                {AUDIENCE_OPTIONS.find((o) => o.id === formAudience)?.description}
+              </p>
+            </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
@@ -748,7 +846,7 @@ export function CouponsAdminPanel() {
               </Label>
               <Input
                 id="description"
-                placeholder="e.g. Oct/Nov candidate discount, 20% off all tiers"
+                placeholder="e.g. Partner school discount, Teacher onboarding, 20% off"
                 value={formDescription}
                 onChange={(e) => setFormDescription(e.target.value)}
                 className="text-xs"
@@ -756,45 +854,70 @@ export function CouponsAdminPanel() {
             </div>
 
             <div className="space-y-2 pt-1 border-t border-border/60">
-              <Label className="text-xs font-semibold">Applicable Plans</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-semibold">Restricted Plan Tiers (Optional)</Label>
+                {formTiers.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setFormTiers([])}
+                    className="text-[10px] text-primary hover:underline font-semibold cursor-pointer"
+                  >
+                    Clear all (Valid on all plans)
+                  </button>
+                )}
+              </div>
               <p className="text-[10px] text-muted-foreground">
-                Leave all unchecked to make this coupon valid across all subscription plans.
+                Leave all unchecked to make this coupon valid across all subscription plans in the selected audience.
               </p>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-1">
-                {ALL_TIERS.map((tier) => {
-                  const isChecked = formTiers.includes(tier.id);
-                  return (
-                    <button
-                      key={tier.id}
-                      type="button"
-                      onClick={() => {
-                        if (isChecked) {
-                          setFormTiers((prev) => prev.filter((t) => t !== tier.id));
-                        } else {
-                          setFormTiers((prev) => [...prev, tier.id]);
-                        }
-                      }}
-                      className={cn(
-                        "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-semibold transition-all cursor-pointer text-left",
-                        isChecked
-                          ? "border-primary bg-primary/10 text-primary"
-                          : "border-border text-muted-foreground hover:bg-muted/60",
-                      )}
-                    >
-                      <div
-                        className={cn(
-                          "size-3.5 rounded border flex items-center justify-center shrink-0",
-                          isChecked
-                            ? "border-primary bg-primary text-primary-foreground"
-                            : "border-muted-foreground/40",
-                        )}
-                      >
-                        {isChecked ? <Check className="size-2.5 stroke-[3]" /> : null}
-                      </div>
-                      <span className="truncate">{tier.label}</span>
-                    </button>
-                  );
-                })}
+              <div className="space-y-3 pt-1">
+                {PLAN_PRESETS.filter((group) => {
+                  if (formAudience === "students") return group.group.includes("Student");
+                  if (formAudience === "teachers") return group.group.includes("Teacher");
+                  if (formAudience === "schools") return group.group.includes("School");
+                  return true;
+                }).map((group) => (
+                  <div key={group.group} className="space-y-1.5">
+                    <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground">
+                      {group.group}
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                      {group.plans.map((p) => {
+                        const isChecked = formTiers.includes(p.id);
+                        return (
+                          <button
+                            key={group.group + p.id}
+                            type="button"
+                            onClick={() => {
+                              if (isChecked) {
+                                setFormTiers((prev) => prev.filter((t) => t !== p.id));
+                              } else {
+                                setFormTiers((prev) => [...prev, p.id]);
+                              }
+                            }}
+                            className={cn(
+                              "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-semibold transition-all cursor-pointer text-left",
+                              isChecked
+                                ? "border-primary bg-primary/10 text-primary"
+                                : "border-border text-muted-foreground hover:bg-muted/60",
+                            )}
+                          >
+                            <div
+                              className={cn(
+                                "size-3.5 rounded border flex items-center justify-center shrink-0",
+                                isChecked
+                                  ? "border-primary bg-primary text-primary-foreground"
+                                  : "border-muted-foreground/40",
+                              )}
+                            >
+                              {isChecked ? <Check className="size-2.5 stroke-[3]" /> : null}
+                            </div>
+                            <span className="truncate text-[11px]">{p.label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
 

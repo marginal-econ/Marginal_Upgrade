@@ -7,17 +7,31 @@ import { isMarginalAdmin } from "./auth-admin";
 import { TIER_LIMITS, type PlanTier } from "./usage-limits";
 
 export type CouponType = "percentage" | "fixed";
+export type CouponAudience = "all" | "students" | "teachers" | "schools";
+
+export const PLAN_DISPLAY_NAMES: Record<string, string> = {
+  foundation: "Foundation Scholar / Educator AI Pass",
+  scholar_plus: "Scholar Plus / Senior Educator Pass",
+  pro: "Pro Accelerator / Department Lead Pass",
+  mastery: "A* Mastery Sprint / Mastery Department Pass",
+  elite: "Cambridge Elite Pass / Institutional Pass",
+  school_starter: "School Department Starter (50 seats)",
+  school_campus: "School Campus Standard (150 seats)",
+  school_institution: "School Institution Premium (400 seats)",
+  school_enterprise: "Multi-Campus Enterprise (1,000+ seats)",
+};
 
 export interface CouponRecord {
   id: string;
   code: string;
   type: CouponType;
   value: number; // e.g. 20 for 20%, or 200 for ₹200
+  targetAudience?: CouponAudience; // "all" | "students" | "teachers" | "schools"
   active: boolean;
   maxUses: number | null; // null = unlimited
   usedCount: number;
   expiresAt: string | null; // ISO string
-  applicableTiers: PlanTier[] | null; // null/empty = all plans
+  applicableTiers: string[] | null; // null/empty = all plans
   minAmount: number | null; // null = no minimum
   description?: string;
   createdAt: string;
@@ -26,7 +40,8 @@ export interface CouponRecord {
 
 const ValidateCouponInput = z.object({
   code: z.string().min(1).max(50),
-  tier: z.enum(["foundation", "scholar_plus", "pro", "mastery", "elite"]),
+  tier: z.string().min(1).max(50),
+  audience: z.enum(["all", "students", "teachers", "schools", "student", "teacher", "school"]).optional(),
   billingCycle: z.enum(["monthly", "annual"]).default("monthly"),
   baseAmount: z.number().int().min(1),
 });
@@ -35,9 +50,10 @@ const CreateCouponInput = z.object({
   code: z.string().min(2).max(30).regex(/^[A-Z0-9_-]+$/i, "Code must contain only letters, numbers, hyphens or underscores"),
   type: z.enum(["percentage", "fixed"]),
   value: z.number().min(1),
+  targetAudience: z.enum(["all", "students", "teachers", "schools"]).default("all").optional(),
   maxUses: z.number().int().min(1).nullable().optional(),
   expiresAt: z.string().nullable().optional(),
-  applicableTiers: z.array(z.enum(["foundation", "scholar_plus", "pro", "mastery", "elite"])).nullable().optional(),
+  applicableTiers: z.array(z.string()).nullable().optional(),
   minAmount: z.number().int().min(0).nullable().optional(),
   description: z.string().max(200).optional(),
   active: z.boolean().default(true),
@@ -48,9 +64,10 @@ const UpdateCouponInput = z.object({
   active: z.boolean().optional(),
   type: z.enum(["percentage", "fixed"]).optional(),
   value: z.number().min(1).optional(),
+  targetAudience: z.enum(["all", "students", "teachers", "schools"]).optional(),
   maxUses: z.number().int().min(1).nullable().optional(),
   expiresAt: z.string().nullable().optional(),
-  applicableTiers: z.array(z.enum(["foundation", "scholar_plus", "pro", "mastery", "elite"])).nullable().optional(),
+  applicableTiers: z.array(z.string()).nullable().optional(),
   minAmount: z.number().int().min(0).nullable().optional(),
   description: z.string().max(200).optional(),
 });
@@ -111,9 +128,27 @@ export const validateCouponCode = createServerFn({ method: "POST" })
       }
     }
 
+    // Check audience compatibility (e.g. teachers only, schools only, students only)
+    if (coupon.targetAudience && coupon.targetAudience !== "all" && data.audience) {
+      const incomingAudience = data.audience.toLowerCase().replace(/s$/, ""); // student, teacher, school
+      const couponAudience = coupon.targetAudience.toLowerCase().replace(/s$/, "");
+      if (incomingAudience !== couponAudience) {
+        const audienceLabels: Record<string, string> = {
+          student: "Student Revision Plans",
+          teacher: "Teacher & Educator Passes",
+          school: "School Department Licensing",
+        };
+        throw new Error(
+          `Coupon code "${cleanCode}" is reserved exclusively for ${audienceLabels[couponAudience] || coupon.targetAudience}.`,
+        );
+      }
+    }
+
     if (coupon.applicableTiers && coupon.applicableTiers.length > 0) {
-      if (!coupon.applicableTiers.includes(data.tier as PlanTier)) {
-        const allowedNames = coupon.applicableTiers.map((t) => TIER_LIMITS[t]?.name || t).join(", ");
+      if (!coupon.applicableTiers.includes(data.tier)) {
+        const allowedNames = coupon.applicableTiers
+          .map((t) => PLAN_DISPLAY_NAMES[t] || TIER_LIMITS[t as PlanTier]?.name || t)
+          .join(", ");
         throw new Error(`Coupon code "${cleanCode}" is only valid for: ${allowedNames}.`);
       }
     }
@@ -251,6 +286,7 @@ export const createCouponCode = createServerFn({ method: "POST" })
       code: cleanCode,
       type: data.type,
       value: data.value,
+      targetAudience: data.targetAudience ?? "all",
       active: data.active ?? true,
       maxUses: data.maxUses ?? null,
       usedCount: 0,
@@ -317,6 +353,7 @@ export const updateCouponCode = createServerFn({ method: "POST" })
       ...(data.active !== undefined ? { active: data.active } : {}),
       ...(data.type !== undefined ? { type: data.type } : {}),
       ...(data.value !== undefined ? { value: data.value } : {}),
+      ...(data.targetAudience !== undefined ? { targetAudience: data.targetAudience } : {}),
       ...(data.maxUses !== undefined ? { maxUses: data.maxUses } : {}),
       ...(data.expiresAt !== undefined ? { expiresAt: data.expiresAt ? new Date(data.expiresAt).toISOString() : null } : {}),
       ...(data.applicableTiers !== undefined ? { applicableTiers: data.applicableTiers && data.applicableTiers.length > 0 ? data.applicableTiers : null } : {}),
