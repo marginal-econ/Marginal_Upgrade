@@ -13,10 +13,12 @@ import {
   HelpCircle,
   Loader2,
   Lock,
+  Mail,
   PenLine,
   QrCode,
   RefreshCw,
   School,
+  Send,
   ShieldCheck,
   Smartphone,
   Sparkles,
@@ -241,13 +243,26 @@ function PaymentPortalPage() {
     queryFn: () => fetchMe(),
   });
 
+  const isExplicitStudent =
+    search.role === "student" ||
+    search.audience === "student" ||
+    search.audience === "students" ||
+    (["foundation", "scholar_plus", "pro", "mastery", "elite"].includes((search.tier || "").replace("-", "_")) &&
+      search.role !== "teacher" &&
+      search.audience !== "teachers" &&
+      search.audience !== "teacher");
+
+  const [userSelectedAudience, setUserSelectedAudience] = useState(false);
+
   const [planAudience, setPlanAudience] = useState<PlanAudience>(() => {
+    if (isExplicitStudent) return "student";
     if (search.role === "teacher" || search.audience === "teachers" || search.audience === "teacher") return "teacher";
     if (search.role === "school" || search.audience === "schools" || search.audience === "school") return "school";
-    if (search.tier?.startsWith("school_")) return "school";
+    if (search.tier?.startsWith("school_") || search.tier?.startsWith("school-")) return "school";
     if (typeof window !== "undefined") {
       const p = new URLSearchParams(window.location.search);
       const r = p.get("role") || p.get("audience") || p.get("tab");
+      if (r === "student" || r === "students") return "student";
       if (r === "teacher" || r === "teachers" || r === "educators") return "teacher";
       if (r === "school" || r === "schools") return "school";
     }
@@ -258,10 +273,13 @@ function PaymentPortalPage() {
   const isTeacherMode = planAudience === "teacher";
 
   useEffect(() => {
-    if (search.role === "teacher" || meQuery.data?.role === "teacher" || Boolean(meQuery.data?.isStaff)) {
+    if (userSelectedAudience || isExplicitStudent) return;
+    if (search.role === "teacher" || search.audience === "teachers" || search.audience === "teacher") {
+      setPlanAudience("teacher");
+    } else if (meQuery.data?.role === "teacher" && !search.tier) {
       if (!isSchoolMode) setPlanAudience("teacher");
     }
-  }, [search.role, meQuery.data?.role, meQuery.data?.isStaff, isSchoolMode]);
+  }, [search.role, search.audience, search.tier, meQuery.data?.role, isSchoolMode, userSelectedAudience, isExplicitStudent]);
 
   useEffect(() => {
     if (isSchoolMode && !selectedTier.startsWith("school_")) {
@@ -545,6 +563,37 @@ function PaymentPortalPage() {
     }
   };
 
+  const [copiedSchoolEmail, setCopiedSchoolEmail] = useState(false);
+
+  const handleCopySchoolEmail = () => {
+    if (typeof navigator !== "undefined" && navigator.clipboard) {
+      navigator.clipboard.writeText("marginal.econ.ai@gmail.com");
+      setCopiedSchoolEmail(true);
+      toast.success("School partnership email copied: marginal.econ.ai@gmail.com");
+      setTimeout(() => setCopiedSchoolEmail(false), 2000);
+    }
+  };
+
+  const handleSchoolEmailClick = () => {
+    const sPlan = SCHOOL_PLANS[selectedTier] ?? SCHOOL_PLANS.school_starter;
+    const subject = encodeURIComponent(`Cambridge 9708 School Licensing Inquiry — ${sPlan.name}`);
+    const body = encodeURIComponent(
+      `Hello Marginal Economics Team,\n\nOur school/department is interested in procuring the ${sPlan.name} package (${sPlan.studentCapacity}, ${sPlan.teacherSeats}) for Cambridge International 9708 Economics.\n\n` +
+      `School / Institution Name:\n` +
+      `City / Country:\n` +
+      `Estimated Student Cohort Size:\n` +
+      `Coordinator / Head of Department Name:\n` +
+      `Contact Phone / WhatsApp:\n` +
+      `Billing Preference: ${cycle === "annual" ? "Annual Billing" : "Monthly Billing"}\n\n` +
+      `Please send us the formal price quotation, institutional purchase order (PO) requirements, and teacher onboarding documentation.\n\nThank you!`
+    );
+    if (typeof navigator !== "undefined" && navigator.clipboard) {
+      navigator.clipboard.writeText("marginal.econ.ai@gmail.com");
+    }
+    toast.info("School partnership email copied: marginal.econ.ai@gmail.com — opening inquiry draft", { duration: 5000 });
+    window.location.href = `mailto:marginal.econ.ai@gmail.com?subject=${subject}&body=${body}`;
+  };
+
   const handleUpiActivation = async () => {
     if (!meQuery.data?.userId) {
       toast.error("Please sign in or create an account first so your subscription can be verified.", {
@@ -749,27 +798,70 @@ function PaymentPortalPage() {
           </div>
         )}
 
-        {/* Razorpay Locked Status Notice */}
-        <div className="mb-8 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-xs text-foreground/90">
-          <div className="flex items-start gap-3">
-            <div className="relative flex items-center justify-center size-8 rounded-lg bg-amber-500/20 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5">
-              <Lock className="size-4 animate-pulse" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <p className="font-bold text-amber-900 dark:text-amber-200 text-sm">
-                  Razorpay Gateway Temporarily Locked
-                </p>
-                <Badge variant="outline" className="border-amber-500/50 text-[10px] text-amber-700 dark:text-amber-300 font-mono">
-                  Locked for Maintenance
-                </Badge>
+        {/* Top Status Banner: School Invoicing vs Razorpay Locked */}
+        {isSchoolMode ? (
+          <div className="mb-8 rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-4 text-xs text-foreground/90">
+            <div className="flex items-start gap-3">
+              <div className="relative flex items-center justify-center size-8 rounded-lg bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5">
+                <School className="size-4" />
               </div>
-              <p className="mt-1 leading-relaxed text-muted-foreground dark:text-amber-200/90">
-                Razorpay card &amp; netbanking checkout is temporarily locked for merchant account recalibration. All Cambridge 9708 subscriptions are currently being processed with 0% extra surcharge via <strong>Direct UPI (Instant QR / GPay / PhonePe)</strong> below.
-              </p>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="font-bold text-emerald-900 dark:text-emerald-200 text-sm">
+                    Institutional Invoicing &amp; Department Procurement
+                  </p>
+                  <Badge variant="outline" className="border-emerald-500/50 text-[10px] text-emerald-700 dark:text-emerald-300 font-mono">
+                    Official Purchase Order (PO)
+                  </Badge>
+                </div>
+                <p className="mt-1 leading-relaxed text-muted-foreground dark:text-emerald-200/90">
+                  School department packages cannot be paid via personal consumer QR codes. They require an official institutional Purchase Order, custom GST invoice, teacher coordinator provisioning, and bulk student CSV enrollment. Inquire below or contact <strong className="text-foreground">marginal.econ.ai@gmail.com</strong>.
+                </p>
+                <div className="mt-2.5 flex items-center gap-2 flex-wrap">
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={handleSchoolEmailClick}
+                    className="h-7 px-3 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 cursor-pointer"
+                  >
+                    <Mail className="size-3" /> Draft Inquiry Email
+                  </Button>
+                  <Button
+                    asChild
+                    variant="outline"
+                    size="sm"
+                    className="h-7 px-3 text-xs border-emerald-500/30 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/10"
+                  >
+                    <Link to="/help">
+                      <Send className="size-3 mr-1" /> Contact Desk
+                    </Link>
+                  </Button>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
+        ) : (
+          <div className="mb-8 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-xs text-foreground/90">
+            <div className="flex items-start gap-3">
+              <div className="relative flex items-center justify-center size-8 rounded-lg bg-amber-500/20 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5">
+                <Lock className="size-4 animate-pulse" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <p className="font-bold text-amber-900 dark:text-amber-200 text-sm">
+                    Razorpay Gateway Temporarily Locked
+                  </p>
+                  <Badge variant="outline" className="border-amber-500/50 text-[10px] text-amber-700 dark:text-amber-300 font-mono">
+                    Locked for Maintenance
+                  </Badge>
+                </div>
+                <p className="mt-1 leading-relaxed text-muted-foreground dark:text-amber-200/90">
+                  Razorpay card &amp; netbanking checkout is temporarily locked for merchant account recalibration. All Cambridge 9708 subscriptions are currently being processed with 0% extra surcharge via <strong>Direct UPI (Instant QR / GPay / PhonePe)</strong> below.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="grid gap-6 lg:gap-8 lg:grid-cols-[1.1fr_0.9fr]">
           {/* Left Column: Plan & Billing Selector */}
@@ -782,6 +874,7 @@ function PaymentPortalPage() {
                 <button
                   type="button"
                   onClick={() => {
+                    setUserSelectedAudience(true);
                     setPlanAudience("student");
                     if (selectedTier.startsWith("school_")) setSelectedTier("foundation");
                   }}
@@ -799,6 +892,7 @@ function PaymentPortalPage() {
                 <button
                   type="button"
                   onClick={() => {
+                    setUserSelectedAudience(true);
                     setPlanAudience("teacher");
                     if (selectedTier.startsWith("school_")) setSelectedTier("foundation");
                   }}
@@ -816,6 +910,7 @@ function PaymentPortalPage() {
                 <button
                   type="button"
                   onClick={() => {
+                    setUserSelectedAudience(true);
                     setPlanAudience("school");
                     if (!selectedTier.startsWith("school_")) setSelectedTier("school_starter");
                   }}
@@ -921,6 +1016,37 @@ function PaymentPortalPage() {
                             </span>
                           </div>
                         </div>
+
+                        <div className="mt-3 pt-2.5 border-t border-border/60 flex items-center justify-between gap-2 flex-wrap">
+                          <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                            <School className="size-3 text-emerald-500" />
+                            Official PO &amp; GST Invoicing
+                          </span>
+                          <div className="flex items-center gap-1.5">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              asChild
+                              className="h-7 px-2 text-[11px] text-muted-foreground hover:text-foreground cursor-pointer"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <Link to="/help">Contact Desk</Link>
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedTier(tierKey);
+                                handleSchoolEmailClick();
+                              }}
+                              className="h-7 px-2.5 text-[11px] font-semibold bg-emerald-600 hover:bg-emerald-700 text-white gap-1 cursor-pointer"
+                            >
+                              <Mail className="size-3" /> Inquire via Email
+                            </Button>
+                          </div>
+                        </div>
                       </div>
                     );
                   })
@@ -966,7 +1092,11 @@ function PaymentPortalPage() {
                     return (
                       <div
                         key={tierKey}
-                        onClick={() => setSelectedTier(tierKey)}
+                        onClick={() => {
+                          setUserSelectedAudience(true);
+                          setPlanAudience(isTeacherMode ? "teacher" : "student");
+                          setSelectedTier(tierKey);
+                        }}
                         className={cn(
                           "cursor-pointer rounded-xl border p-3.5 sm:p-4 transition-all duration-200",
                           isSelected
@@ -1092,72 +1222,74 @@ function PaymentPortalPage() {
                   </div>
                 ) : null}
 
-                {/* Coupon Code Section */}
-                <div className="border-t border-border/60 pt-3">
-                  {appliedCoupon ? (
-                    <div className="flex items-center justify-between p-2.5 rounded-xl border border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <Tag className="size-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
-                        <div className="min-w-0">
-                          <p className="font-bold text-xs flex items-center gap-1.5">
-                            <span className="font-mono tracking-wider">{appliedCoupon.code}</span>
-                            <Badge className="bg-emerald-600/20 text-emerald-700 dark:text-emerald-300 border-none text-[9px] px-1.5 py-0 font-bold">
-                              {appliedCoupon.type === "percentage" ? `${appliedCoupon.value}% OFF` : `₹${appliedCoupon.value} OFF`}
-                            </Badge>
-                          </p>
-                          <p className="text-[10px] text-muted-foreground truncate">
-                            {appliedCoupon.description || "Discount coupon applied"}
-                          </p>
+                {/* Coupon Code Section (for student & individual teacher plans) */}
+                {!isSchoolMode && (
+                  <div className="border-t border-border/60 pt-3">
+                    {appliedCoupon ? (
+                      <div className="flex items-center justify-between p-2.5 rounded-xl border border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <Tag className="size-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                          <div className="min-w-0">
+                            <p className="font-bold text-xs flex items-center gap-1.5">
+                              <span className="font-mono tracking-wider">{appliedCoupon.code}</span>
+                              <Badge className="bg-emerald-600/20 text-emerald-700 dark:text-emerald-300 border-none text-[9px] px-1.5 py-0 font-bold">
+                                {appliedCoupon.type === "percentage" ? `${appliedCoupon.value}% OFF` : `₹${appliedCoupon.value} OFF`}
+                              </Badge>
+                            </p>
+                            <p className="text-[10px] text-muted-foreground truncate">
+                              {appliedCoupon.description || "Discount coupon applied"}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="font-bold text-xs text-emerald-600 dark:text-emerald-400 tabular-nums">
+                            -₹{discountAmount.toLocaleString()}
+                          </span>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={handleRemoveCoupon}
+                            className="size-6 text-muted-foreground hover:text-destructive hover:bg-destructive/10 cursor-pointer"
+                            title="Remove coupon"
+                          >
+                            <X className="size-3.5" />
+                          </Button>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <span className="font-bold text-xs text-emerald-600 dark:text-emerald-400 tabular-nums">
-                          -₹{discountAmount.toLocaleString()}
-                        </span>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          onClick={handleRemoveCoupon}
-                          className="size-6 text-muted-foreground hover:text-destructive hover:bg-destructive/10 cursor-pointer"
-                          title="Remove coupon"
-                        >
-                          <X className="size-3.5" />
-                        </Button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="space-y-1.5">
-                      <div className="flex gap-1.5">
-                        <div className="relative flex-1">
-                          <Tag className="absolute left-2.5 top-2.5 size-3.5 text-muted-foreground" />
-                          <Input
-                            placeholder="Have a coupon? (e.g. SAVE20)"
-                            value={couponInput}
-                            onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") {
-                                e.preventDefault();
-                                handleApplyCoupon();
-                              }
-                            }}
-                            className="h-8 pl-8 text-xs font-mono tracking-wider uppercase placeholder:normal-case placeholder:font-sans"
-                          />
+                    ) : (
+                      <div className="space-y-1.5">
+                        <div className="flex gap-1.5">
+                          <div className="relative flex-1">
+                            <Tag className="absolute left-2.5 top-2.5 size-3.5 text-muted-foreground" />
+                            <Input
+                              placeholder="Have a coupon? (e.g. SAVE20)"
+                              value={couponInput}
+                              onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  e.preventDefault();
+                                  handleApplyCoupon();
+                                }
+                              }}
+                              className="h-8 pl-8 text-xs font-mono tracking-wider uppercase placeholder:normal-case placeholder:font-sans"
+                            />
+                          </div>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            disabled={!couponInput.trim() || isValidatingCoupon}
+                            onClick={() => handleApplyCoupon()}
+                            className="h-8 text-xs font-semibold px-3 shrink-0 cursor-pointer"
+                          >
+                            {isValidatingCoupon ? <Loader2 className="size-3 animate-spin" /> : "Apply"}
+                          </Button>
                         </div>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          disabled={!couponInput.trim() || isValidatingCoupon}
-                          onClick={() => handleApplyCoupon()}
-                          className="h-8 text-xs font-semibold px-3 shrink-0 cursor-pointer"
-                        >
-                          {isValidatingCoupon ? <Loader2 className="size-3 animate-spin" /> : "Apply"}
-                        </Button>
                       </div>
-                    </div>
-                  )}
-                </div>
+                    )}
+                  </div>
+                )}
 
                 <div className="border-t border-dashed border-border/80 pt-3 space-y-2">
                   <p className="font-semibold text-foreground">Included Quota &amp; Features:</p>
@@ -1204,9 +1336,15 @@ function PaymentPortalPage() {
 
                 <div className="border-t border-border pt-3.5 flex justify-between items-baseline">
                   <div>
-                    <span className="text-sm font-bold text-foreground">Total Due Now</span>
+                    <span className="text-sm font-bold text-foreground">
+                      {isSchoolMode ? "Estimated Institutional Rate" : "Total Due Now"}
+                    </span>
                     <p className="text-[10px] text-muted-foreground">
-                      {appliedCoupon ? `Discount applied (saved ₹${discountAmount.toLocaleString()})` : "Includes all platform taxes"}
+                      {isSchoolMode
+                        ? "Official GST invoice issued on PO requisition"
+                        : appliedCoupon
+                        ? `Discount applied (saved ₹${discountAmount.toLocaleString()})`
+                        : "Includes all platform taxes"}
                     </p>
                   </div>
                   <div className="text-right">
@@ -1222,214 +1360,305 @@ function PaymentPortalPage() {
                 </div>
               </div>
 
-              {/* Payment Method Switcher */}
-              <div className="pt-2 border-t border-border/80">
-                <label className="text-xs font-semibold text-foreground mb-2 block">
-                  Select Payment Method:
-                </label>
-                <div className="grid grid-cols-2 gap-2 mb-3">
-                  <button
-                    type="button"
-                    onClick={handleRazorpayClick}
-                    className={cn(
-                      "relative flex flex-col xs:flex-row items-center justify-center gap-1 sm:gap-1.5 p-2 rounded-lg border text-xs font-semibold transition-all cursor-pointer overflow-hidden",
-                      paymentMethod === "razorpay"
-                        ? "border-amber-500/70 bg-amber-500/10 text-amber-700 dark:text-amber-300 shadow-xs font-bold"
-                        : "border-border text-muted-foreground hover:bg-muted/70",
-                      isLockShaking && "lock-shake"
-                    )}
-                  >
-                    <div className="flex items-center gap-1.5">
-                      <CreditCard className="size-3.5 opacity-60 shrink-0" />
-                      <span>Razorpay</span>
-                    </div>
-                    <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-700 dark:text-amber-300 text-[8px] sm:text-[9px] font-mono font-bold">
-                      <Lock className="size-2.5 animate-pulse text-amber-500" />
-                      Locked
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPaymentMethod("upi")}
-                    className={cn(
-                      "relative flex flex-col xs:flex-row items-center justify-center gap-1 sm:gap-1.5 p-2 rounded-lg border text-xs font-semibold transition-all cursor-pointer",
-                      paymentMethod === "upi"
-                        ? "border-emerald-500 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 shadow-xs font-bold ring-1 ring-emerald-500/30"
-                        : "border-border text-muted-foreground hover:bg-muted"
-                    )}
-                  >
-                    <div className="flex items-center gap-1.5">
-                      <Smartphone className="size-3.5 text-emerald-500 shrink-0" />
-                      <span>Direct UPI</span>
-                    </div>
-                    <span className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 text-[8px] sm:text-[9px] font-bold">
-                      Active
-                    </span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Checkout Action Area */}
-              {paymentMethod === "razorpay" ? (
-                <div className="space-y-4 rounded-xl border border-amber-500/30 bg-gradient-to-b from-amber-500/[0.08] to-amber-500/[0.02] p-4 sm:p-5 text-center shadow-xs">
+              {/* Payment Method Switcher or Institutional Inquiry Card */}
+              {isSchoolMode ? (
+                <div className="space-y-4 rounded-xl border border-emerald-500/30 bg-gradient-to-b from-emerald-500/[0.08] to-emerald-500/[0.02] p-4 sm:p-5 text-center shadow-xs">
                   <div className="relative mx-auto size-14 flex items-center justify-center">
-                    <span className="absolute inset-0 rounded-2xl bg-amber-500/20 animate-ping opacity-35" />
-                    <div
-                      className={cn(
-                        "relative size-12 rounded-2xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-500 shadow-inner transition-transform",
-                        isLockShaking ? "lock-shake" : "animate-pulse"
-                      )}
-                    >
-                      <Lock className="size-6 text-amber-500" />
+                    <span className="absolute inset-0 rounded-2xl bg-emerald-500/20 animate-ping opacity-35" />
+                    <div className="relative size-12 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shadow-inner">
+                      <School className="size-6 text-emerald-600 dark:text-emerald-400" />
                     </div>
                   </div>
 
                   <div className="space-y-1.5">
-                    <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-700 dark:text-amber-300 text-[11px] font-semibold">
-                      <Lock className="size-3 text-amber-500 animate-pulse" /> Razorpay Gateway Temporarily Locked
+                    <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 text-[11px] font-semibold">
+                      <School className="size-3 text-emerald-600 dark:text-emerald-400" /> Institutional Invoicing &amp; Onboarding
                     </div>
                     <h3 className="text-sm font-bold text-foreground">
-                      Gateway Under Recalibration
+                      School Licensing Inquiry &amp; Direct Invoice
                     </h3>
                     <p className="text-xs text-muted-foreground max-w-sm mx-auto leading-relaxed">
-                      Standard Razorpay card &amp; netbanking checkout is temporarily locked for merchant maintenance. All student subscriptions are being fulfilled through <strong>Direct UPI (Instant QR / GPay / PhonePe)</strong> with 0% extra surcharge.
+                      School &amp; Department packages ({SCHOOL_PLANS[selectedTier]?.name ?? "Institutional License"}) are fulfilled through institutional Purchase Orders (PO), dedicated GST invoices, teacher cohort onboarding, and bulk student CSV enrollment.
                     </p>
+                  </div>
+
+                  <div className="rounded-lg border border-emerald-500/20 bg-background/80 p-3 text-left space-y-1.5 text-xs">
+                    <div className="flex justify-between items-center text-muted-foreground">
+                      <span>Package:</span>
+                      <strong className="text-foreground font-semibold">{SCHOOL_PLANS[selectedTier]?.name}</strong>
+                    </div>
+                    <div className="flex justify-between items-center text-muted-foreground">
+                      <span>Included Seats:</span>
+                      <strong className="text-foreground font-semibold">
+                        {SCHOOL_PLANS[selectedTier]?.studentCapacity} ({SCHOOL_PLANS[selectedTier]?.teacherSeats})
+                      </strong>
+                    </div>
+                    <div className="flex justify-between items-center text-muted-foreground">
+                      <span>Allocation:</span>
+                      <strong className="text-foreground font-semibold">{SCHOOL_PLANS[selectedTier]?.quota}</strong>
+                    </div>
+                    <div className="flex justify-between items-center text-muted-foreground pt-1 border-t border-border/60">
+                      <span>Institutional Rate:</span>
+                      <strong className="text-emerald-600 dark:text-emerald-400 font-extrabold text-sm tabular-nums">
+                        ₹{finalPrice.toLocaleString()}{cycle === "annual" ? " / yr" : " / mo"}
+                      </strong>
+                    </div>
                   </div>
 
                   <div className="space-y-2 pt-1">
                     <Button
                       type="button"
-                      onClick={() => {
-                        setIsLockShaking(true);
-                        setTimeout(() => setIsLockShaking(false), 500);
-                        toast.error("Razorpay is locked. Please switch to Direct UPI below to activate your plan.");
-                      }}
-                      className={cn(
-                        "w-full h-10 text-xs font-bold gap-2 bg-muted text-muted-foreground border border-border cursor-not-allowed opacity-80 hover:bg-muted",
-                        isLockShaking && "lock-shake"
-                      )}
+                      onClick={handleSchoolEmailClick}
+                      className="w-full h-11 text-xs sm:text-sm font-bold gap-2 bg-emerald-600 hover:bg-emerald-700 text-white shadow-md cursor-pointer transition-all hover:scale-[1.01]"
                     >
-                      <Lock className="size-3.5 text-amber-500" />
-                      Pay ₹{finalPrice.toLocaleString()} via Razorpay (Locked)
+                      <Mail className="size-4 shrink-0" />
+                      Email School Partnerships (marginal.econ.ai@gmail.com) →
                     </Button>
 
                     <Button
-                      type="button"
-                      onClick={() => setPaymentMethod("upi")}
-                      className="w-full h-11 text-xs font-bold gap-2 bg-emerald-600 hover:bg-emerald-700 text-white shadow-md cursor-pointer transition-all hover:scale-[1.01]"
+                      asChild
+                      variant="outline"
+                      className="w-full h-10 text-xs font-semibold gap-2 border-emerald-500/30 hover:bg-emerald-500/10 cursor-pointer"
                     >
-                      <Smartphone className="size-4 animate-bounce" />
-                      Pay via Direct UPI (Instant GPay / QR) →
+                      <Link to="/help">
+                        <Send className="size-3.5" />
+                        Open School Inquiry &amp; Contact Desk
+                      </Link>
                     </Button>
 
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleActivation(true)}
-                      disabled={isProcessing}
-                      className="text-[11px] text-muted-foreground hover:text-foreground gap-1.5 cursor-pointer mt-1"
-                    >
-                      <Sparkles className="size-3 text-amber-500" />
-                      Instant Sandbox Testing Access
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-3.5 rounded-xl border border-emerald-500/30 bg-emerald-500/[0.04] p-3.5 sm:p-4 text-xs">
-                  <div className="flex items-center justify-between">
-                    <span className="font-semibold text-emerald-700 dark:text-emerald-300 flex items-center gap-1.5">
-                      <QrCode className="size-4 shrink-0" /> Scan &amp; Pay via Any UPI App
-                    </span>
-                    <Badge variant="outline" className="border-emerald-500/30 text-[10px] text-emerald-600">
-                      Instant GPay / PhonePe
-                    </Badge>
-                  </div>
-
-                  {/* 1-Tap Mobile Launch button for phones */}
-                  <div className="sm:hidden pt-1">
-                    <a
-                      href={`upi://pay?pa=${encodeURIComponent(merchantUpi)}&pn=${encodeURIComponent("Marginal Economics")}&am=${finalPrice}&cu=INR`}
-                      className="flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white py-2.5 px-3 text-xs font-bold shadow-sm transition-all text-center"
-                    >
-                      <Smartphone className="size-4 shrink-0" />
-                      <span>Tap to Open in UPI App (GPay / PhonePe)</span>
-                    </a>
-                    <p className="text-[10px] text-center text-muted-foreground mt-1">
-                      Opens your phone's UPI app with the exact ₹{finalPrice.toLocaleString()} pre-filled.
-                    </p>
-                  </div>
-
-                  <div className="flex flex-col sm:flex-row items-center sm:items-start text-center sm:text-left gap-3.5 pt-1">
-                    <div className="size-28 sm:size-24 shrink-0 rounded-lg border border-border bg-white p-1.5 shadow-xs flex items-center justify-center mx-auto sm:mx-0">
-                      <img
-                        src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(`upi://pay?pa=${merchantUpi}&pn=Marginal%20Economics&am=${finalPrice}&cu=INR`)}`}
-                        alt="UPI Payment QR Code"
-                        className="size-full object-contain"
-                      />
-                    </div>
-                    <div className="space-y-1.5 flex-1 min-w-0 w-full sm:w-auto">
-                      <p className="text-[11px] text-muted-foreground">Merchant UPI ID:</p>
-                      <div className="flex items-center justify-center sm:justify-start gap-1.5 flex-wrap">
-                        <code className="text-xs font-mono font-bold bg-muted px-2 py-1 rounded-md text-foreground select-all break-all inline-block max-w-full">
-                          {merchantUpi}
-                        </code>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={handleCopyUpi}
-                          className="h-7 px-2 text-[11px] gap-1 cursor-pointer shrink-0"
-                        >
-                          {copiedUpi ? <Check className="size-3.5 text-emerald-500" /> : <Copy className="size-3.5" />}
-                          {copiedUpi ? "Copied" : "Copy"}
-                        </Button>
-                      </div>
-                      <p className="text-[11px] text-muted-foreground">
-                        Amount: <strong className="text-foreground font-bold">₹{finalPrice.toLocaleString()}</strong>
-                      </p>
+                    <div className="flex items-center justify-center gap-1.5 pt-1">
+                      <code className="text-[11px] font-mono font-bold bg-muted px-2 py-1 rounded text-foreground select-all">
+                        marginal.econ.ai@gmail.com
+                      </code>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleCopySchoolEmail}
+                        className="h-7 px-2 text-[11px] gap-1 cursor-pointer"
+                      >
+                        {copiedSchoolEmail ? <Check className="size-3 text-emerald-500" /> : <Copy className="size-3" />}
+                        {copiedSchoolEmail ? "Copied" : "Copy"}
+                      </Button>
                     </div>
                   </div>
 
-                  <div className="space-y-1.5 pt-2 border-t border-emerald-500/20">
-                    <div className="flex items-center justify-between">
-                      <Label htmlFor="utr-input" className="text-xs font-semibold text-foreground">
-                        Enter 12-Digit UPI Reference (UTR) Number
-                      </Label>
-                      <span className={cn("text-[10px] font-mono font-bold", utrNumber.length === 12 ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground")}>
-                        {utrNumber.length}/12 digits
-                      </span>
-                    </div>
-                    <Input
-                      id="utr-input"
-                      type="text"
-                      inputMode="numeric"
-                      pattern="[0-9]*"
-                      maxLength={12}
-                      placeholder="e.g. 428190342156"
-                      value={utrNumber}
-                      onChange={(e) => {
-                        const clean = e.target.value.replace(/\D/g, "").slice(0, 12);
-                        setUtrNumber(clean);
-                      }}
-                      className="h-10 text-xs sm:text-sm font-mono tracking-wider bg-background"
-                    />
-                    <p className="text-[10px] text-muted-foreground">
-                      Found in your GPay / PhonePe / Paytm receipt after transfer.
-                    </p>
-                  </div>
-
-                  <Button
-                    onClick={handleUpiActivation}
-                    disabled={isProcessing || utrNumber.length !== 12}
-                    className="w-full h-11 text-xs sm:text-sm font-bold gap-2 bg-emerald-600 hover:bg-emerald-700 text-white shadow-md cursor-pointer disabled:opacity-50"
-                  >
-                    <Clock className="size-4 shrink-0" />
-                    {isProcessing ? "Submitting Reference..." : "Submit UTR for Admin Verification"}
-                  </Button>
-                  <p className="text-[10px] text-center text-muted-foreground pt-0.5">
-                    12-digit UTR is verified against bank credits by our administrator within 10–15 minutes.
+                  <p className="text-[10px] text-center text-muted-foreground pt-1">
+                    Formal GST quotations and procurement onboarding are issued within 24 hours.
                   </p>
                 </div>
+              ) : (
+                <>
+                  {/* Payment Method Switcher */}
+                  <div className="pt-2 border-t border-border/80">
+                    <label className="text-xs font-semibold text-foreground mb-2 block">
+                      Select Payment Method:
+                    </label>
+                    <div className="grid grid-cols-2 gap-2 mb-3">
+                      <button
+                        type="button"
+                        onClick={handleRazorpayClick}
+                        className={cn(
+                          "relative flex flex-col xs:flex-row items-center justify-center gap-1 sm:gap-1.5 p-2 rounded-lg border text-xs font-semibold transition-all cursor-pointer overflow-hidden",
+                          paymentMethod === "razorpay"
+                            ? "border-amber-500/70 bg-amber-500/10 text-amber-700 dark:text-amber-300 shadow-xs font-bold"
+                            : "border-border text-muted-foreground hover:bg-muted/70",
+                          isLockShaking && "lock-shake"
+                        )}
+                      >
+                        <div className="flex items-center gap-1.5">
+                          <CreditCard className="size-3.5 opacity-60 shrink-0" />
+                          <span>Razorpay</span>
+                        </div>
+                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-700 dark:text-amber-300 text-[8px] sm:text-[9px] font-mono font-bold">
+                          <Lock className="size-2.5 animate-pulse text-amber-500" />
+                          Locked
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPaymentMethod("upi")}
+                        className={cn(
+                          "relative flex flex-col xs:flex-row items-center justify-center gap-1 sm:gap-1.5 p-2 rounded-lg border text-xs font-semibold transition-all cursor-pointer",
+                          paymentMethod === "upi"
+                            ? "border-emerald-500 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 shadow-xs font-bold ring-1 ring-emerald-500/30"
+                            : "border-border text-muted-foreground hover:bg-muted"
+                        )}
+                      >
+                        <div className="flex items-center gap-1.5">
+                          <Smartphone className="size-3.5 text-emerald-500 shrink-0" />
+                          <span>Direct UPI</span>
+                        </div>
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 text-[8px] sm:text-[9px] font-bold">
+                          Active
+                        </span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Checkout Action Area */}
+                  {paymentMethod === "razorpay" ? (
+                    <div className="space-y-4 rounded-xl border border-amber-500/30 bg-gradient-to-b from-amber-500/[0.08] to-amber-500/[0.02] p-4 sm:p-5 text-center shadow-xs">
+                      <div className="relative mx-auto size-14 flex items-center justify-center">
+                        <span className="absolute inset-0 rounded-2xl bg-amber-500/20 animate-ping opacity-35" />
+                        <div
+                          className={cn(
+                            "relative size-12 rounded-2xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-500 shadow-inner transition-transform",
+                            isLockShaking ? "lock-shake" : "animate-pulse"
+                          )}
+                        >
+                          <Lock className="size-6 text-amber-500" />
+                        </div>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-700 dark:text-amber-300 text-[11px] font-semibold">
+                          <Lock className="size-3 text-amber-500 animate-pulse" /> Razorpay Gateway Temporarily Locked
+                        </div>
+                        <h3 className="text-sm font-bold text-foreground">
+                          Gateway Under Recalibration
+                        </h3>
+                        <p className="text-xs text-muted-foreground max-w-sm mx-auto leading-relaxed">
+                          Standard Razorpay card &amp; netbanking checkout is temporarily locked for merchant maintenance. All Cambridge subscriptions are being fulfilled through <strong>Direct UPI (Instant QR / GPay / PhonePe)</strong> with 0% extra surcharge.
+                        </p>
+                      </div>
+
+                      <div className="space-y-2 pt-1">
+                        <Button
+                          type="button"
+                          onClick={() => {
+                            setIsLockShaking(true);
+                            setTimeout(() => setIsLockShaking(false), 500);
+                            toast.error("Razorpay is locked. Please switch to Direct UPI below to activate your plan.");
+                          }}
+                          className={cn(
+                            "w-full h-10 text-xs font-bold gap-2 bg-muted text-muted-foreground border border-border cursor-not-allowed opacity-80 hover:bg-muted",
+                            isLockShaking && "lock-shake"
+                          )}
+                        >
+                          <Lock className="size-3.5 text-amber-500" />
+                          Pay ₹{finalPrice.toLocaleString()} via Razorpay (Locked)
+                        </Button>
+
+                        <Button
+                          type="button"
+                          onClick={() => setPaymentMethod("upi")}
+                          className="w-full h-11 text-xs font-bold gap-2 bg-emerald-600 hover:bg-emerald-700 text-white shadow-md cursor-pointer transition-all hover:scale-[1.01]"
+                        >
+                          <Smartphone className="size-4 animate-bounce" />
+                          Pay via Direct UPI (Instant GPay / QR) →
+                        </Button>
+
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleActivation(true)}
+                          disabled={isProcessing}
+                          className="text-[11px] text-muted-foreground hover:text-foreground gap-1.5 cursor-pointer mt-1"
+                        >
+                          <Sparkles className="size-3 text-amber-500" />
+                          Instant Sandbox Testing Access
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-3.5 rounded-xl border border-emerald-500/30 bg-emerald-500/[0.04] p-3.5 sm:p-4 text-xs">
+                      <div className="flex items-center justify-between">
+                        <span className="font-semibold text-emerald-700 dark:text-emerald-300 flex items-center gap-1.5">
+                          <QrCode className="size-4 shrink-0" /> Scan &amp; Pay via Any UPI App
+                        </span>
+                        <Badge variant="outline" className="border-emerald-500/30 text-[10px] text-emerald-600">
+                          Instant GPay / PhonePe
+                        </Badge>
+                      </div>
+
+                      {/* 1-Tap Mobile Launch button for phones */}
+                      <div className="sm:hidden pt-1">
+                        <a
+                          href={`upi://pay?pa=${encodeURIComponent(merchantUpi)}&pn=${encodeURIComponent("Marginal Economics")}&am=${finalPrice}&cu=INR`}
+                          className="flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white py-2.5 px-3 text-xs font-bold shadow-sm transition-all text-center"
+                        >
+                          <Smartphone className="size-4 shrink-0" />
+                          <span>Tap to Open in UPI App (GPay / PhonePe)</span>
+                        </a>
+                        <p className="text-[10px] text-center text-muted-foreground mt-1">
+                          Opens your phone's UPI app with the exact ₹{finalPrice.toLocaleString()} pre-filled.
+                        </p>
+                      </div>
+
+                      <div className="flex flex-col sm:flex-row items-center sm:items-start text-center sm:text-left gap-3.5 pt-1">
+                        <div className="size-28 sm:size-24 shrink-0 rounded-lg border border-border bg-white p-1.5 shadow-xs flex items-center justify-center mx-auto sm:mx-0">
+                          <img
+                            src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(`upi://pay?pa=${merchantUpi}&pn=Marginal%20Economics&am=${finalPrice}&cu=INR`)}`}
+                            alt="UPI Payment QR Code"
+                            className="size-full object-contain"
+                          />
+                        </div>
+                        <div className="space-y-1.5 flex-1 min-w-0 w-full sm:w-auto">
+                          <p className="text-[11px] text-muted-foreground">Merchant UPI ID:</p>
+                          <div className="flex items-center justify-center sm:justify-start gap-1.5 flex-wrap">
+                            <code className="text-xs font-mono font-bold bg-muted px-2 py-1 rounded-md text-foreground select-all break-all inline-block max-w-full">
+                              {merchantUpi}
+                            </code>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={handleCopyUpi}
+                              className="h-7 px-2 text-[11px] gap-1 cursor-pointer shrink-0"
+                            >
+                              {copiedUpi ? <Check className="size-3.5 text-emerald-500" /> : <Copy className="size-3.5" />}
+                              {copiedUpi ? "Copied" : "Copy"}
+                            </Button>
+                          </div>
+                          <p className="text-[11px] text-muted-foreground">
+                            Amount: <strong className="text-foreground font-bold">₹{finalPrice.toLocaleString()}</strong>
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="space-y-1.5 pt-2 border-t border-emerald-500/20">
+                        <div className="flex items-center justify-between">
+                          <Label htmlFor="utr-input" className="text-xs font-semibold text-foreground">
+                            Enter 12-Digit UPI Reference (UTR) Number
+                          </Label>
+                          <span className={cn("text-[10px] font-mono font-bold", utrNumber.length === 12 ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground")}>
+                            {utrNumber.length}/12 digits
+                          </span>
+                        </div>
+                        <Input
+                          id="utr-input"
+                          type="text"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          maxLength={12}
+                          placeholder="e.g. 428190342156"
+                          value={utrNumber}
+                          onChange={(e) => {
+                            const clean = e.target.value.replace(/\D/g, "").slice(0, 12);
+                            setUtrNumber(clean);
+                          }}
+                          className="h-10 text-xs sm:text-sm font-mono tracking-wider bg-background"
+                        />
+                        <p className="text-[10px] text-muted-foreground">
+                          Found in your GPay / PhonePe / Paytm receipt after transfer.
+                        </p>
+                      </div>
+
+                      <Button
+                        onClick={handleUpiActivation}
+                        disabled={isProcessing || utrNumber.length !== 12}
+                        className="w-full h-11 text-xs sm:text-sm font-bold gap-2 bg-emerald-600 hover:bg-emerald-700 text-white shadow-md cursor-pointer disabled:opacity-50"
+                      >
+                        <Clock className="size-4 shrink-0" />
+                        {isProcessing ? "Submitting Reference..." : "Submit UTR for Admin Verification"}
+                      </Button>
+                      <p className="text-[10px] text-center text-muted-foreground pt-0.5">
+                        12-digit UTR is verified against bank credits by our administrator within 10–15 minutes.
+                      </p>
+                    </div>
+                  )}
+                </>
               )}
 
               <div className="mt-5 border-t border-border/60 pt-4 text-center">

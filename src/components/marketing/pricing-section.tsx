@@ -355,11 +355,20 @@ export function PricingSection({ className }: { className?: string }) {
   });
   const [cycle, setCycle] = useState<BillingCycle>("annual");
 
+  const [userSelectedAudience, setUserSelectedAudience] = useState(false);
+
   useEffect(() => {
-    if (meQuery.data?.role === "teacher" || meQuery.data?.isStaff) {
+    if (userSelectedAudience) return;
+    const params = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
+    const audParam = params?.get("audience") || params?.get("role") || params?.get("tab");
+    if (audParam === "students" || audParam === "student") {
+      setAudience("students");
+      return;
+    }
+    if (meQuery.data?.role === "teacher") {
       setAudience("educators");
     }
-  }, [meQuery.data?.role, meQuery.data?.isStaff]);
+  }, [meQuery.data?.role, userSelectedAudience]);
 
   const fetchPlatformPricing = useServerFn(getPlatformPricing);
   const pricingQuery = useQuery({
@@ -458,7 +467,10 @@ export function PricingSection({ className }: { className?: string }) {
           <div className="mt-8 inline-flex max-w-full flex-wrap sm:flex-nowrap items-center justify-center rounded-xl border border-border bg-muted/60 p-1 sm:p-1.5 shadow-xs gap-1 sm:gap-0">
             <button
               type="button"
-              onClick={() => setAudience("students")}
+              onClick={() => {
+                setUserSelectedAudience(true);
+                setAudience("students");
+              }}
               className={cn(
                 "flex items-center justify-center gap-1.5 sm:gap-2 rounded-lg px-3 sm:px-4 py-2 text-xs font-semibold transition-all sm:text-sm",
                 audience === "students"
@@ -471,7 +483,10 @@ export function PricingSection({ className }: { className?: string }) {
             </button>
             <button
               type="button"
-              onClick={() => setAudience("educators")}
+              onClick={() => {
+                setUserSelectedAudience(true);
+                setAudience("educators");
+              }}
               className={cn(
                 "flex items-center justify-center gap-1.5 sm:gap-2 rounded-lg px-3 sm:px-4 py-2 text-xs font-semibold transition-all sm:text-sm",
                 audience === "educators"
@@ -484,7 +499,10 @@ export function PricingSection({ className }: { className?: string }) {
             </button>
             <button
               type="button"
-              onClick={() => setAudience("schools")}
+              onClick={() => {
+                setUserSelectedAudience(true);
+                setAudience("schools");
+              }}
               className={cn(
                 "flex items-center justify-center gap-1.5 sm:gap-2 rounded-lg px-3 sm:px-4 py-2 text-xs font-semibold transition-all sm:text-sm",
                 audience === "schools"
@@ -617,32 +635,57 @@ export function PricingSection({ className }: { className?: string }) {
                   </div>
 
                   <div className="mt-auto pt-6">
-                    <Button
-                      asChild
-                      variant={tier.popular ? "default" : "outline"}
-                      className={cn(
-                        "w-full text-xs font-semibold h-10 shadow-xs cursor-pointer",
-                        tier.popular ? "bg-purple-600 hover:bg-purple-700 text-white" : ""
-                      )}
-                    >
-                      <Link
-                        to={isAuthenticated ? "/payment" : "/auth"}
-                        search={
-                          isAuthenticated
-                            ? ({
-                                tier: (tier.id === "school-starter" ? "school_starter" : tier.id) as any,
-                                cycle: cycle,
-                                role: (tier.id === "school-starter" ? "school" : "teacher") as any,
-                                audience: (tier.id === "school-starter" ? "schools" : "teachers") as any,
-                              } as any)
-                            : ({
-                                redirect: `/payment?tier=${tier.id === "school-starter" ? "school_starter" : tier.id}&cycle=${cycle}&role=${tier.id === "school-starter" ? "school" : "teacher"}&audience=${tier.id === "school-starter" ? "schools" : "teachers"}`,
-                              } as any)
-                        }
+                    {tier.id === "school-starter" ? (
+                      <Button
+                        type="button"
+                        onClick={() => {
+                          const subject = encodeURIComponent("Cambridge 9708 School Licensing Inquiry — Department Starter");
+                          const body = encodeURIComponent(
+                            "Hello Marginal Economics Team,\n\nOur school/department is interested in the Department Starter package (50 Student Seats, 2 Teacher Admins).\n\n" +
+                            `Billing Preference: ${cycle === "annual" ? "Annual" : "Monthly"}\n` +
+                            "School / Institution Name:\nCoordinator Name:\nContact Phone:\n\nPlease send us the official invoice & purchase order details.\n\nThank you!"
+                          );
+                          if (typeof navigator !== "undefined" && navigator.clipboard) {
+                            navigator.clipboard.writeText("marginal.econ.ai@gmail.com");
+                          }
+                          toast.info("School partnership email copied: marginal.econ.ai@gmail.com — opening inquiry draft", {
+                            duration: 5000,
+                          });
+                          window.location.href = `mailto:marginal.econ.ai@gmail.com?subject=${subject}&body=${body}`;
+                        }}
+                        className="w-full text-xs font-semibold h-10 shadow-xs cursor-pointer hover:border-purple-500"
+                        variant="outline"
                       >
-                        Unlock {tier.name} <ArrowRight className="size-3.5 ml-1.5" />
-                      </Link>
-                    </Button>
+                        Inquire for School <ArrowRight className="size-3.5 ml-1.5" />
+                      </Button>
+                    ) : (
+                      <Button
+                        asChild
+                        variant={tier.popular ? "default" : "outline"}
+                        className={cn(
+                          "w-full text-xs font-semibold h-10 shadow-xs cursor-pointer",
+                          tier.popular ? "bg-purple-600 hover:bg-purple-700 text-white" : ""
+                        )}
+                      >
+                        <Link
+                          to={isAuthenticated ? "/payment" : "/auth"}
+                          search={
+                            isAuthenticated
+                              ? ({
+                                  tier: tier.id as any,
+                                  cycle: cycle,
+                                  role: "teacher" as any,
+                                  audience: "teachers" as any,
+                                } as any)
+                              : ({
+                                  redirect: `/payment?tier=${tier.id}&cycle=${cycle}&role=teacher&audience=teachers`,
+                                } as any)
+                          }
+                        >
+                          Unlock {tier.name} <ArrowRight className="size-3.5 ml-1.5" />
+                        </Link>
+                      </Button>
+                    )}
                   </div>
                 </div>
               );
@@ -792,9 +835,11 @@ export function PricingSection({ className }: { className?: string }) {
                             ? ({
                                 tier: tier.id as any,
                                 cycle: cycle,
+                                audience: "students" as any,
+                                role: "student" as any,
                               } as any)
                             : ({
-                                redirect: `/payment?tier=${tier.id}&cycle=${cycle}`,
+                                redirect: `/payment?tier=${tier.id}&cycle=${cycle}&audience=students&role=student`,
                               } as any)
                         }
                       >
@@ -811,36 +856,26 @@ export function PricingSection({ className }: { className?: string }) {
             {SCHOOL_TIERS.map((tier) => {
               const displayPrice = cycle === "annual" ? tier.annualPrice : tier.monthlyPrice;
               const periodText = cycle === "annual" ? " / year" : " / month";
-              const targetTier = tier.id.replace("-", "_");
-              const isEnterprise = tier.id === "school-enterprise";
-              const paymentUrl = `/payment?tier=${targetTier}&audience=schools&cycle=${cycle}`;
 
               const handleAction = () => {
-                if (isEnterprise) {
-                  if (typeof navigator !== "undefined" && navigator.clipboard) {
-                    navigator.clipboard.writeText("licensing@marginal.app");
-                  }
-                  toast.info("Institutional inquiry email copied: licensing@marginal.app", {
-                    duration: 5000,
-                  });
-                  window.location.href = "mailto:licensing@marginal.app?subject=Cambridge%209708%20Multi-Campus%20Enterprise%20Inquiry";
-                } else if (isAuthenticated) {
-                  navigate({
-                    to: "/payment",
-                    search: {
-                      tier: targetTier,
-                      audience: "schools",
-                      cycle,
-                    } as any,
-                  });
-                } else {
-                  navigate({
-                    to: "/auth",
-                    search: {
-                      redirect: paymentUrl,
-                    } as any,
-                  });
+                const subject = encodeURIComponent(`Cambridge 9708 School Licensing Inquiry — ${tier.name}`);
+                const body = encodeURIComponent(
+                  `Hello Marginal Team,\n\nOur school/department is interested in the ${tier.name} package for Cambridge 9708 Economics.\n\n` +
+                  `Student Capacity: ${tier.studentCapacity}\n` +
+                  `Teacher Seats: ${tier.teacherSeats}\n` +
+                  `Billing Preference: ${cycle === "annual" ? "Annual" : "Monthly"}\n` +
+                  `School / Institution Name:\n` +
+                  `Coordinator Name:\n` +
+                  `Contact Phone:\n\n` +
+                  `Please send over the institutional proposal, invoice details, and onboarding instructions.\n\nThank you.`
+                );
+                if (typeof navigator !== "undefined" && navigator.clipboard) {
+                  navigator.clipboard.writeText("marginal.econ.ai@gmail.com");
                 }
+                toast.info("School partnership email copied: marginal.econ.ai@gmail.com — opening inquiry draft", {
+                  duration: 5000,
+                });
+                window.location.href = `mailto:marginal.econ.ai@gmail.com?subject=${subject}&body=${body}`;
               };
 
               return (
@@ -910,32 +945,24 @@ export function PricingSection({ className }: { className?: string }) {
                     </ul>
                   </div>
 
-                  <div className="mt-auto pt-6">
-                    {isEnterprise ? (
-                      <Button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleAction();
-                        }}
-                        variant="outline"
-                        className="w-full text-xs font-semibold h-10 shadow-xs cursor-pointer group-hover:border-primary"
-                      >
-                        Contact for Enterprise <ArrowRight className="size-3.5 ml-1.5" />
-                      </Button>
-                    ) : (
-                      <Button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleAction();
-                        }}
-                        variant={tier.popular ? "default" : "outline"}
-                        className="w-full text-xs font-semibold h-10 shadow-xs cursor-pointer"
-                      >
-                        Subscribe with Coupon <ArrowRight className="size-3.5 ml-1.5" />
-                      </Button>
-                    )}
+                  <div className="mt-auto pt-6 space-y-2">
+                    <Button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleAction();
+                      }}
+                      variant={tier.popular ? "default" : "outline"}
+                      className={cn(
+                        "w-full text-xs font-semibold h-10 shadow-xs cursor-pointer",
+                        tier.popular ? "bg-primary text-primary-foreground" : "group-hover:border-primary"
+                      )}
+                    >
+                      Inquire for School <ArrowRight className="size-3.5 ml-1.5" />
+                    </Button>
+                    <p className="text-[10px] text-center text-muted-foreground">
+                      Official school purchase orders &amp; invoices
+                    </p>
                   </div>
                 </div>
               );

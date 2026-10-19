@@ -533,9 +533,11 @@ export function sanitisePredictedMark(raw: unknown, maxMark: number): PredictedM
   const finalSum = knowledge.awarded + analysis.awarded + evaluation.awarded;
   totalMark = finalSum > 0 ? finalSum : totalMark;
 
+  const safeTotal = Number.isFinite(totalMark) ? Math.min(Math.max(0, Math.round(totalMark)), maxMark) : 0;
+
   return {
-    total_mark: Math.min(Math.max(0, Math.round(totalMark)), maxMark),
-    confidence: Math.min(Math.max(0, confidence), 1),
+    total_mark: safeTotal,
+    confidence: Number.isFinite(confidence) ? Math.min(Math.max(0, confidence), 1) : 0.8,
     headline,
     ao_breakdown: { knowledge, analysis, evaluation },
   };

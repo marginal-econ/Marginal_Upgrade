@@ -1197,12 +1197,12 @@ function LiveExaminerPage() {
 
             {/* Running Score Pill, Word Count, and Timer */}
             <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-              {predictedMark ? (
+              {predictedMark && Number.isFinite(predictedMark.total_mark) ? (
                 <div className="flex items-center gap-1.5 sm:gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 sm:px-3 py-0.5 sm:py-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400 transition-all duration-300 shadow-sm">
                   <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
-                  <span>Est. {predictedMark.total_mark} / {maxMark}</span>
+                  <span>Est. {Math.round(predictedMark.total_mark)} / {maxMark}</span>
                   <span className="text-[10px] opacity-75 font-normal hidden md:inline">
-                    (AO1: {predictedMark.ao_breakdown.knowledge.awarded} · AO2: {predictedMark.ao_breakdown.analysis.awarded} · AO3: {predictedMark.ao_breakdown.evaluation.awarded})
+                    (AO1: {Number.isFinite(predictedMark.ao_breakdown?.knowledge?.awarded) ? Math.round(predictedMark.ao_breakdown.knowledge.awarded) : 0} · AO2: {Number.isFinite(predictedMark.ao_breakdown?.analysis?.awarded) ? Math.round(predictedMark.ao_breakdown.analysis.awarded) : 0} · AO3: {Number.isFinite(predictedMark.ao_breakdown?.evaluation?.awarded) ? Math.round(predictedMark.ao_breakdown.evaluation.awarded) : 0})
                   </span>
                 </div>
               ) : null}

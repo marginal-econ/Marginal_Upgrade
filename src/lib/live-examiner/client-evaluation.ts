@@ -108,9 +108,26 @@ export type ClientEvaluationResult = {
 
 export function evaluateCambridgeAnswer(
   text: string,
-  question: string,
-  maxMark: number,
+  arg2?: number | string,
+  arg3?: number | string,
+  _arg4?: string,
 ): ClientEvaluationResult {
+  let maxMark = 12;
+  let level = "as";
+
+  if (typeof arg2 === "number") {
+    maxMark = arg2;
+    if (typeof arg3 === "string") level = arg3;
+  } else if (typeof arg3 === "number") {
+    maxMark = arg3;
+    if (typeof _arg4 === "string") level = _arg4;
+  } else if (typeof arg2 === "string" && !isNaN(Number(arg2))) {
+    maxMark = Number(arg2);
+    if (typeof arg3 === "string") level = arg3;
+  }
+
+  // Guard against non-numeric or non-finite values
+  maxMark = Number.isFinite(maxMark) && maxMark > 0 ? maxMark : 12;
   const sentences = splitSentences(text);
   const words = text.trim().split(/\s+/).filter(Boolean);
   const wordCount = words.length;
@@ -190,7 +207,11 @@ export function evaluateCambridgeAnswer(
     }
   }
 
-  const totalMark = Math.min(maxMark, ao1Awarded + ao2Awarded + ao3Awarded);
+  const safeAo1 = Number.isFinite(ao1Awarded) ? Math.min(split.ao1_marks, Math.max(0, ao1Awarded)) : 0;
+  const safeAo2 = Number.isFinite(ao2Awarded) ? Math.min(split.ao2_marks, Math.max(0, ao2Awarded)) : 0;
+  const safeAo3 = Number.isFinite(ao3Awarded) ? Math.min(split.ao3_marks, Math.max(0, ao3Awarded)) : 0;
+  const sumMarks = safeAo1 + safeAo2 + safeAo3;
+  const totalMark = Math.min(maxMark, Number.isFinite(sumMarks) ? sumMarks : 0);
 
   // Issues (glossary & grammar)
   const terms = deterministicTerminologyIssues(sentences);
@@ -209,9 +230,9 @@ export function evaluateCambridgeAnswer(
     confidence: wordCount > 150 ? 0.85 : 0.65,
     headline: `${totalMark}/${maxMark} marks calibrated against Cambridge 9708 assessment criteria`,
     ao_breakdown: {
-      knowledge: { awarded: ao1Awarded, out_of: split.ao1_marks },
-      analysis: { awarded: ao2Awarded, out_of: split.ao2_marks },
-      evaluation: { awarded: ao3Awarded, out_of: split.ao3_marks },
+      knowledge: { awarded: safeAo1, out_of: split.ao1_marks || 2 },
+      analysis: { awarded: safeAo2, out_of: split.ao2_marks || 6 },
+      evaluation: { awarded: safeAo3, out_of: split.ao3_marks || 4 },
     },
   };
 

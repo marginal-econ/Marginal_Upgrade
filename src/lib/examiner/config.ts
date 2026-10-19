@@ -139,16 +139,23 @@ export const TARIFF_SPLITS: Record<number, AoSplit> = {
 
 /** AO split by question tariff: exact for 8 and 12, proportional otherwise. */
 export function defaultSplitForMaxMark(maxMark: number): AoSplit {
-  const exact = TARIFF_SPLITS[maxMark];
+  const numericMax =
+    typeof maxMark === "number" && Number.isFinite(maxMark) && maxMark > 0
+      ? maxMark
+      : Number.isFinite(Number(maxMark)) && Number(maxMark) > 0
+        ? Number(maxMark)
+        : 12;
+
+  const exact = TARIFF_SPLITS[numericMax];
   if (exact) return { ...exact };
 
   // Keep the 2:6:4 weighting and make the parts sum exactly to the tariff.
-  const ao1 = Math.max(1, Math.round(maxMark * (2 / 12)));
-  const ao2 = Math.max(1, Math.round(maxMark * (6 / 12)));
-  const ao3 = maxMark - ao1 - ao2;
+  const ao1 = Math.max(1, Math.round(numericMax * (2 / 12)));
+  const ao2 = Math.max(1, Math.round(numericMax * (6 / 12)));
+  const ao3 = numericMax - ao1 - ao2;
   if (ao3 >= 1) return { ao1_marks: ao1, ao2_marks: ao2, ao3_marks: ao3 };
   // Very small tariffs: protect evaluation before analysis.
-  return { ao1_marks: ao1, ao2_marks: Math.max(1, maxMark - ao1 - 1), ao3_marks: 1 };
+  return { ao1_marks: ao1, ao2_marks: Math.max(1, numericMax - ao1 - 1), ao3_marks: 1 };
 }
 
 /** Per-AO mark ceiling for a given tariff, used by the AO skills coach. */

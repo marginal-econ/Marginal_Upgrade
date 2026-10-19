@@ -727,12 +727,14 @@ function PredictedMarkCard({
               justChanged ? "text-primary scale-105" : "text-foreground",
             )}
           >
-            {total_mark}
+            {Number.isFinite(total_mark) ? Math.round(total_mark) : 0}
           </span>
           <span className="text-sm font-medium text-muted-foreground">/ {maxMark} marks</span>
         </div>
         {headline ? (
-          <p className="mt-1.5 text-[11px] text-muted-foreground leading-relaxed">{headline}</p>
+          <p className="mt-1.5 text-[11px] text-muted-foreground leading-relaxed">
+            {headline.replace(/NaN\/?(?:as|[0-9]+)?/gi, `${Number.isFinite(total_mark) ? Math.round(total_mark) : 0}/${maxMark}`)}
+          </p>
         ) : null}
         <div className="mt-3.5 space-y-2.5">
           <AoMini
@@ -803,7 +805,9 @@ function AoMini({
   ao: { awarded: number; out_of: number };
   tone: "ao1" | "ao2" | "ao3";
 }) {
-  const pct = ao.out_of > 0 ? Math.min(100, Math.round((ao.awarded / ao.out_of) * 100)) : 0;
+  const safeAwarded = Number.isFinite(ao?.awarded) ? Math.max(0, Math.round(ao.awarded)) : 0;
+  const safeOutOf = Number.isFinite(ao?.out_of) && ao.out_of > 0 ? ao.out_of : (tone === "ao1" ? 2 : tone === "ao2" ? 6 : 4);
+  const pct = safeOutOf > 0 ? Math.min(100, Math.round((safeAwarded / safeOutOf) * 100)) : 0;
   const toneClass = { ao1: "bg-ao1", ao2: "bg-ao2", ao3: "bg-ao3" }[tone];
   return (
     <div className="grid grid-cols-[auto_1fr_auto] items-center gap-2 text-[10px]">
@@ -815,11 +819,11 @@ function AoMini({
         <div
           className={cn("h-full rounded-full transition-all duration-700", toneClass)}
           style={{ width: `${pct}%` }}
-          aria-label={`${label} ${name}: ${ao.awarded} out of ${ao.out_of}`}
+          aria-label={`${label} ${name}: ${safeAwarded} out of ${safeOutOf}`}
         />
       </div>
       <span className="w-10 text-right font-mono font-medium text-foreground">
-        {ao.awarded}/{ao.out_of}
+        {safeAwarded}/{safeOutOf}
       </span>
     </div>
   );

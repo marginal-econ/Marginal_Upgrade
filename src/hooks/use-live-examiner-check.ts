@@ -319,9 +319,9 @@ export function useLiveExaminerCheck(params: {
       if (text.trim().length >= 40) {
         try {
           const clientEval = evaluateCambridgeAnswer(text, maxMark, level);
-          if (clientEval.predictedMark) {
+          if (clientEval.predictedMark && Number.isFinite(clientEval.predictedMark.total_mark)) {
             setPredictedMark((current) => {
-              if (!current) return clientEval.predictedMark;
+              if (!current || !Number.isFinite(current.total_mark)) return clientEval.predictedMark;
               // If client evaluated score is higher (student wrote more words & causal chains)
               // or current mark was an early draft score that hasn't refreshed:
               if (clientEval.predictedMark.total_mark > current.total_mark) {
@@ -411,14 +411,14 @@ export function useLiveExaminerCheck(params: {
           const latestText = latestTextRef.current;
 
           // Always accept predicted mark if returned, otherwise preserve or compute client evaluation
-          if (result.predictedMark) {
+          if (result.predictedMark && Number.isFinite(result.predictedMark.total_mark)) {
             setPredictedMark(result.predictedMark);
           } else if (latestText.trim().length >= 40) {
             try {
               const fallbackEval = evaluateCambridgeAnswer(latestText, maxMark, level);
-              if (fallbackEval.predictedMark) {
+              if (fallbackEval.predictedMark && Number.isFinite(fallbackEval.predictedMark.total_mark)) {
                 setPredictedMark((curr) => {
-                  if (!curr || fallbackEval.predictedMark.total_mark > curr.total_mark) {
+                  if (!curr || !Number.isFinite(curr.total_mark) || fallbackEval.predictedMark.total_mark > curr.total_mark) {
                     return fallbackEval.predictedMark;
                   }
                   return curr;

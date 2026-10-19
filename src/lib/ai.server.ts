@@ -302,11 +302,20 @@ async function chatViaProvider(
     activeKeysToTry = [...orderedPoolKeys, ...fallbackVipKeys];
   } else {
     // High-tier users (> 199, school, teacher, admin):
-    // Dedicated Primary Paid Key first. If it ever hits 429/503, fails over to Secondary Paid Key!
-    const paidKeys = [config.paidPrimaryKey || config.apiKey, config.paidSecondaryKey].filter(
-      Boolean,
-    ) as string[];
-    activeKeysToTry = paidKeys.length > 0 ? paidKeys : [config.apiKey];
+    // Dedicated Primary Paid Key first. If it ever hits 429/503, fails over to Secondary Paid Key,
+    // and if still exhausted or empty, seamlessly falls back across all available Priority Pool keys!
+    const paidKeys = [config.paidPrimaryKey, config.paidSecondaryKey].filter(
+      (k): k is string => Boolean(k && k.length > 5),
+    );
+    const pool =
+      config.apiKeys && config.apiKeys.length > 0
+        ? config.apiKeys
+        : config.budgetPoolKeys && config.budgetPoolKeys.length > 0
+          ? config.budgetPoolKeys
+          : [config.apiKey];
+    const nonPaidPool = pool.filter((k) => !paidKeys.includes(k));
+    activeKeysToTry = [...paidKeys, ...nonPaidPool];
+    if (activeKeysToTry.length === 0) activeKeysToTry = [config.apiKey];
   }
 
   if (config.provider === "anthropic") {
@@ -433,7 +442,14 @@ async function chatViaProvider(
               "gemini-3.1-flash",
             ]),
           )
-        : Array.from(new Set([resolvedBaseModel, "gemini-3.8-flash", "gemini-3.1-flash"]))
+        : Array.from(
+            new Set([
+              resolvedBaseModel,
+              "gemini-3.1-pro-preview",
+              "gemini-3.8-flash",
+              "gemini-3.1-flash",
+            ]),
+          )
       : [config.model];
 
   let usedModel = candidateModels[0];
@@ -482,9 +498,17 @@ async function chatViaProvider(
           break; // All keys exhausted on this model, step to next candidate model
         }
 
-        if (response.status === 404 && config.provider === "google") {
+        const isModelUnavailable =
+          (response.status === 404 ||
+            (response.status === 400 &&
+              (text.toLowerCase().includes("model") ||
+                text.toLowerCase().includes("not found") ||
+                text.toLowerCase().includes("unsupported")))) &&
+          config.provider === "google";
+
+        if (isModelUnavailable) {
           console.warn(
-            `[chatViaProvider] Google Model ${m} returned 404 (deprecated/unavailable). Falling back to next candidate model...`,
+            `[chatViaProvider] Google Model ${m} returned ${response.status} (deprecated/unavailable). Falling back to next candidate model...`,
           );
           break; // Step to next candidate model immediately
         }
