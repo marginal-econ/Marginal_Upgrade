@@ -951,6 +951,7 @@ export const testSpecificKey = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await assertAdmin(context);
     const { chat } = await import("./ai.server");
+    const { normaliseConfig } = await import("./ai/active.server");
     const testModel =
       data.model?.trim() || (data.provider === "google" ? "gemini-3.8-flash" : "gpt-4o-mini");
     const config = normaliseConfig({
