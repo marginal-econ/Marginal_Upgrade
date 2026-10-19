@@ -364,20 +364,30 @@ async function chatViaProvider(
   if (options.json) body.response_format = { type: "json_object" };
   if (options.maxCompletionTokens) body.max_completion_tokens = options.maxCompletionTokens;
 
-  // High-tier users (> 199) strictly preserve their premium model (no degradation down to flash).
-  // Budget users (<= 199) degrade to modern Flash models when 429/503 happens, but NEVER below flash.
+  function resolveGoogleModel(rawModel: string): string {
+    const cleaned = rawModel.replace(/^(google\/|models\/)/, "");
+    if (cleaned === "gemini-2.5-pro") return "gemini-3.1-pro-preview";
+    if (cleaned === "gemini-2.5-flash" || cleaned === "gemini-2.0-flash") return "gemini-3.8-flash";
+    return cleaned;
+  }
+
+  const resolvedBaseModel =
+    config.provider === "google" ? resolveGoogleModel(config.model) : config.model;
+
+  // High-tier users (> 199) preserve their premium model (falling back to flash only if 404/429/503 occurs).
+  // Budget users (<= 199) degrade through the Flash hierarchy.
   const candidateModels =
     config.provider === "google"
       ? isBudget
         ? Array.from(
             new Set([
-              config.model.replace(/^(google\/|models\/)/, ""),
+              resolvedBaseModel,
               "gemini-3.8-flash",
               "gemini-3.1-flash",
               "gemini-3.6-flash",
             ]),
           )
-        : [config.model.replace(/^(google\/|models\/)/, "")]
+        : Array.from(new Set([resolvedBaseModel, "gemini-3.8-flash", "gemini-3.1-flash"]))
       : [config.model];
 
   let usedModel = candidateModels[0];
@@ -412,7 +422,7 @@ async function chatViaProvider(
         lastErrStatus = response.status;
         lastErrDetail = text;
 
-        // Rate limit or server error on this specific model/key — rotate key or try next candidate model
+        // Rate limit, server error, or 404 deprecated model on Google: rotate key or try next candidate model
         if (response.status === 429 || response.status === 503) {
           markKeyRateLimited(currentKey, 60_000);
           console.warn(
@@ -422,6 +432,13 @@ async function chatViaProvider(
             continue; // Try next key on this same model
           }
           break; // All keys exhausted on this model, step to next candidate model
+        }
+
+        if (response.status === 404 && config.provider === "google") {
+          console.warn(
+            `[chatViaProvider] Google Model ${m} returned 404 (deprecated/unavailable). Falling back to next candidate model...`,
+          );
+          break; // Step to next candidate model immediately
         }
 
         // Any other client error (e.g. 401 unauthorized, 400 bad request) fails immediately

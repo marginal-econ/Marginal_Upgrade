@@ -952,8 +952,15 @@ export const testSpecificKey = createServerFn({ method: "POST" })
     await assertAdmin(context);
     const { chat } = await import("./ai.server");
     const { normaliseConfig } = await import("./ai/active.server");
-    const testModel =
+    let testModel =
       data.model?.trim() || (data.provider === "google" ? "gemini-3.8-flash" : "gpt-4o-mini");
+    if (data.provider === "google") {
+      const cleaned = testModel.replace(/^(google\/|models\/)/, "");
+      if (cleaned === "gemini-2.5-pro") testModel = "gemini-3.1-pro-preview";
+      else if (cleaned === "gemini-2.5-flash" || cleaned === "gemini-2.0-flash")
+        testModel = "gemini-3.8-flash";
+    }
+
     const config = normaliseConfig({
       provider: data.provider,
       api_key: data.apiKey,
@@ -964,13 +971,35 @@ export const testSpecificKey = createServerFn({ method: "POST" })
 
     const started = Date.now();
     try {
-      const result = await chat({
-        model: testModel,
-        overrideProvider: config,
-        messages: [{ role: "user", content: "Reply with exactly: OK" }],
-        maxCompletionTokens: 10,
-        isBudgetTier: false,
-      });
+      let result;
+      try {
+        result = await chat({
+          model: testModel,
+          overrideProvider: config,
+          messages: [{ role: "user", content: "Reply with exactly: OK" }],
+          maxCompletionTokens: 10,
+          isBudgetTier: false,
+        });
+      } catch (firstErr: unknown) {
+        const status =
+          typeof firstErr === "object" && firstErr !== null && "status" in firstErr
+            ? (firstErr as { status: number }).status
+            : 500;
+        if (data.provider === "google" && status === 404 && testModel !== "gemini-3.8-flash") {
+          testModel = "gemini-3.8-flash";
+          config.model = testModel;
+          result = await chat({
+            model: testModel,
+            overrideProvider: config,
+            messages: [{ role: "user", content: "Reply with exactly: OK" }],
+            maxCompletionTokens: 10,
+            isBudgetTier: false,
+          });
+        } else {
+          throw firstErr;
+        }
+      }
+
       return {
         ok: true,
         reply: result.text.trim().slice(0, 80) || "OK",
