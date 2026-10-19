@@ -540,6 +540,9 @@ function Index() {
       {/* ── Real Graded Essay Showcase (User Scored Exemplar) ────────────── */}
       <RealEssayShowcase />
 
+      {/* ── Why Marginal Beats Raw AI (Real 12-Mark Stress Test) ─────────── */}
+      <AiComparisonSection />
+
       {/* ── Cambridge Syllabus Coverage & RAG Knowledge Engine ────────────── */}
       <RagEngineSection />
 
@@ -791,9 +794,6 @@ function Index() {
           </Reveal>
         </div>
       </section>
-
-      {/* ── Why Marginal Beats Raw AI (Stress-Test Comparison) ─────────── */}
-      <AiComparisonSection />
 
       {/* ── Pricing ──────────────────────────────────────────────────────── */}
       <PricingSection />
