@@ -2088,3 +2088,527 @@ export const getClassroomGradebook = createServerFn({ method: "GET" })
       },
     };
   });
+
+/* ---------------------------------------------------------------------- */
+/*  AGGREGATE STUDENT PERFORMANCE & LIFETIME PORTFOLIO (FOR TEACHERS)     */
+/* ---------------------------------------------------------------------- */
+
+const CAMBRIDGE_PRESET_BANK_QUESTIONS = [
+  {
+    id: "preset-cb-1",
+    level: "as",
+    exam_series: "9708/21/M/J/23",
+    topic: "Unit 2: Price Mechanism & Elasticity",
+    max_mark: 8,
+    question_text: "Explain, using supply and demand analysis, how an increase in consumer income would affect the equilibrium price and quantity of normal goods compared to inferior goods.",
+  },
+  {
+    id: "preset-cb-2",
+    level: "as",
+    exam_series: "9708/22/O/N/23",
+    topic: "Unit 3: Government Micro Intervention",
+    max_mark: 12,
+    question_text: "Assess the effectiveness of a minimum price policy compared to indirect taxation in reducing the consumption of demerit goods.",
+  },
+  {
+    id: "preset-cb-3",
+    level: "as",
+    exam_series: "9708/23/F/M/24",
+    topic: "Unit 4: The National Economy (Macro)",
+    max_mark: 8,
+    question_text: "Explain the circular flow of income in an open economy and the difference between injections and leakages.",
+  },
+  {
+    id: "preset-cb-4",
+    level: "as",
+    exam_series: "9708/22/M/J/24",
+    topic: "Unit 5: Government Macro Intervention",
+    max_mark: 12,
+    question_text: "Discuss whether monetary policy or fiscal policy is more effective in achieving price stability in an economy facing cost-push inflation.",
+  },
+  {
+    id: "preset-cb-5",
+    level: "as",
+    exam_series: "9708/21/O/N/23",
+    topic: "Unit 6: International Economic Issues",
+    max_mark: 12,
+    question_text: "Discuss the consequences of a persistent deficit on the current account of the balance of payments for an economy's exchange rate and standard of living.",
+  },
+  {
+    id: "preset-cb-6",
+    level: "a2",
+    exam_series: "9708/42/M/J/23",
+    topic: "Unit 7: Theory of the Firm & Market Structures",
+    max_mark: 20,
+    question_text: "A contestable market ensures that firms act in the public interest regardless of market concentration. Critically evaluate this statement with reference to oligopoly and monopoly markets.",
+  },
+  {
+    id: "preset-cb-7",
+    level: "a2",
+    exam_series: "9708/41/O/N/23",
+    topic: "Unit 8: Labor Market & Wage Determination",
+    max_mark: 20,
+    question_text: "Assess whether wage differentials in an economy can be solely explained by the Marginal Revenue Productivity (MRP) theory of wages.",
+  },
+  {
+    id: "preset-cb-8",
+    level: "a2",
+    exam_series: "9708/43/M/J/24",
+    topic: "Unit 9: Economic Growth & Development",
+    max_mark: 20,
+    question_text: "Discuss whether sustainable economic growth can be achieved in developing economies without exacerbating income inequality and environmental degradation.",
+  },
+];
+
+/**
+ * Lists question bank essay questions for teachers to set directly as classroom assignments.
+ * Merges approved questions from bank_essay_questions with authentic Cambridge syllabus presets.
+ */
+export const listClassroomBankQuestions = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z
+      .object({
+        classroomId: z.string().uuid(),
+        level: z.enum(["as", "a2", "all"]).optional(),
+        topic: z.string().trim().optional(),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const authority = await getClassroomAuthority(context.userId, data.classroomId);
+    if (!authority.isStaff) throw new Error("Teacher access is required.");
+
+    let dbQuestions: any[] = [];
+    try {
+      let q = authority.admin
+        .from("bank_essay_questions")
+        .select("id, question_text, topic, max_mark, exam_series, level, status")
+        .order("created_at", { ascending: false })
+        .limit(300);
+
+      if (data.level && data.level !== "all") {
+        q = q.eq("level", data.level);
+      }
+      if (data.topic && data.topic !== "__any__") {
+        q = q.eq("topic", data.topic);
+      }
+
+      const { data: rows } = await q;
+      if (rows) dbQuestions = rows;
+    } catch {}
+
+    const combined: Array<{
+      id: string;
+      level: string;
+      exam_series: string;
+      topic: string;
+      max_mark: number;
+      question_text: string;
+      isPreset?: boolean;
+    }> = [];
+
+    const seenText = new Set<string>();
+
+    for (const row of dbQuestions) {
+      const clean = row.question_text.trim().toLowerCase();
+      if (!seenText.has(clean)) {
+        seenText.add(clean);
+        combined.push({
+          id: row.id,
+          level: row.level || "as",
+          exam_series: row.exam_series || "Past Paper Question",
+          topic: row.topic || "Economics",
+          max_mark: Number(row.max_mark) || 20,
+          question_text: row.question_text,
+        });
+      }
+    }
+
+    for (const preset of CAMBRIDGE_PRESET_BANK_QUESTIONS) {
+      if (data.level && data.level !== "all" && preset.level !== data.level) continue;
+      if (data.topic && data.topic !== "__any__" && preset.topic !== data.topic) continue;
+
+      const clean = preset.question_text.trim().toLowerCase();
+      if (!seenText.has(clean)) {
+        seenText.add(clean);
+        combined.push({
+          ...preset,
+          isPreset: true,
+        });
+      }
+    }
+
+    return { questions: combined };
+  });
+
+/**
+ * Teacher: Comprehensive aggregate analytics across all students enrolled in this classroom.
+ * Aggregates lifetime essays, lifetime MCQs, student academic levels, and activity.
+ */
+export const getClassroomAggregateAnalytics = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => classroomIdInput.parse(input))
+  .handler(async ({ data, context }) => {
+    const authority = await getClassroomAuthority(context.userId, data.classroomId);
+    if (!authority.isStaff) throw new Error("Teacher access is required.");
+
+    // Fetch members
+    let memberList: any[] = [];
+    try {
+      const { data: members, error: mErr } = await authority.admin
+        .from("classroom_members")
+        .select("student_id, joined_at")
+        .eq("classroom_id", data.classroomId)
+        .order("joined_at", { ascending: true });
+      if (!mErr && members) memberList = members;
+    } catch {}
+
+    const studentIds = memberList.map((m) => m.student_id);
+    if (studentIds.length === 0) {
+      return {
+        summary: {
+          totalStudents: 0,
+          classLifetimeEssayAvgPct: null,
+          classLifetimeMcqAvgPct: null,
+          totalEssaysMarked: 0,
+          totalMcqsAttempted: 0,
+        },
+        students: [],
+      };
+    }
+
+    const userMap = await resolveUsersBatch(authority.admin, studentIds, "Student");
+
+    // Fetch all essays, mcq attempts, and mcq pdf attempts for all enrolled students
+    const [essaysRes, mcqGenRes, mcqPdfRes] = await Promise.all([
+      authority.admin
+        .from("essays")
+        .select("id, user_id, question, max_mark, latest_mark, created_at, updated_at")
+        .in("user_id", studentIds)
+        .order("created_at", { ascending: false }),
+      authority.admin
+        .from("mcq_attempts")
+        .select("id, user_id, title, topic, level, score, total, created_at, completed_at")
+        .in("user_id", studentIds),
+      authority.admin
+        .from("mcq_pdf_attempts")
+        .select("id, user_id, title, level, score, total, created_at, completed_at")
+        .in("user_id", studentIds),
+    ]);
+
+    const essaysByStudent = new Map<string, any[]>();
+    for (const e of essaysRes.data ?? []) {
+      const list = essaysByStudent.get(e.user_id) ?? [];
+      list.push(e);
+      essaysByStudent.set(e.user_id, list);
+    }
+
+    const mcqsByStudent = new Map<string, any[]>();
+    for (const m of mcqGenRes.data ?? []) {
+      const list = mcqsByStudent.get(m.user_id) ?? [];
+      list.push(m);
+      mcqsByStudent.set(m.user_id, list);
+    }
+    for (const m of mcqPdfRes.data ?? []) {
+      const list = mcqsByStudent.get(m.user_id) ?? [];
+      list.push(m);
+      mcqsByStudent.set(m.user_id, list);
+    }
+
+    const allEssayPcts: number[] = [];
+    let totalAllMcqCorrect = 0;
+    let totalAllMcqCount = 0;
+
+    const studentRows = memberList.map((m) => {
+      const sid = m.student_id;
+      const u = userMap.get(sid);
+      const sEssays = essaysByStudent.get(sid) ?? [];
+      const sMcqs = mcqsByStudent.get(sid) ?? [];
+
+      const essayPcts: number[] = [];
+      for (const e of sEssays) {
+        if (e.latest_mark !== null && e.latest_mark !== undefined && Number(e.max_mark) > 0) {
+          const pct = Math.round((Number(e.latest_mark) / Number(e.max_mark)) * 100);
+          essayPcts.push(pct);
+          allEssayPcts.push(pct);
+        }
+      }
+      const essayAvgPct =
+        essayPcts.length > 0 ? Math.round(essayPcts.reduce((a, b) => a + b, 0) / essayPcts.length) : null;
+
+      let mcqCorrect = 0;
+      let mcqTotal = 0;
+      for (const item of sMcqs) {
+        if (item.score !== null && item.score !== undefined && Number(item.total) > 0) {
+          mcqCorrect += Number(item.score);
+          mcqTotal += Number(item.total);
+        }
+      }
+      totalAllMcqCorrect += mcqCorrect;
+      totalAllMcqCount += mcqTotal;
+      const mcqAccuracyPct = mcqTotal > 0 ? Math.round((mcqCorrect / mcqTotal) * 100) : null;
+
+      // Determine Student Level
+      let level = "AS Level";
+      const asCount = sMcqs.filter((item) => item.level === "as").length;
+      const a2Count = sMcqs.filter((item) => item.level === "a2").length;
+      if (asCount > 0 && a2Count > 0) {
+        level = "AS & A2 Mixed";
+      } else if (a2Count > 0) {
+        level = "A2 Level";
+      } else if (authority.classroom.level) {
+        level = authority.classroom.level.toUpperCase().includes("A2") ? "A2 Level" : "AS Level";
+      }
+
+      // Recent Activity
+      const timestamps = [
+        ...sEssays.map((e) => new Date(e.created_at).getTime()),
+        ...sMcqs.map((item) => new Date(item.created_at).getTime()),
+      ].filter(Boolean);
+      const lastActiveAt = timestamps.length > 0 ? new Date(Math.max(...timestamps)).toISOString() : null;
+
+      return {
+        id: sid,
+        fullName: u?.fullName || "Student",
+        email: u?.email ?? "",
+        school: u?.school ?? null,
+        avatarUrl: u?.avatarUrl ?? null,
+        joinedAt: m.joined_at,
+        level,
+        totalEssays: sEssays.length,
+        essayAvgPct,
+        totalMcqs: mcqTotal,
+        mcqAccuracyPct,
+        lastActiveAt,
+      };
+    });
+
+    const classLifetimeEssayAvgPct =
+      allEssayPcts.length > 0
+        ? Math.round(allEssayPcts.reduce((a, b) => a + b, 0) / allEssayPcts.length)
+        : null;
+
+    const classLifetimeMcqAvgPct =
+      totalAllMcqCount > 0 ? Math.round((totalAllMcqCorrect / totalAllMcqCount) * 100) : null;
+
+    return {
+      summary: {
+        totalStudents: studentRows.length,
+        classLifetimeEssayAvgPct,
+        classLifetimeMcqAvgPct,
+        totalEssaysMarked: essaysRes.data?.length ?? 0,
+        totalMcqsAttempted: totalAllMcqCount,
+      },
+      students: studentRows,
+    };
+  });
+
+/**
+ * Teacher: Comprehensive lifetime portfolio for an enrolled student.
+ * Returns all essays attempted before and after joining, all MCQ attempts, and syllabus topic mastery.
+ */
+export const getStudentLifetimePortfolio = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({ classroomId: z.string().uuid(), studentId: z.string().uuid() }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const authority = await getClassroomAuthority(context.userId, data.classroomId);
+    if (!authority.isStaff) throw new Error("Teacher access is required.");
+
+    const [userMap, profileRes, essaysRes, mcqGenRes, mcqPdfRes, liveSessionsRes] = await Promise.all([
+      resolveUsersBatch(authority.admin, [data.studentId], "Student"),
+      authority.admin.from("profiles").select("*").eq("id", data.studentId).maybeSingle(),
+      authority.admin
+        .from("essays")
+        .select("id, question, max_mark, latest_mark, topic_id, created_at, updated_at, assignment_id")
+        .eq("user_id", data.studentId)
+        .order("created_at", { ascending: false }),
+      authority.admin
+        .from("mcq_attempts")
+        .select("id, title, topic, level, status, score, total, questions, answers, created_at, completed_at")
+        .eq("user_id", data.studentId)
+        .order("created_at", { ascending: false }),
+      authority.admin
+        .from("mcq_pdf_attempts")
+        .select("id, title, filename, level, score, total, questions, created_at, completed_at")
+        .eq("user_id", data.studentId)
+        .order("created_at", { ascending: false }),
+      authority.admin
+        .from("live_examiner_sessions")
+        .select("id, level, topic, question, max_mark, essay_text, issues_history, created_at, updated_at")
+        .eq("user_id", data.studentId)
+        .order("updated_at", { ascending: false }),
+    ]);
+
+    const u = userMap.get(data.studentId);
+
+    // Fetch versions for all essays to get AO marks and examiner feedback
+    const essayIds = (essaysRes.data ?? []).map((e) => e.id);
+    const versionsMap = new Map<string, any>();
+    if (essayIds.length > 0) {
+      try {
+        const { data: versions } = await authority.admin
+          .from("essay_versions")
+          .select("id, essay_id, total_mark, ao1_awarded, ao2_awarded, ao3_awarded, grading, created_at")
+          .in("essay_id", essayIds)
+          .order("created_at", { ascending: false });
+
+        for (const v of versions ?? []) {
+          if (!versionsMap.has(v.essay_id)) {
+            versionsMap.set(v.essay_id, v);
+          }
+        }
+      } catch {}
+    }
+
+    // Build enriched essays list
+    const enrichedEssays = (essaysRes.data ?? []).map((e) => {
+      const ver = versionsMap.get(e.id);
+      const mark = e.latest_mark ?? ver?.total_mark ?? null;
+      const percentage =
+        mark !== null && Number(e.max_mark) > 0
+          ? Math.round((Number(mark) / Number(e.max_mark)) * 100)
+          : null;
+      return {
+        id: e.id,
+        question: e.question,
+        maxMark: Number(e.max_mark) || 20,
+        mark: mark !== null ? Number(mark) : null,
+        percentage,
+        ao1: ver?.ao1_awarded !== null && ver?.ao1_awarded !== undefined ? Number(ver.ao1_awarded) : null,
+        ao2: ver?.ao2_awarded !== null && ver?.ao2_awarded !== undefined ? Number(ver.ao2_awarded) : null,
+        ao3: ver?.ao3_awarded !== null && ver?.ao3_awarded !== undefined ? Number(ver.ao3_awarded) : null,
+        feedback: ver?.grading ?? null,
+        createdAt: e.created_at,
+        isAssignment: Boolean(e.assignment_id),
+      };
+    });
+
+    // Build unified MCQ attempts list
+    const enrichedMcqs: any[] = [];
+    for (const m of mcqPdfRes.data ?? []) {
+      enrichedMcqs.push({
+        id: m.id,
+        kind: "mcq_pdf",
+        title: m.title || m.filename || "Cambridge Past Paper MCQ Test",
+        level: m.level || "as",
+        score: m.score !== null ? Number(m.score) : null,
+        total: Number(m.total) || 30,
+        percentage:
+          m.score !== null && Number(m.total) > 0
+            ? Math.round((Number(m.score) / Number(m.total)) * 100)
+            : null,
+        completedAt: m.completed_at || m.created_at,
+        questions: m.questions,
+      });
+    }
+
+    for (const m of mcqGenRes.data ?? []) {
+      enrichedMcqs.push({
+        id: m.id,
+        kind: "mcq_practice",
+        title: m.title || m.topic || "Topic Practice MCQ",
+        level: m.level || "as",
+        score: m.score !== null ? Number(m.score) : null,
+        total: Number(m.total) || 10,
+        percentage:
+          m.score !== null && Number(m.total) > 0
+            ? Math.round((Number(m.score) / Number(m.total)) * 100)
+            : null,
+        completedAt: m.completed_at || m.created_at,
+        questions: m.questions,
+      });
+    }
+
+    enrichedMcqs.sort(
+      (a, b) => new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime(),
+    );
+
+    // Compute Topic Mastery breakdown
+    const topicStats = new Map<string, { attempted: number; correct: number }>();
+    for (const m of enrichedMcqs) {
+      if (Array.isArray(m.questions)) {
+        for (const q of m.questions) {
+          const t = q?.topic || "General Economics";
+          const current = topicStats.get(t) ?? { attempted: 0, correct: 0 };
+          current.attempted += 1;
+          if (q?.is_correct || (q?.user_answer && q?.user_answer === q?.correct_answer)) {
+            current.correct += 1;
+          }
+          topicStats.set(t, current);
+        }
+      }
+    }
+
+    const topics = Array.from(topicStats.entries()).map(([topic, stat]) => ({
+      topic,
+      attempted: stat.attempted,
+      correct: stat.correct,
+      accuracyPct: stat.attempted > 0 ? Math.round((stat.correct / stat.attempted) * 100) : null,
+    }));
+
+    // Overall summary calculations
+    const essayPcts = enrichedEssays
+      .map((e) => e.percentage)
+      .filter((p): p is number => p !== null);
+    const averageEssayPercent =
+      essayPcts.length > 0 ? Math.round(essayPcts.reduce((a, b) => a + b, 0) / essayPcts.length) : null;
+
+    let totalMcqCorrect = 0;
+    let totalMcqAttempted = 0;
+    for (const m of enrichedMcqs) {
+      if (m.score !== null && m.total > 0) {
+        totalMcqCorrect += Number(m.score);
+        totalMcqAttempted += Number(m.total);
+      }
+    }
+    const overallMcqAccuracyPct =
+      totalMcqAttempted > 0 ? Math.round((totalMcqCorrect / totalMcqAttempted) * 100) : null;
+
+    // Student Academic Level
+    let studentLevel = "AS Level";
+    const asCount = enrichedMcqs.filter((item) => item.level === "as").length;
+    const a2Count = enrichedMcqs.filter((item) => item.level === "a2").length;
+    if (asCount > 0 && a2Count > 0) {
+      studentLevel = "AS & A2 Mixed";
+    } else if (a2Count > 0) {
+      studentLevel = "A2 Level";
+    } else if (authority.classroom.level) {
+      studentLevel = authority.classroom.level.toUpperCase().includes("A2") ? "A2 Level" : "AS Level";
+    }
+
+    return {
+      student: {
+        id: data.studentId,
+        fullName: u?.fullName || profileRes.data?.full_name || "Student",
+        email: u?.email || profileRes.data?.email || "",
+        school: u?.school || profileRes.data?.school || null,
+        level: studentLevel,
+        targetGrade: profileRes.data?.target_grade || null,
+        examBoard: profileRes.data?.exam_board || "Cambridge 9708",
+        lastSeen: profileRes.data?.last_seen || null,
+      },
+      summary: {
+        averageEssayPercent,
+        totalEssaysMarked: enrichedEssays.length,
+        mcqAccuracyPercent: overallMcqAccuracyPct,
+        totalMcqCorrect,
+        totalMcqAttempted,
+        liveExaminerSessions: liveSessionsRes.data?.length ?? 0,
+      },
+      essays: enrichedEssays,
+      mcqs: enrichedMcqs,
+      topics,
+      liveSessions: (liveSessionsRes.data ?? []).map((s) => ({
+        id: s.id,
+        question: s.question,
+        topic: s.topic,
+        level: s.level,
+        maxMark: s.max_mark,
+        updatedAt: s.updated_at,
+      })),
+    };
+  });
+

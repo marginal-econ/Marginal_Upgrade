@@ -16,6 +16,8 @@ import {
   Clock,
   Copy,
   Download,
+  ExternalLink,
+  Eye,
   FileCheck2,
   FileEdit,
   FileText,
@@ -23,6 +25,7 @@ import {
   GraduationCap,
   HelpCircle,
   Layers,
+  ListChecks,
   LogOut,
   Mail,
   Maximize2,
@@ -80,16 +83,19 @@ import {
   deleteClassroomMessage,
   deleteComment,
   getAssignmentSubmissions,
+  getClassroomAggregateAnalytics,
   getClassroomGradebook,
   getClassroomRoster,
   getClassroomTeachers,
   getStudentClassroomInsights,
   getStudentClassroomOverview,
+  getStudentLifetimePortfolio,
   gradeAssignmentSubmission,
   joinClassroom,
   leaveClassroom,
   listAnnouncements,
   listClassroomAssignments,
+  listClassroomBankQuestions,
   listClassroomMessages,
   listClassrooms,
   removeClassroomMember,
@@ -100,6 +106,7 @@ import {
   togglePinAnnouncement,
   togglePinClassroomMessage,
 } from "@/lib/classroom.functions";
+import { listMcqPapers } from "@/lib/mcq-papers.functions";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/classes")({
@@ -1551,6 +1558,8 @@ function ClassworkTab({
   const createAssignmentFn = useServerFn(createClassroomAssignment);
   const deleteAssignmentFn = useServerFn(deleteClassroomAssignment);
   const submitWorkFn = useServerFn(submitAssignmentWork);
+  const listBankQuestionsFn = useServerFn(listClassroomBankQuestions);
+  const listMcqPapersFn = useServerFn(listMcqPapers);
 
   const [filter, setFilter] = useState<"all" | "essay" | "mcq_paper">("all");
   const [createOpen, setCreateOpen] = useState(false);
@@ -1566,6 +1575,13 @@ function ClassworkTab({
   const [essayQuestion, setEssayQuestion] = useState("");
   const [essayTopic, setEssayTopic] = useState("Unit 2: Price Mechanism & Elasticity");
   const [essayMaxMark, setEssayMaxMark] = useState(20);
+  const [bankEssayQuestionId, setBankEssayQuestionId] = useState<string | null>(null);
+  const [mcqPaperId, setMcqPaperId] = useState<string | null>(null);
+  const [essaySource, setEssaySource] = useState<"bank" | "custom">("bank");
+  const [bankSearch, setBankSearch] = useState("");
+  const [bankLevel, setBankLevel] = useState<"all" | "as" | "a2">("all");
+  const [mcqSearch, setMcqSearch] = useState("");
+  const [mcqLevel, setMcqLevel] = useState<"all" | "as" | "a2">("all");
 
   // Student Submission state
   const [submittingAssignmentId, setSubmittingAssignmentId] = useState<string | null>(null);
@@ -1574,6 +1590,18 @@ function ClassworkTab({
   const { data: assignments, isLoading } = useQuery({
     queryKey: ["classroom_assignments", classroom.id],
     queryFn: () => listAssignmentsFn({ data: { classroomId: classroom.id } }),
+  });
+
+  const bankQuestionsQuery = useQuery({
+    queryKey: ["classroom_bank_questions", classroom.id, bankLevel],
+    queryFn: () => listBankQuestionsFn({ data: { classroomId: classroom.id, level: bankLevel } }),
+    enabled: createOpen && kind === "essay" && essaySource === "bank",
+  });
+
+  const mcqPapersQuery = useQuery({
+    queryKey: ["classroom_mcq_papers"],
+    queryFn: () => listMcqPapersFn(),
+    enabled: createOpen && kind === "mcq_paper",
   });
 
   const createMutation = useMutation({
@@ -1585,9 +1613,11 @@ function ClassworkTab({
           title: title.trim(),
           instructions: instructions.trim() || undefined,
           dueAt: dueAt ? new Date(dueAt).toISOString() : null,
+          bankEssayQuestionId: kind === "essay" ? bankEssayQuestionId || undefined : undefined,
           essayQuestion: kind === "essay" ? essayQuestion.trim() || title.trim() : undefined,
           essayTopic: kind === "essay" ? essayTopic : undefined,
           essayMaxMark: kind === "essay" ? Number(essayMaxMark) : undefined,
+          mcqPaperId: kind === "mcq_paper" ? mcqPaperId || undefined : undefined,
         },
       });
     },
@@ -1598,6 +1628,10 @@ function ClassworkTab({
       setInstructions("");
       setDueAt("");
       setEssayQuestion("");
+      setBankEssayQuestionId(null);
+      setMcqPaperId(null);
+      setBankSearch("");
+      setMcqSearch("");
       queryClient.invalidateQueries({ queryKey: ["classroom_assignments", classroom.id] });
     },
     onError: (err: Error) => toast.error(err.message),
@@ -1627,6 +1661,32 @@ function ClassworkTab({
     if (filter === "all") return list;
     return list.filter((a) => a.kind === filter);
   }, [assignments, filter]);
+
+  const filteredBankQuestions = useMemo(() => {
+    const list = bankQuestionsQuery.data?.questions ?? [];
+    if (!bankSearch.trim()) return list;
+    const term = bankSearch.toLowerCase();
+    return list.filter(
+      (q) =>
+        q.question_text.toLowerCase().includes(term) ||
+        q.topic.toLowerCase().includes(term) ||
+        q.exam_series.toLowerCase().includes(term),
+    );
+  }, [bankQuestionsQuery.data?.questions, bankSearch]);
+
+  const filteredMcqPapers = useMemo(() => {
+    const list = mcqPapersQuery.data?.papers ?? [];
+    return list.filter((p) => {
+      if (mcqLevel !== "all" && p.level !== mcqLevel) return false;
+      if (!mcqSearch.trim()) return true;
+      const term = mcqSearch.toLowerCase();
+      return (
+        p.title.toLowerCase().includes(term) ||
+        (p.examSeries && p.examSeries.toLowerCase().includes(term)) ||
+        (p.examYear && String(p.examYear).includes(term))
+      );
+    });
+  }, [mcqPapersQuery.data?.papers, mcqLevel, mcqSearch]);
 
   return (
     <div className="space-y-6">
@@ -1838,6 +1898,43 @@ function ClassworkTab({
                   </div>
                 )}
 
+                {/* Direct Action Links for Essay & MCQ Live */}
+                <div className="flex flex-wrap items-center gap-2.5 pt-1">
+                  {a.kind === "mcq_paper" && a.mcqPaperId && (
+                    <Button
+                      asChild
+                      size="sm"
+                      className="bg-purple-600 hover:bg-purple-500 text-white font-semibold text-xs shadow-md shadow-purple-950/40"
+                    >
+                      <Link to="/mcq-live" search={{ paperId: a.mcqPaperId }}>
+                        <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
+                        Take MCQ Paper in MCQ Live
+                      </Link>
+                    </Button>
+                  )}
+                  {a.kind === "essay" && (
+                    <Button
+                      asChild
+                      size="sm"
+                      variant="outline"
+                      className="bg-slate-950 text-purple-300 border-purple-800/60 hover:bg-purple-950/50 text-xs font-semibold"
+                    >
+                      <Link
+                        to="/grade"
+                        search={{
+                          q: a.essayQuestion || a.title,
+                          marks: (a.essayMaxMark === 8 || a.essayMaxMark === 12 || a.essayMaxMark === 20
+                            ? a.essayMaxMark
+                            : 20) as 8 | 12 | 20,
+                        }}
+                      >
+                        <Sparkles className="h-3.5 w-3.5 mr-1.5 text-purple-400" />
+                        Open in Marking Desk
+                      </Link>
+                    </Button>
+                  )}
+                </div>
+
                 {/* Student Submission Card Flow */}
                 {role === "student" && (
                   <div className="pt-2 border-t border-slate-800/60">
@@ -1982,16 +2079,411 @@ function ClassworkTab({
             <div className="space-y-4">
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold text-slate-300">Assignment Type</Label>
-                <Select value={kind} onValueChange={(v: "essay" | "mcq_paper") => setKind(v)}>
+                <Select
+                  value={kind}
+                  onValueChange={(v: "essay" | "mcq_paper") => {
+                    setKind(v);
+                    if (v === "mcq_paper") {
+                      setTitle("");
+                    }
+                  }}
+                >
                   <SelectTrigger className="bg-slate-950 border-slate-700 text-white">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent className="bg-slate-900 border-slate-800 text-white">
                     <SelectItem value="essay">Cambridge Economics Essay (8, 12, 20m)</SelectItem>
-                    <SelectItem value="mcq_paper">MCQ Past Paper Test</SelectItem>
+                    <SelectItem value="mcq_paper">MCQ Past Paper Test (from MCQ Live)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
+
+              {kind === "essay" && (
+                <div className="space-y-3 p-4 rounded-xl bg-slate-950/60 border border-slate-800">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-semibold text-slate-300">Question Source</Label>
+                    <div className="flex items-center gap-1 bg-slate-900 p-0.5 rounded-lg border border-slate-800 text-xs">
+                      <button
+                        type="button"
+                        onClick={() => setEssaySource("bank")}
+                        className={cn(
+                          "px-2.5 py-1 rounded-md transition-all font-medium",
+                          essaySource === "bank"
+                            ? "bg-purple-600 text-white shadow-sm"
+                            : "text-slate-400 hover:text-white",
+                        )}
+                      >
+                        <ListChecks className="h-3 w-3 inline mr-1" />
+                        Question Bank
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEssaySource("custom")}
+                        className={cn(
+                          "px-2.5 py-1 rounded-md transition-all font-medium",
+                          essaySource === "custom"
+                            ? "bg-purple-600 text-white shadow-sm"
+                            : "text-slate-400 hover:text-white",
+                        )}
+                      >
+                        <FileEdit className="h-3 w-3 inline mr-1" />
+                        Custom Prompt
+                      </button>
+                    </div>
+                  </div>
+
+                  {essaySource === "bank" ? (
+                    <div className="space-y-3">
+                      <div className="flex flex-col sm:flex-row gap-2">
+                        <div className="relative flex-1">
+                          <Search className="h-3.5 w-3.5 absolute left-3 top-2.5 text-slate-500" />
+                          <Input
+                            value={bankSearch}
+                            onChange={(e) => setBankSearch(e.target.value)}
+                            placeholder="Search Question Bank by keyword (e.g. inflation, tariff, subsidy)..."
+                            className="pl-8 text-xs bg-slate-900 border-slate-800 text-white h-9"
+                          />
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant={bankLevel === "all" ? "default" : "outline"}
+                            onClick={() => setBankLevel("all")}
+                            className={cn(
+                              "text-xs h-9 px-3",
+                              bankLevel === "all"
+                                ? "bg-purple-600 text-white"
+                                : "border-slate-800 text-slate-300",
+                            )}
+                          >
+                            All
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant={bankLevel === "as" ? "default" : "outline"}
+                            onClick={() => setBankLevel("as")}
+                            className={cn(
+                              "text-xs h-9 px-3",
+                              bankLevel === "as"
+                                ? "bg-purple-600 text-white"
+                                : "border-slate-800 text-slate-300",
+                            )}
+                          >
+                            AS Level
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant={bankLevel === "a2" ? "default" : "outline"}
+                            onClick={() => setBankLevel("a2")}
+                            className={cn(
+                              "text-xs h-9 px-3",
+                              bankLevel === "a2"
+                                ? "bg-purple-600 text-white"
+                                : "border-slate-800 text-slate-300",
+                            )}
+                          >
+                            A2 Level
+                          </Button>
+                        </div>
+                      </div>
+
+                      <div className="max-h-52 overflow-y-auto space-y-2 pr-1 border border-slate-800/80 rounded-xl p-2 bg-slate-950/40">
+                        {bankQuestionsQuery.isLoading ? (
+                          <div className="text-center py-6 text-xs text-slate-500">
+                            Loading Question Bank...
+                          </div>
+                        ) : filteredBankQuestions.length === 0 ? (
+                          <div className="text-center py-6 text-xs text-slate-500">
+                            No matching questions found in Question Bank.
+                          </div>
+                        ) : (
+                          filteredBankQuestions.map((q) => {
+                            const isSelected =
+                              bankEssayQuestionId === q.id || essayQuestion === q.question_text;
+                            return (
+                              <div
+                                key={q.id}
+                                onClick={() => {
+                                  setBankEssayQuestionId(q.id);
+                                  setEssayQuestion(q.question_text);
+                                  setTitle(
+                                    q.question_text.length > 70
+                                      ? q.question_text.slice(0, 67) + "..."
+                                      : q.question_text,
+                                  );
+                                  setEssayTopic(q.topic);
+                                  setEssayMaxMark(q.max_mark);
+                                }}
+                                className={cn(
+                                  "p-3 rounded-lg border text-xs cursor-pointer transition-all space-y-1.5",
+                                  isSelected
+                                    ? "bg-purple-950/50 border-purple-600 ring-1 ring-purple-500"
+                                    : "bg-slate-900/60 border-slate-800/80 hover:border-slate-700 hover:bg-slate-900",
+                                )}
+                              >
+                                <div className="flex items-center justify-between gap-2">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <Badge className="bg-purple-950 text-purple-300 border-purple-800 text-[10px]">
+                                      {q.exam_series}
+                                    </Badge>
+                                    <Badge className="bg-slate-950 text-slate-300 border-slate-700 text-[10px]">
+                                      {q.max_mark} Marks
+                                    </Badge>
+                                    <span className="text-[10px] text-slate-400 font-medium">
+                                      {q.topic}
+                                    </span>
+                                  </div>
+                                  {isSelected && (
+                                    <span className="text-[10px] font-bold text-emerald-400 flex items-center gap-1">
+                                      <Check className="h-3 w-3" /> Selected
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-slate-200 line-clamp-2 leading-relaxed">
+                                  {q.question_text}
+                                </p>
+                              </div>
+                            );
+                          })
+                        )}
+                      </div>
+
+                      {bankEssayQuestionId && (
+                        <div className="p-2.5 rounded-lg bg-emerald-950/20 border border-emerald-800/40 text-xs text-emerald-300 flex items-center justify-between">
+                          <span className="flex items-center gap-1.5 font-medium">
+                            <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+                            Question Bank item chosen: {essayMaxMark} Marks ({essayTopic})
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setBankEssayQuestionId(null);
+                            }}
+                            className="text-[10px] text-emerald-400 hover:underline"
+                          >
+                            Clear
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-1.5">
+                          <Label className="text-xs font-semibold text-slate-300">
+                            Syllabus Topic
+                          </Label>
+                          <Select value={essayTopic} onValueChange={setEssayTopic}>
+                            <SelectTrigger className="bg-slate-950 border-slate-700 text-white">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent className="bg-slate-900 border-slate-800 text-white">
+                              <SelectItem value="Unit 1: Basic Economic Ideas">
+                                Unit 1: Basic Economic Ideas
+                              </SelectItem>
+                              <SelectItem value="Unit 2: The Price System & Microeconomy">
+                                Unit 2: The Price System & Micro
+                              </SelectItem>
+                              <SelectItem value="Unit 3: Government Micro Intervention">
+                                Unit 3: Government Micro Intervention
+                              </SelectItem>
+                              <SelectItem value="Unit 4: The National Economy (Macro)">
+                                Unit 4: The National Economy (Macro)
+                              </SelectItem>
+                              <SelectItem value="Unit 5: Government Macro Intervention">
+                                Unit 5: Government Macro Intervention
+                              </SelectItem>
+                              <SelectItem value="Unit 6: International Economic Issues">
+                                Unit 6: International Economics
+                              </SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <Label className="text-xs font-semibold text-slate-300">
+                            Maximum Marks
+                          </Label>
+                          <Select
+                            value={String(essayMaxMark)}
+                            onValueChange={(v) => setEssayMaxMark(Number(v))}
+                          >
+                            <SelectTrigger className="bg-slate-950 border-slate-700 text-white">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent className="bg-slate-900 border-slate-800 text-white">
+                              <SelectItem value="8">8 Marks (AS Part a)</SelectItem>
+                              <SelectItem value="12">12 Marks (AS Part b / Evaluate)</SelectItem>
+                              <SelectItem value="20">20 Marks (Full Section B/C Essay)</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-semibold text-slate-300">
+                          Full Question Prompt
+                        </Label>
+                        <Textarea
+                          value={essayQuestion}
+                          onChange={(e) => setEssayQuestion(e.target.value)}
+                          placeholder="Enter the exact Cambridge 9708 past paper question prompt..."
+                          className="bg-slate-950 border-slate-700 text-white min-h-[80px]"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {kind === "mcq_paper" && (
+                <div className="space-y-3 p-4 rounded-xl bg-slate-950/60 border border-slate-800">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Label className="text-xs font-semibold text-slate-300 block">
+                        Select Cambridge Past Paper from MCQ Live
+                      </Label>
+                      <span className="text-[11px] text-slate-400">
+                        Choose an official Cambridge 9708 past paper for your students
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <div className="relative flex-1">
+                      <Search className="h-3.5 w-3.5 absolute left-3 top-2.5 text-slate-500" />
+                      <Input
+                        value={mcqSearch}
+                        onChange={(e) => setMcqSearch(e.target.value)}
+                        placeholder="Search past papers (e.g. 2024, Paper 11, June)..."
+                        className="pl-8 text-xs bg-slate-900 border-slate-800 text-white h-9"
+                      />
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={mcqLevel === "all" ? "default" : "outline"}
+                        onClick={() => setMcqLevel("all")}
+                        className={cn(
+                          "text-xs h-9 px-3",
+                          mcqLevel === "all"
+                            ? "bg-purple-600 text-white"
+                            : "border-slate-800 text-slate-300",
+                        )}
+                      >
+                        All
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={mcqLevel === "as" ? "default" : "outline"}
+                        onClick={() => setMcqLevel("as")}
+                        className={cn(
+                          "text-xs h-9 px-3",
+                          mcqLevel === "as"
+                            ? "bg-purple-600 text-white"
+                            : "border-slate-800 text-slate-300",
+                        )}
+                      >
+                        AS Paper 1
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={mcqLevel === "a2" ? "default" : "outline"}
+                        onClick={() => setMcqLevel("a2")}
+                        className={cn(
+                          "text-xs h-9 px-3",
+                          mcqLevel === "a2"
+                            ? "bg-purple-600 text-white"
+                            : "border-slate-800 text-slate-300",
+                        )}
+                      >
+                        A2 Paper 3
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="max-h-52 overflow-y-auto space-y-2 pr-1 border border-slate-800/80 rounded-xl p-2 bg-slate-950/40">
+                    {mcqPapersQuery.isLoading ? (
+                      <div className="text-center py-6 text-xs text-slate-500">
+                        Loading MCQ Live Papers...
+                      </div>
+                    ) : filteredMcqPapers.length === 0 ? (
+                      <div className="text-center py-6 text-xs text-slate-500">
+                        No matching past papers found.
+                      </div>
+                    ) : (
+                      filteredMcqPapers.map((p) => {
+                        const isSelected = mcqPaperId === p.id;
+                        return (
+                          <div
+                            key={p.id}
+                            onClick={() => {
+                              setMcqPaperId(p.id);
+                              setTitle(p.title);
+                              setInstructions(
+                                `Complete this official Cambridge 9708 ${p.level.toUpperCase()} MCQ exam (${p.questionCount} questions) in MCQ Live.`,
+                              );
+                            }}
+                            className={cn(
+                              "p-3 rounded-lg border text-xs cursor-pointer transition-all space-y-1.5",
+                              isSelected
+                                ? "bg-purple-950/50 border-purple-600 ring-1 ring-purple-500"
+                                : "bg-slate-900/60 border-slate-800/80 hover:border-slate-700 hover:bg-slate-900",
+                            )}
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <Badge className="bg-purple-950 text-purple-300 border-purple-800 text-[10px]">
+                                  {p.level.toUpperCase()} Level
+                                </Badge>
+                                <Badge className="bg-slate-950 text-slate-300 border-slate-700 text-[10px]">
+                                  {p.questionCount} Questions
+                                </Badge>
+                                {p.examYear && (
+                                  <span className="text-[10px] text-slate-400 font-medium">
+                                    {p.examSeries ? `${p.examSeries} ` : ""}
+                                    {p.examYear}
+                                  </span>
+                                )}
+                              </div>
+                              {isSelected && (
+                                <span className="text-[10px] font-bold text-emerald-400 flex items-center gap-1">
+                                  <Check className="h-3 w-3" /> Selected
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-slate-200 font-semibold truncate">{p.title}</p>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+
+                  {mcqPaperId && (
+                    <div className="p-2.5 rounded-lg bg-emerald-950/20 border border-emerald-800/40 text-xs text-emerald-300 flex items-center justify-between">
+                      <span className="flex items-center gap-1.5 font-medium">
+                        <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+                        MCQ Paper selected: {title}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMcqPaperId(null);
+                        }}
+                        className="text-[10px] text-emerald-400 hover:underline"
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold text-slate-300">Assignment Title</Label>
@@ -2002,70 +2494,6 @@ function ClassworkTab({
                   className="bg-slate-950 border-slate-700 text-white"
                 />
               </div>
-
-              {kind === "essay" && (
-                <>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                      <Label className="text-xs font-semibold text-slate-300">Syllabus Topic</Label>
-                      <Select value={essayTopic} onValueChange={setEssayTopic}>
-                        <SelectTrigger className="bg-slate-950 border-slate-700 text-white">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent className="bg-slate-900 border-slate-800 text-white">
-                          <SelectItem value="Unit 1: Basic Economic Ideas">
-                            Unit 1: Basic Economic Ideas
-                          </SelectItem>
-                          <SelectItem value="Unit 2: The Price System & Microeconomy">
-                            Unit 2: The Price System & Micro
-                          </SelectItem>
-                          <SelectItem value="Unit 3: Government Micro Intervention">
-                            Unit 3: Government Micro Intervention
-                          </SelectItem>
-                          <SelectItem value="Unit 4: The National Economy (Macro)">
-                            Unit 4: The National Economy (Macro)
-                          </SelectItem>
-                          <SelectItem value="Unit 5: Government Macro Intervention">
-                            Unit 5: Government Macro Intervention
-                          </SelectItem>
-                          <SelectItem value="Unit 6: International Economic Issues">
-                            Unit 6: International Economics
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <Label className="text-xs font-semibold text-slate-300">Maximum Marks</Label>
-                      <Select
-                        value={String(essayMaxMark)}
-                        onValueChange={(v) => setEssayMaxMark(Number(v))}
-                      >
-                        <SelectTrigger className="bg-slate-950 border-slate-700 text-white">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent className="bg-slate-900 border-slate-800 text-white">
-                          <SelectItem value="8">8 Marks (AS Part a)</SelectItem>
-                          <SelectItem value="12">12 Marks (AS Part b / Evaluate)</SelectItem>
-                          <SelectItem value="20">20 Marks (Full Section B/C Essay)</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-semibold text-slate-300">
-                      Full Question Prompt
-                    </Label>
-                    <Textarea
-                      value={essayQuestion}
-                      onChange={(e) => setEssayQuestion(e.target.value)}
-                      placeholder="Enter the exact Cambridge 9708 past paper question prompt..."
-                      className="bg-slate-950 border-slate-700 text-white min-h-[80px]"
-                    />
-                  </div>
-                </>
-              )}
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
@@ -2825,9 +3253,9 @@ function PeopleTab({
         </div>
       )}
 
-      {/* Student Diagnostic Insights Modal */}
+      {/* Student Lifetime Portfolio Modal */}
       {selectedStudentForInsights && (
-        <StudentInsightsModal
+        <StudentLifetimePortfolioModal
           classroomId={classroom.id}
           studentId={selectedStudentForInsights.id}
           studentName={selectedStudentForInsights.name}
@@ -2839,10 +3267,10 @@ function PeopleTab({
 }
 
 // =========================================================================
-// STUDENT DIAGNOSTIC INSIGHTS MODAL
+// STUDENT LIFETIME PORTFOLIO & DIAGNOSTICS MODAL (ALL ESSAYS & MCQS)
 // =========================================================================
 
-function StudentInsightsModal({
+function StudentLifetimePortfolioModal({
   classroomId,
   studentId,
   studentName,
@@ -2853,110 +3281,533 @@ function StudentInsightsModal({
   studentName: string;
   onClose: () => void;
 }) {
-  const getInsightsFn = useServerFn(getStudentClassroomInsights);
+  const getPortfolioFn = useServerFn(getStudentLifetimePortfolio);
+  const [activeTab, setActiveTab] = useState<"essays" | "mcqs" | "topics">("essays");
+  const [expandedEssayId, setExpandedEssayId] = useState<string | null>(null);
+  const [expandedMcqId, setExpandedMcqId] = useState<string | null>(null);
 
   const { data, isLoading } = useQuery({
-    queryKey: ["student_insights", classroomId, studentId],
-    queryFn: () => getInsightsFn({ data: { classroomId, studentId } }),
+    queryKey: ["student_lifetime_portfolio", classroomId, studentId],
+    queryFn: () => getPortfolioFn({ data: { classroomId, studentId } }),
   });
 
-  const insights = (data as StudentInsights) ?? null;
+  const portfolio = data ?? null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in">
-      <div className="w-full max-w-4xl max-h-[85vh] bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl flex flex-col overflow-hidden">
-        <div className="flex items-center justify-between p-5 px-6 border-b border-slate-800 bg-slate-950/60">
-          <div>
-            <h3 className="text-base font-bold text-white flex items-center gap-2">
-              <BarChart3 className="h-5 w-5 text-purple-400" />
-              Student Performance: {studentName}
-            </h3>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Comprehensive Cambridge Economics activity & diagnostic profile
-            </p>
+      <div className="w-full max-w-4xl max-h-[88vh] bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl flex flex-col overflow-hidden text-left">
+        {/* Header */}
+        <div className="flex items-center justify-between p-5 px-6 border-b border-slate-800 bg-slate-950/80">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-full bg-purple-700 flex items-center justify-center font-bold text-white text-sm shrink-0">
+              {getInitials(studentName)}
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="text-base font-bold text-white tracking-tight">{studentName}</h3>
+                {portfolio?.student.level && (
+                  <Badge className="bg-purple-950 text-purple-300 border-purple-800 text-[10px]">
+                    {portfolio.student.level}
+                  </Badge>
+                )}
+                <Badge
+                  variant="outline"
+                  className="bg-slate-950 text-slate-400 border-slate-700 text-[10px]"
+                >
+                  Cambridge 9708
+                </Badge>
+              </div>
+              <p className="text-xs text-slate-400 mt-0.5">
+                {portfolio?.student.email || "Enrolled Student"}
+                {portfolio?.student.school ? ` • ${portfolio.student.school}` : ""}
+                {portfolio?.student.targetGrade ? ` • Target: ${portfolio.student.targetGrade}` : ""}
+              </p>
+            </div>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-white p-1">
+          <button
+            onClick={onClose}
+            className="text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-slate-800 transition-colors"
+          >
             <X className="h-5 w-5" />
           </button>
         </div>
 
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
           {isLoading ? (
-            <div className="py-16 text-center text-slate-500">Loading student analytics...</div>
-          ) : !insights ? (
-            <div className="py-16 text-center text-slate-500">
-              No insight data recorded for this student yet.
+            <div className="py-20 text-center text-slate-400 text-xs flex flex-col items-center justify-center gap-2">
+              <RefreshCw className="h-6 w-6 animate-spin text-purple-400" />
+              <span>Loading complete student academic portfolio...</span>
+            </div>
+          ) : !portfolio ? (
+            <div className="py-20 text-center text-slate-500 text-xs">
+              No historical essay or MCQ records found for this student.
             </div>
           ) : (
             <>
               {/* Summary KPIs */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-1">
                   <div className="text-[10px] uppercase font-bold text-slate-500">
-                    Average Essay %
+                    Lifetime Essay Avg
                   </div>
                   <div className="text-2xl font-black text-purple-400">
-                    {insights.summary.average_essay_percent !== null
-                      ? `${insights.summary.average_essay_percent}%`
+                    {portfolio.summary.averageEssayPercent !== null
+                      ? `${portfolio.summary.averageEssayPercent}%`
                       : "--"}
+                  </div>
+                  <div className="text-[10px] text-slate-500">
+                    {portfolio.summary.totalEssaysMarked} essay(s) evaluated
                   </div>
                 </div>
 
                 <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-1">
                   <div className="text-[10px] uppercase font-bold text-slate-500">
-                    Essays Marked
+                    MCQ Accuracy
                   </div>
-                  <div className="text-2xl font-black text-white">
-                    {insights.summary.essays_marked}
-                  </div>
-                </div>
-
-                <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-1">
-                  <div className="text-[10px] uppercase font-bold text-slate-500">MCQ Accuracy</div>
                   <div className="text-2xl font-black text-emerald-400">
-                    {insights.summary.mcq_total > 0
-                      ? `${Math.round((insights.summary.mcq_correct / insights.summary.mcq_total) * 100)}%`
+                    {portfolio.summary.mcqAccuracyPercent !== null
+                      ? `${portfolio.summary.mcqAccuracyPercent}%`
                       : "--"}
+                  </div>
+                  <div className="text-[10px] text-slate-500">
+                    {portfolio.summary.totalMcqCorrect} of {portfolio.summary.totalMcqAttempted} correct
                   </div>
                 </div>
 
                 <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-1">
                   <div className="text-[10px] uppercase font-bold text-slate-500">
-                    Essay Practice Runs
+                    Academic Level
+                  </div>
+                  <div className="text-xl font-black text-white">
+                    {portfolio.student.level}
+                  </div>
+                  <div className="text-[10px] text-slate-500">
+                    Exam Board: {portfolio.student.examBoard}
+                  </div>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-1">
+                  <div className="text-[10px] uppercase font-bold text-slate-500">
+                    Practice Runs
                   </div>
                   <div className="text-2xl font-black text-blue-400">
-                    {insights.summary.live_examiner_sessions}
+                    {portfolio.summary.liveExaminerSessions}
+                  </div>
+                  <div className="text-[10px] text-slate-500">
+                    Live interactive sessions
                   </div>
                 </div>
               </div>
 
-              {/* Topic Mastery breakdown */}
-              <div className="space-y-3">
-                <h4 className="text-xs font-bold uppercase text-slate-400 tracking-wider">
-                  Topic Accuracy Breakdown
-                </h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {insights.topics.map((top) => (
-                    <div
-                      key={top.topic}
-                      className="p-3 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between text-xs"
-                    >
-                      <span className="font-semibold text-slate-200">{top.topic}</span>
-                      <Badge
-                        className={cn(
-                          "text-[10px]",
-                          (top.accuracy_pct ?? 0) >= 70
-                            ? "bg-emerald-950 text-emerald-300"
-                            : "bg-amber-950 text-amber-300",
-                        )}
-                      >
-                        {top.accuracy_pct !== null ? `${top.accuracy_pct}%` : "--"} ({top.attempted}{" "}
-                        MCQs)
-                      </Badge>
-                    </div>
-                  ))}
-                </div>
+              {/* Sub Tabs Selector */}
+              <div className="flex items-center gap-2 border-b border-slate-800 pb-2">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("essays")}
+                  className={cn(
+                    "px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2",
+                    activeTab === "essays"
+                      ? "bg-purple-600 text-white shadow-md shadow-purple-950/40"
+                      : "text-slate-400 hover:text-white hover:bg-slate-800/40",
+                  )}
+                >
+                  <FileText className="h-4 w-4" />
+                  All Essays Attempted ({portfolio.essays.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("mcqs")}
+                  className={cn(
+                    "px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2",
+                    activeTab === "mcqs"
+                      ? "bg-purple-600 text-white shadow-md shadow-purple-950/40"
+                      : "text-slate-400 hover:text-white hover:bg-slate-800/40",
+                  )}
+                >
+                  <BookOpen className="h-4 w-4" />
+                  MCQ Attempts & Papers ({portfolio.mcqs.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("topics")}
+                  className={cn(
+                    "px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2",
+                    activeTab === "topics"
+                      ? "bg-purple-600 text-white shadow-md shadow-purple-950/40"
+                      : "text-slate-400 hover:text-white hover:bg-slate-800/40",
+                  )}
+                >
+                  <BarChart3 className="h-4 w-4" />
+                  Topic Mastery & Diagnostics ({portfolio.topics.length})
+                </button>
               </div>
+
+              {/* VIEW 1: ALL ESSAYS ATTEMPTED */}
+              {activeTab === "essays" && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between text-xs text-slate-400">
+                    <span>
+                      Complete essay submission history across class assignments and self-directed practice.
+                    </span>
+                    <span className="font-semibold text-white">
+                      {portfolio.essays.length} total attempt(s)
+                    </span>
+                  </div>
+
+                  {portfolio.essays.length === 0 ? (
+                    <div className="text-center py-12 px-4 rounded-2xl border border-dashed border-slate-800 bg-slate-950/40 text-slate-500 text-xs">
+                      No essays recorded for this student yet.
+                    </div>
+                  ) : (
+                    portfolio.essays.map((e) => {
+                      const isExpanded = expandedEssayId === e.id;
+                      const hasFeedback = Boolean(e.feedback);
+                      return (
+                        <div
+                          key={e.id}
+                          className="p-4 rounded-2xl bg-slate-950 border border-slate-800 hover:border-slate-700 transition-all space-y-3"
+                        >
+                          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                            <div className="space-y-1 flex-1">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                {e.mark !== null ? (
+                                  <Badge
+                                    className={cn(
+                                      "text-xs font-bold",
+                                      (e.percentage ?? 0) >= 80
+                                        ? "bg-emerald-950 text-emerald-300 border-emerald-800"
+                                        : (e.percentage ?? 0) >= 60
+                                          ? "bg-purple-950 text-purple-300 border-purple-800"
+                                          : "bg-amber-950 text-amber-300 border-amber-800",
+                                    )}
+                                  >
+                                    Score: {e.mark} / {e.maxMark}{" "}
+                                    {e.percentage !== null ? `(${e.percentage}%)` : ""}
+                                  </Badge>
+                                ) : (
+                                  <Badge className="bg-slate-900 text-slate-400 border-slate-800 text-xs">
+                                    Ungraded
+                                  </Badge>
+                                )}
+
+                                <Badge
+                                  variant="outline"
+                                  className={cn(
+                                    "text-[10px]",
+                                    e.isAssignment
+                                      ? "bg-blue-950/60 text-blue-300 border-blue-800"
+                                      : "bg-slate-900 text-slate-400 border-slate-800",
+                                  )}
+                                >
+                                  {e.isAssignment ? "Class Assignment" : "Marking Desk / Practice"}
+                                </Badge>
+
+                                {e.ao1 !== null && (
+                                  <span className="text-[10px] text-slate-400">
+                                    AO1: <strong className="text-white">{e.ao1}</strong> | AO2:{" "}
+                                    <strong className="text-white">{e.ao2 ?? "--"}</strong> | AO3:{" "}
+                                    <strong className="text-white">{e.ao3 ?? "--"}</strong>
+                                  </span>
+                                )}
+                              </div>
+
+                              <p className="text-sm font-semibold text-slate-200 mt-1 leading-snug">
+                                {e.question}
+                              </p>
+                              <div className="text-[10px] text-slate-500">
+                                Submitted {new Date(e.createdAt).toLocaleString(undefined, {
+                                  dateStyle: "medium",
+                                  timeStyle: "short",
+                                })}
+                              </div>
+                            </div>
+
+                            {hasFeedback && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => setExpandedEssayId(isExpanded ? null : e.id)}
+                                className="text-purple-400 hover:text-purple-300 hover:bg-purple-950/30 text-xs shrink-0 self-start"
+                              >
+                                {isExpanded ? "Hide Feedback" : "View Feedback"}
+                                <ChevronDown
+                                  className={cn(
+                                    "h-3.5 w-3.5 ml-1 transition-transform",
+                                    isExpanded && "rotate-180",
+                                  )}
+                                />
+                              </Button>
+                            )}
+                          </div>
+
+                          {/* Expandable Examiner Feedback & Tariff Review */}
+                          {isExpanded && e.feedback && (
+                            <div className="p-4 rounded-xl bg-slate-900/80 border border-slate-800 text-xs text-slate-300 space-y-3 animate-in fade-in">
+                              {e.feedback.comment && (
+                                <div>
+                                  <span className="font-bold text-purple-300 uppercase text-[10px] block mb-1">
+                                    Overall Examiner Comment
+                                  </span>
+                                  <p className="text-slate-200 leading-relaxed bg-slate-950/60 p-3 rounded-lg border border-slate-800/80">
+                                    {typeof e.feedback.comment === "string"
+                                      ? e.feedback.comment
+                                      : JSON.stringify(e.feedback.comment)}
+                                  </p>
+                                </div>
+                              )}
+
+                              {Array.isArray(e.feedback.strengths) && e.feedback.strengths.length > 0 && (
+                                <div>
+                                  <span className="font-bold text-emerald-400 uppercase text-[10px] block mb-1">
+                                    Key Strengths
+                                  </span>
+                                  <ul className="list-disc list-inside space-y-1 text-slate-300 pl-1">
+                                    {e.feedback.strengths.map((str: any, idx: number) => (
+                                      <li key={idx}>
+                                        {typeof str === "string" ? str : str?.description || JSON.stringify(str)}
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
+
+                              {Array.isArray(e.feedback.improvements) &&
+                                e.feedback.improvements.length > 0 && (
+                                  <div>
+                                    <span className="font-bold text-amber-400 uppercase text-[10px] block mb-1">
+                                      Areas for Improvement
+                                    </span>
+                                    <ul className="list-disc list-inside space-y-1 text-slate-300 pl-1">
+                                      {e.feedback.improvements.map((imp: any, idx: number) => (
+                                        <li key={idx}>
+                                          {typeof imp === "string"
+                                            ? imp
+                                            : imp?.description || JSON.stringify(imp)}
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              )}
+
+              {/* VIEW 2: ALL MCQ ATTEMPTS & PAPERS */}
+              {activeTab === "mcqs" && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between text-xs text-slate-400">
+                    <span>
+                      All Cambridge past-paper exams and diagnostic topic tests attempted by the student.
+                    </span>
+                    <span className="font-semibold text-white">
+                      {portfolio.mcqs.length} total attempt(s)
+                    </span>
+                  </div>
+
+                  {portfolio.mcqs.length === 0 ? (
+                    <div className="text-center py-12 px-4 rounded-2xl border border-dashed border-slate-800 bg-slate-950/40 text-slate-500 text-xs">
+                      No MCQ test attempts recorded for this student yet.
+                    </div>
+                  ) : (
+                    portfolio.mcqs.map((m) => {
+                      const isExpanded = expandedMcqId === m.id;
+                      const hasQuestions = Array.isArray(m.questions) && m.questions.length > 0;
+                      return (
+                        <div
+                          key={m.id}
+                          className="p-4 rounded-2xl bg-slate-950 border border-slate-800 hover:border-slate-700 transition-all space-y-3"
+                        >
+                          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                            <div className="space-y-1 flex-1">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                {m.score !== null ? (
+                                  <Badge
+                                    className={cn(
+                                      "text-xs font-bold",
+                                      (m.percentage ?? 0) >= 80
+                                        ? "bg-emerald-950 text-emerald-300 border-emerald-800"
+                                        : (m.percentage ?? 0) >= 60
+                                          ? "bg-purple-950 text-purple-300 border-purple-800"
+                                          : "bg-amber-950 text-amber-300 border-amber-800",
+                                    )}
+                                  >
+                                    Score: {m.score} / {m.total}{" "}
+                                    {m.percentage !== null ? `(${m.percentage}%)` : ""}
+                                  </Badge>
+                                ) : (
+                                  <Badge className="bg-slate-900 text-slate-400 border-slate-800 text-xs">
+                                    Incomplete
+                                  </Badge>
+                                )}
+
+                                <Badge
+                                  variant="outline"
+                                  className="bg-slate-900 text-purple-300 border-purple-800 text-[10px]"
+                                >
+                                  {m.kind === "mcq_pdf" ? "Cambridge Past Paper" : "Topic Practice"}
+                                </Badge>
+
+                                <Badge
+                                  variant="outline"
+                                  className="bg-slate-900 text-slate-400 border-slate-800 text-[10px]"
+                                >
+                                  {m.level.toUpperCase()} Level
+                                </Badge>
+                              </div>
+
+                              <h4 className="text-sm font-semibold text-white mt-1">{m.title}</h4>
+                              <div className="text-[10px] text-slate-500">
+                                Completed {new Date(m.completedAt).toLocaleString(undefined, {
+                                  dateStyle: "medium",
+                                  timeStyle: "short",
+                                })}
+                              </div>
+                            </div>
+
+                            {hasQuestions && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => setExpandedMcqId(isExpanded ? null : m.id)}
+                                className="text-purple-400 hover:text-purple-300 hover:bg-purple-950/30 text-xs shrink-0 self-start"
+                              >
+                                {isExpanded ? "Hide Details" : "View Breakdown"}
+                                <ChevronDown
+                                  className={cn(
+                                    "h-3.5 w-3.5 ml-1 transition-transform",
+                                    isExpanded && "rotate-180",
+                                  )}
+                                />
+                              </Button>
+                            )}
+                          </div>
+
+                          {/* Expandable Question-by-Question Review */}
+                          {isExpanded && hasQuestions && (
+                            <div className="p-4 rounded-xl bg-slate-900/80 border border-slate-800 text-xs text-slate-300 space-y-2.5 animate-in fade-in max-h-72 overflow-y-auto">
+                              <span className="font-bold text-slate-400 uppercase text-[10px] block">
+                                Question Diagnostic Breakdown
+                              </span>
+                              <div className="grid grid-cols-1 gap-2">
+                                {m.questions.map((q: any, idx: number) => {
+                                  const isCorrect =
+                                    q?.is_correct ||
+                                    (q?.user_answer && q?.user_answer === q?.correct_answer);
+                                  return (
+                                    <div
+                                      key={idx}
+                                      className="p-2.5 rounded-lg bg-slate-950 border border-slate-800/80 flex items-start justify-between gap-3"
+                                    >
+                                      <div className="space-y-0.5">
+                                        <div className="flex items-center gap-2">
+                                          <span className="font-bold text-white text-xs">
+                                            Q{q?.number || idx + 1}
+                                          </span>
+                                          {q?.topic && (
+                                            <span className="text-[10px] text-slate-400">
+                                              ({q.topic})
+                                            </span>
+                                          )}
+                                        </div>
+                                        {q?.explanation && (
+                                          <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">
+                                            {q.explanation}
+                                          </p>
+                                        )}
+                                      </div>
+
+                                      <div className="flex items-center gap-2 shrink-0">
+                                        <span className="text-[11px] text-slate-400">
+                                          User:{" "}
+                                          <strong
+                                            className={isCorrect ? "text-emerald-400" : "text-rose-400"}
+                                          >
+                                            {q?.user_answer || "--"}
+                                          </strong>
+                                        </span>
+                                        <span className="text-[11px] text-slate-400">
+                                          Key: <strong className="text-white">{q?.correct_answer || "--"}</strong>
+                                        </span>
+                                        {isCorrect ? (
+                                          <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+                                        ) : (
+                                          <X className="h-4 w-4 text-rose-400" />
+                                        )}
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              )}
+
+              {/* VIEW 3: TOPIC MASTERY BREAKDOWN */}
+              {activeTab === "topics" && (
+                <div className="space-y-3">
+                  <div className="text-xs text-slate-400">
+                    Syllabus performance breakdown across all Cambridge 9708 Economics units.
+                  </div>
+
+                  {portfolio.topics.length === 0 ? (
+                    <div className="text-center py-12 px-4 rounded-2xl border border-dashed border-slate-800 bg-slate-950/40 text-slate-500 text-xs">
+                      No topic performance statistics recorded yet.
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {portfolio.topics.map((top) => {
+                        const acc = top.accuracyPct ?? 0;
+                        return (
+                          <div
+                            key={top.topic}
+                            className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-2 text-xs"
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="font-bold text-slate-200">{top.topic}</span>
+                              <Badge
+                                className={cn(
+                                  "text-[10px]",
+                                  acc >= 75
+                                    ? "bg-emerald-950 text-emerald-300 border-emerald-800"
+                                    : acc >= 50
+                                      ? "bg-purple-950 text-purple-300 border-purple-800"
+                                      : "bg-amber-950 text-amber-300 border-amber-800",
+                                )}
+                              >
+                                {top.accuracyPct !== null ? `${top.accuracyPct}%` : "--"} (
+                                {top.correct}/{top.attempted} correct)
+                              </Badge>
+                            </div>
+                            <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+                              <div
+                                className={cn(
+                                  "h-full rounded-full transition-all",
+                                  acc >= 75
+                                    ? "bg-emerald-500"
+                                    : acc >= 50
+                                      ? "bg-purple-500"
+                                      : "bg-amber-500",
+                                )}
+                                style={{ width: `${Math.min(100, Math.max(0, acc))}%` }}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
             </>
           )}
         </div>
@@ -2966,20 +3817,41 @@ function StudentInsightsModal({
 }
 
 // =========================================================================
-// TAB 5: GRADES (Full Google Classroom Gradebook Matrix)
+// TAB 5: GRADES (Classroom Gradebook Matrix & Student Portfolio Analytics)
 // =========================================================================
 
 function GradesTab({ classroom }: { classroom: Classroom }) {
+  const [gradeView, setGradeView] = useState<"matrix" | "aggregate">("matrix");
+  const [selectedStudentForPortfolio, setSelectedStudentForPortfolio] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+
   const getGradebookFn = useServerFn(getClassroomGradebook);
-  const { data, isLoading } = useQuery({
+  const getAggregateFn = useServerFn(getClassroomAggregateAnalytics);
+
+  const gradebookQuery = useQuery({
     queryKey: ["classroom_gradebook", classroom.id],
     queryFn: () => getGradebookFn({ data: { classroomId: classroom.id } }),
+    enabled: gradeView === "matrix",
   });
 
-  const students = useMemo(() => data?.students ?? [], [data?.students]);
-  const assignments = useMemo(() => data?.assignments ?? [], [data?.assignments]);
-  const matrix = useMemo(() => data?.gradeMatrix ?? {}, [data?.gradeMatrix]);
-  const summary = data?.summary;
+  const aggregateQuery = useQuery({
+    queryKey: ["classroom_aggregate_analytics", classroom.id],
+    queryFn: () => getAggregateFn({ data: { classroomId: classroom.id } }),
+    enabled: gradeView === "aggregate",
+  });
+
+  const students = useMemo(() => gradebookQuery.data?.students ?? [], [gradebookQuery.data?.students]);
+  const assignments = useMemo(() => gradebookQuery.data?.assignments ?? [], [gradebookQuery.data?.assignments]);
+  const matrix = useMemo(() => gradebookQuery.data?.gradeMatrix ?? {}, [gradebookQuery.data?.gradeMatrix]);
+  const summary = gradebookQuery.data?.summary;
+
+  const aggregateSummary = aggregateQuery.data?.summary;
+  const aggregateStudents = useMemo(
+    () => aggregateQuery.data?.students ?? [],
+    [aggregateQuery.data?.students],
+  );
 
   const exportCSV = () => {
     if (students.length === 0 || assignments.length === 0) {
@@ -3020,170 +3892,420 @@ function GradesTab({ classroom }: { classroom: Classroom }) {
 
   return (
     <div className="space-y-6">
-      {/* Gradebook Header with KPIs */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-slate-900/60 p-6 rounded-3xl border border-slate-800 shadow-xl">
-        <div className="space-y-1">
-          <h3 className="text-xl font-bold text-white tracking-tight flex items-center gap-2">
-            <Award className="h-6 w-6 text-purple-400" />
-            Class Gradebook
-          </h3>
-          <p className="text-xs text-slate-400">
-            Real-time grade matrix across all Cambridge Economics essays and assessments.
-          </p>
-        </div>
+      {/* Grade View Sub-tabs Switcher */}
+      <div className="flex items-center gap-2 p-1.5 bg-slate-950/80 border border-slate-800 rounded-2xl w-fit">
+        <button
+          type="button"
+          onClick={() => setGradeView("matrix")}
+          className={cn(
+            "px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2",
+            gradeView === "matrix"
+              ? "bg-purple-600 text-white shadow-md shadow-purple-950/50"
+              : "text-slate-400 hover:text-white",
+          )}
+        >
+          <Clipboard className="h-4 w-4" />
+          Assignments Gradebook
+        </button>
+        <button
+          type="button"
+          onClick={() => setGradeView("aggregate")}
+          className={cn(
+            "px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2",
+            gradeView === "aggregate"
+              ? "bg-purple-600 text-white shadow-md shadow-purple-950/50"
+              : "text-slate-400 hover:text-white",
+          )}
+        >
+          <TrendingUp className="h-4 w-4" />
+          Student Portfolio & Aggregate Analytics
+        </button>
+      </div>
 
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-6 px-4 py-2 rounded-2xl bg-slate-950 border border-slate-800 text-xs">
-            <div>
-              <span className="text-slate-500 uppercase text-[10px] font-bold block">
-                Class Size
-              </span>
-              <span className="text-base font-bold text-white">{summary?.totalStudents ?? 0}</span>
+      {/* VIEW A: ASSIGNMENTS MATRIX (Original Gradebook) */}
+      {gradeView === "matrix" && (
+        <div className="space-y-6">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-slate-900/60 p-6 rounded-3xl border border-slate-800 shadow-xl">
+            <div className="space-y-1">
+              <h3 className="text-xl font-bold text-white tracking-tight flex items-center gap-2">
+                <Award className="h-6 w-6 text-purple-400" />
+                Class Gradebook
+              </h3>
+              <p className="text-xs text-slate-400">
+                Real-time grade matrix across all Cambridge Economics essays and assessments set in this class.
+              </p>
             </div>
-            <div>
-              <span className="text-slate-500 uppercase text-[10px] font-bold block">Tasks</span>
-              <span className="text-base font-bold text-white">
-                {summary?.totalAssignments ?? 0}
-              </span>
-            </div>
-            <div>
-              <span className="text-slate-500 uppercase text-[10px] font-bold block">
-                Class Average
-              </span>
-              <span className="text-base font-bold text-purple-400">
-                {summary?.overallClassAveragePct !== null &&
-                summary?.overallClassAveragePct !== undefined
-                  ? `${summary.overallClassAveragePct}%`
-                  : "--"}
-              </span>
+
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-6 px-4 py-2 rounded-2xl bg-slate-950 border border-slate-800 text-xs">
+                <div>
+                  <span className="text-slate-500 uppercase text-[10px] font-bold block">
+                    Class Size
+                  </span>
+                  <span className="text-base font-bold text-white">
+                    {summary?.totalStudents ?? 0}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-500 uppercase text-[10px] font-bold block">Tasks</span>
+                  <span className="text-base font-bold text-white">
+                    {summary?.totalAssignments ?? 0}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-500 uppercase text-[10px] font-bold block">
+                    Class Average
+                  </span>
+                  <span className="text-base font-bold text-purple-400">
+                    {summary?.overallClassAveragePct !== null &&
+                    summary?.overallClassAveragePct !== undefined
+                      ? `${summary.overallClassAveragePct}%`
+                      : "--"}
+                  </span>
+                </div>
+              </div>
+
+              <Button
+                size="sm"
+                onClick={exportCSV}
+                className="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold"
+              >
+                <Download className="h-3.5 w-3.5 mr-1.5" />
+                Export CSV
+              </Button>
             </div>
           </div>
 
-          <Button
-            size="sm"
-            onClick={exportCSV}
-            className="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold"
-          >
-            <Download className="h-3.5 w-3.5 mr-1.5" />
-            Export CSV
-          </Button>
-        </div>
-      </div>
-
-      {/* Gradebook Matrix Table */}
-      {isLoading ? (
-        <div className="h-64 rounded-3xl bg-slate-900/40 border border-slate-800 animate-pulse" />
-      ) : students.length === 0 ? (
-        <div className="text-center py-20 px-4 rounded-3xl border border-dashed border-slate-800 bg-slate-900/20">
-          <UsersRound className="h-12 w-12 text-slate-600 mx-auto mb-3" />
-          <h4 className="text-base font-medium text-slate-300">No students enrolled yet</h4>
-          <p className="text-xs text-slate-500 max-w-sm mx-auto mt-1">
-            Once students join your class code and turn in essays, their scores will populate this
-            matrix automatically.
-          </p>
-        </div>
-      ) : assignments.length === 0 ? (
-        <div className="text-center py-20 px-4 rounded-3xl border border-dashed border-slate-800 bg-slate-900/20">
-          <FileText className="h-12 w-12 text-slate-600 mx-auto mb-3" />
-          <h4 className="text-base font-medium text-slate-300">No assignments created yet</h4>
-          <p className="text-xs text-slate-500 max-w-sm mx-auto mt-1">
-            Create your first essay or MCQ paper from the Classwork tab to start grading.
-          </p>
-        </div>
-      ) : (
-        <div className="overflow-x-auto rounded-3xl border border-slate-800 bg-slate-900/60 shadow-xl">
-          <table className="w-full text-left border-collapse text-xs">
-            <thead>
-              <tr className="border-b border-slate-800 bg-slate-950/80">
-                <th className="p-4 pl-6 font-bold text-slate-300 sticky left-0 bg-slate-950 z-20 min-w-[200px]">
-                  Student Name
-                </th>
-                <th className="p-4 font-bold text-purple-300 min-w-[120px] text-center border-r border-slate-800">
-                  Overall Avg
-                </th>
-                {assignments.map((a) => (
-                  <th
-                    key={a.id}
-                    className="p-4 min-w-[160px] text-slate-300 font-semibold space-y-1"
-                  >
-                    <div className="truncate font-bold text-white" title={a.title}>
-                      {a.title}
-                    </div>
-                    <div className="text-[10px] text-slate-500 font-normal flex items-center justify-between">
-                      <span>Max {a.maxMark}</span>
-                      {a.classAvgPct !== null && (
-                        <span className="text-purple-400 font-medium">Avg: {a.classAvgPct}%</span>
-                      )}
-                    </div>
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800/60 text-slate-300">
-              {students.map((st) => (
-                <tr key={st.id} className="hover:bg-slate-800/40 transition-colors">
-                  <td className="p-4 pl-6 font-medium text-white sticky left-0 bg-slate-900/90 z-10">
-                    <div className="flex items-center gap-2.5">
-                      <div className="h-7 w-7 rounded-full bg-purple-700 flex items-center justify-center font-bold text-white text-[10px]">
-                        {getInitials(st.fullName)}
-                      </div>
-                      <div>
-                        <div className="font-semibold text-xs">{st.fullName}</div>
-                        <div className="text-[10px] text-slate-500">{st.email}</div>
-                      </div>
-                    </div>
-                  </td>
-
-                  <td className="p-4 text-center font-bold border-r border-slate-800">
-                    {st.overallAvgPct !== null ? (
-                      <span
-                        className={cn(
-                          "px-2 py-0.5 rounded-full text-xs font-bold",
-                          st.overallAvgPct >= 80
-                            ? "bg-emerald-950 text-emerald-300"
-                            : st.overallAvgPct >= 60
-                              ? "bg-purple-950 text-purple-300"
-                              : "bg-amber-950 text-amber-300",
-                        )}
+          {gradebookQuery.isLoading ? (
+            <div className="h-64 rounded-3xl bg-slate-900/40 border border-slate-800 animate-pulse" />
+          ) : students.length === 0 ? (
+            <div className="text-center py-20 px-4 rounded-3xl border border-dashed border-slate-800 bg-slate-900/20">
+              <UsersRound className="h-12 w-12 text-slate-600 mx-auto mb-3" />
+              <h4 className="text-base font-medium text-slate-300">No students enrolled yet</h4>
+              <p className="text-xs text-slate-500 max-w-sm mx-auto mt-1">
+                Once students join your class code and turn in essays, their scores will populate this
+                matrix automatically.
+              </p>
+            </div>
+          ) : assignments.length === 0 ? (
+            <div className="text-center py-20 px-4 rounded-3xl border border-dashed border-slate-800 bg-slate-900/20">
+              <FileText className="h-12 w-12 text-slate-600 mx-auto mb-3" />
+              <h4 className="text-base font-medium text-slate-300">No assignments created yet</h4>
+              <p className="text-xs text-slate-500 max-w-sm mx-auto mt-1">
+                Create your first essay or MCQ paper from the Classwork tab to start grading.
+              </p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto rounded-3xl border border-slate-800 bg-slate-900/60 shadow-xl">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="border-b border-slate-800 bg-slate-950/80">
+                    <th className="p-4 pl-6 font-bold text-slate-300 sticky left-0 bg-slate-950 z-20 min-w-[200px]">
+                      Student Name
+                    </th>
+                    <th className="p-4 font-bold text-purple-300 min-w-[120px] text-center border-r border-slate-800">
+                      Overall Avg
+                    </th>
+                    {assignments.map((a) => (
+                      <th
+                        key={a.id}
+                        className="p-4 min-w-[160px] text-slate-300 font-semibold space-y-1"
                       >
-                        {st.overallAvgPct}%
-                      </span>
-                    ) : (
-                      <span className="text-slate-600">--</span>
-                    )}
-                  </td>
-
-                  {assignments.map((a) => {
-                    const cell = matrix[`${st.id}_${a.id}`];
-                    return (
-                      <td key={a.id} className="p-4 text-center">
-                        {cell?.score !== null && cell?.score !== undefined ? (
-                          <div className="inline-flex flex-col items-center">
-                            <span className="font-bold text-white text-xs">
-                              {cell.score}{" "}
-                              <span className="text-slate-500 text-[10px]">/ {a.maxMark}</span>
-                            </span>
-                            {cell.percentage !== null && (
-                              <span className="text-[10px] text-slate-400 font-medium">
-                                ({cell.percentage}%)
-                              </span>
-                            )}
+                        <div className="truncate font-bold text-white" title={a.title}>
+                          {a.title}
+                        </div>
+                        <div className="text-[10px] text-slate-500 font-normal flex items-center justify-between">
+                          <span>Max {a.maxMark}</span>
+                          {a.classAvgPct !== null && (
+                            <span className="text-purple-400 font-medium">Avg: {a.classAvgPct}%</span>
+                          )}
+                        </div>
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/60 text-slate-300">
+                  {students.map((st) => (
+                    <tr key={st.id} className="hover:bg-slate-800/40 transition-colors">
+                      <td className="p-4 pl-6 font-medium text-white sticky left-0 bg-slate-900/90 z-10">
+                        <div className="flex items-center gap-2.5">
+                          <div className="h-7 w-7 rounded-full bg-purple-700 flex items-center justify-center font-bold text-white text-[10px]">
+                            {getInitials(st.fullName)}
                           </div>
-                        ) : cell?.status === "submitted" ? (
-                          <Badge className="bg-blue-950 text-blue-300 border-blue-800 text-[10px]">
-                            Turned in
-                          </Badge>
+                          <div>
+                            <div className="font-semibold text-xs">{st.fullName}</div>
+                            <div className="text-[10px] text-slate-500">{st.email}</div>
+                          </div>
+                        </div>
+                      </td>
+
+                      <td className="p-4 text-center font-bold border-r border-slate-800">
+                        {st.overallAvgPct !== null ? (
+                          <span
+                            className={cn(
+                              "px-2 py-0.5 rounded-full text-xs font-bold",
+                              st.overallAvgPct >= 80
+                                ? "bg-emerald-950 text-emerald-300"
+                                : st.overallAvgPct >= 60
+                                  ? "bg-purple-950 text-purple-300"
+                                  : "bg-amber-950 text-amber-300",
+                            )}
+                          >
+                            {st.overallAvgPct}%
+                          </span>
                         ) : (
-                          <span className="text-slate-600 text-xs">--</span>
+                          <span className="text-slate-600">--</span>
                         )}
                       </td>
-                    );
-                  })}
-                </tr>
-              ))}
-            </tbody>
-          </table>
+
+                      {assignments.map((a) => {
+                        const cell = matrix[`${st.id}_${a.id}`];
+                        return (
+                          <td key={a.id} className="p-4 text-center">
+                            {cell?.score !== null && cell?.score !== undefined ? (
+                              <div className="inline-flex flex-col items-center">
+                                <span className="font-bold text-white text-xs">
+                                  {cell.score}{" "}
+                                  <span className="text-slate-500 text-[10px]">/ {a.maxMark}</span>
+                                </span>
+                                {cell.percentage !== null && (
+                                  <span className="text-[10px] text-slate-400 font-medium">
+                                    ({cell.percentage}%)
+                                  </span>
+                                )}
+                              </div>
+                            ) : cell?.status === "submitted" ? (
+                              <Badge className="bg-blue-950 text-blue-300 border-blue-800 text-[10px]">
+                                Turned in
+                              </Badge>
+                            ) : (
+                              <span className="text-slate-600 text-xs">--</span>
+                            )}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
+      )}
+
+      {/* VIEW B: STUDENT PORTFOLIO & AGGREGATE ANALYTICS */}
+      {gradeView === "aggregate" && (
+        <div className="space-y-6">
+          {/* Aggregate Header & KPIs */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-slate-900/60 p-6 rounded-3xl border border-slate-800 shadow-xl">
+            <div className="space-y-1">
+              <h3 className="text-xl font-bold text-white tracking-tight flex items-center gap-2">
+                <TrendingUp className="h-6 w-6 text-purple-400" />
+                All Student Work & Aggregate Analytics
+              </h3>
+              <p className="text-xs text-slate-400">
+                Lifetime academic performance across all Cambridge Economics essays, MCQ papers, and tests (before & after joining class).
+              </p>
+            </div>
+
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-6 px-4 py-2 rounded-2xl bg-slate-950 border border-slate-800 text-xs">
+                <div>
+                  <span className="text-slate-500 uppercase text-[10px] font-bold block">
+                    Class Size
+                  </span>
+                  <span className="text-base font-bold text-white">
+                    {aggregateSummary?.totalStudents ?? 0}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-500 uppercase text-[10px] font-bold block">
+                    Lifetime Essay Avg
+                  </span>
+                  <span className="text-base font-bold text-purple-400">
+                    {aggregateSummary?.classLifetimeEssayAvgPct !== null &&
+                    aggregateSummary?.classLifetimeEssayAvgPct !== undefined
+                      ? `${aggregateSummary.classLifetimeEssayAvgPct}%`
+                      : "--"}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-500 uppercase text-[10px] font-bold block">
+                    MCQ Accuracy
+                  </span>
+                  <span className="text-base font-bold text-emerald-400">
+                    {aggregateSummary?.classLifetimeMcqAvgPct !== null &&
+                    aggregateSummary?.classLifetimeMcqAvgPct !== undefined
+                      ? `${aggregateSummary.classLifetimeMcqAvgPct}%`
+                      : "--"}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-500 uppercase text-[10px] font-bold block">
+                    Total Work
+                  </span>
+                  <span className="text-base font-bold text-blue-400">
+                    {aggregateSummary?.totalEssaysMarked ?? 0} Essays
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Aggregate Students Table */}
+          {aggregateQuery.isLoading ? (
+            <div className="h-64 rounded-3xl bg-slate-900/40 border border-slate-800 animate-pulse" />
+          ) : aggregateStudents.length === 0 ? (
+            <div className="text-center py-20 px-4 rounded-3xl border border-dashed border-slate-800 bg-slate-900/20">
+              <UsersRound className="h-12 w-12 text-slate-600 mx-auto mb-3" />
+              <h4 className="text-base font-medium text-slate-300">No students enrolled yet</h4>
+              <p className="text-xs text-slate-500 max-w-sm mx-auto mt-1">
+                Share your class join code with students to start viewing their academic portfolio.
+              </p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto rounded-3xl border border-slate-800 bg-slate-900/60 shadow-xl">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="border-b border-slate-800 bg-slate-950/80">
+                    <th className="p-4 pl-6 font-bold text-slate-300 min-w-[200px]">
+                      Student Profile
+                    </th>
+                    <th className="p-4 font-bold text-slate-300 text-center min-w-[120px]">
+                      Academic Level
+                    </th>
+                    <th className="p-4 font-bold text-purple-300 text-center min-w-[140px]">
+                      Lifetime Essay Avg
+                    </th>
+                    <th className="p-4 font-bold text-emerald-300 text-center min-w-[140px]">
+                      Lifetime MCQ Performance
+                    </th>
+                    <th className="p-4 font-bold text-slate-400 text-center min-w-[120px]">
+                      Last Active
+                    </th>
+                    <th className="p-4 pr-6 font-bold text-slate-300 text-right min-w-[150px]">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/60 text-slate-300">
+                  {aggregateStudents.map((st) => (
+                    <tr key={st.id} className="hover:bg-slate-800/40 transition-colors">
+                      <td className="p-4 pl-6 font-medium text-white">
+                        <div className="flex items-center gap-2.5">
+                          <div className="h-8 w-8 rounded-full bg-purple-700 flex items-center justify-center font-bold text-white text-xs shrink-0">
+                            {getInitials(st.fullName)}
+                          </div>
+                          <div>
+                            <div className="font-semibold text-xs text-white">{st.fullName}</div>
+                            <div className="text-[10px] text-slate-500">
+                              {st.email}
+                              {st.school ? ` • ${st.school}` : ""}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+
+                      <td className="p-4 text-center">
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            "text-[10px] font-semibold",
+                            st.level.includes("A2")
+                              ? "bg-purple-950/60 text-purple-300 border-purple-800"
+                              : "bg-blue-950/60 text-blue-300 border-blue-800",
+                          )}
+                        >
+                          {st.level}
+                        </Badge>
+                      </td>
+
+                      <td className="p-4 text-center">
+                        {st.essayAvgPct !== null ? (
+                          <div className="inline-flex flex-col items-center">
+                            <span
+                              className={cn(
+                                "px-2 py-0.5 rounded-full text-xs font-bold",
+                                st.essayAvgPct >= 80
+                                  ? "bg-emerald-950 text-emerald-300"
+                                  : st.essayAvgPct >= 60
+                                    ? "bg-purple-950 text-purple-300"
+                                    : "bg-amber-950 text-amber-300",
+                              )}
+                            >
+                              {st.essayAvgPct}% Avg
+                            </span>
+                            <span className="text-[10px] text-slate-500 mt-0.5">
+                              {st.totalEssays} marked
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-slate-600">0 essays</span>
+                        )}
+                      </td>
+
+                      <td className="p-4 text-center">
+                        {st.mcqAccuracyPct !== null ? (
+                          <div className="inline-flex flex-col items-center">
+                            <span
+                              className={cn(
+                                "px-2 py-0.5 rounded-full text-xs font-bold",
+                                st.mcqAccuracyPct >= 80
+                                  ? "bg-emerald-950 text-emerald-300"
+                                  : st.mcqAccuracyPct >= 60
+                                    ? "bg-purple-950 text-purple-300"
+                                    : "bg-amber-950 text-amber-300",
+                              )}
+                            >
+                              {st.mcqAccuracyPct}% Acc
+                            </span>
+                            <span className="text-[10px] text-slate-500 mt-0.5">
+                              {st.totalMcqs} questions
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-slate-600">0 attempts</span>
+                        )}
+                      </td>
+
+                      <td className="p-4 text-center text-[10px] text-slate-400">
+                        {st.lastActiveAt
+                          ? new Date(st.lastActiveAt).toLocaleDateString(undefined, {
+                              month: "short",
+                              day: "numeric",
+                            })
+                          : "--"}
+                      </td>
+
+                      <td className="p-4 pr-6 text-right">
+                        <Button
+                          size="sm"
+                          onClick={() =>
+                            setSelectedStudentForPortfolio({ id: st.id, name: st.fullName })
+                          }
+                          className="bg-purple-600 hover:bg-purple-500 text-white font-semibold text-xs shadow-sm"
+                        >
+                          <Eye className="h-3.5 w-3.5 mr-1.5" />
+                          View Portfolio
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Student Lifetime Portfolio Modal */}
+      {selectedStudentForPortfolio && (
+        <StudentLifetimePortfolioModal
+          classroomId={classroom.id}
+          studentId={selectedStudentForPortfolio.id}
+          studentName={selectedStudentForPortfolio.name}
+          onClose={() => setSelectedStudentForPortfolio(null)}
+        />
       )}
     </div>
   );
