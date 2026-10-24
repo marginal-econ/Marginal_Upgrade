@@ -1018,40 +1018,13 @@ export const testSpecificKey = createServerFn({ method: "POST" })
     });
 
     try {
-      let result;
-      try {
-        result = await chat({
-          model: testModel,
-          overrideProvider: config,
-          messages: [{ role: "user", content: "Reply with exactly: OK" }],
-          maxCompletionTokens: 150, // Sufficient headroom for model thought traces
-          isBudgetTier: false,
-        });
-      } catch (firstErr: unknown) {
-        const status =
-          typeof firstErr === "object" && firstErr !== null && "status" in firstErr
-            ? (firstErr as { status: number }).status
-            : 500;
-        const errMsg = firstErr instanceof Error ? firstErr.message : String(firstErr);
-
-        // If gemini-3.8-flash was 404, 503 (high demand) or 504, attempt candidate model gemini-3.6-flash
-        if (
-          data.provider === "google" &&
-          (status === 404 || status === 503 || status === 504 || errMsg.includes("503") || errMsg.includes("high demand") || errMsg.includes("timed out"))
-        ) {
-          testModel = "gemini-3.6-flash";
-          config.model = testModel;
-          result = await chat({
-            model: testModel,
-            overrideProvider: config,
-            messages: [{ role: "user", content: "Reply with exactly: OK" }],
-            maxCompletionTokens: 150,
-            isBudgetTier: false,
-          });
-        } else {
-          throw firstErr;
-        }
-      }
+      const result = await chat({
+        model: testModel,
+        overrideProvider: config,
+        messages: [{ role: "user", content: "Reply with exactly: OK" }],
+        maxCompletionTokens: 150, // Sufficient headroom for model thought traces
+        isBudgetTier: false,
+      });
 
       return {
         ok: true,
@@ -1063,7 +1036,7 @@ export const testSpecificKey = createServerFn({ method: "POST" })
       if (googleVerified) {
         return {
           ok: true,
-          reply: "Verified with Google AI Studio (Key is authentic; gemini-3.8-flash experiencing temporary upstream load)",
+          reply: "Verified with Google AI Studio (Key is authentic; gemini-3.8-flash experiencing temporary upstream load at Google)",
           model: testModel,
           latencyMs: Date.now() - started,
         };

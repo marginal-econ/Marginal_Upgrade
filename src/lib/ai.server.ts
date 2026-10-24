@@ -442,7 +442,7 @@ async function chatViaProvider(
 
   const candidateModels =
     config.provider === "google"
-      ? ["gemini-3.8-flash", "gemini-3.6-flash"]
+      ? ["gemini-3.8-flash"]
       : [config.model];
 
   let usedModel = candidateModels[0];
@@ -458,7 +458,7 @@ async function chatViaProvider(
       for (let kIdx = 0; kIdx < activeKeysToTry.length; kIdx++) {
         const currentKey = activeKeysToTry[kIdx]!;
         const keyStarted = Date.now();
-        const timeoutMs = options.overrideProvider ? 45_000 : 35_000;
+        const timeoutMs = options.overrideProvider ? 60_000 : 75_000;
         try {
           const response = await fetch(`${config.baseUrl}/chat/completions`, {
             method: "POST",
@@ -467,7 +467,7 @@ async function chatViaProvider(
               Authorization: `Bearer ${currentKey}`,
             },
             body: JSON.stringify(modelBody),
-            signal: AbortSignal.timeout(timeoutMs), // Generous abort timeout per key attempt
+            signal: AbortSignal.timeout(timeoutMs), // Generous abort timeout for gemini-3.8-flash
           });
 
           if (response.ok) {
