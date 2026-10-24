@@ -127,9 +127,23 @@ function GradePage() {
   const isAdmin = meQuery.data?.isAdmin ?? false;
   const isTeacher = meQuery.data?.role === "teacher" || Boolean(sub?.isTeacher);
   const isTeacherUnpaid = isTeacher && !sub?.isPaid && !isAdmin;
-  const isLimitReached = !isAdmin && (sub !== undefined && !sub.canGradeEssay);
+  const isLimitReached = false;
 
-  const [question, setQuestion] = useState(search.q ?? "");
+  const DRAFT_STORAGE_KEY = "marginal_essay_draft_v1";
+
+  const [question, setQuestion] = useState(() => {
+    if (search.q) return search.q;
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem(DRAFT_STORAGE_KEY);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed.question) return parsed.question;
+        }
+      } catch {}
+    }
+    return "";
+  });
 
   const groundingQuery = useQuery({
     queryKey: ["question-grounding", question.trim()],
@@ -137,8 +151,51 @@ function GradePage() {
     enabled: question.trim().length >= 15,
     staleTime: 5 * 60_000,
   });
-  const [essayText, setEssayText] = useState("");
-  const [maxMark, setMaxMark] = useState(search.marks ? String(search.marks) : "12");
+
+  const [essayText, setEssayText] = useState(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem(DRAFT_STORAGE_KEY);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed.essayText) return parsed.essayText;
+        }
+      } catch {}
+    }
+    return "";
+  });
+
+  const [maxMark, setMaxMark] = useState(() => {
+    if (search.marks) return String(search.marks);
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem(DRAFT_STORAGE_KEY);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed.maxMark) return String(parsed.maxMark);
+        }
+      } catch {}
+    }
+    return "12";
+  });
+
+  // Autosave question, essay answer, and maxMark across page navigation
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      if (question.trim() || essayText.trim()) {
+        localStorage.setItem(
+          DRAFT_STORAGE_KEY,
+          JSON.stringify({
+            question,
+            essayText,
+            maxMark,
+            updatedAt: Date.now(),
+          }),
+        );
+      }
+    } catch {}
+  }, [question, essayText, maxMark]);
 
   // Load auto-drafted essay from Cambridge Chat if transferred
   useEffect(() => {
@@ -271,6 +328,9 @@ function GradePage() {
       setResult({ grading: data.grading as Grading, essayId: data.essayId });
       queryClient.invalidateQueries({ queryKey: ["essays"] });
       queryClient.invalidateQueries({ queryKey: ["progress"] });
+      try {
+        localStorage.removeItem(DRAFT_STORAGE_KEY);
+      } catch {}
       toast.success(`Marked ${data.grading.total_mark}/${data.grading.max_mark}`);
       if (data.grading.modelSwapped) {
         toast.info(
@@ -283,23 +343,9 @@ function GradePage() {
       }
     },
     onError: (error: Error) => {
-      const isPlanLimit =
-        error.message.includes("Plan limit reached") ||
-        error.message.includes("Upgrade to Foundation") ||
-        error.message.includes("free Cambridge essay gradings") ||
-        error.message.includes("Monthly essay quota reached");
       toast.error(error.message, {
-        action: isPlanLimit
-          ? {
-              label: "View Plans",
-              onClick: () => navigate({ to: "/pricing" }),
-            }
-          : undefined,
-        duration: isPlanLimit ? 6000 : 4000,
+        duration: 5000,
       });
-      if (isPlanLimit) {
-        navigate({ to: "/pricing" });
-      }
     },
   });
 
@@ -807,6 +853,29 @@ function GradePage() {
             />
           ) : null}
 
+          {(question.trim() || essayText.trim()) && (
+            <div className="flex items-center justify-between text-xs text-muted-foreground px-1 py-1">
+              <span className="flex items-center gap-1.5 opacity-80">
+                <span className="size-1.5 rounded-full bg-emerald-500 inline-block animate-pulse" />
+                Question &amp; essay answer autosaved in browser
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setQuestion("");
+                  setEssayText("");
+                  try {
+                    localStorage.removeItem(DRAFT_STORAGE_KEY);
+                  } catch {}
+                  toast.info("Essay draft cleared.");
+                }}
+                className="hover:text-destructive underline underline-offset-2 transition-colors cursor-pointer"
+              >
+                Clear draft
+              </button>
+            </div>
+          )}
+
           <Button
             className={`w-full ${isLimitReached ? "bg-amber-600 hover:bg-amber-500 text-white font-medium" : ""}`}
             disabled={
@@ -848,13 +917,13 @@ function GradePage() {
             <GradingProgress
               active
               stages={[
-                { label: "Reading question & rubric", weight: 1 },
-                { label: "Retrieving knowledge base context", weight: 2 },
-                { label: "Marking AO1 · AO2 · AO3", weight: 4 },
-                ...(auditPass ? [{ label: "Independent audit pass", weight: 3 }] : []),
-                { label: "Finalising report", weight: 1 },
+                { label: "Referring Cambridge 9708 Knowledge Base & Mark Schemes", weight: 3 },
+                { label: "Checking Assessment Objectives: AO1 Knowledge · AO2 Analysis · AO3 Evaluation", weight: 4 },
+                { label: "Evaluating diagrams, chains of reasoning & policy trade-offs", weight: 3 },
+                ...(auditPass ? [{ label: "Independent moderation & multi-key verification", weight: 2 }] : []),
+                { label: "Synthesizing diagnostic examiner report & actionable feedback", weight: 2 },
               ]}
-              totalMs={auditPass ? 34_000 : 26_000}
+              totalMs={auditPass ? 35_000 : 25_000}
             />
           ) : result ? (
             <div className="space-y-4">

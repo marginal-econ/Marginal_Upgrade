@@ -7,6 +7,7 @@ import type {
 import { deterministicTerminologyIssues } from "./economics-glossary";
 import { analyzeGrammarAndMechanics } from "./grammar-engine";
 import { splitSentences } from "@/lib/writing-check/sentence-diff";
+import { classifySentence } from "./sentence-engine";
 
 const AO1_PATTERNS = [
   /\b(aggregate demand|aggregate supply|ad equation|c\s*\+\s*i\s*\+\s*g\s*\+\s*nx|ad\s*=\s*c\s*\+\s*i\s*\+\s*g\s*\+\s*nx)\b/i,
@@ -46,57 +47,8 @@ export function classifySentenceDeterministically(sentence: string): {
   ao: "AO1" | "AO2" | "AO3";
   explanation: string;
 } {
-  const trimmed = sentence.trim();
-  const lower = trimmed.toLowerCase();
-
-  // 1. Explicit definition phrasing, formulas, and baseline concept definitions (AO1 Knowledge)
-  const isExplicitDef =
-    /\b(is defined as|is the degree of responsiveness|is a measure of|is the measure of|measures the percentage change|refers to|definition of|occurs when|measures how|is calculated as|is equal to|are goods that are|can be defined as|formula for|is the percentage change|are defined as)\b/i.test(
-      lower,
-    ) ||
-    /^(?:ped|yed|pes|xed|price elasticity|income elasticity|cross elasticity|elasticity of supply|inflation|gdp|cpi|opportunity cost|fiscal policy|monetary policy)\s+(?:is|measures|refers to|represents)\b/i.test(
-      lower,
-    ) ||
-    /\b(demerit goods? are|merit goods? are|public goods? are|free riders? are)\b/i.test(lower);
-
-  if (isExplicitDef) {
-    return {
-      ao: "AO1",
-      explanation: "AO1 Knowledge: Accurate Cambridge 9708 definition, formula, or economic concept foundation.",
-    };
-  }
-
-  // 2. Evaluative criteria, dependencies, trade-offs, judgements (AO3 Evaluation)
-  const isAo3 =
-    AO3_PATTERNS.some((p) => p.test(lower)) ||
-    /\b(but\b|how+ev+e?r|however|although|on the other hand|nevertheless|in contrast|whereas|conversely|depends on|depends upon|dependent on|critical factor determining|extent to which|contingent upon|time lag|unintended consequence|in conclusion|overall|ultimately|to conclude|judgement|weighing|effective|ineffective|limitation|drawback|trade-?off)\b/i.test(
-      lower,
-    );
-  if (isAo3) {
-    return {
-      ao: "AO3",
-      explanation: "AO3 Evaluation: Critical capacity condition, dependency, limitation, or evaluative judgement.",
-    };
-  }
-
-  // 3. Analysis, causal mechanisms, transmission links, application (AO2 Analysis)
-  const isAo2 =
-    AO2_PATTERNS.some((p) => p.test(lower)) ||
-    /\b(causes|leading to|leads to|results in|resulting in|generates?|deadweight|welfare loss|distortion|means that|this means|contraction in|expansion in|shift|shifts|excess supply|excess demand|surplus|shortage|as prices? rise|as prices? fall|higher prices?|lower prices?|incentive|disincentive|signals?|rationing|allocative|fall by a|increase by a|percentage|quantity demanded|quantity supplied|constrained|producers?|consumers?|firms?|output|sales?|profit|revenue|maximise|maximize|for example|for instance|such as|case of|toyota|cars)\b/i.test(
-      lower,
-    );
-  if (isAo2) {
-    return {
-      ao: "AO2",
-      explanation: "AO2 Analysis: Causal transmission mechanism linking cause, market reaction, and economic outcome.",
-    };
-  }
-
-  // 4. Terminology / general knowledge foundation (AO1 Knowledge)
-  return {
-    ao: "AO1",
-    explanation: "AO1 Knowledge: Foundational economic statement, terminology, or theoretical premise.",
-  };
+  const { ao, explanation } = classifySentence(sentence);
+  return { ao, explanation };
 }
 
 export type ClientEvaluationResult = {

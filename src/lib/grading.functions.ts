@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
 import { requireSupabaseAuth } from "@/integrations/backend/auth-middleware";
+import { supabaseAdmin } from "@/integrations/backend/client.server";
 import { essayLimitMessage, FREE_ESSAY_LIMIT_MESSAGE } from "@/lib/usage-limits";
 
 const GradeInput = z.object({
@@ -106,6 +107,7 @@ export const gradeEssaySubmission = createServerFn({ method: "POST" })
         auditPass: data.auditPass,
         markSchemeImageDataUrls: data.markSchemeImageDataUrls,
         isBudgetTier,
+        userId,
       });
     } catch (error) {
       // The grading never happened, so it shouldn't use up today's allowance.
@@ -114,10 +116,10 @@ export const gradeEssaySubmission = createServerFn({ method: "POST" })
       } catch {
         /* best-effort */
       }
-      await supabase.from("ai_usage_log").insert({
+      await supabaseAdmin.from("ai_usage_log").insert({
         user_id: userId,
         feature: "grade_essay",
-        model: "google/gemini-3.1-pro",
+        model: "google/gemini-3.8-flash",
         ok: false,
         error_message: error instanceof Error ? error.message : "Unknown error",
       });
@@ -176,10 +178,10 @@ export const gradeEssaySubmission = createServerFn({ method: "POST" })
 
     if (versionError) throw new Error(versionError.message);
 
-    await supabase.from("ai_usage_log").insert({
+    await supabaseAdmin.from("ai_usage_log").insert({
       user_id: userId,
       feature: "grade_essay",
-      model: outcome.model,
+      model: outcome.model || "google/gemini-3.8-flash",
       prompt_tokens: outcome.promptTokens,
       completion_tokens: outcome.completionTokens,
       latency_ms: outcome.latencyMs,

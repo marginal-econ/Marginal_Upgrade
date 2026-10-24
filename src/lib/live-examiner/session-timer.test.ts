@@ -25,7 +25,7 @@ describe("Live Examiner Session Duration & Limits", () => {
   });
 
   it("enforces daily question session limits", () => {
-    expect(LIVE_EXAMINER_DAILY_LIMIT).toBe(1);
+    expect(LIVE_EXAMINER_DAILY_LIMIT).toBe(0);
   });
 
   it("computes countdown seconds correctly", () => {

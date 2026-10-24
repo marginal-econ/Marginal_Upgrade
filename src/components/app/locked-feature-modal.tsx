@@ -240,8 +240,8 @@ export function LockedFeatureModal({
           {/* Action CTAs */}
           <div className="pt-2 flex flex-col gap-2">
             <Button asChild size="default" className="w-full font-bold shadow-md">
-              <Link to="/pricing" onClick={() => onOpenChange(false)}>
-                <span>{(config as any).ctaText ?? "Unlock Plan from ₹99/mo"}</span>
+              <Link to="/grade" onClick={() => onOpenChange(false)}>
+                <span>Explore Free Cambridge Tools</span>
                 <ArrowRight className="ml-1.5 size-4" />
               </Link>
             </Button>

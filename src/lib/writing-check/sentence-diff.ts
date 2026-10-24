@@ -19,8 +19,11 @@ export function splitSentences(text: string): string[] {
     return `${TAG_OPEN}${tags.length - 1}${TAG_CLOSE}`;
   });
 
-  // Protect common abbreviations from splitting on period
+  // Protect common abbreviations and list markers (e.g. "I.", "II.", "1.", "A.", "i.") from splitting on period
   protectedText = protectedText.replace(/\b(e\.g|i\.e|etc|approx|vs)\.\s+/gi, (match) => {
+    return match.replace(/\./g, "\u2062");
+  });
+  protectedText = protectedText.replace(/(?:^|(?<=\n|\s))([0-9]+|[IVXLCDMivxlcdm]+|[A-Za-z])\.\s+/g, (match) => {
     return match.replace(/\./g, "\u2062");
   });
 

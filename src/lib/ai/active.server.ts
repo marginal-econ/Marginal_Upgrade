@@ -5,6 +5,8 @@ export type ProviderConfig = {
   apiKey: string;
   paidPrimaryKey?: string;
   paidSecondaryKey?: string;
+  paidKeys?: string[];
+  freeKeys?: string[];
   budgetPoolKeys?: string[];
   apiKeys?: string[];
   baseUrl: string;
@@ -27,7 +29,8 @@ export function normaliseConfig(row: {
   const meta = providerMeta(row.provider);
   let paidPrimary = "";
   let paidSecondary = "";
-  let budgetPool: string[] = [];
+  let explicitPaidKeys: string[] = [];
+  let freeKeys: string[] = [];
   let allKeys: string[] = [];
 
   const raw = row.api_key ? row.api_key.trim() : "";
@@ -36,7 +39,30 @@ export function normaliseConfig(row: {
       const parsed = JSON.parse(raw);
       paidPrimary = typeof parsed.paidPrimary === "string" ? parsed.paidPrimary.trim() : "";
       paidSecondary = typeof parsed.paidSecondary === "string" ? parsed.paidSecondary.trim() : "";
-      if (Array.isArray(parsed.budgetPool)) {
+
+      if (Array.isArray(parsed.paidKeys)) {
+        explicitPaidKeys = parsed.paidKeys
+          .map((k: unknown) => String(k).trim())
+          .filter((k: string) => k.length > 5);
+      } else if (typeof parsed.paidKeys === "string") {
+        explicitPaidKeys = parsed.paidKeys
+          .split(/[\n\r,;]+/)
+          .map((k: string) => k.trim())
+          .filter((k: string) => k.length > 5);
+      }
+
+      const allPaid = Array.from(new Set([paidPrimary, paidSecondary, ...explicitPaidKeys].filter(Boolean)));
+
+      if (Array.isArray(parsed.freeKeys)) {
+        freeKeys = parsed.freeKeys
+          .map((k: unknown) => String(k).trim())
+          .filter((k: string) => k.length > 5);
+      } else if (typeof parsed.freeKeys === "string") {
+        freeKeys = parsed.freeKeys
+          .split(/[\n\r,;]+/)
+          .map((k: string) => k.trim())
+          .filter((k: string) => k.length > 5);
+      } else if (Array.isArray(parsed.budgetPool)) {
         const sortedItems = [...parsed.budgetPool].sort((a: any, b: any) => {
           const pA =
             typeof a === "object" && a !== null && typeof a.priority === "number" ? a.priority : 99;
@@ -44,7 +70,7 @@ export function normaliseConfig(row: {
             typeof b === "object" && b !== null && typeof b.priority === "number" ? b.priority : 99;
           return pA - pB;
         });
-        budgetPool = sortedItems
+        freeKeys = sortedItems
           .map((k: unknown) => {
             if (typeof k === "object" && k !== null && "key" in k) {
               return String((k as { key: string }).key).trim();
@@ -53,12 +79,16 @@ export function normaliseConfig(row: {
           })
           .filter((k: string) => k.length > 5);
       } else if (typeof parsed.budgetPool === "string") {
-        budgetPool = parsed.budgetPool
+        freeKeys = parsed.budgetPool
           .split(/[\n\r,;]+/)
           .map((k: string) => k.trim())
           .filter((k: string) => k.length > 5);
       }
-      allKeys = Array.from(new Set([paidPrimary, paidSecondary, ...budgetPool].filter(Boolean)));
+
+      // Ensure paid keys are not accidentally treated as free keys
+      freeKeys = freeKeys.filter((k) => !allPaid.includes(k));
+      explicitPaidKeys = allPaid;
+      allKeys = Array.from(new Set([...freeKeys, ...allPaid]));
     } catch {
       // fallback to plain text parsing
     }
@@ -69,24 +99,85 @@ export function normaliseConfig(row: {
       .split(/[\n\r,;]+/)
       .map((k) => k.trim())
       .filter((k) => k.length > 5);
-    paidPrimary = allKeys[0] || raw;
-    paidSecondary = allKeys[1] || "";
-    budgetPool = allKeys;
+    freeKeys = allKeys;
   }
 
-  const primaryKey = paidPrimary || allKeys[0] || raw;
+  const primaryKey = freeKeys[0] || explicitPaidKeys[0] || allKeys[0] || raw;
 
   return {
     provider: row.provider,
     apiKey: primaryKey,
-    paidPrimaryKey: primaryKey,
-    paidSecondaryKey: paidSecondary || undefined,
-    budgetPoolKeys: budgetPool.length > 0 ? budgetPool : [primaryKey],
+    paidPrimaryKey: explicitPaidKeys[0] || undefined,
+    paidSecondaryKey: explicitPaidKeys[1] || undefined,
+    paidKeys: explicitPaidKeys,
+    freeKeys,
+    budgetPoolKeys: freeKeys,
     apiKeys: allKeys.length > 0 ? allKeys : [raw],
     baseUrl: (row.base_url?.trim() || meta.baseUrl).replace(/\/+$/, ""),
     model: row.model,
     label: row.label,
   };
+}
+
+/**
+ * Assembles the key pool cleanly partitioned into free keys and emergency paid keys.
+ * All free keys are tried first (in priority/rotation order).
+ * Paid keys are strictly the last resort, only used if every single free key fails.
+ */
+export function buildOrderedKeyPool(config: ProviderConfig): {
+  freeKeys: string[];
+  paidKeys: string[];
+  allOrderedKeys: string[];
+} {
+  const rawFree = [
+    ...(config.freeKeys || []),
+    ...(config.budgetPoolKeys || []),
+  ].map((k) => (typeof k === "string" ? k.trim() : "")).filter((k) => k.length > 5);
+
+  const rawPaid = [
+    ...(config.paidKeys || []),
+    config.paidPrimaryKey,
+    config.paidSecondaryKey,
+  ].map((k) => (typeof k === "string" ? k.trim() : "")).filter((k) => k.length > 5);
+
+  const paidKeys = Array.from(new Set(rawPaid));
+  const freeKeys = Array.from(new Set(rawFree)).filter((k) => !paidKeys.includes(k));
+
+  if (freeKeys.length === 0 && paidKeys.length === 0) {
+    const fallback = (config.apiKey || "").trim();
+    if (fallback.length > 5) {
+      freeKeys.push(fallback);
+    }
+  }
+
+  // Strictly: all free keys first. Paid keys appended as last resort only.
+  const allOrderedKeys = [...freeKeys, ...paidKeys];
+  if (allOrderedKeys.length === 0 && config.apiKey) {
+    allOrderedKeys.push(config.apiKey.trim());
+  }
+
+  return { freeKeys, paidKeys, allOrderedKeys };
+}
+
+/**
+ * Returns keys sorted with healthy free keys first, cooled-down free keys second,
+ * and emergency paid keys strictly last (healthy paid, then cooled paid).
+ */
+export function getPrioritizedKeyOrder(
+  config: ProviderConfig,
+  cooldowns?: Map<string, number>,
+): string[] {
+  const { freeKeys, paidKeys } = buildOrderedKeyPool(config);
+  const now = Date.now();
+  const isHealthy = (k: string) => !cooldowns || (cooldowns.get(k) ?? 0) <= now;
+
+  const healthyFree = freeKeys.filter(isHealthy);
+  const cooledFree = freeKeys.filter((k) => !isHealthy(k));
+  const healthyPaid = paidKeys.filter(isHealthy);
+  const cooledPaid = paidKeys.filter((k) => !isHealthy(k));
+
+  const ordered = [...healthyFree, ...cooledFree, ...healthyPaid, ...cooledPaid];
+  return ordered.length > 0 ? ordered : [config.apiKey];
 }
 
 /** The admin-selected chat/marking provider override, or null to use built-in Lovable AI. */

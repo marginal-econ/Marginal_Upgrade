@@ -1,5 +1,5 @@
 import { useServerFn } from "@tanstack/react-start";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   checkEssayWriting,
@@ -13,6 +13,16 @@ import { deterministicTerminologyIssues } from "@/lib/live-examiner/economics-gl
 import { analyzeGrammarAndMechanics } from "@/lib/live-examiner/grammar-engine";
 import { splitSentences } from "@/lib/writing-check/sentence-diff";
 import { cleanSuggestion } from "@/lib/live-examiner/clean-suggestion";
+import {
+  computeRunningMark,
+  isDiagramTag,
+  pendingSentences,
+  resolveSentence,
+  sentenceKey,
+  splitWithCompleteness,
+  wordCountOf,
+  type Ledger,
+} from "@/lib/live-examiner/sentence-engine";
 
 export type { PredictedMark, ExaminerChallenge };
 export { cleanSuggestion };
@@ -44,7 +54,11 @@ export type LiveExaminerIssue = {
 };
 
 export type ActiveIssue = LiveExaminerIssue & { id: string };
-export type ActiveAoClassification = LiveExaminerAoClassification & { id: string };
+export type ActiveAoClassification = LiveExaminerAoClassification & {
+  id: string;
+  /** True when produced by the unified resolver (rules + AI adjudication) — painted as-is. */
+  resolved?: boolean;
+};
 
 export type HistoryEntry = LiveExaminerIssue & {
   id: string;
@@ -64,14 +78,19 @@ export type LiveExaminerSessionUsage = {
   lastCheckType: "instant" | "ai" | "idle";
 };
 
-// Rapid adaptive cadence:
+// Cost-aware cadence (delta buffer): the AI only ever sees FINISHED sentences it has
+// not judged before, batched; in-browser rules cover everything mid-sentence.
 // - Instant deterministic pre-pass: fires immediately (< 25ms) in-browser (grammar, typos, definitions)
 // - Sentence completion (punctuation or newline): fires in 1,200ms
 // - Mid-sentence pause: 2,000ms
 // - Minimum request interval: 3,500ms
 // - Minimum changed characters: 16 chars
 const INSTANT_LOCAL_PAUSE_MS = 25;
-const TYPING_PAUSE_MS = 2000;
+const TYPING_PAUSE_MS = 5000; // unfinished trailing sentence: only after a real pause
+const TRAILING_MIN_WORDS = 10;
+const ERROR_BACKOFF_MS = 12_000;
+/** Hard ceiling on model calls per session — protects against runaway loops. */
+const MAX_AI_CHECKS_PER_SESSION = 200;
 const SENTENCE_COMPLETE_PAUSE_MS = 1200;
 const MIN_REQUEST_INTERVAL_MS = 3500;
 const MIN_CHANGED_CHARS = 16;
@@ -194,7 +213,6 @@ export function useLiveExaminerCheck(params: {
   });
 
   const [issues, setIssues] = useState<ActiveIssue[]>([]);
-  const [classifications, setClassifications] = useState<ActiveAoClassification[]>([]);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [checking, setChecking] = useState(false);
   const [dirty, setDirty] = useState(false);
@@ -204,7 +222,73 @@ export function useLiveExaminerCheck(params: {
   // check result (e.g. a whitespace-only edit, or too little written yet)
   // means "unchanged", not "reset to zero", so this only ever moves when a
   // check actually produces a fresh number.
-  const [predictedMark, setPredictedMark] = useState<PredictedMark | null>(null);
+  // Delta buffer: one verdict per distinct sentence, kept across edits and reloads.
+  const ledgerRef = useRef<Ledger>(new Map());
+  const [ledgerVersion, setLedgerVersion] = useState(0);
+  const aiCallsRef = useRef(0);
+  const ledgerStorageKey = `marginal_ledger_${encodeURIComponent(question.toLowerCase().trim())}`;
+  useEffect(() => {
+    ledgerRef.current = new Map();
+    try {
+      const stored = typeof window !== "undefined" ? localStorage.getItem(ledgerStorageKey) : null;
+      if (stored) ledgerRef.current = new Map(JSON.parse(stored) as [string, Ledger extends Map<string, infer V> ? V : never][]);
+    } catch {
+      ledgerRef.current = new Map();
+    }
+    setLedgerVersion((v) => v + 1);
+  }, [ledgerStorageKey]);
+  const persistLedger = useCallback(() => {
+    try {
+      const entries = Array.from(ledgerRef.current.entries()).slice(-400);
+      localStorage.setItem(ledgerStorageKey, JSON.stringify(entries));
+    } catch {
+      /* storage full / unavailable — the in-memory buffer still works */
+    }
+  }, [ledgerStorageKey]);
+
+  // Sentences carrying a substantive economics error earn no credit.
+  const wrongContexts = useMemo(
+    () =>
+      new Set(
+        issues
+          .filter(
+            (i) =>
+              (i.category === "economics_accuracy" || i.category === "misconception") &&
+              i.severity !== "low",
+          )
+          .map((i) => i.context),
+      ),
+    [issues],
+  );
+
+  // Running mark: computed instantly in-browser from per-sentence credit. Rises
+  // automatically as more is written; costs nothing; always works.
+  const predictedMark = useMemo<PredictedMark | null>(() => {
+    if (!enabled || text.trim().length < MIN_TEXT_LENGTH) return null;
+    return computeRunningMark({ text, maxMark, ledger: ledgerRef.current, wrongContexts });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [text, maxMark, enabled, wrongContexts, ledgerVersion]);
+
+  // Colour coding: every finished sentence gets exactly one resolved AO.
+  const classifications = useMemo<ActiveAoClassification[]>(() => {
+    if (!enabled || text.trim().length < MIN_TEXT_LENGTH) return [];
+    const out: ActiveAoClassification[] = [];
+    for (const { sentence, complete } of splitWithCompleteness(text)) {
+      const trimmed = sentence.trim();
+      if (!complete || trimmed.length < 5 || isDiagramTag(trimmed)) continue;
+      const cls = resolveSentence(trimmed, ledgerRef.current.get(sentenceKey(trimmed)));
+      out.push({
+        id: `${cls.ao}::${trimmed.toLowerCase()}::${trimmed.toLowerCase()}`,
+        original: trimmed,
+        context: trimmed,
+        ao: cls.ao,
+        explanation: cls.explanation,
+        resolved: true,
+      });
+    }
+    return out;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [text, enabled, ledgerVersion]);
 
   // Socratic Examiner Challenges & Adaptive Follow-up state
   const fetchChallengesFn = useServerFn(getExaminerChallenges);
@@ -217,9 +301,9 @@ export function useLiveExaminerCheck(params: {
   const historyRef = useRef<HistoryEntry[]>([]);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const localTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const lastEstimatedMarkAtRef = useRef<number>(0);
   const requestIdRef = useRef(0);
   const inFlightRef = useRef(false);
+  const lastRequestFailedRef = useRef(false);
   const lastRequestAtRef = useRef(0);
   const queuedTextRef = useRef<string | null>(null);
   const latestTextRef = useRef(text);
@@ -315,14 +399,6 @@ export function useLiveExaminerCheck(params: {
       const previousText = force ? undefined : lastCheckedTextRef.current || undefined;
       const previousIssues = force ? [] : issuesRef.current;
 
-      const isSentenceOrThoughtEnd = /(?:[.!?]|\n)\s*$/.test(currentText);
-      const timeSinceLastEstimate = Date.now() - lastEstimatedMarkAtRef.current;
-      const shouldIncludeEstimate =
-        isSentenceOrThoughtEnd || timeSinceLastEstimate > 10_000 || !predictedMark;
-      if (shouldIncludeEstimate) {
-        lastEstimatedMarkAtRef.current = Date.now();
-      }
-
       const coachingExpired = !isAdminRef.current && (remainingSeconds <= 0 || aiCoachingExpired);
       if (coachingExpired) {
         // AI coaching time limit reached for this non-admin session.
@@ -332,6 +408,22 @@ export function useLiveExaminerCheck(params: {
         setLastUpdatedAt(Date.now());
         return;
       }
+
+      if (!isAdminRef.current && aiCallsRef.current >= MAX_AI_CHECKS_PER_SESSION) {
+        lastCheckedTextRef.current = currentText;
+        setChecking(false);
+        setDirty(false);
+        return;
+      }
+      aiCallsRef.current += 1;
+
+      const knownSentences = splitWithCompleteness(currentText)
+        .filter((x) => ledgerRef.current.get(sentenceKey(x.sentence))?.ai)
+        .map((x) => x.sentence);
+      const includeTrailing = force
+        ? false
+        : !/(?:[.!?]["')\]]*|\n)\s*$/.test(currentText) &&
+          wordCountOf(currentText) >= TRAILING_MIN_WORDS;
 
       setChecking(true);
       setError(null);
@@ -344,7 +436,9 @@ export function useLiveExaminerCheck(params: {
           level,
           maxMark,
           contextBlock,
-          includePredictedMark: shouldIncludeEstimate,
+          includePredictedMark: false,
+          knownSentences: force ? [] : knownSentences,
+          includeTrailing,
           aiCoachingExpired: isAdminRef.current ? false : aiCoachingExpired,
         },
       })
@@ -353,9 +447,13 @@ export function useLiveExaminerCheck(params: {
           lastCheckedTextRef.current = result.checkedText ?? currentText;
           const latestText = latestTextRef.current;
 
-          // Always accept predicted mark if returned, otherwise preserve or compute client evaluation
-          if (result.predictedMark) {
-            setPredictedMark(result.predictedMark);
+          // Fold the model's verdicts into the delta buffer (never re-paid for).
+          if (!result.checkFailed) {
+            for (const r of result.sentenceResults ?? []) {
+              ledgerRef.current.set(sentenceKey(r.sentence), { ao: r.ao, strength: r.strength, ai: true });
+            }
+            persistLedger();
+            setLedgerVersion((v) => v + 1);
           }
 
           // Layer server issues that are valid in latest text
@@ -376,39 +474,6 @@ export function useLiveExaminerCheck(params: {
             return Array.from(map.values());
           });
 
-          setClassifications((previous) => {
-            const currentSentenceList = splitSentences(latestText);
-            const currentSentenceSet = new Set(
-              currentSentenceList.map((s) => s.trim().toLowerCase()).filter((s) => s.length >= 5),
-            );
-
-            const replacedContexts = new Set(
-              (result.classifiedContexts || []).map((c) => c.trim().toLowerCase()),
-            );
-            const surviving = (force && !result.checkFailed ? [] : previous).filter(
-              (classification) => {
-                const normContext = (classification.context || classification.original || "")
-                  .trim()
-                  .toLowerCase();
-                // ONLY survive if it matches an actual current complete sentence in latestText,
-                // NEVER an obsolete or truncated substring fragment from mid-keystroke typing!
-                return currentSentenceSet.has(normContext) && !replacedContexts.has(normContext);
-              },
-            );
-            const incoming = result.classifications
-              .filter((c) => {
-                const normContext = (c.context || c.original || "").trim().toLowerCase();
-                return currentSentenceSet.has(normContext) || latestText.toLowerCase().includes(normContext);
-              })
-              .map((classification) => ({
-                ...classification,
-                id: classificationId(classification),
-              }));
-            return Array.from(
-              new Map([...surviving, ...incoming].map((item) => [item.id, item])).values(),
-            );
-          });
-
           recordHistory(result.issues);
           setDirty(latestText !== currentText);
           setLastUpdatedAt(Date.now());
@@ -424,6 +489,7 @@ export function useLiveExaminerCheck(params: {
               lastCheckType: result.usage.totalTokens > 0 ? "ai" : "instant",
             }));
           }
+          lastRequestFailedRef.current = Boolean(result.checkFailed);
           if (result.checkFailed) {
             setError(
               "The examiner check is temporarily unavailable — showing the last known issues.",
@@ -434,6 +500,7 @@ export function useLiveExaminerCheck(params: {
         })
         .catch((caught: unknown) => {
           if (requestId !== requestIdRef.current) return;
+          lastRequestFailedRef.current = true;
           // A daily-limit refusal is a real answer, not a network blip —
           // show the actual reason instead of promising a retry.
           setError(
@@ -446,10 +513,11 @@ export function useLiveExaminerCheck(params: {
           inFlightRef.current = false;
           if (requestId === requestIdRef.current) setChecking(false);
           const latest = latestTextRef.current;
-          if (latest && latest !== lastCheckedTextRef.current) {
+          if (pendingSentences(latest, ledgerRef.current).length > 0) {
             if (timerRef.current) clearTimeout(timerRef.current);
+            const failed = lastRequestFailedRef.current;
             const remaining = Math.max(
-              TYPING_PAUSE_MS,
+              failed ? ERROR_BACKOFF_MS : SENTENCE_COMPLETE_PAUSE_MS,
               MIN_REQUEST_INTERVAL_MS - (Date.now() - lastRequestAtRef.current),
             );
             timerRef.current = setTimeout(() => runCheck(latest, false), remaining);
@@ -463,7 +531,7 @@ export function useLiveExaminerCheck(params: {
       maxMark,
       contextBlock,
       recordHistory,
-      predictedMark,
+      persistLedger,
       aiCoachingExpired,
       isAdmin,
       remainingSeconds,
@@ -481,8 +549,6 @@ export function useLiveExaminerCheck(params: {
     const trimmed = text.trim();
     if (trimmed.length < MIN_TEXT_LENGTH) {
       setIssues([]);
-      setClassifications([]);
-      setPredictedMark(null);
       lastCheckedTextRef.current = "";
       setDirty(false);
       return;
@@ -493,15 +559,19 @@ export function useLiveExaminerCheck(params: {
       return;
     }
 
-    const completedThought = /(?:[.!?]|\n)\s*$/.test(text);
-    if (!completedThought && changedAmount(text, lastCheckedTextRef.current) < MIN_CHANGED_CHARS) {
+    // Delta buffer: only finished sentences the model has not judged yet matter.
+    const pending = pendingSentences(text, ledgerRef.current);
+    const trailingLong =
+      !/(?:[.!?]["')\]]*|\n)\s*$/.test(text) && wordCountOf(text) >= TRAILING_MIN_WORDS;
+    if (pending.length === 0 && !trailingLong) {
+      setDirty(false);
       return;
     }
 
     setDirty(true);
     timerRef.current = setTimeout(
       () => runCheck(text, false),
-      completedThought ? SENTENCE_COMPLETE_PAUSE_MS : TYPING_PAUSE_MS,
+      pending.length > 0 ? SENTENCE_COMPLETE_PAUSE_MS : TYPING_PAUSE_MS,
     );
 
     return () => {
@@ -518,7 +588,20 @@ export function useLiveExaminerCheck(params: {
     const clean = cleanSuggestion(issue.suggestion);
 
     const applySub = (sourceSentence: string) => {
-      const idx = sourceSentence.indexOf(issue.original);
+      let idx = -1;
+      // When replacing a word or single letter like "i", match strictly on word boundaries
+      // to avoid corrupting containing words (e.g. replacing the "i" in "this" or "prices").
+      if (/^\w+$/.test(issue.original)) {
+        const escaped = issue.original.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const wordRegex = new RegExp(`\\b${escaped}\\b`, "g");
+        const match = wordRegex.exec(sourceSentence);
+        if (match) {
+          idx = match.index;
+        }
+      }
+      if (idx === -1) {
+        idx = sourceSentence.indexOf(issue.original);
+      }
       if (idx === -1) return sourceSentence;
       let replacement = clean;
       const nextChar = sourceSentence[idx + issue.original.length];
@@ -560,24 +643,16 @@ export function useLiveExaminerCheck(params: {
         .filter((item) => nextText.includes(item.context)),
     );
 
-    // Update classifications so their context and original stay synchronized without being dropped!
-    setClassifications((prev) =>
-      prev
-        .map((item) => {
-          if (item.context === issue.context) {
-            const nextContext = applySub(item.context);
-            const nextOriginal =
-              item.original === item.context ? nextContext : applySub(item.original);
-            return {
-              ...item,
-              context: nextContext,
-              original: nextOriginal,
-            };
-          }
-          return item;
-        })
-        .filter((item) => nextText.includes(item.context)),
-    );
+    // Delta buffer: an accepted fix keeps its verdict — no re-check is paid for.
+    if (issue.context !== nextText) {
+      const before = ledgerRef.current.get(sentenceKey(issue.context));
+      const fixedContext = applySub(issue.context);
+      if (before && fixedContext !== issue.context) {
+        ledgerRef.current.set(sentenceKey(fixedContext), before);
+        setLedgerVersion((v) => v + 1);
+        persistLedger();
+      }
+    }
 
     setHistory((prev) =>
       prev.map((entry) =>
@@ -606,7 +681,6 @@ export function useLiveExaminerCheck(params: {
 
   function clearAll() {
     setIssues([]);
-    setClassifications([]);
   }
 
   /** Request active Socratic examiner challenges based on the student's draft. */

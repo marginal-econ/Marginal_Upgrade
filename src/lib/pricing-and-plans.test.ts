@@ -3,7 +3,7 @@ import { TIER_LIMITS, type PlanTier } from "./usage-limits";
 
 describe("Pricing Plans & Tier Specifications", () => {
   it("defines all student plan tiers with exact limits", () => {
-    expect(TIER_LIMITS.free.maxEssaysPerMonth).toBe(2);
+    expect(TIER_LIMITS.free.maxEssaysPerMonth).toBe(999999);
     expect(TIER_LIMITS.foundation.maxEssaysPerMonth).toBe(8);
     expect(TIER_LIMITS.foundation.liveExaminerCredits).toBe(2);
     expect(TIER_LIMITS.scholar_plus.maxEssaysPerMonth).toBe(15);

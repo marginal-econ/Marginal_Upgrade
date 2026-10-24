@@ -104,8 +104,8 @@ describe("Subscription Details & Entitlements", () => {
     expect(details.isAdmin).toBe(false);
     expect(details.isPaid).toBe(false);
     expect(details.tier).toBe("free");
-    expect(details.tierName).toBe("Free Tier");
-    expect(details.essaysLimit).toBe(2);
+    expect(details.tierName).toBe("Free Community Edition");
+    expect(details.essaysLimit).toBe(999999);
     expect(details.liveExaminerCredits).toBe(0);
     expect(details.canUseLiveExaminer).toBe(false);
   });
@@ -133,13 +133,13 @@ describe("Subscription Details & Entitlements", () => {
 
     expect(details.isTeacher).toBe(true);
     expect(details.isPaid).toBe(false);
-    expect(details.essaysLimit).toBe(3);
+    expect(details.essaysLimit).toBe(999999);
     expect(details.canGradeEssay).toBe(true);
     expect(details.liveExaminerCredits).toBe(0);
     expect(details.canUseLiveExaminer).toBe(false);
   });
 
-  it("enforces compulsory 2-essay free student trial and locks after 2 essays", async () => {
+  it("enforces free community edition unlimited access for students", async () => {
     function createMockWithEssayCount(essayCount: number) {
       return {
         from: vi.fn((table: string) => {
@@ -168,28 +168,18 @@ describe("Subscription Details & Entitlements", () => {
       "student-0",
       "student0@test.com"
     );
-    expect(freeStudentFresh.essaysLimit).toBe(2);
-    expect(freeStudentFresh.essaysRemaining).toBe(2);
+    expect(freeStudentFresh.essaysLimit).toBe(999999);
     expect(freeStudentFresh.canGradeEssay).toBe(true);
 
-    const freeStudentOneUsed = await getUserSubscriptionDetails(
-      createMockWithEssayCount(1),
+    const freeStudentUsed = await getUserSubscriptionDetails(
+      createMockWithEssayCount(10),
       "student-1",
       "student1@test.com"
     );
-    expect(freeStudentOneUsed.essaysRemaining).toBe(1);
-    expect(freeStudentOneUsed.canGradeEssay).toBe(true);
-
-    const freeStudentExhausted = await getUserSubscriptionDetails(
-      createMockWithEssayCount(2),
-      "student-2",
-      "student2@test.com"
-    );
-    expect(freeStudentExhausted.essaysRemaining).toBe(0);
-    expect(freeStudentExhausted.canGradeEssay).toBe(false);
+    expect(freeStudentUsed.canGradeEssay).toBe(true);
   });
 
-  it("enforces educator 3-essay trial and locks after 3 essays", async () => {
+  it("enforces free community edition unlimited access for educators", async () => {
     function createTeacherMockWithEssayCount(essayCount: number) {
       return {
         from: vi.fn((table: string) => {
@@ -220,17 +210,15 @@ describe("Subscription Details & Entitlements", () => {
       { user_metadata: { role: "teacher" } }
     );
     expect(teacherFresh.isTeacher).toBe(true);
-    expect(teacherFresh.essaysLimit).toBe(3);
-    expect(teacherFresh.essaysRemaining).toBe(3);
+    expect(teacherFresh.essaysLimit).toBe(999999);
     expect(teacherFresh.canGradeEssay).toBe(true);
 
-    const teacherExhausted = await getUserSubscriptionDetails(
-      createTeacherMockWithEssayCount(3),
+    const teacherUsed = await getUserSubscriptionDetails(
+      createTeacherMockWithEssayCount(25),
       "teacher-3",
       "teacher@test.com",
       { user_metadata: { role: "teacher" } }
     );
-    expect(teacherExhausted.essaysRemaining).toBe(0);
-    expect(teacherExhausted.canGradeEssay).toBe(false);
+    expect(teacherUsed.canGradeEssay).toBe(true);
   });
 });

@@ -37,7 +37,7 @@ export const generateModelEssay = createServerFn({ method: "POST" })
       await supabase.from("ai_usage_log").insert({
         user_id: userId,
         feature: "essay_generate",
-        model: "google/gemini-3.1-pro",
+        model: "google/gemini-3.8-flash",
         ok: false,
         error_message: error instanceof Error ? error.message : "Unknown error",
       });

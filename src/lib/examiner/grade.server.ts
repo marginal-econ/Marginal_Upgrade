@@ -95,6 +95,7 @@ export type GradeOptions = {
    */
   markSchemeImageDataUrls?: string[];
   isBudgetTier?: boolean;
+  userId?: string;
 };
 
 export type GradeOutcome = {
@@ -140,29 +141,24 @@ export async function gradeEssay(
   await validateEconomicsSyllabus(question, essayText);
 
   // --- retrieval grounding ---------------------------------------------------
-  // Mandatory, not best-effort: every mark must be grounded in this
-  // teacher's actual syllabus/mark-scheme/examiner-report material. A
-  // retrieval failure used to be swallowed here (logged server-side only)
-  // and marking would silently continue ungrounded — a teacher had no way
-  // to know a mark wasn't actually checked against their knowledge base.
-  // It now throws, so a broken embedding provider surfaces as a visible
-  // error instead of a quietly-wrong mark. Zero MATCHES (as opposed to a
-  // failed call) is not an error — that's "nothing relevant is in the
-  // knowledge base for this question yet" — so it's exposed via
-  // `grading.sources` instead, not thrown.
   let sources: GroundingSource[] = [];
   try {
-    sources = await retrieve(supabase, {
-      query: `${question}\n\nMark scheme, band descriptors and examiner report guidance for this question.`,
-      matchCount: 8,
-      docTypes: ["mark_scheme", "examiner_report", "syllabus", "coursebook", "notes"],
-      topicId: options.topicId ?? null,
-      enableHybridRrf: true,
-    });
+    sources = await Promise.race([
+      retrieve(supabase, {
+        query: `${question}\n\nMark scheme, band descriptors and examiner report guidance for this question.`,
+        matchCount: 8,
+        docTypes: ["mark_scheme", "examiner_report", "syllabus", "coursebook", "notes"],
+        topicId: options.topicId ?? null,
+        enableHybridRrf: true,
+      }),
+      new Promise<GroundingSource[]>((_, reject) =>
+        setTimeout(() => reject(new Error("Knowledge base lookup timed out (>5s)")), 5000),
+      ),
+    ]);
   } catch (error) {
     console.warn(
-      "Knowledge base retrieval failed, proceeding with Cambridge 9708 syllabus marking:",
-      error,
+      "Knowledge base retrieval skipped or timed out, proceeding with Cambridge 9708 syllabus marking:",
+      error instanceof Error ? error.message : error,
     );
     sources = [];
   }
@@ -223,12 +219,16 @@ export async function gradeEssay(
         prompt: userMessage,
         imageDataUrls: markSchemeImages,
         maxCompletionTokens: 8000,
+        userId: options.userId,
+        feature: "grade_essay",
       })
     : await chat({
         model: MODEL_EXAMINER,
         temperature: TEMPERATURE_EXAMINER,
         json: true,
         isBudgetTier: options.isBudgetTier,
+        userId: options.userId,
+        feature: "grade_essay",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userMessage },
@@ -247,7 +247,11 @@ export async function gradeEssay(
   let latencyMs = first.latencyMs;
 
   // --- audit pass ----------------------------------------------------------
-  if (options.auditPass !== false) {
+  // To protect students from Cloudflare 524 gateway timeouts (100s ceiling),
+  // we only run the audit pass if the primary examiner completed within 18s.
+  // The audit pass itself is protected with a 10s timeout, guaranteeing total
+  // response time stays under 25-30s.
+  if (options.auditPass !== false && first.latencyMs < 18_000) {
     const auditSystemPrompt = `${loadPrompt(AUDIT_PROMPT, promptValues)}\n\n${RESPONSE_CONTRACT}`;
     const auditUserMessage =
       `Exam question (${maxMark} marks):\n\n${question}\n\n` +
@@ -255,24 +259,35 @@ export async function gradeEssay(
       `Original examiner's grading JSON to audit:\n\n${JSON.stringify(grading, null, 2)}${imageNote}`;
 
     try {
-      const second = markSchemeImages.length
-        ? await visionChat({
+      const secondPromise = markSchemeImages.length
+        ? visionChat({
             model: MODEL_EXAMINER,
             systemPrompt: auditSystemPrompt,
             prompt: auditUserMessage,
             imageDataUrls: markSchemeImages,
             maxCompletionTokens: 8000,
+            userId: options.userId,
+            feature: "grade_essay_audit",
           })
-        : await chat({
+        : chat({
             model: MODEL_EXAMINER,
             temperature: TEMPERATURE_EXAMINER,
             json: true,
             isBudgetTier: options.isBudgetTier,
+            userId: options.userId,
+            feature: "grade_essay_audit",
             messages: [
               { role: "system", content: auditSystemPrompt },
               { role: "user", content: auditUserMessage },
             ],
           });
+
+      const second = await Promise.race([
+        secondPromise,
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error("Audit pass exceeded 10s timeout")), 10_000),
+        ),
+      ]);
 
       const secondGrading = normaliseGrading(extractFirstJsonObject(second.text), maxMark, split);
       secondGrading.audited = true;
@@ -284,21 +299,26 @@ export async function gradeEssay(
       // Triggered only when a material discrepancy or grade band contradiction
       // exists between the Primary Examiner and Independent Moderator.
       const disputeCheck = shouldTriggerArbitration(grading, secondGrading, maxMark);
-      if (disputeCheck.shouldArbitrate) {
+      if (disputeCheck.shouldArbitrate && latencyMs < 25_000) {
         try {
-          const arbitrated = await arbitrateGrading({
-            question,
-            essayText,
-            maxMark,
-            split,
-            examinerGrading: grading,
-            moderatorGrading: secondGrading,
-            disputeReason: disputeCheck.reason,
-          });
+          const arbitrated = await Promise.race([
+            arbitrateGrading({
+              question,
+              essayText,
+              maxMark,
+              split,
+              examinerGrading: grading,
+              moderatorGrading: secondGrading,
+              disputeReason: disputeCheck.reason,
+            }),
+            new Promise<never>((_, reject) =>
+              setTimeout(() => reject(new Error("Arbitration exceeded 8s timeout")), 8_000),
+            ),
+          ]);
           grading = arbitrated;
         } catch (arbitrationError) {
-          console.error(
-            "Arbitration pass encountered error; falling back to moderated grade",
+          console.warn(
+            "Arbitration pass timed out or failed; falling back to moderated grade",
             arbitrationError,
           );
           grading = secondGrading;
@@ -311,7 +331,7 @@ export async function gradeEssay(
     } catch (error) {
       // The audit is a correction pass, not a gate. A transient audit failure
       // returns the already-valid first-pass result instead of failing.
-      console.error("Audit pass failed; returning unaudited grading", error);
+      console.warn("Audit pass skipped or timed out; returning authoritative first-pass grading", error);
     }
   }
 

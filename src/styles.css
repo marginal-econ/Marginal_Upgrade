@@ -1230,51 +1230,128 @@ html.motion-ready .reveal-pop:not([data-revealed="true"]) {
   }
 }
 
-@keyframes shooting-comet {
+/* ── Mystical Celestial Comets & Stardust Engine ────────────────────────── */
+@keyframes mystic-comet-travel {
   0% {
-    transform: translateX(0) translateY(0) rotate(-35deg) scale(0);
+    transform: translate3d(-360px, 0, 0) scale(0.65);
     opacity: 0;
   }
+  2.5% {
+    opacity: 0.2;
+  }
   8% {
-    transform: translateX(40px) translateY(28px) rotate(-35deg) scale(1);
+    transform: translate3d(60px, 0, 0) scale(1);
     opacity: 1;
   }
   50% {
-    transform: translateX(450px) translateY(315px) rotate(-35deg) scale(1);
-    opacity: 0.9;
+    transform: translate3d(780px, 0, 0) scale(1.02);
+    opacity: 0.95;
   }
-  75% {
-    transform: translateX(700px) translateY(490px) rotate(-35deg) scale(0.6);
-    opacity: 0.2;
+  72% {
+    transform: translate3d(1200px, 0, 0) scale(0.88);
+    opacity: 0.35;
   }
+  85%,
   100% {
-    transform: translateX(850px) translateY(595px) rotate(-35deg) scale(0);
+    transform: translate3d(1450px, 0, 0) scale(0.6);
     opacity: 0;
   }
 }
 
-.shooting-comet {
+@keyframes mystic-core-pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.88;
+  }
+  50% {
+    transform: scale(1.3);
+    opacity: 1;
+  }
+}
+
+@keyframes mystic-spark-float {
+  0%, 100% {
+    transform: translate(0, 0) scale(0.85);
+    opacity: 0.45;
+  }
+  50% {
+    transform: translate(-3px, 1.5px) scale(1.2);
+    opacity: 1;
+  }
+}
+
+@keyframes micro-meteor-dash {
+  0% {
+    transform: translate3d(-120px, 0, 0) scaleX(0.2);
+    opacity: 0;
+  }
+  6% {
+    opacity: 0.85;
+  }
+  35% {
+    transform: translate3d(550px, 0, 0) scaleX(1.3);
+    opacity: 0.75;
+  }
+  55% {
+    transform: translate3d(900px, 0, 0) scaleX(0.7);
+    opacity: 0;
+  }
+  100% {
+    transform: translate3d(1050px, 0, 0) scaleX(0.2);
+    opacity: 0;
+  }
+}
+
+.mystic-comet-track {
   position: absolute;
-  width: 170px;
-  height: 2px;
-  background: linear-gradient(90deg, #ffffff 0%, rgba(245, 158, 11, 0.9) 30%, rgba(168, 85, 247, 0.4) 70%, transparent 100%);
-  border-radius: 9999px;
-  filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.9)) drop-shadow(0 0 16px rgba(245, 158, 11, 0.7));
-  animation: shooting-comet 7s cubic-bezier(0.2, 0.8, 0.2, 1) infinite;
-  opacity: 0;
+  transform-origin: 0 0;
+  pointer-events: none;
+  will-change: transform;
+}
+
+.mystic-comet-body {
+  position: relative;
+  width: 380px;
+  height: 60px;
+  animation: mystic-comet-travel var(--comet-duration, 7.5s) cubic-bezier(0.22, 0.1, 0.25, 1) infinite;
+  animation-delay: var(--comet-delay, 0s);
+  will-change: transform, opacity;
   pointer-events: none;
 }
 
-.shooting-comet::before {
-  content: "";
+.mystic-comet-core-glow {
+  transform-origin: center;
+  animation: mystic-core-pulse 2s ease-in-out infinite;
+}
+
+.mystic-stardust-spark {
+  transform-origin: center;
+  animation: mystic-spark-float 2.4s ease-in-out infinite;
+}
+
+.micro-meteor-track {
   position: absolute;
-  left: 0;
-  top: -2px;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #ffffff;
-  box-shadow: 0 0 12px 3px #ffffff, 0 0 20px 5px rgba(245, 158, 11, 0.9);
+  transform-origin: 0 0;
+  pointer-events: none;
+  will-change: transform;
+}
+
+.micro-meteor-streak {
+  width: 150px;
+  height: 2px;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.3) 55%, #ffffff 90%, #a5f3fc 100%);
+  filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.9)) drop-shadow(0 0 14px rgba(56, 189, 248, 0.7));
+  animation: micro-meteor-dash var(--meteor-duration, 5.5s) cubic-bezier(0.15, 0.85, 0.2, 1) infinite;
+  animation-delay: var(--meteor-delay, 1s);
+  opacity: 0;
+  will-change: transform, opacity;
+  pointer-events: none;
+}
+
+/* Fallback for legacy class if referenced anywhere */
+.shooting-comet {
+  display: none;
 }
 
 .mascot-sparkles > * {
@@ -1811,8 +1888,14 @@ html.theme-shifting * {
   .theme-orb,
   .orb-orbit,
   .aurora-wash,
-  .starfield {
+  .starfield,
+  .mystic-comet-track,
+  .mystic-comet-body,
+  .micro-meteor-track,
+  .micro-meteor-streak,
+  .shooting-comet {
     animation: none !important;
+    display: none !important;
     transform: none !important;
     translate: none !important;
     rotate: none !important;

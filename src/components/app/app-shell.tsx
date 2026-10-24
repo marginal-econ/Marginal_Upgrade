@@ -88,17 +88,10 @@ const NAV_GROUPS: NavGroup[] = [
   },
   {
     id: "grading",
-    label: "Exam Practice & Live",
+    label: "Exam Practice",
     collapsible: true,
     items: [
       { to: "/grade", label: "Grade Essay", icon: PenLine },
-      {
-        to: "/live-examiner",
-        label: "Live Examiner",
-        icon: Sparkles,
-        badge: "Live",
-        requiresPaid: true,
-      },
       { to: "/mcq-live", label: "MCQ Past Papers", icon: ListChecks },
     ],
   },
@@ -138,11 +131,10 @@ const TEACHER_NAV_GROUPS: NavGroup[] = [
   },
   {
     id: "grading",
-    label: "Exam Practice & Live",
+    label: "Exam Practice",
     collapsible: true,
     items: [
       { to: "/grade", label: "Essay Grader", icon: PenLine },
-      { to: "/live-examiner", label: "Live Examiner", icon: Sparkles, requiresPaid: true },
       { to: "/mcq-live", label: "MCQ Past Papers", icon: ListChecks },
     ],
   },
@@ -563,7 +555,7 @@ export function AppShell({
           </Button>
         ) : null}
 
-        {/* User Status & Credit Widget */}
+        {/* User Status Widget */}
         {!sidebarCollapsed && subscription ? (
           role === "admin" || subscription.isAdmin ? (
             <div className="mb-3 rounded-2xl border border-amber-500/30 bg-gradient-to-br from-amber-500/15 via-card to-amber-500/5 p-3 shrink-0 shadow-sm relative overflow-hidden group">
@@ -587,10 +579,6 @@ export function AppShell({
                   Root
                 </Badge>
               </div>
-              <div className="mt-2.5 pt-2 border-t border-amber-500/20 text-[10.5px] text-muted-foreground flex items-center gap-1.5 font-medium relative z-10">
-                <Sparkles className="size-3 text-amber-500 shrink-0 animate-pulse" />
-                <span className="text-foreground font-semibold">Uncapped Godmode · No Limits</span>
-              </div>
             </div>
           ) : role === "teacher" || subscription.isTeacher ? (
             <div className="mb-3 rounded-2xl border border-purple-500/30 bg-gradient-to-br from-purple-500/15 via-card to-purple-500/5 p-3 shrink-0 shadow-sm relative overflow-hidden group">
@@ -610,65 +598,12 @@ export function AppShell({
                     </p>
                   </div>
                 </div>
-                <Link to="/pricing">
-                  <Badge
-                    variant="outline"
-                    className={cn(
-                      "text-[9px] font-extrabold uppercase shadow-2xs cursor-pointer transition-all hover:scale-105",
-                      subscription.isPaid
-                        ? "bg-purple-500/25 text-purple-600 dark:text-purple-400 border-purple-500/40"
-                        : "bg-purple-500/15 text-purple-600 dark:text-purple-400 border-purple-500/30",
-                    )}
-                  >
-                    {subscription.isPaid ? subscription.tierName.split(" ")[0] : "Trial (3)"}
-                  </Badge>
-                </Link>
-              </div>
-
-              {/* Teacher Quota Status */}
-              <div className="mt-3 pt-2.5 border-t border-purple-500/20 space-y-2 relative z-10">
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between text-[10.5px]">
-                    <span className="flex items-center gap-1.5 text-muted-foreground font-medium">
-                      <PenLine className="size-3 text-purple-500" /> Essays Remaining
-                    </span>
-                    <span className="font-bold text-foreground tabular-nums text-[11px]">
-                      {subscription.essaysLimit === 9999
-                        ? "Unlimited"
-                        : `${subscription.essaysRemaining} / ${subscription.essaysLimit}`}
-                    </span>
-                  </div>
-                  <div className="h-1.5 w-full rounded-full bg-muted/80 overflow-hidden">
-                    <div
-                      className="h-full rounded-full bg-gradient-to-r from-purple-500 to-indigo-500 transition-all duration-500"
-                      style={{
-                        width:
-                          subscription.essaysLimit === 9999
-                            ? "100%"
-                            : `${Math.min(
-                                100,
-                                Math.max(
-                                  0,
-                                  (subscription.essaysRemaining /
-                                    Math.max(1, subscription.essaysLimit)) *
-                                    100,
-                                ),
-                              )}%`,
-                      }}
-                    />
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between text-[10.5px] pt-1 border-t border-purple-500/15">
-                  <span className="flex items-center gap-1.5 text-muted-foreground font-medium">
-                    <Sparkles className="size-3 text-purple-500" /> Live Examiner
-                  </span>
-                  <span className="font-bold text-foreground tabular-nums text-[11px]">
-                    {subscription.liveExaminerCredits > 0
-                      ? `${subscription.liveExaminerCredits} credits`
-                      : "Paid Only"}
-                  </span>
-                </div>
+                <Badge
+                  variant="outline"
+                  className="bg-purple-500/20 text-purple-600 dark:text-purple-400 border-purple-500/35 text-[9.5px] font-bold uppercase shadow-2xs"
+                >
+                  Educator
+                </Badge>
               </div>
             </div>
           ) : (
@@ -689,86 +624,12 @@ export function AppShell({
                     </p>
                   </div>
                 </div>
-
-                <Link to="/pricing">
-                  <Badge
-                    variant="outline"
-                    className={cn(
-                      "text-[9.5px] px-2 py-0.5 font-extrabold shrink-0 cursor-pointer transition-all hover:scale-105 shadow-2xs",
-                      subscription.isPaid
-                        ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                        : "border-primary/30 bg-primary/10 text-primary",
-                    )}
-                  >
-                    {subscription.isPaid ? subscription.tierName.split(" ")[0] : "Free Tier"}
-                  </Badge>
-                </Link>
-              </div>
-
-              {/* Progress Meters with Glowing Bars */}
-              <div className="mt-3 pt-2.5 border-t border-border/60 space-y-2 relative z-10">
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between text-[10.5px]">
-                    <span className="flex items-center gap-1.5 text-muted-foreground font-medium">
-                      <PenLine className="size-3 text-primary" /> Essays Remaining
-                    </span>
-                    <span className="font-bold text-foreground tabular-nums text-[11px]">
-                      {subscription.essaysLimit === 9999
-                        ? "Unlimited"
-                        : `${subscription.essaysRemaining} / ${subscription.essaysLimit}`}
-                    </span>
-                  </div>
-                  <div className="h-1.5 w-full rounded-full bg-muted/80 overflow-hidden">
-                    <div
-                      className="h-full rounded-full bg-gradient-to-r from-primary to-indigo-500 transition-all duration-500"
-                      style={{
-                        width:
-                          subscription.essaysLimit === 9999
-                            ? "100%"
-                            : `${Math.min(
-                                100,
-                                Math.max(
-                                  0,
-                                  (subscription.essaysRemaining / subscription.essaysLimit) * 100,
-                                ),
-                              )}%`,
-                      }}
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between text-[10.5px]">
-                    <span className="flex items-center gap-1.5 text-muted-foreground font-medium">
-                      <Zap className="size-3 text-amber-500" /> Live Credits
-                    </span>
-                    {subscription.liveExaminerCredits > 0 ? (
-                      <span className="font-bold text-foreground tabular-nums text-[11px]">
-                        {subscription.liveExaminerCredits}
-                      </span>
-                    ) : (
-                      <Link
-                        to="/pricing"
-                        className="text-[10px] font-bold text-primary hover:underline flex items-center gap-0.5"
-                      >
-                        <span>Upgrade</span> <ArrowRight className="size-2.5" />
-                      </Link>
-                    )}
-                  </div>
-                  {subscription.liveExaminerCredits > 0 ? (
-                    <div className="h-1.5 w-full rounded-full bg-muted/80 overflow-hidden">
-                      <div
-                        className="h-full rounded-full bg-gradient-to-r from-amber-500 to-orange-500 transition-all duration-500"
-                        style={{
-                          width: `${Math.min(
-                            100,
-                            Math.max(10, (subscription.liveExaminerCredits / 75) * 100),
-                          )}%`,
-                        }}
-                      />
-                    </div>
-                  ) : null}
-                </div>
+                <Badge
+                  variant="outline"
+                  className="border-primary/30 bg-primary/10 text-primary text-[9.5px] px-2 py-0.5 font-bold shrink-0 shadow-2xs"
+                >
+                  Candidate
+                </Badge>
               </div>
             </div>
           )
@@ -781,20 +642,6 @@ export function AppShell({
 
         {/* ── User Footer: Cleanly pinned at the bottom, perfectly spaced ── */}
         <div className="shrink-0 pt-2.5 border-t border-sidebar-border/70 mt-auto space-y-1">
-          <Link
-            to="/pricing"
-            className={cn(
-              "flex items-center rounded-lg py-1.5 text-xs font-medium text-sidebar-foreground/80 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-              sidebarCollapsed ? "justify-center px-1" : "gap-2.5 px-2.5",
-              pathname.startsWith("/pricing") && "bg-sidebar-accent text-sidebar-accent-foreground font-semibold",
-            )}
-            title="Revision plans & pricing"
-          >
-            <CreditCard className="size-4 shrink-0 text-primary" />
-            <span className={cn("truncate", sidebarCollapsed && "sr-only")}>
-              Plans & Pricing
-            </span>
-          </Link>
 
           <Link
             to="/settings"

@@ -2922,7 +2922,7 @@ function StudentInsightsModal({
 
                 <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-1">
                   <div className="text-[10px] uppercase font-bold text-slate-500">
-                    Live Examiner Runs
+                    Essay Practice Runs
                   </div>
                   <div className="text-2xl font-black text-blue-400">
                     {insights.summary.live_examiner_sessions}

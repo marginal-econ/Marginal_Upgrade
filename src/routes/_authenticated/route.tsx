@@ -72,8 +72,8 @@ function AuthenticatedLayout() {
       user.id === "00296414-0221-4d5b-aa1c-04dc9366a218" ||
       user.email?.toLowerCase().trim() === "marginal.econ.ai@gmail.com",
     essaysGradedCount: 0,
-    essaysLimit: tierLimits.monthlyEssayLimit,
-    essaysRemaining: tierLimits.monthlyEssayLimit,
+    essaysLimit: (tierLimits as any).maxEssaysPerMonth ?? (tierLimits as any).monthlyEssayLimit ?? 999999,
+    essaysRemaining: (tierLimits as any).maxEssaysPerMonth ?? (tierLimits as any).monthlyEssayLimit ?? 999999,
     canGradeEssay: true,
     liveExaminerCredits: tierLimits.liveExaminerCredits,
     canUseLiveExaminer: tierLimits.liveExaminerCredits > 0,

@@ -883,56 +883,35 @@ function LiveExaminerPage() {
         description="Write your answer and get instant, syllabus-grounded feedback as you go — grammar, clarity, economics accuracy, analysis, application, evaluation and terminology."
       />
 
-      {(isTeacherUnpaid || (meQuery.data?.subscription && !meQuery.data.subscription.canUseLiveExaminer && !isAdmin)) ? (
+      {!isAdmin ? (
         <ChainedChamber
-          badgeText={isTeacherUnpaid ? "Teacher Live Examiner Pass Required" : "Paid Feature · Chained"}
-          title={isTeacherUnpaid ? "Unlock Teacher Live Examiner Coaching" : "Cambridge Live Examiner is Chained"}
-          description={
-            isTeacherUnpaid
-              ? "Live Examiner real-time keystroke coaching for teacher accounts requires an active Educator AI Pass (from ₹99/mo) or School Department License. Upgrade to run live Cambridge coaching demonstrations or test model answers."
-              : "Real-time clause checking, instant AO breakdown, and keystroke coaching require an active subscription or live examiner credits."
-          }
-          primaryCtaText={isTeacherUnpaid ? "Unlock Educator Pass (from ₹99/mo)" : "Unlock Live Examiner (from ₹99/mo)"}
-          primaryCtaLink="/pricing"
-          secondaryCtaText={isTeacherUnpaid ? "View School Department Licensing" : "Use Free Essay Grader (2 Free)"}
-          secondaryCtaLink={isTeacherUnpaid ? "/pricing" : "/grade"}
-          features={
-            isTeacherUnpaid
-              ? [
-                  {
-                    icon: Sparkles,
-                    iconColor: "text-amber-500",
-                    title: "Educator AI Pass (From ₹99/mo)",
-                    description: "Unlock dedicated Live Examiner credits to run classroom demonstrations, verify student arguments, and test exemplar answers.",
-                  },
-                  {
-                    icon: Building2,
-                    iconColor: "text-primary",
-                    title: "School Department Licensing",
-                    description: "License 50 to 400+ student seats for your department with teacher administrative seats and moderation tools.",
-                  },
-                  {
-                    icon: Users,
-                    iconColor: "text-purple-500",
-                    title: "Student Quotas are Independent",
-                    description: "Students enrolled in your classrooms submit essay assignments using their own student tier quotas (2 free + upgrades).",
-                  },
-                ]
-              : [
-                  {
-                    icon: Sparkles,
-                    iconColor: "text-primary",
-                    title: "Instant Live AO Feedback",
-                    description: "Evaluates every sentence against Cambridge AO1, AO2, and AO3 criteria in real-time.",
-                  },
-                  {
-                    icon: Zap,
-                    iconColor: "text-amber-500",
-                    title: "Next-Move Examiner Guidance",
-                    description: "Socratic prompts that guide you to add required definitions and evaluative weigh-ups.",
-                  },
-                ]
-          }
+          badgeText="Under Active Development & Calibration"
+          title="Live Examiner is Under Development"
+          description="The real-time keystroke coaching engine is currently undergoing advanced calibration and Socratic alignment against official Cambridge 9708 examiner standards. During this period, all other core platform features are 100% Free with unlimited access for all students and teachers."
+          primaryCtaText="Open Free Essay Grader"
+          primaryCtaLink="/grade"
+          secondaryCtaText="Practice MCQ Past Papers"
+          secondaryCtaLink="/mcq-live"
+          features={[
+            {
+              icon: Sparkles,
+              iconColor: "text-emerald-500",
+              title: "100% Free Cambridge Essay Grader",
+              description: "Full AO1 Knowledge, AO2 Analysis, and AO3 Evaluation marking with official Cambridge syllabus grounding and detailed diagnostic reports.",
+            },
+            {
+              icon: BookOpen,
+              iconColor: "text-primary",
+              title: "Past Paper Matrix & MCQ Drills",
+              description: "Complete Cambridge 9708 past-paper library with high-resolution PDFs, domain performance analytics, and official explanations.",
+            },
+            {
+              icon: Users,
+              iconColor: "text-purple-500",
+              title: "Free Classroom & Cohorts",
+              description: "Create unlimited Cambridge cohorts, assign past paper questions, review AI grades, and collaborate in real-time.",
+            },
+          ]}
         />
       ) : !started ? (
         <div className="mx-auto max-w-5xl p-5 md:p-8">

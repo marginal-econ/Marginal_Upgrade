@@ -258,6 +258,39 @@ function PaymentPortalPage() {
     }
   }, [meQuery.data]);
 
+  return (
+    <div className="relative min-h-screen bg-background text-foreground flex items-center justify-center p-4">
+      <div className="max-w-md w-full rounded-2xl border border-border bg-card p-6 sm:p-8 text-center space-y-5 shadow-xl">
+        <div className="size-14 rounded-2xl bg-emerald-500/10 text-emerald-500 mx-auto flex items-center justify-center border border-emerald-500/25">
+          <Sparkles className="size-7" />
+        </div>
+        <div className="space-y-2">
+          <Badge className="bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 text-xs font-bold">
+            100% Free Community Access Active
+          </Badge>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">
+            No Payment Required
+          </h1>
+          <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
+            All payments and pricing plans are currently locked and disabled. Marginal is open 100% free with unlimited Cambridge 9708 essay evaluations, past papers, and classroom cohorts for all students and educators.
+          </p>
+        </div>
+        <div className="pt-2 flex flex-col gap-2.5">
+          <Button asChild className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold">
+            <Link to="/grade">
+              <PenLine className="mr-2 size-4" /> Go to Essay Grader
+            </Link>
+          </Button>
+          <Button asChild variant="outline" className="w-full">
+            <Link to="/dashboard">
+              Go to Dashboard
+            </Link>
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+
   const isExplicitStudent =
     search.role === "student" ||
     search.audience === "student" ||

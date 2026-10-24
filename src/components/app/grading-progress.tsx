@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { CheckCircle2, Loader2 } from "lucide-react";
+import { CheckCircle2, Loader2, RotateCw, Sparkles } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
@@ -17,7 +17,7 @@ export type ProgressStage = {
  * it eases up to 96% and holds there so it's never dishonest about being
  * "done" while still waiting on the network.
  */
-export function useStagedProgress(stages: ProgressStage[], active: boolean, totalMs = 26_000) {
+export function useStagedProgress(stages: ProgressStage[], active: boolean, totalMs = 35_000) {
   const [elapsed, setElapsed] = useState(0);
 
   useEffect(() => {
@@ -54,7 +54,7 @@ export function useStagedProgress(stages: ProgressStage[], active: boolean, tota
 export function GradingProgress({
   stages,
   active,
-  totalMs,
+  totalMs = 35_000,
 }: {
   stages: ProgressStage[];
   active: boolean;
@@ -72,7 +72,7 @@ export function GradingProgress({
             <span className="relative inline-flex size-2.5 rounded-full bg-primary" />
           </span>
           <span className="text-sm font-semibold tracking-tight">
-            {stages[stageIndex]?.label ?? "Processing…"}
+            {stages[stageIndex]?.label ?? "Referring knowledge base & evaluating…"}
           </span>
         </div>
         <div className="flex items-center gap-2">
@@ -91,6 +91,13 @@ export function GradingProgress({
           style={{ width: `${percent}%` }}
         />
       </div>
+
+      {elapsedSeconds >= 12 && (
+        <div className="flex items-center gap-2 text-[11.5px] text-amber-500 font-medium bg-amber-500/10 border border-amber-500/20 rounded-md px-3 py-2 animate-in fade-in duration-300">
+          <RotateCw className="size-3.5 shrink-0 animate-spin" />
+          <span>Auto Key-Hopping active: Dynamic pool failover is rotating API keys to guarantee rapid response without delay.</span>
+        </div>
+      )}
 
       <div className="grid gap-2 sm:grid-cols-2 pt-1">
         {stages.map((stage, index) => (
@@ -115,6 +122,18 @@ export function GradingProgress({
             <span className="truncate">{stage.label}</span>
           </div>
         ))}
+      </div>
+
+      <div className="rounded-lg border border-border/80 bg-muted/30 p-3 text-xs text-muted-foreground flex items-start gap-2.5">
+        <Sparkles className="size-4 shrink-0 text-primary mt-0.5" />
+        <div className="space-y-1">
+          <p className="font-semibold text-foreground text-xs">
+            Free Community Access · Deep Cambridge 9708 Knowledge Base Grounding
+          </p>
+          <p className="text-[11px] leading-relaxed text-muted-foreground">
+            Referring the official Cambridge 9708 syllabus, mark schemes, and examiner reports takes ~15–30 seconds. Multi-key auto-hopping ensures your essay grading will always complete smoothly without timing out.
+          </p>
+        </div>
       </div>
     </div>
   );

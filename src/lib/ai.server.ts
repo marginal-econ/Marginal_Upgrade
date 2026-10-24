@@ -5,6 +5,8 @@ const GATEWAY = "https://ai.gateway.lovable.dev/v1";
 
 import type { AiGatewayMode, ProviderConfig } from "./ai/active.server";
 import {
+  buildOrderedKeyPool,
+  getPrioritizedKeyOrder,
   getActiveEmbeddingProvider,
   getActiveProvider,
   getActiveVisionProvider,
@@ -99,6 +101,10 @@ export type ChatOptions = {
    * High-tier users (> 199, school, teacher, admin) retain dedicated keys and premium models without degradation.
    */
   isBudgetTier?: boolean;
+  /** Optional user identifier for AI monitoring & usage tracking */
+  userId?: string | null;
+  /** Optional feature name (e.g. 'grade_essay', 'live_examiner', 'coach', 'chat') */
+  feature?: string;
 };
 
 export type ChatResult = {
@@ -139,93 +145,122 @@ const CHAT_RETRY_OPTS = { maxRetries: 3, baseMs: 400 };
  */
 export async function chat(rawOptions: ChatOptions): Promise<ChatResult> {
   const started = Date.now();
+  let result: ChatResult | null = null;
+  let callError: Error | null = null;
 
-  const gateway = await getAiGatewaySettings();
-  if (!gateway.enabled) {
-    throw new AiGatewayError(
-      "AI features are temporarily paused by an admin (to save credits). Please try again shortly, or check with your teacher/admin.",
-      503,
-    );
-  }
-  const options = applyAiGatewayMode(rawOptions, gateway.mode);
+  try {
+    const gateway = await getAiGatewaySettings();
+    if (!gateway.enabled) {
+      throw new AiGatewayError(
+        "AI features are temporarily paused by an admin (to save credits). Please try again shortly, or check with your teacher/admin.",
+        503,
+      );
+    }
+    const options = applyAiGatewayMode(rawOptions, gateway.mode);
 
-  const override =
-    options.overrideProvider !== undefined ? options.overrideProvider : await getActiveProvider();
+    const override =
+      options.overrideProvider !== undefined ? options.overrideProvider : await getActiveProvider();
 
-  if (override) {
-    // chatViaProvider retries its own fetch internally (see below) — don't
-    // wrap it again here, or a real rate limit waits through two nested
-    // backoff sequences instead of one.
-    const result = await chatViaProvider(override, options);
-    return { ...result, latencyMs: Date.now() - started };
-  }
-
-  const body: Record<string, unknown> = {
-    model: options.model,
-    messages: options.messages,
-  };
-  if (typeof options.temperature === "number") body.temperature = options.temperature;
-  if (options.json) body.response_format = { type: "json_object" };
-  if (options.maxCompletionTokens) body.max_completion_tokens = options.maxCompletionTokens;
-  if (options.model.startsWith("openai/gpt-5")) {
-    body.reasoning_effort = options.reasoningEffort ?? "none";
-    // GPT-5 models reject a non-default temperature on chat completions.
-    delete body.temperature;
-  }
-
-  const data = await withRetry429(async () => {
-    let response = await fetch(`${GATEWAY}/chat/completions`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Lovable-API-Key": apiKey(),
-      },
-      body: JSON.stringify(body),
-    });
-
-    if (
-      !response.ok &&
-      (response.status === 400 || response.status === 404) &&
-      body.model !== ECONOMY_MODEL
-    ) {
-      const errText = await response.text();
-      if (
-        errText.toLowerCase().includes("model") ||
-        errText.toLowerCase().includes("not found") ||
-        errText.toLowerCase().includes("invalid") ||
-        errText.toLowerCase().includes("unsupported")
-      ) {
-        body.model = ECONOMY_MODEL;
-        response = await fetch(`${GATEWAY}/chat/completions`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Lovable-API-Key": apiKey(),
-          },
-          body: JSON.stringify(body),
-        });
-      } else {
-        throw new AiGatewayError(explain(response.status, errText), response.status);
-      }
+    if (override) {
+      // chatViaProvider retries its own fetch internally (see below) — don't
+      // wrap it again here, or a real rate limit waits through two nested
+      // backoff sequences instead of one.
+      const provResult = await chatViaProvider(override, options);
+      result = { ...provResult, latencyMs: Date.now() - started };
+      return result;
     }
 
-    if (!response.ok) {
-      throw new AiGatewayError(explain(response.status, await response.text()), response.status);
-    }
-
-    return (await response.json()) as {
-      choices?: { message?: { content?: string } }[];
-      usage?: { prompt_tokens?: number; completion_tokens?: number };
+    const body: Record<string, unknown> = {
+      model: options.model,
+      messages: options.messages,
     };
-  }, CHAT_RETRY_OPTS);
+    if (typeof options.temperature === "number") body.temperature = options.temperature;
+    if (options.json) body.response_format = { type: "json_object" };
+    if (options.maxCompletionTokens) body.max_completion_tokens = options.maxCompletionTokens;
+    if (options.model.startsWith("openai/gpt-5")) {
+      body.reasoning_effort = options.reasoningEffort ?? "none";
+      // GPT-5 models reject a non-default temperature on chat completions.
+      delete body.temperature;
+    }
 
-  return {
-    text: data.choices?.[0]?.message?.content ?? "",
-    model: options.model,
-    promptTokens: data.usage?.prompt_tokens ?? null,
-    completionTokens: data.usage?.completion_tokens ?? null,
-    latencyMs: Date.now() - started,
-  };
+    const data = await withRetry429(async () => {
+      let response = await fetch(`${GATEWAY}/chat/completions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Lovable-API-Key": apiKey(),
+        },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(15_000),
+      });
+
+      if (
+        !response.ok &&
+        (response.status === 400 || response.status === 404) &&
+        body.model !== ECONOMY_MODEL
+      ) {
+        const errText = await response.text();
+        if (
+          errText.toLowerCase().includes("model") ||
+          errText.toLowerCase().includes("not found") ||
+          errText.toLowerCase().includes("invalid") ||
+          errText.toLowerCase().includes("unsupported")
+        ) {
+          body.model = ECONOMY_MODEL;
+          response = await fetch(`${GATEWAY}/chat/completions`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Lovable-API-Key": apiKey(),
+            },
+            body: JSON.stringify(body),
+            signal: AbortSignal.timeout(15_000),
+          });
+        } else {
+          throw new AiGatewayError(explain(response.status, errText), response.status);
+        }
+      }
+
+      if (!response.ok) {
+        throw new AiGatewayError(explain(response.status, await response.text()), response.status);
+      }
+
+      return (await response.json()) as {
+        choices?: { message?: { content?: string } }[];
+        usage?: { prompt_tokens?: number; completion_tokens?: number };
+      };
+    }, CHAT_RETRY_OPTS);
+
+    result = {
+      text: data.choices?.[0]?.message?.content ?? "",
+      model: options.model,
+      promptTokens: data.usage?.prompt_tokens ?? null,
+      completionTokens: data.usage?.completion_tokens ?? null,
+      latencyMs: Date.now() - started,
+    };
+    return result;
+  } catch (err: any) {
+    callError = err instanceof Error ? err : new Error(String(err));
+    throw err;
+  } finally {
+    try {
+      const { supabaseAdmin } = await import("@/integrations/backend/client.server");
+      const latencyMs = Date.now() - started;
+      const model = result?.model || rawOptions.model || "google/gemini-3.8-flash";
+      await supabaseAdmin.from("ai_usage_log").insert({
+        user_id: rawOptions.userId ?? null,
+        feature: rawOptions.feature ?? "chat",
+        model,
+        prompt_tokens: result?.promptTokens ?? null,
+        completion_tokens: result?.completionTokens ?? null,
+        latency_ms: latencyMs,
+        ok: !callError,
+        error_message: callError ? callError.message : null,
+      });
+    } catch (logErr) {
+      console.warn("Failed to write ai_usage_log in chat():", logErr);
+    }
+  }
 }
 
 /**
@@ -266,54 +301,12 @@ async function chatViaProvider(
   options: ChatOptions,
 ): Promise<Omit<ChatResult, "latencyMs">> {
   const isBudget = options.isBudgetTier === true;
-  let purePoolKeysCount = 0;
 
-  let activeKeysToTry: string[] = [];
-  if (isBudget) {
-    // Budget tier (<= 199: free, foundation, scholar_plus):
-    // Strictly use ONLY the free/pool keys configured for budget tiers. NEVER touch paid VIP keys!
-    const pool =
-      config.budgetPoolKeys && config.budgetPoolKeys.length > 0
-        ? config.budgetPoolKeys
-        : config.apiKeys && config.apiKeys.length > 0
-          ? config.apiKeys
-          : [config.apiKey];
-
-    const vipKeys = [config.paidPrimaryKey, config.paidSecondaryKey].filter(
-      (k): k is string => Boolean(k && k.length > 5),
-    );
-
-    // Keep pool keys strictly distinct: EXCLUDE paid/VIP keys completely for budget tier
-    const purePoolKeys = pool.filter((k) => !vipKeys.includes(k));
-    const poolKeysToOrder = purePoolKeys.length > 0 ? purePoolKeys : pool;
-    purePoolKeysCount = poolKeysToOrder.length;
-
-    // Filter available (not in cooldown) pool keys preserving their priority order,
-    // followed by cooled-down pool keys (in priority order)
-    const now = Date.now();
-    const availablePoolKeys = poolKeysToOrder.filter((k) => (keyCooldowns.get(k) ?? 0) <= now);
-    const cooledPoolKeys = poolKeysToOrder.filter((k) => (keyCooldowns.get(k) ?? 0) > now);
-    activeKeysToTry = [...availablePoolKeys, ...cooledPoolKeys];
-    if (activeKeysToTry.length === 0) {
-      activeKeysToTry = poolKeysToOrder;
-    }
-  } else {
-    // High-tier users (> 199, school, teacher, admin):
-    // Dedicated Primary Paid Key first. If it ever hits 429/503, fails over to Secondary Paid Key,
-    // and if still exhausted or empty, seamlessly falls back across all available Priority Pool keys!
-    const paidKeys = [config.paidPrimaryKey, config.paidSecondaryKey].filter(
-      (k): k is string => Boolean(k && k.length > 5),
-    );
-    const pool =
-      config.apiKeys && config.apiKeys.length > 0
-        ? config.apiKeys
-        : config.budgetPoolKeys && config.budgetPoolKeys.length > 0
-          ? config.budgetPoolKeys
-          : [config.apiKey];
-    const nonPaidPool = pool.filter((k) => !paidKeys.includes(k));
-    activeKeysToTry = [...paidKeys, ...nonPaidPool];
-    if (activeKeysToTry.length === 0) activeKeysToTry = [config.apiKey];
-  }
+  // Strict free-first, paid-last key hopping:
+  // All healthy free keys are tried first, rotating every 15s or on rate limits (429/503).
+  // Emergency paid key(s) are strictly the last resort if all free keys are exhausted.
+  const { paidKeys } = buildOrderedKeyPool(config);
+  const activeKeysToTry = getPrioritizedKeyOrder(config, keyCooldowns);
 
   if (config.provider === "anthropic") {
     const system = options.messages
@@ -326,53 +319,88 @@ async function chatViaProvider(
       let lastErrDetail = "";
       for (let kIdx = 0; kIdx < activeKeysToTry.length; kIdx++) {
         const currentKey = activeKeysToTry[kIdx]!;
-        const response = await fetch(`${config.baseUrl}/messages`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-api-key": currentKey,
-            "anthropic-version": "2023-06-01",
-          },
-          body: JSON.stringify({
-            model: config.model,
-            max_tokens: options.maxCompletionTokens ?? 8000,
-            ...(system ? { system } : {}),
-            ...(typeof options.temperature === "number" ? { temperature: options.temperature } : {}),
-            messages: options.messages
-              .filter((m) => m.role !== "system")
-              .map((m) => ({ role: m.role, content: m.content })),
-          }),
-        });
+        const keyStarted = Date.now();
+        try {
+          const response = await fetch(`${config.baseUrl}/messages`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "x-api-key": currentKey,
+              "anthropic-version": "2023-06-01",
+            },
+            body: JSON.stringify({
+              model: config.model,
+              max_tokens: options.maxCompletionTokens ?? 8000,
+              ...(system ? { system } : {}),
+              ...(typeof options.temperature === "number" ? { temperature: options.temperature } : {}),
+              messages: options.messages
+                .filter((m) => m.role !== "system")
+                .map((m) => ({ role: m.role, content: m.content })),
+            }),
+            signal: AbortSignal.timeout(15_000),
+          });
 
-        if (response.ok) {
-          markKeyHealthy(currentKey);
-          successfulAnthropicKeyIdx = kIdx;
-          return (await response.json()) as {
-            content?: { type: string; text?: string }[];
-            usage?: { input_tokens?: number; output_tokens?: number };
-          };
-        }
+          if (response.ok) {
+            markKeyHealthy(currentKey);
+            successfulAnthropicKeyIdx = kIdx;
+            return (await response.json()) as {
+              content?: { type: string; text?: string }[];
+              usage?: { input_tokens?: number; output_tokens?: number };
+            };
+          }
 
-        const text = await response.text();
-        lastErrStatus = response.status;
-        lastErrDetail = text;
-        if (response.status === 429 || response.status === 503) {
-          markKeyRateLimited(currentKey, 60_000);
-          console.warn(`[chatViaProvider:anthropic] Key returned ${response.status}. Rotating key...`);
-          if (kIdx + 1 < activeKeysToTry.length) continue;
+          const text = await response.text();
+          lastErrStatus = response.status;
+          lastErrDetail = text;
+          if (response.status === 429 || response.status === 503 || response.status === 500) {
+            markKeyRateLimited(currentKey, 60_000);
+            console.warn(`[chatViaProvider:anthropic] Key ...${currentKey.slice(-4)} returned ${response.status}. Rotating key...`);
+            try {
+              const { supabaseAdmin } = await import("@/integrations/backend/client.server");
+              await supabaseAdmin.from("ai_usage_log").insert({
+                user_id: options.userId ?? null,
+                feature: (options.feature ?? "chat") + "_key_hop",
+                model: config.model,
+                latency_ms: Date.now() - keyStarted,
+                ok: false,
+                error_message: `Anthropic key ...${currentKey.slice(-4)} returned ${response.status}. Auto-hopped to next key.`,
+              });
+            } catch {}
+            if (kIdx + 1 < activeKeysToTry.length) continue;
+          }
+          throw new AiGatewayError(explain(response.status, text), response.status);
+        } catch (fetchErr: any) {
+          const isTimeout =
+            fetchErr?.name === "AbortError" ||
+            fetchErr?.name === "TimeoutError" ||
+            fetchErr?.message?.includes("timed out") ||
+            fetchErr?.message?.includes("aborted");
+          if (isTimeout) {
+            markKeyRateLimited(currentKey, 60_000);
+            console.warn(`[chatViaProvider:anthropic] Key ...${currentKey.slice(-4)} timed out (>30s). Rotating key...`);
+            try {
+              const { supabaseAdmin } = await import("@/integrations/backend/client.server");
+              await supabaseAdmin.from("ai_usage_log").insert({
+                user_id: options.userId ?? null,
+                feature: (options.feature ?? "chat") + "_key_hop",
+                model: config.model,
+                latency_ms: 30_000,
+                ok: false,
+                error_message: `Anthropic key ...${currentKey.slice(-4)} exceeded 30s timeout. Auto-hopped to next key.`,
+              });
+            } catch {}
+            if (kIdx + 1 < activeKeysToTry.length) continue;
+          }
+          throw fetchErr;
         }
-        throw new AiGatewayError(explain(response.status, text), response.status);
       }
       throw new AiGatewayError(explain(lastErrStatus, lastErrDetail), lastErrStatus);
     }, CHAT_RETRY_OPTS);
 
-    const isVipFallback = isBudget && successfulAnthropicKeyIdx >= (purePoolKeysCount > 0 ? purePoolKeysCount : activeKeysToTry.length);
     const isRotated = successfulAnthropicKeyIdx > 0;
-    const activeKeyType: "primary" | "backup_pool" | "vip_fallback" = isVipFallback
-      ? "vip_fallback"
-      : isRotated
-        ? "backup_pool"
-        : "primary";
+    const activeKeyType: "primary" | "backup_pool" | "vip_fallback" = isRotated
+      ? "backup_pool"
+      : "primary";
 
     return {
       text: (data.content ?? [])
@@ -395,58 +423,19 @@ async function chatViaProvider(
   if (typeof options.temperature === "number" && !/^gpt-5/.test(config.model)) {
     body.temperature = options.temperature;
   }
-  // OpenRouter models with reasoning capability default to whatever depth
-  // OpenRouter/the upstream host picks (often "medium"), which is a real
-  // source of run-to-run variance independent of temperature — a model's
-  // internal reasoning trace isn't pinned by temperature the way its final
-  // token sampling is. Capping at "low" (not "none") is deliberate: some
-  // models mark reasoning mandatory and reject "none" outright with a 400,
-  // but "low" is accepted broadly and still meaningfully cuts the variance.
-  // Providers/models that don't support reasoning at all just ignore an
-  // unknown field, per OpenRouter's own normalisation — this is safe to
-  // send unconditionally for every OpenRouter request.
   if (config.provider === "openrouter") {
     body.reasoning = { effort: "low" };
   }
   if (options.json) body.response_format = { type: "json_object" };
   if (options.maxCompletionTokens) body.max_completion_tokens = options.maxCompletionTokens;
 
-  function resolveGoogleModel(rawModel: string): string {
-    const cleaned = rawModel.replace(/^(google\/|models\/)/, "");
-    if (cleaned === "gemini-2.5-pro" || cleaned === "gemini-3.1-pro-preview") return "gemini-3.1-pro";
-    if (
-      cleaned === "gemini-2.5-flash" ||
-      cleaned === "gemini-2.0-flash" ||
-      cleaned === "gemini-3.6-flash" ||
-      cleaned === "gemini-3.7-flash"
-    )
-      return "gemini-3.8-flash";
-    return cleaned;
+  function resolveGoogleModel(_rawModel: string): string {
+    return "gemini-3.8-flash";
   }
 
-  const resolvedBaseModel =
-    config.provider === "google" ? resolveGoogleModel(config.model) : config.model;
-
-  // High-tier users (> 199) preserve their premium model (falling back to flash only if 404/429/503 occurs).
-  // Budget users (<= 199) degrade strictly through: gemini-3.8-flash -> gemini-3.1-flash.
   const candidateModels =
     config.provider === "google"
-      ? isBudget
-        ? Array.from(
-            new Set([
-              resolvedBaseModel,
-              "gemini-3.8-flash",
-              "gemini-3.1-flash",
-            ]),
-          )
-        : Array.from(
-            new Set([
-              resolvedBaseModel,
-              "gemini-3.1-pro-preview",
-              "gemini-3.8-flash",
-              "gemini-3.1-flash",
-            ]),
-          )
+      ? ["gemini-3.8-flash"]
       : [config.model];
 
   let usedModel = candidateModels[0];
@@ -461,68 +450,117 @@ async function chatViaProvider(
 
       for (let kIdx = 0; kIdx < activeKeysToTry.length; kIdx++) {
         const currentKey = activeKeysToTry[kIdx]!;
-        const response = await fetch(`${config.baseUrl}/chat/completions`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${currentKey}`,
-          },
-          body: JSON.stringify(modelBody),
-        });
+        const keyStarted = Date.now();
+        try {
+          const response = await fetch(`${config.baseUrl}/chat/completions`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${currentKey}`,
+            },
+            body: JSON.stringify(modelBody),
+            signal: AbortSignal.timeout(15_000), // 15-second abort timeout per key attempt to prevent 524
+          });
 
-        if (response.ok) {
-          markKeyHealthy(currentKey);
-          successfulKeyIdx = kIdx;
-          return (await response.json()) as {
-            choices?: { message?: { content?: string } }[];
-            usage?: { prompt_tokens?: number; completion_tokens?: number };
-          };
-        }
-
-        const text = await response.text();
-        lastErrStatus = response.status;
-        lastErrDetail = text;
-
-        // Rate limit, server error, or 404 deprecated model on Google: rotate key or try next candidate model
-        if (response.status === 429 || response.status === 503) {
-          markKeyRateLimited(currentKey, 60_000);
-          console.warn(
-            `[chatViaProvider] Model ${m} (key ...${currentKey.slice(-4)}) returned ${response.status}. Attempting key rotation / fallback...`,
-          );
-          if (kIdx + 1 < activeKeysToTry.length) {
-            continue; // Try next key on this same model
+          if (response.ok) {
+            markKeyHealthy(currentKey);
+            successfulKeyIdx = kIdx;
+            return (await response.json()) as {
+              choices?: { message?: { content?: string } }[];
+              usage?: { prompt_tokens?: number; completion_tokens?: number };
+            };
           }
-          break; // All keys exhausted on this model, step to next candidate model
+
+          const text = await response.text();
+          lastErrStatus = response.status;
+          lastErrDetail = text;
+
+          // Rate limit, server error, or 404 deprecated model on Google: rotate key or try next candidate model
+          if (response.status === 429 || response.status === 503 || response.status === 500) {
+            markKeyRateLimited(currentKey, 60_000);
+            const isPaidKey = paidKeys.includes(currentKey);
+            console.warn(
+              `[chatViaProvider] Model ${m} (key ...${currentKey.slice(-4)}, ${isPaidKey ? "emergency paid fallback" : "free pool key"}) returned ${response.status}. Attempting key rotation / fallback...`,
+            );
+            try {
+              const { supabaseAdmin } = await import("@/integrations/backend/client.server");
+              await supabaseAdmin.from("ai_usage_log").insert({
+                user_id: options.userId ?? null,
+                feature: (options.feature ?? "chat") + "_key_hop",
+                model: m,
+                latency_ms: Date.now() - keyStarted,
+                ok: false,
+                error_message: `Key ...${currentKey.slice(-4)} (${isPaidKey ? "emergency paid fallback" : "free pool key"}) returned ${response.status}. Auto-hopped to next key.`,
+              });
+            } catch {}
+
+            if (kIdx + 1 < activeKeysToTry.length) {
+              continue; // Try next key on this same model
+            }
+            break; // All keys exhausted on this model, step to next candidate model
+          }
+
+          const isModelUnavailable =
+            (response.status === 404 ||
+              (response.status === 400 &&
+                (text.toLowerCase().includes("model") ||
+                  text.toLowerCase().includes("not found") ||
+                  text.toLowerCase().includes("unsupported")))) &&
+            config.provider === "google";
+
+          if (isModelUnavailable) {
+            console.warn(
+              `[chatViaProvider] Google Model ${m} returned ${response.status} (deprecated/unavailable). Falling back to next candidate model...`,
+            );
+            break; // Step to next candidate model immediately
+          }
+
+          // Any other client error (e.g. 401 unauthorized, 400 bad request) fails immediately
+          throw new AiGatewayError(explain(response.status, text), response.status);
+        } catch (fetchErr: any) {
+          const isTimeout =
+            fetchErr?.name === "AbortError" ||
+            fetchErr?.name === "TimeoutError" ||
+            fetchErr?.message?.includes("timed out") ||
+            fetchErr?.message?.includes("aborted");
+
+          if (isTimeout) {
+            markKeyRateLimited(currentKey, 60_000);
+            const isPaidKey = paidKeys.includes(currentKey);
+            console.warn(
+              `[chatViaProvider] Model ${m} (key ...${currentKey.slice(-4)}, ${isPaidKey ? "emergency paid fallback" : "free pool key"}) timed out (>15s). Auto-hopping to next key...`,
+            );
+            try {
+              const { supabaseAdmin } = await import("@/integrations/backend/client.server");
+              await supabaseAdmin.from("ai_usage_log").insert({
+                user_id: options.userId ?? null,
+                feature: (options.feature ?? "chat") + "_key_hop",
+                model: m,
+                latency_ms: 15_000,
+                ok: false,
+                error_message: `Key ...${currentKey.slice(-4)} (${isPaidKey ? "emergency paid fallback" : "free pool key"}) exceeded 15s timeout. Auto-hopped to next key.`,
+              });
+            } catch {}
+
+            if (kIdx + 1 < activeKeysToTry.length) {
+              continue; // Try next key
+            }
+            break;
+          }
+          throw fetchErr;
         }
-
-        const isModelUnavailable =
-          (response.status === 404 ||
-            (response.status === 400 &&
-              (text.toLowerCase().includes("model") ||
-                text.toLowerCase().includes("not found") ||
-                text.toLowerCase().includes("unsupported")))) &&
-          config.provider === "google";
-
-        if (isModelUnavailable) {
-          console.warn(
-            `[chatViaProvider] Google Model ${m} returned ${response.status} (deprecated/unavailable). Falling back to next candidate model...`,
-          );
-          break; // Step to next candidate model immediately
-        }
-
-        // Any other client error (e.g. 401 unauthorized, 400 bad request) fails immediately
-        throw new AiGatewayError(explain(response.status, text), response.status);
       }
     }
 
-    // If all models and keys failed with 429/503, throw so withRetry429 can backoff
+    // If all models and keys failed with 429/503/500, throw so withRetry429 can backoff
     throw new AiGatewayError(explain(lastErrStatus, lastErrDetail), lastErrStatus);
-  }, CHAT_RETRY_OPTS);
+  }, { maxRetries: 1, baseMs: 150 });
 
-  const isVipFallback = isBudget && successfulKeyIdx >= (purePoolKeysCount > 0 ? purePoolKeysCount : activeKeysToTry.length);
+  const usedKey = activeKeysToTry[successfulKeyIdx] || "";
+  const isUsedPaid = paidKeys.includes(usedKey);
   const isRotated = successfulKeyIdx > 0;
   const isModelSwapped = usedModel !== candidateModels[0];
-  const activeKeyType: "primary" | "backup_pool" | "vip_fallback" = isVipFallback
+  const activeKeyType: "primary" | "backup_pool" | "vip_fallback" = isUsedPaid
     ? "vip_fallback"
     : isRotated
       ? "backup_pool"
@@ -609,34 +647,40 @@ async function embedViaGoogle(
 ): Promise<number[][]> {
   const vectors: number[][] = new Array(inputs.length);
   const googleModel = config.model.startsWith("models/") ? config.model : GOOGLE_EMBED_MODEL;
-  const candidateKeys =
-    config.apiKeys && config.apiKeys.length > 0 ? config.apiKeys : [config.apiKey];
+  const { paidKeys } = buildOrderedKeyPool(config);
+  const keysToTry = getPrioritizedKeyOrder(config, keyCooldowns);
 
   for (let offset = 0; offset < inputs.length; offset += EMBED_BATCH_LIMIT) {
     const batch = inputs.slice(offset, offset + EMBED_BATCH_LIMIT);
     const data = await withRetry429(async () => {
-      const bestKey = getAvailableKey(candidateKeys);
-      const keysToTry =
-        candidateKeys.length > 1
-          ? [bestKey, ...candidateKeys.filter((k) => k !== bestKey)]
-          : candidateKeys;
-
       let lastErrStatus = 500;
       let lastErrDetail = "";
 
       for (let kIdx = 0; kIdx < keysToTry.length; kIdx++) {
         const currentKey = keysToTry[kIdx]!;
-        let response = await fetch(`${GOOGLE_EMBED_ENDPOINT}/${googleModel}:batchEmbedContents`, {
-          method: "POST",
-          headers: { "content-type": "application/json", "x-goog-api-key": currentKey },
-          body: JSON.stringify({
-            requests: batch.map((text) => ({
-              model: googleModel,
-              content: { parts: [{ text }] },
-              outputDimensionality,
-            })),
-          }),
-        });
+        const isPaid = paidKeys.includes(currentKey);
+        let response: Response;
+        try {
+          response = await fetch(`${GOOGLE_EMBED_ENDPOINT}/${googleModel}:batchEmbedContents`, {
+            method: "POST",
+            headers: { "content-type": "application/json", "x-goog-api-key": currentKey },
+            body: JSON.stringify({
+              requests: batch.map((text) => ({
+                model: googleModel,
+                content: { parts: [{ text }] },
+                outputDimensionality,
+              })),
+            }),
+            signal: AbortSignal.timeout(10_000),
+          });
+        } catch (fetchErr: any) {
+          markKeyRateLimited(currentKey, 60_000);
+          console.warn(
+            `[embedViaGoogle] Key ...${currentKey.slice(-4)} (${isPaid ? "emergency paid fallback" : "free pool key"}) timed out (>10s). Hopping to next key...`,
+          );
+          if (kIdx + 1 < keysToTry.length) continue;
+          throw fetchErr;
+        }
 
         if (response.ok) {
           markKeyHealthy(currentKey);
@@ -651,7 +695,7 @@ async function embedViaGoogle(
         if (response.status === 429 || response.status === 503) {
           markKeyRateLimited(currentKey, 60_000);
           console.warn(
-            `[embedViaGoogle] Key ...${currentKey.slice(-4)} returned ${response.status}. Hopping to next key...`,
+            `[embedViaGoogle] Key ...${currentKey.slice(-4)} (${isPaid ? "emergency paid fallback" : "free pool key"}) returned ${response.status}. Hopping to next key...`,
           );
           if (kIdx + 1 < keysToTry.length) continue;
         }
@@ -676,6 +720,7 @@ async function embedViaGoogle(
                 input: batch,
                 dimensions: outputDimensionality,
               }),
+              signal: AbortSignal.timeout(10_000),
             });
             if (altRes.ok) {
               markKeyHealthy(currentKey);
@@ -826,46 +871,79 @@ export async function embed(
   model: string,
   overrideProvider?: ProviderConfig | null,
 ): Promise<number[][]> {
-  const config =
-    overrideProvider !== undefined ? overrideProvider : await getActiveEmbeddingProvider();
+  const started = Date.now();
+  let callError: Error | null = null;
+  let resVectors: number[][] = [];
 
-  if (config) {
-    return embedViaConfig(inputs, config);
-  }
+  try {
+    let config =
+      overrideProvider !== undefined ? overrideProvider : await getActiveEmbeddingProvider();
 
-  if (!readEnv("LOVABLE_API_KEY")) {
-    throw new AiGatewayError(
-      "No embedding provider is configured. Add one under Admin → Embeddings and mark it active.",
-      500,
-    );
-  }
-
-  const vectors: number[][] = new Array(inputs.length);
-
-  for (let offset = 0; offset < inputs.length; offset += EMBED_BATCH_LIMIT) {
-    const batch = inputs.slice(offset, offset + EMBED_BATCH_LIMIT);
-    const response = await fetch(`${GATEWAY}/embeddings`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Lovable-API-Key": apiKey(),
-      },
-      body: JSON.stringify({ model, input: batch }),
-    });
-
-    if (!response.ok) {
-      throw new AiGatewayError(explain(response.status, await response.text()), response.status);
+    if (!config) {
+      const activeChat = await getActiveProvider();
+      if (activeChat && activeChat.provider === "google") {
+        config = {
+          ...activeChat,
+          model: GOOGLE_EMBED_MODEL,
+        };
+      }
     }
 
-    const data = (await response.json()) as {
-      data?: { index: number; embedding: number[] }[];
-    };
-    for (const item of data.data ?? []) {
-      vectors[offset + item.index] = item.embedding;
+    if (config) {
+      resVectors = await embedViaConfig(inputs, config);
+      return resVectors;
     }
-  }
 
-  return vectors;
+    if (!readEnv("LOVABLE_API_KEY")) {
+      throw new AiGatewayError(
+        "No embedding provider is configured. Add one under Admin → Embeddings and mark it active.",
+        500,
+      );
+    }
+
+    const vectors: number[][] = new Array(inputs.length);
+
+    for (let offset = 0; offset < inputs.length; offset += EMBED_BATCH_LIMIT) {
+      const batch = inputs.slice(offset, offset + EMBED_BATCH_LIMIT);
+      const response = await fetch(`${GATEWAY}/embeddings`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Lovable-API-Key": apiKey(),
+        },
+        body: JSON.stringify({ model, input: batch }),
+        signal: AbortSignal.timeout(15_000),
+      });
+
+      if (!response.ok) {
+        throw new AiGatewayError(explain(response.status, await response.text()), response.status);
+      }
+
+      const data = (await response.json()) as {
+        data?: { index: number; embedding: number[] }[];
+      };
+      for (const item of data.data ?? []) {
+        vectors[offset + item.index] = item.embedding;
+      }
+    }
+
+    resVectors = vectors;
+    return resVectors;
+  } catch (err: any) {
+    callError = err instanceof Error ? err : new Error(String(err));
+    throw err;
+  } finally {
+    try {
+      const { supabaseAdmin } = await import("@/integrations/backend/client.server");
+      await supabaseAdmin.from("ai_usage_log").insert({
+        feature: "embedding",
+        model: model || "gemini-embedding-001",
+        latency_ms: Date.now() - started,
+        ok: !callError,
+        error_message: callError ? callError.message : null,
+      });
+    } catch {}
+  }
 }
 
 export async function embedOne(
@@ -895,13 +973,7 @@ async function visionChatViaAnthropic(
     maxCompletionTokens?: number;
   },
 ): Promise<Omit<ChatResult, "latencyMs">> {
-  const candidateKeys =
-    config.apiKeys && config.apiKeys.length > 0 ? config.apiKeys : [config.apiKey];
-  const bestKey = getAvailableKey(candidateKeys);
-  const keysToTry =
-    candidateKeys.length > 1
-      ? [bestKey, ...candidateKeys.filter((k) => k !== bestKey)]
-      : candidateKeys;
+  const keysToTry = getPrioritizedKeyOrder(config, keyCooldowns);
 
   let lastStatus = 500;
   let lastText = "";
@@ -983,16 +1055,10 @@ async function visionChatViaOpenAiCompatible(
     maxCompletionTokens?: number;
   },
 ): Promise<Omit<ChatResult, "latencyMs">> {
-  const candidateKeys =
-    config.apiKeys && config.apiKeys.length > 0 ? config.apiKeys : [config.apiKey];
-  const bestKey = getAvailableKey(candidateKeys);
-  const keysToTry =
-    candidateKeys.length > 1
-      ? [bestKey, ...candidateKeys.filter((k) => k !== bestKey)]
-      : candidateKeys;
+  const keysToTry = getPrioritizedKeyOrder(config, keyCooldowns);
 
   const body: Record<string, unknown> = {
-    model: config.model,
+    model: config.provider === "google" ? "gemini-3.8-flash" : config.model,
     messages: [
       { role: "system", content: options.systemPrompt },
       {
@@ -1014,42 +1080,60 @@ async function visionChatViaOpenAiCompatible(
 
   for (let kIdx = 0; kIdx < keysToTry.length; kIdx++) {
     const currentKey = keysToTry[kIdx]!;
-    const response = await fetch(`${config.baseUrl}/chat/completions`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${currentKey}`,
-      },
-      body: JSON.stringify(body),
-    });
+    try {
+      const response = await fetch(`${config.baseUrl}/chat/completions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${currentKey}`,
+        },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(15_000),
+      });
 
-    if (response.ok) {
-      markKeyHealthy(currentKey);
-      const data = (await response.json()) as {
-        choices?: { message?: { content?: string } }[];
-        usage?: { prompt_tokens?: number; completion_tokens?: number };
-      };
-      return {
-        text: data.choices?.[0]?.message?.content ?? "",
-        model: config.model,
-        promptTokens: data.usage?.prompt_tokens ?? null,
-        completionTokens: data.usage?.completion_tokens ?? null,
-      };
+      if (response.ok) {
+        markKeyHealthy(currentKey);
+        const data = (await response.json()) as {
+          choices?: { message?: { content?: string } }[];
+          usage?: { prompt_tokens?: number; completion_tokens?: number };
+        };
+        return {
+          text: data.choices?.[0]?.message?.content ?? "",
+          model: config.model,
+          promptTokens: data.usage?.prompt_tokens ?? null,
+          completionTokens: data.usage?.completion_tokens ?? null,
+        };
+      }
+
+      const text = await response.text();
+      lastStatus = response.status;
+      lastText = text;
+
+      if (response.status === 429 || response.status === 503 || response.status === 500) {
+        markKeyRateLimited(currentKey, 60_000);
+        console.warn(
+          `[visionChatViaOpenAiCompatible] Key ...${currentKey.slice(-4)} returned ${response.status}. Hopping to next key...`,
+        );
+        if (kIdx + 1 < keysToTry.length) continue;
+      }
+
+      throw new AiGatewayError(explain(response.status, text), response.status);
+    } catch (fetchErr: any) {
+      const isTimeout =
+        fetchErr?.name === "AbortError" ||
+        fetchErr?.name === "TimeoutError" ||
+        fetchErr?.message?.includes("timed out") ||
+        fetchErr?.message?.includes("aborted");
+
+      if (isTimeout) {
+        markKeyRateLimited(currentKey, 60_000);
+        console.warn(
+          `[visionChatViaOpenAiCompatible] Key ...${currentKey.slice(-4)} timed out (>30s). Hopping to next key...`,
+        );
+        if (kIdx + 1 < keysToTry.length) continue;
+      }
+      throw fetchErr;
     }
-
-    const text = await response.text();
-    lastStatus = response.status;
-    lastText = text;
-
-    if (response.status === 429 || response.status === 503) {
-      markKeyRateLimited(currentKey, 60_000);
-      console.warn(
-        `[visionChatViaOpenAiCompatible] Key ...${currentKey.slice(-4)} returned ${response.status}. Hopping to next key...`,
-      );
-      if (kIdx + 1 < keysToTry.length) continue;
-    }
-
-    throw new AiGatewayError(explain(response.status, text), response.status);
   }
 
   throw new AiGatewayError(explain(lastStatus, lastText), lastStatus);
@@ -1082,99 +1166,131 @@ export async function visionChat(options: {
   maxCompletionTokens?: number;
   /** Bypass the stored override, same convention as chat(). */
   overrideProvider?: ProviderConfig | null;
+  userId?: string | null;
+  feature?: string;
 }): Promise<ChatResult> {
   const started = Date.now();
-  const override =
-    options.overrideProvider !== undefined
-      ? options.overrideProvider
-      : ((await getActiveVisionProvider()) ?? (await getActiveProvider()));
+  let result: ChatResult | null = null;
+  let callError: Error | null = null;
 
-  if (override) {
-    const result =
-      override.provider === "anthropic"
-        ? await visionChatViaAnthropic(override, options)
-        : await visionChatViaOpenAiCompatible(override, options);
-    return { ...result, latencyMs: Date.now() - started };
-  }
+  try {
+    const override =
+      options.overrideProvider !== undefined
+        ? options.overrideProvider
+        : ((await getActiveVisionProvider()) ?? (await getActiveProvider()));
 
-  if (!readEnv("LOVABLE_API_KEY")) {
-    throw new AiGatewayError(
-      "No AI provider is configured for handwriting/vision. Add a provider key that supports vision (Anthropic, OpenAI, or Google) under Admin → AI providers and mark it active.",
-      500,
-    );
-  }
+    if (override) {
+      const provResult =
+        override.provider === "anthropic"
+          ? await visionChatViaAnthropic(override, options)
+          : await visionChatViaOpenAiCompatible(override, options);
+      result = { ...provResult, latencyMs: Date.now() - started };
+      return result;
+    }
 
-  const body: Record<string, unknown> = {
-    model: options.model,
-    messages: [
-      { role: "system", content: options.systemPrompt },
-      {
-        role: "user",
-        content: [
-          { type: "text", text: options.prompt },
-          // "detail: high" tells the underlying vision model to spend more
-          // tokens on this image instead of a downsampled thumbnail — the
-          // OpenAI-compatible lever for image fidelity, matters a lot for
-          // reading small/faint handwriting.
-          ...options.imageDataUrls.map((url) => ({
-            type: "image_url" as const,
-            image_url: { url, detail: "high" as const },
-          })),
-        ],
-      },
-    ],
-  };
-  if (options.maxCompletionTokens) body.max_completion_tokens = options.maxCompletionTokens;
+    if (!readEnv("LOVABLE_API_KEY")) {
+      throw new AiGatewayError(
+        "No AI provider is configured for handwriting/vision. Add a provider key that supports vision (Anthropic, OpenAI, or Google) under Admin → AI providers and mark it active.",
+        500,
+      );
+    }
 
-  let response = await fetch(`${GATEWAY}/chat/completions`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Lovable-API-Key": apiKey(),
-    },
-    body: JSON.stringify(body),
-  });
-
-  if (
-    !response.ok &&
-    (response.status === 400 || response.status === 404) &&
-    body.model !== ECONOMY_MODEL
-  ) {
-    const errText = await response.text();
-    if (
-      errText.toLowerCase().includes("model") ||
-      errText.toLowerCase().includes("not found") ||
-      errText.toLowerCase().includes("invalid") ||
-      errText.toLowerCase().includes("unsupported")
-    ) {
-      body.model = ECONOMY_MODEL;
-      response = await fetch(`${GATEWAY}/chat/completions`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Lovable-API-Key": apiKey(),
+    const body: Record<string, unknown> = {
+      model: options.model,
+      messages: [
+        { role: "system", content: options.systemPrompt },
+        {
+          role: "user",
+          content: [
+            { type: "text", text: options.prompt },
+            // "detail: high" tells the underlying vision model to spend more
+            // tokens on this image instead of a downsampled thumbnail — the
+            // OpenAI-compatible lever for image fidelity, matters a lot for
+            // reading small/faint handwriting.
+            ...options.imageDataUrls.map((url) => ({
+              type: "image_url" as const,
+              image_url: { url, detail: "high" as const },
+            })),
+          ],
         },
-        body: JSON.stringify(body),
+      ],
+    };
+    if (options.maxCompletionTokens) body.max_completion_tokens = options.maxCompletionTokens;
+
+    let response = await fetch(`${GATEWAY}/chat/completions`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Lovable-API-Key": apiKey(),
+      },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(30_000),
+    });
+
+    if (
+      !response.ok &&
+      (response.status === 400 || response.status === 404) &&
+      body.model !== ECONOMY_MODEL
+    ) {
+      const errText = await response.text();
+      if (
+        errText.toLowerCase().includes("model") ||
+        errText.toLowerCase().includes("not found") ||
+        errText.toLowerCase().includes("invalid") ||
+        errText.toLowerCase().includes("unsupported")
+      ) {
+        body.model = ECONOMY_MODEL;
+        response = await fetch(`${GATEWAY}/chat/completions`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Lovable-API-Key": apiKey(),
+          },
+          body: JSON.stringify(body),
+          signal: AbortSignal.timeout(15_000),
+        });
+      } else {
+        throw new AiGatewayError(explain(response.status, errText), response.status);
+      }
+    }
+
+    if (!response.ok) {
+      throw new AiGatewayError(explain(response.status, await response.text()), response.status);
+    }
+
+    const data = (await response.json()) as {
+      choices?: { message?: { content?: string } }[];
+      usage?: { prompt_tokens?: number; completion_tokens?: number };
+    };
+
+    result = {
+      text: data.choices?.[0]?.message?.content ?? "",
+      model: options.model,
+      promptTokens: data.usage?.prompt_tokens ?? null,
+      completionTokens: data.usage?.completion_tokens ?? null,
+      latencyMs: Date.now() - started,
+    };
+    return result;
+  } catch (err: any) {
+    callError = err instanceof Error ? err : new Error(String(err));
+    throw err;
+  } finally {
+    try {
+      const { supabaseAdmin } = await import("@/integrations/backend/client.server");
+      const latencyMs = Date.now() - started;
+      const model = result?.model || options.model || "google/gemini-3.8-flash";
+      await supabaseAdmin.from("ai_usage_log").insert({
+        user_id: options.userId ?? null,
+        feature: options.feature ?? "vision_chat",
+        model,
+        prompt_tokens: result?.promptTokens ?? null,
+        completion_tokens: result?.completionTokens ?? null,
+        latency_ms: latencyMs,
+        ok: !callError,
+        error_message: callError ? callError.message : null,
       });
-    } else {
-      throw new AiGatewayError(explain(response.status, errText), response.status);
+    } catch (logErr) {
+      console.warn("Failed to write ai_usage_log in visionChat():", logErr);
     }
   }
-
-  if (!response.ok) {
-    throw new AiGatewayError(explain(response.status, await response.text()), response.status);
-  }
-
-  const data = (await response.json()) as {
-    choices?: { message?: { content?: string } }[];
-    usage?: { prompt_tokens?: number; completion_tokens?: number };
-  };
-
-  return {
-    text: data.choices?.[0]?.message?.content ?? "",
-    model: options.model,
-    promptTokens: data.usage?.prompt_tokens ?? null,
-    completionTokens: data.usage?.completion_tokens ?? null,
-    latencyMs: Date.now() - started,
-  };
 }

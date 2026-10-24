@@ -192,17 +192,28 @@ function maskKey(key: string): string {
   if (key.startsWith("{") && key.endsWith("}")) {
     try {
       const parsed = JSON.parse(key);
-      const primary = parsed.paidPrimary || "";
-      const primaryMasked =
-        primary.length > 8 ? `${primary.slice(0, 4)}••••${primary.slice(-4)}` : "Paid key set";
-      const secondary = parsed.paidSecondary ? " + 1 backup" : "";
-      const poolCount = Array.isArray(parsed.budgetPool)
-        ? parsed.budgetPool.length
-        : typeof parsed.budgetPool === "string" && parsed.budgetPool.length > 5
-          ? parsed.budgetPool.split(/[\n\r,;]+/).filter((k: string) => k.trim().length > 5).length
-          : 0;
-      const poolText = poolCount > 0 ? ` (${poolCount} pool keys)` : "";
-      return `${primaryMasked}${secondary}${poolText}`;
+      const freeCount = Array.isArray(parsed.freeKeys)
+        ? parsed.freeKeys.length
+        : Array.isArray(parsed.budgetPool)
+          ? parsed.budgetPool.length
+          : typeof parsed.budgetPool === "string" && parsed.budgetPool.length > 5
+            ? parsed.budgetPool.split(/[\n\r,;]+/).filter((k: string) => k.trim().length > 5).length
+            : 0;
+
+      const paidPrimary = typeof parsed.paidPrimary === "string" ? parsed.paidPrimary.trim() : "";
+      const paidSecondary = typeof parsed.paidSecondary === "string" ? parsed.paidSecondary.trim() : "";
+      const hasPaid = paidPrimary.length > 5 || paidSecondary.length > 5;
+
+      const parts: string[] = [];
+      if (freeCount > 0) {
+        parts.push(`${freeCount} free hopping ${freeCount === 1 ? "key" : "keys"}`);
+      }
+      if (hasPaid) {
+        parts.push(
+          `emergency paid fallback (${paidPrimary.length > 8 ? `${paidPrimary.slice(0, 4)}••••${paidPrimary.slice(-4)}` : "active"})`,
+        );
+      }
+      if (parts.length > 0) return parts.join(" + ");
     } catch {
       // fall through
     }
@@ -332,6 +343,9 @@ export const adminOverview = createServerFn({ method: "GET" })
       live_examiner_challenges: "Live Examiner (Challenges)",
       live_examiner_maxout: "Live Examiner (Perfection)",
       grade_essay: "Essay Grader",
+      grade_essay_audit: "Essay Grader (Audit Pass)",
+      grade_essay_key_hop: "Essay Grader (Auto Key Hop)",
+      chat_key_hop: "Chat (Auto Key Hop)",
       essay_grade: "Essay Grader",
       essay_generate: "Model Essay Generator",
       essay_question_generate: "AI Question Generator",
@@ -777,7 +791,7 @@ const KeyInput = z.object({
   ]),
   purpose: z.enum(["chat", "embedding", "vision"]).default("chat"),
   label: z.string().trim().min(2, "Give this key a name.").max(80),
-  apiKey: z.string().trim().min(8, "Paste the full API key.").max(4000),
+  apiKey: z.string().trim().min(8, "Paste the full API key.").max(32000),
   baseUrl: z.string().trim().max(300).optional().or(z.literal("")),
   model: z.string().trim().min(2, "Set the model id.").max(120),
   activate: z.boolean().default(false),
@@ -963,16 +977,7 @@ export const testSpecificKey = createServerFn({ method: "POST" })
     let testModel =
       data.model?.trim() || (data.provider === "google" ? "gemini-3.8-flash" : "gpt-4o-mini");
     if (data.provider === "google") {
-      const cleaned = testModel.replace(/^(google\/|models\/)/, "");
-      if (cleaned === "gemini-2.5-pro" || cleaned === "gemini-3.1-pro-preview")
-        testModel = "gemini-3.1-pro";
-      else if (
-        cleaned === "gemini-2.5-flash" ||
-        cleaned === "gemini-2.0-flash" ||
-        cleaned === "gemini-3.6-flash" ||
-        cleaned === "gemini-3.7-flash"
-      )
-        testModel = "gemini-3.8-flash";
+      testModel = "gemini-3.8-flash";
     }
 
     const config = normaliseConfig({

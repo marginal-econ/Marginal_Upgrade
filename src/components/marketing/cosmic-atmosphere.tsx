@@ -6,7 +6,10 @@ interface CosmicAtmosphereProps {
   variant?: "hero" | "emerald" | "purple" | "cyan" | "amber" | "default";
   sparkles?: boolean;
   density?: "low" | "medium" | "high";
+  comets?: boolean;
 }
+
+type CometTheme = "aurora" | "solar" | "emerald" | "starlight";
 
 /**
  * 4-point twinkling star SVG with native CSS twinkle animation.
@@ -52,6 +55,224 @@ function TwinkleStar({
   );
 }
 
+/**
+ * High-fidelity mystical celestial comet graphic.
+ * Renders an ethereal multi-layer SVG with:
+ * - A luminous starlight nucleus and glowing diamond starburst flare
+ * - A sharp, energetic ion tail beam
+ * - An expansive, soft billowing dust/vapor plume
+ * - Trailing stardust sparkles that glint in deep space
+ */
+function MysticCometGraphic({
+  id,
+  theme,
+  length = 360,
+}: {
+  id: string;
+  theme: CometTheme;
+  length?: number;
+}) {
+  const hx = length - 24;
+  const hy = 30;
+
+  // Theme palettes for chromatic dispersion
+  const palette = {
+    aurora: {
+      ionStops: [
+        { offset: "0%", color: "#c084fc", opacity: 0 },
+        { offset: "32%", color: "#a855f7", opacity: 0.22 },
+        { offset: "65%", color: "#818cf8", opacity: 0.65 },
+        { offset: "85%", color: "#38bdf8", opacity: 0.92 },
+        { offset: "96%", color: "#e0f2fe", opacity: 0.98 },
+        { offset: "100%", color: "#ffffff", opacity: 1 },
+      ],
+      vaporStops: [
+        { offset: "0%", color: "#7c3aed", opacity: 0 },
+        { offset: "40%", color: "#6366f1", opacity: 0.1 },
+        { offset: "78%", color: "#38bdf8", opacity: 0.32 },
+        { offset: "95%", color: "#7dd3fc", opacity: 0.55 },
+        { offset: "100%", color: "#bae6fd", opacity: 0.7 },
+      ],
+      corona: ["#ffffff", "#7dd3fc", "#818cf8"],
+      sparks: ["#38bdf8", "#c084fc"],
+      filterGlow: "drop-shadow(0 0 10px rgba(56, 189, 248, 0.85)) drop-shadow(0 0 22px rgba(168, 85, 247, 0.5))",
+    },
+    solar: {
+      ionStops: [
+        { offset: "0%", color: "#f43f5e", opacity: 0 },
+        { offset: "32%", color: "#f43f5e", opacity: 0.2 },
+        { offset: "65%", color: "#f97316", opacity: 0.65 },
+        { offset: "85%", color: "#fbbf24", opacity: 0.92 },
+        { offset: "96%", color: "#fef08a", opacity: 0.98 },
+        { offset: "100%", color: "#ffffff", opacity: 1 },
+      ],
+      vaporStops: [
+        { offset: "0%", color: "#ea580c", opacity: 0 },
+        { offset: "40%", color: "#f97316", opacity: 0.1 },
+        { offset: "78%", color: "#f59e0b", opacity: 0.3 },
+        { offset: "95%", color: "#fbbf24", opacity: 0.5 },
+        { offset: "100%", color: "#fef08a", opacity: 0.7 },
+      ],
+      corona: ["#ffffff", "#fef08a", "#f59e0b"],
+      sparks: ["#fbbf24", "#fb7185"],
+      filterGlow: "drop-shadow(0 0 10px rgba(251, 191, 36, 0.88)) drop-shadow(0 0 22px rgba(249, 115, 22, 0.45))",
+    },
+    emerald: {
+      ionStops: [
+        { offset: "0%", color: "#0d9488", opacity: 0 },
+        { offset: "32%", color: "#0f766e", opacity: 0.2 },
+        { offset: "65%", color: "#059669", opacity: 0.65 },
+        { offset: "85%", color: "#34d399", opacity: 0.92 },
+        { offset: "96%", color: "#a7f3d0", opacity: 0.98 },
+        { offset: "100%", color: "#ffffff", opacity: 1 },
+      ],
+      vaporStops: [
+        { offset: "0%", color: "#0f766e", opacity: 0 },
+        { offset: "40%", color: "#059669", opacity: 0.1 },
+        { offset: "78%", color: "#10b981", opacity: 0.3 },
+        { offset: "95%", color: "#34d399", opacity: 0.5 },
+        { offset: "100%", color: "#6ee7b7", opacity: 0.7 },
+      ],
+      corona: ["#ffffff", "#a7f3d0", "#10b981"],
+      sparks: ["#34d399", "#2dd4bf"],
+      filterGlow: "drop-shadow(0 0 10px rgba(52, 211, 153, 0.88)) drop-shadow(0 0 22px rgba(13, 148, 136, 0.45))",
+    },
+    starlight: {
+      ionStops: [
+        { offset: "0%", color: "#818cf8", opacity: 0 },
+        { offset: "32%", color: "#818cf8", opacity: 0.18 },
+        { offset: "65%", color: "#93c5fd", opacity: 0.6 },
+        { offset: "85%", color: "#e0f2fe", opacity: 0.9 },
+        { offset: "96%", color: "#f8fafc", opacity: 0.98 },
+        { offset: "100%", color: "#ffffff", opacity: 1 },
+      ],
+      vaporStops: [
+        { offset: "0%", color: "#60a5fa", opacity: 0 },
+        { offset: "40%", color: "#93c5fd", opacity: 0.1 },
+        { offset: "78%", color: "#bae6fd", opacity: 0.28 },
+        { offset: "95%", color: "#e0f2fe", opacity: 0.45 },
+        { offset: "100%", color: "#ffffff", opacity: 0.65 },
+      ],
+      corona: ["#ffffff", "#e0f2fe", "#38bdf8"],
+      sparks: ["#bae6fd", "#c7d2fe"],
+      filterGlow: "drop-shadow(0 0 12px rgba(255, 255, 255, 0.95)) drop-shadow(0 0 24px rgba(56, 189, 248, 0.6))",
+    },
+  }[theme];
+
+  return (
+    <svg
+      viewBox={`0 0 ${length} 60`}
+      className="size-full overflow-visible pointer-events-none"
+      style={{ filter: palette.filterGlow }}
+      aria-hidden="true"
+    >
+      <defs>
+        {/* Primary Ion Beam Linear Gradient */}
+        <linearGradient id={`ion-grad-${id}`} x1="0%" y1="50%" x2="100%" y2="50%">
+          {palette.ionStops.map((stop, i) => (
+            <stop key={i} offset={stop.offset} stopColor={stop.color} stopOpacity={stop.opacity} />
+          ))}
+        </linearGradient>
+
+        {/* Diffuse Vapor Dust Plume Gradient */}
+        <linearGradient id={`vapor-grad-${id}`} x1="0%" y1="50%" x2="100%" y2="50%">
+          {palette.vaporStops.map((stop, i) => (
+            <stop key={i} offset={stop.offset} stopColor={stop.color} stopOpacity={stop.opacity} />
+          ))}
+        </linearGradient>
+
+        {/* Nucleus Corona Radial Gradient */}
+        <radialGradient id={`corona-grad-${id}`} cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stopColor={palette.corona[0]} stopOpacity="1" />
+          <stop offset="30%" stopColor={palette.corona[1]} stopOpacity="0.85" />
+          <stop offset="65%" stopColor={palette.corona[2]} stopOpacity="0.4" />
+          <stop offset="100%" stopColor={palette.corona[2]} stopOpacity="0" />
+        </radialGradient>
+
+        {/* Soft Vapor Blur Filter */}
+        <filter id={`vapor-blur-${id}`} x="-20%" y="-20%" width="140%" height="140%">
+          <feGaussianBlur stdDeviation="2.8" />
+        </filter>
+      </defs>
+
+      {/* 1. Ethereal Vapor Dust Plume (Expansive Astronomical Tail) */}
+      <polygon
+        points={`0,${hy} 110,${hy - 6} 220,${hy - 9} ${hx - 20},${hy - 6} ${hx},${hy} ${hx - 20},${hy + 6} 220,${hy + 9} 110,${hy + 6}`}
+        fill={`url(#vapor-grad-${id})`}
+        filter={`url(#vapor-blur-${id})`}
+      />
+
+      {/* 2. Energetic Ion Beam (Tapered Radiant Core Stream) */}
+      <polygon
+        points={`30,${hy} 170,${hy - 3} ${hx - 10},${hy - 2.5} ${hx},${hy} ${hx - 10},${hy + 2.5} 170,${hy + 3}`}
+        fill={`url(#ion-grad-${id})`}
+      />
+
+      {/* 3. Incandescent Starlight Thread */}
+      <line
+        x1="100"
+        y1={hy}
+        x2={hx}
+        y2={hy}
+        stroke="#ffffff"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        opacity="0.95"
+      />
+
+      {/* 4. Nucleus Corona Glow (Pulsing Plasma Halo) */}
+      <circle
+        cx={hx}
+        cy={hy}
+        r="20"
+        fill={`url(#corona-grad-${id})`}
+        className="mystic-comet-core-glow"
+      />
+
+      {/* 5. Mystical Diamond Starburst Glint (Razor 4-Point Glint on Head) */}
+      <path
+        d={`M ${hx},${hy - 14} Q ${hx},${hy} ${hx + 14},${hy} Q ${hx},${hy} ${hx},${hy + 14} Q ${hx},${hy} ${hx - 14},${hy} Q ${hx},${hy} ${hx},${hy - 14} Z`}
+        fill="#ffffff"
+        className="drop-shadow-[0_0_8px_rgba(255,255,255,0.95)]"
+      />
+
+      {/* 6. Celestial Diffraction Glint Spikes */}
+      <line
+        x1={hx - 24}
+        y1={hy}
+        x2={hx + 24}
+        y2={hy}
+        stroke="#ffffff"
+        strokeWidth="0.8"
+        opacity="0.85"
+      />
+      <line
+        x1={hx}
+        y1={hy - 18}
+        x2={hx}
+        y2={hy + 18}
+        stroke="#ffffff"
+        strokeWidth="0.8"
+        opacity="0.85"
+      />
+
+      {/* 7. Super-Dense White Core Nucleus */}
+      <circle cx={hx} cy={hy} r="3.6" fill="#ffffff" />
+
+      {/* 8. Trailing Stardust Sparks (Incandescent Cosmic Particles) */}
+      <g className="mystic-stardust-spark">
+        <circle cx={hx - 35} cy={hy - 6} r={1.6} fill="#ffffff" opacity={0.9} />
+        <circle cx={hx - 65} cy={hy + 7} r={1.4} fill={palette.sparks[0]} opacity={0.85} />
+        <circle cx={hx - 105} cy={hy - 4} r={1.2} fill={palette.sparks[1]} opacity={0.75} />
+        <circle cx={hx - 145} cy={hy + 6} r={1.5} fill="#ffffff" opacity={0.8} />
+        <circle cx={hx - 190} cy={hy - 5} r={1.1} fill={palette.sparks[0]} opacity={0.65} />
+        <circle cx={hx - 240} cy={hy + 4} r={0.9} fill={palette.sparks[1]} opacity={0.55} />
+        <circle cx={hx - 285} cy={hy - 2} r={0.8} fill="#ffffff" opacity={0.45} />
+      </g>
+    </svg>
+  );
+}
+
 const STAR_CONFIGS = [
   { top: "6%", left: "8%", size: 14, delay: "0s", duration: "3.2s", color: "text-amber-400/90" },
   { top: "12%", left: "85%", size: 18, delay: "1.0s", duration: "4.0s", color: "text-primary/90" },
@@ -73,10 +294,62 @@ const STAR_CONFIGS = [
   { top: "15%", left: "25%", size: 8, delay: "0.9s", duration: "3.7s", color: "text-amber-200/70" },
 ];
 
-const COMET_CONFIGS = [
-  { top: "10%", left: "5%", delay: "0.8s", duration: "6.5s" },
-  { top: "25%", left: "35%", delay: "3.8s", duration: "7.2s" },
-  { top: "5%", left: "60%", delay: "6.0s", duration: "6.8s" },
+/**
+ * Celestial comets configured with realistic cosmic angles and staggered orbital periods.
+ * Because tracks are rotated in the flight direction, comets travel naturally head-first
+ * with their glorious tails trailing behind them.
+ */
+const CELESTIAL_COMETS = [
+  {
+    id: "aurora-prime",
+    theme: "aurora" as const,
+    top: "6%",
+    left: "2%",
+    angle: 32,
+    duration: "7.8s",
+    delay: "0.4s",
+    scale: 1.12,
+  },
+  {
+    id: "solar-phoenix",
+    theme: "solar" as const,
+    top: "20%",
+    left: "30%",
+    angle: 35,
+    duration: "9.2s",
+    delay: "3.2s",
+    scale: 0.96,
+  },
+  {
+    id: "emerald-nebula",
+    theme: "emerald" as const,
+    top: "4%",
+    left: "54%",
+    angle: 29,
+    duration: "8.6s",
+    delay: "5.8s",
+    scale: 1.04,
+  },
+  {
+    id: "starlight-drift",
+    theme: "starlight" as const,
+    top: "36%",
+    left: "14%",
+    angle: 30,
+    duration: "10.5s",
+    delay: "2.2s",
+    scale: 0.88,
+  },
+];
+
+/**
+ * Deep-space micro-meteors adding multi-layer cosmic depth.
+ */
+const MICRO_METEORS = [
+  { top: "12%", left: "42%", angle: 33, duration: "4.8s", delay: "1.4s" },
+  { top: "5%", left: "76%", angle: 38, duration: "6.2s", delay: "3.6s" },
+  { top: "46%", left: "6%", angle: 27, duration: "5.4s", delay: "6.8s" },
+  { top: "26%", left: "84%", angle: 36, duration: "5.8s", delay: "2.6s" },
 ];
 
 export function CosmicAtmosphere({
@@ -84,7 +357,10 @@ export function CosmicAtmosphere({
   variant = "default",
   sparkles = true,
   density = "medium",
+  comets,
 }: CosmicAtmosphereProps) {
+  const showComets = comets ?? (variant === "hero");
+
   const gradientStyles = {
     hero: (
       <>
@@ -148,20 +424,55 @@ export function CosmicAtmosphere({
       {/* Subtle Starfield Mesh */}
       <div className="starfield pointer-events-none absolute inset-0" />
 
-      {/* Extreme Shooting Comets (front page visual dynamism) */}
-      {variant === "hero" && (
+      {/* Mystical Celestial Comets & Stardust Engine */}
+      {showComets && (
         <div className="pointer-events-none absolute inset-0 overflow-hidden">
-          {COMET_CONFIGS.map((comet, idx) => (
+          {/* Deep-Space Micro-Meteors */}
+          {MICRO_METEORS.map((meteor, idx) => (
             <div
-              key={idx}
-              className="shooting-comet pointer-events-none"
+              key={`meteor-${idx}`}
+              className="micro-meteor-track"
+              style={{
+                top: meteor.top,
+                left: meteor.left,
+                transform: `rotate(${meteor.angle}deg)`,
+              }}
+            >
+              <div
+                className="micro-meteor-streak"
+                style={
+                  {
+                    "--meteor-duration": meteor.duration,
+                    "--meteor-delay": meteor.delay,
+                  } as React.CSSProperties
+                }
+              />
+            </div>
+          ))}
+
+          {/* Full-Fidelity Mystical Comets */}
+          {CELESTIAL_COMETS.map((comet) => (
+            <div
+              key={comet.id}
+              className="mystic-comet-track"
               style={{
                 top: comet.top,
                 left: comet.left,
-                animationDelay: comet.delay,
-                animationDuration: comet.duration,
+                transform: `rotate(${comet.angle}deg) scale(${comet.scale})`,
               }}
-            />
+            >
+              <div
+                className="mystic-comet-body"
+                style={
+                  {
+                    "--comet-duration": comet.duration,
+                    "--comet-delay": comet.delay,
+                  } as React.CSSProperties
+                }
+              >
+                <MysticCometGraphic id={comet.id} theme={comet.theme} />
+              </div>
+            </div>
           ))}
         </div>
       )}

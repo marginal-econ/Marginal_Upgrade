@@ -1,26 +1,26 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowRight, GraduationCap } from "lucide-react";
+import { ArrowRight, BookOpen, CheckCircle2, GraduationCap, ShieldCheck, Sparkles, Users } from "lucide-react";
 import { useEffect, useState } from "react";
 
-import { PricingSection } from "@/components/marketing/pricing-section";
 import { AiComparisonSection } from "@/components/marketing/ai-comparison-section";
 import { SiteFooter } from "@/components/marketing/footer";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { supabase } from "@/integrations/backend/client";
 
 export const Route = createFileRoute("/pricing")({
   head: () => ({
     meta: [
-      { title: "Pricing & Plans — Marginal Economics" },
+      { title: "100% Free Access — Marginal Economics" },
       {
         name: "description",
         content:
-          "Official Cambridge International 9708 Economics pricing for students and schools. 4 B2C student tiers starting from ₹99/mo, plus institutional school packages.",
+          "Marginal Economics is 100% Free for all Cambridge International 9708 Economics students and educators. Unlimited essay evaluations, past-paper matrix, MCQ drills, and classroom cohorts.",
       },
       {
         property: "og:title",
-        content: "Marginal Economics — Pricing Plans for Students & Schools",
+        content: "Marginal Economics — 100% Free Access for Cambridge 9708 Economics",
       },
     ],
   }),
@@ -103,8 +103,111 @@ function PricingPage() {
         </div>
       </header>
 
-      <main className="py-8 space-y-12">
-        <PricingSection />
+      <main className="py-12 space-y-16">
+        {/* ── Hero Free Community Section ── */}
+        <section className="mx-auto max-w-5xl px-4 text-center space-y-6">
+          <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 px-3.5 py-1 text-xs font-semibold">
+            <Sparkles className="size-3.5 mr-1.5" /> 100% Free Community Edition
+          </Badge>
+
+          <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-foreground">
+            Complete Cambridge 9708 Access. <br className="hidden sm:inline" />
+            <span className="text-primary">Zero Paywalls. 100% Free.</span>
+          </h1>
+
+          <p className="mx-auto max-w-2xl text-sm sm:text-base text-muted-foreground leading-relaxed">
+            We believe every Cambridge Economics student and educator should have unrestricted access to gold-standard marking, syllabus grounding, and past exam analytics. All core features are open immediately upon sign up.
+          </p>
+
+          <div className="pt-2 flex flex-wrap items-center justify-center gap-4">
+            <Button asChild size="lg" className="bg-primary hover:bg-primary/90 text-primary-foreground px-6 font-semibold shadow-md">
+              <Link to={isAuthenticated ? "/grade" : "/auth"}>
+                {isAuthenticated ? "Open Essay Grader" : "Sign Up Free & Start Marking"} <ArrowRight className="ml-2 size-4" />
+              </Link>
+            </Button>
+            <Button asChild variant="outline" size="lg" className="px-6 font-semibold">
+              <Link to={isAuthenticated ? "/mcq-live" : "/auth"}>
+                Practice MCQ Papers
+              </Link>
+            </Button>
+          </div>
+
+          <div className="pt-4 flex items-center justify-center gap-6 text-xs text-muted-foreground">
+            <span className="flex items-center gap-1.5">
+              <CheckCircle2 className="size-4 text-emerald-500" /> No credit card required
+            </span>
+            <span className="flex items-center gap-1.5">
+              <CheckCircle2 className="size-4 text-emerald-500" /> Unlimited essay evaluations
+            </span>
+            <span className="flex items-center gap-1.5">
+              <CheckCircle2 className="size-4 text-emerald-500" /> Immediate instant access
+            </span>
+          </div>
+        </section>
+
+        {/* ── Feature Cards ── */}
+        <section className="mx-auto max-w-6xl px-4 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+          <Card className="border-border/80 bg-card/60 backdrop-blur-sm">
+            <CardContent className="p-6 space-y-3">
+              <div className="size-10 rounded-lg bg-emerald-500/10 text-emerald-500 flex items-center justify-center font-bold">
+                <Sparkles className="size-5" />
+              </div>
+              <h3 className="font-bold text-base text-foreground">Cambridge Essay Grader</h3>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Full AO1 Knowledge, AO2 Analysis, and AO3 Evaluation scoring strictly grounded in official Cambridge mark schemes and examiner reports.
+              </p>
+              <Badge variant="secondary" className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
+                Unlimited Free
+              </Badge>
+            </CardContent>
+          </Card>
+
+          <Card className="border-border/80 bg-card/60 backdrop-blur-sm">
+            <CardContent className="p-6 space-y-3">
+              <div className="size-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center font-bold">
+                <BookOpen className="size-5" />
+              </div>
+              <h3 className="font-bold text-base text-foreground">Paper Matrix &amp; MCQ</h3>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Complete past paper catalog from 2017 to latest series with crisp PDF canvas, interactive answer panels, and micro vs macro performance analytics.
+              </p>
+              <Badge variant="secondary" className="text-[11px] font-semibold text-primary">
+                Full Library Free
+              </Badge>
+            </CardContent>
+          </Card>
+
+          <Card className="border-border/80 bg-card/60 backdrop-blur-sm">
+            <CardContent className="p-6 space-y-3">
+              <div className="size-10 rounded-lg bg-purple-500/10 text-purple-500 flex items-center justify-center font-bold">
+                <Users className="size-5" />
+              </div>
+              <h3 className="font-bold text-base text-foreground">Classroom &amp; Cohorts</h3>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Teachers can create classes, assign real past-paper essay questions, review automated AI grading, and export full gradebooks.
+              </p>
+              <Badge variant="secondary" className="text-[11px] font-semibold text-purple-600 dark:text-purple-400">
+                Free for Teachers &amp; Schools
+              </Badge>
+            </CardContent>
+          </Card>
+
+          <Card className="border-border/80 bg-card/60 backdrop-blur-sm">
+            <CardContent className="p-6 space-y-3">
+              <div className="size-10 rounded-lg bg-amber-500/10 text-amber-500 flex items-center justify-center font-bold">
+                <ShieldCheck className="size-5" />
+              </div>
+              <h3 className="font-bold text-base text-foreground">Syllabus Grounding &amp; RAG</h3>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Ingested official Cambridge 9708 definitions, command words, topic breakdowns, and model exemplars for rigorous revision.
+              </p>
+              <Badge variant="secondary" className="text-[11px] font-semibold text-amber-600 dark:text-amber-400">
+                100% Free
+              </Badge>
+            </CardContent>
+          </Card>
+        </section>
+
         <AiComparisonSection />
       </main>
 

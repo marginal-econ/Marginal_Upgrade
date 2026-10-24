@@ -61,7 +61,6 @@ import { CountUp, Reveal } from "@/components/marketing/reveal";
 import { Ribbon } from "@/components/marketing/ribbon";
 import { SiteNavLinks, SiteNavMobile } from "@/components/marketing/site-nav";
 import { Magnetic, TiltCard } from "@/components/marketing/three-d";
-import { PricingSection } from "@/components/marketing/pricing-section";
 import { AiComparisonSection } from "@/components/marketing/ai-comparison-section";
 import { RealEssayShowcase } from "@/components/marketing/real-essay-showcase";
 import { RagEngineSection } from "@/components/marketing/rag-engine-section";
@@ -99,7 +98,8 @@ const RIBBON_ITEMS = [
   "AO3 Evaluation",
   "Paper 1 & 3 MCQs",
   "Paper 2 & 4 Essays",
-  "Live Examiner",
+  "100% Free Access",
+  "Past Paper Matrix",
   "Handwriting Vision OCR",
   "Diagram Studio",
   "Definition Hub",
@@ -120,11 +120,11 @@ const TOOLS = [
   {
     icon: Sparkles,
     tile: "bg-primary",
-    badge: "Real-Time AI",
-    title: "Live Examiner",
-    lead: "Instant calibration sentence by sentence",
-    body: "Running Cambridge marks out of 8, 12, or 20, real-time AO1/AO2/AO3 progress meters, economics terminology checks, and dynamic examiner next-move coaching while you write.",
-    href: "/live-examiner",
+    badge: "Past Exam Matrix",
+    title: "Past Paper Matrix",
+    lead: "Complete Cambridge past paper catalog",
+    body: "Browse and practice past Cambridge 9708 exam series with high-resolution PDF viewports, interactive jump matrix, and verified marking rubrics.",
+    href: "/mcq-live",
   },
   {
     icon: PenLine,
@@ -505,14 +505,14 @@ function Index() {
             </Reveal>
           </div>
 
-          {/* Centered Live Examiner Showcase & Unboxed Founder Statement */}
+          {/* Centered Cambridge Specimen Showcase & Founder Statement */}
           <Reveal variant="pop" delay={120} className="relative w-full space-y-3 sm:space-y-3.5">
             <div className="relative w-full">
               {/* Ambient Stage Halo Glow */}
               <div className="absolute -inset-2 rounded-3xl bg-gradient-to-r from-primary/30 via-violet-500/20 to-amber-500/20 blur-xl opacity-75 -z-10 animate-pulse" />
-              <ExaminerStage className="relative mx-auto w-full max-w-xl xl:max-w-2xl 2xl:max-w-[680px] min-w-0 shadow-2xl border-2 border-primary/35 rounded-2xl overflow-hidden backdrop-blur-xl ring-1 ring-primary/20">
-                <LiveExaminer />
-              </ExaminerStage>
+              <TiltCard max={6} lift={12} className="relative mx-auto w-full max-w-xl xl:max-w-2xl 2xl:max-w-[680px] min-w-0 shadow-2xl rounded-2xl overflow-visible backdrop-blur-xl">
+                <SpecimenCard />
+              </TiltCard>
             </div>
 
             {/* Founder Mission & Inspiration — Unboxed Normal Text, Highly Visible and Bold */}
@@ -795,8 +795,38 @@ function Index() {
         </div>
       </section>
 
-      {/* ── Pricing ──────────────────────────────────────────────────────── */}
-      <PricingSection />
+      {/* ── Experimental Lab: Live Examiner (Under Development) ──────────── */}
+      <section
+        id="experimental-live-examiner"
+        className="relative border-b-[1.5px] border-ink bg-surface-raised scroll-mt-20 overflow-hidden py-16 md:py-24"
+      >
+        <CosmicAtmosphere variant="purple" sparkles={true} density="high" />
+        <div className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6 md:px-8">
+          <Reveal>
+            <div className="text-center space-y-3 mb-10">
+              <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full border border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400 font-extrabold uppercase text-[11px] tracking-wider">
+                <span className="size-2 rounded-full bg-amber-500 animate-ping inline-block" />
+                Experimental Feature · In Active Development
+              </span>
+              <h2 className="text-2xl sm:text-4xl font-extrabold tracking-tight text-foreground">
+                Live Examiner — Real-Time Keystroke Economics AI
+              </h2>
+              <p className="max-w-2xl mx-auto text-sm sm:text-base text-muted-foreground leading-relaxed">
+                We are currently engineering our next-generation live typing evaluator that diagnoses grammar, causal chains, and Cambridge AO marks in real-time as you write. Try out our interactive development prototype below.
+              </p>
+            </div>
+          </Reveal>
+
+          <Reveal variant="pop" delay={120}>
+            <div className="relative mx-auto w-full max-w-3xl">
+              <div className="absolute -inset-3 rounded-3xl bg-gradient-to-r from-primary/30 via-violet-500/25 to-amber-500/25 blur-2xl opacity-75 -z-10 animate-pulse" />
+              <ExaminerStage className="relative mx-auto w-full min-w-0 shadow-2xl border-2 border-primary/40 rounded-2xl overflow-hidden backdrop-blur-xl ring-1 ring-primary/20">
+                <LiveExaminer />
+              </ExaminerStage>
+            </div>
+          </Reveal>
+        </div>
+      </section>
 
       {/* ── FAQ ──────────────────────────────────────────────────────────── */}
       <section id="faq" className="relative border-b-[1.5px] border-ink bg-surface-raised scroll-mt-20 overflow-hidden">
@@ -873,7 +903,7 @@ function Index() {
                     size="lg"
                     className="h-11 px-5 text-xs sm:text-sm font-semibold border-white/30 text-plum-foreground hover:bg-white/10"
                   >
-                    <Link to="/pricing">View Revision Plans</Link>
+                    <Link to="/grade">Start Essay Marking</Link>
                   </Button>
                   <Button
                     asChild
@@ -1057,8 +1087,8 @@ function SpecimenCard() {
   const [view, setView] = useState<"marginal" | "generic">("marginal");
 
   return (
-    <div className="relative">
-      <span className="sticker layer-2 absolute -top-3 -right-2 z-10 bg-ao3 text-foreground md:-right-4">
+    <div className="relative pt-2.5">
+      <span className="sticker layer-2 absolute top-0 right-3 z-10 bg-ao3 text-foreground font-bold shadow-sm">
         Live Inspection
       </span>
 
@@ -1163,7 +1193,7 @@ function SpecimenCard() {
                 <span>⚠️ Generic Chatbot Output (ChatGPT / Claude default):</span>
               </div>
               <p className="italic text-foreground/80 leading-relaxed">
-                “This is a very good essay! You clearly understand minimum prices and explain how they reduce demand for demerit goods like cigarettes. You also mentioned other policies. Mark: 7 / 12 (Grade B). Keep practicing!”
+                “This is a very good essay! You clearly understand minimum prices and explain how they reduce demand for demerit goods like cigarettes. You also mentioned other policies. Mark: 8 / 12 (Grade B). Keep practicing!”
               </p>
             </div>
 

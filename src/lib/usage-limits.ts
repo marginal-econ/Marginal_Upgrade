@@ -14,21 +14,21 @@
 export const DAILY_LIMIT_PREFIX = "Daily limit reached";
 export const TIER_LIMIT_PREFIX = "Plan limit reached";
 
-export const FREE_TIER_ESSAY_LIMIT = 2;
-export const FREE_TEACHER_ESSAY_LIMIT = 3;
-export const MCQ_FREE_TRIAL_DAYS = 30;
+export const FREE_TIER_ESSAY_LIMIT = 999999;
+export const FREE_TEACHER_ESSAY_LIMIT = 999999;
+export const MCQ_FREE_TRIAL_DAYS = 999999;
 
-export const LIVE_EXAMINER_DAILY_LIMIT = 1;
-export const LIMIT_RESET_NOTE = "Limits reset at midnight IST.";
+export const LIVE_EXAMINER_DAILY_LIMIT = 0;
+export const LIMIT_RESET_NOTE = "Marginal is currently in 100% Free Community Edition.";
 
 export const TIER_LIMITS = {
   free: {
-    name: "Free Tier",
-    maxEssaysTotal: 2,
-    maxEssaysPerMonth: 2,
+    name: "Free Community Edition",
+    maxEssaysTotal: Infinity,
+    maxEssaysPerMonth: 999999,
     liveExaminerCredits: 0,
     liveExaminerEnabled: false,
-    mcqFreeDays: 30,
+    mcqFreeDays: 999999,
   },
   foundation: {
     name: "Foundation Scholar",

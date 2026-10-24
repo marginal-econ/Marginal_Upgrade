@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMutation } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { ArrowRight, Check, Circle, Loader2, ShieldCheck, Sparkles, X } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
 
 import { PageHeader } from "@/components/app/app-shell";
@@ -90,10 +90,42 @@ const TABS: {
 ];
 
 function PracticePage() {
+  const COACH_DRAFT_KEY = "marginal_coach_draft";
   const [ao, setAo] = useState<Ao>("ao2");
   const [tariff, setTariff] = useState<Tariff>(12);
-  const [question, setQuestion] = useState("");
-  const [pointText, setPointText] = useState("");
+  const [question, setQuestion] = useState(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem("marginal_coach_draft");
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed.question) return parsed.question;
+        }
+      } catch {}
+    }
+    return "";
+  });
+  const [pointText, setPointText] = useState(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem("marginal_coach_draft");
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed.pointText) return parsed.pointText;
+        }
+      } catch {}
+    }
+    return "";
+  });
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      if (question.trim() || pointText.trim()) {
+        localStorage.setItem(COACH_DRAFT_KEY, JSON.stringify({ question, pointText }));
+      }
+    } catch {}
+  }, [question, pointText]);
 
   const coach = useServerFn(coachAoPoint);
   const active = TABS.find((tab) => tab.key === ao)!;
@@ -213,7 +245,7 @@ function PracticePage() {
             <HandwritingUpload
               hint={question}
               onText={(text) =>
-                setPointText((current) => (current.trim() ? `${current.trim()}\n\n${text}` : text))
+                setPointText((current: string) => (current.trim() ? `${current.trim()}\n\n${text}` : text))
               }
             />
 

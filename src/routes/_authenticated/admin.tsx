@@ -8,6 +8,7 @@ import {
   BookOpen,
   Check,
   CheckCircle2,
+  Clipboard,
   ChevronRight,
   Clock,
   Coins,
@@ -608,8 +609,10 @@ function ProvidersPanel() {
   const [paidPrimaryKey, setPaidPrimaryKey] = useState("");
   const [paidSecondaryKey, setPaidSecondaryKey] = useState("");
   const [poolKeys, setPoolKeys] = useState<PoolKeyItem[]>([
-    { id: "pool-1", key: "", label: "Extra Key 1", priority: 1 },
+    { id: "pool-1", key: "", label: "Free Key 1", priority: 1 },
   ]);
+  const [bulkInput, setBulkInput] = useState("");
+  const [showBulkInput, setShowBulkInput] = useState(false);
   const [keyTestState, setKeyTestState] = useState<
     Record<string, { status: "testing" | "success" | "error"; message: string }>
   >({});
@@ -622,13 +625,44 @@ function ProvidersPanel() {
   const meta = providerMeta(provider);
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["provider-keys", "chat"] });
 
+  const handleBulkImport = () => {
+    const rawKeys = bulkInput
+      .split(/[\n\r,;]+/)
+      .map((k) => k.trim())
+      .filter((k) => k.length > 5);
+    if (rawKeys.length === 0) {
+      toast.error("No valid keys found in paste input.");
+      return;
+    }
+    setPoolKeys((prev) => {
+      const existing = new Set(prev.map((p) => p.key.trim()));
+      const newItems: PoolKeyItem[] = [];
+      let nextPriority = prev.filter((p) => p.key.trim().length > 5).length + 1;
+      for (const k of rawKeys) {
+        if (!existing.has(k)) {
+          newItems.push({
+            id: `pool-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+            key: k,
+            label: `Free Key ${nextPriority}`,
+            priority: nextPriority++,
+          });
+        }
+      }
+      toast.success(`Imported ${newItems.length} free keys into pool!`);
+      const keepOld = prev.filter((p) => p.key.trim().length > 5);
+      return keepOld.length > 0 ? [...keepOld, ...newItems] : newItems;
+    });
+    setBulkInput("");
+    setShowBulkInput(false);
+  };
+
   const handleAddPoolKey = () => {
     setPoolKeys((prev) => [
       ...prev,
       {
         id: `pool-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
         key: "",
-        label: `Extra Key ${prev.length + 1}`,
+        label: `Free Key ${prev.length + 1}`,
         priority: prev.length + 1,
       },
     ]);
@@ -713,22 +747,22 @@ function ProvidersPanel() {
         .filter((k) => k.key.trim().length > 5)
         .map((k, index) => ({
           key: k.key.trim(),
-          label: k.label.trim() || `Extra Key ${index + 1}`,
+          label: k.label.trim() || `Free Key ${index + 1}`,
           priority: k.priority || index + 1,
         }));
 
-      const primary = paidPrimaryKey.trim() || (validPool[0]?.key ?? "");
-      let finalKey = primary;
-      const hasSecondary = paidSecondaryKey.trim().length > 0;
-      const hasBudgetPool = validPool.length > 0;
+      const primaryPaid = paidPrimaryKey.trim();
+      const secondaryPaid = paidSecondaryKey.trim();
 
-      if (hasSecondary || hasBudgetPool) {
-        finalKey = JSON.stringify({
-          paidPrimary: primary,
-          paidSecondary: paidSecondaryKey.trim(),
-          budgetPool: validPool,
-        });
-      }
+      const payload = {
+        freeKeys: validPool.map((k) => k.key),
+        paidKeys: [primaryPaid, secondaryPaid].filter(Boolean),
+        paidPrimary: primaryPaid,
+        paidSecondary: secondaryPaid,
+        budgetPool: validPool,
+      };
+
+      const finalKey = JSON.stringify(payload);
 
       return save({
         data: {
@@ -745,7 +779,7 @@ function ProvidersPanel() {
       toast.success("AI keys saved. AI features will use them immediately.");
       setPaidPrimaryKey("");
       setPaidSecondaryKey("");
-      setPoolKeys([{ id: "pool-1", key: "", label: "Extra Key 1", priority: 1 }]);
+      setPoolKeys([{ id: "pool-1", key: "", label: "Free Key 1", priority: 1 }]);
       setKeyTestState({});
       setLabel("");
       await refresh();
@@ -802,8 +836,7 @@ function ProvidersPanel() {
           <KeyRound className="size-4 text-primary" /> Configure AI Provider Keys
         </h2>
         <p className="mt-1 text-xs text-muted-foreground">
-          Connect your API keys with multi-tier routing: dedicated keys for paying students, and
-          an auto-rotating key pool with priority order for free &amp; budget tiers.
+          Add a pool of free keys for automatic load balancing and 15s key hopping. Emergency paid key serves strictly as a last resort fallback if all free keys fail.
         </p>
 
         <div className="mt-4 space-y-3">
@@ -839,176 +872,75 @@ function ProvidersPanel() {
             />
           </div>
 
-          {/* Multi-Tier Keys Section */}
-          <div className="space-y-3.5 rounded-xl border border-border/80 bg-muted/20 p-3">
-            {/* Primary Paid Key */}
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <Label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
-                  <span className="inline-block h-2 w-2 rounded-full bg-emerald-500" />
-                  Primary Paid Key (Users &gt; ₹199)
-                </Label>
-                <div className="flex items-center gap-1.5">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="h-6 px-2 text-[10px] gap-1"
-                    onClick={() => handleTestSingleKey("paid-primary", paidPrimaryKey)}
-                    disabled={
-                      keyTestState["paid-primary"]?.status === "testing" ||
-                      paidPrimaryKey.trim().length < 5
-                    }
-                  >
-                    {keyTestState["paid-primary"]?.status === "testing" ? (
-                      <>
-                        <Loader2 className="size-2.5 animate-spin" /> Testing
-                      </>
-                    ) : keyTestState["paid-primary"]?.status === "success" ? (
-                      <>
-                        <CheckCircle2 className="size-2.5 text-emerald-500" /> Pass
-                      </>
-                    ) : keyTestState["paid-primary"]?.status === "error" ? (
-                      <>
-                        <XCircle className="size-2.5 text-destructive" /> Retry
-                      </>
-                    ) : (
-                      <>
-                        <Zap className="size-2.5 text-emerald-500" /> Test Key
-                      </>
-                    )}
-                  </Button>
-                  <Badge variant="outline" className="text-[10px] text-emerald-600 border-emerald-500/30">
-                    VIP Access
-                  </Badge>
-                </div>
-              </div>
-              <Input
-                type="password"
-                value={paidPrimaryKey}
-                onChange={(event) => setPaidPrimaryKey(event.target.value)}
-                placeholder="AIza... (Pro, Mastery, Elite & Teachers)"
-              />
-              {keyTestState["paid-primary"] && (
-                <div
-                  className={cn(
-                    "text-[10px] px-2 py-0.5 rounded flex items-center gap-1 font-mono",
-                    keyTestState["paid-primary"].status === "testing" && "text-muted-foreground bg-muted/40",
-                    keyTestState["paid-primary"].status === "success" &&
-                      "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10",
-                    keyTestState["paid-primary"].status === "error" &&
-                      "text-destructive bg-destructive/10"
-                  )}
-                >
-                  {keyTestState["paid-primary"].status === "testing" ? (
-                    <Loader2 className="size-2.5 animate-spin" />
-                  ) : keyTestState["paid-primary"].status === "success" ? (
-                    <CheckCircle2 className="size-2.5" />
-                  ) : (
-                    <XCircle className="size-2.5" />
-                  )}
-                  <span className="truncate">{keyTestState["paid-primary"].message}</span>
-                </div>
-              )}
-              <p className="text-[11px] text-muted-foreground">
-                High-priority dedicated key for paying users. Zero queue delays and premium model access (e.g. Gemini 2.5 Pro).
-              </p>
-            </div>
-
-            {/* Secondary Paid Key */}
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <Label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
-                  <span className="inline-block h-2 w-2 rounded-full bg-blue-500" />
-                  Secondary Paid Key (Failover)
-                </Label>
-                <div className="flex items-center gap-1.5">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="h-6 px-2 text-[10px] gap-1"
-                    onClick={() => handleTestSingleKey("paid-secondary", paidSecondaryKey)}
-                    disabled={
-                      keyTestState["paid-secondary"]?.status === "testing" ||
-                      paidSecondaryKey.trim().length < 5
-                    }
-                  >
-                    {keyTestState["paid-secondary"]?.status === "testing" ? (
-                      <>
-                        <Loader2 className="size-2.5 animate-spin" /> Testing
-                      </>
-                    ) : keyTestState["paid-secondary"]?.status === "success" ? (
-                      <>
-                        <CheckCircle2 className="size-2.5 text-blue-500" /> Pass
-                      </>
-                    ) : keyTestState["paid-secondary"]?.status === "error" ? (
-                      <>
-                        <XCircle className="size-2.5 text-destructive" /> Retry
-                      </>
-                    ) : (
-                      <>
-                        <Zap className="size-2.5 text-blue-500" /> Test Key
-                      </>
-                    )}
-                  </Button>
-                  <Badge variant="outline" className="text-[10px] text-muted-foreground">
-                    Optional
-                  </Badge>
-                </div>
-              </div>
-              <Input
-                type="password"
-                value={paidSecondaryKey}
-                onChange={(event) => setPaidSecondaryKey(event.target.value)}
-                placeholder="AIza... (Instant backup if primary paid key hits a blip)"
-              />
-              {keyTestState["paid-secondary"] && (
-                <div
-                  className={cn(
-                    "text-[10px] px-2 py-0.5 rounded flex items-center gap-1 font-mono",
-                    keyTestState["paid-secondary"].status === "testing" && "text-muted-foreground bg-muted/40",
-                    keyTestState["paid-secondary"].status === "success" &&
-                      "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10",
-                    keyTestState["paid-secondary"].status === "error" &&
-                      "text-destructive bg-destructive/10"
-                  )}
-                >
-                  {keyTestState["paid-secondary"].status === "testing" ? (
-                    <Loader2 className="size-2.5 animate-spin" />
-                  ) : keyTestState["paid-secondary"].status === "success" ? (
-                    <CheckCircle2 className="size-2.5" />
-                  ) : (
-                    <XCircle className="size-2.5" />
-                  )}
-                  <span className="truncate">{keyTestState["paid-secondary"].message}</span>
-                </div>
-              )}
-              <p className="text-[11px] text-muted-foreground">
-                If the primary paid key ever encounters a 429 or 503, paid users immediately failover to this key without delay.
-              </p>
-            </div>
-
-            {/* Individual Budget Pool Keys with Priorities */}
-            <div className="space-y-2 pt-1 border-t border-border/60">
+          {/* Multi-Tier Keys Section: Free Keys First, Paid Emergency Fallback Last */}
+          <div className="space-y-4 rounded-xl border border-border/80 bg-muted/20 p-3.5">
+            {/* Free Keys Pool Section */}
+            <div className="space-y-2.5">
               <div className="flex items-center justify-between">
                 <div>
                   <Label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
-                    <span className="inline-block h-2 w-2 rounded-full bg-amber-500" />
-                    Extra Pool Keys (₹0, ₹99, ₹199 Users)
+                    <span className="inline-block h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
+                    Free Gemini API Keys Pool (Auto-Hopping)
                   </Label>
-                  <p className="text-[11px] text-muted-foreground">
-                    Tried in priority order (Priority 1 first). Hops automatically on 429 rate limits.
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    Tried 1st in rotation. Hops automatically every 15s or on rate limits (429/503).
                   </p>
                 </div>
-                <Badge variant="outline" className="text-[10px] text-amber-600 border-amber-500/30">
-                  {poolKeys.length} {poolKeys.length === 1 ? "Slot" : "Slots"}
-                </Badge>
+                <div className="flex items-center gap-1.5">
+                  <Badge variant="outline" className="text-[10px] text-amber-600 dark:text-amber-400 border-amber-500/30">
+                    {poolKeys.length} {poolKeys.length === 1 ? "Key" : "Keys"}
+                  </Badge>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-6 px-2 text-[10px] gap-1"
+                    onClick={() => setShowBulkInput(!showBulkInput)}
+                  >
+                    <Clipboard className="size-2.5" />
+                    {showBulkInput ? "Hide Bulk" : "Bulk Paste"}
+                  </Button>
+                </div>
               </div>
+
+              {/* Bulk Paste Box */}
+              {showBulkInput && (
+                <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-2.5 space-y-2">
+                  <Label className="text-[11px] font-medium text-amber-700 dark:text-amber-300">
+                    Paste Multiple Free Keys (one per line or comma-separated):
+                  </Label>
+                  <Textarea
+                    rows={3}
+                    value={bulkInput}
+                    onChange={(e) => setBulkInput(e.target.value)}
+                    placeholder="AIzaSyA...&#10;AIzaSyB...&#10;AIzaSyC..."
+                    className="font-mono text-xs bg-background"
+                  />
+                  <div className="flex justify-end gap-1.5">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 px-2 text-[11px]"
+                      onClick={() => setShowBulkInput(false)}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="h-6 px-2.5 text-[11px]"
+                      onClick={handleBulkImport}
+                    >
+                      Import Keys into Free Pool
+                    </Button>
+                  </div>
+                </div>
+              )}
 
               {poolKeys.length === 0 ? (
                 <div className="rounded-lg border border-dashed border-border/80 p-3 text-center">
-                  <p className="text-xs text-muted-foreground">No extra keys added to pool.</p>
+                  <p className="text-xs text-muted-foreground">No free keys added yet.</p>
                   <Button
                     type="button"
                     variant="outline"
@@ -1016,11 +948,11 @@ function ProvidersPanel() {
                     className="mt-2 text-xs"
                     onClick={handleAddPoolKey}
                   >
-                    <Plus className="mr-1.5 size-3" /> Add Pool Key
+                    <Plus className="mr-1.5 size-3" /> Add Free Key
                   </Button>
                 </div>
               ) : (
-                <div className="space-y-2.5">
+                <div className="space-y-2">
                   {poolKeys.map((item, index) => {
                     const testState = keyTestState[item.id];
                     return (
@@ -1118,7 +1050,7 @@ function ProvidersPanel() {
                             onChange={(e) =>
                               handleUpdatePoolKey(item.id, { key: e.target.value })
                             }
-                            placeholder="AIzaSy... (API Key)"
+                            placeholder="AIzaSy... (Free API Key)"
                             className="h-8 text-xs font-mono"
                           />
                         </div>
@@ -1155,10 +1087,131 @@ function ProvidersPanel() {
                     className="w-full text-xs border-dashed gap-1 text-muted-foreground hover:text-foreground"
                     onClick={handleAddPoolKey}
                   >
-                    <Plus className="size-3.5" /> Add Another Pool Key
+                    <Plus className="size-3.5" /> Add Another Free Key Slot
                   </Button>
                 </div>
               )}
+            </div>
+
+            {/* Emergency Paid Fallback Section */}
+            <div className="space-y-3 pt-3 border-t border-border/70">
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                    <span className="inline-block h-2 w-2 rounded-full bg-emerald-500" />
+                    Emergency Paid Gemini Key (Last Resort Fallback)
+                  </Label>
+                  <div className="flex items-center gap-1.5">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-6 px-2 text-[10px] gap-1"
+                      onClick={() => handleTestSingleKey("paid-primary", paidPrimaryKey)}
+                      disabled={
+                        keyTestState["paid-primary"]?.status === "testing" ||
+                        paidPrimaryKey.trim().length < 5
+                      }
+                    >
+                      {keyTestState["paid-primary"]?.status === "testing" ? (
+                        <>
+                          <Loader2 className="size-2.5 animate-spin" /> Testing
+                        </>
+                      ) : keyTestState["paid-primary"]?.status === "success" ? (
+                        <>
+                          <CheckCircle2 className="size-2.5 text-emerald-500" /> Pass
+                        </>
+                      ) : keyTestState["paid-primary"]?.status === "error" ? (
+                        <>
+                          <XCircle className="size-2.5 text-destructive" /> Retry
+                        </>
+                      ) : (
+                        <>
+                          <Zap className="size-2.5 text-emerald-500" /> Test Key
+                        </>
+                      )}
+                    </Button>
+                    <Badge variant="outline" className="text-[10px] text-emerald-600 dark:text-emerald-400 border-emerald-500/30">
+                      Emergency Only
+                    </Badge>
+                  </div>
+                </div>
+                <Input
+                  type="password"
+                  value={paidPrimaryKey}
+                  onChange={(event) => setPaidPrimaryKey(event.target.value)}
+                  placeholder="AIza... (Untouched unless all free keys fail)"
+                />
+                {keyTestState["paid-primary"] && (
+                  <div
+                    className={cn(
+                      "text-[10px] px-2 py-0.5 rounded flex items-center gap-1 font-mono",
+                      keyTestState["paid-primary"].status === "testing" && "text-muted-foreground bg-muted/40",
+                      keyTestState["paid-primary"].status === "success" &&
+                        "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10",
+                      keyTestState["paid-primary"].status === "error" &&
+                        "text-destructive bg-destructive/10"
+                    )}
+                  >
+                    {keyTestState["paid-primary"].status === "testing" ? (
+                      <Loader2 className="size-2.5 animate-spin" />
+                    ) : keyTestState["paid-primary"].status === "success" ? (
+                      <CheckCircle2 className="size-2.5" />
+                    ) : (
+                      <XCircle className="size-2.5" />
+                    )}
+                    <span className="truncate">{keyTestState["paid-primary"].message}</span>
+                  </div>
+                )}
+                <p className="text-[11px] text-muted-foreground">
+                  Strictly used as the last resort only if every single free key in the pool above is rate-limited or times out.
+                </p>
+              </div>
+
+              {/* Optional Secondary Paid Backup */}
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                    <span className="inline-block h-2 w-2 rounded-full bg-blue-500" />
+                    Secondary Paid Key (Optional Failover)
+                  </Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-6 px-2 text-[10px] gap-1"
+                    onClick={() => handleTestSingleKey("paid-secondary", paidSecondaryKey)}
+                    disabled={
+                      keyTestState["paid-secondary"]?.status === "testing" ||
+                      paidSecondaryKey.trim().length < 5
+                    }
+                  >
+                    {keyTestState["paid-secondary"]?.status === "testing" ? (
+                      <>
+                        <Loader2 className="size-2.5 animate-spin" /> Testing
+                      </>
+                    ) : keyTestState["paid-secondary"]?.status === "success" ? (
+                      <>
+                        <CheckCircle2 className="size-2.5 text-blue-500" /> Pass
+                      </>
+                    ) : keyTestState["paid-secondary"]?.status === "error" ? (
+                      <>
+                        <XCircle className="size-2.5 text-destructive" /> Retry
+                      </>
+                    ) : (
+                      <>
+                        <Zap className="size-2.5 text-blue-500" /> Test Key
+                      </>
+                    )}
+                  </Button>
+                </div>
+                <Input
+                  type="password"
+                  value={paidSecondaryKey}
+                  onChange={(event) => setPaidSecondaryKey(event.target.value)}
+                  placeholder="AIza... (Optional backup if primary emergency key fails)"
+                />
+              </div>
             </div>
           </div>
 

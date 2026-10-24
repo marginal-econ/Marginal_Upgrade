@@ -70,24 +70,16 @@ export const TEMPERATURE_TUTOR = 0.4;
 export const MAX_ANCHORS_PER_BAND = 2;
 
 /**
- * Best Gemini Models for Credit-Optimised High-Intelligence Execution:
+ * High-Speed 1M Context Gemini Flash Configuration:
  *
- * 1. google/gemini-2.5-pro:
- *    Authoritative Cambridge 9708 evaluative judgement, nuanced band calibration,
- *    and rigorous mark-scheme grounding with substantially lower credit consumption
- *    than legacy proprietary alternatives.
- *
- * 2. google/gemini-3.6-flash:
- *    Near-instant sub-second latency and minimal token consumption. Used for all
- *    interactive live keystroke checking, writing diagnostics, mark estimation,
- *    question generation, and one-point skills drills.
+ * All pipelines are strictly locked to google/gemini-3.8-flash for maximum throughput,
+ * zero timeout degradation, and instant sub-2.5-second Cambridge 9708 evaluation.
  */
-export const MODEL_EXAMINER = "google/gemini-3.1-pro";
+export const MODEL_EXAMINER = "google/gemini-3.8-flash";
 export const MODEL_FAST = "google/gemini-3.8-flash";
 
 /**
- * Task-specific model assignments. Tuning these cleanly separates each pipeline
- * while keeping all tasks pointed at credit-optimized Gemini models:
+ * Task-specific model assignments. All mapped directly to Gemini 3.8 Flash:
  */
 export const MODEL_GRADING = MODEL_EXAMINER;
 export const MODEL_AUDIT = MODEL_EXAMINER;

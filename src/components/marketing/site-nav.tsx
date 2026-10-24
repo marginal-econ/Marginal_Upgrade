@@ -13,7 +13,7 @@ const NAV_SECTIONS = [
   { id: "rag-engine", label: "RAG Engine & Syllabus" },
   { id: "teachers-section", label: "For Teachers" },
   { id: "tools", label: "Features" },
-  { id: "pricing", label: "Pricing", to: "/pricing" },
+  { id: "experimental-live-examiner", label: "Live Lab (Dev)" },
   { id: "faq", label: "FAQ" },
 ] as const;
 

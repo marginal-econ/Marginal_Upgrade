@@ -302,8 +302,8 @@ export function DashboardPage() {
           ) : (
             <div className="flex flex-wrap items-center gap-2">
               <Button asChild variant="outline" size="sm">
-                <Link to="/live-examiner">
-                  <Sparkles className="size-3.5 text-primary" /> Live Examiner
+                <Link to="/mcq-live">
+                  <ListChecks className="size-3.5 text-primary" /> MCQ Past Papers
                 </Link>
               </Button>
               <Button asChild size="sm">
@@ -335,10 +335,8 @@ export function DashboardPage() {
                   {userTierName}
                 </Badge>
               ) : isTeacherUser ? (
-                <Badge asChild variant="outline" className="border-purple-500/30 bg-purple-500/10 text-purple-600 dark:text-purple-400 text-[10px] font-semibold cursor-pointer">
-                  <Link to="/payment" search={{ tier: "foundation", role: "teacher" }}>
-                    Educator Pass (from ₹99/mo)
-                  </Link>
+                <Badge variant="outline" className="border-purple-500/30 bg-purple-500/10 text-purple-600 dark:text-purple-400 text-[10px] font-semibold">
+                  Authorized Educator
                 </Badge>
               ) : (
                 <Badge
@@ -413,13 +411,6 @@ export function DashboardPage() {
                     <BookOpen className="size-3.5 mr-1 text-purple-500" /> Knowledge Base
                   </Link>
                 </Button>
-                {!isPaidUser && (
-                  <Button asChild size="sm" className="h-8 text-xs bg-purple-600 hover:bg-purple-700 text-white font-semibold">
-                    <Link to="/payment" search={{ tier: "foundation", role: "teacher" }}>
-                      Unlock Educator Pass (₹99/mo)
-                    </Link>
-                  </Button>
-                )}
               </div>
             </div>
           </div>
@@ -660,17 +651,10 @@ export function DashboardPage() {
 
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             <QuickActionCard
-              to="/live-examiner"
-              icon={Sparkles}
-              title="Live Examiner"
-              badge="Real-time AI"
-              description="Type your essay and receive instant feedback on grammar, analysis, and economic misconceptions."
-            />
-            <QuickActionCard
               to="/grade"
               icon={PenLine}
               title="Grade Essay"
-              badge="2-Pass + Arb"
+              badge="Cambridge 9708"
               description="Authoritative Cambridge marking with AO breakdown, model corrections, and Principal Examiner review."
             />
             <QuickActionCard

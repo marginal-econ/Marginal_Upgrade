@@ -172,6 +172,20 @@ const DEFAULT_ISSUE_META: UnderlineStyleMeta = {
   backgroundColor: "rgba(244, 63, 94, 0.08)",
 };
 
+function findWordOrSubIndex(source: string, target: string, fromIndex = 0): number {
+  if (!target) return -1;
+  // Whole words or single letters (like pronoun "i") must match word boundaries
+  // to avoid falsely underlining occurrences inside other words (e.g. "this", "prices").
+  if (/^\w+$/.test(target)) {
+    const escaped = target.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const regex = new RegExp(`\\b${escaped}\\b`, "g");
+    regex.lastIndex = fromIndex;
+    const match = regex.exec(source);
+    if (match) return match.index;
+  }
+  return source.indexOf(target, fromIndex);
+}
+
 /** Locate every issue's `original` text and AO classification inside the essay.
  *  Issues take precedence over classifications for styling and suggestions,
  *  while allowing the surrounding sentence to retain its AO underline.
@@ -207,7 +221,7 @@ export function computeRanges(
         if (at === -1) break;
         let searchOriginalFrom = 0;
         while (true) {
-          const localIndex = issue.context.indexOf(issue.original, searchOriginalFrom);
+          const localIndex = findWordOrSubIndex(issue.context, issue.original, searchOriginalFrom);
           if (localIndex === -1) break;
           const candidateStart = at + localIndex;
           const candidateEnd = candidateStart + issue.original.length;
@@ -229,7 +243,7 @@ export function computeRanges(
     if (foundStart === -1) {
       let searchOriginalFrom = 0;
       while (true) {
-        const at = text.indexOf(issue.original, searchOriginalFrom);
+        const at = findWordOrSubIndex(text, issue.original, searchOriginalFrom);
         if (at === -1) break;
         const candidateStart = at;
         const candidateEnd = candidateStart + issue.original.length;
@@ -336,6 +350,8 @@ export function computeRanges(
     }
 
     const activeClassification: ActiveAoClassification = (() => {
+      // Unified resolver result (rules + AI adjudication) is final — paint as-is.
+      if (matched?.resolved) return matched;
       const auto = classifySentenceDeterministically(trimmed);
       // Unmistakable explicit definitions must always remain AO1 Knowledge
       if (auto.ao === "AO1" && auto.explanation.includes("definition")) {

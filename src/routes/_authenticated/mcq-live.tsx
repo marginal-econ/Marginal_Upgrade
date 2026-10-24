@@ -230,9 +230,8 @@ function McqLivePage() {
   const queryClient = useQueryClient();
   const fetchMe = useServerFn(getMe);
   const me = useQuery({ queryKey: ["me"], queryFn: () => fetchMe() });
-  const isLimitReached = !me.data?.isAdmin && Boolean(me.data?.subscription) && !me.data?.subscription?.canUseMCQ;
+  const isLimitReached = false;
   const [stage, setStage] = useState<"library" | "practice">("library");
-  const [libraryTab, setLibraryTab] = useState<"catalog" | "picker">("catalog");
   const [selectedPaperId, setSelectedPaperId] = useState<string | null>(null);
   const [level, setLevel] = useState<Level>("as");
   const [qCount, setQCount] = useState(30);
@@ -988,6 +987,22 @@ function fillMissingQuestionPages(
               </a>
             </div>
 
+            {topicPerformance.data && topicPerformance.data.topics.length > 0 ? (
+              <div className="mb-6 space-y-4">
+                <McqDomainBreakdown
+                  domains={aggregateMcqDomainsFromTopicStats(
+                    topicPerformance.data.topics.map((t) => ({
+                      topic: t.topic,
+                      attempted: t.attempted,
+                      correct: t.correct,
+                    })),
+                  )}
+                  title="Overall Performance: micro vs macro"
+                />
+                <McqReviewPanel topics={topicPerformance.data.topics} />
+              </div>
+            ) : null}
+
             {papersQuery.isLoading ? (
               <p className="text-sm text-muted-foreground">Loading the library…</p>
             ) : (papersQuery.data?.papers.length ?? 0) === 0 ? (
@@ -998,34 +1013,12 @@ function fillMissingQuestionPages(
               </Card>
             ) : (
               <div className="space-y-4">
-                <Tabs value={libraryTab} onValueChange={(v) => setLibraryTab(v as "catalog" | "picker")}>
-                  <TabsList className="grid w-full grid-cols-2">
-                    <TabsTrigger value="catalog" className="gap-2">
-                      <LayoutGrid className="h-3.5 w-3.5" />
-                      Browse Catalog ({papersQuery.data!.papers.length})
-                    </TabsTrigger>
-                    <TabsTrigger value="picker" className="gap-2">
-                      <BookOpen className="h-3.5 w-3.5" />
-                      Quick Selector
-                    </TabsTrigger>
-                  </TabsList>
-                </Tabs>
-
-                {libraryTab === "catalog" ? (
-                  <PastPaperCatalog
-                    papers={papersQuery.data!.papers}
-                    busy={!!busyLabel}
-                    busyPaperId={selectedPaperId}
-                    onStart={beginPractice}
-                  />
-                ) : (
-                  <PastPaperSelector
-                    papers={papersQuery.data!.papers}
-                    busy={!!busyLabel}
-                    busyPaperId={selectedPaperId}
-                    onStart={beginPractice}
-                  />
-                )}
+                <PastPaperSelector
+                  papers={papersQuery.data!.papers}
+                  busy={!!busyLabel}
+                  busyPaperId={selectedPaperId}
+                  onStart={beginPractice}
+                />
               </div>
             )}
 
@@ -1034,22 +1027,6 @@ function fillMissingQuestionPages(
               Read each question off the real paper, then answer from the button panel next to it —
               nothing is placed on a guess, and AI never writes, changes, or places any question.
             </p>
-
-            {topicPerformance.data && topicPerformance.data.topics.length > 0 ? (
-              <div className="mt-6 space-y-4">
-                <McqDomainBreakdown
-                  domains={aggregateMcqDomainsFromTopicStats(
-                    topicPerformance.data.topics.map((t) => ({
-                      topic: t.topic,
-                      attempted: t.attempted,
-                      correct: t.correct,
-                    })),
-                  )}
-                  title="Overall: micro vs macro"
-                />
-                <McqReviewPanel topics={topicPerformance.data.topics} />
-              </div>
-            ) : null}
           </div>
 
           <div className="lg:sticky lg:top-10 lg:self-start">
@@ -1230,6 +1207,17 @@ function fillMissingQuestionPages(
               className="flex-1 min-w-0 h-full overflow-y-auto px-2 sm:px-4 py-4 scroll-smooth"
             >
               <div className="w-full max-w-[820px] mx-auto flex flex-col items-center gap-8 pb-36 lg:pb-16">
+                {graded && attemptTopics.length > 0 ? (
+                  <div className="w-full max-w-2xl space-y-4 pt-2 pb-6 border-b border-border/80">
+                    <McqDomainBreakdown domains={attemptDomains} title="This paper: micro vs macro" />
+                    <McqReviewPanel
+                      topics={attemptTopics}
+                      title="This paper, in short"
+                      emptyLabel="No topics tagged."
+                    />
+                  </div>
+                ) : null}
+
                 {pages.map((page) => (
                   <PageCanvas
                     key={page.pageNumber}
@@ -1248,17 +1236,6 @@ function fillMissingQuestionPages(
                     onRegisterAnnotationCanvas={registerAnnotationCanvas}
                   />
                 ))}
-
-                {graded && attemptTopics.length > 0 ? (
-                  <div className="w-full max-w-2xl space-y-4 pt-4 pb-12">
-                    <McqDomainBreakdown domains={attemptDomains} title="This paper: micro vs macro" />
-                    <McqReviewPanel
-                      topics={attemptTopics}
-                      title="This paper, in short"
-                      emptyLabel="No topics tagged."
-                    />
-                  </div>
-                ) : null}
               </div>
             </div>
 
@@ -1735,41 +1712,6 @@ function PageCanvas({
           <span className="font-semibold text-foreground">Page {page.pageNumber}</span>
           <span className="opacity-60">/ {totalPages}</span>
         </div>
-
-        {pageQuestions && pageQuestions.length > 0 ? (
-          <div className="flex items-center gap-1.5 flex-wrap justify-end">
-            <span className="text-[11px] text-muted-foreground hidden sm:inline">Questions:</span>
-            <div className="flex items-center gap-1">
-              {pageQuestions.map((q) => {
-                const hasAns = !!answers[q];
-                const isCur = activeQuestion === q;
-                return (
-                  <button
-                    key={q}
-                    type="button"
-                    onClick={() => onSelectQuestion(q)}
-                    className={cn(
-                      "px-2 py-0.5 rounded text-xs font-mono font-medium transition-all flex items-center gap-1 border",
-                      isCur
-                        ? "border-primary bg-primary text-primary-foreground shadow-sm font-bold scale-105"
-                        : hasAns
-                          ? "border-primary/30 bg-primary/10 text-primary hover:bg-primary/20"
-                          : "border-border bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground"
-                    )}
-                    title={`Jump to Question ${q}${hasAns ? ` (Answer: ${answers[q]})` : ""}`}
-                  >
-                    <span>Q{q}</span>
-                    {hasAns ? (
-                      <span className="text-[10px] font-bold opacity-90">{answers[q]}</span>
-                    ) : null}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        ) : (
-          <span className="text-[11px] italic opacity-60">Cover / Instructions</span>
-        )}
       </div>
 
       <div
@@ -2222,190 +2164,7 @@ function uniqueSorted<T>(values: T[], compare: (a: T, b: T) => number): T[] {
   return Array.from(new Set(values)).sort(compare);
 }
 
-function PastPaperCatalog({
-  papers,
-  busy,
-  busyPaperId,
-  onStart,
-}: {
-  papers: McqPaperSummary[];
-  busy: boolean;
-  busyPaperId: string | null;
-  onStart: (paper: McqPaperSummary) => void;
-}) {
-  const [search, setSearch] = useState("");
-  const [selectedYear, setSelectedYear] = useState<string>("all");
-  const [selectedLevel, setSelectedLevel] = useState<"all" | "as" | "a2">("all");
 
-  const years = useMemo(() => {
-    const set = new Set<string>();
-    for (const p of papers) {
-      if (p.examYear) set.add(String(p.examYear));
-    }
-    return Array.from(set).sort((a, b) => Number(b) - Number(a));
-  }, [papers]);
-
-  const filtered = useMemo(() => {
-    return papers.filter((paper) => {
-      if (selectedYear !== "all" && String(paper.examYear) !== selectedYear) return false;
-      if (selectedLevel !== "all" && paper.level !== selectedLevel) return false;
-      if (search.trim()) {
-        const q = search.toLowerCase();
-        const matchesTitle = paper.title.toLowerCase().includes(q);
-        const matchesSeries = paper.examSeries?.toLowerCase().includes(q) ?? false;
-        const matchesYear = String(paper.examYear ?? "").includes(q);
-        if (!matchesTitle && !matchesSeries && !matchesYear) return false;
-      }
-      return true;
-    });
-  }, [papers, selectedYear, selectedLevel, search]);
-
-  return (
-    <div className="space-y-4">
-      {/* Search and filters */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search papers (e.g. 2023, Paper 12, Oct/Nov)..."
-            className="pl-9 text-sm"
-          />
-        </div>
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
-          <Button
-            type="button"
-            size="sm"
-            variant={selectedLevel === "all" ? "default" : "outline"}
-            onClick={() => setSelectedLevel("all")}
-            className="h-8 text-xs"
-          >
-            All
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant={selectedLevel === "as" ? "default" : "outline"}
-            onClick={() => setSelectedLevel("as")}
-            className="h-8 text-xs"
-          >
-            AS Level
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant={selectedLevel === "a2" ? "default" : "outline"}
-            onClick={() => setSelectedLevel("a2")}
-            className="h-8 text-xs"
-          >
-            A Level
-          </Button>
-        </div>
-      </div>
-
-      {/* Year filter chips */}
-      <div className="flex flex-wrap items-center gap-1.5 text-xs">
-        <span className="text-muted-foreground mr-1">Year:</span>
-        <button
-          type="button"
-          onClick={() => setSelectedYear("all")}
-          className={cn(
-            "rounded-md px-2.5 py-1 font-medium transition-colors",
-            selectedYear === "all"
-              ? "bg-primary text-primary-foreground shadow-sm"
-              : "bg-muted/70 text-muted-foreground hover:bg-muted hover:text-foreground"
-          )}
-        >
-          All ({papers.length})
-        </button>
-        {years.map((yr) => {
-          const count = papers.filter((p) => String(p.examYear) === yr).length;
-          return (
-            <button
-              key={yr}
-              type="button"
-              onClick={() => setSelectedYear(yr)}
-              className={cn(
-                "rounded-md px-2.5 py-1 font-medium transition-colors",
-                selectedYear === yr
-                  ? "bg-primary text-primary-foreground shadow-sm"
-                  : "bg-muted/70 text-muted-foreground hover:bg-muted hover:text-foreground"
-              )}
-            >
-              {yr} ({count})
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Papers Grid */}
-      {filtered.length === 0 ? (
-        <Card>
-          <CardContent className="py-8 text-center text-sm text-muted-foreground">
-            No papers match your search. Try another year or clear the search.
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          {filtered.map((paper) => {
-            const isComplete = hasCompleteAnswerKey(paper);
-            const isBusy = busy && busyPaperId === paper.id;
-            return (
-              <Card
-                key={paper.id}
-                className="group flex flex-col justify-between border-border transition-all hover:border-primary/50 hover:shadow-sm"
-              >
-                <CardContent className="space-y-3 p-4">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      <UiBadge variant="outline" className="text-[11px] font-semibold">
-                        {paper.level === "as" ? "AS Level" : "A Level"}
-                      </UiBadge>
-                      {paper.examYear ? (
-                        <UiBadge variant="secondary" className="text-[11px]">
-                          {paper.examSeries ? `${paper.examSeries} ` : ""}{paper.examYear}
-                        </UiBadge>
-                      ) : null}
-                    </div>
-                    <span className="font-mono text-xs text-muted-foreground">
-                      {paper.questionCount} Qs
-                    </span>
-                  </div>
-
-                  <div>
-                    <h3 className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors">
-                      {paper.title}
-                    </h3>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {isComplete ? "Official Cambridge mark scheme" : "Partial mark scheme"}
-                    </p>
-                  </div>
-
-                  <Button
-                    size="sm"
-                    className="w-full gap-1.5"
-                    disabled={busy || !isComplete}
-                    onClick={() => onStart(paper)}
-                  >
-                    {isBusy ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      <>
-                        Practice paper
-                        <span aria-hidden="true">→</span>
-                      </>
-                    )}
-                  </Button>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
 
 function PastPaperSelector({
   papers,

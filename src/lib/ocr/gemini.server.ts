@@ -12,8 +12,14 @@ import {
   getAvailableKey,
   markKeyRateLimited,
   markKeyHealthy,
+  keyCooldowns,
 } from "../ai.server";
-import { getActiveVisionProvider, getActiveProvider } from "../ai/active.server";
+import {
+  getActiveVisionProvider,
+  getActiveProvider,
+  buildOrderedKeyPool,
+  getPrioritizedKeyOrder,
+} from "../ai/active.server";
 import type { ProviderConfig } from "../ai/active.server";
 
 // Gemini 3.7 Flash reads small/cramped handwriting far more reliably than
@@ -106,7 +112,19 @@ function backoffDelay(attempt: number, isRateLimited: boolean): number {
 /** The admin-active vision-purpose key, if any — direct Google path or generic vision path. */
 async function getVisionConfig(): Promise<ProviderConfig | null> {
   try {
-    return (await getActiveVisionProvider()) ?? (await getActiveProvider());
+    const vision = await getActiveVisionProvider();
+    if (vision) {
+      const { allOrderedKeys } = buildOrderedKeyPool(vision);
+      if (allOrderedKeys.length > 1) return vision;
+    }
+    const chat = await getActiveProvider();
+    if (chat && chat.provider === "google") {
+      return {
+        ...chat,
+        model: vision?.model || "gemini-3.8-flash",
+      };
+    }
+    return vision ?? chat;
   } catch {
     return null;
   }
@@ -145,16 +163,12 @@ async function transcribeViaGoogle(
   const { mimeType, data } = await prepareDataUrl(dataUrl);
   const primary = model.startsWith("models/") ? model : `models/${model}`;
   const candidateModels = Array.from(
-    new Set([primary, "models/gemini-3.8-flash", "models/gemini-3.1-flash", "models/gemini-3.1-pro"]),
+    new Set([primary, "models/gemini-3.8-flash"]),
   );
 
   const rawKeys = Array.isArray(apiKeyInput) ? apiKeyInput : [apiKeyInput];
-  const candidateKeys = rawKeys.filter((k) => k && k.length > 5);
-  const bestKey = getAvailableKey(candidateKeys);
-  const keysToTry =
-    candidateKeys.length > 1
-      ? [bestKey, ...candidateKeys.filter((k) => k !== bestKey)]
-      : candidateKeys;
+  // Preserves exact prioritized order: healthy free keys first, cooled free keys second, emergency paid keys strictly last
+  const keysToTry = Array.from(new Set(rawKeys.filter((k) => k && k.length > 5)));
 
   let lastErr: unknown = null;
   for (const m of candidateModels) {
@@ -181,6 +195,7 @@ async function transcribeViaGoogle(
               maxOutputTokens: MAX_OUTPUT_TOKENS,
             },
           }),
+          signal: AbortSignal.timeout(15_000),
         });
 
         if (!response.ok) {
@@ -209,8 +224,20 @@ async function transcribeViaGoogle(
           .trim();
         if (text && !isBlankOrUnread(text)) return text;
         lastErr = new Error(`Google (${m}) returned empty or unreadable handwriting output.`);
-      } catch (err) {
+      } catch (err: any) {
         lastErr = err;
+        const isTimeout =
+          err?.name === "AbortError" ||
+          err?.name === "TimeoutError" ||
+          err?.message?.includes("timed out") ||
+          err?.message?.includes("aborted");
+        if (isTimeout) {
+          markKeyRateLimited(currentKey, 60_000);
+          console.warn(
+            `[transcribeViaGoogle] Key ...${currentKey.slice(-4)} timed out (>15s). Hopping to next key...`,
+          );
+          if (kIdx + 1 < keysToTry.length) continue;
+        }
       }
     }
   }
@@ -255,9 +282,7 @@ async function transcribePage(
       const text =
         visionConfig.provider === "google"
           ? await transcribeViaGoogle(
-              visionConfig.apiKeys && visionConfig.apiKeys.length > 0
-                ? visionConfig.apiKeys
-                : [visionConfig.apiKey],
+              getPrioritizedKeyOrder(visionConfig, keyCooldowns),
               visionConfig.model || GOOGLE_MODEL,
               dataUrl,
               hint,
