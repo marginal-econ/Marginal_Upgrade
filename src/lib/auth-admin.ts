@@ -62,3 +62,18 @@ export function isMarginalAdmin(
 export function isUserAdmin(userId?: string | null): boolean {
   return isMarginalAdmin({ userId });
 }
+
+export function assertAdmin(context: any): void {
+  const isMarginal = isMarginalAdmin({
+    userId: context?.userId ?? context?.user?.id,
+    claims: context?.claims,
+    email: context?.email ?? context?.user?.email,
+  });
+
+  if (isMarginal) {
+    return;
+  }
+
+  throw new Error("Admin access is restricted. Marginal is the sole administrator of this platform.");
+}
+

@@ -38,6 +38,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { LockedFeatureModal, type LockedFeatureType } from "@/components/app/locked-feature-modal";
+import { FeedbackDialog, FloatingFeedbackPill } from "@/components/feedback/feedback-dialog";
 import { usePresenceHeartbeat } from "@/hooks/use-presence";
 import { supabase } from "@/integrations/backend/client";
 import type { UserSubscriptionDetails } from "@/lib/usage-limits";
@@ -642,6 +643,23 @@ export function AppShell({
 
         {/* ── User Footer: Cleanly pinned at the bottom, perfectly spaced ── */}
         <div className="shrink-0 pt-2.5 border-t border-sidebar-border/70 mt-auto space-y-1">
+          <FeedbackDialog
+            trigger={
+              <button
+                type="button"
+                className={cn(
+                  "flex items-center rounded-lg py-1.5 text-xs font-medium text-sidebar-foreground/80 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground w-full text-left cursor-pointer",
+                  sidebarCollapsed ? "justify-center px-1" : "gap-2.5 px-2.5",
+                )}
+                title="Send direct feedback or message to Marginal team"
+              >
+                <MessageSquare className="size-4 shrink-0 text-primary" />
+                <span className={cn("truncate", sidebarCollapsed && "sr-only")}>
+                  Message Us / Feedback
+                </span>
+              </button>
+            }
+          />
 
           <Link
             to="/settings"
@@ -780,13 +798,17 @@ export function AppShell({
                 </div>
 
                 <div className="mt-auto shrink-0 pt-3 border-t border-border space-y-1">
-                  <Link
-                    to="/pricing"
-                    onClick={() => setMobileDrawerOpen(false)}
-                    className="flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-xs font-medium text-foreground hover:bg-muted"
-                  >
-                    <CreditCard className="size-4 text-primary" /> Plans &amp; Pricing
-                  </Link>
+                  <FeedbackDialog
+                    trigger={
+                      <button
+                        type="button"
+                        onClick={() => setMobileDrawerOpen(false)}
+                        className="flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-xs font-medium text-foreground hover:bg-muted w-full text-left cursor-pointer"
+                      >
+                        <MessageSquare className="size-4 text-primary" /> Message Us / Feedback
+                      </button>
+                    }
+                  />
                   <Link
                     to="/settings"
                     onClick={() => setMobileDrawerOpen(false)}
@@ -850,6 +872,8 @@ export function AppShell({
         }}
         type={lockedModalType}
       />
+
+      <FloatingFeedbackPill />
     </div>
   );
 }

@@ -466,6 +466,44 @@ export const adminOverview = createServerFn({ method: "GET" })
       console.warn("Exception checking failures:", e);
     }
 
+    const paidKeyAlerts = (usage ?? [])
+      .filter((r) => r.feature === "PAID_KEY_ALERT")
+      .map((r) => ({
+        id: r.id,
+        createdAt: r.created_at,
+        model: r.model,
+        message: r.error_message,
+      }));
+
+    const feedbackItems = (usage ?? [])
+      .filter((r) => r.feature === "USER_FEEDBACK")
+      .map((r) => {
+        try {
+          const parsed = JSON.parse(r.error_message || "{}");
+          return {
+            id: r.id,
+            createdAt: r.created_at,
+            category: parsed.category || "feedback",
+            subject: parsed.subject || "No subject",
+            message: parsed.message || "",
+            name: parsed.name || "Student",
+            email: parsed.email || "No email",
+            pageUrl: parsed.pageUrl || "",
+          };
+        } catch {
+          return {
+            id: r.id,
+            createdAt: r.created_at,
+            category: "feedback",
+            subject: "Feedback",
+            message: r.error_message || "",
+            name: "User",
+            email: "unknown",
+            pageUrl: "",
+          };
+        }
+      });
+
     return {
       counts: { users, essays, documents, chunks, attempts, anchors },
       usage: usage ?? [],
@@ -482,6 +520,10 @@ export const adminOverview = createServerFn({ method: "GET" })
         byFeature: featureBreakdown,
       },
       hasFailures,
+      paidKeyAlerts,
+      hasPaidKeyAlert: paidKeyAlerts.length > 0,
+      feedbackItems,
+      feedbackCount: feedbackItems.length,
     };
   });
 

@@ -576,6 +576,21 @@ async function chatViaProvider(
       ? "backup_pool"
       : "primary";
 
+  // Separate alert system: ping administrator when rotation hops to an emergency paid key
+  if (isUsedPaid) {
+    try {
+      const { triggerPaidKeyAlert } = await import("./alerts.server");
+      void triggerPaidKeyAlert({
+        keySuffix: usedKey.slice(-4),
+        model: usedModel,
+        feature: options.feature || "chat",
+        userId: options.userId ?? null,
+      });
+    } catch (alertErr) {
+      console.warn("[ai.server] Failed to dispatch paid key alert:", alertErr);
+    }
+  }
+
   return {
     text: data.choices?.[0]?.message?.content ?? "",
     model: usedModel,
@@ -1065,6 +1080,7 @@ async function visionChatViaOpenAiCompatible(
     maxCompletionTokens?: number;
   },
 ): Promise<Omit<ChatResult, "latencyMs">> {
+  const { paidKeys } = buildOrderedKeyPool(config);
   const keysToTry = getPrioritizedKeyOrder(config, keyCooldowns);
 
   const body: Record<string, unknown> = {
@@ -1098,11 +1114,22 @@ async function visionChatViaOpenAiCompatible(
           Authorization: `Bearer ${currentKey}`,
         },
         body: JSON.stringify(body),
-        signal: AbortSignal.timeout(15_000),
+        signal: AbortSignal.timeout(60_000),
       });
 
       if (response.ok) {
         markKeyHealthy(currentKey);
+        const isPaid = paidKeys.includes(currentKey);
+        if (isPaid) {
+          try {
+            const { triggerPaidKeyAlert } = await import("./alerts.server");
+            void triggerPaidKeyAlert({
+              keySuffix: currentKey.slice(-4),
+              model: config.model,
+              feature: "vision_chat",
+            });
+          } catch {}
+        }
         const data = (await response.json()) as {
           choices?: { message?: { content?: string } }[];
           usage?: { prompt_tokens?: number; completion_tokens?: number };

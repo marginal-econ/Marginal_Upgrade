@@ -35,6 +35,8 @@ import {
   Tag,
   Target,
   Trash2,
+  AlertTriangle,
+  MessageSquare,
   Trophy,
   UploadCloud,
   Users,
@@ -47,6 +49,7 @@ import { cn } from "@/lib/utils";
 
 import { AdminGodmodeDashboard } from "@/components/app/admin-godmode";
 import { CouponsAdminPanel } from "@/components/app/coupons-admin";
+import { FeedbackAdminPanel } from "@/components/app/feedback-admin";
 import { PublicWaitlistPanel } from "@/components/app/public-waitlist-admin";
 import { TeacherApprovalsPanel } from "@/components/app/teacher-approvals-admin";
 import {
@@ -238,6 +241,13 @@ const ADMIN_SECTIONS: Record<string, AdminSectionMeta> = {
     badge: "Godmode",
     badgeColor: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30",
   },
+  feedback: {
+    id: "feedback",
+    category: "Users & Access",
+    title: "User Feedback & Direct Messages",
+    subtitle: "Direct in-app communication channel: Read, reply to, and manage questions, bug reports, and suggestions from students and teachers.",
+    icon: MessageSquare,
+  },
   users: {
     id: "users",
     category: "Users & Access",
@@ -337,7 +347,7 @@ const ADMIN_CATEGORIES = [
   },
   {
     title: "Users & Access",
-    items: [ADMIN_SECTIONS.users, ADMIN_SECTIONS.teachers, ADMIN_SECTIONS.access, ADMIN_SECTIONS.waitlist],
+    items: [ADMIN_SECTIONS.feedback, ADMIN_SECTIONS.users, ADMIN_SECTIONS.teachers, ADMIN_SECTIONS.access, ADMIN_SECTIONS.waitlist],
   },
   {
     title: "Monetization & Plans",
@@ -361,9 +371,15 @@ const ADMIN_CATEGORIES = [
 
 function AdminPage() {
   const fetchMe = useServerFn(getMe);
+  const fetchOverview = useServerFn(adminOverview);
   const [activeTab, setActiveTab] = useState("overview");
 
   const me = useQuery({ queryKey: ["me"], queryFn: () => fetchMe() });
+  const overviewQuery = useQuery({
+    queryKey: ["admin-overview"],
+    queryFn: () => fetchOverview(),
+    refetchInterval: 15_000,
+  });
 
   if (me.isLoading) {
     return (
@@ -484,7 +500,15 @@ function AdminPage() {
                           <ItemIcon className={cn("size-4 shrink-0 transition-transform group-hover:scale-110", isActive ? "text-primary" : "text-muted-foreground")} />
                           <span className="truncate">{item.title.split(" ")[0]} {item.title.split(" ")[1] ?? ""}</span>
                         </div>
-                        {item.badge ? (
+                        {item.id === "feedback" && (overviewQuery.data?.feedbackCount ?? 0) > 0 ? (
+                          <Badge variant="secondary" className="text-[9px] px-1.5 py-0 h-4 font-bold bg-primary/20 text-primary">
+                            {overviewQuery.data?.feedbackCount}
+                          </Badge>
+                        ) : item.id === "providers" && overviewQuery.data?.hasPaidKeyAlert ? (
+                          <Badge variant="destructive" className="text-[9px] px-1.5 py-0 h-4 font-bold animate-pulse">
+                            🚨 PAID PING
+                          </Badge>
+                        ) : item.badge ? (
                           <Badge variant="outline" className={cn("text-[9px] px-1.5 py-0 h-4 font-mono uppercase", item.badgeColor)}>
                             {item.badge}
                           </Badge>
@@ -557,11 +581,39 @@ function AdminPage() {
             </div>
           </div>
 
+          {/* Emergency Alert Banner if Paid Key was consumed */}
+          {overviewQuery.data?.hasPaidKeyAlert && (
+            <div className="rounded-2xl border-2 border-rose-500 bg-rose-500/10 p-4 text-rose-600 dark:text-rose-400 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-lg animate-pulse mb-6">
+              <div className="flex items-center gap-3">
+                <div className="size-10 rounded-xl bg-rose-500/20 text-rose-500 flex items-center justify-center shrink-0">
+                  <AlertTriangle className="size-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-rose-600 dark:text-rose-400">
+                    🚨 URGENT PING: Emergency Paid Key Consumed!
+                  </h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    All free pool keys were exhausted or hit rate limits. Marginal auto-hopped to your emergency Paid Key to prevent student disruption.
+                  </p>
+                </div>
+              </div>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => setActiveTab("providers")}
+                className="shrink-0 text-xs font-semibold"
+              >
+                Inspect &amp; Add Free Keys &rarr;
+              </Button>
+            </div>
+          )}
+
           {/* Active Panel View */}
           <div className="space-y-6">
             {activeTab === "overview" && (
               <OverviewPanel onOpenGodmode={() => setActiveTab("godmode")} />
             )}
+            {activeTab === "feedback" && <FeedbackAdminPanel />}
             {activeTab === "godmode" && <AdminGodmodeDashboard />}
             {activeTab === "users" && <UsersPanel />}
             {activeTab === "teachers" && <TeacherApprovalsPanel />}
