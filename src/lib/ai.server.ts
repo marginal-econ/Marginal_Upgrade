@@ -74,13 +74,20 @@ function apiKey(): string {
 
 /** Maps gateway failures onto messages that are safe and useful in the UI. */
 function explain(status: number, body: string): string {
+  const cleanBody = (body || "").trim();
+  const lowerBody = cleanBody.toLowerCase();
   if (status === 429) return "The AI is rate limited right now. Please try again in a moment.";
   if (status === 402)
     return "AI credits have run out. An admin can add credits, or plug in their own provider key (Claude, Gemini, Grok, OpenAI…) under Admin → AI providers.";
   if (status === 401)
     return "The configured AI provider rejected the API key. An admin can update it under Admin → AI providers.";
   if (status === 403) return "AI access is disabled for this workspace.";
-  return `The AI request failed (${status}). ${body.slice(0, 300)}`;
+  if (status === 503 || lowerBody.includes("high demand") || lowerBody.includes("unavailable"))
+    return "The AI model is currently experiencing temporary high demand at the provider (503). Spikes in demand are temporary.";
+  if (status === 504 || lowerBody.includes("timed out") || lowerBody.includes("timeout"))
+    return "The AI request timed out waiting for the provider (504). Upstream free tier model took too long to respond.";
+  if (!cleanBody) return `The AI request failed (${status}). Upstream server returned no error details.`;
+  return `The AI request failed (${status}). ${cleanBody.slice(0, 300)}`;
 }
 
 export type ChatMessage = { role: "system" | "user" | "assistant"; content: string };
@@ -435,7 +442,7 @@ async function chatViaProvider(
 
   const candidateModels =
     config.provider === "google"
-      ? ["gemini-3.8-flash"]
+      ? ["gemini-3.8-flash", "gemini-3.6-flash"]
       : [config.model];
 
   let usedModel = candidateModels[0];
@@ -451,6 +458,7 @@ async function chatViaProvider(
       for (let kIdx = 0; kIdx < activeKeysToTry.length; kIdx++) {
         const currentKey = activeKeysToTry[kIdx]!;
         const keyStarted = Date.now();
+        const timeoutMs = options.overrideProvider ? 45_000 : 35_000;
         try {
           const response = await fetch(`${config.baseUrl}/chat/completions`, {
             method: "POST",
@@ -459,7 +467,7 @@ async function chatViaProvider(
               Authorization: `Bearer ${currentKey}`,
             },
             body: JSON.stringify(modelBody),
-            signal: AbortSignal.timeout(15_000), // 15-second abort timeout per key attempt to prevent 524
+            signal: AbortSignal.timeout(timeoutMs), // Generous abort timeout per key attempt
           });
 
           if (response.ok) {
@@ -527,8 +535,10 @@ async function chatViaProvider(
           if (isTimeout) {
             markKeyRateLimited(currentKey, 60_000);
             const isPaidKey = paidKeys.includes(currentKey);
+            lastErrStatus = 504;
+            lastErrDetail = `Key ...${currentKey.slice(-4)} (${isPaidKey ? "emergency paid fallback" : "free pool key"}) timed out waiting for upstream provider.`;
             console.warn(
-              `[chatViaProvider] Model ${m} (key ...${currentKey.slice(-4)}, ${isPaidKey ? "emergency paid fallback" : "free pool key"}) timed out (>15s). Auto-hopping to next key...`,
+              `[chatViaProvider] Model ${m} (key ...${currentKey.slice(-4)}, ${isPaidKey ? "emergency paid fallback" : "free pool key"}) timed out (>${timeoutMs / 1000}s). Auto-hopping to next key...`,
             );
             try {
               const { supabaseAdmin } = await import("@/integrations/backend/client.server");
@@ -536,9 +546,9 @@ async function chatViaProvider(
                 user_id: options.userId ?? null,
                 feature: (options.feature ?? "chat") + "_key_hop",
                 model: m,
-                latency_ms: 15_000,
+                latency_ms: timeoutMs,
                 ok: false,
-                error_message: `Key ...${currentKey.slice(-4)} (${isPaidKey ? "emergency paid fallback" : "free pool key"}) exceeded 15s timeout. Auto-hopped to next key.`,
+                error_message: `Key ...${currentKey.slice(-4)} (${isPaidKey ? "emergency paid fallback" : "free pool key"}) exceeded ${timeoutMs / 1000}s timeout. Auto-hopped to next key.`,
               });
             } catch {}
 

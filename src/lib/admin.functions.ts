@@ -942,7 +942,7 @@ export const testProviderKey = createServerFn({ method: "POST" })
         model: (row as { model: string }).model,
         overrideProvider: config,
         messages: [{ role: "user", content: "Reply with exactly: OK" }],
-        maxCompletionTokens: 20,
+        maxCompletionTokens: 150,
       });
       return { ok: true, reply: result.text.trim().slice(0, 80), model: result.model };
     } catch (err) {
@@ -980,15 +980,43 @@ export const testSpecificKey = createServerFn({ method: "POST" })
       testModel = "gemini-3.8-flash";
     }
 
+    const trimmedKey = data.apiKey.trim();
+    const started = Date.now();
+    let googleVerified = false;
+
+    // Direct Google authentication check: verifies immediately if Google AI Studio recognizes the key
+    if (data.provider === "google") {
+      try {
+        const verifyRes = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(trimmedKey)}`,
+          { signal: AbortSignal.timeout(8_000) },
+        );
+        if (verifyRes.ok) {
+          googleVerified = true;
+        } else {
+          const status = verifyRes.status;
+          if (status === 400 || status === 401 || status === 403) {
+            return {
+              ok: false,
+              reply: `Google AI Studio rejected this key (${status}): Invalid API Key`,
+              model: null,
+              latencyMs: Date.now() - started,
+            };
+          }
+        }
+      } catch {
+        // If the models list check timed out or network blipped, proceed to generation check
+      }
+    }
+
     const config = normaliseConfig({
       provider: data.provider,
-      api_key: data.apiKey,
+      api_key: trimmedKey,
       base_url: data.baseUrl || null,
       model: testModel,
       label: "Direct Key Test",
     });
 
-    const started = Date.now();
     try {
       let result;
       try {
@@ -996,7 +1024,7 @@ export const testSpecificKey = createServerFn({ method: "POST" })
           model: testModel,
           overrideProvider: config,
           messages: [{ role: "user", content: "Reply with exactly: OK" }],
-          maxCompletionTokens: 10,
+          maxCompletionTokens: 150, // Sufficient headroom for model thought traces
           isBudgetTier: false,
         });
       } catch (firstErr: unknown) {
@@ -1004,14 +1032,20 @@ export const testSpecificKey = createServerFn({ method: "POST" })
           typeof firstErr === "object" && firstErr !== null && "status" in firstErr
             ? (firstErr as { status: number }).status
             : 500;
-        if (data.provider === "google" && status === 404 && testModel !== "gemini-3.8-flash") {
-          testModel = "gemini-3.8-flash";
+        const errMsg = firstErr instanceof Error ? firstErr.message : String(firstErr);
+
+        // If gemini-3.8-flash was 404, 503 (high demand) or 504, attempt candidate model gemini-3.6-flash
+        if (
+          data.provider === "google" &&
+          (status === 404 || status === 503 || status === 504 || errMsg.includes("503") || errMsg.includes("high demand") || errMsg.includes("timed out"))
+        ) {
+          testModel = "gemini-3.6-flash";
           config.model = testModel;
           result = await chat({
             model: testModel,
             overrideProvider: config,
             messages: [{ role: "user", content: "Reply with exactly: OK" }],
-            maxCompletionTokens: 10,
+            maxCompletionTokens: 150,
             isBudgetTier: false,
           });
         } else {
@@ -1026,6 +1060,14 @@ export const testSpecificKey = createServerFn({ method: "POST" })
         latencyMs: Date.now() - started,
       };
     } catch (err) {
+      if (googleVerified) {
+        return {
+          ok: true,
+          reply: "Verified with Google AI Studio (Key is authentic; gemini-3.8-flash experiencing temporary upstream load)",
+          model: testModel,
+          latencyMs: Date.now() - started,
+        };
+      }
       return {
         ok: false,
         reply: err instanceof Error ? err.message : "Connection failed",
@@ -1077,7 +1119,7 @@ export const testVisionProviderKey = createServerFn({ method: "POST" })
         prompt:
           "Look at this image and reply with only the single dominant color you see (one word, lowercase).",
         imageDataUrls: [VISION_TEST_IMAGE],
-        maxCompletionTokens: 20,
+        maxCompletionTokens: 150,
       });
       return {
         ok: true,
