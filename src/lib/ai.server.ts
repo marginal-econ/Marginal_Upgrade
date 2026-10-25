@@ -484,6 +484,7 @@ async function chatViaProvider(
 
   let usedModel = candidateModels[0];
   let successfulKeyIdx = 0;
+  const freeKeyAttempts: { suffix: string; status: number; message: string; latencyMs: number }[] = [];
   const data = await withRetry429(async () => {
     let lastErrStatus = 500;
     let lastErrDetail = "";
@@ -532,7 +533,17 @@ async function chatViaProvider(
             response.status === 524
           ) {
             const isPaidKey = paidKeys.includes(currentKey);
-            if (!isPaidKey) had429OnFreePool = true;
+            if (!isPaidKey) {
+              had429OnFreePool = true;
+              freeKeyAttempts.push({
+                suffix: currentKey.slice(-4),
+                status: response.status,
+                message: text.includes("limit: 20")
+                  ? "Free Tier 20 RPD per-project quota exceeded"
+                  : explain(response.status, text).slice(0, 60),
+                latencyMs: Date.now() - keyStarted,
+              });
+            }
             markKeyRateLimited(currentKey, 45_000);
             console.warn(
               `[chatViaProvider] Model ${m} (key ...${currentKey.slice(-4)}, ${isPaidKey ? "emergency paid fallback" : "free pool key"}) returned ${response.status}. Attempting key rotation / fallback...`,
@@ -617,6 +628,14 @@ async function chatViaProvider(
           if (isTimeout) {
             markKeyRateLimited(currentKey, 30_000); // 30s temporary backoff on timeout
             const isPaidKey = paidKeys.includes(currentKey);
+            if (!isPaidKey) {
+              freeKeyAttempts.push({
+                suffix: currentKey.slice(-4),
+                status: 504,
+                message: `Timed out (>${timeoutMs / 1000}s)`,
+                latencyMs: timeoutMs,
+              });
+            }
             lastErrStatus = 504;
             lastErrDetail = `Key ...${currentKey.slice(-4)} (${isPaidKey ? "emergency paid fallback" : "free pool key"}) timed out waiting for upstream provider.`;
             console.warn(
@@ -667,6 +686,8 @@ async function chatViaProvider(
         model: usedModel,
         feature: options.feature || "chat",
         userId: options.userId ?? null,
+        latencyMs: Date.now() - started,
+        freeKeyAttempts,
       });
     } catch (alertErr) {
       console.warn("[ai.server] Failed to dispatch paid key alert:", alertErr);

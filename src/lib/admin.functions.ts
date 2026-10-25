@@ -1104,17 +1104,26 @@ export const testSpecificKey = createServerFn({ method: "POST" })
         latencyMs: Date.now() - started,
       };
     } catch (err) {
-      if (googleVerified) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      const isQuotaExceeded =
+        errMsg.includes("429") ||
+        errMsg.toLowerCase().includes("quota") ||
+        errMsg.toLowerCase().includes("resource_exhausted") ||
+        errMsg.toLowerCase().includes("rate limit");
+
+      if (isQuotaExceeded) {
         return {
-          ok: true,
-          reply: "Verified with Google AI Studio (Key is authentic; gemini-3.8-flash experiencing temporary upstream load at Google)",
-          model: testModel,
+          ok: false,
+          reply:
+            "Quota Exceeded (429): Google Free Tier limit reached for this project (20 req/day). Keys in the same project share this limit. Create key in a separate Google project to get independent quota.",
+          model: null,
           latencyMs: Date.now() - started,
         };
       }
+
       return {
         ok: false,
-        reply: err instanceof Error ? err.message : "Connection failed",
+        reply: errMsg.slice(0, 150) || "Connection failed",
         model: null,
         latencyMs: Date.now() - started,
       };

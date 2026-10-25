@@ -1298,8 +1298,11 @@ function ProvidersPanel() {
                     <span className="truncate">{keyTestState["paid-primary"].message}</span>
                   </div>
                 )}
-                <p className="text-[11px] text-muted-foreground">
-                  Strictly used as the last resort only if every single free key in the pool above is rate-limited or times out.
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  Strictly used as the absolute last resort only after every single free key in the pool above fails or returns 429 quota exhaustion. Leave blank if you do not want to consume paid credits under any circumstances.
+                </p>
+                <p className="text-[11px] text-amber-600 dark:text-amber-400 font-medium leading-relaxed">
+                  💡 Tip: Google pools free tier quotas per Google Cloud Project (20 req/day). If you generate 6 keys in the same project, they share the same 20 requests. Create each key in a separate Google Cloud Project to give each key its own independent quota.
                 </p>
               </div>
 
