@@ -240,12 +240,19 @@ export function FeedbackDialog({
  */
 export function FloatingFeedbackPill() {
   return (
-    <div className="fixed bottom-4 right-4 z-40 hidden sm:block">
+    <div
+      className="fixed z-50 hidden sm:flex items-center"
+      style={{
+        bottom: "clamp(1rem, 2.5vw, 1.5rem)",
+        right: "calc(clamp(1rem, 2.5vw, 1.5rem) + 52px)",
+        height: "44px",
+      }}
+    >
       <FeedbackDialog
         trigger={
           <button
             type="button"
-            className="group flex items-center gap-2 rounded-full border border-border/80 bg-card/90 px-3.5 py-2 text-xs font-semibold text-foreground shadow-lg backdrop-blur transition-all duration-200 hover:border-primary/60 hover:bg-card hover:scale-105 active:scale-95"
+            className="group flex h-[40px] items-center gap-2 rounded-full border border-border/80 bg-card/90 px-3.5 text-xs font-semibold text-foreground shadow-lg backdrop-blur transition-all duration-200 hover:border-primary/60 hover:bg-card hover:scale-105 active:scale-95 cursor-pointer"
             title="Send direct feedback or communicate with Marginal team"
           >
             <span className="relative flex size-2">
