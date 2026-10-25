@@ -31,6 +31,7 @@ import {
   Plus,
   RefreshCw,
   Search,
+  Send,
   ShieldCheck,
   ShieldPlus,
   Sparkles,
@@ -52,6 +53,7 @@ import { cn } from "@/lib/utils";
 import { AdminGodmodeDashboard } from "@/components/app/admin-godmode";
 import { CouponsAdminPanel } from "@/components/app/coupons-admin";
 import { FeedbackAdminPanel } from "@/components/app/feedback-admin";
+import { MessagesAdminPanel } from "@/components/app/messages-admin";
 import { PublicWaitlistPanel } from "@/components/app/public-waitlist-admin";
 import { TeacherApprovalsPanel } from "@/components/app/teacher-approvals-admin";
 import {
@@ -248,6 +250,15 @@ const ADMIN_SECTIONS: Record<string, AdminSectionMeta> = {
     badge: "Godmode",
     badgeColor: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30",
   },
+  messages: {
+    id: "messages",
+    category: "Users & Access",
+    title: "Direct In-App User Texting Portal",
+    subtitle: "Real-time 1-on-1 portal to text students and teachers directly inside the Marginal web application.",
+    icon: Send,
+    badge: "Direct Text",
+    badgeColor: "border-primary/40 text-primary bg-primary/10",
+  },
   feedback: {
     id: "feedback",
     category: "Users & Access",
@@ -354,7 +365,7 @@ const ADMIN_CATEGORIES = [
   },
   {
     title: "Users & Access",
-    items: [ADMIN_SECTIONS.feedback, ADMIN_SECTIONS.users, ADMIN_SECTIONS.teachers, ADMIN_SECTIONS.access, ADMIN_SECTIONS.waitlist],
+    items: [ADMIN_SECTIONS.messages, ADMIN_SECTIONS.feedback, ADMIN_SECTIONS.users, ADMIN_SECTIONS.teachers, ADMIN_SECTIONS.access, ADMIN_SECTIONS.waitlist],
   },
   {
     title: "Monetization & Plans",
@@ -382,6 +393,7 @@ function AdminPage() {
   const fetchOverview = useServerFn(adminOverview);
   const dismissAlerts = useServerFn(dismissPaidKeyAlerts);
   const [activeTab, setActiveTab] = useState("overview");
+  const [textTargetUserId, setTextTargetUserId] = useState<string | null>(null);
   const [localAlertDismissed, setLocalAlertDismissed] = useState(false);
 
   const me = useQuery({ queryKey: ["me"], queryFn: () => fetchMe() });
@@ -651,9 +663,26 @@ function AdminPage() {
             {activeTab === "overview" && (
               <OverviewPanel onOpenGodmode={() => setActiveTab("godmode")} />
             )}
-            {activeTab === "feedback" && <FeedbackAdminPanel />}
+            {activeTab === "messages" && (
+              <MessagesAdminPanel initialUserId={textTargetUserId} />
+            )}
+            {activeTab === "feedback" && (
+              <FeedbackAdminPanel
+                onTextUser={(userId) => {
+                  setTextTargetUserId(userId);
+                  setActiveTab("messages");
+                }}
+              />
+            )}
             {activeTab === "godmode" && <AdminGodmodeDashboard />}
-            {activeTab === "users" && <UsersPanel />}
+            {activeTab === "users" && (
+              <UsersPanel
+                onTextUser={(userId) => {
+                  setTextTargetUserId(userId);
+                  setActiveTab("messages");
+                }}
+              />
+            )}
             {activeTab === "teachers" && <TeacherApprovalsPanel />}
             {activeTab === "access" && <AccessPanel />}
             {activeTab === "waitlist" && <PublicWaitlistPanel />}
@@ -2932,7 +2961,7 @@ function OverviewPanel({ onOpenGodmode }: { onOpenGodmode?: () => void } = {}) {
   );
 }
 
-function UsersPanel() {
+function UsersPanel({ onTextUser }: { onTextUser?: (userId: string) => void } = {}) {
   const queryClient = useQueryClient();
   const fetchUsers = useServerFn(listUsers);
   const updateRole = useServerFn(setUserRole);
@@ -3047,6 +3076,19 @@ function UsersPanel() {
                         <SelectItem value="teacher">Teacher</SelectItem>
                       </SelectContent>
                     </Select>
+                  )}
+                  {onTextUser && !(user.id === MARGINAL_ADMIN_USER_ID || extra?.email?.toLowerCase().trim() === MARGINAL_ADMIN_EMAIL.toLowerCase()) && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="h-8 gap-1.5 text-xs text-primary hover:text-primary hover:bg-primary/10 border-primary/30"
+                      title="Send direct in-app message"
+                      onClick={() => onTextUser(user.id)}
+                    >
+                      <Send className="size-3.5" />
+                      <span>Text</span>
+                    </Button>
                   )}
                   <Button
                     type="button"

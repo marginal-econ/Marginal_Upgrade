@@ -5,6 +5,7 @@ import {
   MessageSquare,
   RefreshCw,
   Search,
+  Send,
   Trash2,
   Mail,
   ExternalLink,
@@ -38,7 +39,11 @@ import {
   type FeedbackItem,
 } from "@/lib/feedback.functions";
 
-export function FeedbackAdminPanel() {
+interface FeedbackAdminPanelProps {
+  onTextUser?: (userId: string) => void;
+}
+
+export function FeedbackAdminPanel({ onTextUser }: FeedbackAdminPanelProps = {}) {
   const queryClient = useQueryClient();
   const getFeedback = useServerFn(fetchFeedbackList);
   const deleteFeedback = useServerFn(deleteFeedbackItem);
@@ -253,6 +258,17 @@ export function FeedbackAdminPanel() {
                     </div>
 
                     <div className="flex items-center gap-2">
+                      {item.userId && onTextUser && (
+                        <Button
+                          variant="default"
+                          size="sm"
+                          onClick={() => onTextUser(item.userId!)}
+                          className="h-8 gap-1.5 text-xs font-semibold"
+                        >
+                          <Send className="size-3" />
+                          <span>Text in App</span>
+                        </Button>
+                      )}
                       {replyMailto && (
                         <Button
                           variant="outline"

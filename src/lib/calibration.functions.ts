@@ -33,7 +33,17 @@ export const createAnchor = createServerFn({ method: "POST" })
       throw new Error("The confirmed mark cannot be higher than the total available.");
     }
 
-    const { error } = await context.supabase.from("calibration_anchors").insert({
+    const { isMarginalAdmin } = await import("./auth-admin");
+    const isMarginal = isMarginalAdmin({
+      userId: context.userId,
+      claims: (context as any).claims,
+      email: (context as any).email || (context as any).claims?.email,
+    });
+
+    const { supabaseAdmin } = await import("@/integrations/backend/client.server");
+    const client = isMarginal && supabaseAdmin ? supabaseAdmin : context.supabase;
+
+    const { error } = await client.from("calibration_anchors").insert({
       question: data.question,
       essay_text: data.essayText,
       mark: data.mark,
@@ -94,14 +104,23 @@ export const addShowcaseToCalibration = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/backend/client.server");
 
     // Verify admin privileges
-    const { data: profile } = await supabaseAdmin
-      .from("profiles")
-      .select("role")
-      .eq("id", context.userId)
-      .maybeSingle();
+    const { isMarginalAdmin } = await import("./auth-admin");
+    const isMarginal = isMarginalAdmin({
+      userId: context.userId,
+      claims: (context as any).claims,
+      email: (context as any).email || (context as any).claims?.email,
+    });
 
-    if (profile?.role !== "admin") {
-      throw new Error("Only administrators can add calibration anchors.");
+    if (!isMarginal) {
+      const isPrivileged =
+        (context as any).claims?.user_metadata?.role === "admin" ||
+        (context as any).claims?.app_metadata?.role === "admin" ||
+        (context as any).claims?.user_metadata?.role === "teacher" ||
+        (context as any).claims?.app_metadata?.role === "teacher";
+
+      if (!isPrivileged) {
+        throw new Error("Only administrators can add calibration anchors.");
+      }
     }
 
     // Normalize maxMark to Cambridge 9708 tariffs (8, 12, or 20)
