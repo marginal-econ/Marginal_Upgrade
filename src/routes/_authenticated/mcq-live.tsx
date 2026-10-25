@@ -309,7 +309,18 @@ function McqLivePage() {
   // ---- timer ----
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
   const [timeUp, setTimeUp] = useState(false);
-  const [timerEnabled, setTimerEnabled] = useState(true);
+  const [timerEnabled, setTimerEnabled] = useState(() => {
+    try {
+      const saved = window.localStorage.getItem("marginal_candidate_prefs");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (typeof parsed.timedModeDefault === "boolean") return parsed.timedModeDefault;
+      }
+    } catch {
+      // fallback
+    }
+    return true;
+  });
   const autoSubmittedRef = useRef(false);
 
   // ---- annotate ----
@@ -2218,7 +2229,19 @@ function PastPaperSelector({
     seriesPapers.map((paper) => paper.level),
     (a, b) => a.localeCompare(b),
   );
-  const [selectedLevel, setSelectedLevel] = useState<Level>(levels[0] ?? "as");
+  const [selectedLevel, setSelectedLevel] = useState<Level>(() => {
+    try {
+      const saved = window.localStorage.getItem("marginal_candidate_prefs");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.targetLevel === "a2_level" && levels.includes("a2")) return "a2";
+        if (parsed.targetLevel === "as_level" && levels.includes("as")) return "as";
+      }
+    } catch {
+      // fallback
+    }
+    return levels[0] ?? "as";
+  });
   const matchingPapers = seriesPapers.filter((paper) => paper.level === selectedLevel);
   const [paperId, setPaperId] = useState(matchingPapers[0]?.id ?? "");
 
