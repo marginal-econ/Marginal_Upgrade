@@ -97,7 +97,7 @@ export function ReviewPanelPage() {
   const reviewQuery = useQuery({
     queryKey: ["review-panel"],
     queryFn: () => fetchReview(),
-    staleTime: 60_000,
+    staleTime: 1000 * 60 * 60 * 24, // Recalculates after 30 days
   });
 
   const essaysQuery = useQuery({
@@ -879,6 +879,9 @@ function ReviewResults({ data }: { data: Eligible }) {
         <div className="flex flex-wrap items-center gap-2">
           <Badge variant="secondary">{data.essayCount} essays evaluated</Badge>
           <Badge variant="secondary">{data.mcqPaperCount} MCQ papers evaluated</Badge>
+          <Badge variant="outline" className="text-[11px] border-primary/30 bg-primary/10 text-primary">
+            30-day evaluation cycle ({data.daysRemainingInCycle ?? 30}d until recalculation)
+          </Badge>
           <span className={cn("ml-auto flex items-center gap-1.5 text-xs font-medium", trendTone)}>
             <TrendIcon className="size-3.5" />
             {data.gradeTrend === "not enough data"

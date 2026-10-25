@@ -180,6 +180,127 @@ export const getMyPaperHistory = createServerFn({ method: "GET" })
     return { papers: groupPdfAttemptsByPaper((data ?? []) as never) };
   });
 
+export type McqAttemptItem = {
+  id: string;
+  title: string;
+  level: "as" | "a2";
+  score: number;
+  total: number;
+  percentage: number;
+  completedAt: string;
+  kind: "past_paper" | "practice";
+  paperId: string | null;
+};
+
+export type MyMcqSummary = {
+  totalAttempts: number;
+  totalQuestions: number;
+  totalCorrect: number;
+  accuracyPct: number | null;
+  bestPercentage: number | null;
+  asAttempts: number;
+  a2Attempts: number;
+  recentAttempts: McqAttemptItem[];
+};
+
+/**
+ * High-level consolidated MCQ performance summary for the student dashboard.
+ * Unifies Cambridge past papers and practice attempts with overall accuracy metrics.
+ */
+export const getMyMcqSummary = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<MyMcqSummary> => {
+    const { supabase, userId } = context;
+
+    const [pdfRes, genRes] = await Promise.all([
+      supabase
+        .from("mcq_pdf_attempts")
+        .select("id, title, level, paper_id, score, total, completed_at")
+        .eq("user_id", userId)
+        .not("completed_at", "is", null)
+        .order("completed_at", { ascending: false })
+        .limit(20),
+      supabase
+        .from("mcq_attempts")
+        .select("id, title, level, score, total, completed_at")
+        .eq("user_id", userId)
+        .not("completed_at", "is", null)
+        .order("completed_at", { ascending: false })
+        .limit(20),
+    ]);
+
+    const items: McqAttemptItem[] = [];
+
+    for (const r of pdfRes.data ?? []) {
+      if (r.score !== null && r.total && r.total > 0) {
+        const pct = Math.round((r.score / r.total) * 100);
+        items.push({
+          id: r.id,
+          title: r.title || "Cambridge Past Paper",
+          level: (r.level?.toLowerCase() === "a2" ? "a2" : "as") as "as" | "a2",
+          score: r.score,
+          total: r.total,
+          percentage: pct,
+          completedAt: r.completed_at || new Date().toISOString(),
+          kind: "past_paper",
+          paperId: r.paper_id ?? null,
+        });
+      }
+    }
+
+    for (const r of genRes.data ?? []) {
+      if (r.score !== null && r.total && r.total > 0) {
+        const pct = Math.round((r.score / r.total) * 100);
+        items.push({
+          id: r.id,
+          title: r.title || "Topic Practice MCQ",
+          level: (r.level?.toLowerCase() === "a2" ? "a2" : "as") as "as" | "a2",
+          score: r.score,
+          total: r.total,
+          percentage: pct,
+          completedAt: r.completed_at || new Date().toISOString(),
+          kind: "practice",
+          paperId: null,
+        });
+      }
+    }
+
+    items.sort((a, b) => new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime());
+
+    let totalCorrect = 0;
+    let totalQuestions = 0;
+    let bestPercentage: number | null = null;
+    let asAttempts = 0;
+    let a2Attempts = 0;
+
+    for (const it of items) {
+      totalCorrect += it.score;
+      totalQuestions += it.total;
+      if (bestPercentage === null || it.percentage > bestPercentage) {
+        bestPercentage = it.percentage;
+      }
+      if (it.level === "a2") {
+        a2Attempts++;
+      } else {
+        asAttempts++;
+      }
+    }
+
+    const accuracyPct =
+      totalQuestions > 0 ? Math.round((totalCorrect / totalQuestions) * 100) : null;
+
+    return {
+      totalAttempts: items.length,
+      totalQuestions,
+      totalCorrect,
+      accuracyPct,
+      bestPercentage,
+      asAttempts,
+      a2Attempts,
+      recentAttempts: items.slice(0, 8),
+    };
+  });
+
 /**
  * Full per-question breakdown for one past attempt, owned by the caller —
  * lets a student reopen a paper they already finished and revise it (the

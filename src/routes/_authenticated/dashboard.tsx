@@ -40,6 +40,7 @@ import { getMe } from "@/lib/account.functions";
 import { listDocuments } from "@/lib/knowledge.functions";
 import { listClassrooms } from "@/lib/classroom.functions";
 import { listAnchors } from "@/lib/calibration.functions";
+import { getMyMcqSummary } from "@/lib/mcq-pdf.functions";
 import { TIER_LIMITS } from "@/lib/usage-limits";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/backend/client";
@@ -98,9 +99,11 @@ export function DashboardPage() {
   const fetchDocs = useServerFn(listDocuments);
   const fetchClassrooms = useServerFn(listClassrooms);
   const fetchAnchors = useServerFn(listAnchors);
+  const fetchMcqSummary = useServerFn(getMyMcqSummary);
 
   const progress = useQuery({ queryKey: ["progress"], queryFn: () => fetchProgress() });
   const essays = useQuery({ queryKey: ["essays"], queryFn: () => fetchEssays() });
+  const mcqSummary = useQuery({ queryKey: ["my-mcq-summary"], queryFn: () => fetchMcqSummary() });
   const me = useQuery({
     queryKey: ["me"],
     queryFn: () => fetchMe(),
@@ -348,9 +351,9 @@ export function DashboardPage() {
               )}
             </div>
             <p className="text-xs text-muted-foreground">
-              {versions.length > 0
-                ? `${versions.length} essay attempt${versions.length === 1 ? "" : "s"} evaluated against Cambridge mark schemes.`
-                : "Welcome to Marginal. Submit your first essay to calibrate your baseline."}
+              {versions.length > 0 || (mcqSummary.data?.totalAttempts ?? 0) > 0
+                ? `${versions.length} essay attempt${versions.length === 1 ? "" : "s"} evaluated · ${mcqSummary.data?.totalAttempts ?? 0} MCQ paper${(mcqSummary.data?.totalAttempts ?? 0) === 1 ? "" : "s"} completed${mcqSummary.data?.accuracyPct !== null && mcqSummary.data?.accuracyPct !== undefined ? ` (${mcqSummary.data.accuracyPct}% accuracy)` : ""}.`
+                : "Welcome to Marginal. Submit your first essay or practice Cambridge MCQ to calibrate your baseline."}
             </p>
           </div>
 
@@ -439,20 +442,32 @@ export function DashboardPage() {
             icon={TrendingUp}
           />
           <InteractiveStat
+            label="MCQ Accuracy"
+            value={
+              mcqSummary.data?.accuracyPct !== null && mcqSummary.data?.accuracyPct !== undefined
+                ? `${mcqSummary.data.accuracyPct}%`
+                : "—"
+            }
+            badge={
+              mcqSummary.data?.totalAttempts
+                ? `${mcqSummary.data.totalAttempts} paper${mcqSummary.data.totalAttempts === 1 ? "" : "s"}`
+                : "Papers 1 & 3"
+            }
+            hint={
+              mcqSummary.data?.totalQuestions
+                ? `${mcqSummary.data.totalCorrect}/${mcqSummary.data.totalQuestions} questions correct`
+                : "Complete a past paper"
+            }
+            loading={mcqSummary.isLoading}
+            icon={ListChecks}
+          />
+          <InteractiveStat
             label="Personal best"
             value={versions.length ? `${best}/12` : "—"}
             badge="Top attempt"
             hint="Highest single awarded mark"
             loading={progress.isLoading}
             icon={Trophy}
-          />
-          <InteractiveStat
-            label="Knowledge base"
-            value={me.data?.isStaff ? String(readyDocs) : "58"}
-            badge="RRF Grounded"
-            hint="Syllabus & mark schemes active"
-            loading={me.isLoading || (me.data?.isStaff === true && docs.isLoading)}
-            icon={BookOpen}
           />
         </div>
 
@@ -892,6 +907,156 @@ export function DashboardPage() {
               </button>
             </div>
           ) : null}
+        </div>
+
+        {/* MCQ Past Papers & Real Scores Feed */}
+        <div className="panel overflow-hidden shadow-sm">
+          <div className="flex flex-col gap-3 border-b border-border/80 px-3.5 py-3 sm:px-5 sm:py-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="space-y-0.5">
+              <div className="flex items-center gap-2">
+                <ListChecks className="size-4 text-primary" />
+                <h2 className="text-sm font-semibold">Cambridge MCQ Scores &amp; Past Papers</h2>
+                {mcqSummary.data?.accuracyPct !== null && mcqSummary.data?.accuracyPct !== undefined && (
+                  <Badge className="bg-primary/10 text-primary border-primary/20 text-[10px] font-semibold">
+                    {mcqSummary.data.accuracyPct}% Overall Accuracy
+                  </Badge>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Authoritative Paper 1 &amp; Paper 3 examination attempts, scored percentages, and revision links
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Button asChild variant="outline" size="sm" className="h-8 text-xs">
+                <Link to="/mcq-live">
+                  <ListChecks className="size-3 mr-1 text-primary" /> Practice Past Papers
+                </Link>
+              </Button>
+            </div>
+          </div>
+
+          {mcqSummary.isLoading ? (
+            <div className="space-y-3 p-5">
+              <Skeleton className="h-12 w-full" />
+              <Skeleton className="h-12 w-full" />
+            </div>
+          ) : !mcqSummary.data?.recentAttempts || mcqSummary.data.recentAttempts.length === 0 ? (
+            <div className="px-5 py-10 text-center">
+              <ListChecks className="mx-auto size-9 text-muted-foreground/60 mb-2" />
+              <p className="text-sm font-medium text-foreground">No MCQ papers completed yet</p>
+              <p className="text-xs text-muted-foreground max-w-sm mx-auto mt-1 mb-4">
+                Test your syllabus mastery on real Cambridge 9708 Paper 1 (AS) and Paper 3 (A2) past papers with instant timer, auto-marking, and examiner explanations.
+              </p>
+              <Button asChild size="sm">
+                <Link to="/mcq-live">Start Cambridge MCQ Practice</Link>
+              </Button>
+            </div>
+          ) : (
+            <div>
+              {/* Summary mini metrics strip */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 border-b border-border/60 bg-muted/20 p-3 sm:px-5 text-xs">
+                <div>
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase">MCQ Accuracy</span>
+                  <p className="text-sm font-bold tabular-nums text-foreground mt-0.5">
+                    {mcqSummary.data.accuracyPct !== null ? `${mcqSummary.data.accuracyPct}%` : "—"}
+                  </p>
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase">Questions Answered</span>
+                  <p className="text-sm font-bold tabular-nums text-foreground mt-0.5">
+                    {mcqSummary.data.totalCorrect} / {mcqSummary.data.totalQuestions}
+                  </p>
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase">AS Papers Completed</span>
+                  <p className="text-sm font-bold tabular-nums text-foreground mt-0.5">
+                    {mcqSummary.data.asAttempts}
+                  </p>
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase">A2 Papers Completed</span>
+                  <p className="text-sm font-bold tabular-nums text-foreground mt-0.5">
+                    {mcqSummary.data.a2Attempts}
+                  </p>
+                </div>
+              </div>
+
+              {/* List of attempts */}
+              <ul className="divide-y divide-border/60">
+                {mcqSummary.data.recentAttempts.map((attempt) => {
+                  const isTopBand = attempt.percentage >= 80;
+                  const isMidBand = attempt.percentage >= 60 && attempt.percentage < 80;
+                  return (
+                    <li key={attempt.id} className="transition-colors hover:bg-muted/40">
+                      <Link
+                        to="/mcq-live"
+                        search={attempt.paperId ? { paperId: attempt.paperId } : undefined}
+                        className="group flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4 p-3.5 sm:px-5"
+                      >
+                        <div className="min-w-0 space-y-1">
+                          <div className="flex items-center gap-2">
+                            <Badge
+                              variant="outline"
+                              className={cn(
+                                "text-[10px] px-1.5 py-0 font-bold uppercase",
+                                attempt.level === "a2"
+                                  ? "border-purple-500/30 bg-purple-500/10 text-purple-600 dark:text-purple-400"
+                                  : "border-sky-500/30 bg-sky-500/10 text-sky-600 dark:text-sky-400",
+                              )}
+                            >
+                              {attempt.level.toUpperCase()}
+                            </Badge>
+                            <span className="text-xs sm:text-sm font-medium text-foreground line-clamp-1 group-hover:text-primary transition-colors">
+                              {attempt.title}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                            <span>
+                              {new Date(attempt.completedAt).toLocaleDateString(undefined, {
+                                day: "numeric",
+                                month: "short",
+                                year: "numeric",
+                              })}
+                            </span>
+                            <span>•</span>
+                            <span>
+                              {attempt.kind === "past_paper"
+                                ? "Cambridge Past Paper"
+                                : "Topic Generator"}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2.5 shrink-0 self-end sm:self-center">
+                          <Badge
+                            variant="outline"
+                            className={cn(
+                              "text-[10px] px-2 py-0.5 font-semibold",
+                              isTopBand
+                                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                                : isMidBand
+                                  ? "border-blue-500/30 bg-blue-500/10 text-blue-600 dark:text-blue-400"
+                                  : "border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400",
+                            )}
+                          >
+                            {isTopBand ? "Band 1 / A*" : isMidBand ? "Band 2 / B" : "Developing"} • {attempt.percentage}%
+                          </Badge>
+                          <span className="text-xs sm:text-sm font-bold tabular-nums">
+                            {attempt.score}
+                            <span className="text-muted-foreground font-normal text-xs">
+                              /{attempt.total}
+                            </span>
+                          </span>
+                          <ArrowUpRight className="size-3.5 shrink-0 text-muted-foreground transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-primary" />
+                        </div>
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )}
         </div>
       </div>
     </>

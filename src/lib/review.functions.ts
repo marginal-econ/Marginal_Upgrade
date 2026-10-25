@@ -11,6 +11,7 @@
  * observing genuine multi-attempt patterns.
  */
 import { createServerFn } from "@tanstack/react-start";
+import { z } from "zod";
 
 import { requireSupabaseAuth } from "@/integrations/backend/auth-middleware";
 import { chat } from "./ai.server";
@@ -67,6 +68,9 @@ export type ReviewPanelResult = {
   essayCount: number;
   mcqPaperCount: number;
   generatedAt: string;
+  nextRecalculationDate: string;
+  daysRemainingInCycle: number;
+  isCached: boolean;
   overallSummary: string;
   gradeTrend: "improving" | "steady" | "declining" | "not enough data";
   gradeProjection: GradeProjection;
@@ -166,9 +170,12 @@ Return ONLY one JSON object with this exact shape:
 ${CLICHE_BAN}
 `.trim();
 
-export const getReviewPanel = createServerFn({ method: "GET" })
+export const getReviewPanel = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .handler(async ({ context }): Promise<ReviewPanelResult | ReviewPanelEligibility> => {
+  .inputValidator((input: unknown) =>
+    z.object({ force: z.boolean().optional() }).default({}).parse(input ?? {}),
+  )
+  .handler(async ({ data, context }): Promise<ReviewPanelResult | ReviewPanelEligibility> => {
     const { supabase, userId } = context;
 
     const { data: essayRows, error: essayError } = await supabase
@@ -216,6 +223,38 @@ export const getReviewPanel = createServerFn({ method: "GET" })
         essaysNeeded: Math.max(0, MIN_ESSAYS_FOR_REVIEW - totalEssays),
         mcqPapersNeeded: Math.max(0, MIN_MCQ_PAPERS_FOR_REVIEW - totalMcqPapers),
       };
+    }
+
+    // Check 30-day cached diagnostic review
+    const cacheTerm = `__REVIEW_CACHE_${userId}`;
+    const { data: cachedRow } = await supabase
+      .from("definitions")
+      .select("term, definition_text, updated_at")
+      .eq("term", cacheTerm)
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (cachedRow?.definition_text && !data?.force) {
+      try {
+        const parsed = JSON.parse(cachedRow.definition_text) as ReviewPanelResult;
+        const generatedTime = new Date(parsed.generatedAt || cachedRow.updated_at).getTime();
+        const ageInDays = (Date.now() - generatedTime) / (1000 * 60 * 60 * 24);
+
+        if (ageInDays < 30) {
+          const daysRemaining = Math.max(1, Math.ceil(30 - ageInDays));
+          const nextDate = new Date(generatedTime + 30 * 24 * 60 * 60 * 1000).toISOString();
+          return {
+            ...parsed,
+            eligible: true,
+            isCached: true,
+            daysRemainingInCycle: daysRemaining,
+            nextRecalculationDate: nextDate,
+          };
+        }
+      } catch (err) {
+        console.error("Failed to parse cached review panel:", err);
+      }
     }
 
     const essayIds = (essayRows ?? []).map((row) => row.id);
@@ -557,12 +596,18 @@ export const getReviewPanel = createServerFn({ method: "GET" })
           : "Keep micro and macro practice balanced across papers.",
     };
 
-    return {
+    const nowIso = new Date().toISOString();
+    const nextRecalcIso = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+
+    const output: ReviewPanelResult = {
       eligible: true,
       sampleLevel: totalEssays >= 5 && totalMcqPapers >= 2 ? "comprehensive" : "diagnostic",
       essayCount: totalEssays,
       mcqPaperCount: totalMcqPapers,
-      generatedAt: new Date().toISOString(),
+      generatedAt: nowIso,
+      nextRecalculationDate: nextRecalcIso,
+      daysRemainingInCycle: 30,
+      isCached: false,
       overallSummary: String(raw.overall_summary ?? "").trim(),
       gradeTrend,
       gradeProjection,
@@ -576,4 +621,19 @@ export const getReviewPanel = createServerFn({ method: "GET" })
       actionPlan,
       encouragement: String(raw.encouragement ?? "").trim(),
     };
+
+    // Cache the review panel for 30 days
+    try {
+      await supabase.from("definitions").delete().eq("term", cacheTerm);
+      await supabase.from("definitions").insert({
+        term: cacheTerm,
+        definition_text: JSON.stringify(output),
+        category: "review_analytics_cache",
+        updated_at: nowIso,
+      });
+    } catch (saveErr) {
+      console.error("Failed to save review cache:", saveErr);
+    }
+
+    return output;
   });
