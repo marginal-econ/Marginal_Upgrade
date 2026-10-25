@@ -38,7 +38,6 @@ const GOOGLE_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta";
  */
 const GATEWAY_MODELS = [
   "google/gemini-3.8-flash",
-  "google/gemini-3.1-pro",
   "openai/gpt-5.6-sol",
 ];
 const ATTEMPTS_PER_MODEL = 2;
