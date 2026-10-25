@@ -251,17 +251,7 @@ function AuthPage() {
       // than closed over, so this can't act on a stale "credentials" value.
       setView((current) => {
         if (data.session && current !== "recovery" && current !== "verifying") {
-          fetchMe().then((me) => {
-            if (me?.role === "teacher" && !me?.isAdmin) {
-              supabase.auth.signOut().then(() => {
-                setTeacherDeclineWarning(
-                  "This account is registered as an authorized Cambridge Educator. Teacher accounts cannot access the student portal. Please sign in via the Teacher Portal.",
-                );
-              });
-            } else {
-              routeUserByRole();
-            }
-          });
+          routeUserByRole();
         }
         if (data.session && current === "verifying") return "recovery";
         return current;
@@ -289,21 +279,6 @@ function AuthPage() {
     if (error) {
       setBusy(false);
       return toast.error(error.message);
-    }
-
-    try {
-      const me = await fetchMe();
-      if (me?.role === "teacher" && !me?.isAdmin) {
-        await supabase.auth.signOut();
-        setBusy(false);
-        setTeacherDeclineWarning(
-          "This account is registered as an authorized Cambridge Educator. Teacher accounts cannot access the student portal. Please sign in via the Teacher Portal.",
-        );
-        toast.error("Educator account detected. Please sign in via the Teacher Portal.");
-        return;
-      }
-    } catch {
-      // safe fallback
     }
 
     setBusy(false);

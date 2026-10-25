@@ -28,6 +28,7 @@ import {
   Lock,
   LineChart,
   MessageSquare,
+  Send,
   Trophy,
   ArrowRight,
 } from "lucide-react";
