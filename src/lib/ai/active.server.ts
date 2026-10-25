@@ -190,25 +190,39 @@ export function getPrioritizedKeyOrder(
 
 /** The admin-selected chat/marking provider override, or null to use built-in Lovable AI. */
 export async function getActiveProvider(): Promise<ProviderConfig | null> {
-  if (chatCache && Date.now() - chatCache.at < TTL_MS) return chatCache.value;
+  if (chatCache && Date.now() - chatCache.at < TTL_MS && chatCache.value) return chatCache.value;
 
   let value: ProviderConfig | null = null;
   try {
     const { supabaseAdmin } = await import("@/integrations/backend/client.server");
-    const { data } = await supabaseAdmin
+    const { data, error } = await supabaseAdmin
       .from("ai_provider_keys")
       .select("provider, api_key, base_url, model, label")
       .eq("is_active", true)
       .eq("purpose", "chat")
-      .maybeSingle();
-    if (data && data.provider !== "lovable" && data.api_key) {
-      value = normaliseConfig(data);
+      .order("updated_at", { ascending: false })
+      .limit(1);
+
+    if (!error && data && data.length > 0 && data[0]!.provider !== "lovable" && data[0]!.api_key) {
+      value = normaliseConfig(data[0]!);
+    } else {
+      // Fallback: If no key is explicitly marked is_active for chat, find ANY available provider key with a valid api_key
+      const { data: fallbackData } = await supabaseAdmin
+        .from("ai_provider_keys")
+        .select("provider, api_key, base_url, model, label")
+        .order("updated_at", { ascending: false })
+        .limit(1);
+      if (fallbackData && fallbackData.length > 0 && fallbackData[0]!.api_key) {
+        value = normaliseConfig(fallbackData[0]!);
+      }
     }
-  } catch {
-    value = null; // Never block AI because the override lookup failed.
+  } catch (err) {
+    console.error("[getActiveProvider] Lookup error:", err);
+    if (chatCache?.value) return chatCache.value;
+    value = null;
   }
 
-  chatCache = { value, at: Date.now() };
+  chatCache = { value, at: value ? Date.now() : Date.now() - (TTL_MS - 5_000) };
   return value;
 }
 
@@ -220,25 +234,28 @@ export async function getActiveProvider(): Promise<ProviderConfig | null> {
  * or vice versa.
  */
 export async function getActiveEmbeddingProvider(): Promise<ProviderConfig | null> {
-  if (embeddingCache && Date.now() - embeddingCache.at < TTL_MS) return embeddingCache.value;
+  if (embeddingCache && Date.now() - embeddingCache.at < TTL_MS && embeddingCache.value) return embeddingCache.value;
 
   let value: ProviderConfig | null = null;
   try {
     const { supabaseAdmin } = await import("@/integrations/backend/client.server");
-    const { data } = await supabaseAdmin
+    const { data, error } = await supabaseAdmin
       .from("ai_provider_keys")
       .select("provider, api_key, base_url, model, label")
       .eq("is_active", true)
       .eq("purpose", "embedding")
-      .maybeSingle();
-    if (data && data.api_key) {
-      value = normaliseConfig(data);
+      .order("updated_at", { ascending: false })
+      .limit(1);
+    if (!error && data && data.length > 0 && data[0]!.api_key) {
+      value = normaliseConfig(data[0]!);
     }
-  } catch {
+  } catch (err) {
+    console.error("[getActiveEmbeddingProvider] Lookup error:", err);
+    if (embeddingCache?.value) return embeddingCache.value;
     value = null;
   }
 
-  embeddingCache = { value, at: Date.now() };
+  embeddingCache = { value, at: value ? Date.now() : Date.now() - (TTL_MS - 5_000) };
   return value;
 }
 
@@ -253,25 +270,28 @@ export async function getActiveEmbeddingProvider(): Promise<ProviderConfig | nul
  * what marks essays or what embeds the knowledge base.
  */
 export async function getActiveVisionProvider(): Promise<ProviderConfig | null> {
-  if (visionCache && Date.now() - visionCache.at < TTL_MS) return visionCache.value;
+  if (visionCache && Date.now() - visionCache.at < TTL_MS && visionCache.value) return visionCache.value;
 
   let value: ProviderConfig | null = null;
   try {
     const { supabaseAdmin } = await import("@/integrations/backend/client.server");
-    const { data } = await supabaseAdmin
+    const { data, error } = await supabaseAdmin
       .from("ai_provider_keys")
       .select("provider, api_key, base_url, model, label")
       .eq("is_active", true)
       .eq("purpose", "vision")
-      .maybeSingle();
-    if (data && data.api_key) {
-      value = normaliseConfig(data);
+      .order("updated_at", { ascending: false })
+      .limit(1);
+    if (!error && data && data.length > 0 && data[0]!.api_key) {
+      value = normaliseConfig(data[0]!);
     }
-  } catch {
-    value = null; // Never block OCR/extraction because the override lookup failed.
+  } catch (err) {
+    console.error("[getActiveVisionProvider] Lookup error:", err);
+    if (visionCache?.value) return visionCache.value;
+    value = null;
   }
 
-  visionCache = { value, at: Date.now() };
+  visionCache = { value, at: value ? Date.now() : Date.now() - (TTL_MS - 5_000) };
   return value;
 }
 

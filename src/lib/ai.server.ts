@@ -177,6 +177,13 @@ export async function chat(rawOptions: ChatOptions): Promise<ChatResult> {
       return result;
     }
 
+    if (!readEnv("LOVABLE_API_KEY")) {
+      throw new AiGatewayError(
+        "No active AI provider key is configured. Please navigate to Admin → AI Providers, verify your API key(s), and ensure your provider is activated.",
+        503,
+      );
+    }
+
     const body: Record<string, unknown> = {
       model: options.model,
       messages: options.messages,
@@ -442,7 +449,7 @@ async function chatViaProvider(
 
   const candidateModels =
     config.provider === "google"
-      ? ["gemini-3.8-flash"]
+      ? ["gemini-3.8-flash", "gemini-3.1-pro", "gemini-3.1-flash"]
       : [config.model];
 
   let usedModel = candidateModels[0];
@@ -459,8 +466,8 @@ async function chatViaProvider(
       for (let kIdx = 0; kIdx < activeKeysToTry.length; kIdx++) {
         const currentKey = activeKeysToTry[kIdx]!;
         const keyStarted = Date.now();
-        // 25s timeout allows full essay completions while preventing 120s stalls on rate-limited keys
-        const timeoutMs = 25_000;
+        // 50s timeout allows deep essay completions under peak provider load while preventing dead freezes
+        const timeoutMs = 50_000;
         try {
           const response = await fetch(`${config.baseUrl}/chat/completions`, {
             method: "POST",
@@ -469,7 +476,7 @@ async function chatViaProvider(
               Authorization: `Bearer ${currentKey}`,
             },
             body: JSON.stringify(modelBody),
-            signal: AbortSignal.timeout(timeoutMs), // Generous 120s timeout for gemini-3.8-flash
+            signal: AbortSignal.timeout(timeoutMs),
           });
 
           if (response.ok) {

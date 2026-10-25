@@ -414,6 +414,7 @@ async function runSpecialistSwarm(
 } | null> {
   const swarmStart = Date.now();
   const { ao1_marks, ao2_marks, ao3_marks } = split;
+  const trimmedContext = groundingContext ? groundingContext.slice(0, 2500) : "";
 
   // Lane 1: Specialist AO1 (Knowledge & Understanding)
   const ao1Promise = chat({
@@ -423,13 +424,13 @@ async function runSpecialistSwarm(
     isBudgetTier: options.isBudgetTier,
     userId: options.userId,
     feature: "grade_specialist_ao1",
-    maxCompletionTokens: 1200,
+    maxCompletionTokens: 450,
     messages: [
       {
         role: "system",
         content: `You are an expert Cambridge 9708 Economics Examiner evaluating Assessment Objective 1 (Knowledge and Understanding).\n` +
           `Question (${maxMark} marks total, AO1 tariff: ${ao1_marks} marks):\n${question}\n\n` +
-          `${groundingContext ? `Official Grounding Context:\n${groundingContext}\n\n` : ""}` +
+          `${trimmedContext ? `Official Grounding Context:\n${trimmedContext}\n\n` : ""}` +
           `Audit the student's economic definitions, terminology, foundational models, and theoretical accuracy.\n` +
           `Award marks strictly between 0 and ${ao1_marks}.\n` +
           `Return ONLY a JSON object: {"awarded": number, "comment": string, "strengths": string[], "missing_definitions": string[]}`,
@@ -446,13 +447,13 @@ async function runSpecialistSwarm(
     isBudgetTier: options.isBudgetTier,
     userId: options.userId,
     feature: "grade_specialist_ao2",
-    maxCompletionTokens: 1200,
+    maxCompletionTokens: 450,
     messages: [
       {
         role: "system",
         content: `You are an expert Cambridge 9708 Economics Examiner evaluating Assessment Objective 2 (Analysis).\n` +
           `Question (${maxMark} marks total, AO2 tariff: ${ao2_marks} marks):\n${question}\n\n` +
-          `${groundingContext ? `Official Grounding Context:\n${groundingContext}\n\n` : ""}` +
+          `${trimmedContext ? `Official Grounding Context:\n${trimmedContext}\n\n` : ""}` +
           `Audit cause-and-effect transmission chains, economic logic, diagrams/curves, and analytical depth.\n` +
           `Award marks strictly between 0 and ${ao2_marks}.\n` +
           `Return ONLY a JSON object: {"awarded": number, "comment": string, "missing_analysis": string[], "missing_diagrams": string[]}`,
@@ -471,13 +472,13 @@ async function runSpecialistSwarm(
           isBudgetTier: options.isBudgetTier,
           userId: options.userId,
           feature: "grade_specialist_ao3",
-          maxCompletionTokens: 1200,
+          maxCompletionTokens: 450,
           messages: [
             {
               role: "system",
               content: `You are an expert Cambridge 9708 Economics Examiner evaluating Assessment Objective 3 (Evaluation).\n` +
                 `Question (${maxMark} marks total, AO3 tariff: ${ao3_marks} marks):\n${question}\n\n` +
-                `${groundingContext ? `Official Grounding Context:\n${groundingContext}\n\n` : ""}` +
+                `${trimmedContext ? `Official Grounding Context:\n${trimmedContext}\n\n` : ""}` +
                 `Audit critical evaluation: ceteris paribus assumptions, short-run vs long-run distinctions, stakeholder trade-offs, and final evaluative synthesis.\n` +
                 `Award marks strictly between 0 and ${ao3_marks}.\n` +
                 `Return ONLY a JSON object: {"awarded": number, "comment": string, "weaknesses": string[], "missing_evaluation": string[]}`,
@@ -497,8 +498,19 @@ async function runSpecialistSwarm(
           latencyMs: 0,
         } as any);
 
-  // Parallel execution across rotated API keys
-  const [ao1Res, ao2Res, ao3Res] = await Promise.all([ao1Promise, ao2Promise, ao3Promise]);
+  // Parallel execution across rotated API keys with safe settlement
+  const settlements = await Promise.allSettled([ao1Promise, ao2Promise, ao3Promise]);
+  if (
+    settlements[0].status === "rejected" ||
+    settlements[1].status === "rejected" ||
+    (ao3_marks > 0 && settlements[2].status === "rejected")
+  ) {
+    throw new Error("One or more swarm specialists failed, falling back to unified examiner.");
+  }
+
+  const ao1Res = settlements[0].value;
+  const ao2Res = settlements[1].value;
+  const ao3Res = settlements[2].value;
 
   const ao1Json = extractFirstJsonObject(ao1Res.text);
   const ao2Json = extractFirstJsonObject(ao2Res.text);
