@@ -81,12 +81,29 @@ function explain(status: number, body: string): string {
   if (status === 402)
     return "AI credits have run out. An admin can add credits, or plug in their own provider key (Claude, Gemini, Grok, OpenAI…) under Admin → AI providers.";
   if (status === 401)
-    return "The configured AI provider rejected the API key. An admin can update it under Admin → AI providers.";
-  if (status === 403) return "AI access is disabled for this workspace.";
+    return "The configured AI provider rejected the API key (401 Unauthorized). Please verify that the key is valid and active.";
+  if (status === 403) {
+    let detail = "";
+    try {
+      const parsed = JSON.parse(cleanBody);
+      detail = parsed.detail || parsed.message || parsed.error?.message || "";
+    } catch {}
+    if (detail) {
+      return `Provider access rejected (403 Forbidden): ${detail}. On your provider console, check that your workspace has active billing and permissions.`;
+    }
+    return `Provider access rejected (403 Forbidden). ${cleanBody ? cleanBody.slice(0, 250) : "Please check your provider console (e.g. console.mistral.ai) to ensure your workspace has active billing/credits enabled."}`;
+  }
   if (status === 503 || lowerBody.includes("high demand") || lowerBody.includes("unavailable"))
     return "The AI model is currently experiencing temporary high demand at the provider (503). Spikes in demand are temporary.";
-  if (status === 504 || lowerBody.includes("timed out") || lowerBody.includes("timeout"))
-    return "The AI request timed out waiting for the provider (504). Upstream free tier model took too long to respond.";
+  if (
+    status === 524 ||
+    status === 504 ||
+    status === 502 ||
+    lowerBody.includes("524") ||
+    lowerBody.includes("timed out") ||
+    lowerBody.includes("timeout")
+  )
+    return "The AI request timed out waiting for the upstream provider (524/504). Fast auto-hopping is retrying on backup keys.";
   if (!cleanBody) return `The AI request failed (${status}). Upstream server returned no error details.`;
   return `The AI request failed (${status}). ${cleanBody.slice(0, 300)}`;
 }
@@ -405,7 +422,14 @@ async function chatViaProvider(
           const text = await response.text();
           lastErrStatus = response.status;
           lastErrDetail = text;
-          if (response.status === 429 || response.status === 503 || response.status === 500) {
+          if (
+            response.status === 429 ||
+            response.status === 500 ||
+            response.status === 502 ||
+            response.status === 503 ||
+            response.status === 504 ||
+            response.status === 524
+          ) {
             markKeyRateLimited(currentKey, 60_000);
             console.warn(`[chatViaProvider:anthropic] Key ...${currentKey.slice(-4)} returned ${response.status}. Rotating key...`);
             try {
@@ -511,8 +535,8 @@ async function chatViaProvider(
       for (let kIdx = 0; kIdx < activeKeysToTry.length; kIdx++) {
         const currentKey = activeKeysToTry[kIdx]!;
         const keyStarted = Date.now();
-        // 270s timeout gives each key 250s completion window with handoff to next key at 270s
-        const timeoutMs = 270_000;
+        // 45s socket ceiling per key guarantees warm failover before Cloudflare's 100-120s worker limit
+        const timeoutMs = 45_000;
         try {
           const response = await fetch(`${config.baseUrl}/chat/completions`, {
             method: "POST",
@@ -538,7 +562,14 @@ async function chatViaProvider(
           lastErrDetail = text;
 
           // Rate limit, server error, or 404 deprecated model on Google: rotate key or try next candidate model
-          if (response.status === 429 || response.status === 503 || response.status === 500) {
+          if (
+            response.status === 429 ||
+            response.status === 500 ||
+            response.status === 502 ||
+            response.status === 503 ||
+            response.status === 504 ||
+            response.status === 524
+          ) {
             const isPaidKey = paidKeys.includes(currentKey);
             if (!isPaidKey) had429OnFreePool = true;
             markKeyRateLimited(currentKey, 45_000);

@@ -1722,7 +1722,7 @@ function LiveExaminerPage() {
                 { label: "Independent audit pass", weight: 3 },
                 { label: "Finalising report", weight: 1 },
               ]}
-              totalMs={350_000}
+              totalMs={85_000}
             />
           ) : gradeMutation.data ? (
             <div className="space-y-4">
