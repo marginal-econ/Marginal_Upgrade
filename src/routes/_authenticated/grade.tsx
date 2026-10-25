@@ -6,6 +6,7 @@ import {
   AlertTriangle,
   Camera,
   CheckCircle2,
+  Clock,
   ImagePlus,
   Images,
   Loader2,
@@ -1066,10 +1067,21 @@ function GradePage() {
                 ...(auditPass ? [{ label: "Independent moderation & multi-key verification", weight: 2 }] : []),
                 { label: "Synthesizing diagnostic examiner report & actionable feedback", weight: 2 },
               ]}
-              totalMs={190_000}
+              totalMs={350_000}
             />
           ) : result ? (
             <div className="space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-primary/30 bg-primary/5 px-4 py-3 text-xs shadow-sm">
+                <div className="flex items-center gap-2 text-foreground font-medium">
+                  <CheckCircle2 className="size-4 text-emerald-500 shrink-0" />
+                  <span>Cambridge 9708 Standard Assessment Complete</span>
+                </div>
+                {(result.latencyMs || result.grading?.latencyMs) ? (
+                  <Badge variant="outline" className="gap-1 border-primary/40 bg-primary/10 text-primary font-mono text-[11px] font-semibold">
+                    <Clock className="size-3.5" /> Graded in {Math.round((result.latencyMs || result.grading?.latencyMs || 0) / 1000)}s
+                  </Badge>
+                ) : null}
+              </div>
               <MarkBreakdown grading={result.grading} />
               {result.essayId ? (
                 <Button

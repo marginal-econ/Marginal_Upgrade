@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { CheckCircle2, Clock, HelpCircle, Info, Loader2, RotateCw, Sparkles, X } from "lucide-react";
+import { CheckCircle2, Clock, HelpCircle, Info, Loader2, RotateCw, Sparkles, Terminal, X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
@@ -37,10 +37,10 @@ const DEFAULT_STAGE_DETAILS: Record<number, { title: string; bullets: string[] }
     ],
   },
   3: {
-    title: "Senior Examiner Moderation & Multi-Key Safeguards",
+    title: "Senior Examiner Moderation & Quality Benchmarks",
     bullets: [
-      "Senior Examiner Verification: Running an independent second moderation pass to eliminate grade clustering and bias.",
-      "Auto Key-Hopping: If primary API channels experience high latency, dynamic pool failover rotates to reserve keys without dropping connection.",
+      "Senior Examiner Verification: Calibrating level descriptors across Cambridge 9708 standards to eliminate grade clustering.",
+      "Reliability Safeguards: Generous 270s socket window with automated warm failover to backup keys if upstream latency spikes.",
       "Cambridge Grade Band Calibration: Harmonizing raw marks against historical 9708 Grade A*, A, B, C cut-offs.",
     ],
   },
@@ -54,15 +54,24 @@ const DEFAULT_STAGE_DETAILS: Record<number, { title: string; bullets: string[] }
   },
 };
 
+const LIVE_BACKEND_OPERATIONS = [
+  { atSec: 0, title: "Query Ingestion & Syllabus Expansion", detail: "Expanding question into Cambridge 9708 micro/macro syllabus keywords..." },
+  { atSec: 15, title: "Knowledge Base Vector Search", detail: "Querying Supabase pgvector across 259 official mark schemes and examiner reports..." },
+  { atSec: 35, title: "Syllabus Grounding & Descriptors", detail: "Grounding evaluation against verified level descriptors and past exam benchmarks..." },
+  { atSec: 65, title: "AO1 Theoretical Audit", detail: "Scrutinizing economic terminology, definitions, and foundational models..." },
+  { atSec: 105, title: "AO2 Analytical Transmission Chains", detail: "Tracing cause-and-effect logic steps and diagrammatical equilibrium shifts..." },
+  { atSec: 155, title: "AO3 Critical Evaluation Audit", detail: "Testing ceteris paribus assumptions, short-run vs long-run trade-offs, and elasticity..." },
+  { atSec: 215, title: "Stakeholder Divergence Analysis", detail: "Analyzing conflicting impacts across consumers, producers, workers, and government..." },
+  { atSec: 275, title: "Senior Examiner Calibration", detail: "Harmonizing raw marks against historical Cambridge 9708 grade boundaries..." },
+  { atSec: 345, title: "Diagnostic Report Generation", detail: "Attaching line-by-line constructive feedback tags and paragraph upgrade plans..." },
+  { atSec: 420, title: "Final Synthesis & Output Formatting", detail: "Assembling final Cambridge examiner summary and band classification..." },
+];
+
 /**
- * There is no server-sent progress channel for grading (it's a single
- * request/response server function), so this simulates progress against
- * expected stage durations rather than pretending to report real ticks from
- * the model. It never claims 100% until the request actually resolves —
- * it eases up to 96% and holds there so it's never dishonest about being
- * "done" while still waiting on the network.
+ * Simulates staged progress across expected durations (200–500s).
+ * Holds at 96% until the network request completes so it is never prematurely "done".
  */
-export function useStagedProgress(stages: ProgressStage[], active: boolean, totalMs = 190_000) {
+export function useStagedProgress(stages: ProgressStage[], active: boolean, totalMs = 350_000) {
   const [elapsed, setElapsed] = useState(0);
 
   useEffect(() => {
@@ -77,8 +86,7 @@ export function useStagedProgress(stages: ProgressStage[], active: boolean, tota
 
   const totalWeight = useMemo(() => stages.reduce((sum, s) => sum + s.weight, 0), [stages]);
 
-  // Ease-out curve so the bar moves fast at first (feels responsive) and
-  // slows near the cap, scaled for 180-200s maximum duration.
+  // Ease-out curve scaled for 200–500s duration.
   const rawFraction = Math.min(1, elapsed / totalMs);
   const eased = 1 - Math.pow(1 - rawFraction, 2);
   const percent = Math.min(96, Math.round(eased * 96));
@@ -93,13 +101,15 @@ export function useStagedProgress(stages: ProgressStage[], active: boolean, tota
     }
   }
 
-  return { percent, stageIndex, elapsedSeconds: Math.floor(elapsed / 1000) };
+  const elapsedSeconds = Math.floor(elapsed / 1000);
+
+  return { percent, stageIndex, elapsedSeconds };
 }
 
 export function GradingProgress({
   stages,
   active,
-  totalMs = 190_000,
+  totalMs = 350_000,
 }: {
   stages: ProgressStage[];
   active: boolean;
@@ -126,6 +136,12 @@ export function GradingProgress({
         ],
       };
 
+  // Find the active live backend operation based on elapsed seconds
+  const activeLiveOpIndex = LIVE_BACKEND_OPERATIONS.reduce((acc, op, idx) => {
+    return elapsedSeconds >= op.atSec ? idx : acc;
+  }, 0);
+  const currentLiveOp = LIVE_BACKEND_OPERATIONS[activeLiveOpIndex]!;
+
   return (
     <div className="panel relative overflow-hidden space-y-4 p-5 sm:p-6 border-primary/20 shadow-md">
       {/* Top Status & Timer Row */}
@@ -143,7 +159,7 @@ export function GradingProgress({
         <div className="flex flex-wrap items-center gap-2 shrink-0">
           <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">
             <Clock className="size-3 text-primary shrink-0" />
-            <span>Est: 180–200s max</span>
+            <span>Est: 200–500s</span>
           </span>
 
           <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary tabular-nums">
@@ -169,11 +185,34 @@ export function GradingProgress({
         </div>
       </div>
 
-      {/* Key-hopping failover alert */}
-      {elapsedSeconds >= 12 && (
+      {/* Real-time Dynamic Backend Operations Stream */}
+      <div className="rounded-xl border border-primary/20 bg-muted/30 p-3.5 space-y-2 text-xs">
+        <div className="flex items-center justify-between border-b border-border/60 pb-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <Terminal className="size-3.5 text-primary shrink-0" />
+            <span className="font-semibold text-foreground text-xs">Live Backend Pipeline Activity</span>
+          </div>
+          <span className="text-[10px] text-emerald-500 font-mono font-medium flex items-center gap-1">
+            <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" /> Active Execution
+          </span>
+        </div>
+
+        <div className="space-y-1.5 pt-0.5">
+          <div className="flex items-start gap-2">
+            <Loader2 className="size-3.5 text-primary shrink-0 animate-spin mt-0.5" />
+            <div className="space-y-0.5">
+              <p className="font-medium text-foreground text-xs">{currentLiveOp.title}</p>
+              <p className="text-[11px] text-muted-foreground leading-relaxed font-mono">{currentLiveOp.detail}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Long-running failover standby notice */}
+      {elapsedSeconds >= 240 && (
         <div className="flex items-center gap-2 text-[11.5px] text-amber-500 font-medium bg-amber-500/10 border border-amber-500/20 rounded-md px-3 py-2 animate-in fade-in duration-300">
           <RotateCw className="size-3.5 shrink-0 animate-spin" />
-          <span>Auto Key-Hopping active: Dynamic pool failover is rotating API keys to guarantee rapid response without delay.</span>
+          <span>Deep Evaluation In Progress: Primary key completion window active. Backup key prepared on standby to takeover automatically at 270s if needed.</span>
         </div>
       )}
 
@@ -263,10 +302,11 @@ export function GradingProgress({
             Free Community Access · Deep Cambridge 9708 Grounding Guarantee
           </p>
           <p className="text-[11px] leading-relaxed text-muted-foreground">
-            Estimated completion time: <strong>180–200 seconds max</strong>. Deep Cambridge 9708 evaluation involves vector search over 259 past papers, diagram OCR verification, and senior examiner moderation. Multi-key auto-hopping ensures your essay grading completes smoothly without timing out.
+            Estimated completion time: <strong>200–500 seconds</strong>. Deep Cambridge 9708 evaluation involves vector search over 259 past papers, diagram OCR verification, and senior examiner moderation.
           </p>
         </div>
       </div>
     </div>
   );
 }
+

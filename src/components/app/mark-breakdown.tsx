@@ -1,4 +1,4 @@
-import { AlertTriangle, Check, CheckCircle2, FileText, ShieldCheck, X } from "lucide-react";
+import { AlertTriangle, Check, CheckCircle2, Clock, FileText, ShieldCheck, X } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -114,6 +114,15 @@ export function MarkBreakdown({ grading }: { grading: Grading }) {
                 className="gap-1 border-primary/30 bg-primary/10 text-primary"
               >
                 <ShieldCheck className="size-3" /> Audited Pass
+              </Badge>
+            ) : null}
+            {grading.latencyMs ? (
+              <Badge
+                variant="outline"
+                className="gap-1 border-primary/30 bg-primary/10 text-primary font-mono text-[10px]"
+                title={`Total grading duration: ${(grading.latencyMs / 1000).toFixed(1)}s`}
+              >
+                <Clock className="size-3" /> Graded in {Math.round(grading.latencyMs / 1000)}s
               </Badge>
             ) : null}
             <span className="rounded-full bg-muted/60 px-2 py-0.5 text-xs text-muted-foreground tabular-nums">

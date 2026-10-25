@@ -266,6 +266,7 @@ export async function gradeEssay(
   grading.keyRotated = keyRotated;
   grading.modelSwapped = modelSwapped;
   grading.activeKeyType = activeKeyType;
+  grading.latencyMs = latencyMs;
 
   return {
     grading,

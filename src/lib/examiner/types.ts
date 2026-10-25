@@ -50,6 +50,7 @@ export type Grading = {
   keyRotated?: boolean;
   modelSwapped?: boolean;
   activeKeyType?: "primary" | "backup_pool" | "vip_fallback";
+  latencyMs?: number;
 };
 
 const EMPTY_MISSING: MissingElements = {
