@@ -15,6 +15,8 @@ import {
   ExternalLink,
   CheckCircle2,
   AlertCircle,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -96,6 +98,8 @@ export function KnowledgePage() {
 
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedType, setSelectedType] = useState<string>("all");
+  const [docPage, setDocPage] = useState(1);
+  const docPageSize = 12;
   const [addModalOpen, setAddModalOpen] = useState(false);
 
   // Easy Add form state
@@ -133,6 +137,13 @@ export function KnowledgePage() {
       return matchesType && matchesQuery;
     });
   }, [allDocs, selectedType, searchQuery]);
+
+  const totalDocPages = Math.max(1, Math.ceil(filteredDocs.length / docPageSize));
+  const currentDocPage = Math.min(docPage, totalDocPages);
+  const paginatedDocs = useMemo(() => {
+    const start = (currentDocPage - 1) * docPageSize;
+    return filteredDocs.slice(start, start + docPageSize);
+  }, [filteredDocs, currentDocPage, docPageSize]);
 
   // File drop/upload parser
   const handleFileChange = async (file: File) => {
@@ -505,72 +516,133 @@ export function KnowledgePage() {
               )}
             </div>
           ) : (
-            <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
-              {filteredDocs.map((doc) => (
-                <div
-                  key={doc.id}
-                  className="rounded-xl border border-border/80 bg-card p-3.5 shadow-2xs hover:border-primary/40 transition-colors flex flex-col justify-between"
-                >
-                  <div className="space-y-1.5">
-                    <div className="flex items-start justify-between gap-2">
-                      <Badge
-                        variant="secondary"
-                        className="text-[10px] capitalize font-medium shrink-0"
-                      >
-                        {doc.doc_type.replace("_", " ")}
-                      </Badge>
-                      <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                        {doc.status === "ready" ? (
-                          <>
-                            <CheckCircle2 className="size-3 text-emerald-500" /> Ready
-                          </>
-                        ) : doc.status === "failed" ? (
-                          <>
-                            <AlertCircle className="size-3 text-destructive" /> Failed
-                          </>
-                        ) : (
-                          <>
-                            <Loader2 className="size-3 animate-spin text-amber-500" /> Ingesting
-                          </>
-                        )}
-                      </span>
+            <div className="space-y-4">
+              <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+                {paginatedDocs.map((doc) => (
+                  <div
+                    key={doc.id}
+                    className="rounded-xl border border-border/80 bg-card p-3.5 shadow-2xs hover:border-primary/40 transition-colors flex flex-col justify-between"
+                  >
+                    <div className="space-y-1.5">
+                      <div className="flex items-start justify-between gap-2">
+                        <Badge
+                          variant="secondary"
+                          className="text-[10px] capitalize font-medium shrink-0"
+                        >
+                          {doc.doc_type.replace("_", " ")}
+                        </Badge>
+                        <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                          {doc.status === "ready" ? (
+                            <>
+                              <CheckCircle2 className="size-3 text-emerald-500" /> Ready
+                            </>
+                          ) : doc.status === "failed" ? (
+                            <>
+                              <AlertCircle className="size-3 text-destructive" /> Failed
+                            </>
+                          ) : (
+                            <>
+                              <Loader2 className="size-3 animate-spin text-amber-500" /> Ingesting
+                            </>
+                          )}
+                        </span>
+                      </div>
+
+                      <h4 className="text-xs font-bold text-foreground line-clamp-2 leading-snug">
+                        {doc.title}
+                      </h4>
+
+                      {doc.exam_series && (
+                        <p className="text-[10.5px] font-mono text-muted-foreground">
+                          Series: {doc.exam_series}
+                        </p>
+                      )}
                     </div>
 
-                    <h4 className="text-xs font-bold text-foreground line-clamp-2 leading-snug">
-                      {doc.title}
-                    </h4>
-
-                    {doc.exam_series && (
-                      <p className="text-[10.5px] font-mono text-muted-foreground">
-                        Series: {doc.exam_series}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="mt-3 pt-2 border-t border-border/60 flex items-center justify-between text-[11px] text-muted-foreground">
-                    <span>{doc.chunk_count || 0} chunks</span>
-                    {isStaff && (
-                      <button
-                        onClick={async () => {
-                          if (confirm(`Remove "${doc.title}" from Knowledge Base?`)) {
-                            try {
-                              await removeDoc({ data: { documentId: doc.id } });
-                              toast.success("Document removed.");
-                              queryClient.invalidateQueries({ queryKey: ["knowledge-documents"] });
-                            } catch (err: any) {
-                              toast.error(err.message || "Failed to delete");
+                    <div className="mt-3 pt-2 border-t border-border/60 flex items-center justify-between text-[11px] text-muted-foreground">
+                      <span>{doc.chunk_count || 0} chunks</span>
+                      {isStaff && (
+                        <button
+                          onClick={async () => {
+                            if (confirm(`Remove "${doc.title}" from Knowledge Base?`)) {
+                              try {
+                                await removeDoc({ data: { documentId: doc.id } });
+                                toast.success("Document removed.");
+                                queryClient.invalidateQueries({ queryKey: ["knowledge-documents"] });
+                              } catch (err: any) {
+                                toast.error(err.message || "Failed to delete");
+                              }
                             }
-                          }
-                        }}
-                        className="text-muted-foreground hover:text-destructive p-1 rounded"
-                        title="Delete document"
-                      >
-                        <Trash2 className="size-3.5" />
-                      </button>
-                    )}
+                          }}
+                          className="text-muted-foreground hover:text-destructive p-1 rounded"
+                          title="Delete document"
+                        >
+                          <Trash2 className="size-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Document Pagination Controls */}
+              {totalDocPages > 1 && (
+                <div className="panel p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                  <p className="text-muted-foreground">
+                    Showing <strong className="text-foreground">{(currentDocPage - 1) * docPageSize + 1}</strong> to{" "}
+                    <strong className="text-foreground">
+                      {Math.min(currentDocPage * docPageSize, filteredDocs.length)}
+                    </strong>{" "}
+                    of <strong className="text-foreground">{filteredDocs.length}</strong> documents
+                  </p>
+
+                  <div className="flex items-center gap-1 self-center sm:self-auto">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setDocPage((p) => Math.max(1, p - 1))}
+                      disabled={currentDocPage <= 1}
+                      className="h-7 text-xs px-2"
+                    >
+                      <ChevronLeft className="size-3.5 mr-0.5" /> Prev
+                    </Button>
+
+                    <div className="flex items-center gap-1 px-1">
+                      {Array.from({ length: Math.min(5, totalDocPages) }, (_, idx) => {
+                        let pageNum = idx + 1;
+                        if (totalDocPages > 5 && currentDocPage > 3) {
+                          pageNum = Math.min(currentDocPage - 2 + idx, totalDocPages);
+                        }
+                        return (
+                          <button
+                            key={pageNum}
+                            type="button"
+                            onClick={() => setDocPage(pageNum)}
+                            className={cn(
+                              "size-7 rounded text-xs font-semibold transition-colors",
+                              currentDocPage === pageNum
+                                ? "bg-primary text-primary-foreground shadow-xs"
+                                : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                            )}
+                          >
+                            {pageNum}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setDocPage((p) => Math.min(totalDocPages, p + 1))}
+                      disabled={currentDocPage >= totalDocPages}
+                      className="h-7 text-xs px-2"
+                    >
+                      Next <ChevronRight className="size-3.5 ml-0.5" />
+                    </Button>
                   </div>
                 </div>
-              ))}
+              )}
             </div>
           )}
         </section>

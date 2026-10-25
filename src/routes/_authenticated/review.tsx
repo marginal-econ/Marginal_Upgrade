@@ -9,6 +9,7 @@ import {
   BookOpen,
   Calendar,
   CheckCircle2,
+  ChevronLeft,
   ChevronRight,
   ClipboardCheck,
   Dumbbell,
@@ -177,6 +178,24 @@ export function ReviewPanelPage() {
       return p.level === mcqLevelFilter;
     });
   }, [mcqPapers, mcqLevelFilter]);
+
+  const [essayPage, setEssayPage] = useState(1);
+  const essayPageSize = 8;
+  const totalEssayPages = Math.max(1, Math.ceil(filteredEssays.length / essayPageSize));
+  const currentEssayPage = Math.min(essayPage, totalEssayPages);
+  const paginatedEssays = useMemo(() => {
+    const start = (currentEssayPage - 1) * essayPageSize;
+    return filteredEssays.slice(start, start + essayPageSize);
+  }, [filteredEssays, currentEssayPage, essayPageSize]);
+
+  const [mcqPage, setMcqPage] = useState(1);
+  const mcqPageSize = 8;
+  const totalMcqPages = Math.max(1, Math.ceil(filteredMcqPapers.length / mcqPageSize));
+  const currentMcqPage = Math.min(mcqPage, totalMcqPages);
+  const paginatedMcqPapers = useMemo(() => {
+    const start = (currentMcqPage - 1) * mcqPageSize;
+    return filteredMcqPapers.slice(start, start + mcqPageSize);
+  }, [filteredMcqPapers, currentMcqPage, mcqPageSize]);
 
   const isEligible = reviewQuery.data?.eligible === true;
   const reviewData = isEligible ? (reviewQuery.data as Extract<Awaited<ReturnType<typeof getReviewPanel>>, { eligible: true }>) : null;
@@ -444,7 +463,7 @@ export function ReviewPanelPage() {
                 </div>
 
                 <div className="grid gap-2.5">
-                  {filteredMcqPapers.map((paper) => {
+                  {paginatedMcqPapers.map((paper) => {
                     const score = paper.aggregateScore ?? 0;
                     const total = paper.aggregateTotal || 30;
                     const pct = Math.round((score / total) * 100);
@@ -511,6 +530,34 @@ export function ReviewPanelPage() {
                     );
                   })}
                 </div>
+
+                {totalMcqPages > 1 && (
+                  <div className="flex items-center justify-between text-xs text-muted-foreground pt-2">
+                    <span>
+                      Page {currentMcqPage} of {totalMcqPages}
+                    </span>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setMcqPage((p) => Math.max(1, p - 1))}
+                        disabled={currentMcqPage <= 1}
+                        className="h-7 text-xs px-2"
+                      >
+                        <ChevronLeft className="size-3 mr-0.5" /> Prev
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setMcqPage((p) => Math.min(totalMcqPages, p + 1))}
+                        disabled={currentMcqPage >= totalMcqPages}
+                        className="h-7 text-xs px-2"
+                      >
+                        Next <ChevronRight className="size-3 ml-0.5" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </TabsContent>
@@ -525,7 +572,10 @@ export function ReviewPanelPage() {
                   <Input
                     placeholder="Search essays by question…"
                     value={essaySearch}
-                    onChange={(e) => setEssaySearch(e.target.value)}
+                    onChange={(e) => {
+                      setEssaySearch(e.target.value);
+                      setEssayPage(1);
+                    }}
                     className="h-8 pl-8 text-xs"
                   />
                 </div>
@@ -536,7 +586,10 @@ export function ReviewPanelPage() {
                       key={b}
                       variant={essayBandFilter === b ? "default" : "outline"}
                       size="sm"
-                      onClick={() => setEssayBandFilter(b)}
+                      onClick={() => {
+                        setEssayBandFilter(b);
+                        setEssayPage(1);
+                      }}
                       className="h-8 text-xs capitalize"
                     >
                       {b === "all" ? "All Bands" : b === "band1" ? "Band 1 (75%+)" : b === "band2" ? "Band 2 (50-74%)" : "Band 3 (<50%)"}
@@ -574,7 +627,7 @@ export function ReviewPanelPage() {
                 </div>
 
                 <div className="grid gap-2.5">
-                  {filteredEssays.map((essay) => {
+                  {paginatedEssays.map((essay) => {
                     const mark = essay.latest_mark ?? 0;
                     const max = essay.max_mark ?? 12;
                     const pct = max > 0 ? Math.round((mark / max) * 100) : 0;
@@ -629,6 +682,34 @@ export function ReviewPanelPage() {
                     );
                   })}
                 </div>
+
+                {totalEssayPages > 1 && (
+                  <div className="flex items-center justify-between text-xs text-muted-foreground pt-2">
+                    <span>
+                      Page {currentEssayPage} of {totalEssayPages} ({filteredEssays.length} essays)
+                    </span>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setEssayPage((p) => Math.max(1, p - 1))}
+                        disabled={currentEssayPage <= 1}
+                        className="h-7 text-xs px-2"
+                      >
+                        <ChevronLeft className="size-3 mr-0.5" /> Prev
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setEssayPage((p) => Math.min(totalEssayPages, p + 1))}
+                        disabled={currentEssayPage >= totalEssayPages}
+                        className="h-7 text-xs px-2"
+                      >
+                        Next <ChevronRight className="size-3 ml-0.5" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </TabsContent>
