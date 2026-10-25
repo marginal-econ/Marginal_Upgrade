@@ -8,7 +8,6 @@ import {
   CheckCircle2,
   Clock,
   Copy,
-  CreditCard,
   Download,
   GraduationCap,
   HelpCircle,
@@ -23,7 +22,6 @@ import {
   Sliders,
   Sparkles,
   User,
-  Zap,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -33,7 +31,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Progress } from "@/components/ui/progress";
 import {
   Select,
   SelectContent,
@@ -179,12 +176,6 @@ export function SettingsPage() {
       toast.error("Failed to export data.");
     }
   };
-
-  const sub = me.data?.subscription;
-  const essaysUsed = sub?.essaysGradedCount ?? 0;
-  const essaysLimit = sub?.essaysLimit ?? 5;
-  const essaysRemaining = sub?.essaysRemaining ?? 0;
-  const quotaPercent = essaysLimit > 0 ? Math.min(100, Math.round((essaysUsed / essaysLimit) * 100)) : 0;
 
   return (
     <div>
@@ -509,65 +500,8 @@ export function SettingsPage() {
               </div>
             </div>
 
-            {/* Right Column: Quotas, Subscription & Security */}
+            {/* Right Column: Grounding & Security */}
             <div className="space-y-6">
-              {/* Active Plan & Quotas Card */}
-              <div className="rounded-2xl border border-border/80 bg-card p-5 shadow-xs space-y-4">
-                <div className="flex items-center justify-between border-b border-border/80 pb-3">
-                  <div className="flex items-center gap-2">
-                    <CreditCard className="size-4 text-primary" />
-                    <h3 className="text-xs sm:text-sm font-bold text-foreground">Active Plan &amp; Quotas</h3>
-                  </div>
-                  <Badge className="bg-primary/20 text-primary border-primary/30 text-[10px] font-bold">
-                    {sub?.tierName || "Free Tier"}
-                  </Badge>
-                </div>
-
-                <div className="space-y-3">
-                  <div className="space-y-1.5">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-muted-foreground">Monthly Essay Marking Quota</span>
-                      <span className="font-bold tabular-nums">
-                        {essaysUsed} / {essaysLimit} used
-                      </span>
-                    </div>
-                    <Progress value={quotaPercent} className="h-2" />
-                    <p className="text-[10.5px] text-muted-foreground">
-                      {essaysRemaining > 0
-                        ? `${essaysRemaining} essay gradings remaining this billing period.`
-                        : "Monthly limit reached. Submissions reset next month."}
-                    </p>
-                  </div>
-
-                  <div className="rounded-xl border border-border/80 bg-muted/30 p-3 space-y-2 text-xs">
-                    <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Live Examiner AI Credits:</span>
-                      <strong className="font-mono text-foreground">
-                        {sub?.liveExaminerCredits ?? 0} sessions
-                      </strong>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">MCQ Past Papers Library:</span>
-                      <strong className="text-emerald-600 dark:text-emerald-400 font-semibold">
-                        Unlimited Access
-                      </strong>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Question Bank Access:</span>
-                      <strong className="text-emerald-600 dark:text-emerald-400 font-semibold">
-                        370+ Questions
-                      </strong>
-                    </div>
-                  </div>
-
-                  <Button asChild className="w-full text-xs font-semibold h-8.5">
-                    <Link to="/pricing">
-                      <Zap className="size-3.5 mr-1 text-amber-400 fill-amber-400" /> Upgrade / View Plans
-                    </Link>
-                  </Button>
-                </div>
-              </div>
-
               {/* Cambridge 9708 Knowledge Grounding Status */}
               <div className="rounded-2xl border border-primary/30 bg-primary/[0.03] p-5 shadow-xs space-y-3 text-xs">
                 <div className="flex items-center gap-2">
