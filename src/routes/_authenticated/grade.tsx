@@ -1067,7 +1067,7 @@ function GradePage() {
                 ...(auditPass ? [{ label: "Independent moderation & multi-key verification", weight: 2 }] : []),
                 { label: "Synthesizing diagnostic examiner report & actionable feedback", weight: 2 },
               ]}
-              totalMs={85_000}
+              totalMs={300_000}
             />
           ) : result ? (
             <div className="space-y-4">

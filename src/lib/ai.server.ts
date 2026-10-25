@@ -9,7 +9,6 @@ import {
   getPrioritizedKeyOrder,
   getActiveEmbeddingProvider,
   getActiveProvider,
-  getChatProviderChain,
   getActiveVisionProvider,
   getAiGatewaySettings,
 } from "./ai/active.server";
@@ -183,54 +182,16 @@ export async function chat(rawOptions: ChatOptions): Promise<ChatResult> {
     }
     const options = applyAiGatewayMode(rawOptions, gateway.mode);
 
-    const explicitOverride = options.overrideProvider !== undefined;
-    const providerChain: ProviderConfig[] = explicitOverride
-      ? (options.overrideProvider ? [options.overrideProvider] : [])
-      : await getChatProviderChain();
+    const override =
+      options.overrideProvider !== undefined ? options.overrideProvider : await getActiveProvider();
 
-    if (providerChain.length > 0) {
-      let lastProviderErr: Error | null = null;
-      for (let pIdx = 0; pIdx < providerChain.length; pIdx++) {
-        const currentProvider = providerChain[pIdx]!;
-        const isProviderHop = pIdx > 0;
-        try {
-          if (isProviderHop) {
-            console.warn(
-              `[chat] Primary provider failed or exhausted. Auto-hopping cross-provider to ${currentProvider.provider} (${currentProvider.model}) with ${currentProvider.apiKeys?.length || 1} keys...`,
-            );
-            try {
-              const { supabaseAdmin } = await import("@/integrations/backend/client.server");
-              await supabaseAdmin.from("ai_usage_log").insert({
-                user_id: options.userId ?? null,
-                feature: (options.feature ?? "chat") + "_provider_hop",
-                model: currentProvider.model,
-                latency_ms: Date.now() - started,
-                ok: false,
-                error_message: `Cross-provider failover: hopped to ${currentProvider.provider} (${currentProvider.model}).`,
-              });
-            } catch {}
-          }
-
-          const provResult = await chatViaProvider(currentProvider, options);
-          result = {
-            ...provResult,
-            model: provResult.model,
-            modelSwapped: isProviderHop ? true : provResult.modelSwapped,
-            latencyMs: Date.now() - started,
-          };
-          return result;
-        } catch (provErr: any) {
-          lastProviderErr = provErr instanceof Error ? provErr : new Error(String(provErr));
-          console.error(
-            `[chat] Provider ${currentProvider.provider} (${currentProvider.model}) failed across all its keys:`,
-            lastProviderErr.message,
-          );
-          if (pIdx + 1 < providerChain.length) {
-            continue; // Cross-provider hop to next provider in chain (e.g. Google -> Mistral)
-          }
-          throw provErr;
-        }
-      }
+    if (override) {
+      // chatViaProvider retries its own fetch internally (see below) — don't
+      // wrap it again here, or a real rate limit waits through two nested
+      // backoff sequences instead of one.
+      const provResult = await chatViaProvider(override, options);
+      result = { ...provResult, latencyMs: Date.now() - started };
+      return result;
     }
 
     if (!readEnv("LOVABLE_API_KEY")) {
@@ -519,7 +480,7 @@ async function chatViaProvider(
   const candidateModels =
     config.provider === "google"
       ? ["gemini-3.8-flash"]
-      : [config.model || (config.provider === "mistral" ? "mistral-large-latest" : "gpt-4o-mini")];
+      : [config.model];
 
   let usedModel = candidateModels[0];
   let successfulKeyIdx = 0;
@@ -535,8 +496,8 @@ async function chatViaProvider(
       for (let kIdx = 0; kIdx < activeKeysToTry.length; kIdx++) {
         const currentKey = activeKeysToTry[kIdx]!;
         const keyStarted = Date.now();
-        // 45s socket ceiling per key guarantees warm failover before Cloudflare's 100-120s worker limit
-        const timeoutMs = 45_000;
+        // 300s timeout: single key runs up to 300 seconds without jumping unless limit or model error occurs
+        const timeoutMs = 300_000;
         try {
           const response = await fetch(`${config.baseUrl}/chat/completions`, {
             method: "POST",
