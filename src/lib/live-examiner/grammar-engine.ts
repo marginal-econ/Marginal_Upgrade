@@ -1006,6 +1006,11 @@ export function analyzeGrammarAndMechanics(sentences: string[]): GrammarRuleIssu
 
       while ((match = regex.exec(sentence)) !== null) {
         const matchedText = match[0];
+        // Absolute safeguard: Capital 'I' is always valid and must never be flagged
+        if (matchedText === "I") {
+          if (!regex.global) break;
+          continue;
+        }
         const lowerMatched = matchedText.toLowerCase().trim();
 
         if (CAMBRIDGE_ECONOMICS_WHITELIST.has(lowerMatched)) {

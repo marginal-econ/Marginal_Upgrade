@@ -19,7 +19,7 @@ import {
   Users,
   Zap,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 
@@ -52,7 +52,10 @@ import {
 } from "@/lib/diagrams.functions";
 import { checkQuestionGrounding, gradeEssaySubmission } from "@/lib/grading.functions";
 import { checkWritingQuality } from "@/lib/writing-check.functions";
+import { analyzeGrammarAndMechanics } from "@/lib/live-examiner/grammar-engine";
+import { splitSentences } from "@/lib/writing-check/sentence-diff";
 import { getMe } from "@/lib/account.functions";
+import { cn } from "@/lib/utils";
 import type { Grading } from "@/lib/examiner/types";
 
 // Optional prefill from the Question bank ("Practice this" links here with
@@ -101,8 +104,14 @@ type WritingIssue = {
   suggestion: string;
   type: "spelling" | "grammar";
   context: string;
+  explanation?: string;
 };
-type WritingCheck = { issues: WritingIssue[]; correctedText: string; clean: boolean };
+type WritingCheck = {
+  issues: WritingIssue[];
+  correctedText: string;
+  clean: boolean;
+  engine?: "in_house" | "ai";
+};
 
 type AttachedDiagram = { id: string; label: string; tag: string };
 
@@ -243,6 +252,7 @@ function GradePage() {
 
   const [writingCheck, setWritingCheck] = useState<WritingCheck | null>(null);
   const [checkedTextSnapshot, setCheckedTextSnapshot] = useState<string | null>(null);
+  const [grammarCheckEngine, setGrammarCheckEngine] = useState<"in_house" | "ai">("in_house");
   const resultRef = useRef<HTMLDivElement>(null);
 
   const diagramLibraryQuery = useQuery({
@@ -300,12 +310,58 @@ function GradePage() {
     }
   }
 
+  const runInHouseCheck = useCallback(() => {
+    if (!essayText.trim() || essayText.trim().split(/\s+/).length < 5) {
+      toast.info("Please write at least a few sentences before running grammar check.");
+      return;
+    }
+    const sentences = splitSentences(essayText);
+    const rawIssues = analyzeGrammarAndMechanics(sentences);
+    // Explicit safeguard: Never flag capital "I"
+    const safeIssues = rawIssues.filter((iss) => iss.original.trim() !== "I");
+
+    let workingText = essayText;
+    for (const iss of safeIssues) {
+      if (iss.original && iss.suggestion && iss.original !== iss.suggestion) {
+        workingText = workingText.split(iss.original).join(iss.suggestion);
+      }
+    }
+
+    const formattedIssues: WritingIssue[] = safeIssues.map((iss) => ({
+      original: iss.original,
+      suggestion: iss.suggestion,
+      type: iss.category === "grammar" ? "grammar" : "spelling",
+      context: iss.context,
+      explanation: iss.explanation,
+    }));
+
+    setWritingCheck({
+      issues: formattedIssues,
+      correctedText: workingText,
+      clean: formattedIssues.length === 0,
+      engine: "in_house",
+    });
+    setCheckedTextSnapshot(essayText);
+    if (formattedIssues.length === 0) {
+      toast.success("In-House Engine: No grammar issues or economic misconceptions found.");
+    } else {
+      toast.info(`In-House Engine: Found ${formattedIssues.length} suggestion${formattedIssues.length === 1 ? "" : "s"}.`);
+    }
+  }, [essayText]);
+
   const checkMutation = useMutation({
     mutationFn: () => checkWriting({ data: { essayText } }),
     onSuccess: (data) => {
-      setWritingCheck(data as WritingCheck);
+      // Safeguard: Filter out any accidental capital "I" issue
+      const issues = (data.issues as WritingIssue[]).filter((iss) => iss.original.trim() !== "I");
+      setWritingCheck({
+        issues,
+        correctedText: data.correctedText,
+        clean: issues.length === 0,
+        engine: "ai",
+      });
       setCheckedTextSnapshot(essayText);
-      if (data.clean) toast.success("No spelling or grammar issues found.");
+      if (issues.length === 0) toast.success("AI Proofreader: No spelling or grammar issues found.");
     },
     onError: (error: Error) => toast.error(error.message),
   });
@@ -395,7 +451,11 @@ function GradePage() {
       return;
     }
     if (!readyToMark) {
-      checkMutation.mutate();
+      if (grammarCheckEngine === "in_house") {
+        runInHouseCheck();
+      } else {
+        checkMutation.mutate();
+      }
       return;
     }
     mutation.mutate();
@@ -834,6 +894,89 @@ function GradePage() {
                 }
               }}
             />
+
+            {spellCheckEnabled && (
+              <div className="pt-3 border-t border-border/60 space-y-2.5 animate-in fade-in duration-200">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-semibold text-foreground flex items-center gap-1.5">
+                    <SpellCheck className="size-3.5 text-primary" /> Proofreading Engine
+                  </span>
+                  <span className="text-[11px] text-muted-foreground">Select preferred checker</span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setGrammarCheckEngine("in_house");
+                      setWritingCheck(null);
+                    }}
+                    className={cn(
+                      "flex flex-col text-left p-2.5 rounded-lg border text-xs transition-all cursor-pointer",
+                      grammarCheckEngine === "in_house"
+                        ? "border-primary bg-primary/10 shadow-xs ring-1 ring-primary/40"
+                        : "border-border/80 bg-background/60 hover:bg-background"
+                    )}
+                  >
+                    <span className="font-bold flex items-center gap-1.5 text-foreground">
+                      <Zap className="size-3 text-amber-500 fill-amber-500" /> In-House Cambridge Engine
+                    </span>
+                    <span className="text-[10.5px] text-muted-foreground mt-0.5 leading-relaxed">
+                      0ms instant · Subject terminology &amp; misconceptions · Zero tokens
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setGrammarCheckEngine("ai");
+                      setWritingCheck(null);
+                    }}
+                    className={cn(
+                      "flex flex-col text-left p-2.5 rounded-lg border text-xs transition-all cursor-pointer",
+                      grammarCheckEngine === "ai"
+                        ? "border-primary bg-primary/10 shadow-xs ring-1 ring-primary/40"
+                        : "border-border/80 bg-background/60 hover:bg-background"
+                    )}
+                  >
+                    <span className="font-bold flex items-center gap-1.5 text-foreground">
+                      <Sparkles className="size-3 text-primary" /> AI Deep Proofreader
+                    </span>
+                    <span className="text-[10.5px] text-muted-foreground mt-0.5 leading-relaxed">
+                      Comprehensive neural proofreading · Contextual suggestions
+                    </span>
+                  </button>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2 pt-1">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={runInHouseCheck}
+                    disabled={words < 5}
+                    className="h-7 text-xs gap-1.5"
+                  >
+                    <Zap className="size-3 text-amber-500 fill-amber-500" /> Check with In-House Engine (0ms)
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => checkMutation.mutate()}
+                    disabled={checkMutation.isPending || words < 5}
+                    className="h-7 text-xs gap-1.5"
+                  >
+                    {checkMutation.isPending ? (
+                      <Loader2 className="size-3 animate-spin text-primary" />
+                    ) : (
+                      <Sparkles className="size-3 text-primary" />
+                    )}
+                    Check with AI
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
 
           {spellCheckEnabled && writingCheck && !checkIsStale ? (
@@ -923,7 +1066,7 @@ function GradePage() {
                 ...(auditPass ? [{ label: "Independent moderation & multi-key verification", weight: 2 }] : []),
                 { label: "Synthesizing diagnostic examiner report & actionable feedback", weight: 2 },
               ]}
-              totalMs={auditPass ? 35_000 : 25_000}
+              totalMs={190_000}
             />
           ) : result ? (
             <div className="space-y-4">
@@ -957,45 +1100,68 @@ function GradePage() {
 }
 
 function WritingCheckPanel({ check, onAccept }: { check: WritingCheck; onAccept: () => void }) {
-  if (check.clean) {
+  const isClean = check.clean || check.issues.length === 0;
+
+  if (isClean) {
     return (
-      <div className="flex items-center gap-2 rounded-lg border border-emerald-600/30 bg-emerald-600/5 p-3 text-sm text-emerald-700 dark:text-emerald-400">
-        <CheckCircle2 className="size-4 shrink-0" /> No spelling or grammar issues found — ready to
-        mark.
+      <div className="flex items-center justify-between gap-2 rounded-lg border border-emerald-600/30 bg-emerald-600/5 p-3 text-sm text-emerald-700 dark:text-emerald-400">
+        <div className="flex items-center gap-2">
+          <CheckCircle2 className="size-4 shrink-0" />
+          <span>
+            {check.engine === "in_house" ? "In-House Engine: " : "AI Proofread: "}
+            No spelling, grammar, or terminology issues found — ready to mark.
+          </span>
+        </div>
+        <Badge variant="outline" className="border-emerald-500/40 text-emerald-600 text-[10px] font-mono">
+          {check.engine === "in_house" ? "0ms Verified" : "AI Clean"}
+        </Badge>
       </div>
     );
   }
 
   return (
-    <div className="space-y-3 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
-      <div className="flex items-center gap-2 text-sm font-medium text-amber-700 dark:text-amber-400">
-        <AlertCircle className="size-4 shrink-0" />
-        {check.issues.length} spelling/grammar issue{check.issues.length === 1 ? "" : "s"} found
+    <div className="space-y-3 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3.5">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2 text-sm font-semibold text-amber-700 dark:text-amber-400">
+          <AlertCircle className="size-4 shrink-0" />
+          <span>
+            {check.issues.length} {check.engine === "in_house" ? "In-House" : "AI"} suggestion{check.issues.length === 1 ? "" : "s"} found
+          </span>
+        </div>
+        <Badge variant="outline" className="text-[10px] bg-background/80 font-mono">
+          {check.engine === "in_house" ? "⚡ Cambridge Whitelisted" : "✨ AI Proofreader"}
+        </Badge>
       </div>
-      <ul className="max-h-48 space-y-2 overflow-y-auto text-xs">
+
+      <ul className="max-h-56 space-y-2 overflow-y-auto text-xs pr-1">
         {check.issues.map((issue, index) => (
-          <li key={index} className="rounded-md border border-border bg-background p-2">
+          <li key={index} className="rounded-md border border-border bg-background p-2.5 space-y-1 shadow-2xs">
             <div className="flex flex-wrap items-center gap-1.5">
-              <Badge variant="outline" className="text-[10px] capitalize">
+              <Badge variant="outline" className="text-[10px] capitalize font-mono">
                 {issue.type}
               </Badge>
-              <span className="text-destructive line-through">{issue.original}</span>
-              <span>→</span>
-              <span className="font-medium">{issue.suggestion}</span>
+              <span className="text-destructive font-mono line-through font-medium">{issue.original}</span>
+              <span className="text-muted-foreground">→</span>
+              <span className="font-semibold text-emerald-600 dark:text-emerald-400 font-mono">{issue.suggestion}</span>
             </div>
-            {issue.context ? <p className="mt-1 text-muted-foreground">"{issue.context}"</p> : null}
+            {issue.explanation && (
+              <p className="text-[11px] text-foreground font-medium">{issue.explanation}</p>
+            )}
+            {issue.context ? (
+              <p className="text-[11px] text-muted-foreground italic">"{issue.context}"</p>
+            ) : null}
           </li>
         ))}
       </ul>
-      <div className="flex gap-2">
-        <Button type="button" size="sm" onClick={onAccept}>
-          Apply corrections
+
+      <div className="flex items-center justify-between pt-1 border-t border-border/60">
+        <Button type="button" size="sm" onClick={onAccept} className="h-8 text-xs font-semibold">
+          Apply corrections ({check.issues.length})
         </Button>
+        <span className="text-[11px] text-muted-foreground">
+          Economics content &amp; marks are never altered.
+        </span>
       </div>
-      <p className="text-[11px] text-muted-foreground">
-        These are spelling/grammar fixes only — economics content and marks are never changed by
-        this check. You can also mark the essay as originally written.
-      </p>
     </div>
   );
 }

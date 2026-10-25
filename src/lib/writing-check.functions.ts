@@ -11,6 +11,7 @@ const CheckSystemPrompt = `You are a careful proofreader checking a student's Ca
 
 Rules:
 - Find genuine spelling mistakes, typos, and grammar errors (subject-verb agreement, tense, punctuation, missing words, run-on sentences).
+- NEVER flag the first-person pronoun 'I' (capital I) as an error, informal tone, or passive-voice violation. In Cambridge 9708 Economics essays, candidates are permitted to use 'I' for signposting evaluative judgments (e.g. 'I will evaluate', 'I conclude that'). Treat capital 'I' as completely correct.
 - Do NOT flag economics terminology, technical jargon, or [DIAGRAM: ...] tags as errors — these are correct as written even if they look unusual.
 - Do NOT suggest rewording for style, tone, or argument strength. Only fix what is factually a spelling or grammar error.
 - If the essay contains a [DIAGRAM: ...] tag, leave it completely untouched in the corrected text.
@@ -65,7 +66,12 @@ export const checkWritingQuality = createServerFn({ method: "POST" })
             context: typeof record.context === "string" ? record.context : "",
           };
         })
-        .filter((item): item is NonNullable<typeof item> => item !== null)
+        .filter((item): item is NonNullable<typeof item> => {
+          if (!item) return false;
+          // Absolute safeguard: Never flag capital "I"
+          if (item.original.trim() === "I") return false;
+          return true;
+        })
         .slice(0, 40);
 
       const correctedText =
