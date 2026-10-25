@@ -34,7 +34,7 @@ import {
 } from "./config";
 import { EXAMINER_PROMPT } from "./examiner-prompt";
 import { extractFirstJsonObject } from "./json";
-import { normaliseGrading, type Grading, type GroundingSource } from "./types";
+import { bandFor, normaliseGrading, type Grading, type GroundingSource } from "./types";
 
 /** Fill `{placeholder}` tokens in the ported prompt templates. */
 function loadPrompt(template: string, values: Record<string, string | number>): string {
@@ -211,142 +211,398 @@ export async function gradeEssay(
     `Exam question (${maxMark} marks):\n\n${question}\n\n` +
     `Student essay to mark:\n\n${essayText}${imageNote}`;
 
-  const first = markSchemeImages.length
-    ? await visionChat({
-        model: MODEL_EXAMINER,
-        systemPrompt,
-        prompt: userMessage,
-        imageDataUrls: markSchemeImages,
-        maxCompletionTokens: 8000,
-        userId: options.userId,
-        feature: "grade_essay",
-      })
-    : await chat({
-        model: MODEL_EXAMINER,
-        temperature: TEMPERATURE_EXAMINER,
-        json: true,
-        isBudgetTier: options.isBudgetTier,
-        userId: options.userId,
-        feature: "grade_essay",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userMessage },
-        ],
-      });
+  let grading: Grading;
+  let promptTokens: number | null = null;
+  let completionTokens: number | null = null;
+  let latencyMs = 0;
+  let activeModel = MODEL_EXAMINER;
+  let keyRotated = false;
+  let modelSwapped = false;
+  let activeKeyType: "primary" | "backup_pool" | "vip_fallback" | undefined = undefined;
 
-  let grading = normaliseGrading(extractFirstJsonObject(first.text), maxMark, split);
-  if (grading.off_syllabus) {
-    throw new OffSyllabusError(
-      grading.detected_subject || "another subject",
-      grading.examiner_summary || "The examiner flagged this submission as outside the Cambridge 9708 Economics syllabus.",
-    );
-  }
-  let promptTokens = first.promptTokens;
-  let completionTokens = first.completionTokens;
-  let latencyMs = first.latencyMs;
+  // Distributed Specialist Swarm:
+  // When no mark scheme images are present, we evaluate AO1 (Knowledge), AO2 (Analysis),
+  // and AO3 (Evaluation) concurrently in parallel across independent rotated API keys.
+  // This eliminates cognitive dilution, prevents AO halo bias, and slashes grading latency.
+  let swarmOutcome: {
+    grading: Grading;
+    promptTokens: number;
+    completionTokens: number;
+    latencyMs: number;
+    model: string;
+  } | null = null;
 
-  // --- audit pass ----------------------------------------------------------
-  // To protect students from Cloudflare 524 gateway timeouts (100s ceiling),
-  // we only run the audit pass if the primary examiner completed within 18s.
-  // The audit pass itself is protected with a 10s timeout, guaranteeing total
-  // response time stays under 25-30s.
-  if (options.auditPass !== false && first.latencyMs < 18_000) {
-    const auditSystemPrompt = `${loadPrompt(AUDIT_PROMPT, promptValues)}\n\n${RESPONSE_CONTRACT}`;
-    const auditUserMessage =
-      `Exam question (${maxMark} marks):\n\n${question}\n\n` +
-      `Student essay:\n\n${essayText}\n\n` +
-      `Original examiner's grading JSON to audit:\n\n${JSON.stringify(grading, null, 2)}${imageNote}`;
-
+  if (markSchemeImages.length === 0) {
     try {
-      const secondPromise = markSchemeImages.length
-        ? visionChat({
-            model: MODEL_EXAMINER,
-            systemPrompt: auditSystemPrompt,
-            prompt: auditUserMessage,
-            imageDataUrls: markSchemeImages,
-            maxCompletionTokens: 8000,
-            userId: options.userId,
-            feature: "grade_essay_audit",
-          })
-        : chat({
-            model: MODEL_EXAMINER,
-            temperature: TEMPERATURE_EXAMINER,
-            json: true,
-            isBudgetTier: options.isBudgetTier,
-            userId: options.userId,
-            feature: "grade_essay_audit",
-            messages: [
-              { role: "system", content: auditSystemPrompt },
-              { role: "user", content: auditUserMessage },
-            ],
-          });
+      swarmOutcome = await runSpecialistSwarm(
+        question,
+        essayText,
+        maxMark,
+        split,
+        sources.length > 0 ? renderContext(sources) : "",
+        options,
+      );
+    } catch (swarmErr) {
+      console.warn("[grade.server] Specialist swarm encounter, falling back to unified examiner:", swarmErr);
+      swarmOutcome = null;
+    }
+  }
 
-      const second = await Promise.race([
-        secondPromise,
-        new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error("Audit pass exceeded 10s timeout")), 10_000),
-        ),
-      ]);
+  if (swarmOutcome) {
+    grading = swarmOutcome.grading;
+    promptTokens = swarmOutcome.promptTokens;
+    completionTokens = swarmOutcome.completionTokens;
+    latencyMs = swarmOutcome.latencyMs;
+    activeModel = swarmOutcome.model;
+    keyRotated = true; // Rotated across specialist keys
+  } else {
+    // Authoritative Single-Shot Path (for image mark schemes or swarm fallback)
+    const first = markSchemeImages.length
+      ? await visionChat({
+          model: MODEL_EXAMINER,
+          systemPrompt,
+          prompt: userMessage,
+          imageDataUrls: markSchemeImages,
+          maxCompletionTokens: 8000,
+          userId: options.userId,
+          feature: "grade_essay",
+        })
+      : await chat({
+          model: MODEL_EXAMINER,
+          temperature: TEMPERATURE_EXAMINER,
+          json: true,
+          isBudgetTier: options.isBudgetTier,
+          userId: options.userId,
+          feature: "grade_essay",
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userMessage },
+          ],
+        });
 
-      const secondGrading = normaliseGrading(extractFirstJsonObject(second.text), maxMark, split);
-      secondGrading.audited = true;
-      promptTokens = (promptTokens ?? 0) + (second.promptTokens ?? 0);
-      completionTokens = (completionTokens ?? 0) + (second.completionTokens ?? 0);
-      latencyMs += second.latencyMs;
+    grading = normaliseGrading(extractFirstJsonObject(first.text), maxMark, split);
+    if (grading.off_syllabus) {
+      throw new OffSyllabusError(
+        grading.detected_subject || "another subject",
+        grading.examiner_summary || "The examiner flagged this submission as outside the Cambridge 9708 Economics syllabus.",
+      );
+    }
+    promptTokens = first.promptTokens;
+    completionTokens = first.completionTokens;
+    latencyMs = first.latencyMs;
+    activeModel = first.model || MODEL_EXAMINER;
+    keyRotated = Boolean(first.keyRotated);
+    modelSwapped = Boolean(first.modelSwapped);
+    activeKeyType = first.activeKeyType;
 
-      // --- Stage 3: Selective Principal Examiner Arbitration ---
-      // Triggered only when a material discrepancy or grade band contradiction
-      // exists between the Primary Examiner and Independent Moderator.
-      const disputeCheck = shouldTriggerArbitration(grading, secondGrading, maxMark);
-      if (disputeCheck.shouldArbitrate && latencyMs < 25_000) {
-        try {
-          const arbitrated = await Promise.race([
-            arbitrateGrading({
-              question,
-              essayText,
-              maxMark,
-              split,
-              examinerGrading: grading,
-              moderatorGrading: secondGrading,
-              disputeReason: disputeCheck.reason,
-            }),
-            new Promise<never>((_, reject) =>
-              setTimeout(() => reject(new Error("Arbitration exceeded 8s timeout")), 8_000),
-            ),
-          ]);
-          grading = arbitrated;
-        } catch (arbitrationError) {
-          console.warn(
-            "Arbitration pass timed out or failed; falling back to moderated grade",
-            arbitrationError,
-          );
+    // --- audit pass (for single-shot pass) -----------------------------------
+    if (options.auditPass !== false && first.latencyMs < 18_000) {
+      const auditSystemPrompt = `${loadPrompt(AUDIT_PROMPT, promptValues)}\n\n${RESPONSE_CONTRACT}`;
+      const auditUserMessage =
+        `Exam question (${maxMark} marks):\n\n${question}\n\n` +
+        `Student essay:\n\n${essayText}\n\n` +
+        `Original examiner's grading JSON to audit:\n\n${JSON.stringify(grading, null, 2)}${imageNote}`;
+
+      try {
+        const secondPromise = markSchemeImages.length
+          ? visionChat({
+              model: MODEL_EXAMINER,
+              systemPrompt: auditSystemPrompt,
+              prompt: auditUserMessage,
+              imageDataUrls: markSchemeImages,
+              maxCompletionTokens: 8000,
+              userId: options.userId,
+              feature: "grade_essay_audit",
+            })
+          : chat({
+              model: MODEL_EXAMINER,
+              temperature: TEMPERATURE_EXAMINER,
+              json: true,
+              isBudgetTier: options.isBudgetTier,
+              userId: options.userId,
+              feature: "grade_essay_audit",
+              messages: [
+                { role: "system", content: auditSystemPrompt },
+                { role: "user", content: auditUserMessage },
+              ],
+            });
+
+        const second = await Promise.race([
+          secondPromise,
+          new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error("Audit pass exceeded 10s timeout")), 10_000),
+          ),
+        ]);
+
+        const secondGrading = normaliseGrading(extractFirstJsonObject(second.text), maxMark, split);
+        secondGrading.audited = true;
+        promptTokens = (promptTokens ?? 0) + (second.promptTokens ?? 0);
+        completionTokens = (completionTokens ?? 0) + (second.completionTokens ?? 0);
+        latencyMs += second.latencyMs;
+
+        const disputeCheck = shouldTriggerArbitration(grading, secondGrading, maxMark);
+        if (disputeCheck.shouldArbitrate && latencyMs < 25_000) {
+          try {
+            const arbitrated = await Promise.race([
+              arbitrateGrading({
+                question,
+                essayText,
+                maxMark,
+                split,
+                examinerGrading: grading,
+                moderatorGrading: secondGrading,
+                disputeReason: disputeCheck.reason,
+              }),
+              new Promise<never>((_, reject) =>
+                setTimeout(() => reject(new Error("Arbitration exceeded 8s timeout")), 8_000),
+              ),
+            ]);
+            grading = arbitrated;
+          } catch (arbitrationError) {
+            console.warn(
+              "Arbitration pass timed out or failed; falling back to moderated grade",
+              arbitrationError,
+            );
+            grading = secondGrading;
+            grading.confidence = computeObjectiveConfidence(grading, secondGrading, false);
+          }
+        } else {
           grading = secondGrading;
           grading.confidence = computeObjectiveConfidence(grading, secondGrading, false);
         }
-      } else {
-        grading = secondGrading;
-        grading.confidence = computeObjectiveConfidence(grading, secondGrading, false);
+      } catch (error) {
+        console.warn("Audit pass skipped or timed out; returning authoritative first-pass grading", error);
       }
-    } catch (error) {
-      // The audit is a correction pass, not a gate. A transient audit failure
-      // returns the already-valid first-pass result instead of failing.
-      console.warn("Audit pass skipped or timed out; returning authoritative first-pass grading", error);
     }
   }
 
   grading.sources = sources;
   grading.anchorsUsed = anchors.length;
   grading.grounding_status = groundingStatus;
-  grading.model = first.model || MODEL_EXAMINER;
-  grading.keyRotated = first.keyRotated;
-  grading.modelSwapped = first.modelSwapped;
-  grading.activeKeyType = first.activeKeyType;
+  grading.model = activeModel;
+  grading.keyRotated = keyRotated;
+  grading.modelSwapped = modelSwapped;
+  grading.activeKeyType = activeKeyType;
 
   return {
     grading,
-    model: first.model || MODEL_EXAMINER,
+    model: activeModel,
     promptTokens,
     completionTokens,
     latencyMs,
+  };
+}
+
+/**
+ * Distributed Specialist Swarm:
+ * Evaluates AO1 Knowledge, AO2 Analysis, and AO3 Evaluation concurrently
+ * across dedicated specialist prompts and rotated API keys.
+ */
+async function runSpecialistSwarm(
+  question: string,
+  essayText: string,
+  maxMark: number,
+  split: AoSplit,
+  groundingContext: string,
+  options: GradeOptions,
+): Promise<{
+  grading: Grading;
+  promptTokens: number;
+  completionTokens: number;
+  latencyMs: number;
+  model: string;
+} | null> {
+  const swarmStart = Date.now();
+  const { ao1_marks, ao2_marks, ao3_marks } = split;
+
+  // Lane 1: Specialist AO1 (Knowledge & Understanding)
+  const ao1Promise = chat({
+    model: MODEL_EXAMINER,
+    temperature: TEMPERATURE_EXAMINER,
+    json: true,
+    isBudgetTier: options.isBudgetTier,
+    userId: options.userId,
+    feature: "grade_specialist_ao1",
+    maxCompletionTokens: 1200,
+    messages: [
+      {
+        role: "system",
+        content: `You are an expert Cambridge 9708 Economics Examiner evaluating Assessment Objective 1 (Knowledge and Understanding).\n` +
+          `Question (${maxMark} marks total, AO1 tariff: ${ao1_marks} marks):\n${question}\n\n` +
+          `${groundingContext ? `Official Grounding Context:\n${groundingContext}\n\n` : ""}` +
+          `Audit the student's economic definitions, terminology, foundational models, and theoretical accuracy.\n` +
+          `Award marks strictly between 0 and ${ao1_marks}.\n` +
+          `Return ONLY a JSON object: {"awarded": number, "comment": string, "strengths": string[], "missing_definitions": string[]}`,
+      },
+      { role: "user", content: `Student essay to mark:\n\n${essayText}` },
+    ],
+  });
+
+  // Lane 2: Specialist AO2 (Analysis & Diagrams)
+  const ao2Promise = chat({
+    model: MODEL_EXAMINER,
+    temperature: TEMPERATURE_EXAMINER,
+    json: true,
+    isBudgetTier: options.isBudgetTier,
+    userId: options.userId,
+    feature: "grade_specialist_ao2",
+    maxCompletionTokens: 1200,
+    messages: [
+      {
+        role: "system",
+        content: `You are an expert Cambridge 9708 Economics Examiner evaluating Assessment Objective 2 (Analysis).\n` +
+          `Question (${maxMark} marks total, AO2 tariff: ${ao2_marks} marks):\n${question}\n\n` +
+          `${groundingContext ? `Official Grounding Context:\n${groundingContext}\n\n` : ""}` +
+          `Audit cause-and-effect transmission chains, economic logic, diagrams/curves, and analytical depth.\n` +
+          `Award marks strictly between 0 and ${ao2_marks}.\n` +
+          `Return ONLY a JSON object: {"awarded": number, "comment": string, "missing_analysis": string[], "missing_diagrams": string[]}`,
+      },
+      { role: "user", content: `Student essay to mark:\n\n${essayText}` },
+    ],
+  });
+
+  // Lane 3: Specialist AO3 (Evaluation & Judgment)
+  const ao3Promise =
+    ao3_marks > 0
+      ? chat({
+          model: MODEL_EXAMINER,
+          temperature: TEMPERATURE_EXAMINER,
+          json: true,
+          isBudgetTier: options.isBudgetTier,
+          userId: options.userId,
+          feature: "grade_specialist_ao3",
+          maxCompletionTokens: 1200,
+          messages: [
+            {
+              role: "system",
+              content: `You are an expert Cambridge 9708 Economics Examiner evaluating Assessment Objective 3 (Evaluation).\n` +
+                `Question (${maxMark} marks total, AO3 tariff: ${ao3_marks} marks):\n${question}\n\n` +
+                `${groundingContext ? `Official Grounding Context:\n${groundingContext}\n\n` : ""}` +
+                `Audit critical evaluation: ceteris paribus assumptions, short-run vs long-run distinctions, stakeholder trade-offs, and final evaluative synthesis.\n` +
+                `Award marks strictly between 0 and ${ao3_marks}.\n` +
+                `Return ONLY a JSON object: {"awarded": number, "comment": string, "weaknesses": string[], "missing_evaluation": string[]}`,
+            },
+            { role: "user", content: `Student essay to mark:\n\n${essayText}` },
+          ],
+        })
+      : Promise.resolve({
+          text: JSON.stringify({
+            awarded: 0,
+            comment: "No evaluation marks allocated for this question tariff.",
+            weaknesses: [],
+            missing_evaluation: [],
+          }),
+          promptTokens: 0,
+          completionTokens: 0,
+          latencyMs: 0,
+        } as any);
+
+  // Parallel execution across rotated API keys
+  const [ao1Res, ao2Res, ao3Res] = await Promise.all([ao1Promise, ao2Promise, ao3Promise]);
+
+  const ao1Json = extractFirstJsonObject(ao1Res.text);
+  const ao2Json = extractFirstJsonObject(ao2Res.text);
+  const ao3Json = extractFirstJsonObject(ao3Res.text);
+
+  const ao1Awarded = Math.max(0, Math.min(ao1_marks, Number(ao1Json.awarded) || 0));
+  const ao2Awarded = Math.max(0, Math.min(ao2_marks, Number(ao2Json.awarded) || 0));
+  const ao3Awarded = Math.max(0, Math.min(ao3_marks, Number(ao3Json.awarded) || 0));
+  const totalAwarded = Math.min(maxMark, ao1Awarded + ao2Awarded + ao3Awarded);
+
+  // Lane 4: Chief Examiner Synthesis
+  const synthesisRes = await chat({
+    model: MODEL_EXAMINER,
+    temperature: TEMPERATURE_EXAMINER,
+    json: true,
+    isBudgetTier: options.isBudgetTier,
+    userId: options.userId,
+    feature: "grade_specialist_synthesis",
+    maxCompletionTokens: 1800,
+    messages: [
+      {
+        role: "system",
+        content: `You are the Senior Chief Examiner for Cambridge 9708 Economics.\n` +
+          `Specialist examiners have evaluated this student's essay across Assessment Objectives:\n` +
+          `- AO1 (Knowledge): ${ao1Awarded}/${ao1_marks}. Examiner Note: ${ao1Json.comment || "N/A"}\n` +
+          `- AO2 (Analysis): ${ao2Awarded}/${ao2_marks}. Examiner Note: ${ao2Json.comment || "N/A"}\n` +
+          `- AO3 (Evaluation): ${ao3Awarded}/${ao3_marks}. Examiner Note: ${ao3Json.comment || "N/A"}\n` +
+          `Total Mark: ${totalAwarded}/${maxMark}.\n\n` +
+          `Task: Synthesize the final comprehensive diagnostic examiner feedback for the student.\n` +
+          `Return ONLY a JSON object:\n` +
+          `{\n` +
+          `  "band": string,\n` +
+          `  "examiner_summary": string (concise, professional senior examiner overview),\n` +
+          `  "actionable_feedback": string[] (3 concrete upgrade recommendations),\n` +
+          `  "suggested_practice": string[] (2 focused Cambridge exam tasks),\n` +
+          `  "suggested_resources": string[] (2 Cambridge syllabus / reading topics),\n` +
+          `  "confidence": number (0.85 to 0.98)\n` +
+          `}`,
+      },
+      {
+        role: "user",
+        content: `Question (${maxMark} marks):\n${question}\n\nStudent Essay:\n${essayText}`,
+      },
+    ],
+  });
+
+  const synthJson = extractFirstJsonObject(synthesisRes.text);
+
+  const combinedRaw: Record<string, unknown> = {
+    total_mark: totalAwarded,
+    band: synthJson.band || bandFor(totalAwarded, maxMark),
+    ao_breakdown: {
+      knowledge: {
+        awarded: ao1Awarded,
+        out_of: ao1_marks,
+        comment: String(ao1Json.comment || "AO1 Knowledge assessed against syllabus definitions."),
+      },
+      analysis: {
+        awarded: ao2Awarded,
+        out_of: ao2_marks,
+        comment: String(ao2Json.comment || "AO2 Analysis assessed against transmission chains."),
+      },
+      evaluation: {
+        awarded: ao3Awarded,
+        out_of: ao3_marks,
+        comment: String(ao3Json.comment || "AO3 Evaluation assessed against critical judgment criteria."),
+      },
+    },
+    examiner_summary: String(synthJson.examiner_summary || "Evaluated by Cambridge 9708 Specialist Examiner Swarm."),
+    strengths: Array.isArray(ao1Json.strengths) ? ao1Json.strengths : [],
+    weaknesses: Array.isArray(ao3Json.weaknesses) ? ao3Json.weaknesses : [],
+    missing_elements: {
+      definitions: Array.isArray(ao1Json.missing_definitions) ? ao1Json.missing_definitions : [],
+      analysis: Array.isArray(ao2Json.missing_analysis) ? ao2Json.missing_analysis : [],
+      evaluation: Array.isArray(ao3Json.missing_evaluation) ? ao3Json.missing_evaluation : [],
+      examples: [],
+      diagrams: Array.isArray(ao2Json.missing_diagrams) ? ao2Json.missing_diagrams : [],
+    },
+    actionable_feedback: Array.isArray(synthJson.actionable_feedback) ? synthJson.actionable_feedback : [],
+    suggested_practice: Array.isArray(synthJson.suggested_practice) ? synthJson.suggested_practice : [],
+    suggested_resources: Array.isArray(synthJson.suggested_resources) ? synthJson.suggested_resources : [],
+    confidence: Number(synthJson.confidence) || 0.92,
+  };
+
+  const grading = normaliseGrading(combinedRaw, maxMark, split);
+  grading.audited = true; // Specialists independently moderated
+
+  const promptTokens =
+    (ao1Res.promptTokens ?? 0) +
+    (ao2Res.promptTokens ?? 0) +
+    (ao3Res.promptTokens ?? 0) +
+    (synthesisRes.promptTokens ?? 0);
+  const completionTokens =
+    (ao1Res.completionTokens ?? 0) +
+    (ao2Res.completionTokens ?? 0) +
+    (ao3Res.completionTokens ?? 0) +
+    (synthesisRes.completionTokens ?? 0);
+  const latencyMs = Date.now() - swarmStart;
+
+  return {
+    grading,
+    promptTokens,
+    completionTokens,
+    latencyMs,
+    model: synthesisRes.model || MODEL_EXAMINER,
   };
 }

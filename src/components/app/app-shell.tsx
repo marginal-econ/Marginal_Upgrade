@@ -34,14 +34,15 @@ import {
   ArrowRight,
 } from "lucide-react";
 import type { ReactNode } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
+import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { LockedFeatureModal, type LockedFeatureType } from "@/components/app/locked-feature-modal";
 import { FeedbackDialog, FloatingFeedbackPill } from "@/components/feedback/feedback-dialog";
-import { StudentMessagesDialog } from "@/components/app/student-messages-dialog";
+import { StudentMessagesDialog, playMessageNotificationChime } from "@/components/app/student-messages-dialog";
 import { getUnreadMessageCount } from "@/lib/messages.functions";
 import { usePresenceHeartbeat } from "@/hooks/use-presence";
 import { supabase } from "@/integrations/backend/client";
@@ -304,9 +305,41 @@ export function AppShell({
   const unreadMsgQuery = useQuery({
     queryKey: ["student-unread-count"],
     queryFn: () => getUnreadFn(),
-    refetchInterval: 10_000,
+    refetchInterval: 3_000,
   });
   const unreadMsgCount = unreadMsgQuery.data?.unreadCount ?? 0;
+
+  const prevAdminCountRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (!isUserAdmin) return;
+    if (prevAdminCountRef.current === null) {
+      if (unreadMsgCount > 0) {
+        playMessageNotificationChime();
+        toast.info("Unread student messages in queue", {
+          description: `You have ${unreadMsgCount} direct message(s) from students.`,
+          action: {
+            label: "Open Portal",
+            onClick: () => navigate({ to: "/admin", search: { tab: "messages" } }),
+          },
+          duration: 8000,
+        });
+      }
+      prevAdminCountRef.current = unreadMsgCount;
+      return;
+    }
+    if (unreadMsgCount > prevAdminCountRef.current) {
+      playMessageNotificationChime();
+      toast.info("New message from student", {
+        description: "A student sent a message in the direct portal.",
+        action: {
+          label: "View Chat",
+          onClick: () => navigate({ to: "/admin", search: { tab: "messages" } }),
+        },
+        duration: 8000,
+      });
+    }
+    prevAdminCountRef.current = unreadMsgCount;
+  }, [unreadMsgCount, isUserAdmin, navigate]);
 
   const isItemActive = (to: string) => {
     if (to === "/dashboard") return pathname === "/dashboard";

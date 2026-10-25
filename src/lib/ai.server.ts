@@ -313,7 +313,7 @@ async function chatViaProvider(
   // All healthy free keys are tried first, rotating every 15s or on rate limits (429/503).
   // Emergency paid key(s) are strictly the last resort if all free keys are exhausted.
   const { freeKeys, paidKeys } = buildOrderedKeyPool(config);
-  const activeKeysToTry = getPrioritizedKeyOrder(config, keyCooldowns);
+  const activeKeysToTry = getPrioritizedKeyOrder(config, keyCooldowns, true);
 
   if (config.provider === "anthropic") {
     const system = options.messages
@@ -459,8 +459,8 @@ async function chatViaProvider(
       for (let kIdx = 0; kIdx < activeKeysToTry.length; kIdx++) {
         const currentKey = activeKeysToTry[kIdx]!;
         const keyStarted = Date.now();
-        // 120s timeout gives Google Gemini free tier adequate time to complete long essay grading under peak load
-        const timeoutMs = 120_000;
+        // 25s timeout allows full essay completions while preventing 120s stalls on rate-limited keys
+        const timeoutMs = 25_000;
         try {
           const response = await fetch(`${config.baseUrl}/chat/completions`, {
             method: "POST",

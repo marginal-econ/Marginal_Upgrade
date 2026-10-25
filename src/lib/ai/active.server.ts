@@ -159,19 +159,27 @@ export function buildOrderedKeyPool(config: ProviderConfig): {
   return { freeKeys, paidKeys, allOrderedKeys };
 }
 
+let keyRotationIndex = 0;
+
 /**
  * Returns keys sorted with healthy free keys first, cooled-down free keys second,
  * and emergency paid keys strictly last (healthy paid, then cooled paid).
+ * If rotate=true, healthy free keys are round-robin rotated to distribute load.
  */
 export function getPrioritizedKeyOrder(
   config: ProviderConfig,
   cooldowns?: Map<string, number>,
+  rotate = false,
 ): string[] {
   const { freeKeys, paidKeys } = buildOrderedKeyPool(config);
   const now = Date.now();
   const isHealthy = (k: string) => !cooldowns || (cooldowns.get(k) ?? 0) <= now;
 
-  const healthyFree = freeKeys.filter(isHealthy);
+  let healthyFree = freeKeys.filter(isHealthy);
+  if (rotate && healthyFree.length > 1) {
+    const shift = (keyRotationIndex++) % healthyFree.length;
+    healthyFree = [...healthyFree.slice(shift), ...healthyFree.slice(0, shift)];
+  }
   const cooledFree = freeKeys.filter((k) => !isHealthy(k));
   const healthyPaid = paidKeys.filter(isHealthy);
   const cooledPaid = paidKeys.filter((k) => !isHealthy(k));

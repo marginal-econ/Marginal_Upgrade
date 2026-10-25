@@ -36,7 +36,7 @@ interface StudentMessagesDialogProps {
   trigger?: React.ReactNode;
 }
 
-function playMessageNotificationChime() {
+export function playMessageNotificationChime() {
   try {
     const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
     if (!AudioCtx) return;
@@ -71,11 +71,11 @@ export function StudentMessagesDialog({ trigger }: StudentMessagesDialogProps) {
   const prevCountRef = useRef<number | null>(null);
   const blinkTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Unread badge query (polls every 10s; pauses while open to avoid race conditions)
+  // Unread badge query (polls every 3s for fast alert delivery; pauses while open to avoid race conditions)
   const unreadQuery = useQuery({
     queryKey: ["student-unread-count"],
     queryFn: () => getUnreadFn(),
-    refetchInterval: open ? false : 10_000,
+    refetchInterval: open ? false : 3_000,
   });
 
   const unreadCount = open ? 0 : (unreadQuery.data?.unreadCount ?? 0);
@@ -110,6 +110,23 @@ export function StudentMessagesDialog({ trigger }: StudentMessagesDialogProps) {
   // Active notification detection & 5-second blink handling
   useEffect(() => {
     if (prevCountRef.current === null) {
+      if (unreadCount > 0 && !open) {
+        setIsBlinking(true);
+        if (blinkTimerRef.current) clearTimeout(blinkTimerRef.current);
+        blinkTimerRef.current = setTimeout(() => {
+          setIsBlinking(false);
+        }, 5000);
+
+        playMessageNotificationChime();
+        toast.info("New message from Marginal Team", {
+          description: "You have a direct message from our examiners. Click to open.",
+          action: {
+            label: "View Chat",
+            onClick: () => handleOpenChange(true),
+          },
+          duration: 8000,
+        });
+      }
       prevCountRef.current = unreadCount;
       return;
     }
