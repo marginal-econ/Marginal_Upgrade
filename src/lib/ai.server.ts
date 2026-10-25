@@ -711,7 +711,7 @@ async function embedViaGoogle(
   const vectors: number[][] = new Array(inputs.length);
   const googleModel = config.model.startsWith("models/") ? config.model : GOOGLE_EMBED_MODEL;
   const { paidKeys } = buildOrderedKeyPool(config);
-  const keysToTry = getPrioritizedKeyOrder(config, keyCooldowns);
+  const keysToTry = getPrioritizedKeyOrder(config, keyCooldowns, true);
 
   for (let offset = 0; offset < inputs.length; offset += EMBED_BATCH_LIMIT) {
     const batch = inputs.slice(offset, offset + EMBED_BATCH_LIMIT);
@@ -1036,7 +1036,7 @@ async function visionChatViaAnthropic(
     maxCompletionTokens?: number;
   },
 ): Promise<Omit<ChatResult, "latencyMs">> {
-  const keysToTry = getPrioritizedKeyOrder(config, keyCooldowns);
+  const keysToTry = getPrioritizedKeyOrder(config, keyCooldowns, true);
 
   let lastStatus = 500;
   let lastText = "";
@@ -1119,7 +1119,7 @@ async function visionChatViaOpenAiCompatible(
   },
 ): Promise<Omit<ChatResult, "latencyMs">> {
   const { paidKeys } = buildOrderedKeyPool(config);
-  const keysToTry = getPrioritizedKeyOrder(config, keyCooldowns);
+  const keysToTry = getPrioritizedKeyOrder(config, keyCooldowns, true);
 
   const body: Record<string, unknown> = {
     model: config.provider === "google" ? "gemini-3.8-flash" : config.model,
