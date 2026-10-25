@@ -320,7 +320,7 @@ async function chatViaProvider(
   // All healthy free keys are tried first, rotating every 15s or on rate limits (429/503).
   // Emergency paid key(s) are strictly the last resort if all free keys are exhausted.
   const { freeKeys, paidKeys } = buildOrderedKeyPool(config);
-  const activeKeysToTry = getPrioritizedKeyOrder(config, keyCooldowns, true);
+  const activeKeysToTry = getPrioritizedKeyOrder(config, keyCooldowns, false);
 
   if (config.provider === "anthropic") {
     const system = options.messages
@@ -466,8 +466,8 @@ async function chatViaProvider(
       for (let kIdx = 0; kIdx < activeKeysToTry.length; kIdx++) {
         const currentKey = activeKeysToTry[kIdx]!;
         const keyStarted = Date.now();
-        // 120s timeout allows maximum depth reasoning and complex essay grading without cutting off
-        const timeoutMs = 120_000;
+        // 270s timeout gives each key 250s completion window with handoff to next key at 270s
+        const timeoutMs = 270_000;
         try {
           const response = await fetch(`${config.baseUrl}/chat/completions`, {
             method: "POST",
@@ -718,7 +718,7 @@ async function embedViaGoogle(
   const vectors: number[][] = new Array(inputs.length);
   const googleModel = config.model.startsWith("models/") ? config.model : GOOGLE_EMBED_MODEL;
   const { paidKeys } = buildOrderedKeyPool(config);
-  const keysToTry = getPrioritizedKeyOrder(config, keyCooldowns, true);
+  const keysToTry = getPrioritizedKeyOrder(config, keyCooldowns, false);
 
   for (let offset = 0; offset < inputs.length; offset += EMBED_BATCH_LIMIT) {
     const batch = inputs.slice(offset, offset + EMBED_BATCH_LIMIT);
@@ -1043,7 +1043,7 @@ async function visionChatViaAnthropic(
     maxCompletionTokens?: number;
   },
 ): Promise<Omit<ChatResult, "latencyMs">> {
-  const keysToTry = getPrioritizedKeyOrder(config, keyCooldowns, true);
+  const keysToTry = getPrioritizedKeyOrder(config, keyCooldowns, false);
 
   let lastStatus = 500;
   let lastText = "";
@@ -1126,7 +1126,7 @@ async function visionChatViaOpenAiCompatible(
   },
 ): Promise<Omit<ChatResult, "latencyMs">> {
   const { paidKeys } = buildOrderedKeyPool(config);
-  const keysToTry = getPrioritizedKeyOrder(config, keyCooldowns, true);
+  const keysToTry = getPrioritizedKeyOrder(config, keyCooldowns, false);
 
   const body: Record<string, unknown> = {
     model: config.provider === "google" ? "gemini-3.8-flash" : config.model,

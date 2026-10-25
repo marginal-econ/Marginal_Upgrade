@@ -278,7 +278,7 @@ async function transcribePage(
       const text =
         visionConfig.provider === "google"
           ? await transcribeViaGoogle(
-              getPrioritizedKeyOrder(visionConfig, keyCooldowns, true),
+              getPrioritizedKeyOrder(visionConfig, keyCooldowns, false),
               visionConfig.model || GOOGLE_MODEL,
               dataUrl,
               hint,
