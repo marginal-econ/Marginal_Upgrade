@@ -527,6 +527,30 @@ export const adminOverview = createServerFn({ method: "GET" })
     };
   });
 
+export const dismissPaidKeyAlerts = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/backend/client.server");
+
+    // Mark all existing PAID_KEY_ALERT rows as dismissed/resolved
+    const { error } = await supabaseAdmin
+      .from("ai_usage_log")
+      .update({ feature: "PAID_KEY_ALERT_DISMISSED" })
+      .eq("feature", "PAID_KEY_ALERT");
+
+    if (error) {
+      console.warn("Failed to update ai_usage_log feature to PAID_KEY_ALERT_DISMISSED:", error);
+      // Fallback: delete the alert rows to silence glowing banner
+      await supabaseAdmin
+        .from("ai_usage_log")
+        .delete()
+        .eq("feature", "PAID_KEY_ALERT");
+    }
+
+    return { ok: true };
+  });
+
 export const listUsers = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {

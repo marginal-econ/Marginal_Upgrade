@@ -3,8 +3,10 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
   Activity,
+  Anchor,
   ArrowDown,
   ArrowUp,
+  BellOff,
   BookOpen,
   Check,
   CheckCircle2,
@@ -95,6 +97,7 @@ import {
   clearAiUsageLog,
   deleteProviderKey,
   deleteUserAccount,
+  dismissPaidKeyAlerts,
   listProviderKeys,
   listUsers,
   resetAllScores,
@@ -107,6 +110,10 @@ import {
   testSpecificKey,
   testVisionProviderKey,
 } from "@/lib/admin.functions";
+import {
+  addShowcaseToCalibration,
+  getCalibrationAnchorQuestions,
+} from "@/lib/calibration.functions";
 import { getMe } from "@/lib/account.functions";
 import {
   getPlatformPricing,
@@ -370,9 +377,12 @@ const ADMIN_CATEGORIES = [
 ];
 
 function AdminPage() {
+  const queryClient = useQueryClient();
   const fetchMe = useServerFn(getMe);
   const fetchOverview = useServerFn(adminOverview);
+  const dismissAlerts = useServerFn(dismissPaidKeyAlerts);
   const [activeTab, setActiveTab] = useState("overview");
+  const [localAlertDismissed, setLocalAlertDismissed] = useState(false);
 
   const me = useQuery({ queryKey: ["me"], queryFn: () => fetchMe() });
   const overviewQuery = useQuery({
@@ -380,6 +390,18 @@ function AdminPage() {
     queryFn: () => fetchOverview(),
     refetchInterval: 15_000,
   });
+
+  const dismissAlertMutation = useMutation({
+    mutationFn: () => dismissAlerts(),
+    onSuccess: () => {
+      setLocalAlertDismissed(true);
+      queryClient.invalidateQueries({ queryKey: ["admin-overview"] });
+      toast.success("Paid key amber alert dismissed and silenced.");
+    },
+    onError: (err: Error) => toast.error(`Failed to dismiss alert: ${err.message}`),
+  });
+
+  const showAlert = Boolean(overviewQuery.data?.hasPaidKeyAlert) && !localAlertDismissed;
 
   if (me.isLoading) {
     return (
@@ -504,7 +526,7 @@ function AdminPage() {
                           <Badge variant="secondary" className="text-[9px] px-1.5 py-0 h-4 font-bold bg-primary/20 text-primary">
                             {overviewQuery.data?.feedbackCount}
                           </Badge>
-                        ) : item.id === "providers" && overviewQuery.data?.hasPaidKeyAlert ? (
+                        ) : item.id === "providers" && showAlert ? (
                           <Badge variant="destructive" className="text-[9px] px-1.5 py-0 h-4 font-bold animate-pulse">
                             🚨 PAID PING
                           </Badge>
@@ -582,8 +604,8 @@ function AdminPage() {
           </div>
 
           {/* Emergency Alert Banner if Paid Key was consumed */}
-          {overviewQuery.data?.hasPaidKeyAlert && (
-            <div className="rounded-2xl border-2 border-rose-500 bg-rose-500/10 p-4 text-rose-600 dark:text-rose-400 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-lg animate-pulse mb-6">
+          {showAlert && (
+            <div className="rounded-2xl border-2 border-rose-500 bg-rose-500/10 p-4 text-rose-600 dark:text-rose-400 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-lg mb-6">
               <div className="flex items-center gap-3">
                 <div className="size-10 rounded-xl bg-rose-500/20 text-rose-500 flex items-center justify-center shrink-0">
                   <AlertTriangle className="size-5" />
@@ -597,14 +619,30 @@ function AdminPage() {
                   </p>
                 </div>
               </div>
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={() => setActiveTab("providers")}
-                className="shrink-0 text-xs font-semibold"
-              >
-                Inspect &amp; Add Free Keys &rarr;
-              </Button>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => dismissAlertMutation.mutate()}
+                  disabled={dismissAlertMutation.isPending}
+                  className="shrink-0 text-xs font-semibold border-rose-500/40 text-rose-700 hover:bg-rose-500/20 dark:text-rose-300"
+                >
+                  {dismissAlertMutation.isPending ? (
+                    <Loader2 className="size-3 animate-spin mr-1" />
+                  ) : (
+                    <BellOff className="size-3 mr-1" />
+                  )}
+                  Silence &amp; Dismiss Alert
+                </Button>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => setActiveTab("providers")}
+                  className="shrink-0 text-xs font-semibold"
+                >
+                  Inspect &amp; Add Free Keys &rarr;
+                </Button>
+              </div>
             </div>
           )}
 
@@ -931,7 +969,7 @@ function ProvidersPanel() {
               <div className="flex items-center justify-between">
                 <div>
                   <Label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
-                    <span className="inline-block h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
+                    <span className="inline-block h-2 w-2 rounded-full bg-emerald-500" />
                     Free Gemini API Keys Pool (Auto-Hopping)
                   </Label>
                   <p className="text-[11px] text-muted-foreground mt-0.5">
@@ -3449,10 +3487,48 @@ function ShowcaseAdminPanel() {
   const toggleVisibility = useServerFn(adminToggleShowcaseVisibility);
   const addExemplar = useServerFn(adminAddShowcaseExemplar);
   const deleteExemplar = useServerFn(adminDeleteShowcaseExemplar);
+  const addToCalibrationFn = useServerFn(addShowcaseToCalibration);
+  const getAnchorQuestionsFn = useServerFn(getCalibrationAnchorQuestions);
 
   const query = useQuery({
     queryKey: ["admin-showcase-essays"],
     queryFn: () => listShowcase(),
+  });
+
+  const anchorQuestionsQuery = useQuery({
+    queryKey: ["calibration-anchor-questions"],
+    queryFn: () => getAnchorQuestionsFn(),
+  });
+
+  const anchorQuestions = new Set(anchorQuestionsQuery.data ?? []);
+  const [calibratingId, setCalibratingId] = useState<string | null>(null);
+
+  const calibrationMutation = useMutation({
+    mutationFn: (item: ShowcaseEssayItem) => {
+      setCalibratingId(item.version_id);
+      return addToCalibrationFn({
+        data: {
+          question: item.question,
+          essayText: item.essay_text,
+          mark: item.total_mark,
+          maxMark: item.max_mark,
+          notes: item.grading?.examiner_summary
+            ? `Examiner note: ${item.grading.examiner_summary}`
+            : `Exemplar essay imported from Showcase (${item.author_initials})`,
+        },
+      });
+    },
+    onSuccess: (res) => {
+      toast.success(
+        res.updated
+          ? "Calibration anchor updated from this exemplar."
+          : "Exemplar successfully added as a calibration anchor!",
+      );
+      queryClient.invalidateQueries({ queryKey: ["calibration-anchor-questions"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-overview"] });
+    },
+    onError: (err: Error) => toast.error(`Failed to add anchor: ${err.message}`),
+    onSettled: () => setCalibratingId(null),
   });
 
   const [search, setSearch] = useState("");
@@ -3770,6 +3846,15 @@ function ShowcaseAdminPanel() {
                         </Badge>
                       )}
 
+                      {anchorQuestions.has(item.question.trim()) ? (
+                        <Badge
+                          variant="outline"
+                          className="border-primary/40 bg-primary/10 text-[11px] font-semibold text-primary"
+                        >
+                          <Anchor className="mr-1 size-3" /> Calibration Anchor
+                        </Badge>
+                      ) : null}
+
                       <Badge variant="secondary" className="text-[11px]">
                         {item.source === "cambridge_model"
                           ? "Cambridge Model"
@@ -3794,6 +3879,30 @@ function ShowcaseAdminPanel() {
                   </div>
 
                   <div className="flex shrink-0 items-center gap-1.5">
+                    <Button
+                      variant={anchorQuestions.has(item.question.trim()) ? "secondary" : "default"}
+                      size="sm"
+                      className="h-7 text-xs gap-1"
+                      onClick={() => calibrationMutation.mutate(item)}
+                      disabled={calibratingId === item.version_id}
+                      title={
+                        anchorQuestions.has(item.question.trim())
+                          ? "Already grounded as a Calibration Anchor (click to sync)"
+                          : "Add this exemplar directly into Calibration Anchors to ground the AI examiner"
+                      }
+                    >
+                      {calibratingId === item.version_id ? (
+                        <Loader2 className="size-3.5 animate-spin" />
+                      ) : (
+                        <Anchor className="size-3.5" />
+                      )}
+                      <span>
+                        {anchorQuestions.has(item.question.trim())
+                          ? "Sync Anchor"
+                          : "Add to Calibration"}
+                      </span>
+                    </Button>
+
                     <Button
                       variant="outline"
                       size="sm"
@@ -3850,6 +3959,30 @@ function ShowcaseAdminPanel() {
                     ) : null}
                     <div className="max-h-60 overflow-y-auto whitespace-pre-wrap rounded-lg bg-muted/20 p-3 font-serif text-foreground border border-border/40">
                       {item.essay_text}
+                    </div>
+                    <div className="flex items-center justify-between gap-2 pt-2 border-t border-border/40">
+                      <span className="text-[11px] text-muted-foreground flex items-center gap-1.5">
+                        <Anchor className="size-3 text-primary" />
+                        {anchorQuestions.has(item.question.trim())
+                          ? "Grounded in AI examiner prompt as an active Calibration Anchor."
+                          : "Not yet loaded into Calibration Anchors."}
+                      </span>
+                      <Button
+                        size="sm"
+                        variant={anchorQuestions.has(item.question.trim()) ? "outline" : "default"}
+                        className="h-7 text-xs gap-1"
+                        onClick={() => calibrationMutation.mutate(item)}
+                        disabled={calibratingId === item.version_id}
+                      >
+                        {calibratingId === item.version_id ? (
+                          <Loader2 className="size-3 animate-spin" />
+                        ) : (
+                          <Anchor className="size-3" />
+                        )}
+                        {anchorQuestions.has(item.question.trim())
+                          ? "Sync Calibration Anchor"
+                          : "Add to Calibration Anchors"}
+                      </Button>
                     </div>
                   </div>
                 ) : null}
