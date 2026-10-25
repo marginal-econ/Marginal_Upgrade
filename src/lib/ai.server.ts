@@ -449,7 +449,7 @@ async function chatViaProvider(
 
   const candidateModels =
     config.provider === "google"
-      ? ["gemini-3.8-flash", "gemini-3.1-pro", "gemini-3.1-flash"]
+      ? ["gemini-3.8-flash"]
       : [config.model];
 
   let usedModel = candidateModels[0];
@@ -466,8 +466,8 @@ async function chatViaProvider(
       for (let kIdx = 0; kIdx < activeKeysToTry.length; kIdx++) {
         const currentKey = activeKeysToTry[kIdx]!;
         const keyStarted = Date.now();
-        // 50s timeout allows deep essay completions under peak provider load while preventing dead freezes
-        const timeoutMs = 50_000;
+        // 120s timeout allows maximum depth reasoning and complex essay grading without cutting off
+        const timeoutMs = 120_000;
         try {
           const response = await fetch(`${config.baseUrl}/chat/completions`, {
             method: "POST",

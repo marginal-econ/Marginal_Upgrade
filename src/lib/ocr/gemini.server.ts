@@ -161,10 +161,7 @@ async function transcribeViaGoogle(
   hint?: string,
 ) {
   const { mimeType, data } = await prepareDataUrl(dataUrl);
-  const primary = model.startsWith("models/") ? model : `models/${model}`;
-  const candidateModels = Array.from(
-    new Set([primary, "models/gemini-3.8-flash"]),
-  );
+  const candidateModels = ["models/gemini-3.8-flash"];
 
   const rawKeys = Array.isArray(apiKeyInput) ? apiKeyInput : [apiKeyInput];
   // Preserves exact prioritized order: healthy free keys first, cooled free keys second, emergency paid keys strictly last
@@ -195,7 +192,7 @@ async function transcribeViaGoogle(
               maxOutputTokens: MAX_OUTPUT_TOKENS,
             },
           }),
-          signal: AbortSignal.timeout(15_000),
+          signal: AbortSignal.timeout(30_000),
         });
 
         if (!response.ok) {
@@ -234,7 +231,7 @@ async function transcribeViaGoogle(
         if (isTimeout) {
           markKeyRateLimited(currentKey, 60_000);
           console.warn(
-            `[transcribeViaGoogle] Key ...${currentKey.slice(-4)} timed out (>15s). Hopping to next key...`,
+            `[transcribeViaGoogle] Key ...${currentKey.slice(-4)} timed out (>30s). Hopping to next key...`,
           );
           if (kIdx + 1 < keysToTry.length) continue;
         }
