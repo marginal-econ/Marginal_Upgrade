@@ -15,6 +15,7 @@ export type ProviderConfig = {
 };
 
 let chatCache: { value: ProviderConfig | null; at: number } | null = null;
+let chatChainCache: { value: ProviderConfig[]; at: number } | null = null;
 let embeddingCache: { value: ProviderConfig | null; at: number } | null = null;
 let visionCache: { value: ProviderConfig | null; at: number } | null = null;
 const TTL_MS = 20_000;
@@ -227,6 +228,54 @@ export async function getActiveProvider(): Promise<ProviderConfig | null> {
 }
 
 /**
+ * Returns an ordered chain of chat providers:
+ * 1. The active primary provider (is_active = true, e.g. Google Gemini with its pool of keys)
+ * 2. Standby providers with configured keys (e.g. Mistral with its pool of keys)
+ * If the primary provider experiences total exhaustion or outage, the engine hops to the next provider.
+ */
+export async function getChatProviderChain(): Promise<ProviderConfig[]> {
+  if (chatChainCache && Date.now() - chatChainCache.at < TTL_MS && chatChainCache.value.length > 0) {
+    return chatChainCache.value;
+  }
+
+  const chain: ProviderConfig[] = [];
+  try {
+    const { supabaseAdmin } = await import("@/integrations/backend/client.server");
+    const { data, error } = await supabaseAdmin
+      .from("ai_provider_keys")
+      .select("provider, api_key, base_url, model, label, is_active")
+      .eq("purpose", "chat")
+      .order("is_active", { ascending: false })
+      .order("updated_at", { ascending: false });
+
+    if (!error && data && data.length > 0) {
+      const activeRows = data.filter((row) => row.is_active && row.api_key && row.provider !== "lovable");
+      const standbyRows = data.filter((row) => !row.is_active && row.api_key && row.provider !== "lovable");
+
+      for (const row of activeRows) {
+        chain.push(normaliseConfig(row));
+      }
+      for (const row of standbyRows) {
+        if (!chain.some((c) => c.provider === row.provider)) {
+          chain.push(normaliseConfig(row));
+        }
+      }
+    }
+
+    if (chain.length === 0) {
+      const active = await getActiveProvider();
+      if (active) chain.push(active);
+    }
+  } catch (err) {
+    console.error("[getChatProviderChain] Lookup error:", err);
+    if (chatChainCache?.value) return chatChainCache.value;
+  }
+
+  chatChainCache = { value: chain, at: Date.now() };
+  return chain;
+}
+
+/**
  * The admin-selected embedding provider override, or null to use the
  * legacy saved-key priority fallback in ai.server.ts's embed(). Kept as a
  * fully separate cache/lookup from getActiveProvider() so switching the
@@ -313,6 +362,7 @@ export async function getProviderConfigById(id: string): Promise<ProviderConfig 
 
 export function clearActiveProviderCache() {
   chatCache = null;
+  chatChainCache = null;
   embeddingCache = null;
   visionCache = null;
   aiGatewayCache = null;

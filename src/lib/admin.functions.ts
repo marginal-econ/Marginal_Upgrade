@@ -1041,7 +1041,12 @@ export const testSpecificKey = createServerFn({ method: "POST" })
     const { chat } = await import("./ai.server");
     const { normaliseConfig } = await import("./ai/active.server");
     let testModel =
-      data.model?.trim() || (data.provider === "google" ? "gemini-3.8-flash" : "gpt-4o-mini");
+      data.model?.trim() ||
+      (data.provider === "google"
+        ? "gemini-3.8-flash"
+        : data.provider === "mistral"
+          ? "mistral-large-latest"
+          : "gpt-4o-mini");
     if (data.provider === "google") {
       testModel = "gemini-3.8-flash";
     }

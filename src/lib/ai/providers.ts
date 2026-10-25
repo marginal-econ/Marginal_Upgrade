@@ -91,8 +91,8 @@ export const AI_PROVIDERS = [
     id: "mistral",
     label: "Mistral",
     baseUrl: "https://api.mistral.ai/v1",
-    keyHint: "...",
-    models: ["mistral-large-latest"],
+    keyHint: "Paste Mistral API keys (one per line or JSON pool for auto-hopping)",
+    models: ["mistral-large-latest", "mistral-small-latest"],
     // mistral-embed is fixed at 1024 dims with no way to request a
     // different size, so it can never match document_chunks.embedding
     // (vector(2048)) — left out of the Embeddings console rather than
@@ -100,7 +100,7 @@ export const AI_PROVIDERS = [
     embeddingModels: [],
     embeddingCapable: false,
     visionCapable: true,
-    visionModels: ["pixtral-large-latest"],
+    visionModels: ["pixtral-large-latest", "pixtral-12b-2409"],
   },
   {
     id: "deepseek",

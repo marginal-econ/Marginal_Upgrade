@@ -1009,10 +1009,10 @@ function ProvidersPanel() {
                 <div>
                   <Label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
                     <span className="inline-block h-2 w-2 rounded-full bg-emerald-500" />
-                    Free Gemini API Keys Pool (Auto-Hopping)
+                    {meta.label} API Keys Pool (Auto-Hopping)
                   </Label>
                   <p className="text-[11px] text-muted-foreground mt-0.5">
-                    Tried 1st in rotation. Hops automatically every 15s or on rate limits (429/503).
+                    Tried in priority order with warm failover between keys (auto-hops cross-provider if primary fails).
                   </p>
                 </div>
                 <div className="flex items-center gap-1.5">
@@ -1036,13 +1036,19 @@ function ProvidersPanel() {
               {showBulkInput && (
                 <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-2.5 space-y-2">
                   <Label className="text-[11px] font-medium text-amber-700 dark:text-amber-300">
-                    Paste Multiple Free Keys (one per line or comma-separated):
+                    Paste Multiple {meta.label} Keys (one per line or comma-separated):
                   </Label>
                   <Textarea
                     rows={3}
                     value={bulkInput}
                     onChange={(e) => setBulkInput(e.target.value)}
-                    placeholder="AIzaSyA...&#10;AIzaSyB...&#10;AIzaSyC..."
+                    placeholder={
+                      provider === "google"
+                        ? "AIzaSyA...\nAIzaSyB...\nAIzaSyC..."
+                        : provider === "mistral"
+                          ? "mistral_api_key_1...\nmistral_api_key_2...\nmistral_api_key_3..."
+                          : "Paste API keys here (one per line)..."
+                    }
                     className="font-mono text-xs bg-background"
                   />
                   <div className="flex justify-end gap-1.5">
@@ -1228,7 +1234,7 @@ function ProvidersPanel() {
                 <div className="flex items-center justify-between">
                   <Label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
                     <span className="inline-block h-2 w-2 rounded-full bg-emerald-500" />
-                    Emergency Paid Gemini Key (Last Resort Fallback)
+                    Emergency Paid {meta.label} Key (Last Resort Fallback)
                   </Label>
                   <div className="flex items-center gap-1.5">
                     <Button
@@ -1430,10 +1436,14 @@ function ProvidersPanel() {
                 <p className="flex items-center gap-2 text-sm font-medium">
                   {row.label}
                   {row.isActive ? (
-                    <Badge className="gap-1">
-                      <CheckCircle2 className="size-3" /> Active
+                    <Badge className="gap-1 bg-emerald-600 text-white">
+                      <CheckCircle2 className="size-3" /> Active (Primary)
                     </Badge>
-                  ) : null}
+                  ) : (
+                    <Badge variant="outline" className="text-[10px] text-blue-500 border-blue-500/30">
+                      Standby Failover
+                    </Badge>
+                  )}
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">
                   {providerMeta(row.provider).label} · {row.model} · key {row.maskedKey}
@@ -1883,10 +1893,14 @@ function EmbeddingsPanel() {
                 <p className="flex items-center gap-2 text-sm font-medium">
                   {row.label}
                   {row.isActive ? (
-                    <Badge className="gap-1">
-                      <CheckCircle2 className="size-3" /> Active
+                    <Badge className="gap-1 bg-emerald-600 text-white">
+                      <CheckCircle2 className="size-3" /> Active (Primary)
                     </Badge>
-                  ) : null}
+                  ) : (
+                    <Badge variant="outline" className="text-[10px] text-blue-500 border-blue-500/30">
+                      Standby Failover
+                    </Badge>
+                  )}
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">
                   {providerMeta(row.provider).label} · {row.model} · key {row.maskedKey}
@@ -2221,10 +2235,14 @@ function VisionPanel() {
                 <p className="flex items-center gap-2 text-sm font-medium">
                   {row.label}
                   {row.isActive ? (
-                    <Badge className="gap-1">
-                      <CheckCircle2 className="size-3" /> Active
+                    <Badge className="gap-1 bg-emerald-600 text-white">
+                      <CheckCircle2 className="size-3" /> Active (Primary)
                     </Badge>
-                  ) : null}
+                  ) : (
+                    <Badge variant="outline" className="text-[10px] text-blue-500 border-blue-500/30">
+                      Standby Failover
+                    </Badge>
+                  )}
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">
                   {providerMeta(row.provider).label} · {row.model} · key {row.maskedKey}
