@@ -464,6 +464,9 @@ async function chatViaProvider(
   if (config.provider === "openrouter") {
     body.reasoning = { effort: "low" };
   }
+  if (options.reasoningEffort) {
+    body.reasoning_effort = options.reasoningEffort;
+  }
   if (options.json) body.response_format = { type: "json_object" };
   if (options.maxCompletionTokens) {
     if (config.provider === "mistral") {

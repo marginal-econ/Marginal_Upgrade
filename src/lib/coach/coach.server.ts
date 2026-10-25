@@ -140,7 +140,7 @@ export async function coachPoint(
   }
 
   const anchors = await fetchCalibrationAnchors(supabase);
-  const anchorBlock = buildAnchorBlock(anchors);
+  const anchorBlock = buildAnchorBlock(anchors, options.question, options.maxMark);
 
   const systemPrompt = [
     "You are a senior Cambridge International 9708 Economics examiner acting as a one-to-one",

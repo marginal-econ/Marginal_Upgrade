@@ -96,6 +96,7 @@ export type GradeOptions = {
   markSchemeImageDataUrls?: string[];
   isBudgetTier?: boolean;
   userId?: string;
+  skipSyllabusPreflight?: boolean;
 };
 
 export type GradeOutcome = {
@@ -137,8 +138,11 @@ export async function gradeEssay(
   let systemPrompt = loadPrompt(EXAMINER_PROMPT, promptValues);
 
   // --- syllabus pre-flight guardrail ----------------------------------------
-  const { validateEconomicsSyllabus, OffSyllabusError } = await import("./syllabus-guard.server");
-  await validateEconomicsSyllabus(question, essayText);
+  const { OffSyllabusError } = await import("./syllabus-guard.server");
+  if (!options.skipSyllabusPreflight) {
+    const { validateEconomicsSyllabus } = await import("./syllabus-guard.server");
+    await validateEconomicsSyllabus(question, essayText);
+  }
 
   // --- retrieval grounding ---------------------------------------------------
   let sources: GroundingSource[] = [];
@@ -174,7 +178,7 @@ export async function gradeEssay(
     console.warn("[grade.server] Error fetching calibration anchors, proceeding with standard rubrics:", anchorErr);
     anchors = [];
   }
-  const anchorBlock = buildAnchorBlock(anchors);
+  const anchorBlock = buildAnchorBlock(anchors, question, maxMark);
   if (anchorBlock) systemPrompt = `${systemPrompt}\n\n${anchorBlock}`;
 
   systemPrompt = `${systemPrompt}\n\n${RESPONSE_CONTRACT}`;
@@ -220,14 +224,14 @@ export async function gradeEssay(
   let modelSwapped = false;
   let activeKeyType: "primary" | "backup_pool" | "vip_fallback" | undefined = undefined;
 
-  // Authoritative Single-Shot Path (single call, single key, zero cognitive dilution)
+  // Authoritative Single-Shot Path (single call, single key, bounded medium reasoning)
   const first = markSchemeImages.length
       ? await visionChat({
           model: MODEL_EXAMINER,
           systemPrompt,
           prompt: userMessage,
           imageDataUrls: markSchemeImages,
-          maxCompletionTokens: 8000,
+          maxCompletionTokens: 3500,
           userId: options.userId,
           feature: "grade_essay",
         })
@@ -238,6 +242,8 @@ export async function gradeEssay(
           isBudgetTier: options.isBudgetTier,
           userId: options.userId,
           feature: "grade_essay",
+          reasoningEffort: "medium",
+          maxCompletionTokens: 3500,
           messages: [
             { role: "system", content: systemPrompt },
             { role: "user", content: userMessage },
