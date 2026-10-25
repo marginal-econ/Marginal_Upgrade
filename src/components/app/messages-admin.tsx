@@ -133,11 +133,11 @@ export function MessagesAdminPanel({ initialUserId }: MessagesAdminPanelProps) {
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-4 min-h-[640px] rounded-2xl border border-border/80 bg-card/60 overflow-hidden shadow-sm">
+    <div className="flex flex-col lg:flex-row h-[700px] max-h-[calc(100vh-13rem)] min-h-[520px] rounded-2xl border border-border/80 bg-card/60 overflow-hidden shadow-sm">
       {/* ── Left Sidebar: Conversations & User Directory ── */}
-      <div className="flex flex-col border-r border-border/70 bg-card/40 min-h-[580px]">
-        {/* Search & Header */}
-        <div className="p-3.5 border-b border-border/60 space-y-2.5">
+      <div className="w-full lg:w-[350px] shrink-0 flex flex-col h-full min-h-0 border-r border-border/70 bg-card/40">
+        {/* Search & Header (Pinned) */}
+        <div className="shrink-0 p-3.5 border-b border-border/60 space-y-2.5 bg-card/50">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className="size-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
@@ -198,8 +198,8 @@ export function MessagesAdminPanel({ initialUserId }: MessagesAdminPanelProps) {
           </div>
         </div>
 
-        {/* User Conversation List */}
-        <div className="flex-1 overflow-y-auto divide-y divide-border/40">
+        {/* User Conversation List (Smooth Mouse-Wheel Scrollable) */}
+        <div className="flex-1 min-h-0 overflow-y-auto divide-y divide-border/40 overscroll-contain">
           {convQuery.isLoading ? (
             <div className="p-3 space-y-2.5">
               <Skeleton className="h-14 w-full rounded-xl" />
@@ -259,11 +259,11 @@ export function MessagesAdminPanel({ initialUserId }: MessagesAdminPanelProps) {
       </div>
 
       {/* ── Right Workspace: Chat Conversation Thread & Composer ── */}
-      <div className="flex flex-col h-full min-h-[580px] bg-card/20">
+      <div className="flex-1 flex flex-col h-full min-h-0 bg-background/20">
         {selectedConv ? (
           <>
-            {/* Thread Header */}
-            <div className="p-3.5 border-b border-border/60 bg-card/60 flex flex-wrap items-center justify-between gap-2">
+            {/* Thread Header (Pinned) */}
+            <div className="shrink-0 p-3.5 border-b border-border/60 bg-card/60 flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2.5">
                 <div className="size-9 rounded-full bg-primary/10 text-primary border border-primary/20 flex items-center justify-center font-bold text-xs uppercase">
                   {selectedConv.name.slice(0, 2)}
@@ -289,8 +289,8 @@ export function MessagesAdminPanel({ initialUserId }: MessagesAdminPanelProps) {
               </div>
             </div>
 
-            {/* Chat Messages Area */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-3.5 min-h-[380px]">
+            {/* Chat Messages Area (Smooth Mouse-Wheel Scrollable) */}
+            <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3.5 overscroll-contain">
               {threadQuery.isLoading ? (
                 <div className="space-y-3 py-6">
                   <Skeleton className="h-12 w-2/3 ml-auto rounded-2xl" />
@@ -347,34 +347,34 @@ export function MessagesAdminPanel({ initialUserId }: MessagesAdminPanelProps) {
               <div ref={messagesEndRef} />
             </div>
 
-            {/* Quick Prompt Starters */}
-            <div className="px-4 py-1.5 border-t border-border/40 bg-card/30 flex items-center gap-1.5 overflow-x-auto text-[10px]">
+            {/* Quick Prompt Starters (Pinned) */}
+            <div className="shrink-0 px-4 py-1.5 border-t border-border/40 bg-card/30 flex items-center gap-1.5 overflow-x-auto text-[10px]">
               <span className="text-muted-foreground shrink-0 font-medium">Quick text:</span>
               <button
                 type="button"
                 onClick={() => setMessageInput("Hi! Just reviewed your recent essay. Great progress on AO3 evaluation!")}
-                className="rounded-full border border-border/70 bg-card px-2 py-0.5 hover:bg-muted shrink-0 text-foreground"
+                className="rounded-full border border-border/70 bg-card px-2 py-0.5 hover:bg-muted shrink-0 text-foreground cursor-pointer"
               >
                 "Great progress on AO3 evaluation!"
               </button>
               <button
                 type="button"
                 onClick={() => setMessageInput("Hello! Your teacher approval has been confirmed. You now have full educator access.")}
-                className="rounded-full border border-border/70 bg-card px-2 py-0.5 hover:bg-muted shrink-0 text-foreground"
+                className="rounded-full border border-border/70 bg-card px-2 py-0.5 hover:bg-muted shrink-0 text-foreground cursor-pointer"
               >
                 "Teacher approval confirmed"
               </button>
               <button
                 type="button"
                 onClick={() => setMessageInput("Hi! How is your Cambridge 9708 revision going? Do you have any questions about essay tariffs?")}
-                className="rounded-full border border-border/70 bg-card px-2 py-0.5 hover:bg-muted shrink-0 text-foreground"
+                className="rounded-full border border-border/70 bg-card px-2 py-0.5 hover:bg-muted shrink-0 text-foreground cursor-pointer"
               >
                 "How is revision going?"
               </button>
             </div>
 
-            {/* Message Input Box */}
-            <div className="p-3 border-t border-border/70 bg-card/80 space-y-2">
+            {/* Message Input Box (Pinned) */}
+            <div className="shrink-0 p-3 border-t border-border/70 bg-card/80 space-y-2">
               <div className="relative">
                 <Textarea
                   value={messageInput}

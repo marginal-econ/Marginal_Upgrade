@@ -14,6 +14,7 @@ import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import {
   Dialog,
   DialogContent,
@@ -34,6 +35,27 @@ interface StudentMessagesDialogProps {
   trigger?: React.ReactNode;
 }
 
+function playMessageNotificationChime() {
+  try {
+    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
+    osc.frequency.setValueAtTime(880, ctx.currentTime + 0.08); // A5
+    gain.gain.setValueAtTime(0.08, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.3);
+  } catch {
+    /* ignore audio error */
+  }
+}
+
 export function StudentMessagesDialog({ trigger }: StudentMessagesDialogProps) {
   const queryClient = useQueryClient();
   const getThreadFn = useServerFn(getMyStudentThread);
@@ -43,15 +65,57 @@ export function StudentMessagesDialog({ trigger }: StudentMessagesDialogProps) {
   const [open, setOpen] = useState(false);
   const [inputText, setInputText] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const prevCountRef = useRef<number | null>(null);
 
-  // Unread badge query
+  // Unread badge query (polls every 10s for responsive notifications)
   const unreadQuery = useQuery({
     queryKey: ["student-unread-count"],
     queryFn: () => getUnreadFn(),
-    refetchInterval: 15_000,
+    refetchInterval: 10_000,
   });
 
   const unreadCount = unreadQuery.data?.unreadCount ?? 0;
+
+  // Active notification detection
+  useEffect(() => {
+    if (prevCountRef.current === null) {
+      prevCountRef.current = unreadCount;
+      return;
+    }
+
+    if (unreadCount > prevCountRef.current && !open) {
+      playMessageNotificationChime();
+      toast.info("New message from Marginal Team", {
+        description: "You have a direct message from our examiners. Click to open.",
+        action: {
+          label: "View Chat",
+          onClick: () => setOpen(true),
+        },
+        duration: 8000,
+      });
+
+      if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
+        try {
+          new Notification("Marginal Economics Team", {
+            body: "You received a new message from our examiners.",
+            icon: "/marginal-m-icon-clean.png",
+          });
+        } catch {
+          /* fallback */
+        }
+      }
+    }
+
+    prevCountRef.current = unreadCount;
+  }, [unreadCount, open]);
+
+  // Request browser notification permission when user interacts with messages
+  const handleOpenChange = (nextOpen: boolean) => {
+    setOpen(nextOpen);
+    if (nextOpen && typeof window !== "undefined" && "Notification" in window && Notification.permission === "default") {
+      Notification.requestPermission().catch(() => {});
+    }
+  };
 
   // Chat thread query (refetches when open)
   const threadQuery = useQuery({
@@ -95,20 +159,29 @@ export function StudentMessagesDialog({ trigger }: StudentMessagesDialogProps) {
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         {trigger ? (
-          trigger
+          <div className="relative w-full cursor-pointer">
+            {trigger}
+            {unreadCount > 0 && (
+              <span className="absolute top-1.5 right-2 flex size-2.5 rounded-full bg-rose-500 animate-ping" />
+            )}
+          </div>
         ) : (
           <Button
             variant="outline"
             size="sm"
-            className="relative h-8 gap-1.5 rounded-full border-border/80 text-xs font-semibold"
+            className={cn(
+              "relative h-8 gap-1.5 rounded-full border-border/80 text-xs font-semibold transition-all",
+              unreadCount > 0 &&
+                "border-rose-500/50 bg-rose-500/10 text-rose-600 dark:text-rose-400 shadow-[0_0_12px_rgba(244,63,94,0.35)] animate-pulse"
+            )}
           >
             <MessageSquare className="size-3.5 text-primary" />
             <span className="hidden sm:inline">Messages</span>
             {unreadCount > 0 && (
-              <span className="flex size-4 items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white">
+              <span className="flex size-4 items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white shadow-xs">
                 {unreadCount}
               </span>
             )}
