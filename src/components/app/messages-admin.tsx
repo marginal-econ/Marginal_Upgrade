@@ -229,7 +229,7 @@ export function MessagesAdminPanel({ initialUserId }: MessagesAdminPanelProps) {
                       {conv.name.slice(0, 2)}
                     </div>
                     {hasUnread && (
-                      <span className="absolute -top-0.5 -right-0.5 size-2.5 rounded-full bg-rose-500 animate-pulse border-2 border-background" />
+                      <span className="absolute -top-0.5 -right-0.5 size-2.5 rounded-full bg-rose-500 border-2 border-background" />
                     )}
                   </div>
 

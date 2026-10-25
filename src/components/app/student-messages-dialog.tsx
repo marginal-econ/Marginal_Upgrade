@@ -64,8 +64,10 @@ export function StudentMessagesDialog({ trigger }: StudentMessagesDialogProps) {
 
   const [open, setOpen] = useState(false);
   const [inputText, setInputText] = useState("");
+  const [isBlinking, setIsBlinking] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const prevCountRef = useRef<number | null>(null);
+  const blinkTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Unread badge query (polls every 10s for responsive notifications)
   const unreadQuery = useQuery({
@@ -76,7 +78,7 @@ export function StudentMessagesDialog({ trigger }: StudentMessagesDialogProps) {
 
   const unreadCount = unreadQuery.data?.unreadCount ?? 0;
 
-  // Active notification detection
+  // Active notification detection & 5-second blink handling
   useEffect(() => {
     if (prevCountRef.current === null) {
       prevCountRef.current = unreadCount;
@@ -84,6 +86,13 @@ export function StudentMessagesDialog({ trigger }: StudentMessagesDialogProps) {
     }
 
     if (unreadCount > prevCountRef.current && !open) {
+      // Blink for 5 seconds when new message arrives, then turn into static badge
+      setIsBlinking(true);
+      if (blinkTimerRef.current) clearTimeout(blinkTimerRef.current);
+      blinkTimerRef.current = setTimeout(() => {
+        setIsBlinking(false);
+      }, 5000);
+
       playMessageNotificationChime();
       toast.info("New message from Marginal Team", {
         description: "You have a direct message from our examiners. Click to open.",
@@ -104,10 +113,20 @@ export function StudentMessagesDialog({ trigger }: StudentMessagesDialogProps) {
           /* fallback */
         }
       }
+    } else if (unreadCount === 0) {
+      setIsBlinking(false);
+      if (blinkTimerRef.current) clearTimeout(blinkTimerRef.current);
     }
 
     prevCountRef.current = unreadCount;
   }, [unreadCount, open]);
+
+  // Clean up timer on unmount
+  useEffect(() => {
+    return () => {
+      if (blinkTimerRef.current) clearTimeout(blinkTimerRef.current);
+    };
+  }, []);
 
   // Request browser notification permission when user interacts with messages
   const handleOpenChange = (nextOpen: boolean) => {
@@ -129,6 +148,8 @@ export function StudentMessagesDialog({ trigger }: StudentMessagesDialogProps) {
 
   useEffect(() => {
     if (open) {
+      setIsBlinking(false);
+      if (blinkTimerRef.current) clearTimeout(blinkTimerRef.current);
       messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
       // Invalidate unread count since we opened the thread
       queryClient.invalidateQueries({ queryKey: ["student-unread-count"] });
@@ -165,7 +186,16 @@ export function StudentMessagesDialog({ trigger }: StudentMessagesDialogProps) {
           <div className="relative w-full cursor-pointer">
             {trigger}
             {unreadCount > 0 && (
-              <span className="absolute top-1.5 right-2 flex size-2.5 rounded-full bg-rose-500 animate-ping" />
+              isBlinking ? (
+                <>
+                  <span className="absolute top-2 right-2 flex size-2.5 rounded-full bg-rose-500 animate-ping pointer-events-none" />
+                  <span className="absolute top-2 right-2 flex size-2.5 rounded-full bg-rose-500 animate-pulse pointer-events-none" />
+                </>
+              ) : (
+                <span className="absolute top-1.5 right-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white shadow-xs pointer-events-none">
+                  {unreadCount}
+                </span>
+              )
             )}
           </div>
         ) : (
@@ -174,14 +204,21 @@ export function StudentMessagesDialog({ trigger }: StudentMessagesDialogProps) {
             size="sm"
             className={cn(
               "relative h-8 gap-1.5 rounded-full border-border/80 text-xs font-semibold transition-all",
-              unreadCount > 0 &&
-                "border-rose-500/50 bg-rose-500/10 text-rose-600 dark:text-rose-400 shadow-[0_0_12px_rgba(244,63,94,0.35)] animate-pulse"
+              unreadCount > 0 && isBlinking &&
+                "border-rose-500/50 bg-rose-500/10 text-rose-600 dark:text-rose-400 shadow-[0_0_12px_rgba(244,63,94,0.35)] animate-pulse",
+              unreadCount > 0 && !isBlinking &&
+                "border-rose-500/30 text-foreground"
             )}
           >
             <MessageSquare className="size-3.5 text-primary" />
             <span className="hidden sm:inline">Messages</span>
             {unreadCount > 0 && (
-              <span className="flex size-4 items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white shadow-xs">
+              <span
+                className={cn(
+                  "flex size-4 items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white shadow-xs",
+                  isBlinking && "animate-bounce"
+                )}
+              >
                 {unreadCount}
               </span>
             )}
