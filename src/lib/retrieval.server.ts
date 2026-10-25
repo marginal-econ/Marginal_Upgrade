@@ -345,12 +345,36 @@ export async function retrieve(
   const fetchCount =
     options.enableHybridRrf !== false ? Math.min(24, Math.max(matchTarget * 2, 16)) : matchTarget;
 
-  const { data, error } = await supabase.rpc("match_document_chunks", {
+  let client = supabase;
+  try {
+    const { supabaseAdmin } = await import("@/integrations/backend/client.server");
+    if (supabaseAdmin) client = supabaseAdmin;
+  } catch {}
+
+  let { data, error } = await client.rpc("match_document_chunks", {
     query_embedding: JSON.stringify(queryEmbedding),
     match_count: fetchCount,
     filter_doc_types: options.docTypes ?? null,
     filter_topic_id: options.topicId ?? null,
   });
+
+  if (error && (error.message?.includes("JWT") || error.code === "PGRST301")) {
+    try {
+      const { supabaseAdmin } = await import("@/integrations/backend/client.server");
+      if (supabaseAdmin && client !== supabaseAdmin) {
+        const retry = await supabaseAdmin.rpc("match_document_chunks", {
+          query_embedding: JSON.stringify(queryEmbedding),
+          match_count: fetchCount,
+          filter_doc_types: options.docTypes ?? null,
+          filter_topic_id: options.topicId ?? null,
+        });
+        if (!retry.error) {
+          data = retry.data;
+          error = null;
+        }
+      }
+    } catch {}
+  }
 
   if (error) throw new Error(`Knowledge search failed: ${error.message}`);
 

@@ -312,7 +312,7 @@ async function chatViaProvider(
   // Strict free-first, paid-last key hopping:
   // All healthy free keys are tried first, rotating every 15s or on rate limits (429/503).
   // Emergency paid key(s) are strictly the last resort if all free keys are exhausted.
-  const { paidKeys } = buildOrderedKeyPool(config);
+  const { freeKeys, paidKeys } = buildOrderedKeyPool(config);
   const activeKeysToTry = getPrioritizedKeyOrder(config, keyCooldowns);
 
   if (config.provider === "anthropic") {
@@ -454,11 +454,13 @@ async function chatViaProvider(
     for (const m of candidateModels) {
       usedModel = m;
       const modelBody = { ...body, model: m };
+      let had429OnFreePool = false;
 
       for (let kIdx = 0; kIdx < activeKeysToTry.length; kIdx++) {
         const currentKey = activeKeysToTry[kIdx]!;
         const keyStarted = Date.now();
-        const timeoutMs = options.overrideProvider ? 60_000 : 75_000;
+        // 120s timeout gives Google Gemini free tier adequate time to complete long essay grading under peak load
+        const timeoutMs = 120_000;
         try {
           const response = await fetch(`${config.baseUrl}/chat/completions`, {
             method: "POST",
@@ -467,7 +469,7 @@ async function chatViaProvider(
               Authorization: `Bearer ${currentKey}`,
             },
             body: JSON.stringify(modelBody),
-            signal: AbortSignal.timeout(timeoutMs), // Generous abort timeout for gemini-3.8-flash
+            signal: AbortSignal.timeout(timeoutMs), // Generous 120s timeout for gemini-3.8-flash
           });
 
           if (response.ok) {
@@ -485,8 +487,9 @@ async function chatViaProvider(
 
           // Rate limit, server error, or 404 deprecated model on Google: rotate key or try next candidate model
           if (response.status === 429 || response.status === 503 || response.status === 500) {
-            markKeyRateLimited(currentKey, 60_000);
             const isPaidKey = paidKeys.includes(currentKey);
+            if (!isPaidKey) had429OnFreePool = true;
+            markKeyRateLimited(currentKey, 45_000);
             console.warn(
               `[chatViaProvider] Model ${m} (key ...${currentKey.slice(-4)}, ${isPaidKey ? "emergency paid fallback" : "free pool key"}) returned ${response.status}. Attempting key rotation / fallback...`,
             );
@@ -501,6 +504,41 @@ async function chatViaProvider(
                 error_message: `Key ...${currentKey.slice(-4)} (${isPaidKey ? "emergency paid fallback" : "free pool key"}) returned ${response.status}. Auto-hopped to next key.`,
               });
             } catch {}
+
+            // If we are about to hop from the free pool into the emergency paid key,
+            // check if free keys were hit by 429 burst rate limits.
+            // Pause 2.5s and retry free keys once before consuming paid credits!
+            const nextKey = activeKeysToTry[kIdx + 1];
+            if (nextKey && !isPaidKey && paidKeys.includes(nextKey) && had429OnFreePool && freeKeys.length > 0) {
+              console.warn(
+                `[chatViaProvider] Free pool encountered rate limits; pausing 2.5s to retry free keys before resorting to emergency paid key...`,
+              );
+              await new Promise((resolve) => setTimeout(resolve, 2500));
+              for (const fk of freeKeys) {
+                try {
+                  const retryRes = await fetch(`${config.baseUrl}/chat/completions`, {
+                    method: "POST",
+                    headers: {
+                      "Content-Type": "application/json",
+                      Authorization: `Bearer ${fk}`,
+                    },
+                    body: JSON.stringify(modelBody),
+                    signal: AbortSignal.timeout(timeoutMs),
+                  });
+                  if (retryRes.ok) {
+                    markKeyHealthy(fk);
+                    successfulKeyIdx = activeKeysToTry.indexOf(fk);
+                    if (successfulKeyIdx < 0) successfulKeyIdx = 0;
+                    return (await retryRes.json()) as {
+                      choices?: { message?: { content?: string } }[];
+                      usage?: { prompt_tokens?: number; completion_tokens?: number };
+                    };
+                  }
+                } catch {
+                  // Retry didn't succeed, proceed to next option
+                }
+              }
+            }
 
             if (kIdx + 1 < activeKeysToTry.length) {
               continue; // Try next key on this same model
@@ -533,7 +571,7 @@ async function chatViaProvider(
             fetchErr?.message?.includes("aborted");
 
           if (isTimeout) {
-            markKeyRateLimited(currentKey, 60_000);
+            markKeyRateLimited(currentKey, 30_000); // 30s temporary backoff on timeout
             const isPaidKey = paidKeys.includes(currentKey);
             lastErrStatus = 504;
             lastErrDetail = `Key ...${currentKey.slice(-4)} (${isPaidKey ? "emergency paid fallback" : "free pool key"}) timed out waiting for upstream provider.`;

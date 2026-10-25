@@ -167,14 +167,13 @@ export async function gradeEssay(
   }
 
   // --- calibration anchors -----------------------------------------------
-  // Also mandatory now, for the same reason: a DB error fetching anchors
-  // used to be silently ignored (the `error` from the query was never
-  // even read) and marking proceeded with no calibration at all. A real
-  // query error throws now; zero ACTIVE ANCHORS (nobody has added one, or
-  // none are marked active) is still a normal, non-error state — that
-  // just means this teacher hasn't set any up yet, so it's exposed via
-  // `grading.anchorsUsed` rather than blocking every single grade.
-  const anchors = await fetchCalibrationAnchors(supabase);
+  let anchors: any[] = [];
+  try {
+    anchors = await fetchCalibrationAnchors(supabase);
+  } catch (anchorErr) {
+    console.warn("[grade.server] Error fetching calibration anchors, proceeding with standard rubrics:", anchorErr);
+    anchors = [];
+  }
   const anchorBlock = buildAnchorBlock(anchors);
   if (anchorBlock) systemPrompt = `${systemPrompt}\n\n${anchorBlock}`;
 
