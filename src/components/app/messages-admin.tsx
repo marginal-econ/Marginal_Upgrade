@@ -28,6 +28,7 @@ import {
   listAdminConversations,
   getConversationThread,
   sendAdminTextMessage,
+  markConversationAsRead,
   type UserConversation,
   type DirectMessage,
 } from "@/lib/messages.functions";
@@ -41,6 +42,7 @@ export function MessagesAdminPanel({ initialUserId }: MessagesAdminPanelProps) {
   const listConversationsFn = useServerFn(listAdminConversations);
   const getThreadFn = useServerFn(getConversationThread);
   const sendMessageFn = useServerFn(sendAdminTextMessage);
+  const markReadFn = useServerFn(markConversationAsRead);
 
   const [selectedUserId, setSelectedUserId] = useState<string | null>(initialUserId || null);
   const [search, setSearch] = useState("");
@@ -57,14 +59,40 @@ export function MessagesAdminPanel({ initialUserId }: MessagesAdminPanelProps) {
 
   const allConversations: UserConversation[] = convQuery.data ?? [];
 
+  const handleSelectUser = (userId: string) => {
+    setSelectedUserId(userId);
+
+    const prevUnread = allConversations.find((c) => c.userId === userId)?.unreadCount ?? 0;
+
+    // 1. Instantly zero out unreadCount in the local conversations cache
+    queryClient.setQueryData<UserConversation[]>(["admin-conversations"], (old) => {
+      if (!old) return old;
+      return old.map((c) => (c.userId === userId ? { ...c, unreadCount: 0 } : c));
+    });
+
+    // Also immediately update the global badge counter in client cache
+    if (prevUnread > 0) {
+      queryClient.setQueryData<{ unreadCount: number }>(["student-unread-count"], (old) => {
+        if (!old) return { unreadCount: 0 };
+        return { unreadCount: Math.max(0, old.unreadCount - prevUnread) };
+      });
+    }
+
+    // 2. Persist to DB and sync query caches
+    void markReadFn({ data: { userId } }).then(() => {
+      queryClient.invalidateQueries({ queryKey: ["admin-conversations"] });
+      queryClient.invalidateQueries({ queryKey: ["student-unread-count"] });
+    });
+  };
+
   // If initialUserId changes or not set yet, select first conversation
   useEffect(() => {
     if (initialUserId) {
-      setSelectedUserId(initialUserId);
+      handleSelectUser(initialUserId);
     } else if (!selectedUserId && allConversations.length > 0) {
-      setSelectedUserId(allConversations[0].userId);
+      handleSelectUser(allConversations[0].userId);
     }
-  }, [initialUserId, allConversations, selectedUserId]);
+  }, [initialUserId, allConversations.length]);
 
   // Filter conversations
   const filteredConversations = useMemo(() => {
@@ -93,10 +121,13 @@ export function MessagesAdminPanel({ initialUserId }: MessagesAdminPanelProps) {
 
   const messages: DirectMessage[] = threadQuery.data ?? [];
 
-  // Scroll to bottom when messages update
+  // Scroll to bottom when messages update & invalidate unread counter
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages.length]);
+    if (selectedUserId && messages.length > 0) {
+      queryClient.invalidateQueries({ queryKey: ["student-unread-count"] });
+    }
+  }, [messages.length, selectedUserId, queryClient]);
 
   // 3. Send message mutation
   const sendMutation = useMutation({
@@ -213,13 +244,13 @@ export function MessagesAdminPanel({ initialUserId }: MessagesAdminPanelProps) {
           ) : (
             filteredConversations.map((conv) => {
               const isSelected = conv.userId === selectedUserId;
-              const hasUnread = conv.unreadCount > 0;
+              const hasUnread = conv.unreadCount > 0 && !isSelected;
 
               return (
                 <button
                   key={conv.userId}
                   type="button"
-                  onClick={() => setSelectedUserId(conv.userId)}
+                  onClick={() => handleSelectUser(conv.userId)}
                   className={`w-full text-left p-3 transition-colors flex items-start gap-2.5 hover:bg-muted/50 cursor-pointer ${
                     isSelected ? "bg-primary/10 border-l-2 border-primary" : ""
                   }`}

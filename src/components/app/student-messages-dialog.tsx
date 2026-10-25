@@ -28,6 +28,7 @@ import {
   getMyStudentThread,
   sendStudentTextMessage,
   getUnreadMessageCount,
+  markConversationAsRead,
   type DirectMessage,
 } from "@/lib/messages.functions";
 
@@ -61,6 +62,7 @@ export function StudentMessagesDialog({ trigger }: StudentMessagesDialogProps) {
   const getThreadFn = useServerFn(getMyStudentThread);
   const sendStudentMsgFn = useServerFn(sendStudentTextMessage);
   const getUnreadFn = useServerFn(getUnreadMessageCount);
+  const markReadFn = useServerFn(markConversationAsRead);
 
   const [open, setOpen] = useState(false);
   const [inputText, setInputText] = useState("");
@@ -69,14 +71,41 @@ export function StudentMessagesDialog({ trigger }: StudentMessagesDialogProps) {
   const prevCountRef = useRef<number | null>(null);
   const blinkTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Unread badge query (polls every 10s for responsive notifications)
+  // Unread badge query (polls every 10s; pauses while open to avoid race conditions)
   const unreadQuery = useQuery({
     queryKey: ["student-unread-count"],
     queryFn: () => getUnreadFn(),
-    refetchInterval: 10_000,
+    refetchInterval: open ? false : 10_000,
   });
 
-  const unreadCount = unreadQuery.data?.unreadCount ?? 0;
+  const unreadCount = open ? 0 : (unreadQuery.data?.unreadCount ?? 0);
+
+  // Handle opening and immediate unread clearance
+  const handleOpenChange = async (nextOpen: boolean) => {
+    setOpen(nextOpen);
+    if (nextOpen) {
+      setIsBlinking(false);
+      if (blinkTimerRef.current) clearTimeout(blinkTimerRef.current);
+
+      // Instantly clear unread count in client cache so badge disappears immediately
+      queryClient.setQueryData<{ unreadCount: number }>(["student-unread-count"], { unreadCount: 0 });
+
+      // Persist read state to backend DB
+      try {
+        await markReadFn({ data: {} });
+      } catch (err) {
+        console.warn("Failed to mark messages as read:", err);
+      }
+
+      // Re-sync after backend update completes
+      queryClient.invalidateQueries({ queryKey: ["student-unread-count"] });
+      queryClient.invalidateQueries({ queryKey: ["student-messages-thread"] });
+
+      if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "default") {
+        Notification.requestPermission().catch(() => {});
+      }
+    }
+  };
 
   // Active notification detection & 5-second blink handling
   useEffect(() => {
@@ -98,7 +127,7 @@ export function StudentMessagesDialog({ trigger }: StudentMessagesDialogProps) {
         description: "You have a direct message from our examiners. Click to open.",
         action: {
           label: "View Chat",
-          onClick: () => setOpen(true),
+          onClick: () => handleOpenChange(true),
         },
         duration: 8000,
       });
@@ -128,14 +157,6 @@ export function StudentMessagesDialog({ trigger }: StudentMessagesDialogProps) {
     };
   }, []);
 
-  // Request browser notification permission when user interacts with messages
-  const handleOpenChange = (nextOpen: boolean) => {
-    setOpen(nextOpen);
-    if (nextOpen && typeof window !== "undefined" && "Notification" in window && Notification.permission === "default") {
-      Notification.requestPermission().catch(() => {});
-    }
-  };
-
   // Chat thread query (refetches when open)
   const threadQuery = useQuery({
     queryKey: ["student-messages-thread"],
@@ -151,10 +172,8 @@ export function StudentMessagesDialog({ trigger }: StudentMessagesDialogProps) {
       setIsBlinking(false);
       if (blinkTimerRef.current) clearTimeout(blinkTimerRef.current);
       messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-      // Invalidate unread count since we opened the thread
-      queryClient.invalidateQueries({ queryKey: ["student-unread-count"] });
     }
-  }, [open, messages.length, queryClient]);
+  }, [open, messages.length]);
 
   const sendMutation = useMutation({
     mutationFn: (text: string) => sendStudentMsgFn({ data: { text } }),
@@ -185,7 +204,7 @@ export function StudentMessagesDialog({ trigger }: StudentMessagesDialogProps) {
         {trigger ? (
           <div className="relative w-full cursor-pointer">
             {trigger}
-            {unreadCount > 0 && (
+            {unreadCount > 0 && !open && (
               isBlinking ? (
                 <>
                   <span className="absolute top-2 right-2 flex size-2.5 rounded-full bg-rose-500 animate-ping pointer-events-none" />
@@ -204,15 +223,15 @@ export function StudentMessagesDialog({ trigger }: StudentMessagesDialogProps) {
             size="sm"
             className={cn(
               "relative h-8 gap-1.5 rounded-full border-border/80 text-xs font-semibold transition-all",
-              unreadCount > 0 && isBlinking &&
+              unreadCount > 0 && !open && isBlinking &&
                 "border-rose-500/50 bg-rose-500/10 text-rose-600 dark:text-rose-400 shadow-[0_0_12px_rgba(244,63,94,0.35)] animate-pulse",
-              unreadCount > 0 && !isBlinking &&
+              unreadCount > 0 && !open && !isBlinking &&
                 "border-rose-500/30 text-foreground"
             )}
           >
             <MessageSquare className="size-3.5 text-primary" />
             <span className="hidden sm:inline">Messages</span>
-            {unreadCount > 0 && (
+            {unreadCount > 0 && !open && (
               <span
                 className={cn(
                   "flex size-4 items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white shadow-xs",

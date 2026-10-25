@@ -46,7 +46,7 @@ import {
   XCircle,
   Zap,
 } from "lucide-react";
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -191,6 +191,9 @@ function AdminErrorComponent({ error, reset }: { error: unknown; reset: () => vo
 }
 
 export const Route = createFileRoute("/_authenticated/admin")({
+  validateSearch: (search: Record<string, unknown>) => ({
+    tab: typeof search.tab === "string" ? search.tab : undefined,
+  }),
   beforeLoad: async ({ context }) => {
     const user = (context as any)?.user;
     const isMarginal = isMarginalAdmin({
@@ -389,12 +392,19 @@ const ADMIN_CATEGORIES = [
 
 function AdminPage() {
   const queryClient = useQueryClient();
+  const searchParams = Route.useSearch();
   const fetchMe = useServerFn(getMe);
   const fetchOverview = useServerFn(adminOverview);
   const dismissAlerts = useServerFn(dismissPaidKeyAlerts);
-  const [activeTab, setActiveTab] = useState("overview");
+  const [activeTab, setActiveTab] = useState(searchParams?.tab || "overview");
   const [textTargetUserId, setTextTargetUserId] = useState<string | null>(null);
   const [localAlertDismissed, setLocalAlertDismissed] = useState(false);
+
+  useEffect(() => {
+    if (searchParams?.tab) {
+      setActiveTab(searchParams.tab);
+    }
+  }, [searchParams?.tab]);
 
   const me = useQuery({ queryKey: ["me"], queryFn: () => fetchMe() });
   const overviewQuery = useQuery({

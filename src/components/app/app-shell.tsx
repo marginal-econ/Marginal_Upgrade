@@ -1,5 +1,6 @@
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import {
   BookOpen,
   ClipboardCheck,
@@ -41,6 +42,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/co
 import { LockedFeatureModal, type LockedFeatureType } from "@/components/app/locked-feature-modal";
 import { FeedbackDialog, FloatingFeedbackPill } from "@/components/feedback/feedback-dialog";
 import { StudentMessagesDialog } from "@/components/app/student-messages-dialog";
+import { getUnreadMessageCount } from "@/lib/messages.functions";
 import { usePresenceHeartbeat } from "@/hooks/use-presence";
 import { supabase } from "@/integrations/backend/client";
 import type { UserSubscriptionDetails } from "@/lib/usage-limits";
@@ -297,6 +299,14 @@ export function AppShell({
   const isHigherTierUser = isUserAdmin || subscription?.tier === "mastery" || subscription?.tier === "elite";
   const canLiveExaminer = isUserAdmin || Boolean(subscription?.canUseLiveExaminer);
   const isPaidUser = isUserAdmin || Boolean(subscription?.isPaid);
+
+  const getUnreadFn = useServerFn(getUnreadMessageCount);
+  const unreadMsgQuery = useQuery({
+    queryKey: ["student-unread-count"],
+    queryFn: () => getUnreadFn(),
+    refetchInterval: 10_000,
+  });
+  const unreadMsgCount = unreadMsgQuery.data?.unreadCount ?? 0;
 
   const isItemActive = (to: string) => {
     if (to === "/dashboard") return pathname === "/dashboard";
@@ -645,23 +655,45 @@ export function AppShell({
 
         {/* ── User Footer: Cleanly pinned at the bottom, perfectly spaced ── */}
         <div className="shrink-0 pt-2.5 border-t border-sidebar-border/70 mt-auto space-y-1">
-          <StudentMessagesDialog
-            trigger={
-              <button
-                type="button"
-                className={cn(
-                  "flex items-center rounded-lg py-1.5 text-xs font-medium text-sidebar-foreground/80 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground w-full text-left cursor-pointer",
-                  sidebarCollapsed ? "justify-center px-1" : "gap-2.5 px-2.5",
-                )}
-                title="Direct messages from Marginal team"
-              >
-                <Send className="size-4 shrink-0 text-primary" />
-                <span className={cn("truncate", sidebarCollapsed && "sr-only")}>
-                  Direct Messages
+          {isUserAdmin ? (
+            <Link
+              to="/admin"
+              search={{ tab: "messages" }}
+              className={cn(
+                "relative flex items-center rounded-lg py-1.5 text-xs font-medium text-sidebar-foreground/80 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground w-full text-left cursor-pointer",
+                sidebarCollapsed ? "justify-center px-1" : "gap-2.5 px-2.5",
+              )}
+              title="Direct In-App User Texting Portal"
+            >
+              <Send className="size-4 shrink-0 text-primary" />
+              <span className={cn("truncate", sidebarCollapsed && "sr-only")}>
+                Direct Messages
+              </span>
+              {unreadMsgCount > 0 && (
+                <span className="absolute top-1.5 right-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white shadow-xs">
+                  {unreadMsgCount}
                 </span>
-              </button>
-            }
-          />
+              )}
+            </Link>
+          ) : (
+            <StudentMessagesDialog
+              trigger={
+                <button
+                  type="button"
+                  className={cn(
+                    "flex items-center rounded-lg py-1.5 text-xs font-medium text-sidebar-foreground/80 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground w-full text-left cursor-pointer",
+                    sidebarCollapsed ? "justify-center px-1" : "gap-2.5 px-2.5",
+                  )}
+                  title="Direct messages from Marginal team"
+                >
+                  <Send className="size-4 shrink-0 text-primary" />
+                  <span className={cn("truncate", sidebarCollapsed && "sr-only")}>
+                    Direct Messages
+                  </span>
+                </button>
+              }
+            />
+          )}
 
           <FeedbackDialog
             trigger={
@@ -818,17 +850,33 @@ export function AppShell({
                 </div>
 
                 <div className="mt-auto shrink-0 pt-3 border-t border-border space-y-1">
-                  <StudentMessagesDialog
-                    trigger={
-                      <button
-                        type="button"
-                        onClick={() => setMobileDrawerOpen(false)}
-                        className="flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-xs font-medium text-foreground hover:bg-muted w-full text-left cursor-pointer"
-                      >
-                        <Send className="size-4 text-primary" /> Direct Messages
-                      </button>
-                    }
-                  />
+                  {isUserAdmin ? (
+                    <Link
+                      to="/admin"
+                      search={{ tab: "messages" }}
+                      onClick={() => setMobileDrawerOpen(false)}
+                      className="relative flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-xs font-medium text-foreground hover:bg-muted w-full text-left cursor-pointer"
+                    >
+                      <Send className="size-4 text-primary" /> Direct Messages
+                      {unreadMsgCount > 0 && (
+                        <span className="ml-auto flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white shadow-xs">
+                          {unreadMsgCount}
+                        </span>
+                      )}
+                    </Link>
+                  ) : (
+                    <StudentMessagesDialog
+                      trigger={
+                        <button
+                          type="button"
+                          onClick={() => setMobileDrawerOpen(false)}
+                          className="flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-xs font-medium text-foreground hover:bg-muted w-full text-left cursor-pointer"
+                        >
+                          <Send className="size-4 text-primary" /> Direct Messages
+                        </button>
+                      }
+                    />
+                  )}
                   <FeedbackDialog
                     trigger={
                       <button
@@ -871,7 +919,23 @@ export function AppShell({
           </div>
 
           <div className="flex items-center gap-2">
-            <StudentMessagesDialog />
+            {isUserAdmin ? (
+              <Link
+                to="/admin"
+                search={{ tab: "messages" }}
+                className="relative flex items-center justify-center size-8 rounded-full border border-border/80 hover:bg-muted transition-colors"
+                title="Direct Messages Portal"
+              >
+                <Send className="size-3.5 text-primary" />
+                {unreadMsgCount > 0 && (
+                  <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white shadow-xs">
+                    {unreadMsgCount}
+                  </span>
+                )}
+              </Link>
+            ) : (
+              <StudentMessagesDialog />
+            )}
             <Link to="/pricing">
               <Badge
                 variant="outline"

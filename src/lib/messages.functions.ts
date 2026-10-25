@@ -197,8 +197,6 @@ export const getConversationThread = createServerFn({ method: "GET" })
 
     if (error) throw new Error(error.message);
 
-    const thread = (rows ?? []).map(parseMessagePayload);
-
     // If admin is reading, mark incoming student messages as read (ok: true)
     if (isMarginal) {
       const unreadIds = (rows ?? [])
@@ -206,13 +204,17 @@ export const getConversationThread = createServerFn({ method: "GET" })
         .map((r) => r.id);
 
       if (unreadIds.length > 0) {
-        void supabaseAdmin
+        await supabaseAdmin
           .from("ai_usage_log")
           .update({ ok: true })
-          .in("id", unreadIds)
-          .then();
+          .in("id", unreadIds);
       }
     }
+
+    const thread = (rows ?? []).map((r) => ({
+      ...parseMessagePayload(r),
+      read: isMarginal ? true : r.ok === true,
+    }));
 
     return thread;
   });
@@ -335,9 +337,6 @@ export const getMyStudentThread = createServerFn({ method: "GET" })
 
     if (error) throw new Error(error.message);
 
-    const thread = (rows ?? []).map(parseMessagePayload);
-    const unreadCount = thread.filter((m) => m.sender === "admin" && !m.read).length;
-
     // Mark admin messages as read now that student has opened the thread
     const unreadAdminRowIds = (rows ?? [])
       .filter((r) => {
@@ -347,17 +346,94 @@ export const getMyStudentThread = createServerFn({ method: "GET" })
       .map((r) => r.id);
 
     if (unreadAdminRowIds.length > 0) {
-      void supabaseAdmin
+      await supabaseAdmin
         .from("ai_usage_log")
         .update({ ok: true })
-        .in("id", unreadAdminRowIds)
-        .then();
+        .in("id", unreadAdminRowIds);
     }
+
+    const thread = (rows ?? []).map((r) => ({
+      ...parseMessagePayload(r),
+      read: true,
+    }));
 
     return {
       messages: thread,
-      unreadCount,
+      unreadCount: 0,
     };
+  });
+
+/**
+ * Mark all messages in a conversation as read explicitly.
+ */
+export const markConversationAsRead = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({ userId: z.string().optional() }).optional().parse(input) ?? {},
+  )
+  .handler(async ({ data, context }) => {
+    const isMarginal = isMarginalAdmin({
+      userId: context.userId,
+      claims: (context as any).claims,
+      email: (context as any).email || (context as any).claims?.email,
+    });
+
+    const { supabaseAdmin } = await import("@/integrations/backend/client.server");
+
+    if (isMarginal && data?.userId) {
+      // Admin is marking messages sent by this student as read
+      const { data: rows } = await supabaseAdmin
+        .from("ai_usage_log")
+        .select("id, error_message")
+        .eq("feature", "DIRECT_MESSAGE")
+        .eq("user_id", data.userId)
+        .eq("ok", false);
+
+      const unreadStudentRowIds = (rows ?? [])
+        .filter((r) => {
+          try {
+            return JSON.parse(r.error_message || "{}").sender === "user";
+          } catch {
+            return true;
+          }
+        })
+        .map((r) => r.id);
+
+      if (unreadStudentRowIds.length > 0) {
+        await supabaseAdmin
+          .from("ai_usage_log")
+          .update({ ok: true })
+          .in("id", unreadStudentRowIds);
+      }
+    } else {
+      // Student is marking messages sent by admin as read
+      const targetUserId = (isMarginal && data?.userId) ? data.userId : context.userId;
+      const { data: rows } = await supabaseAdmin
+        .from("ai_usage_log")
+        .select("id, error_message")
+        .eq("feature", "DIRECT_MESSAGE")
+        .eq("user_id", targetUserId)
+        .eq("ok", false);
+
+      const unreadAdminRowIds = (rows ?? [])
+        .filter((r) => {
+          try {
+            return JSON.parse(r.error_message || "{}").sender === "admin";
+          } catch {
+            return false;
+          }
+        })
+        .map((r) => r.id);
+
+      if (unreadAdminRowIds.length > 0) {
+        await supabaseAdmin
+          .from("ai_usage_log")
+          .update({ ok: true })
+          .in("id", unreadAdminRowIds);
+      }
+    }
+
+    return { ok: true };
   });
 
 /**
