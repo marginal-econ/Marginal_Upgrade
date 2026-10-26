@@ -277,7 +277,7 @@ export const getProgress = createServerFn({ method: "GET" })
     return data ?? [];
   });
 
-/** Proactively check if a question matches verified Cambridge Knowledge Base materials */
+/** Proactively check if a question matches verified Cambridge Knowledge Base materials (coursebooks, mark schemes, syllabus, notes) */
 export const checkQuestionGrounding = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) =>
@@ -287,19 +287,33 @@ export const checkQuestionGrounding = createServerFn({ method: "POST" })
     if (data.question.length < 15) return { checked: false, grounded: false, sourceCount: 0 };
     const { retrieve } = await import("./retrieval.server");
     try {
-      const sources = await retrieve(context.supabase, {
-        query: `${data.question}\n\nMark scheme, band descriptors and examiner report guidance for this question.`,
-        matchCount: 4,
-        minSimilarity: 0.5,
+      // 1. First search: direct question against coursebooks, syllabus, notes, and past papers
+      let sources = await retrieve(context.supabase, {
+        query: data.question,
+        matchCount: 6,
+        minSimilarity: 0.45,
       });
+
+      // 2. Second search fallback: enriched query with mark scheme / coursebook terms
+      if (!sources || sources.length === 0) {
+        sources = await retrieve(context.supabase, {
+          query: `${data.question}\n\nMark scheme, coursebook chapter, band descriptors and syllabus guidance.`,
+          matchCount: 6,
+          minSimilarity: 0.40,
+        });
+      }
+
+      const top = sources?.[0];
       return {
         checked: true,
-        grounded: sources.length > 0,
-        sourceCount: sources.length,
-        topMatchTitle: sources[0]?.documentTitle ?? null,
-        topSimilarity: sources[0]?.similarity ?? null,
+        grounded: (sources?.length ?? 0) > 0,
+        sourceCount: sources?.length ?? 0,
+        topMatchTitle: top?.documentTitle ?? null,
+        topMatchDocType: top?.docType ?? null,
+        topSimilarity: top?.similarity ?? null,
       };
-    } catch {
+    } catch (err) {
+      console.warn("[checkQuestionGrounding] Retrieval warning:", err);
       return { checked: false, grounded: false, sourceCount: 0 };
     }
   });

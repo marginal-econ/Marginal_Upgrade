@@ -344,7 +344,8 @@ export async function getChatProviderChain(forceBackupOnly?: boolean): Promise<P
 
 /**
  * The admin-selected embedding provider override.
- * Respects backup-only mode by skipping Gemini models when Gemini is bypassed.
+ * Retrieves the active embedding provider (e.g. Google gemini-embedding-001)
+ * to ground essays and questions against the 259+ Knowledge Base documents.
  */
 export async function getActiveEmbeddingProvider(forceBackupOnly?: boolean): Promise<ProviderConfig | null> {
   const isBackupOnly =
@@ -353,8 +354,7 @@ export async function getActiveEmbeddingProvider(forceBackupOnly?: boolean): Pro
   if (
     embeddingCache &&
     Date.now() - embeddingCache.at < TTL_MS &&
-    embeddingCache.value &&
-    embeddingCache.backupOnly === isBackupOnly
+    embeddingCache.value
   ) {
     return embeddingCache.value;
   }
@@ -362,43 +362,74 @@ export async function getActiveEmbeddingProvider(forceBackupOnly?: boolean): Pro
   let value: ProviderConfig | null = null;
   try {
     const { supabaseAdmin } = await import("@/integrations/backend/client.server");
-    let query = supabaseAdmin
-      .from("ai_provider_keys")
-      .select("provider, api_key, base_url, model, label")
-      .eq("is_active", true)
-      .eq("purpose", "embedding")
-      .order("updated_at", { ascending: false });
 
+    // 1. First priority: Check if an active non-google embedding key exists when in backup-only mode
     if (isBackupOnly) {
-      query = query.neq("provider", "google").neq("provider", "gemini").neq("provider", "lovable");
-    }
-
-    const { data, error } = await query.limit(1);
-    if (!error && data && data.length > 0 && data[0]!.api_key) {
-      value = normaliseConfig(data[0]!);
-    } else if (isBackupOnly) {
-      // Find any embedding-capable backup provider
-      const { data: fallbackData } = await supabaseAdmin
+      const { data: backupData } = await supabaseAdmin
         .from("ai_provider_keys")
         .select("provider, api_key, base_url, model, label")
+        .eq("is_active", true)
+        .eq("purpose", "embedding")
         .neq("provider", "google")
         .neq("provider", "gemini")
         .neq("provider", "lovable")
-        .order("updated_at", { ascending: false });
+        .order("updated_at", { ascending: false })
+        .limit(1);
 
-      if (fallbackData) {
-        const row = fallbackData.find(
-          (r) =>
-            r.api_key &&
-            r.api_key.trim().length > 5 &&
-            (r.provider === "openrouter" || r.provider === "openai" || r.provider === "custom"),
-        );
-        if (row) value = normaliseConfig(row);
+      if (backupData && backupData.length > 0 && backupData[0]!.api_key) {
+        value = normaliseConfig(backupData[0]!);
+      }
+    }
+
+    // 2. Active embedding key in ai_provider_keys (matches database vector space)
+    if (!value) {
+      const { data, error } = await supabaseAdmin
+        .from("ai_provider_keys")
+        .select("provider, api_key, base_url, model, label")
+        .eq("is_active", true)
+        .eq("purpose", "embedding")
+        .order("updated_at", { ascending: false })
+        .limit(1);
+
+      if (!error && data && data.length > 0 && data[0]!.api_key) {
+        value = normaliseConfig(data[0]!);
+      }
+    }
+
+    // 3. Fallback: Any key marked for embedding
+    if (!value) {
+      const { data: anyEmbed } = await supabaseAdmin
+        .from("ai_provider_keys")
+        .select("provider, api_key, base_url, model, label")
+        .eq("purpose", "embedding")
+        .order("updated_at", { ascending: false })
+        .limit(1);
+
+      if (anyEmbed && anyEmbed.length > 0 && anyEmbed[0]!.api_key) {
+        value = normaliseConfig(anyEmbed[0]!);
+      }
+    }
+
+    // 4. Fallback: Any active Google key (Google keys can call gemini-embedding-001)
+    if (!value) {
+      const { data: anyGoogle } = await supabaseAdmin
+        .from("ai_provider_keys")
+        .select("provider, api_key, base_url, model, label")
+        .eq("provider", "google")
+        .eq("is_active", true)
+        .order("updated_at", { ascending: false })
+        .limit(1);
+
+      if (anyGoogle && anyGoogle.length > 0 && anyGoogle[0]!.api_key) {
+        value = {
+          ...normaliseConfig(anyGoogle[0]!),
+          model: "models/gemini-embedding-001",
+        };
       }
     }
   } catch (err) {
     console.error("[getActiveEmbeddingProvider] Lookup error:", err);
-    if (embeddingCache?.value && embeddingCache.backupOnly === isBackupOnly) return embeddingCache.value;
+    if (embeddingCache?.value) return embeddingCache.value;
     value = null;
   }
 

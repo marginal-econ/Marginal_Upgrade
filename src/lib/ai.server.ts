@@ -1077,12 +1077,35 @@ export async function embed(
 
     if (!config) {
       const activeChat = await getActiveProvider();
-      if (activeChat && activeChat.provider === "google") {
+      if (activeChat && (activeChat.provider === "google" || activeChat.provider === "gemini")) {
         config = {
           ...activeChat,
           model: GOOGLE_EMBED_MODEL,
         };
       }
+    }
+
+    // Safety fallback: fetch any active Google key directly from database
+    if (!config) {
+      try {
+        const { supabaseAdmin } = await import("@/integrations/backend/client.server");
+        const { data: directKey } = await supabaseAdmin
+          .from("ai_provider_keys")
+          .select("provider, api_key, base_url, model, label")
+          .or("purpose.eq.embedding,provider.eq.google")
+          .order("updated_at", { ascending: false })
+          .limit(1);
+
+        if (directKey && directKey.length > 0 && directKey[0]!.api_key) {
+          config = {
+            provider: directKey[0]!.provider,
+            apiKey: directKey[0]!.api_key,
+            model: directKey[0]!.model?.includes("embedding") ? directKey[0]!.model : GOOGLE_EMBED_MODEL,
+            baseUrl: directKey[0]!.base_url ?? undefined,
+            label: directKey[0]!.label ?? undefined,
+          };
+        }
+      } catch {}
     }
 
     if (config) {

@@ -605,7 +605,7 @@ function GradePage() {
                       <div className="flex items-start gap-1.5">
                         <AlertTriangle className="size-3.5 mt-0.5 shrink-0 text-amber-400" />
                         <div className="space-y-0.5">
-                          <span className="font-semibold">No specific mark scheme found in Knowledge Base</span>
+                          <span className="font-semibold">No specific mark scheme or book reference found</span>
                           <p className="text-amber-200/80 leading-normal">
                             Paste or attach a screenshot of the official mark scheme below for question-specific grounding, or this essay will be marked against standard Cambridge AO level rubrics.
                           </p>
