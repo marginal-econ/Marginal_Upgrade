@@ -346,11 +346,13 @@ export async function getChatProviderChain(forceBackupOnly?: boolean): Promise<P
  * The admin-selected embedding provider override.
  * Retrieves the active embedding provider (e.g. Google gemini-embedding-001)
  * to ground essays and questions against the 259+ Knowledge Base documents.
+ * 
+ * CRITICAL: The entire 259+ Knowledge Base in Supabase PostgreSQL is vectorized
+ * in Google's gemini-embedding-001 2048-dimensional space.
+ * Regardless of which chat LLM provider is active (Groq, OpenRouter, Mistral, OpenAI, Anthropic),
+ * embeddings for retrieval must ALWAYS use the matching gemini-embedding-001 vector space.
  */
-export async function getActiveEmbeddingProvider(forceBackupOnly?: boolean): Promise<ProviderConfig | null> {
-  const isBackupOnly =
-    forceBackupOnly !== undefined ? forceBackupOnly : (await getAiGatewaySettings()).backupOnly;
-
+export async function getActiveEmbeddingProvider(): Promise<ProviderConfig | null> {
   if (
     embeddingCache &&
     Date.now() - embeddingCache.at < TTL_MS &&
@@ -363,40 +365,20 @@ export async function getActiveEmbeddingProvider(forceBackupOnly?: boolean): Pro
   try {
     const { supabaseAdmin } = await import("@/integrations/backend/client.server");
 
-    // 1. First priority: Check if an active non-google embedding key exists when in backup-only mode
-    if (isBackupOnly) {
-      const { data: backupData } = await supabaseAdmin
-        .from("ai_provider_keys")
-        .select("provider, api_key, base_url, model, label")
-        .eq("is_active", true)
-        .eq("purpose", "embedding")
-        .neq("provider", "google")
-        .neq("provider", "gemini")
-        .neq("provider", "lovable")
-        .order("updated_at", { ascending: false })
-        .limit(1);
+    // 1. Active embedding key in ai_provider_keys (matches database vector space)
+    const { data, error } = await supabaseAdmin
+      .from("ai_provider_keys")
+      .select("provider, api_key, base_url, model, label")
+      .eq("is_active", true)
+      .eq("purpose", "embedding")
+      .order("updated_at", { ascending: false })
+      .limit(1);
 
-      if (backupData && backupData.length > 0 && backupData[0]!.api_key) {
-        value = normaliseConfig(backupData[0]!);
-      }
+    if (!error && data && data.length > 0 && data[0]!.api_key) {
+      value = normaliseConfig(data[0]!);
     }
 
-    // 2. Active embedding key in ai_provider_keys (matches database vector space)
-    if (!value) {
-      const { data, error } = await supabaseAdmin
-        .from("ai_provider_keys")
-        .select("provider, api_key, base_url, model, label")
-        .eq("is_active", true)
-        .eq("purpose", "embedding")
-        .order("updated_at", { ascending: false })
-        .limit(1);
-
-      if (!error && data && data.length > 0 && data[0]!.api_key) {
-        value = normaliseConfig(data[0]!);
-      }
-    }
-
-    // 3. Fallback: Any key marked for embedding
+    // 2. Fallback: Any key marked for embedding
     if (!value) {
       const { data: anyEmbed } = await supabaseAdmin
         .from("ai_provider_keys")
@@ -410,7 +392,7 @@ export async function getActiveEmbeddingProvider(forceBackupOnly?: boolean): Pro
       }
     }
 
-    // 4. Fallback: Any active Google key (Google keys can call gemini-embedding-001)
+    // 3. Fallback: Any active Google key (Google keys can call gemini-embedding-001)
     if (!value) {
       const { data: anyGoogle } = await supabaseAdmin
         .from("ai_provider_keys")
@@ -427,19 +409,37 @@ export async function getActiveEmbeddingProvider(forceBackupOnly?: boolean): Pro
         };
       }
     }
+
+    // 4. Fallback: Any Google key at all
+    if (!value) {
+      const { data: googleAll } = await supabaseAdmin
+        .from("ai_provider_keys")
+        .select("provider, api_key, base_url, model, label")
+        .eq("provider", "google")
+        .order("updated_at", { ascending: false })
+        .limit(1);
+
+      if (googleAll && googleAll.length > 0 && googleAll[0]!.api_key) {
+        value = {
+          ...normaliseConfig(googleAll[0]!),
+          model: "models/gemini-embedding-001",
+        };
+      }
+    }
   } catch (err) {
     console.error("[getActiveEmbeddingProvider] Lookup error:", err);
     if (embeddingCache?.value) return embeddingCache.value;
     value = null;
   }
 
-  embeddingCache = { value, at: value ? Date.now() : Date.now() - (TTL_MS - 5_000), backupOnly: isBackupOnly };
+  embeddingCache = { value, at: value ? Date.now() : Date.now() - (TTL_MS - 5_000) };
   return value;
 }
 
 /**
  * The admin-selected vision provider override.
- * Respects backup-only mode by skipping Gemini models when Gemini is bypassed.
+ * Ensures only vision-capable models (e.g. Gemini 2.5/3.8 Flash, GPT-4o, Claude 3.5 Sonnet, Pixtral)
+ * are selected for mark-scheme image interpretation.
  */
 export async function getActiveVisionProvider(forceBackupOnly?: boolean): Promise<ProviderConfig | null> {
   const isBackupOnly =
@@ -472,7 +472,7 @@ export async function getActiveVisionProvider(forceBackupOnly?: boolean): Promis
     if (!error && data && data.length > 0 && data[0]!.api_key) {
       value = normaliseConfig(data[0]!);
     } else if (isBackupOnly) {
-      // Find any vision-capable backup provider
+      // Find any vision-capable backup provider (must have visionCapable in providerMeta)
       const { data: fallbackData } = await supabaseAdmin
         .from("ai_provider_keys")
         .select("provider, api_key, base_url, model, label")
@@ -482,8 +482,27 @@ export async function getActiveVisionProvider(forceBackupOnly?: boolean): Promis
         .order("updated_at", { ascending: false });
 
       if (fallbackData) {
-        const row = fallbackData.find((r) => r.api_key && r.api_key.trim().length > 5);
+        const row = fallbackData.find((r) => {
+          if (!r.api_key || r.api_key.trim().length <= 5) return false;
+          const meta = providerMeta(r.provider);
+          return meta.visionCapable === true;
+        });
         if (row) value = normaliseConfig(row);
+      }
+    }
+
+    // Safety fallback: if no vision-capable non-Google provider was found, use the active Google vision key
+    if (!value) {
+      const { data: googleVision } = await supabaseAdmin
+        .from("ai_provider_keys")
+        .select("provider, api_key, base_url, model, label")
+        .eq("provider", "google")
+        .eq("purpose", "vision")
+        .order("updated_at", { ascending: false })
+        .limit(1);
+
+      if (googleVision && googleVision.length > 0 && googleVision[0]!.api_key) {
+        value = normaliseConfig(googleVision[0]!);
       }
     }
   } catch (err) {

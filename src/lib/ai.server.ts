@@ -521,26 +521,33 @@ async function chatViaProvider(
     };
   }
 
+  const isReasoningModel = /^(gpt-5|o1|o3|o4)/i.test(config.model);
   const body: Record<string, unknown> = {
     model: config.model,
     messages: options.messages,
   };
-  if (typeof options.temperature === "number" && !/^gpt-5/.test(config.model)) {
+  // Do not send temperature to reasoning models that explicitly reject custom temperatures
+  if (typeof options.temperature === "number" && !isReasoningModel) {
     body.temperature = options.temperature;
   }
   if (options.reasoningEffort) {
     if (config.provider === "openrouter") {
       body.reasoning = { effort: options.reasoningEffort };
-    } else {
+    } else if (config.provider === "openai" || isReasoningModel) {
       body.reasoning_effort = options.reasoningEffort;
     }
   }
   if (options.json) body.response_format = { type: "json_object" };
   if (options.maxCompletionTokens) {
-    if (config.provider === "mistral") {
-      body.max_tokens = options.maxCompletionTokens;
-    } else {
+    // OpenAI and reasoning models use max_completion_tokens
+    if (config.provider === "openai" || isReasoningModel) {
       body.max_completion_tokens = options.maxCompletionTokens;
+    } else {
+      // Groq, Mistral, DeepSeek, xAI, OpenRouter, and custom endpoints expect max_tokens
+      body.max_tokens = options.maxCompletionTokens;
+      if (config.provider === "openrouter") {
+        body.max_completion_tokens = options.maxCompletionTokens;
+      }
     }
   }
 
@@ -666,6 +673,60 @@ async function chatViaProvider(
               continue; // Try next key on this same model
             }
             break; // All keys exhausted on this model, step to next candidate model
+          }
+
+          // Auto-recovery for provider parameter quirks (e.g. temperature, response_format, max_tokens)
+          if (response.status === 400) {
+            const lowerText = text.toLowerCase();
+            let recovered = false;
+
+            if (modelBody.response_format && (lowerText.includes("response_format") || lowerText.includes("json_object") || lowerText.includes("json schema"))) {
+              delete modelBody.response_format;
+              recovered = true;
+            }
+            if (modelBody.temperature !== undefined && (lowerText.includes("temperature") || lowerText.includes("sampling parameter"))) {
+              delete modelBody.temperature;
+              recovered = true;
+            }
+            if (modelBody.max_completion_tokens !== undefined && (lowerText.includes("max_completion_tokens") || lowerText.includes("unknown parameter"))) {
+              modelBody.max_tokens = modelBody.max_completion_tokens;
+              delete modelBody.max_completion_tokens;
+              recovered = true;
+            }
+            if (lowerText.includes("system") && lowerText.includes("role") && Array.isArray(modelBody.messages)) {
+              // Convert system message into user message prefix
+              const sysMsgs = (modelBody.messages as ChatMessage[]).filter((msg) => msg.role === "system");
+              const nonSysMsgs = (modelBody.messages as ChatMessage[]).filter((msg) => msg.role !== "system");
+              if (sysMsgs.length > 0 && nonSysMsgs.length > 0) {
+                const combinedSys = sysMsgs.map((m) => m.content).join("\n\n");
+                modelBody.messages = [
+                  {
+                    role: "user",
+                    content: `${combinedSys}\n\n---\n\n${nonSysMsgs[0]?.content || ""}`,
+                  },
+                  ...nonSysMsgs.slice(1),
+                ];
+                recovered = true;
+              }
+            }
+
+            if (recovered) {
+              console.warn(`[chatViaProvider] Retrying with sanitized parameters for model ${m}...`);
+              const retryRes = await fetch(`${config.baseUrl}/chat/completions`, {
+                method: "POST",
+                headers: reqHeaders,
+                body: JSON.stringify(modelBody),
+                signal: AbortSignal.timeout(timeoutMs),
+              });
+              if (retryRes.ok) {
+                markKeyHealthy(currentKey);
+                successfulKeyIdx = kIdx;
+                return (await retryRes.json()) as {
+                  choices?: { message?: { content?: string } }[];
+                  usage?: { prompt_tokens?: number; completion_tokens?: number };
+                };
+              }
+            }
           }
 
           const isModelUnavailable =
@@ -1277,8 +1338,18 @@ async function visionChatViaOpenAiCompatible(
   const { paidKeys } = buildOrderedKeyPool(config);
   const keysToTry = getPrioritizedKeyOrder(config, keyCooldowns, false);
 
+  const meta = providerMeta(config.provider);
+  let effectiveVisionModel = config.model;
+  if (config.provider === "google") {
+    effectiveVisionModel = "gemini-3.8-flash";
+  } else if (meta && meta.visionModels && meta.visionModels.length > 0) {
+    if (!meta.visionModels.includes(config.model as any)) {
+      effectiveVisionModel = meta.visionModels[0]!;
+    }
+  }
+
   const body: Record<string, unknown> = {
-    model: config.provider === "google" ? "gemini-3.8-flash" : config.model,
+    model: effectiveVisionModel,
     messages: [
       { role: "system", content: options.systemPrompt },
       {
@@ -1294,10 +1365,10 @@ async function visionChatViaOpenAiCompatible(
     ],
   };
   if (options.maxCompletionTokens) {
-    if (config.provider === "mistral") {
-      body.max_tokens = options.maxCompletionTokens;
-    } else {
+    if (config.provider === "openai" || /^(gpt-5|o1|o3|o4)/i.test(effectiveVisionModel)) {
       body.max_completion_tokens = options.maxCompletionTokens;
+    } else {
+      body.max_tokens = options.maxCompletionTokens;
     }
   }
 

@@ -59,6 +59,21 @@ describe("extractFirstJsonObject", () => {
     expect((parsed.issues as any)[0].original).toBe("demerit goods");
   });
 
+  it("strips DeepSeek-R1 <think> tags before extracting JSON", () => {
+    const raw = `<think>
+I need to evaluate this essay. Let's think about {knowledge, analysis, evaluation}.
+The candidate scored well on AO1.
+</think>
+{"total_mark": 11, "band": "top", "confidence": 0.9}`;
+    expect(extractFirstJsonObject(raw)).toEqual({ total_mark: 11, band: "top", confidence: 0.9 });
+  });
+
+  it("prioritizes Cambridge schema root object over preamble metadata JSON", () => {
+    const raw = `Examiner Note: {"status": "ok"}\n\n{"total_mark": 10, "ao_breakdown": {}}`;
+    const parsed = extractFirstJsonObject(raw);
+    expect(parsed.total_mark).toBe(10);
+  });
+
   it("throws on completely non-JSON content", () => {
     expect(() => extractFirstJsonObject("Just some text without any JSON at all")).toThrow(
       "The examiner returned a response that could not be read as valid JSON.",

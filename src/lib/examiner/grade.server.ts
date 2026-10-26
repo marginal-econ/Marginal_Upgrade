@@ -147,18 +147,30 @@ export async function gradeEssay(
   // --- retrieval grounding ---------------------------------------------------
   let sources: GroundingSource[] = [];
   try {
+    // 1. Primary retrieval: comprehensive search across mark schemes, coursebooks, syllabus, examiner reports, notes, and past papers
     sources = await Promise.race([
       retrieve(supabase, {
-        query: `${question}\n\nMark scheme, band descriptors and examiner report guidance for this question.`,
+        query: `${question}\n\nMark scheme, coursebook chapter, band descriptors, and examiner report guidance for this question.`,
         matchCount: 8,
-        docTypes: ["mark_scheme", "examiner_report", "syllabus", "coursebook", "notes"],
+        docTypes: ["mark_scheme", "examiner_report", "syllabus", "coursebook", "notes", "past_paper", "other"],
         topicId: options.topicId ?? null,
+        minSimilarity: 0.45,
         enableHybridRrf: true,
       }),
       new Promise<GroundingSource[]>((_, reject) =>
-        setTimeout(() => reject(new Error("Knowledge base lookup timed out (>5s)")), 5000),
+        setTimeout(() => reject(new Error("Knowledge base lookup timed out (>12s)")), 12000),
       ),
     ]);
+
+    // 2. Secondary retrieval fallback: if no match found at 0.45, try direct question at 0.40 floor
+    if (!sources || sources.length === 0) {
+      sources = await retrieve(supabase, {
+        query: question,
+        matchCount: 8,
+        minSimilarity: 0.40,
+        enableHybridRrf: true,
+      });
+    }
   } catch (error) {
     console.warn(
       "Knowledge base retrieval skipped or timed out, proceeding with Cambridge 9708 syllabus marking:",

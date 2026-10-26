@@ -11,16 +11,24 @@ export type Anchor = {
   notes: string | null;
 };
 
+let cachedAnchors: { data: Anchor[]; timestamp: number } | null = null;
+const ANCHOR_CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
+
 /**
  * Loads every active calibration anchor.
  * Prefers the server admin client to avoid issues with expired student session JWTs,
- * with graceful fallback to the passed client and safe error recovery so essay
- * grading never crashes if calibration anchors fail to load.
+ * with memory cache fallback and safe error recovery so essay grading never misses
+ * calibration anchors.
  */
 export async function fetchCalibrationAnchors(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase?: SupabaseClient<any>,
 ): Promise<Anchor[]> {
+  const now = Date.now();
+  if (cachedAnchors && now - cachedAnchors.timestamp < ANCHOR_CACHE_TTL_MS && cachedAnchors.data.length > 0) {
+    return cachedAnchors.data;
+  }
+
   try {
     let client = supabase;
     try {
@@ -32,7 +40,7 @@ export async function fetchCalibrationAnchors(
       // Fall back to provided client
     }
 
-    if (!client) return [];
+    if (!client) return cachedAnchors?.data ?? [];
 
     let { data, error } = await client
       .from("calibration_anchors")
@@ -51,21 +59,26 @@ export async function fetchCalibrationAnchors(
             .eq("active", true)
             .order("created_at", { ascending: true });
           if (!retry.error) {
-            return (retry.data ?? []) as Anchor[];
+            data = retry.data;
+            error = null;
           }
         }
       } catch {}
     }
 
     if (error) {
-      console.warn(`[calibration.server] Calibration anchors could not be loaded (${error.message}). Grading will proceed with standard rubrics.`);
-      return [];
+      console.warn(`[calibration.server] Calibration anchors could not be loaded (${error.message}). Using cache if available.`);
+      return cachedAnchors?.data ?? [];
     }
 
-    return (data ?? []) as Anchor[];
+    const result = (data ?? []) as Anchor[];
+    if (result.length > 0) {
+      cachedAnchors = { data: result, timestamp: now };
+    }
+    return result;
   } catch (err: any) {
-    console.warn(`[calibration.server] Unexpected error fetching calibration anchors: ${err?.message || err}. Grading will proceed with standard rubrics.`);
-    return [];
+    console.warn(`[calibration.server] Unexpected error fetching calibration anchors: ${err?.message || err}.`);
+    return cachedAnchors?.data ?? [];
   }
 }
 

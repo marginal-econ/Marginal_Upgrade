@@ -212,10 +212,19 @@ export const prepareLiveExaminerContext = createServerFn({ method: "POST" })
       sources = await retrieve(context.supabase, {
         query: `${data.topic} — ${data.question}`,
         matchCount: 8,
-        docTypes: ["syllabus", "coursebook", "mark_scheme", "examiner_report"],
-        minSimilarity: 0.5,
+        docTypes: ["syllabus", "coursebook", "mark_scheme", "examiner_report", "notes", "past_paper"],
+        minSimilarity: 0.45,
         enableHybridRrf: true,
       });
+
+      if (!sources || sources.length === 0) {
+        sources = await retrieve(context.supabase, {
+          query: data.question,
+          matchCount: 8,
+          minSimilarity: 0.40,
+          enableHybridRrf: true,
+        });
+      }
     } catch (err) {
       console.warn("Live examiner retrieve fallback:", err);
     }
@@ -227,7 +236,7 @@ export const prepareLiveExaminerContext = createServerFn({ method: "POST" })
       console.warn("Live examiner anchors fallback:", err);
     }
 
-    const anchorBlock = anchors.length > 0 ? buildAnchorBlock(anchors) : "";
+    const anchorBlock = anchors.length > 0 ? buildAnchorBlock(anchors, data.question, 12) : "";
 
     const rendered = sources.length > 0 ? renderContext(sources) : "";
     const contextBlock = anchorBlock

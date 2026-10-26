@@ -3,6 +3,23 @@
 // mid-generation; recover the complete or repairable object rather than
 // failing the whole grading/checking call.
 
+/**
+ * Strips reasoning tokens and scratchpads emitted by reasoning models (e.g. DeepSeek-R1,
+ * Qwen-Reasoning, Groq DeepSeek) so their internal thoughts don't contaminate JSON parsing.
+ */
+export function stripReasoningArtifacts(text: string): string {
+  if (!text) return "";
+  return text
+    .replace(/<think>[\s\S]*?<\/think>/gi, "")
+    .replace(/<think>[\s\S]*$/gi, "") // Handle unclosed think tags from truncated tokens
+    .replace(/<thought>[\s\S]*?<\/thought>/gi, "")
+    .replace(/<thought>[\s\S]*$/gi, "")
+    .replace(/<reasoning>[\s\S]*?<\/reasoning>/gi, "")
+    .replace(/<reasoning>[\s\S]*$/gi, "")
+    .replace(/\[THOUGHT\][\s\S]*?\[\/THOUGHT\]/gi, "")
+    .trim();
+}
+
 function tryRepairTruncatedJson(raw: string): Record<string, unknown> | null {
   const firstBrace = raw.indexOf("{");
   if (firstBrace === -1) return null;
@@ -93,7 +110,8 @@ function tryRepairTruncatedJson(raw: string): Record<string, unknown> | null {
 }
 
 export function extractFirstJsonObject(text: string): Record<string, unknown> {
-  const trimmed = text.trim();
+  const clean = stripReasoningArtifacts(text);
+  const trimmed = clean.trim();
 
   try {
     const direct = JSON.parse(trimmed) as unknown;
@@ -128,6 +146,9 @@ export function extractFirstJsonObject(text: string): Record<string, unknown> {
     }
   }
 
+  // Scan for JSON objects within the text. If multiple are present, prefer the schema root.
+  const candidateObjects: Record<string, unknown>[] = [];
+
   for (let start = 0; start < haystack.length; start++) {
     if (haystack[start] !== "{") continue;
 
@@ -153,7 +174,7 @@ export function extractFirstJsonObject(text: string): Record<string, unknown> {
           try {
             const parsed = JSON.parse(haystack.slice(start, end + 1)) as unknown;
             if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-              return parsed as Record<string, unknown>;
+              candidateObjects.push(parsed as Record<string, unknown>);
             }
           } catch {
             // Not a valid object starting here — try the next `{`.
@@ -162,6 +183,22 @@ export function extractFirstJsonObject(text: string): Record<string, unknown> {
         }
       }
     }
+  }
+
+  if (candidateObjects.length > 0) {
+    // Prioritize an object matching known Cambridge root schemas
+    const priorityMatch = candidateObjects.find(
+      (obj) =>
+        "total_mark" in obj ||
+        "ao_breakdown" in obj ||
+        "issues" in obj ||
+        "sections" in obj ||
+        "chain" in obj ||
+        "score" in obj ||
+        "verdict" in obj,
+    );
+    if (priorityMatch) return priorityMatch;
+    return candidateObjects[0]!;
   }
 
   // Final fallback truncated repair
