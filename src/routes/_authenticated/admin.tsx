@@ -16,6 +16,7 @@ import {
   Coins,
   Copy,
   Crown,
+  Cpu,
   Eraser,
   ExternalLink,
   Eye,
@@ -27,11 +28,13 @@ import {
   LineChart,
   Loader2,
   Mail,
+  PauseCircle,
   Plug,
   Plus,
   RefreshCw,
   Search,
   Send,
+  Server,
   ShieldCheck,
   ShieldPlus,
   Sparkles,
@@ -95,6 +98,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { embedNextBatch, listDocuments, reembedAllDocuments } from "@/lib/knowledge.functions";
 import {
   activateProviderKey,
+  adminGetSettings,
   adminOverview,
   clearAiUsageLog,
   deleteProviderKey,
@@ -102,6 +106,7 @@ import {
   dismissPaidKeyAlerts,
   listProviderKeys,
   listUsers,
+  fetchProviderModels,
   resetAllScores,
   resetStudentPracticeData,
   rotateProviderKey,
@@ -111,6 +116,7 @@ import {
   testProviderKey,
   testSpecificKey,
   testVisionProviderKey,
+  toggleGeminiBypass,
 } from "@/lib/admin.functions";
 import {
   addShowcaseToCalibration,
@@ -234,6 +240,7 @@ type AdminSectionMeta = {
   icon: typeof Activity;
   badge?: string;
   badgeColor?: string;
+  sidebarLabel?: string;
 };
 
 const ADMIN_SECTIONS: Record<string, AdminSectionMeta> = {
@@ -247,11 +254,12 @@ const ADMIN_SECTIONS: Record<string, AdminSectionMeta> = {
   godmode: {
     id: "godmode",
     category: "Platform & Intelligence",
-    title: "Platform Vault & Database Inspector",
-    subtitle: "Superadmin raw database access: inspect user records, audit student essays, and view live system attempts.",
+    title: "God Mode & Platform Vault",
+    sidebarLabel: "God Mode",
+    subtitle: "Real-time user surveillance, keystroke radar, 1-click essay repair, and 360° student dossiers.",
     icon: Crown,
-    badge: "Godmode",
-    badgeColor: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30",
+    badge: "God Mode",
+    badgeColor: "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/35 font-bold",
   },
   messages: {
     id: "messages",
@@ -324,12 +332,25 @@ const ADMIN_SECTIONS: Record<string, AdminSectionMeta> = {
     subtitle: "Cambridge 9708 interactive visual graphs: label-by-label definitions, axes calibration, and custom graphs.",
     icon: LineChart,
   },
+  gemini: {
+    id: "gemini",
+    category: "AI Engine & Infrastructure",
+    title: "Google Gemini Enterprise & Pool",
+    sidebarLabel: "Google Gemini",
+    subtitle: "Dedicated Google AI Studio layer: multi-project key pooling, 20 RPD free tier rotation, and quota management.",
+    icon: Sparkles,
+    badge: "Gemini Core",
+    badgeColor: "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/30",
+  },
   providers: {
     id: "providers",
     category: "AI Engine & Infrastructure",
-    title: "LLM Providers & API Keys",
-    subtitle: "Bring your own keys: Anthropic Claude, Google Gemini, OpenAI GPT, Groq, and OpenRouter.",
-    icon: KeyRound,
+    title: "Multi-Provider Hub (Groq, Grok, etc.)",
+    sidebarLabel: "Multi-Provider Hub",
+    subtitle: "Dedicated external provider platform: Groq, xAI Grok, OpenRouter, Mistral, OpenAI, Anthropic, DeepSeek, & Custom.",
+    icon: Cpu,
+    badge: "Multi-Engine",
+    badgeColor: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30",
   },
   embeddings: {
     id: "embeddings",
@@ -386,7 +407,7 @@ const ADMIN_CATEGORIES = [
   },
   {
     title: "AI Infrastructure",
-    items: [ADMIN_SECTIONS.providers, ADMIN_SECTIONS.embeddings, ADMIN_SECTIONS.vision],
+    items: [ADMIN_SECTIONS.gemini, ADMIN_SECTIONS.providers, ADMIN_SECTIONS.embeddings, ADMIN_SECTIONS.vision],
   },
 ];
 
@@ -396,6 +417,7 @@ function AdminPage() {
   const fetchMe = useServerFn(getMe);
   const fetchOverview = useServerFn(adminOverview);
   const dismissAlerts = useServerFn(dismissPaidKeyAlerts);
+  const fetchSettings = useServerFn(adminGetSettings);
   const [activeTab, setActiveTab] = useState(searchParams?.tab || "overview");
   const [textTargetUserId, setTextTargetUserId] = useState<string | null>(null);
   const [localAlertDismissed, setLocalAlertDismissed] = useState(false);
@@ -411,6 +433,10 @@ function AdminPage() {
     queryKey: ["admin-overview"],
     queryFn: () => fetchOverview(),
     refetchInterval: 15_000,
+  });
+  const settingsQuery = useQuery({
+    queryKey: ["admin-settings"],
+    queryFn: () => fetchSettings(),
   });
 
   const dismissAlertMutation = useMutation({
@@ -472,6 +498,12 @@ function AdminPage() {
         description="Master control center: platform health, user roles, syllabus curriculum, and AI infrastructure."
         action={
           <div className="flex items-center gap-2">
+            {settingsQuery.data?.aiBackupOnly ? (
+              <div className="flex items-center gap-1.5 rounded-full border border-amber-500/40 bg-amber-500/10 px-3 py-1 text-xs font-semibold text-amber-600 dark:text-amber-400 animate-pulse">
+                <AlertTriangle className="size-3.5" />
+                <span>Backup Only (Gemini Off)</span>
+              </div>
+            ) : null}
             <div className="hidden sm:flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-600 dark:text-emerald-400">
               <span className="relative flex size-2">
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
@@ -510,7 +542,7 @@ function AdminPage() {
                 className="h-7 text-xs whitespace-nowrap gap-1 shrink-0"
               >
                 <sec.icon className="size-3" />
-                {sec.id === "godmode" ? "Vault" : sec.title.split(" ")[0]}
+                {sec.id === "godmode" ? "God Mode" : sec.sidebarLabel || sec.title.split(" ")[0]}
               </Button>
             ))}
           </div>
@@ -542,7 +574,7 @@ function AdminPage() {
                       >
                         <div className="flex items-center gap-2.5 min-w-0">
                           <ItemIcon className={cn("size-4 shrink-0 transition-transform group-hover:scale-110", isActive ? "text-primary" : "text-muted-foreground")} />
-                          <span className="truncate">{item.title.split(" ")[0]} {item.title.split(" ")[1] ?? ""}</span>
+                          <span className="truncate">{item.sidebarLabel || `${item.title.split(" ")[0]} ${item.title.split(" ")[1] ?? ""}`}</span>
                         </div>
                         {item.id === "feedback" && (overviewQuery.data?.feedbackCount ?? 0) > 0 ? (
                           <Badge variant="secondary" className="text-[9px] px-1.5 py-0 h-4 font-bold bg-primary/20 text-primary">
@@ -701,7 +733,12 @@ function AdminPage() {
             {activeTab === "coupons" && <CouponsAdminPanel />}
             {activeTab === "showcase" && <ShowcaseAdminPanel />}
             {activeTab === "diagrams" && <DiagramsPanel />}
-            {activeTab === "providers" && <ProvidersPanel />}
+            {activeTab === "gemini" && (
+              <GeminiPanel onSwitchToMultiProvider={() => setActiveTab("providers")} />
+            )}
+            {activeTab === "providers" && (
+              <MultiProviderPanel onSwitchToGemini={() => setActiveTab("gemini")} />
+            )}
             {activeTab === "embeddings" && <EmbeddingsPanel />}
             {activeTab === "vision" && <VisionPanel />}
           </div>
@@ -711,7 +748,11 @@ function AdminPage() {
   );
 }
 
-function ProvidersPanel() {
+function GeminiPanel({
+  onSwitchToMultiProvider,
+}: {
+  onSwitchToMultiProvider?: () => void;
+}) {
   const queryClient = useQueryClient();
   const list = useServerFn(listProviderKeys);
   const save = useServerFn(saveProviderKey);
@@ -720,11 +761,37 @@ function ProvidersPanel() {
   const test = useServerFn(testProviderKey);
   const testSpecific = useServerFn(testSpecificKey);
   const rotate = useServerFn(rotateProviderKey);
+  const getSettingsFn = useServerFn(adminGetSettings);
+  const toggleBypassFn = useServerFn(toggleGeminiBypass);
 
   const keys = useQuery({
     queryKey: ["provider-keys", "chat"],
     queryFn: () => list({ data: { purpose: "chat" } }),
   });
+
+  const settingsQuery = useQuery({
+    queryKey: ["admin-settings"],
+    queryFn: () => getSettingsFn(),
+  });
+
+  const toggleBypassMutation = useMutation({
+    mutationFn: (backupOnly: boolean) => toggleBypassFn({ data: { backupOnly } }),
+    onSuccess: (res) => {
+      queryClient.invalidateQueries({ queryKey: ["admin-settings"] });
+      queryClient.invalidateQueries({ queryKey: ["provider-keys"] });
+      if (res.backupOnly) {
+        toast.warning(
+          `Google Gemini is now SWITCHED OFF. Platform is running exclusively on backup provider: ${res.activeBackupLabel || res.activeBackupProvider || "External"} (${res.activeBackupModel || "default model"}).`,
+          { duration: 6000 },
+        );
+      } else {
+        toast.success("Google Gemini restored as primary AI engine.");
+      }
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const isBypassActive = settingsQuery.data?.aiBackupOnly ?? false;
 
   type PoolKeyItem = {
     id: string;
@@ -733,8 +800,8 @@ function ProvidersPanel() {
     priority: number;
   };
 
-  const [provider, setProvider] = useState<string>("google");
-  const [label, setLabel] = useState("");
+  const provider = "google";
+  const [label, setLabel] = useState("Google Gemini Enterprise");
   const [paidPrimaryKey, setPaidPrimaryKey] = useState("");
   const [paidSecondaryKey, setPaidSecondaryKey] = useState("");
   const [poolKeys, setPoolKeys] = useState<PoolKeyItem[]>([
@@ -746,12 +813,11 @@ function ProvidersPanel() {
     Record<string, { status: "testing" | "success" | "error"; message: string }>
   >({});
   const [model, setModel] = useState("gemini-3.8-flash");
-  const [baseUrl, setBaseUrl] = useState("");
   const [activateNow, setActivateNow] = useState(true);
   const [rotatingId, setRotatingId] = useState<string | null>(null);
   const [rotateValue, setRotateValue] = useState("");
 
-  const meta = providerMeta(provider);
+  const meta = providerMeta("google");
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["provider-keys", "chat"] });
 
   const handleBulkImport = () => {
@@ -777,7 +843,7 @@ function ProvidersPanel() {
           });
         }
       }
-      toast.success(`Imported ${newItems.length} free keys into pool!`);
+      toast.success(`Imported ${newItems.length} Google Gemini keys into free pool!`);
       const keepOld = prev.filter((p) => p.key.trim().length > 5);
       return keepOld.length > 0 ? [...keepOld, ...newItems] : newItems;
     });
@@ -809,7 +875,7 @@ function ProvidersPanel() {
 
   const handleUpdatePoolKey = (id: string, updates: Partial<PoolKeyItem>) => {
     setPoolKeys((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, ...updates } : item))
+      prev.map((item) => (item.id === id ? { ...item, ...updates } : item)),
     );
   };
 
@@ -835,16 +901,14 @@ function ProvidersPanel() {
     }
     setKeyTestState((prev) => ({
       ...prev,
-      [slotId]: { status: "testing", message: "Connecting to provider..." },
+      [slotId]: { status: "testing", message: "Verifying with Google AI Studio..." },
     }));
-    const testModel = (model || meta.models[0] || "gemini-3.8-flash").trim();
     try {
       const res = await testSpecific({
         data: {
-          provider,
+          provider: "google",
           apiKey: trimmed,
-          model: testModel,
-          baseUrl: baseUrl || undefined,
+          model: model.trim() || "gemini-3.8-flash",
         },
       });
       if (res.ok) {
@@ -852,7 +916,7 @@ function ProvidersPanel() {
           ...prev,
           [slotId]: { status: "success", message: `Passed (${res.model})` },
         }));
-        toast.success(`Key verified successfully with ${res.model}`);
+        toast.success(`Google key verified successfully with ${res.model}`);
       } else {
         setKeyTestState((prev) => ({
           ...prev,
@@ -895,22 +959,20 @@ function ProvidersPanel() {
 
       return save({
         data: {
-          provider: provider as never,
-          label: label || meta.label,
+          provider: "google" as never,
+          label: label || "Google Gemini Enterprise",
           apiKey: finalKey,
-          baseUrl,
-          model: model || meta.models[0] || "",
+          model: model || "gemini-3.8-flash",
           activate: activateNow,
         },
       });
     },
     onSuccess: async () => {
-      toast.success("AI keys saved. AI features will use them immediately.");
+      toast.success("Google Gemini configuration saved. AI features will use it immediately.");
       setPaidPrimaryKey("");
       setPaidSecondaryKey("");
       setPoolKeys([{ id: "pool-1", key: "", label: "Free Key 1", priority: 1 }]);
       setKeyTestState({});
-      setLabel("");
       await refresh();
     },
     onError: (error: Error) => toast.error(error.message),
@@ -938,7 +1000,7 @@ function ProvidersPanel() {
     mutationFn: (id: string) => test({ data: { id } }),
     onSuccess: (result) =>
       result.ok
-        ? toast.success(`Key works — ${result.model} replied "${result.reply}"`)
+        ? toast.success(`Google Gemini works — ${result.model} replied "${result.reply}"`)
         : toast.error(result.reply),
     onError: (error: Error) => toast.error(error.message),
   });
@@ -946,7 +1008,7 @@ function ProvidersPanel() {
   const rotateMutation = useMutation({
     mutationFn: (input: { id: string; apiKey: string }) => rotate({ data: input }),
     onSuccess: async () => {
-      toast.success("Key rotated. The old secret no longer works here.");
+      toast.success("Key rotated successfully.");
       setRotatingId(null);
       setRotateValue("");
       await refresh();
@@ -954,54 +1016,128 @@ function ProvidersPanel() {
     onError: (error: Error) => toast.error(error.message),
   });
 
-  const activeKey = (keys.data ?? []).find((row) => row.isActive);
+  const allChatKeys = keys.data ?? [];
+  const googleKeys = allChatKeys.filter((row) => row.provider === "google");
+  const activeKey = allChatKeys.find((row) => row.isActive);
+  const isGoogleActive = activeKey?.provider === "google";
   const hasValidPaid = paidPrimaryKey.trim().length >= 8;
   const hasValidPool = poolKeys.some((k) => k.key.trim().length >= 8);
 
   return (
-    <div className="grid gap-5 lg:grid-cols-[440px_1fr]">
-      <section className="panel rounded-xl border border-border p-5">
-        <h2 className="flex items-center gap-2 text-sm font-semibold">
-          <KeyRound className="size-4 text-primary" /> Configure AI Provider Keys
-        </h2>
-        <p className="mt-1 text-xs text-muted-foreground">
-          Add a pool of free keys for automatic load balancing and 15s key hopping. Emergency paid key serves strictly as a last resort fallback if all free keys fail.
+    <div className="space-y-4">
+      {/* ── Status Banner: Active vs Switched Off (Backup Only) ── */}
+      <div
+        className={cn(
+          "rounded-xl border p-4 transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4",
+          isBypassActive
+            ? "border-amber-500/40 bg-amber-500/10 text-amber-950 dark:text-amber-200"
+            : "border-blue-500/30 bg-blue-500/5 text-foreground",
+        )}
+      >
+        <div className="flex items-start gap-3">
+          <div
+            className={cn(
+              "rounded-lg p-2 mt-0.5",
+              isBypassActive
+                ? "bg-amber-500/20 text-amber-600 dark:text-amber-400"
+                : "bg-blue-500/20 text-blue-600 dark:text-blue-400",
+            )}
+          >
+            {isBypassActive ? <AlertTriangle className="size-5" /> : <Sparkles className="size-5" />}
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="font-semibold text-sm">
+                {isBypassActive
+                  ? "Google Gemini is SWITCHED OFF (Backup-Only Mode)"
+                  : "Google Gemini is ONLINE & ACTIVE"}
+              </span>
+              <Badge
+                variant="outline"
+                className={
+                  isBypassActive
+                    ? "border-amber-500/40 bg-amber-500/20 text-amber-600 dark:text-amber-300"
+                    : "border-blue-500/40 bg-blue-500/20 text-blue-600 dark:text-blue-300"
+                }
+              >
+                {isBypassActive ? "Bypassed / Running on Backup" : "Primary Engine"}
+              </Badge>
+            </div>
+            <p className="mt-1 text-xs opacity-90 max-w-2xl leading-relaxed">
+              {isBypassActive
+                ? "All essay grading, Live Examiner checks, and prompt queries are currently routing 100% through your external backup providers (Groq, OpenRouter, Mistral, xAI Grok, etc.). Click below to re-enable Gemini."
+                : "Student requests use Google Gemini with multi-project quota rotation. If all Gemini keys hit rate limits or outage, requests automatically hop to configured backup providers."}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex shrink-0 items-center gap-2">
+          {isBypassActive ? (
+            <Button
+              type="button"
+              variant="default"
+              size="sm"
+              disabled={toggleBypassMutation.isPending}
+              onClick={() => toggleBypassMutation.mutate(false)}
+              className="gap-1.5 bg-blue-600 hover:bg-blue-700 text-white font-medium"
+            >
+              <CheckCircle2 className="size-4" />
+              Turn Gemini Back On
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={toggleBypassMutation.isPending}
+              onClick={() => toggleBypassMutation.mutate(true)}
+              className="gap-1.5 border-amber-500/40 hover:bg-amber-500/10 text-amber-600 dark:text-amber-400 font-medium"
+            >
+              <PauseCircle className="size-4" />
+              Switch Off Gemini (Run Backup Only)
+            </Button>
+          )}
+        </div>
+      </div>
+
+      <div className="grid gap-5 lg:grid-cols-[460px_1fr]">
+      <section className="panel rounded-xl border border-blue-500/20 bg-card p-5 shadow-xs">
+        <div className="flex items-center justify-between border-b border-border/60 pb-3">
+          <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+            <Sparkles className="size-4 text-blue-500" /> Google Gemini Core Platform
+          </h2>
+          <div className="flex items-center gap-1.5">
+            {onSwitchToMultiProvider && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={onSwitchToMultiProvider}
+                className="h-6 px-2 text-[11px] text-muted-foreground hover:text-foreground gap-1"
+              >
+                <Cpu className="size-3 text-emerald-500" />
+                Multi-Provider Hub &rarr;
+              </Button>
+            )}
+            <Badge variant="outline" className="text-[10px] text-blue-600 dark:text-blue-400 border-blue-500/30">
+              Dedicated Layer
+            </Badge>
+          </div>
+        </div>
+        <p className="mt-2 text-xs text-muted-foreground leading-relaxed">
+          Dedicated Google AI Studio engine. Configure independent Google Cloud Project keys for high-volume free tier rotation (20 RPD per project) with emergency paid key fallback.
         </p>
 
-        <div className="mt-4 space-y-3">
-          <div className="space-y-1.5">
-            <Label>Provider</Label>
-            <Select
-              value={provider}
-              onValueChange={(value) => {
-                setProvider(value);
-                setModel(providerMeta(value).models[0] ?? "");
-                setBaseUrl("");
-              }}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {AI_PROVIDERS.filter((item) => item.id !== "lovable").map((item) => (
-                  <SelectItem key={item.id} value={item.id}>
-                    {item.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
+        <div className="mt-4 space-y-3.5">
           <div className="space-y-1.5">
             <Label>Configuration Name</Label>
             <Input
               value={label}
-              onChange={(event) => setLabel(event.target.value)}
-              placeholder={meta.label}
+              onChange={(e) => setLabel(e.target.value)}
+              placeholder="Google Gemini Enterprise"
             />
           </div>
 
-          {/* Multi-Tier Keys Section: Free Keys First, Paid Emergency Fallback Last */}
           <div className="space-y-4 rounded-xl border border-border/80 bg-muted/20 p-3.5">
             {/* Free Keys Pool Section */}
             <div className="space-y-2.5">
@@ -1009,10 +1145,10 @@ function ProvidersPanel() {
                 <div>
                   <Label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
                     <span className="inline-block h-2 w-2 rounded-full bg-emerald-500" />
-                    {meta.label} API Keys Pool (Auto-Hopping)
+                    Gemini Free Keys Pool (Auto-Hopping)
                   </Label>
                   <p className="text-[11px] text-muted-foreground mt-0.5">
-                    Tried in priority order with warm failover between keys (auto-hops cross-provider if primary fails).
+                    Tried in priority order with warm failover between keys.
                   </p>
                 </div>
                 <div className="flex items-center gap-1.5">
@@ -1032,23 +1168,16 @@ function ProvidersPanel() {
                 </div>
               </div>
 
-              {/* Bulk Paste Box */}
               {showBulkInput && (
                 <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-2.5 space-y-2">
                   <Label className="text-[11px] font-medium text-amber-700 dark:text-amber-300">
-                    Paste Multiple {meta.label} Keys (one per line or comma-separated):
+                    Paste Multiple Google Gemini Keys (one per line or comma-separated):
                   </Label>
                   <Textarea
                     rows={3}
                     value={bulkInput}
                     onChange={(e) => setBulkInput(e.target.value)}
-                    placeholder={
-                      provider === "google"
-                        ? "AIzaSyA...\nAIzaSyB...\nAIzaSyC..."
-                        : provider === "mistral"
-                          ? "mistral_api_key_1...\nmistral_api_key_2...\nmistral_api_key_3..."
-                          : "Paste API keys here (one per line)..."
-                    }
+                    placeholder="AIzaSyA...\nAIzaSyB...\nAIzaSyC..."
                     className="font-mono text-xs bg-background"
                   />
                   <div className="flex justify-end gap-1.5">
@@ -1097,40 +1226,36 @@ function ProvidersPanel() {
                       >
                         <div className="flex items-center justify-between gap-1.5">
                           <div className="flex items-center gap-1.5">
-                            <Badge
-                              variant="secondary"
-                              className="h-5 px-1.5 text-[10px] font-mono font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"
-                            >
-                              Priority #{item.priority}
-                              {index === 0 ? " (Tried 1st)" : ""}
+                            <Badge variant="outline" className="text-[10px] font-mono">
+                              #{item.priority || index + 1}
                             </Badge>
-                            <div className="flex items-center">
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                className="h-6 w-6 text-muted-foreground hover:text-foreground disabled:opacity-30"
-                                disabled={index === 0}
-                                onClick={() => handleMovePoolKey(index, "up")}
-                                title="Increase priority (move up)"
-                              >
-                                <ArrowUp className="size-3" />
-                              </Button>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                className="h-6 w-6 text-muted-foreground hover:text-foreground disabled:opacity-30"
-                                disabled={index === poolKeys.length - 1}
-                                onClick={() => handleMovePoolKey(index, "down")}
-                                title="Decrease priority (move down)"
-                              >
-                                <ArrowDown className="size-3" />
-                              </Button>
-                            </div>
+                            <span className="text-xs font-medium text-foreground">
+                              {item.label || `Free Key ${index + 1}`}
+                            </span>
                           </div>
-
                           <div className="flex items-center gap-1">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6"
+                              onClick={() => handleMovePoolKey(index, "up")}
+                              disabled={index === 0}
+                              title="Move up in priority"
+                            >
+                              <ArrowUp className="size-3" />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6"
+                              onClick={() => handleMovePoolKey(index, "down")}
+                              disabled={index === poolKeys.length - 1}
+                              title="Move down in priority"
+                            >
+                              <ArrowDown className="size-3" />
+                            </Button>
                             <Button
                               type="button"
                               variant="outline"
@@ -1198,7 +1323,7 @@ function ProvidersPanel() {
                               testState.status === "success" &&
                                 "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10",
                               testState.status === "error" &&
-                                "text-destructive bg-destructive/10"
+                                "text-destructive bg-destructive/10",
                             )}
                           >
                             {testState.status === "testing" ? (
@@ -1233,43 +1358,38 @@ function ProvidersPanel() {
               <div className="space-y-1">
                 <div className="flex items-center justify-between">
                   <Label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
-                    <span className="inline-block h-2 w-2 rounded-full bg-emerald-500" />
-                    Emergency Paid {meta.label} Key (Last Resort Fallback)
+                    <span className="inline-block h-2 w-2 rounded-full bg-blue-500" />
+                    Emergency Paid Gemini Key (Last Resort Fallback)
                   </Label>
-                  <div className="flex items-center gap-1.5">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="h-6 px-2 text-[10px] gap-1"
-                      onClick={() => handleTestSingleKey("paid-primary", paidPrimaryKey)}
-                      disabled={
-                        keyTestState["paid-primary"]?.status === "testing" ||
-                        paidPrimaryKey.trim().length < 5
-                      }
-                    >
-                      {keyTestState["paid-primary"]?.status === "testing" ? (
-                        <>
-                          <Loader2 className="size-2.5 animate-spin" /> Testing
-                        </>
-                      ) : keyTestState["paid-primary"]?.status === "success" ? (
-                        <>
-                          <CheckCircle2 className="size-2.5 text-emerald-500" /> Pass
-                        </>
-                      ) : keyTestState["paid-primary"]?.status === "error" ? (
-                        <>
-                          <XCircle className="size-2.5 text-destructive" /> Retry
-                        </>
-                      ) : (
-                        <>
-                          <Zap className="size-2.5 text-emerald-500" /> Test Key
-                        </>
-                      )}
-                    </Button>
-                    <Badge variant="outline" className="text-[10px] text-emerald-600 dark:text-emerald-400 border-emerald-500/30">
-                      Emergency Only
-                    </Badge>
-                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-6 px-2 text-[10px] gap-1"
+                    onClick={() => handleTestSingleKey("paid-primary", paidPrimaryKey)}
+                    disabled={
+                      keyTestState["paid-primary"]?.status === "testing" ||
+                      paidPrimaryKey.trim().length < 5
+                    }
+                  >
+                    {keyTestState["paid-primary"]?.status === "testing" ? (
+                      <>
+                        <Loader2 className="size-2.5 animate-spin" /> Testing
+                      </>
+                    ) : keyTestState["paid-primary"]?.status === "success" ? (
+                      <>
+                        <CheckCircle2 className="size-2.5 text-emerald-500" /> Pass
+                      </>
+                    ) : keyTestState["paid-primary"]?.status === "error" ? (
+                      <>
+                        <XCircle className="size-2.5 text-destructive" /> Retry
+                      </>
+                    ) : (
+                      <>
+                        <Zap className="size-2.5 text-blue-500" /> Test Key
+                      </>
+                    )}
+                  </Button>
                 </div>
                 <Input
                   type="password"
@@ -1285,7 +1405,7 @@ function ProvidersPanel() {
                       keyTestState["paid-primary"].status === "success" &&
                         "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10",
                       keyTestState["paid-primary"].status === "error" &&
-                        "text-destructive bg-destructive/10"
+                        "text-destructive bg-destructive/10",
                     )}
                   >
                     {keyTestState["paid-primary"].status === "testing" ? (
@@ -1299,10 +1419,10 @@ function ProvidersPanel() {
                   </div>
                 )}
                 <p className="text-[11px] text-muted-foreground leading-relaxed">
-                  Strictly used as the absolute last resort only after every single free key in the pool above fails or returns 429 quota exhaustion. Leave blank if you do not want to consume paid credits under any circumstances.
+                  Strictly used as the absolute last resort only after every single free key in the pool above fails or returns 429 quota exhaustion.
                 </p>
-                <p className="text-[11px] text-amber-600 dark:text-amber-400 font-medium leading-relaxed">
-                  💡 Tip: Google pools free tier quotas per Google Cloud Project (20 req/day). If you generate 6 keys in the same project, they share the same 20 requests. Create each key in a separate Google Cloud Project to give each key its own independent quota.
+                <p className="text-[11px] text-blue-600 dark:text-blue-400 font-medium leading-relaxed">
+                  💡 Tip: Google pools free tier quotas per Google Cloud Project (20 req/day). Create each key in a separate Google Cloud Project to give each key its own independent quota.
                 </p>
               </div>
 
@@ -1310,8 +1430,8 @@ function ProvidersPanel() {
               <div className="space-y-1">
                 <div className="flex items-center justify-between">
                   <Label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-                    <span className="inline-block h-2 w-2 rounded-full bg-blue-500" />
-                    Secondary Paid Key (Optional Failover)
+                    <span className="inline-block h-2 w-2 rounded-full bg-purple-500" />
+                    Secondary Paid Key (Optional Backup)
                   </Label>
                   <Button
                     type="button"
@@ -1330,7 +1450,7 @@ function ProvidersPanel() {
                       </>
                     ) : keyTestState["paid-secondary"]?.status === "success" ? (
                       <>
-                        <CheckCircle2 className="size-2.5 text-blue-500" /> Pass
+                        <CheckCircle2 className="size-2.5 text-purple-500" /> Pass
                       </>
                     ) : keyTestState["paid-secondary"]?.status === "error" ? (
                       <>
@@ -1338,7 +1458,7 @@ function ProvidersPanel() {
                       </>
                     ) : (
                       <>
-                        <Zap className="size-2.5 text-blue-500" /> Test Key
+                        <Zap className="size-2.5 text-purple-500" /> Test Key
                       </>
                     )}
                   </Button>
@@ -1354,102 +1474,95 @@ function ProvidersPanel() {
           </div>
 
           <div className="space-y-1.5">
-            <Label>Model id</Label>
+            <Label>Gemini Model</Label>
             <Input
               value={model}
-              onChange={(event) => setModel(event.target.value)}
-              placeholder={meta.models[0] ?? "model-id"}
+              onChange={(e) => setModel(e.target.value)}
+              placeholder="gemini-3.8-flash"
             />
-            {meta.models.length ? (
-              <div className="flex flex-wrap gap-1 pt-1">
-                {meta.models.map((suggestion) => (
-                  <button
-                    key={suggestion}
-                    type="button"
-                    onClick={() => setModel(suggestion)}
-                    className="rounded-md border border-border px-1.5 py-0.5 text-[11px] text-muted-foreground hover:text-foreground"
-                  >
-                    {suggestion}
-                  </button>
-                ))}
-              </div>
-            ) : null}
-          </div>
-
-          <div className="space-y-1.5">
-            <Label>
-              Base URL <span className="text-muted-foreground">(optional)</span>
-            </Label>
-            <Input
-              value={baseUrl}
-              onChange={(event) => setBaseUrl(event.target.value)}
-              placeholder={meta.baseUrl || "https://your-endpoint/v1"}
-            />
+            <div className="flex flex-wrap gap-1 pt-1">
+              {meta.models.map((suggestion) => (
+                <button
+                  key={suggestion}
+                  type="button"
+                  onClick={() => setModel(suggestion)}
+                  className={cn(
+                    "rounded-md border px-1.5 py-0.5 text-[11px] transition-colors",
+                    model === suggestion
+                      ? "border-blue-500 bg-blue-500/10 text-blue-600 dark:text-blue-400 font-semibold"
+                      : "border-border text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {suggestion}
+                </button>
+              ))}
+            </div>
           </div>
 
           <div className="flex items-center justify-between rounded-lg border border-border px-3 py-2">
             <div>
-              <p className="text-sm font-medium">Make active</p>
+              <p className="text-sm font-medium">Make Google Gemini Active</p>
               <p className="text-xs text-muted-foreground">
-                Marking, coaching, MCQs and essays all route through it.
+                All marking, essays, and live examiner route through Gemini.
               </p>
             </div>
             <Switch checked={activateNow} onCheckedChange={setActivateNow} />
           </div>
 
           <Button
-            className="w-full"
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white"
             onClick={() => saveMutation.mutate()}
             disabled={saveMutation.isPending || (!hasValidPaid && !hasValidPool)}
           >
-            {saveMutation.isPending ? <Loader2 className="size-4 animate-spin" /> : null}
-            Save provider configuration
+            {saveMutation.isPending ? <Loader2 className="size-4 animate-spin mr-2" /> : null}
+            Save Google Gemini Configuration
           </Button>
         </div>
       </section>
 
       <section className="space-y-3">
-        <div className="panel flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border p-4">
+        <div className="panel flex flex-wrap items-center justify-between gap-3 rounded-xl border border-blue-500/20 bg-blue-500/5 p-4">
           <div>
-            <p className="text-sm font-semibold">
-              Currently serving:{" "}
+            <p className="text-sm font-semibold flex items-center gap-2">
+              <span className="size-2 rounded-full bg-blue-500" />
+              Active Chat Engine:{" "}
               {activeKey
                 ? `${providerMeta(activeKey.provider).label} · ${activeKey.model}`
                 : "Marginal AI (built in)"}
             </p>
-            <p className="text-xs text-muted-foreground">
-              {activeKey
-                ? "All AI features use your own key and billing."
-                : "Uses the built-in credits. If they run out, add your own key on the left."}
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {isGoogleActive
+                ? "Google Gemini is currently active and processing all essay evaluation."
+                : "A different provider or built-in gateway is currently active."}
             </p>
           </div>
-          {activeKey ? (
+          {isGoogleActive && (
             <Button variant="outline" size="sm" onClick={() => activateMutation.mutate(null)}>
-              <Plug className="size-4" /> Switch back to Marginal AI
+              <Plug className="size-4 mr-1.5" /> Switch back to Marginal AI
             </Button>
-          ) : null}
+          )}
         </div>
 
         {keys.isLoading ? <Skeleton className="h-28 w-full" /> : null}
 
-        {(keys.data ?? []).map((row) => (
-          <div key={row.id} className="panel rounded-xl border border-border p-4">
+        {googleKeys.map((row) => (
+          <div key={row.id} className="panel rounded-xl border border-border p-4 shadow-xs">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <p className="flex items-center gap-2 text-sm font-medium">
                   {row.label}
                   {row.isActive ? (
                     <Badge className="gap-1 bg-emerald-600 text-white">
-                      <CheckCircle2 className="size-3" /> Active (Primary)
+                      <CheckCircle2 className="size-3" /> Active (Serving)
                     </Badge>
                   ) : (
                     <Badge variant="outline" className="text-[10px] text-blue-500 border-blue-500/30">
-                      Standby Failover
+                      Standby Pool
                     </Badge>
                   )}
                 </p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {providerMeta(row.provider).label} · {row.model} · key {row.maskedKey}
+                <p className="mt-1 text-xs text-muted-foreground font-mono">
+                  {providerMeta(row.provider).label} · {row.model} · {row.maskedKey}
                 </p>
               </div>
               <div className="flex items-center gap-2">
@@ -1475,7 +1588,7 @@ function ProvidersPanel() {
                     setRotatingId(rotatingId === row.id ? null : row.id);
                   }}
                 >
-                  <RefreshCw className="size-4" /> Rotate
+                  <RefreshCw className="size-4 mr-1" /> Rotate
                 </Button>
                 <Button
                   variant="ghost"
@@ -1483,14 +1596,15 @@ function ProvidersPanel() {
                   onClick={() => deleteMutation.mutate(row.id)}
                   aria-label={`Delete ${row.label}`}
                 >
-                  <Trash2 className="size-4" />
+                  <Trash2 className="size-4 text-muted-foreground hover:text-destructive" />
                 </Button>
               </div>
             </div>
+
             {rotatingId === row.id ? (
-              <div className="mt-3 space-y-2 rounded-lg border border-border p-3">
+              <div className="mt-3 space-y-2 rounded-lg border border-border p-3 bg-muted/20">
                 <div className="flex items-center justify-between">
-                  <Label htmlFor={`rotate-${row.id}`}>New API key</Label>
+                  <Label htmlFor={`rotate-${row.id}`} className="text-xs">New Gemini API key</Label>
                   <Button
                     type="button"
                     variant="outline"
@@ -1502,23 +1616,7 @@ function ProvidersPanel() {
                       rotateValue.trim().length < 5
                     }
                   >
-                    {keyTestState[`rotate-${row.id}`]?.status === "testing" ? (
-                      <>
-                        <Loader2 className="size-2.5 animate-spin" /> Testing
-                      </>
-                    ) : keyTestState[`rotate-${row.id}`]?.status === "success" ? (
-                      <>
-                        <CheckCircle2 className="size-2.5 text-emerald-500" /> Pass
-                      </>
-                    ) : keyTestState[`rotate-${row.id}`]?.status === "error" ? (
-                      <>
-                        <XCircle className="size-2.5 text-destructive" /> Retry
-                      </>
-                    ) : (
-                      <>
-                        <Zap className="size-2.5 text-amber-500" /> Test Key
-                      </>
-                    )}
+                    Test Key
                   </Button>
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -1528,52 +1626,1047 @@ function ProvidersPanel() {
                     className="min-w-48 flex-1"
                     value={rotateValue}
                     onChange={(event) => setRotateValue(event.target.value)}
+                    placeholder="AIza..."
+                  />
+                  <Button
+                    onClick={() => rotateMutation.mutate({ id: row.id, apiKey: rotateValue })}
+                    disabled={rotateMutation.isPending || rotateValue.trim().length < 8}
+                  >
+                    Save Key
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+          </div>
+        ))}
+
+        {googleKeys.length === 0 && !keys.isLoading && (
+          <div className="rounded-xl border border-dashed border-border p-6 text-center">
+            <Sparkles className="size-8 mx-auto text-muted-foreground/50 mb-2" />
+            <p className="text-sm font-medium">No Google Gemini keys configured yet.</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Add your Google AI Studio keys on the left to activate high-speed free tier rotation.
+            </p>
+          </div>
+        )}
+      </section>
+    </div>
+    </div>
+  );
+}
+
+function MultiProviderPanel({
+  onSwitchToGemini,
+}: {
+  onSwitchToGemini?: () => void;
+}) {
+  const queryClient = useQueryClient();
+  const list = useServerFn(listProviderKeys);
+  const save = useServerFn(saveProviderKey);
+  const activate = useServerFn(activateProviderKey);
+  const remove = useServerFn(deleteProviderKey);
+  const test = useServerFn(testProviderKey);
+  const testSpecific = useServerFn(testSpecificKey);
+  const rotate = useServerFn(rotateProviderKey);
+  const fetchModels = useServerFn(fetchProviderModels);
+  const getSettingsFn = useServerFn(adminGetSettings);
+  const toggleBypassFn = useServerFn(toggleGeminiBypass);
+
+  const keys = useQuery({
+    queryKey: ["provider-keys", "chat"],
+    queryFn: () => list({ data: { purpose: "chat" } }),
+  });
+
+  const settingsQuery = useQuery({
+    queryKey: ["admin-settings"],
+    queryFn: () => getSettingsFn(),
+  });
+
+  const toggleBypassMutation = useMutation({
+    mutationFn: (backupOnly: boolean) => toggleBypassFn({ data: { backupOnly } }),
+    onSuccess: (res) => {
+      queryClient.invalidateQueries({ queryKey: ["admin-settings"] });
+      queryClient.invalidateQueries({ queryKey: ["provider-keys"] });
+      if (res.backupOnly) {
+        toast.warning(
+          `Google Gemini is now SWITCHED OFF. Platform is running exclusively on backup provider: ${res.activeBackupLabel || res.activeBackupProvider || "External"} (${res.activeBackupModel || "default model"}).`,
+          { duration: 6000 },
+        );
+      } else {
+        toast.success("Google Gemini restored as primary AI engine.");
+      }
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const isBypassActive = settingsQuery.data?.aiBackupOnly ?? false;
+
+  type PoolKeyItem = {
+    id: string;
+    key: string;
+    label: string;
+    priority: number;
+  };
+
+  const [provider, setProvider] = useState<string>("groq");
+  const [label, setLabel] = useState("");
+  const [paidPrimaryKey, setPaidPrimaryKey] = useState("");
+  const [paidSecondaryKey, setPaidSecondaryKey] = useState("");
+  const [poolKeys, setPoolKeys] = useState<PoolKeyItem[]>([
+    { id: "pool-1", key: "", label: "Primary Key", priority: 1 },
+  ]);
+  const [bulkInput, setBulkInput] = useState("");
+  const [showBulkInput, setShowBulkInput] = useState(false);
+  const [keyTestState, setKeyTestState] = useState<
+    Record<string, { status: "testing" | "success" | "error"; message: string }>
+  >({});
+  const [model, setModel] = useState("llama-3.1-8b-instant");
+  const [baseUrl, setBaseUrl] = useState("");
+  const [activateNow, setActivateNow] = useState(true);
+  const [rotatingId, setRotatingId] = useState<string | null>(null);
+  const [rotateValue, setRotateValue] = useState("");
+
+  const [discoveredModels, setDiscoveredModels] = useState<string[]>([]);
+  const [isDiscovering, setIsDiscovering] = useState(false);
+
+  const meta = providerMeta(provider);
+  const refresh = () => queryClient.invalidateQueries({ queryKey: ["provider-keys", "chat"] });
+
+  const handleSelectProvider = (provId: string) => {
+    setProvider(provId);
+    const newMeta = providerMeta(provId);
+    const defaultModel = newMeta.models[0] ?? "";
+    setModel(defaultModel);
+    setBaseUrl("");
+    setLabel(newMeta.label);
+    setDiscoveredModels([]);
+    setKeyTestState({});
+  };
+
+  const handleFetchLiveModels = async () => {
+    const candidateKey =
+      paidPrimaryKey.trim() ||
+      paidSecondaryKey.trim() ||
+      poolKeys.find((p) => p.key.trim().length > 5)?.key.trim() ||
+      "";
+
+    if (!candidateKey) {
+      toast.error("Please enter an API key first to discover active models from your account.");
+      return;
+    }
+
+    setIsDiscovering(true);
+    try {
+      const res = await fetchModels({
+        data: {
+          provider,
+          apiKey: candidateKey,
+          baseUrl: baseUrl || undefined,
+        },
+      });
+
+      if (res.ok && res.models.length > 0) {
+        setDiscoveredModels(res.models);
+        toast.success(`Discovered ${res.models.length} active models from ${meta.label}!`);
+      } else {
+        toast.error(res.error || `No models could be retrieved from ${meta.label}. Check API key.`);
+      }
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to fetch models");
+    } finally {
+      setIsDiscovering(false);
+    }
+  };
+
+  const handleBulkImport = () => {
+    const rawKeys = bulkInput
+      .split(/[\n\r,;]+/)
+      .map((k) => k.trim())
+      .filter((k) => k.length > 5);
+    if (rawKeys.length === 0) {
+      toast.error("No valid keys found in paste input.");
+      return;
+    }
+    setPoolKeys((prev) => {
+      const existing = new Set(prev.map((p) => p.key.trim()));
+      const newItems: PoolKeyItem[] = [];
+      let nextPriority = prev.filter((p) => p.key.trim().length > 5).length + 1;
+      for (const k of rawKeys) {
+        if (!existing.has(k)) {
+          newItems.push({
+            id: `pool-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+            key: k,
+            label: `Key ${nextPriority}`,
+            priority: nextPriority++,
+          });
+        }
+      }
+      toast.success(`Imported ${newItems.length} keys into pool!`);
+      const keepOld = prev.filter((p) => p.key.trim().length > 5);
+      return keepOld.length > 0 ? [...keepOld, ...newItems] : newItems;
+    });
+    setBulkInput("");
+    setShowBulkInput(false);
+  };
+
+  const handleAddPoolKey = () => {
+    setPoolKeys((prev) => [
+      ...prev,
+      {
+        id: `pool-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        key: "",
+        label: `Key ${prev.length + 1}`,
+        priority: prev.length + 1,
+      },
+    ]);
+  };
+
+  const handleRemovePoolKey = (id: string) => {
+    setPoolKeys((prev) => {
+      const next = prev.filter((item) => item.id !== id);
+      return next.map((item, index) => ({
+        ...item,
+        priority: index + 1,
+      }));
+    });
+  };
+
+  const handleUpdatePoolKey = (id: string, updates: Partial<PoolKeyItem>) => {
+    setPoolKeys((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, ...updates } : item)),
+    );
+  };
+
+  const handleMovePoolKey = (index: number, direction: "up" | "down") => {
+    setPoolKeys((prev) => {
+      const targetIndex = direction === "up" ? index - 1 : index + 1;
+      if (targetIndex < 0 || targetIndex >= prev.length) return prev;
+      const copy = [...prev];
+      const [item] = copy.splice(index, 1);
+      copy.splice(targetIndex, 0, item);
+      return copy.map((k, idx) => ({
+        ...k,
+        priority: idx + 1,
+      }));
+    });
+  };
+
+  const handleTestSingleKey = async (slotId: string, keyValue: string) => {
+    const trimmed = keyValue.trim();
+    if (!trimmed || trimmed.length < 5) {
+      toast.error("Please enter a valid key before testing");
+      return;
+    }
+    setKeyTestState((prev) => ({
+      ...prev,
+      [slotId]: { status: "testing", message: `Connecting to ${meta.label}...` },
+    }));
+
+    const testModel = (model || meta.models[0] || "gpt-4o-mini").trim();
+    try {
+      const res = await testSpecific({
+        data: {
+          provider,
+          apiKey: trimmed,
+          model: testModel,
+          baseUrl: baseUrl || undefined,
+        },
+      });
+
+      if (res.ok) {
+        setKeyTestState((prev) => ({
+          ...prev,
+          [slotId]: {
+            status: "success",
+            message: `Passed (${res.model}) · ${res.latencyMs}ms`,
+          },
+        }));
+
+        if (res.fallbackUsed && res.model !== testModel) {
+          setModel(res.model);
+          toast.success(
+            `Key verified! (Auto-selected supported model "${res.model}" instead of unavailable "${testModel}")`,
+          );
+        } else {
+          toast.success(`Key verified successfully with ${res.model} (${res.latencyMs}ms)`);
+        }
+      } else {
+        setKeyTestState((prev) => ({
+          ...prev,
+          [slotId]: { status: "error", message: res.reply.slice(0, 75) },
+        }));
+        toast.error(`Key test failed: ${res.reply}`);
+      }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Key test failed";
+      setKeyTestState((prev) => ({
+        ...prev,
+        [slotId]: { status: "error", message: message.slice(0, 75) },
+      }));
+      toast.error(message);
+    }
+  };
+
+  const saveMutation = useMutation({
+    mutationFn: () => {
+      const validPool = poolKeys
+        .filter((k) => k.key.trim().length > 5)
+        .map((k, index) => ({
+          key: k.key.trim(),
+          label: k.label.trim() || `Key ${index + 1}`,
+          priority: k.priority || index + 1,
+        }));
+
+      const primaryPaid = paidPrimaryKey.trim();
+      const secondaryPaid = paidSecondaryKey.trim();
+
+      const payload = {
+        freeKeys: validPool.map((k) => k.key),
+        paidKeys: [primaryPaid, secondaryPaid].filter(Boolean),
+        paidPrimary: primaryPaid,
+        paidSecondary: secondaryPaid,
+        budgetPool: validPool,
+      };
+
+      const finalKey = JSON.stringify(payload);
+
+      return save({
+        data: {
+          provider: provider as never,
+          label: label || meta.label,
+          apiKey: finalKey,
+          baseUrl,
+          model: model || meta.models[0] || "",
+          activate: activateNow,
+        },
+      });
+    },
+    onSuccess: async () => {
+      toast.success(`${meta.label} configuration saved. Platform AI features ready immediately.`);
+      setPaidPrimaryKey("");
+      setPaidSecondaryKey("");
+      setPoolKeys([{ id: "pool-1", key: "", label: "Primary Key", priority: 1 }]);
+      setKeyTestState({});
+      setLabel("");
+      await refresh();
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  const activateMutation = useMutation({
+    mutationFn: (id: string | null) => activate({ data: { id } }),
+    onSuccess: async () => {
+      toast.success("Active provider updated.");
+      await refresh();
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => remove({ data: { id } }),
+    onSuccess: async () => {
+      toast.success("Key removed.");
+      await refresh();
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  const testMutation = useMutation({
+    mutationFn: (id: string) => test({ data: { id } }),
+    onSuccess: (result) =>
+      result.ok
+        ? toast.success(`Key works — ${result.model} replied "${result.reply}"`)
+        : toast.error(result.reply),
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  const rotateMutation = useMutation({
+    mutationFn: (input: { id: string; apiKey: string }) => rotate({ data: input }),
+    onSuccess: async () => {
+      toast.success("Key rotated successfully.");
+      setRotatingId(null);
+      setRotateValue("");
+      await refresh();
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  const allChatKeys = keys.data ?? [];
+  const multiProviderKeys = allChatKeys.filter(
+    (row) => row.provider !== "google" && row.provider !== "lovable",
+  );
+  const activeKey = allChatKeys.find((row) => row.isActive);
+  const hasValidPaid = paidPrimaryKey.trim().length >= 8;
+  const hasValidPool = poolKeys.some((k) => k.key.trim().length >= 8);
+
+  const EXTERNAL_PROVIDERS = AI_PROVIDERS.filter(
+    (p) => p.id !== "google" && p.id !== "lovable",
+  );
+
+  return (
+    <div className="space-y-4">
+      {/* ── Status Banner: Multi-Provider Standby vs Live Primary ── */}
+      <div
+        className={cn(
+          "rounded-xl border p-4 transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4",
+          isBypassActive
+            ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-950 dark:text-emerald-200"
+            : "border-border/80 bg-card p-4",
+        )}
+      >
+        <div className="flex items-start gap-3">
+          <div
+            className={cn(
+              "rounded-lg p-2 mt-0.5",
+              isBypassActive
+                ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400"
+                : "bg-muted text-muted-foreground",
+            )}
+          >
+            <Cpu className="size-5" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="font-semibold text-sm">
+                {isBypassActive
+                  ? "⚡ Backup Platform is LIVE (Serving 100% of Platform Traffic)"
+                  : "Multi-Provider Standby & Hot Failover Platform"}
+              </span>
+              <Badge
+                variant="outline"
+                className={
+                  isBypassActive
+                    ? "border-emerald-500/40 bg-emerald-500/20 text-emerald-600 dark:text-emerald-300"
+                    : "border-border text-muted-foreground"
+                }
+              >
+                {isBypassActive ? "Active Primary Engine" : "Standby Backup"}
+              </Badge>
+            </div>
+            <p className="mt-1 text-xs opacity-90 max-w-2xl leading-relaxed">
+              {isBypassActive
+                ? "Google Gemini is switched off. All student essay evaluations, Live Examiner checks, and prompts are currently powered exclusively by your configured external keys below."
+                : "Google Gemini is currently handling primary traffic. Providers configured here (Groq, OpenRouter, Mistral, xAI Grok, etc.) serve as instant hot failover backups. You can also switch Gemini off to test this platform directly."}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex shrink-0 items-center gap-2">
+          {isBypassActive ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={toggleBypassMutation.isPending}
+              onClick={() => toggleBypassMutation.mutate(false)}
+              className="gap-1.5"
+            >
+              <Sparkles className="size-4 text-blue-500" />
+              Restore Gemini as Primary
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              variant="default"
+              size="sm"
+              disabled={toggleBypassMutation.isPending}
+              onClick={() => toggleBypassMutation.mutate(true)}
+              className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-medium"
+            >
+              <Cpu className="size-4" />
+              Switch Off Gemini & Run on This Hub
+            </Button>
+          )}
+        </div>
+      </div>
+
+      <div className="grid gap-5 lg:grid-cols-[480px_1fr]">
+      <section className="panel rounded-xl border border-emerald-500/20 bg-card p-5 shadow-xs">
+        <div className="flex items-center justify-between border-b border-border/60 pb-3">
+          <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+            <Cpu className="size-4 text-emerald-500" /> Multi-Provider LLM Platform
+          </h2>
+          <div className="flex items-center gap-1.5">
+            {onSwitchToGemini && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={onSwitchToGemini}
+                className="h-6 px-2 text-[11px] text-muted-foreground hover:text-foreground gap-1"
+              >
+                <Sparkles className="size-3 text-blue-500" />
+                Google Gemini &rarr;
+              </Button>
+            )}
+            <Badge variant="outline" className="text-[10px] text-emerald-600 dark:text-emerald-400 border-emerald-500/30">
+              Universal Hub
+            </Badge>
+          </div>
+        </div>
+        <p className="mt-2 text-xs text-muted-foreground leading-relaxed">
+          Plug in Groq, xAI Grok, OpenRouter, Anthropic, OpenAI, Mistral, DeepSeek, or any custom OpenAI-compatible endpoint. Features live model discovery, auto-healing 404 fallbacks, and multi-key pooling.
+        </p>
+
+        {/* Provider Selector Quick Bar */}
+        <div className="mt-4 space-y-1.5">
+          <Label className="text-xs font-medium">Select Provider</Label>
+          <div className="grid grid-cols-4 gap-1.5">
+            {EXTERNAL_PROVIDERS.map((p) => {
+              const isSelected = provider === p.id;
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => handleSelectProvider(p.id)}
+                  className={cn(
+                    "flex flex-col items-center justify-center p-2 rounded-lg border text-xs transition-all",
+                    isSelected
+                      ? "border-emerald-500 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-semibold shadow-xs"
+                      : "border-border/70 hover:bg-muted/70 text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  <span className="truncate w-full text-center">{p.label.split(" ")[0]}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="mt-4 space-y-3.5">
+          <div className="space-y-1.5">
+            <Label>Configuration Label</Label>
+            <Input
+              value={label}
+              onChange={(event) => setLabel(event.target.value)}
+              placeholder={meta.label}
+            />
+          </div>
+
+          {/* Model Specification & Live Discovery */}
+          <div className="space-y-2 rounded-xl border border-border/80 bg-muted/20 p-3">
+            <div className="flex items-center justify-between">
+              <Label className="text-xs font-semibold flex items-center gap-1.5">
+                <span className="inline-block h-2 w-2 rounded-full bg-emerald-500" />
+                Target Model
+              </Label>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-6 px-2 text-[10px] gap-1 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10"
+                onClick={handleFetchLiveModels}
+                disabled={isDiscovering}
+              >
+                {isDiscovering ? (
+                  <>
+                    <Loader2 className="size-2.5 animate-spin" /> Fetching...
+                  </>
+                ) : (
+                  <>
+                    <Zap className="size-2.5" /> Fetch Live Models
+                  </>
+                )}
+              </Button>
+            </div>
+
+            <Input
+              value={model}
+              onChange={(event) => setModel(event.target.value)}
+              placeholder={meta.models[0] ?? "model-id"}
+              className="font-mono text-xs"
+            />
+
+            {/* Clickable Recommended Presets */}
+            {meta.models.length > 0 && (
+              <div className="space-y-1 pt-1">
+                <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">
+                  Recommended Models:
+                </span>
+                <div className="flex flex-wrap gap-1">
+                  {meta.models.map((suggestion) => (
+                    <button
+                      key={suggestion}
+                      type="button"
+                      onClick={() => setModel(suggestion)}
+                      className={cn(
+                        "rounded-md border px-1.5 py-0.5 text-[11px] transition-colors font-mono",
+                        model === suggestion
+                          ? "border-emerald-500 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-semibold"
+                          : "border-border text-muted-foreground hover:text-foreground",
+                      )}
+                    >
+                      {suggestion}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Dynamically Fetched Live Models from Provider */}
+            {discoveredModels.length > 0 && (
+              <div className="space-y-1.5 pt-2 border-t border-border/60">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold uppercase tracking-wider">
+                    Verified Account Models ({discoveredModels.length}):
+                  </span>
+                  <span className="text-[10px] text-muted-foreground">Click to select</span>
+                </div>
+                <div className="max-h-32 overflow-y-auto flex flex-wrap gap-1 p-1 bg-background rounded-md border border-border/80">
+                  {discoveredModels.map((m) => (
+                    <button
+                      key={m}
+                      type="button"
+                      onClick={() => setModel(m)}
+                      className={cn(
+                        "rounded px-1.5 py-0.5 text-[10px] font-mono border transition-colors",
+                        model === m
+                          ? "bg-emerald-500 text-white border-emerald-600 font-medium"
+                          : "border-border/60 hover:bg-muted text-foreground",
+                      )}
+                    >
+                      {m}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Base URL (if custom or overriding) */}
+          <div className="space-y-1.5">
+            <Label className="text-xs">
+              Base URL <span className="text-muted-foreground">(optional override)</span>
+            </Label>
+            <Input
+              value={baseUrl}
+              onChange={(event) => setBaseUrl(event.target.value)}
+              placeholder={meta.baseUrl || "https://api.your-provider.com/v1"}
+              className="font-mono text-xs"
+            />
+          </div>
+
+          {/* Keys Pool Section */}
+          <div className="space-y-4 rounded-xl border border-border/80 bg-muted/20 p-3.5">
+            <div className="space-y-2.5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                    <span className="inline-block h-2 w-2 rounded-full bg-emerald-500" />
+                    {meta.label} API Keys
+                  </Label>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    Add single or multiple keys for automated load balancing and failover.
+                  </p>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-6 px-2 text-[10px] gap-1"
+                    onClick={() => setShowBulkInput(!showBulkInput)}
+                  >
+                    <Clipboard className="size-2.5" />
+                    {showBulkInput ? "Hide Bulk" : "Bulk Paste"}
+                  </Button>
+                </div>
+              </div>
+
+              {showBulkInput && (
+                <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-2.5 space-y-2">
+                  <Label className="text-[11px] font-medium text-amber-700 dark:text-amber-300">
+                    Paste Multiple {meta.label} Keys (one per line or comma-separated):
+                  </Label>
+                  <Textarea
+                    rows={3}
+                    value={bulkInput}
+                    onChange={(e) => setBulkInput(e.target.value)}
+                    placeholder={meta.keyHint}
+                    className="font-mono text-xs bg-background"
+                  />
+                  <div className="flex justify-end gap-1.5">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 px-2 text-[11px]"
+                      onClick={() => setShowBulkInput(false)}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="h-6 px-2.5 text-[11px]"
+                      onClick={handleBulkImport}
+                    >
+                      Import Keys
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-2">
+                {poolKeys.map((item, index) => {
+                  const testState = keyTestState[item.id];
+                  return (
+                    <div
+                      key={item.id}
+                      className="rounded-lg border border-border/80 bg-background/60 p-2.5 space-y-2 shadow-xs"
+                    >
+                      <div className="flex items-center justify-between gap-1.5">
+                        <div className="flex items-center gap-1.5">
+                          <Badge variant="outline" className="text-[10px] font-mono">
+                            #{item.priority || index + 1}
+                          </Badge>
+                          <span className="text-xs font-medium text-foreground">
+                            {item.label || `Key ${index + 1}`}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6"
+                            onClick={() => handleMovePoolKey(index, "up")}
+                            disabled={index === 0}
+                            title="Move up"
+                          >
+                            <ArrowUp className="size-3" />
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6"
+                            onClick={() => handleMovePoolKey(index, "down")}
+                            disabled={index === poolKeys.length - 1}
+                            title="Move down"
+                          >
+                            <ArrowDown className="size-3" />
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-6 px-2 text-[10px] gap-1"
+                            onClick={() => handleTestSingleKey(item.id, item.key)}
+                            disabled={testState?.status === "testing" || item.key.trim().length < 5}
+                          >
+                            {testState?.status === "testing" ? (
+                              <>
+                                <Loader2 className="size-2.5 animate-spin" /> Testing
+                              </>
+                            ) : testState?.status === "success" ? (
+                              <>
+                                <CheckCircle2 className="size-2.5 text-emerald-500" /> Pass
+                              </>
+                            ) : testState?.status === "error" ? (
+                              <>
+                                <XCircle className="size-2.5 text-destructive" /> Retry
+                              </>
+                            ) : (
+                              <>
+                                <Zap className="size-2.5 text-emerald-500" /> Test Key
+                              </>
+                            )}
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                            onClick={() => handleRemovePoolKey(item.id)}
+                            title="Remove key"
+                          >
+                            <Trash2 className="size-3" />
+                          </Button>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-[120px_1fr] gap-2">
+                        <Input
+                          value={item.label}
+                          onChange={(e) =>
+                            handleUpdatePoolKey(item.id, { label: e.target.value })
+                          }
+                          placeholder="Key label"
+                          className="h-8 text-xs font-medium"
+                        />
+                        <Input
+                          type="password"
+                          value={item.key}
+                          onChange={(e) =>
+                            handleUpdatePoolKey(item.id, { key: e.target.value })
+                          }
+                          placeholder={meta.keyHint}
+                          className="h-8 text-xs font-mono"
+                        />
+                      </div>
+
+                      {testState && (
+                        <div
+                          className={cn(
+                            "text-[10px] px-2 py-0.5 rounded flex items-center gap-1 font-mono",
+                            testState.status === "testing" && "text-muted-foreground bg-muted/40",
+                            testState.status === "success" &&
+                              "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10",
+                            testState.status === "error" &&
+                              "text-destructive bg-destructive/10",
+                          )}
+                        >
+                          {testState.status === "testing" ? (
+                            <Loader2 className="size-2.5 animate-spin" />
+                          ) : testState.status === "success" ? (
+                            <CheckCircle2 className="size-2.5" />
+                          ) : (
+                            <XCircle className="size-2.5" />
+                          )}
+                          <span className="truncate">{testState.message}</span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="w-full text-xs border-dashed gap-1 text-muted-foreground hover:text-foreground"
+                  onClick={handleAddPoolKey}
+                >
+                  <Plus className="size-3.5" /> Add Another Key Slot
+                </Button>
+              </div>
+            </div>
+
+            {/* Dedicated Primary / Backup Key Section */}
+            <div className="space-y-3 pt-3 border-t border-border/70">
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                    <span className="inline-block h-2 w-2 rounded-full bg-emerald-500" />
+                    Dedicated Primary / Backup Key (Optional)
+                  </Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-6 px-2 text-[10px] gap-1"
+                    onClick={() => handleTestSingleKey("paid-primary", paidPrimaryKey)}
+                    disabled={
+                      keyTestState["paid-primary"]?.status === "testing" ||
+                      paidPrimaryKey.trim().length < 5
+                    }
+                  >
+                    {keyTestState["paid-primary"]?.status === "testing" ? (
+                      <>
+                        <Loader2 className="size-2.5 animate-spin" /> Testing
+                      </>
+                    ) : keyTestState["paid-primary"]?.status === "success" ? (
+                      <>
+                        <CheckCircle2 className="size-2.5 text-emerald-500" /> Pass
+                      </>
+                    ) : keyTestState["paid-primary"]?.status === "error" ? (
+                      <>
+                        <XCircle className="size-2.5 text-destructive" /> Retry
+                      </>
+                    ) : (
+                      <>
+                        <Zap className="size-2.5 text-emerald-500" /> Test Key
+                      </>
+                    )}
+                  </Button>
+                </div>
+                <Input
+                  type="password"
+                  value={paidPrimaryKey}
+                  onChange={(event) => setPaidPrimaryKey(event.target.value)}
+                  placeholder={meta.keyHint}
+                  className="font-mono text-xs"
+                />
+                {keyTestState["paid-primary"] && (
+                  <div
+                    className={cn(
+                      "text-[10px] px-2 py-0.5 rounded flex items-center gap-1 font-mono",
+                      keyTestState["paid-primary"].status === "testing" && "text-muted-foreground bg-muted/40",
+                      keyTestState["paid-primary"].status === "success" &&
+                        "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10",
+                      keyTestState["paid-primary"].status === "error" &&
+                        "text-destructive bg-destructive/10",
+                    )}
+                  >
+                    {keyTestState["paid-primary"].status === "testing" ? (
+                      <Loader2 className="size-2.5 animate-spin" />
+                    ) : keyTestState["paid-primary"].status === "success" ? (
+                      <CheckCircle2 className="size-2.5" />
+                    ) : (
+                      <XCircle className="size-2.5" />
+                    )}
+                    <span className="truncate">{keyTestState["paid-primary"].message}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between rounded-lg border border-border px-3 py-2">
+            <div>
+              <p className="text-sm font-medium">Make {meta.label} Active</p>
+              <p className="text-xs text-muted-foreground">
+                Marks, essays, and coaching will immediately route through {meta.label}.
+              </p>
+            </div>
+            <Switch checked={activateNow} onCheckedChange={setActivateNow} />
+          </div>
+
+          <Button
+            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
+            onClick={() => saveMutation.mutate()}
+            disabled={saveMutation.isPending || (!hasValidPaid && !hasValidPool)}
+          >
+            {saveMutation.isPending ? <Loader2 className="size-4 animate-spin mr-2" /> : null}
+            Save {meta.label} Configuration
+          </Button>
+        </div>
+      </section>
+
+      <section className="space-y-3">
+        <div className="panel flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4">
+          <div>
+            <p className="text-sm font-semibold flex items-center gap-2">
+              <span className="size-2 rounded-full bg-emerald-500" />
+              Currently Serving:{" "}
+              {activeKey
+                ? `${providerMeta(activeKey.provider).label} · ${activeKey.model}`
+                : "Marginal AI (built in)"}
+            </p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {activeKey
+                ? `System is routing inference calls through ${providerMeta(activeKey.provider).label}.`
+                : "Using built-in system gateway."}
+            </p>
+          </div>
+          {activeKey ? (
+            <Button variant="outline" size="sm" onClick={() => activateMutation.mutate(null)}>
+              <Plug className="size-4 mr-1.5" /> Switch to Built-in AI
+            </Button>
+          ) : null}
+        </div>
+
+        {keys.isLoading ? <Skeleton className="h-28 w-full" /> : null}
+
+        {multiProviderKeys.map((row) => (
+          <div key={row.id} className="panel rounded-xl border border-border p-4 shadow-xs">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="flex items-center gap-2 text-sm font-medium">
+                  {row.label}
+                  {row.isActive ? (
+                    <Badge className="gap-1 bg-emerald-600 text-white">
+                      <CheckCircle2 className="size-3" /> Active (Primary)
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="text-[10px] text-emerald-500 border-emerald-500/30">
+                      Standby
+                    </Badge>
+                  )}
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground font-mono">
+                  {providerMeta(row.provider).label} · {row.model} · {row.maskedKey}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => testMutation.mutate(row.id)}
+                  disabled={testMutation.isPending}
+                >
+                  {testMutation.isPending ? <Loader2 className="size-4 animate-spin" /> : null}
+                  Test
+                </Button>
+                {row.isActive ? null : (
+                  <Button size="sm" onClick={() => activateMutation.mutate(row.id)}>
+                    Use this
+                  </Button>
+                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setRotateValue("");
+                    setRotatingId(rotatingId === row.id ? null : row.id);
+                  }}
+                >
+                  <RefreshCw className="size-4 mr-1" /> Rotate
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => deleteMutation.mutate(row.id)}
+                  aria-label={`Delete ${row.label}`}
+                >
+                  <Trash2 className="size-4 text-muted-foreground hover:text-destructive" />
+                </Button>
+              </div>
+            </div>
+
+            {rotatingId === row.id ? (
+              <div className="mt-3 space-y-2 rounded-lg border border-border p-3 bg-muted/20">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor={`rotate-${row.id}`} className="text-xs">
+                    New API key for {providerMeta(row.provider).label}
+                  </Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-6 px-2 text-[10px] gap-1"
+                    onClick={() => handleTestSingleKey(`rotate-${row.id}`, rotateValue)}
+                    disabled={
+                      keyTestState[`rotate-${row.id}`]?.status === "testing" ||
+                      rotateValue.trim().length < 5
+                    }
+                  >
+                    Test Key
+                  </Button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Input
+                    id={`rotate-${row.id}`}
+                    type="password"
+                    className="min-w-48 flex-1 font-mono text-xs"
+                    value={rotateValue}
+                    onChange={(event) => setRotateValue(event.target.value)}
                     placeholder={providerMeta(row.provider).keyHint}
                   />
                   <Button
                     onClick={() => rotateMutation.mutate({ id: row.id, apiKey: rotateValue })}
                     disabled={rotateMutation.isPending || rotateValue.trim().length < 8}
                   >
-                    {rotateMutation.isPending ? <Loader2 className="size-4 animate-spin" /> : null}
-                    Save new key
+                    Save Key
                   </Button>
                 </div>
-                {keyTestState[`rotate-${row.id}`] && (
-                  <div
-                    className={cn(
-                      "text-[10px] px-2 py-0.5 rounded flex items-center gap-1 font-mono",
-                      keyTestState[`rotate-${row.id}`].status === "testing" &&
-                        "text-muted-foreground bg-muted/40",
-                      keyTestState[`rotate-${row.id}`].status === "success" &&
-                        "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10",
-                      keyTestState[`rotate-${row.id}`].status === "error" &&
-                        "text-destructive bg-destructive/10"
-                    )}
-                  >
-                    {keyTestState[`rotate-${row.id}`].status === "testing" ? (
-                      <Loader2 className="size-2.5 animate-spin" />
-                    ) : keyTestState[`rotate-${row.id}`].status === "success" ? (
-                      <CheckCircle2 className="size-2.5" />
-                    ) : (
-                      <XCircle className="size-2.5" />
-                    )}
-                    <span className="truncate">{keyTestState[`rotate-${row.id}`].message}</span>
-                  </div>
-                )}
-                <p className="text-xs text-muted-foreground">
-                  Provider, model and active state stay the same — only the secret changes.
-                </p>
               </div>
             ) : null}
           </div>
         ))}
 
-        {keys.data && keys.data.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            No provider keys yet. Add one on the left to stop depending on built-in credits.
-          </p>
-        ) : null}
+        {multiProviderKeys.length === 0 && !keys.isLoading && (
+          <div className="rounded-xl border border-dashed border-border p-6 text-center">
+            <Cpu className="size-8 mx-auto text-muted-foreground/50 mb-2" />
+            <p className="text-sm font-medium">No external providers configured yet.</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Select Groq, xAI, OpenRouter, Mistral, OpenAI, or Anthropic on the left to configure your API keys.
+            </p>
+          </div>
+        )}
       </section>
+    </div>
     </div>
   );
 }
@@ -2638,13 +3731,13 @@ function OverviewPanel({ onOpenGodmode }: { onOpenGodmode?: () => void } = {}) {
           </span>
           <div>
             <h3 className="text-xs font-bold text-foreground sm:text-sm flex items-center gap-1.5">
-              God-Mode Platform Vault &amp; Inspector
-              <Badge variant="outline" className="border-amber-500/40 text-amber-600 dark:text-amber-400 text-[10px] py-0">
-                ADMIN ROOT
+              God-Mode Platform Vault &amp; Live Keystroke Monitor
+              <Badge variant="outline" className="border-amber-500/40 text-amber-600 dark:text-amber-400 text-[10px] py-0 font-bold">
+                ROOT ACCESS
               </Badge>
             </h3>
             <p className="text-[11px] text-muted-foreground">
-              Direct access to all 81+ student essays, complete Cambridge mark reports, MCQ attempts, and Live Examiner writing sessions.
+              Watch live student screens and typing in real time, 1-click fix failed essays, and inspect 360° dossiers for all users.
             </p>
           </div>
         </div>
@@ -2656,7 +3749,7 @@ function OverviewPanel({ onOpenGodmode }: { onOpenGodmode?: () => void } = {}) {
             className="h-8 text-xs font-semibold bg-amber-600 hover:bg-amber-700 text-white shrink-0 gap-1.5 shadow-sm"
             onClick={onOpenGodmode}
           >
-            <span>Open Platform Vault</span>
+            <span>Open God Mode Console</span>
             <ChevronRight className="size-3.5" />
           </Button>
         )}

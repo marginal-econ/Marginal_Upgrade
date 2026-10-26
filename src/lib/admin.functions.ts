@@ -1021,8 +1021,119 @@ export const testProviderKey = createServerFn({ method: "POST" })
   });
 
 /**
+ * Fetches available models directly from the provider's API using the provided key.
+ * Compatible with Groq, xAI, OpenRouter, Mistral, OpenAI, Anthropic, Google, and Custom endpoints.
+ */
+export const fetchProviderModels = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z
+      .object({
+        provider: z.string(),
+        apiKey: z.string().trim().min(5, "API key is too short"),
+        baseUrl: z.string().optional(),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context);
+    const { providerMeta } = await import("./ai/providers");
+    const meta = providerMeta(data.provider);
+    const trimmedKey = data.apiKey.trim();
+    const effectiveBaseUrl = (data.baseUrl?.trim() || meta.baseUrl || "").replace(/\/+$/, "");
+
+    try {
+      if (data.provider === "google") {
+        const res = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(trimmedKey)}`,
+          { signal: AbortSignal.timeout(8_000) },
+        );
+        if (!res.ok) {
+          const errText = await res.text();
+          return {
+            ok: false,
+            error: `Google API rejected key (${res.status}): ${errText.slice(0, 100)}`,
+            models: [],
+          };
+        }
+        const json = (await res.json()) as {
+          models?: { name?: string; supportedGenerationMethods?: string[] }[];
+        };
+        const models = (json.models || [])
+          .filter(
+            (m) =>
+              m.name &&
+              (m.supportedGenerationMethods?.includes("generateContent") ?? true),
+          )
+          .map((m) => m.name!.replace(/^models\//, ""))
+          .filter((name) => /gemini/i.test(name));
+        return { ok: true, models: Array.from(new Set(models)) };
+      }
+
+      if (data.provider === "anthropic") {
+        const res = await fetch(`https://api.anthropic.com/v1/models`, {
+          headers: {
+            "x-api-key": trimmedKey,
+            "anthropic-version": "2023-06-01",
+          },
+          signal: AbortSignal.timeout(8_000),
+        });
+        if (!res.ok) {
+          const errText = await res.text();
+          return {
+            ok: false,
+            error: `Anthropic rejected key (${res.status}): ${errText.slice(0, 100)}`,
+            models: [],
+          };
+        }
+        const json = (await res.json()) as { data?: { id?: string }[] };
+        const models = (json.data || []).map((m) => m.id!).filter(Boolean);
+        return { ok: true, models };
+      }
+
+      if (!effectiveBaseUrl) {
+        return { ok: false, error: "No base URL configured for this provider", models: [] };
+      }
+
+      const reqHeaders: Record<string, string> = {
+        Authorization: `Bearer ${trimmedKey}`,
+        "Content-Type": "application/json",
+      };
+      if (data.provider === "openrouter") {
+        reqHeaders["HTTP-Referer"] = "https://marginaleconomics.com";
+        reqHeaders["X-Title"] = "Marginal Economics";
+      }
+
+      const res = await fetch(`${effectiveBaseUrl}/models`, {
+        headers: reqHeaders,
+        signal: AbortSignal.timeout(8_000),
+      });
+
+      if (!res.ok) {
+        const errText = await res.text();
+        return {
+          ok: false,
+          error: `Provider returned ${res.status}: ${errText.slice(0, 120)}`,
+          models: [],
+        };
+      }
+
+      const json = (await res.json()) as { data?: { id?: string; name?: string }[] };
+      const rawList = json.data || [];
+      const models = rawList
+        .map((m) => m.id || m.name || "")
+        .filter(Boolean)
+        .filter((id) => !/(whisper|embed|tts|moderation|safeguard)/i.test(id));
+
+      return { ok: true, models: Array.from(new Set(models)) };
+    } catch (err: any) {
+      return { ok: false, error: err?.message || "Failed to fetch models", models: [] };
+    }
+  });
+
+/**
  * Tests an individual raw key string directly from the UI without needing to save first.
- * Used to verify Paid Primary, Paid Secondary, and individual Pool keys.
+ * Used to verify Paid Primary, Paid Secondary, and individual Pool keys across ANY provider.
  */
 export const testSpecificKey = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -1040,20 +1151,12 @@ export const testSpecificKey = createServerFn({ method: "POST" })
     await assertAdmin(context);
     const { chat } = await import("./ai.server");
     const { normaliseConfig } = await import("./ai/active.server");
-    let testModel =
-      data.model?.trim() ||
-      (data.provider === "google"
-        ? "gemini-3.8-flash"
-        : data.provider === "mistral"
-          ? "mistral-large-latest"
-          : "gpt-4o-mini");
-    if (data.provider === "google") {
-      testModel = "gemini-3.8-flash";
-    }
+    const { getProviderDefaultModel } = await import("./ai/providers");
+
+    let testModel = data.model?.trim() || getProviderDefaultModel(data.provider);
 
     const trimmedKey = data.apiKey.trim();
     const started = Date.now();
-    let googleVerified = false;
 
     // Direct Google authentication check: verifies immediately if Google AI Studio recognizes the key
     if (data.provider === "google") {
@@ -1062,9 +1165,7 @@ export const testSpecificKey = createServerFn({ method: "POST" })
           `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(trimmedKey)}`,
           { signal: AbortSignal.timeout(8_000) },
         );
-        if (verifyRes.ok) {
-          googleVerified = true;
-        } else {
+        if (!verifyRes.ok) {
           const status = verifyRes.status;
           if (status === 400 || status === 401 || status === 403) {
             return {
@@ -1101,6 +1202,7 @@ export const testSpecificKey = createServerFn({ method: "POST" })
         ok: true,
         reply: result.text.trim().slice(0, 80) || "OK",
         model: result.model,
+        fallbackUsed: result.modelSwapped ? result.model : null,
         latencyMs: Date.now() - started,
       };
     } catch (err) {
@@ -1115,7 +1217,9 @@ export const testSpecificKey = createServerFn({ method: "POST" })
         return {
           ok: false,
           reply:
-            "Quota Exceeded (429): Google Free Tier limit reached for this project (20 req/day). Keys in the same project share this limit. Create key in a separate Google project to get independent quota.",
+            data.provider === "google"
+              ? "Quota Exceeded (429): Google Free Tier limit reached for this project (20 req/day). Keys in the same project share this limit. Create key in a separate Google project to get independent quota."
+              : `Quota/Rate limit exceeded (429) for ${data.provider}. Please verify limits in your provider console.`,
           model: null,
           latencyMs: Date.now() - started,
         };
@@ -1258,6 +1362,7 @@ export type AdminSettings = {
   currentUsers: number;
   aiEnabled: boolean;
   aiMode: AiGatewayMode;
+  aiBackupOnly: boolean;
 };
 
 function toSettings(raw: unknown): AdminSettings {
@@ -1270,6 +1375,7 @@ function toSettings(raw: unknown): AdminSettings {
     currentUsers: Number(row.current_users ?? 0),
     aiEnabled: row.ai_enabled !== false,
     aiMode: AI_MODE_FROM_INT[Number(row.ai_mode ?? 0)] ?? "max",
+    aiBackupOnly: row.ai_backup_only === true || Number(row.ai_backup_only) === 1,
   };
 }
 
@@ -1286,19 +1392,20 @@ export const adminGetSettings = createServerFn({ method: "GET" })
       // Graceful fallback to table query
     }
 
-    if (!rawSettings.max_users) {
-      try {
-        const { supabaseAdmin } = await import("@/integrations/backend/client.server");
-        const { data: rows } = await supabaseAdmin.from("app_settings").select("key, int_value");
-        if (rows) {
-          for (const row of rows as { key: string; int_value: number }[]) {
-            if (row.key === "max_users") rawSettings.max_users = row.int_value;
-            if (row.key === "essay_daily_limit") rawSettings.essay_daily_limit = row.int_value;
-          }
+    try {
+      const { supabaseAdmin } = await import("@/integrations/backend/client.server");
+      const { data: rows } = await supabaseAdmin.from("app_settings").select("key, int_value");
+      if (rows) {
+        for (const row of rows as { key: string; int_value: number }[]) {
+          if (row.key === "max_users" && !rawSettings.max_users) rawSettings.max_users = row.int_value;
+          if (row.key === "essay_daily_limit" && !rawSettings.essay_daily_limit) rawSettings.essay_daily_limit = row.int_value;
+          if (row.key === "ai_enabled" && rawSettings.ai_enabled === undefined) rawSettings.ai_enabled = row.int_value !== 0;
+          if (row.key === "ai_mode" && rawSettings.ai_mode === undefined) rawSettings.ai_mode = row.int_value;
+          if (row.key === "ai_backup_only") rawSettings.ai_backup_only = row.int_value === 1;
         }
-      } catch {
-        // Fallback
       }
+    } catch {
+      // Fallback
     }
 
     const acceptedUsers = await listAcceptedAuthUsers().catch(() => []);
@@ -1315,6 +1422,7 @@ export const adminSetSettings = createServerFn({ method: "POST" })
         essayDailyLimit: z.number().int().min(1).max(500).optional(),
         aiEnabled: z.boolean().optional(),
         aiMode: z.enum(["max", "balanced", "economy"]).optional(),
+        aiBackupOnly: z.boolean().optional(),
       })
       .parse(input),
   )
@@ -1356,14 +1464,23 @@ export const adminSetSettings = createServerFn({ method: "POST" })
             { onConflict: "key" },
           );
       }
+      if (data.aiBackupOnly !== undefined) {
+        await supabaseAdmin
+          .from("app_settings")
+          .upsert(
+            {
+              key: "ai_backup_only",
+              int_value: data.aiBackupOnly ? 1 : 0,
+              updated_at: new Date().toISOString(),
+            },
+            { onConflict: "key" },
+          );
+      }
     } catch {
       // Ignore if table already locked
     }
 
-    if (data.aiEnabled !== undefined || data.aiMode !== undefined) {
-      // Drop the short-lived cache chat() reads so a paused/mode-switched
-      // admin console is honoured on the very next AI call, not up to
-      // AI_GATEWAY_TTL_MS later.
+    if (data.aiEnabled !== undefined || data.aiMode !== undefined || data.aiBackupOnly !== undefined) {
       const { clearActiveProviderCache } = await import("./ai/active.server");
       clearActiveProviderCache();
     }
@@ -1377,8 +1494,37 @@ export const adminSetSettings = createServerFn({ method: "POST" })
           currentUsers: acceptedUsers.length,
           aiEnabled: data.aiEnabled ?? true,
           aiMode: data.aiMode ?? "max",
+          aiBackupOnly: data.aiBackupOnly ?? false,
         };
-    return { ...s, currentUsers: acceptedUsers.length };
+    return { ...s, currentUsers: acceptedUsers.length, aiBackupOnly: data.aiBackupOnly ?? s.aiBackupOnly };
+  });
+
+export const toggleGeminiBypass = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({ backupOnly: z.boolean() }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/backend/client.server");
+    await supabaseAdmin.from("app_settings").upsert(
+      {
+        key: "ai_backup_only",
+        int_value: data.backupOnly ? 1 : 0,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "key" },
+    );
+    const { clearActiveProviderCache, getActiveProvider } = await import("./ai/active.server");
+    clearActiveProviderCache();
+    const activeBackup = await getActiveProvider(true);
+    return {
+      ok: true,
+      backupOnly: data.backupOnly,
+      activeBackupProvider: activeBackup?.provider ?? null,
+      activeBackupLabel: activeBackup?.label ?? null,
+      activeBackupModel: activeBackup?.model ?? null,
+    };
   });
 
 export type EmailBrandSettings = {
@@ -1954,5 +2100,582 @@ export const adminGetStudentDossier = createServerFn({ method: "POST" })
       essays,
       mcqAttempts: allMcqs,
       liveSessions,
+    };
+  });
+
+/* ============================================================================
+ * GOD-MODE EXPANSION: ALL USERS DOSSIER LIST, LIVE TYPING RADAR,
+ * ESSAY FAILURE RECOVERY & FULL ACTIVITY FEED
+ * ============================================================================ */
+
+/**
+ * Returns ALL users registered on the platform for the 360° Dossier selector,
+ * with real-time stats, presence, and failure counts.
+ */
+export const adminListAllDossierUsers = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/backend/client.server");
+
+    const [authUsers, profilesRes, rolesRes, presenceRes, essaysRes, mcqGenRes, mcqPdfRes, liveRes, failedRes] =
+      await Promise.all([
+        listAcceptedAuthUsers(),
+        supabaseAdmin.from("profiles").select("id, full_name, school, created_at"),
+        supabaseAdmin.from("user_roles").select("user_id, role"),
+        supabaseAdmin.from("user_presence").select("user_id, last_seen, path"),
+        supabaseAdmin.from("essays").select("user_id"),
+        supabaseAdmin.from("mcq_attempts").select("user_id"),
+        supabaseAdmin.from("mcq_pdf_attempts").select("user_id"),
+        supabaseAdmin.from("live_examiner_sessions").select("user_id"),
+        supabaseAdmin
+          .from("ai_usage_log")
+          .select("user_id")
+          .in("feature", ["grade_essay_failed", "grade_essay"])
+          .eq("ok", false),
+      ]);
+
+    const authMap = new Map(authUsers.map((u) => [u.id, u]));
+    const profileMap = new Map((profilesRes.data ?? []).map((p: any) => [p.id, p]));
+    const roleMap = new Map((rolesRes.data ?? []).map((r: any) => [r.user_id, r.role]));
+    const presenceMap = new Map((presenceRes.data ?? []).map((pr: any) => [pr.user_id, pr]));
+
+    // Aggregates
+    const essayCountMap = new Map<string, number>();
+    for (const row of essaysRes.data ?? []) {
+      essayCountMap.set(row.user_id, (essayCountMap.get(row.user_id) || 0) + 1);
+    }
+    const mcqCountMap = new Map<string, number>();
+    for (const row of [...(mcqGenRes.data ?? []), ...(mcqPdfRes.data ?? [])]) {
+      mcqCountMap.set(row.user_id, (mcqCountMap.get(row.user_id) || 0) + 1);
+    }
+    const liveCountMap = new Map<string, number>();
+    for (const row of liveRes.data ?? []) {
+      liveCountMap.set(row.user_id, (liveCountMap.get(row.user_id) || 0) + 1);
+    }
+    const failedCountMap = new Map<string, number>();
+    for (const row of failedRes.data ?? []) {
+      if (row.user_id) {
+        failedCountMap.set(row.user_id, (failedCountMap.get(row.user_id) || 0) + 1);
+      }
+    }
+
+    // Collect all distinct user IDs
+    const allUserIds = new Set<string>();
+    authUsers.forEach((u) => allUserIds.add(u.id));
+    (profilesRes.data ?? []).forEach((p: any) => allUserIds.add(p.id));
+
+    const now = Date.now();
+    const result = Array.from(allUserIds).map((id) => {
+      const auth = authMap.get(id);
+      const prof = profileMap.get(id);
+      const pres = presenceMap.get(id);
+      const role = (roleMap.get(id) || auth?.user_metadata?.role || "student") as "student" | "teacher" | "admin";
+
+      const lastSeen = pres?.last_seen ?? null;
+      const isOnline = Boolean(lastSeen && now - new Date(lastSeen).getTime() < 150_000);
+
+      return {
+        id,
+        email: auth?.email ?? null,
+        name:
+          prof?.full_name ||
+          auth?.user_metadata?.full_name ||
+          auth?.user_metadata?.name ||
+          (auth?.email ? auth.email.split("@")[0] : "Student"),
+        school: prof?.school ?? null,
+        role,
+        createdAt: prof?.created_at || auth?.created_at || new Date().toISOString(),
+        lastSeen,
+        currentPath: pres?.path ?? null,
+        isOnline,
+        totalEssays: essayCountMap.get(id) || 0,
+        totalMcqs: mcqCountMap.get(id) || 0,
+        totalLiveSessions: liveCountMap.get(id) || 0,
+        failedEssaysCount: failedCountMap.get(id) || 0,
+      };
+    });
+
+    // Sort: online first, then by lastSeen desc, then by totalEssays desc
+    result.sort((a, b) => {
+      if (a.isOnline !== b.isOnline) return a.isOnline ? -1 : 1;
+      if (a.lastSeen && b.lastSeen) return new Date(b.lastSeen).getTime() - new Date(a.lastSeen).getTime();
+      if (a.lastSeen) return -1;
+      if (b.lastSeen) return 1;
+      return b.totalEssays - a.totalEssays;
+    });
+
+    return result;
+  });
+
+/**
+ * Live User Surveillance: Returns users active recently, the screen they are facing,
+ * and what they are typing in real time (both Live Examiner and Essay Grader drafts).
+ */
+export const adminGetLiveUserMonitoring = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/backend/client.server");
+    const { describePath } = await import("@/lib/presence");
+
+    // Look back 2 hours for active presence
+    const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+
+    const [presenceRes, liveSessionsRes, gradeDraftsRes, authUsers, profilesRes] = await Promise.all([
+      supabaseAdmin
+        .from("user_presence")
+        .select("user_id, last_seen, path")
+        .gte("last_seen", twoHoursAgo)
+        .order("last_seen", { ascending: false }),
+      supabaseAdmin
+        .from("live_examiner_sessions")
+        .select("id, user_id, level, topic, question, max_mark, essay_text, issues_history, updated_at")
+        .gte("updated_at", twoHoursAgo)
+        .order("updated_at", { ascending: false }),
+      supabaseAdmin
+        .from("ai_usage_log")
+        .select("id, user_id, error_message, created_at")
+        .eq("feature", "LIVE_DRAFT_GRADE")
+        .gte("created_at", twoHoursAgo)
+        .order("created_at", { ascending: false }),
+      listAcceptedAuthUsers(),
+      supabaseAdmin.from("profiles").select("id, full_name, school"),
+    ]);
+
+    const authMap = new Map(authUsers.map((u) => [u.id, u]));
+    const profileMap = new Map((profilesRes.data ?? []).map((p: any) => [p.id, p]));
+
+    // Map latest live examiner session by user
+    const liveByStudent = new Map<string, any>();
+    for (const s of liveSessionsRes.data ?? []) {
+      if (!liveByStudent.has(s.user_id)) {
+        liveByStudent.set(s.user_id, s);
+      }
+    }
+
+    // Map latest grade draft by user
+    const gradeDraftByStudent = new Map<string, any>();
+    for (const row of gradeDraftsRes.data ?? []) {
+      if (!row.user_id || gradeDraftByStudent.has(row.user_id)) continue;
+      try {
+        const parsed = JSON.parse(row.error_message || "{}");
+        gradeDraftByStudent.set(row.user_id, { ...parsed, logId: row.id, savedAt: row.created_at });
+      } catch {}
+    }
+
+    const now = Date.now();
+    const activeUsersList = (presenceRes.data ?? []).map((pres) => {
+      const uid = pres.user_id;
+      const auth = authMap.get(uid);
+      const prof = profileMap.get(uid);
+
+      const lastSeenMs = pres.last_seen ? new Date(pres.last_seen).getTime() : 0;
+      const isOnline = now - lastSeenMs < 150_000;
+      const secondsAgo = Math.max(0, Math.round((now - lastSeenMs) / 1000));
+
+      const liveSession = liveByStudent.get(uid);
+      const gradeDraft = gradeDraftByStudent.get(uid);
+
+      let activeDraft: {
+        feature: "live_examiner" | "grade_essay";
+        question: string;
+        text: string;
+        wordCount: number;
+        charCount: number;
+        updatedAt: string;
+        issuesCount?: number;
+        maxMark?: number;
+      } | null = null;
+
+      const liveTime = liveSession?.updated_at ? new Date(liveSession.updated_at).getTime() : 0;
+      const gradeTime = gradeDraft?.savedAt ? new Date(gradeDraft.savedAt).getTime() : 0;
+
+      if (liveTime > 0 && liveTime >= gradeTime && liveSession.essay_text?.trim()) {
+        const words = liveSession.essay_text.trim().split(/\s+/).length;
+        activeDraft = {
+          feature: "live_examiner",
+          question: liveSession.question,
+          text: liveSession.essay_text,
+          wordCount: words,
+          charCount: liveSession.essay_text.length,
+          updatedAt: liveSession.updated_at,
+          issuesCount: Array.isArray(liveSession.issues_history) ? liveSession.issues_history.length : 0,
+          maxMark: liveSession.max_mark,
+        };
+      } else if (gradeTime > 0 && (gradeDraft.essayText?.trim() || gradeDraft.question?.trim())) {
+        activeDraft = {
+          feature: "grade_essay",
+          question: gradeDraft.question || "Untitled Question",
+          text: gradeDraft.essayText || "",
+          wordCount: gradeDraft.wordCount || (gradeDraft.essayText ? gradeDraft.essayText.trim().split(/\s+/).length : 0),
+          charCount: gradeDraft.charCount || gradeDraft.essayText?.length || 0,
+          updatedAt: gradeDraft.savedAt,
+          maxMark: gradeDraft.maxMark || 12,
+        };
+      }
+
+      const isTyping = Boolean(activeDraft && now - new Date(activeDraft.updatedAt).getTime() < 180_000);
+
+      return {
+        userId: uid,
+        name:
+          prof?.full_name ||
+          auth?.user_metadata?.full_name ||
+          auth?.user_metadata?.name ||
+          (auth?.email ? auth.email.split("@")[0] : "Student"),
+        email: auth?.email ?? null,
+        school: prof?.school ?? null,
+        lastSeen: pres.last_seen,
+        isOnline,
+        secondsAgo,
+        currentPath: pres.path,
+        screenDescription: describePath(pres.path),
+        isTyping,
+        activeDraft,
+      };
+    });
+
+    const onlineCount = activeUsersList.filter((u) => u.isOnline).length;
+    const currentlyTypingCount = activeUsersList.filter((u) => u.isTyping).length;
+
+    return {
+      users: activeUsersList,
+      stats: {
+        onlineCount,
+        currentlyTypingCount,
+        totalMonitored: activeUsersList.length,
+      },
+    };
+  });
+
+/**
+ * Lists all failed essay evaluations across the platform so admin can diagnose and 1-click fix.
+ */
+export const adminListFailedEssays = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/backend/client.server");
+
+    const [failedLogsRes, orphanedEssaysRes, authUsers, profilesRes] = await Promise.all([
+      supabaseAdmin
+        .from("ai_usage_log")
+        .select("id, user_id, feature, error_message, created_at, ok")
+        .in("feature", ["grade_essay_failed", "grade_essay", "grade_essay_repaired"])
+        .order("created_at", { ascending: false })
+        .limit(200),
+      supabaseAdmin
+        .from("essays")
+        .select("id, user_id, question, max_mark, latest_mark, created_at, updated_at")
+        .is("latest_mark", null)
+        .order("created_at", { ascending: false })
+        .limit(50),
+      listAcceptedAuthUsers(),
+      supabaseAdmin.from("profiles").select("id, full_name, school"),
+    ]);
+
+    const authMap = new Map(authUsers.map((u) => [u.id, u]));
+    const profileMap = new Map((profilesRes.data ?? []).map((p: any) => [p.id, p]));
+
+    // Set of IDs that have been marked repaired
+    const repairedIds = new Set<string>();
+    for (const r of failedLogsRes.data ?? []) {
+      if (r.feature === "grade_essay_repaired" && r.error_message) {
+        repairedIds.add(r.error_message.trim());
+      }
+    }
+
+    const failures: any[] = [];
+
+    for (const log of failedLogsRes.data ?? []) {
+      if (log.feature === "grade_essay_repaired" || log.ok) continue;
+      if (!log.user_id) continue;
+
+      let question = "";
+      let essayText = "";
+      let maxMark = 12;
+      let errorMessage = log.error_message || "Grading failed";
+
+      if (log.feature === "grade_essay_failed" && log.error_message?.startsWith("{")) {
+        try {
+          const parsed = JSON.parse(log.error_message);
+          question = parsed.question || "";
+          essayText = parsed.essayText || "";
+          maxMark = parsed.maxMark || 12;
+          errorMessage = parsed.error || errorMessage;
+        } catch {}
+      }
+
+      const auth = authMap.get(log.user_id);
+      const prof = profileMap.get(log.user_id);
+
+      failures.push({
+        id: log.id,
+        source: "ai_log" as const,
+        userId: log.user_id,
+        studentName:
+          prof?.full_name ||
+          auth?.user_metadata?.full_name ||
+          (auth?.email ? auth.email.split("@")[0] : "Student"),
+        studentEmail: auth?.email ?? null,
+        school: prof?.school ?? null,
+        question,
+        essayText,
+        maxMark,
+        errorMessage,
+        failedAt: log.created_at,
+        resolved: repairedIds.has(log.id),
+      });
+    }
+
+    // Add orphaned unscored essays
+    for (const essay of orphanedEssaysRes.data ?? []) {
+      const auth = authMap.get(essay.user_id);
+      const prof = profileMap.get(essay.user_id);
+      failures.push({
+        id: essay.id,
+        source: "essay_record" as const,
+        userId: essay.user_id,
+        studentName:
+          prof?.full_name ||
+          auth?.user_metadata?.full_name ||
+          (auth?.email ? auth.email.split("@")[0] : "Student"),
+        studentEmail: auth?.email ?? null,
+        school: prof?.school ?? null,
+        question: essay.question,
+        essayText: "",
+        maxMark: essay.max_mark,
+        errorMessage: "Essay thread created but never finished grading (latest mark is null)",
+        failedAt: essay.created_at,
+        resolved: false,
+      });
+    }
+
+    return failures;
+  });
+
+const FixEssayInput = z.object({
+  failureId: z.string(),
+  targetUserId: z.string().uuid(),
+  question: z.string().trim().min(5),
+  essayText: z.string().trim().min(10),
+  maxMark: z.coerce.number().int().min(4).max(25).default(12),
+  mode: z.enum(["auto_cambridge", "manual"]).default("auto_cambridge"),
+  manualGrading: z
+    .object({
+      totalMark: z.number().int().min(0).max(25),
+      ao1Awarded: z.number().int().min(0).default(0),
+      ao2Awarded: z.number().int().min(0).default(0),
+      ao3Awarded: z.number().int().min(0).default(0),
+      strengths: z.array(z.string()).default([]),
+      improvements: z.array(z.string()).default([]),
+    })
+    .optional(),
+  notifyStudent: z.boolean().default(true),
+});
+
+/**
+ * 1-Click Essay Fixer: Runs the Cambridge examiner or applies manual marks,
+ * saves directly to the student's portfolio, and notifies the student.
+ */
+export const adminFixFailedEssay = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => FixEssayInput.parse(input))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/backend/client.server");
+    const { gradeEssay } = await import("@/lib/examiner/grade.server");
+    const { defaultSplitForMaxMark } = await import("@/lib/examiner/config");
+
+    let grading: any;
+    let model = "google/gemini-3.8-flash";
+
+    if (data.mode === "auto_cambridge") {
+      const split = defaultSplitForMaxMark(data.maxMark);
+      const outcome = await gradeEssay(supabaseAdmin, {
+        question: data.question,
+        essayText: data.essayText,
+        maxMark: data.maxMark,
+        split,
+        skipSyllabusPreflight: true,
+        userId: data.targetUserId,
+      });
+      grading = outcome.grading;
+      model = outcome.model || model;
+    } else {
+      const mg = data.manualGrading!;
+      grading = {
+        total_mark: mg.totalMark,
+        ao_breakdown: {
+          knowledge: { awarded: mg.ao1Awarded, max: Math.round(data.maxMark * 0.3) },
+          analysis: { awarded: mg.ao2Awarded, max: Math.round(data.maxMark * 0.4) },
+          evaluation: { awarded: mg.ao3Awarded, max: Math.round(data.maxMark * 0.3) },
+        },
+        confidence: 100,
+        audited: true,
+        strengths: mg.strengths.length > 0 ? mg.strengths : ["Clear articulation of economic principles."],
+        improvements: mg.improvements.length > 0 ? mg.improvements : ["Deepen evaluation with real-world context."],
+      };
+      model = "admin-manual-examiner";
+    }
+
+    // Save or update essay in essays table
+    const { data: essayRow, error: essayErr } = await supabaseAdmin
+      .from("essays")
+      .insert({
+        user_id: data.targetUserId,
+        question: data.question,
+        max_mark: data.maxMark,
+        latest_mark: grading.total_mark,
+      })
+      .select("id")
+      .single();
+
+    if (essayErr || !essayRow) throw new Error(essayErr?.message || "Failed to persist repaired essay.");
+
+    // Insert version record
+    const { error: verErr } = await supabaseAdmin.from("essay_versions").insert({
+      essay_id: essayRow.id,
+      user_id: data.targetUserId,
+      version: 1,
+      essay_text: data.essayText,
+      grading: grading as any,
+      total_mark: grading.total_mark,
+      ao1_awarded: grading.ao_breakdown?.knowledge?.awarded ?? 0,
+      ao2_awarded: grading.ao_breakdown?.analysis?.awarded ?? 0,
+      ao3_awarded: grading.ao_breakdown?.evaluation?.awarded ?? 0,
+      confidence: grading.confidence ?? 95,
+      audited: true,
+      model,
+    });
+
+    if (verErr) throw new Error(verErr.message);
+
+    // Mark failure as repaired in logs
+    await supabaseAdmin.from("ai_usage_log").insert({
+      user_id: data.targetUserId,
+      feature: "grade_essay_repaired",
+      model: "admin-fixer",
+      ok: true,
+      error_message: data.failureId,
+    });
+
+    // Notify student via direct message if requested
+    if (data.notifyStudent) {
+      const dmPayload = JSON.stringify({
+        sender: "admin",
+        senderName: "Marginal Examiner Support",
+        text: `Your essay for "${data.question.slice(0, 75)}..." has been graded and repaired! Total mark: ${grading.total_mark}/${data.maxMark}. You can view the full examiner feedback in your Essay History.`,
+        createdAt: new Date().toISOString(),
+        read: false,
+      });
+
+      await supabaseAdmin.from("ai_usage_log").insert({
+        user_id: data.targetUserId,
+        feature: "DIRECT_MESSAGE",
+        model: "admin-support",
+        ok: true,
+        error_message: dmPayload,
+      });
+    }
+
+    return {
+      ok: true,
+      essayId: essayRow.id,
+      totalMark: grading.total_mark,
+      maxMark: data.maxMark,
+    };
+  });
+
+/**
+ * Omniscient Platform Activity Feed: Real-time event stream across all features.
+ */
+export const adminGetPlatformActivityFeed = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/backend/client.server");
+
+    const [logsRes, authUsers, profilesRes] = await Promise.all([
+      supabaseAdmin
+        .from("ai_usage_log")
+        .select("id, user_id, feature, model, ok, error_message, latency_ms, created_at")
+        .order("created_at", { ascending: false })
+        .limit(150),
+      listAcceptedAuthUsers(),
+      supabaseAdmin.from("profiles").select("id, full_name, school"),
+    ]);
+
+    const authMap = new Map(authUsers.map((u) => [u.id, u]));
+    const profileMap = new Map((profilesRes.data ?? []).map((p: any) => [p.id, p]));
+
+    const todayIso = new Date();
+    todayIso.setHours(0, 0, 0, 0);
+    const todayMs = todayIso.getTime();
+
+    let eventsToday = 0;
+    let errorsToday = 0;
+    let totalLatency = 0;
+    let latencyCount = 0;
+    const activeUsersToday = new Set<string>();
+
+    const events = (logsRes.data ?? []).map((log) => {
+      const uid = log.user_id;
+      const auth = uid ? authMap.get(uid) : null;
+      const prof = uid ? profileMap.get(uid) : null;
+      const isToday = new Date(log.created_at).getTime() >= todayMs;
+
+      if (isToday) {
+        eventsToday += 1;
+        if (!log.ok) errorsToday += 1;
+        if (uid) activeUsersToday.add(uid);
+      }
+      if (log.latency_ms) {
+        totalLatency += log.latency_ms;
+        latencyCount += 1;
+      }
+
+      let summary = log.feature;
+      if (log.feature === "grade_essay") summary = log.ok ? "Essay Graded" : "Essay Grading Failed";
+      else if (log.feature === "grade_essay_failed") summary = "Essay Grading Failure Captured";
+      else if (log.feature === "grade_essay_repaired") summary = "Essay Repaired by Admin";
+      else if (log.feature === "LIVE_DRAFT_GRADE") summary = "Student Typing Essay Draft";
+      else if (log.feature === "DIRECT_MESSAGE") summary = "Direct Message Sent";
+      else if (log.feature === "chat") summary = "Cambridge Chat Interaction";
+      else if (log.feature === "embedding") summary = "Knowledge Base Embedding";
+      else if (log.feature === "ocr_transcribe") summary = "Handwriting OCR Transcription";
+
+      return {
+        id: log.id,
+        userId: uid,
+        userName:
+          prof?.full_name ||
+          auth?.user_metadata?.full_name ||
+          (auth?.email ? auth.email.split("@")[0] : uid ? "Student" : "System"),
+        userEmail: auth?.email ?? null,
+        school: prof?.school ?? null,
+        feature: log.feature,
+        summary,
+        model: log.model,
+        ok: log.ok,
+        error: log.ok ? null : log.error_message,
+        latencyMs: log.latency_ms,
+        createdAt: log.created_at,
+      };
+    });
+
+    const avgLatency = latencyCount > 0 ? Math.round(totalLatency / latencyCount) : null;
+    const successRate = eventsToday > 0 ? Math.round(((eventsToday - errorsToday) / eventsToday) * 100) : 100;
+
+    return {
+      events,
+      stats: {
+        eventsToday,
+        errorsToday,
+        successRate,
+        activeUsersToday: activeUsersToday.size,
+        avgLatency,
+      },
     };
   });

@@ -10,8 +10,11 @@ import {
   getActiveEmbeddingProvider,
   getActiveProvider,
   getActiveVisionProvider,
+  getChatProviderChain,
   getAiGatewaySettings,
+  isGeminiProvider,
 } from "./ai/active.server";
+import { getCandidateModels, getEconomyModelForProvider } from "./ai/providers";
 import { readEnv } from "../server/env";
 import { EMBEDDING_DIMS } from "./examiner/config";
 
@@ -36,7 +39,11 @@ const ECONOMY_TOKEN_CAP = 1100;
  *   economy  — every call forced onto the cheap/fast model, replies capped
  *              hardest. Quality/accuracy trade-off is real and deliberate.
  */
-function applyAiGatewayMode(options: ChatOptions, mode: AiGatewayMode): ChatOptions {
+function applyAiGatewayMode(
+  options: ChatOptions,
+  mode: AiGatewayMode,
+  activeProvider?: ProviderConfig | null,
+): ChatOptions {
   if (mode === "max") return options;
   if (mode === "balanced") {
     return {
@@ -46,9 +53,12 @@ function applyAiGatewayMode(options: ChatOptions, mode: AiGatewayMode): ChatOpti
         : BALANCED_TOKEN_CAP,
     };
   }
+  const economyModel = activeProvider
+    ? getEconomyModelForProvider(activeProvider.provider, activeProvider.model)
+    : ECONOMY_MODEL;
   return {
     ...options,
-    model: ECONOMY_MODEL,
+    model: economyModel,
     maxCompletionTokens: options.maxCompletionTokens
       ? Math.min(options.maxCompletionTokens, ECONOMY_TOKEN_CAP)
       : ECONOMY_TOKEN_CAP,
@@ -180,18 +190,63 @@ export async function chat(rawOptions: ChatOptions): Promise<ChatResult> {
         503,
       );
     }
-    const options = applyAiGatewayMode(rawOptions, gateway.mode);
+    let providersToTry: ProviderConfig[] = [];
+    if (rawOptions.overrideProvider !== undefined) {
+      if (rawOptions.overrideProvider) {
+        if (gateway.backupOnly && isGeminiProvider(rawOptions.overrideProvider.provider)) {
+          const backup = await getActiveProvider(true);
+          if (backup) providersToTry = [backup];
+        } else {
+          providersToTry = [rawOptions.overrideProvider];
+        }
+      }
+    } else {
+      providersToTry = await getChatProviderChain(gateway.backupOnly);
+    }
 
-    const override =
-      options.overrideProvider !== undefined ? options.overrideProvider : await getActiveProvider();
+    if (providersToTry.length > 0) {
+      let lastErr: any = null;
+      for (let pIdx = 0; pIdx < providersToTry.length; pIdx++) {
+        const prov = providersToTry[pIdx]!;
+        const provOptions = applyAiGatewayMode(rawOptions, gateway.mode, prov);
+        try {
+          const provResult = await chatViaProvider(prov, provOptions);
+          result = { ...provResult, latencyMs: Date.now() - started };
+          return result;
+        } catch (err: any) {
+          lastErr = err;
+          const isLast = pIdx === providersToTry.length - 1;
+          const status = err?.status || 500;
+          const errMsg = err?.message || String(err);
+          console.warn(
+            `[chat] Provider ${prov.provider} encountered error (${status}: ${errMsg.slice(0, 100)}). ${
+              !isLast ? `Auto-failing over to backup provider (${providersToTry[pIdx + 1]?.provider})...` : ""
+            }`,
+          );
+          if (isLast) {
+            throw err;
+          }
+          try {
+            const { supabaseAdmin } = await import("@/integrations/backend/client.server");
+            await supabaseAdmin.from("ai_usage_log").insert({
+              user_id: rawOptions.userId ?? null,
+              feature: (rawOptions.feature ?? "chat") + "_provider_failover",
+              model: prov.model,
+              latency_ms: Date.now() - started,
+              ok: false,
+              error_message: `Provider ${prov.provider} failed (${status}). Auto-failed over to ${providersToTry[pIdx + 1]?.provider}.`,
+            });
+          } catch {}
+        }
+      }
+      if (lastErr) throw lastErr;
+    }
 
-    if (override) {
-      // chatViaProvider retries its own fetch internally (see below) — don't
-      // wrap it again here, or a real rate limit waits through two nested
-      // backoff sequences instead of one.
-      const provResult = await chatViaProvider(override, options);
-      result = { ...provResult, latencyMs: Date.now() - started };
-      return result;
+    if (gateway.backupOnly) {
+      throw new AiGatewayError(
+        "Google Gemini is temporarily switched off (Backup-Only Mode is active), but no backup provider (Groq, OpenRouter, Mistral, xAI, OpenAI, Anthropic, etc.) has an active key configured. Please configure a provider key under Admin → Multi-Provider Hub.",
+        503,
+      );
     }
 
     if (!readEnv("LOVABLE_API_KEY")) {
@@ -340,6 +395,8 @@ async function chatViaProvider(
   const activeKeysToTry = getPrioritizedKeyOrder(config, keyCooldowns, false);
 
   if (config.provider === "anthropic") {
+    const candidateModels = getCandidateModels("anthropic", config.model);
+    let usedModel = candidateModels[0];
     const system = options.messages
       .filter((m) => m.role === "system")
       .map((m) => m.content)
@@ -348,88 +405,98 @@ async function chatViaProvider(
     const data = await withRetry429(async () => {
       let lastErrStatus = 500;
       let lastErrDetail = "";
-      for (let kIdx = 0; kIdx < activeKeysToTry.length; kIdx++) {
-        const currentKey = activeKeysToTry[kIdx]!;
-        const keyStarted = Date.now();
-        try {
-          const response = await fetch(`${config.baseUrl}/messages`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "x-api-key": currentKey,
-              "anthropic-version": "2023-06-01",
-            },
-            body: JSON.stringify({
-              model: config.model,
-              max_tokens: options.maxCompletionTokens ?? 8000,
-              ...(system ? { system } : {}),
-              ...(typeof options.temperature === "number" ? { temperature: options.temperature } : {}),
-              messages: options.messages
-                .filter((m) => m.role !== "system")
-                .map((m) => ({ role: m.role, content: m.content })),
-            }),
-            signal: AbortSignal.timeout(15_000),
-          });
+      for (const m of candidateModels) {
+        usedModel = m;
+        for (let kIdx = 0; kIdx < activeKeysToTry.length; kIdx++) {
+          const currentKey = activeKeysToTry[kIdx]!;
+          const keyStarted = Date.now();
+          try {
+            const response = await fetch(`${config.baseUrl}/messages`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "x-api-key": currentKey,
+                "anthropic-version": "2023-06-01",
+              },
+              body: JSON.stringify({
+                model: m,
+                max_tokens: options.maxCompletionTokens ?? 8000,
+                ...(system ? { system } : {}),
+                ...(typeof options.temperature === "number" ? { temperature: options.temperature } : {}),
+                messages: options.messages
+                  .filter((m) => m.role !== "system")
+                  .map((m) => ({ role: m.role, content: m.content })),
+              }),
+              signal: AbortSignal.timeout(15_000),
+            });
 
-          if (response.ok) {
-            markKeyHealthy(currentKey);
-            successfulAnthropicKeyIdx = kIdx;
-            return (await response.json()) as {
-              content?: { type: string; text?: string }[];
-              usage?: { input_tokens?: number; output_tokens?: number };
-            };
-          }
+            if (response.ok) {
+              markKeyHealthy(currentKey);
+              successfulAnthropicKeyIdx = kIdx;
+              return (await response.json()) as {
+                content?: { type: string; text?: string }[];
+                usage?: { input_tokens?: number; output_tokens?: number };
+              };
+            }
 
-          const text = await response.text();
-          lastErrStatus = response.status;
-          lastErrDetail = text;
-          if (
-            response.status === 429 ||
-            response.status === 500 ||
-            response.status === 502 ||
-            response.status === 503 ||
-            response.status === 504 ||
-            response.status === 524
-          ) {
-            markKeyRateLimited(currentKey, 60_000);
-            console.warn(`[chatViaProvider:anthropic] Key ...${currentKey.slice(-4)} returned ${response.status}. Rotating key...`);
-            try {
-              const { supabaseAdmin } = await import("@/integrations/backend/client.server");
-              await supabaseAdmin.from("ai_usage_log").insert({
-                user_id: options.userId ?? null,
-                feature: (options.feature ?? "chat") + "_key_hop",
-                model: config.model,
-                latency_ms: Date.now() - keyStarted,
-                ok: false,
-                error_message: `Anthropic key ...${currentKey.slice(-4)} returned ${response.status}. Auto-hopped to next key.`,
-              });
-            } catch {}
-            if (kIdx + 1 < activeKeysToTry.length) continue;
+            const text = await response.text();
+            lastErrStatus = response.status;
+            lastErrDetail = text;
+            if (
+              response.status === 429 ||
+              response.status === 500 ||
+              response.status === 502 ||
+              response.status === 503 ||
+              response.status === 504 ||
+              response.status === 524
+            ) {
+              markKeyRateLimited(currentKey, 60_000);
+              console.warn(`[chatViaProvider:anthropic] Key ...${currentKey.slice(-4)} returned ${response.status}. Rotating key...`);
+              try {
+                const { supabaseAdmin } = await import("@/integrations/backend/client.server");
+                await supabaseAdmin.from("ai_usage_log").insert({
+                  user_id: options.userId ?? null,
+                  feature: (options.feature ?? "chat") + "_key_hop",
+                  model: m,
+                  latency_ms: Date.now() - keyStarted,
+                  ok: false,
+                  error_message: `Anthropic key ...${currentKey.slice(-4)} returned ${response.status}. Auto-hopped to next key.`,
+                });
+              } catch {}
+              if (kIdx + 1 < activeKeysToTry.length) continue;
+              break;
+            }
+
+            const isModelUnavailable =
+              response.status === 404 ||
+              (response.status === 400 &&
+                (text.toLowerCase().includes("model") ||
+                  text.toLowerCase().includes("not found") ||
+                  text.toLowerCase().includes("unsupported") ||
+                  text.toLowerCase().includes("does not exist") ||
+                  text.toLowerCase().includes("access")));
+
+            if (isModelUnavailable) {
+              console.warn(
+                `[chatViaProvider:anthropic] Model ${m} returned ${response.status}. Auto-falling back...`,
+              );
+              break;
+            }
+
+            throw new AiGatewayError(explain(response.status, text), response.status);
+          } catch (fetchErr: any) {
+            const isTimeout =
+              fetchErr?.name === "AbortError" ||
+              fetchErr?.name === "TimeoutError" ||
+              fetchErr?.message?.includes("timed out") ||
+              fetchErr?.message?.includes("aborted");
+            if (isTimeout) {
+              markKeyRateLimited(currentKey, 60_000);
+              console.warn(`[chatViaProvider:anthropic] Key ...${currentKey.slice(-4)} timed out (>30s). Rotating key...`);
+              if (kIdx + 1 < activeKeysToTry.length) continue;
+            }
+            throw fetchErr;
           }
-          throw new AiGatewayError(explain(response.status, text), response.status);
-        } catch (fetchErr: any) {
-          const isTimeout =
-            fetchErr?.name === "AbortError" ||
-            fetchErr?.name === "TimeoutError" ||
-            fetchErr?.message?.includes("timed out") ||
-            fetchErr?.message?.includes("aborted");
-          if (isTimeout) {
-            markKeyRateLimited(currentKey, 60_000);
-            console.warn(`[chatViaProvider:anthropic] Key ...${currentKey.slice(-4)} timed out (>30s). Rotating key...`);
-            try {
-              const { supabaseAdmin } = await import("@/integrations/backend/client.server");
-              await supabaseAdmin.from("ai_usage_log").insert({
-                user_id: options.userId ?? null,
-                feature: (options.feature ?? "chat") + "_key_hop",
-                model: config.model,
-                latency_ms: 30_000,
-                ok: false,
-                error_message: `Anthropic key ...${currentKey.slice(-4)} exceeded 30s timeout. Auto-hopped to next key.`,
-              });
-            } catch {}
-            if (kIdx + 1 < activeKeysToTry.length) continue;
-          }
-          throw fetchErr;
         }
       }
       throw new AiGatewayError(explain(lastErrStatus, lastErrDetail), lastErrStatus);
@@ -445,11 +512,11 @@ async function chatViaProvider(
         .filter((part) => part.type === "text")
         .map((part) => part.text ?? "")
         .join(""),
-      model: config.model,
+      model: usedModel,
       promptTokens: data.usage?.input_tokens ?? null,
       completionTokens: data.usage?.output_tokens ?? null,
       keyRotated: isRotated,
-      modelSwapped: false,
+      modelSwapped: usedModel !== candidateModels[0],
       activeKeyType,
     };
   }
@@ -461,11 +528,12 @@ async function chatViaProvider(
   if (typeof options.temperature === "number" && !/^gpt-5/.test(config.model)) {
     body.temperature = options.temperature;
   }
-  if (config.provider === "openrouter") {
-    body.reasoning = { effort: "low" };
-  }
   if (options.reasoningEffort) {
-    body.reasoning_effort = options.reasoningEffort;
+    if (config.provider === "openrouter") {
+      body.reasoning = { effort: options.reasoningEffort };
+    } else {
+      body.reasoning_effort = options.reasoningEffort;
+    }
   }
   if (options.json) body.response_format = { type: "json_object" };
   if (options.maxCompletionTokens) {
@@ -476,14 +544,7 @@ async function chatViaProvider(
     }
   }
 
-  function resolveGoogleModel(_rawModel: string): string {
-    return "gemini-3.8-flash";
-  }
-
-  const candidateModels =
-    config.provider === "google"
-      ? ["gemini-3.8-flash"]
-      : [config.model];
+  const candidateModels = getCandidateModels(config.provider, config.model);
 
   let usedModel = candidateModels[0];
   let successfulKeyIdx = 0;
@@ -503,12 +564,18 @@ async function chatViaProvider(
         // 300s timeout: single key runs up to 300 seconds without jumping unless limit or model error occurs
         const timeoutMs = 300_000;
         try {
+          const reqHeaders: Record<string, string> = {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${currentKey}`,
+          };
+          if (config.provider === "openrouter") {
+            reqHeaders["HTTP-Referer"] = "https://marginaleconomics.com";
+            reqHeaders["X-Title"] = "Marginal Economics";
+          }
+
           const response = await fetch(`${config.baseUrl}/chat/completions`, {
             method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${currentKey}`,
-            },
+            headers: reqHeaders,
             body: JSON.stringify(modelBody),
             signal: AbortSignal.timeout(timeoutMs),
           });
@@ -526,7 +593,7 @@ async function chatViaProvider(
           lastErrStatus = response.status;
           lastErrDetail = text;
 
-          // Rate limit, server error, or 404 deprecated model on Google: rotate key or try next candidate model
+          // Rate limit or server error: rotate key or try next candidate model
           if (
             response.status === 429 ||
             response.status === 500 ||
@@ -576,10 +643,7 @@ async function chatViaProvider(
                 try {
                   const retryRes = await fetch(`${config.baseUrl}/chat/completions`, {
                     method: "POST",
-                    headers: {
-                      "Content-Type": "application/json",
-                      Authorization: `Bearer ${fk}`,
-                    },
+                    headers: reqHeaders,
                     body: JSON.stringify(modelBody),
                     signal: AbortSignal.timeout(timeoutMs),
                   });
@@ -605,16 +669,17 @@ async function chatViaProvider(
           }
 
           const isModelUnavailable =
-            (response.status === 404 ||
-              (response.status === 400 &&
-                (text.toLowerCase().includes("model") ||
-                  text.toLowerCase().includes("not found") ||
-                  text.toLowerCase().includes("unsupported")))) &&
-            config.provider === "google";
+            response.status === 404 ||
+            (response.status === 400 &&
+              (text.toLowerCase().includes("model") ||
+                text.toLowerCase().includes("not found") ||
+                text.toLowerCase().includes("unsupported") ||
+                text.toLowerCase().includes("does not exist") ||
+                text.toLowerCase().includes("access")));
 
           if (isModelUnavailable) {
             console.warn(
-              `[chatViaProvider] Google Model ${m} returned ${response.status} (deprecated/unavailable). Falling back to next candidate model...`,
+              `[chatViaProvider] Provider ${config.provider} Model ${m} returned ${response.status} (unavailable: ${text.slice(0, 100)}). Auto-falling back to next candidate model...`,
             );
             break; // Step to next candidate model immediately
           }
@@ -1323,10 +1388,15 @@ export async function visionChat(options: {
   let callError: Error | null = null;
 
   try {
-    const override =
+    const gateway = await getAiGatewaySettings();
+    let override =
       options.overrideProvider !== undefined
         ? options.overrideProvider
-        : ((await getActiveVisionProvider()) ?? (await getActiveProvider()));
+        : ((await getActiveVisionProvider(gateway.backupOnly)) ?? (await getActiveProvider(gateway.backupOnly)));
+
+    if (gateway.backupOnly && override && isGeminiProvider(override.provider)) {
+      override = (await getActiveVisionProvider(true)) ?? (await getActiveProvider(true));
+    }
 
     if (override) {
       const provResult =
@@ -1335,6 +1405,13 @@ export async function visionChat(options: {
           : await visionChatViaOpenAiCompatible(override, options);
       result = { ...provResult, latencyMs: Date.now() - started };
       return result;
+    }
+
+    if (gateway.backupOnly) {
+      throw new AiGatewayError(
+        "Google Gemini is temporarily switched off (Backup-Only Mode), but no backup provider with vision capabilities is active. Please add an API key (Groq, OpenRouter, Mistral, xAI, OpenAI, Anthropic) under Admin → Multi-Provider Hub.",
+        503,
+      );
     }
 
     if (!readEnv("LOVABLE_API_KEY")) {

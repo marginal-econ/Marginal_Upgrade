@@ -14,10 +14,15 @@ export type ProviderConfig = {
   label: string;
 };
 
-let chatCache: { value: ProviderConfig | null; at: number } | null = null;
-let chatChainCache: { value: ProviderConfig[]; at: number } | null = null;
-let embeddingCache: { value: ProviderConfig | null; at: number } | null = null;
-let visionCache: { value: ProviderConfig | null; at: number } | null = null;
+export function isGeminiProvider(provider: string): boolean {
+  const p = (provider || "").toLowerCase();
+  return p === "google" || p === "gemini" || p === "lovable";
+}
+
+let chatCache: { value: ProviderConfig | null; at: number; backupOnly?: boolean } | null = null;
+let chatChainCache: { value: ProviderConfig[]; at: number; backupOnly?: boolean } | null = null;
+let embeddingCache: { value: ProviderConfig | null; at: number; backupOnly?: boolean } | null = null;
+let visionCache: { value: ProviderConfig | null; at: number; backupOnly?: boolean } | null = null;
 const TTL_MS = 20_000;
 
 export function normaliseConfig(row: {
@@ -189,52 +194,109 @@ export function getPrioritizedKeyOrder(
   return ordered.length > 0 ? ordered : [config.apiKey];
 }
 
-/** The admin-selected chat/marking provider override, or null to use built-in Lovable AI. */
-export async function getActiveProvider(): Promise<ProviderConfig | null> {
-  if (chatCache && Date.now() - chatCache.at < TTL_MS && chatCache.value) return chatCache.value;
+/**
+ * The admin-selected chat/marking provider override, or null to use built-in Lovable AI.
+ * When forceBackupOnly is true (or if the site-wide ai_backup_only setting is active),
+ * Google Gemini is strictly bypassed and requests run exclusively on backup provider(s).
+ */
+export async function getActiveProvider(forceBackupOnly?: boolean): Promise<ProviderConfig | null> {
+  const isBackupOnly =
+    forceBackupOnly !== undefined ? forceBackupOnly : (await getAiGatewaySettings()).backupOnly;
+
+  if (
+    chatCache &&
+    Date.now() - chatCache.at < TTL_MS &&
+    chatCache.value &&
+    chatCache.backupOnly === isBackupOnly
+  ) {
+    return chatCache.value;
+  }
 
   let value: ProviderConfig | null = null;
   try {
     const { supabaseAdmin } = await import("@/integrations/backend/client.server");
-    const { data, error } = await supabaseAdmin
-      .from("ai_provider_keys")
-      .select("provider, api_key, base_url, model, label")
-      .eq("is_active", true)
-      .eq("purpose", "chat")
-      .order("updated_at", { ascending: false })
-      .limit(1);
 
-    if (!error && data && data.length > 0 && data[0]!.provider !== "lovable" && data[0]!.api_key) {
-      value = normaliseConfig(data[0]!);
-    } else {
-      // Fallback: If no key is explicitly marked is_active for chat, find ANY available provider key with a valid api_key
-      const { data: fallbackData } = await supabaseAdmin
+    if (isBackupOnly) {
+      // 1. Look for an explicitly active non-Gemini backup provider
+      const { data, error } = await supabaseAdmin
         .from("ai_provider_keys")
         .select("provider, api_key, base_url, model, label")
+        .eq("is_active", true)
+        .eq("purpose", "chat")
+        .neq("provider", "google")
+        .neq("provider", "gemini")
+        .neq("provider", "lovable")
         .order("updated_at", { ascending: false })
         .limit(1);
-      if (fallbackData && fallbackData.length > 0 && fallbackData[0]!.api_key) {
-        value = normaliseConfig(fallbackData[0]!);
+
+      if (!error && data && data.length > 0 && data[0]!.api_key) {
+        value = normaliseConfig(data[0]!);
+      } else {
+        // 2. Fallback: Find ANY configured non-Gemini provider key
+        const { data: fallbackData } = await supabaseAdmin
+          .from("ai_provider_keys")
+          .select("provider, api_key, base_url, model, label")
+          .neq("provider", "google")
+          .neq("provider", "gemini")
+          .neq("provider", "lovable")
+          .order("updated_at", { ascending: false });
+
+        if (fallbackData && fallbackData.length > 0) {
+          const validRow = fallbackData.find((r) => r.api_key && r.api_key.trim().length > 5);
+          if (validRow) {
+            value = normaliseConfig(validRow);
+          }
+        }
+      }
+    } else {
+      const { data, error } = await supabaseAdmin
+        .from("ai_provider_keys")
+        .select("provider, api_key, base_url, model, label")
+        .eq("is_active", true)
+        .eq("purpose", "chat")
+        .order("updated_at", { ascending: false })
+        .limit(1);
+
+      if (!error && data && data.length > 0 && data[0]!.provider !== "lovable" && data[0]!.api_key) {
+        value = normaliseConfig(data[0]!);
+      } else {
+        // Fallback: If no key is explicitly marked is_active for chat, find ANY available provider key with a valid api_key
+        const { data: fallbackData } = await supabaseAdmin
+          .from("ai_provider_keys")
+          .select("provider, api_key, base_url, model, label")
+          .order("updated_at", { ascending: false })
+          .limit(1);
+        if (fallbackData && fallbackData.length > 0 && fallbackData[0]!.api_key) {
+          value = normaliseConfig(fallbackData[0]!);
+        }
       }
     }
   } catch (err) {
     console.error("[getActiveProvider] Lookup error:", err);
-    if (chatCache?.value) return chatCache.value;
+    if (chatCache?.value && chatCache.backupOnly === isBackupOnly) return chatCache.value;
     value = null;
   }
 
-  chatCache = { value, at: value ? Date.now() : Date.now() - (TTL_MS - 5_000) };
+  chatCache = { value, at: value ? Date.now() : Date.now() - (TTL_MS - 5_000), backupOnly: isBackupOnly };
   return value;
 }
 
 /**
  * Returns an ordered chain of chat providers:
- * 1. The active primary provider (is_active = true, e.g. Google Gemini with its pool of keys)
- * 2. Standby providers with configured keys (e.g. Mistral with its pool of keys)
+ * 1. The active primary provider (or backup provider if Gemini is bypassed)
+ * 2. Standby providers with configured keys (e.g. Groq, Mistral, OpenRouter, etc.)
  * If the primary provider experiences total exhaustion or outage, the engine hops to the next provider.
  */
-export async function getChatProviderChain(): Promise<ProviderConfig[]> {
-  if (chatChainCache && Date.now() - chatChainCache.at < TTL_MS && chatChainCache.value.length > 0) {
+export async function getChatProviderChain(forceBackupOnly?: boolean): Promise<ProviderConfig[]> {
+  const isBackupOnly =
+    forceBackupOnly !== undefined ? forceBackupOnly : (await getAiGatewaySettings()).backupOnly;
+
+  if (
+    chatChainCache &&
+    Date.now() - chatChainCache.at < TTL_MS &&
+    chatChainCache.value.length > 0 &&
+    chatChainCache.backupOnly === isBackupOnly
+  ) {
     return chatChainCache.value;
   }
 
@@ -249,8 +311,13 @@ export async function getChatProviderChain(): Promise<ProviderConfig[]> {
       .order("updated_at", { ascending: false });
 
     if (!error && data && data.length > 0) {
-      const activeRows = data.filter((row) => row.is_active && row.api_key && row.provider !== "lovable");
-      const standbyRows = data.filter((row) => !row.is_active && row.api_key && row.provider !== "lovable");
+      let filteredRows = data.filter((row) => row.api_key && row.api_key.trim().length > 5 && row.provider !== "lovable");
+      if (isBackupOnly) {
+        filteredRows = filteredRows.filter((row) => !isGeminiProvider(row.provider));
+      }
+
+      const activeRows = filteredRows.filter((row) => row.is_active);
+      const standbyRows = filteredRows.filter((row) => !row.is_active);
 
       for (const row of activeRows) {
         chain.push(normaliseConfig(row));
@@ -263,84 +330,138 @@ export async function getChatProviderChain(): Promise<ProviderConfig[]> {
     }
 
     if (chain.length === 0) {
-      const active = await getActiveProvider();
+      const active = await getActiveProvider(isBackupOnly);
       if (active) chain.push(active);
     }
   } catch (err) {
     console.error("[getChatProviderChain] Lookup error:", err);
-    if (chatChainCache?.value) return chatChainCache.value;
+    if (chatChainCache?.value && chatChainCache.backupOnly === isBackupOnly) return chatChainCache.value;
   }
 
-  chatChainCache = { value: chain, at: Date.now() };
+  chatChainCache = { value: chain, at: Date.now(), backupOnly: isBackupOnly };
   return chain;
 }
 
 /**
- * The admin-selected embedding provider override, or null to use the
- * legacy saved-key priority fallback in ai.server.ts's embed(). Kept as a
- * fully separate cache/lookup from getActiveProvider() so switching the
- * chat model can never accidentally change what embeds the knowledge base,
- * or vice versa.
+ * The admin-selected embedding provider override.
+ * Respects backup-only mode by skipping Gemini models when Gemini is bypassed.
  */
-export async function getActiveEmbeddingProvider(): Promise<ProviderConfig | null> {
-  if (embeddingCache && Date.now() - embeddingCache.at < TTL_MS && embeddingCache.value) return embeddingCache.value;
+export async function getActiveEmbeddingProvider(forceBackupOnly?: boolean): Promise<ProviderConfig | null> {
+  const isBackupOnly =
+    forceBackupOnly !== undefined ? forceBackupOnly : (await getAiGatewaySettings()).backupOnly;
+
+  if (
+    embeddingCache &&
+    Date.now() - embeddingCache.at < TTL_MS &&
+    embeddingCache.value &&
+    embeddingCache.backupOnly === isBackupOnly
+  ) {
+    return embeddingCache.value;
+  }
 
   let value: ProviderConfig | null = null;
   try {
     const { supabaseAdmin } = await import("@/integrations/backend/client.server");
-    const { data, error } = await supabaseAdmin
+    let query = supabaseAdmin
       .from("ai_provider_keys")
       .select("provider, api_key, base_url, model, label")
       .eq("is_active", true)
       .eq("purpose", "embedding")
-      .order("updated_at", { ascending: false })
-      .limit(1);
+      .order("updated_at", { ascending: false });
+
+    if (isBackupOnly) {
+      query = query.neq("provider", "google").neq("provider", "gemini").neq("provider", "lovable");
+    }
+
+    const { data, error } = await query.limit(1);
     if (!error && data && data.length > 0 && data[0]!.api_key) {
       value = normaliseConfig(data[0]!);
+    } else if (isBackupOnly) {
+      // Find any embedding-capable backup provider
+      const { data: fallbackData } = await supabaseAdmin
+        .from("ai_provider_keys")
+        .select("provider, api_key, base_url, model, label")
+        .neq("provider", "google")
+        .neq("provider", "gemini")
+        .neq("provider", "lovable")
+        .order("updated_at", { ascending: false });
+
+      if (fallbackData) {
+        const row = fallbackData.find(
+          (r) =>
+            r.api_key &&
+            r.api_key.trim().length > 5 &&
+            (r.provider === "openrouter" || r.provider === "openai" || r.provider === "custom"),
+        );
+        if (row) value = normaliseConfig(row);
+      }
     }
   } catch (err) {
     console.error("[getActiveEmbeddingProvider] Lookup error:", err);
-    if (embeddingCache?.value) return embeddingCache.value;
+    if (embeddingCache?.value && embeddingCache.backupOnly === isBackupOnly) return embeddingCache.value;
     value = null;
   }
 
-  embeddingCache = { value, at: value ? Date.now() : Date.now() - (TTL_MS - 5_000) };
+  embeddingCache = { value, at: value ? Date.now() : Date.now() - (TTL_MS - 5_000), backupOnly: isBackupOnly };
   return value;
 }
 
 /**
- * The admin-selected vision provider override, or null to fall back to
- * whatever visionChat()'s own fallback chain does (active chat provider,
- * then the built-in gateway). Fully separate cache/lookup from both
- * getActiveProvider() and getActiveEmbeddingProvider() — this is what
- * powers handwriting transcription and MCQ/essay past-paper extraction
- * (reading real diagrams/figures off the page), and an admin should be
- * able to point those at a stronger/cheaper vision model without touching
- * what marks essays or what embeds the knowledge base.
+ * The admin-selected vision provider override.
+ * Respects backup-only mode by skipping Gemini models when Gemini is bypassed.
  */
-export async function getActiveVisionProvider(): Promise<ProviderConfig | null> {
-  if (visionCache && Date.now() - visionCache.at < TTL_MS && visionCache.value) return visionCache.value;
+export async function getActiveVisionProvider(forceBackupOnly?: boolean): Promise<ProviderConfig | null> {
+  const isBackupOnly =
+    forceBackupOnly !== undefined ? forceBackupOnly : (await getAiGatewaySettings()).backupOnly;
+
+  if (
+    visionCache &&
+    Date.now() - visionCache.at < TTL_MS &&
+    visionCache.value &&
+    visionCache.backupOnly === isBackupOnly
+  ) {
+    return visionCache.value;
+  }
 
   let value: ProviderConfig | null = null;
   try {
     const { supabaseAdmin } = await import("@/integrations/backend/client.server");
-    const { data, error } = await supabaseAdmin
+    let query = supabaseAdmin
       .from("ai_provider_keys")
       .select("provider, api_key, base_url, model, label")
       .eq("is_active", true)
       .eq("purpose", "vision")
-      .order("updated_at", { ascending: false })
-      .limit(1);
+      .order("updated_at", { ascending: false });
+
+    if (isBackupOnly) {
+      query = query.neq("provider", "google").neq("provider", "gemini").neq("provider", "lovable");
+    }
+
+    const { data, error } = await query.limit(1);
     if (!error && data && data.length > 0 && data[0]!.api_key) {
       value = normaliseConfig(data[0]!);
+    } else if (isBackupOnly) {
+      // Find any vision-capable backup provider
+      const { data: fallbackData } = await supabaseAdmin
+        .from("ai_provider_keys")
+        .select("provider, api_key, base_url, model, label")
+        .neq("provider", "google")
+        .neq("provider", "gemini")
+        .neq("provider", "lovable")
+        .order("updated_at", { ascending: false });
+
+      if (fallbackData) {
+        const row = fallbackData.find((r) => r.api_key && r.api_key.trim().length > 5);
+        if (row) value = normaliseConfig(row);
+      }
     }
   } catch (err) {
     console.error("[getActiveVisionProvider] Lookup error:", err);
-    if (visionCache?.value) return visionCache.value;
+    if (visionCache?.value && visionCache.backupOnly === isBackupOnly) return visionCache.value;
     value = null;
   }
 
-  visionCache = { value, at: value ? Date.now() : Date.now() - (TTL_MS - 5_000) };
+  visionCache = { value, at: value ? Date.now() : Date.now() - (TTL_MS - 5_000), backupOnly: isBackupOnly };
   return value;
 }
 
@@ -374,6 +495,8 @@ export type AiGatewaySettings = {
   /** The admin's site-wide pause switch. false = every chat() call fails fast. */
   enabled: boolean;
   mode: AiGatewayMode;
+  /** When true, Google Gemini is strictly bypassed and all AI requests run exclusively on backup providers. */
+  backupOnly: boolean;
 };
 
 const AI_MODE_BY_INT: Record<number, AiGatewayMode> = { 0: "max", 1: "balanced", 2: "economy" };
@@ -395,22 +518,24 @@ export async function getAiGatewaySettings(): Promise<AiGatewaySettings> {
     return aiGatewayCache.value;
   }
 
-  let value: AiGatewaySettings = { enabled: true, mode: "max" };
+  let value: AiGatewaySettings = { enabled: true, mode: "max", backupOnly: false };
   try {
     const { supabaseAdmin } = await import("@/integrations/backend/client.server");
     const { data } = await supabaseAdmin
       .from("app_settings")
       .select("key, int_value")
-      .in("key", ["ai_enabled", "ai_mode"]);
+      .in("key", ["ai_enabled", "ai_mode", "ai_backup_only"]);
     const row = (data ?? []) as { key: string; int_value: number }[];
     const enabledRow = row.find((r) => r.key === "ai_enabled");
     const modeRow = row.find((r) => r.key === "ai_mode");
+    const backupOnlyRow = row.find((r) => r.key === "ai_backup_only");
     value = {
       enabled: enabledRow ? enabledRow.int_value !== 0 : true,
       mode: modeRow ? (AI_MODE_BY_INT[modeRow.int_value] ?? "max") : "max",
+      backupOnly: backupOnlyRow ? backupOnlyRow.int_value === 1 : false,
     };
   } catch {
-    value = { enabled: true, mode: "max" }; // Never block AI because the settings lookup failed.
+    value = { enabled: true, mode: "max", backupOnly: false }; // Never block AI because the settings lookup failed.
   }
 
   aiGatewayCache = { value, at: Date.now() };

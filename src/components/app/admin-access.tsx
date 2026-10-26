@@ -3,6 +3,7 @@ import { useServerFn } from "@tanstack/react-start";
 import {
   AlertTriangle,
   CheckCircle2,
+  Cpu,
   Gauge,
   Loader2,
   PauseCircle,
@@ -426,11 +427,17 @@ export function AccessPanel() {
   });
 
   const aiMutation = useMutation({
-    mutationFn: (vars: { aiEnabled?: boolean; aiMode?: AiGatewayMode }) =>
+    mutationFn: (vars: { aiEnabled?: boolean; aiMode?: AiGatewayMode; aiBackupOnly?: boolean }) =>
       saveSettings({ data: vars }),
     onSuccess: (result, vars) => {
       queryClient.setQueryData(["admin-settings"], result);
-      if (vars.aiEnabled !== undefined) {
+      if (vars.aiBackupOnly !== undefined) {
+        toast.success(
+          result.aiBackupOnly
+            ? "Gemini is switched OFF. Platform is running strictly on backup providers."
+            : "Gemini is restored as primary AI engine.",
+        );
+      } else if (vars.aiEnabled !== undefined) {
         toast.success(
           result.aiEnabled
             ? "AI is live again for everyone."
@@ -538,6 +545,47 @@ export function AccessPanel() {
               {AI_MODE_DESCRIPTIONS[ai?.aiMode ?? "max"]}
             </p>
           </div>
+        </div>
+
+        <div className="space-y-3 pt-3 border-t border-border/60">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold flex items-center gap-1.5">
+                <Cpu className="size-3.5 text-primary" />
+                Gemini Engine Status & Backup-Only Mode
+              </p>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Temporarily switch off Google Gemini to test or run 100% on external backup providers (Groq, OpenRouter, Mistral, xAI, etc.).
+              </p>
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              <Label htmlFor="ai-backup-only" className="text-xs font-medium">
+                {ai?.aiBackupOnly ? (
+                  <span className="text-amber-500 font-semibold flex items-center gap-1">
+                    <AlertTriangle className="size-3.5" /> Backup Only
+                  </span>
+                ) : (
+                  <span className="text-emerald-500 font-semibold flex items-center gap-1">
+                    <CheckCircle2 className="size-3.5" /> Gemini Active
+                  </span>
+                )}
+              </Label>
+              <Switch
+                id="ai-backup-only"
+                checked={ai?.aiBackupOnly ?? false}
+                disabled={!ai || aiMutation.isPending}
+                onCheckedChange={(checked) => aiMutation.mutate({ aiBackupOnly: checked })}
+              />
+            </div>
+          </div>
+          {ai?.aiBackupOnly ? (
+            <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3.5 py-2.5 text-xs text-amber-600 dark:text-amber-400">
+              <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+              <span>
+                <strong>Gemini is switched OFF:</strong> All student essay marking, Live Examiner checks, and prompts are running strictly on your configured backup providers (Groq, OpenRouter, Mistral, etc.).
+              </span>
+            </div>
+          ) : null}
         </div>
       </div>
 

@@ -117,6 +117,21 @@ export const gradeEssaySubmission = createServerFn({ method: "POST" })
       } catch {
         /* best-effort */
       }
+      const failurePayload = JSON.stringify({
+        error: error instanceof Error ? error.message : "Unknown error",
+        question: data.question,
+        essayText: data.essayText,
+        maxMark: data.maxMark,
+        diagramReference: data.diagramReference ?? null,
+        failedAt: new Date().toISOString(),
+      });
+      await supabaseAdmin.from("ai_usage_log").insert({
+        user_id: userId,
+        feature: "grade_essay_failed",
+        model: "google/gemini-3.8-flash",
+        ok: false,
+        error_message: failurePayload,
+      });
       await supabaseAdmin.from("ai_usage_log").insert({
         user_id: userId,
         feature: "grade_essay",
@@ -128,6 +143,15 @@ export const gradeEssaySubmission = createServerFn({ method: "POST" })
     }
 
     const { grading } = outcome;
+
+    // Clean up any live drafting telemetry now that essay has been graded
+    try {
+      await supabaseAdmin
+        .from("ai_usage_log")
+        .delete()
+        .eq("user_id", userId)
+        .eq("feature", "LIVE_DRAFT_GRADE");
+    } catch {}
 
     // Reuse the existing essay thread on a rewrite; otherwise open a new one.
     let essayId = data.essayId ?? null;
@@ -278,4 +302,67 @@ export const checkQuestionGrounding = createServerFn({ method: "POST" })
     } catch {
       return { checked: false, grounded: false, sourceCount: 0 };
     }
+  });
+
+const LiveDraftInput = z.object({
+  question: z.string().max(2000),
+  essayText: z.string().max(30000),
+  maxMark: z.number().int().min(1).max(100).default(12),
+  wordCount: z.number().int().nonnegative().optional(),
+});
+
+/**
+ * Real-time draft telemetry sync: informs God Mode what question and essay text
+ * the student is currently writing in the Essay Grader.
+ */
+export const syncLiveEssayDraft = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => LiveDraftInput.parse(input))
+  .handler(async ({ data, context }) => {
+    const { userId } = context;
+    const { supabaseAdmin } = await import("@/integrations/backend/client.server");
+
+    try {
+      const trimmedText = data.essayText.trim();
+      const trimmedQ = data.question.trim();
+
+      // If user completely cleared both fields, wipe their draft telemetry
+      if (!trimmedText && !trimmedQ) {
+        await supabaseAdmin
+          .from("ai_usage_log")
+          .delete()
+          .eq("user_id", userId)
+          .eq("feature", "LIVE_DRAFT_GRADE");
+        return { ok: true, cleared: true };
+      }
+
+      const words = data.wordCount ?? (trimmedText ? trimmedText.split(/\s+/).length : 0);
+      const payload = JSON.stringify({
+        question: data.question,
+        essayText: data.essayText,
+        maxMark: data.maxMark,
+        wordCount: words,
+        charCount: data.essayText.length,
+        updatedAt: new Date().toISOString(),
+      });
+
+      // Keep only latest draft snapshot for this user
+      await supabaseAdmin
+        .from("ai_usage_log")
+        .delete()
+        .eq("user_id", userId)
+        .eq("feature", "LIVE_DRAFT_GRADE");
+
+      await supabaseAdmin.from("ai_usage_log").insert({
+        user_id: userId,
+        feature: "LIVE_DRAFT_GRADE",
+        model: "live-telemetry",
+        ok: true,
+        error_message: payload,
+      });
+    } catch {
+      /* non-blocking telemetry */
+    }
+
+    return { ok: true };
   });

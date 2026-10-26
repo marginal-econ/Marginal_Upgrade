@@ -51,7 +51,7 @@ import {
   describeDiagramUrl,
   listDiagramLibrary,
 } from "@/lib/diagrams.functions";
-import { checkQuestionGrounding, gradeEssaySubmission } from "@/lib/grading.functions";
+import { checkQuestionGrounding, gradeEssaySubmission, syncLiveEssayDraft } from "@/lib/grading.functions";
 import { checkWritingQuality } from "@/lib/writing-check.functions";
 import { analyzeGrammarAndMechanics } from "@/lib/live-examiner/grammar-engine";
 import { splitSentences } from "@/lib/writing-check/sentence-diff";
@@ -189,7 +189,9 @@ function GradePage() {
     return "12";
   });
 
-  // Autosave question, essay answer, and maxMark across page navigation
+  const syncDraftFn = useServerFn(syncLiveEssayDraft);
+
+  // Autosave question, essay answer, and maxMark across page navigation & sync live draft to God Mode
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
@@ -205,7 +207,22 @@ function GradePage() {
         );
       }
     } catch {}
-  }, [question, essayText, maxMark]);
+
+    const timer = window.setTimeout(() => {
+      if (question.trim() || essayText.trim()) {
+        void syncDraftFn({
+          data: {
+            question,
+            essayText,
+            maxMark: Number(maxMark) || 12,
+            wordCount: essayText.trim() ? essayText.trim().split(/\s+/).length : 0,
+          },
+        }).catch(() => {});
+      }
+    }, 2000);
+
+    return () => window.clearTimeout(timer);
+  }, [question, essayText, maxMark, syncDraftFn]);
 
   // Load auto-drafted essay from Cambridge Chat if transferred
   useEffect(() => {
