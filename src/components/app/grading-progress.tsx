@@ -15,7 +15,7 @@ const DEFAULT_STAGE_DETAILS: Record<number, { title: string; bullets: string[] }
   0: {
     title: "Cambridge 9708 Knowledge Base & Vector Retrieval",
     bullets: [
-      "Vector Embeddings: Executing cosine similarity search against 259 official Cambridge mark schemes and examiner reports in Supabase pgvector.",
+      "Vector Embeddings: Executing cosine similarity search against official Cambridge mark schemes, coursebooks, and examiner reports in Supabase pgvector.",
       "Syllabus Grounding: Retrieving specific AS/A Level 9708 learning objectives and syllabus criteria corresponding to the essay prompt.",
       "Chief Examiner Benchmarks: Referencing common candidate pitfalls and grade threshold boundaries from past exam series.",
     ],
@@ -40,7 +40,7 @@ const DEFAULT_STAGE_DETAILS: Record<number, { title: string; bullets: string[] }
     title: "Senior Examiner Moderation & Quality Benchmarks",
     bullets: [
       "Senior Examiner Verification: Calibrating level descriptors across Cambridge 9708 standards to eliminate grade clustering.",
-      "Reliability Safeguards: Generous 270s socket window with automated warm failover to backup keys if upstream latency spikes.",
+      "Senior Examiner Moderation: Cross-verifying marks against Cambridge Assessment International Education rubric descriptors.",
       "Cambridge Grade Band Calibration: Harmonizing raw marks against historical 9708 Grade A*, A, B, C cut-offs.",
     ],
   },
@@ -56,22 +56,20 @@ const DEFAULT_STAGE_DETAILS: Record<number, { title: string; bullets: string[] }
 
 const LIVE_BACKEND_OPERATIONS = [
   { atSec: 0, title: "Query Ingestion & Syllabus Expansion", detail: "Expanding question into Cambridge 9708 micro/macro syllabus keywords..." },
-  { atSec: 15, title: "Knowledge Base Vector Search", detail: "Querying Supabase pgvector across 259 official mark schemes and examiner reports..." },
-  { atSec: 35, title: "Syllabus Grounding & Descriptors", detail: "Grounding evaluation against verified level descriptors and past exam benchmarks..." },
-  { atSec: 65, title: "AO1 Theoretical Audit", detail: "Scrutinizing economic terminology, definitions, and foundational models..." },
-  { atSec: 105, title: "AO2 Analytical Transmission Chains", detail: "Tracing cause-and-effect logic steps and diagrammatical equilibrium shifts..." },
-  { atSec: 155, title: "AO3 Critical Evaluation Audit", detail: "Testing ceteris paribus assumptions, short-run vs long-run trade-offs, and elasticity..." },
-  { atSec: 205, title: "Stakeholder Divergence Analysis", detail: "Analyzing conflicting impacts across consumers, producers, workers, and government..." },
-  { atSec: 245, title: "Senior Examiner Calibration", detail: "Harmonizing raw marks against historical Cambridge 9708 grade boundaries..." },
-  { atSec: 275, title: "Diagnostic Report Generation", detail: "Attaching line-by-line constructive feedback tags and paragraph upgrade plans..." },
-  { atSec: 290, title: "Final Synthesis & Output Formatting", detail: "Assembling final Cambridge examiner summary and band classification..." },
+  { atSec: 3, title: "Knowledge Base Vector Search", detail: "Querying Supabase pgvector across official mark schemes, coursebooks, and syllabus..." },
+  { atSec: 7, title: "Syllabus Grounding & Descriptors", detail: "Grounding evaluation against verified level descriptors and past exam benchmarks..." },
+  { atSec: 11, title: "AO1 Theoretical Audit", detail: "Scrutinizing economic terminology, definitions, and foundational models..." },
+  { atSec: 15, title: "AO2 Analytical Transmission Chains", detail: "Tracing cause-and-effect logic steps and diagrammatical equilibrium shifts..." },
+  { atSec: 19, title: "AO3 Critical Evaluation Audit", detail: "Testing ceteris paribus assumptions, short-run vs long-run trade-offs, and elasticity..." },
+  { atSec: 23, title: "Senior Examiner Calibration", detail: "Harmonizing raw marks against historical Cambridge 9708 grade boundaries..." },
+  { atSec: 26, title: "Diagnostic Report Synthesis", detail: "Assembling final Cambridge examiner summary, missing elements, and band marks..." },
 ];
 
 /**
- * Simulates staged progress across expected durations (up to 300s).
+ * Simulates staged progress calibrated to modern LLM completion speeds (~20–35s).
  * Holds at 96% until the network request completes so it is never prematurely "done".
  */
-export function useStagedProgress(stages: ProgressStage[], active: boolean, totalMs = 300_000) {
+export function useStagedProgress(stages: ProgressStage[], active: boolean, totalMs = 30_000) {
   const [elapsed, setElapsed] = useState(0);
 
   useEffect(() => {
@@ -86,7 +84,7 @@ export function useStagedProgress(stages: ProgressStage[], active: boolean, tota
 
   const totalWeight = useMemo(() => stages.reduce((sum, s) => sum + s.weight, 0), [stages]);
 
-  // Ease-out curve scaled for 200–500s duration.
+  // Smooth quadratic ease-out curve calibrated to ~25-35s duration.
   const rawFraction = Math.min(1, elapsed / totalMs);
   const eased = 1 - Math.pow(1 - rawFraction, 2);
   const percent = Math.min(96, Math.round(eased * 96));
@@ -109,7 +107,7 @@ export function useStagedProgress(stages: ProgressStage[], active: boolean, tota
 export function GradingProgress({
   stages,
   active,
-  totalMs = 300_000,
+  totalMs = 30_000,
 }: {
   stages: ProgressStage[];
   active: boolean;
@@ -159,7 +157,7 @@ export function GradingProgress({
         <div className="flex flex-wrap items-center gap-2 shrink-0">
           <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">
             <Clock className="size-3 text-primary shrink-0" />
-            <span>Est: 200–300s</span>
+            <span>Est: 20–35s</span>
           </span>
 
           <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary tabular-nums">
@@ -181,7 +179,7 @@ export function GradingProgress({
         </div>
         <div className="flex items-center justify-between text-[10.5px] text-muted-foreground px-0.5">
           <span>Stage {stageIndex + 1} of {stages.length} in progress</span>
-          <span>Click any stage below to inspect backend operations</span>
+          <span>Click any stage below to inspect evaluation criteria</span>
         </div>
       </div>
 
@@ -190,10 +188,10 @@ export function GradingProgress({
         <div className="flex items-center justify-between border-b border-border/60 pb-2">
           <div className="flex items-center gap-2 min-w-0">
             <Terminal className="size-3.5 text-primary shrink-0" />
-            <span className="font-semibold text-foreground text-xs">Live Backend Pipeline Activity</span>
+            <span className="font-semibold text-foreground text-xs">Cambridge Examination Engine</span>
           </div>
           <span className="text-[10px] text-emerald-500 font-mono font-medium flex items-center gap-1">
-            <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" /> Active Execution
+            <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" /> Active Marking
           </span>
         </div>
 
@@ -208,11 +206,11 @@ export function GradingProgress({
         </div>
       </div>
 
-      {/* Long-running failover standby notice */}
-      {elapsedSeconds >= 240 && (
-        <div className="flex items-center gap-2 text-[11.5px] text-amber-500 font-medium bg-amber-500/10 border border-amber-500/20 rounded-md px-3 py-2 animate-in fade-in duration-300">
+      {/* Extended evaluation notice */}
+      {elapsedSeconds >= 45 && (
+        <div className="flex items-center gap-2 text-[11.5px] text-primary font-medium bg-primary/10 border border-primary/20 rounded-md px-3 py-2 animate-in fade-in duration-300">
           <RotateCw className="size-3.5 shrink-0 animate-spin" />
-          <span>Deep Evaluation In Progress: Primary key completion window active. Backup key prepared on standby to takeover automatically at 270s if needed.</span>
+          <span>Thorough Assessment In Progress: Examiner completing comprehensive line-by-line mark breakdown and exemplar rewrite...</span>
         </div>
       )}
 
