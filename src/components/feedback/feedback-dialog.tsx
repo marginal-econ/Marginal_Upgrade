@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { MessageSquarePlus, Send, Loader2, Sparkles, AlertCircle, CheckCircle2 } from "lucide-react";
+import { MessageSquarePlus, Send, Loader2, Sparkles, AlertCircle, CheckCircle2, X } from "lucide-react";
+import { useRouterState } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 
@@ -237,11 +238,22 @@ export function FeedbackDialog({
 
 /**
  * Floating feedback pill fixed at bottom-right corner of screen.
+ * Intentionally hidden on MCQ live practice and exam routes so it never covers answers or controls.
  */
 export function FloatingFeedbackPill() {
+  const pathname = useRouterState({
+    select: (state) => state.location.pathname,
+  });
+  const [dismissed, setDismissed] = useState(false);
+
+  // Never render on MCQ practice or test pages to prevent interference with answers and questions
+  if (dismissed || pathname.startsWith("/mcq")) {
+    return null;
+  }
+
   return (
     <div
-      className="fixed z-50 hidden sm:flex items-center"
+      className="fixed z-50 hidden sm:flex items-center gap-1"
       style={{
         bottom: "clamp(1rem, 2.5vw, 1.5rem)",
         right: "calc(clamp(1rem, 2.5vw, 1.5rem) + 52px)",
@@ -264,6 +276,15 @@ export function FloatingFeedbackPill() {
           </button>
         }
       />
+      <button
+        type="button"
+        onClick={() => setDismissed(true)}
+        className="flex size-6 items-center justify-center rounded-full border border-border/70 bg-card/90 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors shadow-sm cursor-pointer"
+        title="Hide message button"
+        aria-label="Hide message button"
+      >
+        <X className="size-3" />
+      </button>
     </div>
   );
 }

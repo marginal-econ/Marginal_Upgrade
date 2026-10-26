@@ -471,7 +471,8 @@ function McqLivePage() {
 
 /**
  * Interpolates or estimates PDF page locations for any questions not cleanly
- * captured by OCR text-layer parsing, guaranteeing every question maps to a real page.
+ * captured by OCR text-layer parsing, guaranteeing every question maps to a real page
+ * and questions follow a strictly non-decreasing page sequence (monotonic).
  */
 function fillMissingQuestionPages(
   map: Record<number, number>,
@@ -479,6 +480,21 @@ function fillMissingQuestionPages(
   numPages: number,
 ): Record<number, number> {
   const result: Record<number, number> = { ...map };
+
+  // Step 1: Discard any impossible outliers that violate non-decreasing order
+  // (e.g. false positives where variant codes like 12 or 30 matched on page 1).
+  let runningMax = 1;
+  for (let q = 1; q <= totalQuestions; q++) {
+    if (result[q] !== undefined) {
+      if (result[q] < runningMax) {
+        delete result[q];
+      } else {
+        runningMax = result[q];
+      }
+    }
+  }
+
+  // Step 2: Interpolate missing questions between known surrounding questions
   for (let q = 1; q <= totalQuestions; q++) {
     if (result[q]) continue;
     let prevQ = -1;
@@ -499,17 +515,25 @@ function fillMissingQuestionPages(
     if (prevQ !== -1 && nextQ !== -1) {
       const fraction = (q - prevQ) / (nextQ - prevQ);
       const estPage = Math.round(result[prevQ] + fraction * (result[nextQ] - result[prevQ]));
-      result[q] = Math.max(1, Math.min(numPages, estPage));
+      result[q] = Math.max(result[prevQ], Math.min(result[nextQ], estPage));
     } else if (prevQ !== -1) {
       const estPage = Math.min(numPages, result[prevQ] + Math.floor((q - prevQ) / 2));
-      result[q] = estPage;
+      result[q] = Math.max(result[prevQ], estPage);
     } else if (nextQ !== -1) {
       const estPage = Math.max(1, result[nextQ] - Math.ceil((nextQ - q) / 2));
-      result[q] = estPage;
+      result[q] = Math.min(result[nextQ], estPage);
     } else {
       result[q] = Math.min(numPages, Math.max(1, Math.ceil(q / 2) + 1));
     }
   }
+
+  // Step 3: Absolute final guarantee: result[q] >= result[q - 1]
+  for (let q = 2; q <= totalQuestions; q++) {
+    if (result[q] < result[q - 1]) {
+      result[q] = result[q - 1];
+    }
+  }
+
   return result;
 }
 
@@ -628,7 +652,7 @@ function fillMissingQuestionPages(
 
       const built: PageImage[] = [];
       const stems: StemBlob[] = [];
-      const rawPageMap: Record<number, number> = {};
+      const candidatePageMap: Record<number, number[]> = {};
       for (let p = 1; p <= doc.numPages; p++) {
         const page = await doc.getPage(p);
         const viewport = page.getViewport({ scale: RENDER_SCALE });
@@ -646,12 +670,41 @@ function fillMissingQuestionPages(
           const pageStems = extractQuestionStems(content.items as PdfTextItem[]);
           stems.push(...pageStems);
           for (const s of pageStems) {
-            if (s.number >= 1 && s.number <= paper.questionCount && !rawPageMap[s.number]) {
-              rawPageMap[s.number] = p;
+            if (s.number >= 1 && s.number <= paper.questionCount) {
+              if (!candidatePageMap[s.number]) {
+                candidatePageMap[s.number] = [];
+              }
+              candidatePageMap[s.number].push(p);
             }
           }
         } catch (textErr) {
           console.warn(`Text extraction skipped for page ${p}:`, textErr);
+        }
+      }
+
+      // Resolve candidate sightings into a strictly monotonic question -> page map.
+      // An exam paper is always sequentially ordered: page(q) >= page(q - 1).
+      const rawPageMap: Record<number, number> = {};
+      let lastPage = 1;
+      for (let q = 1; q <= paper.questionCount; q++) {
+        const sightings = candidatePageMap[q];
+        if (!sightings || sightings.length === 0) continue;
+
+        // Discard page 1 if total pages > 1 and q > 1 (multi-page exam cover page false positive)
+        const validSightings = sightings.filter((p) => doc.numPages <= 1 || q === 1 || p > 1);
+        if (validSightings.length === 0) continue;
+
+        // Pick candidate page that respects monotonicity (p >= lastPage)
+        const monotonicMatch = validSightings.find((p) => p >= lastPage);
+        if (monotonicMatch !== undefined) {
+          rawPageMap[q] = monotonicMatch;
+          lastPage = monotonicMatch;
+        } else {
+          const highest = validSightings[validSightings.length - 1];
+          if (highest >= lastPage) {
+            rawPageMap[q] = highest;
+            lastPage = highest;
+          }
         }
       }
 
@@ -1257,7 +1310,7 @@ function fillMissingQuestionPages(
                 graded ? "w-80 xl:w-96" : "w-72 xl:w-84"
               )}
             >
-              <div className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-4">
+              <div className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-4 pb-28">
                 {graded ? (
                   <McqQuestionReviewList
                     questions={reviewQuestions}
@@ -1426,7 +1479,7 @@ function fillMissingQuestionPages(
                   </span>
                 </SheetTitle>
               </SheetHeader>
-              <div className="py-4">
+              <div className="py-4 pb-24">
                 <AnswerSidePanel
                   numbers={questionNumbers}
                   answers={answers}
@@ -2032,7 +2085,7 @@ function AnswerSidePanel({
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-1.5">
+        <div className="grid grid-cols-1 gap-1.5 pb-24">
           {filteredNumbers.map((number) => {
             const isFlagged = flagged.has(number);
             const isCurrent = activeQuestion === number || highlightNumber === number;

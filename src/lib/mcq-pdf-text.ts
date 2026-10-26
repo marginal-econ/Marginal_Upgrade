@@ -27,6 +27,25 @@ export type StemBlob = { number: number; text: string };
 export type PdfTextItem = { str?: string; transform?: number[] };
 
 export function extractQuestionStems(items: PdfTextItem[]): StemBlob[] {
+  // Check if this page is a cover/instructions sheet — cover pages NEVER contain exam questions.
+  const fullPageText = items
+    .map((item) => (item.str ?? "").trim())
+    .filter(Boolean)
+    .join(" ")
+    .toUpperCase();
+
+  const isCover =
+    fullPageText.includes("READ THESE INSTRUCTIONS FIRST") ||
+    fullPageText.includes("INSTRUCTIONS TO CANDIDATES") ||
+    fullPageText.includes("MULTIPLE CHOICE ANSWER SHEET") ||
+    fullPageText.includes("WRITE IN SOFT PENCIL") ||
+    fullPageText.includes("DO NOT USE STAPLES") ||
+    (fullPageText.includes("THERE ARE THIRTY QUESTIONS") && !fullPageText.includes(" 1 A "));
+
+  if (isCover) {
+    return [];
+  }
+
   const wordsByLine = new Map<number, { x: number; s: string }[]>();
   const numTok: { s: string; x: number; y: number }[] = [];
 
@@ -39,11 +58,41 @@ export function extractQuestionStems(items: PdfTextItem[]): StemBlob[] {
     const arr = wordsByLine.get(lineKey) ?? [];
     arr.push({ x, s });
     wordsByLine.set(lineKey, arr);
-    if (/^\d{1,2}$/.test(s)) numTok.push({ s, x, y });
+  }
+
+  // Sort tokens on each line from left to right by x position
+  for (const line of wordsByLine.values()) {
+    line.sort((a, b) => a.x - b.x);
+  }
+
+  for (const [lineKey, line] of wordsByLine.entries()) {
+    const lineStr = line
+      .map((w) => w.s)
+      .join(" ")
+      .toUpperCase();
+
+    // Skip running headers, footers, syllabus/variant codes, barcodes, copyright
+    if (
+      lineStr.includes("UCLES") ||
+      lineStr.includes("TURN OVER") ||
+      lineStr.includes("BLANK PAGE") ||
+      lineStr.includes("9708/") ||
+      lineStr.includes("CAMBRIDGE") ||
+      lineStr.includes("PAGE ")
+    ) {
+      continue;
+    }
+
+    // A valid question number anchor MUST be at the start of the line (e.g. "12 Which...")
+    // Tokens preceded by words like "Paper" or "9708/" are not question starts.
+    const firstWord = line[0];
+    if (firstWord && /^\d{1,2}$/.test(firstWord.s)) {
+      numTok.push({ s: firstWord.s, x: firstWord.x, y: lineKey });
+    }
   }
 
   const numberColumnX = pickLeftCluster(numTok.map((t) => t.x));
-  const COLUMN_TOLERANCE = 6;
+  const COLUMN_TOLERANCE = 10;
   const numberAnchors = numTok
     .filter((t) => numberColumnX !== null && Math.abs(t.x - numberColumnX) < COLUMN_TOLERANCE)
     .map((t) => ({ num: parseInt(t.s, 10), y: t.y }))

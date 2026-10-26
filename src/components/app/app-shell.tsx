@@ -1002,7 +1002,7 @@ export function AppShell({
         type={lockedModalType}
       />
 
-      <FloatingFeedbackPill />
+      {!pathname.startsWith("/mcq") && <FloatingFeedbackPill />}
     </div>
   );
 }
