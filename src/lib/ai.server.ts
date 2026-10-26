@@ -256,6 +256,7 @@ export async function chat(rawOptions: ChatOptions): Promise<ChatResult> {
       );
     }
 
+    const options = applyAiGatewayMode(rawOptions, gateway.mode);
     const body: Record<string, unknown> = {
       model: options.model,
       messages: options.messages,
@@ -1014,7 +1015,15 @@ async function embedViaGoogle(
     });
 
     (data.embeddings ?? []).forEach((item, i) => {
-      vectors[offset + i] = item.values;
+      let vec = item.values;
+      if (Array.isArray(vec)) {
+        if (vec.length < EMBEDDING_DIMS) {
+          vec = [...vec, ...new Array(EMBEDDING_DIMS - vec.length).fill(0)];
+        } else if (vec.length > EMBEDDING_DIMS) {
+          vec = vec.slice(0, EMBEDDING_DIMS);
+        }
+      }
+      vectors[offset + i] = vec;
     });
   }
 
@@ -1093,7 +1102,15 @@ async function embedViaOpenAiCompatible(
     });
 
     for (const item of data.data ?? []) {
-      vectors[offset + item.index] = item.embedding;
+      let vec = item.embedding;
+      if (Array.isArray(vec)) {
+        if (vec.length < EMBEDDING_DIMS) {
+          vec = [...vec, ...new Array(EMBEDDING_DIMS - vec.length).fill(0)];
+        } else if (vec.length > EMBEDDING_DIMS) {
+          vec = vec.slice(0, EMBEDDING_DIMS);
+        }
+      }
+      vectors[offset + item.index] = vec;
     }
   }
 

@@ -1032,6 +1032,7 @@ export const fetchProviderModels = createServerFn({ method: "POST" })
         provider: z.string(),
         apiKey: z.string().trim().min(5, "API key is too short"),
         baseUrl: z.string().optional(),
+        purpose: z.enum(["chat", "embedding", "vision"]).optional(),
       })
       .parse(input),
   )
@@ -1041,6 +1042,7 @@ export const fetchProviderModels = createServerFn({ method: "POST" })
     const meta = providerMeta(data.provider);
     const trimmedKey = data.apiKey.trim();
     const effectiveBaseUrl = (data.baseUrl?.trim() || meta.baseUrl || "").replace(/\/+$/, "");
+    const purpose = data.purpose || "chat";
 
     try {
       if (data.provider === "google") {
@@ -1059,7 +1061,23 @@ export const fetchProviderModels = createServerFn({ method: "POST" })
         const json = (await res.json()) as {
           models?: { name?: string; supportedGenerationMethods?: string[] }[];
         };
-        const models = (json.models || [])
+        const rawGoogleModels = json.models || [];
+
+        if (purpose === "embedding") {
+          const embedModels = rawGoogleModels
+            .filter(
+              (m) =>
+                m.name &&
+                (m.supportedGenerationMethods?.includes("embedContent") ||
+                  /embedding|embed/i.test(m.name)),
+            )
+            .map((m) => m.name!);
+          const fallback = ["models/gemini-embedding-001", "models/text-embedding-004"];
+          const finalModels = embedModels.length > 0 ? embedModels : fallback;
+          return { ok: true, models: Array.from(new Set(finalModels)) };
+        }
+
+        const models = rawGoogleModels
           .filter(
             (m) =>
               m.name &&
@@ -1071,6 +1089,9 @@ export const fetchProviderModels = createServerFn({ method: "POST" })
       }
 
       if (data.provider === "anthropic") {
+        if (purpose === "embedding") {
+          return { ok: false, error: "Anthropic does not offer an embedding endpoint.", models: [] };
+        }
         const res = await fetch(`https://api.anthropic.com/v1/models`, {
           headers: {
             "x-api-key": trimmedKey,
@@ -1120,10 +1141,18 @@ export const fetchProviderModels = createServerFn({ method: "POST" })
 
       const json = (await res.json()) as { data?: { id?: string; name?: string }[] };
       const rawList = json.data || [];
-      const models = rawList
-        .map((m) => m.id || m.name || "")
-        .filter(Boolean)
-        .filter((id) => !/(whisper|embed|tts|moderation|safeguard)/i.test(id));
+      const allIds = rawList.map((m) => m.id || m.name || "").filter(Boolean);
+
+      if (purpose === "embedding") {
+        const embedModels = allIds.filter((id) =>
+          /(embed|bge|gte|e5|sentence|bert|nemotron.*embed|text-similarity)/i.test(id),
+        );
+        const metaModels = "embeddingModels" in meta && Array.isArray(meta.embeddingModels) ? meta.embeddingModels : [];
+        const result = embedModels.length > 0 ? embedModels : metaModels;
+        return { ok: true, models: Array.from(new Set(result)) };
+      }
+
+      const models = allIds.filter((id) => !/(whisper|embed|tts|moderation|safeguard)/i.test(id));
 
       return { ok: true, models: Array.from(new Set(models)) };
     } catch (err: any) {

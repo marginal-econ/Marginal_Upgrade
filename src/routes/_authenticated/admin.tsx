@@ -2749,10 +2749,42 @@ function EmbeddingsPanel() {
   const [activateNow, setActivateNow] = useState(true);
   const [rotatingId, setRotatingId] = useState<string | null>(null);
   const [rotateValue, setRotateValue] = useState("");
+  const [discoveredModels, setDiscoveredModels] = useState<string[]>([]);
+  const [isDiscovering, setIsDiscovering] = useState(false);
+  const fetchModels = useServerFn(fetchProviderModels);
 
   const meta = providerMeta(provider);
   const embeddingModels = embeddingModelsFor(meta);
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["provider-keys", "embedding"] });
+
+  const handleFetchLiveModels = async () => {
+    const candidateKey = (apiKey || "").split(/[\n\r,;]+/)[0]?.trim();
+    if (!candidateKey || candidateKey.length < 5) {
+      toast.error("Please enter an API key first to discover active embedding models from your account.");
+      return;
+    }
+    setIsDiscovering(true);
+    try {
+      const res = await fetchModels({
+        data: {
+          provider,
+          apiKey: candidateKey,
+          baseUrl: baseUrl || undefined,
+          purpose: "embedding",
+        },
+      });
+      if (res.ok && res.models.length > 0) {
+        setDiscoveredModels(res.models);
+        toast.success(`Discovered ${res.models.length} active embedding models from ${meta.label}!`);
+      } else {
+        toast.error(res.error || `No embedding models could be retrieved from ${meta.label}. Check API key.`);
+      }
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to fetch embedding models");
+    } finally {
+      setIsDiscovering(false);
+    }
+  };
 
   const saveMutation = useMutation({
     mutationFn: () =>
@@ -2839,6 +2871,7 @@ function EmbeddingsPanel() {
                 setProvider(value);
                 setModel(embeddingModelsFor(providerMeta(value))[0] ?? "");
                 setBaseUrl("");
+                setDiscoveredModels([]);
               }}
             >
               <SelectTrigger>
@@ -2881,26 +2914,87 @@ function EmbeddingsPanel() {
           </div>
 
           <div className="space-y-1.5">
-            <Label>Embedding model id</Label>
+            <div className="flex items-center justify-between">
+              <Label>Embedding model id</Label>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-6 text-[10px] text-primary gap-1 px-2"
+                onClick={handleFetchLiveModels}
+                disabled={isDiscovering}
+              >
+                {isDiscovering ? (
+                  <>
+                    <Loader2 className="size-2.5 animate-spin" /> Fetching...
+                  </>
+                ) : (
+                  <>
+                    <Zap className="size-2.5" /> Check Available Models
+                  </>
+                )}
+              </Button>
+            </div>
             <Input
               value={model}
               onChange={(event) => setModel(event.target.value)}
               placeholder={embeddingModels[0] ?? "model-id"}
+              className="font-mono text-xs"
             />
+            {/* Clickable Recommended Presets */}
             {embeddingModels.length ? (
-              <div className="flex flex-wrap gap-1 pt-1">
-                {embeddingModels.map((suggestion: string) => (
-                  <button
-                    key={suggestion}
-                    type="button"
-                    onClick={() => setModel(suggestion)}
-                    className="rounded-md border border-border px-1.5 py-0.5 text-[11px] text-muted-foreground hover:text-foreground"
-                  >
-                    {suggestion}
-                  </button>
-                ))}
+              <div className="space-y-1 pt-1">
+                <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">
+                  Recommended Presets:
+                </span>
+                <div className="flex flex-wrap gap-1">
+                  {embeddingModels.map((suggestion: string) => (
+                    <button
+                      key={suggestion}
+                      type="button"
+                      onClick={() => setModel(suggestion)}
+                      className={cn(
+                        "rounded-md border px-1.5 py-0.5 text-[11px] font-mono transition-colors",
+                        model === suggestion
+                          ? "border-emerald-500 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-semibold"
+                          : "border-border text-muted-foreground hover:text-foreground",
+                      )}
+                    >
+                      {suggestion}
+                    </button>
+                  ))}
+                </div>
               </div>
             ) : null}
+
+            {/* Dynamically Fetched Live Models from Provider */}
+            {discoveredModels.length > 0 && (
+              <div className="space-y-1.5 pt-2 border-t border-border/60">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold uppercase tracking-wider">
+                    Verified Account Models ({discoveredModels.length}):
+                  </span>
+                  <span className="text-[10px] text-muted-foreground">Click to select</span>
+                </div>
+                <div className="max-h-32 overflow-y-auto flex flex-wrap gap-1 p-1 bg-background rounded-md border border-border/80">
+                  {discoveredModels.map((m) => (
+                    <button
+                      key={m}
+                      type="button"
+                      onClick={() => setModel(m)}
+                      className={cn(
+                        "rounded px-1.5 py-0.5 text-[10px] font-mono border transition-colors",
+                        model === m
+                          ? "bg-emerald-500 text-white border-emerald-600 font-medium"
+                          : "border-border/60 hover:bg-muted text-foreground",
+                      )}
+                    >
+                      {m}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="space-y-1.5">
