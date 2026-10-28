@@ -4,7 +4,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { GraduationCap, Menu, X } from "lucide-react";
+import { GraduationCap, Menu, School, X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
@@ -202,9 +202,17 @@ export function SiteNavMobile() {
           })}
           <Link
             to="/teacher-auth"
+            onClick={close}
+            className="mt-2 flex items-center justify-center gap-2 rounded-lg border border-border bg-card px-3 py-2.5 text-sm font-semibold text-foreground hover:bg-muted"
+          >
+            <School className="size-4 text-purple-600 dark:text-purple-400" />
+            Teacher Portal
+          </Link>
+          <Link
+            to="/teacher-auth"
             search={{ tab: "signup" }}
             onClick={close}
-            className="mt-1 flex items-center justify-center gap-1.5 rounded-lg border border-purple-500/30 bg-purple-500/10 px-3 py-2.5 text-sm font-semibold text-purple-600 dark:text-purple-400"
+            className="mt-1.5 flex items-center justify-center gap-2 rounded-lg border border-purple-500/30 bg-purple-500/10 px-3 py-2.5 text-sm font-semibold text-purple-600 dark:text-purple-400"
           >
             <GraduationCap className="size-4" />
             Sign up as a teacher

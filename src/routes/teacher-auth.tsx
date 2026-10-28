@@ -73,6 +73,8 @@ export function TeacherAuthPage() {
   useEffect(() => {
     if (search.tab === "signup") {
       setActiveTab("signup");
+    } else if (search.tab === "signin") {
+      setActiveTab("signin");
     }
   }, [search.tab]);
 
