@@ -224,8 +224,11 @@ export async function gradeEssay(
   }
 
   const userMessage =
-    `Exam question (${maxMark} marks):\n\n${question}\n\n` +
-    `Student essay to mark:\n\n${essayText}${imageNote}`;
+    `EXAM QUESTION TO MARK IN FULL DEPTH (${maxMark} marks):\n` +
+    `"""\n${question}\n"""\n\n` +
+    `STUDENT ESSAY SUBMISSION:\n` +
+    `"""\n${essayText}\n"""${imageNote}\n\n` +
+    `CRITICAL DIRECTIVE: Scrutinize the student's submission against EVERY clause, qualifier, and command word of the exam question above. Ensure the evaluation directly addresses the exact question asked without shifting the goalposts.`;
 
   let grading: Grading;
   let promptTokens: number | null = null;

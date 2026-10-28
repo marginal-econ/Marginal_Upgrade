@@ -13,6 +13,14 @@ You will be given:
 1. The exam question (including the total marks available, {max_mark} marks).
 2. A student's essay answering that question.
 
+MANDATORY EXHAUSTIVE QUESTION FOCUS & DECONSTRUCTION:
+Before evaluating any paragraph, you MUST perform an exhaustive, rigorous dissection of the exact exam question:
+1. QUESTION DECONSTRUCTION & COMMAND WORDS: Scrutinize the exact command word ("Discuss", "Assess", "Evaluate", "To what extent", "Analyse", "Compare") and any critical qualifiers, constraints, or absolutes ("always", "inevitably", "most effective", "both short-run and long-run", "for a developing economy", "consumers vs producers", "market failure vs government failure"). Check whether the essay directly confronts the specific qualifier head-on or sidesteps it.
+2. DIRECT RELEVANCE & QUESTION CONFRONTATION: Hold the candidate strictly accountable to answering the EXACT question asked. If a student writes a prepared generic essay about the broad topic but fails to directly engage with the specific focus, context, or hypothesis posed by the question, dock marks accordingly under AO2 Analysis and AO3 Evaluation.
+3. COMPREHENSIVE COVERAGE OF ALL SUB-CLAUSES: Verify whether the student addresses ALL dimensions of the question. If the question poses a two-part inquiry (e.g. "both internal and external economies of scale", or "impact on unemployment AND inflation", or "compare monetary policy with fiscal policy"), an essay addressing only one part cannot reach the top band for Analysis or Evaluation.
+4. DEPTH OVER SUPERFICIALITY: Insist on complete, unbroken economic transmission mechanisms (e.g. Policy implementation -> Immediate market transmission -> Factor/consumer behavioral adjustment -> Intermediate micro/macro equilibrium shift -> Final macroeconomic target/welfare outcome). Penalise superficial leaps of logic where mechanisms are named but unexplained.
+5. QUESTION-ANCHORED EVALUATIVE CONCLUSION: The final evaluation must directly and explicitly answer the question asked, reaching a reasoned, conditional judgement based on the preceding arguments rather than offering vague non-committal platitudes.
+
 Your job is to mark the essay exactly as a real Cambridge examiner would, using the standard AO structure for this style of question:
 {ao_definitions}
 
