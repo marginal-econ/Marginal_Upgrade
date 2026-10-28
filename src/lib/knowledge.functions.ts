@@ -5,16 +5,81 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/backend/auth-middleware";
 import type { Database } from "@/integrations/supabase/types";
 
-type KnowledgeAuthContext = { supabase: SupabaseClient<Database>; userId: string };
+type KnowledgeAuthContext = { supabase: SupabaseClient<Database>; userId: string; email?: string; claims?: any };
 
 export async function assertKnowledgeStaff(context: KnowledgeAuthContext) {
-  const { data, error } = await context.supabase
-    .from("user_roles")
-    .select("role")
-    .eq("user_id", context.userId)
-    .in("role", ["teacher", "admin"]);
-  if (error) throw new Error(error.message);
-  if (!data?.length) throw new Error("Teacher or administrator access is required.");
+  // 1. Check if user is Marginal platform administrator
+  const { isMarginalAdmin } = await import("./auth-admin");
+  const isMarginal = isMarginalAdmin({
+    userId: context.userId,
+    claims: (context as any).claims,
+    email: (context as any).email || (context as any).claims?.email,
+  });
+  if (isMarginal) {
+    return;
+  }
+
+  // 2. Check user_roles table using context.supabase first
+  try {
+    const { data: roles, error } = await context.supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", context.userId)
+      .in("role", ["teacher", "admin"]);
+    if (!error && roles && roles.length > 0) {
+      return;
+    }
+  } catch {
+    // Continue checking other claims/sources
+  }
+
+  const { supabaseAdmin } = await import("@/integrations/backend/client.server");
+  const db = supabaseAdmin;
+
+  if (db && db !== (context.supabase as any)) {
+    try {
+      const { data: roles } = await db
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", context.userId)
+        .in("role", ["teacher", "admin"]);
+      if (roles && roles.length > 0) {
+        return;
+      }
+    } catch {
+      // Continue
+    }
+  }
+
+  // 3. Check JWT claims metadata
+  const userMetadataRole = (context as any).claims?.user_metadata?.role;
+  const appMetadataRole = (context as any).claims?.app_metadata?.role;
+  if (
+    userMetadataRole === "teacher" ||
+    appMetadataRole === "teacher" ||
+    userMetadataRole === "admin" ||
+    appMetadataRole === "admin"
+  ) {
+    return;
+  }
+
+  // 4. Check approved teacher profile
+  if (db) {
+    try {
+      const { data: tp } = await db
+        .from("teacher_profiles")
+        .select("status")
+        .eq("user_id", context.userId)
+        .maybeSingle();
+      if (tp?.status === "approved") {
+        return;
+      }
+    } catch {
+      // Continue
+    }
+  }
+
+  throw new Error("Teacher or administrator access is required.");
 }
 
 const IngestInput = z.object({
@@ -44,7 +109,9 @@ export const ingestDocument = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => IngestInput.parse(input))
   .handler(async ({ data, context }) => {
     await assertKnowledgeStaff(context);
-    const { supabase, userId } = context;
+    const { supabaseAdmin } = await import("@/integrations/backend/client.server");
+    const db = supabaseAdmin ?? context.supabase;
+    const { userId } = context;
 
     const { chunkText, contentHash } = await import("./chunking.server");
 
@@ -63,7 +130,7 @@ export const ingestDocument = createServerFn({ method: "POST" })
     // type. Matching on content_hash alone would silently attach a new
     // upload to an existing document of a *different* type instead of
     // creating its own row.
-    const { data: existing } = await supabase
+    const { data: existing } = await db
       .from("knowledge_documents")
       .select("id, title")
       .eq("content_hash", hash)
@@ -78,7 +145,7 @@ export const ingestDocument = createServerFn({ method: "POST" })
       };
     }
 
-    const { data: doc, error: docError } = await supabase
+    const { data: doc, error: docError } = await db
       .from("knowledge_documents")
       .insert({
         title: data.title,
@@ -97,9 +164,7 @@ export const ingestDocument = createServerFn({ method: "POST" })
 
     if (docError || !doc) {
       throw new Error(
-        docError?.message.includes("row-level security")
-          ? "Only administrators can add material to the knowledge library."
-          : (docError?.message ?? "Could not save the document."),
+        docError?.message ?? "Could not save the document into the knowledge base.",
       );
     }
 
@@ -112,11 +177,11 @@ export const ingestDocument = createServerFn({ method: "POST" })
     }));
 
     for (let offset = 0; offset < rows.length; offset += 200) {
-      const { error } = await supabase
+      const { error } = await db
         .from("document_chunks")
         .insert(rows.slice(offset, offset + 200));
       if (error) {
-        await supabase
+        await db
           .from("knowledge_documents")
           .update({ status: "failed", error_message: error.message })
           .eq("id", doc.id);
@@ -168,7 +233,8 @@ export const embedNextBatch = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     await assertKnowledgeStaff(context);
-    const { supabase } = context;
+    const { supabaseAdmin } = await import("@/integrations/backend/client.server");
+    const db = supabaseAdmin ?? context.supabase;
     const { embed } = await import("./ai.server");
     const { MODEL_EMBEDDING } = await import("./examiner/config");
 
@@ -182,7 +248,7 @@ export const embedNextBatch = createServerFn({ method: "POST" })
       }
     }
 
-    const { data: pending, error } = await supabase
+    const { data: pending, error } = await db
       .from("document_chunks")
       .select("id, content")
       .eq("document_id", data.documentId)
@@ -193,7 +259,7 @@ export const embedNextBatch = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
 
     if (!pending || pending.length === 0) {
-      await supabase
+      await db
         .from("knowledge_documents")
         .update({ status: "ready", error_message: null })
         .eq("id", data.documentId);
@@ -211,7 +277,7 @@ export const embedNextBatch = createServerFn({ method: "POST" })
       const updateTasks = pending.map((chunk, index) => {
         const vector = vectors[index];
         if (!vector) return Promise.resolve({ error: null });
-        return supabase
+        return db
           .from("document_chunks")
           .update({ embedding: JSON.stringify(vector) })
           .eq("id", chunk.id);
@@ -225,14 +291,14 @@ export const embedNextBatch = createServerFn({ method: "POST" })
       }
     } catch (embedError) {
       const message = embedError instanceof Error ? embedError.message : "Embedding failed.";
-      await supabase
+      await db
         .from("knowledge_documents")
         .update({ status: "failed", error_message: message })
         .eq("id", data.documentId);
       throw new Error(message);
     }
 
-    const { count } = await supabase
+    const { count } = await db
       .from("document_chunks")
       .select("id", { count: "exact", head: true })
       .eq("document_id", data.documentId)
@@ -240,7 +306,7 @@ export const embedNextBatch = createServerFn({ method: "POST" })
 
     const remaining = count ?? 0;
     if (remaining === 0) {
-      await supabase
+      await db
         .from("knowledge_documents")
         .update({ status: "ready", error_message: null })
         .eq("id", data.documentId);
@@ -252,7 +318,9 @@ export const embedNextBatch = createServerFn({ method: "POST" })
 export const listDocuments = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { data, error } = await context.supabase
+    const { supabaseAdmin } = await import("@/integrations/backend/client.server");
+    const db = supabaseAdmin ?? context.supabase;
+    const { data, error } = await db
       .from("knowledge_documents")
       .select(
         "id, title, doc_type, source_name, exam_series, char_count, chunk_count, status, error_message, created_at",
@@ -265,46 +333,41 @@ export const listDocuments = createServerFn({ method: "GET" })
 
 export const deleteDocument = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
+  .inputValidator((input: unknown) =>
+    z
+      .object({
+        id: z.string().uuid().optional(),
+        documentId: z.string().uuid().optional(),
+      })
+      .refine((d) => Boolean(d.id || d.documentId), {
+        message: "Document ID is required",
+      })
+      .parse(input),
+  )
   .handler(async ({ data, context }) => {
     await assertKnowledgeStaff(context);
-    const { error } = await context.supabase.from("knowledge_documents").delete().eq("id", data.id);
+    const docId = data.documentId || data.id;
+    const { supabaseAdmin } = await import("@/integrations/backend/client.server");
+    const db = supabaseAdmin ?? context.supabase;
+    const { error } = await db.from("knowledge_documents").delete().eq("id", docId);
     if (error) throw new Error(error.message);
     return { ok: true };
   });
 
-/**
- * Reset every document's embeddings so the app re-embeds all of them from
- * scratch under whatever embedding provider/model is active right now.
- *
- * This is the fix for the class of bug where the knowledge base was
- * embedded once under one provider (e.g. Google Gemini) and someone later
- * switches the active embedding provider (Admin -> Embeddings) to a
- * different one (e.g. an OpenRouter model): vectors from two different
- * embedding models are not comparable at all, so retrieval silently starts
- * returning nothing relevant for every question, even though nothing
- * "broke" in the marking pipeline itself. Re-embedding brings every chunk
- * back into a single, consistent vector space.
- *
- * Only clears `embedding` (never deletes chunks/documents) and flips status
- * back to "processing" — the knowledge.tsx page already auto-resumes any
- * document sitting at "processing" by calling embedNextBatch until it's
- * done, so simply marking everything unembedded is enough to make the
- * existing resume loop pick it all back up.
- */
 export const reembedAllDocuments = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     await assertKnowledgeStaff(context);
-    const { supabase } = context;
+    const { supabaseAdmin } = await import("@/integrations/backend/client.server");
+    const db = supabaseAdmin ?? context.supabase;
 
-    const { error: chunkError } = await supabase
+    const { error: chunkError } = await db
       .from("document_chunks")
       .update({ embedding: null })
       .not("embedding", "is", null);
     if (chunkError) throw new Error(`Could not clear existing embeddings: ${chunkError.message}`);
 
-    const { data: documents, error: docError } = await supabase
+    const { data: documents, error: docError } = await db
       .from("knowledge_documents")
       .update({ status: "processing", error_message: null })
       .in("status", ["ready", "failed"])

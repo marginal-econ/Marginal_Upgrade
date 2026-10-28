@@ -22,23 +22,17 @@ import {
 } from "../ai/active.server";
 import type { ProviderConfig } from "../ai/active.server";
 
-// Gemini 3.7 Flash reads small/cramped handwriting far more reliably than
-// 2.5 Flash and is the only line that supports mediaResolution — the biggest
-// lever we have for legibility. This is used ONLY for the direct Google AI
-// Studio path (an admin-saved key calling Google's API directly).
+/**
+ * Handwriting OCR. Vision is strictly routed through Google Gemini.
+ */
 const GOOGLE_MODEL = "models/gemini-3.8-flash";
 const GOOGLE_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta";
 
 /**
- * Gateway fallback chain. IMPORTANT: this must only ever contain vision-capable
- * models the Lovable AI gateway actually serves (see AI_PROVIDERS in ai/providers.ts —
- * "google/gemini-3.6-flash", "google/gemini-2.5-pro", "openai/gpt-5.6-sol").
- * gemini-3.6-flash runs first (fast and low token cost), followed by
- * gemini-2.5-pro (the most powerful vision model for challenging handwriting).
+ * Model chain strictly restricted to Google Gemini vision.
  */
 const GATEWAY_MODELS = [
   "google/gemini-3.8-flash",
-  "openai/gpt-5.6-sol",
 ];
 const ATTEMPTS_PER_MODEL = 2;
 const CONCURRENCY = 3;

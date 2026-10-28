@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 export const ADMIN_TABS = [
   { to: "/admin", label: "Admin Console", icon: ShieldCheck, adminOnly: true },
   { to: "/knowledge", label: "Knowledge Base", icon: BookOpen, adminOnly: false },
-  { to: "/calibration", label: "Calibration Anchors", icon: Target, adminOnly: false },
+  { to: "/calibration", label: "Calibration Anchors", icon: Target, adminOnly: true },
   { to: "/content-admin", label: "Content Admin", icon: ShieldPlus, adminOnly: true },
   { to: "/mcq-papers-admin", label: "MCQ Paper Library", icon: UploadCloud, adminOnly: true },
 ] as const;

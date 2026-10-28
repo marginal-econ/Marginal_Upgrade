@@ -202,11 +202,12 @@ export function SiteNavMobile() {
           })}
           <Link
             to="/teacher-auth"
+            search={{ tab: "signup" }}
             onClick={close}
             className="mt-1 flex items-center justify-center gap-1.5 rounded-lg border border-purple-500/30 bg-purple-500/10 px-3 py-2.5 text-sm font-semibold text-purple-600 dark:text-purple-400"
           >
             <GraduationCap className="size-4" />
-            Teacher Portal
+            Sign up as a teacher
           </Link>
           <Link
             to="/auth"

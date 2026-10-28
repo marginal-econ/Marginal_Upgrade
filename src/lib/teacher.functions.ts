@@ -316,8 +316,7 @@ export const approveTeacherApplication = createServerFn({ method: "POST" })
                         <p>Your teacher verification for <strong>${school}</strong> has been approved by the Marginal administration.</p>
                         <p>You now have full staff privileges to:</p>
                         <ul style="line-height:1.7;">
-                          <li><strong>Knowledge Base:</strong> Ingest Cambridge 9708 mark schemes and coursebooks.</li>
-                          <li><strong>Calibration Anchors:</strong> Calibrate and lock exam-board standard exemplar essays.</li>
+                          <li><strong>Knowledge Base:</strong> Ingest and manage Cambridge 9708 mark schemes, past papers, and coursebooks.</li>
                           <li><strong>Classrooms:</strong> Set assignments, track student cohorts, and review diagnostic heatmaps.</li>
                           <li><strong>Marking Desk:</strong> Batch-process student mock papers with AI first-pass marking.</li>
                         </ul>

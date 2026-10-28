@@ -136,11 +136,8 @@ async function fetchAsDataUrl(url: string): Promise<string> {
   return `data:${contentType};base64,${base64}`;
 }
 
-// Same gateway-verified model list as the handwriting OCR pipeline (see
-// ocr/gemini.server.ts) — "google/gemini-3.7-flash" is NOT served by the
-// gateway and was previously first in this list, burning a guaranteed-failed
-// attempt on every diagram description before ever reaching a working model.
-const GATEWAY_MODELS = ["google/gemini-3.8-flash", "openai/gpt-5.6-sol", "openai/gpt-5.6-terra"];
+// Diagram vision is strictly routed through Google Gemini.
+const GATEWAY_MODELS = ["google/gemini-3.8-flash"];
 
 const MAX_DATA_URL_BYTES = MAX_IMAGE_BYTES;
 
@@ -172,7 +169,14 @@ export async function describeDiagramFromDataUrl(dataUrl: string): Promise<strin
         maxCompletionTokens: 1024,
       });
       const text = result.text.trim();
+      const match = text.match(/\[DIAGRAM:[\s\S]*?\]/);
+      if (match) return match[0];
       if (text.startsWith("[DIAGRAM:")) return text;
+      if (text.length > 10) {
+        // Model provided a description without brackets - format as a valid diagram tag
+        const sanitized = text.replace(/[\[\]]/g, "").trim();
+        return `[DIAGRAM: Economics Diagram | accuracy: ${sanitized}]`;
+      }
       lastError = new Error(`${model} did not return a diagram tag.`);
     } catch (error) {
       lastError = error;

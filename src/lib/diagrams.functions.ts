@@ -20,9 +20,12 @@ const DiagramInput = z.object({
   howToRead: lines,
   labels: z
     .array(
-      z.object({ symbol: z.string().trim().min(1).max(24), meaning: z.string().trim().max(300) }),
+      z.object({
+        symbol: z.string().trim().max(120).default(""),
+        meaning: z.string().trim().max(600).default(""),
+      }),
     )
-    .max(40)
+    .max(60)
     .default([]),
   mistakes: lines,
   tips: lines,
@@ -58,7 +61,9 @@ function mapRow(row: Database["public"]["Tables"]["custom_diagrams"]["Row"]): Cu
 export const listCustomDiagrams = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { data, error } = await context.supabase
+    const { supabaseAdmin } = await import("@/integrations/backend/client.server");
+    const db = supabaseAdmin ?? context.supabase;
+    const { data, error } = await db
       .from("custom_diagrams")
       .select("*")
       .order("created_at", { ascending: true });
@@ -71,6 +76,8 @@ export const saveCustomDiagram = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => DiagramInput.parse(input))
   .handler(async ({ data, context }) => {
     const { slugify } = await import("@/lib/diagrams/custom");
+    const { supabaseAdmin } = await import("@/integrations/backend/client.server");
+    const db = supabaseAdmin ?? context.supabase;
     const payload = {
       slug: `${slugify(data.title)}-${Date.now().toString(36)}`,
       title: data.title,
@@ -93,7 +100,7 @@ export const saveCustomDiagram = createServerFn({ method: "POST" })
 
     if (data.id) {
       const { slug: _slug, created_by: _by, ...update } = payload;
-      const { error } = await context.supabase
+      const { error } = await db
         .from("custom_diagrams")
         .update(update)
         .eq("id", data.id);
@@ -101,7 +108,7 @@ export const saveCustomDiagram = createServerFn({ method: "POST" })
       return { ok: true, id: data.id };
     }
 
-    const { data: inserted, error } = await context.supabase
+    const { data: inserted, error } = await db
       .from("custom_diagrams")
       .insert(payload)
       .select("id")
@@ -205,18 +212,38 @@ const AutofillInput = z.object({
 });
 
 const AutofillResult = z.object({
-  title: z.string(),
-  section: z.enum(["Microeconomics", "Macroeconomics"]),
-  level: z.enum(["AS", "A Level", "AS & A Level"]),
-  topic: z.string(),
-  templateId: z.string(),
-  represents: z.string(),
-  whyUsed: z.string(),
-  whenToDraw: z.string(),
-  howToRead: z.array(z.string()),
-  labels: z.array(z.string()),
-  mistakes: z.array(z.string()),
-  tips: z.array(z.string()),
+  title: z.string().default("Economics Diagram"),
+  section: z.preprocess((v) => {
+    const s = String(v ?? "").toLowerCase();
+    return s.includes("macro") ? "Macroeconomics" : "Microeconomics";
+  }, z.enum(["Microeconomics", "Macroeconomics"])),
+  level: z.preprocess((v) => {
+    const s = String(v ?? "").toLowerCase();
+    if (s.includes("as & a") || s.includes("both")) return "AS & A Level";
+    if (s.includes("a level") || s.includes("a2") || s.includes("a-level")) return "A Level";
+    return "AS";
+  }, z.enum(["AS", "A Level", "AS & A Level"])),
+  topic: z.string().default("General Economics"),
+  templateId: z.string().default("supply-demand"),
+  represents: z.string().default(""),
+  whyUsed: z.string().default(""),
+  whenToDraw: z.string().default(""),
+  howToRead: z.preprocess(
+    (v) => (Array.isArray(v) ? v.map(String) : typeof v === "string" ? [v] : []),
+    z.array(z.string()),
+  ),
+  labels: z.preprocess(
+    (v) => (Array.isArray(v) ? v.map(String) : typeof v === "string" ? [v] : []),
+    z.array(z.string()),
+  ),
+  mistakes: z.preprocess(
+    (v) => (Array.isArray(v) ? v.map(String) : typeof v === "string" ? [v] : []),
+    z.array(z.string()),
+  ),
+  tips: z.preprocess(
+    (v) => (Array.isArray(v) ? v.map(String) : typeof v === "string" ? [v] : []),
+    z.array(z.string()),
+  ),
 });
 
 /**
@@ -253,8 +280,6 @@ export const autofillDiagramFromImage = createServerFn({ method: "POST" })
 
     const GATEWAY_MODELS = [
       "google/gemini-3.8-flash",
-      "openai/gpt-5.6-sol",
-      "openai/gpt-5.6-terra",
     ];
     let lastError: unknown = null;
     for (const model of GATEWAY_MODELS) {
@@ -295,7 +320,9 @@ export const deleteCustomDiagram = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
-    const { error } = await context.supabase.from("custom_diagrams").delete().eq("id", data.id);
+    const { supabaseAdmin } = await import("@/integrations/backend/client.server");
+    const db = supabaseAdmin ?? context.supabase;
+    const { error } = await db.from("custom_diagrams").delete().eq("id", data.id);
     if (error) throw new Error(error.message);
     return { ok: true };
   });

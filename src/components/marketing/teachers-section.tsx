@@ -104,7 +104,7 @@ export function TeachersSection() {
                   Sign In to Teacher Portal →
                 </Button>
               </Link>
-              <Link to="/teacher-auth" className="w-full sm:w-auto">
+              <Link to="/teacher-auth" search={{ tab: "signup" }} className="w-full sm:w-auto">
                 <Button size="lg" variant="outline" className="w-full sm:w-auto border-purple-500/40 text-foreground font-semibold px-5">
                   Register as Teacher
                 </Button>

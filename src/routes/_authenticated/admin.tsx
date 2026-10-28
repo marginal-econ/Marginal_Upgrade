@@ -4488,7 +4488,9 @@ function DiagramsPanel() {
           howToRead: toLines(howToRead),
           labels: toLines(labels).map((line) => {
             const [symbol, ...rest] = line.split("=");
-            return { symbol: (symbol ?? "").trim(), meaning: rest.join("=").trim() };
+            const sym = (symbol ?? "").trim();
+            const mean = rest.join("=").trim();
+            return { symbol: sym || "Label", meaning: mean || sym };
           }),
           mistakes: toLines(mistakes),
           tips: toLines(tips),

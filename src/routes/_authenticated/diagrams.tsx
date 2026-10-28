@@ -1,16 +1,18 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { AlertTriangle, BookMarked, Globe2, Lightbulb, Search, Tags } from "lucide-react";
+import { AlertTriangle, BookMarked, Globe2, Lightbulb, Plus, Search, Tags } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { PageHeader } from "@/components/app/app-shell";
+import { Button } from "@/components/ui/button";
 import { EconomicsDiagram } from "@/components/diagrams/economics-diagram";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { DIAGRAMS as BUILT_IN, SECTIONS } from "@/lib/diagrams/catalog";
 import { toDiagramEntry } from "@/lib/diagrams/custom";
 import { listCustomDiagrams } from "@/lib/diagrams.functions";
+import { getMe } from "@/lib/account.functions";
 import type { DiagramEntry, DiagramSection } from "@/lib/diagrams/types";
 import { cn } from "@/lib/utils";
 
@@ -40,6 +42,9 @@ function DiagramLibraryPage() {
   const [section, setSection] = useState<DiagramSection>("Microeconomics");
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string>(BUILT_IN[0]?.id ?? "");
+
+  const fetchMe = useServerFn(getMe);
+  const me = useQuery({ queryKey: ["me"], queryFn: () => fetchMe() });
 
   const fetchCustom = useServerFn(listCustomDiagrams);
   const custom = useQuery({ queryKey: ["custom-diagrams"], queryFn: () => fetchCustom() });
@@ -89,6 +94,15 @@ function DiagramLibraryPage() {
       <PageHeader
         title="Diagram library"
         description={`${DIAGRAMS.length} Cambridge 9708 diagrams drawn to exam convention — with label definitions, examiner tips, common mistakes and real-world examples.`}
+        action={
+          me.data?.isAdmin ? (
+            <Link to="/admin" search={{ tab: "diagrams" }}>
+              <Button size="sm" className="gap-1.5">
+                <Plus className="size-4" /> Add custom diagram
+              </Button>
+            </Link>
+          ) : null
+        }
       />
 
       <div className="grid min-h-0 flex-1 gap-0 lg:grid-cols-[300px_1fr]">

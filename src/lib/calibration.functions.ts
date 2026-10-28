@@ -6,7 +6,13 @@ import { requireSupabaseAuth } from "@/integrations/backend/auth-middleware";
 export const listAnchors = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { data, error } = await context.supabase
+    const { assertAdmin } = await import("./auth-admin");
+    assertAdmin(context);
+
+    const { supabaseAdmin } = await import("@/integrations/backend/client.server");
+    const client = supabaseAdmin ?? context.supabase;
+
+    const { data, error } = await client
       .from("calibration_anchors")
       .select("id, question, essay_text, mark, max_mark, band_label, notes, active, created_at")
       .order("created_at", { ascending: false });
@@ -29,19 +35,15 @@ export const createAnchor = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => AnchorInput.parse(input))
   .handler(async ({ data, context }) => {
+    const { assertAdmin } = await import("./auth-admin");
+    assertAdmin(context);
+
     if (data.mark > data.maxMark) {
       throw new Error("The confirmed mark cannot be higher than the total available.");
     }
 
-    const { isMarginalAdmin } = await import("./auth-admin");
-    const isMarginal = isMarginalAdmin({
-      userId: context.userId,
-      claims: (context as any).claims,
-      email: (context as any).email || (context as any).claims?.email,
-    });
-
     const { supabaseAdmin } = await import("@/integrations/backend/client.server");
-    const client = isMarginal && supabaseAdmin ? supabaseAdmin : context.supabase;
+    const client = supabaseAdmin ?? context.supabase;
 
     const { error } = await client.from("calibration_anchors").insert({
       question: data.question,
@@ -69,7 +71,13 @@ export const setAnchorActive = createServerFn({ method: "POST" })
     z.object({ id: z.string().uuid(), active: z.boolean() }).parse(input),
   )
   .handler(async ({ data, context }) => {
-    const { error } = await context.supabase
+    const { assertAdmin } = await import("./auth-admin");
+    assertAdmin(context);
+
+    const { supabaseAdmin } = await import("@/integrations/backend/client.server");
+    const client = supabaseAdmin ?? context.supabase;
+
+    const { error } = await client
       .from("calibration_anchors")
       .update({ active: data.active })
       .eq("id", data.id);
@@ -81,7 +89,13 @@ export const deleteAnchor = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
-    const { error } = await context.supabase.from("calibration_anchors").delete().eq("id", data.id);
+    const { assertAdmin } = await import("./auth-admin");
+    assertAdmin(context);
+
+    const { supabaseAdmin } = await import("@/integrations/backend/client.server");
+    const client = supabaseAdmin ?? context.supabase;
+
+    const { error } = await client.from("calibration_anchors").delete().eq("id", data.id);
     if (error) throw new Error(error.message);
     return { ok: true };
   });
@@ -101,27 +115,10 @@ export const addShowcaseToCalibration = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
+    const { assertAdmin } = await import("./auth-admin");
+    assertAdmin(context);
+
     const { supabaseAdmin } = await import("@/integrations/backend/client.server");
-
-    // Verify admin privileges
-    const { isMarginalAdmin } = await import("./auth-admin");
-    const isMarginal = isMarginalAdmin({
-      userId: context.userId,
-      claims: (context as any).claims,
-      email: (context as any).email || (context as any).claims?.email,
-    });
-
-    if (!isMarginal) {
-      const isPrivileged =
-        (context as any).claims?.user_metadata?.role === "admin" ||
-        (context as any).claims?.app_metadata?.role === "admin" ||
-        (context as any).claims?.user_metadata?.role === "teacher" ||
-        (context as any).claims?.app_metadata?.role === "teacher";
-
-      if (!isPrivileged) {
-        throw new Error("Only administrators can add calibration anchors.");
-      }
-    }
 
     // Normalize maxMark to Cambridge 9708 tariffs (8, 12, or 20)
     let validMaxMark: 8 | 12 | 20 = 12;

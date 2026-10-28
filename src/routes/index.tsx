@@ -329,10 +329,11 @@ function Index() {
             <SiteNavMobile />
             <Link
               to="/teacher-auth"
-              className="hidden rounded-lg px-2.5 py-1.5 text-xs font-semibold text-purple-600 dark:text-purple-400 border border-purple-500/30 bg-purple-500/10 hover:bg-purple-500/20 transition-colors sm:inline-flex items-center gap-1.5"
+              search={{ tab: "signup" }}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-purple-500/40 bg-purple-500/10 px-2.5 py-1.5 text-xs font-semibold text-purple-700 dark:text-purple-300 hover:bg-purple-500/20 transition-all shadow-xs"
             >
-              <GraduationCap className="size-3.5" />
-              Teacher Portal
+              <GraduationCap className="size-3.5 text-purple-600 dark:text-purple-400" />
+              <span>Sign up as a teacher</span>
             </Link>
             <Link
               to="/auth"

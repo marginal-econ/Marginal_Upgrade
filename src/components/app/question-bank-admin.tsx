@@ -33,6 +33,7 @@ import {
   setBankQuestionStatus,
   updateBankEssayQuestion,
   updateBankMcqQuestion,
+  uploadBankDiagramImage,
 } from "@/lib/bank.functions";
 import { DIAGRAMS, getDiagram } from "@/lib/diagrams/catalog";
 import { extractTextFromFile } from "@/lib/extract-text";
@@ -73,6 +74,7 @@ export function QuestionBankAdmin() {
   const removeQuestion = useServerFn(deleteBankQuestion);
   const updateMcq = useServerFn(updateBankMcqQuestion);
   const updateEssay = useServerFn(updateBankEssayQuestion);
+  const uploadDiagramServer = useServerFn(uploadBankDiagramImage);
 
   const [kind, setKind] = useState<Kind>("mcq");
   const [level, setLevel] = useState<"as" | "a2">("as");
@@ -172,13 +174,30 @@ export function QuestionBankAdmin() {
 
   /** Uploads a crop to the bank-diagrams bucket and returns its public URL. */
   const uploadDiagramCrop = async (questionId: string, blob: Blob): Promise<string> => {
-    const path = `${questionId}-${Date.now()}.jpg`;
-    const { error } = await supabase.storage
-      .from("bank-diagrams")
-      .upload(path, blob, { contentType: "image/jpeg", upsert: true });
-    if (error) throw new Error(error.message);
-    const { data } = supabase.storage.from("bank-diagrams").getPublicUrl(path);
-    return data.publicUrl;
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = async () => {
+        try {
+          const dataUrl = reader.result as string;
+          const res = await uploadDiagramServer({ data: { questionId, dataUrl } });
+          resolve(res.publicUrl);
+        } catch (serverErr) {
+          try {
+            const path = `${questionId}-${Date.now()}.jpg`;
+            const { error } = await supabase.storage
+              .from("bank-diagrams")
+              .upload(path, blob, { contentType: "image/jpeg", upsert: true });
+            if (error) throw new Error(error.message);
+            const { data } = supabase.storage.from("bank-diagrams").getPublicUrl(path);
+            resolve(data.publicUrl);
+          } catch (fallbackErr: any) {
+            reject(serverErr instanceof Error ? serverErr : fallbackErr);
+          }
+        }
+      };
+      reader.onerror = () => reject(new Error("Could not read diagram image"));
+      reader.readAsDataURL(blob);
+    });
   };
 
   const extractMutation = useMutation({

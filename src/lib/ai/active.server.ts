@@ -441,15 +441,11 @@ export async function getActiveEmbeddingProvider(): Promise<ProviderConfig | nul
  * Ensures only vision-capable models (e.g. Gemini 2.5/3.8 Flash, GPT-4o, Claude 3.5 Sonnet, Pixtral)
  * are selected for mark-scheme image interpretation.
  */
-export async function getActiveVisionProvider(forceBackupOnly?: boolean): Promise<ProviderConfig | null> {
-  const isBackupOnly =
-    forceBackupOnly !== undefined ? forceBackupOnly : (await getAiGatewaySettings()).backupOnly;
-
+export async function getActiveVisionProvider(): Promise<ProviderConfig | null> {
   if (
     visionCache &&
     Date.now() - visionCache.at < TTL_MS &&
-    visionCache.value &&
-    visionCache.backupOnly === isBackupOnly
+    visionCache.value
   ) {
     return visionCache.value;
   }
@@ -457,61 +453,42 @@ export async function getActiveVisionProvider(forceBackupOnly?: boolean): Promis
   let value: ProviderConfig | null = null;
   try {
     const { supabaseAdmin } = await import("@/integrations/backend/client.server");
-    let query = supabaseAdmin
+
+    // 1. Google key explicitly designated for vision (Vision must always go through Google Gemini)
+    const { data: visionGoogle } = await supabaseAdmin
       .from("ai_provider_keys")
       .select("provider, api_key, base_url, model, label")
-      .eq("is_active", true)
+      .eq("provider", "google")
       .eq("purpose", "vision")
-      .order("updated_at", { ascending: false });
+      .order("is_active", { ascending: false })
+      .order("updated_at", { ascending: false })
+      .limit(1);
 
-    if (isBackupOnly) {
-      query = query.neq("provider", "google").neq("provider", "gemini").neq("provider", "lovable");
+    if (visionGoogle && visionGoogle.length > 0 && visionGoogle[0]!.api_key) {
+      value = normaliseConfig(visionGoogle[0]!);
     }
 
-    const { data, error } = await query.limit(1);
-    if (!error && data && data.length > 0 && data[0]!.api_key) {
-      value = normaliseConfig(data[0]!);
-    } else if (isBackupOnly) {
-      // Find any vision-capable backup provider (must have visionCapable in providerMeta)
-      const { data: fallbackData } = await supabaseAdmin
-        .from("ai_provider_keys")
-        .select("provider, api_key, base_url, model, label")
-        .neq("provider", "google")
-        .neq("provider", "gemini")
-        .neq("provider", "lovable")
-        .order("updated_at", { ascending: false });
-
-      if (fallbackData) {
-        const row = fallbackData.find((r) => {
-          if (!r.api_key || r.api_key.trim().length <= 5) return false;
-          const meta = providerMeta(r.provider);
-          return meta.visionCapable === true;
-        });
-        if (row) value = normaliseConfig(row);
-      }
-    }
-
-    // Safety fallback: if no vision-capable non-Google provider was found, use the active Google vision key
+    // 2. Any active Google key (all Google keys can call Gemini 3.8 Flash Vision)
     if (!value) {
-      const { data: googleVision } = await supabaseAdmin
+      const { data: anyGoogle } = await supabaseAdmin
         .from("ai_provider_keys")
         .select("provider, api_key, base_url, model, label")
         .eq("provider", "google")
-        .eq("purpose", "vision")
+        .order("is_active", { ascending: false })
         .order("updated_at", { ascending: false })
         .limit(1);
 
-      if (googleVision && googleVision.length > 0 && googleVision[0]!.api_key) {
-        value = normaliseConfig(googleVision[0]!);
+      if (anyGoogle && anyGoogle.length > 0 && anyGoogle[0]!.api_key) {
+        value = normaliseConfig(anyGoogle[0]!);
       }
     }
   } catch (err) {
     console.error("[getActiveVisionProvider] Lookup error:", err);
-    if (visionCache?.value && visionCache.backupOnly === isBackupOnly) return visionCache.value;
+    if (visionCache?.value) return visionCache.value;
     value = null;
   }
 
-  visionCache = { value, at: value ? Date.now() : Date.now() - (TTL_MS - 5_000), backupOnly: isBackupOnly };
+  visionCache = { value, at: value ? Date.now() : Date.now() - (TTL_MS - 5_000) };
   return value;
 }
 

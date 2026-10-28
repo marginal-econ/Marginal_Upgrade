@@ -252,6 +252,47 @@ export const deleteBankQuestion = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+const UploadDiagramInput = z.object({
+  questionId: z.string(),
+  dataUrl: z.string().startsWith("data:image/"),
+});
+
+export const uploadBankDiagramImage = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => UploadDiagramInput.parse(input))
+  .handler(async ({ data, context }) => {
+    const { supabaseAdmin } = await import("@/integrations/backend/client.server");
+    const db = supabaseAdmin ?? context.supabase;
+
+    const commaIndex = data.dataUrl.indexOf(",");
+    const meta = data.dataUrl.slice(0, commaIndex);
+    const base64 = data.dataUrl.slice(commaIndex + 1);
+    const mimeMatch = meta.match(/data:([^;]+)/);
+    const contentType = mimeMatch ? mimeMatch[1] : "image/jpeg";
+    const ext = contentType.includes("png") ? "png" : contentType.includes("webp") ? "webp" : "jpg";
+    const path = `${data.questionId}-${Date.now()}.${ext}`;
+
+    const buffer = Buffer.from(base64, "base64");
+    const { error } = await db.storage
+      .from("bank-diagrams")
+      .upload(path, buffer, { contentType, upsert: true });
+
+    if (error) {
+      if (error.message.includes("not found") || error.message.includes("Bucket")) {
+        await db.storage.createBucket("bank-diagrams", { public: true }).catch(() => {});
+        const retry = await db.storage
+          .from("bank-diagrams")
+          .upload(path, buffer, { contentType, upsert: true });
+        if (retry.error) throw new Error(retry.error.message);
+      } else {
+        throw new Error(error.message);
+      }
+    }
+
+    const { data: publicUrlData } = db.storage.from("bank-diagrams").getPublicUrl(path);
+    return { publicUrl: publicUrlData.publicUrl };
+  });
+
 /* ---------------------------------------------------------------------- */
 /*  Student-facing browse (everyone, RLS limits to approved rows)          */
 /* ---------------------------------------------------------------------- */

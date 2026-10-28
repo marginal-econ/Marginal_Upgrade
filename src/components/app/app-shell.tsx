@@ -155,7 +155,7 @@ const TEACHER_NAV_GROUPS: NavGroup[] = [
       { to: "/command-words", label: "Command Words", icon: Target },
       { to: "/showcase", label: "Exemplars Showcase", icon: Trophy },
       { to: "/knowledge", label: "Knowledge Base", icon: BookOpen },
-      { to: "/calibration", label: "Anchor Calibration", icon: ShieldCheck },
+      { to: "/calibration", label: "Anchor Calibration", icon: ShieldCheck, adminOnly: true },
     ],
   },
 ];

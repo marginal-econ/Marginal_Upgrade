@@ -101,6 +101,7 @@ export function KnowledgePage() {
   const [docPage, setDocPage] = useState(1);
   const docPageSize = 12;
   const [addModalOpen, setAddModalOpen] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
 
   // Easy Add form state
   const [newTitle, setNewTitle] = useState("");
@@ -244,13 +245,54 @@ export function KnowledgePage() {
               </DialogTrigger>
               <DialogContent className="sm:max-w-xl">
                 <DialogHeader>
-                  <DialogTitle className="text-base font-bold">Easy Add Knowledge Document</DialogTitle>
+                  <DialogTitle className="text-base font-bold flex items-center gap-2">
+                    <Sparkles className="size-4 text-primary" /> Easy Add Knowledge Material
+                  </DialogTitle>
                   <DialogDescription className="text-xs text-muted-foreground">
-                    Upload a mark scheme, syllabus guide, or past paper to ground Cambridge evaluations in official criteria.
+                    Upload official Cambridge 9708 mark schemes, past papers, or syllabus guides to ground evaluations. Only teachers and administrators can add material.
                   </DialogDescription>
                 </DialogHeader>
 
                 <div className="space-y-4 py-2 text-xs">
+                  {/* Drag and Drop Zone */}
+                  <div
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      setIsDragging(true);
+                    }}
+                    onDragLeave={() => setIsDragging(false)}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      setIsDragging(false);
+                      const f = e.dataTransfer.files?.[0];
+                      if (f) handleFileChange(f);
+                    }}
+                    className={cn(
+                      "relative flex flex-col items-center justify-center rounded-xl border-2 border-dashed p-4 text-center transition-all cursor-pointer",
+                      isDragging
+                        ? "border-primary bg-primary/10"
+                        : "border-border/80 hover:border-primary/50 hover:bg-muted/40",
+                    )}
+                  >
+                    <input
+                      type="file"
+                      accept=".pdf,.txt,.md"
+                      className="absolute inset-0 opacity-0 cursor-pointer"
+                      disabled={isUploading}
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (f) handleFileChange(f);
+                      }}
+                    />
+                    <Upload className="size-5 text-primary mb-1.5" />
+                    <p className="text-xs font-semibold text-foreground">
+                      Drag & drop Cambridge PDF or notes here, or click to browse
+                    </p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                      Supports PDF (with automatic OCR), text, and markdown files
+                    </p>
+                  </div>
+
                   <div>
                     <Label className="text-xs font-semibold">Document Title *</Label>
                     <Input
@@ -291,25 +333,18 @@ export function KnowledgePage() {
 
                   <div>
                     <div className="flex items-center justify-between">
-                      <Label className="text-xs font-semibold">Upload File or Paste Text</Label>
-                      <label className="text-[11px] font-semibold text-primary hover:underline cursor-pointer flex items-center gap-1">
-                        <Upload className="size-3" /> Choose PDF / Text
-                        <input
-                          type="file"
-                          accept=".pdf,.txt,.md"
-                          className="hidden"
-                          onChange={(e) => {
-                            const f = e.target.files?.[0];
-                            if (f) handleFileChange(f);
-                          }}
-                        />
-                      </label>
+                      <Label className="text-xs font-semibold">Document Text Content</Label>
+                      {newText && (
+                        <span className="text-[10px] text-muted-foreground font-mono">
+                          {newText.length.toLocaleString()} characters loaded
+                        </span>
+                      )}
                     </div>
                     <Textarea
-                      placeholder="Paste text directly, or click 'Choose PDF / Text' above to extract from file..."
+                      placeholder="Extracted file text will appear here. You can also paste mark schemes or notes directly..."
                       value={newText}
                       onChange={(e) => setNewText(e.target.value)}
-                      rows={6}
+                      rows={5}
                       className="mt-1.5 text-xs font-mono"
                     />
                   </div>
@@ -359,6 +394,26 @@ export function KnowledgePage() {
       />
 
       <div className="space-y-5 px-4 py-6 sm:px-6 md:px-8 max-w-7xl mx-auto">
+        {/* Quick Teacher & Admin Action Banner */}
+        {isStaff && (
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 rounded-2xl border border-primary/20 bg-gradient-to-r from-primary/10 via-primary/5 to-transparent p-4 shadow-2xs">
+            <div className="space-y-0.5">
+              <div className="flex items-center gap-1.5 text-xs font-bold text-foreground">
+                <Sparkles className="size-3.5 text-primary" /> Teacher &amp; Admin Grounding Hub
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Easily add official Cambridge 9708 mark schemes, past papers, or syllabus guides to ground all automated evaluations in verified criteria.
+              </p>
+            </div>
+            <Button
+              size="sm"
+              onClick={() => setAddModalOpen(true)}
+              className="shrink-0 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold text-xs shadow-xs"
+            >
+              <Plus className="size-3.5 mr-1.5" /> Add New Material
+            </Button>
+          </div>
+        )}
         {/* Sleek Search Header */}
         <div className="rounded-2xl border border-border/80 bg-card p-4 sm:p-5 shadow-xs space-y-3">
           <form onSubmit={handleSearchSubmit} className="flex flex-col sm:flex-row gap-2">
@@ -566,7 +621,7 @@ export function KnowledgePage() {
                           onClick={async () => {
                             if (confirm(`Remove "${doc.title}" from Knowledge Base?`)) {
                               try {
-                                await removeDoc({ data: { documentId: doc.id } });
+                                await removeDoc({ data: { id: doc.id, documentId: doc.id } });
                                 toast.success("Document removed.");
                                 queryClient.invalidateQueries({ queryKey: ["knowledge-documents"] });
                               } catch (err: any) {

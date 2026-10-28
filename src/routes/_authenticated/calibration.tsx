@@ -81,7 +81,7 @@ function CalibrationPage() {
   const selectedMaxMark = Number(maxMark);
   const numericMark = Number(mark);
 
-  const isStaff = me.data?.isStaff ?? false;
+  const isAdmin = me.data?.isAdmin ?? false;
 
   const mutation = useMutation({
     mutationFn: () =>
@@ -114,13 +114,16 @@ function CalibrationPage() {
     );
   }
 
-  if (!isStaff) {
+  if (!isAdmin) {
     return (
       <div className="px-5 py-16 md:px-8">
         <div className="panel mx-auto max-w-md px-6 py-10 text-center">
+          <div className="mx-auto mb-3 flex size-12 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-600 border border-amber-500/20">
+            <Target className="size-6" />
+          </div>
           <h2 className="text-sm font-semibold">Administrators only</h2>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Calibration anchors are managed by administrators. They already ground every mark you
+          <p className="mt-2 text-xs text-muted-foreground leading-relaxed">
+            Calibration anchors are strictly restricted to administrators. They already ground every mark you
             receive — nothing you need to set up here.
           </p>
         </div>
@@ -134,7 +137,7 @@ function CalibrationPage() {
         title="Calibration anchors"
         description="Real essays with marks you have confirmed. These are shown to the examiner model as worked exemplars, which is what stops it drifting towards safe middle-band marks."
       />
-      <AdminNavTabs role={me.data?.isAdmin ? "admin" : "teacher"} />
+      <AdminNavTabs role="admin" />
 
       <div className="grid gap-6 px-5 py-6 md:px-8 lg:grid-cols-[minmax(0,440px)_minmax(0,1fr)]">
         <div className="panel space-y-4 p-5">

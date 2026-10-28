@@ -24,13 +24,16 @@ import { supabase } from "@/integrations/backend/client";
 import { registerTeacher, getTeacherProfileStatus } from "@/lib/teacher.functions";
 
 export const Route = createFileRoute("/teacher-auth")({
+  validateSearch: (search: Record<string, unknown>) => ({
+    tab: typeof search.tab === "string" ? search.tab : undefined,
+  }),
   head: () => ({
     meta: [
       { title: "Teacher & Department Portal — Marginal | Cambridge 9708 Economics" },
       {
         name: "description",
         content:
-          "Official Teacher Portal for Cambridge 9708 Economics educators. Ingest mark schemes, calibrate anchors, manage cohorts, and moderate student scripts.",
+          "Official Teacher Portal for Cambridge 9708 Economics educators. Ingest mark schemes, manage cohorts, and moderate student scripts.",
       },
     ],
   }),
@@ -60,10 +63,18 @@ function readRecoveryLinkState(): "recovery" | "error" | null {
 
 export function TeacherAuthPage() {
   const navigate = useNavigate();
+  const search = Route.useSearch();
   const registerTeacherFn = useServerFn(registerTeacher);
   const checkTeacherStatusFn = useServerFn(getTeacherProfileStatus);
 
   const [view, setView] = useState<TeacherAuthView>("credentials");
+  const [activeTab, setActiveTab] = useState<string>(search.tab === "signup" ? "signup" : "signin");
+
+  useEffect(() => {
+    if (search.tab === "signup") {
+      setActiveTab("signup");
+    }
+  }, [search.tab]);
 
   // Sign in state
   const [signInEmail, setSignInEmail] = useState("");
@@ -557,7 +568,7 @@ export function TeacherAuthPage() {
                 </div>
               )}
 
-              <Tabs defaultValue="signin">
+              <Tabs value={activeTab} onValueChange={setActiveTab}>
                 <TabsList className="grid w-full grid-cols-2 mb-6">
                   <TabsTrigger value="signin">Teacher Sign In</TabsTrigger>
                   <TabsTrigger value="signup">Register as Teacher</TabsTrigger>

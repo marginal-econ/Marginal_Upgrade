@@ -1511,24 +1511,124 @@ async function visionChatViaOpenAiCompatible(
   throw new AiGatewayError(explain(lastStatus, lastText), lastStatus);
 }
 
+async function prepareVisionImageData(input: string): Promise<{ mimeType: string; data: string }> {
+  if (input.startsWith("http://") || input.startsWith("https://")) {
+    try {
+      const res = await fetch(input, { signal: AbortSignal.timeout(15_000) });
+      if (res.ok) {
+        const contentType = res.headers.get("content-type") || "image/jpeg";
+        const buf = Buffer.from(await res.arrayBuffer());
+        return { mimeType: contentType, data: buf.toString("base64") };
+      }
+    } catch (e) {
+      console.warn("Could not fetch remote vision image URL:", e);
+    }
+  }
+
+  const match = /^data:([^;]+);base64,(.+)$/s.exec(input);
+  if (match) {
+    return { mimeType: match[1]!, data: match[2]! };
+  }
+  throw new Error("Vision input was not a valid data URL or accessible image URL.");
+}
+
+async function visionChatViaGoogle(
+  keysToTry: string[],
+  options: {
+    model: string;
+    systemPrompt: string;
+    prompt: string;
+    imageDataUrls: string[];
+    maxCompletionTokens?: number;
+  },
+): Promise<Omit<ChatResult, "latencyMs">> {
+  const imageParts = await Promise.all(options.imageDataUrls.map(prepareVisionImageData));
+  const parts: Array<{ inlineData?: { mimeType: string; data: string }; text?: string }> = [
+    ...imageParts.map((img) => ({ inlineData: { mimeType: img.mimeType, data: img.data } })),
+    { text: options.prompt },
+  ];
+
+  const body: Record<string, unknown> = {
+    contents: [{ role: "user", parts }],
+    generationConfig: {
+      temperature: 0.1,
+      mediaResolution: "MEDIA_RESOLUTION_HIGH",
+      maxOutputTokens: options.maxCompletionTokens ?? 4096,
+    },
+  };
+  if (options.systemPrompt) {
+    body.systemInstruction = { parts: [{ text: options.systemPrompt }] };
+  }
+
+  const modelsToTry = ["models/gemini-3.8-flash"];
+  let lastErr: unknown = null;
+
+  for (const model of modelsToTry) {
+    for (let kIdx = 0; kIdx < keysToTry.length; kIdx++) {
+      const currentKey = keysToTry[kIdx]!;
+      try {
+        const response = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/${model}:generateContent?key=${encodeURIComponent(currentKey)}`,
+          {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify(body),
+            signal: AbortSignal.timeout(45_000),
+          },
+        );
+
+        if (!response.ok) {
+          const detail = await response.text().catch(() => "");
+          lastErr = new Error(`Google Gemini Vision returned ${response.status}: ${detail.slice(0, 300)}`);
+          if (response.status === 429 || response.status === 503) {
+            markKeyRateLimited(currentKey, 60_000);
+            if (kIdx + 1 < keysToTry.length) continue;
+          }
+          if (response.status === 404) {
+            break;
+          }
+          continue;
+        }
+
+        markKeyHealthy(currentKey);
+        const payload = (await response.json()) as {
+          candidates?: { content?: { parts?: { text?: string }[] } }[];
+          usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number };
+        };
+
+        const text = (payload.candidates?.[0]?.content?.parts ?? [])
+          .map((p) => p.text ?? "")
+          .join("")
+          .trim();
+
+        return {
+          text,
+          model: "google/gemini-3.8-flash",
+          promptTokens: payload.usageMetadata?.promptTokenCount ?? null,
+          completionTokens: payload.usageMetadata?.candidatesTokenCount ?? null,
+        };
+      } catch (fetchErr: any) {
+        lastErr = fetchErr;
+        const isTimeout =
+          fetchErr?.name === "AbortError" ||
+          fetchErr?.name === "TimeoutError" ||
+          fetchErr?.message?.includes("timed out") ||
+          fetchErr?.message?.includes("aborted");
+        if (isTimeout) {
+          markKeyRateLimited(currentKey, 60_000);
+          if (kIdx + 1 < keysToTry.length) continue;
+        }
+      }
+    }
+  }
+
+  throw lastErr || new Error("Google Gemini Vision failed to process the image.");
+}
+
 /**
  * Multimodal read of one or more page images (scans/photos of handwriting,
  * or photographed/scanned past-paper pages for MCQ/essay bank extraction).
- *
- * Provider resolution order (each step only runs if the previous one is
- * unset):
- *   1. `overrideProvider`, if the caller passed one explicitly (admin
- *      "test key" action, or a call that wants a specific saved key).
- *   2. The admin-configured active VISION provider (Admin → AI providers →
- *      Vision) — a key saved and activated specifically for image reads,
- *      independent of what marks essays or embeds the knowledge base.
- *   3. The admin-configured active CHAT provider, for back-compatibility
- *      with setups that only ever configured one BYOK key and expect it to
- *      cover everything (and because many chat-capable models are also
- *      vision-capable).
- *   4. The built-in Lovable AI gateway, if LOVABLE_API_KEY is present.
- * Otherwise this fails loudly with a clear, actionable message instead of
- * a silent 500.
+ * Vision is strictly routed through Google Gemini.
  */
 export async function visionChat(options: {
   model: string;
@@ -1546,121 +1646,78 @@ export async function visionChat(options: {
   let callError: Error | null = null;
 
   try {
-    const gateway = await getAiGatewaySettings();
-    let override =
-      options.overrideProvider !== undefined
-        ? options.overrideProvider
-        : ((await getActiveVisionProvider(gateway.backupOnly)) ?? (await getActiveProvider(gateway.backupOnly)));
+    // Collect all available Google Gemini vision keys
+    const googleKeys: string[] = [];
 
-    if (gateway.backupOnly && override && isGeminiProvider(override.provider)) {
-      override = (await getActiveVisionProvider(true)) ?? (await getActiveProvider(true));
+    // 1. Explicit override if Google provider
+    if (options.overrideProvider && isGeminiProvider(options.overrideProvider.provider)) {
+      const { allOrderedKeys } = buildOrderedKeyPool(options.overrideProvider);
+      googleKeys.push(...allOrderedKeys);
     }
 
-    if (override) {
-      const provResult =
-        override.provider === "anthropic"
-          ? await visionChatViaAnthropic(override, options)
-          : await visionChatViaOpenAiCompatible(override, options);
+    // 2. Active Vision Provider
+    try {
+      const visionProv = await getActiveVisionProvider();
+      if (visionProv && isGeminiProvider(visionProv.provider)) {
+        const { allOrderedKeys } = buildOrderedKeyPool(visionProv);
+        googleKeys.push(...allOrderedKeys);
+      }
+    } catch {
+      // Continue
+    }
+
+    // 3. Database: look for any saved Google keys
+    try {
+      const { supabaseAdmin } = await import("../integrations/backend/client.server");
+      const { data: dbKeys } = await supabaseAdmin
+        .from("ai_provider_keys")
+        .select("api_key, purpose, is_active")
+        .eq("provider", "google");
+      if (dbKeys && dbKeys.length > 0) {
+        const sorted = [...dbKeys].sort((a, b) => {
+          if (a.purpose === "vision" && b.purpose !== "vision") return -1;
+          if (b.purpose === "vision" && a.purpose !== "vision") return 1;
+          if (a.is_active && !b.is_active) return -1;
+          if (b.is_active && !a.is_active) return 1;
+          return 0;
+        });
+        for (const row of sorted) {
+          const cfg = normaliseConfig({
+            provider: "google",
+            api_key: row.api_key,
+            base_url: null,
+            model: "gemini-3.8-flash",
+            label: "Google",
+          });
+          const { allOrderedKeys } = buildOrderedKeyPool(cfg);
+          googleKeys.push(...allOrderedKeys);
+        }
+      }
+    } catch {
+      // Continue
+    }
+
+    // 4. Environment variables
+    const envKey = readEnv("GOOGLE_AI_API_KEY") || readEnv("GEMINI_API_KEY") || readEnv("GOOGLE_API_KEY");
+    if (envKey) googleKeys.push(envKey.trim());
+
+    const uniqueGoogleKeys = Array.from(new Set(googleKeys.filter((k) => k && k.length > 5)));
+    if (uniqueGoogleKeys.length > 0) {
+      const provResult = await visionChatViaGoogle(uniqueGoogleKeys, options);
       result = { ...provResult, latencyMs: Date.now() - started };
       return result;
     }
 
-    if (gateway.backupOnly) {
-      throw new AiGatewayError(
-        "Google Gemini is temporarily switched off (Backup-Only Mode), but no backup provider with vision capabilities is active. Please add an API key (Groq, OpenRouter, Mistral, xAI, OpenAI, Anthropic) under Admin → Multi-Provider Hub.",
-        503,
-      );
-    }
-
-    if (!readEnv("LOVABLE_API_KEY")) {
-      throw new AiGatewayError(
-        "No AI provider is configured for handwriting/vision. Add a provider key that supports vision (Anthropic, OpenAI, or Google) under Admin → AI providers and mark it active.",
-        500,
-      );
-    }
-
-    const body: Record<string, unknown> = {
-      model: options.model,
-      messages: [
-        { role: "system", content: options.systemPrompt },
-        {
-          role: "user",
-          content: [
-            { type: "text", text: options.prompt },
-            // "detail: high" tells the underlying vision model to spend more
-            // tokens on this image instead of a downsampled thumbnail — the
-            // OpenAI-compatible lever for image fidelity, matters a lot for
-            // reading small/faint handwriting.
-            ...options.imageDataUrls.map((url) => ({
-              type: "image_url" as const,
-              image_url: { url, detail: "high" as const },
-            })),
-          ],
-        },
-      ],
-    };
-    if (options.maxCompletionTokens) body.max_completion_tokens = options.maxCompletionTokens;
-
-    let response = await fetch(`${GATEWAY}/chat/completions`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Lovable-API-Key": apiKey(),
-      },
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(30_000),
-    });
-
-    if (
-      !response.ok &&
-      (response.status === 400 || response.status === 404) &&
-      body.model !== ECONOMY_MODEL
-    ) {
-      const errText = await response.text();
-      if (
-        errText.toLowerCase().includes("model") ||
-        errText.toLowerCase().includes("not found") ||
-        errText.toLowerCase().includes("invalid") ||
-        errText.toLowerCase().includes("unsupported")
-      ) {
-        body.model = ECONOMY_MODEL;
-        response = await fetch(`${GATEWAY}/chat/completions`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Lovable-API-Key": apiKey(),
-          },
-          body: JSON.stringify(body),
-          signal: AbortSignal.timeout(15_000),
-        });
-      } else {
-        throw new AiGatewayError(explain(response.status, errText), response.status);
-      }
-    }
-
-    if (!response.ok) {
-      throw new AiGatewayError(explain(response.status, await response.text()), response.status);
-    }
-
-    const data = (await response.json()) as {
-      choices?: { message?: { content?: string } }[];
-      usage?: { prompt_tokens?: number; completion_tokens?: number };
-    };
-
-    result = {
-      text: data.choices?.[0]?.message?.content ?? "",
-      model: options.model,
-      promptTokens: data.usage?.prompt_tokens ?? null,
-      completionTokens: data.usage?.completion_tokens ?? null,
-      latencyMs: Date.now() - started,
-    };
-    return result;
+    throw new AiGatewayError(
+      "No Google Gemini API key is configured for vision/handwriting. Add a Google Gemini key under Admin → AI Providers with purpose 'Vision' and mark it active.",
+      500,
+    );
   } catch (err: any) {
     callError = err instanceof Error ? err : new Error(String(err));
     throw err;
   } finally {
     try {
-      const { supabaseAdmin } = await import("@/integrations/backend/client.server");
+      const { supabaseAdmin } = await import("../integrations/backend/client.server");
       const latencyMs = Date.now() - started;
       const model = result?.model || options.model || "google/gemini-3.8-flash";
       await supabaseAdmin.from("ai_usage_log").insert({
@@ -1668,7 +1725,7 @@ export async function visionChat(options: {
         feature: options.feature ?? "vision_chat",
         model,
         prompt_tokens: result?.promptTokens ?? null,
-        completion_tokens: result?.completionTokens ?? null,
+        completionTokens: result?.completionTokens ?? null,
         latency_ms: latencyMs,
         ok: !callError,
         error_message: callError ? callError.message : null,
