@@ -3549,9 +3549,9 @@ function StudentLifetimePortfolioModal({
                                     Overall Examiner Comment
                                   </span>
                                   <p className="text-slate-200 leading-relaxed bg-slate-950/60 p-3 rounded-lg border border-slate-800/80">
-                                    {typeof e.feedback.comment === "string"
+                                    {(typeof e.feedback.comment === "string"
                                       ? e.feedback.comment
-                                      : JSON.stringify(e.feedback.comment)}
+                                      : JSON.stringify(e.feedback.comment)).replace(/\*\*/g, "")}
                                   </p>
                                 </div>
                               )}
@@ -3564,7 +3564,7 @@ function StudentLifetimePortfolioModal({
                                   <ul className="list-disc list-inside space-y-1 text-slate-300 pl-1">
                                     {e.feedback.strengths.map((str: any, idx: number) => (
                                       <li key={idx}>
-                                        {typeof str === "string" ? str : str?.description || JSON.stringify(str)}
+                                        {(typeof str === "string" ? str : str?.description || JSON.stringify(str)).replace(/\*\*/g, "")}
                                       </li>
                                     ))}
                                   </ul>
@@ -3580,9 +3580,9 @@ function StudentLifetimePortfolioModal({
                                     <ul className="list-disc list-inside space-y-1 text-slate-300 pl-1">
                                       {e.feedback.improvements.map((imp: any, idx: number) => (
                                         <li key={idx}>
-                                          {typeof imp === "string"
+                                          {(typeof imp === "string"
                                             ? imp
-                                            : imp?.description || JSON.stringify(imp)}
+                                            : imp?.description || JSON.stringify(imp)).replace(/\*\*/g, "")}
                                         </li>
                                       ))}
                                     </ul>

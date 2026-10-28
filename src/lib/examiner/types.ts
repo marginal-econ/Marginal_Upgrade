@@ -61,11 +61,16 @@ const EMPTY_MISSING: MissingElements = {
   diagrams: [],
 };
 
+export function cleanMarkdownText(value: unknown): string {
+  if (typeof value !== "string") return "";
+  return value.replace(/\*\*/g, "").replace(/__([^_]+)__/g, "$1").trim();
+}
+
 function toStringArray(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
   return value
-    .map((item) => (typeof item === "string" ? item : JSON.stringify(item)))
-    .filter((item) => item.trim().length > 0);
+    .map((item) => cleanMarkdownText(typeof item === "string" ? item : JSON.stringify(item)))
+    .filter((item) => item.length > 0);
 }
 
 function toNumber(value: unknown, fallback: number): number {
@@ -79,7 +84,7 @@ function normaliseAo(value: unknown, outOf: number): AoScore {
   return {
     awarded: Math.max(0, Math.min(declaredOutOf, Math.round(toNumber(raw.awarded, 0)))),
     out_of: declaredOutOf,
-    comment: typeof raw.comment === "string" ? raw.comment : "",
+    comment: cleanMarkdownText(raw.comment),
   };
 }
 
@@ -119,7 +124,7 @@ export function normaliseGrading(
     max_mark: maxMark,
     band: typeof raw.band === "string" ? raw.band : bandFor(total, maxMark),
     ao_breakdown: { knowledge, analysis, evaluation },
-    examiner_summary: typeof raw.examiner_summary === "string" ? raw.examiner_summary : "",
+    examiner_summary: cleanMarkdownText(raw.examiner_summary),
     strengths: toStringArray(raw.strengths),
     weaknesses: toStringArray(raw.weaknesses),
     missing_elements: {

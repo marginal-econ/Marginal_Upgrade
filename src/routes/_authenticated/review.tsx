@@ -1069,7 +1069,7 @@ function ReviewResults({ data }: { data: Eligible }) {
                   />
                 </div>
                 {ao.comment ? (
-                  <p className="mt-2 text-xs text-muted-foreground leading-relaxed">{ao.comment}</p>
+                  <p className="mt-2 text-xs text-muted-foreground leading-relaxed">{ao.comment.replace(/\*\*/g, "")}</p>
                 ) : null}
               </div>
             ))}

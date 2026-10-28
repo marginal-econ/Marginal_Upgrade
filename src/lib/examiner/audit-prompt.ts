@@ -74,6 +74,7 @@ WHAT YOU MUST NOT DO:
 - Do not mark an essay down, or up, for lacking a diagram unless the question explicitly required one.
 
 OUTPUT:
+Do NOT use markdown bolding or asterisks (such as **term** or **band**) in ANY string field. Never write "**" anywhere in your JSON response.
 Respond ONLY with a single valid JSON object, no markdown fences, no commentary outside the JSON, in exactly the same structure as the original grading JSON you were given:
 
 {{

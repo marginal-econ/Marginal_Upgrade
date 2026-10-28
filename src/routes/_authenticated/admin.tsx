@@ -5214,7 +5214,7 @@ function ShowcaseAdminPanel() {
                   <div className="mt-3 space-y-2 border-t border-border/60 pt-3 text-xs">
                     {item.grading?.examiner_summary ? (
                       <p className="rounded-md bg-muted/40 p-2.5 italic text-muted-foreground">
-                        "{item.grading.examiner_summary}"
+                        "{item.grading.examiner_summary.replace(/\*\*/g, "")}"
                       </p>
                     ) : null}
                     <div className="max-h-60 overflow-y-auto whitespace-pre-wrap rounded-lg bg-muted/20 p-3 font-serif text-foreground border border-border/40">

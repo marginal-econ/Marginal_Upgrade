@@ -123,7 +123,7 @@ ARBITRATION PRINCIPLES:
 3. If the Moderator deducted marks for lack of a diagram when the question did not require one, or overlooked a valid alternative analytical chain, uphold the Primary Examiner's award.
 4. Reconcile the marks for each AO strictly against the Cambridge levels-based mark scheme.
 
-Respond ONLY with a single valid JSON object, no markdown fences, no commentary outside the JSON:
+Respond ONLY with a single valid JSON object, no markdown fences, no commentary outside the JSON. Never use markdown asterisks or bolding (**) in any string field:
 {
   "total_mark": <integer, sum of the three awarded values below>,
   "max_mark": {max_mark},

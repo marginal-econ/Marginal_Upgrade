@@ -180,7 +180,7 @@ function ShowcaseCard({
 
         {examinerSummary ? (
           <p className="mt-2.5 rounded-lg border border-border/40 bg-muted/30 p-2.5 text-xs italic leading-relaxed text-muted-foreground">
-            "{examinerSummary}"
+            "{examinerSummary.replace(/\*\*/g, "")}"
           </p>
         ) : null}
       </div>

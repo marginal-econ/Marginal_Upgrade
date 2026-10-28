@@ -108,6 +108,9 @@ ON RESPONSE STRUCTURE:
 {structure_note}
 A candidate is never penalised for using a different structure that is equally well-argued — judge the AOs actually demonstrated in the text, not adherence to any particular layout. Where the essay's evaluation is thin, your "weaknesses"/"actionable_feedback" may reference the structure above as a concrete way to strengthen it next time, but this is coaching advice, not a marking requirement.
 
+NO MARKDOWN ASTERISKS:
+Do NOT use markdown bolding or asterisks (such as **term** or **band**) in ANY string field. Never write "**" anywhere in "examiner_summary", "ao_breakdown" comments, "strengths", "weaknesses", "missing_elements", or "actionable_feedback". Write in clean, professional plain text.
+
 Respond ONLY with a single valid JSON object, no markdown fences, no commentary outside the JSON, in exactly this structure:
 
 {{

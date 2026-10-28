@@ -42,6 +42,11 @@ function getBandBadgeStyle(band: string) {
   return "border-rose-500/30 bg-rose-500/10 text-rose-500 font-semibold";
 }
 
+function stripStars(text: unknown): string {
+  if (typeof text !== "string") return "";
+  return text.replace(/\*\*/g, "").replace(/__([^_]+)__/g, "$1");
+}
+
 export function MarkBreakdown({ grading }: { grading: Grading }) {
   const percent = grading.max_mark > 0 ? (grading.total_mark / grading.max_mark) * 100 : 0;
   const isUnanchored =
@@ -170,7 +175,7 @@ export function MarkBreakdown({ grading }: { grading: Grading }) {
                   style={{ width: `${width}%` }}
                 />
               </div>
-              <p className="mt-3 text-xs leading-relaxed text-muted-foreground">{score.comment}</p>
+              <p className="mt-3 text-xs leading-relaxed text-muted-foreground">{stripStars(score.comment)}</p>
             </div>
           );
         })}
@@ -180,7 +185,7 @@ export function MarkBreakdown({ grading }: { grading: Grading }) {
         <div className="panel p-3.5 sm:p-5">
           <h3 className="text-sm font-semibold">Examiner summary</h3>
           <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-            {grading.examiner_summary}
+            {stripStars(grading.examiner_summary)}
           </p>
         </div>
       ) : null}
@@ -201,7 +206,7 @@ export function MarkBreakdown({ grading }: { grading: Grading }) {
                 <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-primary/15 text-[11px] font-semibold text-primary">
                   {index + 1}
                 </span>
-                <span className="text-muted-foreground">{item}</span>
+                <span className="text-muted-foreground">{stripStars(item)}</span>
               </li>
             ))}
           </ol>
@@ -214,7 +219,7 @@ export function MarkBreakdown({ grading }: { grading: Grading }) {
             <h3 className="text-sm font-semibold">Practise next</h3>
             <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
               {grading.suggested_practice.map((item, index) => (
-                <li key={index}>• {item}</li>
+                <li key={index}>• {stripStars(item)}</li>
               ))}
             </ul>
           </div>
@@ -224,7 +229,7 @@ export function MarkBreakdown({ grading }: { grading: Grading }) {
             <h3 className="text-sm font-semibold">Revise</h3>
             <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
               {grading.suggested_resources.map((item, index) => (
-                <li key={index}>• {item}</li>
+                <li key={index}>• {stripStars(item)}</li>
               ))}
             </ul>
           </div>
@@ -303,7 +308,7 @@ function PointList({
                 tone === "good" ? "text-success" : "text-destructive",
               )}
             />
-            {item}
+            {stripStars(item)}
           </li>
         ))}
       </ul>
@@ -331,7 +336,7 @@ function MissingElements({ grading }: { grading: Grading }) {
             <p className="text-xs font-medium text-muted-foreground">{group.label}</p>
             <ul className="mt-1.5 space-y-1 text-sm text-muted-foreground">
               {group.items.map((item, index) => (
-                <li key={index}>• {item}</li>
+                <li key={index}>• {stripStars(item)}</li>
               ))}
             </ul>
           </div>
