@@ -65,7 +65,7 @@ export const AO_MAX_MARKS = { ao1: 2, ao2: 6, ao3: 4 } as const;
 
 /** Near-zero variance: consistent, reliable grading. */
 export const TEMPERATURE_EXAMINER = 0;
-export const TEMPERATURE_TUTOR = 0.4;
+export const TEMPERATURE_TUTOR = 0.25;
 
 export const MAX_ANCHORS_PER_BAND = 2;
 

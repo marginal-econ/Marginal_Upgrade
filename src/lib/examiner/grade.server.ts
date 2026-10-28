@@ -243,7 +243,7 @@ export async function gradeEssay(
           systemPrompt,
           prompt: userMessage,
           imageDataUrls: markSchemeImages,
-          maxCompletionTokens: 3500,
+          maxCompletionTokens: 4000,
           userId: options.userId,
           feature: "grade_essay",
         })
@@ -255,7 +255,7 @@ export async function gradeEssay(
           userId: options.userId,
           feature: "grade_essay",
           reasoningEffort: "medium",
-          maxCompletionTokens: 3500,
+          maxCompletionTokens: 4000,
           messages: [
             { role: "system", content: systemPrompt },
             { role: "user", content: userMessage },

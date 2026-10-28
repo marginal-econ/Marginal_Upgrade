@@ -25,8 +25,8 @@ import { EMBEDDING_DIMS } from "./examiner/config";
 const ECONOMY_MODEL = "google/gemini-3.8-flash";
 /** Token ceilings applied by the non-"max" modes — a real lever on cost,
  *  independent of which model ends up handling the call. */
-const BALANCED_TOKEN_CAP = 2000;
-const ECONOMY_TOKEN_CAP = 1100;
+const BALANCED_TOKEN_CAP = 2600;
+const ECONOMY_TOKEN_CAP = 1400;
 
 /**
  * Applies the admin's global AI mode to one call's options, BEFORE it
@@ -424,7 +424,9 @@ async function chatViaProvider(
                 model: m,
                 max_tokens: options.maxCompletionTokens ?? 8000,
                 ...(system ? { system } : {}),
-                ...(typeof options.temperature === "number" ? { temperature: options.temperature } : {}),
+                ...(typeof options.temperature === "number"
+                  ? { temperature: Math.min(options.temperature, 0.45) }
+                  : { temperature: 0.25 }),
                 messages: options.messages
                   .filter((m) => m.role !== "system")
                   .map((m) => ({ role: m.role, content: m.content })),
@@ -528,9 +530,16 @@ async function chatViaProvider(
     model: config.model,
     messages: options.messages,
   };
+  // Slightly lower, disciplined default temperature for deeper analytical rigor
+  const defaultTemp = config.provider === "mistral" ? 0.2 : 0.25;
+  const effectiveTemp =
+    typeof options.temperature === "number"
+      ? Math.min(options.temperature, 0.45)
+      : defaultTemp;
+
   // Do not send temperature to reasoning models that explicitly reject custom temperatures
-  if (typeof options.temperature === "number" && !isReasoningModel) {
-    body.temperature = options.temperature;
+  if (!isReasoningModel) {
+    body.temperature = effectiveTemp;
   }
   if (options.reasoningEffort) {
     if (config.provider === "openrouter") {
@@ -540,16 +549,16 @@ async function chatViaProvider(
     }
   }
   if (options.json) body.response_format = { type: "json_object" };
-  if (options.maxCompletionTokens) {
-    // OpenAI and reasoning models use max_completion_tokens
-    if (config.provider === "openai" || isReasoningModel) {
-      body.max_completion_tokens = options.maxCompletionTokens;
-    } else {
-      // Groq, Mistral, DeepSeek, xAI, OpenRouter, and custom endpoints expect max_tokens
-      body.max_tokens = options.maxCompletionTokens;
-      if (config.provider === "openrouter") {
-        body.max_completion_tokens = options.maxCompletionTokens;
-      }
+
+  const effectiveMaxTokens =
+    options.maxCompletionTokens ?? (config.provider === "mistral" ? 3500 : 3000);
+  if (config.provider === "openai" || isReasoningModel) {
+    body.max_completion_tokens = effectiveMaxTokens;
+  } else {
+    // Groq, Mistral, DeepSeek, xAI, OpenRouter, and custom endpoints expect max_tokens
+    body.max_tokens = effectiveMaxTokens;
+    if (config.provider === "openrouter") {
+      body.max_completion_tokens = effectiveMaxTokens;
     }
   }
 
