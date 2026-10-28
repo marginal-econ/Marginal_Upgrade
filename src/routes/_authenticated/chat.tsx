@@ -116,6 +116,15 @@ const SUGGESTED_QUICK_CHIPS = [
   "Fiscal multiplier & crowding out",
 ];
 
+function cleanSpeechText(text: string): string {
+  return (text || "")
+    .replace(/[*_#>`~]/g, "")
+    .replace(/\[Source:[^\]]+\]/g, "")
+    .replace(/\[Mark Scheme[^\]]+\]/g, "")
+    .replace(/\n+/g, ". ")
+    .trim();
+}
+
 export function GroundedChatPage() {
   const navigate = useNavigate();
   const search = Route.useSearch();

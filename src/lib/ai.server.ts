@@ -14,7 +14,7 @@ import {
   getAiGatewaySettings,
   isGeminiProvider,
 } from "./ai/active.server";
-import { getCandidateModels, getEconomyModelForProvider } from "./ai/providers";
+import { getCandidateModels, getEconomyModelForProvider, providerMeta } from "./ai/providers";
 import { readEnv } from "../server/env";
 import { EMBEDDING_DIMS } from "./examiner/config";
 
@@ -387,6 +387,7 @@ async function chatViaProvider(
   config: ProviderConfig,
   options: ChatOptions,
 ): Promise<Omit<ChatResult, "latencyMs">> {
+  const started = Date.now();
   const isBudget = options.isBudgetTier === true;
 
   // Strict free-first, paid-last key hopping:
@@ -1187,8 +1188,45 @@ export async function embed(
     }
 
     if (config) {
-      resVectors = await embedViaConfig(inputs, config);
-      return resVectors;
+      try {
+        resVectors = await embedViaConfig(inputs, config);
+        return resVectors;
+      } catch (configErr: any) {
+        // If Google embeddings fail due to regional/location restriction ("User location is not supported"),
+        // try to automatically fallback to an alternate configured embedding provider (e.g. Mistral, OpenAI, OpenRouter)
+        const errMsg = configErr?.message || String(configErr);
+        if (config.provider === "google" && (errMsg.includes("User location") || errMsg.includes("FAILED_PRECONDITION") || configErr?.status === 400)) {
+          try {
+            const { supabaseAdmin } = await import("@/integrations/backend/client.server");
+            const { data: altKeys } = await supabaseAdmin
+              .from("ai_provider_keys")
+              .select("provider, api_key, base_url, model, label")
+              .neq("provider", "google")
+              .eq("purpose", "embedding")
+              .order("is_active", { ascending: false })
+              .order("updated_at", { ascending: false })
+              .limit(1);
+
+            if (altKeys && altKeys.length > 0 && altKeys[0]!.api_key) {
+              const altConfig: ProviderConfig = {
+                provider: altKeys[0]!.provider,
+                apiKey: altKeys[0]!.api_key,
+                model: altKeys[0]!.model || "mistral-embed",
+                baseUrl: altKeys[0]!.base_url ?? undefined,
+                label: altKeys[0]!.label ?? undefined,
+              };
+              console.warn(
+                `[embed] Google embedding failed due to regional restrictions. Falling back to configured ${altConfig.provider} (${altConfig.model})...`,
+              );
+              resVectors = await embedViaConfig(inputs, altConfig);
+              return resVectors;
+            }
+          } catch (fallbackErr) {
+            console.warn("[embed] Alternate embedding provider fallback failed:", fallbackErr);
+          }
+        }
+        throw configErr;
+      }
     }
 
     if (!readEnv("LOVABLE_API_KEY")) {

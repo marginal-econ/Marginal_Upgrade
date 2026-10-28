@@ -1,4 +1,4 @@
-import { AlertTriangle, Check, CheckCircle2, Clock, FileText, ShieldCheck, X } from "lucide-react";
+import { AlertTriangle, Check, CheckCircle2, Clock, FileText, ShieldCheck, Sparkles, X } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
