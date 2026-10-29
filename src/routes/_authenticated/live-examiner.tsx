@@ -526,6 +526,8 @@ function LiveExaminerPage() {
     isMarginalAdmin({ userId: routeUser?.id, email: routeUser?.email }) ||
       todaySessionQuery.data?.isAdmin ||
       meQuery.data?.role === "admin" ||
+      meQuery.data?.isAdmin ||
+      meQuery.data?.subscription?.isAdmin ||
       (meQuery.data?.userId && isMarginalAdmin({ userId: meQuery.data.userId }))
   );
 
@@ -876,6 +878,17 @@ function LiveExaminerPage() {
     );
   }
 
+  if ((meQuery.isLoading || todaySessionQuery.isLoading) && !isAdmin) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <div className="flex flex-col items-center gap-3 text-muted-foreground">
+          <Loader2 className="size-8 animate-spin text-primary" />
+          <p className="text-sm font-medium">Verifying administrator authorization...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <>
       <PageHeader
@@ -885,9 +898,9 @@ function LiveExaminerPage() {
 
       {!isAdmin ? (
         <ChainedChamber
-          badgeText="Under Active Development & Calibration"
-          title="Live Examiner is Under Development"
-          description="The real-time keystroke coaching engine is currently undergoing advanced calibration and Socratic alignment against official Cambridge 9708 examiner standards. During this period, all other core platform features are 100% Free with unlimited access for all students and teachers."
+          badgeText="Restricted — Platform Admin Only"
+          title="Live Examiner is Restricted to Marginal Administrators"
+          description="The real-time keystroke coaching engine is currently undergoing private administrator testing and calibration against official Cambridge 9708 examiner standards. During this period, all core platform features remain 100% Free with unlimited access for all students and teachers."
           primaryCtaText="Open Free Essay Grader"
           primaryCtaLink="/grade"
           secondaryCtaText="Practice MCQ Past Papers"

@@ -98,6 +98,13 @@ const NAV_GROUPS: NavGroup[] = [
     collapsible: true,
     items: [
       { to: "/grade", label: "Grade Essay", icon: PenLine },
+      {
+        to: "/live-examiner",
+        label: "Live Examiner",
+        icon: Sparkles,
+        badge: "Admin",
+        adminOnly: true,
+      },
       { to: "/mcq-live", label: "MCQ Past Papers", icon: ListChecks },
     ],
   },
@@ -120,6 +127,12 @@ const NAV_GROUPS: NavGroup[] = [
     collapsible: true,
     items: [
       { to: "/admin", label: "Admin Console", icon: ShieldCheck, badge: "Root" },
+      {
+        to: "/live-examiner",
+        label: "Live Examiner Studio",
+        icon: Sparkles,
+        badge: "Admin Only",
+      },
     ],
   },
 ];

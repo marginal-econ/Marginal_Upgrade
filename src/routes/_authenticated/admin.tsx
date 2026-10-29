@@ -386,6 +386,9 @@ const ADMIN_CATEGORIES = [
   {
     title: "Platform & Intelligence",
     items: [ADMIN_SECTIONS.overview, ADMIN_SECTIONS.godmode],
+    externalLinks: [
+      { label: "Live Examiner Studio", to: "/live-examiner", icon: Sparkles, desc: "Real-time AI Essay Examiner (Admin Lab)" },
+    ],
   },
   {
     title: "Users & Access",
