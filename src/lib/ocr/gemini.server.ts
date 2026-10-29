@@ -33,6 +33,8 @@ const GOOGLE_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta";
  */
 const GATEWAY_MODELS = [
   "google/gemini-3.8-flash",
+  "google/gemini-2.5-flash",
+  "google/gemini-2.0-flash-001",
 ];
 const ATTEMPTS_PER_MODEL = 2;
 const CONCURRENCY = 3;
@@ -126,9 +128,10 @@ async function getVisionConfig(): Promise<ProviderConfig | null> {
 }
 
 async function prepareDataUrl(input: string): Promise<{ mimeType: string; data: string; fullDataUrl: string }> {
-  if (input.startsWith("http://") || input.startsWith("https://")) {
+  const trimmed = input.trim();
+  if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
     try {
-      const res = await fetch(input);
+      const res = await fetch(trimmed);
       if (res.ok) {
         const contentType = res.headers.get("content-type") || "image/jpeg";
         const buf = Buffer.from(await res.arrayBuffer());
@@ -144,9 +147,10 @@ async function prepareDataUrl(input: string): Promise<{ mimeType: string; data: 
     }
   }
 
-  const match = /^data:([^;]+);base64,(.+)$/s.exec(input);
+  const match = /^data:([^;,]+)(?:;[^,]*)?;base64,(.+)$/s.exec(trimmed);
   if (!match) throw new Error("A page image was not a valid base64 or remote image URL.");
-  return { mimeType: match[1]!, data: match[2]!, fullDataUrl: input };
+  const cleanData = match[2]!.replace(/\s+/g, "");
+  return { mimeType: match[1]!, data: cleanData, fullDataUrl: `data:${match[1]};base64,${cleanData}` };
 }
 
 async function transcribeViaGoogle(
@@ -156,7 +160,17 @@ async function transcribeViaGoogle(
   hint?: string,
 ) {
   const { mimeType, data } = await prepareDataUrl(dataUrl);
-  const candidateModels = ["models/gemini-3.8-flash"];
+  const candidateModels = Array.from(
+    new Set(
+      [
+        model ? (model.startsWith("models/") ? model : `models/${model}`) : null,
+        "models/gemini-3.8-flash",
+        "models/gemini-2.5-flash",
+        "models/gemini-2.0-flash",
+        "models/gemini-1.5-flash",
+      ].filter(Boolean) as string[],
+    ),
+  );
 
   const rawKeys = Array.isArray(apiKeyInput) ? apiKeyInput : [apiKeyInput];
   // Preserves exact prioritized order: healthy free keys first, cooled free keys second, emergency paid keys strictly last
@@ -167,28 +181,40 @@ async function transcribeViaGoogle(
     for (let kIdx = 0; kIdx < keysToTry.length; kIdx++) {
       const currentKey = keysToTry[kIdx]!;
       try {
-        const response = await fetch(`${GOOGLE_ENDPOINT}/${m}:generateContent`, {
-          method: "POST",
-          headers: { "content-type": "application/json", "x-goog-api-key": currentKey },
-          body: JSON.stringify({
-            systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
-            contents: [
-              {
-                role: "user",
-                parts: [
-                  { inlineData: { mimeType, data } },
-                  { text: hint ? `${PAGE_PROMPT}\nContext: ${hint}` : PAGE_PROMPT },
-                ],
-              },
-            ],
-            generationConfig: {
-              temperature: 0.1,
-              mediaResolution: "MEDIA_RESOLUTION_HIGH",
-              maxOutputTokens: MAX_OUTPUT_TOKENS,
-            },
-          }),
-          signal: AbortSignal.timeout(30_000),
-        });
+        const makeRequest = async (useHighRes: boolean) => {
+          const genConfig: Record<string, unknown> = {
+            temperature: 0.1,
+            maxOutputTokens: MAX_OUTPUT_TOKENS,
+          };
+          if (useHighRes) {
+            genConfig.mediaResolution = "MEDIA_RESOLUTION_HIGH";
+          }
+          return fetch(`${GOOGLE_ENDPOINT}/${m}:generateContent`, {
+            method: "POST",
+            headers: { "content-type": "application/json", "x-goog-api-key": currentKey },
+            body: JSON.stringify({
+              systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+              contents: [
+                {
+                  role: "user",
+                  parts: [
+                    { inlineData: { mimeType, data } },
+                    { text: hint ? `${PAGE_PROMPT}\nContext: ${hint}` : PAGE_PROMPT },
+                  ],
+                },
+              ],
+              generationConfig: genConfig,
+            }),
+            signal: AbortSignal.timeout(30_000),
+          });
+        };
+
+        let response = await makeRequest(true);
+
+        if (!response.ok && response.status === 400) {
+          // If 400 occurred, retry once without MEDIA_RESOLUTION_HIGH in case model doesn't support the flag
+          response = await makeRequest(false);
+        }
 
         if (!response.ok) {
           const detail = await response.text().catch(() => "");

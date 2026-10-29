@@ -1525,9 +1525,10 @@ async function prepareVisionImageData(input: string): Promise<{ mimeType: string
     }
   }
 
-  const match = /^data:([^;]+);base64,(.+)$/s.exec(input);
+  const trimmed = input.trim();
+  const match = /^data:([^;,]+)(?:;[^,]*)?;base64,(.+)$/s.exec(trimmed);
   if (match) {
-    return { mimeType: match[1]!, data: match[2]! };
+    return { mimeType: match[1]!, data: match[2]!.replace(/\s+/g, "") };
   }
   throw new Error("Vision input was not a valid data URL or accessible image URL.");
 }
@@ -1560,7 +1561,12 @@ async function visionChatViaGoogle(
     body.systemInstruction = { parts: [{ text: options.systemPrompt }] };
   }
 
-  const modelsToTry = ["models/gemini-3.8-flash"];
+  const modelsToTry = [
+    "models/gemini-3.8-flash",
+    "models/gemini-2.5-flash",
+    "models/gemini-2.0-flash",
+    "models/gemini-1.5-flash",
+  ];
   let lastErr: unknown = null;
 
   for (const model of modelsToTry) {

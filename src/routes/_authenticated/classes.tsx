@@ -261,7 +261,7 @@ export function ClassesPage() {
 
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8 space-y-8">
         {/* Top Action Bar */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-slate-900/60 p-6 rounded-2xl border border-border shadow-xl backdrop-blur-sm">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-card p-6 rounded-2xl border border-border shadow-sm">
           <div>
             <h2 className="text-xl font-semibold text-foreground tracking-tight flex items-center gap-2">
               <GraduationCap className="h-6 w-6 text-purple-400" />
@@ -271,7 +271,7 @@ export function ClassesPage() {
                   ? "My Teaching Classes"
                   : "Enrolled Classes"}
             </h2>
-            <p className="text-sm text-slate-400 mt-1">
+            <p className="text-sm text-muted-foreground mt-1">
               {isAdmin
                 ? "Admins can create, assign teachers, and delete classrooms. All teachers and students access assigned cohorts."
                 : isTeacher
@@ -305,9 +305,9 @@ export function ClassesPage() {
           </div>
         ) : classes.length === 0 ? (
           <div className="text-center py-20 px-4 rounded-2xl border border-dashed border-border bg-muted/20">
-            <School className="h-16 w-16 text-slate-600 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-slate-300">No classes found</h3>
-            <p className="text-sm text-slate-500 max-w-md mx-auto mt-2 mb-6">
+            <School className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-foreground">No classes found</h3>
+            <p className="text-sm text-muted-foreground max-w-md mx-auto mt-2 mb-6">
               {isAdmin || isTeacher
                 ? "You have not created any classrooms yet. Click 'Create Class' above to launch your Cambridge cohorts."
                 : "You haven't joined any classrooms yet. Ask your Economics teacher for a 6-character class code to join."}
@@ -374,7 +374,7 @@ function ClassCard({
   return (
     <div
       onClick={onSelect}
-      className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-border bg-card/60 transition-all duration-200 hover:-translate-y-1 hover:border-purple-500/50 hover:shadow-xl hover:shadow-purple-950/20 cursor-pointer"
+      className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-purple-500/50 hover:shadow-md cursor-pointer"
     >
       {/* Top Themed Header */}
       <div
@@ -387,11 +387,11 @@ function ClassCard({
           <div className="space-y-1 pr-4">
             <Badge
               variant="outline"
-              className="bg-background/40 text-purple-300 border-purple-400/30 text-xs uppercase tracking-wider backdrop-blur-sm"
+              className="bg-black/30 text-white border-white/20 text-xs uppercase tracking-wider backdrop-blur-sm"
             >
               {formatLevel(classroom.level)}
             </Badge>
-            <h3 className="text-xl font-bold text-foreground tracking-tight line-clamp-1 group-hover:text-purple-200 transition-colors">
+            <h3 className="text-xl font-bold text-white tracking-tight line-clamp-1 group-hover:text-purple-200 transition-colors">
               {classroom.name}
             </h3>
           </div>
@@ -401,12 +401,12 @@ function ClassCard({
               <button
                 onClick={copyCode}
                 title="Click to copy join code"
-                className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-background/60 hover:bg-background border border-border/60 text-xs font-mono text-slate-300 transition-colors"
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-black/30 hover:bg-black/50 border border-white/20 text-xs font-mono text-white transition-colors"
               >
                 {copied ? (
                   <Check className="h-3.5 w-3.5 text-emerald-400" />
                 ) : (
-                  <Copy className="h-3.5 w-3.5 text-muted-foreground" />
+                  <Copy className="h-3.5 w-3.5 text-white/80" />
                 )}
                 <span>{classroom.join_code}</span>
               </button>
@@ -429,7 +429,7 @@ function ClassCard({
                     });
                   }
                 }}
-                className="text-muted-foreground hover:text-rose-400 h-7 w-7 p-0 bg-background/40"
+                className="text-white/70 hover:text-rose-300 h-7 w-7 p-0 bg-black/30 hover:bg-black/50"
                 title="Admin: Delete Classroom"
               >
                 <Trash2 className="h-3.5 w-3.5" />
@@ -439,15 +439,15 @@ function ClassCard({
         </div>
 
         {/* Teacher Info */}
-        <div className="mt-4 flex items-center gap-2.5 text-xs text-slate-300">
+        <div className="mt-4 flex items-center gap-2.5 text-xs text-white">
           <div className="h-7 w-7 rounded-full bg-purple-600/60 border border-purple-400/40 flex items-center justify-center font-bold text-white text-xs">
             {getInitials(classroom.teacher_name || "Teacher")}
           </div>
-          <span className="font-medium truncate">
+          <span className="font-medium text-white truncate">
             {classroom.teacher_name || "Economics Faculty"}
           </span>
           {classroom.teacher_school && (
-            <span className="text-muted-foreground truncate text-[11px]">
+            <span className="text-purple-200 truncate text-[11px]">
               • {classroom.teacher_school}
             </span>
           )}
@@ -455,22 +455,22 @@ function ClassCard({
       </div>
 
       {/* Body Stats & Details */}
-      <div className="p-5 flex items-center justify-between bg-slate-900/40 text-xs text-muted-foreground">
+      <div className="p-5 flex items-center justify-between bg-card text-xs text-muted-foreground border-t border-border">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-1.5" title="Enrolled Students">
             <UsersRound className="h-4 w-4 text-muted-foreground" />
-            <span className="font-semibold text-slate-200">{classroom.student_count ?? 0}</span>
+            <span className="font-semibold text-foreground">{classroom.student_count ?? 0}</span>
             <span className="text-muted-foreground">students</span>
           </div>
 
           <div className="flex items-center gap-1.5" title="Assignments">
             <FileText className="h-4 w-4 text-muted-foreground" />
-            <span className="font-semibold text-slate-200">{classroom.assignment_count ?? 0}</span>
+            <span className="font-semibold text-foreground">{classroom.assignment_count ?? 0}</span>
             <span className="text-muted-foreground">tasks</span>
           </div>
         </div>
 
-        <div className="flex items-center text-purple-400 font-medium group-hover:translate-x-1 transition-transform">
+        <div className="flex items-center text-purple-600 dark:text-purple-400 font-semibold group-hover:translate-x-1 transition-transform">
           <span>Open</span>
           <ChevronRight className="h-4 w-4 ml-0.5" />
         </div>
@@ -508,7 +508,7 @@ function JoinClassDialog({ onJoined }: { onJoined: () => void }) {
     <>
       <Button
         onClick={() => setOpen(true)}
-        className="bg-purple-600 hover:bg-purple-500 text-white font-medium shadow-md shadow-purple-950/40"
+        className="bg-purple-600 hover:bg-purple-500 text-white font-medium shadow-md shadow-purple-500/10"
       >
         <Plus className="h-4 w-4 mr-2" />
         Join Class
@@ -516,7 +516,7 @@ function JoinClassDialog({ onJoined }: { onJoined: () => void }) {
 
       {open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in">
-          <div className="w-full max-w-md bg-slate-900 border border-border rounded-2xl p-6 shadow-2xl space-y-5 text-left">
+          <div className="w-full max-w-md bg-card border border-border rounded-2xl p-6 shadow-2xl space-y-5 text-left">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
                 <UsersRound className="h-5 w-5 text-purple-400" />
@@ -535,7 +535,7 @@ function JoinClassDialog({ onJoined }: { onJoined: () => void }) {
             </p>
 
             <div className="space-y-2">
-              <Label className="text-xs font-semibold text-slate-300">Class Code</Label>
+              <Label className="text-xs font-semibold text-foreground">Class Code</Label>
               <Input
                 value={code}
                 onChange={(e) => setCode(e.target.value.toUpperCase())}
@@ -545,7 +545,7 @@ function JoinClassDialog({ onJoined }: { onJoined: () => void }) {
               />
             </div>
 
-            <div className="p-3 bg-purple-950/30 border border-purple-900/40 rounded-xl text-xs text-purple-300">
+            <div className="p-3 bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-900/40 rounded-xl text-xs text-purple-900 dark:text-purple-300">
               By joining, your assigned essays and test results for this class will be visible to
               your teachers and administrators.
             </div>
@@ -603,7 +603,7 @@ function CreateClassDialog({ onCreated }: { onCreated: () => void }) {
     <>
       <Button
         onClick={() => setOpen(true)}
-        className="bg-purple-600 hover:bg-purple-500 text-white font-medium shadow-md shadow-purple-950/40"
+        className="bg-purple-600 hover:bg-purple-500 text-white font-medium shadow-md shadow-purple-500/10"
       >
         <School className="h-4 w-4 mr-2 text-purple-300" />
         Create Classroom
@@ -611,7 +611,7 @@ function CreateClassDialog({ onCreated }: { onCreated: () => void }) {
 
       {open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in">
-          <div className="w-full max-w-md bg-slate-900 border border-border rounded-2xl p-6 shadow-2xl space-y-5 text-left">
+          <div className="w-full max-w-md bg-card border border-border rounded-2xl p-6 shadow-2xl space-y-5 text-left">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
                 <School className="h-5 w-5 text-purple-400" />
@@ -627,7 +627,7 @@ function CreateClassDialog({ onCreated }: { onCreated: () => void }) {
 
             <div className="space-y-4">
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-slate-300">Class Name</Label>
+                <Label className="text-xs font-semibold text-foreground">Class Name</Label>
                 <Input
                   value={name}
                   onChange={(e) => setName(e.target.value)}
@@ -637,14 +637,14 @@ function CreateClassDialog({ onCreated }: { onCreated: () => void }) {
               </div>
 
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-slate-300">
+                <Label className="text-xs font-semibold text-foreground">
                   Cambridge Syllabus Level
                 </Label>
                 <Select value={level} onValueChange={(v: "as" | "a2" | "mixed") => setLevel(v)}>
                   <SelectTrigger className="bg-background border-input text-foreground focus:border-purple-500">
                     <SelectValue placeholder="Select level" />
                   </SelectTrigger>
-                  <SelectContent className="bg-slate-900 border-border text-foreground">
+                  <SelectContent className="bg-popover border-border text-popover-foreground">
                     <SelectItem value="as">AS Level (Units 1 - 5)</SelectItem>
                     <SelectItem value="a2">A2 Level (Units 6 - 10)</SelectItem>
                     <SelectItem value="mixed">Both AS & A2</SelectItem>
@@ -653,7 +653,7 @@ function CreateClassDialog({ onCreated }: { onCreated: () => void }) {
               </div>
             </div>
 
-            <div className="p-3 rounded-xl bg-purple-950/30 border border-purple-900/40 text-xs text-purple-300">
+            <div className="p-3 rounded-xl bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-900/40 text-xs text-purple-900 dark:text-purple-300">
               Teachers can create up to 3 active classrooms. Once created, you can invite co-teachers and students, assign essays, and review grades.
             </div>
 
@@ -701,7 +701,7 @@ function ClassroomDetailView({
   return (
     <div className="min-h-screen bg-background text-foreground pb-16">
       {/* Sticky GCR Top Navigation */}
-      <div className="sticky top-0 z-40 bg-slate-900/90 backdrop-blur-md border-b border-border">
+      <div className="sticky top-0 z-40 bg-background/95 backdrop-blur-md border-b border-border">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-4">
@@ -715,7 +715,7 @@ function ClassroomDetailView({
                 All Classes
               </Button>
 
-              <div className="hidden sm:block h-5 w-[1px] bg-slate-800" />
+              <div className="hidden sm:block h-5 w-[1px] bg-muted" />
 
               <div className="flex items-center gap-2.5">
                 <h1 className="text-lg font-bold text-foreground tracking-tight truncate max-w-xs sm:max-w-md">
@@ -723,7 +723,7 @@ function ClassroomDetailView({
                 </h1>
                 <Badge
                   variant="outline"
-                  className="bg-purple-950/40 text-purple-300 border-purple-800 text-[10px] uppercase"
+                  className="bg-purple-100 dark:bg-purple-950/40 text-purple-800 dark:text-purple-300 border-purple-200 dark:border-purple-800 text-[10px] uppercase"
                 >
                   {formatLevel(classroom.level)}
                 </Badge>
@@ -737,8 +737,8 @@ function ClassroomDetailView({
                 className={cn(
                   "px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap",
                   activeTab === "stream"
-                    ? "bg-purple-600 text-white shadow-md shadow-purple-950/40"
-                    : "text-muted-foreground hover:text-slate-200 hover:bg-slate-800/60",
+                    ? "bg-purple-600 text-white shadow-md shadow-purple-500/10"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted",
                 )}
               >
                 Stream
@@ -749,8 +749,8 @@ function ClassroomDetailView({
                 className={cn(
                   "px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap",
                   activeTab === "classwork"
-                    ? "bg-purple-600 text-white shadow-md shadow-purple-950/40"
-                    : "text-muted-foreground hover:text-slate-200 hover:bg-slate-800/60",
+                    ? "bg-purple-600 text-white shadow-md shadow-purple-500/10"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted/60",
                 )}
               >
                 Classwork
@@ -761,8 +761,8 @@ function ClassroomDetailView({
                 className={cn(
                   "px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap flex items-center gap-1.5",
                   activeTab === "chat"
-                    ? "bg-purple-600 text-white shadow-md shadow-purple-950/40"
-                    : "text-muted-foreground hover:text-slate-200 hover:bg-slate-800/60",
+                    ? "bg-purple-600 text-white shadow-md shadow-purple-500/10"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted/60",
                 )}
               >
                 <MessageCircle className="h-3.5 w-3.5" />
@@ -774,8 +774,8 @@ function ClassroomDetailView({
                 className={cn(
                   "px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap",
                   activeTab === "people"
-                    ? "bg-purple-600 text-white shadow-md shadow-purple-950/40"
-                    : "text-muted-foreground hover:text-slate-200 hover:bg-slate-800/60",
+                    ? "bg-purple-600 text-white shadow-md shadow-purple-500/10"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted/60",
                 )}
               >
                 People
@@ -787,8 +787,8 @@ function ClassroomDetailView({
                   className={cn(
                     "px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap",
                     activeTab === "grades"
-                      ? "bg-purple-600 text-white shadow-md shadow-purple-950/40"
-                      : "text-muted-foreground hover:text-slate-200 hover:bg-slate-800/60",
+                      ? "bg-purple-600 text-white shadow-md shadow-purple-500/10"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted/60",
                   )}
                 >
                   Grades
@@ -876,7 +876,7 @@ function ClassChatTab({ classroom, isStaff }: { classroom: Classroom; isStaff: b
   const pinnedMessages = useMemo(() => (messages ?? []).filter((m) => m.isPinned), [messages]);
 
   return (
-    <div className="max-w-4xl mx-auto flex flex-col h-[75vh] bg-slate-900/70 border border-border rounded-3xl overflow-hidden shadow-2xl">
+    <div className="max-w-4xl mx-auto flex flex-col h-[75vh] bg-card border border-border rounded-3xl overflow-hidden shadow-2xl">
       {/* Chat Room Top Header */}
       <div className="p-4 px-6 bg-background/80 border-b border-border flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -937,10 +937,10 @@ function ClassChatTab({ classroom, isStaff }: { classroom: Classroom; isStaff: b
             ))}
           </div>
         ) : (messages ?? []).length === 0 ? (
-          <div className="text-center py-20 text-slate-500 space-y-2">
-            <MessageSquare className="h-10 w-10 text-slate-600 mx-auto" />
-            <h4 className="text-sm font-semibold text-slate-300">Welcome to your class chat!</h4>
-            <p className="text-xs text-slate-500 max-w-sm mx-auto">
+          <div className="text-center py-20 text-muted-foreground space-y-2">
+            <MessageSquare className="h-10 w-10 text-muted-foreground mx-auto" />
+            <h4 className="text-sm font-semibold text-foreground">Welcome to your class chat!</h4>
+            <p className="text-xs text-muted-foreground max-w-sm mx-auto">
               Ask Economics questions, discuss Cambridge essay topics, collaborate on past papers,
               and share study tips here.
             </p>
@@ -965,9 +965,9 @@ function ClassChatTab({ classroom, isStaff }: { classroom: Classroom; isStaff: b
                 )}
               >
                 <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-                  <span className="font-semibold text-slate-300">{msg.userName}</span>
+                  <span className="font-semibold text-foreground">{msg.userName}</span>
                   {msg.isTeacher && (
-                    <Badge className="bg-purple-950 text-purple-300 border-purple-700 text-[9px] py-0 px-1">
+                    <Badge className="bg-purple-100 dark:bg-purple-950 text-purple-800 dark:text-purple-300 border-purple-200 dark:border-purple-700 text-[9px] py-0 px-1">
                       Teacher
                     </Badge>
                   )}
@@ -983,8 +983,8 @@ function ClassChatTab({ classroom, isStaff }: { classroom: Classroom; isStaff: b
                   className={cn(
                     "p-3.5 rounded-2xl text-xs leading-relaxed whitespace-pre-wrap relative",
                     msg.isMine
-                      ? "bg-purple-600 text-white rounded-tr-none shadow-md shadow-purple-950/40"
-                      : "bg-slate-900 border border-border text-slate-200 rounded-tl-none shadow-sm",
+                      ? "bg-purple-600 text-white rounded-tr-none shadow-md shadow-purple-500/10"
+                      : "bg-muted border border-border text-foreground rounded-tl-none shadow-sm",
                   )}
                 >
                   {msg.content}
@@ -993,7 +993,7 @@ function ClassChatTab({ classroom, isStaff }: { classroom: Classroom; isStaff: b
                 {/* Message Hover Actions */}
                 <div
                   className={cn(
-                    "opacity-0 group-hover:opacity-100 flex items-center gap-1.5 text-[10px] text-slate-500 pt-0.5",
+                    "opacity-0 group-hover:opacity-100 flex items-center gap-1.5 text-[10px] text-muted-foreground pt-0.5",
                     msg.isMine ? "justify-end" : "justify-start",
                   )}
                 >
@@ -1179,11 +1179,11 @@ function StreamTab({
           <div className="space-y-2 max-w-2xl">
             <Badge
               variant="outline"
-              className="bg-purple-950/60 text-purple-300 border-purple-500/40 text-xs uppercase tracking-wider backdrop-blur-md"
+              className="bg-black/30 text-white border-white/20 text-xs uppercase tracking-wider backdrop-blur-md"
             >
               {formatLevel(classroom.level)}
             </Badge>
-            <h2 className="text-3xl sm:text-4xl font-extrabold text-foreground tracking-tight">
+            <h2 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
               {classroom.name}
             </h2>
             <div className="flex items-center gap-3 pt-1 text-sm text-purple-200/80">
@@ -1191,7 +1191,7 @@ function StreamTab({
                 <div className="h-6 w-6 rounded-full bg-purple-600 flex items-center justify-center font-bold text-white text-xs">
                   {getInitials(classroom.teacher_name || "Faculty")}
                 </div>
-                <span className="font-semibold text-foreground">
+                <span className="font-semibold text-white">
                   {classroom.teacher_name || "Faculty"}
                 </span>
               </div>
@@ -1200,7 +1200,7 @@ function StreamTab({
           </div>
 
           {/* Join Code Display Pill */}
-          <div className="flex items-center gap-3 bg-background/60 backdrop-blur-md border border-purple-500/30 rounded-2xl p-3 px-4 self-start md:self-auto">
+          <div className="flex items-center gap-3 bg-black/30 backdrop-blur-md border border-white/20 rounded-2xl p-3 px-4 self-start md:self-auto">
             <div>
               <div className="text-[10px] uppercase font-bold text-purple-300 tracking-wider">
                 Class Code
@@ -1233,14 +1233,14 @@ function StreamTab({
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Left Column: Upcoming Work Box */}
         <div className="lg:col-span-1 space-y-4">
-          <div className="bg-slate-900/60 rounded-2xl border border-border p-5 space-y-3">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+          <div className="bg-card rounded-2xl border border-border p-5 space-y-3">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
               <Clock className="h-3.5 w-3.5 text-purple-400" />
               Upcoming Work
             </h3>
 
             {upcomingAssignments.length === 0 ? (
-              <p className="text-xs text-slate-500 py-2">Woohoo, no work due soon!</p>
+              <p className="text-xs text-muted-foreground py-2">Woohoo, no work due soon!</p>
             ) : (
               <div className="space-y-2.5">
                 {upcomingAssignments.map((a) => (
@@ -1278,7 +1278,7 @@ function StreamTab({
         {/* Right Column: Main Stream Feed */}
         <div className="lg:col-span-3 space-y-6">
           {/* Announcement Composer */}
-          <div className="bg-slate-900/70 rounded-2xl border border-border p-5 shadow-lg space-y-3">
+          <div className="bg-card rounded-2xl border border-border p-5 shadow-lg space-y-3">
             <div className="flex items-start gap-3">
               <div className="h-8 w-8 rounded-full bg-purple-600 flex items-center justify-center font-bold text-white text-xs shrink-0">
                 You
@@ -1293,7 +1293,7 @@ function StreamTab({
 
             <div className="flex items-center justify-between pt-1">
               {isStaff ? (
-                <label className="flex items-center gap-2 text-xs text-slate-400 cursor-pointer select-none">
+                <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer select-none">
                   <input
                     type="checkbox"
                     checked={pinPost}
@@ -1331,11 +1331,11 @@ function StreamTab({
             </div>
           ) : (announcements ?? []).length === 0 ? (
             <div className="text-center py-16 px-4 rounded-2xl border border-border/80 bg-muted/20">
-              <MessageSquare className="h-10 w-10 text-slate-600 mx-auto mb-3" />
-              <h4 className="text-sm font-semibold text-slate-300">
+              <MessageSquare className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
+              <h4 className="text-sm font-semibold text-foreground">
                 This is where you can talk to your class
               </h4>
-              <p className="text-xs text-slate-500 max-w-sm mx-auto mt-1">
+              <p className="text-xs text-muted-foreground max-w-sm mx-auto mt-1">
                 Use the stream to share announcements, post lesson notes, Cambridge syllabus
                 updates, and answer student questions.
               </p>
@@ -1346,7 +1346,7 @@ function StreamTab({
                 <div
                   key={ann.id}
                   className={cn(
-                    "bg-slate-900/60 rounded-2xl border p-5 shadow-lg space-y-4 transition-all",
+                    "bg-card rounded-2xl border p-5 shadow-lg space-y-4 transition-all",
                     ann.pinned ? "border-purple-500/50 bg-card/80" : "border-border",
                   )}
                 >
@@ -1363,7 +1363,7 @@ function StreamTab({
                             <span className="text-[11px] text-muted-foreground">• {ann.authorSchool}</span>
                           )}
                           {ann.pinned && (
-                            <Badge className="bg-purple-950 text-purple-300 border-purple-700 text-[10px] py-0 px-1.5 flex items-center gap-1">
+                            <Badge className="bg-purple-100 dark:bg-purple-950 text-purple-800 dark:text-purple-300 border-purple-200 dark:border-purple-700 text-[10px] py-0 px-1.5 flex items-center gap-1">
                               <Pin className="h-2.5 w-2.5" /> Pinned
                             </Badge>
                           )}
@@ -1432,7 +1432,7 @@ function StreamTab({
                   </div>
 
                   {/* Announcement Body */}
-                  <div className="text-sm text-slate-200 whitespace-pre-wrap leading-relaxed pl-12">
+                  <div className="text-sm text-foreground whitespace-pre-wrap leading-relaxed pl-12">
                     {ann.content}
                   </div>
 
@@ -1446,12 +1446,12 @@ function StreamTab({
                             className="flex items-start justify-between gap-2 p-2.5 rounded-xl bg-background/40 border border-border/60"
                           >
                             <div className="flex items-start gap-2.5">
-                              <div className="h-6 w-6 rounded-full bg-slate-800 flex items-center justify-center font-bold text-[10px] text-slate-300 shrink-0 mt-0.5">
+                              <div className="h-6 w-6 rounded-full bg-muted flex items-center justify-center font-bold text-[10px] text-foreground shrink-0 mt-0.5">
                                 {getInitials(comm.authorName)}
                               </div>
                               <div className="space-y-0.5">
                                 <div className="flex items-center gap-2">
-                                  <span className="font-semibold text-xs text-slate-300">
+                                  <span className="font-semibold text-xs text-foreground">
                                     {comm.authorName}
                                   </span>
                                   <span className="text-[10px] text-muted-foreground">
@@ -1461,7 +1461,7 @@ function StreamTab({
                                     })}
                                   </span>
                                 </div>
-                                <div className="text-xs text-slate-300">{comm.content}</div>
+                                <div className="text-xs text-foreground">{comm.content}</div>
                               </div>
                             </div>
 
@@ -1691,7 +1691,7 @@ function ClassworkTab({
   return (
     <div className="space-y-6">
       {/* Classwork Control Bar */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-slate-900/60 p-4 rounded-2xl border border-border">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-card p-4 rounded-2xl border border-border">
         <div className="flex items-center gap-2">
           <Button
             size="sm"
@@ -1731,7 +1731,7 @@ function ClassworkTab({
         {isStaff && (
           <Button
             onClick={() => setCreateOpen(true)}
-            className="bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold shadow-md shadow-purple-950/40"
+            className="bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold shadow-md shadow-purple-500/10"
           >
             <Plus className="h-4 w-4 mr-1.5" />
             Create Assignment
@@ -1751,9 +1751,9 @@ function ClassworkTab({
         </div>
       ) : filteredAssignments.length === 0 ? (
         <div className="text-center py-20 px-4 rounded-2xl border border-dashed border-border bg-muted/20">
-          <BookOpen className="h-12 w-12 text-slate-600 mx-auto mb-3" />
-          <h4 className="text-base font-medium text-slate-300">No assignments posted yet</h4>
-          <p className="text-xs text-slate-500 max-w-md mx-auto mt-1">
+          <BookOpen className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+          <h4 className="text-base font-medium text-foreground">No assignments posted yet</h4>
+          <p className="text-xs text-muted-foreground max-w-md mx-auto mt-1">
             {isStaff
               ? "Click 'Create Assignment' above to set Cambridge essay questions or MCQ mock exams for your students."
               : "Your teacher hasn't assigned any work to this class yet. Check back soon!"}
@@ -1777,12 +1777,12 @@ function ClassworkTab({
             return (
               <div
                 key={a.id}
-                className="bg-slate-900/60 rounded-2xl border border-border hover:border-input p-6 shadow-md transition-all space-y-4"
+                className="bg-card rounded-2xl border border-border hover:border-input p-6 shadow-md transition-all space-y-4"
               >
                 {/* Card Header */}
                 <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
                   <div className="flex items-start gap-3.5">
-                    <div className="h-10 w-10 rounded-xl bg-purple-950/80 border border-purple-700/50 flex items-center justify-center text-purple-300 shrink-0">
+                    <div className="h-10 w-10 rounded-xl bg-purple-100 dark:bg-purple-950/80 border border-purple-200 dark:border-purple-700/50 flex items-center justify-center text-purple-700 dark:text-purple-300 shrink-0">
                       {isEssay ? (
                         <FileText className="h-5 w-5" />
                       ) : (
@@ -1794,14 +1794,14 @@ function ClassworkTab({
                         <h3 className="text-base font-bold text-foreground tracking-tight">{a.title}</h3>
                         <Badge
                           variant="outline"
-                          className="bg-background text-slate-300 border-input text-[10px]"
+                          className="bg-background text-foreground border-input text-[10px]"
                         >
                           {isEssay ? `${a.essayMaxMark || 20} Marks` : "30 MCQs"}
                         </Badge>
                         {a.essayTopic && (
                           <Badge
                             variant="outline"
-                            className="bg-purple-950/40 text-purple-300 border-purple-800 text-[10px]"
+                            className="bg-purple-100 dark:bg-purple-950/40 text-purple-800 dark:text-purple-300 border-purple-200 dark:border-purple-800 text-[10px]"
                           >
                             {a.essayTopic}
                           </Badge>
@@ -1809,7 +1809,7 @@ function ClassworkTab({
                       </div>
 
                       {a.dueAt && (
-                        <div className="text-xs text-slate-400 flex items-center gap-1.5">
+                        <div className="text-xs text-muted-foreground flex items-center gap-1.5">
                           <Calendar className="h-3.5 w-3.5 text-purple-400" />
                           <span>
                             Due{" "}
@@ -1883,13 +1883,13 @@ function ClassworkTab({
 
                 {/* Instructions / Question Prompt */}
                 {(a.essayQuestion || a.instructions) && (
-                  <div className="bg-background/50 rounded-xl p-4 border border-border/80 text-xs text-slate-300 space-y-2">
+                  <div className="bg-background/50 rounded-xl p-4 border border-border/80 text-xs text-foreground space-y-2">
                     {a.essayQuestion && (
                       <div>
                         <span className="font-semibold text-purple-300 block mb-1">
                           Question Prompt:
                         </span>
-                        <p className="text-slate-200 text-sm font-medium">{a.essayQuestion}</p>
+                        <p className="text-foreground text-sm font-medium">{a.essayQuestion}</p>
                       </div>
                     )}
                     {a.instructions && (
@@ -1904,7 +1904,7 @@ function ClassworkTab({
                     <Button
                       asChild
                       size="sm"
-                      className="bg-purple-600 hover:bg-purple-500 text-white font-semibold text-xs shadow-md shadow-purple-950/40"
+                      className="bg-purple-600 hover:bg-purple-500 text-white font-semibold text-xs shadow-md shadow-purple-500/10"
                     >
                       <Link to="/mcq-live" search={{ paperId: a.mcqPaperId }}>
                         <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
@@ -1957,7 +1957,7 @@ function ClassworkTab({
                           </span>
                         </div>
                         {mySub?.teacherFeedback && (
-                          <blockquote className="text-xs text-slate-300 italic border-l-2 border-emerald-500 pl-3 py-1">
+                          <blockquote className="text-xs text-foreground italic border-l-2 border-emerald-500 pl-3 py-1">
                             "{mySub.teacherFeedback}"
                           </blockquote>
                         )}
@@ -1976,7 +1976,7 @@ function ClassworkTab({
                       </div>
                     ) : submittingAssignmentId === a.id ? (
                       <div className="space-y-3 pt-2">
-                        <Label className="text-xs font-semibold text-slate-300">
+                        <Label className="text-xs font-semibold text-foreground">
                           Write or Paste Your Essay Answer:
                         </Label>
                         <Textarea
@@ -2062,7 +2062,7 @@ function ClassworkTab({
       {/* Teacher Create Assignment Modal */}
       {createOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in">
-          <div className="w-full max-w-2xl bg-slate-900 border border-border rounded-2xl p-6 shadow-2xl space-y-5 text-left max-h-[90vh] overflow-y-auto">
+          <div className="w-full max-w-2xl bg-card border border-border rounded-2xl p-6 shadow-2xl space-y-5 text-left max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
                 <FileEdit className="h-5 w-5 text-purple-400" />
@@ -2078,7 +2078,7 @@ function ClassworkTab({
 
             <div className="space-y-4">
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-slate-300">Assignment Type</Label>
+                <Label className="text-xs font-semibold text-foreground">Assignment Type</Label>
                 <Select
                   value={kind}
                   onValueChange={(v: "essay" | "mcq_paper") => {
@@ -2091,7 +2091,7 @@ function ClassworkTab({
                   <SelectTrigger className="bg-background border-input text-foreground">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent className="bg-slate-900 border-border text-foreground">
+                  <SelectContent className="bg-card border-border text-foreground">
                     <SelectItem value="essay">Cambridge Economics Essay (8, 12, 20m)</SelectItem>
                     <SelectItem value="mcq_paper">MCQ Past Paper Test (from MCQ Live)</SelectItem>
                   </SelectContent>
@@ -2101,8 +2101,8 @@ function ClassworkTab({
               {kind === "essay" && (
                 <div className="space-y-3 p-4 rounded-xl bg-background/60 border border-border">
                   <div className="flex items-center justify-between">
-                    <Label className="text-xs font-semibold text-slate-300">Question Source</Label>
-                    <div className="flex items-center gap-1 bg-slate-900 p-0.5 rounded-lg border border-border text-xs">
+                    <Label className="text-xs font-semibold text-foreground">Question Source</Label>
+                    <div className="flex items-center gap-1 bg-card p-0.5 rounded-lg border border-border text-xs">
                       <button
                         type="button"
                         onClick={() => setEssaySource("bank")}
@@ -2141,7 +2141,7 @@ function ClassworkTab({
                             value={bankSearch}
                             onChange={(e) => setBankSearch(e.target.value)}
                             placeholder="Search Question Bank by keyword (e.g. inflation, tariff, subsidy)..."
-                            className="pl-8 text-xs bg-slate-900 border-border text-white h-9"
+                            className="pl-8 text-xs bg-card border-border text-white h-9"
                           />
                         </div>
                         <div className="flex items-center gap-1 shrink-0">
@@ -2154,7 +2154,7 @@ function ClassworkTab({
                               "text-xs h-9 px-3",
                               bankLevel === "all"
                                 ? "bg-purple-600 text-foreground"
-                                : "border-border text-slate-300",
+                                : "border-border text-foreground",
                             )}
                           >
                             All
@@ -2168,7 +2168,7 @@ function ClassworkTab({
                               "text-xs h-9 px-3",
                               bankLevel === "as"
                                 ? "bg-purple-600 text-foreground"
-                                : "border-border text-slate-300",
+                                : "border-border text-foreground",
                             )}
                           >
                             AS Level
@@ -2182,7 +2182,7 @@ function ClassworkTab({
                               "text-xs h-9 px-3",
                               bankLevel === "a2"
                                 ? "bg-purple-600 text-foreground"
-                                : "border-border text-slate-300",
+                                : "border-border text-foreground",
                             )}
                           >
                             A2 Level
@@ -2221,18 +2221,18 @@ function ClassworkTab({
                                   "p-3 rounded-lg border text-xs cursor-pointer transition-all space-y-1.5",
                                   isSelected
                                     ? "bg-purple-950/50 border-purple-600 ring-1 ring-purple-500"
-                                    : "bg-slate-900/60 border-border/80 hover:border-input hover:bg-slate-900",
+                                    : "bg-card border-border/80 hover:border-input hover:bg-card",
                                 )}
                               >
                                 <div className="flex items-center justify-between gap-2">
                                   <div className="flex items-center gap-1.5 flex-wrap">
-                                    <Badge className="bg-purple-950 text-purple-300 border-purple-800 text-[10px]">
+                                    <Badge className="bg-purple-100 dark:bg-purple-950 text-purple-800 dark:text-purple-300 border-purple-200 dark:border-purple-800 text-[10px]">
                                       {q.exam_series}
                                     </Badge>
-                                    <Badge className="bg-background text-slate-300 border-input text-[10px]">
+                                    <Badge className="bg-background text-foreground border-input text-[10px]">
                                       {q.max_mark} Marks
                                     </Badge>
-                                    <span className="text-[10px] text-slate-400 font-medium">
+                                    <span className="text-[10px] text-muted-foreground font-medium">
                                       {q.topic}
                                     </span>
                                   </div>
@@ -2242,7 +2242,7 @@ function ClassworkTab({
                                     </span>
                                   )}
                                 </div>
-                                <p className="text-slate-200 line-clamp-2 leading-relaxed">
+                                <p className="text-foreground line-clamp-2 leading-relaxed">
                                   {q.question_text}
                                 </p>
                               </div>
@@ -2273,14 +2273,14 @@ function ClassworkTab({
                     <div className="space-y-4">
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="space-y-1.5">
-                          <Label className="text-xs font-semibold text-slate-300">
+                          <Label className="text-xs font-semibold text-foreground">
                             Syllabus Topic
                           </Label>
                           <Select value={essayTopic} onValueChange={setEssayTopic}>
                             <SelectTrigger className="bg-background border-input text-foreground">
                               <SelectValue />
                             </SelectTrigger>
-                            <SelectContent className="bg-slate-900 border-border text-foreground">
+                            <SelectContent className="bg-card border-border text-foreground">
                               <SelectItem value="Unit 1: Basic Economic Ideas">
                                 Unit 1: Basic Economic Ideas
                               </SelectItem>
@@ -2304,7 +2304,7 @@ function ClassworkTab({
                         </div>
 
                         <div className="space-y-1.5">
-                          <Label className="text-xs font-semibold text-slate-300">
+                          <Label className="text-xs font-semibold text-foreground">
                             Maximum Marks
                           </Label>
                           <Select
@@ -2314,7 +2314,7 @@ function ClassworkTab({
                             <SelectTrigger className="bg-background border-input text-foreground">
                               <SelectValue />
                             </SelectTrigger>
-                            <SelectContent className="bg-slate-900 border-border text-foreground">
+                            <SelectContent className="bg-card border-border text-foreground">
                               <SelectItem value="8">8 Marks (AS Part a)</SelectItem>
                               <SelectItem value="12">12 Marks (AS Part b / Evaluate)</SelectItem>
                               <SelectItem value="20">20 Marks (Full Section B/C Essay)</SelectItem>
@@ -2324,7 +2324,7 @@ function ClassworkTab({
                       </div>
 
                       <div className="space-y-1.5">
-                        <Label className="text-xs font-semibold text-slate-300">
+                        <Label className="text-xs font-semibold text-foreground">
                           Full Question Prompt
                         </Label>
                         <Textarea
@@ -2343,7 +2343,7 @@ function ClassworkTab({
                 <div className="space-y-3 p-4 rounded-xl bg-background/60 border border-border">
                   <div className="flex items-center justify-between">
                     <div>
-                      <Label className="text-xs font-semibold text-slate-300 block">
+                      <Label className="text-xs font-semibold text-foreground block">
                         Select Cambridge Past Paper from MCQ Live
                       </Label>
                       <span className="text-[11px] text-muted-foreground">
@@ -2359,7 +2359,7 @@ function ClassworkTab({
                         value={mcqSearch}
                         onChange={(e) => setMcqSearch(e.target.value)}
                         placeholder="Search past papers (e.g. 2024, Paper 11, June)..."
-                        className="pl-8 text-xs bg-slate-900 border-border text-white h-9"
+                        className="pl-8 text-xs bg-card border-border text-white h-9"
                       />
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
@@ -2372,7 +2372,7 @@ function ClassworkTab({
                           "text-xs h-9 px-3",
                           mcqLevel === "all"
                             ? "bg-purple-600 text-foreground"
-                            : "border-border text-slate-300",
+                            : "border-border text-foreground",
                         )}
                       >
                         All
@@ -2386,7 +2386,7 @@ function ClassworkTab({
                           "text-xs h-9 px-3",
                           mcqLevel === "as"
                             ? "bg-purple-600 text-foreground"
-                            : "border-border text-slate-300",
+                            : "border-border text-foreground",
                         )}
                       >
                         AS Paper 1
@@ -2400,7 +2400,7 @@ function ClassworkTab({
                           "text-xs h-9 px-3",
                           mcqLevel === "a2"
                             ? "bg-purple-600 text-foreground"
-                            : "border-border text-slate-300",
+                            : "border-border text-foreground",
                         )}
                       >
                         A2 Paper 3
@@ -2434,19 +2434,19 @@ function ClassworkTab({
                               "p-3 rounded-lg border text-xs cursor-pointer transition-all space-y-1.5",
                               isSelected
                                 ? "bg-purple-950/50 border-purple-600 ring-1 ring-purple-500"
-                                : "bg-slate-900/60 border-border/80 hover:border-input hover:bg-slate-900",
+                                : "bg-card border-border/80 hover:border-input hover:bg-card",
                             )}
                           >
                             <div className="flex items-center justify-between gap-2">
                               <div className="flex items-center gap-1.5 flex-wrap">
-                                <Badge className="bg-purple-950 text-purple-300 border-purple-800 text-[10px]">
+                                <Badge className="bg-purple-100 dark:bg-purple-950 text-purple-800 dark:text-purple-300 border-purple-200 dark:border-purple-800 text-[10px]">
                                   {p.level.toUpperCase()} Level
                                 </Badge>
-                                <Badge className="bg-background text-slate-300 border-input text-[10px]">
+                                <Badge className="bg-background text-foreground border-input text-[10px]">
                                   {p.questionCount} Questions
                                 </Badge>
                                 {p.examYear && (
-                                  <span className="text-[10px] text-slate-400 font-medium">
+                                  <span className="text-[10px] text-muted-foreground font-medium">
                                     {p.examSeries ? `${p.examSeries} ` : ""}
                                     {p.examYear}
                                   </span>
@@ -2458,7 +2458,7 @@ function ClassworkTab({
                                 </span>
                               )}
                             </div>
-                            <p className="text-slate-200 font-semibold truncate">{p.title}</p>
+                            <p className="text-foreground font-semibold truncate">{p.title}</p>
                           </div>
                         );
                       })
@@ -2486,7 +2486,7 @@ function ClassworkTab({
               )}
 
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-slate-300">Assignment Title</Label>
+                <Label className="text-xs font-semibold text-foreground">Assignment Title</Label>
                 <Input
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
@@ -2497,7 +2497,7 @@ function ClassworkTab({
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold text-slate-300">
+                  <Label className="text-xs font-semibold text-foreground">
                     Due Date & Time (Optional)
                   </Label>
                   <Input
@@ -2510,7 +2510,7 @@ function ClassworkTab({
               </div>
 
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-slate-300">
+                <Label className="text-xs font-semibold text-foreground">
                   Teacher Instructions / Rubric Notes
                 </Label>
                 <Textarea
@@ -2631,7 +2631,7 @@ function TeacherSubmissionsModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in">
-      <div className="w-full max-w-5xl h-[85vh] bg-slate-900 border border-border rounded-3xl shadow-2xl flex flex-col overflow-hidden">
+      <div className="w-full max-w-5xl h-[85vh] bg-card border border-border rounded-3xl shadow-2xl flex flex-col overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between p-5 px-6 border-b border-border bg-background/60">
           <div>
@@ -2639,7 +2639,7 @@ function TeacherSubmissionsModal({
               <FileCheck2 className="h-5 w-5 text-purple-400" />
               {assignment?.title || "Assignment Submissions"}
             </h3>
-            <p className="text-xs text-slate-400 mt-0.5">
+            <p className="text-xs text-muted-foreground mt-0.5">
               Review Cambridge essay answers, inspect AI grading, and return teacher marks.
             </p>
           </div>
@@ -2653,14 +2653,14 @@ function TeacherSubmissionsModal({
         <div className="flex-1 grid grid-cols-1 md:grid-cols-3 overflow-hidden">
           {/* Left Student List */}
           <div className="border-r border-border overflow-y-auto p-4 space-y-2 bg-background/40">
-            <div className="text-xs font-bold uppercase text-slate-400 tracking-wider mb-2">
+            <div className="text-xs font-bold uppercase text-muted-foreground tracking-wider mb-2">
               Students ({students.length})
             </div>
 
             {isLoading ? (
               <div className="space-y-2">
                 {[1, 2, 3].map((n) => (
-                  <div key={n} className="h-14 rounded-xl bg-slate-800/40 animate-pulse" />
+                  <div key={n} className="h-14 rounded-xl bg-muted/40 animate-pulse" />
                 ))}
               </div>
             ) : (
@@ -2677,7 +2677,7 @@ function TeacherSubmissionsModal({
                       "p-3 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-2",
                       isSelected
                         ? "bg-purple-950/60 border-purple-500 text-white shadow-md"
-                        : "bg-slate-900/60 border-border/80 text-slate-300 hover:bg-slate-800/60",
+                        : "bg-card border-border/80 text-foreground hover:bg-muted/60",
                     )}
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
@@ -2686,7 +2686,7 @@ function TeacherSubmissionsModal({
                       </div>
                       <div className="min-w-0">
                         <div className="text-xs font-semibold truncate">{st.fullName}</div>
-                        <div className="text-[10px] text-slate-500 truncate">{st.email}</div>
+                        <div className="text-[10px] text-muted-foreground truncate">{st.email}</div>
                       </div>
                     </div>
 
@@ -2700,7 +2700,7 @@ function TeacherSubmissionsModal({
                           Turned in
                         </Badge>
                       ) : (
-                        <span className="text-[11px] text-slate-500 italic">Missing</span>
+                        <span className="text-[11px] text-muted-foreground italic">Missing</span>
                       )}
                     </div>
                   </div>
@@ -2710,7 +2710,7 @@ function TeacherSubmissionsModal({
           </div>
 
           {/* Right Selected Student Submission & Grading View */}
-          <div className="md:col-span-2 flex flex-col h-full overflow-hidden bg-slate-900">
+          <div className="md:col-span-2 flex flex-col h-full overflow-hidden bg-card">
             {activeStudent ? (
               <div className="flex-1 flex flex-col overflow-hidden">
                 {/* Submission Content Area */}
@@ -2732,10 +2732,10 @@ function TeacherSubmissionsModal({
                     <div className="space-y-4">
                       {/* Submitted Text */}
                       <div className="space-y-2">
-                        <Label className="text-xs font-bold uppercase text-slate-400 tracking-wider">
+                        <Label className="text-xs font-bold uppercase text-muted-foreground tracking-wider">
                           Student's Submitted Essay Answer:
                         </Label>
-                        <div className="p-4 rounded-2xl bg-background border border-border text-sm text-slate-200 leading-relaxed whitespace-pre-wrap">
+                        <div className="p-4 rounded-2xl bg-background border border-border text-sm text-foreground leading-relaxed whitespace-pre-wrap">
                           {activeStudent.submission.submissionText ||
                             "Linked graded essay version."}
                         </div>
@@ -2743,7 +2743,7 @@ function TeacherSubmissionsModal({
 
                       {/* AI Grader Feedback if present */}
                       {activeStudent.submission.aiScore !== null && (
-                        <div className="p-4 rounded-2xl bg-purple-950/20 border border-purple-900/40 text-xs text-purple-300 space-y-2">
+                        <div className="p-4 rounded-2xl bg-purple-50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-900/40 text-xs text-purple-900 dark:text-purple-300 space-y-2">
                           <div className="flex items-center justify-between font-bold">
                             <span className="flex items-center gap-1.5">
                               <Sparkles className="h-4 w-4 text-purple-400" />
@@ -2759,7 +2759,7 @@ function TeacherSubmissionsModal({
                     </div>
                   ) : (
                     <div className="py-20 text-center text-muted-foreground">
-                      <FileText className="h-10 w-10 text-slate-600 mx-auto mb-2" />
+                      <FileText className="h-10 w-10 text-muted-foreground mx-auto mb-2" />
                       <p className="text-sm">This student has not turned in this assignment yet.</p>
                     </div>
                   )}
@@ -2769,7 +2769,7 @@ function TeacherSubmissionsModal({
                 <div className="p-5 border-t border-border bg-background/80 space-y-4">
                   <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 items-end">
                     <div className="space-y-1.5">
-                      <Label className="text-xs font-bold text-slate-300">
+                      <Label className="text-xs font-bold text-foreground">
                         Awarded Score (/{assignment?.essay_max_mark || 20})
                       </Label>
                       <Input
@@ -2779,19 +2779,19 @@ function TeacherSubmissionsModal({
                         value={scoreInput}
                         onChange={(e) => setScoreInput(e.target.value)}
                         placeholder="e.g. 17"
-                        className="bg-slate-900 border-input text-white text-base font-bold focus:border-purple-500"
+                        className="bg-card border-input text-white text-base font-bold focus:border-purple-500"
                       />
                     </div>
 
                     <div className="sm:col-span-3 space-y-1.5">
-                      <Label className="text-xs font-bold text-slate-300">
+                      <Label className="text-xs font-bold text-foreground">
                         Teacher Feedback / Examiner Commentary
                       </Label>
                       <Input
                         value={feedbackInput}
                         onChange={(e) => setFeedbackInput(e.target.value)}
                         placeholder="e.g. Strong AO1 definitions and AO2 application; expand on AO3 evaluation."
-                        className="bg-slate-900 border-input text-white text-xs focus:border-purple-500"
+                        className="bg-card border-input text-white text-xs focus:border-purple-500"
                       />
                     </div>
                   </div>
@@ -2811,7 +2811,7 @@ function TeacherSubmissionsModal({
                       size="sm"
                       onClick={() => gradeMutation.mutate(true)}
                       disabled={scoreInput === "" || gradeMutation.isPending}
-                      className="bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold shadow-md shadow-purple-950/40"
+                      className="bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold shadow-md shadow-purple-500/10"
                     >
                       <Send className="h-3.5 w-3.5 mr-1.5" />
                       {gradeMutation.isPending ? "Returning..." : "Return Grade to Student"}
@@ -2820,7 +2820,7 @@ function TeacherSubmissionsModal({
                 </div>
               </div>
             ) : (
-              <div className="flex-1 flex items-center justify-center text-slate-500 text-sm">
+              <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm">
                 Select a student on the left to grade their work.
               </div>
             )}
@@ -2929,14 +2929,14 @@ function PeopleTab({
   return (
     <div className="space-y-8 max-w-4xl mx-auto">
       {/* Teachers Section */}
-      <div className="bg-slate-900/60 rounded-3xl border border-border p-6 sm:p-8 space-y-6 shadow-xl">
+      <div className="bg-card rounded-3xl border border-border p-6 sm:p-8 space-y-6 shadow-xl">
         <div className="flex items-center justify-between border-b border-border pb-4">
           <div>
             <h3 className="text-xl font-bold text-foreground tracking-tight flex items-center gap-2">
               <School className="h-5 w-5 text-purple-400" />
               Teachers
             </h3>
-            <p className="text-xs text-slate-400 mt-1">
+            <p className="text-xs text-muted-foreground mt-1">
               Economics instructors managing this classroom.
             </p>
           </div>
@@ -2967,16 +2967,16 @@ function PeopleTab({
                   <div className="flex items-center gap-2">
                     <span className="font-semibold text-sm text-foreground">{t.fullName}</span>
                     {t.owner ? (
-                      <Badge className="bg-purple-950 text-purple-300 border-purple-700 text-[10px] py-0">
+                      <Badge className="bg-purple-100 dark:bg-purple-950 text-purple-800 dark:text-purple-300 border-purple-200 dark:border-purple-700 text-[10px] py-0">
                         Owner
                       </Badge>
                     ) : (
-                      <Badge className="bg-slate-800 text-slate-300 border-input text-[10px] py-0">
+                      <Badge className="bg-muted text-foreground border-input text-[10px] py-0">
                         Co-Teacher
                       </Badge>
                     )}
                   </div>
-                  <div className="text-xs text-slate-400 flex items-center gap-2 mt-0.5">
+                  <div className="text-xs text-muted-foreground flex items-center gap-2 mt-0.5">
                     <span>{t.email}</span>
                     {t.school && <span>• {t.school}</span>}
                   </div>
@@ -3010,14 +3010,14 @@ function PeopleTab({
       </div>
 
       {/* Classmates / Student Roster Section */}
-      <div className="bg-slate-900/60 rounded-3xl border border-border p-6 sm:p-8 space-y-6 shadow-xl">
+      <div className="bg-card rounded-3xl border border-border p-6 sm:p-8 space-y-6 shadow-xl">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-4">
           <div>
             <h3 className="text-xl font-bold text-foreground tracking-tight flex items-center gap-2">
               <UsersRound className="h-5 w-5 text-purple-400" />
               Classmates ({students.length})
             </h3>
-            <p className="text-xs text-slate-400 mt-1">
+            <p className="text-xs text-muted-foreground mt-1">
               Enrolled students taking Cambridge Economics.
             </p>
           </div>
@@ -3052,7 +3052,7 @@ function PeopleTab({
           </div>
         ) : filteredStudents.length === 0 ? (
           <div className="text-center py-12 text-muted-foreground">
-            <UsersRound className="h-10 w-10 text-slate-600 mx-auto mb-2" />
+            <UsersRound className="h-10 w-10 text-muted-foreground mx-auto mb-2" />
             <p className="text-xs">
               No students enrolled yet. Share the class code with your students.
             </p>
@@ -3065,14 +3065,14 @@ function PeopleTab({
                 className="flex items-center justify-between p-3 rounded-2xl bg-background/40 border border-border/80 hover:bg-background/70 transition-all"
               >
                 <div className="flex items-center gap-3">
-                  <div className="h-9 w-9 rounded-full bg-slate-800 border border-input flex items-center justify-center font-bold text-white text-xs">
+                  <div className="h-9 w-9 rounded-full bg-muted border border-input flex items-center justify-center font-bold text-white text-xs">
                     {getInitials(st.full_name || "Student")}
                   </div>
                   <div>
                     <div className="font-semibold text-sm text-foreground">
                       {st.full_name || "Student"}
                     </div>
-                    <div className="text-xs text-slate-400 flex items-center gap-2">
+                    <div className="text-xs text-muted-foreground flex items-center gap-2">
                       <span>{st.email}</span>
                       {st.school && <span>• {st.school}</span>}
                     </div>
@@ -3151,7 +3151,7 @@ function PeopleTab({
       {/* Invite Teacher Modal */}
       {inviteTeacherOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in">
-          <div className="w-full max-w-md bg-slate-900 border border-border rounded-2xl p-6 shadow-2xl space-y-5 text-left">
+          <div className="w-full max-w-md bg-card border border-border rounded-2xl p-6 shadow-2xl space-y-5 text-left">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
                 <UserPlus className="h-5 w-5 text-purple-400" />
@@ -3171,7 +3171,7 @@ function PeopleTab({
             </p>
 
             <div className="space-y-1.5">
-              <Label className="text-xs font-semibold text-slate-300">Teacher Email</Label>
+              <Label className="text-xs font-semibold text-foreground">Teacher Email</Label>
               <Input
                 type="email"
                 value={teacherEmail}
@@ -3204,7 +3204,7 @@ function PeopleTab({
       {/* Invite Student Modal */}
       {inviteStudentOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in">
-          <div className="w-full max-w-md bg-slate-900 border border-border rounded-2xl p-6 shadow-2xl space-y-5 text-left">
+          <div className="w-full max-w-md bg-card border border-border rounded-2xl p-6 shadow-2xl space-y-5 text-left">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
                 <UserPlus className="h-5 w-5 text-purple-400" />
@@ -3223,7 +3223,7 @@ function PeopleTab({
             </p>
 
             <div className="space-y-1.5">
-              <Label className="text-xs font-semibold text-slate-300">Student Email</Label>
+              <Label className="text-xs font-semibold text-foreground">Student Email</Label>
               <Input
                 type="email"
                 value={studentEmail}
@@ -3295,7 +3295,7 @@ function StudentLifetimePortfolioModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in">
-      <div className="w-full max-w-4xl max-h-[88vh] bg-slate-900 border border-border rounded-3xl shadow-2xl flex flex-col overflow-hidden text-left">
+      <div className="w-full max-w-4xl max-h-[88vh] bg-card border border-border rounded-3xl shadow-2xl flex flex-col overflow-hidden text-left">
         {/* Header */}
         <div className="flex items-center justify-between p-5 px-6 border-b border-border bg-background/80">
           <div className="flex items-center gap-3">
@@ -3306,18 +3306,18 @@ function StudentLifetimePortfolioModal({
               <div className="flex items-center gap-2 flex-wrap">
                 <h3 className="text-base font-bold text-foreground tracking-tight">{studentName}</h3>
                 {portfolio?.student.level && (
-                  <Badge className="bg-purple-950 text-purple-300 border-purple-800 text-[10px]">
+                  <Badge className="bg-purple-100 dark:bg-purple-950 text-purple-800 dark:text-purple-300 border-purple-200 dark:border-purple-800 text-[10px]">
                     {portfolio.student.level}
                   </Badge>
                 )}
                 <Badge
                   variant="outline"
-                  className="bg-background text-slate-400 border-input text-[10px]"
+                  className="bg-background text-muted-foreground border-input text-[10px]"
                 >
                   Cambridge 9708
                 </Badge>
               </div>
-              <p className="text-xs text-slate-400 mt-0.5">
+              <p className="text-xs text-muted-foreground mt-0.5">
                 {portfolio?.student.email || "Enrolled Student"}
                 {portfolio?.student.school ? ` • ${portfolio.student.school}` : ""}
                 {portfolio?.student.targetGrade ? ` • Target: ${portfolio.student.targetGrade}` : ""}
@@ -3326,7 +3326,7 @@ function StudentLifetimePortfolioModal({
           </div>
           <button
             onClick={onClose}
-            className="text-muted-foreground hover:text-white p-1.5 rounded-lg hover:bg-slate-800 transition-colors"
+            className="text-muted-foreground hover:text-white p-1.5 rounded-lg hover:bg-muted transition-colors"
           >
             <X className="h-5 w-5" />
           </button>
@@ -3334,12 +3334,12 @@ function StudentLifetimePortfolioModal({
 
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
           {isLoading ? (
-            <div className="py-20 text-center text-slate-400 text-xs flex flex-col items-center justify-center gap-2">
+            <div className="py-20 text-center text-muted-foreground text-xs flex flex-col items-center justify-center gap-2">
               <RefreshCw className="h-6 w-6 animate-spin text-purple-400" />
               <span>Loading complete student academic portfolio...</span>
             </div>
           ) : !portfolio ? (
-            <div className="py-20 text-center text-slate-500 text-xs">
+            <div className="py-20 text-center text-muted-foreground text-xs">
               No historical essay or MCQ records found for this student.
             </div>
           ) : (
@@ -3407,8 +3407,8 @@ function StudentLifetimePortfolioModal({
                   className={cn(
                     "px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2",
                     activeTab === "essays"
-                      ? "bg-purple-600 text-white shadow-md shadow-purple-950/40"
-                      : "text-muted-foreground hover:text-white hover:bg-slate-800/40",
+                      ? "bg-purple-600 text-white shadow-md shadow-purple-500/10"
+                      : "text-muted-foreground hover:text-white hover:bg-muted/40",
                   )}
                 >
                   <FileText className="h-4 w-4" />
@@ -3420,8 +3420,8 @@ function StudentLifetimePortfolioModal({
                   className={cn(
                     "px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2",
                     activeTab === "mcqs"
-                      ? "bg-purple-600 text-white shadow-md shadow-purple-950/40"
-                      : "text-muted-foreground hover:text-white hover:bg-slate-800/40",
+                      ? "bg-purple-600 text-white shadow-md shadow-purple-500/10"
+                      : "text-muted-foreground hover:text-white hover:bg-muted/40",
                   )}
                 >
                   <BookOpen className="h-4 w-4" />
@@ -3433,8 +3433,8 @@ function StudentLifetimePortfolioModal({
                   className={cn(
                     "px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2",
                     activeTab === "topics"
-                      ? "bg-purple-600 text-white shadow-md shadow-purple-950/40"
-                      : "text-muted-foreground hover:text-white hover:bg-slate-800/40",
+                      ? "bg-purple-600 text-white shadow-md shadow-purple-500/10"
+                      : "text-muted-foreground hover:text-white hover:bg-muted/40",
                   )}
                 >
                   <BarChart3 className="h-4 w-4" />
@@ -3455,7 +3455,7 @@ function StudentLifetimePortfolioModal({
                   </div>
 
                   {portfolio.essays.length === 0 ? (
-                    <div className="text-center py-12 px-4 rounded-2xl border border-dashed border-border bg-background/40 text-slate-500 text-xs">
+                    <div className="text-center py-12 px-4 rounded-2xl border border-dashed border-border bg-background/40 text-muted-foreground text-xs">
                       No essays recorded for this student yet.
                     </div>
                   ) : (
@@ -3477,7 +3477,7 @@ function StudentLifetimePortfolioModal({
                                       (e.percentage ?? 0) >= 80
                                         ? "bg-emerald-950 text-emerald-300 border-emerald-800"
                                         : (e.percentage ?? 0) >= 60
-                                          ? "bg-purple-950 text-purple-300 border-purple-800"
+                                          ? "bg-purple-100 dark:bg-purple-950 text-purple-800 dark:text-purple-300 border-purple-200 dark:border-purple-800"
                                           : "bg-amber-950 text-amber-300 border-amber-800",
                                     )}
                                   >
@@ -3485,7 +3485,7 @@ function StudentLifetimePortfolioModal({
                                     {e.percentage !== null ? `(${e.percentage}%)` : ""}
                                   </Badge>
                                 ) : (
-                                  <Badge className="bg-slate-900 text-slate-400 border-border text-xs">
+                                  <Badge className="bg-card text-muted-foreground border-border text-xs">
                                     Ungraded
                                   </Badge>
                                 )}
@@ -3496,7 +3496,7 @@ function StudentLifetimePortfolioModal({
                                     "text-[10px]",
                                     e.isAssignment
                                       ? "bg-blue-950/60 text-blue-300 border-blue-800"
-                                      : "bg-slate-900 text-slate-400 border-border",
+                                      : "bg-card text-muted-foreground border-border",
                                   )}
                                 >
                                   {e.isAssignment ? "Class Assignment" : "Marking Desk / Practice"}
@@ -3511,7 +3511,7 @@ function StudentLifetimePortfolioModal({
                                 )}
                               </div>
 
-                              <p className="text-sm font-semibold text-slate-200 mt-1 leading-snug">
+                              <p className="text-sm font-semibold text-foreground mt-1 leading-snug">
                                 {e.question}
                               </p>
                               <div className="text-[10px] text-muted-foreground">
@@ -3542,13 +3542,13 @@ function StudentLifetimePortfolioModal({
 
                           {/* Expandable Examiner Feedback & Tariff Review */}
                           {isExpanded && e.feedback && (
-                            <div className="p-4 rounded-xl bg-card/80 border border-border text-xs text-slate-300 space-y-3 animate-in fade-in">
+                            <div className="p-4 rounded-xl bg-card/80 border border-border text-xs text-foreground space-y-3 animate-in fade-in">
                               {e.feedback.comment && (
                                 <div>
                                   <span className="font-bold text-purple-300 uppercase text-[10px] block mb-1">
                                     Overall Examiner Comment
                                   </span>
-                                  <p className="text-slate-200 leading-relaxed bg-background/60 p-3 rounded-lg border border-border/80">
+                                  <p className="text-foreground leading-relaxed bg-background/60 p-3 rounded-lg border border-border/80">
                                     {(typeof e.feedback.comment === "string"
                                       ? e.feedback.comment
                                       : JSON.stringify(e.feedback.comment)).replace(/\*\*/g, "")}
@@ -3561,7 +3561,7 @@ function StudentLifetimePortfolioModal({
                                   <span className="font-bold text-emerald-400 uppercase text-[10px] block mb-1">
                                     Key Strengths
                                   </span>
-                                  <ul className="list-disc list-inside space-y-1 text-slate-300 pl-1">
+                                  <ul className="list-disc list-inside space-y-1 text-foreground pl-1">
                                     {e.feedback.strengths.map((str: any, idx: number) => (
                                       <li key={idx}>
                                         {(typeof str === "string" ? str : str?.description || JSON.stringify(str)).replace(/\*\*/g, "")}
@@ -3577,7 +3577,7 @@ function StudentLifetimePortfolioModal({
                                     <span className="font-bold text-amber-400 uppercase text-[10px] block mb-1">
                                       Areas for Improvement
                                     </span>
-                                    <ul className="list-disc list-inside space-y-1 text-slate-300 pl-1">
+                                    <ul className="list-disc list-inside space-y-1 text-foreground pl-1">
                                       {e.feedback.improvements.map((imp: any, idx: number) => (
                                         <li key={idx}>
                                           {(typeof imp === "string"
@@ -3610,7 +3610,7 @@ function StudentLifetimePortfolioModal({
                   </div>
 
                   {portfolio.mcqs.length === 0 ? (
-                    <div className="text-center py-12 px-4 rounded-2xl border border-dashed border-border bg-background/40 text-slate-500 text-xs">
+                    <div className="text-center py-12 px-4 rounded-2xl border border-dashed border-border bg-background/40 text-muted-foreground text-xs">
                       No MCQ test attempts recorded for this student yet.
                     </div>
                   ) : (
@@ -3632,7 +3632,7 @@ function StudentLifetimePortfolioModal({
                                       (m.percentage ?? 0) >= 80
                                         ? "bg-emerald-950 text-emerald-300 border-emerald-800"
                                         : (m.percentage ?? 0) >= 60
-                                          ? "bg-purple-950 text-purple-300 border-purple-800"
+                                          ? "bg-purple-100 dark:bg-purple-950 text-purple-800 dark:text-purple-300 border-purple-200 dark:border-purple-800"
                                           : "bg-amber-950 text-amber-300 border-amber-800",
                                     )}
                                   >
@@ -3640,21 +3640,21 @@ function StudentLifetimePortfolioModal({
                                     {m.percentage !== null ? `(${m.percentage}%)` : ""}
                                   </Badge>
                                 ) : (
-                                  <Badge className="bg-slate-900 text-slate-400 border-border text-xs">
+                                  <Badge className="bg-card text-muted-foreground border-border text-xs">
                                     Incomplete
                                   </Badge>
                                 )}
 
                                 <Badge
                                   variant="outline"
-                                  className="bg-slate-900 text-purple-300 border-purple-800 text-[10px]"
+                                  className="bg-card text-purple-300 border-purple-800 text-[10px]"
                                 >
                                   {m.kind === "mcq_pdf" ? "Cambridge Past Paper" : "Topic Practice"}
                                 </Badge>
 
                                 <Badge
                                   variant="outline"
-                                  className="bg-slate-900 text-slate-400 border-border text-[10px]"
+                                  className="bg-card text-muted-foreground border-border text-[10px]"
                                 >
                                   {m.level.toUpperCase()} Level
                                 </Badge>
@@ -3689,8 +3689,8 @@ function StudentLifetimePortfolioModal({
 
                           {/* Expandable Question-by-Question Review */}
                           {isExpanded && hasQuestions && (
-                            <div className="p-4 rounded-xl bg-card/80 border border-border text-xs text-slate-300 space-y-2.5 animate-in fade-in max-h-72 overflow-y-auto">
-                              <span className="font-bold text-slate-400 uppercase text-[10px] block">
+                            <div className="p-4 rounded-xl bg-card/80 border border-border text-xs text-foreground space-y-2.5 animate-in fade-in max-h-72 overflow-y-auto">
+                              <span className="font-bold text-muted-foreground uppercase text-[10px] block">
                                 Question Diagnostic Breakdown
                               </span>
                               <div className="grid grid-cols-1 gap-2">
@@ -3715,7 +3715,7 @@ function StudentLifetimePortfolioModal({
                                           )}
                                         </div>
                                         {q?.explanation && (
-                                          <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">
+                                          <p className="text-[11px] text-muted-foreground mt-1 leading-relaxed">
                                             {q.explanation}
                                           </p>
                                         )}
@@ -3760,7 +3760,7 @@ function StudentLifetimePortfolioModal({
                   </div>
 
                   {portfolio.topics.length === 0 ? (
-                    <div className="text-center py-12 px-4 rounded-2xl border border-dashed border-border bg-background/40 text-slate-500 text-xs">
+                    <div className="text-center py-12 px-4 rounded-2xl border border-dashed border-border bg-background/40 text-muted-foreground text-xs">
                       No topic performance statistics recorded yet.
                     </div>
                   ) : (
@@ -3773,14 +3773,14 @@ function StudentLifetimePortfolioModal({
                             className="p-4 rounded-xl bg-background border border-border space-y-2 text-xs"
                           >
                             <div className="flex items-center justify-between">
-                              <span className="font-bold text-slate-200">{top.topic}</span>
+                              <span className="font-bold text-foreground">{top.topic}</span>
                               <Badge
                                 className={cn(
                                   "text-[10px]",
                                   acc >= 75
                                     ? "bg-emerald-950 text-emerald-300 border-emerald-800"
                                     : acc >= 50
-                                      ? "bg-purple-950 text-purple-300 border-purple-800"
+                                      ? "bg-purple-100 dark:bg-purple-950 text-purple-800 dark:text-purple-300 border-purple-200 dark:border-purple-800"
                                       : "bg-amber-950 text-amber-300 border-amber-800",
                                 )}
                               >
@@ -3788,7 +3788,7 @@ function StudentLifetimePortfolioModal({
                                 {top.correct}/{top.attempted} correct)
                               </Badge>
                             </div>
-                            <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+                            <div className="w-full bg-muted h-2 rounded-full overflow-hidden">
                               <div
                                 className={cn(
                                   "h-full rounded-full transition-all",
@@ -3900,7 +3900,7 @@ function GradesTab({ classroom }: { classroom: Classroom }) {
           className={cn(
             "px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2",
             gradeView === "matrix"
-              ? "bg-purple-600 text-white shadow-md shadow-purple-950/50"
+              ? "bg-purple-600 text-white shadow-md shadow-purple-500/10"
               : "text-muted-foreground hover:text-white",
           )}
         >
@@ -3913,7 +3913,7 @@ function GradesTab({ classroom }: { classroom: Classroom }) {
           className={cn(
             "px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2",
             gradeView === "aggregate"
-              ? "bg-purple-600 text-white shadow-md shadow-purple-950/50"
+              ? "bg-purple-600 text-white shadow-md shadow-purple-500/10"
               : "text-muted-foreground hover:text-white",
           )}
         >
@@ -3925,7 +3925,7 @@ function GradesTab({ classroom }: { classroom: Classroom }) {
       {/* VIEW A: ASSIGNMENTS MATRIX (Original Gradebook) */}
       {gradeView === "matrix" && (
         <div className="space-y-6">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-slate-900/60 p-6 rounded-3xl border border-border shadow-xl">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-card p-6 rounded-3xl border border-border shadow-xl">
             <div className="space-y-1">
               <h3 className="text-xl font-bold text-foreground tracking-tight flex items-center gap-2">
                 <Award className="h-6 w-6 text-purple-400" />
@@ -3968,7 +3968,7 @@ function GradesTab({ classroom }: { classroom: Classroom }) {
               <Button
                 size="sm"
                 onClick={exportCSV}
-                className="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-input text-xs font-semibold"
+                className="bg-muted hover:bg-muted/80 text-foreground border border-input text-xs font-semibold"
               >
                 <Download className="h-3.5 w-3.5 mr-1.5" />
                 Export CSV
@@ -3980,27 +3980,27 @@ function GradesTab({ classroom }: { classroom: Classroom }) {
             <div className="h-64 rounded-3xl bg-card/40 border border-border animate-pulse" />
           ) : students.length === 0 ? (
             <div className="text-center py-20 px-4 rounded-3xl border border-dashed border-border bg-muted/20">
-              <UsersRound className="h-12 w-12 text-slate-600 mx-auto mb-3" />
-              <h4 className="text-base font-medium text-slate-300">No students enrolled yet</h4>
-              <p className="text-xs text-slate-500 max-w-sm mx-auto mt-1">
+              <UsersRound className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+              <h4 className="text-base font-medium text-foreground">No students enrolled yet</h4>
+              <p className="text-xs text-muted-foreground max-w-sm mx-auto mt-1">
                 Once students join your class code and turn in essays, their scores will populate this
                 matrix automatically.
               </p>
             </div>
           ) : assignments.length === 0 ? (
             <div className="text-center py-20 px-4 rounded-3xl border border-dashed border-border bg-muted/20">
-              <FileText className="h-12 w-12 text-slate-600 mx-auto mb-3" />
-              <h4 className="text-base font-medium text-slate-300">No assignments created yet</h4>
-              <p className="text-xs text-slate-500 max-w-sm mx-auto mt-1">
+              <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+              <h4 className="text-base font-medium text-foreground">No assignments created yet</h4>
+              <p className="text-xs text-muted-foreground max-w-sm mx-auto mt-1">
                 Create your first essay or MCQ paper from the Classwork tab to start grading.
               </p>
             </div>
           ) : (
-            <div className="overflow-x-auto rounded-3xl border border-border bg-slate-900/60 shadow-xl">
+            <div className="overflow-x-auto rounded-3xl border border-border bg-card shadow-xl">
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
                   <tr className="border-b border-border bg-background/80">
-                    <th className="p-4 pl-6 font-bold text-slate-300 sticky left-0 bg-background z-20 min-w-[200px]">
+                    <th className="p-4 pl-6 font-bold text-foreground sticky left-0 bg-background z-20 min-w-[200px]">
                       Student Name
                     </th>
                     <th className="p-4 font-bold text-purple-300 min-w-[120px] text-center border-r border-border">
@@ -4009,12 +4009,12 @@ function GradesTab({ classroom }: { classroom: Classroom }) {
                     {assignments.map((a) => (
                       <th
                         key={a.id}
-                        className="p-4 min-w-[160px] text-slate-300 font-semibold space-y-1"
+                        className="p-4 min-w-[160px] text-foreground font-semibold space-y-1"
                       >
                         <div className="truncate font-bold text-foreground" title={a.title}>
                           {a.title}
                         </div>
-                        <div className="text-[10px] text-slate-500 font-normal flex items-center justify-between">
+                        <div className="text-[10px] text-muted-foreground font-normal flex items-center justify-between">
                           <span>Max {a.maxMark}</span>
                           {a.classAvgPct !== null && (
                             <span className="text-purple-400 font-medium">Avg: {a.classAvgPct}%</span>
@@ -4024,10 +4024,10 @@ function GradesTab({ classroom }: { classroom: Classroom }) {
                     ))}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-800/60 text-slate-300">
+                <tbody className="divide-y divide-border text-foreground">
                   {students.map((st) => (
-                    <tr key={st.id} className="hover:bg-slate-800/40 transition-colors">
-                      <td className="p-4 pl-6 font-medium text-white sticky left-0 bg-slate-900/90 z-10">
+                    <tr key={st.id} className="hover:bg-muted/40 transition-colors">
+                      <td className="p-4 pl-6 font-medium text-white sticky left-0 bg-card z-10">
                         <div className="flex items-center gap-2.5">
                           <div className="h-7 w-7 rounded-full bg-purple-700 flex items-center justify-center font-bold text-white text-[10px]">
                             {getInitials(st.fullName)}
@@ -4047,14 +4047,14 @@ function GradesTab({ classroom }: { classroom: Classroom }) {
                               st.overallAvgPct >= 80
                                 ? "bg-emerald-950 text-emerald-300"
                                 : st.overallAvgPct >= 60
-                                  ? "bg-purple-950 text-purple-300"
+                                  ? "bg-purple-100 dark:bg-purple-950 text-purple-800 dark:text-purple-300"
                                   : "bg-amber-950 text-amber-300",
                             )}
                           >
                             {st.overallAvgPct}%
                           </span>
                         ) : (
-                          <span className="text-slate-600">--</span>
+                          <span className="text-muted-foreground">--</span>
                         )}
                       </td>
 
@@ -4069,7 +4069,7 @@ function GradesTab({ classroom }: { classroom: Classroom }) {
                                   <span className="text-muted-foreground text-[10px]">/ {a.maxMark}</span>
                                 </span>
                                 {cell.percentage !== null && (
-                                  <span className="text-[10px] text-slate-400 font-medium">
+                                  <span className="text-[10px] text-muted-foreground font-medium">
                                     ({cell.percentage}%)
                                   </span>
                                 )}
@@ -4079,7 +4079,7 @@ function GradesTab({ classroom }: { classroom: Classroom }) {
                                 Turned in
                               </Badge>
                             ) : (
-                              <span className="text-slate-600 text-xs">--</span>
+                              <span className="text-muted-foreground text-xs">--</span>
                             )}
                           </td>
                         );
@@ -4097,7 +4097,7 @@ function GradesTab({ classroom }: { classroom: Classroom }) {
       {gradeView === "aggregate" && (
         <div className="space-y-6">
           {/* Aggregate Header & KPIs */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-slate-900/60 p-6 rounded-3xl border border-border shadow-xl">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-card p-6 rounded-3xl border border-border shadow-xl">
             <div className="space-y-1">
               <h3 className="text-xl font-bold text-foreground tracking-tight flex items-center gap-2">
                 <TrendingUp className="h-6 w-6 text-purple-400" />
@@ -4157,21 +4157,21 @@ function GradesTab({ classroom }: { classroom: Classroom }) {
             <div className="h-64 rounded-3xl bg-card/40 border border-border animate-pulse" />
           ) : aggregateStudents.length === 0 ? (
             <div className="text-center py-20 px-4 rounded-3xl border border-dashed border-border bg-muted/20">
-              <UsersRound className="h-12 w-12 text-slate-600 mx-auto mb-3" />
-              <h4 className="text-base font-medium text-slate-300">No students enrolled yet</h4>
-              <p className="text-xs text-slate-500 max-w-sm mx-auto mt-1">
+              <UsersRound className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+              <h4 className="text-base font-medium text-foreground">No students enrolled yet</h4>
+              <p className="text-xs text-muted-foreground max-w-sm mx-auto mt-1">
                 Share your class join code with students to start viewing their academic portfolio.
               </p>
             </div>
           ) : (
-            <div className="overflow-x-auto rounded-3xl border border-border bg-slate-900/60 shadow-xl">
+            <div className="overflow-x-auto rounded-3xl border border-border bg-card shadow-xl">
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
                   <tr className="border-b border-border bg-background/80">
-                    <th className="p-4 pl-6 font-bold text-slate-300 min-w-[200px]">
+                    <th className="p-4 pl-6 font-bold text-foreground min-w-[200px]">
                       Student Profile
                     </th>
-                    <th className="p-4 font-bold text-slate-300 text-center min-w-[120px]">
+                    <th className="p-4 font-bold text-foreground text-center min-w-[120px]">
                       Academic Level
                     </th>
                     <th className="p-4 font-bold text-purple-300 text-center min-w-[140px]">
@@ -4180,17 +4180,17 @@ function GradesTab({ classroom }: { classroom: Classroom }) {
                     <th className="p-4 font-bold text-emerald-300 text-center min-w-[140px]">
                       Lifetime MCQ Performance
                     </th>
-                    <th className="p-4 font-bold text-slate-400 text-center min-w-[120px]">
+                    <th className="p-4 font-bold text-muted-foreground text-center min-w-[120px]">
                       Last Active
                     </th>
-                    <th className="p-4 pr-6 font-bold text-slate-300 text-right min-w-[150px]">
+                    <th className="p-4 pr-6 font-bold text-foreground text-right min-w-[150px]">
                       Actions
                     </th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-800/60 text-slate-300">
+                <tbody className="divide-y divide-border text-foreground">
                   {aggregateStudents.map((st) => (
-                    <tr key={st.id} className="hover:bg-slate-800/40 transition-colors">
+                    <tr key={st.id} className="hover:bg-muted/40 transition-colors">
                       <td className="p-4 pl-6 font-medium text-foreground">
                         <div className="flex items-center gap-2.5">
                           <div className="h-8 w-8 rounded-full bg-purple-700 flex items-center justify-center font-bold text-white text-xs shrink-0">
@@ -4229,18 +4229,18 @@ function GradesTab({ classroom }: { classroom: Classroom }) {
                                 st.essayAvgPct >= 80
                                   ? "bg-emerald-950 text-emerald-300"
                                   : st.essayAvgPct >= 60
-                                    ? "bg-purple-950 text-purple-300"
+                                    ? "bg-purple-100 dark:bg-purple-950 text-purple-800 dark:text-purple-300"
                                     : "bg-amber-950 text-amber-300",
                               )}
                             >
                               {st.essayAvgPct}% Avg
                             </span>
-                            <span className="text-[10px] text-slate-500 mt-0.5">
+                            <span className="text-[10px] text-muted-foreground mt-0.5">
                               {st.totalEssays} marked
                             </span>
                           </div>
                         ) : (
-                          <span className="text-slate-600">0 essays</span>
+                          <span className="text-muted-foreground">0 essays</span>
                         )}
                       </td>
 
@@ -4253,18 +4253,18 @@ function GradesTab({ classroom }: { classroom: Classroom }) {
                                 st.mcqAccuracyPct >= 80
                                   ? "bg-emerald-950 text-emerald-300"
                                   : st.mcqAccuracyPct >= 60
-                                    ? "bg-purple-950 text-purple-300"
+                                    ? "bg-purple-100 dark:bg-purple-950 text-purple-800 dark:text-purple-300"
                                     : "bg-amber-950 text-amber-300",
                               )}
                             >
                               {st.mcqAccuracyPct}% Acc
                             </span>
-                            <span className="text-[10px] text-slate-500 mt-0.5">
+                            <span className="text-[10px] text-muted-foreground mt-0.5">
                               {st.totalMcqs} questions
                             </span>
                           </div>
                         ) : (
-                          <span className="text-slate-600">0 attempts</span>
+                          <span className="text-muted-foreground">0 attempts</span>
                         )}
                       </td>
 
