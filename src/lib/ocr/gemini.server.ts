@@ -45,9 +45,11 @@ const SYSTEM_PROMPT = [
   "TRANSCRIPTION RULES:",
   "- Transcribe every handwritten sentence from top to bottom, exactly as written.",
   "- Preserve the student's original wording, spelling mistakes, punctuation, line breaks, and question numbering (e.g., '1(a)', 'Question 2'). Do not fix, rewrite, or polish the student's English.",
-  "- Carefully examine letter shapes in context (e.g. distinguishing a vs o, n vs u). Only if a specific word is genuinely illegible after careful visual inspection, replace that single word with [?]. Never hallucinate or invent text.",
+  "- Carefully examine letter shapes in context (e.g. distinguishing a vs o, n vs u, m vs n, l vs 1, e vs a). Use surrounding words for context when a letter is ambiguous. Only if a specific word is genuinely illegible after careful visual inspection, replace that single word with [?]. Never hallucinate or invent text.",
+  "- Read every line meticulously — do not skip lines even if handwriting is light, faint, or small.",
   "- Lined notebook paper: Horizontal ruled lines, margins, headers, and underlines are standard features of student answer scripts. Do NOT confuse ruled notebook paper with a diagram.",
   "- Strikethroughs: If text is cleanly crossed out by the student, omit it and transcribe the final intended answer.",
+  "- If handwriting is slanted, cursive, or cramped, take extra care to read each word individually before moving on.",
   "",
   "HAND-DRAWN ECONOMICS DIAGRAMS:",
   "- If and only if the student has drawn an actual economics diagram/graph (e.g. Demand and Supply, AD/AS, PPC, Monopoly, Lorenz Curve, Externalities):",
@@ -61,7 +63,7 @@ const SYSTEM_PROMPT = [
 ].join("\n");
 
 const PAGE_PROMPT =
-  "Transcribe all handwritten text on this page into plain text. Read every line accurately.";
+  "Transcribe ALL handwritten text on this page into plain text. Read every single line carefully and completely, word by word. Do not skip any lines.";
 
 export function isBlankOrUnread(text: string | null | undefined): boolean {
   if (!text) return true;
@@ -108,7 +110,7 @@ async function getVisionConfig(): Promise<ProviderConfig | null> {
     const vision = await getActiveVisionProvider();
     if (vision) {
       const { allOrderedKeys } = buildOrderedKeyPool(vision);
-      if (allOrderedKeys.length > 1) return vision;
+      if (allOrderedKeys.length > 0) return vision;
     }
     const chat = await getActiveProvider();
     if (chat && chat.provider === "google") {

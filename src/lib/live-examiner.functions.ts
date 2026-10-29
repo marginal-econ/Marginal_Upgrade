@@ -715,7 +715,7 @@ export const checkEssayWriting = createServerFn({ method: "POST" })
 
       const candidateResult = await chat({
         model: MODEL_LIVE_CANDIDATE,
-        temperature: 0,
+        temperature: 0.15,
         json: true,
         isBudgetTier,
         maxCompletionTokens: 900,
@@ -822,7 +822,7 @@ export const checkEssayWriting = createServerFn({ method: "POST" })
             .join("\n\n");
           const verifyResult = await chat({
             model: MODEL_LIVE_CHECK,
-            temperature: 0,
+            temperature: 0.1,
             json: true,
             isBudgetTier,
             maxCompletionTokens: 300,

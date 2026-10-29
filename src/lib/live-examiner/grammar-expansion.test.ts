@@ -18,7 +18,6 @@ describe("expanded grammar & spelling", () => {
     ["This lead to higher costs.", "This lead to=>This leads to"],
     ["In the other hand, supply rises.", "In the other hand=>On the other hand"],
     ["It was a more cheaper option.", "more cheaper=>cheaper"],
-    ["Then i argue that tax falls.", "i=>I"],
     ["Prices rise,because costs rise.", "rise,because=>rise, because"],
     ["The governmnet taxes scarsity and unemploymnet.", "governmnet=>government"],
     ["Their was a shoratge of resourse.", "shoratge=>shortage"],
@@ -46,6 +45,7 @@ describe("expanded grammar & spelling", () => {
     "I believe that market failure requires government intervention.",
     "In this essay, I will evaluate the extent of deadweight loss.",
     "Firm i and Firm j compete under Cournot oligopoly.",
+    "Then i argue that tax falls.",
     "As illustrated in diagram i, the subsidy shifts supply outward.",
   ])("does not flag correct writing: %s", (sentence) => {
     expect(flagged(sentence)).toEqual([]);

@@ -644,14 +644,6 @@ const RULES: RuleDefinition[] = [
     explanation: "'Unique' is absolute and cannot be graded.",
   },
   {
-    id: "lowercase_pronoun_i",
-    category: "grammar",
-    severity: "low",
-    pattern: /(?<!\b(?:[Ff]irm|[Cc]ountry|[Cc]onsumer|[Pp]roducer|[Gg]ood|[Mm]arket|[Aa]gent|[Dd]iagram|[Ff]igure|[Pp]oint|[Pp]hase|[Ss]tep|[Tt]able|[Cc]ase|[Ss]ection|[Pp]art|[Ww]orker)\s+)(?<![\w'(\[.])i(?![\w')\].,:\/-])/g,
-    getSuggestion: () => "I",
-    explanation: "The pronoun 'I' is always capitalised.",
-  },
-  {
     id: "missing_space_after_comma",
     category: "grammar",
     severity: "low",
