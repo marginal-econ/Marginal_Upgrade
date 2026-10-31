@@ -103,6 +103,7 @@ function AuthenticatedLayout() {
         open={privacyResolved && data?.tutorialCompleted === false}
         initialFullName={resolvedName || ""}
         initialSchool={data?.school || (user.user_metadata as any)?.school || ""}
+        role={resolvedRole}
         onFinished={() => {}}
       />
     </AppShell>

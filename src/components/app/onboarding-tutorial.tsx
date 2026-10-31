@@ -7,6 +7,7 @@ import {
   Trophy,
   CheckCircle2,
   BookOpen,
+  School,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -33,13 +34,16 @@ export function OnboardingTutorial({
   open,
   initialFullName = "",
   initialSchool = "",
+  role = "student",
   onFinished,
 }: {
   open: boolean;
   initialFullName?: string;
   initialSchool?: string;
+  role?: "student" | "teacher" | "admin";
   onFinished: () => void;
 }) {
+  const isTeacher = role === "teacher";
   const [fullName, setFullName] = useState(initialFullName);
   const [school, setSchool] = useState(initialSchool);
   const [targetLevel, setTargetLevel] = useState<"as_level" | "a2_level" | "full_a_level">("as_level");
@@ -70,21 +74,27 @@ export function OnboardingTutorial({
         } catch {}
       }
 
-      // 2. Save Academic Preferences (Level & Target Grade)
-      try {
-        await savePreferencesFn({
-          data: {
-            targetLevel,
-            targetGrade,
-          },
-        });
-      } catch {}
+      // 2. Save Academic Preferences (Level & Target Grade) - for students only
+      if (!isTeacher) {
+        try {
+          await savePreferencesFn({
+            data: {
+              targetLevel,
+              targetGrade,
+            },
+          });
+        } catch {}
+      }
 
       // 3. Mark Tutorial Completed
       return finishTutorialFn();
     },
     onSuccess: () => {
-      toast.success("Welcome to Marginal Economics! Your academic desk is ready.");
+      toast.success(
+        isTeacher
+          ? "Welcome, Educator! Your teaching workspace is ready."
+          : "Welcome to Marginal Economics! Your academic desk is ready.",
+      );
       queryClient.invalidateQueries({ queryKey: ["me"] });
       onFinished();
     },
@@ -108,49 +118,54 @@ export function OnboardingTutorial({
                 Cambridge International 9708
               </Badge>
               <Badge variant="outline" className="text-[11px] text-muted-foreground border-border">
-                Student Enrollment &amp; Guidelines
+                {isTeacher ? "Educator & Department Workspace" : "Student Enrollment & Guidelines"}
               </Badge>
             </div>
 
             <DialogTitle className="text-xl sm:text-2xl font-bold tracking-tight text-foreground flex items-center gap-2.5 pt-0.5">
               <div className="h-8 w-8 rounded-xl bg-purple-500/10 dark:bg-purple-500/20 border border-purple-500/20 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
-                <GraduationCap className="h-5 w-5" />
+                {isTeacher ? <School className="h-5 w-5" /> : <GraduationCap className="h-5 w-5" />}
               </div>
-              <span>Welcome to Marginal Economics</span>
+              <span>
+                {isTeacher
+                  ? "Welcome to Marginal Economics for Educators"
+                  : "Welcome to Marginal Economics"}
+              </span>
             </DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground leading-relaxed">
-              Please verify your academic profile and review our platform guidelines before starting
-              your Cambridge Economics preparation.
+              {isTeacher
+                ? "Please verify your educator details and review our institutional guidelines before managing your Cambridge Economics classes, mark schemes, and diagnostic tools."
+                : "Please verify your academic profile and review our platform guidelines before starting your Cambridge Economics preparation."}
             </DialogDescription>
           </DialogHeader>
         </div>
 
         {/* SCROLLABLE BODY */}
         <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-5">
-          {/* STEP 1: STUDENT PROFILE SETUP */}
+          {/* STEP 1: PROFILE SETUP */}
           <div className="p-4 sm:p-5 rounded-2xl bg-muted/30 border border-border space-y-4">
             <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-muted-foreground">
               <BookOpen className="h-3.5 w-3.5 text-purple-500" />
-              <span>1. Your Academic Profile</span>
+              <span>{isTeacher ? "1. Your Educator Profile" : "1. Your Academic Profile"}</span>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
               <div className="space-y-1.5">
                 <Label htmlFor="ob-name" className="text-xs font-semibold text-foreground">
-                  Full Name / Display Name
+                  {isTeacher ? "Full Name / Title" : "Full Name / Display Name"}
                 </Label>
                 <Input
                   id="ob-name"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
-                  placeholder="e.g. Saikrish Karthikeyan"
+                  placeholder={isTeacher ? "e.g. David Smith (or Dr. Smith)" : "e.g. Saikrish Karthikeyan"}
                   className="bg-background border-input text-xs h-9 rounded-xl focus-visible:ring-purple-500"
                 />
               </div>
 
               <div className="space-y-1.5">
                 <Label htmlFor="ob-school" className="text-xs font-semibold text-foreground">
-                  School / College (Optional)
+                  {isTeacher ? "School / Institution" : "School / College (Optional)"}
                 </Label>
                 <Input
                   id="ob-school"
@@ -162,120 +177,176 @@ export function OnboardingTutorial({
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-1">
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-foreground block">
-                  Cambridge Syllabus Level
-                </Label>
-                <div className="grid grid-cols-3 gap-1.5">
-                  {[
-                    { id: "as_level", label: "AS Level" },
-                    { id: "a2_level", label: "A2 Level" },
-                    { id: "full_a_level", label: "Full A Level" },
-                  ].map((lvl) => {
-                    const isSelected = targetLevel === lvl.id;
-                    return (
-                      <button
-                        key={lvl.id}
-                        type="button"
-                        onClick={() => setTargetLevel(lvl.id as any)}
-                        className={cn(
-                          "py-1.5 px-2 rounded-xl text-xs font-semibold border transition-all text-center",
-                          isSelected
-                            ? "bg-purple-600 border-purple-600 text-white shadow-sm"
-                            : "bg-background border-border text-foreground/80 hover:bg-muted hover:text-foreground",
-                        )}
-                      >
-                        {lvl.label}
-                      </button>
-                    );
-                  })}
+            {!isTeacher && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-1">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold text-foreground block">
+                    Cambridge Syllabus Level
+                  </Label>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {[
+                      { id: "as_level", label: "AS Level" },
+                      { id: "a2_level", label: "A2 Level" },
+                      { id: "full_a_level", label: "Full A Level" },
+                    ].map((lvl) => {
+                      const isSelected = targetLevel === lvl.id;
+                      return (
+                        <button
+                          key={lvl.id}
+                          type="button"
+                          onClick={() => setTargetLevel(lvl.id as any)}
+                          className={cn(
+                            "py-1.5 px-2 rounded-xl text-xs font-semibold border transition-all text-center",
+                            isSelected
+                              ? "bg-purple-600 border-purple-600 text-white shadow-sm"
+                              : "bg-background border-border text-foreground/80 hover:bg-muted hover:text-foreground",
+                          )}
+                        >
+                          {lvl.label}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
 
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-foreground block">
-                  Target Economics Grade
-                </Label>
-                <div className="grid grid-cols-4 gap-1.5">
-                  {["A*", "A", "B", "C"].map((grade) => {
-                    const isSelected = targetGrade === grade;
-                    return (
-                      <button
-                        key={grade}
-                        type="button"
-                        onClick={() => setTargetGrade(grade as any)}
-                        className={cn(
-                          "py-1.5 px-2 rounded-xl text-xs font-semibold border transition-all text-center",
-                          isSelected
-                            ? "bg-purple-600 border-purple-600 text-white shadow-sm"
-                            : "bg-background border-border text-foreground/80 hover:bg-muted hover:text-foreground",
-                        )}
-                      >
-                        {grade}
-                      </button>
-                    );
-                  })}
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold text-foreground block">
+                    Target Economics Grade
+                  </Label>
+                  <div className="grid grid-cols-4 gap-1.5">
+                    {["A*", "A", "B", "C"].map((grade) => {
+                      const isSelected = targetGrade === grade;
+                      return (
+                        <button
+                          key={grade}
+                          type="button"
+                          onClick={() => setTargetGrade(grade as any)}
+                          className={cn(
+                            "py-1.5 px-2 rounded-xl text-xs font-semibold border transition-all text-center",
+                            isSelected
+                              ? "bg-purple-600 border-purple-600 text-white shadow-sm"
+                              : "bg-background border-border text-foreground/80 hover:bg-muted hover:text-foreground",
+                          )}
+                        >
+                          {grade}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
           </div>
 
           {/* STEP 2: TRANSPARENCY & PRIVACY GUIDELINES (MANDATORY DISCLOSURES) */}
           <div className="space-y-3">
             <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-muted-foreground">
               <ShieldCheck className="h-3.5 w-3.5 text-purple-500" />
-              <span>2. Platform Guidelines &amp; Academic Transparency</span>
+              <span>
+                {isTeacher
+                  ? "2. Educator Guidelines & Platform Integrity"
+                  : "2. Platform Guidelines & Academic Transparency"}
+              </span>
             </div>
 
             <div className="space-y-3">
-              {/* Disclosure 1: Exemplar Showcase using Initials */}
-              <div className="p-4 rounded-2xl bg-amber-500/5 dark:bg-amber-950/20 border border-amber-500/20 dark:border-amber-500/30 space-y-2.5 transition-all">
-                <div className="flex items-center gap-2.5">
-                  <div className="h-7 w-7 rounded-lg bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-700 dark:text-amber-400 shrink-0">
-                    <Trophy className="h-4 w-4" />
+              {isTeacher ? (
+                <>
+                  {/* Teacher Disclosure 1: Cambridge 9708 Standards & Calibration */}
+                  <div className="p-4 rounded-2xl bg-amber-500/5 dark:bg-amber-950/20 border border-amber-500/20 dark:border-amber-500/30 space-y-2.5 transition-all">
+                    <div className="flex items-center gap-2.5">
+                      <div className="h-7 w-7 rounded-lg bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-700 dark:text-amber-400 shrink-0">
+                        <Trophy className="h-4 w-4" />
+                      </div>
+                      <div className="flex-1">
+                        <h5 className="text-xs font-semibold text-foreground">
+                          Cambridge 9708 Rubrics &amp; Mark Scheme Standards
+                        </h5>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-md inline-block mt-0.5">
+                          Pedagogy &amp; Evaluation Benchmarks
+                        </span>
+                      </div>
+                    </div>
+                    <p className="text-xs text-foreground/80 dark:text-muted-foreground leading-relaxed pl-9">
+                      Marginal provides automated evaluation calibrated to official Cambridge International 9708
+                      mark schemes and examiner reports. Teacher-assisted grading, exemplar papers, and syllabus
+                      benchmarks are provided to empower your teaching workflow and deliver formative cohort feedback.
+                    </p>
                   </div>
-                  <div className="flex-1">
-                    <h5 className="text-xs font-semibold text-foreground">
-                      Best Essays Published Anonymously with Initials
-                    </h5>
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-md inline-block mt-0.5">
-                      Exemplar Showcase Guidelines
-                    </span>
-                  </div>
-                </div>
-                <p className="text-xs text-foreground/80 dark:text-muted-foreground leading-relaxed pl-9">
-                  To provide exemplar study material for Cambridge 9708 Economics students, your
-                  highest-scoring essays (Band 4 &amp; Level 5 distinction marks) may be featured in
-                  the public <strong className="text-foreground">Exemplar Showcase</strong>. To protect your personal privacy,
-                  your full name and contact details are never shown — your essay will only ever be
-                  credited using your initials (e.g. <strong className="text-foreground">"S.K."</strong>).
-                </p>
-              </div>
 
-              {/* Disclosure 2: Admin-Only Grading Quality Monitoring */}
-              <div className="p-4 rounded-2xl bg-purple-500/5 dark:bg-purple-950/20 border border-purple-500/20 dark:border-purple-500/30 space-y-2.5 transition-all">
-                <div className="flex items-center gap-2.5">
-                  <div className="h-7 w-7 rounded-lg bg-purple-500/15 border border-purple-500/30 flex items-center justify-center text-purple-700 dark:text-purple-400 shrink-0">
-                    <ShieldCheck className="h-4 w-4" />
+                  {/* Teacher Disclosure 2: Classroom Privacy & Student Data Protection */}
+                  <div className="p-4 rounded-2xl bg-purple-500/5 dark:bg-purple-950/20 border border-purple-500/20 dark:border-purple-500/30 space-y-2.5 transition-all">
+                    <div className="flex items-center gap-2.5">
+                      <div className="h-7 w-7 rounded-lg bg-purple-500/15 border border-purple-500/30 flex items-center justify-center text-purple-700 dark:text-purple-400 shrink-0">
+                        <ShieldCheck className="h-4 w-4" />
+                      </div>
+                      <div className="flex-1">
+                        <h5 className="text-xs font-semibold text-foreground">
+                          Classroom Privacy &amp; Evaluation Confidentiality
+                        </h5>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-purple-700 dark:text-purple-300 bg-purple-500/10 px-2 py-0.5 rounded-md inline-block mt-0.5">
+                          Confidentiality &amp; Moderation
+                        </span>
+                      </div>
+                    </div>
+                    <p className="text-xs text-foreground/80 dark:text-muted-foreground leading-relaxed pl-9">
+                      Student submissions, diagnostic scorecards, and cohort performance analytics in your classes
+                      remain strictly confidential to your institution and platform administrators. Any student essays
+                      featured in the Exemplar Showcase are strictly anonymized using initials to protect student privacy.
+                    </p>
                   </div>
-                  <div className="flex-1">
-                    <h5 className="text-xs font-semibold text-foreground">
-                      Grading Monitored by Administrators Alone
-                    </h5>
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-purple-700 dark:text-purple-300 bg-purple-500/10 px-2 py-0.5 rounded-md inline-block mt-0.5">
-                      Confidentiality &amp; Moderation
-                    </span>
+                </>
+              ) : (
+                <>
+                  {/* Disclosure 1: Exemplar Showcase using Initials */}
+                  <div className="p-4 rounded-2xl bg-amber-500/5 dark:bg-amber-950/20 border border-amber-500/20 dark:border-amber-500/30 space-y-2.5 transition-all">
+                    <div className="flex items-center gap-2.5">
+                      <div className="h-7 w-7 rounded-lg bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-700 dark:text-amber-400 shrink-0">
+                        <Trophy className="h-4 w-4" />
+                      </div>
+                      <div className="flex-1">
+                        <h5 className="text-xs font-semibold text-foreground">
+                          Best Essays Published Anonymously with Initials
+                        </h5>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-md inline-block mt-0.5">
+                          Exemplar Showcase Guidelines
+                        </span>
+                      </div>
+                    </div>
+                    <p className="text-xs text-foreground/80 dark:text-muted-foreground leading-relaxed pl-9">
+                      To provide exemplar study material for Cambridge 9708 Economics students, your
+                      highest-scoring essays (Band 4 &amp; Level 5 distinction marks) may be featured in
+                      the public <strong className="text-foreground">Exemplar Showcase</strong>. To protect your personal privacy,
+                      your full name and contact details are never shown — your essay will only ever be
+                      credited using your initials (e.g. <strong className="text-foreground">"S.K."</strong>).
+                    </p>
                   </div>
-                </div>
-                <p className="text-xs text-foreground/80 dark:text-muted-foreground leading-relaxed pl-9">
-                  Your essay evaluations, live writing checks, and diagnostic score cards are strictly
-                  confidential. AI grading performance and tariff allocations are audited and monitored
-                  <strong className="text-foreground"> exclusively by platform administrators</strong> to eliminate central-tendency
-                  bias, verify rubric calibration, and ensure examiner consistency. No other students
-                  have access to your individual grading history.
-                </p>
-              </div>
+
+                  {/* Disclosure 2: Admin-Only Grading Quality Monitoring */}
+                  <div className="p-4 rounded-2xl bg-purple-500/5 dark:bg-purple-950/20 border border-purple-500/20 dark:border-purple-500/30 space-y-2.5 transition-all">
+                    <div className="flex items-center gap-2.5">
+                      <div className="h-7 w-7 rounded-lg bg-purple-500/15 border border-purple-500/30 flex items-center justify-center text-purple-700 dark:text-purple-400 shrink-0">
+                        <ShieldCheck className="h-4 w-4" />
+                      </div>
+                      <div className="flex-1">
+                        <h5 className="text-xs font-semibold text-foreground">
+                          Grading Monitored by Administrators Alone
+                        </h5>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-purple-700 dark:text-purple-300 bg-purple-500/10 px-2 py-0.5 rounded-md inline-block mt-0.5">
+                          Confidentiality &amp; Moderation
+                        </span>
+                      </div>
+                    </div>
+                    <p className="text-xs text-foreground/80 dark:text-muted-foreground leading-relaxed pl-9">
+                      Your essay evaluations, live writing checks, and diagnostic score cards are strictly
+                      confidential. AI grading performance and tariff allocations are audited and monitored
+                      <strong className="text-foreground"> exclusively by platform administrators</strong> to eliminate central-tendency
+                      bias, verify rubric calibration, and ensure examiner consistency. No other students
+                      have access to your individual grading history.
+                    </p>
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
@@ -292,9 +363,9 @@ export function OnboardingTutorial({
                 htmlFor="guidelines-consent"
                 className="text-xs text-foreground font-medium leading-relaxed cursor-pointer select-none"
               >
-                I understand that my best essays may be published with my initials in the
-                Exemplar Showcase, and that my grading evaluations are monitored solely by
-                platform administrators for quality assurance.
+                {isTeacher
+                  ? "I agree to uphold Cambridge 9708 evaluation standards, maintain student grading confidentiality, and review institutional cohort data responsibly."
+                  : "I understand that my best essays may be published with my initials in the Exemplar Showcase, and that my grading evaluations are monitored solely by platform administrators for quality assurance."}
               </Label>
             </div>
           </div>
@@ -307,11 +378,11 @@ export function OnboardingTutorial({
             className="w-full h-11 rounded-2xl bg-purple-600 hover:bg-purple-700 text-white font-semibold text-sm shadow-md shadow-purple-600/20 transition-all flex items-center justify-center gap-2"
           >
             {isPending ? (
-              "Setting up your account..."
+              isTeacher ? "Setting up your workspace..." : "Setting up your account..."
             ) : (
               <>
                 <CheckCircle2 className="h-4 w-4" />
-                Confirm &amp; Enter Platform
+                <span>{isTeacher ? "Confirm & Enter Teacher Workspace" : "Confirm & Enter Platform"}</span>
               </>
             )}
           </Button>
