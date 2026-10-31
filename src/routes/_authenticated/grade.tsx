@@ -7,6 +7,7 @@ import {
   Camera,
   CheckCircle2,
   Clock,
+  GraduationCap,
   ImagePlus,
   Images,
   Loader2,
@@ -52,6 +53,7 @@ import {
   listDiagramLibrary,
 } from "@/lib/diagrams.functions";
 import { checkQuestionGrounding, gradeEssaySubmission, syncLiveEssayDraft } from "@/lib/grading.functions";
+import { gradeAssignmentSubmission } from "@/lib/classroom.functions";
 import { checkWritingQuality } from "@/lib/writing-check.functions";
 import { analyzeGrammarAndMechanics } from "@/lib/live-examiner/grammar-engine";
 import { splitSentences } from "@/lib/writing-check/sentence-diff";
@@ -59,8 +61,7 @@ import { getMe } from "@/lib/account.functions";
 import { cn } from "@/lib/utils";
 import type { Grading } from "@/lib/examiner/types";
 
-// Optional prefill from the Question bank ("Practice this" links here with
-// a real past-paper question already picked).
+// Optional prefill from the Question bank, Practice desk, or Classroom Direct Grading
 const gradeSearchSchema = z
   .object({
     q: z.string().trim().max(2000).optional().catch(undefined),
@@ -76,6 +77,11 @@ const gradeSearchSchema = z
       .optional()
       .transform((val) => (val ? (Number(val) as 8 | 12 | 20) : undefined))
       .catch(undefined),
+    text: z.string().optional().catch(undefined),
+    assignmentId: z.string().uuid().optional().catch(undefined),
+    studentId: z.string().uuid().optional().catch(undefined),
+    classroomId: z.string().uuid().optional().catch(undefined),
+    studentName: z.string().optional().catch(undefined),
   })
   .passthrough()
   .catch({});
@@ -141,6 +147,10 @@ function GradePage() {
 
   const DRAFT_STORAGE_KEY = "marginal_essay_draft_v1";
 
+  const gradeSubmissionFn = useServerFn(gradeAssignmentSubmission);
+  const [isReturningGrade, setIsReturningGrade] = useState(false);
+  const isDirectGradingMode = Boolean(search.assignmentId && search.studentId && search.classroomId);
+
   const [question, setQuestion] = useState(() => {
     if (search.q) return search.q;
     if (typeof window !== "undefined") {
@@ -163,6 +173,7 @@ function GradePage() {
   });
 
   const [essayText, setEssayText] = useState(() => {
+    if (search.text) return search.text;
     if (typeof window !== "undefined") {
       try {
         const saved = localStorage.getItem(DRAFT_STORAGE_KEY);
@@ -188,6 +199,40 @@ function GradePage() {
     }
     return "12";
   });
+
+  // Sync state if direct grading search params arrive
+  useEffect(() => {
+    if (search.q) setQuestion(search.q);
+    if (search.text) setEssayText(search.text);
+    if (search.marks) setMaxMark(String(search.marks));
+  }, [search.q, search.text, search.marks]);
+
+  const handleReturnToClassroom = async () => {
+    if (!search.assignmentId || !search.studentId || !search.classroomId || !result) return;
+    setIsReturningGrade(true);
+    try {
+      const feedback = result.grading.overall_comment || "";
+      await gradeSubmissionFn({
+        data: {
+          assignmentId: search.assignmentId,
+          studentId: search.studentId,
+          classroomId: search.classroomId,
+          teacherScore: result.grading.total_mark,
+          teacherFeedback: feedback,
+          returnToStudent: true,
+        },
+      });
+      toast.success(`Grade returned to ${search.studentName || "student"} in Classroom!`);
+      navigate({
+        to: "/classes/$classroomId",
+        params: { classroomId: search.classroomId },
+      });
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to return grade to student.");
+    } finally {
+      setIsReturningGrade(false);
+    }
+  };
 
   const syncDraftFn = useServerFn(syncLiveEssayDraft);
 
@@ -546,6 +591,48 @@ function GradePage() {
         />
       ) : (
         <>
+          {isDirectGradingMode && (
+            <div className="px-3.5 pt-3 pb-0 sm:px-6 sm:pt-4 md:px-8">
+              <div className="p-4 rounded-2xl bg-gradient-to-r from-purple-950/80 via-indigo-950/80 to-purple-950/80 border border-purple-500/40 shadow-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-xl bg-purple-600/30 border border-purple-500/50 flex items-center justify-center text-purple-300 shrink-0">
+                    <GraduationCap className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs font-bold uppercase tracking-wider text-purple-300">
+                        Teacher Direct Grading Desk
+                      </span>
+                      <Badge className="bg-purple-900/80 text-purple-200 border-purple-700 text-[10px]">
+                        Class Assignment Submission
+                      </Badge>
+                    </div>
+                    <p className="text-sm font-semibold text-white mt-0.5">
+                      Directly evaluating submission for:{" "}
+                      <strong className="text-purple-300">{search.studentName || "Student"}</strong>
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() =>
+                      navigate({
+                        to: "/classes/$classroomId",
+                        params: { classroomId: search.classroomId! },
+                      })
+                    }
+                    className="border-purple-700/60 text-purple-200 hover:text-white hover:bg-purple-900/40 text-xs"
+                  >
+                    Back to Classroom
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="px-3.5 pt-3 pb-0 sm:px-6 sm:pt-4 md:px-8">
             <div className="flex items-center gap-2 rounded-lg border border-primary/20 bg-primary/[0.03] px-3 py-2 text-[11px] sm:text-xs text-muted-foreground">
               <ShieldCheck className="size-3.5 sm:size-4 shrink-0 text-primary" />
@@ -1091,6 +1178,57 @@ function GradePage() {
                 ) : null}
               </div>
               <MarkBreakdown grading={result.grading} />
+
+              {isDirectGradingMode && (
+                <div className="p-4 rounded-2xl bg-gradient-to-r from-purple-950/90 via-indigo-950/90 to-purple-950/90 border border-purple-500/50 shadow-xl space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <GraduationCap className="h-5 w-5 text-purple-400" />
+                      <span className="font-bold text-sm text-white">Save &amp; Return to Student</span>
+                    </div>
+                    <Badge className="bg-purple-600 text-white border-0 text-xs font-bold px-2.5 py-1">
+                      Final Score: {result.grading.total_mark} / {maxMark}
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-purple-200">
+                    Sync this examiner score and diagnostic commentary back to{" "}
+                    <strong className="text-white">{search.studentName || "the student"}</strong>'s
+                    classroom gradebook.
+                  </p>
+                  <div className="flex items-center gap-2 pt-1">
+                    <Button
+                      className="flex-1 bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs shadow-md"
+                      disabled={isReturningGrade}
+                      onClick={handleReturnToClassroom}
+                    >
+                      {isReturningGrade ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                          Returning Grade...
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle2 className="h-4 w-4 mr-1.5" />
+                          Save Grade &amp; Return to Classroom
+                        </>
+                      )}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        navigate({
+                          to: "/classes/$classroomId",
+                          params: { classroomId: search.classroomId! },
+                        })
+                      }
+                      className="border-border text-xs text-muted-foreground hover:text-white"
+                    >
+                      Back to Class
+                    </Button>
+                  </div>
+                </div>
+              )}
               {result.essayId ? (
                 <Button
                   variant="outline"

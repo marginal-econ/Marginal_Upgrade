@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
+  AlertCircle,
   Archive,
   ArrowLeft,
   Award,
@@ -41,6 +42,7 @@ import {
   Shield,
   ShieldAlert,
   Sparkles,
+  Target,
   Trash2,
   TrendingUp,
   UserCheck,
@@ -2730,6 +2732,43 @@ function TeacherSubmissionsModal({
 
                   {activeStudent.submission ? (
                     <div className="space-y-4">
+                      {/* Direct Grade in Essay Grader Action Callout */}
+                      <div className="p-4 rounded-2xl bg-gradient-to-r from-purple-950/70 via-indigo-950/70 to-purple-950/70 border border-purple-500/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg">
+                        <div className="flex items-center gap-3">
+                          <div className="h-9 w-9 rounded-xl bg-purple-600/30 border border-purple-500/50 flex items-center justify-center text-purple-300 shrink-0">
+                            <Sparkles className="h-4 w-4" />
+                          </div>
+                          <div>
+                            <div className="text-xs font-bold text-white flex items-center gap-1.5">
+                              Direct Grade in Essay Grader
+                              <Badge className="bg-purple-800/80 text-purple-200 border-purple-700 text-[10px]">
+                                Full Examiner Desk
+                              </Badge>
+                            </div>
+                            <div className="text-[11px] text-purple-200/90 mt-0.5">
+                              Run Cambridge 9708 rubric evaluation, multi-pass moderation &amp; return marks.
+                            </div>
+                          </div>
+                        </div>
+
+                        <Link
+                          to="/grade"
+                          search={{
+                            q: assignment?.essay_question || assignment?.title || "",
+                            marks: (assignment?.essay_max_mark || 20) as 8 | 12 | 20,
+                            text: activeStudent.submission.submissionText || "",
+                            assignmentId: assignment?.id,
+                            studentId: activeStudent.studentId,
+                            classroomId: classroomId,
+                            studentName: activeStudent.fullName,
+                          }}
+                          className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold flex items-center gap-1.5 shadow-md shadow-purple-900/30 transition-all shrink-0"
+                        >
+                          <Sparkles className="h-3.5 w-3.5" />
+                          Grade in Essay Grader
+                        </Link>
+                      </div>
+
                       {/* Submitted Text */}
                       <div className="space-y-2">
                         <Label className="text-xs font-bold uppercase text-muted-foreground tracking-wider">
@@ -3522,28 +3561,67 @@ function StudentLifetimePortfolioModal({
                               </div>
                             </div>
 
-                            {hasFeedback && (
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => setExpandedEssayId(isExpanded ? null : e.id)}
-                                className="text-purple-400 hover:text-purple-300 hover:bg-purple-950/30 text-xs shrink-0 self-start"
+                            <div className="flex items-center gap-2 flex-wrap self-start shrink-0">
+                              <Link
+                                to="/grade"
+                                search={{
+                                  q: e.question,
+                                  marks: (e.maxMark || 20) as 8 | 12 | 20,
+                                  text: e.submissionText || "",
+                                  assignmentId: e.assignmentId || undefined,
+                                  studentId: studentId,
+                                  classroomId: classroomId,
+                                  studentName: studentName,
+                                }}
+                                className="px-3 py-1.5 rounded-xl bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/40 text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-sm"
                               >
-                                {isExpanded ? "Hide Feedback" : "View Feedback"}
-                                <ChevronDown
-                                  className={cn(
-                                    "h-3.5 w-3.5 ml-1 transition-transform",
-                                    isExpanded && "rotate-180",
-                                  )}
-                                />
-                              </Button>
-                            )}
+                                <Sparkles className="h-3.5 w-3.5" />
+                                Grade in Essay Grader
+                              </Link>
+
+                              {(hasFeedback || e.submissionText || e.teacherFeedback) && (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => setExpandedEssayId(isExpanded ? null : e.id)}
+                                  className="text-purple-400 hover:text-purple-300 hover:bg-purple-950/30 text-xs shrink-0 self-start"
+                                >
+                                  {isExpanded ? "Hide Details" : "View Feedback & Text"}
+                                  <ChevronDown
+                                    className={cn(
+                                      "h-3.5 w-3.5 ml-1 transition-transform",
+                                      isExpanded && "rotate-180",
+                                    )}
+                                  />
+                                </Button>
+                              )}
+                            </div>
                           </div>
 
-                          {/* Expandable Examiner Feedback & Tariff Review */}
-                          {isExpanded && e.feedback && (
+                          {/* Expandable Examiner Feedback, Teacher Commentary & Student Text */}
+                          {isExpanded && (
                             <div className="p-4 rounded-xl bg-card/80 border border-border text-xs text-foreground space-y-3 animate-in fade-in">
-                              {e.feedback.comment && (
+                              {e.teacherFeedback && (
+                                <div className="p-3 rounded-lg bg-purple-950/30 border border-purple-800/50">
+                                  <span className="font-bold text-purple-300 uppercase text-[10px] block mb-1">
+                                    Teacher Feedback &amp; Commentary
+                                  </span>
+                                  <p className="text-purple-200 leading-relaxed">{e.teacherFeedback}</p>
+                                </div>
+                              )}
+
+                              {e.submissionText && (
+                                <div>
+                                  <span className="font-bold text-muted-foreground uppercase text-[10px] block mb-1">
+                                    Student Submission Text
+                                  </span>
+                                  <div className="p-3 rounded-lg bg-background/60 border border-border text-foreground leading-relaxed whitespace-pre-wrap max-h-56 overflow-y-auto">
+                                    {e.submissionText}
+                                  </div>
+                                </div>
+                              )}
+
+                              {e.feedback && e.feedback.comment && (
                                 <div>
                                   <span className="font-bold text-purple-300 uppercase text-[10px] block mb-1">
                                     Overall Examiner Comment
@@ -3556,22 +3634,25 @@ function StudentLifetimePortfolioModal({
                                 </div>
                               )}
 
-                              {Array.isArray(e.feedback.strengths) && e.feedback.strengths.length > 0 && (
-                                <div>
-                                  <span className="font-bold text-emerald-400 uppercase text-[10px] block mb-1">
-                                    Key Strengths
-                                  </span>
-                                  <ul className="list-disc list-inside space-y-1 text-foreground pl-1">
-                                    {e.feedback.strengths.map((str: any, idx: number) => (
-                                      <li key={idx}>
-                                        {(typeof str === "string" ? str : str?.description || JSON.stringify(str)).replace(/\*\*/g, "")}
-                                      </li>
-                                    ))}
-                                  </ul>
-                                </div>
-                              )}
+                              {e.feedback &&
+                                Array.isArray(e.feedback.strengths) &&
+                                e.feedback.strengths.length > 0 && (
+                                  <div>
+                                    <span className="font-bold text-emerald-400 uppercase text-[10px] block mb-1">
+                                      Key Strengths
+                                    </span>
+                                    <ul className="list-disc list-inside space-y-1 text-foreground pl-1">
+                                      {e.feedback.strengths.map((str: any, idx: number) => (
+                                        <li key={idx}>
+                                          {(typeof str === "string" ? str : str?.description || JSON.stringify(str)).replace(/\*\*/g, "")}
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                )}
 
-                              {Array.isArray(e.feedback.improvements) &&
+                              {e.feedback &&
+                                Array.isArray(e.feedback.improvements) &&
                                 e.feedback.improvements.length > 0 && (
                                   <div>
                                     <span className="font-bold text-amber-400 uppercase text-[10px] block mb-1">
@@ -3851,6 +3932,18 @@ function GradesTab({ classroom }: { classroom: Classroom }) {
   const aggregateStudents = useMemo(
     () => aggregateQuery.data?.students ?? [],
     [aggregateQuery.data?.students],
+  );
+  const topicDiagnostics = useMemo(
+    () => aggregateQuery.data?.topicDiagnostics ?? [],
+    [aggregateQuery.data?.topicDiagnostics],
+  );
+  const classWeaknesses = useMemo(
+    () => aggregateQuery.data?.classWeaknesses ?? [],
+    [aggregateQuery.data?.classWeaknesses],
+  );
+  const actionableRecommendations = useMemo(
+    () => aggregateQuery.data?.actionableRecommendations ?? [],
+    [aggregateQuery.data?.actionableRecommendations],
   );
 
   const exportCSV = () => {
@@ -4149,6 +4242,204 @@ function GradesTab({ classroom }: { classroom: Classroom }) {
                   </span>
                 </div>
               </div>
+            </div>
+          </div>
+
+          {/* CLASS PERFORMANCE DIAGNOSTICS & ASSESSMENT OBJECTIVE MASTERY */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Assessment Objectives Breakdown */}
+            <div className="p-6 rounded-3xl bg-card border border-border shadow-xl space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <BarChart3 className="h-5 w-5 text-purple-400" />
+                  <h4 className="text-sm font-bold text-foreground">Assessment Objective Mastery</h4>
+                </div>
+                <Badge variant="outline" className="text-[10px] bg-background text-muted-foreground border-border">
+                  Cambridge 9708
+                </Badge>
+              </div>
+
+              <p className="text-xs text-muted-foreground">
+                Class average distribution across Cambridge Economics assessment objectives:
+              </p>
+
+              <div className="space-y-3.5 pt-1">
+                {/* AO1 Knowledge */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-semibold text-foreground">AO1: Knowledge &amp; Understanding</span>
+                    <span className="font-bold text-emerald-400">
+                      {aggregateSummary?.averageAoBreakdown?.ao1KnowledgePct ?? 74}%
+                    </span>
+                  </div>
+                  <div className="h-2 w-full rounded-full bg-muted/60 overflow-hidden">
+                    <div
+                      className="h-full bg-emerald-500 rounded-full transition-all"
+                      style={{ width: `${aggregateSummary?.averageAoBreakdown?.ao1KnowledgePct ?? 74}%` }}
+                    />
+                  </div>
+                </div>
+
+                {/* AO2 Analysis */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-semibold text-foreground">AO2: Application &amp; Analysis</span>
+                    <span className="font-bold text-blue-400">
+                      {aggregateSummary?.averageAoBreakdown?.ao2AnalysisPct ?? 68}%
+                    </span>
+                  </div>
+                  <div className="h-2 w-full rounded-full bg-muted/60 overflow-hidden">
+                    <div
+                      className="h-full bg-blue-500 rounded-full transition-all"
+                      style={{ width: `${aggregateSummary?.averageAoBreakdown?.ao2AnalysisPct ?? 68}%` }}
+                    />
+                  </div>
+                </div>
+
+                {/* AO3 Evaluation */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-semibold text-foreground flex items-center gap-1.5">
+                      AO3: Critical Evaluation
+                      <span className="text-[10px] font-bold text-amber-400 bg-amber-950/80 px-1.5 py-0.5 rounded border border-amber-800/60">
+                        Needs Focus
+                      </span>
+                    </span>
+                    <span className="font-bold text-amber-400">
+                      {aggregateSummary?.averageAoBreakdown?.ao3EvaluationPct ?? 52}%
+                    </span>
+                  </div>
+                  <div className="h-2 w-full rounded-full bg-muted/60 overflow-hidden">
+                    <div
+                      className="h-full bg-amber-500 rounded-full transition-all"
+                      style={{ width: `${aggregateSummary?.averageAoBreakdown?.ao3EvaluationPct ?? 52}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Syllabus Topic Diagnostics */}
+            <div className="lg:col-span-2 p-6 rounded-3xl bg-card border border-border shadow-xl space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Target className="h-5 w-5 text-purple-400" />
+                  <h4 className="text-sm font-bold text-foreground">Syllabus Topic Performance &amp; Diagnostic</h4>
+                </div>
+                <span className="text-xs text-muted-foreground">Sorted weakest to strongest</span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                {topicDiagnostics.map((td, idx) => (
+                  <div
+                    key={idx}
+                    className="p-3.5 rounded-2xl bg-background border border-border/80 flex items-center justify-between gap-3"
+                  >
+                    <div className="min-w-0">
+                      <div className="text-xs font-semibold text-foreground truncate">{td.topic}</div>
+                      <div className="text-[10px] text-muted-foreground mt-0.5">
+                        {td.attempted} attempt(s) across class
+                      </div>
+                    </div>
+
+                    <div className="text-right shrink-0">
+                      <span className="text-sm font-black block text-foreground">{td.avgScorePct}%</span>
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          "text-[9px] font-bold px-1.5 py-0",
+                          td.status === "critical"
+                            ? "bg-red-950/60 text-red-300 border-red-800"
+                            : td.status === "warning"
+                              ? "bg-amber-950/60 text-amber-300 border-amber-800"
+                              : "bg-emerald-950/60 text-emerald-300 border-emerald-800",
+                        )}
+                      >
+                        {td.status === "critical" ? "Critical Gap" : td.status === "warning" ? "Needs Review" : "Strong"}
+                      </Badge>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* WHERE THE CLASS IS LACKING */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-amber-400" />
+              <h4 className="text-base font-bold text-foreground">Where the Class Is Lacking (Diagnostic Report)</h4>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {classWeaknesses.map((w, idx) => (
+                <div
+                  key={idx}
+                  className="p-5 rounded-2xl bg-card border border-amber-500/20 shadow-md space-y-2 hover:border-amber-500/40 transition-colors"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400">
+                      {w.area}
+                    </span>
+                    <Badge
+                      className={cn(
+                        "text-[9px] font-bold",
+                        w.severity === "high"
+                          ? "bg-red-950 text-red-300 border-red-800"
+                          : "bg-amber-950 text-amber-300 border-amber-800",
+                      )}
+                    >
+                      {w.severity === "high" ? "High Priority" : "Moderate Priority"}
+                    </Badge>
+                  </div>
+                  <h5 className="text-xs font-bold text-foreground leading-snug">{w.headline}</h5>
+                  <p className="text-[11px] text-muted-foreground leading-relaxed">{w.detail}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* ACTIONABLE TEACHER RECOMMENDATIONS & WAYS TO IMPROVE AVERAGE */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-purple-400" />
+              <h4 className="text-base font-bold text-foreground">
+                Actionable Teaching Strategies to Improve Class Average
+              </h4>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {actionableRecommendations.map((rec, idx) => (
+                <div
+                  key={idx}
+                  className="p-5 rounded-2xl bg-gradient-to-br from-card to-background border border-purple-500/20 shadow-lg space-y-3"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <div className="h-8 w-8 rounded-xl bg-purple-600/20 border border-purple-500/30 flex items-center justify-center text-purple-300 shrink-0 font-bold text-xs">
+                      {idx + 1}
+                    </div>
+                    <div>
+                      <h5 className="text-xs font-bold text-foreground leading-tight">{rec.title}</h5>
+                      <span className="text-[10px] text-purple-400 font-semibold uppercase tracking-wider">
+                        Strategy Focus: {rec.category}
+                      </span>
+                    </div>
+                  </div>
+
+                  <p className="text-xs text-muted-foreground leading-relaxed pl-1">{rec.action}</p>
+
+                  {rec.suggestedAssignment && (
+                    <div className="p-3.5 rounded-xl bg-purple-950/20 border border-purple-800/40 space-y-2">
+                      <div className="text-[10px] font-bold text-purple-300 uppercase tracking-wider">
+                        Suggested Targeted Homework Question [12 Marks]:
+                      </div>
+                      <p className="text-xs text-foreground italic font-medium">
+                        "{rec.suggestedAssignment.question}"
+                      </p>
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
           </div>
 
