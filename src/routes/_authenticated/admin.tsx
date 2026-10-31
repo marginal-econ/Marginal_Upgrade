@@ -4171,7 +4171,35 @@ function OverviewPanel({
                 </span>
 
                 {row.error_message ? (
-                  <p className="w-full text-destructive text-[11px] pl-5">{row.error_message}</p>
+                  row.feature === "LIVE_DRAFT_GRADE" || row.ok ? (
+                    <div className="w-full pl-5 mt-1 text-[11px]">
+                      {(() => {
+                        try {
+                          const parsed = JSON.parse(row.error_message);
+                          return (
+                            <div className="flex items-center gap-2 flex-wrap text-muted-foreground font-mono text-[10px] bg-muted/30 px-2.5 py-1 rounded-md border border-border/50">
+                              <span className="text-purple-400 font-semibold">📝 Live Essay Draft Autosave:</span>
+                              <span className="truncate max-w-lg text-foreground/90 font-medium">
+                                "{parsed.question || "Essay Draft"}"
+                              </span>
+                              <span className="text-muted-foreground">
+                                ({parsed.wordCount ?? 0} words · {parsed.charCount ?? 0} chars)
+                              </span>
+                              <span className="text-muted-foreground/70">
+                                Max: {parsed.maxMark ?? 12}m
+                              </span>
+                            </div>
+                          );
+                        } catch {
+                          return (
+                            <p className="font-mono text-[10px] text-muted-foreground/80">{row.error_message}</p>
+                          );
+                        }
+                      })()}
+                    </div>
+                  ) : (
+                    <p className="w-full text-destructive text-[11px] pl-5 font-mono">{row.error_message}</p>
+                  )
                 ) : null}
               </div>
             );

@@ -101,6 +101,8 @@ function AuthenticatedLayout() {
       <PrivacyConsent userId={user.id} onResolved={handlePrivacyResolved} />
       <OnboardingTutorial
         open={privacyResolved && data?.tutorialCompleted === false}
+        initialFullName={resolvedName || ""}
+        initialSchool={data?.school || (user.user_metadata as any)?.school || ""}
         onFinished={() => {}}
       />
     </AppShell>
