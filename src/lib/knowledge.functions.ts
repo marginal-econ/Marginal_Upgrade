@@ -252,6 +252,7 @@ export const embedNextBatch = createServerFn({ method: "POST" })
       .from("document_chunks")
       .select("id, content")
       .eq("document_id", data.documentId)
+      .lt("chunk_index", 100000)
       .is("embedding", null)
       .order("chunk_index", { ascending: true })
       .limit(EMBED_BATCH);
@@ -307,6 +308,7 @@ export const embedNextBatch = createServerFn({ method: "POST" })
       .from("document_chunks")
       .select("id", { count: "exact", head: true })
       .eq("document_id", data.documentId)
+      .lt("chunk_index", 100000)
       .is("embedding", null);
 
     const remaining = count ?? 0;
@@ -405,11 +407,13 @@ export const getKnowledgeStats = createServerFn({ method: "GET" })
     const { count: pendingChunks } = await supabase
       .from("document_chunks")
       .select("id", { count: "exact", head: true })
+      .lt("chunk_index", 100000)
       .is("embedding", null);
 
     const { count: totalChunks } = await supabase
       .from("document_chunks")
-      .select("id", { count: "exact", head: true });
+      .select("id", { count: "exact", head: true })
+      .lt("chunk_index", 100000);
 
     const total = totalChunks ?? 0;
     const pending = pendingChunks ?? 0;

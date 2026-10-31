@@ -13,6 +13,7 @@ import {
   getChatProviderChain,
   getAiGatewaySettings,
   isGeminiProvider,
+  normaliseConfig,
 } from "./ai/active.server";
 import { getCandidateModels, getEconomyModelForProvider, providerMeta } from "./ai/providers";
 import { readEnv } from "../server/env";
@@ -1069,6 +1070,11 @@ async function embedViaOpenAiCompatible(
 
   for (let offset = 0; offset < inputs.length; offset += EMBED_BATCH_LIMIT) {
     const batch = inputs.slice(offset, offset + EMBED_BATCH_LIMIT);
+    // Mistral has a strict 8192-token ceiling (~24k chars); ensure batches never exceed model input bounds
+    const safeBatch =
+      config.provider === "mistral"
+        ? batch.map((t) => (t && t.length > 24000 ? t.slice(0, 24000) : t || ""))
+        : batch;
     const data = await withRetry429(async () => {
       const supportsDimensionsParam =
         config.provider === "openai" || config.provider === "openrouter";
@@ -1091,7 +1097,7 @@ async function embedViaOpenAiCompatible(
           },
           body: JSON.stringify({
             model: config.model,
-            input: batch,
+            input: safeBatch,
             ...(supportsDimensionsParam ? { dimensions: EMBEDDING_DIMS } : {}),
           }),
         });
@@ -1197,7 +1203,7 @@ export async function embed(
           config = {
             provider: directKey[0]!.provider,
             apiKey: directKey[0]!.api_key,
-            model: directKey[0]!.model?.includes("embedding") ? directKey[0]!.model : GOOGLE_EMBED_MODEL,
+            model: directKey[0]!.model?.includes("embedding") ? String(directKey[0]!.model) : GOOGLE_EMBED_MODEL,
             baseUrl: directKey[0]!.base_url ?? undefined,
             label: directKey[0]!.label ?? undefined,
           };
@@ -1230,7 +1236,7 @@ export async function embed(
               const altConfig: ProviderConfig = {
                 provider: altKeys[0]!.provider,
                 apiKey: altKeys[0]!.api_key,
-                model: altKeys[0]!.model || "mistral-embed",
+                model: String(altKeys[0]!.model || "mistral-embed-2312"),
                 baseUrl: altKeys[0]!.base_url ?? undefined,
                 label: altKeys[0]!.label ?? undefined,
               };

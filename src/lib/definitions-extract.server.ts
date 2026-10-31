@@ -122,6 +122,7 @@ export async function extractDefinitionsForDocument(
     .from("document_chunks")
     .select("id, content, heading")
     .eq("document_id", options.documentId)
+    .lt("chunk_index", 100000)
     .order("chunk_index", { ascending: true });
 
   if (error) throw new Error(error.message);
