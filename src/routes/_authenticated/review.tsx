@@ -43,7 +43,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { cn } from "@/lib/utils";
+import { cn, stripStars } from "@/lib/utils";
 import {
   getReviewPanel,
   MIN_ESSAYS_FOR_REVIEW,
@@ -254,9 +254,9 @@ export function ReviewPanelPage() {
               ) : null}
             </div>
             <p className="mt-1 text-[11px] text-muted-foreground truncate">
-              {reviewData?.gradeProjection?.confidence
-                ? `${reviewData.gradeProjection.confidence.toUpperCase()} confidence`
-                : "Based on official boundaries"}
+              {reviewData?.gradeProjection?.seriesLabel
+                ? `${reviewData.gradeProjection.seriesLabel}`
+                : "Based on Cambridge 9708 thresholds"}
             </p>
           </div>
 
@@ -887,14 +887,17 @@ function ReviewResults({ data }: { data: Eligible }) {
         <div className="rounded-xl border border-border/80 bg-card p-6">
           <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
             <div className="space-y-2">
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <span className="flex size-7 items-center justify-center rounded-lg bg-primary/10 text-primary">
                   <Award className="size-4" />
                 </span>
                 <span className="text-xs font-semibold tracking-wide uppercase text-muted-foreground">
                   Cambridge 9708 Benchmark
                 </span>
-                <Badge variant="outline" className="ml-1 text-[11px] capitalize">
+                <Badge variant="outline" className="text-[11px] border-primary/30 bg-primary/10 text-primary font-medium">
+                  {gradeProjection.seriesLabel ?? "All-Series Average"}
+                </Badge>
+                <Badge variant="outline" className="text-[11px] capitalize">
                   {data.sampleLevel} review
                 </Badge>
               </div>
@@ -952,6 +955,103 @@ function ReviewResults({ data }: { data: Eligible }) {
               </p>
             </div>
           </div>
+
+          {/* Active Series Threshold Cutoffs Bar */}
+          {gradeProjection.cutoffs ? (
+            <div className="mt-4 pt-3 border-t border-border/60">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-[11px] font-semibold text-foreground flex items-center gap-1.5">
+                    <Target className="size-3 text-primary" /> Grade Thresholds:
+                  </span>
+                  <div className="flex flex-wrap items-center gap-1.5 font-mono text-[10px]">
+                    {gradeProjection.cutoffs.aStar != null ? (
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          "px-1.5 py-0.5",
+                          gradeProjection.currentAveragePercent >= gradeProjection.cutoffs.aStar
+                            ? "border-amber-500/50 bg-amber-500/10 text-amber-600 dark:text-amber-400 font-bold"
+                            : "text-muted-foreground",
+                        )}
+                      >
+                        A* ≥ {gradeProjection.cutoffs.aStar}%
+                      </Badge>
+                    ) : null}
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        "px-1.5 py-0.5",
+                        gradeProjection.currentAveragePercent >= gradeProjection.cutoffs.a &&
+                          (gradeProjection.cutoffs.aStar == null ||
+                            gradeProjection.currentAveragePercent < gradeProjection.cutoffs.aStar)
+                          ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold"
+                          : "text-muted-foreground",
+                      )}
+                    >
+                      A ≥ {gradeProjection.cutoffs.a}%
+                    </Badge>
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        "px-1.5 py-0.5",
+                        gradeProjection.currentAveragePercent >= gradeProjection.cutoffs.b &&
+                          gradeProjection.currentAveragePercent < gradeProjection.cutoffs.a
+                          ? "border-sky-500/50 bg-sky-500/10 text-sky-600 dark:text-sky-400 font-bold"
+                          : "text-muted-foreground",
+                      )}
+                    >
+                      B ≥ {gradeProjection.cutoffs.b}%
+                    </Badge>
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        "px-1.5 py-0.5",
+                        gradeProjection.currentAveragePercent >= gradeProjection.cutoffs.c &&
+                          gradeProjection.currentAveragePercent < gradeProjection.cutoffs.b
+                          ? "border-amber-500/50 bg-amber-500/10 text-amber-600 dark:text-amber-400 font-bold"
+                          : "text-muted-foreground",
+                      )}
+                    >
+                      C ≥ {gradeProjection.cutoffs.c}%
+                    </Badge>
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        "px-1.5 py-0.5",
+                        gradeProjection.currentAveragePercent >= gradeProjection.cutoffs.d &&
+                          gradeProjection.currentAveragePercent < gradeProjection.cutoffs.c
+                          ? "border-orange-500/50 bg-orange-500/10 text-orange-600 dark:text-orange-400 font-bold"
+                          : "text-muted-foreground",
+                      )}
+                    >
+                      D ≥ {gradeProjection.cutoffs.d}%
+                    </Badge>
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        "px-1.5 py-0.5",
+                        gradeProjection.currentAveragePercent >= gradeProjection.cutoffs.e &&
+                          gradeProjection.currentAveragePercent < gradeProjection.cutoffs.d
+                          ? "border-rose-500/50 bg-rose-500/10 text-rose-600 dark:text-rose-400 font-bold"
+                          : "text-muted-foreground",
+                      )}
+                    >
+                      E ≥ {gradeProjection.cutoffs.e}%
+                    </Badge>
+                  </div>
+                </div>
+
+                <Link
+                  to="/settings"
+                  className="text-[11px] font-semibold text-primary hover:underline inline-flex items-center gap-1 shrink-0"
+                >
+                  Configure series in Settings
+                  <ArrowRight className="size-3" />
+                </Link>
+              </div>
+            </div>
+          ) : null}
         </div>
       ) : null}
 
@@ -970,10 +1070,10 @@ function ReviewResults({ data }: { data: Eligible }) {
               : `Trajectory: ${data.gradeTrend}`}
           </span>
         </div>
-        <p className="mt-4 text-sm leading-relaxed">{data.overallSummary}</p>
+        <p className="mt-4 text-sm leading-relaxed">{stripStars(data.overallSummary)}</p>
         {data.encouragement ? (
           <p className="mt-3 rounded-lg border border-primary/20 bg-primary/5 px-4 py-3 text-xs sm:text-sm text-foreground/90">
-            {data.encouragement}
+            {stripStars(data.encouragement)}
           </p>
         ) : null}
       </div>
@@ -1034,7 +1134,7 @@ function ReviewResults({ data }: { data: Eligible }) {
                   </div>
 
                   <p className="mt-3 text-[11px] leading-relaxed text-muted-foreground border-t border-border/60 pt-2.5">
-                    {pillar.guidance}
+                    {stripStars(pillar.guidance)}
                   </p>
                 </div>
               );
@@ -1069,7 +1169,7 @@ function ReviewResults({ data }: { data: Eligible }) {
                   />
                 </div>
                 {ao.comment ? (
-                  <p className="mt-2 text-xs text-muted-foreground leading-relaxed">{ao.comment.replace(/\*\*/g, "")}</p>
+                  <p className="mt-2 text-xs text-muted-foreground leading-relaxed">{stripStars(ao.comment)}</p>
                 ) : null}
               </div>
             ))}
@@ -1135,7 +1235,7 @@ function ReviewResults({ data }: { data: Eligible }) {
                 Examiner Guidance
               </span>
               <p className="mt-1 text-xs text-foreground/90 leading-relaxed">
-                {domainComparison.recommendation}
+                {stripStars(domainComparison.recommendation)}
               </p>
             </div>
           </div>
@@ -1151,8 +1251,8 @@ function ReviewResults({ data }: { data: Eligible }) {
           <ul className="mt-4 space-y-3">
             {data.keyStrengths.map((item, index) => (
               <li key={index} className="rounded-lg border border-border/70 bg-background/50 p-3.5">
-                <p className="text-sm font-medium">{item.title}</p>
-                <p className="mt-1 text-xs text-muted-foreground leading-relaxed">{item.detail}</p>
+                <p className="text-sm font-medium">{stripStars(item.title)}</p>
+                <p className="mt-1 text-xs text-muted-foreground leading-relaxed">{stripStars(item.detail)}</p>
               </li>
             ))}
             {data.keyStrengths.length === 0 ? (
@@ -1168,11 +1268,11 @@ function ReviewResults({ data }: { data: Eligible }) {
           <ul className="mt-4 space-y-3">
             {data.keyWeaknesses.map((item, index) => (
               <li key={index} className="rounded-lg border border-border/70 bg-background/50 p-3.5">
-                <p className="text-sm font-medium">{item.title}</p>
-                <p className="mt-1 text-xs text-muted-foreground leading-relaxed">{item.detail}</p>
+                <p className="text-sm font-medium">{stripStars(item.title)}</p>
+                <p className="mt-1 text-xs text-muted-foreground leading-relaxed">{stripStars(item.detail)}</p>
                 {item.evidence ? (
                   <div className="mt-2 rounded bg-muted/60 px-2.5 py-1.5 text-xs text-foreground/80 italic border-l-2 border-amber-500">
-                    “{item.evidence}”
+                    “{stripStars(item.evidence)}”
                   </div>
                 ) : null}
               </li>
@@ -1207,17 +1307,17 @@ function ReviewResults({ data }: { data: Eligible }) {
                   </span>
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <p className="text-sm font-semibold">{item.action}</p>
+                      <p className="text-sm font-semibold">{stripStars(item.action)}</p>
                       {item.estimatedMarkGain ? (
                         <Badge
                           variant="secondary"
                           className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-[10px] font-medium"
                         >
-                          Gain: {item.estimatedMarkGain}
+                          Gain: {stripStars(item.estimatedMarkGain)}
                         </Badge>
                       ) : null}
                     </div>
-                    <p className="mt-1 text-xs text-muted-foreground leading-relaxed">{item.why}</p>
+                    <p className="mt-1 text-xs text-muted-foreground leading-relaxed">{stripStars(item.why)}</p>
                   </div>
                 </div>
 

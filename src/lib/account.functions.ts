@@ -4,6 +4,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/backend/auth-middleware";
 import { isMarginalAdmin } from "@/lib/auth-admin";
 import { TIER_LIMITS } from "@/lib/usage-limits";
+import { type CambridgeSeriesId, normalizeSeriesId } from "@/lib/cambridge-thresholds";
 
 export type AppRole = "student" | "teacher" | "admin";
 
@@ -205,4 +206,125 @@ export const updateProfile = createServerFn({ method: "POST" })
       .eq("id", context.userId);
     if (error) throw new Error(error.message);
     return { ok: true };
+  });
+
+export type UserAcademicPreferences = {
+  examSeries: CambridgeSeriesId;
+  targetLevel: "as_level" | "a2_level" | "full_a_level";
+  targetGrade: "A*" | "A" | "B" | "C";
+  currencyContext?: string;
+  feedbackDepth?: string;
+  timedModeDefault?: boolean;
+  showDiagramLabels?: boolean;
+};
+
+export const getUserAcademicPreferences = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<UserAcademicPreferences> => {
+    const { supabase, userId } = context;
+    const term = `__USER_PREFS_${userId}`;
+
+    try {
+      const { data } = await supabase
+        .from("definitions")
+        .select("definition_text")
+        .eq("term", term)
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (data?.definition_text) {
+        const parsed = JSON.parse(data.definition_text);
+        return {
+          examSeries: normalizeSeriesId(parsed.examSeries),
+          targetLevel: parsed.targetLevel || "full_a_level",
+          targetGrade: parsed.targetGrade || "A*",
+          currencyContext: parsed.currencyContext || "uk_intl",
+          feedbackDepth: parsed.feedbackDepth || "detailed",
+          timedModeDefault: parsed.timedModeDefault ?? true,
+          showDiagramLabels: parsed.showDiagramLabels ?? true,
+        };
+      }
+    } catch {
+      // Fallback
+    }
+
+    return {
+      examSeries: "all_average",
+      targetLevel: "full_a_level",
+      targetGrade: "A*",
+      currencyContext: "uk_intl",
+      feedbackDepth: "detailed",
+      timedModeDefault: true,
+      showDiagramLabels: true,
+    };
+  });
+
+export const saveUserAcademicPreferences = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z
+      .object({
+        examSeries: z.string().optional(),
+        targetLevel: z.enum(["as_level", "a2_level", "full_a_level"]).optional(),
+        targetGrade: z.enum(["A*", "A", "B", "C"]).optional(),
+        currencyContext: z.string().optional(),
+        feedbackDepth: z.string().optional(),
+        timedModeDefault: z.boolean().optional(),
+        showDiagramLabels: z.boolean().optional(),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const term = `__USER_PREFS_${userId}`;
+    const cacheTerm = `__REVIEW_CACHE_${userId}`;
+
+    const normalizedSeries = normalizeSeriesId(data.examSeries);
+    const payload: UserAcademicPreferences = {
+      examSeries: normalizedSeries,
+      targetLevel: data.targetLevel || "full_a_level",
+      targetGrade: data.targetGrade || "A*",
+      currencyContext: data.currencyContext || "uk_intl",
+      feedbackDepth: data.feedbackDepth || "detailed",
+      timedModeDefault: data.timedModeDefault ?? true,
+      showDiagramLabels: data.showDiagramLabels ?? true,
+    };
+
+    // Upsert into definitions
+    try {
+      const { data: existing } = await supabase
+        .from("definitions")
+        .select("id")
+        .eq("term", term)
+        .limit(1)
+        .maybeSingle();
+
+      if (existing?.id) {
+        await supabase
+          .from("definitions")
+          .update({
+            definition_text: JSON.stringify(payload),
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", existing.id);
+      } else {
+        await supabase.from("definitions").insert({
+          term,
+          definition_text: JSON.stringify(payload),
+          subject: "Cambridge 9708 Candidate Preferences",
+        });
+      }
+    } catch (err) {
+      console.warn("Could not persist preferences in definitions table:", err);
+    }
+
+    // Bust review cache so predicted grades recalculate with chosen series immediately
+    try {
+      await supabase.from("definitions").delete().eq("term", cacheTerm);
+    } catch {
+      // Non-fatal if delete fails
+    }
+
+    return { ok: true, preferences: payload };
   });

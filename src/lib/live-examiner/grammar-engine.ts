@@ -667,6 +667,78 @@ const RULES: RuleDefinition[] = [
     getSuggestion: (m) => `${m[1]},`,
     explanation: "Accidental repeated punctuation (period followed by comma).",
   },
+  {
+    id: "could_of_would_of",
+    category: "grammar",
+    severity: "high",
+    pattern: /\b(could|would|should|must|might)\s+of\b/gi,
+    getSuggestion: (m) => `${m[1]} have`,
+    explanation: "Write '${m[1]} have', not '${m[1]} of'.",
+  },
+  {
+    id: "irregardless_standard",
+    category: "grammar",
+    severity: "medium",
+    pattern: /\birregardless\b/gi,
+    getSuggestion: (m) => preserveCase(m[0], "regardless"),
+    explanation: "Use the standard academic form 'regardless'.",
+  },
+  {
+    id: "in_regards_to",
+    category: "clarity",
+    severity: "low",
+    pattern: /\bin\s+regards\s+to\b/gi,
+    getSuggestion: (m) => preserveCase(m[0], "with regard to"),
+    explanation: "Write 'with regard to' or 'regarding' in formal academic essays.",
+  },
+  {
+    id: "one_of_the_singular",
+    category: "grammar",
+    severity: "medium",
+    pattern: /\bone\s+of\s+the\s+(reason|factor|example|cause|problem|benefit|cost|market|firm|policy)\b/gi,
+    getSuggestion: (m) => `${m[0]}s`,
+    explanation: "Use a plural noun after 'one of the'.",
+  },
+  {
+    id: "misconception_inferior_good_quality",
+    category: "misconception",
+    severity: "high",
+    pattern: /\binferior\s+goods?\s+(?:are|means?)\s+(?:poor|bad|low|substandard)\s+quality\b/gi,
+    getSuggestion: () => "inferior goods have negative income elasticity of demand (YED < 0)",
+    explanation:
+      "Inferior goods are defined strictly by income elasticity (YED < 0), not physical or subjective product quality.",
+    evidence: "Cambridge 9708: Inferior goods see demand contract as real income rises (YED < 0).",
+  },
+  {
+    id: "misconception_free_goods_government",
+    category: "misconception",
+    severity: "high",
+    pattern: /\bfree\s+goods?\s+(?:are|means?)\s+goods?\s+provided\s+free\s+by\s+(?:the\s+)?government\b/gi,
+    getSuggestion: () => "merit goods or state-funded public goods",
+    explanation:
+      "Free goods have zero opportunity cost and infinite abundance (e.g. air). State-provided services are merit or public goods.",
+    evidence: "Cambridge 9708: Free goods have zero opportunity cost; government provisions require scarce resources.",
+  },
+  {
+    id: "misconception_money_is_capital",
+    category: "misconception",
+    severity: "high",
+    pattern: /\bmoney\s+is\s+(?:a|the)\s+factor\s+of\s+production\b/gi,
+    getSuggestion: () => "capital consists of physical human-made aids to production (machinery/tools)",
+    explanation:
+      "Money (financial capital) facilitates exchange but is not a physical factor of production (land, labour, capital, enterprise).",
+    evidence: "Cambridge 9708: Capital as a factor of production comprises man-made physical productive equipment.",
+  },
+  {
+    id: "misconception_inflation_is_high_prices",
+    category: "misconception",
+    severity: "medium",
+    pattern: /\binflation\s+(?:is|means)\s+(?:when\s+prices\s+are\s+high|high\s+prices)\b/gi,
+    getSuggestion: () => "inflation is a persistent increase in the general price level",
+    explanation:
+      "Inflation is the sustained rate of increase in average prices over time, not an absolute high price level.",
+    evidence: "Cambridge 9708: Inflation is a sustained percentage increase in the general price level (CPI).",
+  },
 ];
 
 export const COMMON_TYPOS: Readonly<Record<string, string>> = {

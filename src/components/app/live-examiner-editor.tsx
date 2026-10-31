@@ -12,18 +12,18 @@ import { cleanSuggestion } from "@/lib/live-examiner/clean-suggestion";
 import { classifySentenceDeterministically } from "@/lib/live-examiner/client-evaluation";
 import { splitSentences } from "@/lib/writing-check/sentence-diff";
 import { AO_DEFINITIONS } from "@/lib/examiner/config";
-import { cn } from "@/lib/utils";
+import { cleanStars, cn } from "@/lib/utils";
 
 const CATEGORY_AO: Record<IssueCategory, string | null> = {
   grammar: null,
   clarity: null,
-  economics_accuracy: AO_DEFINITIONS.ao1.code,
+  economics_accuracy: "Accuracy",
   terminology: AO_DEFINITIONS.ao1.code,
   analysis: AO_DEFINITIONS.ao2.code,
   application: AO_DEFINITIONS.ao2.code,
   reasoning_chain: AO_DEFINITIONS.ao2.code,
   evaluation: AO_DEFINITIONS.ao3.code,
-  misconception: AO_DEFINITIONS.ao1.code,
+  misconception: "Misconception",
 };
 
 export type UnderlineStyleMeta = {
@@ -40,34 +40,34 @@ const CATEGORY_META: Record<IssueCategory, UnderlineStyleMeta> = {
   grammar: {
     label: "Grammar",
     dot: "bg-rose-500 dark:bg-rose-400",
+    underlineColor: "rgba(244, 63, 94, 0.85)",
+    underlineStyle: "dashed",
+    underlineThickness: "1.5px",
+    offset: "6px",
+    backgroundColor: "rgba(244, 63, 94, 0.08)",
+  },
+  clarity: {
+    label: "Clarity",
+    dot: "bg-rose-500 dark:bg-rose-400",
     underlineColor: "rgba(244, 63, 94, 0.75)",
     underlineStyle: "dashed",
     underlineThickness: "1.5px",
     offset: "6px",
     backgroundColor: "rgba(244, 63, 94, 0.07)",
   },
-  clarity: {
-    label: "Clarity",
-    dot: "bg-muted-foreground",
-    underlineColor: "rgba(161, 161, 170, 0.75)",
-    underlineStyle: "dashed",
-    underlineThickness: "1.5px",
-    offset: "6px",
-    backgroundColor: "rgba(161, 161, 170, 0.07)",
-  },
   economics_accuracy: {
     label: "Economics accuracy",
-    dot: "bg-rose-600 dark:bg-rose-400",
-    underlineColor: "rgba(225, 29, 72, 0.85)",
+    dot: "bg-red-600 dark:bg-red-400",
+    underlineColor: "rgba(220, 38, 38, 0.95)",
     underlineStyle: "wavy",
     underlineThickness: "1.75px",
     offset: "6px",
-    backgroundColor: "rgba(225, 29, 72, 0.08)",
+    backgroundColor: "rgba(220, 38, 38, 0.09)",
   },
   misconception: {
     label: "Economic misconception",
     dot: "bg-red-600 dark:bg-red-400",
-    underlineColor: "rgba(220, 38, 38, 0.90)",
+    underlineColor: "rgba(220, 38, 38, 0.95)",
     underlineStyle: "wavy",
     underlineThickness: "1.75px",
     offset: "6px",
@@ -76,8 +76,8 @@ const CATEGORY_META: Record<IssueCategory, UnderlineStyleMeta> = {
   analysis: {
     label: "Analysis",
     dot: "bg-ao2",
-    underlineColor: "rgba(16, 185, 129, 0.65)",
-    underlineStyle: "solid",
+    underlineColor: "rgba(16, 185, 129, 0.85)",
+    underlineStyle: "dashed",
     underlineThickness: "1.5px",
     offset: "6px",
     backgroundColor: "rgba(16, 185, 129, 0.09)",
@@ -85,8 +85,8 @@ const CATEGORY_META: Record<IssueCategory, UnderlineStyleMeta> = {
   application: {
     label: "Application",
     dot: "bg-ao2",
-    underlineColor: "rgba(16, 185, 129, 0.65)",
-    underlineStyle: "solid",
+    underlineColor: "rgba(16, 185, 129, 0.85)",
+    underlineStyle: "dashed",
     underlineThickness: "1.5px",
     offset: "6px",
     backgroundColor: "rgba(16, 185, 129, 0.09)",
@@ -94,25 +94,25 @@ const CATEGORY_META: Record<IssueCategory, UnderlineStyleMeta> = {
   evaluation: {
     label: "Evaluation",
     dot: "bg-ao3",
-    underlineColor: "rgba(245, 158, 11, 0.70)",
-    underlineStyle: "solid",
+    underlineColor: "rgba(245, 158, 11, 0.85)",
+    underlineStyle: "dashed",
     underlineThickness: "1.5px",
     offset: "6px",
     backgroundColor: "rgba(245, 158, 11, 0.10)",
   },
   reasoning_chain: {
     label: "Chain of reasoning",
-    dot: "bg-ao2",
-    underlineColor: "rgba(16, 185, 129, 0.65)",
-    underlineStyle: "solid",
+    dot: "bg-amber-500",
+    underlineColor: "rgba(245, 158, 11, 0.90)",
+    underlineStyle: "wavy",
     underlineThickness: "1.5px",
     offset: "6px",
-    backgroundColor: "rgba(16, 185, 129, 0.09)",
+    backgroundColor: "rgba(245, 158, 11, 0.09)",
   },
   terminology: {
     label: "Terminology",
     dot: "bg-ao1",
-    underlineColor: "rgba(59, 130, 246, 0.65)",
+    underlineColor: "rgba(59, 130, 246, 0.85)",
     underlineStyle: "solid",
     underlineThickness: "1.5px",
     offset: "6px",
@@ -882,15 +882,17 @@ function SuggestionCard({
             variant="outline"
             className={cn(
               "text-[10px] font-semibold",
-              issue.category === "misconception"
+              issue.category === "misconception" || issue.category === "economics_accuracy"
                 ? "border-red-500/50 bg-red-500/15 text-red-700 dark:text-red-300"
-                : CATEGORY_AO[issue.category] === "AO1"
-                  ? "border-ao1/40 bg-ao1/10 text-ao1"
-                  : CATEGORY_AO[issue.category] === "AO2"
-                    ? "border-ao2/40 bg-ao2/10 text-ao2"
-                    : CATEGORY_AO[issue.category] === "AO3"
-                      ? "border-ao3/40 bg-ao3/10 text-ao3"
-                      : "border-border bg-muted/40 text-muted-foreground",
+                : issue.category === "grammar" || issue.category === "clarity"
+                  ? "border-rose-500/40 bg-rose-500/15 text-rose-700 dark:text-rose-300"
+                  : CATEGORY_AO[issue.category] === "AO1"
+                    ? "border-ao1/40 bg-ao1/10 text-ao1"
+                    : CATEGORY_AO[issue.category] === "AO2"
+                      ? "border-ao2/40 bg-ao2/10 text-ao2"
+                      : CATEGORY_AO[issue.category] === "AO3"
+                        ? "border-ao3/40 bg-ao3/10 text-ao3"
+                        : "border-border bg-muted/40 text-muted-foreground",
             )}
           >
             {meta.label}
@@ -919,7 +921,7 @@ function SuggestionCard({
           <span className="text-[10px] font-semibold uppercase tracking-wider shrink-0 mt-0.5 text-destructive/80">
             Original:
           </span>
-          <span className="line-through">{issue.original}</span>
+          <span className="line-through">{cleanStars(issue.original)}</span>
         </div>
         <div className="flex items-start gap-1.5 text-emerald-600 dark:text-emerald-400 font-medium pt-1 border-t border-border/50">
           <span className="text-[10px] font-semibold uppercase tracking-wider shrink-0 mt-0.5 text-emerald-600/80 dark:text-emerald-400/80">
@@ -933,12 +935,12 @@ function SuggestionCard({
         <p className="font-semibold text-foreground text-[11px] uppercase tracking-wider text-muted-foreground">
           Examiner Rationale
         </p>
-        <p className="leading-relaxed text-muted-foreground">{issue.explanation}</p>
+        <p className="leading-relaxed text-muted-foreground">{cleanStars(issue.explanation)}</p>
       </div>
 
       {issue.evidence ? (
         <div className="rounded-md border border-border/70 bg-muted/30 p-2 text-[11px] leading-relaxed text-muted-foreground italic">
-          "{issue.evidence}"
+          "{cleanStars(issue.evidence)}"
         </div>
       ) : null}
 

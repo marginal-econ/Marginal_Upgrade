@@ -1663,63 +1663,146 @@ export const adminUserActivity = createServerFn({ method: "GET" })
     }
 
     try {
-      const { data, error } = await context.supabase.rpc("admin_user_activity");
-      if (!error && data) {
-        const authUsers = await listAcceptedAuthUsers();
-        const acceptedIds = authUsers.length > 0 ? new Set(authUsers.map((u) => u.id)) : null;
-        return ((data ?? []) as any[])
-          .filter((row) => (acceptedIds ? acceptedIds.has(row.user_id) : true))
-          .map((row) => ({
-            userId: row.user_id,
-            email: row.email,
-            fullName: row.full_name,
-            school: row.school,
-            role: (row.role || "student") as UserActivityRow["role"],
-            joinedAt: row.joined_at || new Date().toISOString(),
-            lastSeen: row.last_seen,
-            currentPath: row.current_path,
-            isOnline: Boolean(row.is_online),
-            essaysGraded: Number(row.essays_graded || 0),
-            essaysToday: Number(row.essays_today || 0),
-            liveExaminerSessions: Number(row.live_examiner_sessions || 0),
-            mcqAttempts: Number(row.mcq_attempts || 0),
-            aiCalls: Number(row.ai_calls || 0),
-            lastActivity: row.last_activity,
-          }));
-      }
-    } catch (err) {
-      console.warn("RPC admin_user_activity failed, falling back to profiles:", err);
-    }
-
-    // Fallback: query profiles directly
-    try {
       const { supabaseAdmin } = await import("@/integrations/backend/client.server");
-      const { data: profiles } = await supabaseAdmin
-        .from("profiles")
-        .select("id, full_name, school, created_at")
-        .limit(200);
+      const nowMs = Date.now();
 
-      const authUsers = await listAcceptedAuthUsers();
+      // Precise IST calendar day calculation (UTC+5:30) for candidate essay counts
+      const istOffsetMs = 5.5 * 60 * 60 * 1000;
+      const istNow = new Date(nowMs + istOffsetMs);
+      const istMidnightUtcMs =
+        Date.UTC(istNow.getUTCFullYear(), istNow.getUTCMonth(), istNow.getUTCDate()) - istOffsetMs;
+      const todayCutoffMs = istMidnightUtcMs;
+
+      const [profilesRes, essaysRes, versionsRes, mcqRes, aiRes, liveRes, presenceRes, rolesRes, authUsers] =
+        await Promise.all([
+          supabaseAdmin.from("profiles").select("id, full_name, school, created_at").limit(1000),
+          supabaseAdmin.from("essays").select("id, user_id, created_at").limit(3000),
+          supabaseAdmin.from("essay_versions").select("id, essay_id, user_id, created_at").limit(5000),
+          supabaseAdmin.from("mcq_pdf_attempts").select("id, user_id").limit(2000),
+          supabaseAdmin.from("ai_usage_log").select("id, user_id, created_at").limit(3000),
+          supabaseAdmin.from("live_examiner_sessions").select("id, user_id, updated_at").limit(1000),
+          supabaseAdmin.from("user_presence").select("user_id, last_seen, path").order("last_seen", { ascending: false }),
+          supabaseAdmin.from("user_roles").select("user_id, role"),
+          listAcceptedAuthUsers(),
+        ]);
+
       const authMap = new Map(authUsers.map((u) => [u.id, u.email]));
+      const roleMap = new Map((rolesRes.data ?? []).map((r: any) => [r.user_id, r.role]));
+      const presenceMap = new Map((presenceRes.data ?? []).map((pr: any) => [pr.user_id, pr]));
 
-      return (profiles ?? []).map((p: any) => ({
-        userId: p.id,
-        email: authMap.get(p.id) ?? null,
-        fullName: p.full_name,
-        school: p.school,
-        role: "student" as const,
-        joinedAt: p.created_at || new Date().toISOString(),
-        lastSeen: null,
-        currentPath: null,
-        isOnline: false,
-        essaysGraded: 0,
-        essaysToday: 0,
-        liveExaminerSessions: 0,
-        mcqAttempts: 0,
-        aiCalls: 0,
-        lastActivity: null,
-      }));
-    } catch {
+      // Track unique essays (deduplicating multi-version drafts/rewrites of the same essay)
+      const essayStats = new Map<
+        string,
+        {
+          totalEssayIds: Set<string>;
+          todayEssayIds: Set<string>;
+          lastAt: string | null;
+        }
+      >();
+
+      const getStats = (userId: string) => {
+        let stats = essayStats.get(userId);
+        if (!stats) {
+          stats = {
+            totalEssayIds: new Set<string>(),
+            todayEssayIds: new Set<string>(),
+            lastAt: null,
+          };
+          essayStats.set(userId, stats);
+        }
+        return stats;
+      };
+
+      for (const v of versionsRes.data ?? []) {
+        if (!v.user_id) continue;
+        const stats = getStats(v.user_id);
+        const essayKey = v.essay_id || v.id;
+        stats.totalEssayIds.add(essayKey);
+
+        if (v.created_at) {
+          if (!stats.lastAt || v.created_at > stats.lastAt) stats.lastAt = v.created_at;
+          const vTime = new Date(v.created_at).getTime();
+          if (vTime >= todayCutoffMs) {
+            stats.todayEssayIds.add(essayKey);
+          }
+        }
+      }
+
+      for (const e of essaysRes.data ?? []) {
+        if (!e.user_id) continue;
+        const stats = getStats(e.user_id);
+        stats.totalEssayIds.add(e.id);
+
+        const eTime = e.created_at ? new Date(e.created_at).getTime() : 0;
+        if (e.created_at && (!stats.lastAt || e.created_at > stats.lastAt)) {
+          stats.lastAt = e.created_at;
+        }
+        if (eTime >= todayCutoffMs) {
+          stats.todayEssayIds.add(e.id);
+        }
+      }
+
+      const mcqCounts = new Map<string, number>();
+      for (const m of mcqRes.data ?? []) {
+        if (!m.user_id) continue;
+        mcqCounts.set(m.user_id, (mcqCounts.get(m.user_id) || 0) + 1);
+      }
+
+      const liveCounts = new Map<string, { count: number; lastAt: string | null }>();
+      for (const l of liveRes.data ?? []) {
+        if (!l.user_id) continue;
+        const cur = liveCounts.get(l.user_id) || { count: 0, lastAt: null };
+        cur.count += 1;
+        if (l.updated_at && (!cur.lastAt || l.updated_at > cur.lastAt)) cur.lastAt = l.updated_at;
+        liveCounts.set(l.user_id, cur);
+      }
+
+      const aiCounts = new Map<string, { count: number; lastAt: string | null }>();
+      for (const a of aiRes.data ?? []) {
+        if (!a.user_id) continue;
+        const cur = aiCounts.get(a.user_id) || { count: 0, lastAt: null };
+        cur.count += 1;
+        if (a.created_at && (!cur.lastAt || a.created_at > cur.lastAt)) cur.lastAt = a.created_at;
+        aiCounts.set(a.user_id, cur);
+      }
+
+      return (profilesRes.data ?? []).map((p: any) => {
+        const stats = essayStats.get(p.id);
+        const essaysGraded = stats?.totalEssayIds.size ?? 0;
+        const essaysToday = stats?.todayEssayIds.size ?? 0;
+        const lastEssayAt = stats?.lastAt ?? null;
+
+        const pr = presenceMap.get(p.id);
+        const lastSeenMs = pr?.last_seen ? new Date(pr.last_seen).getTime() : 0;
+        const isOnline = Boolean(pr && nowMs - lastSeenMs < 150_000);
+        const role = roleMap.get(p.id) || "student";
+        const lc = liveCounts.get(p.id);
+        const ac = aiCounts.get(p.id);
+
+        const candidates = [pr?.last_seen, lastEssayAt, lc?.lastAt, ac?.lastAt].filter(Boolean) as string[];
+        candidates.sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
+        const lastActivity = candidates[0] || null;
+
+        return {
+          userId: p.id,
+          email: authMap.get(p.id) ?? null,
+          fullName: p.full_name || authMap.get(p.id)?.split("@")[0] || "Student",
+          school: p.school,
+          role: role as UserActivityRow["role"],
+          joinedAt: p.created_at || new Date().toISOString(),
+          lastSeen: pr?.last_seen ?? null,
+          currentPath: pr?.path ?? null,
+          isOnline,
+          essaysGraded,
+          essaysToday,
+          liveExaminerSessions: lc?.count || 0,
+          mcqAttempts: mcqCounts.get(p.id) || 0,
+          aiCalls: ac?.count || 0,
+          lastActivity,
+        };
+      });
+    } catch (err) {
+      console.warn("adminUserActivity failed:", err);
       return [];
     }
   });
@@ -1741,12 +1824,13 @@ export const adminListAllEssays = createServerFn({ method: "GET" })
         .from("essays")
         .select("id, user_id, question, max_mark, latest_mark, created_at, updated_at")
         .order("created_at", { ascending: false })
-        .limit(300),
+        .limit(1000),
       supabaseAdmin
         .from("essay_versions")
         .select("id, essay_id, version, total_mark, ao1_awarded, ao2_awarded, ao3_awarded, confidence, audited, created_at")
-        .order("version", { ascending: false }),
-      supabaseAdmin.from("profiles").select("id, full_name, school"),
+        .order("version", { ascending: false })
+        .limit(2000),
+      supabaseAdmin.from("profiles").select("id, full_name, school").limit(1000),
       listAcceptedAuthUsers(),
     ]);
 
@@ -1770,18 +1854,18 @@ export const adminListAllEssays = createServerFn({ method: "GET" })
       return {
         id: e.id,
         userId: e.user_id,
-        studentName: profile?.full_name || email || "Student",
+        studentName: profile?.full_name || email?.split("@")[0] || "Student",
         studentEmail: email || null,
         school: profile?.school || null,
-        question: e.question,
-        maxMark: e.max_mark,
-        latestMark: e.latest_mark,
+        question: e.question || "Untitled Question",
+        maxMark: e.max_mark || 12,
+        latestMark: e.latest_mark ?? (vInfo?.latest?.total_mark ?? null),
         versionsCount: vInfo?.count || 1,
         latestAo1: vInfo?.latest?.ao1_awarded ?? null,
         latestAo2: vInfo?.latest?.ao2_awarded ?? null,
         latestAo3: vInfo?.latest?.ao3_awarded ?? null,
-        createdAt: e.created_at,
-        updatedAt: e.updated_at,
+        createdAt: e.created_at || new Date().toISOString(),
+        updatedAt: e.updated_at || e.created_at || new Date().toISOString(),
       };
     });
 
@@ -1820,9 +1904,19 @@ export const adminGetEssayDetail = createServerFn({ method: "POST" })
 
     const authorEmail = authUsers.find((u) => u.id === essay.user_id)?.email || null;
 
+    const versions = (versionsRes.data ?? []).map((v: any) => {
+      let g = v.grading;
+      if (typeof g === "string") {
+        try {
+          g = JSON.parse(g);
+        } catch {}
+      }
+      return { ...v, grading: g };
+    });
+
     return {
       essay,
-      versions: versionsRes.data ?? [],
+      versions,
       author: {
         id: essay.user_id,
         name: profileRes.data?.full_name || authorEmail || "Student",

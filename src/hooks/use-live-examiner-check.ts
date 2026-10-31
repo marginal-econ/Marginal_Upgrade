@@ -47,6 +47,7 @@ export type LiveExaminerIssue = {
   severity: IssueSeverity;
   explanation: string;
   context: string;
+  message?: string;
   /** The proof behind this suggestion — a verbatim syllabus quote for
    *  economics_accuracy, or a short concrete reason otherwise. Always
    *  shown in the UI: nothing is flagged as "wrong" without this. */

@@ -59,8 +59,21 @@ export function isMarginalAdmin(
   return false;
 }
 
-export function isUserAdmin(userId?: string | null): boolean {
-  return isMarginalAdmin({ userId });
+export function isUserAdmin(
+  opts?:
+    | {
+        userId?: string | null;
+        email?: string | null;
+        claims?: any;
+      }
+    | string
+    | null,
+): boolean {
+  if (!opts) return false;
+  if (typeof opts === "string") {
+    return isMarginalAdmin({ userId: opts });
+  }
+  return isMarginalAdmin(opts);
 }
 
 export function assertAdmin(context: any): void {

@@ -39,7 +39,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { getMe, updateProfile } from "@/lib/account.functions";
+import {
+  getMe,
+  updateProfile,
+  getUserAcademicPreferences,
+  saveUserAcademicPreferences,
+} from "@/lib/account.functions";
+import { AVAILABLE_CAMBRIDGE_SERIES } from "@/lib/cambridge-thresholds";
 import { supabase } from "@/integrations/backend/client";
 import { cn } from "@/lib/utils";
 
@@ -61,25 +67,45 @@ export function SettingsPage() {
   const queryClient = useQueryClient();
   const fetchMe = useServerFn(getMe);
   const save = useServerFn(updateProfile);
+  const fetchAcademicPrefs = useServerFn(getUserAcademicPreferences);
+  const saveAcademicPrefsFn = useServerFn(saveUserAcademicPreferences);
 
   const me = useQuery({ queryKey: ["me"], queryFn: () => fetchMe() });
+  const academicPrefsQuery = useQuery({
+    queryKey: ["academic-prefs"],
+    queryFn: () => fetchAcademicPrefs(),
+  });
 
   const [fullName, setFullName] = useState("");
   const [school, setSchool] = useState("");
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState(false);
 
-  // Cambridge Study & Exam Preferences (Stored locally & applied across suites)
-  const [examSeries, setExamSeries] = useState("May/June 2026");
-  const [targetLevel, setTargetLevel] = useState("as_level");
+  // Cambridge Study & Exam Preferences (calibrated with official thresholds)
+  const [examSeries, setExamSeries] = useState("all_average");
+  const [targetLevel, setTargetLevel] = useState("full_a_level");
   const [targetGrade, setTargetGrade] = useState("A*");
   const [currencyContext, setCurrencyContext] = useState("uk_intl");
   const [feedbackDepth, setFeedbackDepth] = useState("detailed");
   const [timedModeDefault, setTimedModeDefault] = useState(true);
   const [showDiagramLabels, setShowDiagramLabels] = useState(true);
 
-  // Load preferences from localStorage on mount
+  // Initialize from server preferences or fallback to localStorage
+  const [prefsSeeded, setPrefsSeeded] = useState(false);
   useEffect(() => {
+    if (prefsSeeded) return;
+    if (academicPrefsQuery.data) {
+      setExamSeries(academicPrefsQuery.data.examSeries || "all_average");
+      setTargetLevel(academicPrefsQuery.data.targetLevel || "full_a_level");
+      setTargetGrade(academicPrefsQuery.data.targetGrade || "A*");
+      setCurrencyContext(academicPrefsQuery.data.currencyContext || "uk_intl");
+      setFeedbackDepth(academicPrefsQuery.data.feedbackDepth || "detailed");
+      setTimedModeDefault(academicPrefsQuery.data.timedModeDefault ?? true);
+      setShowDiagramLabels(academicPrefsQuery.data.showDiagramLabels ?? true);
+      setPrefsSeeded(true);
+      return;
+    }
+
     try {
       const saved = localStorage.getItem("marginal_candidate_prefs");
       if (saved) {
@@ -95,7 +121,7 @@ export function SettingsPage() {
     } catch {
       /* ignore */
     }
-  }, []);
+  }, [academicPrefsQuery.data, prefsSeeded]);
 
   // Fetch client user email for display
   useEffect(() => {
@@ -125,22 +151,42 @@ export function SettingsPage() {
     onError: (error: Error) => toast.error(error.message),
   });
 
-  const handleSaveAcademicPrefs = () => {
-    try {
+  const academicPrefsMutation = useMutation({
+    mutationFn: async (overrides?: {
+      examSeries?: string;
+      targetLevel?: "as_level" | "a2_level" | "full_a_level";
+      targetGrade?: "A*" | "A" | "B" | "C";
+      currencyContext?: string;
+      feedbackDepth?: string;
+      timedModeDefault?: boolean;
+      showDiagramLabels?: boolean;
+    }) => {
       const payload = {
-        examSeries,
-        targetLevel,
-        targetGrade,
-        currencyContext,
-        feedbackDepth,
-        timedModeDefault,
-        showDiagramLabels,
+        examSeries: overrides?.examSeries ?? examSeries,
+        targetLevel: (overrides?.targetLevel ?? targetLevel) as "as_level" | "a2_level" | "full_a_level",
+        targetGrade: (overrides?.targetGrade ?? targetGrade) as "A*" | "A" | "B" | "C",
+        currencyContext: overrides?.currencyContext ?? currencyContext,
+        feedbackDepth: overrides?.feedbackDepth ?? feedbackDepth,
+        timedModeDefault: overrides?.timedModeDefault ?? timedModeDefault,
+        showDiagramLabels: overrides?.showDiagramLabels ?? showDiagramLabels,
       };
-      localStorage.setItem("marginal_candidate_prefs", JSON.stringify(payload));
-      toast.success("Cambridge examination & study preferences saved.");
-    } catch {
-      toast.error("Could not save preferences locally.");
-    }
+      try {
+        localStorage.setItem("marginal_candidate_prefs", JSON.stringify(payload));
+      } catch {
+        /* ignore */
+      }
+      return await saveAcademicPrefsFn({ data: payload });
+    },
+    onSuccess: () => {
+      toast.success("Cambridge examination series & grade thresholds saved.");
+      queryClient.invalidateQueries({ queryKey: ["academic-prefs"] });
+      queryClient.invalidateQueries({ queryKey: ["review-panel"] });
+    },
+    onError: (error: Error) => toast.error(error.message || "Failed to save preferences."),
+  });
+
+  const handleSaveAcademicPrefs = (overrides?: any) => {
+    academicPrefsMutation.mutate(overrides);
   };
 
   const copyUserId = () => {
@@ -332,20 +378,28 @@ export function SettingsPage() {
                 </div>
 
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-semibold">Examination Target Series</Label>
+                  <div className="space-y-1.5 sm:col-span-2">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs font-semibold">Examination Target Series &amp; Thresholds</Label>
+                      <span className="text-[10px] text-muted-foreground font-medium">
+                        Calibrates predicted marks &amp; grades
+                      </span>
+                    </div>
                     <Select value={examSeries} onValueChange={setExamSeries}>
                       <SelectTrigger className="h-9 text-xs">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="May/June 2026">May / June 2026 (Upcoming)</SelectItem>
-                        <SelectItem value="Oct/Nov 2026">October / November 2026</SelectItem>
-                        <SelectItem value="Feb/March 2027">February / March 2027 (India Series)</SelectItem>
-                        <SelectItem value="May/June 2027">May / June 2027</SelectItem>
-                        <SelectItem value="2027+">Future Series / Flexible Self-Paced</SelectItem>
+                        {AVAILABLE_CAMBRIDGE_SERIES.map((s) => (
+                          <SelectItem key={s.id} value={s.id}>
+                            {s.label}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
+                    <p className="text-[11px] text-muted-foreground">
+                      Marginal applies official Cambridge 9708 grade thresholds for your chosen series. If left as default, the multi-year all-series average (A* 68%, A 60%, B 52%, C 46%) is used across all papers.
+                    </p>
                   </div>
 
                   <div className="space-y-1.5">
@@ -445,10 +499,19 @@ export function SettingsPage() {
                   <Button
                     type="button"
                     size="sm"
-                    onClick={handleSaveAcademicPrefs}
+                    disabled={academicPrefsMutation.isPending}
+                    onClick={() => handleSaveAcademicPrefs()}
                     className="h-8 text-xs font-semibold"
                   >
-                    <Save className="size-3.5 mr-1.5" /> Save Academic Goals
+                    {academicPrefsMutation.isPending ? (
+                      <>
+                        <Loader2 className="size-3.5 animate-spin mr-1.5" /> Saving...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="size-3.5 mr-1.5" /> Save Academic Goals &amp; Thresholds
+                      </>
+                    )}
                   </Button>
                 </div>
               </div>

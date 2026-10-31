@@ -32,7 +32,7 @@ import {
   XCircle,
   Zap,
 } from "lucide-react";
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, Component, type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
 
@@ -74,10 +74,72 @@ import {
 import { MarkBreakdown } from "@/components/app/mark-breakdown";
 import { cn } from "@/lib/utils";
 
-export function AdminGodmodeDashboard() {
+interface GodmodeErrorBoundaryProps {
+  children: ReactNode;
+  tabName?: string;
+}
+
+interface GodmodeErrorBoundaryState {
+  hasError: boolean;
+  error: Error | null;
+}
+
+export class GodmodeErrorBoundary extends Component<GodmodeErrorBoundaryProps, GodmodeErrorBoundaryState> {
+  constructor(props: GodmodeErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error): GodmodeErrorBoundaryState {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: any) {
+    console.error("God Mode tab error:", error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="rounded-xl border border-destructive/40 bg-destructive/5 p-6 text-center space-y-3">
+          <AlertTriangle className="mx-auto size-8 text-destructive" />
+          <p className="text-sm font-semibold text-destructive">
+            Something went wrong while rendering {this.props.tabName || "this section"}
+          </p>
+          <p className="text-xs text-muted-foreground font-mono">
+            {this.state.error?.message || "Unexpected UI error"}
+          </p>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="text-xs gap-1.5"
+            onClick={() => this.setState({ hasError: false, error: null })}
+          >
+            <RefreshCw className="size-3" />
+            <span>Try Again</span>
+          </Button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+export function AdminGodmodeDashboard({
+  initialTab,
+}: {
+  initialTab?: "radar" | "dossier" | "failures" | "activity" | "essays" | "mcq" | "live";
+} = {}) {
   const [subTab, setSubTab] = useState<
     "radar" | "dossier" | "failures" | "activity" | "essays" | "mcq" | "live"
-  >("radar");
+  >(initialTab || "radar");
+
+  useEffect(() => {
+    if (initialTab) {
+      setSubTab(initialTab);
+    }
+  }, [initialTab]);
 
   // Fetch quick metrics for tab badge counters
   const fetchLiveMonitor = useServerFn(adminGetLiveUserMonitoring);
@@ -204,31 +266,45 @@ export function AdminGodmodeDashboard() {
         </TabsList>
 
         <TabsContent value="radar" className="mt-4">
-          {subTab === "radar" && <LiveRadarTab />}
+          <GodmodeErrorBoundary tabName="Live Radar & Keystrokes">
+            {subTab === "radar" && <LiveRadarTab />}
+          </GodmodeErrorBoundary>
         </TabsContent>
 
         <TabsContent value="failures" className="mt-4">
-          {subTab === "failures" && <FailedEssaysTab />}
+          <GodmodeErrorBoundary tabName="Essay Failures & Fix">
+            {subTab === "failures" && <FailedEssaysTab />}
+          </GodmodeErrorBoundary>
         </TabsContent>
 
         <TabsContent value="dossier" className="mt-4">
-          {subTab === "dossier" && <StudentDossierTab />}
+          <GodmodeErrorBoundary tabName="Student 360° Dossier">
+            {subTab === "dossier" && <StudentDossierTab />}
+          </GodmodeErrorBoundary>
         </TabsContent>
 
         <TabsContent value="activity" className="mt-4">
-          {subTab === "activity" && <PlatformActivityTab />}
+          <GodmodeErrorBoundary tabName="Activity Feed">
+            {subTab === "activity" && <PlatformActivityTab />}
+          </GodmodeErrorBoundary>
         </TabsContent>
 
         <TabsContent value="essays" className="mt-4">
-          {subTab === "essays" && <EssaysVaultTab />}
+          <GodmodeErrorBoundary tabName="Essays Vault">
+            {subTab === "essays" && <EssaysVaultTab />}
+          </GodmodeErrorBoundary>
         </TabsContent>
 
         <TabsContent value="mcq" className="mt-4">
-          {subTab === "mcq" && <McqVaultTab />}
+          <GodmodeErrorBoundary tabName="MCQ Attempts">
+            {subTab === "mcq" && <McqVaultTab />}
+          </GodmodeErrorBoundary>
         </TabsContent>
 
         <TabsContent value="live" className="mt-4">
-          {subTab === "live" && <LiveExaminerVaultTab />}
+          <GodmodeErrorBoundary tabName="Live Examiner">
+            {subTab === "live" && <LiveExaminerVaultTab />}
+          </GodmodeErrorBoundary>
         </TabsContent>
       </Tabs>
     </div>
@@ -239,10 +315,14 @@ export function AdminGodmodeDashboard() {
  * TAB 1: ESSAYS VAULT
  * ============================================================================ */
 
-function EssaysVaultTab() {
+export function EssaysVaultTab() {
   const fetchAllEssays = useServerFn(adminListAllEssays);
   const fetchEssayDetail = useServerFn(adminGetEssayDetail);
-  const essaysQuery = useQuery({ queryKey: ["admin-all-essays"], queryFn: () => fetchAllEssays() });
+  const essaysQuery = useQuery({
+    queryKey: ["admin-all-essays"],
+    queryFn: () => fetchAllEssays(),
+    refetchInterval: 5_000,
+  });
 
   const [search, setSearch] = useState("");
   const [bandFilter, setBandFilter] = useState<"all" | "high" | "mid" | "low">("all");
@@ -261,9 +341,9 @@ function EssaysVaultTab() {
       const q = search.trim().toLowerCase();
       const matchesSearch =
         !q ||
-        e.studentName.toLowerCase().includes(q) ||
+        (e.studentName || "").toLowerCase().includes(q) ||
         (e.studentEmail && e.studentEmail.toLowerCase().includes(q)) ||
-        e.question.toLowerCase().includes(q) ||
+        (e.question || "").toLowerCase().includes(q) ||
         (e.school && e.school.toLowerCase().includes(q));
 
       if (!matchesSearch) return false;
@@ -353,6 +433,22 @@ function EssaysVaultTab() {
           {Array.from({ length: 5 }).map((_, i) => (
             <Skeleton key={i} className="h-20 w-full rounded-xl" />
           ))}
+        </div>
+      ) : essaysQuery.isError ? (
+        <div className="rounded-xl border border-destructive/40 bg-destructive/5 p-6 text-center space-y-3">
+          <AlertTriangle className="mx-auto size-8 text-destructive" />
+          <p className="text-sm font-semibold text-destructive">Failed to load platform essays</p>
+          <p className="text-xs text-muted-foreground">{(essaysQuery.error as Error)?.message || "A database read error occurred."}</p>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="text-xs gap-1.5"
+            onClick={() => essaysQuery.refetch()}
+          >
+            <RefreshCw className="size-3" />
+            <span>Try Again</span>
+          </Button>
         </div>
       ) : filteredEssays.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border p-12 text-center space-y-2">
@@ -535,10 +631,10 @@ function EssaysVaultTab() {
               {/* Version History Tabs */}
               <div className="space-y-3">
                 <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                  Versions &amp; Reports ({essayDetailQuery.data.versions.length})
+                  Versions &amp; Reports ({essayDetailQuery.data?.versions?.length ?? 0})
                 </h4>
 
-                {essayDetailQuery.data.versions.map((ver: any) => (
+                {(essayDetailQuery.data?.versions ?? []).map((ver: any) => (
                   <div key={ver.id} className="rounded-xl border border-border p-4 space-y-4 bg-card/60">
                     <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-2.5">
                       <div className="flex items-center gap-2">
@@ -570,14 +666,22 @@ function EssaysVaultTab() {
                     </div>
 
                     {/* Examiner Breakdown Report */}
-                    {ver.grading && typeof ver.grading === "object" && ver.grading.strengths ? (
-                      <div className="pt-2">
-                        <span className="text-xs font-semibold text-muted-foreground block mb-2">
-                          Cambridge Examiner Breakdown:
-                        </span>
-                        <MarkBreakdown grading={ver.grading} />
-                      </div>
-                    ) : null}
+                    {(() => {
+                      let g = ver.grading;
+                      if (typeof g === "string") {
+                        try {
+                          g = JSON.parse(g);
+                        } catch {}
+                      }
+                      return g && typeof g === "object" ? (
+                        <div className="pt-2">
+                          <span className="text-xs font-semibold text-muted-foreground block mb-2">
+                            Cambridge Examiner Breakdown:
+                          </span>
+                          <MarkBreakdown grading={g} />
+                        </div>
+                      ) : null;
+                    })()}
                   </div>
                 ))}
               </div>
@@ -1180,7 +1284,7 @@ function LiveRadarTab() {
     if (!q) return users;
     return users.filter(
       (u) =>
-        u.name.toLowerCase().includes(q) ||
+        (u.name || "").toLowerCase().includes(q) ||
         (u.email && u.email.toLowerCase().includes(q)) ||
         (u.school && u.school.toLowerCase().includes(q)) ||
         (u.screenDescription && u.screenDescription.toLowerCase().includes(q)) ||
@@ -2424,10 +2528,10 @@ function StudentDossierTab() {
                 </p>
               </div>
 
-              {dossierQuery.data.classrooms.length > 0 ? (
+              {(dossierQuery.data?.classrooms ?? []).length > 0 ? (
                 <div className="flex flex-wrap items-center gap-1.5">
                   <span className="text-xs text-muted-foreground mr-1">Enrolled in:</span>
-                  {dossierQuery.data.classrooms.map((c: any) => (
+                  {(dossierQuery.data?.classrooms ?? []).map((c: any) => (
                     <Badge key={c.id} variant="secondary" className="text-[10px]">
                       {c.name} ({c.level})
                     </Badge>
@@ -2444,24 +2548,24 @@ function StudentDossierTab() {
             <div className="grid gap-3 sm:grid-cols-4">
               <div className="rounded-lg border border-border bg-background/60 p-3 space-y-1">
                 <span className="text-[11px] text-muted-foreground font-medium">Essays Marked</span>
-                <p className="text-xl font-bold tabular-nums">{dossierQuery.data.stats.totalEssays}</p>
+                <p className="text-xl font-bold tabular-nums">{dossierQuery.data?.stats?.totalEssays ?? 0}</p>
                 <p className="text-[10px] text-muted-foreground">
-                  Avg: {dossierQuery.data.stats.avgEssayPercent !== null ? `${dossierQuery.data.stats.avgEssayPercent}%` : "—"}
+                  Avg: {dossierQuery.data?.stats?.avgEssayPercent !== null && dossierQuery.data?.stats?.avgEssayPercent !== undefined ? `${dossierQuery.data.stats.avgEssayPercent}%` : "—"}
                 </p>
               </div>
 
               <div className="rounded-lg border border-border bg-background/60 p-3 space-y-1">
                 <span className="text-[11px] text-muted-foreground font-medium">MCQ Tests Taken</span>
-                <p className="text-xl font-bold tabular-nums">{dossierQuery.data.stats.totalMcqs}</p>
+                <p className="text-xl font-bold tabular-nums">{dossierQuery.data?.stats?.totalMcqs ?? 0}</p>
                 <p className="text-[10px] text-muted-foreground">
-                  Accuracy: {dossierQuery.data.stats.avgMcqPercent !== null ? `${dossierQuery.data.stats.avgMcqPercent}%` : "—"}
+                  Accuracy: {dossierQuery.data?.stats?.avgMcqPercent !== null && dossierQuery.data?.stats?.avgMcqPercent !== undefined ? `${dossierQuery.data.stats.avgMcqPercent}%` : "—"}
                 </p>
               </div>
 
               <div className="rounded-lg border border-border bg-background/60 p-3 space-y-1">
                 <span className="text-[11px] text-muted-foreground font-medium">Live Examiner Runs</span>
                 <p className="text-xl font-bold tabular-nums text-indigo-500">
-                  {dossierQuery.data.stats.totalLiveSessions}
+                  {dossierQuery.data?.stats?.totalLiveSessions ?? 0}
                 </p>
                 <p className="text-[10px] text-muted-foreground">Live coached writing sessions</p>
               </div>
@@ -2469,7 +2573,7 @@ function StudentDossierTab() {
               <div className="rounded-lg border border-border bg-background/60 p-3 space-y-1">
                 <span className="text-[11px] text-muted-foreground font-medium">Total MCQs Answered</span>
                 <p className="text-xl font-bold tabular-nums text-emerald-500">
-                  {dossierQuery.data.stats.totalMcqCorrect} / {dossierQuery.data.stats.totalMcqQuestions}
+                  {dossierQuery.data?.stats?.totalMcqCorrect ?? 0} / {dossierQuery.data?.stats?.totalMcqQuestions ?? 0}
                 </p>
                 <p className="text-[10px] text-muted-foreground">Questions answered correctly</p>
               </div>
@@ -2481,13 +2585,13 @@ function StudentDossierTab() {
             {/* Student's Essays */}
             <div className="rounded-xl border border-border bg-card/40 p-4 space-y-3">
               <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center justify-between">
-                <span>Essays Written ({dossierQuery.data.essays.length})</span>
+                <span>Essays Written ({(dossierQuery.data?.essays ?? []).length})</span>
               </h4>
-              {dossierQuery.data.essays.length === 0 ? (
+              {(dossierQuery.data?.essays ?? []).length === 0 ? (
                 <p className="text-xs text-muted-foreground py-4 text-center">No essays submitted yet.</p>
               ) : (
                 <div className="divide-y divide-border/60 max-h-80 overflow-y-auto">
-                  {dossierQuery.data.essays.map((e: any) => (
+                  {(dossierQuery.data?.essays ?? []).map((e: any) => (
                     <div key={e.id} className="py-2.5 space-y-1 text-xs">
                       <div className="flex items-center justify-between gap-2">
                         <span className="font-semibold text-foreground truncate max-w-xs">{e.question}</span>
@@ -2515,13 +2619,13 @@ function StudentDossierTab() {
             {/* Student's MCQ Attempts */}
             <div className="rounded-xl border border-border bg-card/40 p-4 space-y-3">
               <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center justify-between">
-                <span>MCQ Attempts ({dossierQuery.data.mcqAttempts.length})</span>
+                <span>MCQ Attempts ({(dossierQuery.data?.mcqAttempts ?? []).length})</span>
               </h4>
-              {dossierQuery.data.mcqAttempts.length === 0 ? (
+              {(dossierQuery.data?.mcqAttempts ?? []).length === 0 ? (
                 <p className="text-xs text-muted-foreground py-4 text-center">No MCQ attempts completed yet.</p>
               ) : (
                 <div className="divide-y divide-border/60 max-h-80 overflow-y-auto">
-                  {dossierQuery.data.mcqAttempts.map((m: any) => (
+                  {(dossierQuery.data?.mcqAttempts ?? []).map((m: any) => (
                     <div key={m.id} className="py-2.5 space-y-1 text-xs">
                       <div className="flex items-center justify-between gap-2">
                         <span className="font-semibold text-foreground truncate max-w-xs">{m.title}</span>

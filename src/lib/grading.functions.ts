@@ -213,6 +213,28 @@ export const gradeEssaySubmission = createServerFn({ method: "POST" })
       ok: true,
     });
 
+    try {
+      const todayDateStr = new Date().toISOString().slice(0, 10);
+      const { data: curDfu } = await supabaseAdmin
+        .from("daily_feature_usage")
+        .select("uses")
+        .eq("user_id", userId)
+        .eq("feature", "essay_grade")
+        .eq("usage_day", todayDateStr)
+        .maybeSingle();
+
+      const newUses = (curDfu?.uses ?? 0) + 1;
+      await supabaseAdmin.from("daily_feature_usage").upsert({
+        user_id: userId,
+        feature: "essay_grade",
+        usage_day: todayDateStr,
+        uses: newUses,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "user_id,feature,usage_day" });
+    } catch (dfuErr) {
+      console.warn("Could not update daily_feature_usage:", dfuErr);
+    }
+
     return {
       essayId,
       versionId: version?.id ?? null,
@@ -240,7 +262,11 @@ export const getEssayThread = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => z.object({ essayId: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
     const { isUserAdmin } = await import("@/lib/auth-admin");
-    const isAdmin = isUserAdmin(context.userId);
+    const isAdmin = isUserAdmin({
+      userId: context.userId,
+      email: (context as any).email,
+      claims: (context as any).claims,
+    });
     const client = isAdmin
       ? (await import("@/integrations/backend/client.server")).supabaseAdmin
       : context.supabase;

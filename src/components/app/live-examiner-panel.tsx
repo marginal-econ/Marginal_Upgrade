@@ -46,21 +46,70 @@ import {
 import { cleanSuggestion } from "@/lib/live-examiner/clean-suggestion";
 import { cn } from "@/lib/utils";
 
-// Which AO this category maps to, shown next to the label so it's visibly
-// the same AO structure the essay is actually graded against — not just an
-// internal detail. "null" categories (grammar/clarity) are writing
-// mechanics, not an AO.
+// Which AO or classification this category maps to, shown next to the label so it's visibly
+// the same AO structure the essay is actually graded against — not just an internal detail.
 const CATEGORY_AO: Record<IssueCategory, string | null> = {
   grammar: null,
   clarity: null,
-  economics_accuracy: AO_DEFINITIONS.ao1.code,
+  economics_accuracy: "Accuracy",
   terminology: AO_DEFINITIONS.ao1.code,
   analysis: AO_DEFINITIONS.ao2.code,
   application: AO_DEFINITIONS.ao2.code,
   reasoning_chain: AO_DEFINITIONS.ao2.code,
   evaluation: AO_DEFINITIONS.ao3.code,
-  misconception: AO_DEFINITIONS.ao1.code,
+  misconception: "Misconception",
 };
+
+export function getLiveExaminerIssueVisual(category: IssueCategory) {
+  switch (category) {
+    case "misconception":
+    case "economics_accuracy":
+      return {
+        cardBorder: "border-l-4 border-l-red-600 bg-red-500/5 dark:bg-red-950/20",
+        badge: "border-red-500/50 bg-red-500/15 text-red-700 dark:text-red-300 font-semibold",
+        dot: "bg-red-600 dark:bg-red-400",
+        aoLabel: "Accuracy",
+      };
+    case "grammar":
+    case "clarity":
+      return {
+        cardBorder: "border-l-4 border-l-rose-500 bg-rose-500/5 dark:bg-rose-950/20",
+        badge: "border-rose-500/40 bg-rose-500/15 text-rose-700 dark:text-rose-300 font-semibold",
+        dot: "bg-rose-500 dark:bg-rose-400",
+        aoLabel: "Mechanics",
+      };
+    case "terminology":
+      return {
+        cardBorder: "border-l-4 border-l-ao1 bg-blue-500/5 dark:bg-blue-950/20",
+        badge: "border-ao1/40 bg-ao1/10 text-ao1 font-semibold",
+        dot: "bg-ao1",
+        aoLabel: "AO1",
+      };
+    case "analysis":
+    case "application":
+    case "reasoning_chain":
+      return {
+        cardBorder: "border-l-4 border-l-ao2 bg-emerald-500/5 dark:bg-emerald-950/20",
+        badge: "border-ao2/40 bg-ao2/10 text-ao2 font-semibold",
+        dot: "bg-ao2",
+        aoLabel: "AO2",
+      };
+    case "evaluation":
+      return {
+        cardBorder: "border-l-4 border-l-ao3 bg-amber-500/5 dark:bg-amber-950/20",
+        badge: "border-ao3/40 bg-ao3/10 text-ao3 font-semibold",
+        dot: "bg-ao3",
+        aoLabel: "AO3",
+      };
+    default:
+      return {
+        cardBorder: "border-l-4 border-l-border bg-muted/20",
+        badge: "border-border bg-muted text-muted-foreground",
+        dot: "bg-muted-foreground",
+        aoLabel: null,
+      };
+  }
+}
 
 const CATEGORY_LABEL: Record<IssueCategory, string> = {
   grammar: "Grammar",
@@ -285,45 +334,29 @@ export function LiveExaminerPanel({
               )
             ) : (
               <ul className="space-y-2">
-                {filteredIssues.map((issue) => (
-                  <li
-                    key={issue.id}
-                    className={cn(
-                      "rounded-lg border border-border bg-card p-2.5",
-                      issue.category === "misconception"
-                        ? "border-l-4 border-l-red-600 bg-red-500/5 dark:bg-red-950/20"
-                        : CATEGORY_AO[issue.category] === "AO1"
-                          ? "border-l-4 border-l-ao1"
-                          : CATEGORY_AO[issue.category] === "AO2"
-                            ? "border-l-4 border-l-ao2"
-                            : CATEGORY_AO[issue.category] === "AO3"
-                              ? "border-l-4 border-l-ao3"
-                              : "",
-                    )}
-                  >
-                    <div className="mb-1.5 flex items-center gap-1.5">
-                      <Badge
-                        variant="outline"
-                        className={cn(
-                          "text-[10px]",
-                          issue.category === "misconception"
-                            ? "border-red-500/50 bg-red-500/15 text-red-700 dark:text-red-300 font-semibold"
-                            : CATEGORY_AO[issue.category] === "AO1"
-                              ? AO_STYLE.AO1.badge
-                              : CATEGORY_AO[issue.category] === "AO2"
-                                ? AO_STYLE.AO2.badge
-                                : CATEGORY_AO[issue.category] === "AO3"
-                                  ? AO_STYLE.AO3.badge
-                                  : "",
-                        )}
-                      >
-                        {CATEGORY_LABEL[issue.category]}
-                        {CATEGORY_AO[issue.category] ? ` · ${CATEGORY_AO[issue.category]}` : ""}
-                      </Badge>
-                      <Badge
-                        variant={SEVERITY_VARIANT[issue.severity]}
-                        className="text-[10px] capitalize"
-                      >
+                {filteredIssues.map((issue) => {
+                  const visual = getLiveExaminerIssueVisual(issue.category);
+                  return (
+                    <li
+                      key={issue.id}
+                      className={cn(
+                        "rounded-lg border border-border bg-card p-2.5 transition-colors",
+                        visual.cardBorder,
+                      )}
+                    >
+                      <div className="mb-1.5 flex items-center gap-1.5 flex-wrap">
+                        <span className={cn("size-2 shrink-0 rounded-full", visual.dot)} />
+                        <Badge
+                          variant="outline"
+                          className={cn("text-[10px]", visual.badge)}
+                        >
+                          {CATEGORY_LABEL[issue.category]}
+                          {visual.aoLabel ? ` · ${visual.aoLabel}` : ""}
+                        </Badge>
+                        <Badge
+                          variant={SEVERITY_VARIANT[issue.severity]}
+                          className="text-[10px] capitalize"
+                        >
                         {issue.severity}
                       </Badge>
                     </div>
@@ -369,8 +402,9 @@ export function LiveExaminerPanel({
                       </Button>
                     </div>
                   </li>
-                ))}
-              </ul>
+                );
+              })}
+            </ul>
             )}
           </ScrollArea>
         </TabsContent>

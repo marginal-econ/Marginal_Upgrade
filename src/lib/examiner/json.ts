@@ -192,6 +192,11 @@ export function extractFirstJsonObject(text: string): Record<string, unknown> {
         "total_mark" in obj ||
         "ao_breakdown" in obj ||
         "issues" in obj ||
+        "i" in obj ||
+        "c" in obj ||
+        "verdicts" in obj ||
+        "suggestions" in obj ||
+        "classifications" in obj ||
         "sections" in obj ||
         "chain" in obj ||
         "score" in obj ||

@@ -14,11 +14,18 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
 import { requireSupabaseAuth } from "@/integrations/backend/auth-middleware";
+import { cleanStars } from "./utils";
 import { chat } from "./ai.server";
 import { MODEL_ANALYSIS } from "./examiner/config";
 import { extractFirstJsonObject } from "./examiner/json";
 import type { Grading } from "./examiner/types";
 import { aggregateMcqDomains, MCQ_DOMAIN_LABEL, type DomainStat } from "./mcq-domain";
+import {
+  type CambridgeSeriesId,
+  calculatePredictedGradeFromThresholds,
+  buildThresholdPromptInstruction,
+  normalizeSeriesId,
+} from "./cambridge-thresholds";
 
 export const MIN_ESSAYS_FOR_REVIEW = 3;
 export const MIN_MCQ_PAPERS_FOR_REVIEW = 1;
@@ -53,6 +60,17 @@ export type GradeProjection = {
   targetGrade: "A*" | "A" | "B";
   marksToNextGrade: string;
   confidence: "high" | "medium" | "emerging";
+  seriesId: CambridgeSeriesId;
+  seriesLabel: string;
+  isCustomSeries: boolean;
+  cutoffs: {
+    aStar?: number;
+    a: number;
+    b: number;
+    c: number;
+    d: number;
+    e: number;
+  };
 };
 
 export type DomainComparison = {
@@ -127,10 +145,11 @@ record, not like a template. Concretely:
 - Prefer a plain, concrete fact ("your last three essays each lost the
   AO3 marks on the conclusion paragraph") over a vague verdict ("your
   evaluation needs work").
+- NO ASTERISKS: Never use asterisks (* or **) anywhere in any JSON string. Do not use markdown bold, italics, or asterisk bullets. Return plain text only with zero asterisks.
 `.trim();
 
 const CONTRACT = `
-Return ONLY one JSON object with this exact shape:
+Return ONLY one JSON object with this exact shape (zero asterisks anywhere in any field):
 {
   "overall_summary": string (3-5 sentences, direct, addressed to the student as "you"),
   "grade_trend": "improving" | "steady" | "declining",
@@ -173,10 +192,45 @@ ${CLICHE_BAN}
 export const getReviewPanel = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) =>
-    z.object({ force: z.boolean().optional() }).default({}).parse(input ?? {}),
+    z
+      .object({
+        force: z.boolean().optional(),
+        examSeries: z.string().optional(),
+        targetLevel: z.string().optional(),
+      })
+      .default({})
+      .parse(input ?? {}),
   )
   .handler(async ({ data, context }): Promise<ReviewPanelResult | ReviewPanelEligibility> => {
     const { supabase, userId } = context;
+
+    // 1. Determine candidate's examination series and level
+    let chosenSeries = data?.examSeries;
+    let chosenLevel = data?.targetLevel;
+
+    if (!chosenSeries) {
+      try {
+        const userPrefsTerm = `__USER_PREFS_${userId}`;
+        const { data: prefsRow } = await supabase
+          .from("definitions")
+          .select("definition_text")
+          .eq("term", userPrefsTerm)
+          .order("updated_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (prefsRow?.definition_text) {
+          const parsedPrefs = JSON.parse(prefsRow.definition_text);
+          if (parsedPrefs.examSeries) chosenSeries = parsedPrefs.examSeries;
+          if (parsedPrefs.targetLevel && !chosenLevel) chosenLevel = parsedPrefs.targetLevel;
+        }
+      } catch {
+        /* fallback */
+      }
+    }
+
+    const seriesId = normalizeSeriesId(chosenSeries);
+    const targetLevel = chosenLevel || "full_a_level";
 
     const { data: essayRows, error: essayError } = await supabase
       .from("essays")
@@ -238,19 +292,24 @@ export const getReviewPanel = createServerFn({ method: "POST" })
     if (cachedRow?.definition_text && !data?.force) {
       try {
         const parsed = JSON.parse(cachedRow.definition_text) as ReviewPanelResult;
-        const generatedTime = new Date(parsed.generatedAt || cachedRow.updated_at).getTime();
-        const ageInDays = (Date.now() - generatedTime) / (1000 * 60 * 60 * 24);
+        const cachedSeriesId = parsed.gradeProjection?.seriesId;
 
-        if (ageInDays < 30) {
-          const daysRemaining = Math.max(1, Math.ceil(30 - ageInDays));
-          const nextDate = new Date(generatedTime + 30 * 24 * 60 * 60 * 1000).toISOString();
-          return {
-            ...parsed,
-            eligible: true,
-            isCached: true,
-            daysRemainingInCycle: daysRemaining,
-            nextRecalculationDate: nextDate,
-          };
+        // If the user hasn't switched series and cached cutoffs exist, use valid 30-day cache
+        if (cachedSeriesId === seriesId && parsed.gradeProjection?.cutoffs) {
+          const generatedTime = new Date(parsed.generatedAt || cachedRow.updated_at).getTime();
+          const ageInDays = (Date.now() - generatedTime) / (1000 * 60 * 60 * 24);
+
+          if (ageInDays < 30) {
+            const daysRemaining = Math.max(1, Math.ceil(30 - ageInDays));
+            const nextDate = new Date(generatedTime + 30 * 24 * 60 * 60 * 1000).toISOString();
+            return cleanStars({
+              ...parsed,
+              eligible: true,
+              isCached: true,
+              daysRemainingInCycle: daysRemaining,
+              nextRecalculationDate: nextDate,
+            });
+          }
         }
       } catch (err) {
         console.error("Failed to parse cached review panel:", err);
@@ -371,12 +430,14 @@ export const getReviewPanel = createServerFn({ method: "POST" })
     });
     const empiricalPercent = totalMax > 0 ? Math.round((totalScore / totalMax) * 100) : 65;
 
+    const thresholdInstruction = buildThresholdPromptInstruction(seriesId);
+
     const systemPrompt = [
       "You are the senior Cambridge International 9708 Economics principal examiner reviewing a candidate's",
       "full academic diagnostic portfolio — essays AND MCQ papers together — to write a holistic diagnostic assessment.",
       "",
-      "Calibrate according to official Cambridge 9708 grade thresholds:",
-      "- A* >= 80%, A >= 70%, B >= 60%, C >= 50%, D >= 40%, E >= 35%, U < 35%.",
+      thresholdInstruction,
+      "",
       "Provide actionable advice across the 5 core pillars of Cambridge economics (Definitions, Causal chains,",
       "Evaluation weighing, Diagram synthesis, and MCQ distractor rejection).",
       "",
@@ -481,33 +542,40 @@ export const getReviewPanel = createServerFn({ method: "POST" })
           ? "steady"
           : "not enough data";
 
-    // Build Grade Projection with defaults
+    // Compute Cambridge threshold prediction using chosen series or multi-year all-series average
+    const thresholdPrediction = calculatePredictedGradeFromThresholds(
+      empiricalPercent,
+      targetLevel,
+      seriesId,
+    );
+
+    // Build Grade Projection grounded in Cambridge thresholds
     const rawProj = (raw.grade_projection ?? {}) as Record<string, unknown>;
     const projectedGrade = (
       ["A*", "A", "B", "C", "D", "E", "U"].includes(String(rawProj.projected_grade))
-        ? rawProj.projected_grade
-        : empiricalPercent >= 80
-          ? "A*"
-          : empiricalPercent >= 70
-            ? "A"
-            : empiricalPercent >= 60
-              ? "B"
-              : empiricalPercent >= 50
-                ? "C"
-                : empiricalPercent >= 40
-                  ? "D"
-                  : "E"
-    ) as GradeProjection["projectedGrade"];
+        ? (rawProj.projected_grade as GradeProjection["projectedGrade"])
+        : thresholdPrediction.projectedGrade
+    );
+
+    const targetGrade = (
+      ["A*", "A", "B"].includes(String(rawProj.target_grade))
+        ? (rawProj.target_grade as GradeProjection["targetGrade"])
+        : thresholdPrediction.targetGrade
+    );
 
     const gradeProjection: GradeProjection = {
       projectedGrade,
       currentAveragePercent: Number(rawProj.current_average_percent) || empiricalPercent,
-      targetGrade: projectedGrade === "A*" ? "A*" : projectedGrade === "A" ? "A*" : "A",
+      targetGrade,
       marksToNextGrade:
         typeof rawProj.marks_to_next_grade === "string" && rawProj.marks_to_next_grade.length > 0
           ? rawProj.marks_to_next_grade
-          : "+2 marks on 12-mark evaluation or +2 correct MCQs",
+          : thresholdPrediction.marksToNextGrade,
       confidence: totalEssays >= 5 ? "high" : totalEssays >= 3 ? "medium" : "emerging",
+      seriesId: thresholdPrediction.seriesId,
+      seriesLabel: thresholdPrediction.seriesLabel,
+      isCustomSeries: thresholdPrediction.isCustomSeries,
+      cutoffs: thresholdPrediction.cutoffs,
     };
 
     // Build 5 Mastery Pillars
@@ -599,7 +667,7 @@ export const getReviewPanel = createServerFn({ method: "POST" })
     const nowIso = new Date().toISOString();
     const nextRecalcIso = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
 
-    const output: ReviewPanelResult = {
+    const output: ReviewPanelResult = cleanStars({
       eligible: true,
       sampleLevel: totalEssays >= 5 && totalMcqPapers >= 2 ? "comprehensive" : "diagnostic",
       essayCount: totalEssays,
@@ -620,7 +688,7 @@ export const getReviewPanel = createServerFn({ method: "POST" })
       mcqDomainBreakdown,
       actionPlan,
       encouragement: String(raw.encouragement ?? "").trim(),
-    };
+    });
 
     // Cache the review panel for 30 days
     try {

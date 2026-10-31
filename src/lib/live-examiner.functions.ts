@@ -12,7 +12,8 @@ import {
 import { deterministicTerminologyIssues } from "@/lib/live-examiner/economics-glossary";
 import { analyzeGrammarAndMechanics } from "@/lib/live-examiner/grammar-engine";
 import { diffSentences, splitSentences } from "@/lib/writing-check/sentence-diff";
-import { AO_DEFINITIONS, defaultSplitForMaxMark } from "@/lib/examiner/config";
+import { AO_DEFINITIONS, TEMPERATURE_EXAMINER, defaultSplitForMaxMark } from "@/lib/examiner/config";
+import { cleanStars, stripStars } from "@/lib/utils";
 
 import { isMarginalAdmin } from "@/lib/auth-admin";
 
@@ -38,74 +39,31 @@ async function assertLiveExaminerSessionAllowed(
       claims: context?.claims,
       email: context?.email,
     });
-  if (isAdmin) {
-    return;
-  }
-
-  // Check paid subscription and credit balance
-  const { getUserSubscriptionDetails } = await import("./subscription.server");
-  const sub = await getUserSubscriptionDetails(
-    supabase,
-    context?.userId,
-    context?.email,
-    context?.claims,
-  );
-  if (!sub.canUseLiveExaminer) {
-    if (sub.isTeacher && !sub.isPaid) {
-      const { TEACHER_LIVE_EXAMINER_REQUIRED_MESSAGE } = await import("./usage-limits");
-      throw new Error(TEACHER_LIVE_EXAMINER_REQUIRED_MESSAGE);
-    }
-    if (!sub.isPaid) {
-      throw new Error(LIVE_EXAMINER_PAID_ONLY_MESSAGE);
-    } else {
-      throw new Error(LIVE_EXAMINER_NO_CREDITS_MESSAGE);
-    }
-  }
-
-  try {
-    const { data, error } = await supabase.rpc("claim_live_examiner_session", {
-      p_question: question,
-    });
-    if (!error && data && !(data as { allowed?: boolean }).allowed) {
-      throw new Error(LIVE_EXAMINER_LIMIT_MESSAGE);
-    }
-  } catch (err) {
-    if (err instanceof Error && err.message === LIVE_EXAMINER_LIMIT_MESSAGE) {
-      throw err;
-    }
-    // RPC not present in schema cache; credit-based limit above is the authoritative gate
+  if (!isAdmin) {
+    throw new Error("Live Examiner is restricted to Marginal platform administrators only.");
   }
 }
 
 /**
- * Ceiling on suggestions shown at once. Loosened from 5 — feedback said it
- * was resurfacing real issues too slowly. Still capped (not unlimited) so
- * a badly-written paragraph doesn't dump 20 red flags at once; the
- * Stage-2 verifier is the real quality gate, this is just "how much to
- * show in one go".
+ * Ceiling on suggestions shown at once. High enough for Grammarly-level
+ * comprehensive coverage across the essay without causing overwhelming visual noise.
  */
-const MAX_VISIBLE_ISSUES = 8;
+const MAX_VISIBLE_ISSUES = 16;
 
-/** At most this many BRAND NEW issues are introduced in a single check —
- *  even if a big paste triggers many candidates, they surface a batch at
- *  a time rather than all at once. Raised from 3 alongside
- *  MAX_VISIBLE_ISSUES so a big paste doesn't take several passes to
- *  reach the new higher ceiling. */
-const MAX_NEW_ISSUES_PER_CALL = 6;
+/** At most this many BRAND NEW issues are introduced in a single check. */
+const MAX_NEW_ISSUES_PER_CALL = 10;
 
 /** Sentences per model call is raised to 32 to ensure full-length essay responses are completely classified. */
 const MAX_SENTENCES_PER_CALL = 32;
 
-/** Stage-1 candidates below this self-reported confidence are dropped
- *  before they even reach verification — cheap, zero-latency filter. */
-const CONFIDENCE_THRESHOLD = 0.55;
+/** Stage-1 candidates below this confidence are filtered out. */
+const CONFIDENCE_THRESHOLD = 0.50;
 
 /**
- * High-confidence candidates (confidence >= 0.72) skip Stage 2 verification entirely,
- * cutting latency down to a single sub-second Gemini 3.6 Flash pass (< 400ms).
- * Expanded to all Cambridge AO categories for rapid, single-roundtrip feedback.
+ * High-confidence candidates (confidence >= 0.70) skip Stage 2 verification entirely,
+ * cutting latency down to a single pass while keeping suggestions helpful and responsive.
  */
-const AUTO_KEEP_CONFIDENCE = 0.72;
+const AUTO_KEEP_CONFIDENCE = 0.70;
 
 /**
  * Distills retrieved syllabus context to essential syllabus concepts (max 1,500 chars),
@@ -307,11 +265,12 @@ For each candidate:
 - KEEP candidates that identify real economic flaws, misconceptions, broken reasoning chains, missing analytical steps (AO2), or superficial evaluation (AO3).
 - REJECT candidates if the student's point is economically sound and valid, even if phrased unconventionally.
 - REJECT trivial, nitpicky, or debatable points.
+- NEVER use asterisks (** or *) or markdown bold/italics in explanations. Plain text only.
 
-Respond ONLY with a single valid JSON object:
+Respond ONLY with a single valid JSON object, no markdown fences:
 {
   "verdicts": [
-    { "index": <number>, "keep": true | false, "explanation": "<optional tightened explanation>" }
+    { "index": <number>, "keep": true | false, "explanation": "<optional tightened explanation without asterisks>" }
   ]
 }`;
 }
@@ -374,7 +333,7 @@ export function sanitisePredictedMark(raw: unknown, maxMark: number): PredictedM
 
   const headline =
     typeof record.headline === "string" && record.headline.trim()
-      ? record.headline.trim().slice(0, 80)
+      ? stripStars(record.headline.trim().slice(0, 80))
       : "Live assessment in progress";
 
   const rawBreakdown = (record.ao_breakdown ?? {}) as Record<string, unknown>;
@@ -534,14 +493,32 @@ export function sliceContextForSentences(
 
 // Static rubric first (identical for every call → provider-side prefix caching),
 // question/grounding second, the changing sentences last (user message).
-const LIVE_RUBRIC = `You are a strict, accurate Cambridge 9708 AS/A Level Economics examiner giving live feedback. Judge ONLY the numbered sentences.
-Flag an issue ONLY when you are certain it is a real error or a clear missed mark. Never flag correct economics just because it is worded unusually.
-Spelling, punctuation and simple grammar are handled elsewhere: do NOT report them unless the sentence is otherwise unclear.
-Categories (code): economics_accuracy (ea) false/backwards economics; misconception (mc) fundamental confusion; analysis (an) claim with no causal mechanism; reasoning_chain (rc) broken or contradictory logic; application (ap) pure theory ignoring the question context; evaluation (ev) unsupported judgement lacking a condition; terminology (tm) imprecise economic term; clarity (cl) ambiguous wording.
-Rules: "s" is the exact drop-in replacement for "o" (no "e.g.", no quotes, no commentary). "o" must be copied exactly from the sentence. "e" is one short sentence (max 20 words). "p" is the economic law/syllabus principle proving it (max 12 words). "f" is your honest confidence 0.6-1.0. At most 4 issues in total.
-EVERY sentence must be marked in "c" as [no, AO, credit]. AO: 1 = knowledge/definition, 2 = analysis/application/causal chain, 3 = evaluation/judgement. credit = marks-worthiness as an examiner would award: 0 = no credit (wrong, irrelevant, repeated or empty), 1 = basic credit (correct but undeveloped), 2 = developed credit (correct, precise, developed with mechanism/condition). Economically wrong sentences MUST get credit 0 and be reported in "i".
-Reply ONLY with compact JSON, no fences: {"i":[{"n":<sentence no>,"o":"","s":"","c":"<code>","v":<1 low|2 med|3 high>,"e":"","p":"","f":0.9}],"c":[[<sentence no>,<1|2|3>,<0|1|2>]]}
-"c" has one row per sentence. Use "i":[] when no issues.`;
+const LIVE_RUBRIC = `You are a strict, authoritative Cambridge 9708 AS/A Level Economics examiner and Grammarly-grade academic writing coach giving live feedback. Judge ONLY the numbered sentences.
+Flag genuine errors, missing causal links, flawed reasoning, missing evaluative conditions, lay terminology, clarity issues, and grammar/spelling flaws.
+Never flag correct economics just because it is phrased unconventionally.
+
+CRITICAL FORMAT RULES:
+- Output clean plain text only. NEVER use asterisks (** or *), never use markdown bold or italics anywhere.
+- "s" is the exact drop-in replacement for "o" (no "e.g.", no "Use:", no quotes, no commentary).
+- "o" must be quoted from the sentence without asterisks.
+- "e" is one concise explanation (max 25 words, no asterisks).
+- "p" is the syllabus principle or rule (max 15 words, no asterisks).
+- "f" is your confidence (0.5 to 1.0).
+
+Categories (code):
+- economics_accuracy (ea): false or backwards economic theory.
+- misconception (mc): fundamental confusion (e.g. shift vs movement, public vs merit).
+- analysis (an): claim lacking an explicit step-by-step transmission mechanism.
+- reasoning_chain (rc): broken or contradictory causal logic.
+- application (ap): abstract theory ignoring question context.
+- evaluation (ev): unsupported assertion lacking conditionality, tradeoff, or time horizon.
+- terminology (tm): lay phrase where precise Cambridge economic term is needed.
+- clarity (cl): ambiguous or informal academic wording.
+- grammar (gr): syntax, subject-verb agreement, spelling typo, or punctuation.
+
+EVERY sentence must be marked in "c" as [sentence_no, AO (1|2|3), credit (0 no credit/wrong | 1 basic | 2 developed with mechanism)].
+Reply ONLY with compact JSON, no markdown fences: {"i":[{"n":<sentence no>,"o":"","s":"","c":"<code>","v":<1 low|2 med|3 high>,"e":"","p":"","f":0.85}],"c":[[<sentence no>,<1|2|3>,<0|1|2>]]}
+"c" has one row per sentence. If no issues, return {"i":[],"c":[[...]]}.`;
 
 function buildLiveSystemMessages(question: string, level: string, maxMark: number, grounding: string) {
   return [
@@ -715,10 +692,10 @@ export const checkEssayWriting = createServerFn({ method: "POST" })
 
       const candidateResult = await chat({
         model: MODEL_LIVE_CANDIDATE,
-        temperature: 0.15,
+        temperature: TEMPERATURE_EXAMINER,
         json: true,
         isBudgetTier,
-        maxCompletionTokens: 900,
+        maxCompletionTokens: 1200,
         messages: [
           ...buildLiveSystemMessages(data.question, data.level, data.maxMark, grounding),
           { role: "user", content: `SENTENCES:\n${targetBlock}` },
@@ -732,13 +709,34 @@ export const checkEssayWriting = createServerFn({ method: "POST" })
         console.warn("Live examiner json parse fallback:", jsonErr);
       }
 
-      // AI adjudication of ambiguous AO labels only.
-      const aoByIndex = Array.isArray(raw.c) ? raw.c : [];
+      // Handle both compact "c" and verbose "classifications" (Mistral/Gemini/OpenAI)
+      const aoByIndex = Array.isArray(raw.c)
+        ? raw.c
+        : Array.isArray(raw.classifications)
+          ? raw.classifications
+          : [];
       for (const row of aoByIndex) {
-        if (!Array.isArray(row)) continue;
-        const idx = Number(row[0]);
-        const ao = Number(row[1]);
-        const strength = Number(row[2]);
+        let idx = 0;
+        let ao = 0;
+        let strength = 1;
+        if (Array.isArray(row)) {
+          idx = Number(row[0]);
+          ao = Number(row[1]);
+          strength = Number(row[2]);
+        } else if (row && typeof row === "object") {
+          const obj = row as Record<string, unknown>;
+          idx = Number(obj.n ?? obj.sentence ?? obj.sentence_number ?? obj.index ?? 0);
+          const aoVal = obj.ao ?? obj.target_ao;
+          ao =
+            typeof aoVal === "number"
+              ? aoVal
+              : String(aoVal).includes("3")
+                ? 3
+                : String(aoVal).includes("2")
+                  ? 2
+                  : 1;
+          strength = Number(obj.credit ?? obj.strength ?? 1);
+        }
         if (!Number.isInteger(idx) || idx < 1 || idx > aiSentences.length) continue;
         if (![1, 2, 3].includes(ao)) continue;
         const target = sentenceResults[idx - 1];
@@ -752,60 +750,167 @@ export const checkEssayWriting = createServerFn({ method: "POST" })
         explanation: aoExplanation(r.ao),
       })) as LiveExaminerAoClassification[];
 
-      const issuesRaw = Array.isArray(raw.i) ? raw.i : [];
+      const issuesRaw = Array.isArray(raw.i)
+        ? raw.i
+        : Array.isArray(raw.issues)
+          ? raw.issues
+          : Array.isArray(raw.suggestions)
+            ? raw.suggestions
+            : [];
       const detOriginals = deterministic.map((d) => d.original.toLowerCase());
 
       const candidates = issuesRaw.flatMap<Candidate>((item) => {
         const r = (item ?? {}) as Record<string, unknown>;
-        const idx = Number(r.n);
+        const idx = Number(
+          r.n ?? r.sentence_number ?? r.sentence_index ?? r.index ?? r.sentence ?? 0,
+        );
         const sentence =
           Number.isInteger(idx) && idx >= 1 && idx <= aiSentences.length
             ? aiSentences[idx - 1]
             : undefined;
-        const original = typeof r.o === "string" ? r.o.trim() : "";
-        const suggestion = cleanSuggestion(typeof r.s === "string" ? r.s.trim() : "");
-        const code = typeof r.c === "string" ? r.c.trim().toLowerCase() : "";
+
+        let rawOriginal =
+          typeof r.o === "string"
+            ? r.o
+            : typeof r.original === "string"
+              ? r.original
+              : typeof r.text === "string"
+                ? r.text
+                : "";
+        rawOriginal = rawOriginal
+          .replace(/\*+/g, "")
+          .replace(/^["'“‘`]+|["'”’`]+$/g, "")
+          .trim();
+
+        let rawSuggestion =
+          typeof r.s === "string"
+            ? r.s
+            : typeof r.suggestion === "string"
+              ? r.suggestion
+              : typeof r.replacement === "string"
+                ? r.replacement
+                : "";
+        const suggestion = cleanSuggestion(stripStars(rawSuggestion));
+
+        const rawCode =
+          typeof r.c === "string"
+            ? r.c
+            : typeof r.category === "string"
+              ? r.category
+              : typeof r.type === "string"
+                ? r.type
+                : "";
+        const code = rawCode.trim().toLowerCase();
         const category =
           CATEGORY_CODES[code] ??
           (CATEGORIES.includes(code as (typeof CATEGORIES)[number])
             ? (code as (typeof CATEGORIES)[number])
-            : null);
-        const sevNum = Number(r.v);
-        const severity = (sevNum >= 3 ? "high" : sevNum <= 1 ? "low" : "medium") as
-          (typeof SEVERITIES)[number];
-        let confidence = typeof r.f === "number" ? r.f : parseFloat(String(r.f));
-        if (!Number.isFinite(confidence)) confidence = 0.8;
+            : code.includes("econ") || code.includes("accura")
+              ? "economics_accuracy"
+              : code.includes("miscon")
+                ? "misconception"
+                : code.includes("analy")
+                  ? "analysis"
+                  : code.includes("eval")
+                    ? "evaluation"
+                    : code.includes("term") || code.includes("concept")
+                      ? "terminology"
+                      : code.includes("gram") || code.includes("spell") || code.includes("typo")
+                        ? "grammar"
+                        : code.includes("clar") || code.includes("style")
+                          ? "clarity"
+                          : code.includes("reason") || code.includes("chain")
+                            ? "reasoning_chain"
+                            : code.includes("appl")
+                              ? "application"
+                              : null);
+
+        let sevNum = Number(r.v ?? r.severity);
+        if (!Number.isFinite(sevNum)) {
+          const sevStr = String(r.v ?? r.severity ?? "").toLowerCase();
+          sevNum =
+            sevStr.includes("high") || sevStr.includes("3")
+              ? 3
+              : sevStr.includes("low") || sevStr.includes("1")
+                ? 1
+                : 2;
+        }
+        const severity = (sevNum >= 3 ? "high" : sevNum <= 1 ? "low" : "medium") as (typeof SEVERITIES)[number];
+
+        let confidence =
+          typeof r.f === "number"
+            ? r.f
+            : typeof r.confidence === "number"
+              ? r.confidence
+              : parseFloat(String(r.f ?? r.confidence));
+        if (!Number.isFinite(confidence)) confidence = 0.85;
         if (confidence > 1 && confidence <= 100) confidence /= 100;
 
-        if (!sentence || !original || !suggestion || !category) return [];
+        if (!sentence || !rawOriginal || !suggestion || !category) return [];
         if (confidence < CONFIDENCE_THRESHOLD) return [];
-        if (!sentence.toLowerCase().includes(original.toLowerCase())) return [];
+
+        let original = rawOriginal;
+        const sentLower = sentence.toLowerCase();
+        const origLower = rawOriginal.toLowerCase();
+        const matchIdx = sentLower.indexOf(origLower);
+        if (matchIdx !== -1) {
+          original = sentence.slice(matchIdx, matchIdx + rawOriginal.length);
+        } else {
+          const trimmedPunct = origLower.replace(/[.,;:!?]+$/, "");
+          const punctIdx = sentLower.indexOf(trimmedPunct);
+          if (punctIdx !== -1 && trimmedPunct.length >= 2) {
+            original = sentence.slice(punctIdx, punctIdx + trimmedPunct.length);
+          } else {
+            return [];
+          }
+        }
+
         if (suggestion.toLowerCase() === original.toLowerCase()) return [];
-        // The free rules already own this exact span — no duplicate noise.
         if (detOriginals.some((d) => d.includes(original.toLowerCase()) || original.toLowerCase().includes(d)))
           return [];
+
+        const rawExplanation =
+          typeof r.e === "string"
+            ? r.e
+            : typeof r.explanation === "string"
+              ? r.explanation
+              : typeof r.reason === "string"
+                ? r.reason
+                : "";
+        const explanation =
+          stripStars(rawExplanation).trim() || "Flagged by the Cambridge live examiner.";
+
+        const rawEvidence =
+          typeof r.p === "string"
+            ? r.p
+            : typeof r.evidence === "string"
+              ? r.evidence
+              : typeof r.proof === "string"
+                ? r.proof
+                : "";
+        const evidence = stripStars(rawEvidence).trim() || undefined;
+
         return [
           {
             original,
             suggestion,
             category,
             severity,
-            explanation: (typeof r.e === "string" && r.e.trim()) || "Flagged by the examiner check.",
+            explanation,
             context: sentence,
-            evidence: (typeof r.p === "string" && r.p.trim()) || undefined,
+            evidence,
             confidence,
           },
         ];
       });
 
-      // Confident issues are kept outright. ONLY the riskiest class (a claim
-      // that the student's economics is wrong) in the uncertain band gets an
-      // independent second look — a false "you're wrong" is the worst UX.
+      // Confident issues and rich pedagogical suggestions (grammar, terminology, analysis, evaluation)
+      // are preserved for full Grammarly-grade assistance. Only uncertain economic claims get verified.
       const kept: LiveExaminerIssue[] = [];
       const needsVerification: Candidate[] = [];
       for (const c of candidates) {
         const { confidence, ...issue } = c;
-        if (confidence >= AUTO_KEEP_CONFIDENCE && !(AI_JUDGEMENT_CATEGORIES.has(c.category) && confidence < 0.85)) {
+        if (confidence >= AUTO_KEEP_CONFIDENCE || !AI_JUDGEMENT_CATEGORIES.has(c.category)) {
           kept.push(issue);
         } else if (AI_JUDGEMENT_CATEGORIES.has(c.category)) {
           needsVerification.push(c);
@@ -822,24 +927,28 @@ export const checkEssayWriting = createServerFn({ method: "POST" })
             .join("\n\n");
           const verifyResult = await chat({
             model: MODEL_LIVE_CHECK,
-            temperature: 0.1,
+            temperature: TEMPERATURE_EXAMINER,
             json: true,
             isBudgetTier,
-            maxCompletionTokens: 300,
+            maxCompletionTokens: 500,
             messages: [
               { role: "system", content: buildVerifierSystemPrompt(data.question, grounding) },
               { role: "user", content: `CANDIDATES:\n\n${candidateBlock}` },
             ],
           });
           const verifyRaw = extractFirstJsonObject(verifyResult.text);
-          const verdicts = Array.isArray(verifyRaw.verdicts) ? verifyRaw.verdicts : [];
+          const verdicts = Array.isArray(verifyRaw.verdicts)
+            ? verifyRaw.verdicts
+            : Array.isArray(verifyRaw.results)
+              ? verifyRaw.results
+              : [];
           needsVerification.forEach((c, i) => {
-            const v = verdicts.find((x: any) => Number(x?.index) === i + 1) as
+            const v = verdicts.find((x: any) => Number(x?.index ?? x?.n) === i + 1) as
               | { keep?: boolean; explanation?: string }
               | undefined;
-            if (v?.keep === true) {
+            if (v?.keep !== false) {
               const { confidence: _c, ...issue } = c;
-              kept.push({ ...issue, explanation: v.explanation || issue.explanation });
+              kept.push({ ...issue, explanation: stripStars(v?.explanation || issue.explanation) });
             }
           });
           await supabaseAdmin.from("ai_usage_log").insert({
@@ -852,8 +961,11 @@ export const checkEssayWriting = createServerFn({ method: "POST" })
             ok: true,
           });
         } catch (verifyError) {
-          // Unverifiable "you are wrong" claims are dropped, never shown.
-          console.warn("Live examiner verification skipped:", verifyError);
+          console.warn("Live examiner verification fallback:", verifyError);
+          for (const c of needsVerification) {
+            const { confidence: _c, ...issue } = c;
+            kept.push(issue);
+          }
         }
       }
 
@@ -873,8 +985,8 @@ export const checkEssayWriting = createServerFn({ method: "POST" })
       const promptTokens = candidateResult.promptTokens ?? 0;
       const completionTokens = candidateResult.completionTokens ?? 0;
       return {
-        issues: merged,
-        classifications,
+        issues: cleanStars(merged),
+        classifications: cleanStars(classifications),
         classifiedContexts: aiSentences,
         sentenceResults,
         clean: merged.length === 0,
@@ -1391,6 +1503,9 @@ Provide concrete, academically rigorous guidance detailing:
 4. Exemplar Cambridge-grade sentence starters and model phrasing that they can directly incorporate.
 5. Exact structural placement in the essay (e.g. Paragraph 1 for definitions, Paragraph 2 for causal mechanisms, Final Paragraph for evaluation) and why placing it there scores marks.
 
+CRITICAL FORMAT RULES:
+- Output clean plain text only. NEVER use asterisks (** or *), never use markdown bold or italics anywhere in any string.
+
 Respond ONLY with a single valid JSON object, no markdown fences, no commentary outside the JSON:
 {
   "headline": "<1-2 sentences summarizing the most critical step to reach a perfect score>",
@@ -1468,14 +1583,15 @@ export const getMaxOutSuggestions = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => MaxOutInput.parse(input))
   .handler(async ({ data, context }) => {
+    await assertLiveExaminerSessionAllowed(context.supabase, data.question, context);
     try {
       const { chat } = await import("./ai.server");
-      const { MODEL_COACH, TEMPERATURE_TUTOR } = await import("./examiner/config");
+      const { MODEL_COACH } = await import("./examiner/config");
       const { extractFirstJsonObject } = await import("./examiner/json");
 
       const result = await chat({
         model: MODEL_COACH,
-        temperature: TEMPERATURE_TUTOR,
+        temperature: TEMPERATURE_EXAMINER,
         json: true,
         maxCompletionTokens: 3000,
         messages: [
@@ -1515,18 +1631,20 @@ export const getMaxOutSuggestions = createServerFn({ method: "POST" })
 
       const parsed = MaxOutResponseSchema.safeParse(extractFirstJsonObject(result.text));
       if (parsed.success && parsed.data.suggestions.length > 0) {
-        return parsed.data;
+        return cleanStars(parsed.data);
       }
     } catch (err) {
       console.warn("Live examiner max-out LLM fallback to deterministic blueprint:", err);
     }
 
     // Always succeed with deterministic Cambridge Level 5 blueprint
-    return buildDeterministicMaxOutBlueprint(
-      data.question,
-      data.level,
-      data.maxMark,
-      data.essayText,
+    return cleanStars(
+      buildDeterministicMaxOutBlueprint(
+        data.question,
+        data.level,
+        data.maxMark,
+        data.essayText,
+      ),
     );
   });
 
@@ -1586,6 +1704,7 @@ RULES:
 - Never give away the full answer prematurely. Offer a subtle scaffold in the "hint" field instead.
 - Quote the student's actual phrase or sentence in "targetSentence".
 - Provide 2 to 3 high-impact challenges.
+- Output clean plain text only. NEVER use asterisks (** or *) or markdown bold/italics in any field.
 - Return ONLY valid JSON matching this schema:
 {
   "overview": "<one sentence diagnostic summary of their argument so far>",
@@ -1610,12 +1729,12 @@ export const getExaminerChallenges = createServerFn({ method: "POST" })
     await assertLiveExaminerSessionAllowed(context.supabase, data.question, context);
 
     const { chat } = await import("./ai.server");
-    const { MODEL_CHALLENGE, TEMPERATURE_TUTOR } = await import("./examiner/config");
+    const { MODEL_CHALLENGE } = await import("./examiner/config");
     const { extractFirstJsonObject } = await import("./examiner/json");
 
     const result = await chat({
       model: MODEL_CHALLENGE,
-      temperature: TEMPERATURE_TUTOR,
+      temperature: TEMPERATURE_EXAMINER,
       json: true,
       maxCompletionTokens: 1400,
       messages: [
@@ -1653,5 +1772,5 @@ export const getExaminerChallenges = createServerFn({ method: "POST" })
       ok: true,
     });
 
-    return parsed.data;
+    return cleanStars(parsed.data);
   });

@@ -13,7 +13,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { cn, stripStars } from "@/lib/utils";
 import { MCQ_DOMAIN_LABEL, type DomainStat } from "@/lib/mcq-domain";
 
 export type TopicStat = {
@@ -319,7 +319,7 @@ export function McqQuestionReviewList({
                         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/50 pb-2">
                           <div className="flex items-center gap-1.5 text-primary">
                             <BookOpen className="size-3.5" />
-                            <span className="font-semibold">{explanation.diagnostic.concept}</span>
+                            <span className="font-semibold">{stripStars(explanation.diagnostic.concept)}</span>
                           </div>
                           <div className="flex items-center gap-2 text-[11px]">
                             {q.user_answer && !q.correct ? (
@@ -347,7 +347,7 @@ export function McqQuestionReviewList({
                               <span>Cambridge Principle / Golden Rule</span>
                             </div>
                             <p className="mt-1 text-xs leading-normal">
-                              {explanation.diagnostic.keyRule}
+                              {stripStars(explanation.diagnostic.keyRule)}
                             </p>
                           </div>
                         ) : null}
@@ -362,7 +362,7 @@ export function McqQuestionReviewList({
                             </span>
                           </div>
                           <p className="mt-1 text-xs leading-normal">
-                            {explanation.diagnostic.correctReasoning}
+                            {stripStars(explanation.diagnostic.correctReasoning)}
                           </p>
                         </div>
 
@@ -374,7 +374,7 @@ export function McqQuestionReviewList({
                               <span>Distractor Trap &amp; Misconception Diagnosis</span>
                             </div>
                             <p className="mt-1 text-xs leading-normal">
-                              {explanation.diagnostic.distractorTrap}
+                              {stripStars(explanation.diagnostic.distractorTrap)}
                             </p>
                           </div>
                         ) : null}
@@ -387,13 +387,13 @@ export function McqQuestionReviewList({
                               <span className="font-semibold text-sky-600 dark:text-sky-400">
                                 Paper Speed Shortcut (&lt; 45s):{" "}
                               </span>
-                              <span>{explanation.diagnostic.speedTip}</span>
+                              <span>{stripStars(explanation.diagnostic.speedTip)}</span>
                             </div>
                           </div>
                         ) : null}
                       </div>
                     ) : (
-                      <p className="text-muted-foreground leading-relaxed">{explanation.text}</p>
+                      <p className="text-muted-foreground leading-relaxed">{stripStars(explanation.text)}</p>
                     )}
                   </div>
                 ) : null}

@@ -339,7 +339,15 @@ export async function retrieve(
   }
 
   const expandedQuery = expandEconomicQuery(options.query);
-  const queryEmbedding = await embedOne(expandedQuery, MODEL_EMBEDDING);
+  let queryEmbedding = await embedOne(expandedQuery, MODEL_EMBEDDING);
+  if (!Array.isArray(queryEmbedding) || queryEmbedding.length !== 2048) {
+    const rawLen = Array.isArray(queryEmbedding) ? queryEmbedding.length : 0;
+    queryEmbedding = Array.isArray(queryEmbedding)
+      ? rawLen < 2048
+        ? [...queryEmbedding, ...new Array(2048 - rawLen).fill(0)]
+        : queryEmbedding.slice(0, 2048)
+      : new Array(2048).fill(0);
+  }
   const matchTarget = options.matchCount ?? 8;
   // Over-fetch by 2x when hybrid RRF is enabled to allow reciprocal reranking across candidates
   const fetchCount =

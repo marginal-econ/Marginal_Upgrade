@@ -239,14 +239,14 @@ export async function gradeEssay(
   let modelSwapped = false;
   let activeKeyType: "primary" | "backup_pool" | "vip_fallback" | undefined = undefined;
 
-  // Authoritative Single-Shot Path (single call, single key, bounded medium reasoning)
+  // Authoritative Single-Shot Path with generous completion tokens for full-fledged feedback
   const first = markSchemeImages.length
       ? await visionChat({
           model: MODEL_EXAMINER,
           systemPrompt,
           prompt: userMessage,
           imageDataUrls: markSchemeImages,
-          maxCompletionTokens: 4000,
+          maxCompletionTokens: 8192,
           userId: options.userId,
           feature: "grade_essay",
         })
@@ -257,8 +257,8 @@ export async function gradeEssay(
           isBudgetTier: options.isBudgetTier,
           userId: options.userId,
           feature: "grade_essay",
-          reasoningEffort: "medium",
-          maxCompletionTokens: 4000,
+          reasoningEffort: "low",
+          maxCompletionTokens: 8192,
           messages: [
             { role: "system", content: systemPrompt },
             { role: "user", content: userMessage },

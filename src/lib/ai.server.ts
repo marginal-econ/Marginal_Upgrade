@@ -44,6 +44,13 @@ function applyAiGatewayMode(
   mode: AiGatewayMode,
   activeProvider?: ProviderConfig | null,
 ): ChatOptions {
+  // Essay grading requires full-fledged examiner feedback; never cap its tokens shorter
+  if (options.feature === "grade_essay" || options.feature === "examiner_grade") {
+    return {
+      ...options,
+      maxCompletionTokens: Math.max(options.maxCompletionTokens ?? 8192, 8192),
+    };
+  }
   if (mode === "max") return options;
   if (mode === "balanced") {
     return {
@@ -530,11 +537,11 @@ async function chatViaProvider(
     model: config.model,
     messages: options.messages,
   };
-  // Slightly lower, disciplined default temperature for deeper analytical rigor
-  const defaultTemp = config.provider === "mistral" ? 0.2 : 0.25;
+  // Balanced default temperature for deep analytical rigor and expressive, complete feedback
+  const defaultTemp = 0.35;
   const effectiveTemp =
     typeof options.temperature === "number"
-      ? Math.min(options.temperature, 0.45)
+      ? Math.min(options.temperature, 0.5)
       : defaultTemp;
 
   // Do not send temperature to reasoning models that explicitly reject custom temperatures
@@ -550,8 +557,9 @@ async function chatViaProvider(
   }
   if (options.json) body.response_format = { type: "json_object" };
 
+  const isEssayGrade = options.feature === "grade_essay" || options.feature === "examiner_grade";
   const effectiveMaxTokens =
-    options.maxCompletionTokens ?? (config.provider === "mistral" ? 3500 : 3000);
+    options.maxCompletionTokens ?? (isEssayGrade ? 8192 : config.provider === "mistral" ? 4000 : 3000);
   if (config.provider === "openai" || isReasoningModel) {
     body.max_completion_tokens = effectiveMaxTokens;
   } else {
@@ -573,7 +581,7 @@ async function chatViaProvider(
 
     for (const m of candidateModels) {
       usedModel = m;
-      const modelBody = { ...body, model: m };
+      const modelBody: Record<string, any> = { ...body, model: m };
       let had429OnFreePool = false;
 
       for (let kIdx = 0; kIdx < activeKeysToTry.length; kIdx++) {
@@ -907,6 +915,20 @@ async function withRetry429<T>(
   throw lastError;
 }
 
+/**
+ * Enforces strict vector dimensionality matching EMBEDDING_DIMS (2048).
+ * Ensures full bidirectional compatibility between Mistral (native 1024),
+ * Gemini (768/3072/2048), OpenAI, and Supabase pgvector column vector(2048).
+ */
+export function normalizeVectorTo2048(vec?: number[] | null): number[] {
+  if (!Array.isArray(vec)) return new Array(EMBEDDING_DIMS).fill(0);
+  if (vec.length === EMBEDDING_DIMS) return vec;
+  if (vec.length < EMBEDDING_DIMS) {
+    return [...vec, ...new Array(EMBEDDING_DIMS - vec.length).fill(0)];
+  }
+  return vec.slice(0, EMBEDDING_DIMS);
+}
+
 /** Direct call to Google's embeddings API with automatic key hopping across configured keys. */
 async function embedViaGoogle(
   inputs: string[],
@@ -1025,15 +1047,7 @@ async function embedViaGoogle(
     });
 
     (data.embeddings ?? []).forEach((item, i) => {
-      let vec = item.values;
-      if (Array.isArray(vec)) {
-        if (vec.length < EMBEDDING_DIMS) {
-          vec = [...vec, ...new Array(EMBEDDING_DIMS - vec.length).fill(0)];
-        } else if (vec.length > EMBEDDING_DIMS) {
-          vec = vec.slice(0, EMBEDDING_DIMS);
-        }
-      }
-      vectors[offset + i] = vec;
+      vectors[offset + i] = normalizeVectorTo2048(item.values);
     });
   }
 
@@ -1084,7 +1098,7 @@ async function embedViaOpenAiCompatible(
 
         if (response.ok) {
           markKeyHealthy(currentKey);
-          return (await response.json()) as { data?: { index: number; embedding: number[] }[] };
+          return (await response.json()) as { data?: { index?: number; embedding: number[] }[] };
         }
 
         const detail = await response.text().catch(() => "");
@@ -1111,16 +1125,11 @@ async function embedViaOpenAiCompatible(
       );
     });
 
-    for (const item of data.data ?? []) {
-      let vec = item.embedding;
-      if (Array.isArray(vec)) {
-        if (vec.length < EMBEDDING_DIMS) {
-          vec = [...vec, ...new Array(EMBEDDING_DIMS - vec.length).fill(0)];
-        } else if (vec.length > EMBEDDING_DIMS) {
-          vec = vec.slice(0, EMBEDDING_DIMS);
-        }
-      }
-      vectors[offset + item.index] = vec;
+    const items = data.data ?? [];
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i]!;
+      const itemIdx = typeof item.index === "number" ? item.index : i;
+      vectors[offset + itemIdx] = normalizeVectorTo2048(item.embedding);
     }
   }
 
@@ -1198,7 +1207,8 @@ export async function embed(
 
     if (config) {
       try {
-        resVectors = await embedViaConfig(inputs, config);
+        const rawVectors = await embedViaConfig(inputs, config);
+        resVectors = rawVectors.map((v) => normalizeVectorTo2048(v));
         return resVectors;
       } catch (configErr: any) {
         // If Google embeddings fail due to regional/location restriction ("User location is not supported"),
@@ -1227,7 +1237,8 @@ export async function embed(
               console.warn(
                 `[embed] Google embedding failed due to regional restrictions. Falling back to configured ${altConfig.provider} (${altConfig.model})...`,
               );
-              resVectors = await embedViaConfig(inputs, altConfig);
+              const altRaw = await embedViaConfig(inputs, altConfig);
+              resVectors = altRaw.map((v) => normalizeVectorTo2048(v));
               return resVectors;
             }
           } catch (fallbackErr) {
@@ -1264,14 +1275,17 @@ export async function embed(
       }
 
       const data = (await response.json()) as {
-        data?: { index: number; embedding: number[] }[];
+        data?: { index?: number; embedding: number[] }[];
       };
-      for (const item of data.data ?? []) {
-        vectors[offset + item.index] = item.embedding;
+      const items = data.data ?? [];
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i]!;
+        const itemIdx = typeof item.index === "number" ? item.index : i;
+        vectors[offset + itemIdx] = normalizeVectorTo2048(item.embedding);
       }
     }
 
-    resVectors = vectors;
+    resVectors = vectors.map((v) => normalizeVectorTo2048(v));
     return resVectors;
   } catch (err: any) {
     callError = err instanceof Error ? err : new Error(String(err));
@@ -1296,8 +1310,8 @@ export async function embedOne(
   overrideProvider?: ProviderConfig | null,
 ): Promise<number[]> {
   const [vector] = await embed([input], model, overrideProvider);
-  if (!vector) throw new AiGatewayError("The AI returned no embedding.", 500);
-  return vector;
+  if (!vector || !Array.isArray(vector)) throw new AiGatewayError("The AI returned no embedding.", 500);
+  return normalizeVectorTo2048(vector);
 }
 
 function splitImageDataUrl(dataUrl: string): { mimeType: string; data: string } {

@@ -20,6 +20,7 @@
 import { chat } from "../ai.server";
 import { MODEL_EXAMINER } from "../examiner/config";
 import { extractFirstJsonObject } from "../examiner/json";
+import { cleanStars } from "../utils";
 import { AS_SECTIONS, A2_SECTIONS } from "./mcq.server";
 
 export type PdfMcqLevel = "as" | "a2";
@@ -202,6 +203,7 @@ export async function explainPdfMcqAnswer(options: {
     `(${level === "a2" ? "A2 Level Paper 3" : "AS Level Paper 1"}) explaining a past multiple-choice question`,
     "to a student reviewing their finished paper attempt. The question stem was extracted from a real past paper.",
     "Deliver an advanced, authoritative diagnostic breakdown.",
+    "NO ASTERISKS: Never use asterisks (* or **) anywhere in any JSON string. Do not use markdown bold, italics, or asterisk bullets. Return plain text only with zero asterisks.",
     "",
     "Return ONLY a single valid JSON object with these exact keys:",
     '- "concept": short syllabus unit & topic reference (e.g. "AS Unit 2: Cross Elasticity of Demand (XED)")',
@@ -254,10 +256,10 @@ export async function explainPdfMcqAnswer(options: {
       speedTip: typeof p.speedTip === "string" ? p.speedTip.trim() : "",
     };
 
-    return { text, diagnostic };
+    return cleanStars({ text, diagnostic });
   }
 
-  return {
+  return cleanStars({
     text: result.text.trim(),
-  };
+  });
 }

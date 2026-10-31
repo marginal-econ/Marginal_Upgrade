@@ -275,8 +275,13 @@ export const embedNextBatch = createServerFn({ method: "POST" })
 
       // Concurrent parallel update to eliminate sequential round-trip latency (30x speedup)
       const updateTasks = pending.map((chunk, index) => {
-        const vector = vectors[index];
-        if (!vector) return Promise.resolve({ error: null });
+        let vector = vectors[index];
+        if (!vector || !Array.isArray(vector)) return Promise.resolve({ error: null });
+        if (vector.length < 2048) {
+          vector = [...vector, ...new Array(2048 - vector.length).fill(0)];
+        } else if (vector.length > 2048) {
+          vector = vector.slice(0, 2048);
+        }
         return db
           .from("document_chunks")
           .update({ embedding: JSON.stringify(vector) })

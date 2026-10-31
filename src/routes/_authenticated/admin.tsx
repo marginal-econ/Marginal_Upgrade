@@ -53,7 +53,7 @@ import { useRef, useState, useEffect } from "react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
-import { AdminGodmodeDashboard } from "@/components/app/admin-godmode";
+import { AdminGodmodeDashboard, EssaysVaultTab, GodmodeErrorBoundary } from "@/components/app/admin-godmode";
 import { CouponsAdminPanel } from "@/components/app/coupons-admin";
 import { FeedbackAdminPanel } from "@/components/app/feedback-admin";
 import { MessagesAdminPanel } from "@/components/app/messages-admin";
@@ -261,6 +261,16 @@ const ADMIN_SECTIONS: Record<string, AdminSectionMeta> = {
     badge: "God Mode",
     badgeColor: "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/35 font-bold",
   },
+  essays: {
+    id: "essays",
+    category: "Platform & Intelligence",
+    title: "Graded Student Essays Vault",
+    sidebarLabel: "Graded Essays",
+    subtitle: "Real-time repository of all Cambridge 9708 essays, automated grades, student scripts, and examiner breakdowns.",
+    icon: BookOpen,
+    badge: "Live Submissions",
+    badgeColor: "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/30 font-medium",
+  },
   messages: {
     id: "messages",
     category: "Users & Access",
@@ -385,7 +395,7 @@ const ADMIN_SECTIONS: Record<string, AdminSectionMeta> = {
 const ADMIN_CATEGORIES = [
   {
     title: "Platform & Intelligence",
-    items: [ADMIN_SECTIONS.overview, ADMIN_SECTIONS.godmode],
+    items: [ADMIN_SECTIONS.overview, ADMIN_SECTIONS.godmode, ADMIN_SECTIONS.essays],
     externalLinks: [
       { label: "Live Examiner Studio", to: "/live-examiner", icon: Sparkles, desc: "Real-time AI Essay Examiner (Admin Lab)" },
     ],
@@ -706,7 +716,10 @@ function AdminPage() {
           {/* Active Panel View */}
           <div className="space-y-6">
             {activeTab === "overview" && (
-              <OverviewPanel onOpenGodmode={() => setActiveTab("godmode")} />
+              <OverviewPanel
+                onOpenGodmode={() => setActiveTab("godmode")}
+                onOpenEssays={() => setActiveTab("essays")}
+              />
             )}
             {activeTab === "messages" && (
               <MessagesAdminPanel initialUserId={textTargetUserId} />
@@ -719,7 +732,16 @@ function AdminPage() {
                 }}
               />
             )}
-            {activeTab === "godmode" && <AdminGodmodeDashboard />}
+            {activeTab === "godmode" && (
+              <GodmodeErrorBoundary tabName="God Mode Console">
+                <AdminGodmodeDashboard />
+              </GodmodeErrorBoundary>
+            )}
+            {activeTab === "essays" && (
+              <GodmodeErrorBoundary tabName="Graded Essays Vault">
+                <EssaysVaultTab />
+              </GodmodeErrorBoundary>
+            )}
             {activeTab === "users" && (
               <UsersPanel
                 onTextUser={(userId) => {
@@ -3700,11 +3722,21 @@ type AdminMetrics = {
   byFeature: FeatureMetric[];
 };
 
-function OverviewPanel({ onOpenGodmode }: { onOpenGodmode?: () => void } = {}) {
+function OverviewPanel({
+  onOpenGodmode,
+  onOpenEssays,
+}: {
+  onOpenGodmode?: () => void;
+  onOpenEssays?: () => void;
+} = {}) {
   const queryClient = useQueryClient();
   const fetchOverview = useServerFn(adminOverview);
   const clearAi = useServerFn(clearAiUsageLog);
-  const overview = useQuery({ queryKey: ["admin-overview"], queryFn: () => fetchOverview() });
+  const overview = useQuery({
+    queryKey: ["admin-overview"],
+    queryFn: () => fetchOverview(),
+    refetchInterval: 5_000,
+  });
   const activity = useUserActivity();
   const [search, setSearch] = useState("");
   const [featureFilter, setFeatureFilter] = useState<"all" | "live_examiner" | "essay_grade" | "other">("all");
@@ -4018,12 +4050,27 @@ function OverviewPanel({ onOpenGodmode }: { onOpenGodmode?: () => void } = {}) {
 
       {/* Platform Totals */}
       <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
-        {tiles.map((tile) => (
-          <div key={tile.label} className="panel rounded-xl border border-border p-4">
-            <p className="text-xs text-muted-foreground">{tile.label}</p>
-            <p className="mt-1 text-xl font-semibold">{tile.value}</p>
-          </div>
-        ))}
+        {tiles.map((tile) => {
+          const isEssays = tile.label === "Essays marked";
+          return (
+            <div
+              key={tile.label}
+              onClick={() => {
+                if (isEssays && onOpenEssays) onOpenEssays();
+              }}
+              className={cn(
+                "panel rounded-xl border border-border p-4 transition-all",
+                isEssays && onOpenEssays && "cursor-pointer hover:border-primary/50 hover:bg-muted/40 shadow-xs"
+              )}
+            >
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-muted-foreground">{tile.label}</p>
+                {isEssays && <span className="text-[10px] text-primary font-medium hover:underline">View all &rarr;</span>}
+              </div>
+              <p className="mt-1 text-xl font-semibold tabular-nums">{tile.value}</p>
+            </div>
+          );
+        })}
       </div>
 
       {/* Recent AI calls with real-time token counts and cost */}

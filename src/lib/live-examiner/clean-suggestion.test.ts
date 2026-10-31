@@ -33,4 +33,13 @@ describe("cleanSuggestion", () => {
     expect(cleanSuggestion(undefined)).toBe("");
     expect(cleanSuggestion("")).toBe("");
   });
+
+  it("handles Mistral asterisks, bullets, and command prefixes", () => {
+    expect(cleanSuggestion("**contraction in demand**")).toBe("contraction in demand");
+    expect(cleanSuggestion("*opportunity cost*")).toBe("opportunity cost");
+    expect(cleanSuggestion("- **demerit goods**")).toBe("demerit goods");
+    expect(cleanSuggestion("Correction: **allocative efficiency**")).toBe("allocative efficiency");
+    expect(cleanSuggestion("Rewrite: 'marginal social cost'")).toBe("marginal social cost");
+    expect(cleanSuggestion("• Use: price elasticity of demand")).toBe("price elasticity of demand");
+  });
 });
