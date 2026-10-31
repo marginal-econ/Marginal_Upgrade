@@ -13,6 +13,7 @@ import { deterministicTerminologyIssues } from "@/lib/live-examiner/economics-gl
 import { analyzeGrammarAndMechanics } from "@/lib/live-examiner/grammar-engine";
 import { splitSentences } from "@/lib/writing-check/sentence-diff";
 import { cleanSuggestion } from "@/lib/live-examiner/clean-suggestion";
+import { normalizeIssueSpan } from "@/lib/live-examiner/normalize-issue-span";
 import {
   computeRunningMark,
   isDiagramTag,
@@ -586,14 +587,33 @@ export function useLiveExaminerCheck(params: {
     const issue = issuesRef.current.find((item) => item.id === id);
     if (!issue) return currentText;
 
-    const clean = cleanSuggestion(issue.suggestion);
+    // Defense-in-depth: normalize original and suggestion so minimal spans are replaced
+    // and sentences are NEVER cut or wiped out.
+    const normalized = normalizeIssueSpan({
+      sentence: issue.context,
+      original: issue.original,
+      suggestion: issue.suggestion,
+      category: issue.category,
+    });
+
+    const targetOriginal = normalized ? normalized.original : issue.original;
+    const clean = normalized ? normalized.suggestion : cleanSuggestion(issue.suggestion);
 
     const applySub = (sourceSentence: string) => {
+      // Critical safeguard: Never allow a tiny 1-2 word fragment to replace a full sentence
+      if (
+        targetOriginal.split(/\s+/).length >= 4 &&
+        clean.split(/\s+/).length <= 2 &&
+        ["grammar", "clarity", "spelling"].includes(issue.category.toLowerCase())
+      ) {
+        return sourceSentence;
+      }
+
       let idx = -1;
       // When replacing a word or single letter like "i", match strictly on word boundaries
       // to avoid corrupting containing words (e.g. replacing the "i" in "this" or "prices").
-      if (/^\w+$/.test(issue.original)) {
-        const escaped = issue.original.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      if (/^\w+$/.test(targetOriginal)) {
+        const escaped = targetOriginal.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
         const wordRegex = new RegExp(`\\b${escaped}\\b`, "g");
         const match = wordRegex.exec(sourceSentence);
         if (match) {
@@ -601,18 +621,18 @@ export function useLiveExaminerCheck(params: {
         }
       }
       if (idx === -1) {
-        idx = sourceSentence.indexOf(issue.original);
+        idx = sourceSentence.indexOf(targetOriginal);
       }
       if (idx === -1) return sourceSentence;
       let replacement = clean;
-      const nextChar = sourceSentence[idx + issue.original.length];
+      const nextChar = sourceSentence[idx + targetOriginal.length];
       if (nextChar && /[.,;:!?]/.test(nextChar) && replacement.endsWith(nextChar)) {
         replacement = replacement.slice(0, -1);
       }
       return (
         sourceSentence.slice(0, idx) +
         replacement +
-        sourceSentence.slice(idx + issue.original.length)
+        sourceSentence.slice(idx + targetOriginal.length)
       );
     };
 

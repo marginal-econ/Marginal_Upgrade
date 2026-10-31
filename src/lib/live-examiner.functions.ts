@@ -499,11 +499,13 @@ Never flag correct economics just because it is phrased unconventionally.
 
 CRITICAL FORMAT RULES:
 - Output clean plain text only. NEVER use asterisks (** or *), never use markdown bold or italics anywhere.
-- "s" is the exact drop-in replacement for "o" (no "e.g.", no "Use:", no quotes, no commentary).
-- "o" must be quoted from the sentence without asterisks.
+- "o" MUST be ONLY the exact erroneous word or short phrase inside the sentence (typically 1 to 4 words). DO NOT quote the entire sentence in "o" unless the entire sentence is fundamentally flawed and needs a complete rewrite.
+- "s" is the exact drop-in replacement for ONLY "o" (no "e.g.", no "Use:", no quotes, no commentary). When "o" is replaced by "s", the sentence must read smoothly, correctly, and naturally. Never output an "s" identical to "o".
 - "e" is one concise explanation (max 25 words, no asterisks).
 - "p" is the syllabus principle or rule (max 15 words, no asterisks).
 - "f" is your confidence (0.5 to 1.0).
+- NEVER invent weird, pedantic, or false grammar rules (e.g. never invent rules about letters or punctuation). Only flag clear, indisputable grammatical errors, true spelling typos, or subject-verb disagreements. Do not penalize valid British or American spelling conventions.
+- Focus primarily on economics substance: accurate Cambridge terminology, analytical transmission chains, evaluative conditions/tradeoffs, and economic misconceptions.
 
 Categories (code):
 - economics_accuracy (ea): false or backwards economic theory.
@@ -682,6 +684,7 @@ export const checkEssayWriting = createServerFn({ method: "POST" })
       const { MODEL_LIVE_CHECK, MODEL_LIVE_CANDIDATE } = await import("./examiner/config");
       const { extractFirstJsonObject } = await import("./examiner/json");
       const { cleanSuggestion } = await import("./live-examiner/clean-suggestion");
+      const { normalizeIssueSpan } = await import("./live-examiner/normalize-issue-span");
 
       const grounding = sliceContextForSentences(data.contextBlock, aiSentences);
       const targetBlock = aiSentences
@@ -849,25 +852,25 @@ export const checkEssayWriting = createServerFn({ method: "POST" })
         if (!sentence || !rawOriginal || !suggestion || !category) return [];
         if (confidence < CONFIDENCE_THRESHOLD) return [];
 
-        let original = rawOriginal;
-        const sentLower = sentence.toLowerCase();
-        const origLower = rawOriginal.toLowerCase();
-        const matchIdx = sentLower.indexOf(origLower);
-        if (matchIdx !== -1) {
-          original = sentence.slice(matchIdx, matchIdx + rawOriginal.length);
-        } else {
-          const trimmedPunct = origLower.replace(/[.,;:!?]+$/, "");
-          const punctIdx = sentLower.indexOf(trimmedPunct);
-          if (punctIdx !== -1 && trimmedPunct.length >= 2) {
-            original = sentence.slice(punctIdx, punctIdx + trimmedPunct.length);
-          } else {
-            return [];
-          }
-        }
+        const normalized = normalizeIssueSpan({
+          sentence,
+          original: rawOriginal,
+          suggestion,
+          category,
+        });
+        if (!normalized) return [];
 
-        if (suggestion.toLowerCase() === original.toLowerCase()) return [];
+        const original = normalized.original;
+        const suggestionText = normalized.suggestion;
+
+        if (suggestionText.toLowerCase() === original.toLowerCase()) return [];
         if (detOriginals.some((d) => d.includes(original.toLowerCase()) || original.toLowerCase().includes(d)))
           return [];
+
+        // Suppress low-confidence grammar/clarity noise
+        if ((category === "grammar" || category === "clarity") && confidence < 0.70) {
+          return [];
+        }
 
         const rawExplanation =
           typeof r.e === "string"
@@ -893,7 +896,7 @@ export const checkEssayWriting = createServerFn({ method: "POST" })
         return [
           {
             original,
-            suggestion,
+            suggestion: suggestionText,
             category,
             severity,
             explanation,
