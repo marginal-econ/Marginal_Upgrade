@@ -1177,7 +1177,7 @@ function GradePage() {
                   </Badge>
                 ) : null}
               </div>
-              <MarkBreakdown grading={result.grading} />
+              <MarkBreakdown grading={result.grading} question={question} />
 
               {isDirectGradingMode && (
                 <div className="p-4 rounded-2xl bg-gradient-to-r from-purple-950/90 via-indigo-950/90 to-purple-950/90 border border-purple-500/50 shadow-xl space-y-3">

@@ -35,6 +35,7 @@ import {
 import { EXAMINER_PROMPT } from "./examiner-prompt";
 import { extractFirstJsonObject } from "./json";
 import { bandFor, normaliseGrading, type Grading, type GroundingSource } from "./types";
+import { ACCURACY_LAYER_PROMPT } from "./accuracy-rules";
 
 /** Fill `{placeholder}` tokens in the ported prompt templates. */
 function loadPrompt(template: string, values: Record<string, string | number>): string {
@@ -194,7 +195,7 @@ export async function gradeEssay(
   const anchorBlock = buildAnchorBlock(anchors, question, maxMark);
   if (anchorBlock) systemPrompt = `${systemPrompt}\n\n${anchorBlock}`;
 
-  systemPrompt = `${systemPrompt}\n\n${RESPONSE_CONTRACT}`;
+  systemPrompt = `${systemPrompt}\n\n${ACCURACY_LAYER_PROMPT}\n\n${RESPONSE_CONTRACT}`;
 
   const markSchemeImages = options.markSchemeImageDataUrls?.slice(0, 4) ?? [];
   const imageNote = markSchemeImages.length

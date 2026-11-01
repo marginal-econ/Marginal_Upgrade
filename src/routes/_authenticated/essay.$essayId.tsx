@@ -347,7 +347,10 @@ function EssayPage() {
                   <Sparkles className="size-4 text-primary" />
                   <h3 className="text-sm font-semibold">Cambridge Examiner Report</h3>
                 </div>
-                <MarkBreakdown grading={active.grading as unknown as Grading} />
+                <MarkBreakdown
+                  grading={active.grading as unknown as Grading}
+                  question={thread.data?.essay.question}
+                />
               </div>
 
               {/* Right Column: Student Script */}
@@ -375,7 +378,10 @@ function EssayPage() {
             </div>
           ) : viewMode === "report" ? (
             <div className="space-y-6">
-              <MarkBreakdown grading={active.grading as unknown as Grading} />
+              <MarkBreakdown
+                grading={active.grading as unknown as Grading}
+                question={thread.data?.essay.question}
+              />
             </div>
           ) : (
             <div className="space-y-4 max-w-3xl mx-auto">

@@ -1,4 +1,5 @@
-import { AlertTriangle, Check, CheckCircle2, Clock, FileText, ShieldCheck, Sparkles, X } from "lucide-react";
+import { AlertTriangle, Check, CheckCircle2, Clock, FileText, ShieldCheck, Sparkles, X, ArrowUpRight } from "lucide-react";
+import { Link } from "@tanstack/react-router";
 
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -8,6 +9,7 @@ import { cn, stripStars } from "@/lib/utils";
 const AO_META = [
   {
     key: "knowledge",
+    ao: "ao1",
     label: "AO1 Knowledge",
     bar: "bg-ao1",
     text: "text-ao1",
@@ -15,6 +17,7 @@ const AO_META = [
   },
   {
     key: "analysis",
+    ao: "ao2",
     label: "AO2 Analysis",
     bar: "bg-ao2",
     text: "text-ao2",
@@ -22,6 +25,7 @@ const AO_META = [
   },
   {
     key: "evaluation",
+    ao: "ao3",
     label: "AO3 Evaluation",
     bar: "bg-ao3",
     text: "text-ao3",
@@ -42,7 +46,15 @@ function getBandBadgeStyle(band: string) {
   return "border-rose-500/30 bg-rose-500/10 text-rose-500 font-semibold";
 }
 
-export function MarkBreakdown({ grading }: { grading: Grading }) {
+export function MarkBreakdown({
+  grading,
+  question,
+  topic,
+}: {
+  grading: Grading;
+  question?: string;
+  topic?: string;
+}) {
   const percent = grading.max_mark > 0 ? (grading.total_mark / grading.max_mark) * 100 : 0;
   const isUnanchored =
     grading.grounding_status === "unanchored" ||
@@ -229,6 +241,21 @@ export function MarkBreakdown({ grading }: { grading: Grading }) {
                 />
               </div>
               <p className="mt-3 text-xs leading-relaxed text-muted-foreground">{stripStars(score.comment)}</p>
+              <div className="mt-3 pt-2.5 border-t border-border/50 flex justify-end">
+                <Link
+                  to="/practice"
+                  search={{
+                    ao: meta.ao,
+                    question: question || "",
+                    topic: topic || "",
+                    fromGrader: true,
+                  }}
+                  className="inline-flex items-center gap-1 text-[11px] font-medium text-primary hover:underline hover:text-primary/80 transition-colors"
+                >
+                  <span>Fix this AO</span>
+                  <ArrowUpRight className="size-3" />
+                </Link>
+              </div>
             </div>
           );
         })}

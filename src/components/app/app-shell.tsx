@@ -98,6 +98,7 @@ const NAV_GROUPS: NavGroup[] = [
     collapsible: true,
     items: [
       { to: "/grade", label: "Grade Essay", icon: PenLine },
+      { to: "/practice", label: "AO Fixer", icon: Target },
       {
         to: "/live-examiner",
         label: "Live Examiner",
@@ -154,6 +155,7 @@ const TEACHER_NAV_GROUPS: NavGroup[] = [
     collapsible: true,
     items: [
       { to: "/grade", label: "Essay Grader", icon: PenLine },
+      { to: "/practice", label: "AO Fixer", icon: Target },
       { to: "/mcq-live", label: "MCQ Past Papers", icon: ListChecks },
     ],
   },
