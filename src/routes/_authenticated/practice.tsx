@@ -1,6 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
+import { getMe } from "@/lib/account.functions";
 import {
   AlertCircle,
   AlertTriangle,
@@ -210,6 +211,9 @@ interface AttemptRecord {
 function AoFixerPage() {
   const search = Route.useSearch();
   const navigate = useNavigate();
+
+  const fetchMe = useServerFn(getMe);
+  const meQuery = useQuery({ queryKey: ["me"], queryFn: () => fetchMe() });
 
   // Screen state
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
@@ -654,6 +658,34 @@ function AoFixerPage() {
   };
 
   const analysis = analysisQuery.data;
+
+  if (meQuery.isLoading) {
+    return (
+      <div className="flex-1 flex items-center justify-center min-h-[50vh]">
+        <Loader2 className="size-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (!meQuery.data?.isAdmin) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center min-h-[60vh] px-4 text-center">
+        <div className="inline-flex size-14 items-center justify-center rounded-full bg-primary/10 text-primary mb-4">
+          <ShieldAlert className="size-7" />
+        </div>
+        <h2 className="text-xl font-bold tracking-tight mb-2">Admin Access Only</h2>
+        <p className="text-sm text-muted-foreground max-w-md mb-6">
+          The AO Fixer lab is currently restricted to administrators during calibration testing.
+        </p>
+        <Link
+          to="/dashboard"
+          className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow hover:bg-primary/90"
+        >
+          Return to Dashboard
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div className="flex-1 flex flex-col min-h-0 bg-background text-foreground">

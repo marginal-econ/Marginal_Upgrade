@@ -33,7 +33,7 @@ import {
   type AoSplit,
 } from "./config";
 import { EXAMINER_PROMPT } from "./examiner-prompt";
-import { extractAuditBlock, extractFirstJsonObject } from "./json";
+import { extractFirstJsonObject } from "./json";
 import { bandFor, normaliseGrading, type Grading, type GroundingSource } from "./types";
 import { ACCURACY_LAYER_PROMPT } from "./accuracy-rules";
 
@@ -270,8 +270,7 @@ export async function gradeEssay(
           ],
         });
 
-  const auditBlock = extractAuditBlock(first.text);
-  grading = normaliseGrading(extractFirstJsonObject(first.text), maxMark, split, question, essayText, auditBlock);
+  grading = normaliseGrading(extractFirstJsonObject(first.text), maxMark, split, question, essayText);
   if (grading.off_syllabus) {
     throw new OffSyllabusError(
       grading.detected_subject || "another subject",
