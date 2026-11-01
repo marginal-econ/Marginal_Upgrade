@@ -11,6 +11,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { chat } from "../ai.server";
 import { renderContext, retrieve } from "../retrieval.server";
+import { cleanStars, stripStars } from "@/lib/utils";
 import {
   ACCURACY_LAYER_PROMPT,
   analyzeCommandWord,
@@ -21,6 +22,7 @@ import {
 import { buildAnchorBlock, fetchCalibrationAnchors } from "./calibration.server";
 import {
   AO_DEFINITIONS,
+  defaultSplitForMaxMark,
   MODEL_EXAMINER,
   TEMPERATURE_EXAMINER,
 } from "./config";
@@ -32,18 +34,22 @@ export type AoType = "ao1" | "ao2" | "ao3";
 export interface QuestionAnalysisResult {
   commandWord: string;
   guidanceLine: string;
+  tariff: number;
   fullMarkRequirements: {
     ao1: {
       terms: { term: string; definition: string }[];
       commonTraps: string[];
+      instruction: string;
     };
     ao2: {
       chains: { id: string; stepChain: string; mechanismFocus: string }[];
       diagramTip?: { name: string; explanation: string };
+      instruction: string;
     };
     ao3: {
       steps: { title: string; instruction: string }[];
       strictCapsPlain: string[];
+      instruction: string;
     };
   };
 }
@@ -102,8 +108,10 @@ export async function analyzeQuestionForAo(
   supabase: SupabaseClient<any>,
   question: string,
   topic?: string | null,
+  tariff: number = 12,
 ): Promise<QuestionAnalysisResult> {
   const cmd = analyzeCommandWord(question);
+  const split = defaultSplitForMaxMark(tariff);
 
   let sources: GroundingSource[] = [];
   try {
@@ -121,18 +129,24 @@ export async function analyzeQuestionForAo(
 
   const prompt = `
 You are a senior Cambridge 9708 Economics examiner.
-Analyze this Cambridge 12-mark essay question and extract the exact exam requirements:
+Analyze this Cambridge ${tariff}-mark essay question and extract the exact exam requirements:
 Question: "${question}"
+Tariff: ${tariff} marks (AO1: ${split.ao1_marks}m, AO2: ${split.ao2_marks}m, AO3: ${split.ao3_marks}m)
 Command Analysis: ${cmd.guidanceLine}
 
 ${renderContext(sources)}
+
+CRITICAL FORMATTING INSTRUCTION:
+Return ONLY clean plain text without any asterisks (* or **). Do not use bold markdown.
 
 Return ONLY a JSON object:
 {
   "commandWord": "${cmd.commandWord}",
   "guidanceLine": "${cmd.guidanceLine}",
+  "tariff": ${tariff},
   "fullMarkRequirements": {
     "ao1": {
+      "instruction": "Provide two simple definitions, examples, or formulas appropriate to this question.",
       "terms": [
         { "term": "<key term 1>", "definition": "<exact exam-ready 1-2 line syllabus definition>" },
         { "term": "<key term 2>", "definition": "<exact exam-ready 1-2 line syllabus definition>" }
@@ -142,10 +156,21 @@ Return ONLY a JSON object:
       ]
     },
     "ao2": {
+      "instruction": "${
+        tariff === 8
+          ? "Enter both analysis points (approx. 2 marks per complete chain: cause -> mechanism -> effect -> link to question) for 4 marks."
+          : tariff === 20
+            ? "Enter all your developed analysis points covering multiple sides and transmission mechanisms for 12 marks."
+            : "Enter all 3 analysis points (approx. 2 marks per complete chain: cause -> mechanism -> effect -> link to question) for 6 marks."
+      }",
       "chains": [
         { "id": "chain_1", "stepChain": "cause -> mechanism -> effect -> link to question", "mechanismFocus": "<key economic concept>" },
-        { "id": "chain_2", "stepChain": "cause -> mechanism -> effect -> link to question", "mechanismFocus": "<key economic concept>" },
-        { "id": "chain_3", "stepChain": "cause -> mechanism -> effect -> link to question", "mechanismFocus": "<key economic concept>" }
+        { "id": "chain_2", "stepChain": "cause -> mechanism -> effect -> link to question", "mechanismFocus": "<key economic concept>" }${
+          tariff >= 12
+            ? `,
+        { "id": "chain_3", "stepChain": "cause -> mechanism -> effect -> link to question", "mechanismFocus": "<key economic concept>" }`
+            : ""
+        }
       ],
       "diagramTip": {
         "name": "<right diagram name, or empty if none needed>",
@@ -153,15 +178,22 @@ Return ONLY a JSON object:
       }
     },
     "ao3": {
+      "instruction": "${
+        tariff === 8
+          ? "Write 1 evaluative point (limitation or condition) and a direct final conclusion answering the question for 2 marks."
+          : tariff === 20
+            ? "Write a comprehensive evaluation weighing alternative policies and reaching a conditional final judgement for 6 marks."
+            : "Write your evaluation and justified final judgement in 5-8 sentences, answering the exact question for 4 marks."
+      }",
       "steps": [
-        { "title": "1. Limitation", "instruction": "Name a limitation of the main policy with an economic reason and consequence." },
-        { "title": "2. Comparison on 1 criterion", "instruction": "Compare against an alternative on ONE stated criterion (speed, cost, equity, side-effects), stating which is better and when." },
+        { "title": "1. Limitation / Trade-off", "instruction": "Name a limitation of the main policy with an economic reason and consequence." },
+        { "title": "2. Comparison on criterion", "instruction": "Compare against an alternative on ONE stated criterion (speed, cost, equity, side-effects), stating which is better and when." },
         { "title": "3. Condition", "instruction": "State a condition: 'It is most effective when __ because __'." },
         { "title": "4. Final Judgement", "instruction": "Directly answer whether it is the ${cmd.commandWord} using the exact question word and ranking the factors." }
       ],
       "strictCapsPlain": [
-        "No comparison with an alternative: capped at max 2/4.",
-        "Hedge conclusion ('a mix of policies' / 'it depends') with no ranking or conditions: capped at max 2/4.",
+        "No comparison with an alternative: capped at max 2/4 (unless reasoned trade-offs provided).",
+        "Hedge conclusion ('a mix of policies' / 'it depends') with no ranking or conditions: max 2/4.",
         "Points listed but not weighed or unlinked: capped at max 2/4.",
         "Judgement dodges the exact question: capped at max 1/4.",
         "One-sided evaluation throughout: capped at max 1/4."
@@ -180,28 +212,38 @@ Return ONLY a JSON object:
     });
     const parsed = extractFirstJsonObject(res.text) as QuestionAnalysisResult;
     if (parsed?.fullMarkRequirements?.ao1 && parsed?.fullMarkRequirements?.ao2 && parsed?.fullMarkRequirements?.ao3) {
-      return parsed;
+      return cleanStars({ ...parsed, tariff });
     }
   } catch (e) {
     console.warn("[ao-fixer.server] Error in structured question analysis, using fallback:", e);
   }
 
   // Fallback
-  return {
+  return cleanStars({
     commandWord: cmd.commandWord,
     guidanceLine: cmd.guidanceLine,
+    tariff,
     fullMarkRequirements: {
       ao1: {
+        instruction: "Provide two simple definitions, examples, or formulas appropriate to this question.",
         terms: [
           { term: "Key Concepts", definition: "Accurate, syllabus-level definition applied contextually to the prompt." },
         ],
         commonTraps: ["Do not confuse shifts of the curve with movements along it."],
       },
       ao2: {
+        instruction:
+          tariff === 8
+            ? "Enter both analysis points (approx. 2 marks per complete chain: cause -> mechanism -> effect -> link to question) for 4 marks."
+            : tariff === 20
+              ? "Enter all your developed analysis points covering multiple sides and transmission mechanisms for 12 marks."
+              : "Enter all 3 analysis points (approx. 2 marks per complete chain: cause -> mechanism -> effect -> link to question) for 6 marks.",
         chains: [
           { id: "c1", stepChain: "Initial policy shock -> transmission through prices/costs -> output/market impact -> link to question", mechanismFocus: "Transmission mechanism" },
           { id: "c2", stepChain: "Secondary market reaction -> firm/consumer incentive response -> equilibrium change -> link to question", mechanismFocus: "Equilibrium adjustment" },
-          { id: "c3", stepChain: "Wider economic outcome -> resource allocation -> welfare/target effect -> link to question", mechanismFocus: "Macro/Micro outcome" },
+          ...(tariff >= 12
+            ? [{ id: "c3", stepChain: "Wider economic outcome -> resource allocation -> welfare/target effect -> link to question", mechanismFocus: "Macro/Micro outcome" }]
+            : []),
         ],
         diagramTip: {
           name: "Demand and Supply / AD-AS Equilibrium",
@@ -209,8 +251,14 @@ Return ONLY a JSON object:
         },
       },
       ao3: {
+        instruction:
+          tariff === 8
+            ? "Write 1 evaluative point (limitation or condition) and a direct final conclusion answering the question for 2 marks."
+            : tariff === 20
+              ? "Write a comprehensive evaluation weighing alternative policies and reaching a conditional final judgement for 6 marks."
+              : "Write your evaluation and justified final judgement in 5-8 sentences, answering the exact question for 4 marks.",
         steps: [
-          { title: "1. Limitation", instruction: "A limitation of the main point, with reason and consequence." },
+          { title: "1. Limitation / Trade-off", instruction: "A limitation of the main point, with reason and consequence." },
           { title: "2. Comparison on ONE criterion", instruction: "Compare against an alternative on ONE named criterion, deciding which is superior." },
           { title: "3. Condition", instruction: "State: 'It is most effective when __ because __'." },
           { title: "4. Final Judgement", instruction: `Conclude using the question's exact word '${cmd.commandWord}', stating which factor dominates and why.` },
@@ -224,7 +272,7 @@ Return ONLY a JSON object:
         ],
       },
     },
-  };
+  });
 }
 
 /** Step 4 & 5: Strict Marking of a Single AO Attempt */
@@ -238,23 +286,136 @@ export async function markAoAttempt(
     attemptNumber: number;
     previousMark?: number;
     topic?: string | null;
+    tariff?: number;
   },
 ): Promise<AoFixerMarkOutcome> {
   const { ao, question, studentText, attemptNumber, previousMark } = options;
+  const tariff = options.tariff || 12;
+  const split = defaultSplitForMaxMark(tariff);
 
-  let maxMark = 4;
-  if (ao === "ao1") maxMark = 2;
-  if (ao === "ao2") maxMark = 6;
-  if (ao === "ao3") maxMark = 4;
+  let maxMark = split.ao3_marks;
+  if (ao === "ao1") maxMark = split.ao1_marks; // always 2
+  if (ao === "ao2") maxMark = split.ao2_marks; // 4 (8m), 6 (12m), 12 (20m)
+  if (ao === "ao3") maxMark = split.ao3_marks; // 2 (8m), 4 (12m), 6 (20m)
 
   const cmd = analyzeCommandWord(question);
 
+  // -------------------------------------------------------------
+  // ULTRA-FAST PATH FOR AO1 (Knowledge & Understanding — Max 2m)
+  // Per specification: Just 2 simple definitions appropriate to question,
+  // related examples, formulas, or any real show of economic knowledge.
+  // -------------------------------------------------------------
+  if (ao === "ao1") {
+    let sources: GroundingSource[] = [];
+    try {
+      sources = await retrieve(supabase, {
+        query: `${question} syllabus definitions and key concepts`,
+        matchCount: 2,
+        docTypes: ["syllabus", "mark_scheme"],
+        topicId: options.topic ?? null,
+        minSimilarity: 0.45,
+      });
+    } catch {
+      // Non-blocking retrieval fallback
+    }
+
+    const ao1Prompt = `
+You are a senior Cambridge 9708 Economics Examiner marking AO1 (Knowledge & Understanding) for a ${tariff}-mark question.
+Tariff: ${tariff} marks. Max available for AO1 is STRICTLY 2 marks.
+
+QUESTION: "${question}"
+STUDENT ATTEMPT (AO1):
+"""
+${studentText}
+"""
+
+${renderContext(sources)}
+
+CAMBRIDGE AO1 MARKING RULES (STRICTLY OUT OF 2 MARKS):
+Reward ANY real show of economic knowledge appropriate to the question:
+- Just two simple definitions appropriate to the question.
+- Relevant real-world examples or diagrams if related.
+- Formulas and foundational economic models.
+- Any genuine display of economic knowledge.
+AWARDING MARKS:
+- 2/2 marks: Candidate provides TWO clear, appropriate definitions, examples, formulas, or real shows of economic knowledge.
+- 1/2 mark: Candidate provides ONE accurate definition, example, formula, or show of economic knowledge.
+- 0/2 marks: Completely off-topic, unrelated, or factually incorrect claims.
+
+DO NOT penalize for lack of long analytical chains, diagrams, or evaluation. This is strictly AO1.
+NO ASTERISKS: Return ONLY plain text strings with ZERO asterisks (* or **).
+
+Return ONLY a JSON object:
+{
+  "mark": <0 | 1 | 2>,
+  "maxMark": 2,
+  "tableLevelLabel": "AO1 Knowledge (<mark>/2)",
+  "reasonLine": "<one concise sentence stating whether 1 or 2 knowledge points were credited>",
+  "annotations": [
+    {
+      "quote": "<exact quote under 15 words>",
+      "type": "<credit | partial | error>",
+      "tooltip": "<concise explanation>"
+    }
+  ],
+  "whatYouDidRightQuote": "<exact quote under 15 words>",
+  "whatYouDidRightComment": "<one clear sentence explaining why this meets Cambridge criteria>",
+  "fixList": [
+    {
+      "id": "fix_1",
+      "quote": "<quote of missing or weak term/concept>",
+      "fix": "<one sentence actionable instruction>",
+      "marksWorth": "+1 mark",
+      "impactOrder": 1
+    }
+  ],
+  "modelAnswer": "<An exam-ready 2-sentence response demonstrating the 2 knowledge points for full marks>",
+  "confidence": 0.96
+}
+`.trim();
+
+    const res = await chat({
+      model: MODEL_EXAMINER,
+      temperature: 0.1,
+      json: true,
+      messages: [{ role: "user", content: ao1Prompt }],
+    });
+
+    const parsed = extractFirstJsonObject(res.text) as any;
+    let awardedMark = typeof parsed.mark === "number" ? Math.min(2, Math.max(0, Math.round(parsed.mark))) : 0;
+    const delta = typeof previousMark === "number" ? awardedMark - previousMark : undefined;
+    const isFullMarks = awardedMark === 2;
+    const canUnlockModelAnswer = isFullMarks || attemptNumber >= 3;
+
+    return cleanStars({
+      ao: "ao1",
+      mark: awardedMark,
+      maxMark: 2,
+      tableLevelLabel: parsed.tableLevelLabel || `AO1 Knowledge (${awardedMark}/2)`,
+      reasonLine: parsed.reasonLine || (awardedMark === 2 ? "Full credit: Two accurate knowledge points established." : "One accurate knowledge point credited. Add a second definition or example for full marks."),
+      delta,
+      annotations: Array.isArray(parsed.annotations) ? parsed.annotations : [],
+      whatYouDidRightQuote: parsed.whatYouDidRightQuote || studentText.slice(0, 40) + "...",
+      whatYouDidRightComment: parsed.whatYouDidRightComment || "Accurate economic concept applied to the question prompt.",
+      fixList: Array.isArray(parsed.fixList) ? parsed.fixList : [],
+      activeCapIds: [],
+      modelAnswerUnlocked: canUnlockModelAnswer ? parsed.modelAnswer : undefined,
+      confidence: parsed.confidence ?? 0.96,
+      sources,
+      model: res.model || MODEL_EXAMINER,
+      latencyMs: res.latencyMs,
+    });
+  }
+
+  // -------------------------------------------------------------
+  // PATH FOR AO2 (Analysis) & AO3 (Evaluation)
+  // -------------------------------------------------------------
   // 1. RAG retrieval
   let sources: GroundingSource[] = [];
   try {
     sources = await retrieve(supabase, {
       query: `${question}\n${studentText}`,
-      matchCount: 6,
+      matchCount: 4,
       docTypes: ["syllabus", "mark_scheme", "coursebook", "examiner_report"],
       topicId: options.topic ?? null,
       minSimilarity: 0.45,
@@ -271,12 +432,13 @@ export async function markAoAttempt(
   } catch (err) {
     console.warn("[ao-fixer.server] Anchors fetch warning:", err);
   }
-  const anchorBlock = buildAnchorBlock(anchors, question, 12);
+  const anchorBlock = buildAnchorBlock(anchors, question, tariff);
 
   const systemPrompt = `
-You are a strict official Cambridge International 9708 Economics Examiner.
+You are a senior official Cambridge International 9708 Economics Examiner.
 You are marking a candidate's single-objective drill response for: ${ao.toUpperCase()}.
-Tariff: 12-mark AS essay.
+Tariff: ${tariff}-mark essay (AO1: ${split.ao1_marks}m, AO2: ${split.ao2_marks}m, AO3: ${split.ao3_marks}m).
+Target for this drill: STRICTLY out of ${maxMark} marks.
 
 ${ACCURACY_LAYER_PROMPT}
 
@@ -285,35 +447,38 @@ ${anchorBlock}
 ${renderContext(sources)}
 
 CRITICAL DRILL MARKING RULES FOR ${ao.toUpperCase()}:
-- Start at the bottom of the level band and move up ONLY for quoted evidence.
 - Every credit and deduction MUST be tied to a quote under 15 words from the student's text.
-- If torn between two marks, give the lower one.
 - Fluent, long or confident writing earns nothing on its own.
-- Mark only what is written. Never credit what the student "obviously meant".
+- Mark only what is written.
+- NO ASTERISKS: Return ONLY clean plain text with ZERO asterisks (* or **). Do not use bold markdown or bullet asterisks.
 
 SPECIFIC OBJECTIVE STANDARDS:
 ${
-  ao === "ao1"
-    ? `AO1 Knowledge & Understanding (practice guide max 2 marks; report Table A level and descriptor):
-- Precise, correct syllabus definition used in the argument earns credit.
-- Definitions alone do not lift beyond basic credit if not applied.
-- Deduct for imprecise or everyday phrasing. Deduct heavily for errors (e.g. hyperinflation as accelerating inflation, wrong shift direction).`
-    : ao === "ao2"
-      ? `AO2 Analysis (practice guide max 6 marks; Table A Level 1 [1-2], Level 2 [3-5], Level 3 [6-8]):
+  ao === "ao2"
+    ? `AO2 Analysis (strictly out of ${maxMark} marks):
 - Judge each argument as a chain: cause -> mechanism -> effect -> link back to question.
-- Label each chain: 'complete', 'partial', or 'asserted'. Name the exact missing link for any non-complete chain.
-- Level 3 requires at least 3 complete chains.
-- Major errors (e.g. demand shifting supply, investment automatically raising money supply, wrong shift directions): 1 error caps AO1+AO2 at 7, 2+ errors cap at 5.`
-      : `AO3 Evaluation (strictly out of 4 marks; Table B Level 1 [1], Level 2 [2], Level 3 [3-4]):
-- OBEY ALL AO3 CAPS:
-  * No comparison with alternative when question requires it ('${cmd.commandWord}'): MAX 2/4.
-  * Conclusion is a hedge ('mix of policies', 'it depends', 'use both') with no ranking/conditions: MAX 2/4.
-  * Evaluative points listed but not weighed: MAX 2/4.
-  * Judgement does not answer exact question set: MAX 1/4.
-  * One-sided evaluation throughout: MAX 1/4.
-  * Generic evaluation: MAX 2/4.
-  * 3/4 requires: developed point with reasoning, judgement answering question, AND >= 1 stated condition/criterion.
-  * 4/4 requires: all of 3/4 plus weighing >= 2 factors with clear reason why one matters more.`
+- Chains should be clear, detailed, and logical (not complicated, not weird).
+- Tell the student whether each required analysis point is present and developed.
+${
+  tariff === 8
+    ? "- Tariff 8 marks: candidate needs 2 complete causal chains (~2 marks per complete chain, max 4 marks)."
+    : tariff === 20
+      ? "- Tariff 20 marks: candidate needs comprehensive analytical progression covering multiple sides and transmission mechanisms (max 12 marks)."
+      : "- Tariff 12 marks: candidate needs 3 complete causal chains (~2 marks per complete chain, max 6 marks). Level 3 requires all 3 complete chains."
+}
+- Major errors (e.g. demand shifting supply, investment automatically raising money supply, wrong shift directions): 1 major error caps AO2.`
+    : `AO3 Evaluation (strictly out of ${maxMark} marks):
+- POSITIVE MARKING SLACK (1-3% SLACK):
+  * Reward genuine economic evaluation: limitations, trade-offs, conditions (time frame, elasticity, magnitude), and reasoned conclusion.
+  * If a candidate makes reasoned evaluative trade-offs and reaches an analytical conclusion, award top marks (Level 3: ${
+    maxMark === 2 ? "2/2" : maxMark === 6 ? "5-6/6" : "3-4/4"
+  }) rather than defaulting downward.
+  * If torn between two evaluation marks on a good attempt, award the higher mark.
+- AO3 Caps:
+  * No comparison with alternative when question requires it ('${cmd.commandWord}'): max ${Math.round(maxMark * 0.5)}/${maxMark} unless reasoned trade-offs are developed.
+  * Conclusion is an unranked hedge ('mix of policies', 'it depends') without conditions: max ${Math.round(maxMark * 0.5)}/${maxMark} (allow Level 3 if detailed limitations were examined).
+  * Judgement completely dodges exact question set: max 1/${maxMark}.
+  * Purely one-sided evaluation throughout: max 1/${maxMark}.`
 }
 
 RESPONSE CONTRACT:
@@ -321,7 +486,7 @@ Return ONLY a valid JSON object matching this structure:
 {
   "mark": <number: integer from 0 to ${maxMark}>,
   "maxMark": ${maxMark},
-  "tableLevelLabel": "<e.g. Table A Level 3 (7/8) or Table B Level 2 (2/4)>",
+  "tableLevelLabel": "<e.g. Table A (${maxMark}/${maxMark}) or Table B (${maxMark}/${maxMark})>",
   "reasonLine": "<one concise line giving the exact level or cap reason>",
   "annotations": [
     {
@@ -357,23 +522,24 @@ Return ONLY a valid JSON object matching this structure:
     "conditionChecked": <boolean>,
     "judgementChecked": <boolean>
   },
-  "modelAnswer": "<A top-mark model answer for this exact question and AO, incorporating the candidate's ideas if possible, written to Cambridge examiner perfection>",
+  "modelAnswer": "<A top-mark model answer for this exact question and AO, incorporating candidate ideas if possible, written to Cambridge examiner perfection>",
   "confidence": <number between 0.85 and 0.99>
 }
 `.trim();
 
   const userMessage = `
 QUESTION: "${question}"
+TARIFF: ${tariff} marks (Max for this objective: ${maxMark})
 STUDENT ATTEMPT (${ao.toUpperCase()}):
 """
 ${studentText}
 """
 
 SILENT CHECKS BEFORE FINALISING:
-1. Did I apply every relevant AO3 cap or Table A level rule?
+1. Did I apply Cambridge level rules and positive evaluation slack?
 2. Is every credit and deduction backed by a quote under 15 words?
-3. Did I check for all mandatory errors (hyperinflation, shift direction, demand shifting supply, AS=AD, etc.)?
-4. If torn between two marks, did I assign the lower mark?
+3. Did I check for mandatory errors (hyperinflation, shift direction, demand shifting supply, AS=AD)?
+4. Are all strings free of asterisks?
 `.trim();
 
   const res = await chat({
@@ -387,17 +553,20 @@ SILENT CHECKS BEFORE FINALISING:
   });
 
   const parsed = extractFirstJsonObject(res.text) as any;
-
   let awardedMark = typeof parsed.mark === "number" ? Math.min(maxMark, Math.max(0, Math.round(parsed.mark))) : 0;
 
-  // Enforce caps deterministically on client/server output
+  // Enforce caps deterministically with balanced slack
   const activeCaps = Array.isArray(parsed.activeCapIds) ? parsed.activeCapIds : [];
   if (ao === "ao3") {
-    if (activeCaps.includes("no_comparison") || activeCaps.includes("hedge_conclusion") || activeCaps.includes("unweighed_listing") || activeCaps.includes("generic_evaluation")) {
-      awardedMark = Math.min(awardedMark, 2);
-    }
+    // If candidate wrote substantive evaluative reasoning with conditions, allow Level 3 lower band with slack
+    const wordCount = studentText.trim().split(/\s+/).filter(Boolean).length;
+    const hasDetailedPoints = wordCount >= 50 && (parsed.ao3Checklist?.limitationChecked || parsed.ao3Checklist?.conditionChecked);
+
     if (activeCaps.includes("wrong_question_judgement") || activeCaps.includes("one_sided_evaluation")) {
       awardedMark = Math.min(awardedMark, 1);
+    } else if (activeCaps.includes("no_comparison") || activeCaps.includes("hedge_conclusion") || activeCaps.includes("unweighed_listing") || activeCaps.includes("generic_evaluation")) {
+      const capThreshold = hasDetailedPoints ? Math.min(maxMark, Math.max(2, Math.round(maxMark * 0.75))) : Math.min(maxMark, Math.round(maxMark * 0.5));
+      awardedMark = Math.min(awardedMark, capThreshold);
     }
   }
 
@@ -407,11 +576,11 @@ SILENT CHECKS BEFORE FINALISING:
   const isFullMarks = awardedMark === maxMark;
   const canUnlockModelAnswer = isFullMarks || attemptNumber >= 3;
 
-  return {
+  return cleanStars({
     ao,
     mark: awardedMark,
     maxMark,
-    tableLevelLabel: parsed.tableLevelLabel || (ao === "ao3" ? `Table B (${awardedMark}/4)` : `Table A (${awardedMark}/${maxMark})`),
+    tableLevelLabel: parsed.tableLevelLabel || (ao === "ao3" ? `Table B (${awardedMark}/${maxMark})` : `Table A (${awardedMark}/${maxMark})`),
     reasonLine: parsed.reasonLine || (activeCaps.length > 0 ? `Capped at ${awardedMark}/${maxMark}: ${activeCaps[0]}` : `Achieves ${awardedMark}/${maxMark}`),
     delta,
     annotations: Array.isArray(parsed.annotations) ? parsed.annotations : [],
@@ -426,7 +595,7 @@ SILENT CHECKS BEFORE FINALISING:
     sources,
     model: res.model || MODEL_EXAMINER,
     latencyMs: res.latencyMs,
-  };
+  });
 }
 
 /** Generate a gentle, non-revealing hint */
@@ -442,6 +611,7 @@ Their current draft is: "${studentText || "(blank)"}".
 
 Give ONE short, constructive nudge (max 2 sentences) telling them what economic mechanism or structure to focus on next.
 DO NOT write the answer or give away the solution.
+NO ASTERISKS: Plain text only.
 `.trim();
 
   const res = await chat({
@@ -450,5 +620,5 @@ DO NOT write the answer or give away the solution.
     messages: [{ role: "user", content: prompt }],
   });
 
-  return { hint: res.text.trim() };
+  return cleanStars({ hint: stripStars(res.text.trim()) });
 }

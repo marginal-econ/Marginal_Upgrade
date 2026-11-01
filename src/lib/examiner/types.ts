@@ -259,7 +259,13 @@ export function detectHedgeConclusion(essayText: string): {
         conclusion.includes("is superior to") ||
         conclusion.includes("outweighs") ||
         conclusion.includes("more effective because") ||
-        conclusion.includes("primary policy should be");
+        conclusion.includes("primary policy should be") ||
+        conclusion.includes("most effective") ||
+        conclusion.includes("better because") ||
+        conclusion.includes("more important") ||
+        conclusion.includes("depends primarily on") ||
+        conclusion.includes("key factor is") ||
+        conclusion.includes("crucial condition is");
 
       if (!hasDecisiveRanking) {
         return { isHedge: true, matchedPhrase: match[0] };
@@ -368,11 +374,12 @@ export function normaliseGrading(
 
     if (failsComparativeGate) {
       // Question-Fit Gate: Answering "does X work?" instead of "is X the best?"
-      // Under Cambridge rules: cap AO3 at 1/4 (Level 1) and cap Table A at Level 2 (max 5/8).
-      const targetAo3 = split.ao3_marks > 0 ? (hasConclusionAttempt ? 1 : Math.min(evaluation.awarded, 1)) : 0;
-      evaluation.awarded = targetAo3;
-
+      // Under Cambridge rules: if 2+ major errors present, strictly cap Table A at Level 2 bottom band (3/8) and AO3 at 1/4.
+      // With evaluation slack (1-3%): if candidate made evaluative points on limitations and no 2+ major errors, allow Level 2 (2/4).
       if (majorErrors.length >= 2 || totalErrors >= 2) {
+        const targetAo3 = split.ao3_marks > 0 ? (hasConclusionAttempt ? 1 : Math.min(evaluation.awarded, 1)) : 0;
+        evaluation.awarded = targetAo3;
+
         // 2+ major theoretical errors + Question-Fit failure: Table A strictly capped at Level 2 bottom band (3/8)
         const targetTableA = Math.round(3 * (tableAMax / 8));
         const targetAo1 = Math.min(knowledge.awarded, Math.max(1, Math.round(targetTableA * (split.ao1_marks / tableAMax))));
@@ -384,6 +391,10 @@ export function normaliseGrading(
           "Question-Fit Gate & Major Errors Cap: Essay addresses 'does supply-side policy work?' rather than evaluating if it is the 'best' method against alternatives, and contains 2+ major theoretical errors. Table A (AO1+AO2) is capped at Level 2 bottom band (3/8) and AO3 is capped at 1/4 under Cambridge 9708 examiner standards."
         );
       } else {
+        // Question dodge without major errors: allow Level 2 (max 2/4 for AO3) for evaluating policy limitations
+        const targetAo3 = split.ao3_marks > 0 ? Math.min(evaluation.awarded, Math.max(1, Math.round(2 * (split.ao3_marks / 4)))) : 0;
+        evaluation.awarded = targetAo3;
+
         // Question dodge alone caps Table A at Level 2 top band (5/8)
         const targetTableA = Math.round(5 * (tableAMax / 8));
         const currentTableA = knowledge.awarded + analysis.awarded;
@@ -393,7 +404,7 @@ export function normaliseGrading(
           knowledge.awarded = Math.min(knowledge.awarded, targetAo1);
           analysis.awarded = Math.min(analysis.awarded, targetAo2);
           auditNotes.push(
-            "Question-Fit Gate Cap: Candidate did not compare the named policy against alternatives on a stated criterion. AO3 capped at 1/4 and Table A capped at Level 2 (max 5/8)."
+            "Question-Fit Gate Cap: Candidate did not compare the named policy against alternatives on a stated criterion. AO3 capped at Level 2 and Table A capped at Level 2 (max 5/8)."
           );
         }
       }
@@ -426,11 +437,15 @@ export function normaliseGrading(
       }
     }
 
-    // Hedge Conclusion Cap (AO3 max 2/4)
+    // Hedge Conclusion Cap (AO3 max 2/4 with balanced slack for detailed evaluations)
     if (hedgeCheck.isHedge) {
+      const hasEvaluativeDepth =
+        paragraphs.length >= 3 &&
+        /\b(elasticity|time lag|short-run|short run|long-run|long run|opportunity cost|magnitude|stakeholder)\b/i.test(essayText);
+      const allowedHedgeBase = hasEvaluativeDepth && !failsComparativeGate ? 3 : 2;
       const maxAo3Hedge = failsComparativeGate
-        ? 1
-        : Math.min(evaluation.awarded, Math.max(1, Math.round(2 * (split.ao3_marks / 4))));
+        ? (majorErrors.length >= 2 ? 1 : Math.min(evaluation.awarded, Math.max(1, Math.round(2 * (split.ao3_marks / 4)))))
+        : Math.min(evaluation.awarded, Math.max(1, Math.round(allowedHedgeBase * (split.ao3_marks / 4))));
       evaluation.awarded = Math.min(evaluation.awarded, maxAo3Hedge);
       auditNotes.push(
         `Table B Hedge Cap: Concluding with '${hedgeCheck.matchedPhrase}' without an explicit comparative ranking or conditions caps AO3 at ${maxAo3Hedge}/${split.ao3_marks}.`

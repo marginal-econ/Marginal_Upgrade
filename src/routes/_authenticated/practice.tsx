@@ -39,6 +39,7 @@ import { toast } from "sonner";
 import { z } from "zod";
 
 import { PageHeader } from "@/components/app/app-shell";
+import { GradingProgress, type ProgressStage } from "@/components/app/grading-progress";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -76,7 +77,7 @@ import type {
   FixItem,
   QuestionAnalysisResult,
 } from "@/lib/examiner/ao-fixer.server";
-import { cn } from "@/lib/utils";
+import { cn, cleanStars, stripStars } from "@/lib/utils";
 
 const practiceSearchSchema = z
   .object({
@@ -84,6 +85,7 @@ const practiceSearchSchema = z
     question: z.string().optional().catch(undefined),
     q: z.string().optional().catch(undefined),
     topic: z.string().optional().catch(undefined),
+    tariff: z.union([z.number(), z.string()]).optional().catch(undefined),
     fromGrader: z.union([z.boolean(), z.string()]).optional().catch(undefined),
   })
   .passthrough()
@@ -97,7 +99,7 @@ export const Route = createFileRoute("/_authenticated/practice")({
       {
         name: "description",
         content:
-          "Targeted assessment objective practice. Write short attempts, receive strict Cambridge examiner marking, and rewrite weak links until you achieve full marks.",
+          "Targeted assessment objective practice for 8, 12, and 20-mark Cambridge economics essays. Write short attempts, receive calibrated examiner marking, and rewrite weak links to full marks.",
       },
     ],
   }),
@@ -114,7 +116,7 @@ const DEFAULT_TOPICS = [
   "Other / not sure",
 ];
 
-const AO_META: Record<
+export function getAoMeta(tariff: 8 | 12 | 20): Record<
   AoType,
   {
     code: string;
@@ -127,55 +129,76 @@ const AO_META: Record<
     promptLine: string;
     checklistTemplate: string[];
   }
-> = {
-  ao1: {
-    code: "AO1",
-    title: "Knowledge & Understanding",
-    action: "Define the right terms precisely",
-    practiceMax: 2,
-    cambridgeScale: "Cambridge marks AO1 & AO2 together out of 8 (Table A). Practice guide: /2.",
-    timerSeconds: 180,
-    softWords: "30–70 words (1–2 precise definitions)",
-    promptLine: "Define the key terms for this question, one exam-ready line each.",
-    checklistTemplate: [
-      "Define key terms using exact syllabus wording",
-      "Explain the core economic concept accurately",
-      "Apply the definition to the question context",
-    ],
-  },
-  ao2: {
-    code: "AO2",
-    title: "Analysis",
-    action: "Build full chains of reasoning",
-    practiceMax: 6,
-    cambridgeScale: "Cambridge marks AO1 & AO2 together out of 8 (Table A). Practice guide: /6.",
-    timerSeconds: 300,
-    softWords: "60–140 words (3–5 linked sentences)",
-    promptLine: "Write ONE full chain (cause → mechanism → effect → link to the question) in 3–5 sentences.",
-    checklistTemplate: [
-      "State the initial cause or policy shock",
-      "Detail each mechanism step using linking words",
-      "Specify correct market movements (prices, costs, curves)",
-      "Link directly back to answering the question",
-    ],
-  },
-  ao3: {
-    code: "AO3",
-    title: "Evaluation",
-    action: "Reach a justified judgement",
-    practiceMax: 4,
-    cambridgeScale: "Cambridge Table B marks strictly out of 4.",
-    timerSeconds: 360,
-    softWords: "90–180 words (5–8 sentences)",
-    promptLine: "Write your evaluation and final judgement in 5–8 sentences, answering the exact question.",
-    checklistTemplate: [
-      "State a limitation of the main point with consequence",
-      "Compare with an alternative on ONE stated criterion",
-      "State a condition ('It is most effective when __ because __')",
-      "Reach a ranked final judgement using the question's word",
-    ],
-  },
-};
+> {
+  const is8 = tariff === 8;
+  const is20 = tariff === 20;
+
+  return {
+    ao1: {
+      code: "AO1",
+      title: "Knowledge & Understanding",
+      action: "Two simple definitions, related examples, formulas, or real show of knowledge",
+      practiceMax: 2,
+      cambridgeScale: "Cambridge marks AO1 out of 2 marks across all tariffs (8, 12, 20).",
+      timerSeconds: 180,
+      softWords: "30–70 words (two clear knowledge points)",
+      promptLine: "Provide two simple definitions, examples, or formulas appropriate to the question.",
+      checklistTemplate: [
+        "Two simple definitions appropriate to the question",
+        "Examples or formulas related to the topic",
+        "Any real show of economic knowledge",
+      ],
+    },
+    ao2: {
+      code: "AO2",
+      title: "Analysis",
+      action: "Clear chains of analysis (cause → mechanism → effect → link)",
+      practiceMax: is8 ? 4 : is20 ? 12 : 6,
+      cambridgeScale: `Cambridge marks AO2 out of ${is8 ? 4 : is20 ? 12 : 6} marks for a ${tariff}-mark question.`,
+      timerSeconds: is8 ? 240 : is20 ? 480 : 300,
+      softWords: is8
+        ? "60–120 words (2 distinct causal chains)"
+        : is20
+          ? "160–320 words (enter all developed analysis points, both sides)"
+          : "90–180 words (enter all 3 analysis points, ~2 marks each)",
+      promptLine: is8
+        ? "Enter both analysis points (cause → mechanism → effect → link to question) for 4 marks."
+        : is20
+          ? "Enter all your developed analysis points covering multiple sides and transmission mechanisms for 12 marks."
+          : "Enter all 3 analysis points (cause → mechanism → effect → link to question) for 6 marks.",
+      checklistTemplate: [
+        "State the initial cause or policy shock",
+        "Detail each mechanism step using linking words",
+        "Specify correct market movements (prices, costs, curves)",
+        "Link directly back to answering the question",
+      ],
+    },
+    ao3: {
+      code: "AO3",
+      title: "Evaluation",
+      action: "Evaluative depth, trade-offs, conditions, and justified judgement",
+      practiceMax: is8 ? 2 : is20 ? 6 : 4,
+      cambridgeScale: `Cambridge Table B marks strictly out of ${is8 ? 2 : is20 ? 6 : 4} for a ${tariff}-mark question.`,
+      timerSeconds: is8 ? 240 : is20 ? 480 : 360,
+      softWords: is8
+        ? "50–100 words (1 evaluative trade-off + 1 concise conclusion)"
+        : is20
+          ? "140–250 words (balanced evaluation + conditional judgement)"
+          : "90–180 words (limitations, comparison, condition, justified judgement)",
+      promptLine: is8
+        ? "Write 1 evaluative point (limitation/condition) and a direct final conclusion answering the question."
+        : is20
+          ? "Write your comprehensive evaluation weighing alternative policies and reaching a conditional final judgement."
+          : "Write your evaluation and final judgement in 5–8 sentences, answering the exact question.",
+      checklistTemplate: [
+        "State a limitation or trade-off with economic consequence",
+        "Compare against an alternative on ONE stated criterion",
+        "State a condition ('It is most effective when __ because __')",
+        "Reach a ranked final judgement using the question's word",
+      ],
+    },
+  };
+}
 
 interface AttemptRecord {
   attemptNumber: number;
@@ -190,6 +213,13 @@ function AoFixerPage() {
 
   // Screen state
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
+  const [tariff, setTariff] = useState<8 | 12 | 20>(() => {
+    if (search.tariff) {
+      const num = Number(search.tariff);
+      if (num === 8 || num === 12 || num === 20) return num as 8 | 12 | 20;
+    }
+    return 12;
+  });
   const [selectedTopic, setSelectedTopic] = useState<string>(search.topic || "");
   const [topicSearch, setTopicSearch] = useState("");
   const [selectedQuestion, setSelectedQuestion] = useState<string>(search.question || search.q || "");
@@ -198,6 +228,10 @@ function AoFixerPage() {
   const [questionTab, setQuestionTab] = useState<"bank" | "custom">("bank");
   const [isConfirmingTyped, setIsConfirmingTyped] = useState(false);
   const [selectedAo, setSelectedAo] = useState<AoType>((search.ao as AoType) || "ao3");
+
+  // Dynamic AO metadata calibrated to selected tariff
+  const aoMeta = useMemo(() => getAoMeta(tariff), [tariff]);
+  const meta = aoMeta[selectedAo];
 
   // Server functions
   const fetchTopics = useServerFn(listBankTopics);
@@ -228,12 +262,13 @@ function AoFixerPage() {
 
   // Analysis query for the current question
   const analysisQuery = useQuery({
-    queryKey: ["ao-analysis", selectedQuestion, selectedTopic],
+    queryKey: ["ao-analysis", selectedQuestion, selectedTopic, tariff],
     queryFn: () =>
       fetchAnalysis({
         data: {
           question: selectedQuestion,
           topic: selectedTopic || null,
+          tariff,
         },
       }),
     enabled: Boolean(selectedQuestion && selectedQuestion.length >= 10 && step >= 2),
@@ -241,7 +276,7 @@ function AoFixerPage() {
   });
 
   // Practice state
-  const draftStorageKey = `marginal_ao_fixer_draft_${selectedAo}`;
+  const draftStorageKey = `marginal_ao_fixer_draft_${selectedAo}_${tariff}`;
   const [studentText, setStudentText] = useState("");
   const [structureMode, setStructureMode] = useState(false);
   const [ao3Structure, setAo3Structure] = useState({
@@ -260,7 +295,7 @@ function AoFixerPage() {
 
   // Timer state
   const [timerActive, setTimerActive] = useState(false);
-  const [secondsRemaining, setSecondsRemaining] = useState(AO_META[selectedAo].timerSeconds);
+  const [secondsRemaining, setSecondsRemaining] = useState(meta.timerSeconds);
 
   // Modals
   const [showDisputeModal, setShowDisputeModal] = useState(false);
@@ -277,9 +312,13 @@ function AoFixerPage() {
         setSelectedAo(search.ao);
       }
       if (search.topic) setSelectedTopic(search.topic);
+      if (search.tariff) {
+        const num = Number(search.tariff);
+        if (num === 8 || num === 12 || num === 20) setTariff(num as 8 | 12 | 20);
+      }
       setStep(2);
     }
-  }, [search.fromGrader, search.question, search.ao, search.topic]);
+  }, [search.fromGrader, search.question, search.ao, search.topic, search.tariff]);
 
   // Load draft from localStorage
   useEffect(() => {
@@ -316,11 +355,11 @@ function AoFixerPage() {
     return () => clearInterval(interval);
   }, [timerActive, secondsRemaining]);
 
-  // Reset timer on AO switch
+  // Reset timer on AO switch or tariff switch
   useEffect(() => {
-    setSecondsRemaining(AO_META[selectedAo].timerSeconds);
+    setSecondsRemaining(meta.timerSeconds);
     setTimerActive(false);
-  }, [selectedAo]);
+  }, [selectedAo, tariff, meta.timerSeconds]);
 
   // Combine structure boxes into student text for AO3
   const syncAo3StructureToText = useCallback(() => {
@@ -334,6 +373,123 @@ function AoFixerPage() {
       setStudentText(parts.join(" "));
     }
   }, [ao3Structure]);
+
+  // Progress Bar Stages tailored to each AO
+  const currentAoStages: ProgressStage[] = useMemo(() => {
+    if (selectedAo === "ao1") {
+      return [
+        {
+          label: "Checking Cambridge 9708 Knowledge Base & Definitions",
+          weight: 2,
+          shortTitle: "Syllabus Definitions",
+          backendDetails: [
+            "Referencing Cambridge 9708 syllabus definitions and key concepts.",
+            "Validating exam-ready phrasing, terminology, and models.",
+          ],
+        },
+        {
+          label: "Auditing 2 Knowledge Points (Definitions, Examples, Formulas)",
+          weight: 3,
+          shortTitle: "Knowledge Audit",
+          backendDetails: [
+            "Auditing candidate's response for two simple definitions or real shows of knowledge.",
+            "Positively crediting related economic examples, diagrams, or formulas.",
+          ],
+        },
+        {
+          label: "Calibrating Mark & Synthesizing Targeted Tips",
+          weight: 2,
+          shortTitle: "Examiner Calibration",
+          backendDetails: [
+            "Awarding marks out of 2 with positive Cambridge examiner credit.",
+            "Generating instant actionable upgrade recommendations.",
+          ],
+        },
+      ];
+    }
+
+    if (selectedAo === "ao2") {
+      return [
+        {
+          label: "Retrieving Cambridge 9708 Analytical Transmission Mechanisms",
+          weight: 3,
+          shortTitle: "Transmission Pathways",
+          backendDetails: [
+            "Grounding against official mark scheme transmission pathways.",
+            "Identifying required equilibrium shifts and market adjustments.",
+          ],
+        },
+        {
+          label: `Tracing Causal Chains: Cause -> Mechanism -> Effect -> Link (Target: /${meta.practiceMax})`,
+          weight: 4,
+          shortTitle: "Causal Progression",
+          backendDetails: [
+            "Scrutinizing step-by-step causal logic without assertions or jumps.",
+            `Verifying all required analysis points are fully developed for ${meta.practiceMax} marks.`,
+          ],
+        },
+        {
+          label: "Verifying Theoretical Accuracy & Curve Shift Directions",
+          weight: 3,
+          shortTitle: "Theoretical Accuracy",
+          backendDetails: [
+            "Checking for common Cambridge traps (supply vs demand shifts, shift directions).",
+            "Ensuring diagrammatic equilibrium changes match written argument.",
+          ],
+        },
+        {
+          label: "Synthesizing Chain Completeness & Actionable Fixes",
+          weight: 3,
+          shortTitle: "Report Synthesis",
+          backendDetails: [
+            "Highlighting complete vs partial vs asserted steps.",
+            "Drafting precise sentence-level fixes to earn full analysis marks.",
+          ],
+        },
+      ];
+    }
+
+    return [
+      {
+        label: "Analyzing Question Command Word & Evaluative Criteria",
+        weight: 3,
+        shortTitle: "Question Fit",
+        backendDetails: [
+          "Checking prompt command words ('best', 'to what extent', 'assess').",
+          "Verifying whether comparative criteria against alternatives are required.",
+        ],
+      },
+      {
+        label: "Auditing Evaluative Balance, Trade-offs & Contextual Conditions",
+        weight: 4,
+        shortTitle: "Evaluative Depth",
+        backendDetails: [
+          "Testing limitation depth, opportunity costs, and stakeholder trade-offs.",
+          "Checking stated conditions: elasticity, time lags, scale of intervention.",
+        ],
+      },
+      {
+        label: `Moderating Table B Standards with Examiner Slack (Target: /${meta.practiceMax})`,
+        weight: 3,
+        shortTitle: "Table B Moderation",
+        backendDetails: [
+          "Applying positive marking slack (1-3%) to reward reasoned student conclusions.",
+          "Checking justified ranking to avoid uncontextualized hedge caps.",
+        ],
+      },
+      {
+        label: "Generating High-Scoring Exemplar Model Answer",
+        weight: 3,
+        shortTitle: "Exemplar Synthesis",
+        backendDetails: [
+          "Synthesizing an examiner-level model judgement incorporating student ideas.",
+          "Finalizing line-by-line annotations and unlockable exemplar.",
+        ],
+      },
+    ];
+  }, [selectedAo, meta.practiceMax]);
+
+  const currentAoEstimatedMs = selectedAo === "ao1" ? 4_000 : selectedAo === "ao2" ? 12_000 : 14_000;
 
   // Mark attempt mutation
   const markMutation = useMutation({
@@ -354,9 +510,10 @@ function AoFixerPage() {
           attemptNumber: attempts.length + 1,
           previousMark: prev,
           topic: selectedTopic || null,
+          tariff,
         },
       });
-      return res;
+      return cleanStars(res);
     },
     onSuccess: (data) => {
       setCurrentOutcome(data);
@@ -376,7 +533,7 @@ function AoFixerPage() {
         if (data.delta && data.delta > 0) {
           toast.success(`Mark increased by +${data.delta}! (${data.mark}/${data.maxMark})`);
         } else {
-          toast.info(`Marked: ${data.mark}/${data.maxMark} (${data.tableLevelLabel})`);
+          toast.info(`Marked: ${data.mark}/${data.maxMark} (${stripStars(data.tableLevelLabel)})`);
         }
       }
     },
@@ -497,13 +654,12 @@ function AoFixerPage() {
   };
 
   const analysis = analysisQuery.data;
-  const meta = AO_META[selectedAo];
 
   return (
     <div className="flex-1 flex flex-col min-h-0 bg-background text-foreground">
       <PageHeader
         title="AO Fixer"
-        description="Target one assessment objective at a time. Write short attempts, get strictly marked by a Cambridge examiner, and rewrite the weak links to reach full marks."
+        description="Target one assessment objective at a time across 8, 12, or 20-mark essay prompts. Write short attempts, get strictly marked by a Cambridge examiner, and rewrite weak links until you achieve full marks."
       />
 
       {/* Screen 1: SETUP */}
@@ -525,12 +681,21 @@ function AoFixerPage() {
               Topic: {selectedTopic || "Choose topic"}
             </Badge>
             <Badge
+              variant="secondary"
+              className="gap-1 cursor-pointer"
+            >
+              <span className="size-4 rounded-full bg-primary/20 text-primary flex items-center justify-center text-[10px] font-bold">
+                2
+              </span>
+              Tariff: {tariff} Marks
+            </Badge>
+            <Badge
               variant={selectedQuestion ? "secondary" : "outline"}
               className="gap-1 cursor-pointer"
               onClick={() => {}}
             >
               <span className="size-4 rounded-full bg-primary/20 text-primary flex items-center justify-center text-[10px] font-bold">
-                2
+                3
               </span>
               Question: {selectedQuestion ? "Selected" : "Pick or type"}
             </Badge>
@@ -539,7 +704,7 @@ function AoFixerPage() {
               className="gap-1"
             >
               <span className="size-4 rounded-full bg-primary/20 text-primary flex items-center justify-center text-[10px] font-bold">
-                3
+                4
               </span>
               Objective: {meta.code} ({meta.title})
             </Badge>
@@ -597,14 +762,85 @@ function AoFixerPage() {
             </div>
           </div>
 
-          {/* 2. QUESTION SECTION */}
+          {/* 2. TARIFF SELECTION (8m, 12m, 20m) */}
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h2 className="text-base font-semibold flex items-center gap-2">
+                  <span className="size-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold">
+                    2
+                  </span>
+                  Select Question Tariff ({tariff} Marks)
+                </h2>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Choose your target essay length: 8-mark focused essay, 12-mark standard AS evaluative essay, or 20-mark A-Level extended essay.
+                </p>
+              </div>
+              <Badge variant="outline" className="font-mono text-xs">
+                Split: AO1 {aoMeta.ao1.practiceMax}m · AO2 {aoMeta.ao2.practiceMax}m · AO3 {aoMeta.ao3.practiceMax}m
+              </Badge>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {[
+                {
+                  m: 8 as const,
+                  title: "8-Mark Essay",
+                  sub: "Focused Essay Drill",
+                  ao: "AO1: 2m · AO2: 4m (2 chains) · AO3: 2m (1 eval + verdict)",
+                },
+                {
+                  m: 12 as const,
+                  title: "12-Mark Essay",
+                  sub: "Standard AS Evaluative",
+                  ao: "AO1: 2m · AO2: 6m (3 chains) · AO3: 4m (balanced eval + judgement)",
+                },
+                {
+                  m: 20 as const,
+                  title: "20-Mark Essay",
+                  sub: "Paper 4 A-Level Extended",
+                  ao: "AO1: 2m · AO2: 12m (multi-chain) · AO3: 6m (in-depth trade-offs)",
+                },
+              ].map((t) => {
+                const isSelected = tariff === t.m;
+                return (
+                  <button
+                    key={t.m}
+                    type="button"
+                    onClick={() => setTariff(t.m)}
+                    className={cn(
+                      "p-3.5 rounded-xl border text-left transition-all space-y-1.5",
+                      isSelected
+                        ? "border-primary bg-primary/10 ring-1 ring-primary shadow-sm"
+                        : "border-border hover:border-border/80 hover:bg-muted/40",
+                    )}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className={cn("text-xs font-bold", isSelected ? "text-primary" : "text-foreground")}>
+                        {t.title}
+                      </span>
+                      {isSelected ? (
+                        <Check className="size-4 text-primary" />
+                      ) : (
+                        <span className="text-[10px] text-muted-foreground font-mono">{t.m}m</span>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">{t.sub}</p>
+                    <p className="text-[10px] font-mono text-muted-foreground/80">{t.ao}</p>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* 3. QUESTION SECTION */}
           <div className="space-y-3">
             <div>
               <h2 className="text-base font-semibold flex items-center gap-2">
                 <span className="size-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold">
-                  2
+                  3
                 </span>
-                Choose or Type a 12-Mark Essay Question
+                Choose or Type a {tariff}-Mark Essay Question
               </h2>
               <p className="text-xs text-muted-foreground mt-0.5">
                 Practice against past Cambridge questions or type in any essay prompt.
@@ -664,7 +900,12 @@ function AoFixerPage() {
                       return (
                         <div
                           key={q.id}
-                          onClick={() => setSelectedQuestion(q.question_text)}
+                          onClick={() => {
+                            setSelectedQuestion(q.question_text);
+                            if (q.max_mark === 8 || q.max_mark === 12 || q.max_mark === 20) {
+                              setTariff(q.max_mark as 8 | 12 | 20);
+                            }
+                          }}
                           className={cn(
                             "p-3.5 cursor-pointer transition-colors text-xs space-y-2",
                             isSelected
@@ -687,7 +928,7 @@ function AoFixerPage() {
                               </Badge>
                             )}
                             <Badge variant="secondary" className="text-[10px]">
-                              {q.max_mark || 12} marks
+                              {q.max_mark || tariff} marks
                             </Badge>
                             {q.topic && (
                               <span className="text-muted-foreground/80 truncate max-w-xs">
@@ -707,7 +948,7 @@ function AoFixerPage() {
                 {!isConfirmingTyped ? (
                   <div className="space-y-2.5">
                     <Textarea
-                      placeholder="Paste or type any 12-mark essay question (e.g. 'Discuss whether an indirect tax is the most effective policy to reduce consumption of demerit goods.')"
+                      placeholder={`Paste or type any ${tariff}-mark essay question (e.g. 'Discuss whether an indirect tax is the most effective policy to reduce consumption of demerit goods.')`}
                       rows={4}
                       value={typedQuestion}
                       onChange={(e) => setTypedQuestion(e.target.value)}
@@ -715,7 +956,7 @@ function AoFixerPage() {
                     />
                     <div className="flex justify-between items-center text-xs">
                       <span className="text-muted-foreground">
-                        Accepts any standard Cambridge 12-mark essay question.
+                        Accepts any standard Cambridge {tariff}-mark essay question.
                       </span>
                       <Button
                         size="sm"
@@ -764,23 +1005,23 @@ function AoFixerPage() {
             </Tabs>
           </div>
 
-          {/* 3. OBJECTIVE SECTION */}
+          {/* 4. OBJECTIVE SECTION */}
           <div className="space-y-3">
             <div>
               <h2 className="text-base font-semibold flex items-center gap-2">
                 <span className="size-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold">
-                  3
+                  4
                 </span>
-                Choose ONE Objective to Master
+                Choose ONE Objective to Master (for {tariff}-Mark Question)
               </h2>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Work through short focused attempts until that objective reaches full marks.
+                Work through focused attempts until that objective reaches full marks.
               </p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
               {(["ao1", "ao2", "ao3"] as AoType[]).map((aoKey) => {
-                const aoInfo = AO_META[aoKey];
+                const aoInfo = aoMeta[aoKey];
                 const isSelected = selectedAo === aoKey;
                 return (
                   <Card
@@ -962,11 +1203,11 @@ function AoFixerPage() {
                 <div className="flex items-center gap-2">
                   <Target className="size-4 text-primary" />
                   <span className="text-xs font-semibold text-primary uppercase tracking-wider">
-                    Question Analysis
+                    Question Analysis ({tariff} Marks)
                   </span>
                 </div>
                 <p className="text-xs font-medium text-foreground leading-relaxed">
-                  {analysis?.guidanceLine || "This question needs: a balanced, evaluated argument."}
+                  {stripStars(analysis?.guidanceLine || "This question needs: a balanced, evaluated argument.")}
                 </p>
               </div>
 
@@ -985,8 +1226,8 @@ function AoFixerPage() {
                 {/* AO1 Requirements */}
                 {selectedAo === "ao1" && (
                   <div className="space-y-3 text-xs">
-                    <p className="text-muted-foreground text-[11px]">
-                      Tap any term chip to inspect its syllabus-accurate definition:
+                    <p className="text-muted-foreground text-[11px] font-medium leading-relaxed">
+                      Just two simple definitions appropriate to the question, related examples, formulas, or any real show of economic knowledge:
                     </p>
                     <div className="space-y-2">
                       {analysis?.fullMarkRequirements.ao1.terms.map((t, idx) => {
@@ -997,7 +1238,7 @@ function AoFixerPage() {
                             className="border border-border rounded-lg p-2.5 bg-background space-y-1"
                           >
                             <div className="flex items-center justify-between">
-                              <span className="font-semibold text-foreground">{t.term}</span>
+                              <span className="font-semibold text-foreground">{stripStars(t.term)}</span>
                               <button
                                 type="button"
                                 onClick={() =>
@@ -1021,7 +1262,7 @@ function AoFixerPage() {
                             </div>
                             {isRevealed && (
                               <p className="text-[11px] text-muted-foreground leading-relaxed pt-1 border-t border-border/40 font-serif italic">
-                                {t.definition}
+                                {stripStars(t.definition)}
                               </p>
                             )}
                           </div>
@@ -1035,7 +1276,7 @@ function AoFixerPage() {
                           <span className="font-semibold block flex items-center gap-1">
                             <AlertTriangle className="size-3" /> Common Trap
                           </span>
-                          <p>{analysis.fullMarkRequirements.ao1.commonTraps[0]}</p>
+                          <p>{stripStars(analysis.fullMarkRequirements.ao1.commonTraps[0])}</p>
                         </div>
                       )}
                   </div>
@@ -1044,12 +1285,11 @@ function AoFixerPage() {
                 {/* AO2 Requirements */}
                 {selectedAo === "ao2" && (
                   <div className="space-y-3 text-xs">
-                    <p className="text-muted-foreground text-[11px]">
-                      Required causal progression (cause → mechanism → effect → link):
+                    <p className="text-muted-foreground text-[11px] font-medium leading-relaxed">
+                      {stripStars(analysis?.fullMarkRequirements.ao2.instruction || meta.promptLine)}
                     </p>
                     <div className="space-y-2">
                       {analysis?.fullMarkRequirements.ao2.chains.map((chain, idx) => {
-                        // Check if this chain was evaluated
                         const evalChain = currentOutcome?.chainsEvaluated?.[idx];
                         const status = evalChain?.status ?? "not_started";
                         return (
@@ -1059,7 +1299,7 @@ function AoFixerPage() {
                           >
                             <div className="flex items-center justify-between">
                               <span className="font-semibold text-foreground">
-                                Chain {idx + 1}: {chain.mechanismFocus}
+                                Chain {idx + 1}: {stripStars(chain.mechanismFocus)}
                               </span>
                               <Badge
                                 variant="outline"
@@ -1080,7 +1320,7 @@ function AoFixerPage() {
                               </Badge>
                             </div>
                             <p className="text-[11px] text-muted-foreground font-mono">
-                              {chain.stepChain}
+                              {stripStars(chain.stepChain)}
                             </p>
                           </div>
                         );
@@ -1090,9 +1330,9 @@ function AoFixerPage() {
                     {analysis?.fullMarkRequirements.ao2.diagramTip && (
                       <div className="rounded-lg bg-primary/[0.05] border border-primary/20 p-2.5 text-[11px] text-muted-foreground space-y-1">
                         <span className="font-semibold text-primary block">
-                          Diagram Tip: {analysis.fullMarkRequirements.ao2.diagramTip.name}
+                          Diagram Tip: {stripStars(analysis.fullMarkRequirements.ao2.diagramTip.name)}
                         </span>
-                        <p>{analysis.fullMarkRequirements.ao2.diagramTip.explanation}</p>
+                        <p>{stripStars(analysis.fullMarkRequirements.ao2.diagramTip.explanation)}</p>
                       </div>
                     )}
                   </div>
@@ -1101,8 +1341,8 @@ function AoFixerPage() {
                 {/* AO3 Requirements */}
                 {selectedAo === "ao3" && (
                   <div className="space-y-3 text-xs">
-                    <p className="text-muted-foreground text-[11px]">
-                      Four-step structure required for full marks:
+                    <p className="text-muted-foreground text-[11px] font-medium leading-relaxed">
+                      {stripStars(analysis?.fullMarkRequirements.ao3.instruction || meta.promptLine)}
                     </p>
                     <div className="space-y-2">
                       {analysis?.fullMarkRequirements.ao3.steps.map((st, idx) => {
@@ -1121,7 +1361,7 @@ function AoFixerPage() {
                             className="border border-border rounded-lg p-2.5 bg-background space-y-1"
                           >
                             <div className="flex items-center justify-between">
-                              <span className="font-semibold text-foreground">{st.title}</span>
+                              <span className="font-semibold text-foreground">{stripStars(st.title)}</span>
                               {isChecked ? (
                                 <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-[10px] gap-1">
                                   <Check className="size-2.5" /> Met
@@ -1131,7 +1371,7 @@ function AoFixerPage() {
                               )}
                             </div>
                             <p className="text-[11px] text-muted-foreground leading-relaxed">
-                              {st.instruction}
+                              {stripStars(st.instruction)}
                             </p>
                           </div>
                         );
@@ -1156,20 +1396,21 @@ function AoFixerPage() {
                         className="p-2 rounded-lg bg-background/80 border border-border text-[11px] space-y-0.5"
                       >
                         <div className="flex items-center justify-between font-semibold text-foreground">
-                          <span>{cap.label}</span>
-                          <span className="text-rose-400 font-mono">Max {cap.maxMark}/4</span>
+                          <span>{stripStars(cap.label)}</span>
+                          <span className="text-rose-400 font-mono">
+                            Max {Math.min(meta.practiceMax, cap.maxMark)}/{meta.practiceMax}
+                          </span>
                         </div>
                         <p className="text-muted-foreground leading-tight text-[10px]">
-                          {cap.triggerDescription}
+                          {stripStars(cap.triggerDescription)}
                         </p>
                       </div>
                     ))
                   ) : (
                     <div className="space-y-1.5 text-[11px] text-muted-foreground">
-                      <p>• 1 major error caps AO1+AO2 at 7/8.</p>
-                      <p>• 2 or more major errors cap mark at Level 2 (max 5/8).</p>
-                      <p>• Fewer than 3 complete chains caps at Level 2 (max 5/8).</p>
-                      <p>• Definitions alone do not lift beyond basic credit.</p>
+                      <p>• Major theoretical errors cap analytical marks.</p>
+                      <p>• Gaps or assertions in causal chains prevent reaching the top band.</p>
+                      <p>• Ensure all points connect cause → mechanism → effect → link back to prompt.</p>
                     </div>
                   )}
                 </div>
@@ -1177,8 +1418,7 @@ function AoFixerPage() {
 
               {/* Examiner Accuracy Note */}
               <p className="text-[11px] text-muted-foreground/75 leading-relaxed italic">
-                Cambridge Examiner Stance: We mark only what is written, start at the bottom of
-                the level, and move up only for quoted evidence. Fluent tone earns nothing on its own.
+                Cambridge Examiner Stance: We reward positive knowledge, clear analysis, and balanced evaluation with fair examiner slack.
               </p>
             </div>
 
@@ -1212,12 +1452,12 @@ function AoFixerPage() {
                       </div>
 
                       <Badge variant="outline" className="text-xs font-semibold px-2.5 py-1">
-                        {currentOutcome.tableLevelLabel}
+                        {stripStars(currentOutcome.tableLevelLabel)}
                       </Badge>
                     </div>
 
                     <p className="text-xs font-medium text-foreground/90 leading-relaxed">
-                      {currentOutcome.reasonLine}
+                      {stripStars(currentOutcome.reasonLine)}
                     </p>
 
                     {/* Progress Bar */}
@@ -1247,12 +1487,12 @@ function AoFixerPage() {
                                     className="cursor-pointer border-rose-500/40 bg-rose-500/10 text-rose-300 text-xs py-1 px-2.5 gap-1.5"
                                   >
                                     <ShieldAlert className="size-3" />
-                                    {capDef?.label || capId}: Max {capDef?.maxMark || 2}/4
+                                    {stripStars(capDef?.label || capId)}: Max {capDef?.maxMark || 2}/4
                                   </Badge>
                                 </TooltipTrigger>
                                 <TooltipContent className="max-w-xs text-xs space-y-1 p-3">
                                   <p className="font-semibold text-foreground">How to remove this cap:</p>
-                                  <p className="text-muted-foreground">{capDef?.howToFix}</p>
+                                  <p className="text-muted-foreground">{stripStars(capDef?.howToFix)}</p>
                                 </TooltipContent>
                               </Tooltip>
                             </TooltipProvider>
@@ -1309,13 +1549,13 @@ function AoFixerPage() {
                                 <div className="space-y-0.5">
                                   <p>
                                     <strong className="underline decoration-dotted italic">
-                                      "{ann.quote}"
+                                      "{stripStars(ann.quote)}"
                                     </strong>
-                                    : {ann.tooltip}
+                                    : {stripStars(ann.tooltip)}
                                   </p>
                                   {ann.replacement && (
                                     <p className="text-[10px] text-muted-foreground">
-                                      Suggested syllabus phrasing: {ann.replacement}
+                                      Suggested syllabus phrasing: {stripStars(ann.replacement)}
                                     </p>
                                   )}
                                 </div>
@@ -1337,9 +1577,9 @@ function AoFixerPage() {
                       </span>
                       <p className="text-muted-foreground leading-relaxed">
                         <strong className="text-foreground">
-                          "{currentOutcome.whatYouDidRightQuote}"
+                          "{stripStars(currentOutcome.whatYouDidRightQuote)}"
                         </strong>{" "}
-                        — {currentOutcome.whatYouDidRightComment}
+                        — {stripStars(currentOutcome.whatYouDidRightComment)}
                       </p>
                     </div>
                   )}
@@ -1360,11 +1600,11 @@ function AoFixerPage() {
                               <p className="text-muted-foreground">
                                 Weak link:{" "}
                                 <strong className="text-foreground italic">
-                                  "{fixItem.quote}"
+                                  "{stripStars(fixItem.quote)}"
                                 </strong>
                               </p>
                               <p className="font-medium text-foreground">
-                                ➔ {fixItem.fix}
+                                ➔ {stripStars(fixItem.fix)}
                               </p>
                             </div>
                             <div className="flex flex-col items-end gap-2 shrink-0">
@@ -1397,7 +1637,7 @@ function AoFixerPage() {
                           size="sm"
                           variant="ghost"
                           onClick={() => {
-                            navigator.clipboard.writeText(currentOutcome.modelAnswerUnlocked!);
+                            navigator.clipboard.writeText(stripStars(currentOutcome.modelAnswerUnlocked!));
                             toast.success("Model answer copied to clipboard!");
                           }}
                           className="h-7 text-xs gap-1"
@@ -1406,7 +1646,7 @@ function AoFixerPage() {
                         </Button>
                       </div>
                       <p className="text-foreground/90 whitespace-pre-wrap leading-relaxed font-serif italic text-sm">
-                        {currentOutcome.modelAnswerUnlocked}
+                        {stripStars(currentOutcome.modelAnswerUnlocked)}
                       </p>
                     </div>
                   )}
@@ -1437,191 +1677,215 @@ function AoFixerPage() {
 
               {/* STEP 2: WRITING WORKSPACE */}
               {step === 2 && (
-                <div className="space-y-4 flex-1 flex flex-col">
-                  {/* Previous Attempt Reference */}
-                  {attempts.length > 0 && (
-                    <div className="rounded-xl border border-border/80 bg-muted/40 p-3 text-xs space-y-1">
-                      <div className="flex items-center justify-between text-muted-foreground">
-                        <span className="font-semibold">
-                          Previous Attempt ({attempts[attempts.length - 1].outcome.mark}/
-                          {meta.practiceMax})
-                        </span>
-                        <span className="font-mono text-[10px]">
-                          {attempts[attempts.length - 1].timestamp}
-                        </span>
-                      </div>
-                      <p className="line-clamp-2 text-foreground/80 italic">
-                        "{attempts[attempts.length - 1].text}"
+                markMutation.isPending ? (
+                  <div className="py-12 px-4 space-y-6 flex-1 flex flex-col justify-center items-center text-center animate-in fade-in duration-200">
+                    <div className="space-y-1.5 max-w-md">
+                      <span className="text-xs font-semibold uppercase tracking-wider text-primary inline-flex items-center gap-1.5">
+                        <Sparkles className="size-3.5" /> Cambridge 9708 Examiner Live Assessment
+                      </span>
+                      <h3 className="text-base font-semibold text-foreground">
+                        Marking {meta.code} ({meta.title}) · Out of {meta.practiceMax} Marks
+                      </h3>
+                      <p className="text-xs text-muted-foreground leading-relaxed">
+                        Evaluating your response against Cambridge standards with positive examiner slack...
                       </p>
                     </div>
-                  )}
 
-                  {/* Mode Toggles */}
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <span className="text-xs font-semibold text-foreground">
-                      {meta.promptLine}
-                    </span>
-
-                    <div className="flex items-center gap-2">
-                      {selectedAo === "ao3" && (
-                        <Button
-                          variant={structureMode ? "secondary" : "ghost"}
-                          size="sm"
-                          onClick={() => setStructureMode(!structureMode)}
-                          className="h-7 text-xs"
-                        >
-                          {structureMode ? "Free text mode" : "Guided 4-box mode"}
-                        </Button>
-                      )}
-
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        disabled={hintMutation.isPending}
-                        onClick={() => hintMutation.mutate()}
-                        className="h-7 text-xs text-primary gap-1"
-                      >
-                        <Lightbulb className="size-3.5" />
-                        {hintMutation.isPending ? "Nudging..." : "Hint"}
-                      </Button>
+                    <div className="w-full max-w-lg">
+                      <GradingProgress
+                        active={markMutation.isPending}
+                        stages={currentAoStages}
+                        totalMs={currentAoEstimatedMs}
+                      />
                     </div>
                   </div>
-
-                  {/* Active Hint Banner */}
-                  {activeHint && (
-                    <div className="p-2.5 rounded-lg bg-primary/10 border border-primary/20 text-xs text-primary flex items-start justify-between gap-2">
-                      <p>
-                        <strong>Examiner Hint: </strong>
-                        {activeHint}
-                      </p>
-                      <button
-                        type="button"
-                        onClick={() => setActiveHint(null)}
-                        className="text-muted-foreground hover:text-foreground"
-                      >
-                        <X className="size-3.5" />
-                      </button>
-                    </div>
-                  )}
-
-                  {/* AO3 Structured 4-Box Inputs */}
-                  {structureMode && selectedAo === "ao3" ? (
-                    <div className="space-y-3 flex-1">
-                      <div className="space-y-1">
-                        <label className="text-[11px] font-semibold text-muted-foreground">
-                          1. Limitation of main policy (with reason & consequence):
-                        </label>
-                        <Input
-                          value={ao3Structure.limitation}
-                          onChange={(e) => {
-                            setAo3Structure((prev) => ({ ...prev, limitation: e.target.value }));
-                            syncAo3StructureToText();
-                          }}
-                          placeholder="e.g. However, this policy is limited by high opportunity cost..."
-                          className="text-xs"
-                        />
+                ) : (
+                  <div className="space-y-4 flex-1 flex flex-col">
+                    {/* Previous Attempt Reference */}
+                    {attempts.length > 0 && (
+                      <div className="rounded-xl border border-border/80 bg-muted/40 p-3 text-xs space-y-1">
+                        <div className="flex items-center justify-between text-muted-foreground">
+                          <span className="font-semibold">
+                            Previous Attempt ({attempts[attempts.length - 1].outcome.mark}/
+                            {meta.practiceMax})
+                          </span>
+                          <span className="font-mono text-[10px]">
+                            {attempts[attempts.length - 1].timestamp}
+                          </span>
+                        </div>
+                        <p className="line-clamp-2 text-foreground/80 italic">
+                          "{stripStars(attempts[attempts.length - 1].text)}"
+                        </p>
                       </div>
-                      <div className="space-y-1">
-                        <label className="text-[11px] font-semibold text-muted-foreground">
-                          2. Comparison with an alternative on ONE stated criterion:
-                        </label>
-                        <Input
-                          value={ao3Structure.comparison}
-                          onChange={(e) => {
-                            setAo3Structure((prev) => ({ ...prev, comparison: e.target.value }));
-                            syncAo3StructureToText();
-                          }}
-                          placeholder="e.g. Compared to regulation, a tax acts faster because..."
-                          className="text-xs"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-[11px] font-semibold text-muted-foreground">
-                          3. Specific condition:
-                        </label>
-                        <Input
-                          value={ao3Structure.condition}
-                          onChange={(e) => {
-                            setAo3Structure((prev) => ({ ...prev, condition: e.target.value }));
-                            syncAo3StructureToText();
-                          }}
-                          placeholder="e.g. It is most effective when demand is price elastic because..."
-                          className="text-xs"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-[11px] font-semibold text-muted-foreground">
-                          4. Final judgement using exact question word:
-                        </label>
-                        <Input
-                          value={ao3Structure.judgement}
-                          onChange={(e) => {
-                            setAo3Structure((prev) => ({ ...prev, judgement: e.target.value }));
-                            syncAo3StructureToText();
-                          }}
-                          placeholder="e.g. Therefore, while both have merit, policy X is the best method because..."
-                          className="text-xs"
-                        />
-                      </div>
-                    </div>
-                  ) : (
-                    /* Standard Large Textarea */
-                    <div className="space-y-1 flex-1 flex flex-col">
-                      <Textarea
-                        ref={textareaRef}
-                        rows={12}
-                        value={studentText}
-                        onChange={(e) => setStudentText(e.target.value)}
-                        onKeyDown={handleKeyDown}
-                        placeholder={`Write your ${meta.title} response here...\nTarget: ${meta.softWords}`}
-                        className="flex-1 min-h-[220px] text-xs leading-relaxed font-sans"
-                      />
-                      <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-1">
-                        <span>
-                          {wordCount} words · {sentenceCount} sentences
-                        </span>
-                        <span className="font-mono text-[10px]">
-                          Ctrl/Cmd + Enter to mark
-                        </span>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Submission Notice & Submit Button */}
-                  <div className="space-y-2 pt-2 border-t border-border">
-                    {sentenceCount < 2 && studentText.trim().length > 0 && (
-                      <p className="text-[11px] text-amber-400">
-                        ⚠️ Note: responses under 2 sentences are too short to reach top Cambridge
-                        levels.
-                      </p>
                     )}
 
-                    <div className="flex items-center justify-between">
-                      <span className="text-[11px] text-muted-foreground">
-                        Drafts auto-save continuously.
+                    {/* Mode Toggles */}
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="text-xs font-semibold text-foreground">
+                        {stripStars(meta.promptLine)}
                       </span>
 
-                      <Button
-                        size="lg"
-                        disabled={markMutation.isPending || studentText.trim().length < 15}
-                        onClick={() => markMutation.mutate()}
-                        className="gap-2 px-6"
-                      >
-                        {markMutation.isPending ? (
-                          <>
-                            <Loader2 className="size-4 animate-spin" />
-                            Marking like an examiner...
-                          </>
-                        ) : (
-                          <>
-                            Mark My Answer
-                            <ArrowRight className="size-4" />
-                          </>
+                      <div className="flex items-center gap-2">
+                        {selectedAo === "ao3" && (
+                          <Button
+                            variant={structureMode ? "secondary" : "ghost"}
+                            size="sm"
+                            onClick={() => setStructureMode(!structureMode)}
+                            className="h-7 text-xs"
+                          >
+                            {structureMode ? "Free text mode" : "Guided 4-box mode"}
+                          </Button>
                         )}
-                      </Button>
+
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          disabled={hintMutation.isPending}
+                          onClick={() => hintMutation.mutate()}
+                          className="h-7 text-xs text-primary gap-1"
+                        >
+                          <Lightbulb className="size-3.5" />
+                          {hintMutation.isPending ? "Nudging..." : "Hint"}
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Active Hint Banner */}
+                    {activeHint && (
+                      <div className="p-2.5 rounded-lg bg-primary/10 border border-primary/20 text-xs text-primary flex items-start justify-between gap-2">
+                        <p>
+                          <strong>Examiner Hint: </strong>
+                          {stripStars(activeHint)}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => setActiveHint(null)}
+                          className="text-muted-foreground hover:text-foreground"
+                        >
+                          <X className="size-3.5" />
+                        </button>
+                      </div>
+                    )}
+
+                    {/* AO3 Structured 4-Box Inputs */}
+                    {structureMode && selectedAo === "ao3" ? (
+                      <div className="space-y-3 flex-1">
+                        <div className="space-y-1">
+                          <label className="text-[11px] font-semibold text-muted-foreground">
+                            1. Limitation of main policy (with reason & consequence):
+                          </label>
+                          <Input
+                            value={ao3Structure.limitation}
+                            onChange={(e) => {
+                              setAo3Structure((prev) => ({ ...prev, limitation: e.target.value }));
+                              syncAo3StructureToText();
+                            }}
+                            placeholder="e.g. However, this policy is limited by high opportunity cost..."
+                            className="text-xs"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[11px] font-semibold text-muted-foreground">
+                            2. Comparison with an alternative on ONE stated criterion:
+                          </label>
+                          <Input
+                            value={ao3Structure.comparison}
+                            onChange={(e) => {
+                              setAo3Structure((prev) => ({ ...prev, comparison: e.target.value }));
+                              syncAo3StructureToText();
+                            }}
+                            placeholder="e.g. Compared to regulation, a tax acts faster because..."
+                            className="text-xs"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[11px] font-semibold text-muted-foreground">
+                            3. Specific condition:
+                          </label>
+                          <Input
+                            value={ao3Structure.condition}
+                            onChange={(e) => {
+                              setAo3Structure((prev) => ({ ...prev, condition: e.target.value }));
+                              syncAo3StructureToText();
+                            }}
+                            placeholder="e.g. It is most effective when demand is price elastic because..."
+                            className="text-xs"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[11px] font-semibold text-muted-foreground">
+                            4. Final judgement using exact question word:
+                          </label>
+                          <Input
+                            value={ao3Structure.judgement}
+                            onChange={(e) => {
+                              setAo3Structure((prev) => ({ ...prev, judgement: e.target.value }));
+                              syncAo3StructureToText();
+                            }}
+                            placeholder="e.g. Therefore, while both have merit, policy X is the best method because..."
+                            className="text-xs"
+                          />
+                        </div>
+                      </div>
+                    ) : (
+                      /* Standard Large Textarea */
+                      <div className="space-y-1 flex-1 flex flex-col">
+                        <Textarea
+                          ref={textareaRef}
+                          rows={12}
+                          value={studentText}
+                          onChange={(e) => setStudentText(e.target.value)}
+                          onKeyDown={handleKeyDown}
+                          placeholder={`Write your ${meta.title} response here...\nTarget: ${meta.softWords}`}
+                          className="flex-1 min-h-[220px] text-xs leading-relaxed font-sans"
+                        />
+                        <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-1">
+                          <span>
+                            {wordCount} words · {sentenceCount} sentences
+                          </span>
+                          <span className="font-mono text-[10px]">
+                            Ctrl/Cmd + Enter to mark
+                          </span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Submission Notice & Submit Button */}
+                    <div className="space-y-2 pt-2 border-t border-border">
+                      {sentenceCount < 2 && studentText.trim().length > 0 && (
+                        <p className="text-[11px] text-amber-400">
+                          ⚠️ Note: responses under 2 sentences are too short to reach top Cambridge
+                          levels.
+                        </p>
+                      )}
+
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] text-muted-foreground">
+                          Drafts auto-save continuously.
+                        </span>
+
+                        <Button
+                          size="lg"
+                          disabled={markMutation.isPending || studentText.trim().length < 15}
+                          onClick={() => markMutation.mutate()}
+                          className="gap-2 px-6"
+                        >
+                          {markMutation.isPending ? (
+                            <>
+                              <Loader2 className="size-4 animate-spin" />
+                              Marking like an examiner...
+                            </>
+                          ) : (
+                            <>
+                              Mark My Answer
+                              <ArrowRight className="size-4" />
+                            </>
+                          )}
+                        </Button>
+                      </div>
                     </div>
                   </div>
-                </div>
+                )
               )}
             </div>
           </div>
@@ -1671,7 +1935,7 @@ function AoFixerPage() {
             <p className="text-xs text-foreground/90 font-medium pt-1">
               What fixed it:{" "}
               <span className="text-muted-foreground">
-                {currentOutcome.reasonLine || "Resolved all missing analytical links and evaluative caps."}
+                {stripStars(currentOutcome.reasonLine) || "Resolved all missing analytical links and evaluative caps."}
               </span>
             </p>
           </Card>
@@ -1742,7 +2006,7 @@ function AoFixerPage() {
               size="sm"
               onClick={() => {
                 setTimerActive(true);
-                setSecondsRemaining(AO_META[selectedAo].timerSeconds);
+                setSecondsRemaining(meta.timerSeconds);
                 setStudentText("");
                 setStep(2);
               }}

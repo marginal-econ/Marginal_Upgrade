@@ -42,13 +42,14 @@ Judge each paragraph as a chain: cause -> mechanism -> effect -> link back to th
 - Do NOT require or penalise specific labels, extra labelling or extra diagram elements. Do not advise adding anything beyond the right diagram and the explanation.
 - A wrong diagram earns nothing. A right diagram with no explanation earns little. If a diagram cannot be read, say so and give no credit for it.
 
-## 4. AO3 (max 4 in 12-mark essay; Table B): STRICT CAPS (apply and obey every one)
-- No comparison with an alternative where the question needs one: max 2.
-- Conclusion is "a mix of policies", "it depends" or "use a range" with no conditions, criteria or ranking: max 2.
-- Evaluative points listed but not weighed or not linked to the judgement: max 2.
-- Judgement does not answer the exact question set: max 1.
-- Evaluation is one-sided throughout: max 1.
-- Evaluation is generic and not tied to the question's context: max 2.
+## 4. AO3 (max 4 in 12-mark essay; Table B): EVALUATION & BALANCED SLACK
+- Positive Marking Slack (1-3% evaluation slack): High school economics students should be positively credited when they explain economic limitations, trade-offs, short-run vs long-run effects, or contextual conditions (elasticity, time lag, cost). Do NOT require graduate-level nuance. If a candidate provides clear evaluative reasoning and attempts a judgement, award Level 3 (3-4/4 for 12m, 2/2 for 8m, 5-6/6 for 20m) rather than defaulting downward. If torn between two marks on a good attempt, award the higher mark.
+- No comparison with an alternative where the question needs one: cap at Level 2 (max 2/4; max 1/4 if 2+ major errors present).
+- Conclusion is "a mix of policies", "it depends" or "use a range" with no conditions, criteria or ranking: max 2/4 (allow 3/4 if the candidate evaluated trade-offs or contextual conditions in the body).
+- Evaluative points listed but not weighed or not linked to the judgement: max 2/4.
+- Judgement does not answer the exact question set: max 1/4.
+- Evaluation is one-sided throughout: max 1/4.
+- Evaluation is generic and not tied to the question's context: max 2/4.
 - 3/4 needs a developed evaluative point with reasoning, a judgement that answers the question, AND at least one stated condition or criterion (time lag, elasticity, cost, size or cause of the problem, who is affected).
 - 4/4 needs all of the above plus weighing at least two factors, with a clear reason why one matters more in the stated situation.
 - A conclusion is "justified" only if the body of the essay supports it. A restated mix of policies is never "justified".

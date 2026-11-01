@@ -6,6 +6,7 @@ import { requireSupabaseAuth } from "@/integrations/backend/auth-middleware";
 const QuestionAnalysisInput = z.object({
   question: z.string().trim().min(5, "Question is too short.").max(2500),
   topic: z.string().trim().nullable().optional(),
+  tariff: z.number().int().optional().default(12),
 });
 
 export const getQuestionAnalysis = createServerFn({ method: "POST" })
@@ -14,7 +15,7 @@ export const getQuestionAnalysis = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase } = context;
     const { analyzeQuestionForAo } = await import("./examiner/ao-fixer.server");
-    return analyzeQuestionForAo(supabase, data.question, data.topic);
+    return analyzeQuestionForAo(supabase, data.question, data.topic, data.tariff);
   });
 
 const MarkAttemptInput = z.object({
@@ -24,6 +25,7 @@ const MarkAttemptInput = z.object({
   attemptNumber: z.number().int().min(1).default(1),
   previousMark: z.number().int().optional(),
   topic: z.string().trim().nullable().optional(),
+  tariff: z.number().int().optional().default(12),
 });
 
 export const submitAoAttempt = createServerFn({ method: "POST" })
@@ -41,6 +43,7 @@ export const submitAoAttempt = createServerFn({ method: "POST" })
         attemptNumber: data.attemptNumber,
         previousMark: data.previousMark,
         topic: data.topic,
+        tariff: data.tariff,
       });
 
       await supabase.from("ai_usage_log").insert({
