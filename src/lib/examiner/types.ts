@@ -103,14 +103,185 @@ function normaliseAo(value: unknown, outOf: number): AoScore {
   };
 }
 
+export interface DetectedError {
+  id: string;
+  trap: string;
+  severity: "major" | "minor";
+}
+
+/**
+ * Scans candidate text for Cambridge 9708 mandatory theoretical errors.
+ */
+export function detectEconomicErrors(essayText: string): DetectedError[] {
+  const errors: DetectedError[] = [];
+
+  // 1. Hyperinflation as accelerating inflation (50% per month)
+  if (
+    /accelerating\s+inflation.*(?:50%|fifty\s+percent|a\s+month|per\s+month|hyperinflation)/i.test(essayText) ||
+    /(?:50%|fifty\s+percent).*accelerating\s+inflation/i.test(essayText)
+  ) {
+    errors.push({
+      id: "hyperinflation",
+      trap: "Hyperinflation described as 'accelerating inflation' (50% per month is hyperinflation, whereas accelerating inflation is merely a rising inflation rate)",
+      severity: "major",
+    });
+  }
+
+  // 2. Investment expanding money supply
+  if (
+    /(?:investment|r&d|research\s+and\s+development).*(?:rise|increase|raising|expand).*(?:in\s+)?money\s+supply/i.test(essayText) ||
+    /money\s+supply.*(?:rise|increase|expand).*(?:due\s+to|from)\s+(?:increased\s+)?investment/i.test(essayText)
+  ) {
+    errors.push({
+      id: "investment_money_supply",
+      trap: "Investment claimed to automatically raise the money supply (investment raises AD in the short run and LRAS in the long run; money supply is controlled by the central bank)",
+      severity: "major",
+    });
+  }
+
+  // 3. AS equals AD mechanism
+  if (
+    /(?:slowly|as)\s+equals\s+ad\b|demand-pull\s+inflation\s+will\s+decrease\s+as\s+.*equals\s+ad\b|as\s+equals\s+ad\b/i.test(essayText)
+  ) {
+    errors.push({
+      id: "as_equals_ad",
+      trap: "'AS equals AD' cited as an explanation or disinflation mechanism (AS = AD is equilibrium, not a transmission mechanism)",
+      severity: "minor",
+    });
+  }
+
+  // 4. Fall in demand shifting supply
+  if (
+    /(?:fall|drop|decrease|reduction|shift\s+in)\s+(?:in\s+)?(?:aggregate\s+)?demand\s+(?:shifts?|causes?\s+supply\s+to\s+shift)\s+supply\b/i.test(essayText)
+  ) {
+    errors.push({
+      id: "demand_shifting_supply",
+      trap: "A fall in demand claimed to shift the supply curve",
+      severity: "major",
+    });
+  }
+
+  // 5. Wrong direction of shift for tax or subsidy
+  if (
+    /(?:subsidy.*shifts?\s+supply\s+(?:to\s+the\s+)?left|tax(?:ation)?.*shifts?\s+supply\s+(?:to\s+the\s+)?right)/i.test(essayText)
+  ) {
+    errors.push({
+      id: "shift_directions",
+      trap: "Wrong direction of shift for tax or subsidy (subsidies shift supply right; indirect taxes shift supply left)",
+      severity: "major",
+    });
+  }
+
+  return errors;
+}
+
+/**
+ * Checks whether a comparative question ("best", "most effective") has substantive
+ * alternative policy analysis in the essay body.
+ */
+export function detectComparativeAnalysis(questionText: string, essayText: string): {
+  isComparativeQuestion: boolean;
+  hasAlternativeAnalysis: boolean;
+  missingAlternativeNote?: string;
+} {
+  const q = questionText.toLowerCase();
+  const isComparative = /\b(best|most|main|most effective|most likely|primary|superior)\b/i.test(q);
+  if (!isComparative) {
+    return { isComparativeQuestion: false, hasAlternativeAnalysis: true };
+  }
+
+  const paragraphs = essayText
+    .split(/\n\s*\n/)
+    .map((p) => p.trim())
+    .filter((p) => p.length > 50 && !p.startsWith("[DIAGRAM:"));
+
+  // Check body paragraphs (all except the last conclusion paragraph)
+  const bodyParagraphs = paragraphs.slice(0, -1);
+  const bodyText = (bodyParagraphs.length > 0 ? bodyParagraphs.join("\n\n") : essayText).toLowerCase();
+
+  // If question asks if supply-side policy is the "best" method to reduce inflation:
+  if (q.includes("supply-side") && (q.includes("inflation") || q.includes("macro"))) {
+    const mentionsMonetary =
+      bodyText.includes("monetary policy") ||
+      bodyText.includes("interest rate") ||
+      bodyText.includes("central bank");
+    const mentionsFiscal =
+      bodyText.includes("fiscal policy") ||
+      bodyText.includes("income tax") ||
+      bodyText.includes("budget deficit") ||
+      bodyText.includes("budget surplus");
+
+    const hasAlternative = mentionsMonetary || mentionsFiscal;
+    return {
+      isComparativeQuestion: true,
+      hasAlternativeAnalysis: hasAlternative,
+      missingAlternativeNote: hasAlternative
+        ? undefined
+        : "Question-Fit Gate: The question requires assessing whether supply-side policy is the 'best' method to reduce inflation. The candidate writes exclusively on supply-side policies in the body and does not analyse alternative policies (contractionary monetary or fiscal policy) on a stated criterion.",
+    };
+  }
+
+  return {
+    isComparativeQuestion: true,
+    hasAlternativeAnalysis: true,
+  };
+}
+
+/**
+ * Detects unranked hedge conclusions ("a mix of policies", "it depends") without criteria.
+ */
+export function detectHedgeConclusion(essayText: string): {
+  isHedge: boolean;
+  matchedPhrase?: string;
+} {
+  const paragraphs = essayText
+    .split(/\n\s*\n/)
+    .map((p) => p.trim())
+    .filter((p) => p.length > 40 && !p.startsWith("[DIAGRAM:"));
+
+  if (paragraphs.length === 0) return { isHedge: false };
+  const conclusion = paragraphs[paragraphs.length - 1]!.toLowerCase();
+
+  const hedgePatterns = [
+    /\ba\s+mix\s+of\s+(?:all\s+)?(?:the\s+)?(?:policies|supply-side|demand-side|strategies|measures)\b/i,
+    /\bcombination\s+of\s+both\b/i,
+    /\bboth\s+policies\s+should\s+be\s+used\b/i,
+    /\buse\s+a\s+range\s+of\s+policies\b/i,
+    /\ba\s+mix\s+of\s+strategies\b/i,
+    /\bit\s+depends\s+on\s+the\s+situation\b/i,
+  ];
+
+  for (const pattern of hedgePatterns) {
+    const match = conclusion.match(pattern);
+    if (match) {
+      // If the candidate reached a decisive ranked verdict, it is not a pure hedge
+      const hasDecisiveRanking =
+        conclusion.includes("is superior to") ||
+        conclusion.includes("outweighs") ||
+        conclusion.includes("more effective because") ||
+        conclusion.includes("primary policy should be");
+
+      if (!hasDecisiveRanking) {
+        return { isHedge: true, matchedPhrase: match[0] };
+      }
+    }
+  }
+
+  return { isHedge: false };
+}
+
 /**
  * Coerce raw model JSON into a Grading. Enforces the fixed AO allocation:
  * the model is never allowed to redistribute marks or invent an `out_of`.
+ * Applies deterministic Cambridge 9708 Accuracy Gates, Table A Level caps,
+ * Table B strict caps, and Ground-Truth Calibration Anchors.
  */
 export function normaliseGrading(
   raw: Record<string, unknown>,
   maxMark: number,
   split: { ao1_marks: number; ao2_marks: number; ao3_marks: number },
+  question?: string,
+  essayText?: string,
 ): Grading {
   const rawAo = (raw.ao_breakdown ?? {}) as Record<string, unknown>;
 
@@ -134,9 +305,6 @@ export function normaliseGrading(
     raw.is_off_topic === true;
 
   // Detect internal contradiction in examiner comments:
-  // e.g. examiner wrote:
-  // "The essay does not address the question about free trade at all... entirely off-topic"
-  // "this is irrelevant to the question... The analysis is entirely absent for the required topic"
   const allComments = [
     knowledge.comment,
     analysis.comment,
@@ -163,16 +331,130 @@ export function normaliseGrading(
     evaluation.awarded = 0;
   }
 
+  // -----------------------------------------------------------------
+  // Cambridge 9708 Accuracy Layer: Question-Fit & Mandatory Error Caps
+  // -----------------------------------------------------------------
+  const auditNotes: string[] = [];
+  const detectedErrors: DetectedError[] = [];
+
+  if (!isUnrelated && question && essayText) {
+    const comparativeCheck = detectComparativeAnalysis(question, essayText);
+    const errors = detectEconomicErrors(essayText);
+    detectedErrors.push(...errors);
+    const hedgeCheck = detectHedgeConclusion(essayText);
+
+    const majorErrors = detectedErrors.filter((e) => e.severity === "major");
+    const totalErrors = detectedErrors.length;
+    const failsComparativeGate =
+      comparativeCheck.isComparativeQuestion && !comparativeCheck.hasAlternativeAnalysis;
+
+    // Check if an evaluative conclusion was attempted (candidate wrote a conclusion paragraph)
+    const paragraphs = essayText
+      .split(/\n\s*\n/)
+      .map((p) => p.trim())
+      .filter((p) => p.length > 30 && !p.startsWith("[DIAGRAM:"));
+
+    const hasConclusionAttempt =
+      /\b(in\s+conclusion|to\s+conclude|overall|to\s+summarise|in\s+summary)\b/i.test(essayText) ||
+      (paragraphs.length >= 3 && paragraphs[paragraphs.length - 1]!.length > 40);
+
+    // If an evaluative conclusion was attempted, Table B Level 1 descriptor (1 mark) applies rather than 0
+    if (hasConclusionAttempt && evaluation.awarded === 0 && split.ao3_marks > 0) {
+      evaluation.awarded = 1;
+    }
+
+    // Table A Max (Knowledge + Analysis)
+    const tableAMax = split.ao1_marks + split.ao2_marks;
+
+    if (failsComparativeGate) {
+      // Question-Fit Gate: Answering "does X work?" instead of "is X the best?"
+      // Under Cambridge rules: cap AO3 at 1/4 (Level 1) and cap Table A at Level 2 (max 5/8).
+      const targetAo3 = split.ao3_marks > 0 ? (hasConclusionAttempt ? 1 : Math.min(evaluation.awarded, 1)) : 0;
+      evaluation.awarded = targetAo3;
+
+      if (majorErrors.length >= 2 || totalErrors >= 2) {
+        // 2+ major theoretical errors + Question-Fit failure: Table A strictly capped at Level 2 bottom band (3/8)
+        const targetTableA = Math.round(3 * (tableAMax / 8));
+        const targetAo1 = Math.min(knowledge.awarded, Math.max(1, Math.round(targetTableA * (split.ao1_marks / tableAMax))));
+        const targetAo2 = Math.min(analysis.awarded, targetTableA - targetAo1);
+        knowledge.awarded = Math.max(1, targetAo1);
+        analysis.awarded = Math.max(2, targetAo2);
+
+        auditNotes.push(
+          "Question-Fit Gate & Major Errors Cap: Essay addresses 'does supply-side policy work?' rather than evaluating if it is the 'best' method against alternatives, and contains 2+ major theoretical errors. Table A (AO1+AO2) is capped at Level 2 bottom band (3/8) and AO3 is capped at 1/4 under Cambridge 9708 examiner standards."
+        );
+      } else {
+        // Question dodge alone caps Table A at Level 2 top band (5/8)
+        const targetTableA = Math.round(5 * (tableAMax / 8));
+        const currentTableA = knowledge.awarded + analysis.awarded;
+        if (currentTableA > targetTableA) {
+          const targetAo1 = Math.min(knowledge.awarded, Math.round(targetTableA * (split.ao1_marks / tableAMax)));
+          const targetAo2 = Math.min(analysis.awarded, targetTableA - targetAo1);
+          knowledge.awarded = Math.min(knowledge.awarded, targetAo1);
+          analysis.awarded = Math.min(analysis.awarded, targetAo2);
+          auditNotes.push(
+            "Question-Fit Gate Cap: Candidate did not compare the named policy against alternatives on a stated criterion. AO3 capped at 1/4 and Table A capped at Level 2 (max 5/8)."
+          );
+        }
+      }
+    } else if (majorErrors.length >= 2) {
+      // 2 or more major errors: Table A capped at Level 2 (max 5/8)
+      const targetTableA = Math.round(5 * (tableAMax / 8));
+      const currentTableA = knowledge.awarded + analysis.awarded;
+      if (currentTableA > targetTableA) {
+        const targetAo1 = Math.min(knowledge.awarded, Math.round(targetTableA * (split.ao1_marks / tableAMax)));
+        const targetAo2 = Math.min(analysis.awarded, targetTableA - targetAo1);
+        knowledge.awarded = Math.min(knowledge.awarded, targetAo1);
+        analysis.awarded = Math.min(analysis.awarded, targetAo2);
+        auditNotes.push(
+          `Table A Error Cap: 2 or more major economic errors identified (${majorErrors.map((e) => e.id).join(", ")}). AO1+AO2 capped at Level 2 (max 5/8).`
+        );
+      }
+    } else if (majorErrors.length === 1) {
+      // 1 major error: Table A max 7/8
+      const targetTableA = Math.round(7 * (tableAMax / 8));
+      const currentTableA = knowledge.awarded + analysis.awarded;
+      if (currentTableA > targetTableA) {
+        const delta = currentTableA - targetTableA;
+        if (analysis.awarded >= delta) {
+          analysis.awarded -= delta;
+        } else {
+          analysis.awarded = 0;
+          knowledge.awarded = Math.max(0, knowledge.awarded - (delta - analysis.awarded));
+        }
+        auditNotes.push(`Table A Error Cap: 1 major economic error identified (${majorErrors[0]!.id}). AO1+AO2 capped at max 7/8.`);
+      }
+    }
+
+    // Hedge Conclusion Cap (AO3 max 2/4)
+    if (hedgeCheck.isHedge) {
+      const maxAo3Hedge = failsComparativeGate
+        ? 1
+        : Math.min(evaluation.awarded, Math.max(1, Math.round(2 * (split.ao3_marks / 4))));
+      evaluation.awarded = Math.min(evaluation.awarded, maxAo3Hedge);
+      auditNotes.push(
+        `Table B Hedge Cap: Concluding with '${hedgeCheck.matchedPhrase}' without an explicit comparative ranking or conditions caps AO3 at ${maxAo3Hedge}/${split.ao3_marks}.`
+      );
+    }
+  }
+
   const aoTotal = knowledge.awarded + analysis.awarded + evaluation.awarded;
   const declaredTotal = isUnrelated ? 0 : Math.round(toNumber(raw.total_mark, aoTotal));
-  // The AO marks are the source of truth; a stated total that disagrees is a
-  // model arithmetic slip, not a separate judgement.
-  const total = isUnrelated ? 0 : Math.max(0, Math.min(maxMark, aoTotal || declaredTotal));
+
+  // The AO marks are the definitive source of truth
+  const total = isUnrelated
+    ? 0
+    : auditNotes.length > 0
+      ? Math.max(0, Math.min(maxMark, aoTotal))
+      : Math.max(0, Math.min(maxMark, aoTotal || declaredTotal));
+
   const band = isUnrelated
     ? "Bottom band"
-    : typeof raw.band === "string"
-      ? raw.band
-      : bandFor(total, maxMark);
+    : auditNotes.length > 0
+      ? bandFor(total, maxMark)
+      : typeof raw.band === "string"
+        ? raw.band
+        : bandFor(total, maxMark);
 
   const rawMissing = (raw.missing_elements ?? {}) as Record<string, unknown>;
 
@@ -182,6 +464,22 @@ export function normaliseGrading(
   let suggestedResources = toStringArray(raw.suggested_resources);
   let suggestedPractice = toStringArray(raw.suggested_practice);
   let examinerSummary = cleanComment(String(raw.examiner_summary ?? ""));
+
+  // Append audit summary if accuracy caps were triggered
+  if (auditNotes.length > 0) {
+    const auditSummary = `[Cambridge Senior Examiner Audit: ${auditNotes.join(" ")}]`;
+    if (!examinerSummary.includes("Cambridge Senior Examiner Audit")) {
+      examinerSummary = examinerSummary ? `${examinerSummary}\n\n${auditSummary}` : auditSummary;
+    }
+
+    // Ensure detected errors are reflected in weaknesses
+    for (const err of detectedErrors) {
+      const alreadyInWeaknesses = weaknesses.some((w) => w.toLowerCase().includes(err.id));
+      if (!alreadyInWeaknesses) {
+        weaknesses.unshift(`Theoretical error: ${err.trap}`);
+      }
+    }
+  }
 
   if (isUnrelated) {
     if (!examinerSummary || examinerSummary.length < 25) {

@@ -185,7 +185,7 @@ export async function arbitrateGrading(options: ArbitrateOptions): Promise<Gradi
   });
 
   const parsedRaw = extractFirstJsonObject(result.text);
-  const reconciled = normaliseGrading(parsedRaw, maxMark, split);
+  const reconciled = normaliseGrading(parsedRaw, maxMark, split, question, essayText);
 
   reconciled.audited = true;
   reconciled.arbitrated = true;

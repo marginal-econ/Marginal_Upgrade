@@ -270,7 +270,7 @@ export async function gradeEssay(
           ],
         });
 
-  grading = normaliseGrading(extractFirstJsonObject(first.text), maxMark, split);
+  grading = normaliseGrading(extractFirstJsonObject(first.text), maxMark, split, question, essayText);
   if (grading.off_syllabus) {
     throw new OffSyllabusError(
       grading.detected_subject || "another subject",
