@@ -596,18 +596,35 @@ export function normaliseGrading(
     const tableAAuditLine = `Cambridge Senior Examiner Audit: Table A capped at ${targetTableA}${tableADetails}. Table B capped at ${evaluation.awarded}${tableBDetails}. ${questionFitStatus}`;
 
     if (!examinerSummary.includes("Cambridge Senior Examiner Audit")) {
-      const auditSummary = `[${tableAAuditLine}${auditNotes.length > 0 ? ` ${auditNotes.join(" ")}` : ""}]`;
+      const auditSummary = `[${tableAAuditLine}]`;
       examinerSummary = examinerSummary ? `${examinerSummary}\n\n${auditSummary}` : auditSummary;
     }
 
-    // Ensure detected errors are reflected in weaknesses
+    // Ensure detected errors are reflected in weaknesses using plain economics without rule labels or prefixes
     for (const err of detectedErrors) {
-      const alreadyInWeaknesses = weaknesses.some((w) => w.toLowerCase().includes(err.id));
+      const plainError = describeErrorInPlainEconomics(err.id);
+      const alreadyInWeaknesses = weaknesses.some(
+        (w) => w.toLowerCase().includes(plainError.toLowerCase()) || w.toLowerCase().includes(err.id)
+      );
       if (!alreadyInWeaknesses) {
-        weaknesses.unshift(`Theoretical error: ${err.trap}`);
+        weaknesses.unshift(plainError.charAt(0).toUpperCase() + plainError.slice(1) + ".");
       }
     }
   }
+
+  // Sanitize any internal rule labels or legacy prefixes in weaknesses
+  weaknesses = weaknesses.map((w) =>
+    w
+      .replace(/^Theoretical error:\s*/i, "")
+      .replace(/contradictory_statements|contradictory statements/gi, "arguments contradict earlier statements on policy effectiveness")
+      .replace(/wrong_curve_shift/gi, "an indirect tax shifts supply, not demand")
+      .replace(/inelastic_tax_consumption/gi, "inelastic demand makes a tax less effective at reducing consumption")
+      .replace(/unsupported_absolutes/gi, "unsupported claims that a policy ensures or completely corrects an outcome")
+      .replace(/demand_shifting_supply/gi, "a change in demand shifts demand, not supply")
+      .replace(/as_equals_ad/gi, "equilibrium AS=AD cited as a causal mechanism")
+      .replace(/investment_money_supply/gi, "investment claimed to automatically increase the money supply")
+      .replace(/shift_directions/gi, "wrong direction of curve shift")
+  );
 
   // Consistency Rules:
   // 1. Any point listed as an error must NOT appear in strengths (What worked)

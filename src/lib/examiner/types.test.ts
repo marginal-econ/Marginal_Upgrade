@@ -159,7 +159,7 @@ In conclusion a mix of all the supply-side policies along with the implementatio
     expect(normalised.ao_breakdown.evaluation.awarded).toBe(1);
     expect(normalised.band).toBe("Bottom band");
     expect(normalised.examiner_summary).toContain("Cambridge Senior Examiner Audit");
-    expect(normalised.examiner_summary).toContain("Question-Fit Gate");
+    expect(normalised.examiner_summary).toContain("Question-fit: failed.");
   });
 
   it("detects Cambridge theoretical error traps correctly", () => {
@@ -249,7 +249,6 @@ In conclusion a mix of all the supply-side policies along with the implementatio
       // 2 major errors: Table A capped at max 5/8
       expect(res.ao_breakdown.knowledge.awarded + res.ao_breakdown.analysis.awarded).toBeLessThanOrEqual(5);
       expect(res.examiner_summary).toContain("Cambridge Senior Examiner Audit: Table A capped at 5");
-      expect(res.examiner_summary).toContain("5/8");
     });
 
     it("caps Table A at max 4/8 for 3+ major errors", () => {
@@ -273,7 +272,7 @@ In conclusion a mix of all the supply-side policies along with the implementatio
       const res = normaliseGrading(raw, 12, split, question, essay);
       // 3 major errors: Table A capped at max 4/8
       expect(res.ao_breakdown.knowledge.awarded + res.ao_breakdown.analysis.awarded).toBeLessThanOrEqual(4);
-      expect(res.examiner_summary).toContain("4/8");
+      expect(res.examiner_summary).toContain("Cambridge Senior Examiner Audit: Table A capped at 4");
     });
 
     it("caps Table A at max 4/8 for 1 major error plus failed question-fit", () => {
