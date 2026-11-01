@@ -439,15 +439,11 @@ export function normaliseGrading(
       }
     }
 
-    // Hedge Conclusion Cap (AO3 max 2/4 with balanced slack for detailed evaluations)
+    // Hedge Conclusion Cap (AO3 strictly capped at max 2/4; max 1/4 if comparative gate failed)
     if (hedgeCheck.isHedge) {
-      const hasEvaluativeDepth =
-        paragraphs.length >= 3 &&
-        /\b(elasticity|time lag|short-run|short run|long-run|long run|opportunity cost|magnitude|stakeholder)\b/i.test(essayText);
-      const allowedHedgeBase = hasEvaluativeDepth && !failsComparativeGate ? 3 : 2;
       const maxAo3Hedge = failsComparativeGate
-        ? (majorErrors.length >= 2 ? 1 : Math.min(evaluation.awarded, Math.max(1, Math.round(2 * (split.ao3_marks / 4)))))
-        : Math.min(evaluation.awarded, Math.max(1, Math.round(allowedHedgeBase * (split.ao3_marks / 4))));
+        ? 1
+        : Math.min(evaluation.awarded, Math.max(1, Math.round(2 * (split.ao3_marks / 4))));
       evaluation.awarded = Math.min(evaluation.awarded, maxAo3Hedge);
       auditNotes.push(
         `Table B Hedge Cap: Concluding with '${hedgeCheck.matchedPhrase}' without an explicit comparative ranking or conditions caps AO3 at ${maxAo3Hedge}/${split.ao3_marks}.`

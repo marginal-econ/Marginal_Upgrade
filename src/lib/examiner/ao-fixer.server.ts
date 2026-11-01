@@ -473,17 +473,15 @@ ${
 }
 - Major errors (e.g. demand shifting supply, investment automatically raising money supply, wrong shift directions): 1 major error caps AO2.`
     : `AO3 Evaluation (strictly out of ${maxMark} marks):
-- POSITIVE MARKING SLACK (1-3% SLACK):
-  * Reward genuine economic evaluation: limitations, trade-offs, conditions (time frame, elasticity, magnitude), and reasoned conclusion.
-  * If a candidate makes reasoned evaluative trade-offs and reaches an analytical conclusion, award top marks (Level 3: ${
-    maxMark === 2 ? "2/2" : maxMark === 6 ? "5-6/6" : "3-4/4"
-  }) rather than defaulting downward.
-  * If torn between two evaluation marks on a good attempt, award the higher mark.
+- STRICT CAMBRIDGE EXAMINER STANDARD (MAX HARSHNESS):
+  * Start from the bottom of the level the evidence clearly supports and move up only for specific, quoted evidence. If torn between two marks, always give the lower mark.
+  * Fluent writing, confident tone, and essay length earn 0 evaluation credit without rigorous economic evaluation.
 - AO3 Caps:
-  * No comparison with alternative when question requires it ('${cmd.commandWord}'): max ${Math.round(maxMark * 0.5)}/${maxMark} unless reasoned trade-offs are developed.
-  * Conclusion is an unranked hedge ('mix of policies', 'it depends') without conditions: max ${Math.round(maxMark * 0.5)}/${maxMark} (allow Level 3 if detailed limitations were examined).
+  * No comparison with alternative when question requires it ('${cmd.commandWord}'): strictly cap at max ${Math.round(maxMark * 0.5)}/${maxMark} (max 1/${maxMark} if answering 'does it work?' instead of 'is it the best?').
+  * Conclusion is an unranked hedge ('mix of policies', 'it depends', 'use a combination') without conditions or criteria: strictly cap at max ${Math.round(maxMark * 0.5)}/${maxMark}.
   * Judgement completely dodges exact question set: max 1/${maxMark}.
-  * Purely one-sided evaluation throughout: max 1/${maxMark}.`
+  * Purely one-sided evaluation throughout: max 1/${maxMark}.
+  * Evaluative points listed but not weighed: max ${Math.round(maxMark * 0.5)}/${maxMark}.`
 }
 
 RESPONSE CONTRACT:
@@ -560,18 +558,13 @@ SILENT CHECKS BEFORE FINALISING:
   const parsed = extractFirstJsonObject(res.text) as any;
   let awardedMark = typeof parsed.mark === "number" ? Math.min(maxMark, Math.max(0, Math.round(parsed.mark))) : 0;
 
-  // Enforce caps deterministically with balanced slack
+  // Enforce caps deterministically with maximum harshness (zero slack)
   const activeCaps = Array.isArray(parsed.activeCapIds) ? parsed.activeCapIds : [];
   if (ao === "ao3") {
-    // If candidate wrote substantive evaluative reasoning with conditions, allow Level 3 lower band with slack
-    const wordCount = studentText.trim().split(/\s+/).filter(Boolean).length;
-    const hasDetailedPoints = wordCount >= 50 && (parsed.ao3Checklist?.limitationChecked || parsed.ao3Checklist?.conditionChecked);
-
     if (activeCaps.includes("wrong_question_judgement") || activeCaps.includes("one_sided_evaluation")) {
       awardedMark = Math.min(awardedMark, 1);
     } else if (activeCaps.includes("no_comparison") || activeCaps.includes("hedge_conclusion") || activeCaps.includes("unweighed_listing") || activeCaps.includes("generic_evaluation")) {
-      const capThreshold = hasDetailedPoints ? Math.min(maxMark, Math.max(2, Math.round(maxMark * 0.75))) : Math.min(maxMark, Math.round(maxMark * 0.5));
-      awardedMark = Math.min(awardedMark, capThreshold);
+      awardedMark = Math.min(awardedMark, Math.round(maxMark * 0.5));
     }
   }
 
