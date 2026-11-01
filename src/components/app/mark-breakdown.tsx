@@ -195,9 +195,15 @@ export function MarkBreakdown({
                 <Clock className="size-3" /> Graded in {Math.round(grading.latencyMs / 1000)}s
               </Badge>
             ) : null}
-            <span className="rounded-full bg-muted/60 px-2 py-0.5 text-xs text-muted-foreground tabular-nums">
-              {Math.round(grading.confidence * 100)}% examiner confidence
-            </span>
+            {grading.mark_range ? (
+              <span className="rounded-full bg-muted/60 px-2.5 py-0.5 text-xs text-muted-foreground font-medium">
+                Mark range: {grading.mark_range[0]}–{grading.mark_range[1]} ({grading.confidence_rating || (grading.confidence >= 0.85 ? "High" : grading.confidence >= 0.65 ? "Medium" : "Low")} confidence)
+              </span>
+            ) : (
+              <span className="rounded-full bg-muted/60 px-2.5 py-0.5 text-xs text-muted-foreground font-medium">
+                {grading.confidence_rating || (grading.confidence >= 0.85 ? "High" : grading.confidence >= 0.65 ? "Medium" : "Low")} confidence
+              </span>
+            )}
             <Badge
               variant="outline"
               className="border-primary/30 bg-primary/5 text-primary text-[10px] font-medium gap-1"

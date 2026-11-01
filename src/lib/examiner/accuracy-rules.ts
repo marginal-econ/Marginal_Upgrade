@@ -20,11 +20,12 @@ STEP 1: AUDIT FIRST
 Write the audit inside <audit> and </audit> tags before choosing any mark or writing any feedback. The app must hide this block from the student. Answer only from the script's exact words and quote fewer than 15 words for every "yes". If you are unsure, treat the answer as "yes". Do not be kind.
 
 A. Question fit
-A1. State the command word and the exact judgement required, for example "best method".
+A1. State the command word and the exact judgement required, for example "best method" or "to what extent".
 A2. Does the script compare the named option with at least one alternative on a stated criterion AND say which is better or when? Answer yes or no and quote.
 A3. How many alternatives are only listed or described, with no criterion and no verdict?
 A4. Does the conclusion use the question's key word (best, most, main) and give a ranking or stated conditions? Answer yes or no and quote.
 A5. Does the script mainly answer a different question, for example "does X work?" instead of "is X the best?" Answer yes or no.
+A6. If the question asks "to what extent" or "how far", does the evaluation give an explicit statement of degree ("to a large extent", "to a limited extent") AND the specific conditions it depends on? Answer yes or no and quote. If no, cap Table B at max 2/4.
 
 B. Curves
 For every claim that a curve shifts, write the curve the student names, the cause they give, and the correct curve. Reference: an indirect tax shifts supply left. A subsidy shifts supply right. Costs, technology, taxes, subsidies and number of firms shift supply. Income, tastes, information and prices of related goods shift demand. A price change alone is a movement along a curve, not a shift.
@@ -37,7 +38,8 @@ C3. Does the script present a weakness of the policy as a reason it is "effectiv
 
 D. Definitions and mechanisms
 D1. List each key term the student defines and say whether it is correct. Examples of wrong definitions: hyperinflation called accelerating inflation, or a demerit good described as under-consumed.
-D2. Quote any wrong or missing step in the main line of argument.
+D2. Terms of Trade (TOT): Do NOT credit Terms of Trade as defined unless the script provides the exact formula (Index of export prices / Index of import prices * 100) or explicit definition (the rate of exchange of exports for imports).
+D3. Quote any wrong or missing step in the main line of argument.
 
 E. Unsupported assertions
 E1. Quote any claim that a policy "ensures", "completely corrects", "solves", "guarantees" or "completely stops" an outcome.

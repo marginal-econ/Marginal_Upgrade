@@ -302,5 +302,83 @@ In conclusion a mix of all the supply-side policies along with the implementatio
       // Consistency rule: "solid" sanitized to "developing"
       expect(res.strengths.some((s) => s.includes("Solid"))).toBe(false);
     });
+
+    it("enforces strict Demerit-Goods run calibration: 3 major errors, revenue/growth filtered, invented stats and rule labels sanitized", () => {
+      const question = "Discuss whether indirect taxes are the best policy to reduce consumption of demerit goods.";
+      const essay = `
+        An indirect tax causes the demand curve to shift left.
+        Furthermore, because demand is inelastic, the tax is very effective at reducing consumption.
+        The government intervention ensures that all negative externalities are completely solved.
+        Additionally, taxes raise government revenue which boosts economic growth.
+        However, taxes might create black markets. Overall, taxes work best.
+      `;
+      const raw = {
+        total_mark: 6,
+        ao_breakdown: {
+          knowledge: { awarded: 2, out_of: 2 },
+          analysis: { awarded: 3, out_of: 6 },
+          evaluation: { awarded: 1, out_of: 4 },
+        },
+        strengths: [
+          "Good explanation of how tax raises government revenue and supports economic growth",
+          "Clear definition of demerit goods",
+        ],
+        weaknesses: [
+          "Contradicts script's earlier statement on policy effectiveness",
+          "Includes invented stats like reducing youth smoking by 12%",
+          "Must add a deadweight loss diagram",
+        ],
+        actionable_feedback: [
+          "Explain why tax reduces smoking by 12% in the UK",
+        ],
+      };
+
+      const res = normaliseGrading(raw, 12, split, question, essay);
+      // Table A MUST be capped at 4 or lower (with failed question fit, 3)
+      expect(res.ao_breakdown.knowledge.awarded + res.ao_breakdown.analysis.awarded).toBeLessThanOrEqual(4);
+      // Strengths must NOT praise government revenue or economic growth in a consumption reduction essay
+      expect(res.strengths.some((s) => s.toLowerCase().includes("government revenue"))).toBe(false);
+      expect(res.strengths.some((s) => s.toLowerCase().includes("economic growth"))).toBe(false);
+      // Weaknesses must not have leftover protocol rule labels
+      expect(res.weaknesses.some((w) => w.includes("contradicts script's earlier statement"))).toBe(false);
+      // Invented statistics like "by 12%" and deadweight loss mandates must be sanitized
+      expect(res.weaknesses.some((w) => w.includes("by 12%"))).toBe(false);
+      expect(res.weaknesses.some((w) => w.includes("deadweight loss"))).toBe(false);
+      expect(res.examiner_summary).toMatch(/Cambridge Senior Examiner Audit: Table A capped at [34]/);
+    });
+
+    it("always generates an audit line for clean essays and avoids AO3 praise when AO3 is weak", () => {
+      const question = "To what extent does free trade benefit developing economies?";
+      const essay = `
+        Free trade refers to international commerce without artificial barriers such as tariffs, quotas, or exchange controls.
+        Firstly, free trade allows developing economies to specialize according to comparative advantage, allocating resources to sectors where opportunity cost is lowest.
+        Lower input costs shift the domestic supply curve outwards to the right, which increases real gross domestic product and lowers domestic price pressures.
+        Secondly, domestic consumers gain access to a wider variety of manufactured goods and technological capital at lower prevailing world prices.
+        Furthermore, exposure to global competition incentivizes domestic export firms to achieve technical and managerial efficiencies.
+        However, developing economies may experience structural unemployment if uncompetitive domestic industries contract under foreign competition.
+        Additionally, infant industries in strategic manufacturing sectors may require temporary protection before achieving internal economies of scale to compete globally.
+        In conclusion, free trade brings significant static and dynamic efficiency benefits to developing economies, but the overall extent of these gains depends heavily on the economy's factor endowments, infrastructure quality, and complementary government investments in worker retraining and human capital.
+      `;
+      const raw = {
+        total_mark: 8,
+        ao_breakdown: {
+          knowledge: { awarded: 2, out_of: 2 },
+          analysis: { awarded: 4, out_of: 6 },
+          evaluation: { awarded: 2, out_of: 4 },
+        },
+        strengths: [],
+        weaknesses: [],
+      };
+
+      const res = normaliseGrading(raw, 12, split, question, essay);
+      // Audit line must ALWAYS be present in examiner summary
+      expect(res.examiner_summary).toContain("Cambridge Senior Examiner Audit: Table A: 0 major errors (uncapped, 6/8)");
+      // Fallback strength must NOT praise AO3 since AO3 is <= 2
+      expect(res.strengths.some((s) => s.includes("AO3"))).toBe(false);
+      // Fallback weakness must NOT demand "concrete context"
+      expect(res.weaknesses.some((w) => w.includes("Substantiating theoretical arguments with concrete context"))).toBe(false);
+      // Weakness should mention that "to what extent" requires a stated degree
+      expect(res.weaknesses.some((w) => w.includes("to what extent"))).toBe(true);
+    });
   });
 });
