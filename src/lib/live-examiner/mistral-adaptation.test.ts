@@ -76,6 +76,6 @@ describe("Mistral Adaptation & Live Examiner Polish", () => {
   });
 
   it("verifies TEMPERATURE_EXAMINER matches essay grader", () => {
-    expect(TEMPERATURE_EXAMINER).toBe(0.35);
+    expect(TEMPERATURE_EXAMINER).toBe(0.15);
   });
 });
