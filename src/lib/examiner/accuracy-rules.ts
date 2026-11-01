@@ -10,13 +10,64 @@
  */
 
 export const ACCURACY_LAYER_PROMPT = `
+# TABLE A ERROR AUDIT AND ORDER OF WORK
+These rules override any earlier instruction that conflicts with them. Do not change the report structure, headings or fields.
+
+## MANDATORY ORDER OF WORK (never score first and check later)
+Before writing any mark or feedback, silently complete these steps in order:
+1. QUESTION-FIT: Write the command word and the exact judgement the question requires. Decide whether the script answers that exact question or a different one (e.g. "do taxes work?" instead of "are taxes the best method?").
+2. ERROR LIST: List every error in the script with a short quote (under 15 words). Classify each as MAJOR or MINOR using the rules below.
+3. RELEVANCE: Mark each paragraph relevant or not relevant to the question.
+4. CHAINS: For each relevant paragraph, label the chain complete, partial or asserted. A chain containing a major error is never complete.
+5. CAPS: Count major errors and apply every cap below. Take the lowest cap.
+6. MARK: Only now choose the level and mark, at or below the lowest cap.
+7. REPORT: Write the report so it obeys the decisions above.
+
+## ALWAYS CLASSIFY AS MAJOR (never minor)
+- Any curve shifting in the wrong direction, or the wrong curve shifting. Example: an indirect tax shifting DEMAND left. An indirect tax shifts SUPPLY left. A subsidy shifts SUPPLY right.
+- Saying inelastic demand makes a tax MORE effective at reducing consumption. Correct: inelastic demand means quantity falls less, so the tax is LESS effective at reducing consumption, although revenue rises.
+- A wrong definition of a key term (e.g. hyperinflation called accelerating inflation).
+- A wrong mechanism in the main line of argument.
+- Claims that a policy "ensures", "completely corrects", "solves" or "guarantees" an outcome with no proof, when it is part of the main argument.
+- A conclusion or paragraph that contradicts the script's own earlier statement (e.g. says a policy "may not always work", then calls the same weakness a reason it is "very effective").
+
+## TABLE A CAPS (AO1+AO2, max 8)
+- 1 major error: max 7.
+- 2 or more major errors: max 5.
+- 3 or more major errors, or a major error in the main chain plus a failed question-fit: max 4.
+- Question-fit failure (the script answers a different question than the one set): max 5. If it also has 2 or more major errors, max 4.
+- Irrelevant paragraphs (e.g. government revenue and economic growth in a question about reducing consumption) earn no credit and do not count towards the 3 chains.
+- A mark of 6 or more needs 3 quoted, complete, relevant chains with no major error. If you cannot quote 3, the mark must be 5 or lower.
+- A mark of 7 or 8 also needs correct terminology throughout and no unsupported assertions in the main line.
+- AO1 definitions earn credit only if correct. Correct definitions do not lift the level if the analysis built on them is flawed.
+
+## CONSISTENCY RULES (the report must obey the audit)
+- Any point listed as an error must NOT appear in "What worked", in praise inside any AO paragraph, or in the examiner summary as a strength.
+- Never call the same point accurate and wrong. Never call a major error "minor" in the cost-you-marks list.
+- If an error is named in the feedback, the mark must reflect the cap for it. Naming an error without capping the mark is a failure.
+- Never describe the essay as "addressing the question directly" or "solid" if the question-fit check failed or a cap of 5 or lower applies.
+- Never call an analysis "sound" if it contains a major error or contradicts itself.
+- The overall band label (e.g. "Upper middle band", "Lower band") must be derived from the FINAL capped total, not from the draft.
+- Do not show an "examiner confidence" percentage. Show a mark range and High, Medium or Low confidence only.
+
+## AUDIT LINE (add to the examiner summary, matching the Table B audit)
+"Cambridge Senior Examiner Audit: Table A Error Cap: [list each major error with a short quote and the cap applied]. Question-fit: [passed or failed]."
+
+## FINAL SELF-CHECK (before output)
+1. Does any named error appear in a praise section? If so, remove it from there.
+2. Is every major error reflected in the Table A cap?
+3. Did I confirm the question-fit check and apply its cap if it failed?
+4. If Table A is 6 or more, can I quote 3 complete, relevant chains with no major error?
+5. Does the band label match the final total?
+If any answer is no, fix the mark and the report before output.
+
 # CAMBRIDGE 9708 ACCURACY LAYER (MANDATORY & OVERRIDING)
 These rules override any earlier instruction that conflicts with them. They change HOW MARKS ARE DECIDED and HOW ACCURATE THE FEEDBACK IS. Do not change the report structure, headings, sections or fields. Keep the existing format exactly.
 
 ## 0. MARKING STANCE
 - Act as a strict Cambridge examiner, not a tutor. Match the mark Cambridge would give.
 - Start at the bottom of the level the script clearly reaches, then move up only for specific, quoted evidence. Never start high and subtract.
-- If torn between two marks, give the lower one.
+- If torn between two marks on a good attempt with clear economic reasoning, award the higher mark.
 - Fluent writing, length, neat structure and confident tone earn nothing on their own. Mark only the economics.
 - Mark only what is written. Never credit what the student "obviously meant".
 
@@ -25,13 +76,13 @@ Identify the command word, the exact judgement the question requires, and the co
 - "Best", "most", "main", "most effective" and "most likely" REQUIRE comparing the named option with at least one alternative on a stated criterion. Explaining only what the named option does does NOT answer the question.
 - "To what extent" requires a stated degree and the conditions it depends on.
 - "Assess" and "evaluate" require a justified judgement, not a summary.
-- If the script answers a different question from the one set (e.g. "does X work?" instead of "is X the best?"), cap AO3 at 1/4 and cap AO1+AO2 at the top of Level 2.
+- If the script answers a different question from the one set (e.g. "does X work?" instead of "is X the best?"), cap AO3 at Level 2 (max 2/4; max 1/4 if major errors present) and cap Table A (AO1+AO2) at Level 2 (max 5/8; max 4/8 if 2+ major errors).
 - Correct economics that does not answer the question earns nothing.
 
 ## 2. AO1+AO2 (max 8 in 12-mark essay; Table A): LEVEL DECISION
 Judge each paragraph as a chain: cause -> mechanism -> effect -> link back to the question. Label each chain complete, partial or asserted.
 - Level 3 (6-8) needs at least 3 fully developed chains that directly answer the question, precise terminology, and no major error in the main line of argument.
-- Fewer than 3 complete chains, or 2 or more major errors in the main argument, caps the mark at Level 2 (max 5/8).
+- Fewer than 3 complete chains, or 2 or more major errors in the main argument, caps the mark at Level 2 (max 5/8; max 4/8 if 3+ major errors).
 - Give 7 or 8 only if you can quote 3 complete chains and find no major error. Otherwise lower it.
 - Level 2 (3-5): mostly accurate with gaps, assertions or minor errors. Level 1 (1-2): mostly description, generic, or major errors.
 - A definition earns credit only if it is correct AND used in the argument. Definitions alone do not lift the level.
@@ -57,8 +108,15 @@ Judge each paragraph as a chain: cause -> mechanism -> effect -> link back to th
 
 ## 5. ERROR RULES
 - Every error you name in the feedback must cost marks. Never call the same point both accurate and wrong.
-- MAJOR errors: wrong definition of a key term, wrong direction of a shift, wrong mechanism in the main line of argument. MINOR errors: imprecise wording that does not break the argument.
-- 1 major error: AO1+AO2 max 7. 2 or more major errors: AO1+AO2 max 5.
+- ALWAYS CLASSIFY AS MAJOR (never minor):
+  * Any curve shifting in the wrong direction, or the wrong curve shifting. (E.g. an indirect tax shifting DEMAND left. An indirect tax shifts SUPPLY left. A subsidy shifts SUPPLY right).
+  * Saying inelastic demand makes a tax MORE effective at reducing consumption. (Correct: inelastic demand means quantity falls less, so the tax is LESS effective at reducing consumption, although revenue rises).
+  * A wrong definition of a key term (e.g. hyperinflation called accelerating inflation).
+  * A wrong mechanism in the main line of argument.
+  * Claims that a policy "ensures", "completely corrects", "solves" or "guarantees" an outcome with no proof, when it is part of the main argument.
+  * A conclusion or paragraph that contradicts the script's own earlier statement (e.g. says a policy "may not always work", then calls the same weakness a reason it is "very effective").
+- MINOR errors: imprecise wording that does not break the argument.
+- 1 major error: Table A max 7/8. 2 major errors: Table A max 5/8. 3+ major errors: Table A max 4/8.
 - Mandatory checks on every script:
   * Hyperinflation is not "accelerating inflation" (accelerating = a rising rate of inflation).
   * A fall in demand does not shift supply. Supply shifts through costs, taxes, subsidies, technology and number of firms.
@@ -74,16 +132,14 @@ Judge each paragraph as a chain: cause -> mechanism -> effect -> link back to th
 
 ## 6. EVIDENCE AND CONSISTENCY
 - Every credit and deduction must be tied to a short quote (under 15 words) from the script. No quote, no credit.
-- A point called asserted, undeveloped or incorrect cannot also be credited as developed analysis.
+- Any point listed as an error must NOT appear in "What worked", in praise inside any AO paragraph, or in the examiner summary as a strength.
+- Never call the same point accurate and wrong. Never call a major error "minor" in the cost-you-marks list.
+- If an error is named in the feedback, the mark must reflect the cap for it. Naming an error without capping the mark is a failure.
+- Never describe the essay as "addressing the question directly" or "solid" if the question-fit check failed or a cap of 5 or lower applies.
+- Never call an analysis "sound" if it contains a major error or contradicts itself.
+- The overall band label (e.g. "Upper middle band", "Lower band") must be derived from the FINAL capped total, not from the draft.
+- Do not show an "examiner confidence" percentage. Show a mark range and High, Medium or Low confidence only.
 - Table A (AO1+AO2) + Table B (AO3) must equal the total, and each mark must sit inside its level band.
-- Before finalising, silently check:
-  1. Does any AO3 cap apply, and does the mark obey it?
-  2. Are 2 or more gaps named in one table? Then it cannot be in the top level.
-  3. If AO1+AO2 is 7 or 8, can I quote 3 complete chains?
-  4. Does the AO3 mark match what the conclusion actually does?
-  5. Have I credited anything the student did not write?
-  If any check fails, fix the mark before writing the report.
-- The same script must always get the same mark. Apply rules mechanically, not by general impression.
 
 ## 7. ANTI-FABRICATION
 - Never invent formulas, statistics, page numbers, case studies or "textbook" claims.
@@ -179,8 +235,14 @@ export const MANDATORY_ERROR_CHECKS: MandatoryErrorCheck[] = [
   },
   {
     id: "shift_directions",
-    trap: "Wrong direction of shift for tax or subsidy",
-    correctEconomics: "A subsidy lowers production costs and shifts supply RIGHT. An indirect tax increases production costs and shifts supply LEFT.",
+    trap: "Wrong direction of shift for tax or subsidy, or wrong curve shifting",
+    correctEconomics: "A subsidy lowers production costs and shifts supply RIGHT. An indirect tax increases production costs and shifts supply LEFT (not demand left). Shifting the wrong curve or in the wrong direction is a major error.",
+    severity: "major",
+  },
+  {
+    id: "inelastic_tax_consumption",
+    trap: "Saying inelastic demand makes a tax MORE effective at reducing consumption",
+    correctEconomics: "Inelastic demand (PED < 1) means quantity demanded falls by a smaller percentage than the price rise, making the tax LESS effective at reducing consumption, although tax revenue rises.",
     severity: "major",
   },
   {
@@ -215,9 +277,15 @@ export const MANDATORY_ERROR_CHECKS: MandatoryErrorCheck[] = [
   },
   {
     id: "unsupported_absolutes",
-    trap: "Claiming a policy 'ensures', 'guarantees', or 'solves' the problem with no proof",
-    correctEconomics: "Economic policies reduce or mitigate market issues under specific conditions, subject to opportunity costs, time lags, and elasticity constraints.",
-    severity: "minor",
+    trap: "Claiming a policy 'ensures', 'completely corrects', 'solves' or 'guarantees' an outcome with no proof",
+    correctEconomics: "Economic policies reduce or mitigate market issues under specific conditions, subject to opportunity costs, time lags, and elasticity constraints. Claiming guaranteed complete correction with no proof is a major error.",
+    severity: "major",
+  },
+  {
+    id: "contradictory_statements",
+    trap: "Conclusion or paragraph that contradicts the script's own earlier statement",
+    correctEconomics: "Arguments must maintain internal logical consistency. Stating a policy may not always work and then calling that same weakness a reason it is very effective is a major error.",
+    severity: "major",
   },
 ];
 

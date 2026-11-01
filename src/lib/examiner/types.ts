@@ -36,6 +36,8 @@ export type Grading = {
   suggested_resources: string[];
   suggested_practice: string[];
   confidence: number;
+  confidence_rating?: "High" | "Medium" | "Low";
+  mark_range?: [number, number];
   audited: boolean;
   arbitrated?: boolean;
   arbitrationNotes?: string;
@@ -172,6 +174,53 @@ export function detectEconomicErrors(essayText: string): DetectedError[] {
     });
   }
 
+  // 6. Inelastic demand claimed to make tax more effective at reducing consumption
+  if (
+    /(?:inelastic\s+demand.*(?:more|very|highly)\s+effective\s+(?:at|in)\s+reducing\s+consumption|tax.*(?:more|very|highly)\s+effective\s+(?:at|in)\s+reducing\s+consumption.*(?:when|because)\s+demand\s+is\s+(?:price\s+)?inelastic)/i.test(essayText) ||
+    /inelastic\s+demand.*tax\s+(?:is\s+)?more\s+effective/i.test(essayText)
+  ) {
+    errors.push({
+      id: "inelastic_tax_consumption",
+      trap: "Saying inelastic demand makes a tax MORE effective at reducing consumption (inelastic demand means quantity falls less, so the tax is LESS effective at reducing consumption, although revenue rises)",
+      severity: "major",
+    });
+  }
+
+  // 7. Wrong curve shifting (e.g. indirect tax shifting demand left)
+  if (
+    /(?:indirect\s+tax|taxation|a\s+tax)\s+(?:will\s+)?(?:shifts?|causes?\s+demand\s+to\s+shift)\s+(?:the\s+)?demand\s+(?:curve\s+)?(?:to\s+the\s+)?left/i.test(essayText) ||
+    /(?:shifts?\s+(?:the\s+)?demand\s+(?:curve\s+)?(?:to\s+the\s+)?left.*(?:due\s+to|from|because\s+of)\s+(?:an?\s+)?(?:indirect\s+)?tax)/i.test(essayText)
+  ) {
+    errors.push({
+      id: "wrong_curve_shift",
+      trap: "An indirect tax claimed to shift DEMAND left (an indirect tax shifts SUPPLY left)",
+      severity: "major",
+    });
+  }
+
+  // 8. Policy claimed to completely guarantee or solve outcome without proof
+  if (
+    /\b(?:policy|tax|subsidy|intervention|measure)\s+(?:completely\s+)?(?:ensures|guarantees|completely\s+corrects|solves)\s+(?:the\s+problem|market\s+failure|inflation|consumption)\b/i.test(essayText)
+  ) {
+    errors.push({
+      id: "unsupported_absolutes",
+      trap: "Claims that a policy 'ensures', 'completely corrects', 'solves' or 'guarantees' an outcome with no proof in the main argument",
+      severity: "major",
+    });
+  }
+
+  // 9. Contradictory statements
+  if (
+    /(?:may\s+not\s+(?:always\s+)?work|is\s+ineffective|limited\s+effectiveness).*very\s+effective/i.test(essayText) &&
+    /because|as\s+a\s+reason/i.test(essayText)
+  ) {
+    errors.push({
+      id: "contradictory_statements",
+      trap: "A conclusion or paragraph that contradicts the script's own earlier statement regarding policy effectiveness",
+      severity: "major",
+    });
+  }
+
   return errors;
 }
 
@@ -218,6 +267,28 @@ export function detectComparativeAnalysis(questionText: string, essayText: strin
       missingAlternativeNote: hasAlternative
         ? undefined
         : "Question-Fit Gate: The question requires assessing whether supply-side policy is the 'best' method to reduce inflation. The candidate writes exclusively on supply-side policies in the body and does not analyse alternative policies (contractionary monetary or fiscal policy) on a stated criterion.",
+    };
+  }
+
+  // If question asks if indirect taxation/subsidy is the "best" or "most effective" method to tackle demerit goods / market failure / consumption:
+  if ((q.includes("tax") || q.includes("taxation")) && (q.includes("demerit") || q.includes("market failure") || q.includes("consumption") || q.includes("pollution"))) {
+    const mentionsAlternatives =
+      bodyText.includes("regulation") ||
+      bodyText.includes("ban") ||
+      bodyText.includes("education") ||
+      bodyText.includes("information") ||
+      bodyText.includes("campaign") ||
+      bodyText.includes("nudge") ||
+      bodyText.includes("subsidy") ||
+      bodyText.includes("subsidies") ||
+      bodyText.includes("minimum price") ||
+      bodyText.includes("tradable permit");
+    return {
+      isComparativeQuestion: true,
+      hasAlternativeAnalysis: mentionsAlternatives,
+      missingAlternativeNote: mentionsAlternatives
+        ? undefined
+        : "Question-Fit Gate: The question requires assessing whether indirect taxation is the 'best' or 'most effective' method. The candidate does not compare taxation against alternative policies (e.g. regulation, education campaigns, minimum prices) on a stated criterion.",
     };
   }
 
@@ -342,6 +413,11 @@ export function normaliseGrading(
   // -----------------------------------------------------------------
   const auditNotes: string[] = [];
   const detectedErrors: DetectedError[] = [];
+  let majorErrors: DetectedError[] = [];
+  let failsComparativeGate = false;
+  const tableAMax = split.ao1_marks + split.ao2_marks;
+  let targetTableABase = 8;
+  let targetTableA = tableAMax;
 
   if (!isUnrelated && question && essayText) {
     const comparativeCheck = detectComparativeAnalysis(question, essayText);
@@ -349,9 +425,9 @@ export function normaliseGrading(
     detectedErrors.push(...errors);
     const hedgeCheck = detectHedgeConclusion(essayText);
 
-    const majorErrors = detectedErrors.filter((e) => e.severity === "major");
+    majorErrors = detectedErrors.filter((e) => e.severity === "major");
     const totalErrors = detectedErrors.length;
-    const failsComparativeGate =
+    failsComparativeGate =
       comparativeCheck.isComparativeQuestion && !comparativeCheck.hasAlternativeAnalysis;
 
     // Check if an evaluative conclusion was attempted (candidate wrote a conclusion paragraph)
@@ -369,8 +445,35 @@ export function normaliseGrading(
       evaluation.awarded = 1;
     }
 
-    // Table A Max (Knowledge + Analysis)
-    const tableAMax = split.ao1_marks + split.ao2_marks;
+    // Table A Caps (AO1+AO2, max 8 scaled to tableAMax):
+    // - 1 major error: max 7/8.
+    // - 2 major errors: max 5/8.
+    // - 3+ major errors, or a major error in main chain + failed question-fit: max 4/8.
+    // - Question-fit failure: max 5/8 (max 4/8 if 1 major error; Level 2 bottom band 3/8 if 2+ major errors).
+    targetTableABase = 8;
+    if (majorErrors.length >= 3) {
+      targetTableABase = Math.min(targetTableABase, 4);
+    } else if (majorErrors.length === 2) {
+      targetTableABase = Math.min(targetTableABase, 5);
+    } else if (majorErrors.length === 1) {
+      targetTableABase = Math.min(targetTableABase, 7);
+    }
+
+    if (failsComparativeGate) {
+      if (majorErrors.length >= 2 || totalErrors >= 2) {
+        // Severe combined failure: Table A capped at Level 2 bottom band (3/8)
+        targetTableABase = Math.min(targetTableABase, 3);
+      } else if (majorErrors.length === 1) {
+        // 1 major error + failed question-fit: max 4/8
+        targetTableABase = Math.min(targetTableABase, 4);
+      } else {
+        // Question-fit failure alone: max 5/8
+        targetTableABase = Math.min(targetTableABase, 5);
+      }
+    }
+
+    const targetTableA = Math.round(targetTableABase * (tableAMax / 8));
+    const currentTableA = knowledge.awarded + analysis.awarded;
 
     if (failsComparativeGate) {
       // Question-Fit Gate: Answering "does X work?" instead of "is X the best?"
@@ -380,8 +483,6 @@ export function normaliseGrading(
         const targetAo3 = split.ao3_marks > 0 ? (hasConclusionAttempt ? 1 : Math.min(evaluation.awarded, 1)) : 0;
         evaluation.awarded = targetAo3;
 
-        // 2+ major theoretical errors + Question-Fit failure: Table A strictly capped at Level 2 bottom band (3/8)
-        const targetTableA = Math.round(3 * (tableAMax / 8));
         const targetAo1 = Math.min(knowledge.awarded, Math.max(1, Math.round(targetTableA * (split.ao1_marks / tableAMax))));
         const targetAo2 = Math.min(analysis.awarded, targetTableA - targetAo1);
         knowledge.awarded = Math.max(1, targetAo1);
@@ -395,46 +496,27 @@ export function normaliseGrading(
         const targetAo3 = split.ao3_marks > 0 ? Math.min(evaluation.awarded, Math.max(1, Math.round(2 * (split.ao3_marks / 4)))) : 0;
         evaluation.awarded = targetAo3;
 
-        // Question dodge alone caps Table A at Level 2 top band (5/8)
-        const targetTableA = Math.round(5 * (tableAMax / 8));
-        const currentTableA = knowledge.awarded + analysis.awarded;
         if (currentTableA > targetTableA) {
           const targetAo1 = Math.min(knowledge.awarded, Math.round(targetTableA * (split.ao1_marks / tableAMax)));
           const targetAo2 = Math.min(analysis.awarded, targetTableA - targetAo1);
           knowledge.awarded = Math.min(knowledge.awarded, targetAo1);
           analysis.awarded = Math.min(analysis.awarded, targetAo2);
           auditNotes.push(
-            "Question-Fit Gate Cap: Candidate did not compare the named policy against alternatives on a stated criterion. AO3 capped at Level 2 and Table A capped at Level 2 (max 5/8)."
+            `Question-Fit Gate Cap: Candidate did not compare the named policy against alternatives on a stated criterion. AO3 capped at Level 2 and Table A capped at Level 2 (max ${targetTableA}/${tableAMax}).`
           );
         }
       }
-    } else if (majorErrors.length >= 2) {
-      // 2 or more major errors: Table A capped at Level 2 (max 5/8)
-      const targetTableA = Math.round(5 * (tableAMax / 8));
-      const currentTableA = knowledge.awarded + analysis.awarded;
-      if (currentTableA > targetTableA) {
-        const targetAo1 = Math.min(knowledge.awarded, Math.round(targetTableA * (split.ao1_marks / tableAMax)));
-        const targetAo2 = Math.min(analysis.awarded, targetTableA - targetAo1);
-        knowledge.awarded = Math.min(knowledge.awarded, targetAo1);
-        analysis.awarded = Math.min(analysis.awarded, targetAo2);
-        auditNotes.push(
-          `Table A Error Cap: 2 or more major economic errors identified (${majorErrors.map((e) => e.id).join(", ")}). AO1+AO2 capped at Level 2 (max 5/8).`
-        );
+    } else if (currentTableA > targetTableA) {
+      const delta = currentTableA - targetTableA;
+      if (analysis.awarded >= delta) {
+        analysis.awarded -= delta;
+      } else {
+        analysis.awarded = 0;
+        knowledge.awarded = Math.max(0, knowledge.awarded - (delta - analysis.awarded));
       }
-    } else if (majorErrors.length === 1) {
-      // 1 major error: Table A max 7/8
-      const targetTableA = Math.round(7 * (tableAMax / 8));
-      const currentTableA = knowledge.awarded + analysis.awarded;
-      if (currentTableA > targetTableA) {
-        const delta = currentTableA - targetTableA;
-        if (analysis.awarded >= delta) {
-          analysis.awarded -= delta;
-        } else {
-          analysis.awarded = 0;
-          knowledge.awarded = Math.max(0, knowledge.awarded - (delta - analysis.awarded));
-        }
-        auditNotes.push(`Table A Error Cap: 1 major economic error identified (${majorErrors[0]!.id}). AO1+AO2 capped at max 7/8.`);
-      }
+      auditNotes.push(
+        `Table A Error Cap: ${majorErrors.length} major economic error(s) identified (${majorErrors.map((e) => e.id).join(", ")}). AO1+AO2 capped at max ${targetTableA}/${tableAMax}.`
+      );
     }
 
     // Hedge Conclusion Cap (AO3 max 2/4 with balanced slack for detailed evaluations)
@@ -482,8 +564,14 @@ export function normaliseGrading(
 
   // Append audit summary if accuracy caps were triggered
   if (auditNotes.length > 0) {
-    const auditSummary = `[Cambridge Senior Examiner Audit: ${auditNotes.join(" ")}]`;
+    const errorCapSummary = majorErrors.length > 0
+      ? majorErrors.map((e) => `${e.id} (capped Table A at ${targetTableA}/${tableAMax})`).join("; ")
+      : "None";
+    const qFitSummary = failsComparativeGate ? "failed" : "passed";
+    const tableAAuditLine = `Cambridge Senior Examiner Audit: Table A Error Cap: ${errorCapSummary}. Question-fit: ${qFitSummary}.`;
+
     if (!examinerSummary.includes("Cambridge Senior Examiner Audit")) {
+      const auditSummary = `[${tableAAuditLine} ${auditNotes.join(" ")}]`;
       examinerSummary = examinerSummary ? `${examinerSummary}\n\n${auditSummary}` : auditSummary;
     }
 
@@ -494,6 +582,53 @@ export function normaliseGrading(
         weaknesses.unshift(`Theoretical error: ${err.trap}`);
       }
     }
+  }
+
+  // Consistency Rules:
+  // 1. Any point listed as an error must NOT appear in strengths (What worked)
+  if (detectedErrors.length > 0) {
+    strengths = strengths.filter((s) => {
+      const sLower = s.toLowerCase();
+      for (const err of detectedErrors) {
+        if (err.id === "hyperinflation" && (sLower.includes("hyperinflation") || sLower.includes("accelerating inflation"))) return false;
+        if (err.id === "demand_shifting_supply" && (sLower.includes("shifting supply") || sLower.includes("demand shifts"))) return false;
+        if (err.id === "shift_directions" && (sLower.includes("tax shift") || sLower.includes("subsidy shift") || sLower.includes("direction of shift"))) return false;
+        if (err.id === "wrong_curve_shift" && (sLower.includes("tax shift") || sLower.includes("demand curve"))) return false;
+        if (err.id === "inelastic_tax_consumption" && (sLower.includes("inelastic") || sLower.includes("reducing consumption"))) return false;
+        if (err.id === "investment_money_supply" && sLower.includes("money supply")) return false;
+        if (err.id === "as_equals_ad" && sLower.includes("equals ad")) return false;
+        if (err.id === "unsupported_absolutes" && (sLower.includes("ensures") || sLower.includes("guarantees"))) return false;
+        if (err.id === "contradictory_statements" && sLower.includes("effective")) return false;
+      }
+      return true;
+    });
+  }
+
+  // 2. Never describe essay as "addressing the question directly" or "solid" if question-fit check failed or Table A cap <= 5/8 applies
+  if (failsComparativeGate || targetTableABase <= 5) {
+    examinerSummary = examinerSummary
+      .replace(/addressing the question directly/gi, "addressing some aspects of the topic")
+      .replace(/addresses the question directly/gi, "addresses some aspects of the topic")
+      .replace(/addresses the prompt directly/gi, "addresses the topic broadly")
+      .replace(/\bsolid\b/gi, "developing")
+      .replace(/\bsound economic understanding\b/gi, "developing economic understanding");
+
+    strengths = strengths.map((s) =>
+      s
+        .replace(/addressing the question directly/gi, "addressing some aspects of the topic")
+        .replace(/addresses the question directly/gi, "addresses some aspects of the topic")
+        .replace(/\bsolid\b/gi, "developing")
+    );
+  }
+
+  // 3. Never call an analysis "sound" if it contains a major error or contradicts itself
+  if (majorErrors.length > 0) {
+    examinerSummary = examinerSummary
+      .replace(/\bsound analysis\b/gi, "partial analysis")
+      .replace(/\bsound economic\b/gi, "partial economic");
+    analysis.comment = analysis.comment
+      .replace(/\bsound analysis\b/gi, "partial analysis")
+      .replace(/\bsound economic\b/gi, "partial economic");
   }
 
   if (isUnrelated) {
@@ -580,6 +715,8 @@ export function normaliseGrading(
     suggested_resources: suggestedResources,
     suggested_practice: suggestedPractice,
     confidence: Math.max(0, Math.min(1, toNumber(raw.confidence, 0.9))),
+    confidence_rating: toNumber(raw.confidence, 0.9) >= 0.85 ? "High" : toNumber(raw.confidence, 0.9) >= 0.65 ? "Medium" : "Low",
+    mark_range: [Math.max(0, total - 1), Math.min(maxMark, total + 1)] as [number, number],
     audited: false,
     sources: [],
     anchorsUsed: 0,

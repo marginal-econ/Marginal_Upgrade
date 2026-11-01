@@ -183,4 +183,122 @@ In conclusion a mix of all the supply-side policies along with the implementatio
     expect(hedge.isHedge).toBe(true);
     expect(hedge.matchedPhrase).toContain("mix of all");
   });
+
+  describe("Table A Error Audit & Caps (Mandatory Order of Work)", () => {
+    it("detects newly classified major error traps", () => {
+      const text = `
+        An indirect tax will shift the demand curve to the left.
+        Furthermore inelastic demand makes a tax more effective at reducing consumption of demerit goods.
+        This policy completely ensures the problem is solved.
+      `;
+      const errors = detectEconomicErrors(text);
+      expect(errors.some((e) => e.id === "wrong_curve_shift" && e.severity === "major")).toBe(true);
+      expect(errors.some((e) => e.id === "inelastic_tax_consumption" && e.severity === "major")).toBe(true);
+      expect(errors.some((e) => e.id === "unsupported_absolutes" && e.severity === "major")).toBe(true);
+    });
+
+    it("caps Table A at max 7/8 for 1 major error and outputs senior examiner audit line", () => {
+      const question = "Discuss whether indirect taxation is effective at reducing consumption of demerit goods.";
+      const essay = `
+        Demerit goods create negative externalities.
+        An indirect tax will shift the demand curve to the left causing quantity to fall.
+        However, consumers may still purchase the good if substitutes are unavailable.
+        Therefore, while taxation reduces demand, it depends on consumer awareness.
+      `;
+      const raw = {
+        total_mark: 11,
+        band: "Top band",
+        ao_breakdown: {
+          knowledge: { awarded: 2, out_of: 2, comment: "Accurate knowledge." },
+          analysis: { awarded: 6, out_of: 6, comment: "Detailed analysis." },
+          evaluation: { awarded: 3, out_of: 4, comment: "Good evaluation." },
+        },
+        strengths: ["Clear analysis of tax shift", "Good structure"],
+      };
+
+      const res = normaliseGrading(raw, 12, split, question, essay);
+      // 1 major error (tax shifting demand left): Table A (AO1+AO2) capped at max 7/8
+      expect(res.ao_breakdown.knowledge.awarded + res.ao_breakdown.analysis.awarded).toBeLessThanOrEqual(7);
+      expect(res.examiner_summary).toContain("Cambridge Senior Examiner Audit: Table A Error Cap:");
+      expect(res.examiner_summary).toContain("Question-fit: passed.");
+      // Consistency rule: strengths mentioning the error must be removed
+      expect(res.strengths.some((s) => s.includes("tax shift"))).toBe(false);
+    });
+
+    it("caps Table A at max 5/8 for 2 major errors", () => {
+      const question = "Discuss whether indirect taxation is effective at reducing consumption of demerit goods.";
+      const essay = `
+        An indirect tax will shift the demand curve to the left.
+        Furthermore inelastic demand makes a tax more effective at reducing consumption of cigarettes.
+        In conclusion taxation is effective.
+      `;
+      const raw = {
+        total_mark: 10,
+        band: "Top band",
+        ao_breakdown: {
+          knowledge: { awarded: 2, out_of: 2, comment: "Knowledge." },
+          analysis: { awarded: 5, out_of: 6, comment: "Analysis." },
+          evaluation: { awarded: 3, out_of: 4, comment: "Evaluation." },
+        },
+      };
+
+      const res = normaliseGrading(raw, 12, split, question, essay);
+      // 2 major errors: Table A capped at max 5/8
+      expect(res.ao_breakdown.knowledge.awarded + res.ao_breakdown.analysis.awarded).toBeLessThanOrEqual(5);
+      expect(res.examiner_summary).toContain("Cambridge Senior Examiner Audit: Table A Error Cap:");
+      expect(res.examiner_summary).toContain("5/8");
+    });
+
+    it("caps Table A at max 4/8 for 3+ major errors", () => {
+      const question = "Discuss whether indirect taxation is effective at reducing consumption of demerit goods.";
+      const essay = `
+        Accelerating inflation is over 50% a month.
+        An indirect tax will shift the demand curve to the left.
+        Inelastic demand makes a tax more effective at reducing consumption.
+        In conclusion taxation reduces consumption.
+      `;
+      const raw = {
+        total_mark: 10,
+        band: "Top band",
+        ao_breakdown: {
+          knowledge: { awarded: 2, out_of: 2, comment: "Knowledge." },
+          analysis: { awarded: 5, out_of: 6, comment: "Analysis." },
+          evaluation: { awarded: 3, out_of: 4, comment: "Evaluation." },
+        },
+      };
+
+      const res = normaliseGrading(raw, 12, split, question, essay);
+      // 3 major errors: Table A capped at max 4/8
+      expect(res.ao_breakdown.knowledge.awarded + res.ao_breakdown.analysis.awarded).toBeLessThanOrEqual(4);
+      expect(res.examiner_summary).toContain("4/8");
+    });
+
+    it("caps Table A at max 4/8 for 1 major error plus failed question-fit", () => {
+      const question = "Assess whether indirect taxation is the best method to reduce the consumption of demerit goods.";
+      // Comparative question ("best method"), but essay only analyzes tax (no alternatives), plus wrong curve shift error
+      const essay = `
+        An indirect tax will shift the demand curve to the left.
+        This increases prices and reduces quantity demanded.
+        However, taxation may increase black market activity.
+        Overall, taxation is very effective.
+      `;
+      const raw = {
+        total_mark: 9,
+        band: "Upper middle band",
+        ao_breakdown: {
+          knowledge: { awarded: 2, out_of: 2, comment: "Knowledge." },
+          analysis: { awarded: 4, out_of: 6, comment: "Analysis." },
+          evaluation: { awarded: 3, out_of: 4, comment: "Evaluation." },
+        },
+        strengths: ["Solid understanding of taxation"],
+      };
+
+      const res = normaliseGrading(raw, 12, split, question, essay);
+      // 1 major error + failed question-fit: Table A capped at max 4/8
+      expect(res.ao_breakdown.knowledge.awarded + res.ao_breakdown.analysis.awarded).toBeLessThanOrEqual(4);
+      expect(res.examiner_summary).toContain("Question-fit: failed.");
+      // Consistency rule: "solid" sanitized to "developing"
+      expect(res.strengths.some((s) => s.includes("Solid"))).toBe(false);
+    });
+  });
 });
