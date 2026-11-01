@@ -287,20 +287,53 @@ In conclusion a mix of all the supply-side policies along with the implementatio
     expect(normalised.total_mark).toBe(8);
   });
 
-  it("cuts AO2 by 2 marks for an inverted PED formula error", () => {
-    const raw = {
-      total_mark: 9,
-      band: "Upper middle band",
+  it("USER BUG FIX: ensures on-topic essay is never false-positively zeroed out as off-topic", () => {
+    // The exact submission from user screenshot where an essay on demerit goods was wrongly flagged off-topic
+    const question = "Assess whether indirect taxes are the best method to reduce the consumption of demerit goods.";
+    const essayText = `
+      A demerit good is a good that is harmful to the consumer and to society, such as cigarettes or alcohol. Demerit goods are overconsumed in a free market because consumers do not realise the full harm they cause, which is a form of information failure. An indirect tax is a tax placed on goods and services, which increases the price paid by the consumer. Governments therefore use indirect taxes to reduce consumption of demerit goods and protect society.
+
+      When the government places an indirect tax on cigarettes, the demand curve shifts to the left because the tax makes cigarettes less attractive to consumers. This causes the equilibrium price to rise and the quantity demanded to fall. The policy is effective when demand is inelastic.
+
+      In conclusion, a mix of policies should be used.
+    `;
+
+    // Raw model hallucinated unrelated_to_question: true because the essay didn't compare alternatives
+    const falsePositiveRaw = {
+      total_mark: 0,
+      band: "Bottom band",
+      unrelated_to_question: true,
       ao_breakdown: {
-        knowledge: { awarded: 2, out_of: 2, comment: "Good definitions." },
-        analysis: { awarded: 5, out_of: 6, comment: "Candidate uses inverted formula: %ΔP / %ΔQd." },
-        evaluation: { awarded: 2, out_of: 4, comment: "Some evaluation." },
+        knowledge: {
+          awarded: 2,
+          out_of: 2,
+          comment: "The candidate provides accurate definitions of demerit goods and indirect taxes, and correctly identifies information failure.",
+        },
+        analysis: {
+          awarded: 4,
+          out_of: 6,
+          comment: "The candidate attempts to explain the effects of an indirect tax on demerit goods, but demand curve does not shift left and PED is flawed.",
+        },
+        evaluation: {
+          awarded: 1,
+          out_of: 4,
+          comment: "The candidate lists advantages and disadvantages but does not answer the question about whether indirect taxes are the best method.",
+        },
       },
-      examiner_summary: "Candidate committed formula error.",
-      weaknesses: ["Formula error: inverted PED formula."],
+      examiner_summary: "The candidate addresses demerit goods and indirect taxes but fails to answer the question on whether it is the best method.",
+      weaknesses: ["Demand curve does not shift left.", "PED analysis is flawed."],
     };
 
-    const normalised = normaliseGrading(raw, 12, split);
-    expect(normalised.ao_breakdown.analysis.awarded).toBe(3);
+    const normalised = normaliseGrading(falsePositiveRaw, 12, split, question, essayText);
+
+    // MUST NOT be marked off-topic or given 0 marks
+    expect(normalised.unrelated_to_question).toBe(false);
+    expect(normalised.total_mark).toBeGreaterThan(0);
+    expect(normalised.ao_breakdown.knowledge.awarded).toBe(2);
+    // Diagram error + PED error cuts AO2 to 2/6
+    expect(normalised.ao_breakdown.analysis.awarded).toBe(2);
+    expect(normalised.ao_breakdown.evaluation.awarded).toBe(1);
+    expect(normalised.total_mark).toBe(5);
+    expect(normalised.band).toBe("Lower middle band");
   });
 });

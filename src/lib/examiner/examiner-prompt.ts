@@ -26,6 +26,9 @@ Positive marking applies EXCLUSIVELY to economic material that is relevant to th
        - "band": "Bottom band"
        - "unrelated_to_question": true
      * State immediately in "examiner_summary": "This essay does not address the set exam question. It discusses an unrelated economics topic rather than the question asked. Under Cambridge assessment regulations, zero marks are awarded for irrelevant material."
+   - RELEVANT TOPIC CLAUSE (NEVER ZERO OUT AN ON-TOPIC ESSAY):
+     * If the essay discusses the specific economic topic of the question set (e.g. indirect taxes, demerit goods), it is ON-TOPIC and "unrelated_to_question" MUST BE false.
+     * If the candidate writes on the required topic but answers "does the policy work?" instead of "is it the best?", or does not compare alternatives, this is an AO3 Evaluation limitation (cap AO3 at 1/4 or 2/4), NOT an unrelated off-topic essay!
 
 2. POOR, EMPTY, EVASIVE, OR DEFECTIVE ANSWERS = DO NOT HESITATE TO AWARD ZERO:
    - Do NOT hesitate to award 0 for any Assessment Objective that is missing, severely defective, or fails to address the question prompt.

@@ -323,6 +323,63 @@ export function detectErrorsFromExaminerFeedback(raw: Record<string, unknown>): 
 }
 
 /**
+ * Checks whether an essay has substantive topical overlap with the exam question.
+ * Prevents false-positive off-topic zeroing for essays that directly discuss the set topic.
+ */
+export function isEssayTopicallyRelated(questionText: string, essayText: string): boolean {
+  if (!questionText || !essayText) return true;
+
+  const q = questionText.toLowerCase();
+  const e = essayText.toLowerCase();
+
+  // Key compound economic phrases
+  const compoundPhrases = [
+    "indirect tax", "indirect taxes", "demerit good", "demerit goods", "merit good", "merit goods",
+    "public good", "public goods", "free trade", "trade protection", "monetary policy",
+    "fiscal policy", "supply-side", "supply side", "market failure", "minimum wage",
+    "maximum price", "minimum price", "price ceiling", "price floor", "balance of payments",
+    "current account", "exchange rate", "exchange rates", "aggregate demand", "aggregate supply",
+    "cost-push", "demand-pull", "consumer surplus", "producer surplus", "income elasticity",
+    "cross elasticity", "price elasticity", "externalities", "external costs", "external benefits",
+    "information failure", "negative externalities", "positive externalities",
+  ];
+
+  for (const phrase of compoundPhrases) {
+    if (q.includes(phrase) && e.includes(phrase)) {
+      return true;
+    }
+  }
+
+  // Common stop words and generic exam phrasing to filter out
+  const stopWords = new Set([
+    "assess", "whether", "discuss", "evaluate", "to", "what", "extent", "how", "far",
+    "explain", "consider", "analyse", "analyze", "the", "a", "an", "is", "are", "was",
+    "were", "in", "on", "at", "by", "for", "with", "about", "against", "between",
+    "into", "through", "during", "before", "after", "above", "below", "from", "up",
+    "down", "out", "off", "over", "under", "again", "further", "then", "once",
+    "here", "there", "when", "where", "why", "all", "any", "both", "each",
+    "few", "more", "most", "other", "some", "such", "no", "nor", "not", "only",
+    "own", "same", "so", "than", "too", "very", "can", "will", "just", "don",
+    "should", "now", "best", "method", "policy", "policies", "measure", "measures",
+    "way", "ways", "effective", "effectively", "always", "positive", "negative",
+    "reduce", "increase", "impact", "effect", "consequences", "role", "economic",
+    "economy", "economies", "market", "markets", "government", "governments",
+  ]);
+
+  // Extract non-stop words with length >= 4
+  const words = q
+    .replace(/[^a-z0-9\s-]/g, " ")
+    .split(/\s+/)
+    .filter((w) => w.length >= 4 && !stopWords.has(w));
+
+  if (words.length === 0) return true;
+
+  // Check how many topic words appear in the essay
+  const matchedWords = words.filter((w) => e.includes(w));
+  return matchedWords.length > 0;
+}
+
+/**
  * Checks whether a comparative question ("best", "most effective") has substantive
  * alternative policy analysis in the essay body.
  */
@@ -457,7 +514,7 @@ export function normaliseGrading(
     raw.off_topic === true ||
     raw.is_off_topic === true;
 
-  // Detect internal contradiction in examiner comments:
+  // Detect internal contradiction in examiner comments (only when the whole essay is declared off-topic):
   const allComments = [
     knowledge.comment,
     analysis.comment,
@@ -467,32 +524,31 @@ export function normaliseGrading(
     .join(" ")
     .toLowerCase();
 
-  const statesOffTopic =
+  const statesCompletelyOffTopic =
     allComments.includes("entirely off-topic") ||
     allComments.includes("completely off-topic") ||
     allComments.includes("entirely off topic") ||
-    allComments.includes("off-topic") ||
-    allComments.includes("off topic") ||
-    allComments.includes("does not address the question at all") ||
+    allComments.includes("completely off topic") ||
     allComments.includes("does not address the question about") ||
-    allComments.includes("does not address the question set") ||
-    allComments.includes("does not address the set question") ||
-    allComments.includes("does not answer the question") ||
-    allComments.includes("fails to address the question") ||
-    allComments.includes("answers a different question") ||
-    allComments.includes("answered a different question") ||
-    allComments.includes("different question") ||
-    allComments.includes("different economic topic") ||
-    allComments.includes("different topic rather than") ||
-    allComments.includes("instead of addressing the question") ||
-    allComments.includes("rather than addressing the question") ||
     allComments.includes("diverges completely from the set question") ||
     allComments.includes("zero marks are awarded for irrelevant") ||
-    (allComments.includes("unrelated to the topic") && allComments.includes("irrelevant to the question")) ||
-    (allComments.includes("unrelated") && (allComments.includes("question") || allComments.includes("topic"))) ||
-    (allComments.includes("does not address the question") && allComments.includes("analysis is entirely absent"));
+    allComments.includes("answers a different question from the one set") ||
+    allComments.includes("different economic topic instead of") ||
+    (allComments.includes("unrelated to the topic") && allComments.includes("irrelevant")) ||
+    (allComments.includes("different economic topic") && (allComments.includes("rather than") || allComments.includes("instead of") || allComments.includes("instead"))) ||
+    (allComments.includes("different topic rather than addressing")) ||
+    (allComments.includes("does not address the question at all") && allComments.includes("instead"));
 
-  const isUnrelated = isUnrelatedExplicit || statesOffTopic;
+  // Verify topical relevance between question and essay text to prevent false-positive zeroing
+  const hasContext = Boolean(question && essayText);
+  const isTopicallyRelated = hasContext ? isEssayTopicallyRelated(question!, essayText!) : false;
+
+  // An essay is ONLY unrelated if:
+  // 1. Without context (e.g. raw unit tests): explicit off-topic flag or comments declaring completely off-topic
+  // 2. With context: the essay MUST NOT be topically related, AND (explicitly flagged OR comments declare completely off-topic)
+  const isUnrelated = hasContext
+    ? !isTopicallyRelated && (isUnrelatedExplicit || statesCompletelyOffTopic)
+    : isUnrelatedExplicit || statesCompletelyOffTopic;
 
   if (isUnrelated) {
     knowledge.awarded = 0;

@@ -23,8 +23,9 @@ These rules override any earlier instruction that conflicts with them. They chan
 ## 1. QUESTION-FIT GATE & QUESTION DECODE (silent, before marking)
 - FULL DECODE: Fully decode the question: command word, exact judgement required, economic scope (Micro vs Macro), context, and transmission mechanisms.
 - QUESTION-ANSWER DIVERGENCE = STRICT ZERO (0) MARKS:
-  * If the student's essay and the exam question are different (e.g. writing about subsidies or market failure when asked about inflation or free trade, or answering a different pre-prepared question), award 0 MARKS TOTAL (AO1: 0, AO2: 0, AO3: 0, Band: "Bottom band", "unrelated_to_question": true). Never award courtesy marks for irrelevant economic prose.
-- "Best", "most", "main", "most effective" and "most likely" REQUIRE comparing the named option with at least one alternative on a stated criterion. Explaining only what the named option does does NOT answer the question.
+  * Zero marks (0 marks total, unrelated_to_question: true) applies ONLY when the student writes on a completely different, unrelated economic topic (e.g. writing about subsidies or market failure when asked about inflation or free trade).
+  * If the student discusses the set economic topic (e.g. indirect taxes on demerit goods), it is RELEVANT (unrelated_to_question: false). Never award zero marks across all AOs if the essay discusses the set topic.
+- "Best", "most", "main", "most effective" and "most likely" REQUIRE comparing the named option with at least one alternative on a stated criterion. Explaining only what the named option does without comparing alternatives is an evaluation limitation (cap AO3 at 1-2/4), NOT an unrelated off-topic essay.
 - "To what extent" requires a stated degree and the conditions it depends on.
 - "Assess" and "evaluate" require a justified judgement, not a summary.
 - If the script answers a different question from the one set (e.g. "does X work?" instead of "is X the best?"), cap AO3 at 1/4 and cap AO1+AO2 at the top of Level 2.
