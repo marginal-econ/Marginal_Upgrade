@@ -17,7 +17,18 @@ export function stripReasoningArtifacts(text: string): string {
     .replace(/<reasoning>[\s\S]*?<\/reasoning>/gi, "")
     .replace(/<reasoning>[\s\S]*$/gi, "")
     .replace(/\[THOUGHT\][\s\S]*?\[\/THOUGHT\]/gi, "")
+    .replace(/<audit>[\s\S]*?<\/audit>/gi, "")
+    .replace(/<audit>[\s\S]*$/gi, "")
     .trim();
+}
+
+/**
+ * Extracts the confidential examiner Phase 1 audit block from raw generation text.
+ */
+export function extractAuditBlock(rawText: string): string | null {
+  if (!rawText) return null;
+  const match = rawText.match(/<audit>([\s\S]*?)<\/audit>/i);
+  return match ? match[1].trim() : null;
 }
 
 function tryRepairTruncatedJson(raw: string): Record<string, unknown> | null {

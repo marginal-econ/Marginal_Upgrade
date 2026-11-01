@@ -200,10 +200,13 @@ In conclusion a mix of all the supply-side policies along with the implementatio
     it("caps Table A at max 7/8 for 1 major error and outputs senior examiner audit line", () => {
       const question = "Discuss whether indirect taxation is effective at reducing consumption of demerit goods.";
       const essay = `
-        Demerit goods create negative externalities.
-        An indirect tax will shift the demand curve to the left causing quantity to fall.
-        However, consumers may still purchase the good if substitutes are unavailable.
-        Therefore, while taxation reduces demand, it depends on consumer awareness.
+        Demerit goods are goods that create negative externalities in consumption and are over-consumed in a free market because consumers fail to account for the full social costs of their actions or suffer from information failure.
+        When governments intervene to address this market failure, indirect taxes such as excise duties are frequently imposed on goods such as cigarettes and alcohol to increase the costs of consumption.
+        An indirect tax will shift the demand curve to the left causing equilibrium price to rise and quantity to fall.
+        This reduction in quantity aims to bring private consumption closer to the socially optimum level of output where marginal social benefit equals marginal social cost.
+        However, the effectiveness of the tax depends significantly on the price elasticity of demand. If demand for demerit goods is relatively price inelastic due to addictive properties, consumers will continue purchasing the good despite higher prices, meaning quantity will only contract by a small proportion while government tax revenues expand substantially.
+        Furthermore, high indirect taxes may encourage illicit black market trading and smuggling, thereby undermining government regulations.
+        In conclusion, indirect taxation is partially effective at reducing consumption, but its success depends on the availability of substitutes, price elasticity of demand, and accompanying policies such as education campaigns.
       `;
       const raw = {
         total_mark: 11,
@@ -219,7 +222,7 @@ In conclusion a mix of all the supply-side policies along with the implementatio
       const res = normaliseGrading(raw, 12, split, question, essay);
       // 1 major error (tax shifting demand left): Table A (AO1+AO2) capped at max 7/8
       expect(res.ao_breakdown.knowledge.awarded + res.ao_breakdown.analysis.awarded).toBeLessThanOrEqual(7);
-      expect(res.examiner_summary).toContain("Cambridge Senior Examiner Audit: Table A Error Cap:");
+      expect(res.examiner_summary).toContain("Cambridge Senior Examiner Audit: Table A capped at 7");
       expect(res.examiner_summary).toContain("Question-fit: passed.");
       // Consistency rule: strengths mentioning the error must be removed
       expect(res.strengths.some((s) => s.includes("tax shift"))).toBe(false);
@@ -245,7 +248,7 @@ In conclusion a mix of all the supply-side policies along with the implementatio
       const res = normaliseGrading(raw, 12, split, question, essay);
       // 2 major errors: Table A capped at max 5/8
       expect(res.ao_breakdown.knowledge.awarded + res.ao_breakdown.analysis.awarded).toBeLessThanOrEqual(5);
-      expect(res.examiner_summary).toContain("Cambridge Senior Examiner Audit: Table A Error Cap:");
+      expect(res.examiner_summary).toContain("Cambridge Senior Examiner Audit: Table A capped at 5");
       expect(res.examiner_summary).toContain("5/8");
     });
 

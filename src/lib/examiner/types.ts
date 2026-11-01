@@ -347,6 +347,43 @@ export function detectHedgeConclusion(essayText: string): {
   return { isHedge: false };
 }
 
+export function describeErrorInPlainEconomics(errorId: string): string {
+  switch (errorId) {
+    case "hyperinflation":
+      return "hyperinflation wrongly defined as accelerating inflation";
+    case "investment_money_supply":
+      return "investment claimed to automatically increase the money supply";
+    case "as_equals_ad":
+      return "'AS equals AD' cited as an explanation or transmission mechanism";
+    case "demand_shifting_supply":
+      return "a fall in demand claimed to shift the supply curve";
+    case "shift_directions":
+      return "indirect tax shown shifting supply right or subsidy shifting supply left";
+    case "inelastic_tax_consumption":
+      return "inelastic demand wrongly called effective at reducing consumption";
+    case "wrong_curve_shift":
+      return "indirect tax shown shifting demand";
+    case "unsupported_absolutes":
+      return "policy claimed to guarantee or completely solve outcome without proof";
+    case "contradictory_statements":
+      return "conclusion contradicts script's earlier statement on policy effectiveness";
+    case "wrong_question_judgement":
+      return "essay answers 'does policy work?' instead of 'is it the best method?'";
+    case "one_sided_evaluation":
+      return "one-sided evaluation without weighing opposing perspectives";
+    case "no_comparison":
+      return "no comparison with an alternative policy on a stated criterion";
+    case "hedge_conclusion":
+      return "conclusion hedges without a decisive ranking or stated condition";
+    case "unweighed_listing":
+      return "alternatives listed without criteria or verdict";
+    case "generic_evaluation":
+      return "generic evaluative statement without contextual reasoning";
+    default:
+      return errorId.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toLowerCase());
+  }
+}
+
 /**
  * Coerce raw model JSON into a Grading. Enforces the fixed AO allocation:
  * the model is never allowed to redistribute marks or invent an `out_of`.
@@ -446,10 +483,9 @@ export function normaliseGrading(
     }
 
     // Table A Caps (AO1+AO2, max 8 scaled to tableAMax):
-    // - 1 major error: max 7/8.
-    // - 2 major errors: max 5/8.
-    // - 3+ major errors, or a major error in main chain + failed question-fit: max 4/8.
-    // - Question-fit failure: max 5/8 (max 4/8 if 1 major error; Level 2 bottom band 3/8 if 2+ major errors).
+    // - 0 major errors: 8. 1 major error: 7. 2 major errors: 5. 3 or more: 4.
+    // - A5 = yes: 5. A5 = yes plus 2 or more major errors: 4 (or 3 for Level 2 bottom band on 2+ errors).
+    // - Script under about 150 words: 5.
     targetTableABase = 8;
     if (majorErrors.length >= 3) {
       targetTableABase = Math.min(targetTableABase, 4);
@@ -457,6 +493,11 @@ export function normaliseGrading(
       targetTableABase = Math.min(targetTableABase, 5);
     } else if (majorErrors.length === 1) {
       targetTableABase = Math.min(targetTableABase, 7);
+    }
+
+    const wordCount = essayText ? essayText.trim().split(/\s+/).filter(Boolean).length : 0;
+    if (wordCount > 0 && wordCount < 150) {
+      targetTableABase = Math.min(targetTableABase, 5);
     }
 
     if (failsComparativeGate) {
@@ -472,66 +513,41 @@ export function normaliseGrading(
       }
     }
 
-    const targetTableA = Math.round(targetTableABase * (tableAMax / 8));
+    targetTableA = Math.round(targetTableABase * (tableAMax / 8));
     const currentTableA = knowledge.awarded + analysis.awarded;
 
+    // Strict Table B Caps (AO3, max 4 scaled to split.ao3_marks)
     if (failsComparativeGate) {
-      // Question-Fit Gate: Answering "does X work?" instead of "is X the best?"
-      // Under Cambridge rules: if 2+ major errors present, strictly cap Table A at Level 2 bottom band (3/8) and AO3 at 1/4.
-      // With evaluation slack (1-3%): if candidate made evaluative points on limitations and no 2+ major errors, allow Level 2 (2/4).
-      if (majorErrors.length >= 2 || totalErrors >= 2) {
-        const targetAo3 = split.ao3_marks > 0 ? (hasConclusionAttempt ? 1 : Math.min(evaluation.awarded, 1)) : 0;
-        evaluation.awarded = targetAo3;
-
-        const targetAo1 = Math.min(knowledge.awarded, Math.max(1, Math.round(targetTableA * (split.ao1_marks / tableAMax))));
-        const targetAo2 = Math.min(analysis.awarded, targetTableA - targetAo1);
-        knowledge.awarded = Math.max(1, targetAo1);
-        analysis.awarded = Math.max(2, targetAo2);
-
-        auditNotes.push(
-          "Question-Fit Gate & Major Errors Cap: Essay addresses 'does supply-side policy work?' rather than evaluating if it is the 'best' method against alternatives, and contains 2+ major theoretical errors. Table A (AO1+AO2) is capped at Level 2 bottom band (3/8) and AO3 is capped at 1/4 under Cambridge 9708 examiner standards."
-        );
-      } else {
-        // Question dodge without major errors: allow Level 2 (max 2/4 for AO3) for evaluating policy limitations
-        const targetAo3 = split.ao3_marks > 0 ? Math.min(evaluation.awarded, Math.max(1, Math.round(2 * (split.ao3_marks / 4)))) : 0;
-        evaluation.awarded = targetAo3;
-
-        if (currentTableA > targetTableA) {
-          const targetAo1 = Math.min(knowledge.awarded, Math.round(targetTableA * (split.ao1_marks / tableAMax)));
-          const targetAo2 = Math.min(analysis.awarded, targetTableA - targetAo1);
-          knowledge.awarded = Math.min(knowledge.awarded, targetAo1);
-          analysis.awarded = Math.min(analysis.awarded, targetAo2);
-          auditNotes.push(
-            `Question-Fit Gate Cap: Candidate did not compare the named policy against alternatives on a stated criterion. AO3 capped at Level 2 and Table A capped at Level 2 (max ${targetTableA}/${tableAMax}).`
-          );
-        }
-      }
-    } else if (currentTableA > targetTableA) {
-      const delta = currentTableA - targetTableA;
-      if (analysis.awarded >= delta) {
-        analysis.awarded -= delta;
-      } else {
-        analysis.awarded = 0;
-        knowledge.awarded = Math.max(0, knowledge.awarded - (delta - analysis.awarded));
-      }
+      // A5 = yes: strictly cap AO3 at max 1/4 (Level 1)
+      evaluation.awarded = Math.min(evaluation.awarded, 1);
       auditNotes.push(
-        `Table A Error Cap: ${majorErrors.length} major economic error(s) identified (${majorErrors.map((e) => e.id).join(", ")}). AO1+AO2 capped at max ${targetTableA}/${tableAMax}.`
+        "Question-Fit Gate: Essay answers 'does policy work?' instead of 'is it the best method?', capping Table B at 1/4 and Table A at Level 2 under Cambridge 9708 examiner standards."
+      );
+    } else if (hedgeCheck.isHedge) {
+      // Conclusion is "a mix", "a range", "it depends" with no conditions or ranking: strictly cap at max 2/4
+      evaluation.awarded = Math.min(evaluation.awarded, 2);
+      auditNotes.push(
+        `Table B Hedge Cap: Concluding with '${hedgeCheck.matchedPhrase}' without an explicit comparative ranking or conditions caps AO3 at 2/${split.ao3_marks}.`
       );
     }
 
-    // Hedge Conclusion Cap (AO3 max 2/4 with balanced slack for detailed evaluations)
-    if (hedgeCheck.isHedge) {
-      const hasEvaluativeDepth =
-        paragraphs.length >= 3 &&
-        /\b(elasticity|time lag|short-run|short run|long-run|long run|opportunity cost|magnitude|stakeholder)\b/i.test(essayText);
-      const allowedHedgeBase = hasEvaluativeDepth && !failsComparativeGate ? 3 : 2;
-      const maxAo3Hedge = failsComparativeGate
-        ? (majorErrors.length >= 2 ? 1 : Math.min(evaluation.awarded, Math.max(1, Math.round(2 * (split.ao3_marks / 4)))))
-        : Math.min(evaluation.awarded, Math.max(1, Math.round(allowedHedgeBase * (split.ao3_marks / 4))));
-      evaluation.awarded = Math.min(evaluation.awarded, maxAo3Hedge);
-      auditNotes.push(
-        `Table B Hedge Cap: Concluding with '${hedgeCheck.matchedPhrase}' without an explicit comparative ranking or conditions caps AO3 at ${maxAo3Hedge}/${split.ao3_marks}.`
-      );
+    // Split Table A: give AO1 for correct definitions (max 2), set AO2 = Table A mark minus AO1
+    // If Table A cap is 3, AO1 gets max 1 and AO2 gets 2 under Cambridge 9708 Level 2 bottom band.
+    if (currentTableA > targetTableA || failsComparativeGate || majorErrors.length > 0) {
+      let targetAo1: number;
+      if (targetTableA <= 3) {
+        targetAo1 = Math.min(knowledge.awarded, 1);
+      } else {
+        targetAo1 = Math.min(knowledge.awarded, Math.min(split.ao1_marks, targetTableA));
+      }
+      const targetAo2 = Math.min(analysis.awarded, targetTableA - targetAo1);
+      knowledge.awarded = targetAo1;
+      analysis.awarded = targetAo2;
+      if (currentTableA > targetTableA) {
+        auditNotes.push(
+          `Table A Error Cap: ${majorErrors.length} major error(s) identified. AO1+AO2 capped at max ${targetTableA}/${tableAMax}.`
+        );
+      }
     }
   }
 
@@ -563,15 +579,24 @@ export function normaliseGrading(
   let examinerSummary = cleanComment(String(raw.examiner_summary ?? ""));
 
   // Append audit summary if accuracy caps were triggered
-  if (auditNotes.length > 0) {
-    const errorCapSummary = majorErrors.length > 0
-      ? majorErrors.map((e) => `${e.id} (capped Table A at ${targetTableA}/${tableAMax})`).join("; ")
-      : "None";
-    const qFitSummary = failsComparativeGate ? "failed" : "passed";
-    const tableAAuditLine = `Cambridge Senior Examiner Audit: Table A Error Cap: ${errorCapSummary}. Question-fit: ${qFitSummary}.`;
+  if (auditNotes.length > 0 || majorErrors.length > 0 || failsComparativeGate) {
+    const errorDescriptions: string[] = [];
+    for (const err of majorErrors) {
+      errorDescriptions.push(describeErrorInPlainEconomics(err.id));
+    }
+    if (failsComparativeGate) {
+      errorDescriptions.push("essay answers 'do taxes work?' or 'does policy work?', not 'best'");
+    }
+    const tableADetails = errorDescriptions.length > 0 ? ` (${errorDescriptions.join("; ")})` : "";
+    const tableBDetails = failsComparativeGate
+      ? " (no comparison with alternative on stated criterion)"
+      : "";
+    const questionFitStatus = failsComparativeGate ? "Question-fit: failed." : "Question-fit: passed.";
+
+    const tableAAuditLine = `Cambridge Senior Examiner Audit: Table A capped at ${targetTableA}${tableADetails}. Table B capped at ${evaluation.awarded}${tableBDetails}. ${questionFitStatus}`;
 
     if (!examinerSummary.includes("Cambridge Senior Examiner Audit")) {
-      const auditSummary = `[${tableAAuditLine} ${auditNotes.join(" ")}]`;
+      const auditSummary = `[${tableAAuditLine}${auditNotes.length > 0 ? ` ${auditNotes.join(" ")}` : ""}]`;
       examinerSummary = examinerSummary ? `${examinerSummary}\n\n${auditSummary}` : auditSummary;
     }
 

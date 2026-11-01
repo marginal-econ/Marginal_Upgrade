@@ -13,6 +13,8 @@ export function cn(...inputs: ClassValue[]) {
 export function stripStars(text: unknown): string {
   if (typeof text !== "string") return "";
   return text
+    .replace(/<audit>[\s\S]*?<\/audit>/gi, "")
+    .replace(/<audit>[\s\S]*$/gi, "")
     .replace(/\*+/g, "")
     .replace(/__([^_]+)__/g, "$1")
     .replace(/_([^_]+)_/g, "$1")

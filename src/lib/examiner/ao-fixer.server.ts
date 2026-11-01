@@ -27,7 +27,7 @@ import {
   TEMPERATURE_EXAMINER,
 } from "./config";
 import { extractFirstJsonObject } from "./json";
-import type { GroundingSource } from "./types";
+import { describeErrorInPlainEconomics, type GroundingSource } from "./types";
 
 export type AoType = "ao1" | "ao2" | "ao3";
 
@@ -468,17 +468,17 @@ ${
 }
 - Major errors (e.g. demand shifting supply, investment automatically raising money supply, wrong shift directions): 1 major error caps AO2.`
     : `AO3 Evaluation (strictly out of ${maxMark} marks):
-- POSITIVE MARKING SLACK (1-3% SLACK):
-  * Reward genuine economic evaluation: limitations, trade-offs, conditions (time frame, elasticity, magnitude), and reasoned conclusion.
-  * If a candidate makes reasoned evaluative trade-offs and reaches an analytical conclusion, award top marks (Level 3: ${
-    maxMark === 2 ? "2/2" : maxMark === 6 ? "5-6/6" : "3-4/4"
-  }) rather than defaulting downward.
-  * If torn between two evaluation marks on a good attempt, award the higher mark.
-- AO3 Caps:
-  * No comparison with alternative when question requires it ('${cmd.commandWord}'): max ${Math.round(maxMark * 0.5)}/${maxMark} unless reasoned trade-offs are developed.
-  * Conclusion is an unranked hedge ('mix of policies', 'it depends') without conditions: max ${Math.round(maxMark * 0.5)}/${maxMark} (allow Level 3 if detailed limitations were examined).
-  * Judgement completely dodges exact question set: max 1/${maxMark}.
-  * Purely one-sided evaluation throughout: max 1/${maxMark}.`
+- STRICT CAMBRIDGE EXAMINER STANDARD:
+  * Start from the bottom of the level the evidence supports and move up only for quoted evidence. If torn, give the lower mark.
+  * 3 marks (or proportional Level 3) needs: a developed evaluative point, a judgement answering the exact question, AND a stated condition or criterion.
+  * 4 marks (or top mark) needs that plus weighing two factors with a reason one matters more.
+  * Listing alternatives is never comparing. Do not credit it as comparison unless an explicit criterion and a verdict are present.
+- Table B Strict Caps:
+  * No comparison with alternative when question requires it ('${cmd.commandWord}'): max ${Math.round(maxMark * 0.5)}/${maxMark}.
+  * Conclusion is an unranked hedge ('mix of policies', 'it depends', 'use a combination') without conditions or ranking: max ${Math.round(maxMark * 0.5)}/${maxMark}.
+  * Judgement answers a different question or dodges exact question set: max 1/${maxMark}.
+  * Purely one-sided evaluation throughout: max 1/${maxMark}.
+  * No evaluation attempted: 0 marks.`
 }
 
 RESPONSE CONTRACT:
@@ -536,7 +536,7 @@ ${studentText}
 """
 
 SILENT CHECKS BEFORE FINALISING:
-1. Did I apply Cambridge level rules and positive evaluation slack?
+1. Did I apply strict Cambridge level rules and Table B caps? If torn, did I give the lower mark?
 2. Is every credit and deduction backed by a quote under 15 words?
 3. Did I check for mandatory errors (hyperinflation, shift direction, demand shifting supply, AS=AD)?
 4. Are all strings free of asterisks?
@@ -555,18 +555,32 @@ SILENT CHECKS BEFORE FINALISING:
   const parsed = extractFirstJsonObject(res.text) as any;
   let awardedMark = typeof parsed.mark === "number" ? Math.min(maxMark, Math.max(0, Math.round(parsed.mark))) : 0;
 
-  // Enforce caps deterministically with balanced slack
+  // Enforce caps deterministically with strict Cambridge rules (no slack)
   const activeCaps = Array.isArray(parsed.activeCapIds) ? parsed.activeCapIds : [];
   if (ao === "ao3") {
-    // If candidate wrote substantive evaluative reasoning with conditions, allow Level 3 lower band with slack
-    const wordCount = studentText.trim().split(/\s+/).filter(Boolean).length;
-    const hasDetailedPoints = wordCount >= 50 && (parsed.ao3Checklist?.limitationChecked || parsed.ao3Checklist?.conditionChecked);
-
     if (activeCaps.includes("wrong_question_judgement") || activeCaps.includes("one_sided_evaluation")) {
       awardedMark = Math.min(awardedMark, 1);
-    } else if (activeCaps.includes("no_comparison") || activeCaps.includes("hedge_conclusion") || activeCaps.includes("unweighed_listing") || activeCaps.includes("generic_evaluation")) {
-      const capThreshold = hasDetailedPoints ? Math.min(maxMark, Math.max(2, Math.round(maxMark * 0.75))) : Math.min(maxMark, Math.round(maxMark * 0.5));
-      awardedMark = Math.min(awardedMark, capThreshold);
+    } else if (
+      activeCaps.includes("no_comparison") ||
+      activeCaps.includes("hedge_conclusion") ||
+      activeCaps.includes("unweighed_listing") ||
+      activeCaps.includes("generic_evaluation")
+    ) {
+      awardedMark = Math.min(awardedMark, Math.round(maxMark * 0.5));
+    }
+  }
+
+  let formattedReasonLine = parsed.reasonLine;
+  if (!formattedReasonLine || activeCaps.length > 0) {
+    if (activeCaps.length > 0) {
+      const plainError = describeErrorInPlainEconomics(activeCaps[0]);
+      formattedReasonLine = `Capped at ${awardedMark}/${maxMark}: ${plainError}`;
+    } else {
+      formattedReasonLine = `Achieves ${awardedMark}/${maxMark}`;
+    }
+  } else {
+    for (const cap of activeCaps) {
+      formattedReasonLine = formattedReasonLine.replace(new RegExp(cap, "gi"), describeErrorInPlainEconomics(cap));
     }
   }
 
@@ -581,7 +595,7 @@ SILENT CHECKS BEFORE FINALISING:
     mark: awardedMark,
     maxMark,
     tableLevelLabel: parsed.tableLevelLabel || (ao === "ao3" ? `Table B (${awardedMark}/${maxMark})` : `Table A (${awardedMark}/${maxMark})`),
-    reasonLine: parsed.reasonLine || (activeCaps.length > 0 ? `Capped at ${awardedMark}/${maxMark}: ${activeCaps[0]}` : `Achieves ${awardedMark}/${maxMark}`),
+    reasonLine: formattedReasonLine,
     delta,
     annotations: Array.isArray(parsed.annotations) ? parsed.annotations : [],
     whatYouDidRightQuote: parsed.whatYouDidRightQuote || (studentText.slice(0, 40) + "..."),
