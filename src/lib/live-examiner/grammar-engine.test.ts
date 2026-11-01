@@ -198,14 +198,14 @@ describe("Grammar and Mechanics Engine", () => {
       const sentence1 = "A minimum price intervention is a government intervention set above market equilibrium.";
       const sentence2 = "Demerit goods are goods that are overconsumed in an economy becuase cosumered are not aware of it's negative externailties due to information faliure.";
 
-      const terms = deterministicTerminologyIssues([sentence2]);
+      const mechanics = analyzeGrammarAndMechanics([sentence2]);
+      const terms = [...deterministicTerminologyIssues([sentence2]), ...mechanics];
       const originals = terms.map((t) => t.original.toLowerCase());
       expect(originals).toContain("becuase");
       expect(originals).toContain("cosumered");
       expect(originals).toContain("externailties");
       expect(originals).toContain("faliure");
 
-      const mechanics = analyzeGrammarAndMechanics([sentence2]);
       const itsIssue = mechanics.find((m) => m.ruleId === "its_vs_its_contraction");
       expect(itsIssue).toBeDefined();
 

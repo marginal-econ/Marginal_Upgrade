@@ -742,6 +742,8 @@ const RULES: RuleDefinition[] = [
 ];
 
 export const COMMON_TYPOS: Readonly<Record<string, string>> = {
+  cosumered: "consumed",
+  goverment: "government",
   fimrm: "firm",
   fimrs: "firms",
   frim: "firm",

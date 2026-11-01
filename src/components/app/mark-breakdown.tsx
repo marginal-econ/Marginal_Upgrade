@@ -83,6 +83,31 @@ export function MarkBreakdown({ grading }: { grading: Grading }) {
 
   return (
     <div className="space-y-5">
+      {/* Off-Topic / Unrelated Submission Notice */}
+      {grading.unrelated_to_question ? (
+        <div className="rounded-xl border border-rose-500/40 bg-rose-500/10 p-4 text-rose-200 shadow-sm">
+          <div className="flex items-start gap-3">
+            <X className="mt-0.5 h-5 w-5 shrink-0 text-rose-400" />
+            <div className="space-y-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-semibold text-rose-300">
+                  Off-Topic Submission — Question Not Answered
+                </span>
+                <Badge
+                  variant="outline"
+                  className="border-rose-400/40 bg-rose-400/20 text-rose-300 text-[10px] font-semibold uppercase"
+                >
+                  0 Marks Awarded
+                </Badge>
+              </div>
+              <p className="text-xs leading-relaxed text-rose-200/90">
+                This essay discusses an unrelated economics topic rather than answering the prompt set. Under official Cambridge Assessment regulations, marks cannot be awarded for irrelevant material.
+              </p>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {/* Grounding Transparency Banner */}
       {isUnanchored ? (
         <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-amber-200 shadow-sm">

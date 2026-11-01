@@ -7,6 +7,8 @@ import {
   type PredictedMark,
 } from "@/lib/live-examiner.functions";
 import { isDailyLimitError } from "@/lib/usage-limits";
+import { cleanSuggestion } from "@/lib/live-examiner/clean-suggestion";
+import { normalizeIssueSpan } from "@/lib/live-examiner/normalize-issue-span";
 
 export type { PredictedMark };
 
@@ -323,16 +325,46 @@ export function useLiveExaminerCheck(params: {
     const issue = issuesRef.current.find((item) => item.id === id);
     if (!issue) return currentText;
 
-    const cleanSug = cleanStars(issue.suggestion);
+    const normalized = normalizeIssueSpan({
+      sentence: issue.context,
+      original: issue.original,
+      suggestion: issue.suggestion,
+      category: issue.category,
+    });
+
+    const targetOriginal = normalized ? normalized.original : issue.original;
+    const cleanSug = normalized ? normalized.suggestion : cleanSuggestion(issue.suggestion);
+
+    // Critical safeguard: Never allow a tiny 1-2 word fragment to replace a full sentence
+    if (
+      targetOriginal.split(/\s+/).length >= 4 &&
+      cleanSug.split(/\s+/).length <= 2 &&
+      ["grammar", "clarity", "terminology", "spelling"].includes(issue.category.toLowerCase())
+    ) {
+      return currentText;
+    }
+
     const replaceOnce = (source: string) => {
       const at = source.indexOf(issue.context);
       if (at === -1) {
-        if (issue.original && source.includes(issue.original)) {
-          return source.replace(issue.original, cleanSug);
+        if (targetOriginal && source.includes(targetOriginal)) {
+          return source.replace(targetOriginal, cleanSug);
         }
         return source;
       }
-      const fixedSentence = issue.context.replace(issue.original, cleanSug);
+
+      let fixedSentence = issue.context;
+      if (/^\w+$/.test(targetOriginal)) {
+        const escaped = targetOriginal.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const wordRegex = new RegExp(`\\b${escaped}\\b`);
+        if (wordRegex.test(issue.context)) {
+          fixedSentence = issue.context.replace(wordRegex, cleanSug);
+        } else {
+          fixedSentence = issue.context.replace(targetOriginal, cleanSug);
+        }
+      } else {
+        fixedSentence = issue.context.replace(targetOriginal, cleanSug);
+      }
       return source.slice(0, at) + fixedSentence + source.slice(at + issue.context.length);
     };
 

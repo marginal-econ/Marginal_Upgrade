@@ -60,6 +60,42 @@ const AO_STYLE = {
 
 export type AutosaveState = "idle" | "saving" | "saved" | "error";
 
+export function getLiveExaminerIssueVisual(category: string) {
+  if (category === "economics_accuracy" || category === "misconception") {
+    return {
+      cardBorder: "border-l-4 border-l-red-600 bg-red-500/5",
+      badge: "border-red-600/40 bg-red-600/10 text-red-700 dark:text-red-300",
+      dot: "bg-red-600",
+    };
+  }
+  if (category === "terminology") {
+    return {
+      cardBorder: "border-l-4 border-l-ao1 bg-ao1/5",
+      badge: "border-ao1/40 bg-ao1/10 text-ao1",
+      dot: "bg-ao1",
+    };
+  }
+  if (category === "analysis" || category === "application" || category === "reasoning_chain") {
+    return {
+      cardBorder: "border-l-4 border-l-ao2 bg-ao2/5",
+      badge: "border-ao2/40 bg-ao2/10 text-ao2",
+      dot: "bg-ao2",
+    };
+  }
+  if (category === "evaluation") {
+    return {
+      cardBorder: "border-l-4 border-l-ao3 bg-ao3/5",
+      badge: "border-ao3/40 bg-ao3/10 text-ao3",
+      dot: "bg-ao3",
+    };
+  }
+  return {
+    cardBorder: "border-l-4 border-l-rose-500 bg-rose-500/5",
+    badge: "border-rose-500/40 bg-rose-500/10 text-rose-700 dark:text-rose-300",
+    dot: "bg-rose-500",
+  };
+}
+
 export function LiveExaminerPanel({
   issues,
   history,

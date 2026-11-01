@@ -45,6 +45,7 @@ export type Grading = {
   anchorsUsed: number;
   off_syllabus?: boolean;
   detected_subject?: string;
+  unrelated_to_question?: boolean;
   grounding_status?: "grounded" | "mark_scheme_image" | "unanchored";
   model?: string;
   keyRotated?: boolean;
@@ -125,12 +126,53 @@ export function normaliseGrading(
   analysis.awarded = Math.min(analysis.awarded, split.ao2_marks);
   evaluation.awarded = Math.min(evaluation.awarded, split.ao3_marks);
 
+  // Programmatic safeguard against awarding marks to unrelated or off-topic essays:
+  const isUnrelatedExplicit =
+    raw.unrelated_to_question === true ||
+    raw.is_unrelated === true ||
+    raw.off_topic === true ||
+    raw.is_off_topic === true;
+
+  // Detect internal contradiction in examiner comments:
+  // e.g. examiner wrote:
+  // "The essay does not address the question about free trade at all... entirely off-topic"
+  // "this is irrelevant to the question... The analysis is entirely absent for the required topic"
+  const allComments = [
+    knowledge.comment,
+    analysis.comment,
+    evaluation.comment,
+    String(raw.examiner_summary ?? ""),
+  ]
+    .join(" ")
+    .toLowerCase();
+
+  const statesOffTopic =
+    allComments.includes("entirely off-topic") ||
+    allComments.includes("completely off-topic") ||
+    allComments.includes("entirely off topic") ||
+    allComments.includes("does not address the question at all") ||
+    allComments.includes("does not address the question about") ||
+    (allComments.includes("unrelated to the topic") && allComments.includes("irrelevant to the question")) ||
+    (allComments.includes("does not address the question") && allComments.includes("analysis is entirely absent"));
+
+  const isUnrelated = isUnrelatedExplicit || statesOffTopic;
+
+  if (isUnrelated) {
+    knowledge.awarded = 0;
+    analysis.awarded = 0;
+    evaluation.awarded = 0;
+  }
+
   const aoTotal = knowledge.awarded + analysis.awarded + evaluation.awarded;
-  const declaredTotal = Math.round(toNumber(raw.total_mark, aoTotal));
+  const declaredTotal = isUnrelated ? 0 : Math.round(toNumber(raw.total_mark, aoTotal));
   // The AO marks are the source of truth; a stated total that disagrees is a
   // model arithmetic slip, not a separate judgement.
-  const total = Math.max(0, Math.min(maxMark, aoTotal || declaredTotal));
-  const band = typeof raw.band === "string" ? raw.band : bandFor(total, maxMark);
+  const total = isUnrelated ? 0 : Math.max(0, Math.min(maxMark, aoTotal || declaredTotal));
+  const band = isUnrelated
+    ? "Bottom band"
+    : typeof raw.band === "string"
+      ? raw.band
+      : bandFor(total, maxMark);
 
   const rawMissing = (raw.missing_elements ?? {}) as Record<string, unknown>;
 
@@ -141,8 +183,29 @@ export function normaliseGrading(
   let suggestedPractice = toStringArray(raw.suggested_practice);
   let examinerSummary = cleanComment(String(raw.examiner_summary ?? ""));
 
-  // Ensure full-fledged feedback is ALWAYS provided to the student
-  if (!examinerSummary || examinerSummary.length < 25) {
+  if (isUnrelated) {
+    if (!examinerSummary || examinerSummary.length < 25) {
+      examinerSummary = `This submission scores 0/${maxMark} marks (Bottom band). The essay is completely off-topic and discusses an unrelated economics topic rather than answering the specific question set. Under official Cambridge 9708 regulations, zero marks are awarded for irrelevant material.`;
+    }
+    if (strengths.length === 0 || strengths.some((s) => s.includes("contextually applied"))) {
+      strengths = [
+        "Economic concepts were recalled in the essay, demonstrating general economic literacy.",
+        "Writing contains coherent sentences and paragraphs.",
+      ];
+    }
+    if (weaknesses.length === 0 || weaknesses.some((w) => w.includes("transmission mechanisms can be deepened"))) {
+      weaknesses = [
+        "The submission does not address the specific question asked; it discusses an unrelated syllabus topic.",
+        "No relevant economic knowledge, analysis, or evaluation was presented for the examined question prompt.",
+      ];
+    }
+    if (actionableFeedback.length === 0 || actionableFeedback.some((f) => f.includes("Explicitly articulate every link"))) {
+      actionableFeedback = [
+        "Always read the exam question carefully and verify that your answer directly addresses the specific economic topic, qualifiers, and command words asked.",
+        "Ensure every definition, causal chain, and evaluative point is directly anchored to the specific prompt.",
+      ];
+    }
+  } else if (!examinerSummary || examinerSummary.length < 25) {
     examinerSummary = `This submission achieves ${total}/${maxMark} marks (${band}). The candidate demonstrates sound economic understanding with ${knowledge.awarded}/${knowledge.out_of} for AO1 Knowledge, ${analysis.awarded}/${analysis.out_of} for AO2 Analysis, and ${evaluation.awarded}/${evaluation.out_of} for AO3 Evaluation. Arguments are structured and address the prompt, with opportunities to deepen transmission mechanisms and comparative evaluation in subsequent rewrites.`;
   }
 
@@ -209,6 +272,7 @@ export function normaliseGrading(
     anchorsUsed: 0,
     off_syllabus: Boolean(raw.off_syllabus),
     detected_subject: typeof raw.detected_subject === "string" ? raw.detected_subject : undefined,
+    unrelated_to_question: isUnrelated,
     grounding_status:
       raw.grounding_status === "mark_scheme_image" || raw.grounding_status === "unanchored"
         ? raw.grounding_status

@@ -48,6 +48,7 @@ Return ONLY a single JSON object with exactly this shape:
 {
   "total_mark": number,
   "band": string,
+  "unrelated_to_question": boolean,
   "ao_breakdown": {
     "knowledge":  { "awarded": number, "out_of": number, "comment": string },
     "analysis":   { "awarded": number, "out_of": number, "comment": string },
@@ -68,9 +69,9 @@ Return ONLY a single JSON object with exactly this shape:
   "suggested_practice": string[],
   "confidence": number
 }
-"confidence" is your own 0-1 confidence that a real Cambridge examiner would
-award the same total mark. "suggested_practice" must be concrete next tasks
-(e.g. "write a 4-mark evaluation paragraph on subsidy incidence in this market").
+"unrelated_to_question" must be true if the student writes on an unrelated topic or fails to address the set prompt; if true, total_mark and all awarded AOs must be 0.
+"confidence" is your own 0-1 confidence that a real Cambridge examiner would award the same total mark.
+Do NOT hesitate to award 0 marks if the essay is off-topic, largely irrelevant, or answered poorly.
 Keep every comment specific to this essay's actual text — never generic advice.
 `.trim();
 
@@ -228,7 +229,10 @@ export async function gradeEssay(
     `"""\n${question}\n"""\n\n` +
     `STUDENT ESSAY SUBMISSION:\n` +
     `"""\n${essayText}\n"""${imageNote}\n\n` +
-    `CRITICAL DIRECTIVE: Scrutinize the student's submission against EVERY clause, qualifier, and command word of the exam question above. Ensure the evaluation directly addresses the exact question asked without shifting the goalposts.`;
+    `CRITICAL DIRECTIVES FOR FOOLPROOF MARKING:\n` +
+    `1. MANDATORY RELEVANCE CHECK: Does this essay answer the specific question set ("${question}")? If the essay discusses an unrelated economics topic (e.g. writing about subsidies or market failure when asked about free trade), it is off-topic and MUST receive ZERO MARKS across all AOs (Total: 0/${maxMark}, Band: "Bottom band", "unrelated_to_question": true). Never award courtesy credit for off-topic economic content.\n` +
+    `2. DO NOT HESITATE TO AWARD ZERO: If an AO is absent, unattempted, or defective in relation to the prompt, award 0 for that AO. Courtesy marks are strictly prohibited.\n` +
+    `3. Scrutinize the student's submission against EVERY clause, qualifier, and command word of the exam question above.`;
 
   let grading: Grading;
   let promptTokens: number | null = null;

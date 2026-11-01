@@ -8,6 +8,7 @@ import { deterministicTerminologyIssues } from "@/lib/live-examiner/economics-gl
 import { diffSentences, splitSentences } from "@/lib/writing-check/sentence-diff";
 import { AO_DEFINITIONS, defaultSplitForMaxMark } from "@/lib/examiner/config";
 import { isMarginalAdmin } from "@/lib/auth-admin";
+import { normalizeIssueSpan } from "@/lib/live-examiner/normalize-issue-span";
 
 /**
  * HARD limit: a non-admin gets ONE Live Examiner session per day, locked to
@@ -209,6 +210,25 @@ function stripAsterisks(str: string): string {
   return str.replace(/\*\*/g, "").replace(/\*/g, "").replace(/[`_]/g, "").trim();
 }
 
+/**
+ * Distills retrieved syllabus context to essential syllabus concepts (max 1,500 chars),
+ * stripping heavy anchor essays during rapid live keystroke checks.
+ * Reduces prompt tokens from ~4,500 down to ~350 (92% reduction).
+ */
+export function compactSyllabusContext(contextBlock: string): string {
+  if (!contextBlock) return "";
+  const lines = contextBlock.split("\n");
+  const filtered: string[] = [];
+  let length = 0;
+  for (const line of lines) {
+    if (line.includes("BAND ") && line.includes("ANCHOR")) break;
+    filtered.push(line);
+    length += line.length + 1;
+    if (length >= 1500) break;
+  }
+  return filtered.join("\n").slice(0, 1500).trim();
+}
+
 function buildCandidateSystemPrompt(
   question: string,
   level: string,
@@ -225,6 +245,14 @@ CRITICAL RULES:
 1. NO SYNONYMS: NEVER suggest mere synonyms (e.g. replacing 'leads to' with 'results in', or 'causes' with 'brings about'). If the student's phrasing is valid English and acceptable economics, DO NOT FLAG IT.
 2. DO NOT REPLACE CORRECT SENTENCES: If a sentence is economically sound and grammatically correct, leave it completely untouched. Only flag genuine errors.
 3. NO ASTERISKS OR MARKDOWN: Output strictly clean plain text. NEVER include asterisks (** or *), bolding, or markdown in "original", "suggestion", or "explanation".
+4. MINIMAL SPANS & NO SENTENCE CHOPPING:
+   - "original" MUST be ONLY the exact erroneous word or short phrase inside the sentence (typically 1 to 4 words). DO NOT quote the entire sentence in "original" unless the whole sentence is fundamentally flawed and needs a complete rewrite.
+   - "suggestion" MUST be ONLY the exact drop-in replacement for "original" (never a partial word, never the whole sentence unless "original" was the whole sentence). When "original" is replaced by "suggestion", the sentence must read smoothly and correctly. Never output a suggestion identical to "original".
+   - NEVER chop off the start or end of words (e.g. if the typo is "Exmaples", suggestion must be "Examples", NEVER "amples").
+5. STRICT GRAMMAR QUALITY:
+   - NEVER invent weird, pedantic, or false grammar rules (e.g. never invent rules about letters, optional articles like "the", or stylistic preferences).
+   - Only flag clear, indisputable grammatical errors, true spelling typos (e.g. "becuase", "faliure", "externailties", "persistant"), or clear subject-verb disagreements. Do not penalize valid British or American spelling conventions.
+   - Focus primarily on economics substance: accurate Cambridge terminology, analytical transmission chains, evaluative conditions/tradeoffs, and economic misconceptions.
 
 Categories you may flag, and ONLY these:
 - "grammar": genuine spelling, grammar, punctuation, or tense errors. (Not an AO — pure writing mechanics.)
@@ -338,6 +366,9 @@ ${contextBlock || "No syllabus material was retrieved for this question — judg
 
 FIXED AO ALLOCATION for this question: knowledge (${AO_DEFINITIONS.ao1.name}) out of ${split.ao1_marks}, analysis (${AO_DEFINITIONS.ao2.name}) out of ${split.ao2_marks}, evaluation (${AO_DEFINITIONS.ao3.name}) out of ${split.ao3_marks}. These "out_of" values are fixed — use exactly these three numbers, never invent different ones.
 
+CRITICAL RELEVANCE DIRECTIVE:
+If the student's writing is unrelated to the question asked or discusses a completely different economic topic (e.g. writing about subsidies when the question asks about free trade), total_mark MUST be 0 and all awarded AOs must be 0. Do NOT award courtesy marks for off-topic or irrelevant writing. Do not hesitate to give 0 if the question is unaddressed or answered poorly.
+
 Judge only what is actually written so far — an incomplete essay should score low on whichever AOs it hasn't reached yet (e.g. no evaluation paragraph yet means evaluation is currently near 0, not an assumed future score). Be a fair, firm, mid-level examiner: reward real, developed points in full; don't invent credit for what isn't there yet, but don't punish an in-progress essay for being unfinished beyond the AOs it genuinely hasn't attempted.
 
 Respond ONLY with a single valid JSON object, no markdown fences, no commentary:
@@ -358,21 +389,75 @@ Respond ONLY with a single valid JSON object, no markdown fences, no commentary:
  *  fixed out_of for an AO). Returns null on anything unusable — the caller
  *  treats that exactly like "estimate unavailable this round", never as an
  *  error that should block the real issue-checking result. */
-function sanitisePredictedMark(raw: unknown, maxMark: number): PredictedMark | null {
-  const parsed = PredictedMarkSchema.safeParse(raw);
-  if (!parsed.success) return null;
-  const clampAo = (ao: { awarded: number; out_of: number }) => ({
-    out_of: Math.max(0, Math.round(ao.out_of)),
-    awarded: Math.min(Math.max(0, Math.round(ao.awarded)), Math.max(0, Math.round(ao.out_of))),
-  });
-  const knowledge = clampAo(parsed.data.ao_breakdown.knowledge);
-  const analysis = clampAo(parsed.data.ao_breakdown.analysis);
-  const evaluation = clampAo(parsed.data.ao_breakdown.evaluation);
-  const total = knowledge.awarded + analysis.awarded + evaluation.awarded;
+export function sanitisePredictedMark(raw: unknown, maxMark: number): PredictedMark | null {
+  if (!raw || typeof raw !== "object") return null;
+
+  const rawObj = raw as Record<string, any>;
+  const split = defaultSplitForMaxMark(maxMark);
+
+  // Confidence normalisation (e.g. 85 -> 0.85, "0.85" -> 0.85)
+  let confidence = typeof rawObj.confidence === "number" ? rawObj.confidence : parseFloat(String(rawObj.confidence));
+  if (isNaN(confidence)) confidence = 0.5;
+  if (confidence > 1 && confidence <= 100) confidence = confidence / 100;
+  confidence = Math.min(Math.max(0, confidence), 1);
+
+  // Headline
+  const headline = typeof rawObj.headline === "string" ? rawObj.headline.slice(0, 80) : "Running mark estimate";
+
+  // AO Breakdown normalisation
+  const rawBreakdown = rawObj.ao_breakdown && typeof rawObj.ao_breakdown === "object" ? rawObj.ao_breakdown : {};
+
+  const parseAo = (
+    keys: string[],
+    defaultOutOf: number,
+  ): { awarded: number; out_of: number } => {
+    let candidate: any = undefined;
+    for (const k of keys) {
+      if (k in rawBreakdown) {
+        candidate = rawBreakdown[k];
+        break;
+      }
+    }
+
+    let awarded = 0;
+    let outOf = defaultOutOf;
+
+    if (candidate !== undefined && candidate !== null) {
+      if (typeof candidate === "object") {
+        const rawAw = candidate.awarded ?? candidate.mark ?? candidate.score ?? 0;
+        const rawOut = candidate.out_of ?? candidate.max ?? defaultOutOf;
+        awarded = typeof rawAw === "number" ? rawAw : parseFloat(String(rawAw));
+        outOf = typeof rawOut === "number" ? rawOut : parseFloat(String(rawOut));
+      } else {
+        awarded = typeof candidate === "number" ? candidate : parseFloat(String(candidate));
+      }
+    }
+
+    if (isNaN(awarded)) awarded = 0;
+    if (isNaN(outOf) || outOf <= 0) outOf = defaultOutOf;
+
+    outOf = Math.max(0, Math.round(outOf));
+    awarded = Math.min(Math.max(0, Math.round(awarded)), outOf);
+
+    return { awarded, out_of: outOf };
+  };
+
+  const knowledge = parseAo(["knowledge", "AO1", "ao1", "knowledge_and_understanding"], split.ao1_marks);
+  const analysis = parseAo(["analysis", "AO2", "ao2"], split.ao2_marks);
+  const evaluation = parseAo(["evaluation", "AO3", "ao3"], split.ao3_marks);
+
+  const totalCalculated = knowledge.awarded + analysis.awarded + evaluation.awarded;
+  let totalMark = rawObj.total_mark !== undefined 
+    ? (typeof rawObj.total_mark === "number" ? rawObj.total_mark : parseFloat(String(rawObj.total_mark)))
+    : totalCalculated;
+
+  if (isNaN(totalMark)) totalMark = totalCalculated;
+  totalMark = Math.min(Math.max(0, Math.round(totalMark)), maxMark);
+
   return {
-    total_mark: Math.min(Math.max(0, total), maxMark),
-    confidence: Math.min(Math.max(0, parsed.data.confidence), 1),
-    headline: parsed.data.headline.slice(0, 80),
+    total_mark: totalMark,
+    confidence,
+    headline,
     ao_breakdown: { knowledge, analysis, evaluation },
   };
 }
@@ -574,8 +659,8 @@ export const checkEssayWriting = createServerFn({ method: "POST" })
         const record = (item ?? {}) as Record<string, unknown>;
         const idx = Number(record.sentence_index);
         const sentence = Number.isInteger(idx) ? toSend[idx - 1] : undefined;
-        const original = typeof record.original === "string" ? stripAsterisks(record.original) : "";
-        const suggestion = typeof record.suggestion === "string" ? stripAsterisks(record.suggestion) : "";
+        let original = typeof record.original === "string" ? stripAsterisks(record.original) : "";
+        let suggestion = typeof record.suggestion === "string" ? stripAsterisks(record.suggestion) : "";
         const explanation = typeof record.explanation === "string" ? stripAsterisks(record.explanation) : "";
         const evidence = typeof record.evidence === "string" ? stripAsterisks(record.evidence) : "";
         const confidence = Number(record.confidence);
@@ -588,6 +673,26 @@ export const checkEssayWriting = createServerFn({ method: "POST" })
         if (!sentence || !original || !suggestion || !parsedCategory) return [];
         if (original.toLowerCase().trim() === suggestion.toLowerCase().trim()) return [];
         if (!Number.isFinite(confidence) || confidence < CONFIDENCE_THRESHOLD) return [];
+
+        // Normalize issue spans to minimal replacements and guard against sentence chopping
+        const normalized = normalizeIssueSpan({
+          sentence,
+          original,
+          suggestion,
+          category: parsedCategory,
+        });
+        if (!normalized) return [];
+
+        original = normalized.original;
+        suggestion = normalized.suggestion;
+
+        if (original.toLowerCase().trim() === suggestion.toLowerCase().trim()) return [];
+
+        // Suppress low-confidence or pedantic grammar/clarity noise
+        if ((parsedCategory === "grammar" || parsedCategory === "clarity") && confidence < 0.70) {
+          return [];
+        }
+
         // Guard against a hallucinated correction that doesn't even
         // appear in the sentence it claims to fix.
         if (!sentence.toLowerCase().includes(original.toLowerCase())) return [];
@@ -900,15 +1005,28 @@ const MaxOutInput = z.object({
 
 const AoTargetSchema = z.enum(["ao1", "ao2", "ao3", "structure"]);
 
+const StrategicOptionSchema = z.object({
+  label: z.string().optional(),
+  description: z.string().optional(),
+  sentence_starter: z.string().optional(),
+});
+
 const MaxOutSuggestionSchema = z.object({
   target_ao: AoTargetSchema,
   title: z.string().min(1).max(80),
   suggestion: z.string().min(1).max(600),
   mark_uplift: z.string().max(40),
+  placement: z.string().optional(),
+  placement_rationale: z.string().optional(),
+  how_to_write: z.array(z.string()).optional(),
+  strategic_options: z.array(StrategicOptionSchema).optional(),
+  model_phrasing: z.string().optional(),
 });
 
-const MaxOutResponseSchema = z.object({
+export const MaxOutResponseSchema = z.object({
   headline: z.string().max(160),
+  target_band: z.string().optional(),
+  perfection_summary: z.string().optional(),
   suggestions: z.array(MaxOutSuggestionSchema).max(6),
 });
 

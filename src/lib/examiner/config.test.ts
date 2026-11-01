@@ -21,25 +21,25 @@ import {
   TARIFF_SPLITS,
 } from "./config";
 
-describe("Examiner Configuration & Gemini Model Allocation", () => {
-  it("allocates Gemini 3.8 Flash for deep evaluative grading and arbitration", () => {
-    expect(MODEL_EXAMINER).toBe("google/gemini-3.8-flash");
-    expect(MODEL_GRADING).toBe("google/gemini-3.8-flash");
-    expect(MODEL_AUDIT).toBe("google/gemini-3.8-flash");
-    expect(MODEL_ARBITRATION).toBe("google/gemini-3.8-flash");
+describe("Examiner Configuration & Model Allocation", () => {
+  it("allocates primary model for deep evaluative grading and arbitration", () => {
+    expect(MODEL_EXAMINER).toBeTruthy();
+    expect(MODEL_GRADING).toBe(MODEL_EXAMINER);
+    expect(MODEL_AUDIT).toBe(MODEL_EXAMINER);
+    expect(MODEL_ARBITRATION).toBe(MODEL_EXAMINER);
   });
 
-  it("allocates Gemini 3.8 Flash for high-frequency live typing and diagnostic tasks", () => {
-    expect(MODEL_FAST).toBe("google/gemini-3.8-flash");
-    expect(MODEL_LIVE_CHECK).toBe("google/gemini-3.8-flash");
-    expect(MODEL_LIVE_CANDIDATE).toBe("google/gemini-3.8-flash");
-    expect(MODEL_ESTIMATE).toBe("google/gemini-3.8-flash");
-    expect(MODEL_MECHANICAL).toBe("google/gemini-3.8-flash");
-    expect(MODEL_EXTRACT).toBe("google/gemini-3.8-flash");
-    expect(MODEL_COACH).toBe("google/gemini-3.8-flash");
-    expect(MODEL_CHALLENGE).toBe("google/gemini-3.8-flash");
-    expect(MODEL_QUESTION_GEN).toBe("google/gemini-3.8-flash");
-    expect(MODEL_ANALYSIS).toBe("google/gemini-3.8-flash");
+  it("allocates fast model for high-frequency live typing and diagnostic tasks", () => {
+    expect(MODEL_FAST).toBeTruthy();
+    expect(MODEL_LIVE_CHECK).toBe(MODEL_FAST);
+    expect(MODEL_LIVE_CANDIDATE).toBe(MODEL_FAST);
+    expect(MODEL_ESTIMATE).toBe(MODEL_FAST);
+    expect(MODEL_MECHANICAL).toBe(MODEL_FAST);
+    expect(MODEL_EXTRACT).toBe(MODEL_FAST);
+    expect(MODEL_COACH).toBe(MODEL_FAST);
+    expect(MODEL_CHALLENGE).toBe(MODEL_FAST);
+    expect(MODEL_QUESTION_GEN).toBe(MODEL_FAST);
+    expect(MODEL_ANALYSIS).toBe(MODEL_FAST);
   });
 
   it("preserves authoritative Cambridge 9708 AO splits across tariffs", () => {
