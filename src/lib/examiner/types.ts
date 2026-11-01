@@ -174,6 +174,40 @@ export function detectEconomicErrors(essayText: string): DetectedError[] {
     });
   }
 
+  // 6. Inelastic demand claimed to be effective at reducing quantity/consumption
+  if (
+    /inelastic\s+demand.*(?:effective|successful|greatly\s+reduces?|significantly\s+reduces?|large\s+fall|large\s+drop).*(?:reducing\s+consumption|reducing\s+demand|cutting\s+consumption|falling\s+consumption)/i.test(essayText) ||
+    /(?:indirect\s+tax|taxation).*(?:highly\s+effective|very\s+effective).*(?:because|due\s+to\s+the\s+fact\s+that)?\s+(?:demand\s+is\s+inelastic|inelastic\s+demand)/i.test(essayText)
+  ) {
+    errors.push({
+      id: "ped_inelastic_effectiveness",
+      trap: "Claiming an indirect tax is effective at reducing consumption because demand is inelastic (inelastic demand means quantity falls proportionally less than price rises, making the tax ineffective at cutting quantity, though effective at raising revenue)",
+      severity: "major",
+    });
+  }
+
+  // 7. Shifting demand for an indirect tax or subsidy
+  if (
+    /(?:indirect\s+tax|specific\s+tax|ad\s+valorem\s+tax|subsidy).*(?:shifts?\s+demand\s+(?:to\s+the\s+)?(?:left|right|inward|outward)|shifts?\s+the\s+demand\s+curve)/i.test(essayText)
+  ) {
+    errors.push({
+      id: "tax_demand_shift",
+      trap: "Claiming an indirect tax or subsidy shifts the demand curve (taxes and subsidies affect production costs and shift supply; demand only contracts or expands along the curve)",
+      severity: "major",
+    });
+  }
+
+  // 8. Price change claimed to shift the demand or supply curve
+  if (
+    /(?:rise|increase|fall|drop|change)\s+in\s+price\s+(?:shifts?\s+(?:the\s+)?(?:demand|supply)\s+curve|causes?\s+(?:the\s+)?(?:demand|supply)\s+curve\s+to\s+shift)/i.test(essayText)
+  ) {
+    errors.push({
+      id: "price_causes_shift",
+      trap: "A price change claimed to shift a demand or supply curve (price changes cause movements along the curve, never shifts)",
+      severity: "major",
+    });
+  }
+
   return errors;
 }
 
@@ -326,9 +360,25 @@ export function normaliseGrading(
     allComments.includes("entirely off-topic") ||
     allComments.includes("completely off-topic") ||
     allComments.includes("entirely off topic") ||
+    allComments.includes("off-topic") ||
+    allComments.includes("off topic") ||
     allComments.includes("does not address the question at all") ||
     allComments.includes("does not address the question about") ||
+    allComments.includes("does not address the question set") ||
+    allComments.includes("does not address the set question") ||
+    allComments.includes("does not answer the question") ||
+    allComments.includes("fails to address the question") ||
+    allComments.includes("answers a different question") ||
+    allComments.includes("answered a different question") ||
+    allComments.includes("different question") ||
+    allComments.includes("different economic topic") ||
+    allComments.includes("different topic rather than") ||
+    allComments.includes("instead of addressing the question") ||
+    allComments.includes("rather than addressing the question") ||
+    allComments.includes("diverges completely from the set question") ||
+    allComments.includes("zero marks are awarded for irrelevant") ||
     (allComments.includes("unrelated to the topic") && allComments.includes("irrelevant to the question")) ||
+    (allComments.includes("unrelated") && (allComments.includes("question") || allComments.includes("topic"))) ||
     (allComments.includes("does not address the question") && allComments.includes("analysis is entirely absent"));
 
   const isUnrelated = isUnrelatedExplicit || statesOffTopic;

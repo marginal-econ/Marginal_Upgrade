@@ -35,7 +35,7 @@ import {
 import { EXAMINER_PROMPT } from "./examiner-prompt";
 import { extractFirstJsonObject } from "./json";
 import { bandFor, normaliseGrading, type Grading, type GroundingSource } from "./types";
-import { ACCURACY_LAYER_PROMPT } from "./accuracy-rules";
+import { ACCURACY_LAYER_PROMPT, decodeExamQuestion } from "./accuracy-rules";
 
 /** Fill `{placeholder}` tokens in the ported prompt templates. */
 function loadPrompt(template: string, values: Record<string, string | number>): string {
@@ -215,25 +215,29 @@ export async function gradeEssay(
 
   if (groundingStatus === "unanchored") {
     systemPrompt = `${systemPrompt}\n\n` +
-      `CRITICAL KNOWLEDGE BASE NOTICE — NO SPECIFIC MARK SCHEME OR SYLLABUS MATCH FOUND:\n` +
-      `No specific Cambridge 9708 mark scheme, syllabus section, or examiner report was found in the institution's knowledge base for this question (${question}), and no mark scheme screenshot was attached.\n\n` +
-      `MARKING INSTRUCTIONS FOR UNANCHORED ESSAYS:\n` +
-      `1. You MUST notify the candidate in 'examiner_summary' with this exact prefix:\n` +
-      `   "[UNANCHORED ASSESSMENT: No official mark scheme found in Knowledge Base — evaluated against generic Cambridge 9708 Assessment Objectives (AO1/AO2/AO3)]. "\n` +
-      `2. Mark strictly against standard Cambridge AO level descriptors without inventing question-specific requirements.\n` +
-      `3. In 'actionable_feedback', advise the student to attach a screenshot of the official mark scheme or have an administrator upload it to the Knowledge Base to unlock question-specific mark scheme grounding.\n` +
-      `4. Do NOT invent fake mark-scheme references or claim to have consulted specific unseen question mark schemes.`;
+      `MARKING INSTRUCTIONS FOR STANDARD CAMBRIDGE ASSESSMENT:\n` +
+      `1. Mark strictly against standard Cambridge AO level descriptors without inventing question-specific requirements.\n` +
+      `2. Do NOT invent fake mark-scheme references or claim to have consulted specific unseen question mark schemes.`;
   }
+
+  const decoded = decodeExamQuestion(question);
 
   const userMessage =
     `EXAM QUESTION TO MARK IN FULL DEPTH (${maxMark} marks):\n` +
     `"""\n${question}\n"""\n\n` +
+    `FULL QUESTION DECODE (Official Cambridge 9708 Specifications):\n` +
+    `• Command Word Directive: ${decoded.commandWordDirective}\n` +
+    `• Scope & Context: ${decoded.scopeContext}\n` +
+    `• Analysis & Diagram Verification: ${decoded.analysisAndDiagramDirective}\n` +
+    `• Elasticity & PED Rigor: ${decoded.pedDirective}\n` +
+    `• Evaluative Levers & Verdict: ${decoded.evaluationDirective}\n\n` +
     `STUDENT ESSAY SUBMISSION:\n` +
     `"""\n${essayText}\n"""${imageNote}\n\n` +
     `CRITICAL DIRECTIVES FOR FOOLPROOF MARKING:\n` +
-    `1. MANDATORY RELEVANCE CHECK: Does this essay answer the specific question set ("${question}")? If the essay discusses an unrelated economics topic (e.g. writing about subsidies or market failure when asked about free trade), it is off-topic and MUST receive ZERO MARKS across all AOs (Total: 0/${maxMark}, Band: "Bottom band", "unrelated_to_question": true). Never award courtesy credit for off-topic economic content.\n` +
-    `2. DO NOT HESITATE TO AWARD ZERO: If an AO is absent, unattempted, or defective in relation to the prompt, award 0 for that AO. Courtesy marks are strictly prohibited.\n` +
-    `3. Scrutinize the student's submission against EVERY clause, qualifier, and command word of the exam question above.`;
+    `1. MANDATORY RELEVANCE CHECK: Does this essay answer the specific question set ("${question}")? If the question and the essay are different (e.g. the candidate discusses an unrelated economic topic, dodges the question, or writes a pre-prepared answer to a different question), you MUST award ZERO MARKS across all AOs (Total: 0/${maxMark}, AO1: 0, AO2: 0, AO3: 0, Band: "Bottom band", "unrelated_to_question": true). Never award courtesy credit for off-topic economic content.\n` +
+    `2. DIAGRAM & PED ACCURACY PENALTIES: Inaccurate diagrams (wrong curve shifted, wrong shift direction, wrong axes, confusion between movements along and shifts) and inaccurate elasticity claims MUST lose marks under AO2 Analysis.\n` +
+    `3. DETAILED PEDAGOGICAL FEEDBACK: Provide deep, granular, and actionable feedback explaining the exact economic transmission mechanisms, why marks were credited or lost, and step-by-step guidance to achieve full marks.\n` +
+    `4. DO NOT HESITATE TO AWARD ZERO: If an AO is absent, unattempted, or defective in relation to the prompt, award 0 for that AO. Courtesy marks are strictly prohibited.`;
 
   let grading: Grading;
   let promptTokens: number | null = null;

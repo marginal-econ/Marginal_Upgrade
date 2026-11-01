@@ -174,6 +174,39 @@ In conclusion a mix of all the supply-side policies along with the implementatio
     expect(errors.some((e) => e.id === "as_equals_ad")).toBe(true);
   });
 
+  it("detects PED inaccuracies, tax shifting demand, and price shifting curves", () => {
+    const textWithErrors = `
+      An indirect tax is highly effective because demand is inelastic, so quantity demanded drops significantly.
+      Furthermore the specific tax shifts demand to the left.
+      Finally a rise in price shifts the demand curve inwards.
+    `;
+    const errors = detectEconomicErrors(textWithErrors);
+    expect(errors.some((e) => e.id === "ped_inelastic_effectiveness")).toBe(true);
+    expect(errors.some((e) => e.id === "tax_demand_shift")).toBe(true);
+    expect(errors.some((e) => e.id === "price_causes_shift")).toBe(true);
+  });
+
+  it("strictly gives zero marks when comments indicate answer answers a different question", () => {
+    const split = { ao1_marks: 2, ao2_marks: 6, ao3_marks: 4 };
+    const raw = {
+      total_mark: 6,
+      band: "Middle band",
+      ao_breakdown: {
+        knowledge: { awarded: 2, out_of: 2, comment: "Fluent terminology on inflation." },
+        analysis: { awarded: 3, out_of: 6, comment: "Candidate answers a different question from the one set." },
+        evaluation: { awarded: 1, out_of: 4, comment: "Limited evaluative points." },
+      },
+      examiner_summary: "The candidate discusses a different economic topic instead of addressing the question.",
+    };
+
+    const normalised = normaliseGrading(raw, 12, split);
+    expect(normalised.total_mark).toBe(0);
+    expect(normalised.ao_breakdown.knowledge.awarded).toBe(0);
+    expect(normalised.ao_breakdown.analysis.awarded).toBe(0);
+    expect(normalised.ao_breakdown.evaluation.awarded).toBe(0);
+    expect(normalised.unrelated_to_question).toBe(true);
+  });
+
   it("detects hedge conclusions without ranking", () => {
     const textWithHedge = `
       Some analysis here.

@@ -1,5 +1,4 @@
-import { AlertTriangle, Check, CheckCircle2, Clock, FileText, ShieldCheck, Sparkles, X, ArrowUpRight } from "lucide-react";
-import { Link } from "@tanstack/react-router";
+import { AlertTriangle, Check, CheckCircle2, Clock, FileText, ShieldCheck, Sparkles, X } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -247,21 +246,6 @@ export function MarkBreakdown({
                 />
               </div>
               <p className="mt-3 text-xs leading-relaxed text-muted-foreground">{stripStars(score.comment)}</p>
-              <div className="mt-3 pt-2.5 border-t border-border/50 flex justify-end">
-                <Link
-                  to="/practice"
-                  search={{
-                    ao: meta.ao,
-                    question: question || "",
-                    topic: topic || "",
-                    fromGrader: true,
-                  }}
-                  className="inline-flex items-center gap-1 text-[11px] font-medium text-primary hover:underline hover:text-primary/80 transition-colors"
-                >
-                  <span>Fix this AO</span>
-                  <ArrowUpRight className="size-3" />
-                </Link>
-              </div>
             </div>
           );
         })}

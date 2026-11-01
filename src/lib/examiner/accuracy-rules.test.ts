@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   analyzeCommandWord,
+  decodeExamQuestion,
   AO3_CAPS,
   MANDATORY_ERROR_CHECKS,
   TABLE_A_LEVELS,
@@ -64,5 +65,22 @@ describe("accuracy-rules", () => {
     expect(TABLE_B_LEVELS.level3.marks).toBe("3-4");
     expect(TABLE_B_LEVELS.level2.marks).toBe("2");
     expect(TABLE_B_LEVELS.level1.marks).toBe("1");
+  });
+
+  it("fully decodes micro and macro questions with diagram and PED specifications", () => {
+    const macroQ = "Assess whether supply-side policy is the best method to reduce the rate of inflation.";
+    const macroDecoded = decodeExamQuestion(macroQ);
+    expect(macroDecoded.scope).toBe("macro");
+    expect(macroDecoded.topic).toContain("Supply-Side");
+    expect(macroDecoded.commandWord).toBe("best");
+    expect(macroDecoded.commandWordDirective).toContain("compare the named policy against at least one alternative");
+    expect(macroDecoded.analysisAndDiagramDirective).toContain("AD/AS");
+
+    const microQ = "Discuss whether an indirect tax is the most effective policy to reduce the consumption of demerit goods.";
+    const microDecoded = decodeExamQuestion(microQ);
+    expect(microDecoded.scope).toBe("micro");
+    expect(microDecoded.topic).toContain("Government Intervention");
+    expect(microDecoded.analysisAndDiagramDirective).toContain("shift SUPPLY");
+    expect(microDecoded.pedDirective).toContain("Inelastic demand");
   });
 });
