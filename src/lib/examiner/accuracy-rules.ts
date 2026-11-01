@@ -41,11 +41,20 @@ Judge each paragraph as a chain: cause -> mechanism -> effect -> link back to th
 ## 3. DIAGRAM ACCURACY & EXPLANATION (AO2 Analysis Penalties)
 - A diagram is optional unless the question requires one. Never penalise a missing diagram unless the question demands it.
 - Credit a diagram only for two things: (1) it is the RIGHT diagram model for the question and argument, and (2) the written text explains it (what shifts, why, and what happens to price and quantity).
-- INACCURATE DIAGRAM PENALTIES (AO2 Analysis MUST lose marks):
-  * Shifting the wrong curve (e.g. shifting Demand instead of Supply for an indirect tax or subsidy) is a MAJOR ERROR. Caps AO2 at Level 2.
-  * Wrong shift direction (e.g. shifting supply right for a tax, or left for a subsidy) is a MAJOR ERROR. Caps AO2 at Level 2.
-  * Confusing a price change movement with a curve shift (e.g. claiming a price change shifts the demand curve) is a MAJOR ERROR. A price change causes a contraction or expansion ALONG the curve, NEVER a shift.
-  * Inverted or wrong axes (e.g. P and Q on an AD/AS diagram, or Price Level and Real Output on a micro market diagram) loses analysis credit.
+- INACCURATE DIAGRAM & ANALYSIS PENALTIES (MANDATORY AO2 MARK CUTS):
+  * DO NOT JUST MENTION IN FEEDBACK — YOU MUST CUT MARKS IN AO2 ANALYSIS!
+  * Validate how big the mistake is, and penalise accordingly:
+    - 1 Major Diagram / Shift Error: CUT 2 TO 3 MARKS from AO2. Strictly caps AO2 at max 3/6.
+      * Shifting the wrong curve (e.g. shifting Demand instead of Supply for an indirect tax or subsidy) is a MAJOR ERROR.
+      * Wrong shift direction (e.g. shifting supply right for a tax, or left for a subsidy) is a MAJOR ERROR.
+      * Confusing a price change movement with a curve shift (e.g. claiming a price change shifts the demand curve) is a MAJOR ERROR. A price change causes a contraction or expansion ALONG the curve, NEVER a shift.
+      * Inverted or wrong axes (e.g. P and Q on an AD/AS diagram, or Price Level and Real Output on a micro market diagram) loses analysis credit.
+    - 1 Major PED / Elasticity Error: CUT 2 TO 3 MARKS from AO2. Strictly caps AO2 at max 3/6.
+      * Claiming inelastic demand makes an indirect tax "very effective" at cutting consumption is a major theoretical error.
+    - 1 Major Formula Error: CUT 2 TO 3 MARKS from AO2. Strictly caps AO2 at max 3/6.
+    - MULTIPLE MAJOR ERRORS (e.g. BOTH a diagram shift error AND a PED error, or diagram error + flawed analysis mechanism):
+      * MAJOR MARK CUT: Give as low as 2 to 3 marks out of 6 (Level 1 / bottom Level 2).
+      * Under Cambridge standards, an essay containing major diagram and PED errors CAN NEVER receive 4/6 or higher.
   * A wrong diagram earns 0 credit. A right diagram with no written explanation earns no analysis marks for that point.
 
 ## 4. AO3 (max 4 in 12-mark essay; Table B): STRICT EVALUATION CAPS (MAX HARSHNESS)
@@ -61,16 +70,20 @@ Judge each paragraph as a chain: cause -> mechanism -> effect -> link back to th
 - A conclusion is "justified" only if the body of the essay supports it. A restated mix of policies is never "justified".
 - Mentioning or describing an alternative is not comparing. Comparison requires an explicit criterion and a clear verdict on which is better and when.
 
-## 5. ERROR RULES & PED ACCURACY
-- Every error you name in the feedback must cost marks. Never call the same point both accurate and wrong.
-- MAJOR errors: wrong definition of a key term, wrong direction of a shift, wrong mechanism in the main line of argument, PED misconceptions. MINOR errors: imprecise wording that does not break the argument.
-- 1 major error: AO1+AO2 max 7. 2 or more major errors: AO1+AO2 max 5.
+## 5. ERROR RULES & PED ACCURACY (MANDATORY MARK REDUCTIONS)
+- Every error you name in the feedback MUST cost marks. Never call the same point both accurate and wrong.
+- DO NOT JUST MENTION ERRORS IN FEEDBACK — YOU MUST ACTIVELY DEDUCT MARKS FROM AO2 ANALYSIS.
+- Deductions apply directly to the AO where the mistake occurred (AO2 Analysis for diagrams, PED, formulas, and mechanisms; AO1 Knowledge for definitions).
+- MAJOR errors: wrong definition of a key term, wrong direction of a shift, shifting the wrong curve, PED misconceptions, formula errors, inverted transmission mechanisms. MINOR errors: imprecise wording that does not break the argument (-1 mark).
+- 1 major analysis error: AO2 analysis loses 2-3 marks (caps AO2 at max 3-4/6; Table A max 7/8).
+- 2 or more major analysis errors (e.g. diagram error + PED error): major mark cuts; give as low as 2 to 3 marks out of 6 for AO2 (AO2 capped at max 2-3/6; Table A max 5/8).
 - Mandatory checks on every script:
-  * ELASTICITY & PED ACCURACY (MUST LOSE MARKS IF INACCURATE):
-    - Inelastic demand (|PED| < 1): quantity demanded falls proportionally less than price rises (%ΔQd < %ΔP). Therefore, an indirect tax raises MORE revenue, but is LESS effective at reducing consumption. Claiming that inelastic demand makes a tax "more effective at cutting consumption" is a MAJOR theoretical error and must lose analysis marks.
+  * ELASTICITY & PED ACCURACY (MUST LOSE MARKS IN AO2 IF INACCURATE):
+    - Inelastic demand (|PED| < 1): quantity demanded falls proportionally less than price rises (%ΔQd < %ΔP). Therefore, an indirect tax raises MORE revenue, but is LESS effective at reducing consumption. Claiming that inelastic demand makes a tax "more effective at cutting consumption" or "very effective because revenue is high" is a MAJOR theoretical error and must lose 2-3 marks in AO2 Analysis.
     - Elastic demand (|PED| > 1): quantity demanded falls proportionally more than price rises (%ΔQd > %ΔP). Therefore, an indirect tax is MORE effective at cutting consumption, but raises LESS revenue.
     - Total revenue test: Inelastic demand -> P and TR move in the same direction. Elastic demand -> P and TR move in opposite directions.
     - Tax incidence: Inelastic demand -> consumer bears greater burden. Elastic demand -> producer bears greater burden. Reversing this is an analysis error.
+    - Formula accuracy: PED = %ΔQd / %ΔP. Inverting this (%ΔP / %ΔQd) is a major formula error.
   * Shifting demand for an indirect tax or subsidy is a MAJOR error. Taxes and subsidies change production costs and shift supply; demand only contracts or expands along the curve.
   * A price change alone is a movement along the curve, never a shift.
   * Hyperinflation is not "accelerating inflation" (accelerating = a rising rate of inflation).
@@ -264,13 +277,13 @@ export const TABLE_A_LEVELS = {
     name: "Level 2",
     marks: "3-5",
     minChains: 1,
-    description: "Analysis is mostly accurate with gaps, assertions, or minor errors. Fewer than 3 complete chains or 2+ major errors cap the mark here.",
+    description: "Analysis is mostly accurate with gaps, assertions, or minor errors. 1 major error caps here (AO2 max 3/6 if diagram or PED error).",
   },
   level1: {
     name: "Level 1",
     marks: "1-2",
     minChains: 0,
-    description: "Descriptive answer with fragmented points, lack of causal progression, or major theoretical errors.",
+    description: "Descriptive answer with fragmented points, lack of causal progression, or 2+ major theoretical/diagrammatic errors (AO2 capped at 2-3/6).",
   },
 };
 
@@ -381,10 +394,10 @@ export function decodeExamQuestion(questionText: string): DecodedQuestion {
 
   const analysisAndDiagramDirective = scope === "macro"
     ? `Macro Analysis & Diagram: If an AD/AS or Phillips curve diagram is used, axes MUST be General Price Level (PL) and Real Output / Real GDP (Y). Curve shifts must be in the correct direction (e.g. AS right for supply-side, AD left for contractionary policy). Inaccurate shifts or wrong axes lose AO2 Analysis marks.`
-    : `Micro Analysis & Diagram: If a supply & demand or market failure diagram is used, axes MUST be Price (P) and Quantity (Q). Indirect taxes and subsidies shift SUPPLY (indirect tax shifts S left; subsidy shifts S right). Shifting demand for a tax/subsidy, or confusing a price change movement with a curve shift, is a major analytical error that caps AO2.`;
+    : `Micro Analysis & Diagram: If a supply & demand or market failure diagram is used, axes MUST be Price (P) and Quantity (Q). Indirect taxes and subsidies shift SUPPLY (indirect tax shifts S left; subsidy shifts S right). Shifting demand for a tax/subsidy, or confusing a price change movement with a curve shift, is a major analytical error that cuts 2-3 marks in AO2 Analysis (caps AO2 at 2-3/6 if combined with PED error). Do not merely mention in feedback — cut marks in AO2.`;
 
   const pedDirective =
-    `Elasticity (PED/PES) Rigor: Verify all elasticity claims. Inelastic demand (|PED| < 1) means %ΔQd < %ΔP — indirect tax is LESS effective at cutting consumption, but raises MORE revenue. Elastic demand (|PED| > 1) means %ΔQd > %ΔP — indirect tax is MORE effective at cutting consumption, but raises LESS revenue. Inaccurate elasticity assertions MUST cost marks in AO2 Analysis.`;
+    `Elasticity (PED/PES) Rigor: Verify all elasticity claims. Inelastic demand (|PED| < 1) means %ΔQd < %ΔP — indirect tax is LESS effective at cutting consumption, but raises MORE revenue. Elastic demand (|PED| > 1) means %ΔQd > %ΔP — indirect tax is MORE effective at cutting consumption, but raises LESS revenue. Inaccurate elasticity assertions or formula errors MUST cut 2-3 marks in AO2 Analysis (cap at 2-3/6 for multiple major errors); do not just mention in feedback.`;
 
   const evaluationDirective =
     `Evaluation Levers: Candidate must weigh trade-offs (e.g. short-run vs long-run, government failure, opportunity cost, magnitude, time lags). Unranked hedge conclusions ('mix of all policies', 'it depends') without conditions cap AO3 at max 2/4.`;

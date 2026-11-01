@@ -35,12 +35,15 @@ You will be given:
 1. The exam question (including total marks available: {max_mark} marks).
 2. The student's essay response.
 
-CAMBRIDGE MARKING PRINCIPLES — POSITIVE, FAIR, ACCURATE MARKING:
-Where the essay DOES address the question set, Cambridge examiners practice POSITIVE MARKING: reward what the candidate knows, understands, and analyzes relevant to the prompt.
-1. LOOSEN EXCESSIVE STRICTNESS & AVOID ARTIFICIAL HARSHNESS ON RELEVANT ESSAYS:
-   - High school A-Level students are not academic researchers; credit clear, logical explanations of relevant economic concepts.
-   - Do NOT penalize an essay simply because it lacks real-world statistical citations. A relevant point that is logically and economically reasoned through earns full marks.
-   - If a relevant analytical chain explains the mechanism, award high AO2 credit.
+CAMBRIDGE MARKING PRINCIPLES — FAIR, ACCURATE, RIGOROUS MARKING:
+Where the essay DOES address the question set, Cambridge examiners reward accurate economic reasoning:
+1. RIGOROUS ANALYSIS STANDARDS (MANDATORY DEDUCTIONS FOR ERRORS):
+   - High school A-Level students must demonstrate sound economic reasoning, accurate diagrams, and correct elasticity theory.
+   - DO NOT JUST MENTION ERRORS IN FEEDBACK — YOU MUST CUT MARKS IN AO2 ANALYSIS!
+   - If an error is identified in the diagram (e.g. shifting demand instead of supply, wrong shift direction, movement vs shift), in PED/elasticity theory, in formulas, or in causal transmission mechanisms, YOU MUST ACTIVELY DEDUCT MARKS FROM AO2.
+   - Validate how big the mistake is, and penalise accordingly:
+     * 1 major error (e.g. diagram curve shift error OR PED inversion): cut 2 to 3 marks from AO2 (AO2 capped at max 3/{ao2_marks}).
+     * 2 or more major errors (e.g. BOTH diagram error AND PED error, or diagram error + flawed analysis): MAJOR MARK CUT. Award as low as 2 to 3 marks out of {ao2_marks} (AO2 capped at 2-3/{ao2_marks}). An answer with major diagram and PED errors CANNOT receive 4/{ao2_marks} or above under Cambridge standards!
 
 2. FIXED AO MARK ALLOCATION FOR THIS QUESTION (syllabus {syllabus_code}, {max_mark}-mark essay):
    - AO1 Knowledge and understanding: exactly {ao1_marks} marks
@@ -54,9 +57,9 @@ Where the essay DOES address the question set, Cambridge examiners practice POSI
      * Partial marks: Basic terminology present with minor omissions.
      * 0 marks: Irrelevant definitions, or no accurate knowledge shown for the required topic.
    - AO2 Analysis ({ao2_marks} marks):
-     * Top Band (5-6 of 6): Clear, logical chains of reasoning linking cause to economic effect directly addressing the prompt.
-     * Middle Band (3-4 of 6): Real analytical chains present with sound economic explanation relevant to the prompt.
-     * Lower Band (1-2 of 6): Descriptive assertions or fragmented points on the required topic without complete causal chains.
+     * Top Band (5-6 of 6): Clear, logical chains of reasoning linking cause to economic effect directly addressing the prompt, with accurate curve shifts, diagrams, and elasticity reasoning. ZERO major errors.
+     * Middle Band (3-4 of 6): Real analytical chains present with sound economic explanation. At most 1 isolated major error (which cuts 2-3 marks and caps AO2 at 3/6) or minor omissions.
+     * Lower Band (1-2 of 6): Descriptive assertions, fragmented points, or 2 or more major theoretical/diagrammatic/PED errors (capped at 2-3 of 6).
      * 0 marks: No analysis addressing the prompt, or analysis restricted entirely to an unrelated topic.
    - AO3 Evaluation ({ao3_marks} marks):
      * Top Band (3-4 of 4): Balanced discussion weighing both sides of the question prompt with context, ending in a well-reasoned, justified conclusion that directly answers the question.
@@ -64,8 +67,11 @@ Where the essay DOES address the question set, Cambridge examiners practice POSI
      * Lower Band (1 of 4): Purely one-sided assertion or token closing sentence on the required topic.
      * 0 marks: No evaluation addressing the prompt, or evaluation restricted entirely to an unrelated topic.
 
-4. DIAGRAMS:
-   Diagrams are not compulsory unless explicitly requested by the exam question prompt. A well-developed written analytical chain earns full marks without a diagram. If a relevant diagram is described or drawn, credit it positively.
+4. DIAGRAMS & PED ACCURACY:
+   Diagrams are not compulsory unless explicitly requested by the exam question prompt. A well-developed written analytical chain earns full marks without a diagram.
+   HOWEVER, IF A DIAGRAM OR ELASTICITY MECHANISM IS INCLUDED AND IS INACCURATE:
+   - DO NOT JUST MENTION IN FEEDBACK — YOU MUST ACTIVELY CUT MARKS IN AO2 ANALYSIS!
+   - Shifting the wrong curve (e.g. shifting demand instead of supply for an indirect tax), confusing price movements with shifts, or inverting PED analysis (e.g. claiming inelastic demand makes a tax very effective at reducing consumption) are major theoretical errors that must reduce AO2 by 2-3 marks (capped at 2-3/6 if multiple major errors exist).
 
 5. MANDATORY FULL-FLEDGED FEEDBACK CONTRACT:
    You MUST ALWAYS provide exhaustive, comprehensive, high-value feedback across EVERY single key in the JSON response.

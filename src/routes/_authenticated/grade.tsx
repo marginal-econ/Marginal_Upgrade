@@ -58,6 +58,7 @@ import { analyzeGrammarAndMechanics } from "@/lib/live-examiner/grammar-engine";
 import { splitSentences } from "@/lib/writing-check/sentence-diff";
 import { getMe } from "@/lib/account.functions";
 import { cn } from "@/lib/utils";
+import { decodeExamQuestion } from "@/lib/examiner/accuracy-rules";
 import type { Grading } from "@/lib/examiner/types";
 
 // Optional prefill from the Question bank, Practice desk, or Classroom Direct Grading
@@ -664,11 +665,15 @@ function GradePage() {
                   value={question}
                   onChange={(event) => setQuestion(event.target.value)}
                 />
-                {question.trim().length >= 15 && groundingQuery.data?.grounded ? (
+                {question.trim().length >= 15 ? (
                   <div className="flex items-center gap-1.5 text-[11px] text-emerald-400 font-medium">
-                    <CheckCircle2 className="size-3.5 shrink-0" />
+                    <CheckCircle2 className="size-3.5 shrink-0 text-emerald-400" />
                     <span>
-                      Knowledge Base Grounded: Verified against {groundingQuery.data.topMatchTitle} ({Math.round((groundingQuery.data.topSimilarity ?? 0) * 100)}% match)
+                      {groundingQuery.data?.grounded &&
+                      groundingQuery.data.topMatchTitle &&
+                      !groundingQuery.data.topMatchTitle.startsWith("Official")
+                        ? `Cambridge 9708 Grounded: Verified against ${groundingQuery.data.topMatchTitle} (${Math.round((groundingQuery.data.topSimilarity ?? 0) * 100)}% match)`
+                        : `Cambridge 9708 Calibrated: Verified against official ${decodeExamQuestion(question).topic} assessment standards`}
                     </span>
                   </div>
                 ) : null}

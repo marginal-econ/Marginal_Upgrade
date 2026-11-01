@@ -216,4 +216,91 @@ In conclusion a mix of all the supply-side policies along with the implementatio
     expect(hedge.isHedge).toBe(true);
     expect(hedge.matchedPhrase).toContain("mix of all");
   });
+
+  it("USER SCREENSHOT TEST: cuts AO2 Analysis marks for diagram shift and PED errors instead of just mentioning in feedback", () => {
+    // Exact feedback from the user's screenshot where AI gave 7/12 (AO1: 2/2, AO2: 4/6, AO3: 1/4)
+    const rawFromScreenshot = {
+      total_mark: 7,
+      band: "Upper middle band",
+      ao_breakdown: {
+        knowledge: {
+          awarded: 2,
+          out_of: 2,
+          comment:
+            "The candidate provides accurate definitions of demerit goods and indirect taxes, and correctly identifies information failure as the root cause of overconsumption. The definitions are contextually appropriate and directly address the question prompt.",
+        },
+        analysis: {
+          awarded: 4,
+          out_of: 6,
+          comment:
+            "The candidate demonstrates a basic understanding of how indirect taxes shift the supply curve leftward, leading to higher prices and reduced consumption. However, there are several inaccuracies and omissions: (1) The demand curve does not shift left; instead, consumption contracts along the demand curve due to the price increase. (2) The claim that 'the tax ensures that society reaches the socially optimal level of consumption, and market failure is completely corrected' is an overstatement and lacks nuance regarding the extent of correction. (3) The analysis of price elasticity of demand (PED) is partially correct but contains a logical error: the candidate states that inelastic demand makes the tax 'very effective' because revenue is high, but this contradicts the economic principle that inelastic demand means the tax is less effective at reducing consumption. (4) The analysis of black markets and unemployment is descriptive but lacks a clear causal chain linking these outcomes to the tax policy.",
+        },
+        evaluation: {
+          awarded: 1,
+          out_of: 4,
+          comment:
+            "The candidate lists some advantages and disadvantages of indirect taxes, such as revenue generation, regressivity, and black markets. However, the evaluation is superficial and lacks depth. The conclusion is a generic 'mix of policies' without a clear ranking or justification for why indirect taxes are or are not the 'best' method. The candidate does not weigh the trade-offs effectively or provide a decisive judgement based on economic criteria.",
+        },
+      },
+      examiner_summary:
+        "The candidate addresses the question with a basic understanding of demerit goods and indirect taxes, but the analysis and evaluation are limited in depth and accuracy. The essay contains several economic inaccuracies, particularly regarding the shifting of curves and the impact of price elasticity of demand. [Cambridge Senior Examiner Audit: Table B Hedge Cap: Concluding with 'use a range of policies' without an explicit comparative ranking or conditions caps AO3 at 1/4.]",
+      strengths: [
+        "The candidate provides accurate definitions of demerit goods and indirect taxes.",
+        "The essay identifies key issues such as information failure and revenue generation.",
+      ],
+      weaknesses: [
+        "The candidate incorrectly states that the demand curve shifts left due to an indirect tax, rather than recognizing that consumption contracts along the demand curve due to a price increase caused by a leftward shift in supply.",
+        "The analysis of price elasticity of demand is flawed, particularly the claim that inelastic demand makes the tax 'very effective' because revenue is high, which contradicts economic theory.",
+      ],
+    };
+
+    const question = "Discuss whether an indirect tax is the most effective policy to reduce the consumption of demerit goods.";
+    const normalised = normaliseGrading(rawFromScreenshot, 12, split, question);
+
+    // AO2 MUST be cut from 4/6 down to 2/6 because of BOTH the diagram shift error and PED logical error
+    expect(normalised.ao_breakdown.knowledge.awarded).toBe(2);
+    expect(normalised.ao_breakdown.analysis.awarded).toBe(2);
+    expect(normalised.ao_breakdown.evaluation.awarded).toBe(1);
+    expect(normalised.total_mark).toBe(5);
+    expect(normalised.band).toBe("Lower middle band");
+    expect(normalised.examiner_summary).toContain("AO2 Analysis Accuracy Penalty");
+    expect(normalised.examiner_summary).toContain("diagram");
+    expect(normalised.examiner_summary).toContain("PED");
+  });
+
+  it("cuts AO2 by 2 marks for a single major diagram shift error", () => {
+    const raw = {
+      total_mark: 10,
+      band: "Top band",
+      ao_breakdown: {
+        knowledge: { awarded: 2, out_of: 2, comment: "Accurate definitions." },
+        analysis: { awarded: 5, out_of: 6, comment: "Analysis contains a diagram error: demand curve does not shift left." },
+        evaluation: { awarded: 3, out_of: 4, comment: "Good evaluation." },
+      },
+      examiner_summary: "Good essay overall.",
+      weaknesses: ["Diagrammatic error: incorrectly states that the demand curve shifts left."],
+    };
+
+    const normalised = normaliseGrading(raw, 12, split);
+    // 5/6 cut by 2 marks to 3/6
+    expect(normalised.ao_breakdown.analysis.awarded).toBe(3);
+    expect(normalised.total_mark).toBe(8);
+  });
+
+  it("cuts AO2 by 2 marks for an inverted PED formula error", () => {
+    const raw = {
+      total_mark: 9,
+      band: "Upper middle band",
+      ao_breakdown: {
+        knowledge: { awarded: 2, out_of: 2, comment: "Good definitions." },
+        analysis: { awarded: 5, out_of: 6, comment: "Candidate uses inverted formula: %ΔP / %ΔQd." },
+        evaluation: { awarded: 2, out_of: 4, comment: "Some evaluation." },
+      },
+      examiner_summary: "Candidate committed formula error.",
+      weaknesses: ["Formula error: inverted PED formula."],
+    };
+
+    const normalised = normaliseGrading(raw, 12, split);
+    expect(normalised.ao_breakdown.analysis.awarded).toBe(3);
+  });
 });

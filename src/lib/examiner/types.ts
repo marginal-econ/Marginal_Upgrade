@@ -176,8 +176,9 @@ export function detectEconomicErrors(essayText: string): DetectedError[] {
 
   // 6. Inelastic demand claimed to be effective at reducing quantity/consumption
   if (
-    /inelastic\s+demand.*(?:effective|successful|greatly\s+reduces?|significantly\s+reduces?|large\s+fall|large\s+drop).*(?:reducing\s+consumption|reducing\s+demand|cutting\s+consumption|falling\s+consumption)/i.test(essayText) ||
-    /(?:indirect\s+tax|taxation).*(?:highly\s+effective|very\s+effective).*(?:because|due\s+to\s+the\s+fact\s+that)?\s+(?:demand\s+is\s+inelastic|inelastic\s+demand)/i.test(essayText)
+    /inelastic\s+demand[\s\S]{0,120}(?:effective|successful|greatly\s+reduces?|significantly\s+reduces?|large\s+fall|large\s+drop).*(?:reducing\s+consumption|reducing\s+demand|cutting\s+consumption|falling\s+consumption)/i.test(essayText) ||
+    /(?:indirect\s+tax|taxation|tax)[\s\S]{0,120}(?:highly\s+effective|very\s+effective)[\s\S]{0,120}(?:demand\s+is\s+inelastic|inelastic\s+demand)/i.test(essayText) ||
+    /inelastic\s+demand[\s\S]{0,120}(?:makes?\s+(?:the\s+)?tax\s+['"]?(?:very|highly)?\s*effective|makes?\s+it\s+['"]?(?:very|highly)?\s*effective)/i.test(essayText)
   ) {
     errors.push({
       id: "ped_inelastic_effectiveness",
@@ -188,7 +189,9 @@ export function detectEconomicErrors(essayText: string): DetectedError[] {
 
   // 7. Shifting demand for an indirect tax or subsidy
   if (
-    /(?:indirect\s+tax|specific\s+tax|ad\s+valorem\s+tax|subsidy).*(?:shifts?\s+demand\s+(?:to\s+the\s+)?(?:left|right|inward|outward)|shifts?\s+the\s+demand\s+curve)/i.test(essayText)
+    /(?:indirect\s+tax|specific\s+tax|ad\s+valorem\s+tax|subsidy)[\s\S]{0,120}(?:shifts?\s+demand\s+(?:to\s+the\s+)?(?:left|right|inward|outward|leftward|rightward)|shifts?\s+the\s+demand\s+curve)/i.test(essayText) ||
+    /(?:demand\s+curve\s+shifts?|shifts?\s+(?:the\s+)?demand\s+curve|demand\s+shifts?)\s+(?:to\s+the\s+)?(?:left|right|inward|outward|leftward|rightward)[\s\S]{0,120}(?:due\s+to|because\s+of|from|with|by)\s+(?:the\s+)?(?:indirect\s+tax|tax|subsidy)/i.test(essayText) ||
+    /(?:the\s+)?demand\s+curve\s+shifts?\s+(?:to\s+the\s+)?(?:left|inward|leftward)/i.test(essayText)
   ) {
     errors.push({
       id: "tax_demand_shift",
@@ -199,11 +202,119 @@ export function detectEconomicErrors(essayText: string): DetectedError[] {
 
   // 8. Price change claimed to shift the demand or supply curve
   if (
-    /(?:rise|increase|fall|drop|change)\s+in\s+price\s+(?:shifts?\s+(?:the\s+)?(?:demand|supply)\s+curve|causes?\s+(?:the\s+)?(?:demand|supply)\s+curve\s+to\s+shift)/i.test(essayText)
+    /(?:rise|increase|fall|drop|change)\s+in\s+price[\s\S]{0,80}(?:shifts?\s+(?:the\s+)?(?:demand|supply)\s+curve|causes?\s+(?:the\s+)?(?:demand|supply)\s+curve\s+to\s+shift)/i.test(essayText) ||
+    /(?:shifts?\s+(?:the\s+)?(?:demand|supply)\s+curve|causes?\s+(?:the\s+)?(?:demand|supply)\s+curve\s+to\s+shift)[\s\S]{0,80}(?:due\s+to|because\s+of)\s+(?:a\s+)?(?:rise|increase|fall|drop|change)\s+in\s+price/i.test(essayText)
   ) {
     errors.push({
       id: "price_causes_shift",
       trap: "A price change claimed to shift a demand or supply curve (price changes cause movements along the curve, never shifts)",
+      severity: "major",
+    });
+  }
+
+  // 9. Inverted PED formula: % change in price / % change in quantity demanded
+  if (
+    /(?:ped|price\s+elasticity\s+of\s+demand)\s*=\s*(?:%\s*Δ\s*p|%\s*change\s+in\s+price)\s*\/\s*(?:%\s*Δ\s*q|%\s*change\s+in\s+quantity)/i.test(essayText) ||
+    /percentage\s+change\s+in\s+price\s+divided\s+by\s+(?:the\s+)?percentage\s+change\s+in\s+quantity/i.test(essayText)
+  ) {
+    errors.push({
+      id: "inverted_ped_formula",
+      trap: "Inverted PED formula: % change in price divided by % change in quantity demanded (correct formula is %ΔQd / %ΔP)",
+      severity: "major",
+    });
+  }
+
+  return errors;
+}
+
+/**
+ * Detect economic errors directly flagged in the examiner's own feedback.
+ * Prevents the model from writing in comments that the candidate made major
+ * diagram/PED/formula errors without actually deducting marks.
+ */
+export function detectErrorsFromExaminerFeedback(raw: Record<string, unknown>): DetectedError[] {
+  const errors: DetectedError[] = [];
+  const rawAo = (raw.ao_breakdown ?? {}) as Record<string, unknown>;
+  const analysisObj = (rawAo.analysis ?? rawAo.ao2 ?? {}) as Record<string, unknown>;
+  const analysisComment = String(analysisObj.comment ?? "");
+  const summary = String(raw.examiner_summary ?? "");
+  const weaknesses = Array.isArray(raw.weaknesses)
+    ? raw.weaknesses.map(String).join(" ")
+    : String(raw.weaknesses ?? "");
+
+  const fullFeedback = [analysisComment, summary, weaknesses].join(" ").toLowerCase();
+
+  // 1. Diagram / curve shift error in feedback
+  if (
+    fullFeedback.includes("demand curve does not shift") ||
+    fullFeedback.includes("supply curve does not shift") ||
+    fullFeedback.includes("shifting the wrong curve") ||
+    fullFeedback.includes("shift the wrong curve") ||
+    fullFeedback.includes("incorrectly states that the demand curve shifts") ||
+    fullFeedback.includes("incorrectly states that the supply curve shifts") ||
+    fullFeedback.includes("contracts along the demand curve") ||
+    fullFeedback.includes("movement along the demand curve") ||
+    fullFeedback.includes("wrong direction of shift") ||
+    fullFeedback.includes("inaccurate diagram") ||
+    fullFeedback.includes("diagram error") ||
+    fullFeedback.includes("diagrammatic error") ||
+    fullFeedback.includes("curve shift error") ||
+    (fullFeedback.includes("shifting of curves") && (fullFeedback.includes("inaccurac") || fullFeedback.includes("error"))) ||
+    (fullFeedback.includes("movement along") && fullFeedback.includes("rather than")) ||
+    (fullFeedback.includes("movement along") && fullFeedback.includes("instead of"))
+  ) {
+    errors.push({
+      id: "diagram_shift_error",
+      trap: "Major diagram or curve shift inaccuracy (e.g. incorrectly shifting the demand curve instead of supply, or confusing a movement along with a curve shift)",
+      severity: "major",
+    });
+  }
+
+  // 2. PED / Elasticity error in feedback
+  if (
+    (fullFeedback.includes("price elasticity of demand") || fullFeedback.includes("ped")) &&
+    (fullFeedback.includes("logical error") ||
+      fullFeedback.includes("flawed") ||
+      fullFeedback.includes("inaccurate") ||
+      fullFeedback.includes("contradicts the economic principle") ||
+      fullFeedback.includes("contradicts economic")) ||
+    fullFeedback.includes("inelastic demand makes the tax 'very effective'") ||
+    fullFeedback.includes("inelastic demand makes the tax very effective") ||
+    fullFeedback.includes("inelastic demand means the tax is less effective") ||
+    (fullFeedback.includes("elasticity") && (fullFeedback.includes("flawed") || fullFeedback.includes("inaccurac") || fullFeedback.includes("logical error")))
+  ) {
+    errors.push({
+      id: "ped_logical_error",
+      trap: "Flawed price elasticity of demand (PED) analysis (e.g. claiming inelastic demand makes an indirect tax very effective at reducing consumption)",
+      severity: "major",
+    });
+  }
+
+  // 3. Formula error in feedback
+  if (
+    fullFeedback.includes("formula error") ||
+    fullFeedback.includes("incorrect formula") ||
+    fullFeedback.includes("wrong formula") ||
+    fullFeedback.includes("inverted formula") ||
+    fullFeedback.includes("miscalculated elasticity")
+  ) {
+    errors.push({
+      id: "formula_error",
+      trap: "Formula error or inverted calculation in economic analysis",
+      severity: "major",
+    });
+  }
+
+  // 4. Analysis mechanism error in feedback
+  if (
+    fullFeedback.includes("wrong analysis") ||
+    fullFeedback.includes("flawed analysis") ||
+    fullFeedback.includes("logical error in analysis") ||
+    fullFeedback.includes("several economic inaccuracies")
+  ) {
+    errors.push({
+      id: "analysis_mechanism_error",
+      trap: "Flawed economic reasoning or transmission mechanisms in analysis",
       severity: "major",
     });
   }
@@ -395,11 +506,24 @@ export function normaliseGrading(
   const auditNotes: string[] = [];
   const detectedErrors: DetectedError[] = [];
 
-  if (!isUnrelated && question && essayText) {
-    const comparativeCheck = detectComparativeAnalysis(question, essayText);
-    const errors = detectEconomicErrors(essayText);
-    detectedErrors.push(...errors);
-    const hedgeCheck = detectHedgeConclusion(essayText);
+  if (!isUnrelated) {
+    const comparativeCheck =
+      question && essayText
+        ? detectComparativeAnalysis(question, essayText)
+        : { isComparativeQuestion: false, hasAlternativeAnalysis: true };
+
+    const essayErrors = question && essayText ? detectEconomicErrors(essayText) : [];
+    const feedbackErrors = detectErrorsFromExaminerFeedback(raw);
+
+    const errorMap = new Map<string, DetectedError>();
+    for (const e of [...essayErrors, ...feedbackErrors]) {
+      if (!errorMap.has(e.id)) {
+        errorMap.set(e.id, e);
+      }
+    }
+    detectedErrors.push(...Array.from(errorMap.values()));
+
+    const hedgeCheck = essayText ? detectHedgeConclusion(essayText) : { isHedge: false };
 
     const majorErrors = detectedErrors.filter((e) => e.severity === "major");
     const totalErrors = detectedErrors.length;
@@ -408,26 +532,115 @@ export function normaliseGrading(
 
     // Check if an evaluative conclusion was attempted (candidate wrote a conclusion paragraph)
     const paragraphs = essayText
-      .split(/\n\s*\n/)
-      .map((p) => p.trim())
-      .filter((p) => p.length > 30 && !p.startsWith("[DIAGRAM:"));
+      ? essayText
+          .split(/\n\s*\n/)
+          .map((p) => p.trim())
+          .filter((p) => p.length > 30 && !p.startsWith("[DIAGRAM:"))
+      : [];
 
-    const hasConclusionAttempt =
-      /\b(in\s+conclusion|to\s+conclude|overall|to\s+summarise|in\s+summary)\b/i.test(essayText) ||
-      (paragraphs.length >= 3 && paragraphs[paragraphs.length - 1]!.length > 40);
+    const hasConclusionAttempt = essayText
+      ? /\b(in\s+conclusion|to\s+conclude|overall|to\s+summarise|in\s+summary)\b/i.test(essayText) ||
+        (paragraphs.length >= 3 && paragraphs[paragraphs.length - 1]!.length > 40)
+      : false;
 
     // If an evaluative conclusion was attempted, Table B Level 1 descriptor (1 mark) applies rather than 0
     if (hasConclusionAttempt && evaluation.awarded === 0 && split.ao3_marks > 0) {
       evaluation.awarded = 1;
     }
 
-    // Table A Max (Knowledge + Analysis)
     const tableAMax = split.ao1_marks + split.ao2_marks;
+    const ao2Max = split.ao2_marks;
+    const ao1Max = split.ao1_marks;
 
+    const isDiagramError = (id: string) =>
+      id === "tax_demand_shift" ||
+      id === "shift_directions" ||
+      id === "price_causes_shift" ||
+      id === "demand_shifting_supply" ||
+      id === "diagram_shift_error";
+
+    const isPedError = (id: string) =>
+      id === "ped_inelastic_effectiveness" ||
+      id === "inverted_ped_formula" ||
+      id === "ped_logical_error";
+
+    const isFormulaError = (id: string) =>
+      id === "inverted_ped_formula" ||
+      id === "formula_error";
+
+    const isDefinitionError = (id: string) =>
+      id === "hyperinflation";
+
+    const hasDiagramErr = majorErrors.some((e) => isDiagramError(e.id));
+    const hasPedErr = majorErrors.some((e) => isPedError(e.id));
+    const hasFormulaErr = majorErrors.some((e) => isFormulaError(e.id));
+    const hasDefErr = majorErrors.some((e) => isDefinitionError(e.id));
+
+    const majorAnalysisErrors = majorErrors.filter((e) => !isDefinitionError(e.id));
+    const majorAnalysisCount =
+      (hasDiagramErr ? 1 : 0) +
+      (hasPedErr ? 1 : 0) +
+      (hasFormulaErr && !hasPedErr ? 1 : 0) +
+      (majorAnalysisErrors.some(
+        (e) =>
+          e.id === "analysis_mechanism_error" ||
+          e.id === "investment_money_supply" ||
+          e.id === "inflation_types" ||
+          e.id === "supply_side_timing",
+      )
+        ? 1
+        : 0);
+
+    // -----------------------------------------------------------------
+    // 1. DIRECT AO2 ANALYSIS ACCURACY PENALTIES
+    // If a major diagram, PED, formula, or analysis error occurs:
+    // Deduct marks directly in AO2 Analysis (not just mentioned in feedback).
+    // -----------------------------------------------------------------
+    if (hasDiagramErr && hasPedErr) {
+      // Both major diagram error AND PED error (double major theoretical blunder):
+      // Major mark cuts: cap AO2 at 2-3/6, and cut at least 2 marks.
+      const targetAo2Cap = Math.round(2.5 * (ao2Max / 6)); // max 2-3 out of 6
+      const initialAo2 = analysis.awarded;
+      analysis.awarded = Math.max(1, Math.min(initialAo2 - 2, targetAo2Cap));
+      auditNotes.push(
+        `AO2 Analysis Accuracy Penalty: Identified major diagram/curve shift error and flawed PED analysis. Under Cambridge 9708 standards, theoretical and diagrammatic errors require direct mark deductions in AO2 Analysis; AO2 Analysis capped at ${analysis.awarded}/${ao2Max}.`,
+      );
+    } else if (majorAnalysisCount >= 2) {
+      // 2 or more major analysis/formula errors:
+      const targetAo2Cap = Math.round(2.5 * (ao2Max / 6)); // max 2-3 out of 6
+      const initialAo2 = analysis.awarded;
+      analysis.awarded = Math.max(1, Math.min(initialAo2 - 2, targetAo2Cap));
+      auditNotes.push(
+        `AO2 Analysis Accuracy Penalty: Identified 2+ major economic errors in analysis (${majorAnalysisErrors.map((e) => e.id).join(", ")}). AO2 Analysis capped at ${analysis.awarded}/${ao2Max}.`,
+      );
+    } else if (majorAnalysisCount === 1) {
+      // 1 major analysis error (Diagram alone, PED alone, Formula alone, or Mechanism alone):
+      const targetAo2Cap = Math.round(3.5 * (ao2Max / 6)); // max 3-4 out of 6
+      const initialAo2 = analysis.awarded;
+      const deduction = initialAo2 >= 5 ? 2 : 1;
+      analysis.awarded = Math.max(1, Math.min(initialAo2 - deduction, targetAo2Cap));
+      auditNotes.push(
+        `AO2 Analysis Accuracy Penalty: Identified major error in analysis (${majorAnalysisErrors[0]!.id}). AO2 Analysis capped at ${analysis.awarded}/${ao2Max}.`,
+      );
+    }
+
+    // -----------------------------------------------------------------
+    // 2. DIRECT AO1 KNOWLEDGE ACCURACY PENALTIES
+    // If there is an explicit definition error:
+    // -----------------------------------------------------------------
+    if (hasDefErr) {
+      knowledge.awarded = Math.min(knowledge.awarded, Math.round(1 * (ao1Max / 2)));
+      auditNotes.push(
+        `AO1 Knowledge Error Penalty: Major definition error identified. AO1 Knowledge capped at ${knowledge.awarded}/${ao1Max}.`,
+      );
+    }
+
+    // -----------------------------------------------------------------
+    // 3. QUESTION-FIT GATE & OVERALL TABLE A CAPS
+    // -----------------------------------------------------------------
     if (failsComparativeGate) {
       // Question-Fit Gate: Answering "does X work?" instead of "is X the best?"
       // Under Cambridge rules: if 2+ major errors present, strictly cap Table A at Level 2 bottom band (3/8) and AO3 at 1/4.
-      // With evaluation slack (1-3%): if candidate made evaluative points on limitations and no 2+ major errors, allow Level 2 (2/4).
       if (majorErrors.length >= 2 || totalErrors >= 2) {
         const targetAo3 = split.ao3_marks > 0 ? (hasConclusionAttempt ? 1 : Math.min(evaluation.awarded, 1)) : 0;
         evaluation.awarded = targetAo3;
@@ -437,10 +650,10 @@ export function normaliseGrading(
         const targetAo1 = Math.min(knowledge.awarded, Math.max(1, Math.round(targetTableA * (split.ao1_marks / tableAMax))));
         const targetAo2 = Math.min(analysis.awarded, targetTableA - targetAo1);
         knowledge.awarded = Math.max(1, targetAo1);
-        analysis.awarded = Math.max(2, targetAo2);
+        analysis.awarded = Math.max(1, targetAo2);
 
         auditNotes.push(
-          "Question-Fit Gate & Major Errors Cap: Essay addresses 'does supply-side policy work?' rather than evaluating if it is the 'best' method against alternatives, and contains 2+ major theoretical errors. Table A (AO1+AO2) is capped at Level 2 bottom band (3/8) and AO3 is capped at 1/4 under Cambridge 9708 examiner standards."
+          "Question-Fit Gate & Major Errors Cap: Essay addresses 'does supply-side policy work?' rather than evaluating if it is the 'best' method against alternatives, and contains 2+ major theoretical errors. Table A (AO1+AO2) is capped at Level 2 bottom band (3/8) and AO3 is capped at 1/4 under Cambridge 9708 examiner standards.",
         );
       } else {
         // Question dodge without major errors: allow Level 2 (max 2/4 for AO3) for evaluating policy limitations
@@ -451,12 +664,13 @@ export function normaliseGrading(
         const targetTableA = Math.round(5 * (tableAMax / 8));
         const currentTableA = knowledge.awarded + analysis.awarded;
         if (currentTableA > targetTableA) {
-          const targetAo1 = Math.min(knowledge.awarded, Math.round(targetTableA * (split.ao1_marks / tableAMax)));
-          const targetAo2 = Math.min(analysis.awarded, targetTableA - targetAo1);
-          knowledge.awarded = Math.min(knowledge.awarded, targetAo1);
-          analysis.awarded = Math.min(analysis.awarded, targetAo2);
+          const delta = currentTableA - targetTableA;
+          analysis.awarded = Math.max(1, analysis.awarded - delta);
+          if (knowledge.awarded + analysis.awarded > targetTableA) {
+            knowledge.awarded = Math.max(1, targetTableA - analysis.awarded);
+          }
           auditNotes.push(
-            "Question-Fit Gate Cap: Candidate did not compare the named policy against alternatives on a stated criterion. AO3 capped at Level 2 and Table A capped at Level 2 (max 5/8)."
+            "Question-Fit Gate Cap: Candidate did not compare the named policy against alternatives on a stated criterion. AO3 capped at Level 2 and Table A capped at Level 2 (max 5/8).",
           );
         }
       }
@@ -465,12 +679,13 @@ export function normaliseGrading(
       const targetTableA = Math.round(5 * (tableAMax / 8));
       const currentTableA = knowledge.awarded + analysis.awarded;
       if (currentTableA > targetTableA) {
-        const targetAo1 = Math.min(knowledge.awarded, Math.round(targetTableA * (split.ao1_marks / tableAMax)));
-        const targetAo2 = Math.min(analysis.awarded, targetTableA - targetAo1);
-        knowledge.awarded = Math.min(knowledge.awarded, targetAo1);
-        analysis.awarded = Math.min(analysis.awarded, targetAo2);
+        const delta = currentTableA - targetTableA;
+        analysis.awarded = Math.max(1, analysis.awarded - delta);
+        if (knowledge.awarded + analysis.awarded > targetTableA) {
+          knowledge.awarded = Math.max(1, targetTableA - analysis.awarded);
+        }
         auditNotes.push(
-          `Table A Error Cap: 2 or more major economic errors identified (${majorErrors.map((e) => e.id).join(", ")}). AO1+AO2 capped at Level 2 (max 5/8).`
+          `Table A Error Cap: 2 or more major economic errors identified. AO1+AO2 capped at Level 2 (max 5/8).`,
         );
       }
     } else if (majorErrors.length === 1) {
@@ -479,24 +694,24 @@ export function normaliseGrading(
       const currentTableA = knowledge.awarded + analysis.awarded;
       if (currentTableA > targetTableA) {
         const delta = currentTableA - targetTableA;
-        if (analysis.awarded >= delta) {
-          analysis.awarded -= delta;
-        } else {
-          analysis.awarded = 0;
-          knowledge.awarded = Math.max(0, knowledge.awarded - (delta - analysis.awarded));
+        analysis.awarded = Math.max(1, analysis.awarded - delta);
+        if (knowledge.awarded + analysis.awarded > targetTableA) {
+          knowledge.awarded = Math.max(1, targetTableA - analysis.awarded);
         }
-        auditNotes.push(`Table A Error Cap: 1 major economic error identified (${majorErrors[0]!.id}). AO1+AO2 capped at max 7/8.`);
+        auditNotes.push(`Table A Error Cap: 1 major economic error identified. AO1+AO2 capped at max 7/8.`);
       }
     }
 
-    // Hedge Conclusion Cap (AO3 strictly capped at max 2/4; max 1/4 if comparative gate failed)
+    // -----------------------------------------------------------------
+    // 4. HEDGE CONCLUSION CAP
+    // -----------------------------------------------------------------
     if (hedgeCheck.isHedge) {
       const maxAo3Hedge = failsComparativeGate
         ? 1
         : Math.min(evaluation.awarded, Math.max(1, Math.round(2 * (split.ao3_marks / 4))));
       evaluation.awarded = Math.min(evaluation.awarded, maxAo3Hedge);
       auditNotes.push(
-        `Table B Hedge Cap: Concluding with '${hedgeCheck.matchedPhrase}' without an explicit comparative ranking or conditions caps AO3 at ${maxAo3Hedge}/${split.ao3_marks}.`
+        `Table B Hedge Cap: Concluding with '${hedgeCheck.matchedPhrase}' without an explicit comparative ranking or conditions caps AO3 at ${maxAo3Hedge}/${split.ao3_marks}.`,
       );
     }
   }
@@ -531,7 +746,12 @@ export function normaliseGrading(
   // Append audit summary if accuracy caps were triggered
   if (auditNotes.length > 0) {
     const auditSummary = `[Cambridge Senior Examiner Audit: ${auditNotes.join(" ")}]`;
-    if (!examinerSummary.includes("Cambridge Senior Examiner Audit")) {
+    if (examinerSummary.includes("Cambridge Senior Examiner Audit")) {
+      examinerSummary = examinerSummary.replace(/\[Cambridge Senior Examiner Audit:[^\]]*\]/gs, auditSummary);
+      if (!examinerSummary.includes(auditSummary)) {
+        examinerSummary = examinerSummary ? `${examinerSummary}\n\n${auditSummary}` : auditSummary;
+      }
+    } else {
       examinerSummary = examinerSummary ? `${examinerSummary}\n\n${auditSummary}` : auditSummary;
     }
 
