@@ -55,14 +55,19 @@ const MIN_REQUEST_INTERVAL_MS = 4000;
 const MIN_CHANGED_CHARS = 4;
 const MIN_TEXT_LENGTH = 25;
 
+function cleanStars(str: string): string {
+  if (!str) return "";
+  return str.replace(/\*\*/g, "").replace(/\*/g, "").replace(/[`_]/g, "").trim();
+}
+
 function issueId(issue: Pick<LiveExaminerIssue, "context" | "original" | "category">): string {
-  return `${issue.category}::${issue.context.trim().toLowerCase()}::${issue.original.trim().toLowerCase()}`;
+  return `${issue.category}::${cleanStars(issue.context).toLowerCase()}::${cleanStars(issue.original).toLowerCase()}`;
 }
 
 function classificationId(
   classification: Pick<LiveExaminerAoClassification, "context" | "original" | "ao">,
 ): string {
-  return `${classification.ao}::${classification.context.trim().toLowerCase()}::${classification.original.trim().toLowerCase()}`;
+  return `${classification.ao}::${cleanStars(classification.context).toLowerCase()}::${cleanStars(classification.original).toLowerCase()}`;
 }
 
 function changedAmount(a: string, b: string): number {
@@ -181,10 +186,25 @@ export function useLiveExaminerCheck(params: {
             setDirty(true);
             return;
           }
-          const fresh = result.issues.map((issue) => ({ ...issue, id: issueId(issue) }));
+          const fresh = result.issues.map((issue) => {
+            const original = cleanStars(issue.original);
+            const suggestion = cleanStars(issue.suggestion);
+            const explanation = cleanStars(issue.explanation);
+            const context = cleanStars(issue.context);
+            const evidence = issue.evidence ? cleanStars(issue.evidence) : undefined;
+            return {
+              ...issue,
+              original,
+              suggestion,
+              explanation,
+              context,
+              evidence,
+              id: issueId({ ...issue, original, context }),
+            };
+          });
           setIssues(fresh);
           setClassifications((previous) => {
-            const replacedContexts = new Set(result.classifiedContexts);
+            const replacedContexts = new Set(result.classifiedContexts.map((c) => cleanStars(c)));
             const surviving = (force && !result.checkFailed ? [] : previous).filter(
               (classification) =>
                 currentText.includes(classification.context) &&
@@ -199,15 +219,23 @@ export function useLiveExaminerCheck(params: {
               : null;
             const incoming = result.classifications
               .filter((classification) => !awardedByAo || awardedByAo[classification.ao] > 0)
-              .map((classification) => ({
-                ...classification,
-                id: classificationId(classification),
-              }));
+              .map((classification) => {
+                const original = cleanStars(classification.original);
+                const context = cleanStars(classification.context);
+                const explanation = cleanStars(classification.explanation);
+                return {
+                  ...classification,
+                  original,
+                  context,
+                  explanation,
+                  id: classificationId({ ...classification, original, context }),
+                };
+              });
             return Array.from(
               new Map([...surviving, ...incoming].map((item) => [item.id, item])).values(),
             );
           });
-          recordHistory(result.issues);
+          recordHistory(fresh);
           setDirty(false);
           setLastUpdatedAt(Date.now());
           if (result.predictedMark) setPredictedMark(result.predictedMark);
@@ -230,14 +258,20 @@ export function useLiveExaminerCheck(params: {
         .finally(() => {
           inFlightRef.current = false;
           if (requestId === requestIdRef.current) setChecking(false);
-          const queuedText = queuedTextRef.current;
-          if (queuedText && queuedText !== lastCheckedTextRef.current) {
+          const nextText =
+            queuedTextRef.current ||
+            (latestTextRef.current !== lastCheckedTextRef.current ? latestTextRef.current : null);
+          if (
+            nextText &&
+            nextText.trim().length >= MIN_TEXT_LENGTH &&
+            nextText !== lastCheckedTextRef.current
+          ) {
             if (timerRef.current) clearTimeout(timerRef.current);
             const remaining = Math.max(
               TYPING_PAUSE_MS,
               MIN_REQUEST_INTERVAL_MS - (Date.now() - lastRequestAtRef.current),
             );
-            timerRef.current = setTimeout(() => runCheck(queuedText, false), remaining);
+            timerRef.current = setTimeout(() => runCheck(nextText, false), remaining);
           }
         });
     },
@@ -289,10 +323,16 @@ export function useLiveExaminerCheck(params: {
     const issue = issuesRef.current.find((item) => item.id === id);
     if (!issue) return currentText;
 
+    const cleanSug = cleanStars(issue.suggestion);
     const replaceOnce = (source: string) => {
       const at = source.indexOf(issue.context);
-      if (at === -1) return source;
-      const fixedSentence = issue.context.replace(issue.original, issue.suggestion);
+      if (at === -1) {
+        if (issue.original && source.includes(issue.original)) {
+          return source.replace(issue.original, cleanSug);
+        }
+        return source;
+      }
+      const fixedSentence = issue.context.replace(issue.original, cleanSug);
       return source.slice(0, at) + fixedSentence + source.slice(at + issue.context.length);
     };
 

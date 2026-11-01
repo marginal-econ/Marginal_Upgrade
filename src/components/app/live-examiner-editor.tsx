@@ -22,45 +22,50 @@ const CATEGORY_AO: Record<IssueCategory, string | null> = {
   evaluation: AO_DEFINITIONS.ao3.code,
 };
 
+function cleanStars(str: string): string {
+  if (!str) return "";
+  return str.replace(/\*\*/g, "").replace(/\*/g, "").replace(/[`_]/g, "").trim();
+}
+
 const CATEGORY_META: Record<IssueCategory, { label: string; mark: string; dot: string }> = {
   grammar: {
     label: "Grammar",
-    mark: "decoration-rose-500/70 decoration-wavy underline underline-offset-2",
+    mark: "border-b-2 border-rose-500/90 bg-rose-500/10 [text-decoration-skip-ink:none]",
     dot: "bg-rose-500",
   },
   clarity: {
     label: "Clarity",
-    mark: "decoration-muted-foreground/70 decoration-dotted underline underline-offset-2",
+    mark: "border-b-2 border-dashed border-muted-foreground/80 bg-muted/20 [text-decoration-skip-ink:none]",
     dot: "bg-muted-foreground",
   },
   economics_accuracy: {
     label: "Economics accuracy",
-    mark: "bg-ao1/15 decoration-ao1 underline decoration-2 underline-offset-2",
+    mark: "border-b-2 border-ao1 bg-ao1/15 [text-decoration-skip-ink:none]",
     dot: "bg-ao1",
   },
   analysis: {
     label: "Analysis",
-    mark: "bg-ao2/15 decoration-ao2 underline decoration-2 underline-offset-2",
+    mark: "border-b-2 border-ao2 bg-ao2/15 [text-decoration-skip-ink:none]",
     dot: "bg-ao2",
   },
   application: {
     label: "Application",
-    mark: "bg-ao2/15 decoration-ao2 underline decoration-2 underline-offset-2",
+    mark: "border-b-2 border-ao2 bg-ao2/15 [text-decoration-skip-ink:none]",
     dot: "bg-ao2",
   },
   evaluation: {
     label: "Evaluation",
-    mark: "bg-ao3/15 decoration-ao3 underline decoration-2 underline-offset-2",
+    mark: "border-b-2 border-ao3 bg-ao3/15 [text-decoration-skip-ink:none]",
     dot: "bg-ao3",
   },
   reasoning_chain: {
     label: "Chain of reasoning",
-    mark: "bg-ao2/15 decoration-ao2 underline decoration-2 underline-offset-2",
+    mark: "border-b-2 border-ao2 bg-ao2/15 [text-decoration-skip-ink:none]",
     dot: "bg-ao2",
   },
   terminology: {
     label: "Terminology",
-    mark: "bg-ao1/15 decoration-ao1 underline decoration-2 underline-offset-2",
+    mark: "border-b-2 border-ao1 bg-ao1/15 [text-decoration-skip-ink:none]",
     dot: "bg-ao1",
   },
 };
@@ -70,17 +75,17 @@ const DIAGRAM_TAG = /\[DIAGRAM:[^\]]*\]/g;
 export const AO_META = {
   AO1: {
     label: "AO1 Knowledge",
-    mark: "bg-ao1/10 shadow-[inset_0_-3px_0_var(--ao1)]",
+    mark: "bg-ao1/15 border-b-2 border-ao1 [text-decoration-skip-ink:none]",
     dot: "bg-ao1",
   },
   AO2: {
     label: "AO2 Analysis",
-    mark: "bg-ao2/10 shadow-[inset_0_-3px_0_var(--ao2)]",
+    mark: "bg-ao2/15 border-b-2 border-ao2 [text-decoration-skip-ink:none]",
     dot: "bg-ao2",
   },
   AO3: {
     label: "AO3 Evaluation",
-    mark: "bg-ao3/10 shadow-[inset_0_-3px_0_var(--ao3)]",
+    mark: "bg-ao3/15 border-b-2 border-ao3 [text-decoration-skip-ink:none]",
     dot: "bg-ao3",
   },
 } as const;
@@ -272,8 +277,9 @@ export function LiveExaminerEditor({
           segment.range ? (
             <mark
               key={index}
+              style={{ textDecorationSkipInk: "none" }}
               className={cn(
-                "box-decoration-clone rounded-[2px] bg-transparent",
+                "box-decoration-clone rounded-[2px]",
                 segment.range.kind === "issue"
                   ? CATEGORY_META[segment.range.issue.category].mark
                   : AO_META[segment.range.classification.ao].mark,
@@ -375,8 +381,8 @@ function ClassificationCard({
           {meta.label}
         </Badge>
       </div>
-      <p className="text-xs font-medium leading-relaxed">{classification.original}</p>
-      <p className="text-xs leading-relaxed text-muted-foreground">{classification.explanation}</p>
+      <p className="text-xs font-medium leading-relaxed">{cleanStars(classification.original)}</p>
+      <p className="text-xs leading-relaxed text-muted-foreground">{cleanStars(classification.explanation)}</p>
       <Button
         type="button"
         size="sm"
@@ -432,15 +438,15 @@ function SuggestionCard({
       </div>
 
       <div className="space-y-1 text-xs">
-        <p className="text-destructive line-through">{issue.original}</p>
-        <p className="font-medium">{issue.suggestion}</p>
+        <p className="text-destructive line-through">{cleanStars(issue.original)}</p>
+        <p className="font-medium">{cleanStars(issue.suggestion)}</p>
       </div>
 
-      <p className="text-xs leading-relaxed text-muted-foreground">{issue.explanation}</p>
+      <p className="text-xs leading-relaxed text-muted-foreground">{cleanStars(issue.explanation)}</p>
 
       {issue.evidence ? (
         <p className="rounded-md border border-border/70 bg-muted/30 p-2 text-[11px] leading-relaxed text-muted-foreground italic">
-          "{issue.evidence}"
+          "{cleanStars(issue.evidence)}"
         </p>
       ) : null}
 

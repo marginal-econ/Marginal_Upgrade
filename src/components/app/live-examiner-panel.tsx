@@ -12,7 +12,13 @@ import type {
   PredictedMark,
 } from "@/hooks/use-live-examiner-check";
 import { AO_DEFINITIONS } from "@/lib/examiner/config";
+import type { Grading } from "@/lib/examiner/types";
 import { cn } from "@/lib/utils";
+
+function cleanStars(str: string): string {
+  if (!str) return "";
+  return str.replace(/\*\*/g, "").replace(/\*/g, "").replace(/[`_]/g, "").trim();
+}
 
 // Which AO this category maps to, shown next to the label so it's visibly
 // the same AO structure the essay is actually graded against — not just an
@@ -62,6 +68,7 @@ export function LiveExaminerPanel({
   error,
   autosave,
   predictedMark,
+  finalGrading,
   lastUpdatedAt,
   maxMark,
   gradedHelp,
@@ -77,6 +84,7 @@ export function LiveExaminerPanel({
   error: string | null;
   autosave: AutosaveState;
   predictedMark: PredictedMark | null;
+  finalGrading?: Grading | null;
   lastUpdatedAt: number | null;
   maxMark: number;
   gradedHelp?: ReactNode;
@@ -91,7 +99,11 @@ export function LiveExaminerPanel({
 
   return (
     <div className="flex h-full flex-col gap-3">
-      <PredictedMarkCard predictedMark={predictedMark} maxMark={maxMark} />
+      <PredictedMarkCard
+        predictedMark={predictedMark}
+        maxMark={maxMark}
+        finalGrading={finalGrading}
+      />
       {gradedHelp}
 
       <div className="grid grid-cols-3 gap-1.5" aria-label="Assessment objective colour key">
@@ -204,14 +216,14 @@ export function LiveExaminerPanel({
                         {issue.severity}
                       </Badge>
                     </div>
-                    <p className="text-xs text-destructive line-through">{issue.original}</p>
-                    <p className="text-xs font-medium">{issue.suggestion}</p>
+                    <p className="text-xs text-destructive line-through">{cleanStars(issue.original)}</p>
+                    <p className="text-xs font-medium">{cleanStars(issue.suggestion)}</p>
                     <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
-                      {issue.explanation}
+                      {cleanStars(issue.explanation)}
                     </p>
                     {issue.evidence ? (
                       <p className="mt-1.5 rounded-md border border-border/70 bg-muted/30 p-1.5 text-[10px] leading-relaxed text-muted-foreground italic">
-                        "{issue.evidence}"
+                        "{cleanStars(issue.evidence)}"
                       </p>
                     ) : null}
                     <div className="mt-2 flex gap-1.5">
@@ -264,11 +276,11 @@ export function LiveExaminerPanel({
                         {CATEGORY_AO[entry.category] ? ` (${CATEGORY_AO[entry.category]})` : ""}
                         :{" "}
                       </span>
-                      <span className="line-through">{entry.original}</span>
+                      <span className="line-through">{cleanStars(entry.original)}</span>
                       {entry.status === "accepted" ? (
                         <>
                           {" → "}
-                          <span className="font-medium">{entry.suggestion}</span>
+                          <span className="font-medium">{cleanStars(entry.suggestion)}</span>
                         </>
                       ) : null}
                     </div>
@@ -295,9 +307,11 @@ export function LiveExaminerPanel({
 function PredictedMarkCard({
   predictedMark,
   maxMark,
+  finalGrading,
 }: {
   predictedMark: PredictedMark | null;
   maxMark: number;
+  finalGrading?: Grading | null;
 }) {
   const [justChanged, setJustChanged] = useState(false);
   const previousMarkRef = useRef<number | null>(null);
@@ -312,6 +326,85 @@ function PredictedMarkCard({
       return () => clearTimeout(timeout);
     }
   }, [predictedMark]);
+
+  if (finalGrading && Number.isFinite(finalGrading.total_mark)) {
+    const total_mark = finalGrading.total_mark;
+    const band = finalGrading.band;
+    const knowledgeAw =
+      finalGrading.ao_breakdown?.knowledge?.mark ??
+      finalGrading.breakdown?.knowledge?.mark ??
+      0;
+    const knowledgeMax =
+      finalGrading.ao_breakdown?.knowledge?.max_mark ??
+      finalGrading.breakdown?.knowledge?.max_mark ??
+      0;
+    const analysisAw =
+      finalGrading.ao_breakdown?.analysis?.mark ??
+      finalGrading.breakdown?.analysis?.mark ??
+      0;
+    const analysisMax =
+      finalGrading.ao_breakdown?.analysis?.max_mark ??
+      finalGrading.breakdown?.analysis?.max_mark ??
+      0;
+    const evalAw =
+      finalGrading.ao_breakdown?.evaluation?.mark ??
+      finalGrading.breakdown?.evaluation?.mark ??
+      0;
+    const evalMax =
+      finalGrading.ao_breakdown?.evaluation?.max_mark ??
+      finalGrading.breakdown?.evaluation?.max_mark ??
+      0;
+
+    return (
+      <div className="overflow-hidden rounded-xl border-2 border-emerald-600 bg-card shadow-[3px_3px_0_0_rgba(16,185,129,0.3)]">
+        <div className="flex items-center justify-between bg-emerald-600 px-3 py-2 text-white">
+          <span className="flex items-center gap-2 text-xs font-semibold">
+            <span className="size-2 rounded-full bg-white animate-pulse" /> Official Cambridge Grade
+          </span>
+          <span className="font-mono text-[10px] uppercase font-bold tracking-wider">{band || "Marked"}</span>
+        </div>
+        <div className="p-3">
+          <div className="flex items-baseline justify-between gap-2">
+            <span className="text-[11px] font-medium text-muted-foreground">Examiner Score</span>
+            <Badge variant="outline" className="text-[10px] border-emerald-500/30 text-emerald-600 font-semibold">
+              Verified
+            </Badge>
+          </div>
+          <div className="mt-0.5 flex items-baseline gap-1">
+            <span className="text-3xl font-bold tabular-nums text-emerald-600 dark:text-emerald-400">
+              {total_mark}
+            </span>
+            <span className="text-sm text-muted-foreground font-medium">/ {maxMark}</span>
+          </div>
+          {finalGrading.summary ? (
+            <p className="mt-1.5 text-[11px] text-muted-foreground line-clamp-2">
+              {cleanStars(finalGrading.summary)}
+            </p>
+          ) : null}
+          <div className="mt-3 space-y-2">
+            <AoMini
+              label={AO_DEFINITIONS.ao1.code}
+              name="Knowledge"
+              ao={{ awarded: knowledgeAw, out_of: knowledgeMax }}
+              tone="ao1"
+            />
+            <AoMini
+              label={AO_DEFINITIONS.ao2.code}
+              name="Analysis"
+              ao={{ awarded: analysisAw, out_of: analysisMax }}
+              tone="ao2"
+            />
+            <AoMini
+              label={AO_DEFINITIONS.ao3.code}
+              name="Evaluation"
+              ao={{ awarded: evalAw, out_of: evalMax }}
+              tone="ao3"
+            />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!predictedMark) {
     return (

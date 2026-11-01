@@ -3,14 +3,17 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
   BookOpen,
+  Check,
   CheckCircle2,
   ChevronRight,
   ClipboardPaste,
+  Copy,
   GraduationCap,
   ImagePlus,
   Loader2,
-  PenLine,
   LockKeyhole,
+  MapPin,
+  PenLine,
   RotateCcw,
   Sparkles,
   Target,
@@ -77,6 +80,7 @@ import {
   prepareLiveExaminerContext,
   saveLiveExaminerSession,
   type MaxOutSuggestion,
+  type MaxOutResponse,
 } from "@/lib/live-examiner.functions";
 import { isMarginalAdmin } from "@/lib/auth-admin";
 import { getMe } from "@/lib/account.functions";
@@ -267,40 +271,74 @@ function LiveExaminerPage() {
     maxOutMutation.reset();
   }
 
-  // --- "Max out this answer": once a student has finished writing and
-  // graded it, a further, deeper suggestion pass on demand — what exactly
-  // to add or change to close the gap to full marks. Separate call from
-  // grading itself, triggered by its own button so it's never run unless
-  // the student actually wants it. ------------------------------------
+  // --- Score Maximizer & Perfection Blueprint: on-demand or post-grade
+  // guidance showing students exactly how to structure, write, and select
+  // arguments to reach a perfect score (full marks). -----------------
+  const [scoreMaximizerOpen, setScoreMaximizerOpen] = useState(false);
   const maxOutFn = useServerFn(getMaxOutSuggestions);
   const maxOutMutation = useMutation({
-    mutationFn: () => {
-      const grading = gradeMutation.data!.grading;
-      return maxOutFn({
-        data: {
-          question,
-          level,
-          maxMark,
-          essayText,
-          contextBlock,
-          totalMark: grading.total_mark,
-          band: grading.band,
-          weaknesses: grading.weaknesses,
-          missingElements: grading.missing_elements,
-          actionableFeedback: grading.actionable_feedback,
-        },
-      });
+    mutationFn: (overrideInput?: {
+      question: string;
+      level: "as" | "a2";
+      maxMark: number;
+      essayText: string;
+      contextBlock: string;
+      totalMark: number;
+      band: string;
+      weaknesses: string[];
+      missingElements: { knowledge?: string[]; analysis?: string[]; evaluation?: string[]; examples?: string[] };
+      actionableFeedback: string[];
+    }) => {
+      const grading = gradeMutation.data?.grading;
+      const payload = overrideInput ?? {
+        question,
+        level,
+        maxMark,
+        essayText,
+        contextBlock: contextBlock || "",
+        totalMark: grading?.total_mark ?? (predictedMark?.total_mark ?? Math.round(maxMark * 0.5)),
+        band: grading?.band ?? (predictedMark ? `Est. ${predictedMark.total_mark}/${maxMark}` : "Draft Attempt"),
+        weaknesses: grading?.weaknesses ?? [],
+        missingElements: grading?.missing_elements ?? {},
+        actionableFeedback: grading?.actionable_feedback ?? [],
+      };
+      return maxOutFn({ data: payload });
     },
     onError: (error: Error) => toast.error(error.message),
   });
 
-  useEffect(() => {
+  function handleOpenScoreMaximizer() {
+    setScoreMaximizerOpen(true);
     const grading = gradeMutation.data?.grading;
-    if (!grading || grading.total_mark >= grading.max_mark) return;
-    maxOutMutation.mutate();
-    // A completed grade is the only event that requests fresh hints.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gradeMutation.data]);
+    maxOutMutation.mutate({
+      question,
+      level,
+      maxMark,
+      essayText,
+      contextBlock: contextBlock || "",
+      totalMark: grading?.total_mark ?? (predictedMark?.total_mark ?? Math.round(maxMark * 0.5)),
+      band: grading?.band ?? (predictedMark ? `Est. ${predictedMark.total_mark}/${maxMark}` : "Draft Attempt"),
+      weaknesses: grading?.weaknesses ?? [],
+      missingElements: grading?.missing_elements ?? {},
+      actionableFeedback: grading?.actionable_feedback ?? [],
+    });
+  }
+
+  function handleInsertSentence(
+    text: string,
+    targetAo?: "ao1" | "ao2" | "ao3" | "structure",
+    placementLabel?: string,
+    forceEnd = false,
+  ) {
+    const cleanText = text.replace(/\*\*/g, "").replace(/\*/g, "").trim();
+    if (!cleanText) return;
+    setEssayText((current) => {
+      const trimmed = current.trim();
+      if (!trimmed) return cleanText;
+      return `${trimmed}\n\n${cleanText}`;
+    });
+    toast.success("Inserted into essay response.");
+  }
 
   const generateFullAnswer = useServerFn(generateModelEssay);
   const fullAnswerMutation = useMutation({
@@ -864,6 +902,15 @@ function LiveExaminerPage() {
               <Button
                 type="button"
                 size="sm"
+                variant="outline"
+                className="h-7 text-xs border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300 hover:bg-amber-500/20 font-medium"
+                onClick={handleOpenScoreMaximizer}
+              >
+                <Sparkles className="size-3.5 text-amber-500" /> Score Maximizer
+              </Button>
+              <Button
+                type="button"
+                size="sm"
                 variant="ghost"
                 className="h-7 text-xs"
                 onClick={() => setRestartDialogOpen(true)}
@@ -927,31 +974,31 @@ function LiveExaminerPage() {
               error={checkError}
               autosave={autosave}
               predictedMark={predictedMark}
+              finalGrading={gradeMutation.data?.grading as Grading | null}
               lastUpdatedAt={lastUpdatedAt}
               maxMark={maxMark}
               gradedHelp={
-                gradeMutation.data &&
-                gradeMutation.data.grading.total_mark < gradeMutation.data.grading.max_mark ? (
-                  <GradedHelpCard
-                    grading={gradeMutation.data.grading as Grading}
-                    suggestions={maxOutMutation.data?.suggestions ?? []}
-                    headline={maxOutMutation.data?.headline}
-                    loading={maxOutMutation.isPending}
-                    error={maxOutMutation.isError}
-                    revealed={revealedHints}
-                    onReveal={() => setRevealedHints((count) => Math.min(3, count + 1))}
-                    onRetry={() => maxOutMutation.mutate()}
-                    generatingAnswer={fullAnswerMutation.isPending}
-                    onShowAnswer={() => fullAnswerMutation.mutate()}
-                  />
-                ) : gradeMutation.data ? (
-                  <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-xs text-emerald-700 dark:text-emerald-300">
-                    <p className="font-semibold">Full marks achieved</p>
-                    <p className="mt-0.5">
-                      No hints needed — this answer has met the full standard.
-                    </p>
+                <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="flex items-center gap-1.5 text-xs font-semibold text-amber-700 dark:text-amber-300">
+                      <Sparkles className="size-3.5 text-amber-500" /> Score Maximizer
+                    </span>
+                    <Badge variant="outline" className="border-amber-500/30 text-[10px] text-amber-600 font-semibold">
+                      Band 1 Blueprint
+                    </Badge>
                   </div>
-                ) : null
+                  <p className="text-[11px] leading-snug text-muted-foreground">
+                    Step-by-step improvements and exemplar phrasing to maximize your score towards {maxMark}/{maxMark}.
+                  </p>
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="w-full h-7 text-xs bg-amber-500 hover:bg-amber-600 text-white font-medium gap-1.5"
+                    onClick={handleOpenScoreMaximizer}
+                  >
+                    <Sparkles className="size-3.5" /> Open Score Maximizer
+                  </Button>
+                </div>
               }
               onAccept={(id) => setEssayText((current) => acceptIssue(id, current))}
               onDismiss={dismissIssue}
@@ -1070,7 +1117,7 @@ function LiveExaminerPage() {
       </Dialog>
 
       <Dialog open={gradeDialogOpen} onOpenChange={setGradeDialogOpen}>
-        <DialogContent className="sm:max-w-xl">
+        <DialogContent className="sm:max-w-2xl max-h-[88vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Grade now</DialogTitle>
             <DialogDescription>
@@ -1094,25 +1141,27 @@ function LiveExaminerPage() {
             <div className="space-y-4">
               <MarkBreakdown grading={gradeMutation.data.grading as Grading} />
               {gradeMutation.data.grading.total_mark < gradeMutation.data.grading.max_mark ? (
-                <div className="space-y-3 rounded-lg border border-amber-300 bg-amber-50 p-3 dark:border-amber-700 dark:bg-amber-950/40">
-                  <p className="text-sm text-amber-950 dark:text-amber-100">
-                    Your three personalised hints are ready in the side panel.
-                  </p>
+                <div className="space-y-3 rounded-lg border border-amber-300 bg-amber-50 p-3.5 dark:border-amber-700 dark:bg-amber-950/40">
+                  <div className="flex items-start gap-2">
+                    <Sparkles className="size-4 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
+                    <div>
+                      <p className="text-sm font-semibold text-amber-950 dark:text-amber-100">
+                        Score Maximizer &amp; Perfection Blueprint
+                      </p>
+                      <p className="text-xs text-amber-900/80 dark:text-amber-200/80">
+                        Official score: {gradeMutation.data.grading.total_mark}/{gradeMutation.data.grading.max_mark}. View step-by-step improvements to reach a perfect score.
+                      </p>
+                    </div>
+                  </div>
                   <Button
                     type="button"
-                    className="w-full bg-amber-500 text-amber-950 hover:bg-amber-400"
+                    className="w-full bg-amber-500 text-amber-950 hover:bg-amber-400 font-semibold"
                     onClick={() => {
                       setGradeDialogOpen(false);
-                      window.setTimeout(
-                        () =>
-                          document
-                            .getElementById("live-examiner-hints")
-                            ?.scrollIntoView({ behavior: "smooth", block: "start" }),
-                        100,
-                      );
+                      handleOpenScoreMaximizer();
                     }}
                   >
-                    <Sparkles className="size-4" /> Open hints in sidebar
+                    <Sparkles className="size-4 mr-1.5" /> Open Score Maximizer
                   </Button>
                 </div>
               ) : null}
@@ -1127,13 +1176,31 @@ function LiveExaminerPage() {
         </DialogContent>
       </Dialog>
 
+      {/* Score Maximizer Dialog */}
+      <ScoreMaximizerDialog
+        open={scoreMaximizerOpen}
+        onOpenChange={setScoreMaximizerOpen}
+        question={question}
+        level={level}
+        maxMark={maxMark}
+        data={maxOutMutation.data}
+        loading={maxOutMutation.isPending}
+        error={maxOutMutation.isError}
+        onRetry={handleOpenScoreMaximizer}
+        onInsertText={handleInsertSentence}
+        onShowModelAnswer={() => {
+          setScoreMaximizerOpen(false);
+          fullAnswerMutation.mutate();
+        }}
+      />
+
       <Dialog open={modelAnswerOpen} onOpenChange={setModelAnswerOpen}>
         <DialogContent className="max-h-[88vh] overflow-y-auto sm:max-w-3xl">
           <DialogHeader>
             <DialogTitle>Complete model answer</DialogTitle>
             <DialogDescription>
-              Compare this only after attempting all three hints. Focus on what the answer adds,
-              links, and evaluates—not on memorising its wording.
+              Compare this only after attempting the score maximization hints. Focus on what the
+              answer adds, links, and evaluates—not on memorising its wording.
             </DialogDescription>
           </DialogHeader>
           {fullAnswerMutation.data ? <ModelAnswer essay={fullAnswerMutation.data.essay} /> : null}
@@ -1143,143 +1210,265 @@ function LiveExaminerPage() {
   );
 }
 
+function CopyButton({ text, label = "Copy" }: { text: string; label?: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    toast.success("Copied to clipboard.");
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      size="sm"
+      className="h-7 text-xs gap-1.5"
+      onClick={handleCopy}
+    >
+      {copied ? <Check className="size-3.5 text-emerald-500" /> : <Copy className="size-3.5" />}
+      {copied ? "Copied" : label}
+    </Button>
+  );
+}
+
 /** AO badge colour, reusing the same palette meaning elsewhere in the app:
  *  knowledge/ao1, analysis/ao2, evaluation/ao3, plus a neutral one for
  *  general structural suggestions that don't map to a single AO. */
 function aoLabel(target: MaxOutSuggestion["target_ao"]): string {
   switch (target) {
     case "ao1":
-      return "Knowledge";
+      return "Knowledge (AO1)";
     case "ao2":
-      return "Analysis";
+      return "Analysis (AO2)";
     case "ao3":
-      return "Evaluation";
+      return "Evaluation (AO3)";
     default:
-      return "Structure";
+      return "Essay Structure";
   }
 }
 
-function GradedHelpCard({
-  grading,
-  suggestions,
-  headline,
+function aoBadgeStyle(target: MaxOutSuggestion["target_ao"]): string {
+  switch (target) {
+    case "ao1":
+      return "border-ao1/40 bg-ao1/10 text-ao1 font-semibold";
+    case "ao2":
+      return "border-ao2/40 bg-ao2/10 text-ao2 font-semibold";
+    case "ao3":
+      return "border-ao3/40 bg-ao3/10 text-ao3 font-semibold";
+    default:
+      return "border-primary/40 bg-primary/10 text-primary font-semibold";
+  }
+}
+
+function defaultPlacement(ao: "ao1" | "ao2" | "ao3" | "structure") {
+  switch (ao) {
+    case "ao1":
+      return "Paragraph 1 (Introduction & Core Definitions)";
+    case "ao2":
+      return "Paragraph 2 or 3 (Analytical Transmission Mechanism)";
+    case "ao3":
+      return "Final Section (Evaluative Balance & Synthesis)";
+    default:
+      return "Essay Body";
+  }
+}
+
+function defaultPlacementRationale(ao: "ao1" | "ao2" | "ao3" | "structure") {
+  switch (ao) {
+    case "ao1":
+      return "Establishes precise conceptual grounding before the analytical steps unfold.";
+    case "ao2":
+      return "Deepens the step-by-step causal chain showing how one economic effect triggers the next.";
+    case "ao3":
+      return "Weighs counterarguments, time lags, and assumptions to reach a nuanced, justified conclusion.";
+    default:
+      return "Integrates the analytical requirement directly into the core essay structure.";
+  }
+}
+
+function shortPlacement(ao: "ao1" | "ao2" | "ao3" | "structure") {
+  switch (ao) {
+    case "ao1":
+      return "Intro (¶1)";
+    case "ao2":
+      return "Body (¶2)";
+    case "ao3":
+      return "Evaluation";
+    default:
+      return "Draft";
+  }
+}
+
+function ScoreMaximizerDialog({
+  open,
+  onOpenChange,
+  question,
+  level,
+  maxMark,
+  data,
   loading,
   error,
-  revealed,
-  onReveal,
   onRetry,
-  generatingAnswer,
-  onShowAnswer,
+  onInsertText,
+  onShowModelAnswer,
 }: {
-  grading: Grading;
-  suggestions: MaxOutSuggestion[];
-  headline?: string;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  question: string;
+  level: "as" | "a2";
+  maxMark: number;
+  data: MaxOutResponse | undefined;
   loading: boolean;
   error: boolean;
-  revealed: number;
-  onReveal: () => void;
   onRetry: () => void;
-  generatingAnswer: boolean;
-  onShowAnswer: () => void;
+  onInsertText: (
+    text: string,
+    targetAo?: "ao1" | "ao2" | "ao3" | "structure",
+    placementLabel?: string,
+    forceEnd?: boolean,
+  ) => void;
+  onShowModelAnswer: () => void;
 }) {
-  const fallbacks = [
-    ...grading.actionable_feedback,
-    ...grading.missing_elements.analysis,
-    ...grading.missing_elements.evaluation,
-    ...grading.missing_elements.examples,
-  ];
-  const hints = Array.from(
-    { length: 3 },
-    (_, index) =>
-      suggestions[index] ??
-      ({
-        target_ao: index === 0 ? "ao1" : index === 1 ? "ao2" : "ao3",
-        title: `Improvement ${index + 1}`,
-        suggestion:
-          fallbacks[index] ??
-          "Add one precise, question-focused point and explain how it changes the final judgement.",
-        mark_uplift: "",
-      } as MaxOutSuggestion),
-  );
-
   return (
-    <div
-      id="live-examiner-hints"
-      className="scroll-mt-4 space-y-2.5 rounded-lg border border-amber-300 bg-amber-50 p-3 shadow-sm dark:border-amber-700 dark:bg-amber-950/40"
-    >
-      <div className="flex items-start gap-2">
-        <Target className="mt-0.5 size-4 shrink-0 text-amber-700 dark:text-amber-300" />
-        <div>
-          <p className="text-xs font-semibold text-amber-950 dark:text-amber-100">
-            Hints to improve your mark
-          </p>
-          <p className="text-[11px] leading-snug text-amber-900/75 dark:text-amber-100/75">
-            {headline ??
-              `You scored ${grading.total_mark}/${grading.max_mark}. Reveal each hint one at a time.`}
-          </p>
-        </div>
-      </div>
-      {loading ? (
-        <p className="flex items-center gap-2 rounded-md border bg-background p-2 text-[11px] text-muted-foreground">
-          <Loader2 className="size-3.5 animate-spin" /> Preparing three personalised hints…
-        </p>
-      ) : error ? (
-        <Button type="button" variant="outline" size="sm" className="w-full" onClick={onRetry}>
-          Try loading hints again
-        </Button>
-      ) : (
-        <div className="space-y-2">
-          {hints.slice(0, revealed).map((hint, index) => (
-            <div key={index} className="rounded-md border bg-background p-2.5 text-[11px]">
-              <div className="flex items-center justify-between gap-2 font-semibold">
-                <span>
-                  Hint {index + 1}: {hint.title}
-                </span>
-                <Badge variant="outline" className="text-[9px]">
-                  {aoLabel(hint.target_ao)}
-                </Badge>
-              </div>
-              <p className="mt-1 leading-relaxed text-muted-foreground">{hint.suggestion}</p>
-            </div>
-          ))}
-          {revealed < 3 ? (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="w-full justify-between"
-              onClick={onReveal}
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
+        <DialogHeader>
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge className="bg-amber-500 text-white hover:bg-amber-500 font-semibold">
+              <Sparkles className="mr-1 size-3.5" /> Score Maximizer & Perfection Blueprint
+            </Badge>
+            <Badge variant="outline">
+              {level === "a2" ? "A Level" : "AS Level"} · {maxMark} Marks
+            </Badge>
+            <Badge
+              variant="secondary"
+              className="border-emerald-500/30 text-emerald-600 dark:text-emerald-400 font-semibold"
             >
-              Reveal hint {revealed + 1}
-              <ChevronRight className="size-3.5" />
-            </Button>
-          ) : (
-            <Button
-              type="button"
-              size="sm"
-              className="w-full"
-              disabled={generatingAnswer}
-              onClick={onShowAnswer}
-            >
-              {generatingAnswer ? (
-                <>
-                  <Loader2 className="size-3.5 animate-spin" /> Building full answer…
-                </>
-              ) : (
-                <>
-                  <Sparkles className="size-3.5" /> Show complete model answer
-                </>
-              )}
-            </Button>
-          )}
-          {revealed < 3 ? (
-            <p className="flex items-center justify-center gap-1 text-[10px] text-muted-foreground">
-              <LockKeyhole className="size-3" /> Full answer unlocks after all three hints
+              Target: Full {maxMark}/{maxMark} (Band 1)
+            </Badge>
+          </div>
+          <DialogTitle className="mt-2 text-xl font-bold">
+            How to reach a perfect {maxMark}/{maxMark} score
+          </DialogTitle>
+          <DialogDescription className="text-xs text-muted-foreground line-clamp-2">
+            Exam Question: {question}
+          </DialogDescription>
+        </DialogHeader>
+
+        {loading ? (
+          <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
+            <Loader2 className="size-8 animate-spin text-amber-500" />
+            <p className="font-semibold text-foreground">
+              Analyzing your essay against Cambridge Level 5 criteria…
             </p>
-          ) : null}
-        </div>
-      )}
-    </div>
+            <p className="max-w-md text-xs text-muted-foreground">
+              Identifying missing causal chains, evaluative trade-offs, strategic argument options,
+              exact essay placement, and exemplar phrasing.
+            </p>
+          </div>
+        ) : error ? (
+          <div className="flex flex-col items-center gap-3 py-10 text-center">
+            <p className="text-sm text-destructive">Could not generate suggestions right now.</p>
+            <Button onClick={onRetry}>Try Again</Button>
+          </div>
+        ) : data ? (
+          <div className="space-y-6 pt-2">
+            {/* Headline & Overview Banner */}
+            <div className="rounded-xl border border-amber-300/60 bg-linear-to-br from-amber-500/10 via-background to-card p-4 shadow-xs">
+              <div className="flex items-start gap-3">
+                <Target className="mt-0.5 size-5 shrink-0 text-amber-600 dark:text-amber-400" />
+                <div className="space-y-1">
+                  <h3 className="text-sm font-bold text-foreground">Examiner Blueprint Summary</h3>
+                  <p className="text-xs font-medium leading-relaxed text-amber-900 dark:text-amber-200">
+                    {data.headline}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Individual Upgrade Suggestions */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
+                  Step-by-step Improvements ({data.suggestions.length})
+                </h4>
+                <span className="text-[11px] text-muted-foreground">
+                  Apply these to close the gap to full marks
+                </span>
+              </div>
+
+              {data.suggestions.map((suggestion, index) => (
+                <div
+                  key={index}
+                  className="overflow-hidden rounded-xl border border-border bg-card p-4 shadow-xs transition hover:border-border/90"
+                >
+                  {/* Card Header */}
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 pb-3">
+                    <div className="flex items-center gap-2">
+                      <span className="flex size-6 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+                        {index + 1}
+                      </span>
+                      <h4 className="font-semibold text-foreground text-sm">{suggestion.title}</h4>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge
+                        variant="outline"
+                        className={cn("text-[10px]", aoBadgeStyle(suggestion.target_ao))}
+                      >
+                        {aoLabel(suggestion.target_ao)}
+                      </Badge>
+                      <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/15 text-[10px] font-semibold">
+                        {suggestion.mark_uplift}
+                      </Badge>
+                    </div>
+                  </div>
+
+                  {/* Diagnostic suggestion */}
+                  <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
+                    {suggestion.suggestion}
+                  </p>
+
+                  {/* Quick insert action */}
+                  <div className="mt-3.5 flex flex-wrap items-center justify-end gap-2 pt-2 border-t border-border/40">
+                    <CopyButton text={suggestion.suggestion} label="Copy suggestion" />
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-xs"
+                      onClick={() => {
+                        onInsertText(
+                          suggestion.suggestion,
+                          suggestion.target_ao,
+                          defaultPlacement(suggestion.target_ao),
+                          true,
+                        );
+                        onOpenChange(false);
+                      }}
+                    >
+                      Insert into draft
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Bottom Actions */}
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
+              <Button variant="outline" onClick={() => onOpenChange(false)}>
+                Back to editor
+              </Button>
+              <Button onClick={onShowModelAnswer} className="gap-1.5">
+                <Sparkles className="size-4" /> Compare with complete model answer
+              </Button>
+            </div>
+          </div>
+        ) : null}
+      </DialogContent>
+    </Dialog>
   );
 }
 

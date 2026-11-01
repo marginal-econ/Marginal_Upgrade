@@ -292,15 +292,15 @@ export function GradingProgress({
         </div>
       )}
 
-      {/* Grounding & Timeout Guarantee Footer */}
+      {/* Grounding & Fast Execution Guarantee Footer */}
       <div className="rounded-lg border border-border/80 bg-muted/30 p-3 text-xs text-muted-foreground flex items-start gap-2.5">
         <Sparkles className="size-4 shrink-0 text-primary mt-0.5" />
         <div className="space-y-1">
           <p className="font-semibold text-foreground text-xs">
-            Free Community Access · Deep Cambridge 9708 Grounding Guarantee
+            Cambridge 9708 Senior Examiner Grounding Guarantee
           </p>
           <p className="text-[11px] leading-relaxed text-muted-foreground">
-            Estimated completion time: <strong>200–300 seconds</strong>. Deep Cambridge 9708 evaluation involves vector search over 259 past papers, diagram OCR verification, and senior examiner moderation. Single-key execution with up to 300 seconds allocated per evaluation.
+            Estimated completion time: <strong>40–80 seconds</strong> (max 100 seconds). High-throughput evaluation performs vector retrieval across syllabus materials, verifies diagrams, and completes dual-pass moderation.
           </p>
         </div>
       </div>

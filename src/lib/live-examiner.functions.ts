@@ -204,70 +204,65 @@ const CheckInput = z.object({
 const CandidateSchema = IssueSchema.extend({ confidence: z.number().min(0).max(1) });
 type Candidate = z.infer<typeof CandidateSchema>;
 
+function stripAsterisks(str: string): string {
+  if (!str) return "";
+  return str.replace(/\*\*/g, "").replace(/\*/g, "").replace(/[`_]/g, "").trim();
+}
+
 function buildCandidateSystemPrompt(
   question: string,
   level: string,
   maxMark: number,
   contextBlock: string,
 ) {
-  return `You are a Cambridge 9708 Economics examiner giving LIVE, IN-PROGRESS feedback on a student's answer as they type it — a quick, light first pass over a few sentences, not a full mark. A second, independent reviewer will check every candidate you raise before the student ever sees it, so your job here is to propose candidates, not to be the final word — but still only propose things you genuinely believe are real.
+  return `You are a senior Cambridge 9708 Economics examiner giving real-time, Grammarly-style feedback on a student's answer as they type it.
 
 QUESTION (${level === "a2" ? "A Level" : "AS Level"}, ${maxMark} marks): ${question}
 
-${contextBlock || "No syllabus material was retrieved for this question — be extremely conservative about flagging economics content, since you have nothing to check it against. Grammar/clarity/terminology issues are still fine to flag."}
+${contextBlock || "No syllabus material was retrieved for this question — be conservative about flagging economics content. Grammar/clarity/terminology issues are still fine to flag."}
 
-Categories you may flag, and ONLY these — each one is tied to exactly how this same essay will actually be graded (the same AO definitions the full Cambridge examiner uses):
-- "grammar": spelling, grammar, punctuation, tense, run-on sentences. (Not an AO — pure writing mechanics.)
-- "clarity": a sentence that is genuinely hard to follow or ambiguous — not just plainly worded. (Not an AO — pure writing mechanics.)
+CRITICAL RULES:
+1. NO SYNONYMS: NEVER suggest mere synonyms (e.g. replacing 'leads to' with 'results in', or 'causes' with 'brings about'). If the student's phrasing is valid English and acceptable economics, DO NOT FLAG IT.
+2. DO NOT REPLACE CORRECT SENTENCES: If a sentence is economically sound and grammatically correct, leave it completely untouched. Only flag genuine errors.
+3. NO ASTERISKS OR MARKDOWN: Output strictly clean plain text. NEVER include asterisks (** or *), bolding, or markdown in "original", "suggestion", or "explanation".
+
+Categories you may flag, and ONLY these:
+- "grammar": genuine spelling, grammar, punctuation, or tense errors. (Not an AO — pure writing mechanics.)
+- "clarity": a sentence that is genuinely hard to follow, broken, or ambiguous — not merely simple. (Writing mechanics.)
 - "economics_accuracy": a factually wrong economics claim that DIRECTLY CONTRADICTS the syllabus material above. (${AO_DEFINITIONS.ao1.code} ${AO_DEFINITIONS.ao1.name} — ${AO_DEFINITIONS.ao1.description}.)
-- "terminology": a specific economics term used incorrectly (not: correct but informal phrasing). (${AO_DEFINITIONS.ao1.code} ${AO_DEFINITIONS.ao1.name} — ${AO_DEFINITIONS.ao1.description}.)
-- "analysis": a point stated but not explained (the underlying mechanism/chain is missing entirely). (${AO_DEFINITIONS.ao2.code} ${AO_DEFINITIONS.ao2.name} — the "explain -> analyse" steps of ${AO_DEFINITIONS.ao2.description}.)
-- "application": analysis that never once touches the specific context/numbers/scenario in the question. (${AO_DEFINITIONS.ao2.code} ${AO_DEFINITIONS.ao2.name} — the "apply to context" step of ${AO_DEFINITIONS.ao2.description}.)
-- "reasoning_chain": a genuine logical jump — the conclusion contradicts or does not follow from what was just stated. (${AO_DEFINITIONS.ao2.code} ${AO_DEFINITIONS.ao2.name} — a broken link anywhere in ${AO_DEFINITIONS.ao2.description}.)
-- "evaluation": a claim made with literally no justification, no counter-argument, and no condition, where the question demands evaluation. (${AO_DEFINITIONS.ao3.code} ${AO_DEFINITIONS.ao3.name} — ${AO_DEFINITIONS.ao3.description}.)
+- "terminology": an economics term used incorrectly or misspelled (e.g. 'monopolistic' instead of 'monopoly'). (${AO_DEFINITIONS.ao1.code} ${AO_DEFINITIONS.ao1.name}.)
+- "analysis": a claim stated with no causal chain (e.g. "prices rise so GDP falls" without explaining why). (${AO_DEFINITIONS.ao2.code} ${AO_DEFINITIONS.ao2.name} — ${AO_DEFINITIONS.ao2.description}.)
+- "application": analysis that ignores the context/scenario in the question. (${AO_DEFINITIONS.ao2.code} ${AO_DEFINITIONS.ao2.name}.)
+- "reasoning_chain": a genuine logical contradiction where the conclusion contradicts the premise. (${AO_DEFINITIONS.ao2.code} ${AO_DEFINITIONS.ao2.name}.)
+- "evaluation": an assertive claim made without justification, limitation, or balance where the question requires evaluation. (${AO_DEFINITIONS.ao3.code} ${AO_DEFINITIONS.ao3.name}.)
 
-CRITICAL — recognising valid work:
-- A correct argument written in the student's own words, in a different order, or via a different (but valid) route to the same conclusion is NOT an error. Economics has more than one legitimate way to make a point. Only flag analysis/application/evaluation/reasoning_chain when something is genuinely MISSING or WRONG, never because it doesn't match a "template" structure.
-- If you are unsure whether something is actually wrong, it is not a candidate — leave it out entirely rather than flag it "just in case".
-
-PROOF REQUIREMENT:
-- Every candidate needs an "evidence" string: for "economics_accuracy", this MUST be an exact, verbatim quote copied from the syllabus material above that the claim contradicts (a made-up or paraphrased quote will be rejected outright by the verifier). For every other category, a short, concrete, checkable reason.
-- Every candidate needs a "confidence" score from 0 to 1 — your own honest estimate that this is a real, useful issue. Be harsh with yourself; only high-confidence candidates survive review.
-
-OTHER RULES:
-- Never rewrite the student's voice or style. "suggestion" must be the smallest possible fix — a phrase, a missing link, a corrected term — never a rewritten sentence or paragraph.
-- Do NOT flag [DIAGRAM: ...] tags. If a word is marked "[?]" (illegible handwriting), leave it as "[?]".
-- Return at most a small handful of your most confident candidates. Zero candidates on a clean or already-strong passage is the correct, expected answer far more often than not.
-- Each sentence below is numbered. Only report candidates for sentences under "SENTENCES TO CHECK" — sentences under "CONTEXT ONLY" are given purely so you understand references/flow and must never appear in your output.
-
-Also classify the student's creditworthy economics writing into assessment objectives. This is separate from finding mistakes, but an underline means the phrase currently earns credit: never classify an inaccurate, incomplete, contradictory, or merely attempted point.
-- AO1: knowledge, definitions, concepts, diagrams, facts, and terminology.
-- AO2: application to the question plus explanation, causal links, and developed analysis.
-- AO3: evaluation, judgement, counter-arguments, limitations, conditions, and weighing significance.
-- Underline only the main scoring point: copy the smallest self-contained phrase that proves the AO, normally 3–12 words. Never return a whole sentence when a shorter exact phrase carries the same credit. A sentence may contain more than one AO.
-- Copy each classified clause verbatim from a SENTENCES TO CHECK sentence. Do not classify filler, headings, or [DIAGRAM: ...] tags.
-- Return at most 16 of the strongest classifications. It is correct to return no classification when the writing does not yet earn a mark.
+WHOLE SENTENCE CLASSIFICATION:
+Classify every creditworthy economic sentence into assessment objectives. The student needs to see whole sentences highlighted:
+- AO1: Knowledge, definitions, concepts, diagrams, facts, and terminology.
+- AO2: Application to context, explanation of mechanisms, causal links, and developed analysis.
+- AO3: Evaluation, balance, weighing significance, limitations, and justified judgement.
+For "original" in classifications, return the FULL sentence text from "SENTENCES TO CHECK", so the whole sentence is cleanly highlighted.
 
 Respond ONLY with a single valid JSON object, no markdown fences, no commentary, in exactly this shape:
 {
   "issues": [
     {
       "sentence_index": <number, from "SENTENCES TO CHECK">,
-      "original": "<the exact problem word/phrase, copied verbatim from the sentence>",
-      "suggestion": "<the minimal fix — a phrase, not a rewrite>",
+      "original": "<the exact erroneous word or short phrase, copied verbatim from the sentence, no asterisks>",
+      "suggestion": "<the minimal fix — a phrase, not a rewrite, no asterisks>",
       "category": "grammar" | "clarity" | "economics_accuracy" | "analysis" | "application" | "evaluation" | "reasoning_chain" | "terminology",
       "severity": "low" | "medium" | "high",
-      "explanation": "<one short sentence — why this matters, in plain terms>",
-      "evidence": "<verbatim syllabus quote for economics_accuracy, or a short concrete reason otherwise>",
+      "explanation": "<one short sentence explaining the issue in plain terms, no asterisks>",
+      "evidence": "<verbatim syllabus quote for economics_accuracy, or a short reason otherwise>",
       "confidence": <0 to 1>
     }
   ],
   "classifications": [
     {
       "sentence_index": <number, from "SENTENCES TO CHECK">,
-      "original": "<the exact 3–12 word main scoring phrase copied verbatim from the sentence>",
+      "original": "<the FULL sentence copied verbatim from SENTENCES TO CHECK>",
       "ao": "AO1" | "AO2" | "AO3",
-      "explanation": "<one short sentence explaining why this clause earns that AO>"
+      "explanation": "<one short sentence explaining why this sentence earns that AO, no asterisks>"
     }
   ]
 }
@@ -282,16 +277,18 @@ QUESTION: ${question}
 ${contextBlock || "No syllabus material is available."}
 
 For EACH candidate below, decide keep or reject:
+- REJECT any candidate that is merely suggesting a synonym or stylistic rephrasing for an already correct sentence.
+- REJECT any candidate whose original sentence was already valid economics and acceptable English.
 - REJECT any "economics_accuracy" candidate whose "evidence" is not an exact, verbatim quote from the syllabus material above, or whose evidence does not actually contradict the student's sentence when you re-read both side by side.
-- REJECT any "analysis" / "application" / "evaluation" / "reasoning_chain" candidate if the student's original sentence is actually a valid — even if unconventional or differently-phrased — way of making a correct point. A different structure, order, or wording is NOT grounds to keep a candidate.
+- REJECT any "analysis" / "application" / "evaluation" / "reasoning_chain" candidate if the student's original sentence is actually a valid way of making a correct point.
 - REJECT anything vague, debatable, or where a reasonable examiner could disagree.
 - KEEP only candidates you would be comfortable defending in front of the student with the evidence shown.
-- You may also lightly tighten a kept candidate's "explanation" to be clearer, but never change what it claims.
+- Ensure "explanation" contains NO asterisks or markdown formatting.
 
 Respond ONLY with a single valid JSON object, no markdown fences, no commentary:
 {
   "verdicts": [
-    { "index": <number, matching the candidate list below>, "keep": true | false, "explanation": "<optionally tightened, only if keep is true>" }
+    { "index": <number, matching the candidate list below>, "keep": true | false, "explanation": "<optionally tightened, only if keep is true, no asterisks>" }
   ]
 }`;
 }
@@ -543,24 +540,33 @@ export const checkEssayWriting = createServerFn({ method: "POST" })
         const record = (item ?? {}) as Record<string, unknown>;
         const idx = Number(record.sentence_index);
         const sentence = Number.isInteger(idx) ? toSend[idx - 1] : undefined;
-        const original = typeof record.original === "string" ? record.original.trim() : "";
-        const explanation = typeof record.explanation === "string" ? record.explanation.trim() : "";
+        let original = typeof record.original === "string" ? stripAsterisks(record.original) : "";
+        const explanation = typeof record.explanation === "string" ? stripAsterisks(record.explanation) : "";
         const ao = AO_CODES.includes(record.ao as (typeof AO_CODES)[number])
           ? (record.ao as (typeof AO_CODES)[number])
           : null;
-        if (!sentence || !original || !ao) return [];
-        const localIndex = sentence.toLowerCase().indexOf(original.toLowerCase());
-        if (localIndex === -1 || /\[DIAGRAM:[^\]]*\]/i.test(original)) return [];
+        if (!sentence || !ao) return [];
+        if (/\[DIAGRAM:[^\]]*\]/i.test(original)) return [];
 
-        // Preserve the student's exact casing and punctuation so locating
-        // the coloured range in the textarea is deterministic.
-        const exactOriginal = sentence.slice(localIndex, localIndex + original.length);
+        // If model returns a partial phrase or exact sentence, prefer whole sentence
+        // so highlighting is clean, seamless, and unbroken across the entire sentence.
+        if (!original || !sentence.toLowerCase().includes(original.toLowerCase()) || original.length > sentence.trim().length * 0.6) {
+          original = sentence.trim();
+        } else {
+          const localIndex = sentence.toLowerCase().indexOf(original.toLowerCase());
+          if (localIndex !== -1) {
+            original = sentence.slice(localIndex, localIndex + original.length);
+          } else {
+            original = sentence.trim();
+          }
+        }
+
         return [
           {
-            original: exactOriginal,
+            original,
             context: sentence,
             ao,
-            explanation: explanation || `${ao} evidence identified by the live examiner.`,
+            explanation: explanation || `${ao} creditworthy evidence identified by the examiner.`,
           },
         ];
       });
@@ -568,10 +574,10 @@ export const checkEssayWriting = createServerFn({ method: "POST" })
         const record = (item ?? {}) as Record<string, unknown>;
         const idx = Number(record.sentence_index);
         const sentence = Number.isInteger(idx) ? toSend[idx - 1] : undefined;
-        const original = typeof record.original === "string" ? record.original : "";
-        const suggestion = typeof record.suggestion === "string" ? record.suggestion : "";
-        const explanation = typeof record.explanation === "string" ? record.explanation : "";
-        const evidence = typeof record.evidence === "string" ? record.evidence : "";
+        const original = typeof record.original === "string" ? stripAsterisks(record.original) : "";
+        const suggestion = typeof record.suggestion === "string" ? stripAsterisks(record.suggestion) : "";
+        const explanation = typeof record.explanation === "string" ? stripAsterisks(record.explanation) : "";
+        const evidence = typeof record.evidence === "string" ? stripAsterisks(record.evidence) : "";
         const confidence = Number(record.confidence);
         const parsedCategory = CATEGORIES.includes(record.category as (typeof CATEGORIES)[number])
           ? (record.category as (typeof CATEGORIES)[number])
@@ -580,6 +586,7 @@ export const checkEssayWriting = createServerFn({ method: "POST" })
           ? (record.severity as (typeof SEVERITIES)[number])
           : "medium";
         if (!sentence || !original || !suggestion || !parsedCategory) return [];
+        if (original.toLowerCase().trim() === suggestion.toLowerCase().trim()) return [];
         if (!Number.isFinite(confidence) || confidence < CONFIDENCE_THRESHOLD) return [];
         // Guard against a hallucinated correction that doesn't even
         // appear in the sentence it claims to fix.
@@ -672,7 +679,7 @@ export const checkEssayWriting = createServerFn({ method: "POST" })
             const verdict = verdictByIndex.get(i + 1);
             if (!verdict?.keep) return null;
             const { confidence: _confidence, ...issue } = candidate;
-            return { ...issue, explanation: verdict.explanation || issue.explanation };
+            return { ...issue, explanation: stripAsterisks(verdict.explanation || issue.explanation) };
           })
           .filter((item): item is LiveExaminerIssue => item !== null);
 
@@ -906,6 +913,7 @@ const MaxOutResponseSchema = z.object({
 });
 
 export type MaxOutSuggestion = z.infer<typeof MaxOutSuggestionSchema>;
+export type MaxOutResponse = z.infer<typeof MaxOutResponseSchema>;
 
 function buildMaxOutSystemPrompt(
   question: string,
@@ -1018,5 +1026,13 @@ export const getMaxOutSuggestions = createServerFn({ method: "POST" })
     if (!parsed.success) {
       throw new Error("Couldn't generate suggestions just now — try again.");
     }
-    return parsed.data;
+    return {
+      headline: stripAsterisks(parsed.data.headline),
+      suggestions: parsed.data.suggestions.map((s) => ({
+        ...s,
+        title: stripAsterisks(s.title),
+        suggestion: stripAsterisks(s.suggestion),
+        mark_uplift: stripAsterisks(s.mark_uplift),
+      })),
+    };
   });
