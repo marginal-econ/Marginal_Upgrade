@@ -63,8 +63,8 @@ export function renderAoDefinitions(): string {
  */
 export const AO_MAX_MARKS = { ao1: 2, ao2: 6, ao3: 4 } as const;
 
-/** Balanced temperature: reliable grading with natural, rich qualitative examiner feedback. */
-export const TEMPERATURE_EXAMINER = 0.15;
+/** Balanced low temperature (0.12): ultra-consistent grading with rich qualitative examiner feedback. */
+export const TEMPERATURE_EXAMINER = 0.12;
 export const TEMPERATURE_TUTOR = 0.4;
 
 export const MAX_ANCHORS_PER_BAND = 2;
