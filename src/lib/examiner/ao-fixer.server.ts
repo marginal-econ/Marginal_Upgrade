@@ -192,7 +192,7 @@ Return ONLY a JSON object:
         { "title": "4. Final Judgement", "instruction": "Directly answer whether it is the ${cmd.commandWord} using the exact question word and ranking the factors." }
       ],
       "strictCapsPlain": [
-        "No comparison with an alternative: capped at max 2/4 (unless reasoned trade-offs provided).",
+        "No comparison with an alternative on a stated criterion: capped at max 2/4.",
         "Hedge conclusion ('a mix of policies' / 'it depends') with no ranking or conditions: max 2/4.",
         "Points listed but not weighed or unlinked: capped at max 2/4.",
         "Judgement dodges the exact question: capped at max 1/4.",
@@ -308,15 +308,21 @@ export async function markAoAttempt(
   if (ao === "ao1") {
     let sources: GroundingSource[] = [];
     try {
-      sources = await retrieve(supabase, {
-        query: `${question} syllabus definitions and key concepts`,
-        matchCount: 2,
-        docTypes: ["syllabus", "mark_scheme"],
-        topicId: options.topic ?? null,
-        minSimilarity: 0.45,
-      });
+      sources = await Promise.race([
+        retrieve(supabase, {
+          query: `${question} syllabus definitions and key concepts`,
+          matchCount: 2,
+          docTypes: ["syllabus", "mark_scheme"],
+          topicId: options.topic ?? null,
+          minSimilarity: 0.45,
+        }),
+        new Promise<GroundingSource[]>((_, reject) =>
+          setTimeout(() => reject(new Error("AO1 fast-track timeout")), 1200),
+        ),
+      ]);
     } catch {
-      // Non-blocking retrieval fallback
+      // Non-blocking fast fallback to Cambridge syllabus standards
+      sources = [];
     }
 
     const ao1Prompt = `

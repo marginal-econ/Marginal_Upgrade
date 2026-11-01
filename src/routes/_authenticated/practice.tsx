@@ -1478,6 +1478,7 @@ function AoFixerPage() {
                       <div className="flex flex-wrap gap-2">
                         {currentOutcome.activeCapIds.map((capId) => {
                           const capDef = AO3_CAPS.find((c) => c.id === capId);
+                          const scaledCap = Math.max(1, Math.round((capDef?.maxMark || 2) * (meta.practiceMax / 4)));
                           return (
                             <TooltipProvider key={capId}>
                               <Tooltip>
@@ -1487,7 +1488,7 @@ function AoFixerPage() {
                                     className="cursor-pointer border-rose-500/40 bg-rose-500/10 text-rose-300 text-xs py-1 px-2.5 gap-1.5"
                                   >
                                     <ShieldAlert className="size-3" />
-                                    {stripStars(capDef?.label || capId)}: Max {capDef?.maxMark || 2}/4
+                                    {stripStars(capDef?.label || capId)}: Max {scaledCap}/{meta.practiceMax}
                                   </Badge>
                                 </TooltipTrigger>
                                 <TooltipContent className="max-w-xs text-xs space-y-1 p-3">

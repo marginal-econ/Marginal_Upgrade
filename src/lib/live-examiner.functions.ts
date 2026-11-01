@@ -7,6 +7,7 @@ import { LIVE_EXAMINER_LIMIT_MESSAGE } from "@/lib/usage-limits";
 import { deterministicTerminologyIssues } from "@/lib/live-examiner/economics-glossary";
 import { diffSentences, splitSentences } from "@/lib/writing-check/sentence-diff";
 import { AO_DEFINITIONS, defaultSplitForMaxMark } from "@/lib/examiner/config";
+import { detectComparativeAnalysis, detectEconomicErrors, detectHedgeConclusion } from "@/lib/examiner/types";
 import { isMarginalAdmin } from "@/lib/auth-admin";
 import { normalizeIssueSpan } from "@/lib/live-examiner/normalize-issue-span";
 
@@ -207,7 +208,13 @@ type Candidate = z.infer<typeof CandidateSchema>;
 
 function stripAsterisks(str: string): string {
   if (!str) return "";
-  return str.replace(/\*\*/g, "").replace(/\*/g, "").replace(/[`_]/g, "").trim();
+  return str
+    .replace(/<audit>[\s\S]*?<\/audit>/gi, "")
+    .replace(/<audit>[\s\S]*$/gi, "")
+    .replace(/\*\*/g, "")
+    .replace(/\*/g, "")
+    .replace(/[`_]/g, "")
+    .trim();
 }
 
 /**
@@ -253,6 +260,15 @@ CRITICAL RULES:
    - NEVER invent weird, pedantic, or false grammar rules (e.g. never invent rules about letters, optional articles like "the", or stylistic preferences).
    - Only flag clear, indisputable grammatical errors, true spelling typos (e.g. "becuase", "faliure", "externailties", "persistant"), or clear subject-verb disagreements. Do not penalize valid British or American spelling conventions.
    - Focus primarily on economics substance: accurate Cambridge terminology, analytical transmission chains, evaluative conditions/tradeoffs, and economic misconceptions.
+6. CAMBRIDGE MANDATORY ACCURACY CHECKS FOR "economics_accuracy":
+   - Indirect tax shifts SUPPLY left (NEVER demand left); subsidy shifts SUPPLY right.
+   - Inelastic demand means quantity falls LESS, making a tax LESS effective at reducing consumption (though revenue rises).
+   - Hyperinflation is rapid price rise (>50% per month) with currency collapse, NOT mere accelerating inflation.
+   - A fall in demand causes a movement along supply, NEVER a shift in supply.
+   - Investment raises AD in the short run and LRAS in the long run; it does NOT automatically increase the money supply.
+   - Policies do not guarantee or completely solve market outcomes without proof.
+   - Contradictions (calling a policy weakness a reason it is very effective) must be flagged.
+   Explain in plain economics with ZERO rule codes or asterisks.
 
 Categories you may flag, and ONLY these:
 - "grammar": genuine spelling, grammar, punctuation, or tense errors. (Not an AO — pure writing mechanics.)
@@ -371,6 +387,14 @@ If the student's writing is unrelated to the question asked or discusses a compl
 
 Judge only what is actually written so far — an incomplete essay should score low on whichever AOs it hasn't reached yet (e.g. no evaluation paragraph yet means evaluation is currently near 0, not an assumed future score). Be a fair, firm, mid-level examiner: reward real, developed points in full; don't invent credit for what isn't there yet, but don't punish an in-progress essay for being unfinished beyond the AOs it genuinely hasn't attempted.
 
+CAMBRIDGE 9708 CAPS (MANDATORY):
+- 1 major error (e.g. wrong curve shift, inelastic demand called effective): Table A (AO1+AO2) max 7/8.
+- 2 major errors: Table A max 5/8.
+- 3+ major errors or 1 major + question-fit failure: Table A max 4/8.
+- Question-fit failure (e.g. answering 'does it work' instead of 'is it the best'): Table A max 5/8, Table B (AO3) max 1/4.
+- Hedge conclusion ('mix of policies', 'it depends') without conditions: Table B max 2/4.
+- NO ASTERISKS: Return clean plain text strings with ZERO asterisks (* or **).
+
 Respond ONLY with a single valid JSON object, no markdown fences, no commentary:
 {
   "total_mark": <integer, 0 to ${maxMark}, sum of the three awarded values below>,
@@ -389,7 +413,12 @@ Respond ONLY with a single valid JSON object, no markdown fences, no commentary:
  *  fixed out_of for an AO). Returns null on anything unusable — the caller
  *  treats that exactly like "estimate unavailable this round", never as an
  *  error that should block the real issue-checking result. */
-export function sanitisePredictedMark(raw: unknown, maxMark: number): PredictedMark | null {
+export function sanitisePredictedMark(
+  raw: unknown,
+  maxMark: number,
+  question?: string,
+  essayText?: string,
+): PredictedMark | null {
   if (!raw || typeof raw !== "object") return null;
 
   const rawObj = raw as Record<string, any>;
@@ -402,7 +431,7 @@ export function sanitisePredictedMark(raw: unknown, maxMark: number): PredictedM
   confidence = Math.min(Math.max(0, confidence), 1);
 
   // Headline
-  const headline = typeof rawObj.headline === "string" ? rawObj.headline.slice(0, 80) : "Running mark estimate";
+  const headline = stripAsterisks(typeof rawObj.headline === "string" ? rawObj.headline.slice(0, 80) : "Running mark estimate");
 
   // AO Breakdown normalisation
   const rawBreakdown = rawObj.ao_breakdown && typeof rawObj.ao_breakdown === "object" ? rawObj.ao_breakdown : {};
@@ -446,13 +475,63 @@ export function sanitisePredictedMark(raw: unknown, maxMark: number): PredictedM
   const analysis = parseAo(["analysis", "AO2", "ao2"], split.ao2_marks);
   const evaluation = parseAo(["evaluation", "AO3", "ao3"], split.ao3_marks);
 
+  // Enforce Cambridge Level Caps deterministically so live estimate never diverges from final grader:
+  if (question && essayText) {
+    const errors = detectEconomicErrors(essayText);
+    const majorErrors = errors.filter((e) => e.severity === "major");
+    const compCheck = detectComparativeAnalysis(question, essayText);
+    const hedgeCheck = detectHedgeConclusion(essayText);
+    const failsComparative = compCheck.isComparativeQuestion && !compCheck.hasAlternativeAnalysis;
+
+    const tableAMax = split.ao1_marks + split.ao2_marks;
+    let targetTableABase = 8;
+    if (majorErrors.length >= 3) {
+      targetTableABase = Math.min(targetTableABase, 4);
+    } else if (majorErrors.length === 2) {
+      targetTableABase = Math.min(targetTableABase, 5);
+    } else if (majorErrors.length === 1) {
+      targetTableABase = Math.min(targetTableABase, 7);
+    }
+
+    const wordCount = essayText.trim().split(/\s+/).filter(Boolean).length;
+    if (wordCount > 0 && wordCount < 150) {
+      targetTableABase = Math.min(targetTableABase, 5);
+    }
+
+    if (failsComparative) {
+      if (majorErrors.length >= 2 || errors.length >= 2) {
+        targetTableABase = Math.min(targetTableABase, 3);
+      } else if (majorErrors.length === 1) {
+        targetTableABase = Math.min(targetTableABase, 4);
+      } else {
+        targetTableABase = Math.min(targetTableABase, 5);
+      }
+      evaluation.awarded = Math.min(evaluation.awarded, 1);
+    } else if (hedgeCheck.isHedge) {
+      evaluation.awarded = Math.min(evaluation.awarded, 2);
+    }
+
+    const targetTableA = Math.round(targetTableABase * (tableAMax / 8));
+    const currentTableA = knowledge.awarded + analysis.awarded;
+    if (currentTableA > targetTableA || failsComparative || majorErrors.length > 0) {
+      let targetAo1: number;
+      if (targetTableA <= 3) {
+        targetAo1 = Math.min(knowledge.awarded, 1);
+      } else {
+        targetAo1 = Math.min(knowledge.awarded, Math.min(split.ao1_marks, targetTableA));
+      }
+      analysis.awarded = Math.min(analysis.awarded, targetTableA - targetAo1);
+      knowledge.awarded = targetAo1;
+    }
+  }
+
   const totalCalculated = knowledge.awarded + analysis.awarded + evaluation.awarded;
   let totalMark = rawObj.total_mark !== undefined 
     ? (typeof rawObj.total_mark === "number" ? rawObj.total_mark : parseFloat(String(rawObj.total_mark)))
     : totalCalculated;
 
   if (isNaN(totalMark)) totalMark = totalCalculated;
-  totalMark = Math.min(Math.max(0, Math.round(totalMark)), maxMark);
+  totalMark = Math.min(Math.max(0, Math.round(totalMark)), totalCalculated);
 
   return {
     total_mark: totalMark,
@@ -603,6 +682,8 @@ export const checkEssayWriting = createServerFn({ method: "POST" })
           predictedMark = sanitisePredictedMark(
             extractFirstJsonObject(predictedOutcome.value.text),
             data.maxMark,
+            data.question,
+            data.essayText,
           );
           await context.supabase.from("ai_usage_log").insert({
             user_id: context.userId,
@@ -1049,6 +1130,8 @@ ${contextBlock || "None retrieved — keep suggestions general to Cambridge 9708
 Every suggestion must be CONCRETE and SPECIFIC to what THIS student actually wrote — not generic exam advice like "add more analysis". Reference the student's own argument, examples, or missing chain of reasoning directly. Where useful, write out (in quotes) the kind of sentence or phrase they could add, or name exactly which paragraph needs the extra step. Never invent economics facts not grounded in the syllabus material above or standard Cambridge 9708 content.
 
 Give at most 5 suggestions, each one genuinely different and each targeting a real, specific gap (not padding to reach 5). Order them by mark value — biggest realistic mark gain first.
+
+NO ASTERISKS: Return ONLY clean plain text with ZERO asterisks (* or **). Never use rule labels or code identifiers. Explain all improvements in clear, plain economics.
 
 Respond ONLY with a single valid JSON object, no markdown fences, no commentary:
 {
