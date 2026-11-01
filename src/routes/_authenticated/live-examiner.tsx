@@ -1,33 +1,20 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
-  AlertCircle,
-  AlertTriangle,
-  ArrowRight,
   BookOpen,
-  Camera,
-  Check,
   CheckCircle2,
   ChevronRight,
   ClipboardPaste,
-  Clock,
-  Copy,
   GraduationCap,
   ImagePlus,
-  Images,
   Loader2,
-  LockKeyhole,
-  MapPin,
   PenLine,
-  Plus,
+  LockKeyhole,
   RotateCcw,
   Sparkles,
   Target,
-  Upload,
   Users,
-  Building2,
-  Zap,
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -83,22 +70,19 @@ import { listApprovedEssayQuestions, listBankTopics } from "@/lib/bank.functions
 import { generateEssayQuestionAI, generateModelEssay } from "@/lib/essay.functions";
 import type { GeneratedEssay } from "@/lib/essay/generator.server";
 import { describeDiagramImage, listDiagramLibrary } from "@/lib/diagrams.functions";
-import { checkQuestionGrounding, gradeEssaySubmission } from "@/lib/grading.functions";
+import { gradeEssaySubmission } from "@/lib/grading.functions";
 import {
   getLiveExaminerSession,
-  getTodayLiveExaminerSession,
   getMaxOutSuggestions,
   prepareLiveExaminerContext,
   saveLiveExaminerSession,
   type MaxOutSuggestion,
-  type MaxOutResponse,
 } from "@/lib/live-examiner.functions";
 import { isMarginalAdmin } from "@/lib/auth-admin";
 import { getMe } from "@/lib/account.functions";
 import { topicsFor } from "@/lib/diagrams/catalog";
-import { isDailyLimitError, DEFAULT_LIVE_EXAMINER_DURATION_MINUTES } from "@/lib/usage-limits";
+import { isDailyLimitError } from "@/lib/usage-limits";
 import type { Grading } from "@/lib/examiner/types";
-import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/live-examiner")({
   head: () => ({
@@ -147,7 +131,22 @@ function combineDiagramTags(diagrams: AttachedDiagram[]): string | undefined {
 }
 
 function LiveExaminerPage() {
-  const navigate = useNavigate();
+  const routeContext = Route.useRouteContext() as { user?: { id?: string; email?: string } } | undefined;
+  const routeUser = routeContext?.user;
+  const meQuery = useQuery({
+    queryKey: ["account", "me"],
+    queryFn: () => getMe(),
+    staleTime: 60_000,
+  });
+
+  const isAdmin = Boolean(
+    isMarginalAdmin({ userId: routeUser?.id, email: routeUser?.email }) ||
+      meQuery.data?.role === "admin" ||
+      meQuery.data?.isAdmin ||
+      meQuery.data?.subscription?.isAdmin ||
+      (meQuery.data?.userId && isMarginalAdmin({ userId: meQuery.data.userId }))
+  );
+
   const [level, setLevel] = useState<"as" | "a2">("as");
   const [topic, setTopic] = useState("Government microeconomic intervention");
   const [question, setQuestion] = useState("");
@@ -156,8 +155,6 @@ function LiveExaminerPage() {
   const [essayText, setEssayText] = useState("");
   const [autosave, setAutosave] = useState<AutosaveState>("idle");
   const [started, setStarted] = useState(false);
-  const [focusedIssueId, setFocusedIssueId] = useState<string | null>(null);
-  const [zenMode, setZenMode] = useState(false);
   // Set when the one-session-per-day limit blocks a start; shown on the setup screen.
   const [limitNotice, setLimitNotice] = useState<string | null>(null);
 
@@ -170,8 +167,6 @@ function LiveExaminerPage() {
   const [diagrams, setDiagrams] = useState<AttachedDiagram[]>([]);
   const [diagramDialogOpen, setDiagramDialogOpen] = useState(false);
   const diagramFileRef = useRef<HTMLInputElement>(null);
-  const diagramCameraRef = useRef<HTMLInputElement>(null);
-  const [diagramDragging, setDiagramDragging] = useState(false);
 
   // --- Mark scheme screenshot: pasted straight in, sent to the examiner
   // as an image (vision) alongside the retrieved text context, for both
@@ -200,25 +195,15 @@ function LiveExaminerPage() {
     staleTime: 10 * 60_000,
   });
 
-  function handleDiagramFiles(files: FileList | File[] | null | undefined) {
-    if (!files || files.length === 0) return;
-    const fileArray = Array.from(files);
-    for (const file of fileArray) {
-      const isImage =
-        file.type.startsWith("image/") ||
-        /\.(jpe?g|png|webp|heic|heif|bmp|gif|avif|tiff?)$/i.test(file.name);
-      if (!isImage) {
-        toast.error("Please select a valid image or photo.");
-        continue;
-      }
-      const reader = new FileReader();
-      reader.onload = () => {
-        const dataUrl = reader.result as string;
-        describeDiagramMutation.mutate(dataUrl);
-      };
-      reader.onerror = () => toast.error(`Couldn't read ${file.name} — try again.`);
-      reader.readAsDataURL(file);
-    }
+  function handleDiagramFile(file: File | undefined) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result as string;
+      describeDiagramMutation.mutate(dataUrl);
+    };
+    reader.onerror = () => toast.error("Couldn't read that photo — try again.");
+    reader.readAsDataURL(file);
   }
 
   function applyLibraryDiagram(id: string) {
@@ -268,20 +253,7 @@ function LiveExaminerPage() {
       setRevealedHints(0);
       toast.success(`Marked ${data.grading.total_mark}/${data.grading.max_mark}`);
     },
-    onError: (error: Error) => {
-      const isPlanLimit =
-        error.message.includes("Plan limit reached") ||
-        error.message.includes("Upgrade to Foundation");
-      toast.error(error.message, {
-        action: isPlanLimit
-          ? {
-              label: "View Plans",
-              onClick: () => navigate({ to: "/pricing" }),
-            }
-          : undefined,
-        duration: isPlanLimit ? 8000 : 4000,
-      });
-    },
+    onError: (error: Error) => toast.error(error.message),
   });
 
   function handleGradeNow() {
@@ -295,135 +267,32 @@ function LiveExaminerPage() {
     maxOutMutation.reset();
   }
 
-  // --- Score Maximizer & Perfection Blueprint: on-demand or post-grade
-  // advice showing students exactly how to structure, write, and select
-  // arguments to reach a perfect score (full marks). -----------------
-  const [scoreMaximizerOpen, setScoreMaximizerOpen] = useState(false);
+  // --- "Max out this answer": once a student has finished writing and
+  // graded it, a further, deeper suggestion pass on demand — what exactly
+  // to add or change to close the gap to full marks. Separate call from
+  // grading itself, triggered by its own button so it's never run unless
+  // the student actually wants it. ------------------------------------
   const maxOutFn = useServerFn(getMaxOutSuggestions);
   const maxOutMutation = useMutation({
-    mutationFn: (
-      overrideInput?: {
-        question: string;
-        level: "as" | "a2";
-        maxMark: number;
-        essayText: string;
-        contextBlock: string;
-        totalMark: number;
-        band: string;
-        weaknesses: string[];
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        missingElements: any;
-        actionableFeedback: string[];
-      } | void,
-    ) => {
-      const grading = gradeMutation.data?.grading;
-      const payload = overrideInput ?? {
-        question,
-        level,
-        maxMark,
-        essayText,
-        contextBlock,
-        totalMark: grading?.total_mark ?? Math.round(maxMark * 0.5),
-        band: grading?.band ?? "Draft Attempt",
-        weaknesses: grading?.weaknesses ?? [],
-        missingElements: grading?.missing_elements ?? {},
-        actionableFeedback: grading?.actionable_feedback ?? [],
-      };
-      return maxOutFn({ data: payload });
+    mutationFn: () => {
+      const grading = gradeMutation.data!.grading;
+      return maxOutFn({
+        data: {
+          question,
+          level,
+          maxMark,
+          essayText,
+          contextBlock,
+          totalMark: grading.total_mark,
+          band: grading.band,
+          weaknesses: grading.weaknesses,
+          missingElements: grading.missing_elements,
+          actionableFeedback: grading.actionable_feedback,
+        },
+      });
     },
     onError: (error: Error) => toast.error(error.message),
   });
-
-  function handleOpenScoreMaximizer() {
-    setScoreMaximizerOpen(true);
-    const grading = gradeMutation.data?.grading;
-    maxOutMutation.mutate({
-      question,
-      level,
-      maxMark,
-      essayText,
-      contextBlock: contextBlock || "",
-      totalMark: grading?.total_mark ?? (predictedMark?.total_mark ?? Math.round(maxMark * 0.5)),
-      band: grading?.band ?? (predictedMark ? `Est. ${predictedMark.total_mark}/${maxMark}` : "Draft Attempt"),
-      weaknesses: grading?.weaknesses ?? [],
-      missingElements: grading?.missing_elements ?? {},
-      actionableFeedback: grading?.actionable_feedback ?? [],
-    });
-  }
-
-  function handleInsertSentence(
-    text: string,
-    targetAo?: "ao1" | "ao2" | "ao3" | "structure",
-    placementLabel?: string,
-    forceEnd = false,
-  ) {
-    setEssayText((current) => {
-      const trimmedCurrent = current.trim();
-      if (!trimmedCurrent) return text;
-
-      if (forceEnd) {
-        return `${trimmedCurrent}\n\n${text}`;
-      }
-
-      // Split into paragraphs (delimited by double newlines)
-      const paragraphs = trimmedCurrent
-        .split(/\n\s*\n/)
-        .map((p) => p.trim())
-        .filter(Boolean);
-
-      if (targetAo === "ao1") {
-        // AO1: Definitions & Baseline Knowledge — place into opening paragraph
-        if (paragraphs.length <= 1) {
-          return `${paragraphs[0] || ""} ${text}`.trim();
-        }
-        paragraphs[0] = `${paragraphs[0]} ${text}`;
-        return paragraphs.join("\n\n");
-      }
-
-      if (targetAo === "ao2") {
-        // AO2: Analytical Transmission Chains — place into analytical body (paragraph 2)
-        if (paragraphs.length === 1) {
-          return `${paragraphs[0]}\n\n${text}`;
-        }
-        paragraphs[1] = `${paragraphs[1]} ${text}`;
-        return paragraphs.join("\n\n");
-      }
-
-      if (targetAo === "ao3") {
-        // AO3: Evaluation & Counterweight — place into evaluation or concluding section
-        const lastIdx = paragraphs.length - 1;
-        const lastPara = paragraphs[lastIdx].toLowerCase();
-        const hasEvalKeywords =
-          lastPara.includes("however") ||
-          lastPara.includes("conclusion") ||
-          lastPara.includes("overall") ||
-          lastPara.includes("depends") ||
-          lastPara.includes("evaluation") ||
-          lastPara.includes("in conclusion");
-
-        if (hasEvalKeywords) {
-          paragraphs[lastIdx] = `${paragraphs[lastIdx]} ${text}`;
-          return paragraphs.join("\n\n");
-        }
-        paragraphs.push(text);
-        return paragraphs.join("\n\n");
-      }
-
-      return `${trimmedCurrent}\n\n${text}`;
-    });
-
-    const locationName =
-      placementLabel ||
-      (targetAo === "ao1"
-        ? "Opening Paragraph (Definitions)"
-        : targetAo === "ao2"
-          ? "Analytical Body (Paragraph 2)"
-          : targetAo === "ao3"
-            ? "Evaluative Conclusion"
-            : "Essay draft");
-
-    toast.success(`Inserted into ${locationName}.`);
-  }
 
   useEffect(() => {
     const grading = gradeMutation.data?.grading;
@@ -476,24 +345,8 @@ function LiveExaminerPage() {
   // --- Syllabus grounding — fetched ONCE per question, reused by every
   // subsequent live check call so nothing re-embeds on every keystroke ---
   const prepareContext = useServerFn(prepareLiveExaminerContext);
-  const checkGrounding = useServerFn(checkQuestionGrounding);
-
-  const groundingQuery = useQuery({
-    queryKey: ["live-examiner-grounding", question.trim()],
-    queryFn: () => checkGrounding({ data: { question: question.trim() } }),
-    enabled: !started && question.trim().length >= 15,
-    staleTime: 5 * 60_000,
-  });
-
   const contextMutation = useMutation({
-    mutationFn: (variables?: { level?: "as" | "a2"; topic?: string; question?: string } | void) =>
-      prepareContext({
-        data: {
-          level: variables && typeof variables === "object" && variables.level ? variables.level : level,
-          topic: variables && typeof variables === "object" && variables.topic ? variables.topic : topic,
-          question: variables && typeof variables === "object" && variables.question ? variables.question : question,
-        },
-      }),
+    mutationFn: () => prepareContext({ data: { level, topic, question } }),
     onError: (error: Error) => {
       toast.error(error.message);
       // Today's one session is already used on another question — send the
@@ -504,78 +357,6 @@ function LiveExaminerPage() {
       }
     },
   });
-
-  // --- Authoritative check: today's claimed session ledger (prevents restarting new sessions) ---
-  const fetchTodaySession = useServerFn(getTodayLiveExaminerSession);
-  const todaySessionQuery = useQuery({
-    queryKey: ["live-examiner-today-session"],
-    queryFn: () => fetchTodaySession(),
-    staleTime: 30_000,
-  });
-
-  const fetchMe = useServerFn(getMe);
-  const meQuery = useQuery({
-    queryKey: ["me"],
-    queryFn: () => fetchMe(),
-    staleTime: 60_000,
-  });
-
-  const routeContext = Route.useRouteContext() as { user?: { id?: string; email?: string } } | undefined;
-  const routeUser = routeContext?.user;
-  const isAdmin = Boolean(
-    isMarginalAdmin({ userId: routeUser?.id, email: routeUser?.email }) ||
-      todaySessionQuery.data?.isAdmin ||
-      meQuery.data?.role === "admin" ||
-      meQuery.data?.isAdmin ||
-      meQuery.data?.subscription?.isAdmin ||
-      (meQuery.data?.userId && isMarginalAdmin({ userId: meQuery.data.userId }))
-  );
-
-  const DURATION_SECONDS = DEFAULT_LIVE_EXAMINER_DURATION_MINUTES * 60;
-  const sub = meQuery.data?.subscription;
-  const isTeacher = meQuery.data?.role === "teacher" || Boolean(sub?.isTeacher);
-  const isTeacherUnpaid = isTeacher && !sub?.isPaid && !isAdmin;
-  const isTimeExceeded =
-    Boolean(todaySessionQuery.data?.sessionStartedAt) &&
-    (Date.now() - (todaySessionQuery.data?.sessionStartedAt ?? 0)) >= DURATION_SECONDS * 1000;
-
-  const isTodaySessionExpired =
-    !isAdmin &&
-    (Boolean((todaySessionQuery.data as any)?.isExpired) || isTimeExceeded);
-
-  const hasActiveDailySession =
-    !isAdmin && !isTodaySessionExpired && Boolean(todaySessionQuery.data?.hasActiveDailySession);
-
-  // Auto-resume active daily session when page loads (only when not expired)
-  useEffect(() => {
-    const today = todaySessionQuery.data;
-    if (today?.hasActiveDailySession && !started && !isTodaySessionExpired) {
-      const targetLevel = (today.session?.level as "as" | "a2") ?? level;
-      const targetTopic = today.session?.topic ?? topic;
-      const targetQuestion = today.session?.question ?? today.claimedQuestion ?? question;
-
-      if (today.session) {
-        setLevel(targetLevel);
-        setTopic(targetTopic);
-        setQuestion(targetQuestion);
-        setMaxMark(today.session.max_mark);
-        if (today.session.essay_text) setEssayText(today.session.essay_text);
-        if (today.session.diagram_tag) {
-          setDiagrams(parseDiagramTags(today.session.diagram_tag));
-        }
-      } else if (today.claimedQuestion) {
-        setQuestion(today.claimedQuestion);
-      }
-      setStarted(true);
-      if (targetQuestion && targetQuestion.trim().length >= 5) {
-        contextMutation.mutate({
-          level: targetLevel,
-          topic: targetTopic,
-          question: targetQuestion,
-        });
-      }
-    }
-  }, [todaySessionQuery.data, started, isTodaySessionExpired]);
 
   // --- Resume an existing draft for this question, if one exists --------
   const fetchSession = useServerFn(getLiveExaminerSession);
@@ -600,7 +381,7 @@ function LiveExaminerPage() {
     }
     setLimitNotice(null);
     setStarted(true);
-    contextMutation.mutate({ level, topic, question });
+    contextMutation.mutate();
   }
 
   /** Resume a past essay from the history panel — same as picking that
@@ -613,7 +394,7 @@ function LiveExaminerPage() {
     setMaxMark(entry.maxMark);
     setLimitNotice(null);
     setStarted(true);
-    contextMutation.mutate({ level: entry.level, topic: entry.topic, question: entry.question });
+    contextMutation.mutate();
   }
 
   const contextBlock = contextMutation.data?.contextBlock ?? "";
@@ -627,12 +408,6 @@ function LiveExaminerPage() {
   const combinedDiagramTag = combineDiagramTags(diagrams);
   const textForCheck = combinedDiagramTag ? `${essayText}\n\n${combinedDiagramTag}` : essayText;
 
-  const authoritativeStartedAt =
-    todaySessionQuery.data?.sessionStartedAt ??
-    (sessionQuery.data?.session?.created_at
-      ? new Date(sessionQuery.data.session.created_at).getTime()
-      : null);
-
   const {
     issues,
     classifications,
@@ -642,36 +417,18 @@ function LiveExaminerPage() {
     error: checkError,
     predictedMark,
     lastUpdatedAt,
-    challenges,
-    fetchingChallenges,
-    challengeOverview,
-    requestChallenges,
-    dismissChallenge,
-    markChallengeAddressed,
     acceptIssue,
     dismissIssue,
     rescan,
     clearAll,
-    durationMinutes,
-    remainingSeconds,
-    aiCoachingExpired,
-    formattedTimeRemaining,
-    sessionUsage,
   } = useLiveExaminerCheck({
     text: textForCheck,
     question,
     level,
     maxMark,
     contextBlock,
-    enabled: started && !isTodaySessionExpired,
-    sessionStartedAt: authoritativeStartedAt,
-    isAdmin,
+    enabled: started && contextMutation.isSuccess,
   });
-
-  // For students, when time limit is reached, locked out of live examiner itself:
-  // only able to see their essay, with a small notification on top.
-  const isLockedOut =
-    !isAdmin && (isTodaySessionExpired || (started && aiCoachingExpired));
 
   // --- Autosave, debounced, independent of the AI check debounce --------
   // Flawless here means: never silently stop trying. A failed save keeps
@@ -746,13 +503,6 @@ function LiveExaminerPage() {
     };
   }, [essayText, started, doSave]);
 
-  // When time limit locks out the session, immediately save any pending draft text
-  useEffect(() => {
-    if (isLockedOut && essayText.trim() && essayText !== lastSavedTextRef.current) {
-      doSave(essayText);
-    }
-  }, [isLockedOut, essayText, doSave]);
-
   useEffect(() => {
     return () => {
       if (retryTimer.current) clearTimeout(retryTimer.current);
@@ -803,84 +553,9 @@ function LiveExaminerPage() {
     toast.success("Cleared — write the full answer again from scratch.");
   }
 
-  if (todaySessionQuery.isLoading && !started) {
+  if (meQuery.isLoading) {
     return (
-      <div className="flex min-h-64 flex-col items-center justify-center gap-3 p-8 text-center">
-        <Loader2 className="size-5 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
-
-  if (isLockedOut) {
-    const displayEssayText =
-      essayText.trim() || todaySessionQuery.data?.session?.essay_text || "";
-    const displayQuestion =
-      question.trim() ||
-      todaySessionQuery.data?.session?.question ||
-      todaySessionQuery.data?.claimedQuestion ||
-      "";
-    const displayLevel =
-      (todaySessionQuery.data?.session?.level as "as" | "a2") ?? level;
-    const displayTopic = todaySessionQuery.data?.session?.topic ?? topic;
-    const displayMaxMark =
-      todaySessionQuery.data?.session?.max_mark ?? maxMark;
-
-    return (
-      <div className="mx-auto max-w-3xl p-5 md:p-8 space-y-5">
-        {/* One small notification on top saying exceed limit with upgrade action */}
-        <div className="flex items-center justify-between border-b border-border/50 pb-3">
-          <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Live Examiner
-          </span>
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground bg-muted border border-border/60 px-2.5 py-0.5 rounded-full font-medium">
-              Exceeded limit
-            </span>
-            <Button size="sm" variant="outline" asChild className="h-7 text-xs">
-              <Link to="/pricing">Upgrade Plan</Link>
-            </Button>
-          </div>
-        </div>
-
-        {/* Only able to see their essay. Nothing else. */}
-        <div className="rounded-xl border border-border/70 bg-card p-6 md:p-8 shadow-sm space-y-6">
-          {displayQuestion ? (
-            <div className="border-b border-border/50 pb-4">
-              <div className="flex items-center gap-2 mb-1.5">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-primary">
-                  {displayLevel === "a2" ? "A Level" : "AS Level"} · [{displayMaxMark} Marks]
-                </span>
-                {displayTopic ? (
-                  <span className="text-xs text-muted-foreground truncate">· {displayTopic}</span>
-                ) : null}
-              </div>
-              <p className="text-sm md:text-base font-medium text-foreground leading-relaxed">
-                {displayQuestion}
-              </p>
-            </div>
-          ) : null}
-
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Your Written Answer
-              </span>
-              <span className="text-xs font-mono text-muted-foreground">
-                {displayEssayText.trim() ? displayEssayText.trim().split(/\s+/).length : 0} words
-              </span>
-            </div>
-            <div className="text-sm md:text-base leading-relaxed whitespace-pre-wrap font-sans text-foreground/90 select-text p-5 rounded-lg bg-muted/20 border border-border/40 min-h-[300px]">
-              {displayEssayText.trim() || "(No written answer was submitted for this session.)"}
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if ((meQuery.isLoading || todaySessionQuery.isLoading) && !isAdmin) {
-    return (
-      <div className="flex min-h-[60vh] items-center justify-center">
+      <div className="flex h-96 items-center justify-center">
         <div className="flex flex-col items-center gap-3 text-muted-foreground">
           <Loader2 className="size-8 animate-spin text-primary" />
           <p className="text-sm font-medium">Verifying administrator authorization...</p>
@@ -889,14 +564,13 @@ function LiveExaminerPage() {
     );
   }
 
-  return (
-    <>
-      <PageHeader
-        title="Live Examiner"
-        description="Write your answer and get instant, syllabus-grounded feedback as you go — grammar, clarity, economics accuracy, analysis, application, evaluation and terminology."
-      />
-
-      {!isAdmin ? (
+  if (!isAdmin) {
+    return (
+      <>
+        <PageHeader
+          title="Live Examiner"
+          description="Write your answer and get instant, syllabus-grounded feedback as you go — grammar, clarity, economics accuracy, analysis, application, evaluation and terminology."
+        />
         <ChainedChamber
           badgeText="Restricted — Platform Admin Only"
           title="Live Examiner is Restricted to Marginal Administrators"
@@ -910,77 +584,44 @@ function LiveExaminerPage() {
               icon: Sparkles,
               iconColor: "text-emerald-500",
               title: "100% Free Cambridge Essay Grader",
-              description: "Full AO1 Knowledge, AO2 Analysis, and AO3 Evaluation marking with official Cambridge syllabus grounding and detailed diagnostic reports.",
+              description:
+                "Full AO1 Knowledge, AO2 Analysis, and AO3 Evaluation marking with official Cambridge syllabus grounding and detailed diagnostic reports.",
             },
             {
               icon: BookOpen,
               iconColor: "text-primary",
               title: "Past Paper Matrix & MCQ Drills",
-              description: "Complete Cambridge 9708 past-paper library with high-resolution PDFs, domain performance analytics, and official explanations.",
+              description:
+                "Complete Cambridge 9708 past-paper library with high-resolution PDFs, domain performance analytics, and official explanations.",
             },
             {
               icon: Users,
               iconColor: "text-purple-500",
               title: "Free Classroom & Cohorts",
-              description: "Create unlimited Cambridge cohorts, assign past paper questions, review AI grades, and collaborate in real-time.",
+              description:
+                "Create unlimited Cambridge cohorts, assign past paper questions, review AI grades, and collaborate in real-time.",
             },
           ]}
         />
-      ) : !started ? (
+      </>
+    );
+  }
+
+  return (
+    <>
+      <PageHeader
+        title="Live Examiner"
+        description="Write your answer and get instant, syllabus-grounded feedback as you go — grammar, clarity, economics accuracy, analysis, application, evaluation and terminology."
+      />
+
+      {!started ? (
         <div className="mx-auto max-w-5xl p-5 md:p-8">
-          {hasActiveDailySession && todaySessionQuery.data ? (
+          {limitNotice ? (
             <div
               role="alert"
-              className="mb-6 rounded-lg border border-primary/40 bg-primary/5 p-4 space-y-3"
+              className="mb-6 rounded-lg border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-destructive"
             >
-              <div className="flex items-center gap-2 font-semibold text-primary">
-                <LockKeyhole className="size-4" />
-                <span>Today's Live Examiner Session Active</span>
-              </div>
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                Your daily Live Examiner session is active for today's question:{" "}
-                <strong className="text-foreground">
-                  "{todaySessionQuery.data.claimedQuestion}"
-                </strong>
-                . Regular plans include 1 question session per day. You can continue writing with unlimited checks on this question.
-              </p>
-              <Button
-                type="button"
-                onClick={() => {
-                  const today = todaySessionQuery.data;
-                  if (today.session) {
-                    setLevel(today.session.level as "as" | "a2");
-                    setTopic(today.session.topic);
-                    setQuestion(today.session.question);
-                    setMaxMark(today.session.max_mark);
-                    if (today.session.essay_text) setEssayText(today.session.essay_text);
-                    if (today.session.diagram_tag) {
-                      setDiagrams(parseDiagramTags(today.session.diagram_tag));
-                    }
-                  } else if (today.claimedQuestion) {
-                    setQuestion(today.claimedQuestion);
-                  }
-                  setStarted(true);
-                  const targetLevel = (today.session?.level ?? level) as "as" | "a2";
-                  const targetTopic = today.session?.topic ?? topic;
-                  const targetQuestion = today.session?.question ?? today.claimedQuestion ?? question;
-                  contextMutation.mutate({ level: targetLevel, topic: targetTopic, question: targetQuestion });
-                }}
-                className="gap-2"
-              >
-                <span>Continue your essay</span>
-                <ArrowRight className="size-4" />
-              </Button>
-            </div>
-          ) : limitNotice ? (
-            <div
-              role="alert"
-              className="mb-6 rounded-lg border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive flex flex-col sm:flex-row sm:items-center justify-between gap-3"
-            >
-              <span>{limitNotice}</span>
-              <Button size="sm" variant="default" asChild className="shrink-0">
-                <Link to="/pricing">View Plans & Credits</Link>
-              </Button>
+              {limitNotice}
             </div>
           ) : null}
           <div className="grid gap-8 lg:grid-cols-[minmax(0,440px)_minmax(0,1fr)]">
@@ -1106,33 +747,6 @@ function LiveExaminerPage() {
                     onChange={(event) => setQuestion(event.target.value)}
                     placeholder="Paste or type the exact exam question…"
                   />
-                  {question.trim().length >= 15 ? (
-                    groundingQuery.isLoading ? (
-                      <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground animate-pulse">
-                        <Loader2 className="size-3 animate-spin" />
-                        Checking Knowledge Base for official Cambridge mark schemes...
-                      </p>
-                    ) : groundingQuery.data?.grounded ? (
-                      <div className="flex items-center gap-1.5 text-[11px] text-emerald-400 font-medium">
-                        <CheckCircle2 className="size-3.5 shrink-0" />
-                        <span>
-                          Knowledge Base Grounded: Verified against {groundingQuery.data.topMatchTitle} ({Math.round((groundingQuery.data.topSimilarity ?? 0) * 100)}% match)
-                        </span>
-                      </div>
-                    ) : (
-                      <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-2 text-[11px] text-amber-300">
-                        <div className="flex items-start gap-1.5">
-                          <AlertTriangle className="size-3.5 mt-0.5 shrink-0 text-amber-400" />
-                          <div className="space-y-0.5">
-                            <span className="font-semibold">No specific mark scheme or book reference found</span>
-                            <p className="text-amber-200/80 leading-normal">
-                              Live keystroke suggestions and estimated marks will evaluate against standard Cambridge AO rubrics. Attach a mark scheme screenshot during the session for question-specific grounding.
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    )
-                  ) : null}
                 </div>
               )}
 
@@ -1165,7 +779,7 @@ function LiveExaminerPage() {
             <LiveExaminerHistoryPanel onResume={resumeSession} />
           </div>
         </div>
-      ) : (contextMutation.isPending && !essayText && !contextBlock) ? (
+      ) : contextMutation.isPending || !contextMutation.isSuccess ? (
         <div className="flex min-h-64 flex-col items-center justify-center gap-3 p-8 text-center">
           <Loader2 className="size-6 animate-spin text-muted-foreground" />
           <p className="text-sm text-muted-foreground">
@@ -1173,374 +787,194 @@ function LiveExaminerPage() {
           </p>
         </div>
       ) : (
-        <div className="space-y-4 sm:space-y-6 p-3 sm:p-4 md:p-6 lg:p-8 max-w-[1680px] mx-auto">
-          {/* Top Control Bar */}
-          <div className="flex flex-wrap items-center justify-between gap-2.5 sm:gap-3 border-b border-border/60 pb-3 sm:pb-4">
-            <div className="flex items-center gap-2">
-              <Badge variant="outline" className="text-xs font-semibold px-2 py-0.5 sm:px-2.5 sm:py-1 bg-muted/40">
-                {level === "a2" ? "A Level" : "AS Level"} · {maxMark}m
-              </Badge>
-              {topic ? (
-                <span className="text-xs text-muted-foreground hidden sm:inline truncate max-w-[220px]">
-                  {topic}
-                </span>
+        <div className="grid gap-0 lg:grid-cols-[1fr_320px]">
+          <section className="min-w-0 space-y-3 border-border p-5 lg:border-r md:p-6">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant="secondary">{level === "a2" ? "A Level" : "AS Level"}</Badge>
+              <Badge variant="outline">{topic}</Badge>
+              <Badge variant="outline">{maxMark} marks</Badge>
+              <Badge variant="outline">{wordCount} words</Badge>
+              {sourceCount > 0 ? (
+                <Badge variant="outline">
+                  <GraduationCap className="mr-1 size-3" /> {sourceCount} syllabus source
+                  {sourceCount === 1 ? "" : "s"}
+                </Badge>
               ) : null}
-            </div>
-
-            {/* Running Score Pill, Word Count, and Timer */}
-            <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-              {predictedMark && Number.isFinite(predictedMark.total_mark) ? (
-                <div className="flex items-center gap-1.5 sm:gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 sm:px-3 py-0.5 sm:py-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400 transition-all duration-300 shadow-sm">
-                  <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
-                  <span>Est. {Math.round(predictedMark.total_mark)} / {maxMark}</span>
-                  <span className="text-[10px] opacity-75 font-normal hidden md:inline">
-                    (AO1: {Number.isFinite(predictedMark.ao_breakdown?.knowledge?.awarded) ? Math.round(predictedMark.ao_breakdown.knowledge.awarded) : 0} · AO2: {Number.isFinite(predictedMark.ao_breakdown?.analysis?.awarded) ? Math.round(predictedMark.ao_breakdown.analysis.awarded) : 0} · AO3: {Number.isFinite(predictedMark.ao_breakdown?.evaluation?.awarded) ? Math.round(predictedMark.ao_breakdown.evaluation.awarded) : 0})
-                  </span>
-                </div>
+              {anchorsUsed > 0 ? (
+                <Badge variant="outline">
+                  <CheckCircle2 className="mr-1 size-3" /> {anchorsUsed} calibration anchor
+                  {anchorsUsed === 1 ? "" : "s"}
+                </Badge>
               ) : null}
-
-              <span className="text-xs font-mono text-muted-foreground">
-                {wordCount} words
-              </span>
-
-              <div className="flex items-center gap-1 text-xs text-muted-foreground font-mono">
-                <Clock className="size-3.5" />
-                <span>{isAdmin ? "Admin" : formattedTimeRemaining}</span>
-              </div>
-
-              {autosave === "saving" ? (
-                <span className="text-[11px] text-muted-foreground flex items-center gap-1">
-                  <Loader2 className="size-3 animate-spin" />
-                </span>
-              ) : autosave === "saved" ? (
-                <span className="text-[11px] text-emerald-600/80 flex items-center gap-1" title="Autosaved">
-                  <Check className="size-3" />
-                </span>
-              ) : null}
-            </div>
-
-            {/* Actions */}
-            <div className="flex items-center gap-1 sm:gap-1.5 flex-wrap">
-              <Button
-                type="button"
-                size="sm"
-                className="h-8 gap-1 px-2.5 sm:px-3 text-xs font-medium"
-                onClick={handleGradeNow}
-              >
-                <CheckCircle2 className="size-3.5" />
-                <span className="hidden sm:inline">Grade now</span>
-                <span className="sm:hidden">Grade</span>
-              </Button>
-
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                className="h-8 text-xs gap-1 px-2 sm:px-2.5"
-                onClick={() => setDiagramDialogOpen(true)}
-              >
-                <ImagePlus className="size-3.5" />
-                <span>{diagrams.length > 0 ? `(${diagrams.length})` : "Diagram"}</span>
-              </Button>
-
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button type="button" size="sm" variant="outline" className="h-8 text-xs gap-1 px-2 sm:px-2.5">
-                    <ClipboardPaste className="size-3.5" />
-                    <span>{markSchemeImages.length > 0 ? `MS (${markSchemeImages.length})` : "MS"}</span>
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-80 space-y-2" align="end">
-                  <p className="text-xs text-muted-foreground">
-                    Paste a mark scheme screenshot to evaluate against official marking criteria.
-                  </p>
-                  <MarkSchemeScreenshots
-                    images={markSchemeImages}
-                    onAdd={(img) => setMarkSchemeImages((current) => [...current, img])}
-                    onRemove={(id) => setMarkSchemeImages((current) => current.filter((img) => img.id !== id))}
-                  />
-                </PopoverContent>
-              </Popover>
-
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                className="h-8 text-xs border-amber-500/30 bg-amber-500/5 text-amber-700 dark:text-amber-300 hover:bg-amber-500/10 font-medium px-2 sm:px-2.5 gap-1"
-                onClick={handleOpenScoreMaximizer}
-                title="Open Score Maximizer guidance"
-              >
-                <Sparkles className="size-3.5 text-amber-500" />
-                <span className="hidden sm:inline">Maximizer</span>
-                <span className="sm:hidden">Tips</span>
-              </Button>
-
-              <Button
-                type="button"
-                size="sm"
-                variant={zenMode ? "secondary" : "outline"}
-                className="h-8 text-xs px-2 sm:px-2.5"
-                onClick={() => setZenMode((prev) => !prev)}
-                title="Toggle Zen / Focus Mode"
-              >
-                {zenMode ? "Panel" : "Focus"}
-              </Button>
-
+              {diagrams.map((d) => (
+                <Badge key={d.id} variant="outline" className="gap-1">
+                  <CheckCircle2 className="size-3 text-emerald-600" /> {d.label}
+                  <button
+                    type="button"
+                    onClick={() => removeDiagram(d.id)}
+                    className="ml-0.5 text-muted-foreground hover:text-foreground"
+                    aria-label={`Remove ${d.label}`}
+                  >
+                    <X className="size-3" />
+                  </button>
+                </Badge>
+              ))}
               <Button
                 type="button"
                 size="sm"
                 variant="ghost"
-                className="h-8 text-xs text-muted-foreground hover:text-foreground px-2"
-                onClick={() => setRestartDialogOpen(true)}
-                title="Clear & restart exam"
+                className="h-7 text-xs"
+                onClick={() => setDiagramDialogOpen(true)}
               >
-                <RotateCcw className="size-3.5" />
+                <ImagePlus className="size-3.5" />
+                {diagrams.length > 0 ? "Add another diagram" : "Attach diagram"}
+              </Button>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button type="button" size="sm" variant="ghost" className="h-7 text-xs">
+                    <ClipboardPaste className="size-3.5" />
+                    {markSchemeImages.length > 0
+                      ? `Mark scheme (${markSchemeImages.length})`
+                      : "Attach mark scheme"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-80 space-y-2" align="start">
+                  <p className="text-xs text-muted-foreground">
+                    Paste a screenshot of the relevant mark scheme page — the examiner reads it
+                    directly, on top of your knowledge base, when you grade this answer.
+                  </p>
+                  <MarkSchemeScreenshots
+                    images={markSchemeImages}
+                    onAdd={(img) => setMarkSchemeImages((current) => [...current, img])}
+                    onRemove={(id) =>
+                      setMarkSchemeImages((current) => current.filter((img) => img.id !== id))
+                    }
+                  />
+                </PopoverContent>
+              </Popover>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-7 text-xs"
+                onClick={handleGradeNow}
+              >
+                <Sparkles className="size-3.5" /> Grade now
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                className="h-7 text-xs"
+                onClick={() => setRestartDialogOpen(true)}
+              >
+                <RotateCcw className="size-3.5" /> Restart exam
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                className="ml-auto h-7 text-xs"
+                onClick={() => setStarted(false)}
+              >
+                Change question
               </Button>
             </div>
-          </div>
+            <p className="text-sm font-medium">{question}</p>
 
-          {/* Unified 2-Column Workspace: Left Paper + Right Examiner Panel */}
-          <div className={cn("grid gap-4 sm:gap-6 transition-all duration-300 items-start", zenMode ? "grid-cols-1 max-w-5xl mx-auto" : "grid-cols-1 lg:grid-cols-[1fr_360px] xl:grid-cols-[1fr_380px]")}>
-            {/* Official Cambridge Examination Answer Script Paper */}
-            <main className="min-w-0">
-              <div className="relative mx-auto w-full overflow-hidden rounded-2xl border border-border/80 bg-card/95 shadow-xl backdrop-blur-sm transition-all duration-200">
-                {/* Cambridge Official Script Header Banner */}
-                <div className="border-b border-border/70 bg-muted/30 px-3.5 py-3 sm:px-6 sm:py-4">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div className="flex items-center gap-2.5 sm:gap-3">
-                      <div className="flex size-8 sm:size-9 items-center justify-center rounded-lg border border-primary/30 bg-primary/10 text-primary shrink-0">
-                        <GraduationCap className="size-4 sm:size-5" />
-                      </div>
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className="text-[9px] sm:text-[10px] font-bold tracking-wider sm:tracking-widest text-muted-foreground uppercase">
-                            Cambridge Assessment
-                          </span>
-                          <Badge variant="outline" className="text-[9px] font-semibold py-0 px-1.5 border-primary/30 text-primary bg-primary/5">
-                            9708
-                          </Badge>
-                        </div>
-                        <h3 className="text-xs sm:text-sm font-semibold text-foreground tracking-tight truncate">
-                          Economics {level === "a2" ? "A Level · Paper 4" : "AS Level · Paper 2"} Digital Script
-                        </h3>
-                      </div>
-                    </div>
+            <div className="overflow-hidden rounded-xl border-2 border-foreground bg-card shadow-[4px_4px_0_0_var(--foreground)]">
+              <div className="flex items-center justify-between bg-primary px-4 py-2.5 text-primary-foreground">
+                <span className="flex items-center gap-2 text-sm font-semibold">
+                  <span className="size-2.5 rounded-full bg-white/90" /> Live Examiner
+                </span>
+                <span className="font-mono text-xs opacity-75">
+                  {level === "a2" ? "A Level" : "AS Level"} · {maxMark} marks
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-x-4 gap-y-2 border-b border-border bg-muted/25 px-4 py-2 text-[11px]">
+                <span className="flex items-center gap-1.5">
+                  <span className="size-2 rounded-full bg-ao1" /> AO1 Knowledge
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="size-2 rounded-full bg-ao2" /> AO2 Analysis
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="size-2 rounded-full bg-ao3" /> AO3 Evaluation
+                </span>
+                <span className="ml-auto text-muted-foreground">
+                  Underlined phrases are currently earning AO credit
+                </span>
+              </div>
+              <LiveExaminerEditor
+                value={essayText}
+                onChange={setEssayText}
+                issues={issues}
+                classifications={classifications}
+                onAccept={(id) => setEssayText((current) => acceptIssue(id, current))}
+                onDismiss={dismissIssue}
+                placeholder="Start writing your answer here…"
+                className="min-h-[60vh] p-4 text-sm leading-relaxed"
+              />
+            </div>
+          </section>
 
-                    <div className="flex items-center gap-2 text-xs">
-                      <div className="flex items-center gap-1.5 rounded-md border border-border/70 bg-background/80 px-2 py-0.5 sm:px-2.5 sm:py-1 text-muted-foreground font-mono text-[11px] sm:text-xs">
-                        <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                        <span>Active</span>
-                      </div>
-                      <Badge variant="secondary" className="font-semibold text-[11px] sm:text-xs">
-                        [{maxMark}m]
-                      </Badge>
-                    </div>
-                  </div>
-
-                  {/* Cambridge Question Presentation Box */}
-                  <div className="mt-3.5 rounded-xl border border-border/80 bg-background/90 p-4 shadow-sm">
-                    <div className="flex items-center justify-between gap-2 border-b border-border/50 pb-2 mb-2.5">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-primary tracking-wide">
-                          QUESTION 1 [{maxMark}]
-                        </span>
-                        {topic ? (
-                          <span className="text-xs text-muted-foreground font-medium truncate max-w-sm">
-                            · {topic}
-                          </span>
-                        ) : null}
-                      </div>
-                      <span className="text-[11px] font-medium text-muted-foreground italic hidden sm:inline">
-                        Continuous prose response
-                      </span>
-                    </div>
-                    <p className="text-[15px] md:text-[16px] font-medium text-foreground leading-relaxed">
-                      {question}
+          <aside className="min-w-0 p-4 md:p-5">
+            <LiveExaminerPanel
+              issues={issues}
+              history={history}
+              checking={checking}
+              pending={pending}
+              error={checkError}
+              autosave={autosave}
+              predictedMark={predictedMark}
+              lastUpdatedAt={lastUpdatedAt}
+              maxMark={maxMark}
+              gradedHelp={
+                gradeMutation.data &&
+                gradeMutation.data.grading.total_mark < gradeMutation.data.grading.max_mark ? (
+                  <GradedHelpCard
+                    grading={gradeMutation.data.grading as Grading}
+                    suggestions={maxOutMutation.data?.suggestions ?? []}
+                    headline={maxOutMutation.data?.headline}
+                    loading={maxOutMutation.isPending}
+                    error={maxOutMutation.isError}
+                    revealed={revealedHints}
+                    onReveal={() => setRevealedHints((count) => Math.min(3, count + 1))}
+                    onRetry={() => maxOutMutation.mutate()}
+                    generatingAnswer={fullAnswerMutation.isPending}
+                    onShowAnswer={() => fullAnswerMutation.mutate()}
+                  />
+                ) : gradeMutation.data ? (
+                  <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-xs text-emerald-700 dark:text-emerald-300">
+                    <p className="font-semibold">Full marks achieved</p>
+                    <p className="mt-0.5">
+                      No hints needed — this answer has met the full standard.
                     </p>
                   </div>
-
-                  {/* Economics Quick Insert Notation Strip */}
-                  <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-border/40 pt-2.5 text-xs">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mr-1">
-                        Quick Notation:
-                      </span>
-                      {[
-                        { label: "PED formula", insert: "PED = (%ΔQd / %ΔP)" },
-                        { label: "YED formula", insert: "YED = (%ΔQd / %ΔY)" },
-                        { label: "PES formula", insert: "PES = (%ΔQs / %ΔP)" },
-                        { label: "AD equation", insert: "AD = C + I + G + (X - M)" },
-                        { label: "LRAS / SRAS", insert: "SRAS and LRAS curves" },
-                        { label: "PPC", insert: "Production Possibility Curve (PPC)" },
-                      ].map((btn) => (
-                        <button
-                          key={btn.label}
-                          type="button"
-                          onClick={() => handleInsertSentence(btn.insert)}
-                          className="rounded border border-border/70 bg-background/70 px-2 py-0.5 text-[11px] font-mono text-muted-foreground hover:bg-primary/10 hover:text-primary hover:border-primary/40 transition-colors"
-                          title={`Insert ${btn.insert}`}
-                        >
-                          + {btn.label}
-                        </button>
-                      ))}
-                    </div>
-
-                    {/* Cambridge AO Visual Color Legend */}
-                    <div className="hidden sm:flex items-center gap-3 text-[11px] font-medium select-none">
-                      <span className="flex items-center gap-1 text-ao1">
-                        <span className="size-2 rounded-full bg-ao1" /> AO1 Knowledge
-                      </span>
-                      <span className="flex items-center gap-1 text-ao2">
-                        <span className="size-2 rounded-full bg-ao2" /> AO2 Analysis
-                      </span>
-                      <span className="flex items-center gap-1 text-ao3">
-                        <span className="size-2 rounded-full bg-ao3" /> AO3 Evaluation
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Answer Script Body with Left Margin Gutter */}
-                <div className="relative flex min-h-[64vh]">
-                  {/* Left Margin Ruling: For Examiner's Use */}
-                  <div className="hidden sm:flex w-12 shrink-0 flex-col items-center border-r border-border/60 bg-muted/10 py-6 select-none">
-                    <span className="[writing-mode:vertical-lr] rotate-180 text-[9px] font-bold tracking-widest text-muted-foreground/50 uppercase">
-                      For Examiner's Use
-                    </span>
-                  </div>
-
-                  {/* The Math-Locked Live Examiner Editor */}
-                  <div className="min-w-0 flex-1">
-                    <LiveExaminerEditor
-                      value={essayText}
-                      onChange={setEssayText}
-                      issues={issues}
-                      classifications={classifications}
-                      focusedIssueId={focusedIssueId}
-                      onAccept={(id) => setEssayText((current) => acceptIssue(id, current))}
-                      onDismiss={dismissIssue}
-                      placeholder="Begin typing your examination response here in continuous prose… The Live Examiner evaluates your economic accuracy (AO1), causal mechanisms (AO2), and evaluative synthesis (AO3) with inline annotations."
-                      className="min-h-[64vh]"
-                    />
-                  </div>
-                </div>
-
-                {/* Official Answer Script Verification Footer */}
-                <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/70 bg-muted/30 px-6 py-3 text-xs text-muted-foreground">
-                  <div className="flex items-center gap-3">
-                    <span className="text-[11px] font-medium">
-                      Cambridge 9708 · Page 1 of 1
-                    </span>
-                    <span className="text-[11px] font-mono">
-                      {wordCount} words {wordCount > 0 ? `(~${Math.max(1, Math.round(wordCount / 180))} min read)` : ""}
-                    </span>
-                    {wordCount < 150 ? (
-                      <span className="text-[10px] text-amber-600 dark:text-amber-400">
-                        (Standard: 350–550 words)
-                      </span>
-                    ) : null}
-                  </div>
-
-                  <div className="flex items-center gap-3">
-                    {predictedMark ? (
-                      <div className="flex items-center gap-1.5 font-medium text-emerald-600 dark:text-emerald-400">
-                        <span className="size-2 rounded-full bg-emerald-500" />
-                        <span>Cambridge Live Standard: {predictedMark.total_mark}/{maxMark} Marks</span>
-                      </div>
-                    ) : null}
-
-                    {autosave === "saving" ? (
-                      <span className="text-[11px] text-muted-foreground flex items-center gap-1">
-                        <Loader2 className="size-3 animate-spin" /> Saving…
-                      </span>
-                    ) : autosave === "saved" ? (
-                      <span className="text-[11px] text-emerald-600/90 dark:text-emerald-400 flex items-center gap-1">
-                        <Check className="size-3" /> Autosaved
-                      </span>
-                    ) : null}
-                  </div>
-                </div>
-              </div>
-            </main>
-
-            {!zenMode ? (
-              <aside className="min-w-0 lg:sticky lg:top-4 lg:self-start lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
-                <LiveExaminerPanel
-                  issues={issues}
-                  history={history}
-                  checking={checking}
-                  pending={pending}
-                  error={checkError}
-                  autosave={autosave}
-                  predictedMark={predictedMark}
-                  lastUpdatedAt={lastUpdatedAt}
-                  maxMark={maxMark}
-                  challenges={challenges}
-                  fetchingChallenges={fetchingChallenges}
-                  challengeOverview={challengeOverview}
-                  onRequestChallenges={requestChallenges}
-                  onDismissChallenge={dismissChallenge}
-                  onAddressChallenge={markChallengeAddressed}
-                  durationMinutes={durationMinutes}
-                  remainingSeconds={remainingSeconds}
-                  aiCoachingExpired={aiCoachingExpired}
-                  formattedTimeRemaining={formattedTimeRemaining}
-                  sessionUsage={sessionUsage}
-                  isAdmin={isAdmin}
-                  onFocusIssue={(id) => setFocusedIssueId(id)}
-                  gradedHelp={
-                    gradeMutation.data &&
-                    gradeMutation.data.grading.total_mark < gradeMutation.data.grading.max_mark ? (
-                      <GradedHelpCard
-                        grading={gradeMutation.data.grading as Grading}
-                        suggestions={maxOutMutation.data?.suggestions ?? []}
-                        headline={maxOutMutation.data?.headline}
-                        loading={maxOutMutation.isPending}
-                        error={maxOutMutation.isError}
-                        revealed={revealedHints}
-                        onReveal={() => setRevealedHints((count) => Math.min(3, count + 1))}
-                        onRetry={() => maxOutMutation.mutate()}
-                        generatingAnswer={fullAnswerMutation.isPending}
-                        onShowAnswer={() => fullAnswerMutation.mutate()}
-                      />
-                    ) : gradeMutation.data ? (
-                      <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-xs text-emerald-700 dark:text-emerald-300">
-                        <p className="font-semibold">Full marks achieved</p>
-                        <p className="mt-0.5">
-                          No hints needed — this answer has met the full standard.
-                        </p>
-                      </div>
-                    ) : null
-                  }
-                  onAccept={(id) => setEssayText((current) => acceptIssue(id, current))}
-                  onDismiss={dismissIssue}
-                  onRescan={() => rescan(essayText)}
-                  onClearAll={clearAll}
-                />
-              </aside>
-            ) : null}
-          </div>
+                ) : null
+              }
+              onAccept={(id) => setEssayText((current) => acceptIssue(id, current))}
+              onDismiss={dismissIssue}
+              onRescan={() => rescan(essayText)}
+              onClearAll={clearAll}
+            />
+          </aside>
         </div>
       )}
 
       <AlertDialog open={restartDialogOpen} onOpenChange={setRestartDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Restart this exam attempt?</AlertDialogTitle>
-            <AlertDialogDescription className="space-y-2">
-              <span className="block">
-                This clears your written draft, attached diagrams, and active suggestions so you can write the full response again from scratch.
-              </span>
-              {hasActiveDailySession ? (
-                <span className="block rounded-md border border-amber-500/30 bg-amber-500/10 p-2 text-xs text-amber-900 dark:text-amber-200">
-                  Note: Your session timer continues running and today's session remains locked to this question. Restarting does not grant additional AI coaching time.
-                </span>
-              ) : null}
+            <AlertDialogTitle>Restart this exam?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This clears your written answer, attached diagrams, and all suggestions for this
+              question — including the saved draft — so you can write the full response again from a
+              blank sheet. This can't be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleRestart}>Clear &amp; restart</AlertDialogAction>
+            <AlertDialogAction onClick={handleRestart}>Restart exam</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -1584,113 +1018,32 @@ function LiveExaminerPage() {
             ) : null}
 
             <div className="space-y-1.5">
-              <Label>Photo or image of your diagram</Label>
-              {/* Photo Library / Gallery Input - uncaptured to open photo gallery */}
+              <Label>Photo of your diagram</Label>
               <input
                 ref={diagramFileRef}
                 type="file"
-                accept="image/*,.heic,.heif"
-                multiple
-                className="hidden"
-                onChange={(event) => {
-                  handleDiagramFiles(event.target.files);
-                  event.target.value = "";
-                }}
-              />
-              {/* Camera Input - explicit environment capture */}
-              <input
-                ref={diagramCameraRef}
-                type="file"
                 accept="image/*"
                 capture="environment"
-                multiple
                 className="hidden"
-                onChange={(event) => {
-                  handleDiagramFiles(event.target.files);
-                  event.target.value = "";
-                }}
+                onChange={(event) => handleDiagramFile(event.target.files?.[0])}
               />
-              <div
-                role="button"
-                tabIndex={0}
-                onClick={() => {
-                  if (!describeDiagramMutation.isPending) {
-                    diagramFileRef.current?.click();
-                  }
-                }}
-                onKeyDown={(e) => {
-                  if ((e.key === "Enter" || e.key === " ") && !describeDiagramMutation.isPending) {
-                    e.preventDefault();
-                    diagramFileRef.current?.click();
-                  }
-                }}
-                onPaste={(e) => {
-                  const files = e.clipboardData?.files;
-                  if (files && files.length > 0) {
-                    e.preventDefault();
-                    handleDiagramFiles(files);
-                  }
-                }}
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  setDiagramDragging(true);
-                }}
-                onDragLeave={() => setDiagramDragging(false)}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  setDiagramDragging(false);
-                  const files = e.dataTransfer?.files;
-                  if (files && files.length > 0) {
-                    handleDiagramFiles(files);
-                  }
-                }}
-                className={`flex flex-col items-center justify-center gap-1.5 rounded-lg border-2 border-dashed p-4 text-center cursor-pointer transition-colors focus:outline-none focus:ring-2 focus:ring-ring ${
-                  diagramDragging
-                    ? "border-primary bg-primary/5"
-                    : "border-border bg-background hover:bg-muted/30"
-                } ${describeDiagramMutation.isPending ? "opacity-70 pointer-events-none" : ""}`}
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                disabled={describeDiagramMutation.isPending}
+                onClick={() => diagramFileRef.current?.click()}
               >
                 {describeDiagramMutation.isPending ? (
-                  <div className="flex items-center gap-2 text-primary font-medium text-xs">
+                  <>
                     <Loader2 className="size-4 animate-spin" /> Reading your diagram…
-                  </div>
+                  </>
                 ) : (
                   <>
-                    <div className="flex items-center gap-2 text-foreground font-medium text-xs">
-                      <Upload className="size-4 text-primary" />
-                      Click to upload image, drag &amp; drop, or paste (Ctrl+V)
-                    </div>
-                    <p className="text-[11px] text-muted-foreground">
-                      Upload photos of hand-drawn diagrams, screenshots, or exported images
-                    </p>
+                    <ImagePlus className="size-4" /> Upload a photo
                   </>
                 )}
-              </div>
-
-              {!describeDiagramMutation.isPending ? (
-                <div className="flex items-center justify-center gap-2 pt-0.5">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => diagramFileRef.current?.click()}
-                    className="h-8 gap-1.5 text-xs font-medium"
-                  >
-                    <Images className="size-3.5 text-primary" />
-                    Photos / Gallery
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => diagramCameraRef.current?.click()}
-                    className="h-8 gap-1.5 text-xs font-medium"
-                  >
-                    <Camera className="size-3.5 text-primary" />
-                    Take Photo
-                  </Button>
-                </div>
-              ) : null}
+              </Button>
             </div>
 
             <div className="space-y-1.5">
@@ -1717,7 +1070,7 @@ function LiveExaminerPage() {
       </Dialog>
 
       <Dialog open={gradeDialogOpen} onOpenChange={setGradeDialogOpen}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl pr-4">
+        <DialogContent className="sm:max-w-xl">
           <DialogHeader>
             <DialogTitle>Grade now</DialogTitle>
             <DialogDescription>
@@ -1735,7 +1088,7 @@ function LiveExaminerPage() {
                 { label: "Independent audit pass", weight: 3 },
                 { label: "Finalising report", weight: 1 },
               ]}
-              totalMs={300_000}
+              totalMs={26_000}
             />
           ) : gradeMutation.data ? (
             <div className="space-y-4">
@@ -1774,31 +1127,13 @@ function LiveExaminerPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Score Maximizer & Perfection Blueprint Dialog */}
-      <ScoreMaximizerDialog
-        open={scoreMaximizerOpen}
-        onOpenChange={setScoreMaximizerOpen}
-        question={question}
-        level={level}
-        maxMark={maxMark}
-        data={maxOutMutation.data}
-        loading={maxOutMutation.isPending}
-        error={maxOutMutation.isError}
-        onRetry={handleOpenScoreMaximizer}
-        onInsertText={handleInsertSentence}
-        onShowModelAnswer={() => {
-          setScoreMaximizerOpen(false);
-          fullAnswerMutation.mutate();
-        }}
-      />
-
       <Dialog open={modelAnswerOpen} onOpenChange={setModelAnswerOpen}>
         <DialogContent className="max-h-[88vh] overflow-y-auto sm:max-w-3xl">
           <DialogHeader>
             <DialogTitle>Complete model answer</DialogTitle>
             <DialogDescription>
-              Compare this only after attempting the score maximization hints. Focus on what the
-              answer adds, links, and evaluates—not on memorising its wording.
+              Compare this only after attempting all three hints. Focus on what the answer adds,
+              links, and evaluates—not on memorising its wording.
             </DialogDescription>
           </DialogHeader>
           {fullAnswerMutation.data ? <ModelAnswer essay={fullAnswerMutation.data.essay} /> : null}
@@ -1808,411 +1143,20 @@ function LiveExaminerPage() {
   );
 }
 
-function CopyButton({ text, label = "Copy" }: { text: string; label?: string }) {
-  const [copied, setCopied] = useState(false);
-
-  const handleCopy = () => {
-    navigator.clipboard.writeText(text);
-    setCopied(true);
-    toast.success("Copied to clipboard.");
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  return (
-    <Button
-      type="button"
-      variant="outline"
-      size="sm"
-      className="h-7 text-xs gap-1.5"
-      onClick={handleCopy}
-    >
-      {copied ? <Check className="size-3.5 text-emerald-500" /> : <Copy className="size-3.5" />}
-      {copied ? "Copied" : label}
-    </Button>
-  );
-}
-
 /** AO badge colour, reusing the same palette meaning elsewhere in the app:
  *  knowledge/ao1, analysis/ao2, evaluation/ao3, plus a neutral one for
  *  general structural suggestions that don't map to a single AO. */
 function aoLabel(target: MaxOutSuggestion["target_ao"]): string {
   switch (target) {
     case "ao1":
-      return "Knowledge (AO1)";
+      return "Knowledge";
     case "ao2":
-      return "Analysis (AO2)";
-    case "ao3":
-      return "Evaluation (AO3)";
-    default:
-      return "Essay Structure";
-  }
-}
-
-function aoBadgeStyle(target: MaxOutSuggestion["target_ao"]): string {
-  switch (target) {
-    case "ao1":
-      return "border-ao1/40 bg-ao1/10 text-ao1 font-semibold";
-    case "ao2":
-      return "border-ao2/40 bg-ao2/10 text-ao2 font-semibold";
-    case "ao3":
-      return "border-ao3/40 bg-ao3/10 text-ao3 font-semibold";
-    default:
-      return "border-primary/40 bg-primary/10 text-primary font-semibold";
-  }
-}
-
-function defaultPlacement(ao: "ao1" | "ao2" | "ao3" | "structure") {
-  switch (ao) {
-    case "ao1":
-      return "Paragraph 1 (Introduction & Core Definitions)";
-    case "ao2":
-      return "Paragraph 2 or 3 (Analytical Transmission Mechanism)";
-    case "ao3":
-      return "Final Paragraph (Evaluative Counterweight & Synthesis)";
-    default:
-      return "Analytical Body Paragraph";
-  }
-}
-
-function defaultPlacementRationale(ao: "ao1" | "ao2" | "ao3" | "structure") {
-  switch (ao) {
-    case "ao1":
-      return "Cambridge examiners award AO1 marks early when baseline definitions and market failure principles are established upfront in the opening paragraph.";
-    case "ao2":
-      return "Step-by-step analysis (AO2) must follow definitions to systematically unpack consumer/supplier incentives and market equilibria.";
-    case "ao3":
-      return "High-level evaluation (AO3) requires weighing critical dependencies (elasticities, time horizons, unintended consequences) against earlier arguments to reach a justified conclusion.";
-    default:
-      return "Integrates the analytical requirement directly into the core essay structure.";
-  }
-}
-
-function shortPlacement(ao: "ao1" | "ao2" | "ao3" | "structure") {
-  switch (ao) {
-    case "ao1":
-      return "Intro (¶1)";
-    case "ao2":
-      return "Body (¶2)";
+      return "Analysis";
     case "ao3":
       return "Evaluation";
     default:
-      return "Draft";
+      return "Structure";
   }
-}
-
-function ScoreMaximizerDialog({
-  open,
-  onOpenChange,
-  question,
-  level,
-  maxMark,
-  data,
-  loading,
-  error,
-  onRetry,
-  onInsertText,
-  onShowModelAnswer,
-}: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  question: string;
-  level: "as" | "a2";
-  maxMark: number;
-  data: MaxOutResponse | undefined;
-  loading: boolean;
-  error: boolean;
-  onRetry: () => void;
-  onInsertText: (
-    text: string,
-    targetAo?: "ao1" | "ao2" | "ao3" | "structure",
-    placementLabel?: string,
-    forceEnd?: boolean,
-  ) => void;
-  onShowModelAnswer: () => void;
-}) {
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
-        <DialogHeader>
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge className="bg-amber-500 text-white hover:bg-amber-500 font-semibold">
-              <Sparkles className="mr-1 size-3.5" /> Score Maximizer & Perfection Blueprint
-            </Badge>
-            <Badge variant="outline">
-              {level === "a2" ? "A Level" : "AS Level"} · {maxMark} Marks
-            </Badge>
-            <Badge
-              variant="secondary"
-              className="border-emerald-500/30 text-emerald-600 dark:text-emerald-400 font-semibold"
-            >
-              Target: Full {maxMark}/{maxMark} (Band 1)
-            </Badge>
-          </div>
-          <DialogTitle className="mt-2 text-xl font-bold">
-            How to reach a perfect {maxMark}/{maxMark} score
-          </DialogTitle>
-          <DialogDescription className="text-xs text-muted-foreground line-clamp-2">
-            Exam Question: {question}
-          </DialogDescription>
-        </DialogHeader>
-
-        {loading ? (
-          <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
-            <Loader2 className="size-8 animate-spin text-amber-500" />
-            <p className="font-semibold text-foreground">
-              Analyzing your essay against Cambridge Level 5 criteria…
-            </p>
-            <p className="max-w-md text-xs text-muted-foreground">
-              Identifying missing causal chains, evaluative trade-offs, strategic argument options,
-              exact essay placement, and model phrasing.
-            </p>
-          </div>
-        ) : error ? (
-          <div className="flex flex-col items-center gap-3 py-10 text-center">
-            <p className="text-sm text-destructive">Could not generate suggestions right now.</p>
-            <Button onClick={onRetry}>Try Again</Button>
-          </div>
-        ) : data ? (
-          <div className="space-y-6 pt-2">
-            {/* Headline & Overview Banner */}
-            <div className="rounded-xl border border-amber-300/60 bg-linear-to-br from-amber-500/10 via-background to-card p-4 shadow-xs">
-              <div className="flex items-start gap-3">
-                <Target className="mt-0.5 size-5 shrink-0 text-amber-600 dark:text-amber-400" />
-                <div className="space-y-1">
-                  <h3 className="text-sm font-bold text-foreground">Examiner Blueprint Summary</h3>
-                  <p className="text-xs font-medium leading-relaxed text-amber-900 dark:text-amber-200">
-                    {data.headline}
-                  </p>
-                  {data.perfection_summary ? (
-                    <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
-                      {data.perfection_summary}
-                    </p>
-                  ) : null}
-                </div>
-              </div>
-            </div>
-
-            {/* Individual Upgrade Suggestions */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h4 className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
-                  Step-by-step Improvements ({data.suggestions.length})
-                </h4>
-                <span className="text-[11px] text-muted-foreground">
-                  Apply these to close the gap to full marks
-                </span>
-              </div>
-
-              {data.suggestions.map((suggestion, index) => (
-                <div
-                  key={index}
-                  className="overflow-hidden rounded-xl border border-border bg-card p-4 shadow-xs transition hover:border-border/90"
-                >
-                  {/* Card Header */}
-                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 pb-3">
-                    <div className="flex items-center gap-2">
-                      <span className="flex size-6 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
-                        {index + 1}
-                      </span>
-                      <h4 className="font-semibold text-foreground text-sm">{suggestion.title}</h4>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Badge
-                        variant="outline"
-                        className={cn("text-[10px]", aoBadgeStyle(suggestion.target_ao))}
-                      >
-                        {aoLabel(suggestion.target_ao)}
-                      </Badge>
-                      <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/15 text-[10px] font-semibold">
-                        {suggestion.mark_uplift}
-                      </Badge>
-                    </div>
-                  </div>
-
-                  {/* Exact Essay Placement Card */}
-                  <div className="mt-3.5 rounded-lg border border-primary/20 bg-primary/[0.03] p-3 space-y-1.5">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <div className="flex items-center gap-1.5 text-xs font-bold text-foreground">
-                        <MapPin className="size-3.5 text-primary shrink-0" />
-                        <span>Exact Essay Placement:</span>
-                      </div>
-                      <Badge variant="secondary" className="border text-[10px] font-semibold bg-background text-primary">
-                        {suggestion.placement || defaultPlacement(suggestion.target_ao)}
-                      </Badge>
-                    </div>
-                    {(suggestion.placement_rationale || defaultPlacementRationale(suggestion.target_ao)) ? (
-                      <p className="text-[11px] leading-relaxed text-muted-foreground pl-5">
-                        <strong className="text-foreground/90 font-medium">Why place it here: </strong>
-                        {suggestion.placement_rationale || defaultPlacementRationale(suggestion.target_ao)}
-                      </p>
-                    ) : null}
-                  </div>
-
-                  {/* Diagnostic */}
-                  <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
-                    {suggestion.suggestion}
-                  </p>
-
-                  {/* How To Write Checklist */}
-                  {suggestion.how_to_write && suggestion.how_to_write.length > 0 ? (
-                    <div className="mt-3.5 rounded-lg border border-border/80 bg-muted/30 p-3 space-y-2">
-                      <p className="text-[11px] font-bold text-foreground flex items-center gap-1.5">
-                        <BookOpen className="size-3.5 text-primary" /> How to write this:
-                      </p>
-                      <ol className="space-y-1.5 pl-1 text-xs text-muted-foreground">
-                        {suggestion.how_to_write.map((step, sIdx) => (
-                          <li
-                            key={sIdx}
-                            className="flex items-start gap-2 text-[11px] leading-relaxed"
-                          >
-                            <span className="flex size-4 shrink-0 items-center justify-center rounded-full bg-background border text-[9px] font-bold text-muted-foreground">
-                              {sIdx + 1}
-                            </span>
-                            <span>{step}</span>
-                          </li>
-                        ))}
-                      </ol>
-                    </div>
-                  ) : null}
-
-                  {/* Strategic Options */}
-                  {suggestion.strategic_options && suggestion.strategic_options.length > 0 ? (
-                    <div className="mt-3.5 space-y-2">
-                      <p className="text-[11px] font-bold text-foreground">
-                        Choose an argument perspective to write:
-                      </p>
-                      <div className="grid gap-2 sm:grid-cols-2">
-                        {suggestion.strategic_options.map((option, optIdx) => (
-                          <div
-                            key={optIdx}
-                            className="flex flex-col justify-between rounded-lg border border-primary/20 bg-primary/[0.02] p-2.5 text-xs"
-                          >
-                            <div>
-                              <p className="font-semibold text-primary text-[11px]">
-                                {option.label}
-                              </p>
-                              {option.description ? (
-                                <p className="mt-0.5 text-[10px] text-muted-foreground line-clamp-2">
-                                  {option.description}
-                                </p>
-                              ) : null}
-                              {option.sentence_starter ? (
-                                <p className="mt-2 rounded bg-background/90 p-2 font-mono text-[10px] leading-relaxed text-foreground border border-border/60">
-                                  "{option.sentence_starter}"
-                                </p>
-                              ) : null}
-                            </div>
-                            {option.sentence_starter ? (
-                              <div className="mt-2.5 flex flex-wrap items-center justify-end gap-1.5 pt-1.5 border-t border-border/40">
-                                <CopyButton text={option.sentence_starter} label="Copy starter" />
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="sm"
-                                  className="h-7 text-xs"
-                                  onClick={() => {
-                                    onInsertText(
-                                      option.sentence_starter,
-                                      suggestion.target_ao,
-                                      suggestion.placement,
-                                      true,
-                                    );
-                                    onOpenChange(false);
-                                  }}
-                                >
-                                  Append
-                                </Button>
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  className="h-7 text-xs gap-1 font-medium bg-primary text-primary-foreground hover:bg-primary/90"
-                                  onClick={() => {
-                                    onInsertText(
-                                      option.sentence_starter,
-                                      suggestion.target_ao,
-                                      suggestion.placement,
-                                      false,
-                                    );
-                                    onOpenChange(false);
-                                  }}
-                                >
-                                  <MapPin className="size-3" /> Place in {shortPlacement(suggestion.target_ao)}
-                                </Button>
-                              </div>
-                            ) : null}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ) : null}
-
-                  {/* Model Phrasing */}
-                  {suggestion.model_phrasing ? (
-                    <div className="mt-3.5 rounded-lg border border-emerald-500/25 bg-emerald-500/[0.04] p-3 space-y-2">
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 uppercase tracking-wider flex items-center gap-1.5">
-                          <Sparkles className="size-3" /> Cambridge Level 5 Exemplar Phrasing
-                        </span>
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          <CopyButton text={suggestion.model_phrasing} label="Copy" />
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            className="h-7 text-xs"
-                            onClick={() => {
-                              onInsertText(
-                                suggestion.model_phrasing,
-                                suggestion.target_ao,
-                                suggestion.placement,
-                                true,
-                              );
-                              onOpenChange(false);
-                            }}
-                          >
-                            Append
-                          </Button>
-                          <Button
-                            type="button"
-                            size="sm"
-                            className="h-7 text-xs gap-1 bg-emerald-600 text-white hover:bg-emerald-700 font-medium"
-                            onClick={() => {
-                              onInsertText(
-                                suggestion.model_phrasing,
-                                suggestion.target_ao,
-                                suggestion.placement,
-                                false,
-                              );
-                              onOpenChange(false);
-                            }}
-                          >
-                            <MapPin className="size-3" /> Place in {shortPlacement(suggestion.target_ao)}
-                          </Button>
-                        </div>
-                      </div>
-                      <p className="rounded border border-emerald-500/20 bg-background/80 p-2.5 font-serif text-xs italic leading-relaxed text-foreground/90">
-                        "{suggestion.model_phrasing}"
-                      </p>
-                    </div>
-                  ) : null}
-                </div>
-              ))}
-            </div>
-
-            {/* Bottom Actions */}
-            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
-              <Button variant="outline" onClick={() => onOpenChange(false)}>
-                Back to editor
-              </Button>
-              <Button onClick={onShowModelAnswer} className="gap-1.5">
-                <Sparkles className="size-4" /> Compare with complete model answer
-              </Button>
-            </div>
-          </div>
-        ) : null}
-      </DialogContent>
-    </Dialog>
-  );
 }
 
 function GradedHelpCard({
@@ -2254,10 +1198,7 @@ function GradedHelpCard({
         suggestion:
           fallbacks[index] ??
           "Add one precise, question-focused point and explain how it changes the final judgement.",
-        mark_uplift: "+1–2 marks",
-        how_to_write: [],
-        strategic_options: [],
-        model_phrasing: "",
+        mark_uplift: "",
       } as MaxOutSuggestion),
   );
 
@@ -2270,7 +1211,7 @@ function GradedHelpCard({
         <Target className="mt-0.5 size-4 shrink-0 text-amber-700 dark:text-amber-300" />
         <div>
           <p className="text-xs font-semibold text-amber-950 dark:text-amber-100">
-            Hints to maximize your mark
+            Hints to improve your mark
           </p>
           <p className="text-[11px] leading-snug text-amber-900/75 dark:text-amber-100/75">
             {headline ??
@@ -2289,36 +1230,16 @@ function GradedHelpCard({
       ) : (
         <div className="space-y-2">
           {hints.slice(0, revealed).map((hint, index) => (
-            <div
-              key={index}
-              className="rounded-md border bg-background p-2.5 text-[11px] space-y-2"
-            >
+            <div key={index} className="rounded-md border bg-background p-2.5 text-[11px]">
               <div className="flex items-center justify-between gap-2 font-semibold">
                 <span>
                   Hint {index + 1}: {hint.title}
                 </span>
-                <Badge variant="outline" className={cn("text-[9px]", aoBadgeStyle(hint.target_ao))}>
+                <Badge variant="outline" className="text-[9px]">
                   {aoLabel(hint.target_ao)}
                 </Badge>
               </div>
-              <p className="leading-relaxed text-muted-foreground">{hint.suggestion}</p>
-
-              {hint.how_to_write && hint.how_to_write.length > 0 ? (
-                <div className="rounded border bg-muted/40 p-2 space-y-1 text-[10px]">
-                  <p className="font-semibold text-foreground">How to write:</p>
-                  <ul className="list-disc pl-4 space-y-0.5 text-muted-foreground">
-                    {hint.how_to_write.map((step, sIdx) => (
-                      <li key={sIdx}>{step}</li>
-                    ))}
-                  </ul>
-                </div>
-              ) : null}
-
-              {hint.model_phrasing ? (
-                <p className="rounded bg-emerald-500/10 p-2 text-[10px] italic text-emerald-800 dark:text-emerald-200">
-                  Exemplar: "{hint.model_phrasing}"
-                </p>
-              ) : null}
+              <p className="mt-1 leading-relaxed text-muted-foreground">{hint.suggestion}</p>
             </div>
           ))}
           {revealed < 3 ? (

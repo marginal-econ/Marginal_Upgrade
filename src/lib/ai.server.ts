@@ -23,7 +23,7 @@ import { EMBEDDING_DIMS } from "./examiner/config";
  *  as a literal here (matches MODEL_FAST in examiner/config.ts) rather than
  *  imported, so ai.server.ts's one central gateway function never depends on
  *  a feature-specific config module. */
-const ECONOMY_MODEL = "google/gemini-3.8-flash";
+const ECONOMY_MODEL = "mistral-small-latest";
 /** Token ceilings applied by the non-"max" modes — a real lever on cost,
  *  independent of which model ends up handling the call. */
 const BALANCED_TOKEN_CAP = 2600;
@@ -341,7 +341,7 @@ export async function chat(rawOptions: ChatOptions): Promise<ChatResult> {
     try {
       const { supabaseAdmin } = await import("@/integrations/backend/client.server");
       const latencyMs = Date.now() - started;
-      const model = result?.model || rawOptions.model || "google/gemini-3.8-flash";
+      const model = result?.model || rawOptions.model || "mistral-small-latest";
       await supabaseAdmin.from("ai_usage_log").insert({
         user_id: rawOptions.userId ?? null,
         feature: rawOptions.feature ?? "chat",
