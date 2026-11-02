@@ -45,6 +45,14 @@ function getBandBadgeStyle(band: string) {
   return "border-rose-500/30 bg-rose-500/10 text-rose-500 font-semibold";
 }
 
+function cleanItemText(value: unknown): string {
+  const stripped = stripStars(value);
+  return stripped
+    .replace(/^\s*(?:\d+[\.\)]\s*)+/g, "")
+    .replace(/^\s*(?:Step\s*\d+:?|\(\d+\)|[-*•])\s*/gi, "")
+    .trim();
+}
+
 export function MarkBreakdown({
   grading,
   question,
@@ -244,7 +252,7 @@ export function MarkBreakdown({
               <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-primary/15 text-[11px] font-semibold text-primary">
                 {index + 1}
               </span>
-              <span className="text-muted-foreground">{stripStars(item)}</span>
+              <span className="text-muted-foreground">{cleanItemText(item)}</span>
             </li>
           ))}
         </ol>
@@ -344,7 +352,7 @@ function PointList({
                 tone === "good" ? "text-success" : "text-destructive",
               )}
             />
-            {stripStars(item)}
+            <span>{cleanItemText(item)}</span>
           </li>
         ))}
       </ul>

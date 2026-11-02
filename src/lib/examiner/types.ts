@@ -252,14 +252,66 @@ export function detectEconomicErrors(essayText: string): DetectedError[] {
     });
   }
 
-  // 10. Unsubstantiated absolute claim: ensures / completely corrects / solves / guarantees in main argument
+  // 10. Unsubstantiated absolute claim: always rises/falls, ensures / completely corrects / solves / guarantees in main argument
   if (
-    /\b(?:ensures|completely\s+corrects|solves|guarantees)\b[\s\S]{0,100}\b(?:socially\s+optimal|market\s+failure|externalit|problem|allocative\s+efficiency)\b/i.test(essayText) ||
-    /\b(?:the\s+)?(?:tax|subsidy|policy|intervention)\s+(?:ensures|guarantees|solves|completely\s+corrects)\b/i.test(essayText)
+    /\b(?:export\s+revenue|revenue|exports?)\s+always\s+(?:rises?|increases?)\b/i.test(essayText) ||
+    /\b(?:import\s+spending|spending|imports?)\s+always\s+(?:falls?|decreases?)\b/i.test(essayText) ||
+    /\b(?:ensures|completely\s+corrects|solves|guarantees)\b[\s\S]{0,100}\b(?:socially\s+optimal|market\s+failure|externalit|problem|allocative\s+efficiency|current\s+account|surplus|deficit|balance\s+of\s+payments|bop)\b/i.test(essayText) ||
+    /\b(?:the\s+)?(?:tax|subsidy|policy|intervention|depreciation|devaluation)\s+(?:ensures|guarantees|solves|completely\s+corrects)\b/i.test(essayText) ||
+    /\bensures\s+(?:that\s+)?(?:the\s+)?(?:current\s+account|trade\s+balance|bop)\b/i.test(essayText)
   ) {
     errors.push({
       id: "unsubstantiated_absolute_claim",
-      trap: "Claiming a policy 'ensures', 'completely corrects', 'solves', or 'guarantees' market failure without qualification",
+      trap: "Claiming an economic policy 'always' causes an outcome, 'ensures' a surplus, or 'completely corrects' a deficit/market failure without qualification",
+      severity: "major",
+    });
+  }
+
+  // 11. Depreciation vs Devaluation Confusion
+  if (
+    /\bdepreciation\b[\s\S]{0,120}\b(?:government|central\s+bank|state)\s+(?:lowers|reduces|decreases|cuts|sets|devalues)\s+(?:the\s+)?(?:value\s+of\s+its\s+)?currency\b/i.test(essayText) ||
+    /\b(?:when\s+the\s+government|government\s+lowers)\b[\s\S]{0,80}\b(?:depreciation|depreciates)\b/i.test(essayText)
+  ) {
+    errors.push({
+      id: "depreciation_devaluation_confusion",
+      trap: "Confusing depreciation with devaluation: depreciation is a market-driven fall under floating exchange rates, whereas devaluation is an official government/central bank decision under fixed exchange rates",
+      severity: "major",
+    });
+  }
+
+  // 12. Marshall-Lerner Condition Reversal
+  if (
+    /\bmarshall[\s-]?lerner\b[\s\S]{0,150}\b(?:less\s+than\s+(?:one|1)|<\s*1|below\s+(?:one|1)|inelastic)\b/i.test(essayText) ||
+    /\b(?:pedx?\s*\+\s*pedm?|elasticities\s+of\s+demand\s+for\s+exports\s+and\s+imports)\b[\s\S]{0,80}\b(?:less\s+than\s+(?:one|1)|<\s*1)\b/i.test(essayText)
+  ) {
+    errors.push({
+      id: "marshall_lerner_error",
+      trap: "Inverting the Marshall-Lerner condition: depreciation improves the current account only if the sum of PED for exports and imports is greater than 1 (PEDx + PEDm > 1), not less than 1",
+      severity: "major",
+    });
+  }
+
+  // 13. Inelastic demand claimed to work best for depreciation / shrink deficit
+  if (
+    /\b(?:depreciation|fall\s+in\s+(?:the\s+)?exchange\s+rate|devaluation)\b[\s\S]{0,100}\bworks?\s+best\b[\s\S]{0,80}\binelastic\b/i.test(essayText) ||
+    /\binelastic\s+demand\b[\s\S]{0,120}\b(?:works?\s+best|deficit\s+shrinks|improves?\s+(?:the\s+)?(?:current\s+account|trade\s+balance|deficit))\b/i.test(essayText) ||
+    /\bdepreciation\s+works\s+best\s+when\s+goods\s+are\s+necessities\b/i.test(essayText)
+  ) {
+    errors.push({
+      id: "ped_inelastic_exchange_rate",
+      trap: "Flawed elasticity analysis: claiming depreciation works best when demand is inelastic (inelastic demand means export revenue falls and import spending rises, worsening the deficit)",
+      severity: "major",
+    });
+  }
+
+  // 14. Inverted J-Curve Mechanism
+  if (
+    /\bj[\s-]?curve\b[\s\S]{0,150}\b(?:at\s+first|initially|in\s+the\s+short\s+run)[\s\S]{0,80}\b(?:improves?|gets?\s+better|surplus)[\s\S]{0,120}\b(?:worsens?|deteriorates?|deficit\s+worsens?)\b/i.test(essayText) ||
+    /\bj[\s-]?curve\b[\s\S]{0,150}\b(?:improves?\s+(?:quickly|immediately)[\s\S]{0,80}\bdeficit\s+worsens?)\b/i.test(essayText)
+  ) {
+    errors.push({
+      id: "inverted_j_curve",
+      trap: "Inverted J-curve mechanism: the J-curve shows the current account worsens in the short run due to inelastic demand contracts, and only improves in the long run as elasticities adjust",
       severity: "major",
     });
   }
@@ -366,11 +418,65 @@ export function detectErrorsFromExaminerFeedback(raw: Record<string, unknown>): 
     fullFeedback.includes("overstatement and lacks nuance") ||
     fullFeedback.includes("completely corrects") ||
     fullFeedback.includes("unsubstantiated absolute claim") ||
-    (fullFeedback.includes("ensures") && fullFeedback.includes("market failure"))
+    fullFeedback.includes("always rises") ||
+    fullFeedback.includes("ensures that the current account") ||
+    fullFeedback.includes("ensures surplus") ||
+    (fullFeedback.includes("ensures") && (fullFeedback.includes("market failure") || fullFeedback.includes("surplus") || fullFeedback.includes("deficit")))
   ) {
     errors.push({
       id: "unsubstantiated_absolute_claim",
-      trap: "Claiming a policy 'ensures', 'completely corrects', 'solves', or 'guarantees' market failure without qualification",
+      trap: "Claiming a policy 'always' causes an outcome, 'ensures' a surplus, or 'completely corrects' a deficit/market failure without qualification",
+      severity: "major",
+    });
+  }
+
+  // 6. Depreciation vs Devaluation in feedback
+  if (
+    fullFeedback.includes("confuses depreciation with devaluation") ||
+    fullFeedback.includes("depreciation is market-driven") ||
+    fullFeedback.includes("government lowers the value of its currency") ||
+    (fullFeedback.includes("depreciation") && fullFeedback.includes("devaluation"))
+  ) {
+    errors.push({
+      id: "depreciation_devaluation_confusion",
+      trap: "Confusing depreciation with devaluation (floating vs fixed exchange rate mechanisms)",
+      severity: "major",
+    });
+  }
+
+  // 7. Marshall-Lerner error in feedback
+  if (
+    (fullFeedback.includes("marshall-lerner") || fullFeedback.includes("marshall lerner")) &&
+    (fullFeedback.includes("less than one") || fullFeedback.includes("greater than one") || fullFeedback.includes("error") || fullFeedback.includes("incorrect") || fullFeedback.includes("misstated") || fullFeedback.includes("inaccura"))
+  ) {
+    errors.push({
+      id: "marshall_lerner_error",
+      trap: "Inverting the Marshall-Lerner condition (requires PEDx + PEDm > 1)",
+      severity: "major",
+    });
+  }
+
+  // 8. Inverted J-curve in feedback
+  if (
+    (fullFeedback.includes("j-curve") || fullFeedback.includes("j curve")) &&
+    (fullFeedback.includes("misdescribed") || fullFeedback.includes("worsens again") || fullFeedback.includes("inverted") || fullFeedback.includes("error") || fullFeedback.includes("incorrect") || fullFeedback.includes("short-run worsening"))
+  ) {
+    errors.push({
+      id: "inverted_j_curve",
+      trap: "Inverting the J-curve effect (short-run worsening followed by long-run improvement)",
+      severity: "major",
+    });
+  }
+
+  // 9. Inelastic demand on exchange rate in feedback
+  if (
+    (fullFeedback.includes("depreciation") || fullFeedback.includes("exchange rate")) &&
+    (fullFeedback.includes("inelastic demand") || fullFeedback.includes("elasticity theory")) &&
+    (fullFeedback.includes("error") || fullFeedback.includes("misconception") || fullFeedback.includes("flaw") || fullFeedback.includes("works best"))
+  ) {
+    errors.push({
+      id: "ped_inelastic_exchange_rate",
+      trap: "Flawed elasticity analysis: claiming depreciation works best when demand is inelastic",
       severity: "major",
     });
   }
@@ -452,8 +558,10 @@ export interface QuestionFitResult {
  */
 export function checkQuestionFit(questionText: string, essayText: string): QuestionFitResult {
   const q = questionText.toLowerCase();
-  const isComparative = /\b(best|most|main|most\s+effective|most\s+likely|primary|superior|only\s+way)\b/i.test(q);
-  const isToWhatExtent = /\b(to\s+what\s+extent|assess\s+the\s+extent)\b/i.test(q);
+  const isComparative =
+    /\b(best|most|main|most\s+effective|most\s+likely|primary|superior|only\s+way)\b/i.test(q) ||
+    (/\bassess\s+whether\b/i.test(q) && /\b(?:likely\s+to|improve|reduce|solve|correct)\b/i.test(q));
+  const isToWhatExtent = /\b(to\s+what\s+extent|assess\s+the\s+extent|how\s+far)\b/i.test(q);
 
   if (!isComparative && !isToWhatExtent) {
     return {
@@ -530,6 +638,49 @@ export function checkQuestionFit(questionText: string, essayText: string): Quest
           ? undefined
           : "Question-fit failure: The question asks whether indirect taxes are the 'best' method to reduce consumption of demerit goods. The candidate does not compare indirect taxes against alternative policies on an explicit economic criterion.",
         auditReason: "does not compare indirect taxes with an alternative on a stated criterion",
+      };
+    }
+
+    // Specific question: exchange rate vs current account deficit
+    if ((q.includes("exchange rate") || q.includes("depreciation")) && (q.includes("current account") || q.includes("deficit") || q.includes("bop"))) {
+      const mentionsAltPolicy =
+        bodyText.includes("expenditure-reducing") ||
+        bodyText.includes("expenditure reducing") ||
+        bodyText.includes("expenditure-switching") ||
+        bodyText.includes("expenditure switching") ||
+        bodyText.includes("tariff") ||
+        bodyText.includes("quota") ||
+        bodyText.includes("protectionism") ||
+        bodyText.includes("contractionary") ||
+        bodyText.includes("fiscal policy") ||
+        bodyText.includes("raise interest rates") ||
+        bodyText.includes("higher interest rates") ||
+        bodyText.includes("supply-side") ||
+        bodyText.includes("supply side");
+
+      const hasComparativeCriterion =
+        mentionsAltPolicy &&
+        (bodyText.includes("compared to") ||
+          bodyText.includes("in comparison with") ||
+          bodyText.includes("more effective than") ||
+          bodyText.includes("superior to") ||
+          bodyText.includes("preferable to") ||
+          bodyText.includes("whereas") ||
+          bodyText.includes("on the criterion of") ||
+          bodyText.includes("opportunity cost") ||
+          bodyText.includes("inflationary impact") ||
+          bodyText.includes("time lag"));
+
+      return {
+        isComparativeQuestion: true,
+        isToWhatExtentQuestion: false,
+        hasAlternativeAnalysis: hasComparativeCriterion,
+        hasDegreeAndConditions: true,
+        failsQuestionFit: !hasComparativeCriterion,
+        missingAlternativeNote: hasComparativeCriterion
+          ? undefined
+          : "Question-fit failure: The question requires assessing whether a fall in the exchange rate is likely to improve a country's current account deficit. The candidate writes exclusively on depreciation and does not evaluate alternative deficit-reduction policies (e.g. expenditure-reducing monetary/fiscal policies, tariffs, or supply-side reforms) on a stated criterion.",
+        auditReason: "does not compare exchange rate depreciation with alternative deficit-reduction policies on a stated criterion",
       };
     }
 
@@ -690,7 +841,23 @@ export const ERROR_DESCRIPTIONS: Record<string, ErrorDescriptor> = {
   },
   unsubstantiated_absolute_claim: {
     category: "mechanism",
-    text: "Unsubstantiated absolute claim: Asserting that a policy 'ensures' the socially optimal outcome or 'completely corrects' market failure ignores practical limitations, unintended consequences, and information deficits.",
+    text: "Unsubstantiated absolute claim: Asserting that a policy 'always' causes an outcome, 'ensures' a surplus, or 'completely corrects' market failure ignores elasticity conditions, time lags, domestic inflation, and foreign retaliation.",
+  },
+  depreciation_devaluation_confusion: {
+    category: "definition",
+    text: "Definitional confusion: The essay defines depreciation as the government lowering currency value; depreciation is a market-driven decrease in value under floating exchange rates, whereas devaluation is an official government/central bank adjustment under fixed exchange rates.",
+  },
+  marshall_lerner_error: {
+    category: "elasticity",
+    text: "Marshall-Lerner condition inverted: A currency depreciation improves the current account balance only if the sum of export and import price elasticities of demand exceeds 1 (PEDx + PEDm > 1), not less than 1.",
+  },
+  ped_inelastic_exchange_rate: {
+    category: "elasticity",
+    text: "Flawed elasticity reasoning: Asserting that depreciation works best when demand is price inelastic contradicts elasticity theory and the J-curve; with inelastic demand (%ΔQ < %ΔP), export revenue falls and import expenditure rises, worsening the deficit.",
+  },
+  inverted_j_curve: {
+    category: "mechanism",
+    text: "J-curve sequence inverted: The J-curve demonstrates that the current account deficit worsens in the short run because trade contracts are fixed and demand is inelastic, only improving in the longer run as elasticities adjust.",
   },
 };
 
@@ -720,18 +887,29 @@ export function coversErrorCategory(
         return (
           s.includes("ped") ||
           s.includes("price elasticity") ||
+          s.includes("marshall-lerner") ||
+          s.includes("marshall lerner") ||
           (s.includes("elasticity") && (s.includes("inelastic") || s.includes("elastic") || s.includes("flaw") || s.includes("error")))
         );
       case "formula":
         return s.includes("formula") || s.includes("%Δ") || s.includes("calculation");
       case "definition":
-        return s.includes("hyperinflation") || s.includes("accelerating inflation") || s.includes("definition");
+        return (
+          s.includes("hyperinflation") ||
+          s.includes("accelerating inflation") ||
+          (s.includes("depreciation") && s.includes("devaluation")) ||
+          s.includes("definitional confusion") ||
+          s.includes("definition")
+        );
       case "mechanism":
         return (
           s.includes("money supply") ||
           s.includes("as equals ad") ||
           s.includes("transmission") ||
+          s.includes("j-curve") ||
+          s.includes("j curve") ||
           s.includes("ensures") ||
+          s.includes("always rises") ||
           s.includes("completely correct") ||
           s.includes("absolute claim")
         );
@@ -939,6 +1117,7 @@ export function normaliseGrading(
 
     const isPedError = (id: string) =>
       id === "ped_inelastic_effectiveness" ||
+      id === "ped_inelastic_exchange_rate" ||
       id === "inverted_ped_formula" ||
       id === "ped_logical_error";
 
@@ -947,15 +1126,25 @@ export function normaliseGrading(
       id === "formula_error";
 
     const isDefinitionError = (id: string) =>
-      id === "hyperinflation";
+      id === "hyperinflation" ||
+      id === "depreciation_devaluation_confusion";
 
     const isAbsoluteClaimError = (id: string) =>
       id === "unsubstantiated_absolute_claim";
+
+    const isMarshallLernerError = (id: string) =>
+      id === "marshall_lerner_error";
+
+    const isJCurveError = (id: string) =>
+      id === "inverted_j_curve";
 
     const hasDiagramErr = majorErrors.some((e) => isDiagramError(e.id));
     const hasPedErr = majorErrors.some((e) => isPedError(e.id));
     const hasDefErr = majorErrors.some((e) => isDefinitionError(e.id));
     const hasAbsoluteClaimErr = majorErrors.some((e) => isAbsoluteClaimError(e.id));
+    const hasDevalErr = majorErrors.some((e) => e.id === "depreciation_devaluation_confusion");
+    const hasMLErr = majorErrors.some((e) => isMarshallLernerError(e.id));
+    const hasJCurveErr = majorErrors.some((e) => isJCurveError(e.id));
 
     // Question-Fit Analysis
     const questionFit = question && essayText
@@ -1013,13 +1202,21 @@ export function normaliseGrading(
     for (const err of majorErrors) {
       const cat = isDiagramError(err.id)
         ? "diagram"
-        : isPedError(err.id)
-          ? "ped"
-          : isAbsoluteClaimError(err.id)
-            ? "absolute_claim"
-            : isDefinitionError(err.id)
-              ? "definition"
-              : err.id;
+        : err.id === "depreciation_devaluation_confusion"
+          ? "devaluation_confusion"
+          : isDefinitionError(err.id)
+            ? "definition"
+            : isMarshallLernerError(err.id)
+              ? "marshall_lerner"
+              : isJCurveError(err.id)
+                ? "j_curve"
+                : err.id === "ped_inelastic_exchange_rate"
+                  ? "ped_exchange_rate"
+                  : isPedError(err.id)
+                    ? "ped"
+                    : isAbsoluteClaimError(err.id)
+                      ? "absolute_claim"
+                      : err.id;
       if (!distinctMajorErrorCategories.has(cat)) {
         distinctMajorErrorCategories.add(cat);
         distinctMajorErrors.push(err);
@@ -1029,11 +1226,29 @@ export function normaliseGrading(
     // Distinct named errors list for single audit line
     const namedErrors: string[] = [];
     if (hasDiagramErr) namedErrors.push("demand curve shift");
-    if (hasPedErr) namedErrors.push("inelastic demand reasoning");
-    if (hasAbsoluteClaimErr) namedErrors.push("unsubstantiated 'ensures' claim");
-    if (hasDefErr) namedErrors.push("hyperinflation definition");
+    if (hasDevalErr) namedErrors.push("depreciation confused with devaluation (government lowering currency)");
+    if (hasMLErr) namedErrors.push("Marshall-Lerner condition reversed (< 1)");
+    if (majorErrors.some((e) => e.id === "ped_inelastic_exchange_rate")) {
+      namedErrors.push("inelastic demand claimed to improve deficit");
+    } else if (hasPedErr) {
+      namedErrors.push("inelastic demand reasoning");
+    }
+    if (hasJCurveErr) namedErrors.push("inverted J-curve sequence");
+    if (hasAbsoluteClaimErr) {
+      namedErrors.push("unsubstantiated 'always rises / ensures surplus' claim");
+    }
+    if (majorErrors.some((e) => e.id === "hyperinflation")) {
+      namedErrors.push("hyperinflation definition");
+    }
     for (const e of distinctMajorErrors) {
-      if (!isDiagramError(e.id) && !isPedError(e.id) && !isAbsoluteClaimError(e.id) && !isDefinitionError(e.id)) {
+      if (
+        !isDiagramError(e.id) &&
+        !isPedError(e.id) &&
+        !isAbsoluteClaimError(e.id) &&
+        !isDefinitionError(e.id) &&
+        !isMarshallLernerError(e.id) &&
+        !isJCurveError(e.id)
+      ) {
         namedErrors.push(e.id.replace(/_/g, " "));
       }
     }
@@ -1060,9 +1275,8 @@ export function normaliseGrading(
     const tableACapped = cappedTableA < rawTableA || (tableACap < tableAMax && cappedTableA === tableACap);
 
     // Split Table A: AO1 gets up to 2 (or split.ao1_marks) for correct definitions, AO2 is Table A minus AO1
-    const finalAo1 = hasDefErr
-      ? Math.min(knowledge.awarded, 1)
-      : Math.min(knowledge.awarded, split.ao1_marks, cappedTableA);
+    const maxAo1Allowed = hasDefErr ? 1 : Math.min(split.ao1_marks, cappedTableA);
+    const finalAo1 = Math.min(knowledge.awarded, maxAo1Allowed);
     const finalAo2 = Math.max(0, cappedTableA - finalAo1);
 
     knowledge.awarded = finalAo1;
@@ -1071,10 +1285,10 @@ export function normaliseGrading(
     // -----------------------------------------------------------------
     // 3. AUDIT LINE GENERATION (Only ONE cap per table, matching final marks)
     // -----------------------------------------------------------------
-    if (tableACapped && tableACapReason) {
+    if ((tableACapped || tableACap < tableAMax) && tableACapReason) {
       auditNotes.push(`Table A capped at ${cappedTableA}/${tableAMax} (${tableACapReason}).`);
     }
-    if (tableBCapped && tableBCapReason) {
+    if ((tableBCapped || tableBCap < split.ao3_marks) && tableBCapReason) {
       auditNotes.push(`Table B (AO3) capped at ${finalAo3}/${split.ao3_marks} (${tableBCapReason}).`);
     }
   }
@@ -1260,31 +1474,40 @@ export function runReportPostCheckAndSanitize(
   if (!essayText) return grading;
   const qLower = (question || "").toLowerCase();
 
-  // Helper 1: Clean double numbering (e.g. "1. 1.", "2. 2.", "1. 1)")
+  // Helper 1: Clean double numbering and strip leading list markers/numbers
   const cleanDoubleNumbering = (s: string): string => {
     return s
       .replace(/^\s*\d+[\.\)]\s*(\d+[\.\)])\s*/g, "$1 ")
       .replace(/^\s*\d+[\.\)]\s*(?:\d+[\.\)]\s*)+/g, (m) => m.trim().split(/\s+/)[0] + " ");
   };
 
+  const cleanLeadingListNumbers = (s: string): string => {
+    return cleanDoubleNumbering(s)
+      .replace(/^\s*(?:\d+[\.\)]\s*)+/g, "")
+      .replace(/^\s*(?:Step\s*\d+:?|\(\d+\)|[-*•])\s*/gi, "")
+      .trim();
+  };
+
   // Helper 2: Invented numbers/percentages not in student script
   const scriptNumbers = new Set(essayText.match(/\b\d+(?:\.\d+)?%?\b/g) || []);
   const sanitizeInventedNumbers = (text: string): string => {
-    return text.replace(/\b(\d+(?:\.\d+)?%)\b/g, (match) => {
+    let t = text.replace(/\b(\d+(?:\.\d+)?%)\b/g, (match) => {
       if (scriptNumbers.has(match) || match === "50%") return match;
       return "a proportion";
     });
+    t = t.replace(/\b[\$£€]\d+(?:\.\d+)?\b/g, (match) => {
+      if (scriptNumbers.has(match)) return match;
+      return "a given price";
+    });
+    return t;
   };
 
   // Helper 3: Named country/policy examples as advice
   const sanitizeNamedExamples = (text: string): string => {
     const namedAdviceRegex =
-      /(?:for\s+example|such\s+as|e\.g\.|recommend|suggest|consider|like)\s+[^,\.;\n]*\b(UK|United Kingdom|Britain|British|US|USA|United States|Mexico|Mexican|Singapore|France|French|Germany|German|Denmark|Sweden|Australia|Australian|South Africa|Japan|China)\b[^,\.;\n]*\b(tax|sugar|cigarette|congestion|carbon|subsidy|tariff)\b[^,\.;\n]*/gi;
+      /(?:for\s+example|such\s+as|e\.g\.|recommend|suggest|consider|like)\s+[^,\.;\n]*\b(UK|United Kingdom|Britain|British|US|USA|United States|Egypt|Egyptian|Brexit|Mexico|Mexican|Singapore|France|French|Germany|German|Denmark|Sweden|Australia|Australian|South Africa|Japan|China|Zimbabwe|Argentina|Turkey|Sri Lanka|Venezuela)\b[^,\.;\n]*/gi;
 
-    if (namedAdviceRegex.test(text)) {
-      return text.replace(namedAdviceRegex, "Add a real example you have studied (country, policy, outcome).");
-    }
-    return text;
+    return text.replace(namedAdviceRegex, "Add a real example you have studied (country, policy, outcome).");
   };
 
   // Helper 4: Past paper citations not in retrieved sources
@@ -1314,6 +1537,16 @@ export function runReportPostCheckAndSanitize(
 
   // Helper 6: Criticism for not drawing a diagram (when question did not ask for one)
   const questionDemandedDiagram = /with\s+the\s+aid\s+of\s+a\s+diagram|draw\s+a\s+diagram/i.test(qLower);
+  const sanitizeDiagramAdvice = (text: string): string => {
+    if (questionDemandedDiagram) return text;
+    return text
+      .replace(
+        /(?:draw|sketch|include|provide|use)\s+(?:an?\s+)?(?:ad\/as|j-curve|demand\s+and\s+supply|micro|macro)?\s*(?:diagram|graph|curve)\b[^,\.;\n]*/gi,
+        "Trace the complete written economic transmission mechanism step by step (shock -> price change -> elasticity response -> final economic outcome)",
+      )
+      .replace(/\b(?:j-curve\s+graph|ad\/as\s+diagram)\b/gi, "written economic transmission mechanism");
+  };
+
   const filterDiagramCriticism = (items: string[]): string[] => {
     if (questionDemandedDiagram) return items;
     return items.filter((item) => {
@@ -1326,32 +1559,71 @@ export function runReportPostCheckAndSanitize(
         s.includes("omission of a diagram") ||
         s.includes("lacks a diagram") ||
         s.includes("without a diagram") ||
-        s.includes("drawing a diagram would");
+        s.includes("drawing a diagram would") ||
+        s.includes("missing diagram") ||
+        s.includes("include a diagram") ||
+        s.includes("draw an ad/as") ||
+        s.includes("include a j-curve");
       return !isMissingDiagramCriticism;
     });
   };
 
-  // Helper 7: Error listed under weaknesses but praised under strengths or AO paragraph
+  // Helper 7: False causal chain accusations on imported inflation and supply constraints
+  const sanitizeFalseCausalChain = (text: string): string => {
+    if (
+      (text.toLowerCase().includes("imported inflation") || text.toLowerCase().includes("supply constraint") || text.toLowerCase().includes("capacity")) &&
+      (text.toLowerCase().includes("lack") || text.toLowerCase().includes("fails to link") || text.toLowerCase().includes("no causal chain"))
+    ) {
+      return text
+        .replace(/lacks?\s+a\s+causal\s+chain[^,\.;\n]*/gi, "can be developed further by showing how cost-push inflation erodes price competitiveness")
+        .replace(/fails?\s+to\s+link[^,\.;\n]*/gi, "should explicitly link higher import costs to deteriorating export price margins");
+    }
+    return text;
+  };
+
+  // Helper 8: Error listed under weaknesses but praised under strengths or AO paragraph
   const weaknessText = grading.weaknesses.join(" ").toLowerCase();
   const hasShiftWeakness = weaknessText.includes("shift") || weaknessText.includes("curve");
   const hasPedWeakness = weaknessText.includes("elasticity") || weaknessText.includes("ped") || weaknessText.includes("inelastic");
   const hasEnsuresWeakness = weaknessText.includes("ensures") || weaknessText.includes("completely correct");
 
+  const isCurrentAccountQuestion =
+    qLower.includes("current account") || qLower.includes("balance of payments") || qLower.includes("bop") || qLower.includes("trade deficit");
+  const isOffTopicStrengthForCA = (s: string): boolean => {
+    if (!isCurrentAccountQuestion) return false;
+    const l = s.toLowerCase();
+    return (
+      (l.includes("tourism") || l.includes("tourist")) &&
+      (l.includes("growth") || l.includes("employment") || l.includes("jobs") || l.includes("economic growth")) &&
+      !l.includes("current account")
+    );
+  };
+
   const sanitizedStrengths = grading.strengths.filter((s) => {
     const lower = s.toLowerCase();
+    if (isOffTopicStrengthForCA(s)) return false;
     if (hasShiftWeakness && (lower.includes("diagram") || lower.includes("curve shift") || lower.includes("shifting of curves"))) {
       return false;
     }
     if (hasPedWeakness && (lower.includes("elasticity") || lower.includes("ped"))) {
       return false;
     }
-    if (hasEnsuresWeakness && (lower.includes("socially optimal") || lower.includes("completely correct"))) {
+    if (hasEnsuresWeakness && (lower.includes("socially optimal") || lower.includes("completely correct") || lower.includes("ensures"))) {
+      return false;
+    }
+    if (weaknessText.includes("marshall-lerner") && lower.includes("marshall-lerner")) {
+      return false;
+    }
+    if (weaknessText.includes("j-curve") && lower.includes("j-curve")) {
+      return false;
+    }
+    if (weaknessText.includes("devaluation") && lower.includes("depreciation")) {
       return false;
     }
     return true;
   });
 
-  // Helper 8: AO1 comment saying a term is missing when script contains it
+  // Helper 9: AO1 comment saying a term is missing when script contains it
   const definedTermsInScript = [
     { term: "demerit good", regex: /\bdemerit\s+goods?\b/i },
     { term: "indirect tax", regex: /\bindirect\s+taxes?\b/i },
@@ -1380,12 +1652,35 @@ export function runReportPostCheckAndSanitize(
     }
   }
 
+  // Prevent internal contradiction in evaluation comment
+  if (grading.ao_breakdown.evaluation.awarded <= 2) {
+    grading.ao_breakdown.evaluation.comment = grading.ao_breakdown.evaluation.comment
+      .replace(/\bjustified\s+conclusion\b/gi, "concluding evaluation")
+      .replace(/\bjustified\s+judgement\b/gi, "concluding judgement")
+      .replace(/\bis\s+justified\b/gi, "is a generic summary");
+  }
+
+  // Prevent summary contradictions when major errors are present
+  if (grading.total_mark <= 6 || grading.weaknesses.length >= 2) {
+    grading.examiner_summary = grading.examiner_summary
+      .replace(/demonstrates\s+(?:an?\s+)?(?:accurate|sound|strong|solid|thorough)\s+knowledge/gi, "demonstrates partial knowledge")
+      .replace(/demonstrates\s+(?:an?\s+)?(?:accurate|sound|strong|solid|thorough)\s+understanding/gi, "contains significant analytical inaccuracies")
+      .replace(/shows\s+(?:an?\s+)?(?:accurate|sound|strong|solid|thorough)\s+knowledge/gi, "shows partial knowledge")
+      .replace(/shows\s+(?:an?\s+)?(?:accurate|sound|strong|solid|thorough)\s+understanding/gi, "contains analytical inaccuracies")
+      .replace(/accurate\s+knowledge\s+of/gi, "familiarity with")
+      .replace(/addresses\s+the\s+question\s+directly\s+and\s+demonstrates\s+(?:an?\s+)?(?:accurate|sound|strong|solid)/gi, "addresses the topic but demonstrates flawed");
+  }
+
   const cleanField = (s: string): string => {
     return cleanDoubleNumbering(
-      sanitizeInventedNumbers(
-        sanitizeNamedExamples(
-          sanitizePastPaperCitations(
-            sanitizeDiagramLabels(s)
+      sanitizeFalseCausalChain(
+        sanitizeDiagramAdvice(
+          sanitizeInventedNumbers(
+            sanitizeNamedExamples(
+              sanitizePastPaperCitations(
+                sanitizeDiagramLabels(s)
+              )
+            )
           )
         )
       )
@@ -1396,14 +1691,19 @@ export function runReportPostCheckAndSanitize(
   grading.ao_breakdown.analysis.comment = cleanField(grading.ao_breakdown.analysis.comment);
   grading.ao_breakdown.evaluation.comment = cleanField(grading.ao_breakdown.evaluation.comment);
   grading.examiner_summary = cleanField(grading.examiner_summary);
-  grading.strengths = sanitizedStrengths.map(cleanField);
-  grading.weaknesses = filterDiagramCriticism(grading.weaknesses.map(cleanField));
-  grading.actionable_feedback = grading.actionable_feedback.map(cleanField);
+  grading.strengths = sanitizedStrengths.map(cleanField).map(cleanLeadingListNumbers).filter((s) => s.length > 5);
+  grading.weaknesses = filterDiagramCriticism(grading.weaknesses.map(cleanField).map(cleanLeadingListNumbers)).filter((w) => w.length > 5);
+  grading.actionable_feedback = grading.actionable_feedback.map(cleanField).map(cleanLeadingListNumbers).filter((a) => a.length > 5);
   if (grading.missing_elements) {
-    grading.missing_elements.definitions = missingDefs.map(cleanField);
-    grading.missing_elements.analysis = grading.missing_elements.analysis.map(cleanField);
-    grading.missing_elements.evaluation = grading.missing_elements.evaluation.map(cleanField);
-    grading.missing_elements.examples = grading.missing_elements.examples.map(cleanField);
+    grading.missing_elements.definitions = missingDefs.map(cleanField).map(cleanLeadingListNumbers);
+    grading.missing_elements.analysis = grading.missing_elements.analysis.map(cleanField).map(cleanLeadingListNumbers);
+    grading.missing_elements.evaluation = grading.missing_elements.evaluation.map(cleanField).map(cleanLeadingListNumbers);
+    grading.missing_elements.examples = grading.missing_elements.examples.map(cleanField).map(cleanLeadingListNumbers);
+    if (!questionDemandedDiagram) {
+      grading.missing_elements.diagrams = [];
+    } else {
+      grading.missing_elements.diagrams = grading.missing_elements.diagrams.map(cleanField).map(cleanLeadingListNumbers);
+    }
   }
 
   return grading;
