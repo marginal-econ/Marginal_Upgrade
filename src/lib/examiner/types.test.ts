@@ -159,7 +159,7 @@ In conclusion a mix of all the supply-side policies along with the implementatio
     expect(normalised.ao_breakdown.evaluation.awarded).toBe(1);
     expect(normalised.band).toBe("Bottom band");
     expect(normalised.examiner_summary).toContain("Cambridge Senior Examiner Audit");
-    expect(normalised.examiner_summary).toContain("Question-Fit Gate");
+    expect(normalised.examiner_summary).toContain("Table A capped at 3/8");
   });
 
   it("detects Cambridge error traps correctly", () => {
@@ -243,7 +243,7 @@ In conclusion a mix of all the supply-side policies along with the implementatio
         },
       },
       examiner_summary:
-        "The candidate addresses the question with a basic understanding of demerit goods and indirect taxes, but the analysis and evaluation are limited in depth and accuracy. The essay contains several economic inaccuracies, particularly regarding the shifting of curves and the impact of price elasticity of demand. [Cambridge Senior Examiner Audit: Table B Hedge Cap: Concluding with 'use a range of policies' without an explicit comparative ranking or conditions caps AO3 at 1/4.]",
+        "The candidate addresses the question with a basic understanding of demerit goods and indirect taxes, but the analysis and evaluation are limited in depth and accuracy. The essay contains several economic inaccuracies, particularly regarding the shifting of curves and the impact of price elasticity of demand.",
       strengths: [
         "The candidate provides accurate definitions of demerit goods and indirect taxes.",
         "The essay identifies key issues such as information failure and revenue generation.",
@@ -257,18 +257,16 @@ In conclusion a mix of all the supply-side policies along with the implementatio
     const question = "Discuss whether an indirect tax is the most effective policy to reduce the consumption of demerit goods.";
     const normalised = normaliseGrading(rawFromScreenshot, 12, split, question);
 
-    // AO2 MUST be cut from 4/6 down to 2/6 because of BOTH the diagram shift error and PED logical error
+    // Table A is capped at 3/8 as one number, then split: AO1 = 2, AO2 = 1. Table B = 1. Total = 4.
     expect(normalised.ao_breakdown.knowledge.awarded).toBe(2);
-    expect(normalised.ao_breakdown.analysis.awarded).toBe(2);
+    expect(normalised.ao_breakdown.analysis.awarded).toBe(1);
     expect(normalised.ao_breakdown.evaluation.awarded).toBe(1);
-    expect(normalised.total_mark).toBe(5);
-    expect(normalised.band).toBe("Lower middle band");
-    expect(normalised.examiner_summary).toContain("AO2 Analysis Accuracy Penalty");
-    expect(normalised.examiner_summary).toContain("diagram");
-    expect(normalised.examiner_summary).toContain("PED");
+    expect(normalised.total_mark).toBe(4);
+    expect(normalised.band).toBe("Bottom band");
+    expect(normalised.examiner_summary).toContain("Table A capped at 3/8");
   });
 
-  it("cuts AO2 by 2 marks for a single major diagram shift error", () => {
+  it("caps Table A at Level 3 (6/8) for a single major diagram shift error", () => {
     const raw = {
       total_mark: 10,
       band: "Top band",
@@ -282,9 +280,11 @@ In conclusion a mix of all the supply-side policies along with the implementatio
     };
 
     const normalised = normaliseGrading(raw, 12, split);
-    // 5/6 cut by 2 marks to 3/6
-    expect(normalised.ao_breakdown.analysis.awarded).toBe(3);
-    expect(normalised.total_mark).toBe(8);
+    // Table A raw was 7/8 (AO1 2, AO2 5), capped at 6/8. Split: AO1 = 2, AO2 = 4.
+    expect(normalised.ao_breakdown.knowledge.awarded).toBe(2);
+    expect(normalised.ao_breakdown.analysis.awarded).toBe(4);
+    expect(normalised.total_mark).toBe(9);
+    expect(normalised.examiner_summary).toContain("Table A capped at 6/8");
   });
 
   it("USER BUG FIX: ensures on-topic essay is never false-positively zeroed out as off-topic", () => {
@@ -330,11 +330,11 @@ In conclusion a mix of all the supply-side policies along with the implementatio
     expect(normalised.unrelated_to_question).toBe(false);
     expect(normalised.total_mark).toBeGreaterThan(0);
     expect(normalised.ao_breakdown.knowledge.awarded).toBe(2);
-    // Diagram error + PED error cuts AO2 to 2/6
-    expect(normalised.ao_breakdown.analysis.awarded).toBe(2);
+    // 3 major errors + question-fit failure caps Table A at 3/8: AO1 = 2, AO2 = 1. Table B = 1. Total = 4.
+    expect(normalised.ao_breakdown.analysis.awarded).toBe(1);
     expect(normalised.ao_breakdown.evaluation.awarded).toBe(1);
-    expect(normalised.total_mark).toBe(5);
-    expect(normalised.band).toBe("Lower middle band");
+    expect(normalised.total_mark).toBe(4);
+    expect(normalised.band).toBe("Bottom band");
   });
 
   it("USER REFINEMENT TEST: strips all 'theoretical error' wording and never repeats same error in feedback", () => {

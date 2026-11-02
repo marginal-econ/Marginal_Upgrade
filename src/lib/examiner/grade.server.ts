@@ -278,7 +278,54 @@ export async function gradeEssay(
           ],
         });
 
-  grading = normaliseGrading(extractFirstJsonObject(first.text), maxMark, split, question, essayText);
+  grading = normaliseGrading(extractFirstJsonObject(first.text), maxMark, split, question, essayText, sources);
+
+  // Post-check: A report with no quotes and no named errors is treated as a failed run and retried once
+  const allFeedbackText = [
+    grading.examiner_summary,
+    grading.ao_breakdown.knowledge.comment,
+    grading.ao_breakdown.analysis.comment,
+    grading.ao_breakdown.evaluation.comment,
+    ...grading.weaknesses,
+    ...grading.strengths,
+    ...grading.actionable_feedback,
+  ].join(" ");
+  const hasQuotes = /['"“‘][^'"“”‘’]{3,}['"”’]/.test(allFeedbackText);
+  const hasNamedErrors =
+    /\b(?:shift|curve|elastic|inelastic|ped|guarantee|ensure|transmission|omission|inaccura|error|flaw|fallacy|contradict|unsubstantiated|optimal|tax|subsidy|inflation|money\s+supply|hyperinflation|market\s+failure)\b/i.test(allFeedbackText);
+
+  if (!grading.unrelated_to_question && !hasQuotes && !hasNamedErrors) {
+    console.warn("[gradeEssay] Report lacked quotes and named errors. Retrying generation with explicit directive.");
+    const retryUserMessage = `${userMessage}\n\nCRITICAL RETRY DIRECTIVE: Your previous output lacked specific quotes from the candidate's essay and failed to explicitly name precise economic errors. Under Cambridge 9708 standards, you MUST quote the student's exact wording where relevant and name specific analytical errors or theoretical flaws (e.g. curve shifts, PED logic, transmission flaws).`;
+    const retryResponse = markSchemeImages.length
+      ? await visionChat({
+          model: MODEL_EXAMINER,
+          systemPrompt,
+          prompt: retryUserMessage,
+          imageDataUrls: markSchemeImages,
+          maxCompletionTokens: 8192,
+          userId: options.userId,
+          feature: "grade_essay",
+        })
+      : await chat({
+          model: MODEL_EXAMINER,
+          temperature: TEMPERATURE_EXAMINER,
+          json: true,
+          isBudgetTier: options.isBudgetTier,
+          userId: options.userId,
+          feature: "grade_essay",
+          reasoningEffort: "low",
+          maxCompletionTokens: 8192,
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: retryUserMessage },
+          ],
+        });
+    grading = normaliseGrading(extractFirstJsonObject(retryResponse.text), maxMark, split, question, essayText, sources);
+    promptTokens = (promptTokens || 0) + (retryResponse.promptTokens || 0);
+    completionTokens = (completionTokens || 0) + (retryResponse.completionTokens || 0);
+    latencyMs += retryResponse.latencyMs;
+  }
   if (grading.off_syllabus) {
     throw new OffSyllabusError(
       grading.detected_subject || "another subject",
