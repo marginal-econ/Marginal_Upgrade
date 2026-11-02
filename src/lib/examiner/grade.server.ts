@@ -36,6 +36,7 @@ import { EXAMINER_PROMPT } from "./examiner-prompt";
 import { extractFirstJsonObject } from "./json";
 import { bandFor, normaliseGrading, type Grading, type GroundingSource } from "./types";
 import { ACCURACY_LAYER_PROMPT, decodeExamQuestion } from "./accuracy-rules";
+import { detectEssayErrorsAndCaps } from "./error-detector.server";
 
 /** Fill `{placeholder}` tokens in the ported prompt templates. */
 function loadPrompt(template: string, values: Record<string, string | number>): string {
@@ -243,6 +244,41 @@ export async function gradeEssay(
     `3. DETAILED, PRISTINE PEDAGOGICAL FEEDBACK: Provide deep, granular, and non-repetitive feedback explaining the exact economic transmission mechanisms, why marks were credited or lost, and step-by-step guidance to achieve full marks. Do NOT repeat the same error across multiple bullet points, and do NOT use robotic "Theoretical error" labels.\n` +
     `4. DO NOT HESITATE TO AWARD ZERO: If an AO is absent, unattempted, or defective in relation to the prompt, award 0 for that AO. Courtesy marks are strictly prohibited.`;
 
+  // --- FIX 1 & FIX 2: Dedicated Error Detection Call & Code-Computed Caps ---
+  const computedCaps = await detectEssayErrorsAndCaps({
+    question,
+    essayText,
+    split,
+    sources,
+    userId: options.userId,
+    isBudgetTier: options.isBudgetTier,
+  });
+
+  const capsDirective =
+    `\n\nMANDATORY DIAGNOSTIC DETECTOR FINDINGS & LEVEL CAPS (COMPUTED IN ADVANCE):\n` +
+    `• Major error count: ${computedCaps.majorErrorCount}\n` +
+    (computedCaps.distinctFindings.length > 0
+      ? `• Detected analytical, diagrammatic, elasticity and definitional errors:\n` +
+        computedCaps.distinctFindings
+          .map((f) => `  - "${f.quote}": ${f.correct_version}`)
+          .join("\n") +
+        "\n"
+      : `• No major errors detected.\n`) +
+    `• Question-fit status: ${computedCaps.failsQuestionFit ? `FAILED (${computedCaps.questionFitReason || "lacks comparison with alternatives on stated criterion"})` : "PASSED"}\n` +
+    `• MANDATORY MARK CEILINGS (Your awarded marks MUST NOT exceed these Cambridge caps):\n` +
+    `  - Table A (AO1+AO2) Maximum: ${computedCaps.tableACap}/${computedCaps.tableAMax} (AO1 max ${computedCaps.maxAo1}, AO2 max ${computedCaps.maxAo2})\n` +
+    `  - Table B (AO3) Maximum: ${computedCaps.tableBCap}/${computedCaps.tableBMax}\n` +
+    `• MANDATORY REPORT OBEDIENCE RULES:\n` +
+    `  - Every detected error above MUST be explicitly included under "weaknesses" with its exact quote from the script and the correct version.\n` +
+    `  - Never describe an identified error as accurate anywhere in the report.\n` +
+    `  - If Table A is capped at 5 or below or question-fit failed, do NOT state that the essay "addresses the question directly" or shows accurate knowledge. State the question-fit failure plainly instead.\n` +
+    `  - Never criticize the candidate for lacking a diagram unless the prompt explicitly asked for one.\n` +
+    `  - Never suggest named country examples (e.g. UK, Egypt, Mexico, Brexit). Instead write: "Add a real example you have studied (country, policy, outcome)."\n` +
+    `  - Never invent numbers or statistics not in the candidate's text.\n` +
+    `  - Do not use double numbering (e.g. "1. 1.").`;
+
+  const fullUserMessage = `${userMessage}${capsDirective}`;
+
   let grading: Grading;
   let promptTokens: number | null = null;
   let completionTokens: number | null = null;
@@ -257,7 +293,7 @@ export async function gradeEssay(
       ? await visionChat({
           model: MODEL_EXAMINER,
           systemPrompt,
-          prompt: userMessage,
+          prompt: fullUserMessage,
           imageDataUrls: markSchemeImages,
           maxCompletionTokens: 8192,
           userId: options.userId,
@@ -274,13 +310,13 @@ export async function gradeEssay(
           maxCompletionTokens: 8192,
           messages: [
             { role: "system", content: systemPrompt },
-            { role: "user", content: userMessage },
+            { role: "user", content: fullUserMessage },
           ],
         });
 
-  grading = normaliseGrading(extractFirstJsonObject(first.text), maxMark, split, question, essayText, sources);
+  grading = normaliseGrading(extractFirstJsonObject(first.text), maxMark, split, question, essayText, sources, computedCaps);
 
-  // Post-check: A report with no quotes and no named errors is treated as a failed run and retried once
+  // Post-check: Reject and regenerate report if quality constraints fail
   const allFeedbackText = [
     grading.examiner_summary,
     grading.ao_breakdown.knowledge.comment,
@@ -292,11 +328,25 @@ export async function gradeEssay(
   ].join(" ");
   const hasQuotes = /['"“‘][^'"“”‘’]{3,}['"”’]/.test(allFeedbackText);
   const hasNamedErrors =
-    /\b(?:shift|curve|elastic|inelastic|ped|guarantee|ensure|transmission|omission|inaccura|error|flaw|fallacy|contradict|unsubstantiated|optimal|tax|subsidy|inflation|money\s+supply|hyperinflation|market\s+failure)\b/i.test(allFeedbackText);
+    /\b(?:shift|curve|elastic|inelastic|ped|guarantee|ensure|transmission|omission|inaccura|error|flaw|fallacy|contradict|unsubstantiated|optimal|tax|subsidy|inflation|money\s+supply|hyperinflation|market\s+failure|marshall|lerner|j-curve|devaluat|depreciat)\b/i.test(allFeedbackText);
+  const hasDoubleNumbering = /^\s*\d+[\.\)]\s*\d+[\.\)]/m.test(allFeedbackText);
+  const hasBannedNamedExamples = /(?:for\s+example|such\s+as|e\.g\.)\s+[^,\.;\n]*\b(UK|United Kingdom|Egypt|Mexico|Brexit|Singapore)\b/i.test(allFeedbackText);
 
-  if (!grading.unrelated_to_question && !hasQuotes && !hasNamedErrors) {
-    console.warn("[gradeEssay] Report lacked quotes and named errors. Retrying generation with explicit directive.");
-    const retryUserMessage = `${userMessage}\n\nCRITICAL RETRY DIRECTIVE: Your previous output lacked specific quotes from the candidate's essay and failed to explicitly name precise economic errors. Under Cambridge 9708 standards, you MUST quote the student's exact wording where relevant and name specific analytical errors or theoretical flaws (e.g. curve shifts, PED logic, transmission flaws).`;
+  const shouldRetry =
+    !grading.unrelated_to_question &&
+    ((computedCaps.majorErrorCount > 0 && (!hasQuotes || !hasNamedErrors)) ||
+      hasDoubleNumbering ||
+      hasBannedNamedExamples);
+
+  if (shouldRetry) {
+    console.warn("[gradeEssay] Report failed post-check constraints. Retrying generation with explicit corrective directive.");
+    const retryUserMessage =
+      `${fullUserMessage}\n\nCRITICAL RETRY DIRECTIVE:\n` +
+      `Your previous generation failed quality post-checks. You MUST:\n` +
+      `1. Include short quotes (under 15 words) from the script for every weakness and explicitly name the error (e.g. curve shift, inelastic demand, devaluation vs depreciation, absolute claim).\n` +
+      `2. Stay strictly at or below the computed caps: Table A max ${computedCaps.tableACap}/${computedCaps.tableAMax}, Table B max ${computedCaps.tableBCap}/${computedCaps.tableBMax}.\n` +
+      `3. Do NOT cite named country examples (e.g. UK, Egypt, Mexico, Brexit); replace with: "Add a real example you have studied (country, policy, outcome)."\n` +
+      `4. Do NOT use double numbering (e.g. "1. 1.").`;
     const retryResponse = markSchemeImages.length
       ? await visionChat({
           model: MODEL_EXAMINER,
@@ -321,7 +371,7 @@ export async function gradeEssay(
             { role: "user", content: retryUserMessage },
           ],
         });
-    grading = normaliseGrading(extractFirstJsonObject(retryResponse.text), maxMark, split, question, essayText, sources);
+    grading = normaliseGrading(extractFirstJsonObject(retryResponse.text), maxMark, split, question, essayText, sources, computedCaps);
     promptTokens = (promptTokens || 0) + (retryResponse.promptTokens || 0);
     completionTokens = (completionTokens || 0) + (retryResponse.completionTokens || 0);
     latencyMs += retryResponse.latencyMs;

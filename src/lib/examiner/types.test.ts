@@ -158,7 +158,7 @@ In conclusion a mix of all the supply-side policies along with the implementatio
     expect(normalised.ao_breakdown.analysis.awarded).toBe(2);
     expect(normalised.ao_breakdown.evaluation.awarded).toBe(1);
     expect(normalised.band).toBe("Bottom band");
-    expect(normalised.examiner_summary).toContain("Cambridge Senior Examiner Audit");
+    expect(normalised.examiner_summary).toContain("Audit: Table A capped at");
     expect(normalised.examiner_summary).toContain("Table A capped at 3/8");
   });
 
@@ -266,13 +266,13 @@ In conclusion a mix of all the supply-side policies along with the implementatio
     expect(normalised.examiner_summary).toContain("Table A capped at 3/8");
   });
 
-  it("caps Table A at Level 3 (6/8) for a single major diagram shift error", () => {
+  it("caps Table A at Level 3 (7/8) for a single major diagram shift error", () => {
     const raw = {
-      total_mark: 10,
+      total_mark: 11,
       band: "Top band",
       ao_breakdown: {
         knowledge: { awarded: 2, out_of: 2, comment: "Accurate definitions." },
-        analysis: { awarded: 5, out_of: 6, comment: "Analysis contains a diagram error: demand curve does not shift left." },
+        analysis: { awarded: 6, out_of: 6, comment: "Analysis contains a diagram error: demand curve does not shift left." },
         evaluation: { awarded: 3, out_of: 4, comment: "Good evaluation." },
       },
       examiner_summary: "Good essay overall.",
@@ -280,11 +280,11 @@ In conclusion a mix of all the supply-side policies along with the implementatio
     };
 
     const normalised = normaliseGrading(raw, 12, split);
-    // Table A raw was 7/8 (AO1 2, AO2 5), capped at 6/8. Split: AO1 = 2, AO2 = 4.
+    // Table A raw was 8/8 (AO1 2, AO2 6), capped at 7/8 for 1 error. Split: AO1 = 2, AO2 = 5.
     expect(normalised.ao_breakdown.knowledge.awarded).toBe(2);
-    expect(normalised.ao_breakdown.analysis.awarded).toBe(4);
-    expect(normalised.total_mark).toBe(9);
-    expect(normalised.examiner_summary).toContain("Table A capped at 6/8");
+    expect(normalised.ao_breakdown.analysis.awarded).toBe(5);
+    expect(normalised.total_mark).toBe(10);
+    expect(normalised.examiner_summary).toContain("Table A capped at 7/8");
   });
 
   it("USER BUG FIX: ensures on-topic essay is never false-positively zeroed out as off-topic", () => {
