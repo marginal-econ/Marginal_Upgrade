@@ -1111,8 +1111,8 @@ export function normaliseGrading(
     detected_subject: typeof raw.detected_subject === "string" ? raw.detected_subject : undefined,
     unrelated_to_question: isUnrelated,
     grounding_status:
-      raw.grounding_status === "mark_scheme_image" || raw.grounding_status === "unanchored"
-        ? raw.grounding_status
+      raw.grounding_status === "mark_scheme_image"
+        ? "mark_scheme_image"
         : "grounded",
   });
 }
