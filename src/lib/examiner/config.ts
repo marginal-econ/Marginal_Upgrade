@@ -63,7 +63,9 @@ export function renderAoDefinitions(): string {
  */
 export const AO_MAX_MARKS = { ao1: 2, ao2: 6, ao3: 4 } as const;
 
-/** Balanced temperature: reliable grading with natural, rich qualitative examiner feedback. */
+/** Balanced temperatures: Pass 1 at 0.0 for analytical rigor & catching errors; Pass 2 at 0.2 for holistic evaluation. */
+export const TEMPERATURE_PASS1 = 0.0;
+export const TEMPERATURE_PASS2 = 0.2;
 export const TEMPERATURE_EXAMINER = 0.2;
 export const TEMPERATURE_TUTOR = 0.4;
 
@@ -272,7 +274,7 @@ export const STRUCTURE_GUIDANCE: Record<number, StructureGuidance> = {
       {
         title: "Conclusion (remainder of the 6 AO3 marks)",
         detail:
-          "Close with a reasoned, ideally conditional, overall judgement that directly answers the question as asked and weighs the evaluative points against each other. A vague or unsupported conclusion caps AO3 at Level 1.",
+          "Close with a reasoned, ideally conditional, overall judgement that directly answers the question as asked and weighs the evaluative points against each other.",
       },
     ],
     note: "This is a longer version of the 12-mark essay shape (2 knowledge points -> developed, evaluated analysis -> conclusion), scaled to 20 marks. Not the only valid structure — a well-argued response structured differently is never marked down for that reason alone.",

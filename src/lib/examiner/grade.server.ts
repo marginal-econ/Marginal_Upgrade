@@ -1,17 +1,20 @@
 /**
- * Examiner engine — ported from the original Python `agents/examiner.py`.
+ * Examiner engine — calibrated for Cambridge International AS/A Level Economics (syllabus 9708).
  *
- * Preserved exactly:
- *  - the fixed AO1/AO2/AO3 allocation, validated against max_mark (never
- *    silently redistributed into equal thirds)
- *  - human-verified calibration anchors injected as few-shot ground truth,
- *    grouped by band and capped per band
- *  - two-pass grading: examiner pass, then an independent audit pass that can
- *    correct the mark in EITHER direction, falling back to the unaudited
- *    result if the audit call fails rather than blocking grading
+ * Dual-Examiner Architecture with Varied Temperatures:
+ *  - Pass 1: Temperature 0.0 — Rigorous analytical & theoretical error check. Scrutinizes
+ *    economic mechanisms, curve shifts, elasticity claims, definitions, and transmissions.
+ *  - Pass 2: Temperature 0.2 — Holistic Cambridge assessment. Evaluates argument breadth,
+ *    positive marking, wide evaluation across multiple perspectives, and human tone.
+ *  - Concluded Together: Both passes run concurrently (~12-18s total) and are concluded
+ *    together into an authoritative final mark and constructive, human examiner report.
  *
- * Added: retrieval grounding, so marking references the real syllabus and
- * mark scheme material rather than the model's recollection of it.
+ * Core Cambridge Rules:
+ *  - Diagram Rule: Not drawing a diagram is NEVER penalized (written economics alone can score full marks).
+ *    Accurate diagrams are positively rewarded under AO2.
+ *  - Evaluation Rule: Evaluation must be strong and wide, comparing multiple perspectives (short vs long run,
+ *    stakeholders, trade-offs, elasticity). Strict on superficial assertions, but NO artificial numeric caps.
+ *  - Human Tone: Encouraging, constructive, citing verbatim student phrases, zero asterisks.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -21,6 +24,7 @@ import {
   arbitrateGrading,
   computeObjectiveConfidence,
   shouldTriggerArbitration,
+  synthesizeDualPasses,
 } from "./arbitration.server";
 import { AUDIT_PROMPT } from "./audit-prompt";
 import { buildAnchorBlock, fetchCalibrationAnchors } from "./calibration.server";
@@ -29,14 +33,19 @@ import {
   getStructureGuidance,
   MODEL_EXAMINER,
   renderAoDefinitions,
-  TEMPERATURE_EXAMINER,
+  TEMPERATURE_PASS1,
+  TEMPERATURE_PASS2,
   type AoSplit,
 } from "./config";
-import { EXAMINER_PROMPT } from "./examiner-prompt";
+import {
+  EXAMINER_PROMPT,
+  PASS1_ERROR_CHECK_DIRECTIVE,
+  PASS2_HOLISTIC_EVALUATION_DIRECTIVE,
+} from "./examiner-prompt";
 import { extractFirstJsonObject } from "./json";
 import { bandFor, normaliseGrading, type Grading, type GroundingSource } from "./types";
 
-/** Fill `{placeholder}` tokens in the ported prompt templates. */
+/** Fill `{placeholder}` tokens in the prompt templates. */
 function loadPrompt(template: string, values: Record<string, string | number>): string {
   return template.replace(/\{(\w+)\}/g, (match, key: string) =>
     key in values ? String(values[key]) : match,
@@ -68,9 +77,8 @@ Return ONLY a single JSON object with exactly this shape:
   "suggested_practice": string[],
   "confidence": number
 }
-"confidence" is your own 0-1 confidence that a real Cambridge examiner would
-award the same total mark. "suggested_practice" must be concrete next tasks
-(e.g. "write a 4-mark evaluation paragraph on subsidy incidence in this market").
+"confidence" is your own 0-1 confidence that a real Cambridge examiner would award the same total mark.
+"suggested_practice" must be concrete next tasks.
 Keep every comment specific to this essay's actual text — never generic advice.
 `.trim();
 
@@ -83,10 +91,8 @@ export type GradeOptions = {
   topicId?: string | null;
   /**
    * Screenshot(s) of the relevant mark scheme page, pasted in by the
-   * student. When present, both the examiner pass and the audit pass read
-   * these directly (vision) as well as the text retrieved from the
-   * knowledge base — the screenshot is additional grounding, not a
-   * replacement for it.
+   * student. When present, both examiner passes read these directly (vision)
+   * as well as the text retrieved from the knowledge base.
    */
   markSchemeImageDataUrls?: string[];
   isBudgetTier?: boolean;
@@ -130,7 +136,7 @@ export async function gradeEssay(
     structure_note: structureNote,
   };
 
-  let systemPrompt = loadPrompt(EXAMINER_PROMPT, promptValues);
+  let baseSystemPrompt = loadPrompt(EXAMINER_PROMPT, promptValues);
 
   // --- syllabus pre-flight guardrail ----------------------------------------
   const { OffSyllabusError } = await import("./syllabus-guard.server");
@@ -142,7 +148,6 @@ export async function gradeEssay(
   // --- retrieval grounding ---------------------------------------------------
   let sources: GroundingSource[] = [];
   try {
-    // 1. Primary retrieval: comprehensive search across mark schemes, coursebooks, syllabus, examiner reports, notes, and past papers
     sources = await Promise.race([
       retrieve(supabase, {
         query: `${question}\n\nMark scheme, coursebook chapter, band descriptors, and examiner report guidance for this question.`,
@@ -157,7 +162,6 @@ export async function gradeEssay(
       ),
     ]);
 
-    // 2. Secondary retrieval fallback: if no match found at 0.45, try direct question at 0.40 floor
     if (!sources || sources.length === 0) {
       sources = await retrieve(supabase, {
         query: question,
@@ -174,7 +178,7 @@ export async function gradeEssay(
     sources = [];
   }
   if (sources.length > 0) {
-    systemPrompt = `${systemPrompt}\n\n${renderContext(sources)}`;
+    baseSystemPrompt = `${baseSystemPrompt}\n\n${renderContext(sources)}`;
   }
 
   // --- calibration anchors -----------------------------------------------
@@ -186,9 +190,9 @@ export async function gradeEssay(
     anchors = [];
   }
   const anchorBlock = buildAnchorBlock(anchors, question, maxMark);
-  if (anchorBlock) systemPrompt = `${systemPrompt}\n\n${anchorBlock}`;
+  if (anchorBlock) baseSystemPrompt = `${baseSystemPrompt}\n\n${anchorBlock}`;
 
-  systemPrompt = `${systemPrompt}\n\n${RESPONSE_CONTRACT}`;
+  baseSystemPrompt = `${baseSystemPrompt}\n\n${RESPONSE_CONTRACT}`;
 
   const markSchemeImages = options.markSchemeImageDataUrls?.slice(0, 4) ?? [];
   const imageNote = markSchemeImages.length
@@ -207,7 +211,7 @@ export async function gradeEssay(
       : "unanchored";
 
   if (groundingStatus === "unanchored") {
-    systemPrompt = `${systemPrompt}\n\n` +
+    baseSystemPrompt = `${baseSystemPrompt}\n\n` +
       `CRITICAL KNOWLEDGE BASE NOTICE — NO SPECIFIC MARK SCHEME OR SYLLABUS MATCH FOUND:\n` +
       `No specific Cambridge 9708 mark scheme, syllabus section, or examiner report was found in the institution's knowledge base for this question (${question}), and no mark scheme screenshot was attached.\n\n` +
       `MARKING INSTRUCTIONS FOR UNANCHORED ESSAYS:\n` +
@@ -225,7 +229,6 @@ export async function gradeEssay(
     `"""\n${essayText}\n"""${imageNote}\n\n` +
     `CRITICAL DIRECTIVE: Scrutinize the student's submission against EVERY clause, qualifier, and command word of the exam question above. Ensure the evaluation directly addresses the exact question asked without shifting the goalposts.`;
 
-  let grading: Grading;
   let promptTokens: number | null = null;
   let completionTokens: number | null = null;
   let latencyMs = 0;
@@ -234,11 +237,19 @@ export async function gradeEssay(
   let modelSwapped = false;
   let activeKeyType: "primary" | "backup_pool" | "vip_fallback" | undefined = undefined;
 
-  // Authoritative Single-Shot Path with generous completion tokens for full-fledged feedback
-  const first = markSchemeImages.length
+  const runSinglePass = options.auditPass === false;
+
+  const pass1SystemPrompt = `${baseSystemPrompt}\n\n${PASS1_ERROR_CHECK_DIRECTIVE}`;
+  const pass2SystemPrompt = `${baseSystemPrompt}\n\n${PASS2_HOLISTIC_EVALUATION_DIRECTIVE}`;
+
+  let finalGrading: Grading;
+
+  if (runSinglePass) {
+    // Single pass path (used when audit is explicitly disabled)
+    const res = markSchemeImages.length
       ? await visionChat({
           model: MODEL_EXAMINER,
-          systemPrompt,
+          systemPrompt: pass2SystemPrompt,
           prompt: userMessage,
           imageDataUrls: markSchemeImages,
           maxCompletionTokens: 8192,
@@ -247,7 +258,7 @@ export async function gradeEssay(
         })
       : await chat({
           model: MODEL_EXAMINER,
-          temperature: TEMPERATURE_EXAMINER,
+          temperature: TEMPERATURE_PASS2,
           json: true,
           isBudgetTier: options.isBudgetTier,
           userId: options.userId,
@@ -255,99 +266,139 @@ export async function gradeEssay(
           reasoningEffort: "low",
           maxCompletionTokens: 8192,
           messages: [
-            { role: "system", content: systemPrompt },
+            { role: "system", content: pass2SystemPrompt },
             { role: "user", content: userMessage },
           ],
         });
 
-  grading = normaliseGrading(extractFirstJsonObject(first.text), maxMark, split);
-  if (grading.off_syllabus) {
-    throw new OffSyllabusError(
-      grading.detected_subject || "another subject",
-      grading.examiner_summary || "The examiner flagged this submission as outside the Cambridge 9708 Economics syllabus.",
-    );
-  }
-  promptTokens = first.promptTokens;
-  completionTokens = first.completionTokens;
-  latencyMs = first.latencyMs;
-  activeModel = first.model || MODEL_EXAMINER;
-  keyRotated = Boolean(first.keyRotated);
-  modelSwapped = Boolean(first.modelSwapped);
-  activeKeyType = first.activeKeyType;
-
-  // --- Double Audit Pass (Cambridge independent moderation) -----------------
-  if (options.auditPass !== false) {
-    const auditSystemPrompt = `${loadPrompt(AUDIT_PROMPT, promptValues)}\n\n${RESPONSE_CONTRACT}`;
-    const auditUserMessage =
-      `Exam question (${maxMark} marks):\n\n${question}\n\n` +
-      `Student essay:\n\n${essayText}\n\n` +
-      `Original examiner's grading JSON to audit:\n\n${JSON.stringify(grading, null, 2)}${imageNote}`;
-
-    try {
-      const second = markSchemeImages.length
-        ? await visionChat({
+    finalGrading = normaliseGrading(extractFirstJsonObject(res.text), maxMark, split);
+    if (finalGrading.off_syllabus) {
+      throw new OffSyllabusError(
+        finalGrading.detected_subject || "another subject",
+        finalGrading.examiner_summary || "The examiner flagged this submission as outside the Cambridge 9708 Economics syllabus.",
+      );
+    }
+    promptTokens = res.promptTokens;
+    completionTokens = res.completionTokens;
+    latencyMs = res.latencyMs;
+    activeModel = res.model || MODEL_EXAMINER;
+    keyRotated = Boolean(res.keyRotated);
+    modelSwapped = Boolean(res.modelSwapped);
+    activeKeyType = res.activeKeyType;
+  } else {
+    // Dual Examiner Passes with Varied Temperatures executed concurrently:
+    // Pass 1: Temperature 0.0 (Analytical rigor & error checking)
+    // Pass 2: Temperature 0.2 (Holistic evaluation & argument breadth)
+    const [first, second] = await Promise.all([
+      markSchemeImages.length
+        ? visionChat({
             model: MODEL_EXAMINER,
-            systemPrompt: auditSystemPrompt,
-            prompt: auditUserMessage,
+            systemPrompt: pass1SystemPrompt,
+            prompt: userMessage,
             imageDataUrls: markSchemeImages,
             maxCompletionTokens: 8192,
             userId: options.userId,
-            feature: "grade_essay_audit",
+            feature: "grade_essay_pass1_error_audit",
           })
-        : await chat({
+        : chat({
             model: MODEL_EXAMINER,
-            temperature: TEMPERATURE_EXAMINER,
+            temperature: TEMPERATURE_PASS1, // 0.0
             json: true,
             isBudgetTier: options.isBudgetTier,
             userId: options.userId,
-            feature: "grade_essay_audit",
+            feature: "grade_essay_pass1_error_audit",
             reasoningEffort: "low",
             maxCompletionTokens: 8192,
             messages: [
-              { role: "system", content: auditSystemPrompt },
-              { role: "user", content: auditUserMessage },
+              { role: "system", content: pass1SystemPrompt },
+              { role: "user", content: userMessage },
             ],
-          });
+          }),
+      markSchemeImages.length
+        ? visionChat({
+            model: MODEL_EXAMINER,
+            systemPrompt: pass2SystemPrompt,
+            prompt: userMessage,
+            imageDataUrls: markSchemeImages,
+            maxCompletionTokens: 8192,
+            userId: options.userId,
+            feature: "grade_essay_pass2_holistic",
+          })
+        : chat({
+            model: MODEL_EXAMINER,
+            temperature: TEMPERATURE_PASS2, // 0.2
+            json: true,
+            isBudgetTier: options.isBudgetTier,
+            userId: options.userId,
+            feature: "grade_essay_pass2_holistic",
+            reasoningEffort: "low",
+            maxCompletionTokens: 8192,
+            messages: [
+              { role: "system", content: pass2SystemPrompt },
+              { role: "user", content: userMessage },
+            ],
+          }),
+    ]);
 
-      const secondGrading = normaliseGrading(extractFirstJsonObject(second.text), maxMark, split);
-      secondGrading.audited = true;
-      promptTokens = (promptTokens ?? 0) + (second.promptTokens ?? 0);
-      completionTokens = (completionTokens ?? 0) + (second.completionTokens ?? 0);
-      latencyMs += second.latencyMs;
+    const grading1 = normaliseGrading(extractFirstJsonObject(first.text), maxMark, split);
+    const grading2 = normaliseGrading(extractFirstJsonObject(second.text), maxMark, split);
 
-      // Check dispute between examiner and auditor
-      const disputeCheck = shouldTriggerArbitration(grading, secondGrading, maxMark);
-      if (disputeCheck.shouldArbitrate) {
+    if (grading1.off_syllabus || grading2.off_syllabus) {
+      const rejected = grading1.off_syllabus ? grading1 : grading2;
+      throw new OffSyllabusError(
+        rejected.detected_subject || "another subject",
+        rejected.examiner_summary || "The examiner flagged this submission as outside the Cambridge 9708 Economics syllabus.",
+      );
+    }
+
+    promptTokens = (first.promptTokens ?? 0) + (second.promptTokens ?? 0);
+    completionTokens = (first.completionTokens ?? 0) + (second.completionTokens ?? 0);
+    latencyMs = Math.max(first.latencyMs, second.latencyMs);
+    activeModel = second.model || first.model || MODEL_EXAMINER;
+    keyRotated = Boolean(first.keyRotated || second.keyRotated);
+    modelSwapped = Boolean(first.modelSwapped || second.modelSwapped);
+    activeKeyType = second.activeKeyType ?? first.activeKeyType;
+
+    // --- Conclude Dual Passes Together for Final Grade ------------------------
+    const disputeCheck = shouldTriggerArbitration(grading1, grading2, maxMark);
+
+    if (disputeCheck.shouldArbitrate) {
+      // Discrepancy exceeds threshold (delta >= 2 or grade band mismatch):
+      // Principal Examiner arbitration resolves the dispute grounded in verbatim essay evidence
+      try {
         const arbitratedGrading = await arbitrateGrading({
           question,
           essayText,
           maxMark,
           split,
-          examinerGrading: grading,
-          moderatorGrading: secondGrading,
+          examinerGrading: grading1,
+          moderatorGrading: grading2,
           disputeReason: disputeCheck.reason,
+          userId: options.userId,
         });
-        grading = arbitratedGrading;
-      } else {
-        secondGrading.confidence = computeObjectiveConfidence(grading, secondGrading, false);
-        grading = secondGrading;
+        finalGrading = arbitratedGrading;
+      } catch (arbitrationErr) {
+        console.warn("[grade.server] Arbitration failed, synthesizing dual passes directly:", arbitrationErr);
+        finalGrading = synthesizeDualPasses(grading1, grading2, maxMark, split);
       }
-    } catch (auditError) {
-      console.warn("[grade.server] Audit pass skipped or failed; returning primary grading:", auditError);
+    } else {
+      // Passes converged within tolerance (delta <= 1 and matching band):
+      // Synthesize both passes, embedding Pass 1's error precision with Pass 2's holistic judgment
+      finalGrading = synthesizeDualPasses(grading1, grading2, maxMark, split);
     }
   }
 
-  grading.sources = sources;
-  grading.anchorsUsed = anchors.length;
-  grading.grounding_status = groundingStatus;
-  grading.model = activeModel;
-  grading.keyRotated = keyRotated;
-  grading.modelSwapped = modelSwapped;
-  grading.activeKeyType = activeKeyType;
-  grading.latencyMs = latencyMs;
+  finalGrading.sources = sources;
+  finalGrading.anchorsUsed = anchors.length;
+  finalGrading.grounding_status = groundingStatus;
+  finalGrading.model = activeModel;
+  finalGrading.keyRotated = keyRotated;
+  finalGrading.modelSwapped = modelSwapped;
+  finalGrading.activeKeyType = activeKeyType;
+  finalGrading.latencyMs = latencyMs;
 
   return {
-    grading,
+    grading: finalGrading,
     model: activeModel,
     promptTokens,
     completionTokens,
