@@ -162,7 +162,7 @@ In conclusion a mix of all the supply-side policies along with the implementatio
     expect(normalised.examiner_summary).toContain("Question-Fit Gate");
   });
 
-  it("detects Cambridge theoretical error traps correctly", () => {
+  it("detects Cambridge error traps correctly", () => {
     const textWithErrors = `
       Accelerating inflation is characterised by over a 50% increase in price level a month.
       Furthermore increased investment leads to a rise in money supply.
@@ -335,5 +335,80 @@ In conclusion a mix of all the supply-side policies along with the implementatio
     expect(normalised.ao_breakdown.evaluation.awarded).toBe(1);
     expect(normalised.total_mark).toBe(5);
     expect(normalised.band).toBe("Lower middle band");
+  });
+
+  it("USER REFINEMENT TEST: strips all 'theoretical error' wording and never repeats same error in feedback", () => {
+    const raw = {
+      total_mark: 7,
+      band: "Upper middle band",
+      ao_breakdown: {
+        knowledge: { awarded: 2, out_of: 2, comment: "Accurate definitions." },
+        analysis: {
+          awarded: 4,
+          out_of: 6,
+          comment: "Theoretical error: The candidate shifted demand curve left instead of supply curve.",
+        },
+        evaluation: { awarded: 1, out_of: 4, comment: "Mix of policies hedge." },
+      },
+      examiner_summary:
+        "The submission demonstrates good knowledge but contains a major theoretical error regarding curve shifts.",
+      weaknesses: [
+        "Theoretical error: Demand curve shifts left instead of supply curve.",
+        "Candidate shifted the demand curve to the left, which is incorrect.",
+        "Major theoretical error in PED elasticity analysis.",
+      ],
+      actionable_feedback: [
+        "Fix the theoretical error by shifting supply instead of demand.",
+        "Fix the theoretical error by shifting supply instead of demand.",
+      ],
+    };
+
+    const normalised = normaliseGrading(raw, 12, split);
+
+    // 1. Absolutely NO occurrence of "theoretical error" anywhere in the grading output
+    const fullFeedbackText = JSON.stringify(normalised).toLowerCase();
+    expect(fullFeedbackText).not.toContain("theoretical error");
+    expect(fullFeedbackText).not.toContain("theoretcial error");
+
+    // 2. Weaknesses must NOT repeat the curve shift error twice
+    const diagramWeaknesses = normalised.weaknesses.filter(
+      (w) => w.toLowerCase().includes("demand") && w.toLowerCase().includes("shift"),
+    );
+    expect(diagramWeaknesses.length).toBe(1);
+
+    // 3. Actionable feedback must be deduplicated
+    expect(normalised.actionable_feedback.length).toBe(1);
+    expect(normalised.actionable_feedback[0]).not.toContain("theoretical error");
+  });
+
+  it("adds pristine Cambridge examiner critique when errors are detected in text without LLM mentioning them", () => {
+    const question = "Assess whether indirect taxes are the best method to reduce demerit good consumption.";
+    const essayText = "An indirect tax shifts the demand curve to the left. The policy is very effective because demand is inelastic.";
+    const raw = {
+      total_mark: 9,
+      band: "Top band",
+      ao_breakdown: {
+        knowledge: { awarded: 2, out_of: 2, comment: "Good knowledge." },
+        analysis: { awarded: 5, out_of: 6, comment: "Analysis presented." },
+        evaluation: { awarded: 2, out_of: 4, comment: "Some evaluation." },
+      },
+      examiner_summary: "Good essay overall.",
+      weaknesses: [],
+    };
+
+    const normalised = normaliseGrading(raw, 12, split, question, essayText);
+
+    // Should have added the detected errors
+    expect(normalised.weaknesses.length).toBeGreaterThan(0);
+    // Neither should start with or contain "Theoretical error"
+    for (const w of normalised.weaknesses) {
+      expect(w).not.toContain("Theoretical error");
+      expect(w).not.toContain("theoretical error");
+    }
+    // Should have exactly 1 diagram weakness and 1 elasticity weakness (no duplicates)
+    const curvePoints = normalised.weaknesses.filter((w) => w.toLowerCase().includes("shift") || w.toLowerCase().includes("curve"));
+    const pedPoints = normalised.weaknesses.filter((w) => w.toLowerCase().includes("elasticity") || w.toLowerCase().includes("inelastic"));
+    expect(curvePoints.length).toBe(1);
+    expect(pedPoints.length).toBe(1);
   });
 });

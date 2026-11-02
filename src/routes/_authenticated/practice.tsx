@@ -433,9 +433,9 @@ function AoFixerPage() {
           ],
         },
         {
-          label: "Verifying Theoretical Accuracy & Curve Shift Directions",
+          label: "Verifying Analytical Accuracy & Curve Shift Directions",
           weight: 3,
-          shortTitle: "Theoretical Accuracy",
+          shortTitle: "Analytical Accuracy",
           backendDetails: [
             "Checking for common Cambridge traps (supply vs demand shifts, shift directions).",
             "Ensuring diagrammatic equilibrium changes match written argument.",
@@ -1440,7 +1440,7 @@ function AoFixerPage() {
                     ))
                   ) : (
                     <div className="space-y-1.5 text-[11px] text-muted-foreground">
-                      <p>• Major theoretical errors cap analytical marks.</p>
+                      <p>• Major analytical inaccuracies cap analysis marks.</p>
                       <p>• Gaps or assertions in causal chains prevent reaching the top band.</p>
                       <p>• Ensure all points connect cause → mechanism → effect → link back to prompt.</p>
                     </div>

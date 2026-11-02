@@ -83,10 +83,37 @@ function cleanComment(comment: string): string {
   return cleaned;
 }
 
+/**
+ * Strips robotic prefixes like "Theoretical error:" or "Error:" and softens
+ * academic phrasing so candidate feedback is constructive, educational, and pristine.
+ */
+export function cleanPristineExaminerFeedback(text: string): string {
+  if (!text || typeof text !== "string") return "";
+  let s = cleanComment(text);
+  // Remove robotic prefixes
+  s = s.replace(/^(?:major\s+)?theoretical\s+errors?\s*[:\-]\s*/gi, "");
+  s = s.replace(/^(?:major\s+)?analytical\s+errors?\s*[:\-]\s*/gi, "");
+  s = s.replace(/^(?:major\s+)?economic\s+errors?\s*[:\-]\s*/gi, "");
+  // Replace inline phrases with singular/plural sensitivity
+  s = s.replace(/\b(?:major\s+)?theoretcial\s+errors?\b/gi, (m) =>
+    /errors/i.test(m) ? "analytical inaccuracies" : "analytical inaccuracy",
+  );
+  s = s.replace(/\b(?:major\s+)?theoretical\s+errors?\b/gi, (m) =>
+    /errors/i.test(m) ? "analytical inaccuracies" : "analytical inaccuracy",
+  );
+  s = s.replace(/\btheoretical\s+and\s+diagrammatic\s+errors?\b/gi, "diagrammatic and analytical inaccuracies");
+  s = s.replace(/\btheoretical\s+blunder\b/gi, "analytical flaw");
+  s = s.replace(/\btheoretical\s+inaccuracy\b/gi, "analytical inaccuracy");
+  s = s.replace(/\btheoretical\s+inaccuracies\b/gi, "analytical inaccuracies");
+  s = s.replace(/\btheoretical\s+analysis\b/gi, "analytical reasoning");
+  s = s.replace(/\s{2,}/g, " ").trim();
+  return s;
+}
+
 function toStringArray(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
   return value
-    .map((item) => cleanComment(typeof item === "string" ? item : JSON.stringify(item)))
+    .map((item) => cleanPristineExaminerFeedback(typeof item === "string" ? item : JSON.stringify(item)))
     .filter((item) => item.length > 0);
 }
 
@@ -101,7 +128,7 @@ function normaliseAo(value: unknown, outOf: number): AoScore {
   return {
     awarded: Math.max(0, Math.min(declaredOutOf, Math.round(toNumber(raw.awarded, 0)))),
     out_of: declaredOutOf,
-    comment: cleanComment(String(raw.comment ?? "")),
+    comment: cleanPristineExaminerFeedback(String(raw.comment ?? "")),
   };
 }
 
@@ -112,7 +139,7 @@ export interface DetectedError {
 }
 
 /**
- * Scans candidate text for Cambridge 9708 mandatory theoretical errors.
+ * Scans candidate text for Cambridge 9708 mandatory economic errors.
  */
 export function detectEconomicErrors(essayText: string): DetectedError[] {
   const errors: DetectedError[] = [];
@@ -480,6 +507,167 @@ export function detectHedgeConclusion(essayText: string): {
   return { isHedge: false };
 }
 
+export interface ErrorDescriptor {
+  category: "diagram" | "elasticity" | "formula" | "definition" | "mechanism";
+  text: string;
+}
+
+export const ERROR_DESCRIPTIONS: Record<string, ErrorDescriptor> = {
+  tax_demand_shift: {
+    category: "diagram",
+    text: "Curve shift error: An indirect tax increases production costs and shifts the market supply curve upwards/leftwards; it does not shift the demand curve (consumption contracts along the demand curve).",
+  },
+  shift_directions: {
+    category: "diagram",
+    text: "Curve shift direction: Indirect taxes increase production costs and shift supply leftwards, whereas subsidies lower costs and shift supply rightwards.",
+  },
+  price_causes_shift: {
+    category: "diagram",
+    text: "Movement vs shift: A change in market price causes a movement along the demand or supply curve, never a shift of the curve itself.",
+  },
+  demand_shifting_supply: {
+    category: "diagram",
+    text: "Interdependence inaccuracy: A change in demand alters equilibrium market price and quantity, but does not directly shift the supply curve.",
+  },
+  diagram_shift_error: {
+    category: "diagram",
+    text: "Diagrammatic inaccuracy: The essay incorrectly shifts the wrong curve or confuses a movement along the curve with an exogenous curve shift.",
+  },
+  ped_inelastic_effectiveness: {
+    category: "elasticity",
+    text: "Flawed elasticity reasoning: When demand is price inelastic, quantity demanded falls proportionally less than price rises (%ΔQd < %ΔP), meaning an indirect tax is less effective at cutting consumption, despite generating higher tax revenue.",
+  },
+  ped_logical_error: {
+    category: "elasticity",
+    text: "Elasticity inaccuracy: Inelastic demand implies consumers are relatively unresponsive to price increases, so an indirect tax has a muted impact on reducing quantity consumed.",
+  },
+  inverted_ped_formula: {
+    category: "formula",
+    text: "Formula error: Price elasticity of demand is defined as %ΔQd / %ΔP; inverting the ratio undermines quantitative elasticity analysis.",
+  },
+  formula_error: {
+    category: "formula",
+    text: "Formula inaccuracy: Economic calculations or elasticity formulas must correctly specify the independent and dependent percentage variables.",
+  },
+  hyperinflation: {
+    category: "definition",
+    text: "Definitional imprecision: A monthly price level rise exceeding 50% defines hyperinflation, whereas accelerating inflation denotes an increasing rate of inflation.",
+  },
+  investment_money_supply: {
+    category: "mechanism",
+    text: "Transmission flaw: Capital investment increases aggregate demand and productive capacity, but does not directly expand the broad money supply.",
+  },
+  as_equals_ad: {
+    category: "mechanism",
+    text: "Mechanism gap: Stating that AS equals AD describes macroeconomic equilibrium rather than explaining the transmission mechanism causing disinflation.",
+  },
+  analysis_mechanism_error: {
+    category: "mechanism",
+    text: "Analytical flaw: Causal transmission mechanisms fail to logically trace how the initial economic shock leads to the asserted market outcome.",
+  },
+};
+
+/**
+ * Checks whether an array of feedback points already covers a specific error category.
+ */
+export function coversErrorCategory(
+  items: string[],
+  category: "diagram" | "elasticity" | "formula" | "definition" | "mechanism",
+): boolean {
+  return items.some((item) => {
+    const s = item.toLowerCase();
+    switch (category) {
+      case "diagram":
+        return (
+          ((s.includes("demand") || s.includes("supply")) &&
+            (s.includes("shift") || s.includes("curve") || s.includes("movement") || s.includes("contract"))) ||
+          s.includes("curve does not shift") ||
+          s.includes("wrong curve") ||
+          s.includes("shift left") ||
+          s.includes("shift right") ||
+          s.includes("movement along") ||
+          s.includes("contracts along") ||
+          s.includes("diagram")
+        );
+      case "elasticity":
+        return (
+          s.includes("ped") ||
+          s.includes("price elasticity") ||
+          (s.includes("elasticity") && (s.includes("inelastic") || s.includes("elastic") || s.includes("flaw") || s.includes("error")))
+        );
+      case "formula":
+        return s.includes("formula") || s.includes("%Δ") || s.includes("calculation");
+      case "definition":
+        return s.includes("hyperinflation") || s.includes("accelerating inflation") || s.includes("definition");
+      case "mechanism":
+        return s.includes("money supply") || s.includes("as equals ad") || s.includes("transmission");
+      default:
+        return false;
+    }
+  });
+}
+
+/**
+ * Deduplicates examiner feedback points so the same concept/error is not repeated.
+ */
+export function deduplicateFeedbackPoints(points: string[]): string[] {
+  const result: string[] = [];
+  for (const pt of points) {
+    const cleaned = cleanPristineExaminerFeedback(pt);
+    if (!cleaned || cleaned.length < 10) continue;
+
+    const s = cleaned.toLowerCase();
+    const isDiagram =
+      ((s.includes("demand") || s.includes("supply")) && (s.includes("shift") || s.includes("curve") || s.includes("movement") || s.includes("contract"))) ||
+      s.includes("curve does not shift") ||
+      s.includes("wrong curve") ||
+      s.includes("movement along") ||
+      s.includes("contracts along");
+    const isPed =
+      s.includes("ped") ||
+      s.includes("price elasticity") ||
+      (s.includes("elasticity") && (s.includes("inelastic") || s.includes("effective")));
+    const isQuestionFit =
+      (s.includes("alternative") || s.includes("compare") || s.includes("best method") || s.includes("best policy")) &&
+      (s.includes("does not") || s.includes("fail") || s.includes("omit") || s.includes("without"));
+
+    const isDuplicate = result.some((existing) => {
+      const ex = existing.toLowerCase();
+      if (
+        isDiagram &&
+        (((ex.includes("demand") || ex.includes("supply")) && (ex.includes("shift") || ex.includes("curve") || ex.includes("movement") || ex.includes("contract"))) ||
+          ex.includes("curve does not shift") ||
+          ex.includes("movement along") ||
+          ex.includes("contracts along"))
+      ) {
+        return true;
+      }
+      if (
+        isPed &&
+        (ex.includes("ped") || ex.includes("price elasticity") || (ex.includes("elasticity") && (ex.includes("inelastic") || ex.includes("effective"))))
+      ) {
+        return true;
+      }
+      if (
+        isQuestionFit &&
+        (ex.includes("alternative") || ex.includes("compare") || ex.includes("best method") || ex.includes("best policy")) &&
+        (ex.includes("does not") || ex.includes("fail") || ex.includes("omit") || ex.includes("without"))
+      ) {
+        return true;
+      }
+      if (ex === s || (s.length > 30 && ex.includes(s.slice(0, 30))) || (ex.length > 30 && s.includes(ex.slice(0, 30)))) {
+        return true;
+      }
+      return false;
+    });
+
+    if (!isDuplicate) {
+      result.push(cleaned);
+    }
+  }
+  return result;
+}
+
 /**
  * Coerce raw model JSON into a Grading. Enforces the fixed AO allocation:
  * the model is never allowed to redistribute marks or invent an `out_of`.
@@ -659,7 +847,7 @@ export function normaliseGrading(
       const initialAo2 = analysis.awarded;
       analysis.awarded = Math.max(1, Math.min(initialAo2 - 2, targetAo2Cap));
       auditNotes.push(
-        `AO2 Analysis Accuracy Penalty: Identified major diagram/curve shift error and flawed PED analysis. Under Cambridge 9708 standards, theoretical and diagrammatic errors require direct mark deductions in AO2 Analysis; AO2 Analysis capped at ${analysis.awarded}/${ao2Max}.`,
+        `AO2 Analysis Accuracy Penalty: Identified major diagram/curve shift error and flawed PED analysis. Under Cambridge 9708 standards, diagrammatic and elasticity inaccuracies require direct mark deductions in AO2 Analysis; AO2 Analysis capped at ${analysis.awarded}/${ao2Max}.`,
       );
     } else if (majorAnalysisCount >= 2) {
       // 2 or more major analysis/formula errors:
@@ -701,7 +889,7 @@ export function normaliseGrading(
         const targetAo3 = split.ao3_marks > 0 ? (hasConclusionAttempt ? 1 : Math.min(evaluation.awarded, 1)) : 0;
         evaluation.awarded = targetAo3;
 
-        // 2+ major theoretical errors + Question-Fit failure: Table A strictly capped at Level 2 bottom band (3/8)
+        // 2+ major analytical errors + Question-Fit failure: Table A strictly capped at Level 2 bottom band (3/8)
         const targetTableA = Math.round(3 * (tableAMax / 8));
         const targetAo1 = Math.min(knowledge.awarded, Math.max(1, Math.round(targetTableA * (split.ao1_marks / tableAMax))));
         const targetAo2 = Math.min(analysis.awarded, targetTableA - targetAo1);
@@ -709,7 +897,7 @@ export function normaliseGrading(
         analysis.awarded = Math.max(1, targetAo2);
 
         auditNotes.push(
-          "Question-Fit Gate & Major Errors Cap: Essay addresses 'does supply-side policy work?' rather than evaluating if it is the 'best' method against alternatives, and contains 2+ major theoretical errors. Table A (AO1+AO2) is capped at Level 2 bottom band (3/8) and AO3 is capped at 1/4 under Cambridge 9708 examiner standards.",
+          "Question-Fit Gate & Major Errors Cap: Essay addresses 'does supply-side policy work?' rather than evaluating if it is the 'best' method against alternatives, and contains 2+ major analytical inaccuracies. Table A (AO1+AO2) is capped at Level 2 bottom band (3/8) and AO3 is capped at 1/4 under Cambridge 9708 examiner standards.",
         );
       } else {
         // Question dodge without major errors: allow Level 2 (max 2/4 for AO3) for evaluating policy limitations
@@ -792,12 +980,12 @@ export function normaliseGrading(
 
   const rawMissing = (raw.missing_elements ?? {}) as Record<string, unknown>;
 
-  let strengths = toStringArray(raw.strengths);
-  let weaknesses = toStringArray(raw.weaknesses);
-  let actionableFeedback = toStringArray(raw.actionable_feedback);
-  let suggestedResources = toStringArray(raw.suggested_resources);
-  let suggestedPractice = toStringArray(raw.suggested_practice);
-  let examinerSummary = cleanComment(String(raw.examiner_summary ?? ""));
+  let strengths = toStringArray(raw.strengths).map(cleanPristineExaminerFeedback);
+  let weaknesses = toStringArray(raw.weaknesses).map(cleanPristineExaminerFeedback);
+  let actionableFeedback = toStringArray(raw.actionable_feedback).map(cleanPristineExaminerFeedback);
+  let suggestedResources = toStringArray(raw.suggested_resources).map(cleanPristineExaminerFeedback);
+  let suggestedPractice = toStringArray(raw.suggested_practice).map(cleanPristineExaminerFeedback);
+  let examinerSummary = cleanPristineExaminerFeedback(String(raw.examiner_summary ?? ""));
 
   // Append audit summary if accuracy caps were triggered
   if (auditNotes.length > 0) {
@@ -811,14 +999,24 @@ export function normaliseGrading(
       examinerSummary = examinerSummary ? `${examinerSummary}\n\n${auditSummary}` : auditSummary;
     }
 
-    // Ensure detected errors are reflected in weaknesses
+    // Ensure detected errors are reflected in weaknesses without duplication or robotic phrasing
     for (const err of detectedErrors) {
-      const alreadyInWeaknesses = weaknesses.some((w) => w.toLowerCase().includes(err.id));
-      if (!alreadyInWeaknesses) {
-        weaknesses.unshift(`Theoretical error: ${err.trap}`);
+      const desc = ERROR_DESCRIPTIONS[err.id];
+      const category = desc?.category;
+
+      const alreadyCovered = category
+        ? coversErrorCategory(weaknesses, category)
+        : weaknesses.some((w) => w.toLowerCase().includes(err.id.replace(/_/g, " ")));
+
+      if (!alreadyCovered && desc) {
+        weaknesses.unshift(desc.text);
       }
     }
   }
+
+  // Deduplicate weaknesses and actionable feedback so no errors are repeated
+  weaknesses = deduplicateFeedbackPoints(weaknesses);
+  actionableFeedback = deduplicateFeedbackPoints(actionableFeedback);
 
   if (isUnrelated) {
     if (!examinerSummary || examinerSummary.length < 25) {
@@ -858,7 +1056,7 @@ export function normaliseGrading(
     weaknesses = [
       "Economic transmission mechanisms can be extended further to connect intermediate changes with final macroeconomic and welfare outcomes.",
       "Evaluation could be deepened by explicitly weighing opposing arguments on a shared criterion such as time frame, elasticity, or relative magnitude.",
-      "Substantiating theoretical arguments with concrete context or specific scenarios would elevate the answer to the top band.",
+      "Substantiating analytical arguments with concrete context or specific real-world examples would elevate the answer to the top band.",
     ];
   }
 

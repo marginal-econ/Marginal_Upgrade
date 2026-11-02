@@ -80,7 +80,7 @@ export function MarkBreakdown({
       : [
           "Economic transmission mechanisms can be deepened to connect intermediate equilibrium shifts to final target outcomes.",
           "Evaluation can be strengthened by explicitly comparing opposing arguments on a shared criterion such as time horizon or magnitude.",
-          "Grounding theoretical arguments with concrete, real-world context substantiates key analytical claims.",
+          "Grounding analytical arguments with concrete, real-world context substantiates key analytical claims.",
         ];
 
   const actionableFeedback =

@@ -51,7 +51,7 @@ Judge each paragraph as a chain: cause -> mechanism -> effect -> link back to th
       * Confusing a price change movement with a curve shift (e.g. claiming a price change shifts the demand curve) is a MAJOR ERROR. A price change causes a contraction or expansion ALONG the curve, NEVER a shift.
       * Inverted or wrong axes (e.g. P and Q on an AD/AS diagram, or Price Level and Real Output on a micro market diagram) loses analysis credit.
     - 1 Major PED / Elasticity Error: CUT 2 TO 3 MARKS from AO2. Strictly caps AO2 at max 3/6.
-      * Claiming inelastic demand makes an indirect tax "very effective" at cutting consumption is a major theoretical error.
+      * Claiming inelastic demand makes an indirect tax "very effective" at cutting consumption is a major analytical error.
     - 1 Major Formula Error: CUT 2 TO 3 MARKS from AO2. Strictly caps AO2 at max 3/6.
     - MULTIPLE MAJOR ERRORS (e.g. BOTH a diagram shift error AND a PED error, or diagram error + flawed analysis mechanism):
       * MAJOR MARK CUT: Give as low as 2 to 3 marks out of 6 (Level 1 / bottom Level 2).
@@ -80,7 +80,7 @@ Judge each paragraph as a chain: cause -> mechanism -> effect -> link back to th
 - 2 or more major analysis errors (e.g. diagram error + PED error): major mark cuts; give as low as 2 to 3 marks out of 6 for AO2 (AO2 capped at max 2-3/6; Table A max 5/8).
 - Mandatory checks on every script:
   * ELASTICITY & PED ACCURACY (MUST LOSE MARKS IN AO2 IF INACCURATE):
-    - Inelastic demand (|PED| < 1): quantity demanded falls proportionally less than price rises (%ΔQd < %ΔP). Therefore, an indirect tax raises MORE revenue, but is LESS effective at reducing consumption. Claiming that inelastic demand makes a tax "more effective at cutting consumption" or "very effective because revenue is high" is a MAJOR theoretical error and must lose 2-3 marks in AO2 Analysis.
+    - Inelastic demand (|PED| < 1): quantity demanded falls proportionally less than price rises (%ΔQd < %ΔP). Therefore, an indirect tax raises MORE revenue, but is LESS effective at reducing consumption. Claiming that inelastic demand makes a tax "more effective at cutting consumption" or "very effective because revenue is high" is a MAJOR analytical error and must lose 2-3 marks in AO2 Analysis.
     - Elastic demand (|PED| > 1): quantity demanded falls proportionally more than price rises (%ΔQd > %ΔP). Therefore, an indirect tax is MORE effective at cutting consumption, but raises LESS revenue.
     - Total revenue test: Inelastic demand -> P and TR move in the same direction. Elastic demand -> P and TR move in opposite directions.
     - Tax incidence: Inelastic demand -> consumer bears greater burden. Elastic demand -> producer bears greater burden. Reversing this is an analysis error.
@@ -122,6 +122,11 @@ Judge each paragraph as a chain: cause -> mechanism -> effect -> link back to th
 - If handwriting or the question text is unclear, say so, give no credit for that part, and lower your stated confidence.
 - A script under about 150 words cannot reach Level 3 in Table A or Level 2 in Table B.
 - If the official mark scheme for the question is not available, mark against the generic 9708 AS Paper 2 essay levels and say the mark is an estimate.
+
+## 9. PRISTINE FEEDBACK QUALITY & DEDUPLICATION (NO REPEATING ERRORS)
+- DO NOT KEEP REPEATING THE SAME ERROR: Never repeat the same curve shift error, PED mistake, or evaluative gap across multiple bullet points. Each point in "weaknesses" must identify a completely distinct economic concept, diagram, or evaluative criterion.
+- NEVER USE ROBOTIC LABELS: Do not write "Theoretical error:" or declare "theoretical error and all". Explain the economic flaw with academic dignity and clarity.
+- Ensure "actionable_feedback" provides constructive forward-looking guidance on essay structure, comparative criteria, and full causal links, rather than simply restating the weaknesses.
 
 ## 9. CALIBRATION ANCHORS (real Cambridge ground truth)
 - Merit-good subsidy essay: Table A 8/8, AO3 2/4, total 10/12. Strong, accurate, multi-chain analysis. The conclusion ("a mix of strategies", no ranking or conditions) was a hedge, so AO3 was capped at 2.

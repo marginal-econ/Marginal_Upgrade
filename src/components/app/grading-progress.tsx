@@ -23,9 +23,9 @@ const DEFAULT_STAGE_DETAILS: Record<number, { title: string; bullets: string[] }
   1: {
     title: "Assessment Objectives Analysis (AO1 Knowledge & AO2 Analysis)",
     bullets: [
-      "AO1 (Knowledge & Understanding): Verifying accuracy of economic definitions, theoretical terms, and foundational principles.",
+      "AO1 (Knowledge & Understanding): Verifying accuracy of economic definitions, conceptual terms, and foundational principles.",
       "AO2 (Analysis): Tracing cause-and-effect transmission chains (e.g. monetary policy adjustments -> cost of borrowing -> consumption & investment -> AD shifts).",
-      "Diagrammatical Alignment: Ensuring theoretical assertions match the shifts and equilibrium points represented in the essay.",
+      "Diagrammatical Alignment: Ensuring analytical assertions match the shifts and equilibrium points represented in the essay.",
     ],
   },
   2: {
@@ -58,7 +58,7 @@ const LIVE_BACKEND_OPERATIONS = [
   { atSec: 0, title: "Query Ingestion & Syllabus Expansion", detail: "Expanding question into Cambridge 9708 micro/macro syllabus keywords..." },
   { atSec: 3, title: "Knowledge Base Vector Search", detail: "Querying Supabase pgvector across official mark schemes, coursebooks, and syllabus..." },
   { atSec: 7, title: "Syllabus Grounding & Descriptors", detail: "Grounding evaluation against verified level descriptors and past exam benchmarks..." },
-  { atSec: 11, title: "AO1 Theoretical Audit", detail: "Scrutinizing economic terminology, definitions, and foundational models..." },
+  { atSec: 11, title: "AO1 Conceptual & Terminology Audit", detail: "Scrutinizing economic terminology, definitions, and foundational models..." },
   { atSec: 15, title: "AO2 Analytical Transmission Chains", detail: "Tracing cause-and-effect logic steps and diagrammatical equilibrium shifts..." },
   { atSec: 19, title: "AO3 Critical Evaluation Audit", detail: "Testing ceteris paribus assumptions, short-run vs long-run trade-offs, and elasticity..." },
   { atSec: 23, title: "Senior Examiner Calibration", detail: "Harmonizing raw marks against historical Cambridge 9708 grade boundaries..." },

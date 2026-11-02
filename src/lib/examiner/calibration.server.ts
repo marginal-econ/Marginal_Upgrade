@@ -28,11 +28,11 @@ export const BUILT_IN_CAMBRIDGE_ANCHORS: Anchor[] = [
       "The candidate writes extensively on how various supply-side policies work, but completely fails to analyze alternative policies " +
       "(contractionary monetary policy: interest rates; contractionary fiscal policy: taxation/government spending) on a stated criterion. " +
       "Under Cambridge rules, answering 'does X work?' instead of 'is X the best?' caps Table A at Level 2 (max 5/8) and caps AO3 at 1/4. " +
-      "2. Three Major Economic Theoretical Errors: " +
+      "2. Three Major Economic Analytical Errors: " +
       "- Paragraph 2: Confuses accelerating inflation with hyperinflation (states accelerating inflation is 'characterised by over a 50% increase in price level a month' - this is hyperinflation, whereas accelerating inflation is merely an increasing inflation rate). " +
       "- Paragraph 4: Meaningless mechanism: claims demand-pull inflation decreases 'as slowly equals AD' (AS=AD is equilibrium, not a transmission mechanism). " +
       "- Paragraph 8: Asserts that investment leads to a 'rise in money supply' (investment is AD component I; it does not automatically expand the money supply). " +
-      "Two or more major theoretical errors strictly caps Table A at Level 2 (max 5/8), and in this flawed context Table A earns 3/8. " +
+      "Two or more major analytical errors strictly caps Table A at Level 2 (max 5/8), and in this flawed context Table A earns 3/8. " +
       "3. Capped Hedge Conclusion (AO3: 1/4): The candidate concludes with 'a mix of all the supply-side policies along with the implementation of contractionary demand side policies', " +
       "a classic unranked hedge. Because no alternative policy was analysed in the essay body and no comparative weighing occurred, Table B is strictly capped at 1/4. " +
       "Total: Table A (3/8) + Table B (1/4) = 4/12.",
