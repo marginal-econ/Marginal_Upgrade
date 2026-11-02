@@ -63,20 +63,20 @@ export function renderAoDefinitions(): string {
  */
 export const AO_MAX_MARKS = { ao1: 2, ao2: 6, ao3: 4 } as const;
 
-/** Calibrated temperature (0.20): provides deep, articulate, highly detailed pedagogical feedback while maintaining deterministic Cambridge mark capping. */
-export const TEMPERATURE_EXAMINER = 0.20;
+/** Balanced temperature: reliable grading with natural, rich qualitative examiner feedback. */
+export const TEMPERATURE_EXAMINER = 0.2;
 export const TEMPERATURE_TUTOR = 0.4;
 
 export const MAX_ANCHORS_PER_BAND = 2;
 
 /**
- * High-Speed Mistral AI Configuration:
+ * High-Speed 1M Context Gemini Flash Configuration:
  *
- * All pipelines are configured to use Mistral: mistral-large-latest for full essay marking
- * and mistral-small-latest for instant sub-2-second live feedback, candidate verification, and estimates.
+ * All pipelines are strictly locked to google/gemini-3.8-flash for maximum throughput,
+ * zero timeout degradation, and instant sub-2.5-second Cambridge 9708 evaluation.
  */
-export const MODEL_EXAMINER = "mistral-large-latest";
-export const MODEL_FAST = "mistral-small-latest";
+export const MODEL_EXAMINER = "google/gemini-3.8-flash";
+export const MODEL_FAST = "google/gemini-3.8-flash";
 
 /**
  * Task-specific model assignments. All mapped directly to Gemini 3.8 Flash:

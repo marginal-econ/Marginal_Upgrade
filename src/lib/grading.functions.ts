@@ -97,7 +97,6 @@ export const gradeEssaySubmission = createServerFn({ method: "POST" })
       !sub.isTeacher &&
       (sub.tier === "free" || sub.tier === "foundation" || sub.tier === "scholar_plus");
 
-    const gradeCallStart = Date.now();
     let outcome;
     try {
       outcome = await gradeEssay(supabase, {
@@ -111,9 +110,6 @@ export const gradeEssaySubmission = createServerFn({ method: "POST" })
         userId,
         skipSyllabusPreflight: true,
       });
-      const elapsedTotalMs = Date.now() - gradeCallStart;
-      outcome.latencyMs = Math.max(outcome.latencyMs || 0, elapsedTotalMs);
-      outcome.grading.latencyMs = outcome.latencyMs;
     } catch (error) {
       // The grading never happened, so it shouldn't use up today's allowance.
       try {
@@ -317,53 +313,34 @@ export const checkQuestionGrounding = createServerFn({ method: "POST" })
     if (data.question.length < 15) return { checked: false, grounded: false, sourceCount: 0 };
     const { retrieve } = await import("./retrieval.server");
     try {
-      // 1. Search with a fast race timeout to keep UI snappy
-      let sources: any[] = [];
-      try {
-        sources = await Promise.race([
-          retrieve(context.supabase, {
-            query: data.question,
-            matchCount: 6,
-            minSimilarity: 0.45,
-          }),
-          new Promise<any[]>((_, reject) => setTimeout(() => reject(new Error("Timeout")), 3000)),
-        ]);
-      } catch {}
+      // 1. First search: direct question against coursebooks, syllabus, notes, and past papers
+      let sources = await retrieve(context.supabase, {
+        query: data.question,
+        matchCount: 6,
+        minSimilarity: 0.45,
+      });
 
-      if (sources && sources.length > 0) {
-        const top = sources[0];
-        return {
-          checked: true,
-          grounded: true,
-          sourceCount: sources.length,
-          topMatchTitle: top?.documentTitle ?? null,
-          topMatchDocType: top?.docType ?? null,
-          topSimilarity: top?.similarity ?? null,
-        };
+      // 2. Second search fallback: enriched query with mark scheme / coursebook terms
+      if (!sources || sources.length === 0) {
+        sources = await retrieve(context.supabase, {
+          query: `${data.question}\n\nMark scheme, coursebook chapter, band descriptors and syllabus guidance.`,
+          matchCount: 6,
+          minSimilarity: 0.40,
+        });
       }
 
-      const { decodeExamQuestion } = await import("./examiner/accuracy-rules");
-      const decoded = decodeExamQuestion(data.question);
+      const top = sources?.[0];
       return {
         checked: true,
-        grounded: true,
-        sourceCount: 1,
-        topMatchTitle: `Official Cambridge 9708 ${decoded.topic} Assessment Standards`,
-        topMatchDocType: "syllabus",
-        topSimilarity: 0.95,
+        grounded: (sources?.length ?? 0) > 0,
+        sourceCount: sources?.length ?? 0,
+        topMatchTitle: top?.documentTitle ?? null,
+        topMatchDocType: top?.docType ?? null,
+        topSimilarity: top?.similarity ?? null,
       };
     } catch (err) {
       console.warn("[checkQuestionGrounding] Retrieval warning:", err);
-      const { decodeExamQuestion } = await import("./examiner/accuracy-rules");
-      const decoded = decodeExamQuestion(data.question);
-      return {
-        checked: true,
-        grounded: true,
-        sourceCount: 1,
-        topMatchTitle: `Official Cambridge 9708 ${decoded.topic} Assessment Standards`,
-        topMatchDocType: "syllabus",
-        topSimilarity: 0.95,
-      };
+      return { checked: false, grounded: false, sourceCount: 0 };
     }
   });
 

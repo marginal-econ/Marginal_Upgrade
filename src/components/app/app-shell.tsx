@@ -128,12 +128,6 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { to: "/admin", label: "Admin Console", icon: ShieldCheck, badge: "Root" },
       {
-        to: "/practice",
-        label: "AO Fixer",
-        icon: Target,
-        badge: "Admin Only",
-      },
-      {
         to: "/live-examiner",
         label: "Live Examiner Studio",
         icon: Sparkles,

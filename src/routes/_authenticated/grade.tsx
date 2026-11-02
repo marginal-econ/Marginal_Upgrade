@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
   AlertCircle,
+  AlertTriangle,
   Camera,
   CheckCircle2,
   Clock,
@@ -58,7 +59,6 @@ import { analyzeGrammarAndMechanics } from "@/lib/live-examiner/grammar-engine";
 import { splitSentences } from "@/lib/writing-check/sentence-diff";
 import { getMe } from "@/lib/account.functions";
 import { cn } from "@/lib/utils";
-import { decodeExamQuestion } from "@/lib/examiner/accuracy-rules";
 import type { Grading } from "@/lib/examiner/types";
 
 // Optional prefill from the Question bank, Practice desk, or Classroom Direct Grading
@@ -294,8 +294,7 @@ function GradePage() {
   // Optional and on by default; turning it off skips the check entirely
   // instead of forcing that extra round trip before marking can start.
   const [spellCheckEnabled, setSpellCheckEnabled] = useState(true);
-  const [result, setResult] = useState<{ grading: Grading; essayId: string | null; latencyMs?: number } | null>(null);
-  const gradeStartTimeRef = useRef<number>(0);
+  const [result, setResult] = useState<{ grading: Grading; essayId: string | null } | null>(null);
 
   // A student can reference more than one diagram in the same essay (e.g. a
   // supply/demand diagram AND a PPC diagram) — each attached diagram becomes
@@ -431,9 +430,8 @@ function GradePage() {
   });
 
   const mutation = useMutation({
-    mutationFn: () => {
-      gradeStartTimeRef.current = Date.now();
-      return grade({
+    mutationFn: () =>
+      grade({
         data: {
           question,
           essayText,
@@ -444,15 +442,9 @@ function GradePage() {
           markSchemeImageDataUrls:
             markSchemeImages.length > 0 ? markSchemeImages.map((img) => img.dataUrl) : undefined,
         },
-      });
-    },
+      }),
     onSuccess: (data) => {
-      const elapsed = Date.now() - (gradeStartTimeRef.current || Date.now());
-      const accurateLatencyMs = Math.max(elapsed, data.latencyMs || data.grading?.latencyMs || 0);
-      if (data.grading) {
-        data.grading.latencyMs = accurateLatencyMs;
-      }
-      setResult({ grading: data.grading as Grading, essayId: data.essayId, latencyMs: accurateLatencyMs });
+      setResult({ grading: data.grading as Grading, essayId: data.essayId });
       queryClient.invalidateQueries({ queryKey: ["essays"] });
       queryClient.invalidateQueries({ queryKey: ["progress"] });
       try {
@@ -674,16 +666,31 @@ function GradePage() {
                   onChange={(event) => setQuestion(event.target.value)}
                 />
                 {question.trim().length >= 15 ? (
-                  <div className="flex items-center gap-1.5 text-[11px] text-emerald-400 font-medium">
-                    <CheckCircle2 className="size-3.5 shrink-0 text-emerald-400" />
-                    <span>
-                      {groundingQuery.data?.grounded &&
-                      groundingQuery.data.topMatchTitle &&
-                      !groundingQuery.data.topMatchTitle.startsWith("Official")
-                        ? `Cambridge 9708 Grounded: Verified against ${groundingQuery.data.topMatchTitle} (${Math.round((groundingQuery.data.topSimilarity ?? 0) * 100)}% match)`
-                        : `Cambridge 9708 Calibrated: Verified against official ${decodeExamQuestion(question).topic} assessment standards`}
-                    </span>
-                  </div>
+                  groundingQuery.isLoading ? (
+                    <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground animate-pulse">
+                      <Loader2 className="size-3 animate-spin" />
+                      Checking Knowledge Base for official Cambridge mark schemes...
+                    </p>
+                  ) : groundingQuery.data?.grounded ? (
+                    <div className="flex items-center gap-1.5 text-[11px] text-emerald-400 font-medium">
+                      <CheckCircle2 className="size-3.5 shrink-0" />
+                      <span>
+                        Knowledge Base Grounded: Verified against {groundingQuery.data.topMatchTitle} ({Math.round((groundingQuery.data.topSimilarity ?? 0) * 100)}% match)
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-2 text-[11px] text-amber-300">
+                      <div className="flex items-start gap-1.5">
+                        <AlertTriangle className="size-3.5 mt-0.5 shrink-0 text-amber-400" />
+                        <div className="space-y-0.5">
+                          <span className="font-semibold">No specific mark scheme or book reference found</span>
+                          <p className="text-amber-200/80 leading-normal">
+                            Paste or attach a screenshot of the official mark scheme below for question-specific grounding, or this essay will be marked against standard Cambridge AO level rubrics.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )
                 ) : null}
               </div>
 
@@ -1155,7 +1162,7 @@ function GradePage() {
                 ...(auditPass ? [{ label: "Independent moderation & multi-pass verification", weight: 2 }] : []),
                 { label: "Synthesizing diagnostic examiner report & actionable feedback", weight: 2 },
               ]}
-              totalMs={60_000}
+              totalMs={30_000}
             />
           ) : result ? (
             <div className="space-y-4">
@@ -1170,7 +1177,7 @@ function GradePage() {
                   </Badge>
                 ) : null}
               </div>
-              <MarkBreakdown grading={result.grading} question={question} />
+              <MarkBreakdown grading={result.grading} />
 
               {isDirectGradingMode && (
                 <div className="p-4 rounded-2xl bg-gradient-to-r from-purple-950/90 via-indigo-950/90 to-purple-950/90 border border-purple-500/50 shadow-xl space-y-3">

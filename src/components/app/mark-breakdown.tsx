@@ -1,4 +1,4 @@
-import { Check, CheckCircle2, Clock, FileText, ShieldCheck, Sparkles, X } from "lucide-react";
+import { AlertTriangle, Check, CheckCircle2, Clock, FileText, ShieldCheck, Sparkles, X } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -8,7 +8,6 @@ import { cn, stripStars } from "@/lib/utils";
 const AO_META = [
   {
     key: "knowledge",
-    ao: "ao1",
     label: "AO1 Knowledge",
     bar: "bg-ao1",
     text: "text-ao1",
@@ -16,7 +15,6 @@ const AO_META = [
   },
   {
     key: "analysis",
-    ao: "ao2",
     label: "AO2 Analysis",
     bar: "bg-ao2",
     text: "text-ao2",
@@ -24,7 +22,6 @@ const AO_META = [
   },
   {
     key: "evaluation",
-    ao: "ao3",
     label: "AO3 Evaluation",
     bar: "bg-ao3",
     text: "text-ao3",
@@ -45,24 +42,11 @@ function getBandBadgeStyle(band: string) {
   return "border-rose-500/30 bg-rose-500/10 text-rose-500 font-semibold";
 }
 
-function cleanItemText(value: unknown): string {
-  const stripped = stripStars(value);
-  return stripped
-    .replace(/^\s*(?:\d+[\.\)]\s*)+/g, "")
-    .replace(/^\s*(?:Step\s*\d+:?|\(\d+\)|[-*•])\s*/gi, "")
-    .trim();
-}
-
-export function MarkBreakdown({
-  grading,
-  question,
-  topic,
-}: {
-  grading: Grading;
-  question?: string;
-  topic?: string;
-}) {
+export function MarkBreakdown({ grading }: { grading: Grading }) {
   const percent = grading.max_mark > 0 ? (grading.total_mark / grading.max_mark) * 100 : 0;
+  const isUnanchored =
+    grading.grounding_status === "unanchored" ||
+    (grading.sources.length === 0 && grading.grounding_status !== "mark_scheme_image");
 
   // Fallbacks to ensure full-fledged feedback is ALWAYS visible for every essay
   const summary =
@@ -85,7 +69,7 @@ export function MarkBreakdown({
       : [
           "Economic transmission mechanisms can be deepened to connect intermediate equilibrium shifts to final target outcomes.",
           "Evaluation can be strengthened by explicitly comparing opposing arguments on a shared criterion such as time horizon or magnitude.",
-          "Grounding analytical arguments with concrete, real-world context substantiates key analytical claims.",
+          "Grounding theoretical arguments with concrete, real-world context substantiates key analytical claims.",
         ];
 
   const actionableFeedback =
@@ -99,33 +83,34 @@ export function MarkBreakdown({
 
   return (
     <div className="space-y-5">
-      {/* Off-Topic / Unrelated Submission Notice */}
-      {grading.unrelated_to_question ? (
-        <div className="rounded-xl border border-rose-500/40 bg-rose-500/10 p-4 text-rose-200 shadow-sm">
+      {/* Grounding Transparency Banner */}
+      {isUnanchored ? (
+        <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-amber-200 shadow-sm">
           <div className="flex items-start gap-3">
-            <X className="mt-0.5 h-5 w-5 shrink-0 text-rose-400" />
+            <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-400" />
             <div className="space-y-1">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="font-semibold text-rose-300">
-                  Off-Topic Submission — Question Not Answered
+                <span className="font-semibold text-amber-300">
+                  Unanchored Assessment — No Specific Mark Scheme in Knowledge Base
                 </span>
                 <Badge
                   variant="outline"
-                  className="border-rose-400/40 bg-rose-400/20 text-rose-300 text-[10px] font-semibold uppercase"
+                  className="border-amber-400/40 bg-amber-400/20 text-amber-300 text-[10px] font-semibold uppercase"
                 >
-                  0 Marks Awarded
+                  Generic AO Marking Only
                 </Badge>
               </div>
-              <p className="text-xs leading-relaxed text-rose-200/90">
-                This essay discusses an unrelated economics topic rather than answering the prompt set. Under official Cambridge Assessment regulations, marks cannot be awarded for irrelevant material.
+              <p className="text-xs leading-relaxed text-amber-200/90">
+                This question did not match any official mark schemes, syllabus extracts, or examiner reports in your institution's Knowledge Base (all matches scored below the 50% relevance floor). 
+                This grade was evaluated strictly against generic Cambridge 9708 Assessment Objective (AO1/AO2/AO3) level descriptors.
+              </p>
+              <p className="text-xs font-medium text-amber-300">
+                💡 To get 100% authoritative question-specific grounding: attach a screenshot of the official mark scheme or upload it under Content Admin.
               </p>
             </div>
           </div>
         </div>
-      ) : null}
-
-      {/* Grounding Transparency Banner */}
-      {grading.grounding_status === "mark_scheme_image" ? (
+      ) : grading.grounding_status === "mark_scheme_image" ? (
         <div className="flex items-center gap-2.5 rounded-lg border border-primary/30 bg-primary/10 px-3.5 py-2.5 text-xs text-primary shadow-sm">
           <FileText className="h-4 w-4 shrink-0" />
           <span>
@@ -136,7 +121,7 @@ export function MarkBreakdown({
         <div className="flex items-center gap-2.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3.5 py-2.5 text-xs text-emerald-300 shadow-sm">
           <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400" />
           <span>
-            <strong>Grounded in Knowledge Base:</strong> Verified against {grading.sources && grading.sources.length > 0 ? `${grading.sources.length} Cambridge 9708 syllabus source${grading.sources.length === 1 ? "" : "s"}` : "Cambridge 9708 assessment standards"}{grading.sources && grading.sources[0]?.documentTitle ? ` (${Math.round((grading.sources[0]?.similarity ?? 0.95) * 100)}% match on ${grading.sources[0]?.documentTitle})` : ""}.
+            <strong>Grounded in Knowledge Base:</strong> Verified against {grading.sources.length} Cambridge 9708 syllabus source{grading.sources.length === 1 ? "" : "s"} ({Math.round(grading.sources[0]?.similarity * 100)}% match on {grading.sources[0]?.documentTitle}).
           </span>
         </div>
       )}
@@ -173,15 +158,9 @@ export function MarkBreakdown({
                 <Clock className="size-3" /> Graded in {Math.round(grading.latencyMs / 1000)}s
               </Badge>
             ) : null}
-            {grading.mark_range ? (
-              <span className="rounded-full bg-muted/60 px-2.5 py-0.5 text-xs text-muted-foreground font-medium">
-                Mark range: {grading.mark_range[0]}–{grading.mark_range[1]} ({grading.confidence_rating || (grading.confidence >= 0.85 ? "High" : grading.confidence >= 0.65 ? "Medium" : "Low")} confidence)
-              </span>
-            ) : (
-              <span className="rounded-full bg-muted/60 px-2.5 py-0.5 text-xs text-muted-foreground font-medium">
-                {grading.confidence_rating || (grading.confidence >= 0.85 ? "High" : grading.confidence >= 0.65 ? "Medium" : "Low")} confidence
-              </span>
-            )}
+            <span className="rounded-full bg-muted/60 px-2 py-0.5 text-xs text-muted-foreground tabular-nums">
+              {Math.round(grading.confidence * 100)}% examiner confidence
+            </span>
             <Badge
               variant="outline"
               className="border-primary/30 bg-primary/5 text-primary text-[10px] font-medium gap-1"
@@ -252,7 +231,7 @@ export function MarkBreakdown({
               <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-primary/15 text-[11px] font-semibold text-primary">
                 {index + 1}
               </span>
-              <span className="text-muted-foreground">{cleanItemText(item)}</span>
+              <span className="text-muted-foreground">{stripStars(item)}</span>
             </li>
           ))}
         </ol>
@@ -284,26 +263,26 @@ export function MarkBreakdown({
       <div className="panel p-3.5 sm:p-5">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h3 className="text-sm font-semibold">Grounding — what this mark was checked against</h3>
-          {grading.grounding_status === "mark_scheme_image" ? (
-            <Badge variant="outline" className="border-primary/30 bg-primary/10 text-primary text-xs">
-              Mark Scheme Image Provided
-            </Badge>
-          ) : grading.sources && grading.sources.length > 0 ? (
+          {grading.sources.length > 0 ? (
             <Badge variant="outline" className="border-emerald-500/30 bg-emerald-500/10 text-emerald-400 text-xs">
               {grading.sources.length} Knowledge Base Sources
             </Badge>
+          ) : grading.grounding_status === "mark_scheme_image" ? (
+            <Badge variant="outline" className="border-primary/30 bg-primary/10 text-primary text-xs">
+              Mark Scheme Image Provided
+            </Badge>
           ) : (
-            <Badge variant="outline" className="border-emerald-500/30 bg-emerald-500/10 text-emerald-400 text-xs">
-              Cambridge 9708 Grounded
+            <Badge variant="outline" className="border-amber-500/40 bg-amber-500/10 text-amber-400 text-xs">
+              0 Sources (Unanchored)
             </Badge>
           )}
         </div>
         <p className="mt-1 text-xs text-muted-foreground">
           {grading.anchorsUsed > 0
             ? `${grading.anchorsUsed} human-confirmed calibration example${grading.anchorsUsed === 1 ? "" : "s"} used to anchor the scoring scale.`
-            : "Official Cambridge 9708 Senior Examiner exemplars and Assessment Objective criteria anchor the scoring scale."}
+            : "No calibration examples are set up yet for this syllabus — the mark scale is unanchored."}
         </p>
-        {grading.sources && grading.sources.length > 0 ? (
+        {grading.sources.length > 0 ? (
           <ul className="mt-3 space-y-2">
             {grading.sources.map((source, index) => (
               <li key={index} className="text-xs text-muted-foreground">
@@ -315,12 +294,13 @@ export function MarkBreakdown({
             ))}
           </ul>
         ) : (
-          <div className="mt-3 rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3.5 text-xs text-muted-foreground">
-            <div className="font-semibold text-emerald-400">
-              Verified against Cambridge 9708 Assessment Standards
+          <div className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3.5 text-xs text-muted-foreground">
+            <div className="font-semibold text-amber-400">
+              ⚠️ No matching mark scheme or syllabus material found in the Knowledge Base
             </div>
             <p className="mt-1 leading-relaxed">
-              This essay was evaluated directly against official Cambridge International AS/A Level Economics (9708) Assessment Objective (AO1/AO2/AO3) criteria and syllabus standards.
+              All candidates scored below the 50% relevance floor, meaning your institution's library does not yet have this specific question's mark scheme or syllabus chapter.
+              This mark relied on general Cambridge Assessment Objective standards rather than verified question-specific rubric items.
             </p>
           </div>
         )}
@@ -352,7 +332,7 @@ function PointList({
                 tone === "good" ? "text-success" : "text-destructive",
               )}
             />
-            <span>{cleanItemText(item)}</span>
+            {stripStars(item)}
           </li>
         ))}
       </ul>
