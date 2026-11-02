@@ -224,14 +224,3 @@ export function bandFor(total: number, maxMark: number): string {
   return "Bottom band";
 }
 
-export function detectEconomicErrors(text: string): Array<{ id: string; trap: string; severity: 'major' | 'minor' }> {
-  return [];
-}
-
-export function detectComparativeAnalysis(question: string, text: string) {
-  return { isComparativeQuestion: false, hasAlternativeAnalysis: true, failsQuestionFit: false };
-}
-
-export function detectHedgeConclusion(text: string) {
-  return { isHedge: false, matchedPhrase: undefined };
-}

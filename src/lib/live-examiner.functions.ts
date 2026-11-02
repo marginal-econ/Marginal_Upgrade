@@ -7,7 +7,6 @@ import { LIVE_EXAMINER_LIMIT_MESSAGE } from "@/lib/usage-limits";
 import { deterministicTerminologyIssues } from "@/lib/live-examiner/economics-glossary";
 import { diffSentences, splitSentences } from "@/lib/writing-check/sentence-diff";
 import { AO_DEFINITIONS, defaultSplitForMaxMark } from "@/lib/examiner/config";
-import { detectComparativeAnalysis, detectEconomicErrors, detectHedgeConclusion } from "@/lib/examiner/types";
 import { isMarginalAdmin } from "@/lib/auth-admin";
 import { normalizeIssueSpan } from "@/lib/live-examiner/normalize-issue-span";
 
@@ -387,12 +386,7 @@ If the student's writing is unrelated to the question asked or discusses a compl
 
 Judge only what is actually written so far — an incomplete essay should score low on whichever AOs it hasn't reached yet (e.g. no evaluation paragraph yet means evaluation is currently near 0, not an assumed future score). Be a fair, firm, mid-level examiner: reward real, developed points in full; don't invent credit for what isn't there yet, but don't punish an in-progress essay for being unfinished beyond the AOs it genuinely hasn't attempted.
 
-CAMBRIDGE 9708 CAPS (MANDATORY):
-- 1 major error (e.g. wrong curve shift, inelastic demand called effective): Table A (AO1+AO2) max 7/8.
-- 2 major errors: Table A max 5/8.
-- 3+ major errors or 1 major + question-fit failure: Table A max 4/8.
-- Question-fit failure (e.g. answering 'does it work' instead of 'is it the best'): Table A max 5/8, Table B (AO3) max 1/4.
-- Hedge conclusion ('mix of policies', 'it depends') without conditions: Table B max 2/4.
+Do NOT penalise for missing diagrams — written economics alone can achieve full marks.
 - NO ASTERISKS: Return clean plain text strings with ZERO asterisks (* or **).
 
 Respond ONLY with a single valid JSON object, no markdown fences, no commentary:
@@ -474,56 +468,6 @@ export function sanitisePredictedMark(
   const knowledge = parseAo(["knowledge", "AO1", "ao1", "knowledge_and_understanding"], split.ao1_marks);
   const analysis = parseAo(["analysis", "AO2", "ao2"], split.ao2_marks);
   const evaluation = parseAo(["evaluation", "AO3", "ao3"], split.ao3_marks);
-
-  // Enforce Cambridge Level Caps deterministically so live estimate never diverges from final grader:
-  if (question && essayText) {
-    const errors = detectEconomicErrors(essayText);
-    const majorErrors = errors.filter((e) => e.severity === "major");
-    const compCheck = detectComparativeAnalysis(question, essayText);
-    const hedgeCheck = detectHedgeConclusion(essayText);
-    const failsComparative = compCheck.isComparativeQuestion && !compCheck.hasAlternativeAnalysis;
-
-    const tableAMax = split.ao1_marks + split.ao2_marks;
-    let targetTableABase = 8;
-    if (majorErrors.length >= 3) {
-      targetTableABase = Math.min(targetTableABase, 4);
-    } else if (majorErrors.length === 2) {
-      targetTableABase = Math.min(targetTableABase, 5);
-    } else if (majorErrors.length === 1) {
-      targetTableABase = Math.min(targetTableABase, 7);
-    }
-
-    const wordCount = essayText.trim().split(/\s+/).filter(Boolean).length;
-    if (wordCount > 0 && wordCount < 150) {
-      targetTableABase = Math.min(targetTableABase, 5);
-    }
-
-    if (failsComparative) {
-      if (majorErrors.length >= 2 || errors.length >= 2) {
-        targetTableABase = Math.min(targetTableABase, 3);
-      } else if (majorErrors.length === 1) {
-        targetTableABase = Math.min(targetTableABase, 4);
-      } else {
-        targetTableABase = Math.min(targetTableABase, 5);
-      }
-      evaluation.awarded = Math.min(evaluation.awarded, 1);
-    } else if (hedgeCheck.isHedge) {
-      evaluation.awarded = Math.min(evaluation.awarded, 2);
-    }
-
-    const targetTableA = Math.round(targetTableABase * (tableAMax / 8));
-    const currentTableA = knowledge.awarded + analysis.awarded;
-    if (currentTableA > targetTableA || failsComparative || majorErrors.length > 0) {
-      let targetAo1: number;
-      if (targetTableA <= 3) {
-        targetAo1 = Math.min(knowledge.awarded, 1);
-      } else {
-        targetAo1 = Math.min(knowledge.awarded, Math.min(split.ao1_marks, targetTableA));
-      }
-      analysis.awarded = Math.min(analysis.awarded, targetTableA - targetAo1);
-      knowledge.awarded = targetAo1;
-    }
-  }
 
   const totalCalculated = knowledge.awarded + analysis.awarded + evaluation.awarded;
   let totalMark = rawObj.total_mark !== undefined 
