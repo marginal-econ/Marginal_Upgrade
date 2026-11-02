@@ -294,7 +294,8 @@ function GradePage() {
   // Optional and on by default; turning it off skips the check entirely
   // instead of forcing that extra round trip before marking can start.
   const [spellCheckEnabled, setSpellCheckEnabled] = useState(true);
-  const [result, setResult] = useState<{ grading: Grading; essayId: string | null } | null>(null);
+  const [result, setResult] = useState<{ grading: Grading; essayId: string | null; latencyMs?: number } | null>(null);
+  const gradeStartTimeRef = useRef<number>(0);
 
   // A student can reference more than one diagram in the same essay (e.g. a
   // supply/demand diagram AND a PPC diagram) — each attached diagram becomes
@@ -430,8 +431,9 @@ function GradePage() {
   });
 
   const mutation = useMutation({
-    mutationFn: () =>
-      grade({
+    mutationFn: () => {
+      gradeStartTimeRef.current = Date.now();
+      return grade({
         data: {
           question,
           essayText,
@@ -442,9 +444,15 @@ function GradePage() {
           markSchemeImageDataUrls:
             markSchemeImages.length > 0 ? markSchemeImages.map((img) => img.dataUrl) : undefined,
         },
-      }),
+      });
+    },
     onSuccess: (data) => {
-      setResult({ grading: data.grading as Grading, essayId: data.essayId });
+      const elapsed = Date.now() - (gradeStartTimeRef.current || Date.now());
+      const accurateLatencyMs = Math.max(elapsed, data.latencyMs || data.grading?.latencyMs || 0);
+      if (data.grading) {
+        data.grading.latencyMs = accurateLatencyMs;
+      }
+      setResult({ grading: data.grading as Grading, essayId: data.essayId, latencyMs: accurateLatencyMs });
       queryClient.invalidateQueries({ queryKey: ["essays"] });
       queryClient.invalidateQueries({ queryKey: ["progress"] });
       try {
@@ -1147,7 +1155,7 @@ function GradePage() {
                 ...(auditPass ? [{ label: "Independent moderation & multi-pass verification", weight: 2 }] : []),
                 { label: "Synthesizing diagnostic examiner report & actionable feedback", weight: 2 },
               ]}
-              totalMs={30_000}
+              totalMs={60_000}
             />
           ) : result ? (
             <div className="space-y-4">

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { computeCapsFromDetector, type DetectorResult } from "./error-detector.server";
+import { detectEconomicErrors } from "./types";
 
 describe("computeCapsFromDetector — Code-computed Cambridge 9708 Caps", () => {
   const split = { ao1_marks: 2, ao2_marks: 6, ao3_marks: 4 };
@@ -346,5 +347,50 @@ describe("computeCapsFromDetector — Code-computed Cambridge 9708 Caps", () => 
     expect(caps.auditLine).toContain("excess demand/supply reversal at price control");
     expect(caps.auditLine).toContain("price floor/ceiling confusion");
     expect(caps.auditLine).toContain("contradiction regarding 'no negative effects'");
+  });
+
+  it("detects new traps: growth without real, trickle-down inequality, and wrong formula components", () => {
+    const essayWithGrowthError = "Economic growth is defined as an increase in GDP over time.";
+    const errors1 = detectEconomicErrors(essayWithGrowthError);
+    expect(errors1.some((e: any) => e.id === "growth_definition_missing_real")).toBe(true);
+
+    const essayWithLivingStandards = "We measure living standards solely by GDP per capita.";
+    const errors2 = detectEconomicErrors(essayWithLivingStandards);
+    expect(errors2.some((e: any) => e.id === "living_standards_income_only")).toBe(true);
+
+    const essayWithTrickleDown = "Economic growth always reduces inequality because wealth trickles down.";
+    const errors3 = detectEconomicErrors(essayWithTrickleDown);
+    expect(errors3.some((e: any) => e.id === "trickle_down_inequality_claim")).toBe(true);
+
+    const essayWithFormula = "Aggregate demand is calculated as AD = C + I + G + (X + M).";
+    const errors4 = detectEconomicErrors(essayWithFormula);
+    expect(errors4.some((e: any) => e.id === "wrong_formula_imports_added")).toBe(true);
+  });
+
+  it("caps Table A at 5 when fewer than 3 complete chains are found and states count in audit line", () => {
+    const detectorResult: DetectorResult = {
+      findings: [],
+      paragraphs: [
+        { paragraph_index: 0, relevant: true, chain_status: "complete", has_major_error: false },
+        { paragraph_index: 1, relevant: true, chain_status: "complete", has_major_error: false },
+        { paragraph_index: 2, relevant: true, chain_status: "asserted", has_major_error: false },
+      ],
+      question_fit: {
+        is_comparative: true,
+        compares_with_alternative_on_criterion: true,
+        states_which_is_better_or_when: true,
+        is_to_what_extent: false,
+        gives_degree_and_conditions: true,
+        answers_different_question: false,
+        is_hedge_conclusion: false,
+        fails_question_fit: false,
+      },
+    };
+
+    const caps = computeCapsFromDetector(detectorResult, 12, split, question, essayText);
+    expect(caps.majorErrorCount).toBe(0);
+    expect(caps.tableACap).toBe(5);
+    expect(caps.auditLine).toContain("2 complete chains found");
+    expect(caps.auditLine).toContain("Table A capped at 5/8");
   });
 });

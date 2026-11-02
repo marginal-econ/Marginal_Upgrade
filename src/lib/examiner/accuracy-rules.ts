@@ -98,6 +98,9 @@ Judge each paragraph as a chain: cause -> mechanism -> effect -> link back to th
   * Excess demand and excess supply reversed at a price floor or ceiling is a MAJOR error. A minimum wage or price floor above equilibrium causes excess supply of labour (unemployment / surplus of labour), not excess demand or shortage. A price ceiling or maximum price below equilibrium causes excess demand (shortage), not excess supply or surplus.
   * A price floor called a ceiling or the reverse is a MAJOR error (a minimum wage or minimum price is a floor; rent control or maximum price is a ceiling).
   * A contradiction where the script says "no negative effects", "no drawbacks", or "only benefits" and later admits a negative effect or cost is a MAJOR contradiction error.
+  * Definitional omission: Economic growth defined without "real" (growth is an increase in real GDP / real output adjusted for inflation or an expansion in productive potential, never merely nominal GDP). Living standards defined as income/GDP only (living standards comprise material and non-material welfare including health, education, leisure, and distribution of income).
+  * Trickle-down theory asserted as fact or claiming "inequality always falls" with growth is a MAJOR analytical error. Growth can worsen income inequality in the absence of progressive taxation and targeted transfers.
+  * Wrong formula components (e.g. imports added to GDP/AD: AD = C + I + G + (X + M)) is a MAJOR formula error. Imports are a withdrawal/leakage and must be subtracted: (X - M).
   * "Ensures", "maximum", "solves" and "guarantees" with no proof earn no credit.
   * Confusing cause with consequence, or one factor with the whole answer.
 - Only flag an error if you are certain it is an error.

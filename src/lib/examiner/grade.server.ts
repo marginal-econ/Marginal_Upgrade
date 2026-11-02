@@ -127,6 +127,7 @@ export async function gradeEssay(
   }
 
   const structureNote = formatStructureNote(getStructureGuidance(maxMark, split));
+  const gradingStartTime = Date.now();
 
   const promptValues = {
     syllabus_code: "9708",
@@ -331,10 +332,15 @@ export async function gradeEssay(
     /\b(?:shift|curve|elastic|inelastic|ped|guarantee|ensure|transmission|omission|inaccura|error|flaw|fallacy|contradict|unsubstantiated|optimal|tax|subsidy|inflation|money\s+supply|hyperinflation|market\s+failure|marshall|lerner|j-curve|devaluat|depreciat)\b/i.test(allFeedbackText);
   const hasDoubleNumbering = /^\s*\d+[\.\)]\s*\d+[\.\)]/m.test(allFeedbackText);
   const hasBannedNamedExamples = /(?:for\s+example|such\s+as|e\.g\.)\s+[^,\.;\n]*\b(UK|United Kingdom|Egypt|Mexico|Brexit|Singapore)\b/i.test(allFeedbackText);
+  const weaknessHasQuotes =
+    grading.weaknesses.length === 0 ||
+    grading.weaknesses.some((w) => /['"“‘][^'"“”‘’]{3,}['"”’]/.test(w));
+  const hasDistinctFindings = Boolean(computedCaps.distinctFindings && computedCaps.distinctFindings.length > 0);
 
   const shouldRetry =
     !grading.unrelated_to_question &&
-    ((computedCaps.majorErrorCount > 0 && (!hasQuotes || !hasNamedErrors)) ||
+    ((computedCaps.majorErrorCount > 0 && (!hasQuotes || !hasNamedErrors || !weaknessHasQuotes)) ||
+      (hasDistinctFindings && !weaknessHasQuotes) ||
       hasDoubleNumbering ||
       hasBannedNamedExamples);
 
@@ -382,9 +388,10 @@ export async function gradeEssay(
       grading.examiner_summary || "The examiner flagged this submission as outside the Cambridge 9708 Economics syllabus.",
     );
   }
-  promptTokens = first.promptTokens;
-  completionTokens = first.completionTokens;
-  latencyMs = first.latencyMs;
+  const totalElapsedMs = Date.now() - gradingStartTime;
+  promptTokens = (promptTokens || 0) + (first.promptTokens || 0);
+  completionTokens = (completionTokens || 0) + (first.completionTokens || 0);
+  latencyMs = totalElapsedMs;
   activeModel = first.model || MODEL_EXAMINER;
   keyRotated = Boolean(first.keyRotated);
   modelSwapped = Boolean(first.modelSwapped);
@@ -397,13 +404,13 @@ export async function gradeEssay(
   grading.keyRotated = keyRotated;
   grading.modelSwapped = modelSwapped;
   grading.activeKeyType = activeKeyType;
-  grading.latencyMs = latencyMs;
+  grading.latencyMs = totalElapsedMs;
 
   return {
     grading,
     model: activeModel,
     promptTokens,
     completionTokens,
-    latencyMs,
+    latencyMs: totalElapsedMs,
   };
 }

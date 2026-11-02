@@ -56,20 +56,20 @@ const DEFAULT_STAGE_DETAILS: Record<number, { title: string; bullets: string[] }
 
 const LIVE_BACKEND_OPERATIONS = [
   { atSec: 0, title: "Query Ingestion & Syllabus Expansion", detail: "Expanding question into Cambridge 9708 micro/macro syllabus keywords..." },
-  { atSec: 3, title: "Knowledge Base Vector Search", detail: "Querying Supabase pgvector across official mark schemes, coursebooks, and syllabus..." },
-  { atSec: 7, title: "Syllabus Grounding & Descriptors", detail: "Grounding evaluation against verified level descriptors and past exam benchmarks..." },
-  { atSec: 11, title: "AO1 Conceptual & Terminology Audit", detail: "Scrutinizing economic terminology, definitions, and foundational models..." },
-  { atSec: 15, title: "AO2 Analytical Transmission Chains", detail: "Tracing cause-and-effect logic steps and diagrammatical equilibrium shifts..." },
-  { atSec: 19, title: "AO3 Critical Evaluation Audit", detail: "Testing ceteris paribus assumptions, short-run vs long-run trade-offs, and elasticity..." },
-  { atSec: 23, title: "Senior Examiner Calibration", detail: "Harmonizing raw marks against historical Cambridge 9708 grade boundaries..." },
-  { atSec: 26, title: "Diagnostic Report Synthesis", detail: "Assembling final Cambridge examiner summary, missing elements, and band marks..." },
+  { atSec: 6, title: "Knowledge Base Vector Search", detail: "Querying Supabase pgvector across official mark schemes, coursebooks, and syllabus..." },
+  { atSec: 14, title: "Syllabus Grounding & Descriptors", detail: "Grounding evaluation against verified level descriptors and past exam benchmarks..." },
+  { atSec: 22, title: "Diagnostic Economic Error Detection", detail: "Diagnostic pass analyzing curve shifts, elasticity claims, definitions, and mechanisms..." },
+  { atSec: 32, title: "AO1 & AO2 Analytical Transmission Chains", detail: "Tracing cause-and-effect logic steps and assessing complete economic chains..." },
+  { atSec: 42, title: "AO3 Critical Evaluation & Question-Fit Audit", detail: "Testing comparison with alternatives, criteria weighing, and degree/conditions..." },
+  { atSec: 50, title: "Senior Examiner Calibration & Level Caps", detail: "Calculating authoritative Table A and Table B caps matching Cambridge 9708 standards..." },
+  { atSec: 56, title: "Diagnostic Report Synthesis", detail: "Assembling line-by-line examiner annotations, strengths, weaknesses, and band marks..." },
 ];
 
 /**
- * Simulates staged progress calibrated to modern LLM completion speeds (~20–35s).
+ * Simulates staged progress calibrated to modern diagnostic + grading LLM pipeline (~60s).
  * Holds at 96% until the network request completes so it is never prematurely "done".
  */
-export function useStagedProgress(stages: ProgressStage[], active: boolean, totalMs = 30_000) {
+export function useStagedProgress(stages: ProgressStage[], active: boolean, totalMs = 60_000) {
   const [elapsed, setElapsed] = useState(0);
 
   useEffect(() => {
@@ -84,7 +84,7 @@ export function useStagedProgress(stages: ProgressStage[], active: boolean, tota
 
   const totalWeight = useMemo(() => stages.reduce((sum, s) => sum + s.weight, 0), [stages]);
 
-  // Smooth quadratic ease-out curve calibrated to ~25-35s duration.
+  // Smooth quadratic ease-out curve calibrated to ~60s duration.
   const rawFraction = Math.min(1, elapsed / totalMs);
   const eased = 1 - Math.pow(1 - rawFraction, 2);
   const percent = Math.min(96, Math.round(eased * 96));
@@ -107,7 +107,7 @@ export function useStagedProgress(stages: ProgressStage[], active: boolean, tota
 export function GradingProgress({
   stages,
   active,
-  totalMs = 30_000,
+  totalMs = 60_000,
 }: {
   stages: ProgressStage[];
   active: boolean;
@@ -157,7 +157,7 @@ export function GradingProgress({
         <div className="flex flex-wrap items-center gap-2 shrink-0">
           <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">
             <Clock className="size-3 text-primary shrink-0" />
-            <span>Est: 20–35s</span>
+            <span>Est: ~60s</span>
           </span>
 
           <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary tabular-nums">

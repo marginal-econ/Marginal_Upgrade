@@ -384,6 +384,52 @@ export function detectEconomicErrors(essayText: string): DetectedError[] {
     });
   }
 
+  // 18. Growth, GDP or key-term definition omitting essential element (e.g. growth without "real", living standards as income only)
+  if (
+    /\b(?:economic\s+growth\s+(?:is\s+defined\s+as|is\s+referred\s+to\s+as|refers\s+to|is|defined\s+as|means?)\s+(?:an?\s+)?(?:increase|rise|expansion)\s+in\s+(?:gdp|output|national\s+income))\b/i.test(essayText) &&
+    !/\b(?:real\s+gdp|real\s+national\s+income|adjusted\s+for\s+inflation|productive\s+capacity|real\s+output)\b/i.test(essayText)
+  ) {
+    errors.push({
+      id: "growth_definition_missing_real",
+      trap: "Economic growth defined without 'real': economic growth is an increase in real GDP (adjusted for inflation) or an expansion in productive capacity, not merely nominal GDP",
+      severity: "major",
+    });
+  } else if (
+    /\bliving\s+standards?\s+(?:are|is|defined\s+as|means?)\s+(?:only\s+)?(?:national\s+income|gdp|income\s+per\s+capita)\b/i.test(essayText) ||
+    /\bmeasure\s+living\s+standards?\s+solely\s+by\s+(?:gdp|income)\b/i.test(essayText)
+  ) {
+    errors.push({
+      id: "living_standards_income_only",
+      trap: "Living standards defined as income/GDP only (living standards encompass both material factors and non-material welfare including health, education, environmental quality, and income distribution)",
+      severity: "major",
+    });
+  }
+
+  // 19. Trickle-down or "inequality always falls" claims
+  if (
+    /\b(?:trickle[\s-]?down\s+(?:economics\s+)?(?:ensures?|guarantees?|means?\s+everyone\s+benefits)|inequality\s+always\s+(?:falls?|decreases?|reduces?))\b/i.test(essayText) ||
+    /\b(?:economic\s+growth|tax\s+cuts?)\s+always\s+(?:reduces?|decreases?|eliminates?)\s+inequality\b/i.test(essayText)
+  ) {
+    errors.push({
+      id: "trickle_down_inequality_claim",
+      trap: "Unsubstantiated claim: asserting that trickle-down economics ensures broad benefit or that 'inequality always falls' with growth (growth can increase income inequality without redistribution)",
+      severity: "major",
+    });
+  }
+
+  // 20. Wrong formula components (e.g. imports added to GDP)
+  if (
+    /\b(?:ad|gdp|aggregate\s+demand)\s*=\s*c\s*\+\s*i\s*\+\s*g\s*\+\s*\(?\s*x\s*\+\s*m\s*\)?/i.test(essayText) ||
+    /\bimports?\s+(?:add|adds|increases?|contributes?)\s+to\s+(?:gdp|aggregate\s+demand|ad)\b/i.test(essayText) ||
+    /\b\(\s*x\s*\+\s*m\s*\)\s*(?:in\s+ad|in\s+gdp|is\s+net\s+exports)\b/i.test(essayText)
+  ) {
+    errors.push({
+      id: "wrong_formula_imports_added",
+      trap: "Formula error: imports added to GDP/AD (imports are a withdrawal from the circular flow and must be subtracted: AD = C + I + G + (X - M))",
+      severity: "major",
+    });
+  }
+
   return errors;
 }
 
@@ -448,7 +494,7 @@ export function detectErrorsFromExaminerFeedback(raw: Record<string, unknown>): 
     (fullFeedback.includes("elasticity") && (fullFeedback.includes("flawed") || fullFeedback.includes("inaccurac") || fullFeedback.includes("logical error") || fullFeedback.includes("error")))
   ) {
     errors.push({
-      id: "ped_logical_error",
+      id: "ped_inelastic_effectiveness",
       trap: "Flawed price elasticity of demand (PED) analysis (e.g. claiming inelastic demand makes an indirect tax very effective at reducing consumption)",
       severity: "major",
     });
@@ -883,10 +929,6 @@ export const ERROR_DESCRIPTIONS: Record<string, ErrorDescriptor> = {
     category: "elasticity",
     text: "Flawed elasticity reasoning: When demand is price inelastic, quantity demanded falls proportionally less than price rises (%ΔQd < %ΔP), meaning an indirect tax is less effective at cutting consumption, despite generating higher tax revenue.",
   },
-  ped_logical_error: {
-    category: "elasticity",
-    text: "Elasticity inaccuracy: Inelastic demand implies consumers are relatively unresponsive to price increases, so an indirect tax has a muted impact on reducing quantity consumed.",
-  },
   inverted_ped_formula: {
     category: "formula",
     text: "Formula error: Price elasticity of demand is defined as %ΔQd / %ΔP; inverting the ratio undermines quantitative elasticity analysis.",
@@ -1109,19 +1151,22 @@ export const isDiagramError = (id: string) =>
 export const isPedError = (id: string) =>
   id === "ped_inelastic_effectiveness" ||
   id === "ped_inelastic_exchange_rate" ||
-  id === "inverted_ped_formula" ||
-  id === "ped_logical_error";
+  id === "inverted_ped_formula";
 
 export const isFormulaError = (id: string) =>
   id === "inverted_ped_formula" ||
-  id === "formula_error";
+  id === "formula_error" ||
+  id === "wrong_formula_imports_added";
 
 export const isDefinitionError = (id: string) =>
   id === "hyperinflation" ||
-  id === "depreciation_devaluation_confusion";
+  id === "depreciation_devaluation_confusion" ||
+  id === "growth_definition_missing_real" ||
+  id === "living_standards_income_only";
 
 export const isAbsoluteClaimError = (id: string) =>
-  id === "unsubstantiated_absolute_claim";
+  id === "unsubstantiated_absolute_claim" ||
+  id === "trickle_down_inequality_claim";
 
 export const isMarshallLernerError = (id: string) =>
   id === "marshall_lerner_error";
@@ -1514,20 +1559,15 @@ export function normaliseGrading(
 
     examinerSummary = examinerSummary ? `${examinerSummary}\n\n${singleAuditLine}` : singleAuditLine;
 
-    // Inject computed detector findings into weaknesses with quote and correct version
-    if (computedCaps && computedCaps.distinctFindings.length > 0) {
-      for (let i = computedCaps.distinctFindings.length - 1; i >= 0; i--) {
-        const f = computedCaps.distinctFindings[i]!;
-        const cleanQuote = f.quote.replace(/^['"]+|['"]+$/g, "").trim();
-        const formatted = `"${cleanQuote}" — ${f.correct_version}`;
-        const alreadyHas = weaknesses.some(
-          (w) =>
-            (cleanQuote.length >= 6 && w.toLowerCase().includes(cleanQuote.toLowerCase().slice(0, 25))) ||
-            w.toLowerCase().includes(f.correct_version.toLowerCase().slice(0, 30)),
-        );
-        if (!alreadyHas) {
-          weaknesses.unshift(formatted);
-        }
+    // "What cost you marks" may only contain findings from the current script's detector output
+    if (computedCaps) {
+      if (computedCaps.distinctFindings && computedCaps.distinctFindings.length > 0) {
+        weaknesses = computedCaps.distinctFindings.map((f) => {
+          const cleanQuote = f.quote.replace(/^['"]+|['"]+$/g, "").trim();
+          return `"${cleanQuote}" — ${f.correct_version}`;
+        });
+      } else {
+        weaknesses = [];
       }
     } else {
       for (const err of detectedErrors) {
@@ -1548,6 +1588,11 @@ export function normaliseGrading(
   // Handle irrelevant paragraphs: must never appear in "What worked" or AO paragraph as relevant; name as off-topic with no credit
   const irrelevantParas = computedCaps?.irrelevantParagraphs || [];
   if (irrelevantParas.length > 0) {
+    const scriptParagraphs = essayText
+      .split(/\n\s*\n/)
+      .map((p) => p.trim())
+      .filter((p) => p.length > 0 && !p.startsWith("[DIAGRAM:"));
+
     strengths = strengths.filter((s) => {
       const sLower = s.toLowerCase();
       for (const ip of irrelevantParas) {
@@ -1562,21 +1607,24 @@ export function normaliseGrading(
     });
 
     for (const ip of irrelevantParas) {
-      const desc = ip.summary ? `: ${ip.summary}` : "";
-      const offTopicNote = `Paragraph ${ip.index + 1}${desc}: Off-topic analysis that does not answer the question set; zero marks credited under Cambridge 9708 assessment standards.`;
-      if (!weaknesses.some((w) => w.includes(`Paragraph ${ip.index + 1}`))) {
-        weaknesses.push(offTopicNote);
+      // Verify paragraph number by matching the paragraph's first words in the script
+      let verifiedIdx = ip.index;
+      let targetPara = scriptParagraphs[verifiedIdx];
+
+      if (ip.quote && (!targetPara || !targetPara.toLowerCase().includes(ip.quote.toLowerCase().slice(0, 20)))) {
+        const foundIdx = scriptParagraphs.findIndex((p) => p.toLowerCase().includes(ip.quote!.toLowerCase().slice(0, 20)));
+        if (foundIdx !== -1) {
+          verifiedIdx = foundIdx;
+          targetPara = scriptParagraphs[foundIdx];
+        }
       }
 
-      const summarySnippet = ip.summary ? ip.summary.toLowerCase().slice(0, 20) : "";
-      if (summarySnippet && knowledge.comment.toLowerCase().includes(summarySnippet)) {
-        knowledge.comment = knowledge.comment.replace(new RegExp(summarySnippet, "gi"), "[off-topic material - uncredited]");
-      }
-      if (summarySnippet && analysis.comment.toLowerCase().includes(summarySnippet)) {
-        analysis.comment = analysis.comment.replace(new RegExp(summarySnippet, "gi"), "[off-topic material - uncredited]");
-      }
-      if (summarySnippet && evaluation.comment.toLowerCase().includes(summarySnippet)) {
-        evaluation.comment = evaluation.comment.replace(new RegExp(summarySnippet, "gi"), "[off-topic material - uncredited]");
+      if (targetPara) {
+        const firstWords = targetPara.split(/\s+/).slice(0, 6).join(" ");
+        const offTopicNote = `Paragraph ${verifiedIdx + 1} (starting with "${firstWords}..."): Off-topic analysis that does not answer the question set; zero marks credited under Cambridge 9708 assessment standards.`;
+        if (!weaknesses.some((w) => w.includes(`Paragraph ${verifiedIdx + 1}`))) {
+          weaknesses.push(offTopicNote);
+        }
       }
     }
   }
@@ -1616,14 +1664,6 @@ export function normaliseGrading(
       `Accurate and appropriate use of economic terminology contextually applied (${knowledge.awarded}/${knowledge.out_of} on AO1).`,
       `Clear analytical reasoning establishing cause-and-effect links for core mechanisms (${analysis.awarded}/${analysis.out_of} on AO2).`,
       `Presents balanced perspectives addressing multiple dimensions of the prompt (${evaluation.awarded}/${evaluation.out_of} on AO3).`,
-    ];
-  }
-
-  if (weaknesses.length === 0) {
-    weaknesses = [
-      "Economic transmission mechanisms can be extended further to connect intermediate changes with final macroeconomic and welfare outcomes.",
-      "Evaluation could be deepened by explicitly weighing opposing arguments on a shared criterion such as time frame, elasticity, or relative magnitude.",
-      "Substantiating analytical arguments with concrete context or specific real-world examples would elevate the answer to the top band.",
     ];
   }
 
@@ -1720,10 +1760,13 @@ export function runReportPostCheckAndSanitize(
       .trim();
   };
 
-  // Helper 2: Invented numbers/percentages not in student script
+  // Helper 2: Invented numbers/percentages and arbitrary thresholds not in student script
   const scriptNumbers = new Set(essayText.match(/\b\d+(?:\.\d+)?%?\b/g) || []);
   const sanitizeInventedNumbers = (text: string): string => {
-    let t = text.replace(/\b(\d+(?:\.\d+)?%)\b/g, (match) => {
+    let t = text.replace(/\b(?:Gini\s*(?:coefficient\s*)?(?:exceeds?|is\s+above|over|>|greater\s+than)\s*\d+(?:\.\d+)?)\b/gi, "high levels of income inequality");
+    t = t.replace(/\b(?:threshold\s+of\s+\d+(?:\.\d+)?%?)\b/gi, "critical threshold");
+
+    t = t.replace(/\b(\d+(?:\.\d+)?%)\b/g, (match) => {
       if (scriptNumbers.has(match) || match === "50%") return match;
       return "a proportion";
     });
@@ -1736,10 +1779,12 @@ export function runReportPostCheckAndSanitize(
 
   // Helper 3: Named country/policy examples as advice
   const sanitizeNamedExamples = (text: string): string => {
-    const namedAdviceRegex =
-      /(?:for\s+example|such\s+as|e\.g\.|recommend|suggest|consider|like)\s+[^,\.;\n]*\b(UK|United Kingdom|Britain|British|US|USA|United States|Egypt|Egyptian|Brexit|Mexico|Mexican|Singapore|France|French|Germany|German|Denmark|Sweden|Australia|Australian|South Africa|Japan|China|Zimbabwe|Argentina|Turkey|Sri Lanka|Venezuela)\b[^,\.;\n]*/gi;
-
-    return text.replace(namedAdviceRegex, "Add a real example you have studied (country, policy, outcome).");
+    let t = text.replace(
+      /(?:for\s+example|such\s+as|e\.g\.|recommend|suggest|consider|like|in\s+the|study|look\s+at)?\s*[^,\.;\n]*\b(UK|United Kingdom|Britain|British|US|USA|United States|Egypt|Egyptian|Brexit|Mexico|Mexican|Singapore|France|French|Germany|German|Denmark|Sweden|Australia|Australian|South Africa|Japan|China|Zimbabwe|Argentina|Turkey|Sri Lanka|Venezuela)\b(?:\s+[^,\.;\n]*)?/gi,
+      "Add a real example you have studied (country, policy, outcome).",
+    );
+    t = t.replace(/(?:Add a real example you have studied \(country, policy, outcome\)\.\s*)+/g, "Add a real example you have studied (country, policy, outcome). ");
+    return t;
   };
 
   // Helper 4: Past paper citations not in retrieved sources
@@ -1773,10 +1818,12 @@ export function runReportPostCheckAndSanitize(
     if (questionDemandedDiagram) return text;
     return text
       .replace(
-        /(?:draw|sketch|include|provide|use)\s+(?:an?\s+)?(?:ad\/as|j-curve|demand\s+and\s+supply|micro|macro)?\s*(?:diagram|graph|curve)\b[^,\.;\n]*/gi,
-        "Trace the complete written economic transmission mechanism step by step (shock -> price change -> elasticity response -> final economic outcome)",
+        /(?:(?:for\s+example,?\s*)?(?:draw|sketch|include|provide|use)\s+(?:an?\s+)?(?:ad\/as|j-curve|demand\s+and\s+supply|micro|macro)?\s*(?:diagram|graph|curve)\b[^,\.;\n]*)/gi,
+        "",
       )
-      .replace(/\b(?:j-curve\s+graph|ad\/as\s+diagram)\b/gi, "written economic transmission mechanism");
+      .replace(/\b(?:j-curve\s+graph|ad\/as\s+diagram)\b/gi, "")
+      .replace(/\s{2,}/g, " ")
+      .trim();
   };
 
   const filterDiagramCriticism = (items: string[]): string[] => {
@@ -1811,6 +1858,28 @@ export function runReportPostCheckAndSanitize(
         .replace(/fails?\s+to\s+link[^,\.;\n]*/gi, "should explicitly link higher import costs to deteriorating export price margins");
     }
     return text;
+  };
+
+  // Helper 7b: Check script before generating "missing" or "lacks" comments
+  const hasRankingInScript = /\b(most\s+important|matters?\s+most|greatest\s+significance|primary\s+factor|main\s+factor|decisive\s+factor|ranks?|crucial\s+factor|outweighs?|more\s+important\s+than|key\s+determinant|highest\s+priority)\b/i.test(essayText);
+  const hasExamplesInScript = /\b(for\s+example|for\s+instance|such\s+as|e\.g\.|in\s+the\s+case\s+of|cigarettes?|tobacco|alcohol|oil|petrol|tariffs?|minimum\s+wage|subsidies|sugar\s+tax)\b/i.test(essayText);
+  const hasCausalInScript = /\b(leads?\s+to|results?\s+in|causes?|causing|transmitted\s+through|shifts?|which\s+(?:increases|decreases|reduces|raises)|therefore|consequently|as\s+a\s+result|in\s+turn)\b/i.test(essayText);
+
+  const sanitizeMissingOrLacksComments = (text: string): string => {
+    let t = text;
+    if (hasRankingInScript) {
+      t = t.replace(/(?:does\s+not\s+rank|fails?\s+to\s+rank|lacks?\s+a\s+ranking|without\s+a\s+ranking|no\s+ranking|lacks?\s+prioritization|failed\s+to\s+prioritize|no\s+prioritization)[^.\n]*\.?/gi, "");
+    }
+    if (hasExamplesInScript) {
+      t = t.replace(/(?:lacks?\s+(?:real-world\s+|concrete\s+)?examples?|fails?\s+to\s+provide\s+(?:concrete\s+|real-world\s+)?examples?|does\s+not\s+provide\s+examples?|without\s+examples?|no\s+examples?)[^.\n]*\.?/gi, "");
+    }
+    if (hasCausalInScript && /imported\s+inflation|supply\s+constraint|spare\s+capacity|cost-push/i.test(essayText)) {
+      t = t.replace(/(?:lacks?\s+a\s+causal\s+chain|fails?\s+to\s+link|no\s+causal\s+chain|no\s+transmission\s+mechanism)[^.\n]*\.?/gi, "");
+    }
+    if (!questionDemandedDiagram) {
+      t = t.replace(/(?:lacks?\s+(?:an?\s+)?diagram|fails?\s+to\s+include\s+(?:an?\s+)?diagram|omission\s+of\s+(?:an?\s+)?diagram|without\s+(?:an?\s+)?diagram|no\s+diagram|missing\s+diagram)[^.\n]*\.?/gi, "");
+    }
+    return t.replace(/\s{2,}/g, " ").trim();
   };
 
   // Helper 8: Error listed under weaknesses but praised under strengths or AO paragraph
@@ -1906,12 +1975,14 @@ export function runReportPostCheckAndSanitize(
 
   const cleanField = (s: string): string => {
     return cleanDoubleNumbering(
-      sanitizeFalseCausalChain(
-        sanitizeDiagramAdvice(
-          sanitizeInventedNumbers(
-            sanitizeNamedExamples(
-              sanitizePastPaperCitations(
-                sanitizeDiagramLabels(s)
+      sanitizeMissingOrLacksComments(
+        sanitizeFalseCausalChain(
+          sanitizeDiagramAdvice(
+            sanitizeInventedNumbers(
+              sanitizeNamedExamples(
+                sanitizePastPaperCitations(
+                  sanitizeDiagramLabels(s)
+                )
               )
             )
           )

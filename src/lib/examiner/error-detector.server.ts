@@ -97,12 +97,15 @@ MANDATORY RULES:
       - Confusing depreciation with devaluation (depreciation is market-driven under floating exchange rates; devaluation is an official government or central bank decision under fixed rates; claiming the government "lowers" or "depreciates" its currency is devaluation).
       - Excess demand and excess supply reversed at a price floor or ceiling (a minimum wage or price floor above equilibrium causes excess supply of labour, meaning unemployment / surplus; a price ceiling or maximum price below equilibrium causes excess demand / shortage).
       - A price floor called a ceiling or the reverse (minimum wage/price is a price floor; maximum price/rent control is a price ceiling).
-   b) WRONG ELASTICITY CLAIMS:
+   b) WRONG ELASTICITY & FORMULA CLAIMS:
       - Claiming inelastic demand makes an indirect tax "more effective" or "very effective" at cutting consumption (with inelastic demand, %ΔQd < %ΔP, so quantity cut is small, though revenue is high).
       - Claiming depreciation works best when demand is inelastic (inelastic demand means export revenue falls and import spending rises, worsening the deficit).
       - Inverting the Marshall-Lerner condition (must be PEDx + PEDm > 1, not < 1).
       - Inverting the PED formula (%ΔP / %ΔQd instead of %ΔQd / %ΔP).
+      - Wrong formula components (for example, imports added to GDP: X + M instead of X - M, or claiming imports add to aggregate demand/GDP).
    c) WRONG DEFINITION OF KEY TERMS:
+      - Economic growth or GDP defined omitting essential element (for example, growth without "real" or without adjustment for inflation / productive capacity).
+      - Living standards defined as income/GDP only (omitting non-material welfare, healthcare, education, environmental quality, and income distribution).
       - Allocative efficiency defined as P = AC instead of P = MC.
       - Productive efficiency defined as P = MC instead of minimum AC.
       - Demerit good defined as under-consumed or under-provided (they are over-consumed).
@@ -121,6 +124,7 @@ MANDATORY RULES:
       - Contradiction where the script says "no negative effects", "no drawbacks", or "only benefits" and later admits a negative effect or cost.
    f) ABSOLUTE CLAIMS IN MAIN ARGUMENT:
       - Using unhedged absolute assertions: "always", "ensures", "completely corrects", "solves", "guarantees", "never" (e.g. "ensures a surplus", "completely corrects market failure", "export revenue always rises").
+      - Asserting trickle-down economics as fact or claiming "inequality always falls" with economic growth.
    g) IRRELEVANT PARAGRAPHS:
       - Paragraphs that do not help answer the question as set (e.g. analyzing tourism employment growth on a current account deficit question without linking to export revenue).
    h) QUESTION-FIT:
@@ -130,7 +134,8 @@ MANDATORY RULES:
       - Is the conclusion an unranked hedge ("a mix of policies", "depends on situation" without explicit criteria/ranking)?
    i) PARAGRAPH ANALYSIS & COMPLETE CHAINS:
       - For each paragraph: is it relevant (yes/no), and is its chain complete, partial, or asserted?
-      - A complete chain must have: cause -> mechanism -> effect -> link to question.
+      - A chain with no stated mechanism is "asserted", not complete. A complete chain must have: cause -> step-by-step transmission mechanism -> intermediate effect -> link to question.
+      - If an assertion is made without explaining the mechanism step-by-step, it MUST be marked "asserted", NOT "complete".
       - CRITICAL: A chain containing ANY major error is NEVER complete!
    j) UNCERTAINTY RULE:
       - When unsure, report the item as an error.
@@ -312,6 +317,31 @@ export function getCanonicalMistakeKey(
     return { key: "money_supply", isAbsoluteClaim: false, paraIdx };
   }
 
+  // 13. Growth/GDP definition missing "real" or living standards as income only
+  if (
+    (qLower.includes("growth") && (qLower.includes("real") || f.category === "wrong_definition" || f.is_definition_error)) ||
+    qLower.includes("living standard")
+  ) {
+    return { key: "definition_growth_living_standards", isAbsoluteClaim: false, paraIdx };
+  }
+
+  // 14. Trickle-down or "inequality always falls"
+  if (
+    qLower.includes("trickle") ||
+    (qLower.includes("inequality") && (qLower.includes("always") || qLower.includes("falls") || qLower.includes("decreases")))
+  ) {
+    return { key: `trickle_down_inequality:p${paraIdx >= 0 ? paraIdx : "all"}`, isAbsoluteClaim: true, paraIdx };
+  }
+
+  // 15. Wrong formula components (e.g. imports added to GDP)
+  if (
+    qLower.includes("x + m") ||
+    (qLower.includes("import") && (qLower.includes("add") || qLower.includes("gdp") || qLower.includes("aggregate demand"))) ||
+    f.category === "wrong_formula"
+  ) {
+    return { key: "wrong_formula_imports", isAbsoluteClaim: false, paraIdx };
+  }
+
   const cleanQ = quoteLower.replace(/[^a-z0-9]/g, "").slice(0, 25);
   return { key: `${f.category}:${cleanQ}`, isAbsoluteClaim: false, paraIdx };
 }
@@ -474,6 +504,12 @@ export function computeCapsFromDetector(
       namedErrors.push("hyperinflation definition");
     } else if (key === "money_supply") {
       namedErrors.push("investment money supply claim");
+    } else if (key === "definition_growth_living_standards") {
+      namedErrors.push("definitional omission (growth without 'real' / living standards as income only)");
+    } else if (key.startsWith("trickle_down_inequality")) {
+      namedErrors.push("unsubstantiated trickle-down / 'inequality always falls' claim");
+    } else if (key === "wrong_formula_imports") {
+      namedErrors.push("formula error (imports added to GDP/AD)");
     } else {
       namedErrors.push(f.category.replace(/_/g, " "));
     }
@@ -489,25 +525,28 @@ export function computeCapsFromDetector(
   // - question-fit failure with 2 or more errors: 4
   // - fewer than 3 complete relevant error-free chains means max 5
   let tableACap = tableAMax;
-  let tableAReason = "no major analytical errors, 3+ complete chains";
+  let tableAReason = `${completeRelevantChainsCount} complete chains found`;
 
   if (majorErrorCount >= 3 || (failsQuestionFit && majorErrorCount >= 2)) {
     tableACap = 4;
     tableAReason = failsQuestionFit
-      ? `Question-fit failure and ${majorErrorCount} major errors: ${namedErrorsStr}`
-      : `${majorErrorCount} major errors: ${namedErrorsStr}`;
+      ? `${completeRelevantChainsCount} complete chains found, question-fit failure and ${majorErrorCount} major errors: ${namedErrorsStr}`
+      : `${completeRelevantChainsCount} complete chains found, ${majorErrorCount} major errors: ${namedErrorsStr}`;
   } else if (majorErrorCount === 2) {
     tableACap = 5;
-    tableAReason = `2 major errors: ${namedErrorsStr}`;
+    tableAReason = `${completeRelevantChainsCount} complete chains found, 2 major errors: ${namedErrorsStr}`;
   } else if (failsQuestionFit) {
     tableACap = 5;
-    tableAReason = `Question-fit failure: ${cleanQfReason}`;
+    tableAReason = `${completeRelevantChainsCount} complete chains found, question-fit failure: ${cleanQfReason}`;
   } else if (completeRelevantChainsCount < 3) {
     tableACap = 5;
-    tableAReason = `fewer than 3 complete relevant error-free chains (${completeRelevantChainsCount} found)`;
+    tableAReason = `${completeRelevantChainsCount} complete chains found (minimum 3 required for full marks)${majorErrorCount > 0 ? `, ${majorErrorCount} major error: ${namedErrorsStr}` : ""}`;
   } else if (majorErrorCount === 1) {
     tableACap = 7;
-    tableAReason = `1 major error: ${namedErrorsStr}`;
+    tableAReason = `${completeRelevantChainsCount} complete chains found, 1 major error: ${namedErrorsStr}`;
+  } else {
+    tableACap = tableAMax;
+    tableAReason = `${completeRelevantChainsCount} complete chains found, 0 major errors`;
   }
 
   // Table A split: AO1 gets up to 2 (max 1 if key definition error), AO2 is Table A minus AO1
@@ -520,11 +559,11 @@ export function computeCapsFromDetector(
   // - hedge conclusion with no ranking or conditions: 2
   // - no stated conditions: 2
   let tableBCap = tableBMax;
-  let tableBReason = "direct comparison on stated criteria and justified judgement";
+  let tableBReason = "comparative criteria met with decisive judgement";
 
   if (failsQuestionFit) {
     tableBCap = 1;
-    tableBReason = `Question-fit failure: ${cleanQfReason}`;
+    tableBReason = `question-fit failure: ${cleanQfReason}`;
   } else if (isHedgeConclusion) {
     tableBCap = 2;
     tableBReason = "Hedge conclusion with no ranking or conditions";
@@ -672,6 +711,10 @@ export async function detectEssayErrorsAndCaps(options: {
       if (de.id === "price_control_reversal" && (text.includes("excess demand") || text.includes("excess supply") || text.includes("shortage") || text.includes("surplus"))) return true;
       if (de.id === "price_floor_ceiling_confusion" && (text.includes("floor") || text.includes("ceiling"))) return true;
       if (de.id === "no_negative_effects_contradiction" && (text.includes("no negative effect") || text.includes("no drawback") || text.includes("only benefit"))) return true;
+      if (de.id === "growth_definition_missing_real" && (text.includes("growth") || text.includes("gdp"))) return true;
+      if (de.id === "living_standards_income_only" && text.includes("living standard")) return true;
+      if (de.id === "trickle_down_inequality_claim" && (text.includes("trickle") || text.includes("inequality"))) return true;
+      if (de.id === "wrong_formula_imports_added" && (text.includes("formula") || text.includes("import"))) return true;
       return false;
     });
 
@@ -707,6 +750,18 @@ export async function detectEssayErrorsAndCaps(options: {
       } else if (de.id === "no_negative_effects_contradiction") {
         const m = essayText.match(/\b(?:no\s+negative\s+effects?|no\s+drawbacks?|no\s+disadvantages?|only\s+benefits?|no\s+downside)\b/i);
         quote = m ? m[0] : "policy has no negative effects";
+      } else if (de.id === "growth_definition_missing_real") {
+        const m = essayText.match(/\b(?:economic\s+growth\s+(?:is\s+defined\s+as|is\s+referred\s+to\s+as|refers\s+to|is|defined\s+as|means?)\s+(?:an?\s+)?(?:increase|rise|expansion)\s+in\s+(?:gdp|output|national\s+income))\b/i);
+        quote = m ? m[0] : "economic growth is an increase in GDP";
+      } else if (de.id === "living_standards_income_only") {
+        const m = essayText.match(/\bliving\s+standards?\s+(?:are|is|defined\s+as|means?)\s+(?:only\s+)?(?:national\s+income|gdp|income\s+per\s+capita)\b/i);
+        quote = m ? m[0] : "living standards defined as income only";
+      } else if (de.id === "trickle_down_inequality_claim") {
+        const m = essayText.match(/\b(?:trickle[\s-]?down\s+(?:economics\s+)?(?:ensures?|guarantees?|means?\s+everyone\s+benefits)|inequality\s+always\s+(?:falls?|decreases?|reduces?))\b/i);
+        quote = m ? m[0] : "inequality always falls with growth";
+      } else if (de.id === "wrong_formula_imports_added") {
+        const m = essayText.match(/\b(?:ad|gdp|aggregate\s+demand)\s*=\s*c\s*\+\s*i\s*\+\s*g\s*\+\s*\(?\s*x\s*\+\s*m\s*\)?|\bimports?\s+(?:add|adds|increases?|contributes?)\s+to\s+(?:gdp|aggregate\s+demand|ad)\b/i);
+        quote = m ? m[0] : "imports added to GDP (X + M)";
       } else {
         quote = de.trap.slice(0, 50);
       }
@@ -716,17 +771,19 @@ export async function detectEssayErrorsAndCaps(options: {
           ? "wrong_curve_or_shift"
           : de.id.includes("ped") || de.id.includes("marshall")
             ? "wrong_elasticity"
-            : de.id.includes("devaluation") || de.id.includes("hyperinflation")
+            : de.id.includes("devaluation") || de.id.includes("hyperinflation") || de.id.includes("growth") || de.id.includes("living_standards")
               ? "wrong_definition"
               : de.id.includes("contradiction")
                 ? "contradiction"
-                : de.id.includes("absolute")
+                : de.id.includes("absolute") || de.id.includes("trickle")
                   ? "absolute_claim"
-                  : "wrong_mechanism",
+                  : de.id.includes("formula")
+                    ? "wrong_formula" as any
+                    : "wrong_mechanism",
         quote,
         correct_version: de.trap,
         severity: de.severity,
-        is_definition_error: de.id === "depreciation_devaluation_confusion" || de.id === "hyperinflation",
+        is_definition_error: de.id === "depreciation_devaluation_confusion" || de.id === "hyperinflation" || de.id === "growth_definition_missing_real" || de.id === "living_standards_income_only",
       });
     }
   }
@@ -746,7 +803,7 @@ export async function detectEssayErrorsAndCaps(options: {
     detectorResult.question_fit.is_hedge_conclusion = true;
   }
 
-  // 4. Ensure paragraph array is populated
+  // 4. Ensure paragraph array is populated and validate mechanism presence
   if (detectorResult.paragraphs.length === 0) {
     const rawParas = essayText
       .split(/\n\s*\n/)
@@ -758,11 +815,16 @@ export async function detectEssayErrorsAndCaps(options: {
       const hasMajor = detectorResult.findings.some(
         (f) => f.severity === "major" && para.toLowerCase().includes(f.quote.toLowerCase().slice(0, 20)),
       );
+      const hasMechanism =
+        /\b(leads?\s+to|results?\s+in|causes?|causing|transmitted\s+through|shifts?|which\s+(?:increases|decreases|reduces|raises)|therefore|consequently|as\s+a\s+result|in\s+turn)\b/i.test(para);
+
       const status: "complete" | "partial" | "asserted" = hasMajor
         ? "partial"
-        : majorCount === 0 && para.length > 100
-          ? "complete"
-          : "partial";
+        : !hasMechanism
+          ? "asserted"
+          : majorCount === 0 && para.length > 100
+            ? "complete"
+            : "partial";
 
       return {
         paragraph_index: idx,
@@ -771,6 +833,24 @@ export async function detectEssayErrorsAndCaps(options: {
         has_major_error: hasMajor,
       };
     });
+  } else {
+    // Validate LLM returned paragraphs: any chain with no stated mechanism or with major error is NOT complete
+    const rawParas = essayText
+      .split(/\n\s*\n/)
+      .map((p) => p.trim())
+      .filter((p) => p.length > 0 && !p.startsWith("[DIAGRAM:"));
+
+    for (const p of detectorResult.paragraphs) {
+      const text = rawParas[p.paragraph_index] || "";
+      const hasMechanism =
+        /\b(leads?\s+to|results?\s+in|causes?|causing|transmitted\s+through|shifts?|which\s+(?:increases|decreases|reduces|raises)|therefore|consequently|as\s+a\s+result|in\s+turn)\b/i.test(text);
+
+      if (p.has_major_error) {
+        if (p.chain_status === "complete") p.chain_status = "partial";
+      } else if (!hasMechanism && text.length > 0) {
+        p.chain_status = "asserted";
+      }
+    }
   }
 
   return computeCapsFromDetector(detectorResult, 12, split, question, essayText);

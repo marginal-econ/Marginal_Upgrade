@@ -97,6 +97,7 @@ export const gradeEssaySubmission = createServerFn({ method: "POST" })
       !sub.isTeacher &&
       (sub.tier === "free" || sub.tier === "foundation" || sub.tier === "scholar_plus");
 
+    const gradeCallStart = Date.now();
     let outcome;
     try {
       outcome = await gradeEssay(supabase, {
@@ -110,6 +111,9 @@ export const gradeEssaySubmission = createServerFn({ method: "POST" })
         userId,
         skipSyllabusPreflight: true,
       });
+      const elapsedTotalMs = Date.now() - gradeCallStart;
+      outcome.latencyMs = Math.max(outcome.latencyMs || 0, elapsedTotalMs);
+      outcome.grading.latencyMs = outcome.latencyMs;
     } catch (error) {
       // The grading never happened, so it shouldn't use up today's allowance.
       try {
