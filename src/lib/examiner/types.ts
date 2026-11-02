@@ -729,22 +729,43 @@ export function checkQuestionFit(questionText: string, essayText: string): Quest
 
     // Specific question: indirect tax vs demerit goods
     if (q.includes("indirect tax") && q.includes("demerit")) {
+      const mentionsAltPolicy =
+        fullText.includes("advertising") ||
+        fullText.includes("education") ||
+        fullText.includes("awareness") ||
+        fullText.includes("campaign") ||
+        fullText.includes("regulation") ||
+        fullText.includes("legislation") ||
+        fullText.includes("ban") ||
+        fullText.includes("subsidy") ||
+        fullText.includes("subsidies") ||
+        fullText.includes("minimum price") ||
+        fullText.includes("price floor") ||
+        fullText.includes("alternative");
+
       const hasComparativeCriterion =
-        (bodyText.includes("compared to") ||
-          bodyText.includes("in comparison with") ||
-          bodyText.includes("more effective than") ||
-          bodyText.includes("superior to") ||
-          bodyText.includes("preferable to") ||
-          bodyText.includes("whereas") ||
-          bodyText.includes("on the criterion of") ||
-          bodyText.includes("opportunity cost of") ||
-          bodyText.includes("cost to the government")) &&
-        (bodyText.includes("advertising") ||
-          bodyText.includes("education") ||
-          bodyText.includes("regulation") ||
-          bodyText.includes("ban") ||
-          bodyText.includes("subsidy") ||
-          bodyText.includes("minimum price"));
+        mentionsAltPolicy &&
+        (fullText.includes("compared to") ||
+          fullText.includes("in comparison") ||
+          fullText.includes("more effective") ||
+          fullText.includes("less effective") ||
+          fullText.includes("superior to") ||
+          fullText.includes("preferable") ||
+          fullText.includes("whereas") ||
+          fullText.includes("in contrast") ||
+          fullText.includes("alternatively") ||
+          fullText.includes("however") ||
+          fullText.includes("while") ||
+          fullText.includes("on the other hand") ||
+          fullText.includes("on the criterion of") ||
+          fullText.includes("opportunity cost") ||
+          fullText.includes("cost to the government") ||
+          fullText.includes("time lag") ||
+          fullText.includes("elasticity") ||
+          fullText.includes("ped") ||
+          fullText.includes("trade-off") ||
+          fullText.includes("trade off") ||
+          fullText.includes("effectiveness"));
 
       return {
         isComparativeQuestion: true,
@@ -802,18 +823,74 @@ export function checkQuestionFit(questionText: string, essayText: string): Quest
       };
     }
 
+    // Specific question: subsidy vs merit goods
+    if (q.includes("subsidy") && (q.includes("merit") || q.includes("consumption"))) {
+      const mentionsAltPolicy =
+        fullText.includes("education") ||
+        fullText.includes("advertising") ||
+        fullText.includes("campaign") ||
+        fullText.includes("information") ||
+        fullText.includes("direct provision") ||
+        fullText.includes("state provision") ||
+        fullText.includes("free provision") ||
+        fullText.includes("maximum price") ||
+        fullText.includes("price ceiling") ||
+        fullText.includes("regulation") ||
+        fullText.includes("legislation") ||
+        fullText.includes("mandate") ||
+        fullText.includes("compulsory") ||
+        fullText.includes("tax cut") ||
+        fullText.includes("income tax") ||
+        fullText.includes("voucher") ||
+        fullText.includes("alternative");
+
+      const hasComparativeCriterion =
+        mentionsAltPolicy &&
+        (fullText.includes("compared to") ||
+          fullText.includes("in comparison") ||
+          fullText.includes("more effective") ||
+          fullText.includes("less effective") ||
+          fullText.includes("superior to") ||
+          fullText.includes("preferable") ||
+          fullText.includes("whereas") ||
+          fullText.includes("in contrast") ||
+          fullText.includes("alternatively") ||
+          fullText.includes("however") ||
+          fullText.includes("while") ||
+          fullText.includes("on the other hand") ||
+          fullText.includes("opportunity cost") ||
+          fullText.includes("fiscal") ||
+          fullText.includes("cost to the government") ||
+          fullText.includes("time lag") ||
+          fullText.includes("elasticity") ||
+          fullText.includes("ped") ||
+          fullText.includes("trade-off") ||
+          fullText.includes("trade off") ||
+          fullText.includes("drawback") ||
+          fullText.includes("limitation") ||
+          fullText.includes("effectiveness"));
+
+      return {
+        isComparativeQuestion: true,
+        isToWhatExtentQuestion: false,
+        hasAlternativeAnalysis: hasComparativeCriterion,
+        hasDegreeAndConditions: true,
+        failsQuestionFit: !hasComparativeCriterion,
+        missingAlternativeNote: hasComparativeCriterion
+          ? undefined
+          : "The question asks whether a subsidy is the best method to increase consumption of merit goods. The candidate does not compare subsidies against alternative policies on an explicit economic criterion.",
+        auditReason: "does not compare subsidy with an alternative on a stated criterion",
+      };
+    }
+
     // General comparative check
+    const mentionsGeneralAlternative =
+      /\b(alternativ|other\s+polic|another\s+polic|second\s+polic|supplementary\s+polic|instead|education|advertising|campaign|awareness|regulation|legislation|ban|direct\s+provision|state\s+provision|free\s+provision|maximum\s+price|minimum\s+price|price\s+ceiling|price\s+floor|tax|subsid|monetary\s+policy|fiscal\s+policy|supply[\s-]side|interest\s+rate|tariff|quota|protectionism)\b/i.test(fullText);
+
     const hasComparativeLanguage =
-      bodyText.includes("compared to") ||
-      bodyText.includes("in comparison") ||
-      bodyText.includes("more effective than") ||
-      bodyText.includes("superior to") ||
-      bodyText.includes("preferable to") ||
-      bodyText.includes("outweighs") ||
-      bodyText.includes("on the criterion") ||
-      bodyText.includes("criterion of") ||
-      bodyText.includes("time lag") ||
-      bodyText.includes("opportunity cost");
+      mentionsGeneralAlternative &&
+      (/\b(compared\s+to|in\s+comparison|more\s+effective|less\s+effective|superior|preferable|outweighs?|on\s+the\s+criterion|criterion\s+of|time\s+lag|opportunity\s+cost|fiscal|trade[\s-]?off|drawback|limitation|elasticity|ped|better\s+than|worse\s+than|whereas|in\s+contrast|alternatively|however|while|relative\s+to|effectiveness|first\s+policy|second\s+policy|best\s+method)\b/i.test(fullText) ||
+       /\b(first\s+policy|second\s+policy|best\s+method|more\s+suitable)\b/i.test(bodyText));
 
     return {
       isComparativeQuestion: true,

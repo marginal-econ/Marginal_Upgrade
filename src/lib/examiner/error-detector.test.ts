@@ -393,4 +393,57 @@ describe("computeCapsFromDetector — Code-computed Cambridge 9708 Caps", () => 
     expect(caps.auditLine).toContain("2 complete chains found");
     expect(caps.auditLine).toContain("Table A capped at 5/8");
   });
+
+  it("USER REAL ESSAY TEST: correctly awards top caps (8/8 Table A, 4/4 Table B) to a sound 10/12 merit goods essay", () => {
+    const meritQuestion = "Assess whether a subsidy is likely to be the best method to increase the consumption of merit goods.";
+    const meritEssay = `
+      A subsidy is a financial grant given by the government to producers of a good to increase the quantity produced and to decrease the price at which it is sold. A merit good is a good that creates more positive externalities than what is internalised leading to underproduction if left to the free market.
+
+      In a free market there is the existence of information failure which is a type of market failure means that consumers don't internalise all the benefits produced after consumption of merit goods. This in turn leads producers to decrease supply as there is a signal that demand is low for this good. This leads to underconsumption and underproduction of merit goods. Thus government intervention is needed to fix this market failure.
+
+      By providing a per-unit subsidy to producers, production costs fall, causing the market supply curve to shift vertically downwards and rightwards. This lowers the equilibrium price from P1 to P2 and expands output from Q1 to Q2, moving consumption closer to the socially optimal equilibrium where marginal social benefit equals marginal social cost.
+
+      However, subsidies carry an opportunity cost for government finances and depend heavily on price elasticity of demand. If demand is price inelastic, a large subsidy expenditure is required to generate only a modest expansion in consumption. Alternatively, the government could deploy public information and awareness campaigns to directly target information failure, though advertising involves significant time lags. State provision, such as free healthcare, ensures universal access regardless of income.
+
+      In conclusion, a subsidy is effective at addressing price barriers in the short run, but it is not the decisive best method on its own. For long-term welfare gains, combining subsidies with education campaigns is superior because it simultaneously addresses both affordability and the underlying consumer information failure.
+    `;
+
+    // 1. Deterministic error detector should NOT flag standard merit good definitions or mechanisms
+    const detectedErrors = detectEconomicErrors(meritEssay);
+    expect(detectedErrors.length).toBe(0);
+
+    // 2. Question-fit should pass because candidate discusses education, state provision, opportunity cost, and time lags
+    const detectorResult: DetectorResult = {
+      findings: [],
+      paragraphs: [
+        { paragraph_index: 0, relevant: true, chain_status: "complete", has_major_error: false },
+        { paragraph_index: 1, relevant: true, chain_status: "complete", has_major_error: false },
+        { paragraph_index: 2, relevant: true, chain_status: "complete", has_major_error: false },
+        { paragraph_index: 3, relevant: true, chain_status: "complete", has_major_error: false },
+        { paragraph_index: 4, relevant: true, chain_status: "complete", has_major_error: false },
+      ],
+      question_fit: {
+        is_comparative: true,
+        compares_with_alternative_on_criterion: true,
+        states_which_is_better_or_when: true,
+        is_to_what_extent: false,
+        gives_degree_and_conditions: true,
+        answers_different_question: false,
+        is_hedge_conclusion: false,
+        fails_question_fit: false,
+      },
+    };
+
+    const caps = computeCapsFromDetector(detectorResult, 12, split, meritQuestion, meritEssay);
+    expect(caps.majorErrorCount).toBe(0);
+    expect(caps.hasDefinitionError).toBe(false);
+    expect(caps.failsQuestionFit).toBe(false);
+    expect(caps.tableACap).toBe(8);
+    expect(caps.tableBCap).toBe(4);
+    expect(caps.maxAo1).toBe(2);
+    expect(caps.maxAo2).toBe(6);
+    expect(caps.auditLine).toContain("Table A capped at 8/8");
+    expect(caps.auditLine).toContain("Table B capped at 4/4");
+    expect(caps.auditLine).toContain("Final marks: AO1 2, AO2 6, AO3 4.");
+  });
 });

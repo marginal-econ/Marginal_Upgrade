@@ -128,17 +128,23 @@ MANDATORY RULES:
    g) IRRELEVANT PARAGRAPHS:
       - Paragraphs that do not help answer the question as set (e.g. analyzing tourism employment growth on a current account deficit question without linking to export revenue).
    h) QUESTION-FIT:
-      - For "best", "most", "main", "most effective": does the script compare the named option with an alternative on a stated criterion AND say which is better or when? If it only explains the named policy without alternative comparison, question-fit FAILS.
-      - For "to what extent": does it give a stated degree and conditions it depends on? If not, question-fit FAILS.
-      - Does it answer a different question from the one set (e.g. "does it work" instead of "is it the best")?
+      - For "best", "most", "main", "most effective": does the script compare the named option with an alternative (or discuss alternative policies such as education, direct provision, maximum prices, taxation, etc.) AND evaluate trade-offs/criteria (such as cost, time lags, elasticity, effectiveness)? If the essay discusses alternative policies or trade-offs, question-fit PASSES. Question-fit ONLY fails if the script writes exclusively about one policy and completely ignores alternatives or counterarguments.
+      - For "to what extent": does it give a stated degree and conditions it depends on? If yes, question-fit PASSES.
+      - Does it answer a completely different question from the one set? If no, it is relevant.
       - Is the conclusion an unranked hedge ("a mix of policies", "depends on situation" without explicit criteria/ranking)?
    i) PARAGRAPH ANALYSIS & COMPLETE CHAINS:
       - For each paragraph: is it relevant (yes/no), and is its chain complete, partial, or asserted?
       - A chain with no stated mechanism is "asserted", not complete. A complete chain must have: cause -> step-by-step transmission mechanism -> intermediate effect -> link to question.
       - If an assertion is made without explaining the mechanism step-by-step, it MUST be marked "asserted", NOT "complete".
       - CRITICAL: A chain containing ANY major error is NEVER complete!
-   j) UNCERTAINTY RULE:
-      - When unsure, report the item as an error.
+   j) ACCURACY & FAIRNESS RULE:
+      - Only report genuine, objective, indisputable economic errors (such as wrong curve shifted, reverse shift direction, inverted formula, Marshall-Lerner < 1, devaluation confused with floating depreciation, excess demand/supply reversed, or absolute unhedged claims).
+      - NEVER flag standard textbook definitions or correct explanations as errors. For example:
+        * Defining a merit good in terms of positive externalities / external benefits, social benefit > private benefit, information failure, or underconsumption/underproduction in a free market is 100% standard and correct Cambridge economics.
+        * Defining a subsidy as a government financial grant to producers to lower production costs, lower prices, and increase supply is completely standard and correct.
+        * Explaining that information failure means consumers undervalue benefits leading to lower market demand and underproduction is sound analysis.
+        * Do NOT nitpick definitions or penalize valid economic phrasing as an error.
+        * Only flag a definition error if a term is inverted or factually incorrect (e.g. demerit goods called under-consumed, allocative efficiency called P = AC, hyperinflation called accelerating inflation, or depreciation called government lowering currency).
 
 Return ONLY a single valid JSON object matching this schema:
 {
@@ -627,7 +633,7 @@ export async function detectEssayErrorsAndCaps(options: {
     const userPrompt =
       `EXAM QUESTION TO ANALYSE:\n"""\n${question}\n"""\n\n` +
       `CANDIDATE ESSAY SUBMISSION:\n"""\n${essayText}\n"""\n\n` +
-      `DIAGNOSTIC TASK:\nDetect all wrong curve shifts, wrong elasticity claims, wrong definitions, wrong pricing/output mechanisms, contradictions, absolute claims, irrelevant paragraphs, question-fit failures, and paragraph chain statuses. When unsure, report as an error. Return JSON only.`;
+      `DIAGNOSTIC TASK:\nDetect all genuine wrong curve shifts, wrong elasticity claims, wrong definitions, wrong pricing/output mechanisms, contradictions, absolute claims, irrelevant paragraphs, question-fit failures, and paragraph chain statuses. Only report genuine, indisputable economic errors. Never flag standard correct definitions or valid economic arguments as errors. Return JSON only.`;
 
     const response = await chat({
       model: MODEL_EXAMINER,
@@ -647,13 +653,33 @@ export async function detectEssayErrorsAndCaps(options: {
     const parsed = extractFirstJsonObject(response.text) as Partial<DetectorResult>;
     if (parsed && Array.isArray(parsed.findings)) {
       detectorResult = {
-        findings: parsed.findings.map((f: any) => ({
-          category: f.category || "wrong_mechanism",
-          quote: String(f.quote || "").slice(0, 150),
-          correct_version: String(f.correct_version || ""),
-          severity: f.severity === "minor" ? "minor" : "major",
-          is_definition_error: Boolean(f.is_definition_error),
-        })),
+        findings: parsed.findings
+          .filter((f: any) => {
+            const qLower = String(f.quote || "").toLowerCase();
+            const cLower = String(f.correct_version || "").toLowerCase();
+            // Discard false-positive definition errors on standard merit goods or subsidies:
+            if (f.category === "wrong_definition" || f.is_definition_error) {
+              const isStandardMerit =
+                (qLower.includes("merit good") || cLower.includes("merit good")) &&
+                !qLower.includes("overconsumed") &&
+                !qLower.includes("over-consumed") &&
+                !qLower.includes("overproduced") &&
+                !qLower.includes("over-produced");
+              const isStandardSubsidy =
+                (qLower.includes("subsidy") || cLower.includes("subsidy")) &&
+                !qLower.includes("tax") &&
+                !qLower.includes("left");
+              if (isStandardMerit || isStandardSubsidy) return false;
+            }
+            return true;
+          })
+          .map((f: any) => ({
+            category: f.category || "wrong_mechanism",
+            quote: String(f.quote || "").slice(0, 150),
+            correct_version: String(f.correct_version || ""),
+            severity: f.severity === "minor" ? "minor" : "major",
+            is_definition_error: Boolean(f.is_definition_error),
+          })),
         paragraphs: Array.isArray(parsed.paragraphs)
           ? parsed.paragraphs.map((p: any) => ({
               paragraph_index: Number(p.paragraph_index) || 0,
@@ -804,25 +830,26 @@ export async function detectEssayErrorsAndCaps(options: {
   }
 
   // 4. Ensure paragraph array is populated and validate mechanism presence
+  const mechanismRegex =
+    /\b(leads?\s+to|results?\s+in|causes?|causing|transmitted\s+through|shifts?|which\s+(?:increases?|decreases?|reduces?|raises?|lowers?|expands?|contracts?)|therefore|consequently|as\s+a\s+result|in\s+turn|thus|hence|thereby|meaning\s+that|because|incentivis(?:es|ing)|incentiviz(?:es|ing)|encourag(?:es|ing)|enabl(?:es|ing)|driv(?:es|ing)|fall(?:s|ing)?|ris(?:es|ing)?|grow(?:s|ing)?|worsen(?:s|ing)?|improv(?:es|ing)?|reduc(?:es|ing)|lower(?:s|ing)?|increas(?:es|ing))\b/i;
+
   if (detectorResult.paragraphs.length === 0) {
     const rawParas = essayText
       .split(/\n\s*\n/)
       .map((p) => p.trim())
       .filter((p) => p.length > 30 && !p.startsWith("[DIAGRAM:"));
 
-    const majorCount = detectorResult.findings.filter((f) => f.severity === "major").length;
     detectorResult.paragraphs = rawParas.map((para, idx) => {
       const hasMajor = detectorResult.findings.some(
         (f) => f.severity === "major" && para.toLowerCase().includes(f.quote.toLowerCase().slice(0, 20)),
       );
-      const hasMechanism =
-        /\b(leads?\s+to|results?\s+in|causes?|causing|transmitted\s+through|shifts?|which\s+(?:increases|decreases|reduces|raises)|therefore|consequently|as\s+a\s+result|in\s+turn)\b/i.test(para);
+      const hasMechanism = mechanismRegex.test(para);
 
       const status: "complete" | "partial" | "asserted" = hasMajor
         ? "partial"
         : !hasMechanism
           ? "asserted"
-          : majorCount === 0 && para.length > 100
+          : para.length > 60
             ? "complete"
             : "partial";
 
@@ -842,8 +869,7 @@ export async function detectEssayErrorsAndCaps(options: {
 
     for (const p of detectorResult.paragraphs) {
       const text = rawParas[p.paragraph_index] || "";
-      const hasMechanism =
-        /\b(leads?\s+to|results?\s+in|causes?|causing|transmitted\s+through|shifts?|which\s+(?:increases|decreases|reduces|raises)|therefore|consequently|as\s+a\s+result|in\s+turn)\b/i.test(text);
+      const hasMechanism = mechanismRegex.test(text);
 
       if (p.has_major_error) {
         if (p.chain_status === "complete") p.chain_status = "partial";
