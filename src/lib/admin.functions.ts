@@ -2046,6 +2046,27 @@ export const adminGetMcqAttemptDetail = createServerFn({ method: "POST" })
     };
   });
 
+export const adminDeleteMcqAttempt = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({ id: z.string().uuid(), kind: z.enum(["generated", "past_paper"]).default("past_paper") }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/backend/client.server");
+
+    const table = data.kind === "generated" ? "mcq_attempts" : "mcq_pdf_attempts";
+    const { error, count } = await supabaseAdmin
+      .from(table)
+      .delete({ count: "exact" })
+      .eq("id", data.id);
+
+    if (error) throw new Error(error.message);
+    if (!count) throw new Error("MCQ attempt not found or already deleted");
+
+    return { ok: true, deletedId: data.id };
+  });
+
 export const adminListAllLiveExaminerSessions = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {

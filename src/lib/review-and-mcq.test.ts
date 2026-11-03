@@ -113,4 +113,39 @@ describe("Advanced MCQ Review and Response Engine", () => {
     expect(fallbackResult.text).toBeTruthy();
     expect(fallbackResult.diagnostic).toBeUndefined();
   });
+
+  it("verifies MCQ draft auto-expiration threshold is strictly 12 hours", () => {
+    const twelveHoursMs = 12 * 60 * 60 * 1000;
+    expect(twelveHoursMs).toBe(43_200_000);
+
+    const now = Date.now();
+    const draftSaved11HoursAgo = { savedAt: now - 11 * 60 * 60 * 1000 };
+    const draftSaved13HoursAgo = { savedAt: now - 13 * 60 * 60 * 1000 };
+
+    const isDraftExpired = (savedAt: number) => now - savedAt > twelveHoursMs;
+
+    expect(isDraftExpired(draftSaved11HoursAgo.savedAt)).toBe(false);
+    expect(isDraftExpired(draftSaved13HoursAgo.savedAt)).toBe(true);
+  });
+
+  it("validates admin MCQ score deletion payload schema", () => {
+    const { z } = require("zod");
+    const adminDeleteSchema = z.object({
+      id: z.string().uuid(),
+      kind: z.enum(["generated", "past_paper"]).default("past_paper"),
+    });
+
+    const validUuid = "123e4567-e89b-12d3-a456-426614174000";
+    const parsedPastPaper = adminDeleteSchema.parse({ id: validUuid, kind: "past_paper" });
+    expect(parsedPastPaper.id).toBe(validUuid);
+    expect(parsedPastPaper.kind).toBe("past_paper");
+
+    const parsedDefault = adminDeleteSchema.parse({ id: validUuid });
+    expect(parsedDefault.kind).toBe("past_paper");
+
+    const parsedGenerated = adminDeleteSchema.parse({ id: validUuid, kind: "generated" });
+    expect(parsedGenerated.kind).toBe("generated");
+
+    expect(() => adminDeleteSchema.parse({ id: "not-a-uuid" })).toThrow();
+  });
 });

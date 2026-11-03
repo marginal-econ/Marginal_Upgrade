@@ -7,12 +7,14 @@ import {
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
+  Clock,
   Eraser,
   Flag,
   History,
   LayoutGrid,
   Loader2,
   Pencil,
+  Play,
   Search,
   Sparkles,
   Timer as TimerIcon,
@@ -116,10 +118,13 @@ const PAPER_DURATION_SECONDS: Record<Level, number> = {
 const LOW_TIME_WARNING_SECONDS = 5 * 60;
 const MCQ_DRAFT_VERSION = 1;
 const MCQ_ACTIVE_VERSION = 1;
+export const MCQ_DRAFT_EXPIRY_MS = 12 * 60 * 60 * 1000; // 12 hours
 
 type McqDraft = {
   version: number;
   paperId: string;
+  paperTitle?: string;
+  level?: Level;
   answers: Record<number, Letter>;
   flagged?: number[];
   timeLeft: number | null;
@@ -138,8 +143,15 @@ function readActiveMcqPaper(userId: string): string | null {
   try {
     const raw = window.localStorage.getItem(mcqActiveKey(userId));
     if (!raw) return null;
-    const value = JSON.parse(raw) as { version: number; paperId: string };
-    return value.version === MCQ_ACTIVE_VERSION ? value.paperId : null;
+    const value = JSON.parse(raw) as { version: number; paperId: string; savedAt?: number };
+    if (value.version !== MCQ_ACTIVE_VERSION) return null;
+    // Check corresponding draft for 12hr expiration
+    const draft = readMcqDraft(userId, value.paperId);
+    if (!draft) {
+      window.localStorage.removeItem(mcqActiveKey(userId));
+      return null;
+    }
+    return value.paperId;
   } catch {
     return null;
   }
@@ -147,14 +159,84 @@ function readActiveMcqPaper(userId: string): string | null {
 
 function readMcqDraft(userId: string, paperId: string): McqDraft | null {
   try {
-    const raw = window.localStorage.getItem(mcqDraftKey(userId, paperId));
+    const key = mcqDraftKey(userId, paperId);
+    const raw = window.localStorage.getItem(key);
     if (!raw) return null;
     const draft = JSON.parse(raw) as McqDraft;
     if (draft.version !== MCQ_DRAFT_VERSION || draft.paperId !== paperId) return null;
+    
+    // Auto-expire after 12 hours
+    const age = Date.now() - (draft.savedAt || 0);
+    if (age > MCQ_DRAFT_EXPIRY_MS) {
+      window.localStorage.removeItem(key);
+      const activeRaw = window.localStorage.getItem(mcqActiveKey(userId));
+      if (activeRaw) {
+        try {
+          const parsed = JSON.parse(activeRaw);
+          if (parsed.paperId === paperId) {
+            window.localStorage.removeItem(mcqActiveKey(userId));
+          }
+        } catch {}
+      }
+      return null;
+    }
     return draft;
   } catch {
     return null;
   }
+}
+
+function getActiveDraftSummary(userId: string, papers: McqPaperSummary[]): {
+  paper: McqPaperSummary;
+  draft: McqDraft;
+  remainingMs: number;
+} | null {
+  const activePaperId = readActiveMcqPaper(userId);
+  if (!activePaperId) return null;
+  const draft = readMcqDraft(userId, activePaperId);
+  if (!draft) return null;
+  const paper = papers.find((p) => p.id === activePaperId);
+  if (!paper) return null;
+  const elapsed = Date.now() - (draft.savedAt || 0);
+  const remainingMs = Math.max(0, MCQ_DRAFT_EXPIRY_MS - elapsed);
+  if (remainingMs <= 0) return null;
+  return { paper, draft, remainingMs };
+}
+
+export function cleanupExpiredMcqDrafts(userId: string): void {
+  try {
+    const prefix = `marginal_mcq_draft_${userId}_`;
+    const toRemove: string[] = [];
+    for (let i = 0; i < window.localStorage.length; i++) {
+      const key = window.localStorage.key(i);
+      if (key && key.startsWith(prefix)) {
+        try {
+          const raw = window.localStorage.getItem(key);
+          if (raw) {
+            const draft = JSON.parse(raw);
+            if (Date.now() - (draft.savedAt || 0) > MCQ_DRAFT_EXPIRY_MS) {
+              toRemove.push(key);
+            }
+          }
+        } catch {
+          toRemove.push(key);
+        }
+      }
+    }
+    for (const key of toRemove) {
+      window.localStorage.removeItem(key);
+    }
+  } catch {}
+}
+
+function formatRemainingTime(ms: number): string {
+  const totalMinutes = Math.floor(ms / (60 * 1000));
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (hours > 0) {
+    return `${hours}h ${minutes}m`;
+  }
+  return `${minutes}m`;
 }
 
 function formatTime(totalSeconds: number): string {
@@ -348,6 +430,30 @@ function McqLivePage() {
 
   const listPapersFn = useServerFn(listMcqPapers);
   const papersQuery = useQuery({ queryKey: ["mcq-papers"], queryFn: () => listPapersFn() });
+
+  const [draftRefreshKey, setDraftRefreshKey] = useState(0);
+
+  // Proactively clean up any abandoned drafts older than 12 hours
+  useEffect(() => {
+    if (me.data?.userId) {
+      cleanupExpiredMcqDrafts(me.data.userId);
+    }
+  }, [me.data?.userId]);
+
+  const activeDraftSummary = useMemo(() => {
+    if (stage !== "library" || !me.data?.userId || !papersQuery.data?.papers) return null;
+    return getActiveDraftSummary(me.data.userId, papersQuery.data.papers);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stage, me.data?.userId, papersQuery.data?.papers, draftRefreshKey]);
+
+  // Tick every 15 seconds while on library stage to update time left and auto-purge if expired
+  useEffect(() => {
+    if (stage !== "library" || !activeDraftSummary) return;
+    const interval = window.setInterval(() => {
+      setDraftRefreshKey((k) => k + 1);
+    }, 15000);
+    return () => window.clearInterval(interval);
+  }, [stage, !activeDraftSummary]);
 
   const classifyTopicsFn = useServerFn(classifyMcqTopics);
   const submitAttemptFn = useServerFn(submitPdfMcqAttempt);
@@ -747,9 +853,8 @@ function fillMissingQuestionPages(
   useEffect(() => {
     if (autoStartedRef.current) return;
     if (stage !== "library" || !me.data?.userId) return;
-    const paperId = search.paperId ?? readActiveMcqPaper(me.data.userId);
-    if (!paperId) return;
-    const paper = papersQuery.data?.papers.find((p) => p.id === paperId);
+    if (!search.paperId) return; // Only auto-start on explicit link search parameter
+    const paper = papersQuery.data?.papers.find((p) => p.id === search.paperId);
     if (!paper) return;
     autoStartedRef.current = true;
     beginPractice(paper);
@@ -847,6 +952,8 @@ function fillMissingQuestionPages(
       const draft: McqDraft = {
         version: MCQ_DRAFT_VERSION,
         paperId: selectedPaperId,
+        paperTitle,
+        level,
         answers,
         flagged: Array.from(flagged),
         timeLeft,
@@ -858,7 +965,7 @@ function fillMissingQuestionPages(
       );
       window.localStorage.setItem(
         mcqActiveKey(me.data.userId),
-        JSON.stringify({ version: MCQ_ACTIVE_VERSION, paperId: selectedPaperId }),
+        JSON.stringify({ version: MCQ_ACTIVE_VERSION, paperId: selectedPaperId, savedAt: Date.now() }),
       );
     }, 300);
     return () => window.clearTimeout(id);
@@ -1041,6 +1148,79 @@ function fillMissingQuestionPages(
       ) : stage === "library" ? (
         <div className="mx-auto grid max-w-5xl gap-8 px-5 py-10 md:px-8 lg:grid-cols-[1fr_20rem]">
           <div className="min-w-0 max-w-2xl">
+            {activeDraftSummary ? (
+              <div className="mb-6 rounded-2xl border-2 border-primary/30 bg-card p-5 shadow-sm transition-all hover:border-primary/50">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="space-y-1.5 min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="flex h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                      <span className="text-xs font-bold tracking-wider uppercase text-primary">
+                        In-Progress Exam Draft
+                      </span>
+                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2.5 py-0.5 text-xs font-semibold text-amber-500">
+                        <Clock className="h-3.5 w-3.5" />
+                        Expires in {formatRemainingTime(activeDraftSummary.remainingMs)}
+                      </span>
+                    </div>
+                    <h3 className="text-base font-bold text-foreground truncate">
+                      {activeDraftSummary.paper.title}
+                    </h3>
+                    <p className="text-xs text-muted-foreground">
+                      <strong className="text-foreground">
+                        {Object.keys(activeDraftSummary.draft.answers).length}
+                      </strong>{" "}
+                      of {activeDraftSummary.paper.questionCount} questions answered
+                      {activeDraftSummary.draft.timeLeft !== null && (
+                        <>
+                          {" "}
+                          ·{" "}
+                          <strong className="text-foreground">
+                            {formatTime(activeDraftSummary.draft.timeLeft)}
+                          </strong>{" "}
+                          remaining
+                        </>
+                      )}
+                      {" · "}Auto-purged after 12h without resuming.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-muted-foreground hover:text-destructive hover:border-destructive/40"
+                      onClick={() => {
+                        if (
+                          window.confirm(
+                            "Are you sure you want to discard your in-progress exam? All unsaved answers will be deleted.",
+                          )
+                        ) {
+                          if (me.data?.userId) {
+                            window.localStorage.removeItem(
+                              mcqDraftKey(me.data.userId, activeDraftSummary.paper.id),
+                            );
+                            window.localStorage.removeItem(mcqActiveKey(me.data.userId));
+                            setDraftRefreshKey((k) => k + 1);
+                            toast.success("Exam draft discarded.");
+                          }
+                        }
+                      }}
+                    >
+                      <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+                      Discard
+                    </Button>
+                    <Button
+                      size="sm"
+                      className="bg-primary text-primary-foreground font-semibold shadow hover:bg-primary/90"
+                      onClick={() => beginPractice(activeDraftSummary.paper)}
+                    >
+                      <Play className="mr-1.5 h-3.5 w-3.5 fill-current" />
+                      Resume Exam
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
             <div className="mb-5 flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 <BookOpen className="h-4 w-4 text-muted-foreground" />
@@ -1085,6 +1265,10 @@ function fillMissingQuestionPages(
                   busy={!!busyLabel}
                   busyPaperId={selectedPaperId}
                   onStart={beginPractice}
+                  activeDraftPaperId={activeDraftSummary?.paper.id}
+                  activeDraftAnswersCount={
+                    activeDraftSummary ? Object.keys(activeDraftSummary.draft.answers).length : 0
+                  }
                 />
               </div>
             )}
@@ -2238,11 +2422,15 @@ function PastPaperSelector({
   busy,
   busyPaperId,
   onStart,
+  activeDraftPaperId,
+  activeDraftAnswersCount = 0,
 }: {
   papers: McqPaperSummary[];
   busy: boolean;
   busyPaperId: string | null;
   onStart: (paper: McqPaperSummary) => void;
+  activeDraftPaperId?: string | null;
+  activeDraftAnswersCount?: number;
 }) {
   const years = uniqueSorted(
     papers.map((paper) => (paper.examYear ? String(paper.examYear) : "Unsorted")),
@@ -2384,7 +2572,14 @@ function PastPaperSelector({
         {selectedPaper ? (
           <div className="flex flex-col gap-3 border-t pt-5 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="text-sm font-semibold">{selectedPaper.title}</p>
+              <div className="flex items-center gap-2">
+                <p className="text-sm font-semibold">{selectedPaper.title}</p>
+                {activeDraftPaperId === selectedPaper.id ? (
+                  <UiBadge variant="secondary" className="border-primary/40 text-primary text-[10px] uppercase font-bold tracking-wider">
+                    In-Progress ({activeDraftAnswersCount} answered)
+                  </UiBadge>
+                ) : null}
+              </div>
               <p className="mt-1 text-xs text-muted-foreground">
                 {selectedPaper.questionCount} questions
                 {hasCompleteAnswerKey(selectedPaper)
@@ -2400,6 +2595,11 @@ function PastPaperSelector({
             >
               {busy && busyPaperId === selectedPaper.id ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
+              ) : activeDraftPaperId === selectedPaper.id ? (
+                <>
+                  <Play className="mr-1.5 h-4 w-4 fill-current" />
+                  Resume in-progress exam
+                </>
               ) : (
                 "Load question paper"
               )}

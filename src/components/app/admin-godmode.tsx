@@ -63,6 +63,7 @@ import {
   adminGetLiveExaminerSessionDetail,
   adminGetLiveUserMonitoring,
   adminGetMcqAttemptDetail,
+  adminDeleteMcqAttempt,
   adminGetPlatformActivityFeed,
   adminGetStudentDossier,
   adminListAllDossierUsers,
@@ -698,13 +699,33 @@ export function EssaysVaultTab() {
  * ============================================================================ */
 
 function McqVaultTab() {
+  const queryClient = useQueryClient();
   const fetchAllMcqs = useServerFn(adminListAllMcqAttempts);
   const fetchMcqDetail = useServerFn(adminGetMcqAttemptDetail);
+  const deleteMcq = useServerFn(adminDeleteMcqAttempt);
   const mcqsQuery = useQuery({ queryKey: ["admin-all-mcqs"], queryFn: () => fetchAllMcqs() });
 
   const [search, setSearch] = useState("");
   const [kindFilter, setKindFilter] = useState<"all" | "generated" | "past_paper">("all");
   const [inspectTarget, setInspectTarget] = useState<{ id: string; kind: "generated" | "past_paper" } | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string; kind: "generated" | "past_paper" } | null>(null);
+
+  const deleteMutation = useMutation({
+    mutationFn: (target: { id: string; kind: "generated" | "past_paper" }) =>
+      deleteMcq({ data: { id: target.id, kind: target.kind } }),
+    onSuccess: () => {
+      toast.success("MCQ score deleted successfully.");
+      queryClient.invalidateQueries({ queryKey: ["admin-all-mcqs"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-student-dossier"] });
+      setDeleteTarget(null);
+      if (inspectTarget?.id === deleteTarget?.id) {
+        setInspectTarget(null);
+      }
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || "Failed to delete MCQ score.");
+    },
+  });
 
   const mcqDetailQuery = useQuery({
     queryKey: ["admin-mcq-detail", inspectTarget?.id, inspectTarget?.kind],
@@ -890,11 +911,46 @@ function McqVaultTab() {
                   <Eye className="size-3.5" />
                   <span>Inspect</span>
                 </Button>
+
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="size-8 text-muted-foreground hover:text-destructive"
+                  title="Delete this MCQ score"
+                  aria-label="Delete this MCQ score"
+                  onClick={() => setDeleteTarget({ id: mcq.id, title: mcq.title, kind: mcq.kind })}
+                >
+                  <Trash2 className="size-3.5" />
+                </Button>
               </div>
             </div>
           ))}
         </div>
       )}
+
+      {/* Delete Confirmation Alert Dialog */}
+      <AlertDialog open={Boolean(deleteTarget)} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete MCQ score?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete the MCQ attempt for &ldquo;{deleteTarget?.title}&rdquo;?
+              This will permanently remove the score and answers from the system and recalculate student topic metrics.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteMutation.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteMutation.isPending}
+              onClick={() => deleteTarget && deleteMutation.mutate(deleteTarget)}
+            >
+              {deleteMutation.isPending ? "Deleting..." : "Delete Score"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Inspect MCQ Modal */}
       <Dialog open={Boolean(inspectTarget)} onOpenChange={(open) => !open && setInspectTarget(null)}>
@@ -931,6 +987,24 @@ function McqVaultTab() {
                     <Badge variant="outline" className="text-xs font-bold">
                       Score: {mcqDetailQuery.data.attempt.score ?? 0} / {mcqDetailQuery.data.attempt.total}
                     </Badge>
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="sm"
+                      className="h-7 text-xs gap-1"
+                      onClick={() => {
+                        if (inspectTarget) {
+                          setDeleteTarget({
+                            id: inspectTarget.id,
+                            title: mcqDetailQuery.data.attempt.title || "MCQ Paper",
+                            kind: inspectTarget.kind,
+                          });
+                        }
+                      }}
+                    >
+                      <Trash2 className="size-3" />
+                      <span>Delete Score</span>
+                    </Button>
                   </div>
                 </div>
                 <p className="text-sm font-semibold text-foreground">
@@ -2629,9 +2703,30 @@ function StudentDossierTab() {
                     <div key={m.id} className="py-2.5 space-y-1 text-xs">
                       <div className="flex items-center justify-between gap-2">
                         <span className="font-semibold text-foreground truncate max-w-xs">{m.title}</span>
-                        <span className="font-bold tabular-nums shrink-0 text-emerald-500">
-                          {m.score !== null ? `${m.score}/${m.total}` : "—"}
-                        </span>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <span className="font-bold tabular-nums text-emerald-500">
+                            {m.score !== null ? `${m.score}/${m.total}` : "—"}
+                          </span>
+                          <button
+                            type="button"
+                            className="text-muted-foreground hover:text-destructive p-0.5 rounded transition-colors"
+                            title="Delete this MCQ score"
+                            onClick={async () => {
+                              if (window.confirm(`Delete MCQ score for "${m.title}"?`)) {
+                                try {
+                                  await deleteMcq({ data: { id: m.id, kind: m.kind ?? "past_paper" } });
+                                  toast.success("MCQ score deleted.");
+                                  dossierQuery.refetch();
+                                  queryClient.invalidateQueries({ queryKey: ["admin-all-mcqs"] });
+                                } catch (e: any) {
+                                  toast.error(e.message || "Failed to delete score.");
+                                }
+                              }
+                            }}
+                          >
+                            <Trash2 className="size-3" />
+                          </button>
+                        </div>
                       </div>
                       <div className="flex items-center justify-between text-[10px] text-muted-foreground">
                         <span>
