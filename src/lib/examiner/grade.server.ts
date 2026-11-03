@@ -167,7 +167,16 @@ export async function gradeEssay(
       sources = await retrieve(supabase, {
         query: question,
         matchCount: 8,
-        minSimilarity: 0.40,
+        minSimilarity: 0.38,
+        enableHybridRrf: true,
+      });
+    }
+
+    if (!sources || sources.length === 0) {
+      sources = await retrieve(supabase, {
+        query: question,
+        matchCount: 8,
+        minSimilarity: 0.28,
         enableHybridRrf: true,
       });
     }

@@ -35,6 +35,19 @@ export function shouldTriggerArbitration(
   const delta = Math.abs(examiner.total_mark - moderator.total_mark);
   const threshold = Math.max(2, Math.round(maxMark * 0.18)); // e.g. 2 for 8-mark, 2-3 for 12-mark, 4 for 20-mark
 
+  // Zero-mark relevance contradiction: one pass zeroed the essay as off-topic while the other awarded positive marks
+  const zeroDiscrepancy =
+    (examiner.total_mark === 0 && moderator.total_mark > 0) ||
+    (moderator.total_mark === 0 && examiner.total_mark > 0);
+
+  if (zeroDiscrepancy) {
+    return {
+      shouldArbitrate: true,
+      delta,
+      reason: `Relevance discrepancy: one examiner awarded 0 marks (flagged as off-topic) while the other pass awarded positive marks (${Math.max(examiner.total_mark, moderator.total_mark)}/${maxMark}). Authoritative double-check required.`,
+    };
+  }
+
   const bandMismatch = examiner.band !== moderator.band;
   // Significant band discrepancy: e.g. Top band vs Middle band
   const extremeBandMismatch =
@@ -122,9 +135,14 @@ FIXED AO MARK ALLOCATION (syllabus 9708, {max_mark}-mark essay):
 
 AUTHORITATIVE PRINCIPAL EXAMINER PRINCIPLES:
 1. VERBATIM EVIDENCE: Base your decision on direct evidence from the student's text.
-2. RELEVANCE DIRECTIVE (ZERO MARKS FOR UNRELATED ESSAYS — NO GRACE MARKS):
-   - If the student's essay is unrelated to the question asked or discusses a completely different economic topic, total_mark MUST be 0 and all awarded AOs must be 0.
-   - Do NOT award courtesy or grace marks for off-topic, unrelated content.
+2. RELEVANCE DIRECTIVE & MANDATORY DOUBLE-CHECK:
+   - Practice POSITIVE MARKING: NEVER classify an essay as off-topic or award 0 marks unless you have double-checked and verified that the essay is 100% UNRELATED to the question asked.
+   - Legitimate responses in Cambridge 9708 include:
+     * Comparing the primary policy against alternative policies (e.g. comparing subsidies with direct provision, education, maximum prices, or taxes).
+     * Establishing economic groundwork (e.g. market failure, positive/negative externalities, information failure, allocative inefficiency).
+     * Approaching the prompt with differing analytical emphasis or partial focus.
+     All of these MUST be marked positively on their economic merits.
+   - Only award 0 marks across all AOs if you have double-checked that the essay has ZERO economic relation to the question prompt (no economic overlap whatsoever). No grace marks for genuinely off-topic material.
 3. EXAMPLES & APPLICATION CRITERIA (AO2):
    - If an example is related to the question and demonstrates genuine real-world application, reward that mark under AO2.
    - If theoretical, it must provide a clear demonstration of what is being described or serve as an explanatory guiding illustration.
@@ -236,10 +254,10 @@ export function synthesizeDualPasses(
   maxMark: number,
   split: AoSplit,
 ): Grading {
-  // If either pass determined the essay was completely off-topic / unrelated (awarded 0),
+  // If BOTH passes independently determined the essay was completely off-topic / unrelated (both awarded 0),
   // uphold the strict Cambridge zero-marks rule:
-  if (pass1.total_mark === 0 || pass2.total_mark === 0) {
-    const zeroGrading = pass1.total_mark === 0 ? pass1 : pass2;
+  if (pass1.total_mark === 0 && pass2.total_mark === 0) {
+    const zeroGrading = pass1;
     return {
       ...zeroGrading,
       total_mark: 0,

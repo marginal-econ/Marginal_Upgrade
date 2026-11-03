@@ -453,9 +453,10 @@ export function renderContext(sources: GroundingSource[]): string {
   });
 
   return [
-    "RETRIEVED CAMBRIDGE SOURCE MATERIAL — this is the only material you may treat as authoritative.",
-    "Cite the sources you use with their [S#] markers. If the material below does not cover something,",
-    "say so plainly rather than inventing syllabus content, mark scheme wording, or examiner report claims.",
+    "RETRIEVED CAMBRIDGE 9708 SYLLABUS & MARK SCHEME GROUNDING MATERIAL:",
+    "Use this authoritative material as official guidance for marking standards, syllabus terminology, and model answers alongside core Cambridge 9708 Economics theory.",
+    "Cite the sources you use with their [S#] markers where relevant.",
+    "Do NOT penalise candidates for valid economic concepts, mechanisms, or alternative examples that are accurate under syllabus 9708 simply because they are not quoted verbatim in these specific snippets.",
     "",
     blocks.join("\n\n"),
   ].join("\n");

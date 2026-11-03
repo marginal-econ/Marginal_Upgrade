@@ -325,7 +325,16 @@ export const checkQuestionGrounding = createServerFn({ method: "POST" })
         sources = await retrieve(context.supabase, {
           query: `${data.question}\n\nMark scheme, coursebook chapter, band descriptors and syllabus guidance.`,
           matchCount: 6,
-          minSimilarity: 0.40,
+          minSimilarity: 0.38,
+        });
+      }
+
+      // 3. Third search fallback: broader similarity threshold ensuring all Cambridge questions ground
+      if (!sources || sources.length === 0) {
+        sources = await retrieve(context.supabase, {
+          query: data.question,
+          matchCount: 6,
+          minSimilarity: 0.28,
         });
       }
 
