@@ -342,16 +342,22 @@ export async function chat(rawOptions: ChatOptions): Promise<ChatResult> {
       const { supabaseAdmin } = await import("@/integrations/backend/client.server");
       const latencyMs = Date.now() - started;
       const model = result?.model || rawOptions.model || "mistral-small-latest";
-      await supabaseAdmin.from("ai_usage_log").insert({
-        user_id: rawOptions.userId ?? null,
-        feature: rawOptions.feature ?? "chat",
-        model,
-        prompt_tokens: result?.promptTokens ?? null,
-        completion_tokens: result?.completionTokens ?? null,
-        latency_ms: latencyMs,
-        ok: !callError,
-        error_message: callError ? callError.message : null,
-      });
+      void supabaseAdmin
+        .from("ai_usage_log")
+        .insert({
+          user_id: rawOptions.userId ?? null,
+          feature: rawOptions.feature ?? "chat",
+          model,
+          prompt_tokens: result?.promptTokens ?? null,
+          completion_tokens: result?.completionTokens ?? null,
+          latency_ms: latencyMs,
+          ok: !callError,
+          error_message: callError ? callError.message : null,
+        })
+        .then(
+          () => {},
+          (logErr: unknown) => console.warn("Failed to write ai_usage_log in chat():", logErr),
+        );
     } catch (logErr) {
       console.warn("Failed to write ai_usage_log in chat():", logErr);
     }
@@ -401,8 +407,11 @@ async function chatViaProvider(
   // Strict free-first, paid-last key hopping:
   // All healthy free keys are tried first, rotating every 15s or on rate limits (429/503).
   // Emergency paid key(s) are strictly the last resort if all free keys are exhausted.
+  const isLiveExaminer = Boolean(options.feature && options.feature.startsWith("live_examiner"));
+  const isLiveExaminerRealtime =
+    isLiveExaminer && options.feature !== "live_examiner_maximise";
   const { freeKeys, paidKeys } = buildOrderedKeyPool(config);
-  const activeKeysToTry = getPrioritizedKeyOrder(config, keyCooldowns, false);
+  const activeKeysToTry = getPrioritizedKeyOrder(config, keyCooldowns, isLiveExaminer);
 
   if (config.provider === "anthropic") {
     const candidateModels = getCandidateModels("anthropic", config.model);
@@ -571,7 +580,11 @@ async function chatViaProvider(
     }
   }
 
-  const candidateModels = getCandidateModels(config.provider, config.model);
+  const baseCandidateModels = getCandidateModels(config.provider, config.model);
+  const candidateModels =
+    isLiveExaminerRealtime && config.provider === "mistral"
+      ? Array.from(new Set(["mistral-small-latest", ...baseCandidateModels]))
+      : baseCandidateModels;
 
   let usedModel = candidateModels[0];
   let successfulKeyIdx = 0;
@@ -588,8 +601,8 @@ async function chatViaProvider(
       for (let kIdx = 0; kIdx < activeKeysToTry.length; kIdx++) {
         const currentKey = activeKeysToTry[kIdx]!;
         const keyStarted = Date.now();
-        // 300s timeout: single key runs up to 300 seconds without jumping unless limit or model error occurs
-        const timeoutMs = 300_000;
+        // Fast 8s timeout for real-time Live Examiner so slow/stalled keys rotate immediately; 300s otherwise
+        const timeoutMs = isLiveExaminerRealtime ? 8_000 : isLiveExaminer ? 25_000 : 300_000;
         try {
           const reqHeaders: Record<string, string> = {
             "Content-Type": "application/json",
@@ -647,21 +660,34 @@ async function chatViaProvider(
             );
             try {
               const { supabaseAdmin } = await import("@/integrations/backend/client.server");
-              await supabaseAdmin.from("ai_usage_log").insert({
-                user_id: options.userId ?? null,
-                feature: (options.feature ?? "chat") + "_key_hop",
-                model: m,
-                latency_ms: Date.now() - keyStarted,
-                ok: false,
-                error_message: `Key ...${currentKey.slice(-4)} (${isPaidKey ? "emergency paid fallback" : "free pool key"}) returned ${response.status}. Auto-hopped to next key.`,
-              });
+              void supabaseAdmin
+                .from("ai_usage_log")
+                .insert({
+                  user_id: options.userId ?? null,
+                  feature: (options.feature ?? "chat") + "_key_hop",
+                  model: m,
+                  latency_ms: Date.now() - keyStarted,
+                  ok: false,
+                  error_message: `Key ...${currentKey.slice(-4)} (${isPaidKey ? "emergency paid fallback" : "free pool key"}) returned ${response.status}. Auto-hopped to next key.`,
+                })
+                .then(
+                  () => {},
+                  () => {},
+                );
             } catch {}
 
             // If we are about to hop from the free pool into the emergency paid key,
             // check if free keys were hit by 429 burst rate limits.
-            // Pause 2.5s and retry free keys once before consuming paid credits!
+            // Pause 2.5s and retry free keys once before consuming paid credits! (Skipped for real-time Live Examiner)
             const nextKey = activeKeysToTry[kIdx + 1];
-            if (nextKey && !isPaidKey && paidKeys.includes(nextKey) && had429OnFreePool && freeKeys.length > 0) {
+            if (
+              !isLiveExaminerRealtime &&
+              nextKey &&
+              !isPaidKey &&
+              paidKeys.includes(nextKey) &&
+              had429OnFreePool &&
+              freeKeys.length > 0
+            ) {
               console.warn(
                 `[chatViaProvider] Free pool encountered rate limits; pausing 2.5s to retry free keys before resorting to emergency paid key...`,
               );

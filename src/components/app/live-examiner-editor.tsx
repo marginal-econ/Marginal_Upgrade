@@ -1,5 +1,5 @@
-import { Check, X } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Check, Sparkles, Wand2, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -7,6 +7,7 @@ import type {
   ActiveAoClassification,
   ActiveIssue,
   IssueCategory,
+  PredictedMark,
 } from "@/hooks/use-live-examiner-check";
 import { cleanSuggestion } from "@/lib/live-examiner/clean-suggestion";
 import { classifySentenceDeterministically } from "@/lib/live-examiner/client-evaluation";
@@ -446,6 +447,9 @@ export function LiveExaminerEditor({
   placeholder,
   className,
   focusedIssueId,
+  predictedMark,
+  maxMark,
+  checking,
 }: {
   value: string;
   onChange: (next: string) => void;
@@ -456,10 +460,17 @@ export function LiveExaminerEditor({
   placeholder?: string;
   className?: string;
   focusedIssueId?: string | null;
+  predictedMark?: PredictedMark | null;
+  maxMark?: number;
+  checking?: boolean;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const highlightRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isHoveringCardRef = useRef(false);
+  const hoveredRangeIdRef = useRef<string | null>(null);
 
   const [activeAnnotationId, setActiveAnnotationId] = useState<string | null>(null);
   const [cardPos, setCardPos] = useState<{ top: number; left: number } | null>(null);
@@ -470,23 +481,50 @@ export function LiveExaminerEditor({
   );
   const activeRange = ranges.find((range) => range.id === activeAnnotationId) ?? null;
 
+  const computeCardPositionFromRect = useCallback(
+    (rect: { top: number; bottom: number; left: number }, kind: "issue" | "classification") => {
+      const container = containerRef.current;
+      if (!container) return { top: 40, left: 24 };
+      const containerBox = container.getBoundingClientRect();
+      const relBottom = rect.bottom - containerBox.top;
+      const relTop = rect.top - containerBox.top;
+      const cardHeight = kind === "issue" ? 290 : 195;
+      const cardWidth = kind === "issue" ? 340 : 300;
+      const top =
+        relBottom + cardHeight + 16 > containerBox.height && relTop - cardHeight > 16
+          ? Math.max(12, relTop - cardHeight - 10)
+          : Math.max(12, relBottom + 10);
+      const maxLeft = Math.max(16, containerBox.width - cardWidth - 20);
+      const left = Math.max(16, Math.min(rect.left - containerBox.left, maxLeft));
+      return { top, left };
+    },
+    [],
+  );
+
   // React to programmatic focus from the side panel
   useEffect(() => {
     if (focusedIssueId) {
       const hit = ranges.find((r) => r.id === focusedIssueId);
       if (hit && containerRef.current && textareaRef.current) {
         setActiveAnnotationId(hit.id);
-        const containerBox = containerRef.current.getBoundingClientRect();
-        // Position card near middle-top if clicked from panel
-        setCardPos({
-          top: 40,
-          left: Math.max(16, Math.min(containerBox.width - 340, 60)),
-        });
+        const markEl = highlightRef.current?.querySelector(
+          `mark[data-range-id="${CSS.escape(hit.id)}"]`,
+        );
+        const markRect = markEl?.getBoundingClientRect();
+        if (markRect && markRect.width > 0) {
+          setCardPos(computeCardPositionFromRect(markRect, hit.kind));
+        } else {
+          const containerBox = containerRef.current.getBoundingClientRect();
+          setCardPos({
+            top: 40,
+            left: Math.max(16, Math.min(containerBox.width - 340, 60)),
+          });
+        }
         textareaRef.current.focus();
         textareaRef.current.setSelectionRange(hit.start, hit.end);
       }
     }
-  }, [focusedIssueId, ranges]);
+  }, [focusedIssueId, ranges, computeCardPositionFromRect]);
 
   // Close the card if its issue was resolved elsewhere (accept/dismiss from
   // the side panel) or disappeared from a fresh check result.
@@ -496,6 +534,13 @@ export function LiveExaminerEditor({
       setCardPos(null);
     }
   }, [ranges, activeAnnotationId]);
+
+  useEffect(() => {
+    return () => {
+      if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+      if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+    };
+  }, []);
 
   const segments = useMemo(() => {
     const nodes: Array<{ text: string; range: Range | null }> = [];
@@ -519,6 +564,96 @@ export function LiveExaminerEditor({
     syncScroll();
   }, [value]);
 
+  function handleMouseMove(event: React.MouseEvent<HTMLTextAreaElement>) {
+    const highlightContainer = highlightRef.current;
+    if (!highlightContainer) return;
+
+    const { clientX, clientY } = event;
+    const marks = highlightContainer.querySelectorAll<HTMLElement>("mark[data-range-id]");
+
+    let matchedIssue: { id: string; rect: DOMRect } | null = null;
+    let matchedClassification: { id: string; rect: DOMRect } | null = null;
+
+    for (const mark of marks) {
+      const rangeId = mark.dataset.rangeId;
+      const rangeKind = mark.dataset.rangeKind as "issue" | "classification" | undefined;
+      if (!rangeId || !rangeKind) continue;
+
+      const rects = mark.getClientRects();
+      for (const rect of rects) {
+        if (
+          clientX >= rect.left - 2 &&
+          clientX <= rect.right + 2 &&
+          clientY >= rect.top - 2 &&
+          clientY <= rect.bottom + 7
+        ) {
+          if (rangeKind === "issue") {
+            matchedIssue = { id: rangeId, rect };
+            break;
+          } else if (!matchedClassification) {
+            matchedClassification = { id: rangeId, rect };
+          }
+        }
+      }
+      if (matchedIssue) break;
+    }
+
+    const bestHit = matchedIssue
+      ? { ...matchedIssue, kind: "issue" as const }
+      : matchedClassification
+        ? { ...matchedClassification, kind: "classification" as const }
+        : null;
+
+    if (bestHit) {
+      if (closeTimerRef.current) {
+        clearTimeout(closeTimerRef.current);
+        closeTimerRef.current = null;
+      }
+      if (hoveredRangeIdRef.current === bestHit.id) return;
+      hoveredRangeIdRef.current = bestHit.id;
+      if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+
+      const delay = bestHit.kind === "issue" ? 130 : 320;
+      hoverTimerRef.current = setTimeout(() => {
+        setActiveAnnotationId(bestHit.id);
+        setCardPos(computeCardPositionFromRect(bestHit.rect, bestHit.kind));
+      }, delay);
+    } else {
+      hoveredRangeIdRef.current = null;
+      if (hoverTimerRef.current) {
+        clearTimeout(hoverTimerRef.current);
+        hoverTimerRef.current = null;
+      }
+      if (activeAnnotationId && !isHoveringCardRef.current && !closeTimerRef.current) {
+        closeTimerRef.current = setTimeout(() => {
+          if (!isHoveringCardRef.current) {
+            setActiveAnnotationId(null);
+            setCardPos(null);
+          }
+          closeTimerRef.current = null;
+        }, 280);
+      }
+    }
+  }
+
+  function handleMouseLeave() {
+    hoveredRangeIdRef.current = null;
+    if (hoverTimerRef.current) {
+      clearTimeout(hoverTimerRef.current);
+      hoverTimerRef.current = null;
+    }
+    if (activeAnnotationId && !isHoveringCardRef.current) {
+      if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = setTimeout(() => {
+        if (!isHoveringCardRef.current) {
+          setActiveAnnotationId(null);
+          setCardPos(null);
+        }
+        closeTimerRef.current = null;
+      }, 260);
+    }
+  }
+
   function handleClick(event: React.MouseEvent<HTMLTextAreaElement>) {
     const textarea = textareaRef.current;
     const container = containerRef.current;
@@ -532,18 +667,53 @@ export function LiveExaminerEditor({
       setCardPos(null);
       return;
     }
+    setActiveAnnotationId(hit.id);
+    const markEl = highlightRef.current?.querySelector(
+      `mark[data-range-id="${CSS.escape(hit.id)}"]`,
+    );
+    const markRect = markEl?.getBoundingClientRect();
+    if (markRect && markRect.width > 0) {
+      setCardPos(computeCardPositionFromRect(markRect, hit.kind));
+      return;
+    }
+
     const containerBox = container.getBoundingClientRect();
     const clickY = event.clientY - containerBox.top;
-    const cardHeight = hit.kind === "issue" ? 280 : 200;
+    const cardHeight = hit.kind === "issue" ? 290 : 200;
     const top =
       clickY + cardHeight > containerBox.height && clickY - cardHeight > 20
         ? Math.max(20, clickY - cardHeight - 8)
         : Math.max(20, clickY + 16);
-    const cardWidth = hit.kind === "issue" ? 320 : 288;
+    const cardWidth = hit.kind === "issue" ? 340 : 300;
     const maxLeft = Math.max(16, containerBox.width - cardWidth - 24);
     const left = Math.max(16, Math.min(event.clientX - containerBox.left, maxLeft));
 
     setCardPos({ top, left });
+  }
+
+  function cycleNextIssue() {
+    const issueRanges = ranges.filter((r) => r.kind === "issue");
+    if (issueRanges.length === 0) return;
+    const currentIdx = issueRanges.findIndex((r) => r.id === activeAnnotationId);
+    const next = issueRanges[(currentIdx + 1) % issueRanges.length];
+    setActiveAnnotationId(next.id);
+    const markEl = highlightRef.current?.querySelector(
+      `mark[data-range-id="${CSS.escape(next.id)}"]`,
+    );
+    const markRect = markEl?.getBoundingClientRect();
+    if (markRect && markRect.width > 0) {
+      setCardPos(computeCardPositionFromRect(markRect, "issue"));
+    } else if (containerRef.current) {
+      const containerBox = containerRef.current.getBoundingClientRect();
+      setCardPos({
+        top: 40,
+        left: Math.max(16, Math.min(containerBox.width - 350, 60)),
+      });
+    }
+    if (textareaRef.current) {
+      textareaRef.current.focus();
+      textareaRef.current.setSelectionRange(next.start, next.end);
+    }
   }
 
   return (
@@ -629,14 +799,22 @@ export function LiveExaminerEditor({
                 </span>
               ) : null}
               <mark
+                data-range-id={segment.range.id}
+                data-range-kind={segment.range.kind}
                 style={{
                   color: "transparent",
                   WebkitTextFillColor: "transparent",
-                  backgroundColor: meta.backgroundColor || "transparent",
+                  backgroundColor:
+                    activeAnnotationId === segment.range.id
+                      ? segment.range.kind === "issue"
+                        ? "rgba(244, 63, 94, 0.18)"
+                        : meta.backgroundColor
+                      : meta.backgroundColor || "transparent",
                   textDecorationLine: "underline",
                   textDecorationStyle: meta.underlineStyle,
                   textDecorationColor: meta.underlineColor,
-                  textDecorationThickness: meta.underlineThickness,
+                  textDecorationThickness:
+                    activeAnnotationId === segment.range.id ? "2.25px" : meta.underlineThickness,
                   textUnderlineOffset: meta.offset,
                   textDecorationSkipInk: "auto",
                   fontWeight: "normal",
@@ -670,9 +848,25 @@ export function LiveExaminerEditor({
       <textarea
         ref={textareaRef}
         value={value}
-        onChange={(event) => onChange(event.target.value)}
+        onChange={(event) => {
+          if (activeAnnotationId) {
+            setActiveAnnotationId(null);
+            setCardPos(null);
+          }
+          onChange(event.target.value);
+        }}
         onScroll={syncScroll}
+        onMouseMove={handleMouseMove}
+        onMouseLeave={handleMouseLeave}
         onMouseUp={handleClick}
+        onKeyDown={(event) => {
+          if (event.key === "Tab" && activeRange?.kind === "issue") {
+            event.preventDefault();
+            onAccept(activeRange.issue.id);
+            setActiveAnnotationId(null);
+            setCardPos(null);
+          }
+        }}
         onKeyUp={(event) => {
           if (event.key === "Escape") {
             setActiveAnnotationId(null);
@@ -702,21 +896,91 @@ export function LiveExaminerEditor({
         className={cn("p-6 md:p-8 [&::-webkit-scrollbar]:hidden", className)}
       />
 
+      {/* Grammarly-style Floating Live Assistant HUD Pill at bottom-right of canvas */}
+      {value.trim().length > 0 ? (
+        <div className="pointer-events-auto absolute bottom-3 right-4 z-10 flex items-center gap-2 rounded-full border border-border/80 bg-background/95 px-3 py-1.5 shadow-lg backdrop-blur-md transition-all">
+          {predictedMark && maxMark ? (
+            <div className="flex items-center gap-2 pr-2 border-r border-border/60">
+              <div className="flex items-center gap-1">
+                <Sparkles className="size-3.5 text-primary" />
+                <span className="text-xs font-bold tabular-nums text-foreground">
+                  {predictedMark.total_mark}
+                  <span className="text-muted-foreground font-normal">/{maxMark}</span>
+                </span>
+              </div>
+              <div className="hidden sm:flex items-center gap-1 text-[10px] font-medium tabular-nums">
+                <span className="rounded bg-ao1/15 px-1.5 py-0.5 text-ao1">
+                  AO1 {predictedMark.ao_breakdown.knowledge.awarded}/
+                  {predictedMark.ao_breakdown.knowledge.out_of}
+                </span>
+                <span className="rounded bg-ao2/15 px-1.5 py-0.5 text-ao2">
+                  AO2 {predictedMark.ao_breakdown.analysis.awarded}/
+                  {predictedMark.ao_breakdown.analysis.out_of}
+                </span>
+                {predictedMark.ao_breakdown.evaluation.out_of > 0 ? (
+                  <span className="rounded bg-ao3/15 px-1.5 py-0.5 text-ao3">
+                    AO3 {predictedMark.ao_breakdown.evaluation.awarded}/
+                    {predictedMark.ao_breakdown.evaluation.out_of}
+                  </span>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
+
+          {issues.length > 0 ? (
+            <button
+              type="button"
+              onClick={cycleNextIssue}
+              className="flex items-center gap-1.5 text-xs font-semibold text-rose-600 dark:text-rose-400 hover:opacity-80 transition-opacity"
+              title="Click to jump through active issues in your essay"
+            >
+              <span className="relative flex size-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-rose-400 opacity-75" />
+                <span className="relative inline-flex size-2 rounded-full bg-rose-500" />
+              </span>
+              <span className="tabular-nums">
+                {issues.length} {issues.length === 1 ? "fix" : "fixes"}
+              </span>
+            </button>
+          ) : (
+            <span className="flex items-center gap-1.5 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+              <span className="size-2 rounded-full bg-emerald-500" />
+              {checking ? "Calibrating..." : "Clean"}
+            </span>
+          )}
+        </div>
+      ) : null}
+
       {activeRange?.kind === "issue" && cardPos ? (
         <SuggestionCard
           issue={activeRange.issue}
           style={{ top: cardPos.top, left: cardPos.left }}
+          onMouseEnter={() => {
+            isHoveringCardRef.current = true;
+            if (closeTimerRef.current) {
+              clearTimeout(closeTimerRef.current);
+              closeTimerRef.current = null;
+            }
+          }}
+          onMouseLeave={() => {
+            isHoveringCardRef.current = false;
+            setActiveAnnotationId(null);
+            setCardPos(null);
+          }}
           onAccept={() => {
+            isHoveringCardRef.current = false;
             onAccept(activeRange.issue.id);
             setActiveAnnotationId(null);
             setCardPos(null);
           }}
           onDismiss={() => {
+            isHoveringCardRef.current = false;
             onDismiss(activeRange.issue.id);
             setActiveAnnotationId(null);
             setCardPos(null);
           }}
           onClose={() => {
+            isHoveringCardRef.current = false;
             setActiveAnnotationId(null);
             setCardPos(null);
           }}
@@ -727,7 +991,20 @@ export function LiveExaminerEditor({
         <ClassificationCard
           classification={activeRange.classification}
           style={{ top: cardPos.top, left: cardPos.left }}
+          onMouseEnter={() => {
+            isHoveringCardRef.current = true;
+            if (closeTimerRef.current) {
+              clearTimeout(closeTimerRef.current);
+              closeTimerRef.current = null;
+            }
+          }}
+          onMouseLeave={() => {
+            isHoveringCardRef.current = false;
+            setActiveAnnotationId(null);
+            setCardPos(null);
+          }}
           onClose={() => {
+            isHoveringCardRef.current = false;
             setActiveAnnotationId(null);
             setCardPos(null);
           }}
@@ -741,10 +1018,14 @@ function ClassificationCard({
   classification,
   style,
   onClose,
+  onMouseEnter,
+  onMouseLeave,
 }: {
   classification: ActiveAoClassification;
   style: React.CSSProperties;
   onClose: () => void;
+  onMouseEnter?: () => void;
+  onMouseLeave?: () => void;
 }) {
   const meta = AO_META[classification.ao] ?? AO_META.AO1;
   const ref = useRef<HTMLDivElement>(null);
@@ -757,35 +1038,48 @@ function ClassificationCard({
     return () => document.removeEventListener("mousedown", onPointerDown);
   }, [onClose]);
 
-  const aoBadgeClass = {
-    AO1: "border-ao1/40 bg-ao1/10 text-ao1 font-semibold",
-    AO2: "border-ao2/40 bg-ao2/10 text-ao2 font-semibold",
-    AO3: "border-ao3/40 bg-ao3/10 text-ao3 font-semibold",
-  }[classification.ao] ?? "border-ao1/40 bg-ao1/10 text-ao1 font-semibold";
+  const aoBadgeClass =
+    {
+      AO1: "border-ao1/40 bg-ao1/15 text-ao1 font-semibold",
+      AO2: "border-ao2/40 bg-ao2/15 text-ao2 font-semibold",
+      AO3: "border-ao3/40 bg-ao3/15 text-ao3 font-semibold",
+    }[classification.ao] ?? "border-ao1/40 bg-ao1/15 text-ao1 font-semibold";
 
   return (
     <div
       ref={ref}
       style={style}
-      className="absolute z-20 w-72 space-y-2 rounded-lg border border-border bg-popover p-3 text-popover-foreground shadow-lg"
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+      className="
+        absolute z-30 w-80 space-y-2.5 rounded-xl border border-border/90
+        bg-popover/95 p-3.5 text-popover-foreground shadow-2xl backdrop-blur-md
+        animate-in fade-in-0 zoom-in-95 duration-150
+      "
     >
-      <div className="flex items-center gap-2">
-        <span className={cn("size-2 shrink-0 rounded-full", meta.dot)} />
-        <Badge variant="outline" className={cn("text-[10px]", aoBadgeClass)}>
-          {meta.label}
-        </Badge>
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <span className={cn("size-2.5 shrink-0 rounded-full", meta.dot)} />
+          <Badge variant="outline" className={cn("text-[10px] tracking-wide", aoBadgeClass)}>
+            {meta.label}
+          </Badge>
+          <span className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
+            Creditworthy Sentence
+          </span>
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          className="text-muted-foreground hover:text-foreground p-0.5 rounded"
+          aria-label="Close"
+        >
+          <X className="size-3.5" />
+        </button>
       </div>
-      <p className="text-xs font-medium leading-relaxed">{classification.original}</p>
+      <p className="text-xs font-medium leading-relaxed line-clamp-3 rounded-md bg-muted/40 p-2 border border-border/50">
+        "{classification.original}"
+      </p>
       <p className="text-xs leading-relaxed text-muted-foreground">{classification.explanation}</p>
-      <Button
-        type="button"
-        size="sm"
-        variant="outline"
-        className="h-7 w-full text-xs"
-        onClick={onClose}
-      >
-        Close
-      </Button>
     </div>
   );
 }
@@ -796,16 +1090,23 @@ function SuggestionCard({
   onAccept,
   onDismiss,
   onClose,
+  onMouseEnter,
+  onMouseLeave,
 }: {
   issue: ActiveIssue;
   style: React.CSSProperties;
   onAccept: () => void;
   onDismiss: () => void;
   onClose: () => void;
+  onMouseEnter?: () => void;
+  onMouseLeave?: () => void;
 }) {
   const meta = CATEGORY_META[issue.category] ?? DEFAULT_ISSUE_META;
   const ref = useRef<HTMLDivElement>(null);
-  const isEssential = issue.category === "misconception" || issue.severity === "high";
+  const isEssential =
+    issue.category === "misconception" ||
+    issue.category === "economics_accuracy" ||
+    issue.severity === "high";
 
   useEffect(() => {
     function onPointerDown(event: MouseEvent) {
@@ -819,16 +1120,22 @@ function SuggestionCard({
     <div
       ref={ref}
       style={style}
-      className="absolute z-30 w-80 space-y-3 rounded-xl border border-border/90 bg-popover/95 p-3.5 text-popover-foreground shadow-xl backdrop-blur-md"
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+      className="
+        absolute z-30 w-[340px] space-y-3 rounded-xl border border-border/90
+        bg-popover/95 p-4 text-popover-foreground shadow-2xl backdrop-blur-md
+        animate-in fade-in-0 zoom-in-95 duration-150
+      "
     >
       <div className="flex items-center justify-between gap-1.5">
         <div className="flex items-center gap-1.5 flex-wrap">
-          <span className={cn("size-2 shrink-0 rounded-full", meta.dot)} />
+          <span className={cn("size-2.5 shrink-0 rounded-full", meta.dot)} />
           <Badge
             variant="outline"
             className={cn(
               "text-[10px] font-semibold",
-              issue.category === "misconception"
+              issue.category === "misconception" || issue.category === "economics_accuracy"
                 ? "border-red-500/50 bg-red-500/15 text-red-700 dark:text-red-300"
                 : CATEGORY_AO[issue.category] === "AO1"
                   ? "border-ao1/40 bg-ao1/10 text-ao1"
@@ -846,40 +1153,61 @@ function SuggestionCard({
             variant={isEssential ? "destructive" : "secondary"}
             className="text-[9px] uppercase tracking-wider font-semibold"
           >
-            {isEssential ? "Essential Correction" : "Stylistic Enhancement"}
+            {isEssential ? "Mark-Critical Fix" : "Precision Fix"}
           </Badge>
         </div>
         <button
           type="button"
           onClick={onClose}
-          className="text-muted-foreground hover:text-foreground p-0.5"
+          className="text-muted-foreground hover:text-foreground p-0.5 rounded"
           aria-label="Close"
         >
           <X className="size-3.5" />
         </button>
       </div>
 
-      {/* Visual Diff Box */}
-      <div className="space-y-1.5 rounded-lg border border-border/70 bg-muted/40 p-2.5 text-xs">
+      {/* Interactive One-Click Diff Pill */}
+      <div
+        onClick={onAccept}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onAccept();
+          }
+        }}
+        className="
+          group cursor-pointer space-y-1.5 rounded-lg border border-border/80
+          bg-muted/40 hover:bg-emerald-500/10 hover:border-emerald-500/40
+          p-2.5 text-xs transition-colors
+        "
+        title="Click to apply revision"
+      >
         <div className="flex items-start gap-1.5 text-destructive">
           <span className="text-[10px] font-semibold uppercase tracking-wider shrink-0 mt-0.5 text-destructive/80">
             Original:
           </span>
           <span className="line-through">{issue.original}</span>
         </div>
-        <div className="flex items-start gap-1.5 text-emerald-600 dark:text-emerald-400 font-medium pt-1 border-t border-border/50">
-          <span className="text-[10px] font-semibold uppercase tracking-wider shrink-0 mt-0.5 text-emerald-600/80 dark:text-emerald-400/80">
-            Revision:
+        <div className="flex items-start justify-between gap-1.5 text-emerald-600 dark:text-emerald-400 font-semibold pt-1.5 border-t border-border/50">
+          <div className="flex items-start gap-1.5">
+            <span className="text-[10px] font-semibold uppercase tracking-wider shrink-0 mt-0.5 text-emerald-600/80 dark:text-emerald-400/80">
+              Revision:
+            </span>
+            <span>{cleanSuggestion(issue.suggestion)}</span>
+          </div>
+          <span className="shrink-0 rounded bg-emerald-500/15 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-300">
+            Tab ↵
           </span>
-          <span>{cleanSuggestion(issue.suggestion)}</span>
         </div>
       </div>
 
       <div className="space-y-1 text-xs">
-        <p className="font-semibold text-foreground text-[11px] uppercase tracking-wider text-muted-foreground">
-          Examiner Rationale
+        <p className="font-semibold text-[10px] uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+          <Wand2 className="size-3 text-primary" /> Examiner Diagnostic
         </p>
-        <p className="leading-relaxed text-muted-foreground">{issue.explanation}</p>
+        <p className="leading-relaxed text-foreground/90">{issue.explanation}</p>
       </div>
 
       {issue.evidence ? (
@@ -892,7 +1220,7 @@ function SuggestionCard({
         <Button
           type="button"
           size="sm"
-          className="h-7 flex-1 text-xs gap-1.5 font-medium"
+          className="h-8 flex-1 text-xs gap-1.5 font-semibold shadow-sm"
           onClick={onAccept}
         >
           <Check className="size-3.5" /> Accept Revision
@@ -901,7 +1229,7 @@ function SuggestionCard({
           type="button"
           size="sm"
           variant="outline"
-          className="h-7 text-xs px-3 text-muted-foreground hover:text-foreground"
+          className="h-8 text-xs px-3 text-muted-foreground hover:text-foreground"
           onClick={onDismiss}
         >
           Dismiss

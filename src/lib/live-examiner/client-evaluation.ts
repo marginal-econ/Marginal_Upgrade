@@ -11,15 +11,15 @@ import { classifySentence } from "./sentence-engine";
 
 const AO1_PATTERNS = [
   /\b(aggregate demand|aggregate supply|ad equation|c\s*\+\s*i\s*\+\s*g\s*\+\s*nx|ad\s*=\s*c\s*\+\s*i\s*\+\s*g\s*\+\s*nx)\b/i,
-  /\b(monetary policy|fiscal policy|expansionary|contractionary|interest rates?|taxation|money supply)\b/i,
-  /\b(inflation|demand-?pull|cost-?push|deflation|disinflation|price level|cpi)\b/i,
+  /\b(monetary policy|fiscal policy|supply-?side policy|expansionary|contractionary|interest rates?|taxation|money supply)\b/i,
+  /\b(inflation|demand-?pull|cost-?push|deflation|disinflation|price level|cpi|unemployment|cyclical|structural|frictional)\b/i,
   /\b(elasticity|ped|yed|pes|xed|price elastic|inelastic)\b/i,
-  /\b(gdp|economic growth|real gdp|output|national income)\b/i,
+  /\b(gdp|economic growth|real gdp|output|national income|living standards)\b/i,
   /\b(demerit goods?|merit goods?|public goods?|free rider|non-excludable|non-rival)\b/i,
   /\b(external costs?|externalit(?:y|ies|ailties)|social optimum|market failures?|information failures?|information faliure)\b/i,
-  /\b(opportunity costs?|production possibility|ppc|ppf)\b/i,
-  /\b(equilibrium|price floors?|minimum prices?|maximum prices?|price ceilings?|subsid(?:y|ies)|tariffs?)\b/i,
-  /\b(is equal to|is defined as|refers to|means that suppliers|means that firms|are goods that are|government intervention|overconsumed|underconsumed)\b/i,
+  /\b(opportunity costs?|production possibility|ppc|ppf|scarcity|factors? of production)\b/i,
+  /\b(equilibrium|price floors?|minimum prices?|maximum prices?|price ceilings?|subsid(?:y|ies)|tariffs?|quotas?|free trade|protectionism|speciali[sz]ation|comparative advantage|absolute advantage|exchange rates?|current account|terms of trade|monopoly|oligopoly|perfect competition)\b/i,
+  /\b(is when|occurs when|is equal to|is defined as|can be defined as|refers to|measures the|means that suppliers|means that firms|are goods that are|government intervention|overconsumed|underconsumed)\b/i,
 ];
 
 const AO2_PATTERNS = [
@@ -65,17 +65,21 @@ export function evaluateCambridgeAnswer(
   _arg4?: string,
 ): ClientEvaluationResult {
   let maxMark = 12;
-  let level = "as";
+  let _level = "as";
+  let question = "";
 
   if (typeof arg2 === "number") {
     maxMark = arg2;
-    if (typeof arg3 === "string") level = arg3;
+    if (typeof arg3 === "string") _level = arg3;
   } else if (typeof arg3 === "number") {
+    if (typeof arg2 === "string") question = arg2;
     maxMark = arg3;
-    if (typeof _arg4 === "string") level = _arg4;
-  } else if (typeof arg2 === "string" && !isNaN(Number(arg2))) {
+    if (typeof _arg4 === "string") _level = _arg4;
+  } else if (typeof arg2 === "string" && !isNaN(Number(arg2)) && arg2.trim() !== "") {
     maxMark = Number(arg2);
-    if (typeof arg3 === "string") level = arg3;
+    if (typeof arg3 === "string") _level = arg3;
+  } else if (typeof arg2 === "string") {
+    question = arg2;
   }
 
   // Guard against non-numeric or non-finite values
@@ -91,16 +95,27 @@ export function evaluateCambridgeAnswer(
   let ao1Count = 0;
   let ao2Count = 0;
   let ao3Count = 0;
+  let ao2Units = 0;
+  let ao3Units = 0;
+  let hasDiagram = false;
 
   for (const sentence of sentences) {
     const trimmed = sentence.trim();
-    if (trimmed.length < 5 || /\[DIAGRAM:[^\]]*\]/i.test(trimmed)) continue;
+    if (/\[DIAGRAM:[^\]]*\]/i.test(trimmed)) {
+      hasDiagram = true;
+      ao2Units += 1.2;
+      continue;
+    }
+    if (trimmed.length < 5) continue;
 
-    const classified = classifySentenceDeterministically(trimmed);
+    const fullClass = classifySentence(trimmed);
+    const classified = { ao: fullClass.ao, explanation: fullClass.explanation };
     if (classified.ao === "AO3") {
       ao3Count++;
+      ao3Units += fullClass.strength === 2 ? 1.35 : 0.9;
     } else if (classified.ao === "AO2") {
       ao2Count++;
+      ao2Units += fullClass.strength === 2 ? 1.35 : 0.9;
     } else {
       ao1Count++;
     }
@@ -118,13 +133,42 @@ export function evaluateCambridgeAnswer(
       const match = trimmed.match(pat);
       if (match) matchedTerms.add(match[0].toLowerCase());
     }
+    for (const pat of AO2_PATTERNS) {
+      const match = trimmed.match(pat);
+      if (match) matchedTerms.add(match[0].toLowerCase());
+    }
+    for (const pat of AO3_PATTERNS) {
+      const match = trimmed.match(pat);
+      if (match) matchedTerms.add(match[0].toLowerCase());
+    }
   }
 
-  // Calculate marks calibrated to Cambridge 9708 tariffs
+  // Issues (glossary & grammar)
+  const terms = deterministicTerminologyIssues(sentences);
+  const grammar = analyzeGrammarAndMechanics(sentences);
+  const rawIssues: ActiveIssue[] = [
+    ...terms.map((t) => ({
+      ...t,
+      id: `${t.category}::${t.context.trim().toLowerCase()}::${t.original.trim().toLowerCase()}`,
+    })),
+    ...grammar.map(({ ruleId: _r, startOffset: _s, endOffset: _e, ...g }) => ({
+      ...g,
+      id: `${g.category}::${g.context.trim().toLowerCase()}::${g.original.trim().toLowerCase()}`,
+    })),
+  ];
+  const issues: ActiveIssue[] = Array.from(new Map(rawIssues.map((item) => [item.id, item])).values());
+  const misconceptionCount = issues.filter((i) => i.category === "misconception").length;
+
+  // Calculate marks calibrated to Cambridge 9708 tariffs & Essay Grader bands
   let ao1Awarded = 0;
-  if ((wordCount >= 60 && ao1Count >= 1) || ao1Count >= 2) {
+  if (
+    (wordCount >= 10 && ao1Count >= 1) ||
+    ao1Count >= 2 ||
+    (ao1Count >= 1 && matchedTerms.size >= 1) ||
+    (wordCount >= 12 && matchedTerms.size >= 2)
+  ) {
     ao1Awarded = split.ao1_marks;
-  } else if (ao1Count >= 1 || wordCount >= 20) {
+  } else if (ao1Count >= 1 || (wordCount >= 4 && matchedTerms.size >= 1)) {
     ao1Awarded = Math.min(split.ao1_marks, Math.max(1, Math.floor(split.ao1_marks * 0.5)));
   }
 
@@ -134,28 +178,55 @@ export function evaluateCambridgeAnswer(
     (wordCount >= 180 && ao2Count >= 4) ||
     (ao2Count >= 4 && ao3Count >= 2) ||
     (ao2Count >= 3 && ao3Count >= 2) ||
-    (ao2Count >= 5)
+    ao2Count >= 5 ||
+    ao2Units >= 4.5
   ) {
     // Top-band analysis: 5 or 6 out of 6
     ao2Awarded = Math.min(split.ao2_marks, Math.max(5, Math.round(split.ao2_marks * 0.95)));
-  } else if ((wordCount >= 120 && ao2Count >= 3) || ao2Count >= 3) {
+  } else if ((wordCount >= 120 && ao2Count >= 3) || ao2Count >= 3 || ao2Units >= 3.2) {
     ao2Awarded = Math.min(split.ao2_marks, Math.max(4, Math.round(split.ao2_marks * 0.8)));
-  } else if (wordCount >= 70 && ao2Count >= 2) {
+  } else if ((wordCount >= 50 && ao2Count >= 2) || (ao2Count >= 2 && hasDiagram)) {
     ao2Awarded = Math.min(split.ao2_marks, Math.max(3, Math.round(split.ao2_marks * 0.6)));
-  } else if (wordCount >= 30 && ao2Count >= 1) {
+  } else if ((wordCount >= 8 && ao2Count >= 1) || hasDiagram) {
     ao2Awarded = Math.min(split.ao2_marks, Math.max(1, Math.round(split.ao2_marks * 0.3)));
+  }
+
+  // Theoretical misconceptions cap AO2 analysis at Level 2 unless overridden by abundant clean chains
+  if (misconceptionCount > 0 && ao2Count <= misconceptionCount + 1) {
+    ao2Awarded = Math.min(ao2Awarded, Math.max(1, Math.floor(split.ao2_marks * 0.5)));
   }
 
   let ao3Awarded = 0;
   // Evaluation requires weighing up, conditions, and judgements
-  if (split.ao3_marks > 0 && (wordCount >= 50 || ao3Count >= 1)) {
-    if ((wordCount >= 150 && ao3Count >= 2) || (ao3Count >= 2 && ao2Count >= 3) || ao3Count >= 3) {
-      // Top-band evaluation: full marks or 3/4
+  if (split.ao3_marks > 0 && (wordCount >= 40 || ao3Count >= 1)) {
+    if (
+      (wordCount >= 150 && ao3Count >= 2) ||
+      (ao3Count >= 2 && ao2Count >= 3) ||
+      ao3Count >= 3 ||
+      ao3Units >= 3.2
+    ) {
+      // Top-band evaluation: full marks
       ao3Awarded = split.ao3_marks;
-    } else if (ao3Count >= 1 && wordCount >= 100) {
+    } else if ((ao3Count >= 2) || (ao3Count >= 1 && wordCount >= 90) || ao3Units >= 1.8) {
       ao3Awarded = Math.min(split.ao3_marks, Math.max(2, Math.round(split.ao3_marks * 0.65)));
     } else if (ao3Count >= 1) {
       ao3Awarded = Math.min(split.ao3_marks, Math.max(1, Math.round(split.ao3_marks * 0.35)));
+    }
+  }
+
+  // Question relevance guard: if completely devoid of economic terms and >15 words, award 0
+  if (wordCount >= 15 && matchedTerms.size === 0 && ao2Count === 0 && ao3Count === 0 && question.length > 0) {
+    const qTokens = question
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, " ")
+      .split(/\s+/)
+      .filter((w) => w.length > 4 && !/^(assess|evaluate|discuss|explain|whether|extent|consider|analyse|analyze|impact|effects?)$/.test(w));
+    const lowerText = text.toLowerCase();
+    const hasTopicOverlap = qTokens.length === 0 || qTokens.some((t) => lowerText.includes(t));
+    if (!hasTopicOverlap) {
+      ao1Awarded = 0;
+      ao2Awarded = 0;
+      ao3Awarded = 0;
     }
   }
 
@@ -165,22 +236,23 @@ export function evaluateCambridgeAnswer(
   const sumMarks = safeAo1 + safeAo2 + safeAo3;
   const totalMark = Math.min(maxMark, Number.isFinite(sumMarks) ? sumMarks : 0);
 
-  // Issues (glossary & grammar)
-  const terms = deterministicTerminologyIssues(sentences);
-  const grammar = analyzeGrammarAndMechanics(sentences);
-  const rawIssues: ActiveIssue[] = [
-    ...terms.map((t) => ({ ...t, id: `${t.category}::${t.original.trim().toLowerCase()}` })),
-    ...grammar.map(({ ruleId: _r, startOffset: _s, endOffset: _e, ...g }) => ({
-      ...g,
-      id: `${g.category}::${g.original.trim().toLowerCase()}`,
-    })),
-  ];
-  const issues: ActiveIssue[] = Array.from(new Map(rawIssues.map((item) => [item.id, item])).values());
+  let nextCoaching = "calibrated against Cambridge 9708 assessment criteria";
+  if (wordCount === 0) {
+    nextCoaching = "Start with precise Cambridge 9708 definitions to unlock AO1 marks";
+  } else if (safeAo1 < split.ao1_marks) {
+    nextCoaching = "Define key syllabus terms precisely in your opening to secure full AO1 marks";
+  } else if (safeAo2 < Math.ceil(split.ao2_marks * 0.7)) {
+    nextCoaching = "Extend your AO2 causal transmission chains (cause -> market adjustment -> equilibrium outcome)";
+  } else if (split.ao3_marks > 0 && safeAo3 < split.ao3_marks) {
+    nextCoaching = "Add AO3 evaluation weighing PED/PES elasticity, short-run vs long-run, or unintended consequences";
+  } else {
+    nextCoaching = "Top-Band trajectory — refine academic precision or conclude with a conditional judgement";
+  }
 
   const predictedMark: PredictedMark = {
     total_mark: totalMark,
-    confidence: wordCount > 150 ? 0.85 : 0.65,
-    headline: `${totalMark}/${maxMark} marks calibrated against Cambridge 9708 assessment criteria`,
+    confidence: wordCount > 150 ? 0.88 : wordCount > 60 ? 0.76 : 0.65,
+    headline: `${totalMark}/${maxMark} marks — ${nextCoaching}`,
     ao_breakdown: {
       knowledge: { awarded: safeAo1, out_of: split.ao1_marks || 2 },
       analysis: { awarded: safeAo2, out_of: split.ao2_marks || 6 },

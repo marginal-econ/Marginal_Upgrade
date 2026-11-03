@@ -739,9 +739,211 @@ const RULES: RuleDefinition[] = [
       "Inflation is the sustained rate of increase in average prices over time, not an absolute high price level.",
     evidence: "Cambridge 9708: Inflation is a sustained percentage increase in the general price level (CPI).",
   },
+  {
+    id: "homophone_there_possessive",
+    category: "grammar",
+    severity: "high",
+    pattern:
+      /\bthere\s+(essay|essays|price|prices|cost|costs|profit|profits|revenue|revenues|income|incomes|output|outputs|demand|supply|welfare|market|markets|consumer|consumers|firm|firms|worker|workers|product|products|good|goods|resource|resources|decision|decisions|utility|spending|investment|export|exports|import|imports|tax|taxes|subsidy|subsidies|budget|living\s+standards)\b/gi,
+    getSuggestion: (m) => {
+      const prefix = m[0][0] === "T" ? "Their" : "their";
+      return `${prefix} ${m[1]}`;
+    },
+    explanation:
+      "Use the possessive pronoun 'their' (not 'there') before a noun.",
+  },
+  {
+    id: "typo_modal_br",
+    category: "grammar",
+    severity: "high",
+    pattern: /\b(should|would|could|can|will|may|might|must|hsould|shoudl|woudl|coudl)\s+br\b/gi,
+    getSuggestion: (m) => {
+      const rawModal = m[1].toLowerCase();
+      const fixedModal =
+        rawModal === "hsould" || rawModal === "shoudl"
+          ? "should"
+          : rawModal === "woudl"
+            ? "would"
+            : rawModal === "coudl"
+              ? "could"
+              : rawModal;
+      const casedModal = m[1][0] === m[1][0].toUpperCase() ? fixedModal[0].toUpperCase() + fixedModal.slice(1) : fixedModal;
+      return `${casedModal} be`;
+    },
+    explanation: "Typo: 'br' should be 'be' after a modal verb.",
+  },
+  {
+    id: "article_a_before_vowel_econ",
+    category: "grammar",
+    severity: "medium",
+    pattern:
+      /\b(a)\s+(increase|increasing|elastic|inelastic|external|externality|economy|economic|equilibrium|oligopoly|opportunity|aggregate|appreciation|asymmetric|import|inflationary|inferior|indirect|inefficient|inefficiency|intervention|investment)\b/gi,
+    getSuggestion: (m) => {
+      const article = m[1] === "A" ? "An" : "an";
+      return `${article} ${m[2]}`;
+    },
+    explanation: "Use 'an' instead of 'a' before words starting with a vowel sound.",
+  },
+  {
+    id: "article_an_before_consonant_econ",
+    category: "grammar",
+    severity: "medium",
+    pattern:
+      /\b(an)\s+(firm|tax|subsidy|tariff|quota|market|price|decrease|decreasing|monopoly|consumer|producer|government|good|service|shift|surplus|shortage|deficit|supply|demand|cost|benefit|negative|positive)\b/gi,
+    getSuggestion: (m) => {
+      const article = m[1] === "An" ? "A" : "a";
+      return `${article} ${m[2]}`;
+    },
+    explanation: "Use 'a' instead of 'an' before words starting with a consonant sound.",
+  },
 ];
 
 export const COMMON_TYPOS: Readonly<Record<string, string>> = {
+  // User-tested & high-frequency keyboard / transposition typos
+  tkaing: "taking",
+  takign: "taking",
+  ffeedback: "feedback",
+  feeback: "feedback",
+  feedbakc: "feedback",
+  feedabck: "feedback",
+  hsould: "should",
+  shoudl: "should",
+  shuold: "should",
+  houdl: "should",
+  sould: "should",
+  woudl: "would",
+  wuold: "would",
+  coudl: "could",
+  cuold: "could",
+  adpated: "adapted",
+  adpapt: "adapt",
+  chekci: "check",
+  chekcing: "checking",
+  chcek: "check",
+  cehck: "check",
+  amrks: "marks",
+  amrk: "mark",
+  makrs: "marks",
+  mraks: "marks",
+  fetaure: "feature",
+  feauture: "feature",
+  feaure: "feature",
+  fetaures: "features",
+  exmianer: "examiner",
+  emxinar: "examiner",
+  examnier: "examiner",
+  exmainers: "examiners",
+  grmmar: "grammar",
+  grammer: "grammar",
+  gramar: "grammar",
+  teh: "the",
+  hte: "the",
+  taht: "that",
+  tath: "that",
+  thsi: "this",
+  tihs: "this",
+  wiht: "with",
+  wtih: "with",
+  waht: "what",
+  hwat: "what",
+  wihch: "which",
+  whcih: "which",
+  whihc: "which",
+  highligh: "highlight",
+  highligt: "highlight",
+  higlight: "highlight",
+  evalaution: "evaluation",
+  evalutaion: "evaluation",
+  evluation: "evaluation",
+  evalauate: "evaluate",
+  possibel: "possible",
+  posible: "possible",
+  possbile: "possible",
+  mamxiser: "maximiser",
+  mamxise: "maximise",
+  maximser: "maximiser",
+  bascially: "basically",
+  basciallys: "basically",
+  basicaly: "basically",
+  basicly: "basically",
+  diea: "idea",
+  idae: "idea",
+  delpoy: "deploy",
+  depoly: "deploy",
+  evryhting: "everything",
+  everyting: "everything",
+  evreything: "everything",
+  strucutres: "structures",
+  strucutre: "structure",
+  struture: "structure",
+  stucture: "structure",
+  methdos: "methods",
+  metohds: "methods",
+  mehtods: "methods",
+  accuracys: "accuracy",
+  acuracy: "accuracy",
+  acccuracy: "accuracy",
+  acurate: "accurate",
+  accurat: "accurate",
+  ging: "giving",
+  givng: "giving",
+   quicky: "quickly",
+  quikcly: "quickly",
+  qucik: "quick",
+  quikc: "quick",
+  wrting: "writing",
+  writng: "writing",
+  wriitng: "writing",
+  deedback: "feedback",
+  ther: "their",
+  thier: "their",
+  theri: "their",
+  themselfs: "themselves",
+  alwasy: "always",
+  alwyas: "always",
+  alsot: "also",
+  aslo: "also",
+  beacause: "because",
+  becuase: "because",
+  becasue: "because",
+  beacuse: "because",
+  becouse: "because",
+  howver: "however",
+  howevre: "however",
+  hwoever: "however",
+  therfore: "therefore",
+  therefor: "therefore",
+  theerfore: "therefore",
+  furhtermore: "furthermore",
+  futhermore: "furthermore",
+  morever: "moreover",
+  morover: "moreover",
+  consequenlty: "consequently",
+  conseqeuntly: "consequently",
+  additonally: "additionally",
+  aditional: "additional",
+  altough: "although",
+  althought: "although",
+  thoough: "though",
+  thoguh: "though",
+  espeically: "especially",
+  especialy: "especially",
+  particuarly: "particularly",
+  particulary: "particularly",
+  usuallly: "usually",
+  usally: "usually",
+  generaly: "generally",
+  genrally: "generally",
+  approximatly: "approximately",
+  aproximately: "approximately",
+  completlely: "completely",
+  completly: "completely",
+  entirly: "entirely",
+  relativly: "relatively",
+  relativley: "relatively",
+  substantally: "substantially",
+  considertably: "considerably",
+  // Economics & Cambridge 9708 core vocabulary typos
   cosumered: "consumed",
   goverment: "government",
   fimrm: "firm",
@@ -767,9 +969,6 @@ export const COMMON_TYPOS: Readonly<Record<string, string>> = {
   differenciate: "differentiate",
   liek: "like",
   liekd: "liked",
-  becuase: "because",
-  becasue: "because",
-  beacuse: "because",
   faliure: "failure",
   faliures: "failures",
   failur: "failure",
@@ -777,35 +976,97 @@ export const COMMON_TYPOS: Readonly<Record<string, string>> = {
   externailty: "externality",
   externalites: "externalities",
   exteranlities: "externalities",
+  extrenalities: "externalities",
+  extrenality: "externality",
   inelastc: "inelastic",
   elasticty: "elasticity",
   elastcity: "elasticity",
+  elatsicity: "elasticity",
+  elsticity: "elasticity",
   equillibrium: "equilibrium",
   equilibirum: "equilibrium",
   equlibrium: "equilibrium",
+  equilbrium: "equilibrium",
+  equilbirum: "equilibrium",
+  disequilbrium: "disequilibrium",
+  disequilibruim: "disequilibrium",
   oppurtunity: "opportunity",
   oportunity: "opportunity",
+  opprotunity: "opportunity",
   govrenment: "government",
-  goverment: "government",
   governmnet: "government",
+  govnerment: "government",
   consumr: "consumer",
   consumrs: "consumers",
   cosnumers: "consumers",
   comsumers: "consumers",
+  consumptoin: "consumption",
+  conusmption: "consumption",
   monoploy: "monopoly",
   monoply: "monopoly",
+  monpoly: "monopoly",
+  monopolstic: "monopolistic",
   inflatoin: "inflation",
   inflaton: "inflation",
+  infaltion: "inflation",
+  deflatoin: "deflation",
+  disinflatoin: "disinflation",
   subsidie: "subsidy",
   subsidies: "subsidies",
   subsidey: "subsidy",
+  subisdy: "subsidy",
+  subisdies: "subsidies",
+  subsdies: "subsidies",
   effeciency: "efficiency",
   efficency: "efficiency",
   effiency: "efficiency",
+  ineffciency: "inefficiency",
+  inefficency: "inefficiency",
+  ineffeciency: "inefficiency",
+  allocaive: "allocative",
+  alloctaive: "allocative",
+  productve: "productive",
+  produtive: "productive",
   aggreagte: "aggregate",
   agregate: "aggregate",
+  aggergate: "aggregate",
   unemploymnet: "unemployment",
   unemploymnt: "unemployment",
+  unemployemnt: "unemployment",
+  unempolyment: "unemployment",
+  asymetric: "asymmetric",
+  asymmteric: "asymmetric",
+  diseconmies: "diseconomies",
+  econmies: "economies",
+  macroeconmic: "macroeconomic",
+  macroeconomc: "macroeconomic",
+  microeconmic: "microeconomic",
+  microeconomc: "microeconomic",
+  protecionism: "protectionism",
+  protectonism: "protectionism",
+  appreciaton: "appreciation",
+  apreciation: "appreciation",
+  investemnt: "investment",
+  prodution: "production",
+  produtcion: "production",
+  demnd: "demand",
+  dmeand: "demand",
+  suply: "supply",
+  spply: "supply",
+  pricse: "prices",
+  prcie: "price",
+  prcies: "prices",
+  tarifs: "tariffs",
+  tarif: "tariff",
+  welfaree: "welfare",
+  wlefare: "welfare",
+  deadwieght: "deadweight",
+  deadweigt: "deadweight",
+  multipler: "multiplier",
+  multipiler: "multiplier",
+  acclerator: "accelerator",
+  ceterus: "ceteris",
+  parabus: "paribus",
   sustanable: "sustainable",
   sustainble: "sustainable",
   competion: "competition",
@@ -1048,6 +1309,48 @@ export const COMMON_TYPOS: Readonly<Record<string, string>> = {
   writting: "writing",
 };
 
+const CORE_TARGET_WORDS: ReadonlySet<string> = (() => {
+  const set = new Set<string>();
+  for (const val of Object.values(COMMON_TYPOS)) {
+    const clean = val.trim().toLowerCase();
+    if (/^[a-z]{4,}$/.test(clean)) set.add(clean);
+  }
+  for (const phrase of CAMBRIDGE_ECONOMICS_WHITELIST) {
+    for (const token of phrase.toLowerCase().split(/\s+/)) {
+      if (/^[a-z]{5,}$/.test(token)) set.add(token);
+    }
+  }
+  return set;
+})();
+
+function findFastFuzzyCorrection(lowerWord: string): string | undefined {
+  if (lowerWord.length < 5 || CORE_TARGET_WORDS.has(lowerWord)) return undefined;
+
+  // 1. Accidental leading double letter (e.g. "ffeedback" -> "feedback", "ddemand" -> "demand")
+  if (lowerWord[0] === lowerWord[1]) {
+    const stripped = lowerWord.slice(1);
+    if (CORE_TARGET_WORDS.has(stripped)) return stripped;
+  }
+
+  // 2. Single adjacent character transposition on words >= 5 chars
+  const chars = lowerWord.split("");
+  for (let i = 0; i < chars.length - 1; i++) {
+    if (chars[i] === chars[i + 1]) continue;
+    const tmp = chars[i];
+    chars[i] = chars[i + 1];
+    chars[i + 1] = tmp;
+    const candidate = chars.join("");
+    // Restore before returning
+    chars[i + 1] = chars[i];
+    chars[i] = tmp;
+    if (CORE_TARGET_WORDS.has(candidate)) {
+      return candidate;
+    }
+  }
+
+  return undefined;
+}
+
 function preserveCase(original: string, replacement: string): string {
   if (original === original.toUpperCase()) return replacement.toUpperCase();
   if (original[0] === original[0].toUpperCase()) {
@@ -1065,6 +1368,8 @@ export function analyzeGrammarAndMechanics(sentences: string[]): GrammarRuleIssu
   const seenKeys = new Set<string>();
 
   for (const sentence of sentences) {
+    const coveredSpans: Array<{ start: number; end: number }> = [];
+
     // 1. Check specialized Cambridge mechanics and misconception rules
     for (const rule of RULES) {
       const regex = new RegExp(rule.pattern.source, rule.pattern.flags);
@@ -1083,12 +1388,24 @@ export function analyzeGrammarAndMechanics(sentences: string[]): GrammarRuleIssu
           if (!regex.global) break;
           continue;
         }
+        if (
+          rule.id === "sentence_starts_lowercase" &&
+          (COMMON_TYPOS[lowerMatched] || findFastFuzzyCorrection(lowerMatched))
+        ) {
+          if (!regex.global) break;
+          continue;
+        }
 
         const suggestion = rule.getSuggestion(match);
         const dedupeKey = `${rule.id}::${sentence.trim().toLowerCase()}::${matchedText.toLowerCase()}::${match.index}`;
 
         if (!seenKeys.has(dedupeKey)) {
           seenKeys.add(dedupeKey);
+          const startOffset = match.index;
+          const endOffset = match.index + matchedText.length;
+          if (rule.id === "typo_modal_br" || rule.id === "homophone_there_possessive") {
+            coveredSpans.push({ start: startOffset, end: endOffset });
+          }
           issues.push({
             original: matchedText,
             suggestion,
@@ -1098,8 +1415,8 @@ export function analyzeGrammarAndMechanics(sentences: string[]): GrammarRuleIssu
             evidence: rule.evidence,
             context: sentence,
             ruleId: rule.id,
-            startOffset: match.index,
-            endOffset: match.index + matchedText.length,
+            startOffset,
+            endOffset,
           });
         }
 
@@ -1113,12 +1430,15 @@ export function analyzeGrammarAndMechanics(sentences: string[]): GrammarRuleIssu
     while ((wordMatch = wordRegex.exec(sentence)) !== null) {
       const originalWord = wordMatch[0];
       const lowerWord = originalWord.toLowerCase();
+      const wordStart = wordMatch.index;
+      const wordEnd = wordStart + originalWord.length;
 
       if (CAMBRIDGE_ECONOMICS_WHITELIST.has(lowerWord)) continue;
+      if (coveredSpans.some((s) => wordStart >= s.start && wordEnd <= s.end)) continue;
 
-      const corrected = COMMON_TYPOS[lowerWord];
+      const corrected = COMMON_TYPOS[lowerWord] ?? findFastFuzzyCorrection(lowerWord);
       if (corrected && corrected.toLowerCase() !== lowerWord) {
-        const dedupeKey = `typo::${sentence.trim().toLowerCase()}::${originalWord.toLowerCase()}`;
+        const dedupeKey = `typo::${sentence.trim().toLowerCase()}::${originalWord.toLowerCase()}::${wordStart}`;
         if (!seenKeys.has(dedupeKey)) {
           seenKeys.add(dedupeKey);
           const suggestion = preserveCase(originalWord, corrected);
@@ -1130,8 +1450,8 @@ export function analyzeGrammarAndMechanics(sentences: string[]): GrammarRuleIssu
             explanation: `Spelling typo: '${originalWord}' should be '${suggestion}'.`,
             context: sentence,
             ruleId: `typo_${lowerWord}`,
-            startOffset: wordMatch.index,
-            endOffset: wordMatch.index + originalWord.length,
+            startOffset: wordStart,
+            endOffset: wordEnd,
           });
         }
       }

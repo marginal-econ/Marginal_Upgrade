@@ -9,6 +9,7 @@ import {
 import { isDailyLimitError } from "@/lib/usage-limits";
 import { cleanSuggestion } from "@/lib/live-examiner/clean-suggestion";
 import { normalizeIssueSpan } from "@/lib/live-examiner/normalize-issue-span";
+import { evaluateCambridgeAnswer } from "@/lib/live-examiner/client-evaluation";
 
 export type { PredictedMark };
 
@@ -20,7 +21,8 @@ export type IssueCategory =
   | "application"
   | "evaluation"
   | "reasoning_chain"
-  | "terminology";
+  | "terminology"
+  | "misconception";
 
 export type IssueSeverity = "low" | "medium" | "high";
 
@@ -47,15 +49,14 @@ export type HistoryEntry = LiveExaminerIssue & {
   resolvedAt: number | null;
 };
 
-// Adaptive cadence: completing a sentence should feel immediate, while a
-// mid-sentence pause waits long enough not to fire on every few keystrokes.
-// One request is still allowed at a time and the newest edit always replaces
-// anything older in the queue.
-const TYPING_PAUSE_MS = 1350;
-const SENTENCE_COMPLETE_PAUSE_MS = 450;
-const MIN_REQUEST_INTERVAL_MS = 4000;
-const MIN_CHANGED_CHARS = 4;
-const MIN_TEXT_LENGTH = 25;
+// Adaptive cadence: instant 0ms synchronous client-side hybrid engine updates highlights,
+// grammar/misconception underlines, and running marks immediately on every word, while
+// background Mistral AI calibration fires rapidly on sentence completion or brief pause.
+const TYPING_PAUSE_MS = 450;
+const SENTENCE_COMPLETE_PAUSE_MS = 140;
+const MIN_REQUEST_INTERVAL_MS = 850;
+const MIN_CHANGED_CHARS = 2;
+const MIN_TEXT_LENGTH = 3;
 
 function cleanStars(str: string): string {
   if (!str) return "";
@@ -116,8 +117,15 @@ export function useLiveExaminerCheck(params: {
 
   const lastCheckedTextRef = useRef<string>("");
   const issuesRef = useRef<ActiveIssue[]>([]);
+  const aiIssuesRef = useRef<ActiveIssue[]>([]);
+  const aiClassificationsRef = useRef<Map<string, ActiveAoClassification>>(new Map());
+  const resolvedIdsRef = useRef<Set<string>>(new Set());
+  const lastAiMarkRef = useRef<{ mark: PredictedMark; baselineClientMark: PredictedMark } | null>(
+    null,
+  );
   const historyRef = useRef<HistoryEntry[]>([]);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const instantTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const requestIdRef = useRef(0);
   const inFlightRef = useRef(false);
   const lastRequestAtRef = useRef(0);
@@ -140,6 +148,129 @@ export function useLiveExaminerCheck(params: {
       return Array.from(byId.values());
     });
   }, []);
+
+  /**
+   * Instant 0ms client-side hybrid pass:
+   * - Highlights whole sentences by AO (AO1/AO2/AO3) immediately as the user writes
+   * - Flags deterministic grammar, spelling, terminology, and misconception spans immediately
+   * - Updates running mark immediately, calibrated with the most recent AI mark if available
+   */
+  const runInstantClientPass = useCallback(
+    (currentText: string) => {
+      const trimmed = currentText.trim();
+      if (!enabled || !question || trimmed.length < 2) {
+        if (trimmed.length < 2) {
+          setIssues([]);
+          setClassifications([]);
+          setPredictedMark(null);
+          lastAiMarkRef.current = null;
+        }
+        return;
+      }
+
+      const clientEval = evaluateCambridgeAnswer(currentText, question, maxMark, level);
+
+      // 1. Merge deterministic issues with surviving AI issues, excluding resolved IDs
+      const detIssues: ActiveIssue[] = clientEval.issues
+        .map((issue) => {
+          const original = cleanStars(issue.original);
+          const suggestion = cleanStars(issue.suggestion);
+          const explanation = cleanStars(issue.explanation);
+          const context = cleanStars(issue.context);
+          const evidence = issue.evidence ? cleanStars(issue.evidence) : undefined;
+          const id = issueId({ ...issue, original, context });
+          return {
+            ...issue,
+            original,
+            suggestion,
+            explanation,
+            context,
+            evidence,
+            id,
+          };
+        })
+        .filter((issue) => !resolvedIdsRef.current.has(issue.id));
+
+      const survivingAiIssues = aiIssuesRef.current.filter(
+        (issue) =>
+          !resolvedIdsRef.current.has(issue.id) &&
+          currentText.includes(issue.context) &&
+          issue.context.includes(issue.original),
+      );
+
+      const mergedIssuesMap = new Map<string, ActiveIssue>();
+      for (const item of [...survivingAiIssues, ...detIssues]) {
+        if (!mergedIssuesMap.has(item.id)) {
+          mergedIssuesMap.set(item.id, item);
+        }
+      }
+      const nextIssues = Array.from(mergedIssuesMap.values()).slice(0, 10);
+      setIssues(nextIssues);
+      if (detIssues.length > 0) {
+        recordHistory(detIssues);
+      }
+
+      // 2. Merge deterministic whole-sentence AO classifications with settled AI classifications
+      const nextClassifications: ActiveAoClassification[] = clientEval.classifications.map(
+        (detCls) => {
+          const aiCls = aiClassificationsRef.current.get(detCls.context.trim().toLowerCase());
+          if (aiCls && currentText.includes(aiCls.context)) {
+            return aiCls;
+          }
+          return {
+            ...detCls,
+            id: classificationId(detCls),
+          };
+        },
+      );
+      setClassifications(nextClassifications);
+
+      // 3. Hybrid Running Mark: if we have an AI mark anchor, adjust smoothly by any new client delta
+      if (lastAiMarkRef.current) {
+        const { mark: aiMark, baselineClientMark } = lastAiMarkRef.current;
+        const deltaAo1 =
+          clientEval.predictedMark.ao_breakdown.knowledge.awarded -
+          baselineClientMark.ao_breakdown.knowledge.awarded;
+        const deltaAo2 =
+          clientEval.predictedMark.ao_breakdown.analysis.awarded -
+          baselineClientMark.ao_breakdown.analysis.awarded;
+        const deltaAo3 =
+          clientEval.predictedMark.ao_breakdown.evaluation.awarded -
+          baselineClientMark.ao_breakdown.evaluation.awarded;
+
+        if (deltaAo1 === 0 && deltaAo2 === 0 && deltaAo3 === 0) {
+          setPredictedMark(aiMark);
+        } else {
+          const kOut = aiMark.ao_breakdown.knowledge.out_of;
+          const aOut = aiMark.ao_breakdown.analysis.out_of;
+          const eOut = aiMark.ao_breakdown.evaluation.out_of;
+          const kAw = Math.min(
+            kOut,
+            Math.max(0, aiMark.ao_breakdown.knowledge.awarded + deltaAo1),
+          );
+          const aAw = Math.min(aOut, Math.max(0, aiMark.ao_breakdown.analysis.awarded + deltaAo2));
+          const eAw = Math.min(
+            eOut,
+            Math.max(0, aiMark.ao_breakdown.evaluation.awarded + deltaAo3),
+          );
+          const total = Math.min(maxMark, kAw + aAw + eAw);
+          setPredictedMark({
+            total_mark: total,
+            confidence: aiMark.confidence,
+            headline: clientEval.predictedMark.headline,
+            ao_breakdown: {
+              knowledge: { awarded: kAw, out_of: kOut },
+              analysis: { awarded: aAw, out_of: aOut },
+              evaluation: { awarded: eAw, out_of: eOut },
+            },
+          });
+        }
+      } else {
+        setPredictedMark(clientEval.predictedMark);
+      }
+    },
+    [enabled, question, maxMark, level, recordHistory],
+  );
 
   const runCheck = useCallback(
     (currentText: string, force: boolean) => {
@@ -188,59 +319,137 @@ export function useLiveExaminerCheck(params: {
             setDirty(true);
             return;
           }
-          const fresh = result.issues.map((issue) => {
-            const original = cleanStars(issue.original);
-            const suggestion = cleanStars(issue.suggestion);
-            const explanation = cleanStars(issue.explanation);
-            const context = cleanStars(issue.context);
-            const evidence = issue.evidence ? cleanStars(issue.evidence) : undefined;
-            return {
-              ...issue,
+          const fresh = result.issues
+            .map((issue) => {
+              const original = cleanStars(issue.original);
+              const suggestion = cleanStars(issue.suggestion);
+              const explanation = cleanStars(issue.explanation);
+              const context = cleanStars(issue.context);
+              const evidence = issue.evidence ? cleanStars(issue.evidence) : undefined;
+              return {
+                ...issue,
+                original,
+                suggestion,
+                explanation,
+                context,
+                evidence,
+                id: issueId({ ...issue, original, context }),
+              };
+            })
+            .filter((issue) => !resolvedIdsRef.current.has(issue.id));
+
+          aiIssuesRef.current = fresh;
+
+          const clientBaseline = evaluateCambridgeAnswer(currentText, question, maxMark, level);
+          const detIssues = clientBaseline.issues
+            .map((issue) => {
+              const original = cleanStars(issue.original);
+              const suggestion = cleanStars(issue.suggestion);
+              const explanation = cleanStars(issue.explanation);
+              const context = cleanStars(issue.context);
+              const evidence = issue.evidence ? cleanStars(issue.evidence) : undefined;
+              return {
+                ...issue,
+                original,
+                suggestion,
+                explanation,
+                context,
+                evidence,
+                id: issueId({ ...issue, original, context }),
+              };
+            })
+            .filter((issue) => !resolvedIdsRef.current.has(issue.id));
+
+          const combinedIssues = Array.from(
+            new Map([...fresh, ...detIssues].map((item) => [item.id, item])).values(),
+          ).slice(0, 10);
+
+          setIssues(combinedIssues);
+
+          // Store AI sentence classifications in the persistent map and merge with full-essay classifications
+          for (const classification of result.classifications) {
+            const original = cleanStars(classification.original);
+            const context = cleanStars(classification.context);
+            const explanation = cleanStars(classification.explanation);
+            const activeCls: ActiveAoClassification = {
+              ...classification,
               original,
-              suggestion,
-              explanation,
               context,
-              evidence,
-              id: issueId({ ...issue, original, context }),
+              explanation,
+              id: classificationId({ ...classification, original, context }),
             };
-          });
-          setIssues(fresh);
-          setClassifications((previous) => {
-            const replacedContexts = new Set(result.classifiedContexts.map((c) => cleanStars(c)));
-            const surviving = (force && !result.checkFailed ? [] : previous).filter(
-              (classification) =>
-                currentText.includes(classification.context) &&
-                !replacedContexts.has(classification.context),
-            );
-            const awardedByAo = result.predictedMark
-              ? {
-                  AO1: result.predictedMark.ao_breakdown.knowledge.awarded,
-                  AO2: result.predictedMark.ao_breakdown.analysis.awarded,
-                  AO3: result.predictedMark.ao_breakdown.evaluation.awarded,
-                }
-              : null;
-            const incoming = result.classifications
-              .filter((classification) => !awardedByAo || awardedByAo[classification.ao] > 0)
-              .map((classification) => {
-                const original = cleanStars(classification.original);
-                const context = cleanStars(classification.context);
-                const explanation = cleanStars(classification.explanation);
-                return {
-                  ...classification,
-                  original,
-                  context,
-                  explanation,
-                  id: classificationId({ ...classification, original, context }),
-                };
-              });
-            return Array.from(
-              new Map([...surviving, ...incoming].map((item) => [item.id, item])).values(),
-            );
-          });
-          recordHistory(fresh);
+            aiClassificationsRef.current.set(context.trim().toLowerCase(), activeCls);
+          }
+
+          setClassifications(
+            clientBaseline.classifications.map((detCls) => {
+              const aiCls = aiClassificationsRef.current.get(detCls.context.trim().toLowerCase());
+              if (aiCls && currentText.includes(aiCls.context)) {
+                return aiCls;
+              }
+              return {
+                ...detCls,
+                id: classificationId(detCls),
+              };
+            }),
+          );
+
+          recordHistory(combinedIssues);
           setDirty(false);
           setLastUpdatedAt(Date.now());
-          if (result.predictedMark) setPredictedMark(result.predictedMark);
+          if (result.predictedMark) {
+            const kOut = result.predictedMark.ao_breakdown.knowledge.out_of;
+            const aOut = result.predictedMark.ao_breakdown.analysis.out_of;
+            const eOut = result.predictedMark.ao_breakdown.evaluation.out_of;
+            const hasClientCredit = clientBaseline.predictedMark.total_mark > 0;
+            const kAw = hasClientCredit
+              ? Math.min(
+                  kOut,
+                  Math.max(
+                    result.predictedMark.ao_breakdown.knowledge.awarded,
+                    clientBaseline.predictedMark.ao_breakdown.knowledge.awarded,
+                  ),
+                )
+              : result.predictedMark.ao_breakdown.knowledge.awarded;
+            const aAw = hasClientCredit
+              ? Math.min(
+                  aOut,
+                  Math.max(
+                    result.predictedMark.ao_breakdown.analysis.awarded,
+                    clientBaseline.predictedMark.ao_breakdown.analysis.awarded,
+                  ),
+                )
+              : result.predictedMark.ao_breakdown.analysis.awarded;
+            const eAw = hasClientCredit
+              ? Math.min(
+                  eOut,
+                  Math.max(
+                    result.predictedMark.ao_breakdown.evaluation.awarded,
+                    clientBaseline.predictedMark.ao_breakdown.evaluation.awarded,
+                  ),
+                )
+              : result.predictedMark.ao_breakdown.evaluation.awarded;
+            const calibratedMark: PredictedMark = {
+              total_mark: Math.min(maxMark, kAw + aAw + eAw),
+              confidence: result.predictedMark.confidence,
+              headline:
+                kAw + aAw + eAw > result.predictedMark.total_mark
+                  ? clientBaseline.predictedMark.headline
+                  : result.predictedMark.headline,
+              ao_breakdown: {
+                knowledge: { awarded: kAw, out_of: kOut },
+                analysis: { awarded: aAw, out_of: aOut },
+                evaluation: { awarded: eAw, out_of: eOut },
+              },
+            };
+            lastAiMarkRef.current = {
+              mark: calibratedMark,
+              baselineClientMark: clientBaseline.predictedMark,
+            };
+            setPredictedMark(calibratedMark);
+          } else {
+            setPredictedMark(clientBaseline.predictedMark);
+          }
           if (result.checkFailed) {
             setError(
               "The examiner check is temporarily unavailable — showing the last known issues.",
@@ -282,6 +491,7 @@ export function useLiveExaminerCheck(params: {
 
   useEffect(() => {
     if (timerRef.current) clearTimeout(timerRef.current);
+    if (instantTimerRef.current) clearTimeout(instantTimerRef.current);
 
     if (!enabled || !question) {
       setDirty(false);
@@ -289,11 +499,20 @@ export function useLiveExaminerCheck(params: {
     }
 
     const trimmed = text.trim();
-    if (trimmed.length < MIN_TEXT_LENGTH) {
+    if (trimmed.length < 2) {
       setIssues([]);
       setClassifications([]);
       setPredictedMark(null);
       lastCheckedTextRef.current = "";
+      lastAiMarkRef.current = null;
+      setDirty(false);
+      return;
+    }
+
+    // Fire the instant client-side hybrid engine synchronously (0ms latency)
+    runInstantClientPass(text);
+
+    if (trimmed.length < MIN_TEXT_LENGTH) {
       setDirty(false);
       return;
     }
@@ -316,14 +535,17 @@ export function useLiveExaminerCheck(params: {
 
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
+      if (instantTimerRef.current) clearTimeout(instantTimerRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [text, enabled, question]);
+  }, [text, enabled, question, maxMark, level]);
 
   /** Apply one suggestion in place and return the corrected text for the caller to set. */
   function acceptIssue(id: string, currentText: string): string {
     const issue = issuesRef.current.find((item) => item.id === id);
     if (!issue) return currentText;
+
+    resolvedIdsRef.current.add(id);
 
     const normalized = normalizeIssueSpan({
       sentence: issue.context,
@@ -370,6 +592,7 @@ export function useLiveExaminerCheck(params: {
 
     const nextText = replaceOnce(currentText);
     lastCheckedTextRef.current = replaceOnce(lastCheckedTextRef.current);
+    aiIssuesRef.current = aiIssuesRef.current.filter((item) => item.id !== id);
     setIssues((prev) => prev.filter((item) => item.id !== id));
     setClassifications((prev) => prev.filter((item) => nextText.includes(item.context)));
     setHistory((prev) =>
@@ -380,7 +603,19 @@ export function useLiveExaminerCheck(params: {
     return nextText;
   }
 
+  /** Apply all active suggestions in sequence and return the updated essay text. */
+  function acceptAllIssues(currentText: string): string {
+    let workingText = currentText;
+    const currentList = [...issuesRef.current];
+    for (const issue of currentList) {
+      workingText = acceptIssue(issue.id, workingText);
+    }
+    return workingText;
+  }
+
   function dismissIssue(id: string) {
+    resolvedIdsRef.current.add(id);
+    aiIssuesRef.current = aiIssuesRef.current.filter((item) => item.id !== id);
     setIssues((prev) => prev.filter((item) => item.id !== id));
     setHistory((prev) =>
       prev.map((entry) =>
@@ -392,8 +627,12 @@ export function useLiveExaminerCheck(params: {
   /** Force a fresh full-pass check, ignoring the diff cache. */
   function rescan(currentText: string) {
     if (timerRef.current) clearTimeout(timerRef.current);
+    resolvedIdsRef.current.clear();
     setDirty(false);
-    runCheck(currentText, true);
+    runInstantClientPass(currentText);
+    if (currentText.trim().length >= MIN_TEXT_LENGTH) {
+      runCheck(currentText, true);
+    }
   }
 
   /** Clear what's currently showing without touching the history log. */
@@ -411,6 +650,7 @@ export function useLiveExaminerCheck(params: {
     predictedMark,
     lastUpdatedAt,
     acceptIssue,
+    acceptAllIssues,
     dismissIssue,
     rescan,
     clearAll,

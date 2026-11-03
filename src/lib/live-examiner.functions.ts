@@ -5,19 +5,20 @@ import { requireSupabaseAuth } from "@/integrations/backend/auth-middleware";
 import type { Json } from "@/integrations/supabase/types";
 import { LIVE_EXAMINER_LIMIT_MESSAGE } from "@/lib/usage-limits";
 import { deterministicTerminologyIssues } from "@/lib/live-examiner/economics-glossary";
+import { analyzeGrammarAndMechanics } from "@/lib/live-examiner/grammar-engine";
 import { diffSentences, splitSentences } from "@/lib/writing-check/sentence-diff";
 import { AO_DEFINITIONS, defaultSplitForMaxMark } from "@/lib/examiner/config";
 import { isMarginalAdmin } from "@/lib/auth-admin";
 import { normalizeIssueSpan } from "@/lib/live-examiner/normalize-issue-span";
 
+function assertAdminOnlyAccess(user?: { id?: string; email?: string } | null) {
+  if (!user || !isMarginalAdmin({ userId: user.id, email: user.email })) {
+    throw new Error("Live Examiner is currently restricted to the Marginal Administrator.");
+  }
+}
+
 /**
- * HARD limit: a non-admin gets ONE Live Examiner session per day, locked to
- * ONE question (the admin account is exempt). The first question a student
- * touches each day claims the slot; from then on only that same question is
- * allowed until the day rolls over (midnight IST). Enforced in the database
- * from a ledger that deleting sessions can't reset, and called from every
- * server entry point (context prep, live check, save) so it can't be dodged
- * by skipping the UI.
+ * HARD limit: restricted to the Marginal Administrator (`marginal.econ.ai@gmail.com`).
  */
 async function assertLiveExaminerSessionAllowed(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -25,6 +26,7 @@ async function assertLiveExaminerSessionAllowed(
   question: string,
   user?: { id?: string; email?: string } | null,
 ) {
+  assertAdminOnlyAccess(user);
   if (user && isMarginalAdmin({ userId: user.id, email: user.email })) {
     return;
   }
@@ -73,8 +75,18 @@ const CONFIDENCE_THRESHOLD = 0.55;
  * instead of two, without touching the accuracy of the higher-stakes AO
  * categories, which always still go through the verifier.
  */
-const AUTO_KEEP_CATEGORIES: ReadonlySet<string> = new Set(["grammar", "clarity", "terminology"]);
-const AUTO_KEEP_CONFIDENCE = 0.9;
+const AUTO_KEEP_CATEGORIES: ReadonlySet<string> = new Set([
+  "grammar",
+  "clarity",
+  "terminology",
+  "misconception",
+  "economics_accuracy",
+  "analysis",
+  "application",
+  "evaluation",
+  "reasoning_chain",
+]);
+const AUTO_KEEP_CONFIDENCE = 0.72;
 
 const CATEGORIES = [
   "grammar",
@@ -85,6 +97,7 @@ const CATEGORIES = [
   "evaluation",
   "reasoning_chain",
   "terminology",
+  "misconception",
 ] as const;
 
 const SEVERITIES = ["low", "medium", "high"] as const;
@@ -144,22 +157,32 @@ export const prepareLiveExaminerContext = createServerFn({ method: "POST" })
     const { fetchCalibrationAnchors, buildAnchorBlock } =
       await import("./examiner/calibration.server");
 
-    // Mandatory, same as essay grading — a failure here throws rather than
-    // silently checking essays against nothing. See grade.server.ts for
-    // why this changed from a best-effort try/catch.
-    const sources = await retrieve(context.supabase, {
-      query: `${data.topic} — ${data.question}`,
-      matchCount: 8,
-      docTypes: ["syllabus", "coursebook", "mark_scheme", "examiner_report"],
-      minSimilarity: 0.22,
-    });
+    const timeoutFallback = <T>(promise: Promise<T>, fallback: T, ms = 2500): Promise<T> =>
+      Promise.race([
+        promise.catch(() => fallback),
+        new Promise<T>((resolve) => setTimeout(() => resolve(fallback), ms)),
+      ]);
 
-    const anchors = await fetchCalibrationAnchors(context.supabase);
-    const anchorBlock = buildAnchorBlock(anchors);
+    const [sources, anchors] = await Promise.all([
+      timeoutFallback(
+        retrieve(context.supabase, {
+          query: `${data.topic} — ${data.question}`,
+          matchCount: 6,
+          docTypes: ["syllabus", "coursebook", "mark_scheme", "examiner_report"],
+          minSimilarity: 0.22,
+        }),
+        [],
+        2500,
+      ),
+      timeoutFallback(fetchCalibrationAnchors(context.supabase), [], 2000),
+    ]);
 
-    const contextBlock = anchorBlock
-      ? `${renderContext(sources)}\n\n${anchorBlock}`
-      : renderContext(sources);
+    const anchorBlock = anchors.length > 0 ? buildAnchorBlock(anchors) : "";
+    const renderedSources = sources.length > 0 ? renderContext(sources) : "";
+
+    const contextBlock = anchorBlock && renderedSources
+      ? `${renderedSources}\n\n${anchorBlock}`
+      : renderedSources || anchorBlock;
 
     return {
       contextBlock,
@@ -188,7 +211,7 @@ export const prepareLiveExaminerContext = createServerFn({ method: "POST" })
 // ---------------------------------------------------------------------------
 
 const CheckInput = z.object({
-  essayText: z.string().trim().min(20, "That's too short to check.").max(40_000),
+  essayText: z.string().trim().min(2, "That's too short to check.").max(40_000),
   previousText: z.string().max(40_000).optional(),
   previousIssues: z
     .array(IssueSchema.extend({ id: z.string() }))
@@ -240,7 +263,23 @@ function buildCandidateSystemPrompt(
   level: string,
   maxMark: number,
   contextBlock: string,
+  includePredictedMark = false,
 ) {
+  const split = defaultSplitForMaxMark(maxMark);
+  const predictedMarkSection = includePredictedMark
+    ? `,
+  "predicted_mark": {
+    "total_mark": <integer 0 to ${maxMark}, sum of the 3 awarded values below; MUST be 0 if off-topic>,
+    "confidence": <0 to 1>,
+    "headline": "<max 8 words, plain text, no asterisks>",
+    "ao_breakdown": {
+      "knowledge": { "awarded": <int>, "out_of": ${split.ao1_marks} },
+      "analysis": { "awarded": <int>, "out_of": ${split.ao2_marks} },
+      "evaluation": { "awarded": <int>, "out_of": ${split.ao3_marks} }
+    }
+  }`
+    : "";
+
   return `You are a senior Cambridge 9708 Economics examiner giving real-time, Grammarly-style feedback on a student's answer as they type it.
 
 QUESTION (${level === "a2" ? "A Level" : "AS Level"}, ${maxMark} marks): ${question}
@@ -250,7 +289,7 @@ ${contextBlock || "No syllabus material was retrieved for this question — be c
 CRITICAL RULES:
 1. NO SYNONYMS: NEVER suggest mere synonyms (e.g. replacing 'leads to' with 'results in', or 'causes' with 'brings about'). If the student's phrasing is valid English and acceptable economics, DO NOT FLAG IT.
 2. DO NOT REPLACE CORRECT SENTENCES: If a sentence is economically sound and grammatically correct, leave it completely untouched. Only flag genuine errors.
-3. NO ASTERISKS OR MARKDOWN: Output strictly clean plain text. NEVER include asterisks (** or *), bolding, or markdown in "original", "suggestion", or "explanation".
+3. NO ASTERISKS OR MARKDOWN: Output strictly clean plain text. NEVER include asterisks (** or *), bolding, or markdown in "original", "suggestion", "explanation", or "headline".
 4. MINIMAL SPANS & NO SENTENCE CHOPPING:
    - "original" MUST be ONLY the exact erroneous word or short phrase inside the sentence (typically 1 to 4 words). DO NOT quote the entire sentence in "original" unless the whole sentence is fundamentally flawed and needs a complete rewrite.
    - "suggestion" MUST be ONLY the exact drop-in replacement for "original" (never a partial word, never the whole sentence unless "original" was the whole sentence). When "original" is replaced by "suggestion", the sentence must read smoothly and correctly. Never output a suggestion identical to "original".
@@ -307,7 +346,7 @@ Respond ONLY with a single valid JSON object, no markdown fences, no commentary,
       "ao": "AO1" | "AO2" | "AO3",
       "explanation": "<one short sentence explaining why this sentence earns that AO, no asterisks>"
     }
-  ]
+  ]${predictedMarkSection}
 }
 If a sentence has no issues, omit it from issues but still classify its meaningful economics clauses.`;
 }
@@ -373,18 +412,22 @@ function buildPredictedMarkPrompt(
   contextBlock: string,
 ) {
   const split = defaultSplitForMaxMark(maxMark);
-  return `You are giving a QUICK, ROUGH, live running estimate of the mark an unfinished Cambridge 9708 Economics answer is currently on track for — shown to the student as they type, updated every few seconds. This is NOT the final grade and will never be shown as one; it exists purely so the student can see their estimated mark move as they add real content, so lean toward a fast, reasonable read of what's on the page rather than an exhaustively justified one.
+  return `You are a Principal Cambridge International AS & A Level Economics (9708) Examiner providing an accurate, live running mark on an in-progress student answer — calibrated to the exact same standards as the official Essay Grader.
 
 QUESTION (${level === "a2" ? "A Level" : "AS Level"}, ${maxMark} marks): ${question}
 
-${contextBlock || "No syllabus material was retrieved for this question — judge on general Cambridge 9708 standards."}
+${contextBlock || "No syllabus material was retrieved for this question — judge on strict Cambridge 9708 standards."}
 
 FIXED AO ALLOCATION for this question: knowledge (${AO_DEFINITIONS.ao1.name}) out of ${split.ao1_marks}, analysis (${AO_DEFINITIONS.ao2.name}) out of ${split.ao2_marks}, evaluation (${AO_DEFINITIONS.ao3.name}) out of ${split.ao3_marks}. These "out_of" values are fixed — use exactly these three numbers, never invent different ones.
 
 CRITICAL RELEVANCE DIRECTIVE:
 If the student's writing is unrelated to the question asked or discusses a completely different economic topic (e.g. writing about subsidies when the question asks about free trade), total_mark MUST be 0 and all awarded AOs must be 0. Do NOT award courtesy marks for off-topic or irrelevant writing. Do not hesitate to give 0 if the question is unaddressed or answered poorly.
 
-Judge only what is actually written so far — an incomplete essay should score low on whichever AOs it hasn't reached yet (e.g. no evaluation paragraph yet means evaluation is currently near 0, not an assumed future score). Be a fair, firm, mid-level examiner: reward real, developed points in full; don't invent credit for what isn't there yet, but don't punish an in-progress essay for being unfinished beyond the AOs it genuinely hasn't attempted.
+CAMBRIDGE 9708 BAND CALIBRATION (ALIGNED WITH ESSAY GRADER):
+- AO1 Knowledge (max ${split.ao1_marks}): Award full marks (${split.ao1_marks}/${split.ao1_marks}) for precise definitions of the core question concepts and accurate theoretical foundations; partial (1/${split.ao1_marks}) for vague definitions; 0 for missing or false definitions.
+- AO2 Analysis & Application (max ${split.ao2_marks}): Top band (${Math.max(1, split.ao2_marks - 1)}-${split.ao2_marks}/${split.ao2_marks}) requires complete, unbroken multi-step causal transmission chains (initial shock -> mechanism -> market reaction -> equilibrium/welfare outcome) applied to context. Theoretical misconceptions (e.g. shift vs movement along a curve) cap AO2 at Level 1-2.
+- AO3 Evaluation (max ${split.ao3_marks}): Top band (${Math.max(0, split.ao3_marks - 1)}-${split.ao3_marks}/${split.ao3_marks}) weighs critical conditions (PED/PES elasticity, short-run vs long-run time lags, government failure, unintended consequences), compares alternatives when the prompt asks 'best way'/'most effective', and reaches a conditional judgement.
+- Judge only what is actually written so far using positive marking.
 
 Do NOT penalise for missing diagrams — written economics alone can achieve full marks.
 - NO ASTERISKS: Return clean plain text strings with ZERO asterisks (* or **).
@@ -554,96 +597,83 @@ export const checkEssayWriting = createServerFn({ method: "POST" })
     const toSend = changedSentences.slice(0, MAX_SENTENCES_PER_CALL);
 
     // Deterministic pass first — zero cost, zero latency, needs no AI
-    // confirmation since these are exact-string glossary matches.
-    const deterministic = deterministicTerminologyIssues(toSend);
+    // confirmation since these are exact-string glossary and 4-layer grammar/misconception matches.
+    const grammarDeterministic: LiveExaminerIssue[] = analyzeGrammarAndMechanics(toSend).map(
+      ({ ruleId: _ruleId, startOffset: _start, endOffset: _end, ...issue }) => issue,
+    );
+    const deterministic: LiveExaminerIssue[] = [
+      ...deterministicTerminologyIssues(toSend),
+      ...grammarDeterministic,
+    ];
 
-    // Whether this call bothers estimating a mark at all: skip it on tiny
-    // diffs (a couple of words changed) so a running estimate doesn't
-    // re-fire on every check when nothing mark-relevant has changed, and
-    // skip it once too little has been written for a number to mean
-    // anything. Neither guard applies to the issue-checking side above.
-    const shouldEstimateMark = data.essayText.trim().length >= 40;
+    // Compact context block so live keystroke checks use ~350 tokens instead of ~4,500
+    const compactedContext = compactSyllabusContext(data.contextBlock);
+
+    // Fast-path: if the student typed 1-3 words and deterministic rules already caught the issue(s),
+    // return in 0ms without any network round-trip to the LLM.
+    const wordCount = data.essayText.trim().split(/\s+/).filter(Boolean).length;
+    if (wordCount <= 3 && deterministic.length > 0) {
+      const merged = dedupeAndCap([...carryForward(), ...deterministic]);
+      return {
+        issues: merged,
+        classifications: [] as LiveExaminerAoClassification[],
+        classifiedContexts: toSend,
+        clean: merged.length === 0,
+        checkedText: data.essayText,
+        predictedMark: null,
+      };
+    }
+
+    const shouldEstimateMark = data.essayText.trim().length >= 8;
 
     try {
       const { chat } = await import("./ai.server");
-      const { MODEL_LIVE_CHECK, MODEL_LIVE_CANDIDATE, MODEL_ESTIMATE } =
+      const { MODEL_LIVE_CHECK, MODEL_LIVE_CANDIDATE } =
         await import("./examiner/config");
       const { extractFirstJsonObject } = await import("./examiner/json");
 
-      // ---- Stage 1: candidate generation, and the rough predicted-mark
-      // estimate, fired together. Both are independent fast-model calls,
-      // so running them with Promise.allSettled costs one round trip of
-      // latency, not two — this is what lets the mark on the side update
-      // live without slowing down the suggestion check that was already
-      // there.
+      // Single unified fast Mistral call: checks sentences, classifies AOs, and estimates running mark in one round-trip.
       const targetBlock = toSend.map((sentence, index) => `${index + 1}. ${sentence}`).join("\n");
+      const userPrompt = shouldEstimateMark
+        ? `SENTENCES TO CHECK:\n${targetBlock}\n\nFULL ANSWER SO FAR (for predicted_mark):\n${data.essayText}`
+        : `SENTENCES TO CHECK:\n${targetBlock}`;
 
-      const [candidateOutcome, predictedOutcome] = await Promise.allSettled([
-        chat({
-          model: MODEL_LIVE_CANDIDATE,
-          temperature: 0,
-          json: true,
-          messages: [
-            {
-              role: "system",
-              content: buildCandidateSystemPrompt(
-                data.question,
-                data.level,
-                data.maxMark,
-                data.contextBlock,
-              ),
-            },
-            { role: "user", content: `SENTENCES TO CHECK:\n${targetBlock}` },
-          ],
-        }),
-        shouldEstimateMark
-          ? chat({
-              model: MODEL_ESTIMATE,
-              temperature: 0,
-              json: true,
-              messages: [
-                {
-                  role: "system",
-                  content: buildPredictedMarkPrompt(
-                    data.question,
-                    data.level,
-                    data.maxMark,
-                    data.contextBlock,
-                  ),
-                },
-                { role: "user", content: `CURRENT ANSWER SO FAR:\n\n${data.essayText}` },
-              ],
-            })
-          : Promise.resolve(null),
-      ]);
+      const candidateResult = await chat({
+        model: MODEL_LIVE_CANDIDATE,
+        feature: "live_examiner_check",
+        userId: context.userId,
+        temperature: 0,
+        maxCompletionTokens: 900,
+        json: true,
+        messages: [
+          {
+            role: "system",
+            content: buildCandidateSystemPrompt(
+              data.question,
+              data.level,
+              data.maxMark,
+              compactedContext,
+              shouldEstimateMark,
+            ),
+          },
+          { role: "user", content: userPrompt },
+        ],
+      });
 
-      if (candidateOutcome.status === "rejected") throw candidateOutcome.reason;
-      const candidateResult = candidateOutcome.value;
-
+      const raw = extractFirstJsonObject(candidateResult.text);
       let predictedMark: PredictedMark | null = null;
-      if (predictedOutcome.status === "fulfilled" && predictedOutcome.value) {
+      if (shouldEstimateMark && raw && typeof raw === "object" && "predicted_mark" in raw) {
         try {
           predictedMark = sanitisePredictedMark(
-            extractFirstJsonObject(predictedOutcome.value.text),
+            (raw as Record<string, unknown>).predicted_mark,
             data.maxMark,
             data.question,
             data.essayText,
           );
-          await context.supabase.from("ai_usage_log").insert({
-            user_id: context.userId,
-            feature: "live_examiner_predicted_mark",
-            model: predictedOutcome.value.model,
-            prompt_tokens: predictedOutcome.value.promptTokens,
-            completion_tokens: predictedOutcome.value.completionTokens,
-            latency_ms: predictedOutcome.value.latencyMs,
-            ok: true,
-          });
         } catch {
-          predictedMark = null; // Malformed estimate this round — just omit it, never fail the check for it.
+          predictedMark = null;
         }
       }
-
-      const raw = extractFirstJsonObject(candidateResult.text);
       const issuesRaw = Array.isArray(raw.issues) ? raw.issues : [];
       const classificationsRaw = Array.isArray(raw.classifications) ? raw.classifications : [];
       const classifications = classificationsRaw.flatMap<LiveExaminerAoClassification>((item) => {
@@ -780,12 +810,15 @@ export const checkEssayWriting = createServerFn({ method: "POST" })
 
         const verifyResult = await chat({
           model: MODEL_LIVE_CHECK,
+          feature: "live_examiner_verify",
+          userId: context.userId,
           temperature: 0,
+          maxCompletionTokens: 400,
           json: true,
           messages: [
             {
               role: "system",
-              content: buildVerifierSystemPrompt(data.question, data.contextBlock),
+              content: buildVerifierSystemPrompt(data.question, compactedContext),
             },
             { role: "user", content: `CANDIDATES:\n\n${candidateBlock}` },
           ],
@@ -815,31 +848,11 @@ export const checkEssayWriting = createServerFn({ method: "POST" })
 
         // Trickle new issues in rather than dumping all of them at once.
         freshIssues = [...autoKept, ...verified].slice(0, MAX_NEW_ISSUES_PER_CALL);
-
-        await context.supabase.from("ai_usage_log").insert({
-          user_id: context.userId,
-          feature: "live_examiner_verify",
-          model: verifyResult.model,
-          prompt_tokens: verifyResult.promptTokens,
-          completion_tokens: verifyResult.completionTokens,
-          latency_ms: verifyResult.latencyMs,
-          ok: true,
-        });
       } else {
         freshIssues = autoKept.slice(0, MAX_NEW_ISSUES_PER_CALL);
       }
 
       const merged = dedupeAndCap([...carryForward(), ...deterministic, ...freshIssues]);
-
-      await context.supabase.from("ai_usage_log").insert({
-        user_id: context.userId,
-        feature: "live_examiner_check",
-        model: candidateResult.model,
-        prompt_tokens: candidateResult.promptTokens,
-        completion_tokens: candidateResult.completionTokens,
-        latency_ms: candidateResult.latencyMs,
-        ok: true,
-      });
 
       return {
         issues: merged,
@@ -849,14 +862,7 @@ export const checkEssayWriting = createServerFn({ method: "POST" })
         checkedText: data.essayText,
         predictedMark,
       };
-    } catch (error) {
-      await context.supabase.from("ai_usage_log").insert({
-        user_id: context.userId,
-        feature: "live_examiner_check",
-        model: "live-examiner-check",
-        ok: false,
-        error_message: error instanceof Error ? error.message : "Unknown error",
-      });
+    } catch (_error) {
       // A failed check is an enhancement failing, never a hard gate — keep
       // whatever was already found (plus the free deterministic pass).
       const surviving = dedupeAndCap([...carryForward(), ...deterministic]);
@@ -926,6 +932,7 @@ export const getLiveExaminerSession = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => GetSessionInput.parse(input))
   .handler(async ({ data, context }) => {
+    assertAdminOnlyAccess(context.user);
     const { data: row, error } = await context.supabase
       .from("live_examiner_sessions")
       .select(
@@ -949,6 +956,7 @@ export const getLiveExaminerSession = createServerFn({ method: "POST" })
 export const listLiveExaminerSessions = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
+    assertAdminOnlyAccess(context.user);
     const { data, error } = await context.supabase
       .from("live_examiner_sessions")
       .select("id, level, topic, question, max_mark, essay_text, updated_at")
@@ -979,6 +987,7 @@ export const deleteLiveExaminerSession = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => DeleteSessionInput.parse(input))
   .handler(async ({ data, context }) => {
+    assertAdminOnlyAccess(context.user);
     // Scoped to user_id as well as id — belt and braces alongside the RLS
     // policy, so this can never touch a row that isn't the caller's own.
     const { error, count } = await context.supabase
@@ -1064,28 +1073,55 @@ function buildMaxOutSystemPrompt(
   maxMark: number,
   contextBlock: string,
 ): string {
-  return `You are a Cambridge 9708 Economics examiner giving a student SPECIFIC, ACTIONABLE advice on how to push an already-marked answer as close to full marks as realistically possible. The essay below has already been fully marked — you are not marking it again, you are telling the student exactly what to add, fix, or rewrite to close the gap between the mark it got and the maximum.
+  return `You are a Principal Cambridge 9708 Economics Examiner creating a high-impact "Score Maximizer Blueprint" to elevate an already-written student essay to full marks (${maxMark}/${maxMark}).
 
 QUESTION (${level === "a2" ? "A Level" : "AS Level"}, ${maxMark} marks): ${question}
 
 SYLLABUS MATERIAL RETRIEVED FOR THIS QUESTION:
-${contextBlock || "None retrieved — keep suggestions general to Cambridge 9708 standards, don't invent specific syllabus facts."}
+${contextBlock || "None retrieved — ground all advice strictly in official Cambridge 9708 standards."}
 
-Every suggestion must be CONCRETE and SPECIFIC to what THIS student actually wrote — not generic exam advice like "add more analysis". Reference the student's own argument, examples, or missing chain of reasoning directly. Where useful, write out (in quotes) the kind of sentence or phrase they could add, or name exactly which paragraph needs the extra step. Never invent economics facts not grounded in the syllabus material above or standard Cambridge 9708 content.
-
-Give at most 5 suggestions, each one genuinely different and each targeting a real, specific gap (not padding to reach 5). Order them by mark value — biggest realistic mark gain first.
-
-NO ASTERISKS: Return ONLY clean plain text with ZERO asterisks (* or **). Never use rule labels or code identifiers. Explain all improvements in clear, plain economics.
+INSTRUCTIONS FOR THE SCORE MAXIMIZER BLUEPRINT:
+1. Every suggestion must be CONCRETE, SURGICAL, and SPECIFIC to what THIS student actually wrote. Reference the student's existing paragraphs, arguments, or missing links directly.
+2. Provide at most 4 high-impact upgrades ordered by mark value (biggest mark gain first).
+3. For each upgrade, specify:
+   - "target_ao": "ao1" | "ao2" | "ao3" | "structure"
+   - "title": crisp 4-8 word title (e.g. "Complete the PED Tax-Incidence Chain")
+   - "suggestion": 2-3 sentences explaining the exact gap in the student's script and why fixing it unlocks marks.
+   - "mark_uplift": e.g. "+2 marks (AO2)"
+   - "placement": exact paragraph/section where this belongs (e.g. "Paragraph 1 (Introduction & Core Definitions)", "Paragraph 2 (Analytical Body — Transmission Chain)", "Final Paragraph (Evaluative Synthesis & Judgement)").
+   - "placement_rationale": 1 sentence explaining why this structural placement maximizes examiner clarity.
+   - "how_to_write": array of 2-3 step-by-step instructions on how to construct this point.
+   - "strategic_options": array of 2 distinct economic angles the student can choose from, each with "label", "description", and "sentence_starter".
+   - "model_phrasing": a complete, ready-to-insert Cambridge 9708 Top-Band sentence or short paragraph (25-55 words) that the student can insert directly into their essay.
+4. NO ASTERISKS: Return ONLY clean plain text with ZERO asterisks (* or **). Never use rule labels or code identifiers.
 
 Respond ONLY with a single valid JSON object, no markdown fences, no commentary:
 {
-  "headline": "<one short sentence on the single biggest thing standing between this and full marks>",
+  "headline": "<one short sentence on the single biggest thing standing between this draft and full marks>",
+  "target_band": "Top Band (Level 4 — Full Marks Trajectory)",
+  "perfection_summary": "<1-2 sentences summarising how these targeted upgrades elevate the essay to full marks>",
   "suggestions": [
     {
       "target_ao": "<ao1 | ao2 | ao3 | structure>",
-      "title": "<max 8 words, e.g. 'Add a second real-world example'>",
-      "suggestion": "<2-4 sentences: exactly what to add/change and why it earns marks, specific to this essay>",
-      "mark_uplift": "<short estimate, e.g. '+1–2 marks'>"
+      "title": "<max 8 words>",
+      "suggestion": "<2-3 sentences specific to this essay>",
+      "mark_uplift": "<short estimate, e.g. '+2 marks'>",
+      "placement": "<exact paragraph placement>",
+      "placement_rationale": "<1 sentence why it belongs there>",
+      "how_to_write": ["<step 1>", "<step 2>"],
+      "strategic_options": [
+        {
+          "label": "<Angle 1 name>",
+          "description": "<1 sentence description>",
+          "sentence_starter": "<opening clause>"
+        },
+        {
+          "label": "<Angle 2 name>",
+          "description": "<1 sentence description>",
+          "sentence_starter": "<opening clause>"
+        }
+      ],
+      "model_phrasing": "<complete, top-band Cambridge 9708 sentence/paragraph ready to insert>"
     }
   ]
 }`;
@@ -1121,27 +1157,25 @@ ${essayText}`;
 }
 
 /**
- * Triggered from the "Grade now" result once a student has finished
- * writing — a single, deeper, on-demand call (not part of the live
- * while-typing checker), so it's fine for it to cost a real model call.
- * Deliberately reuses the grading pass's own weaknesses/missing-elements/
- * actionable-feedback as grounding input rather than re-deriving them, so
- * this call is about turning "what's wrong" into "here's exactly what to
- * write", not re-judging the essay from scratch.
+ * Triggered from the "Grade now" result or on-demand Score Maximizer once a
+ * student has written a draft.
  */
 export const getMaxOutSuggestions = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => MaxOutInput.parse(input))
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
+    assertAdminOnlyAccess(context.user);
     const { chat } = await import("./ai.server");
     const { MODEL_GRADING, TEMPERATURE_TUTOR } = await import("./examiner/config");
     const { extractFirstJsonObject } = await import("./examiner/json");
 
     const result = await chat({
       model: MODEL_GRADING,
+      feature: "live_examiner_maximise",
+      userId: context.userId,
       temperature: TEMPERATURE_TUTOR,
       json: true,
-      maxCompletionTokens: 1800,
+      maxCompletionTokens: 2400,
       messages: [
         {
           role: "system",
@@ -1149,7 +1183,7 @@ export const getMaxOutSuggestions = createServerFn({ method: "POST" })
             data.question,
             data.level,
             data.maxMark,
-            data.contextBlock,
+            compactSyllabusContext(data.contextBlock) || data.contextBlock,
           ),
         },
         {
@@ -1173,11 +1207,24 @@ export const getMaxOutSuggestions = createServerFn({ method: "POST" })
     }
     return {
       headline: stripAsterisks(parsed.data.headline),
+      target_band: parsed.data.target_band ? stripAsterisks(parsed.data.target_band) : undefined,
+      perfection_summary: parsed.data.perfection_summary
+        ? stripAsterisks(parsed.data.perfection_summary)
+        : undefined,
       suggestions: parsed.data.suggestions.map((s) => ({
         ...s,
         title: stripAsterisks(s.title),
         suggestion: stripAsterisks(s.suggestion),
         mark_uplift: stripAsterisks(s.mark_uplift),
+        placement: s.placement ? stripAsterisks(s.placement) : undefined,
+        placement_rationale: s.placement_rationale ? stripAsterisks(s.placement_rationale) : undefined,
+        how_to_write: s.how_to_write?.map((step) => stripAsterisks(step)),
+        strategic_options: s.strategic_options?.map((opt) => ({
+          label: opt.label ? stripAsterisks(opt.label) : undefined,
+          description: opt.description ? stripAsterisks(opt.description) : undefined,
+          sentence_starter: opt.sentence_starter ? stripAsterisks(opt.sentence_starter) : undefined,
+        })),
+        model_phrasing: s.model_phrasing ? stripAsterisks(s.model_phrasing) : undefined,
       })),
     };
   });

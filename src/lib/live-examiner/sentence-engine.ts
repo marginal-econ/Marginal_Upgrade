@@ -63,8 +63,8 @@ const CAUSAL =
 const DIRECTION =
   /\b(rise|rises|rising|fall|falls|falling|increase|increases|decrease|decreases|higher|lower|more|less|shift|shifts|contract|expand|reduce|reduces|raise|raises)\b/i;
 const EVAL_STRONG =
-  /\b(however|although|though|whereas|nevertheless|nonetheless|conversely|in contrast|by contrast|on the other hand|despite this|depends? (?:on|upon)|depending on|dependent on|contingent|to (?:what|the) extent|the extent to which|on balance|in conclusion|to conclude|ultimately|overall|all things considered|unless|provided that|only if|only effective|limitations?|drawbacks?|trade-?offs?|unintended consequences?|in the (?:short|long)[- ]run|time lags?|not always|may not|might not|will not necessarily|not necessarily|most (?:important|significant|effective)|more (?:important|effective|significant) than|ceteris paribus|in practice|in reality|judgement|weigh(?:ing)?)\b/i;
-const EVAL_WEAK = /\b(but|yet|while|ineffective|effective|likely|unlikely|significant|magnitude|scale)\b/i;
+  /\b(however|although|though|even though|whereas|whilst|nevertheless|nonetheless|conversely|in contrast|by contrast|on the other hand|on the one hand|despite this|in spite of|despite the fact|depends? (?:on|upon)|depending on|dependent on|contingent (?:on|upon)|to (?:what|the) extent|the extent to which|degree to which|on balance|in conclusion|to conclude|in summary|to summarise|to summarize|ultimately|overall|all things considered|unless|provided that|only if|even if|only effective|only works if|limitations?|drawbacks?|trade-?offs?|unintended consequences?|government failure|black markets?|informal markets?|shadow econom\w+|regressive impact|time lags?|in the (?:short|long)[- ]run|short[- ]run (?:vs|versus) long[- ]run|not always|may not|might not|will not necessarily|not necessarily|most (?:important|significant|effective|critical)|more (?:important|effective|significant) than|less effective than|alternative polic(?:y|ies)|compared to|outweighs?|outweighed by|critical factor|crucial factor|pivotal factor|key determinant|questionable whether|debatable whether|fails to account for|overlooks|ceteris paribus|in practice|in reality|judgement|weigh(?:ing)?)\b/i;
+const EVAL_WEAK = /\b(but|yet|while|whilst|ineffective|effective|likely|unlikely|significant|magnitude|scale|elasticity|short-run|long-run)\b/i;
 const DEFINITION =
   /\b(is defined as|are defined as|can be defined as|refers to|is the degree of responsiveness|is a measure of|is the measure of|measures the percentage change|measures how|is calculated as|is equal to|formula for|is the percentage change|occurs when|is the (?:total|amount|value|rate|ratio|process|situation|cost|price|quantity|difference|increase|decrease|sum|level)|are goods that are|are goods which|is a (?:good|service|tax|policy|market|situation|price|type)|are (?:goods|services|markets|firms|taxes|policies))\b/i;
 const DEFINITION_START =
@@ -104,22 +104,31 @@ export function classifySentence(sentence: string): SentenceClass {
     };
   }
 
-  // 2. Evaluation
+  // 2. Evaluation — whole-sentence evaluative weighing, conditions, limitations, or judgements
   if (evalStrong >= 1 && (hasEcon || words >= 8)) {
-    const confident = evalStrong >= 2 || /however|on balance|in conclusion|depends|extent|although|whereas/i.test(lower);
+    const confident =
+      evalStrong >= 2 ||
+      /however|on balance|in conclusion|to conclude|depends|dependent|contingent|extent|although|even though|whereas|whilst|on the other hand|in contrast|by contrast|nevertheless|nonetheless|unintended consequence|government failure|limitations?|trade-?offs?|in the (?:short|long)[- ]run|time lags?|most (?:important|effective)|more effective than/i.test(
+        lower,
+      );
     return {
       ao: "AO3",
-      confidence: confident ? 0.92 : 0.78,
+      confidence: confident ? 0.92 : 0.8,
       strength: words >= 12 && (evalStrong >= 2 || causal >= 1) ? 2 : 1,
       explanation:
         "AO3 Evaluation: Critical capacity condition, dependency, limitation, or evaluative judgement.",
     };
   }
-  if (evalWeak && /\bbut\b/i.test(lower) && causal >= 1 && words >= 8) {
+  if (
+    evalWeak &&
+    (/\b(but|yet)\b/i.test(lower) || /^(?:while|whilst)\b/i.test(lower)) &&
+    (causal >= 1 || hasEcon) &&
+    words >= 8
+  ) {
     return {
       ao: "AO3",
-      confidence: 0.75,
-      strength: 1,
+      confidence: 0.78,
+      strength: words >= 14 && causal >= 1 ? 2 : 1,
       explanation:
         "AO3 Evaluation: Critical capacity condition, dependency, limitation, or evaluative judgement.",
     };

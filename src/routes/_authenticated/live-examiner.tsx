@@ -87,6 +87,7 @@ import { getMe } from "@/lib/account.functions";
 import { topicsFor } from "@/lib/diagrams/catalog";
 import { isDailyLimitError } from "@/lib/usage-limits";
 import type { Grading } from "@/lib/examiner/types";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/live-examiner")({
   head: () => ({
@@ -335,9 +336,26 @@ function LiveExaminerPage() {
     setEssayText((current) => {
       const trimmed = current.trim();
       if (!trimmed) return cleanText;
+      if (forceEnd || !targetAo || targetAo === "ao3" || targetAo === "structure") {
+        return `${trimmed}\n\n${cleanText}`;
+      }
+      const paragraphs = trimmed.split(/\n\s*\n/);
+      if (targetAo === "ao1") {
+        paragraphs[0] = `${paragraphs[0].trim()} ${cleanText}`;
+        return paragraphs.join("\n\n");
+      }
+      if (targetAo === "ao2") {
+        const bodyIdx = paragraphs.length >= 2 ? 1 : 0;
+        paragraphs[bodyIdx] = `${paragraphs[bodyIdx].trim()} ${cleanText}`;
+        return paragraphs.join("\n\n");
+      }
       return `${trimmed}\n\n${cleanText}`;
     });
-    toast.success("Inserted into essay response.");
+    toast.success(
+      placementLabel
+        ? `Inserted into ${placementLabel}.`
+        : "Inserted into your essay draft.",
+    );
   }
 
   const generateFullAnswer = useServerFn(generateModelEssay);
@@ -446,6 +464,8 @@ function LiveExaminerPage() {
   const combinedDiagramTag = combineDiagramTags(diagrams);
   const textForCheck = combinedDiagramTag ? `${essayText}\n\n${combinedDiagramTag}` : essayText;
 
+  const [focusedIssueId, setFocusedIssueId] = useState<string | null>(null);
+
   const {
     issues,
     classifications,
@@ -456,6 +476,7 @@ function LiveExaminerPage() {
     predictedMark,
     lastUpdatedAt,
     acceptIssue,
+    acceptAllIssues,
     dismissIssue,
     rescan,
     clearAll,
@@ -465,7 +486,7 @@ function LiveExaminerPage() {
     level,
     maxMark,
     contextBlock,
-    enabled: started && contextMutation.isSuccess,
+    enabled: started,
   });
 
   // --- Autosave, debounced, independent of the AI check debounce --------
@@ -817,13 +838,6 @@ function LiveExaminerPage() {
             <LiveExaminerHistoryPanel onResume={resumeSession} />
           </div>
         </div>
-      ) : contextMutation.isPending || !contextMutation.isSuccess ? (
-        <div className="flex min-h-64 flex-col items-center justify-center gap-3 p-8 text-center">
-          <Loader2 className="size-6 animate-spin text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">
-            Preparing syllabus context for this question…
-          </p>
-        </div>
       ) : (
         <div className="grid gap-0 lg:grid-cols-[1fr_320px]">
           <section className="min-w-0 space-y-3 border-border p-5 lg:border-r md:p-6">
@@ -832,7 +846,11 @@ function LiveExaminerPage() {
               <Badge variant="outline">{topic}</Badge>
               <Badge variant="outline">{maxMark} marks</Badge>
               <Badge variant="outline">{wordCount} words</Badge>
-              {sourceCount > 0 ? (
+              {contextMutation.isPending ? (
+                <Badge variant="outline" className="gap-1 text-muted-foreground">
+                  <Loader2 className="size-3 animate-spin" /> Syncing syllabus…
+                </Badge>
+              ) : sourceCount > 0 ? (
                 <Badge variant="outline">
                   <GraduationCap className="mr-1 size-3" /> {sourceCount} syllabus source
                   {sourceCount === 1 ? "" : "s"}
@@ -938,18 +956,27 @@ function LiveExaminerPage() {
                   {level === "a2" ? "A Level" : "AS Level"} · {maxMark} marks
                 </span>
               </div>
-              <div className="flex flex-wrap gap-x-4 gap-y-2 border-b border-border bg-muted/25 px-4 py-2 text-[11px]">
-                <span className="flex items-center gap-1.5">
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-border bg-muted/25 px-4 py-2 text-[11px]">
+                <span className="flex items-center gap-1.5 font-medium">
                   <span className="size-2 rounded-full bg-ao1" /> AO1 Knowledge
+                  <span className="rounded bg-ao1/15 px-1.5 py-0.5 font-mono text-[10px] font-bold text-ao1">
+                    {classifications.filter((c) => c.ao === "AO1").length}
+                  </span>
                 </span>
-                <span className="flex items-center gap-1.5">
+                <span className="flex items-center gap-1.5 font-medium">
                   <span className="size-2 rounded-full bg-ao2" /> AO2 Analysis
+                  <span className="rounded bg-ao2/15 px-1.5 py-0.5 font-mono text-[10px] font-bold text-ao2">
+                    {classifications.filter((c) => c.ao === "AO2").length}
+                  </span>
                 </span>
-                <span className="flex items-center gap-1.5">
+                <span className="flex items-center gap-1.5 font-medium">
                   <span className="size-2 rounded-full bg-ao3" /> AO3 Evaluation
+                  <span className="rounded bg-ao3/15 px-1.5 py-0.5 font-mono text-[10px] font-bold text-ao3">
+                    {classifications.filter((c) => c.ao === "AO3").length}
+                  </span>
                 </span>
-                <span className="ml-auto text-muted-foreground">
-                  Underlined phrases are currently earning AO credit
+                <span className="ml-auto text-muted-foreground hidden sm:inline">
+                  Hover or click any highlighted sentence or word for instant examiner feedback
                 </span>
               </div>
               <LiveExaminerEditor
@@ -959,10 +986,52 @@ function LiveExaminerPage() {
                 classifications={classifications}
                 onAccept={(id) => setEssayText((current) => acceptIssue(id, current))}
                 onDismiss={dismissIssue}
-                placeholder="Start writing your answer here…"
+                focusedIssueId={focusedIssueId}
+                predictedMark={predictedMark}
+                maxMark={maxMark}
+                checking={checking}
+                placeholder="Start writing your answer here — whole sentences highlight automatically as AO1 Knowledge, AO2 Analysis, or AO3 Evaluation…"
                 className="min-h-[60vh] p-4 text-sm leading-relaxed"
               />
             </div>
+
+            {/* Post-Writing Score Maximizer & Perfection Blueprint Banner */}
+            {wordCount >= 40 ? (
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-500/40 bg-linear-to-r from-amber-500/10 via-amber-500/5 to-transparent p-3.5">
+                <div className="flex items-center gap-3">
+                  <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-amber-500/20 text-amber-600 dark:text-amber-400">
+                    <Sparkles className="size-4" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-foreground">
+                      Ready to elevate your draft to {maxMark}/{maxMark}?
+                    </p>
+                    <p className="text-[11px] text-muted-foreground">
+                      Open the Score Maximizer Blueprint for exact paragraph placement, strategic argument angles, and one-click Top-Band phrasing.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-8 text-xs"
+                    onClick={handleGradeNow}
+                  >
+                    Official Grade
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="h-8 text-xs bg-amber-500 hover:bg-amber-600 text-white font-semibold gap-1.5"
+                    onClick={handleOpenScoreMaximizer}
+                  >
+                    <Sparkles className="size-3.5" /> Open Score Maximizer
+                  </Button>
+                </div>
+              </div>
+            ) : null}
           </section>
 
           <aside className="min-w-0 p-4 md:p-5">
@@ -977,33 +1046,17 @@ function LiveExaminerPage() {
               finalGrading={gradeMutation.data?.grading as Grading | null}
               lastUpdatedAt={lastUpdatedAt}
               maxMark={maxMark}
-              gradedHelp={
-                <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="flex items-center gap-1.5 text-xs font-semibold text-amber-700 dark:text-amber-300">
-                      <Sparkles className="size-3.5 text-amber-500" /> Score Maximizer
-                    </span>
-                    <Badge variant="outline" className="border-amber-500/30 text-[10px] text-amber-600 font-semibold">
-                      Band 1 Blueprint
-                    </Badge>
-                  </div>
-                  <p className="text-[11px] leading-snug text-muted-foreground">
-                    Step-by-step improvements and exemplar phrasing to maximize your score towards {maxMark}/{maxMark}.
-                  </p>
-                  <Button
-                    type="button"
-                    size="sm"
-                    className="w-full h-7 text-xs bg-amber-500 hover:bg-amber-600 text-white font-medium gap-1.5"
-                    onClick={handleOpenScoreMaximizer}
-                  >
-                    <Sparkles className="size-3.5" /> Open Score Maximizer
-                  </Button>
-                </div>
-              }
               onAccept={(id) => setEssayText((current) => acceptIssue(id, current))}
+              onAcceptAll={() => setEssayText((current) => acceptAllIssues(current))}
               onDismiss={dismissIssue}
               onRescan={() => rescan(essayText)}
               onClearAll={clearAll}
+              onFocusIssue={(id) => {
+                setFocusedIssueId(null);
+                setTimeout(() => setFocusedIssueId(id), 10);
+              }}
+              onOpenMaximizer={handleOpenScoreMaximizer}
+              maximizerLoading={maxOutMutation.isPending}
             />
           </aside>
         </div>
@@ -1377,15 +1430,30 @@ function ScoreMaximizerDialog({
         ) : data ? (
           <div className="space-y-6 pt-2">
             {/* Headline & Overview Banner */}
-            <div className="rounded-xl border border-amber-300/60 bg-linear-to-br from-amber-500/10 via-background to-card p-4 shadow-xs">
-              <div className="flex items-start gap-3">
-                <Target className="mt-0.5 size-5 shrink-0 text-amber-600 dark:text-amber-400" />
-                <div className="space-y-1">
-                  <h3 className="text-sm font-bold text-foreground">Examiner Blueprint Summary</h3>
-                  <p className="text-xs font-medium leading-relaxed text-amber-900 dark:text-amber-200">
-                    {data.headline}
-                  </p>
+            <div className="rounded-xl border border-amber-300/60 bg-linear-to-br from-amber-500/10 via-background to-card p-4 shadow-xs space-y-2">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-start gap-3">
+                  <Target className="mt-0.5 size-5 shrink-0 text-amber-600 dark:text-amber-400" />
+                  <div className="space-y-1">
+                    <h3 className="text-sm font-bold text-foreground">Examiner Blueprint Summary</h3>
+                    <p className="text-xs font-semibold leading-relaxed text-amber-900 dark:text-amber-200">
+                      {data.headline}
+                    </p>
+                    {data.perfection_summary ? (
+                      <p className="text-xs leading-relaxed text-muted-foreground">
+                        {data.perfection_summary}
+                      </p>
+                    ) : null}
+                  </div>
                 </div>
+                {data.target_band ? (
+                  <Badge
+                    variant="outline"
+                    className="shrink-0 border-amber-500/40 bg-amber-500/10 text-[10px] font-semibold text-amber-700 dark:text-amber-300"
+                  >
+                    {data.target_band}
+                  </Badge>
+                ) : null}
               </div>
             </div>
 
@@ -1396,64 +1464,182 @@ function ScoreMaximizerDialog({
                   Step-by-step Improvements ({data.suggestions.length})
                 </h4>
                 <span className="text-[11px] text-muted-foreground">
-                  Apply these to close the gap to full marks
+                  Apply these upgrades to reach full marks
                 </span>
               </div>
 
-              {data.suggestions.map((suggestion, index) => (
-                <div
-                  key={index}
-                  className="overflow-hidden rounded-xl border border-border bg-card p-4 shadow-xs transition hover:border-border/90"
-                >
-                  {/* Card Header */}
-                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 pb-3">
-                    <div className="flex items-center gap-2">
-                      <span className="flex size-6 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
-                        {index + 1}
-                      </span>
-                      <h4 className="font-semibold text-foreground text-sm">{suggestion.title}</h4>
+              {data.suggestions.map((suggestion, index) => {
+                const placementText =
+                  suggestion.placement || defaultPlacement(suggestion.target_ao);
+                const placementReason =
+                  suggestion.placement_rationale ||
+                  defaultPlacementRationale(suggestion.target_ao);
+                const exemplarText = suggestion.model_phrasing || suggestion.suggestion;
+
+                return (
+                  <div
+                    key={index}
+                    className="overflow-hidden rounded-xl border border-border bg-card p-4 shadow-xs transition hover:border-border/90 space-y-3.5"
+                  >
+                    {/* Card Header */}
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 pb-3">
+                      <div className="flex items-center gap-2">
+                        <span className="flex size-6 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+                          {index + 1}
+                        </span>
+                        <h4 className="font-semibold text-foreground text-sm">
+                          {suggestion.title}
+                        </h4>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge
+                          variant="outline"
+                          className={cn("text-[10px]", aoBadgeStyle(suggestion.target_ao))}
+                        >
+                          {aoLabel(suggestion.target_ao)}
+                        </Badge>
+                        <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/15 text-[10px] font-semibold">
+                          {suggestion.mark_uplift}
+                        </Badge>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Badge
-                        variant="outline"
-                        className={cn("text-[10px]", aoBadgeStyle(suggestion.target_ao))}
-                      >
-                        {aoLabel(suggestion.target_ao)}
-                      </Badge>
-                      <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/15 text-[10px] font-semibold">
-                        {suggestion.mark_uplift}
-                      </Badge>
+
+                    {/* Diagnostic suggestion */}
+                    <p className="text-xs leading-relaxed text-foreground/90">
+                      {suggestion.suggestion}
+                    </p>
+
+                    {/* Placement Guidance */}
+                    <div className="flex items-start gap-2 rounded-lg border border-border/60 bg-muted/30 p-2.5 text-xs">
+                      <MapPin className="mt-0.5 size-3.5 shrink-0 text-primary" />
+                      <div className="space-y-0.5">
+                        <p className="font-semibold text-foreground text-[11px]">
+                          Where to place this: <span className="text-primary">{placementText}</span>
+                        </p>
+                        <p className="text-[11px] text-muted-foreground">{placementReason}</p>
+                      </div>
+                    </div>
+
+                    {/* How to Write Step-by-Step Checklist */}
+                    {suggestion.how_to_write && suggestion.how_to_write.length > 0 ? (
+                      <div className="space-y-1.5">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                          How to Construct This Point
+                        </p>
+                        <ul className="space-y-1">
+                          {suggestion.how_to_write.map((step, sIdx) => (
+                            <li
+                              key={sIdx}
+                              className="flex items-start gap-2 text-xs text-muted-foreground"
+                            >
+                              <ChevronRight className="mt-0.5 size-3.5 shrink-0 text-primary" />
+                              <span>{step}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
+
+                    {/* Strategic Argument Options */}
+                    {suggestion.strategic_options && suggestion.strategic_options.length > 0 ? (
+                      <div className="space-y-2">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                          Strategic Economic Angles (Click starter to insert)
+                        </p>
+                        <div className="grid gap-2 sm:grid-cols-2">
+                          {suggestion.strategic_options.map((opt, oIdx) => (
+                            <div
+                              key={oIdx}
+                              className="rounded-lg border border-border/70 bg-muted/20 p-2.5 space-y-1.5 flex flex-col justify-between"
+                            >
+                              <div className="space-y-1">
+                                {opt.label ? (
+                                  <p className="text-xs font-semibold text-foreground">
+                                    {opt.label}
+                                  </p>
+                                ) : null}
+                                {opt.description ? (
+                                  <p className="text-[11px] text-muted-foreground leading-snug">
+                                    {opt.description}
+                                  </p>
+                                ) : null}
+                              </div>
+                              {opt.sentence_starter ? (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    onInsertText(
+                                      opt.sentence_starter!,
+                                      suggestion.target_ao,
+                                      placementText,
+                                      false,
+                                    );
+                                    onOpenChange(false);
+                                  }}
+                                  className="text-left rounded border border-primary/30 bg-primary/5 hover:bg-primary/15 px-2 py-1 text-[11px] font-medium text-primary transition-colors"
+                                >
+                                  + "{opt.sentence_starter}"
+                                </button>
+                              ) : null}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {/* Top-Band Exemplar Phrasing Box */}
+                    <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3 space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-300 flex items-center gap-1">
+                          <Sparkles className="size-3" /> Top-Band Cambridge 9708 Phrasing
+                        </span>
+                        <span className="text-[10px] text-muted-foreground">
+                          Ready to insert into {shortPlacement(suggestion.target_ao)}
+                        </span>
+                      </div>
+                      <p className="text-xs leading-relaxed text-foreground italic">
+                        "{exemplarText}"
+                      </p>
+                      <div className="flex flex-wrap items-center justify-end gap-2 pt-1">
+                        <CopyButton text={exemplarText} label="Copy Phrasing" />
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="h-7 text-xs"
+                          onClick={() => {
+                            onInsertText(
+                              exemplarText,
+                              suggestion.target_ao,
+                              "End of Draft",
+                              true,
+                            );
+                            onOpenChange(false);
+                          }}
+                        >
+                          Append to End
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          className="h-7 text-xs gap-1 font-semibold"
+                          onClick={() => {
+                            onInsertText(
+                              exemplarText,
+                              suggestion.target_ao,
+                              placementText,
+                              false,
+                            );
+                            onOpenChange(false);
+                          }}
+                        >
+                          Insert into {shortPlacement(suggestion.target_ao)}
+                        </Button>
+                      </div>
                     </div>
                   </div>
-
-                  {/* Diagnostic suggestion */}
-                  <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
-                    {suggestion.suggestion}
-                  </p>
-
-                  {/* Quick insert action */}
-                  <div className="mt-3.5 flex flex-wrap items-center justify-end gap-2 pt-2 border-t border-border/40">
-                    <CopyButton text={suggestion.suggestion} label="Copy suggestion" />
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      className="h-7 text-xs"
-                      onClick={() => {
-                        onInsertText(
-                          suggestion.suggestion,
-                          suggestion.target_ao,
-                          defaultPlacement(suggestion.target_ao),
-                          true,
-                        );
-                        onOpenChange(false);
-                      }}
-                    >
-                      Insert into draft
-                    </Button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             {/* Bottom Actions */}

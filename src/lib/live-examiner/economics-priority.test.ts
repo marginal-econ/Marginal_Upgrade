@@ -154,5 +154,144 @@ Here is a very long script that was 4000 characters long and should be stripped 
     expect(result.classifications.filter((c) => c.ao === "AO3").length).toBeGreaterThanOrEqual(2);
     expect(result.classifications.filter((c) => c.ao === "AO2").length).toBeGreaterThanOrEqual(3);
   });
+
+  it("classifies complex whole-sentence Cambridge AO3 evaluation patterns accurately", async () => {
+    const { classifySentenceDeterministically } = await import("./client-evaluation");
+
+    const evalSentences = [
+      "While subsidies increase consumption of merit goods, they carry a high opportunity cost for the government.",
+      "In spite of the short-run reduction in inflation, contractionary monetary policy may trigger cyclical unemployment in the long run.",
+      "Alternative policies such as education campaigns may be more effective than indirect taxation at correcting information failure.",
+      "This intervention risks government failure if buffer stock schemes become too costly to administer.",
+    ];
+
+    for (const sentence of evalSentences) {
+      const res = classifySentenceDeterministically(sentence);
+      expect(res.ao).toBe("AO3");
+    }
+  });
+
+  it("awards 0 marks on completely off-topic non-economic writing when a question is provided", async () => {
+    const { evaluateCambridgeAnswer } = await import("./client-evaluation");
+    const irrelevant =
+      "Photosynthesis is the biological process by which green plants convert sunlight into chemical energy inside chloroplasts during the summer season.";
+    const result = evaluateCambridgeAnswer(
+      irrelevant,
+      "Assess whether fiscal policy can reduce deflation.",
+      12,
+    );
+    expect(result.predictedMark.total_mark).toBe(0);
+  });
+
+  it("instantly catches single-word and phrase typos in <5ms (including user test words and fuzzy transpositions)", async () => {
+    const { analyzeGrammarAndMechanics } = await import("./grammar-engine");
+    const { evaluateCambridgeAnswer } = await import("./client-evaluation");
+
+    const wordPairs: Array<[string, string]> = [
+      ["tkaing", "taking"],
+      ["ffeedback", "feedback"],
+      ["hsould", "should"],
+      ["adpated", "adapted"],
+      ["chekci", "check"],
+      ["amrks", "marks"],
+      ["fetaure", "feature"],
+      ["exmianer", "examiner"],
+      ["emxinar", "examiner"],
+      ["grmmar", "grammar"],
+      ["teh", "the"],
+      ["highligh", "highlight"],
+      ["evalaution", "evaluation"],
+      ["possibel", "possible"],
+      ["mamxiser", "maximiser"],
+      ["bascially", "basically"],
+      ["evryhting", "everything"],
+      ["strucutres", "structures"],
+      ["methdos", "methods"],
+      ["accuracys", "accuracy"],
+      ["becuase", "because"],
+      ["faliure", "failure"],
+      ["externailties", "externalities"],
+      ["equillibrium", "equilibrium"],
+      ["elatsicity", "elasticity"],
+      ["govrenment", "government"],
+      ["unempolyment", "unemployment"],
+      ["infaltion", "inflation"],
+      ["subisdies", "subsidies"],
+      // Fuzzy leading double-letter & adjacent transposition checks
+      ["ddemand", "demand"],
+      ["ssupply", "supply"],
+      ["pprice", "price"],
+      ["ggovernment", "government"],
+    ];
+
+    const start = performance.now();
+    for (const [typo, expected] of wordPairs) {
+      const issues = analyzeGrammarAndMechanics([typo]);
+      expect(issues.length, `Expected typo "${typo}" to be caught`).toBeGreaterThanOrEqual(1);
+      expect(issues[0].suggestion.toLowerCase()).toBe(expected.toLowerCase());
+    }
+    const elapsed = performance.now() - start;
+    expect(elapsed).toBeLessThan(50);
+
+    // Test contextual multi-word phrases
+    const phraseEval = evaluateCambridgeAnswer(
+      "Students craft there essay and it hsould br quick with a increase in an firm output.",
+      "Explain how subsidies affect market equilibrium.",
+      12,
+    );
+    const originals = phraseEval.issues.map((i) => i.original.toLowerCase());
+    const suggestions = phraseEval.issues.map((i) => i.suggestion.toLowerCase());
+    expect(originals).toContain("there essay");
+    expect(suggestions).toContain("their essay");
+    expect(originals).toContain("hsould br");
+    expect(suggestions).toContain("should be");
+    expect(originals).toContain("a increase");
+    expect(suggestions).toContain("an increase");
+    expect(originals).toContain("an firm");
+    expect(suggestions).toContain("a firm");
+  });
+
+  it("strips all markdown asterisks (** and *) from predicted marks and suggestions", async () => {
+    const { sanitisePredictedMark } = await import("../live-examiner.functions");
+    const { cleanSuggestion } = await import("./clean-suggestion");
+
+    const raw = {
+      total_mark: 8,
+      confidence: 0.9,
+      headline: "**Strong AO2** analysis, *needs* deeper **AO3 evaluation**",
+      ao_breakdown: {
+        knowledge: { awarded: 2, out_of: 2 },
+        analysis: { awarded: 4, out_of: 6 },
+        evaluation: { awarded: 2, out_of: 4 },
+      },
+    };
+    const sanitised = sanitisePredictedMark(raw, 12);
+    expect(sanitised?.headline).not.toContain("*");
+    expect(sanitised?.headline).toBe("Strong AO2 analysis, needs deeper AO3 evaluation");
+
+    const dirtySuggestion = cleanSuggestion("Replace with **allocative efficiency** where *P = MC*.");
+    expect(dirtySuggestion).not.toContain("*");
+  });
+
+  it("immediately awards running marks once a definition is given (including the Free Trade prompt)", async () => {
+    const { evaluateCambridgeAnswer } = await import("./client-evaluation");
+    const question =
+      "Assess the extent to which the consequences of free trade are always positive for an economy";
+
+    // 1. Definition only
+    const defOnly =
+      "Free trade is when countries trade with each other with minimal restriction such as tariffs and quotas.";
+    const defEval = evaluateCambridgeAnswer(defOnly, question, 12);
+    expect(defEval.predictedMark.ao_breakdown.knowledge.awarded).toBe(2);
+    expect(defEval.predictedMark.total_mark).toBeGreaterThanOrEqual(2);
+
+    // 2. Definition + initial AO2 specialisation sentence (34 words from screenshot)
+    const twoSentences =
+      "Free trade is when countries trade with each other with minimal restriction such as tariffs and quotas. Free trade can lead to specialisation where countries can focus on producing a limited range of products.";
+    const twoEval = evaluateCambridgeAnswer(twoSentences, question, 12);
+    expect(twoEval.predictedMark.ao_breakdown.knowledge.awarded).toBe(2);
+    expect(twoEval.predictedMark.ao_breakdown.analysis.awarded).toBeGreaterThanOrEqual(1);
+    expect(twoEval.predictedMark.total_mark).toBeGreaterThanOrEqual(3);
+  });
 });
 
