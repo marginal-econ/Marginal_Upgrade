@@ -4,21 +4,32 @@ import { useServerFn } from "@tanstack/react-start";
 import {
   AlertCircle,
   AlertTriangle,
+  Award,
+  BookOpen,
+  Building2,
   Camera,
   CheckCircle2,
+  ChevronDown,
+  ChevronUp,
+  ClipboardPaste,
   Clock,
+  Copy,
+  FileText,
   GraduationCap,
   ImagePlus,
   Images,
+  Layers,
   Loader2,
-  ShieldCheck,
-  SpellCheck,
-  Sparkles,
-  Upload,
-  X,
   PenLine,
-  Building2,
+  RotateCcw,
+  Scale,
+  ShieldCheck,
+  Sparkles,
+  SpellCheck,
+  TrendingUp,
+  Upload,
   Users,
+  X,
   Zap,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -307,6 +318,30 @@ function GradePage() {
   const diagramFileInputRef = useRef<HTMLInputElement>(null);
   const diagramCameraInputRef = useRef<HTMLInputElement>(null);
   const [isDiagramDragging, setIsDiagramDragging] = useState(false);
+  const [diagramSectionOpen, setDiagramSectionOpen] = useState(false);
+  const [markSchemeSectionOpen, setMarkSchemeSectionOpen] = useState(false);
+  const [settingsSectionOpen, setSettingsSectionOpen] = useState(false);
+
+  useEffect(() => {
+    if (diagrams.length > 0) setDiagramSectionOpen(true);
+  }, [diagrams.length]);
+
+  useEffect(() => {
+    if (markSchemeImages.length > 0) setMarkSchemeSectionOpen(true);
+  }, [markSchemeImages.length]);
+
+  const handlePasteEssay = async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (text) {
+        setEssayText((current) => (current.trim() ? `${current.trim()}\n\n${text}` : text));
+        setWritingCheck(null);
+        toast.success("Pasted clipboard text into essay.");
+      }
+    } catch {
+      toast.info("Please use Ctrl+V to paste your text directly into the box.");
+    }
+  };
 
   // A pasted screenshot of the mark scheme, sent to the examiner as an
   // actual image (vision) alongside the retrieved text context — see
@@ -694,52 +729,104 @@ function GradePage() {
                 ) : null}
               </div>
 
-              <div className="space-y-1.5">
-                <Label htmlFor="maxMark" className="text-xs sm:text-sm font-semibold text-foreground">
-                  Question type
-                </Label>
-                <Select
-                  value={maxMark}
-                  onValueChange={(value) => {
-                    setMaxMark(value);
-                    setWritingCheck(null);
-                  }}
-                >
-                  <SelectTrigger id="maxMark" className="h-9 sm:h-10 text-xs sm:text-sm">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="8">
-                      8 marks (normal 8-mark question — AO1 2 / AO2 4 / AO3 2)
-                    </SelectItem>
-                    <SelectItem value="12">
-                      12 marks (AS evaluative essay — AO1 2 / AO2 6 / AO3 4)
-                    </SelectItem>
-                    <SelectItem value="20">
-                      20 marks (A Level extended essay — AO1 2 / AO2 12 / AO3 6)
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="maxMark" className="text-xs sm:text-sm font-semibold text-foreground">
+                    Question type &amp; mark scheme
+                  </Label>
+                  <span className="text-[11px] text-muted-foreground font-mono">Cambridge 9708</span>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { value: "8", label: "8 Marks", subtitle: "AS Micro / Macro", split: "AO1 2 · AO2 4 · AO3 2", targetWords: "300–450w" },
+                    { value: "12", label: "12 Marks", subtitle: "AS Evaluative", split: "AO1 2 · AO2 6 · AO3 4", targetWords: "500–750w" },
+                    { value: "20", label: "20 Marks", subtitle: "A Level Extended", split: "AO1 2 · AO2 12 · AO3 6", targetWords: "800–1200w" },
+                  ].map((opt) => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => {
+                        setMaxMark(opt.value);
+                        setWritingCheck(null);
+                      }}
+                      className={cn(
+                        "flex flex-col text-left p-2.5 rounded-xl border transition-all cursor-pointer relative",
+                        maxMark === opt.value
+                          ? "border-primary bg-primary/10 shadow-xs ring-1 ring-primary/40 text-foreground"
+                          : "border-border/70 bg-background/60 hover:bg-muted/40 text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      <div className="flex items-center justify-between w-full">
+                        <span className="font-bold text-xs sm:text-sm text-foreground">{opt.label}</span>
+                        <span className="text-[10px] font-mono text-muted-foreground hidden sm:inline">{opt.targetWords}</span>
+                      </div>
+                      <span className="text-[10.5px] font-medium text-foreground/85 mt-0.5 truncate">{opt.subtitle}</span>
+                      <span className="text-[10px] text-muted-foreground font-mono mt-0.5 truncate">{opt.split}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
 
-              <div className="space-y-1.5">
-                <div className="flex items-baseline justify-between">
-                  <Label htmlFor="essay" className="text-xs sm:text-sm font-semibold text-foreground">
-                    Your answer
-                  </Label>
-                  <span className="text-[11px] sm:text-xs text-muted-foreground font-mono">{words} words</span>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="essay" className="text-xs sm:text-sm font-semibold text-foreground">
+                      Your answer
+                    </Label>
+                    {words >= 20 && (
+                      <span
+                        className={cn(
+                          "text-[10.5px] font-medium px-2 py-0.5 rounded-full border",
+                          (maxMark === "8" && words >= 300 && words <= 500) ||
+                          (maxMark === "12" && words >= 500 && words <= 750) ||
+                          (maxMark === "20" && words >= 800 && words <= 1300)
+                            ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
+                            : "border-border/60 bg-muted/30 text-muted-foreground"
+                        )}
+                      >
+                        {(maxMark === "8" && words >= 300 && words <= 500) ||
+                         (maxMark === "12" && words >= 500 && words <= 750) ||
+                         (maxMark === "20" && words >= 800 && words <= 1300)
+                          ? "Target word count reached"
+                          : `Target: ~${maxMark === "8" ? "300–450" : maxMark === "12" ? "500–750" : "800–1200"}w`}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] sm:text-xs text-muted-foreground font-mono">{words} words</span>
+                    <button
+                      type="button"
+                      onClick={handlePasteEssay}
+                      title="Paste from clipboard"
+                      className="p-1 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer text-xs flex items-center gap-1"
+                    >
+                      <ClipboardPaste className="size-3.5" />
+                      <span className="hidden sm:inline text-[11px]">Paste</span>
+                    </button>
+                  </div>
                 </div>
-                <Textarea
-                  id="essay"
-                  rows={8}
-                  className="font-sans text-xs sm:text-[15px] leading-relaxed sm:leading-[1.8] p-3 sm:p-4 rounded-xl min-h-[160px] sm:min-h-[280px]"
-                  placeholder="Paste or type your full essay here, or upload handwritten pages below…"
-                  value={essayText}
-                  onChange={(event) => {
-                    setEssayText(event.target.value);
-                    setWritingCheck(null);
-                  }}
-                />
+
+                <div className="relative">
+                  <Textarea
+                    id="essay"
+                    rows={8}
+                    className="font-sans text-xs sm:text-[15px] leading-relaxed sm:leading-[1.8] p-3 sm:p-4 rounded-xl min-h-[170px] sm:min-h-[290px] bg-background/80 focus:bg-background transition-colors"
+                    placeholder="Paste or type your full essay here, or upload handwritten pages below… (Tip: press Ctrl+Enter to mark)"
+                    value={essayText}
+                    onChange={(event) => {
+                      setEssayText(event.target.value);
+                      setWritingCheck(null);
+                    }}
+                    onKeyDown={(event) => {
+                      if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+                        event.preventDefault();
+                        handleMarkClick();
+                      }
+                    }}
+                  />
+                </div>
               </div>
 
               <HandwritingUpload
@@ -750,13 +837,34 @@ function GradePage() {
                 }}
               />
 
-          <div className="space-y-3 rounded-lg border border-border bg-muted/30 p-4">
-            <Label className="text-sm font-medium">Diagram references (optional)</Label>
-            <p className="text-xs text-muted-foreground">
-              Typed your essay online and referred to one or more diagrams without drawing them?
-              Attach each one so it's marked like a diagram drawn on the page — pick from the
-              diagram library, or paste a link to an image of it.
-            </p>
+          <div className="rounded-xl border border-border/70 bg-muted/20 overflow-hidden transition-all">
+            <button
+              type="button"
+              onClick={() => setDiagramSectionOpen((prev) => !prev)}
+              className="w-full flex items-center justify-between p-3 sm:p-3.5 text-left hover:bg-muted/40 transition-colors cursor-pointer"
+            >
+              <div className="flex items-center gap-2.5">
+                <Images className="size-4 text-primary shrink-0" />
+                <div>
+                  <span className="text-xs sm:text-sm font-semibold text-foreground">Diagram references</span>
+                  <span className="text-[11px] text-muted-foreground ml-2 hidden sm:inline">Attach graph or chart</span>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className={cn("text-[10px]", diagrams.length > 0 ? "border-emerald-500/40 text-emerald-400 bg-emerald-500/10" : "text-muted-foreground")}>
+                  {diagrams.length > 0 ? `${diagrams.length} attached` : "Optional"}
+                </Badge>
+                {diagramSectionOpen ? <ChevronUp className="size-3.5 text-muted-foreground" /> : <ChevronDown className="size-3.5 text-muted-foreground" />}
+              </div>
+            </button>
+
+            {diagramSectionOpen && (
+              <div className="p-3.5 sm:p-4 pt-1 border-t border-border/50 space-y-3 animate-in fade-in duration-200">
+                <p className="text-xs text-muted-foreground">
+                  Typed your essay online and referred to one or more diagrams without drawing them?
+                  Attach each one so it's marked like a diagram drawn on the page — pick from the
+                  diagram library, or paste a link to an image of it.
+                </p>
 
             {diagrams.length > 0 ? (
               <ul className="space-y-1.5">
@@ -949,24 +1057,71 @@ function GradePage() {
                 </Button>
               </div>
             ) : null}
+              </div>
+            )}
           </div>
 
-          <div className="space-y-2 rounded-lg border border-border bg-muted/30 p-4">
-            <Label className="text-sm font-medium">Mark scheme screenshot (optional)</Label>
-            <p className="text-xs text-muted-foreground">
-              Paste a screenshot of the relevant mark scheme page and the examiner will read it
-              directly — on top of your knowledge base — while marking this essay.
-            </p>
-            <MarkSchemeScreenshots
-              images={markSchemeImages}
-              onAdd={(img) => setMarkSchemeImages((current) => [...current, img])}
-              onRemove={(id) =>
-                setMarkSchemeImages((current) => current.filter((img) => img.id !== id))
-              }
-            />
+          <div className="rounded-xl border border-border/70 bg-muted/20 overflow-hidden transition-all">
+            <button
+              type="button"
+              onClick={() => setMarkSchemeSectionOpen((prev) => !prev)}
+              className="w-full flex items-center justify-between p-3 sm:p-3.5 text-left hover:bg-muted/40 transition-colors cursor-pointer"
+            >
+              <div className="flex items-center gap-2.5">
+                <FileText className="size-4 text-primary shrink-0" />
+                <div>
+                  <span className="text-xs sm:text-sm font-semibold text-foreground">Mark scheme screenshot</span>
+                  <span className="text-[11px] text-muted-foreground ml-2 hidden sm:inline">Vision-grounded assessment</span>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className={cn("text-[10px]", markSchemeImages.length > 0 ? "border-primary/40 text-primary bg-primary/10" : "text-muted-foreground")}>
+                  {markSchemeImages.length > 0 ? `${markSchemeImages.length} attached` : "Optional"}
+                </Badge>
+                {markSchemeSectionOpen ? <ChevronUp className="size-3.5 text-muted-foreground" /> : <ChevronDown className="size-3.5 text-muted-foreground" />}
+              </div>
+            </button>
+
+            {markSchemeSectionOpen && (
+              <div className="p-3.5 sm:p-4 pt-1 border-t border-border/50 space-y-2 animate-in fade-in duration-200">
+                <p className="text-xs text-muted-foreground">
+                  Paste a screenshot of the relevant mark scheme page and the examiner will read it
+                  directly — on top of your knowledge base — while marking this essay.
+                </p>
+                <MarkSchemeScreenshots
+                  images={markSchemeImages}
+                  onAdd={(img) => setMarkSchemeImages((current) => [...current, img])}
+                  onRemove={(id) =>
+                    setMarkSchemeImages((current) => current.filter((img) => img.id !== id))
+                  }
+                />
+              </div>
+            )}
           </div>
 
-          <div className="space-y-3 rounded-lg border border-border bg-muted/30 p-4">
+          <div className="rounded-xl border border-border/70 bg-muted/20 overflow-hidden transition-all">
+            <button
+              type="button"
+              onClick={() => setSettingsSectionOpen((prev) => !prev)}
+              className="w-full flex items-center justify-between p-3 sm:p-3.5 text-left hover:bg-muted/40 transition-colors cursor-pointer"
+            >
+              <div className="flex items-center gap-2.5">
+                <ShieldCheck className="size-4 text-primary shrink-0" />
+                <div>
+                  <span className="text-xs sm:text-sm font-semibold text-foreground">Examiner &amp; proofreading settings</span>
+                  <span className="text-[11px] text-muted-foreground ml-2 hidden sm:inline">Dual-pass &amp; spelling engine</span>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="text-[10px] border-emerald-500/30 text-emerald-400 bg-emerald-500/10">
+                  Dual Pass Active
+                </Badge>
+                {settingsSectionOpen ? <ChevronUp className="size-3.5 text-muted-foreground" /> : <ChevronDown className="size-3.5 text-muted-foreground" />}
+              </div>
+            </button>
+
+            {settingsSectionOpen && (
+              <div className="p-3.5 sm:p-4 pt-2 border-t border-border/50 space-y-3 animate-in fade-in duration-200">
             <Toggle
               label="Independent audit pass"
               hint="A second examiner re-checks the mark to correct clustering around the middle bands."
@@ -1073,6 +1228,8 @@ function GradePage() {
                 </div>
               </div>
             )}
+              </div>
+            )}
           </div>
 
           {spellCheckEnabled && writingCheck && !checkIsStale ? (
@@ -1116,7 +1273,13 @@ function GradePage() {
           )}
 
           <Button
-            className={`w-full ${isLimitReached ? "bg-amber-600 hover:bg-amber-500 text-white font-medium" : ""}`}
+            size="lg"
+            className={cn(
+              "w-full h-11 sm:h-12 text-sm font-semibold rounded-xl shadow-md transition-all cursor-pointer",
+              isLimitReached
+                ? "bg-amber-600 hover:bg-amber-500 text-white"
+                : "bg-gradient-to-r from-primary via-indigo-600 to-primary text-white hover:opacity-95 hover:shadow-lg hover:shadow-primary/20"
+            )}
             disabled={
               !isLimitReached && (
                 mutation.isPending ||
@@ -1129,25 +1292,28 @@ function GradePage() {
           >
             {isLimitReached ? (
               <>
-                <Sparkles className="size-4" /> Upgrade Plan to Mark Essay (Limit Reached)
+                <Sparkles className="size-4 mr-2" /> Upgrade Plan to Mark Essay (Limit Reached)
               </>
             ) : checkMutation.isPending ? (
               <>
-                <SpellCheck className="size-4 animate-pulse" /> Checking spelling &amp; grammar…
+                <SpellCheck className="size-4 mr-2 animate-pulse" /> Checking spelling &amp; grammar…
               </>
             ) : mutation.isPending ? (
               <>
-                <Loader2 className="size-4 animate-spin" /> Marking — this takes up to a minute
+                <Loader2 className="size-4 mr-2 animate-spin" /> Marking with dual examiners — this takes up to a minute
               </>
             ) : readyToMark ? (
-              <>
-                <Sparkles className="size-4" /> Mark this essay
-              </>
+              <div className="flex items-center justify-center gap-2 w-full">
+                <Sparkles className="size-4 text-amber-300" />
+                <span>Mark this essay</span>
+                <span className="text-[11px] opacity-70 font-normal hidden sm:inline">(Ctrl + Enter)</span>
+              </div>
             ) : (
-              <>
-                <SpellCheck className="size-4" /> Check spelling &amp; grammar, then mark
-              </>
-            )}{" "}
+              <div className="flex items-center justify-center gap-2 w-full">
+                <SpellCheck className="size-4" />
+                <span>Check spelling &amp; grammar, then mark</span>
+              </div>
+            )}
           </Button>
         </div>
 
@@ -1242,11 +1408,70 @@ function GradePage() {
               ) : null}
             </div>
           ) : (
-            <div className="panel hidden lg:flex h-full min-h-64 flex-col items-center justify-center p-8 text-center">
-              <Sparkles className="size-6 text-muted-foreground" />
-              <p className="mt-3 max-w-xs text-sm text-muted-foreground">
-                Your mark, AO breakdown, missing elements and rewrite plan will appear here.
-              </p>
+            <div className="panel hidden lg:flex h-full min-h-[460px] flex-col justify-between p-6 sm:p-7 rounded-2xl border-border/80 shadow-xs">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between border-b border-border/60 pb-3">
+                  <div className="flex items-center gap-2">
+                    <Award className="size-4 text-primary" />
+                    <span className="text-xs font-bold uppercase tracking-wider text-primary">
+                      Cambridge 9708 Examination Desk
+                    </span>
+                  </div>
+                  <Badge variant="outline" className="text-[10px] font-mono border-primary/30 text-primary bg-primary/10">
+                    Dual Examiner Active
+                  </Badge>
+                </div>
+
+                <p className="text-xs leading-relaxed text-muted-foreground">
+                  Your essay is evaluated under official Cambridge International AS &amp; A Level Economics marking principles:
+                </p>
+
+                <div className="space-y-2.5 pt-1">
+                  <div className="p-3 rounded-xl border border-sky-500/20 bg-sky-500/[0.03] space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold text-sky-400 flex items-center gap-1.5">
+                        <BookOpen className="size-3.5" /> AO1 Knowledge &amp; Understanding
+                      </span>
+                      <span className="text-[10px] font-mono text-muted-foreground">Definitions &amp; Models</span>
+                    </div>
+                    <p className="text-[11.5px] leading-relaxed text-muted-foreground">
+                      Precision of definitions and syllabus 9708 economic theory. Positive marking applies throughout.
+                    </p>
+                  </div>
+
+                  <div className="p-3 rounded-xl border border-indigo-500/20 bg-indigo-500/[0.03] space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold text-indigo-400 flex items-center gap-1.5">
+                        <TrendingUp className="size-3.5" /> AO2 Causal Analysis &amp; Application
+                      </span>
+                      <span className="text-[10px] font-mono text-muted-foreground">Transmission Chains</span>
+                    </div>
+                    <p className="text-[11.5px] leading-relaxed text-muted-foreground">
+                      Logical step-by-step cause-and-effect chains. Rewards genuine real-world application and guiding models.
+                    </p>
+                  </div>
+
+                  <div className="p-3 rounded-xl border border-emerald-500/20 bg-emerald-500/[0.03] space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold text-emerald-400 flex items-center gap-1.5">
+                        <Scale className="size-3.5" /> AO3 Critical Evaluation
+                      </span>
+                      <span className="text-[10px] font-mono text-muted-foreground">Multi-Perspective Weighing</span>
+                    </div>
+                    <p className="text-[11.5px] leading-relaxed text-muted-foreground">
+                      Comparing perspectives (short vs long run, stakeholders, trade-offs) leading to justified judgements.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-4 border-t border-border/60 flex items-center justify-between text-xs text-muted-foreground">
+                <span className="flex items-center gap-1.5">
+                  <span className="size-2 rounded-full bg-emerald-500 inline-block animate-pulse" />
+                  Ready to mark
+                </span>
+                <span className="font-mono text-[11px] text-muted-foreground">Shortcut: Ctrl + Enter</span>
+              </div>
             </div>
           )}
         </div>

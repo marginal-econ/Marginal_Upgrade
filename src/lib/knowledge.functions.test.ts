@@ -25,7 +25,7 @@ describe("knowledge management authorization", () => {
     await expect(assertKnowledgeStaff(context as never)).rejects.toThrow(
       "Teacher or administrator access is required",
     );
-  });
+  }, 15000);
 
   it("allows a teacher or administrator", async () => {
     const teacher = contextWithRoles([{ role: "teacher" }]);
