@@ -152,10 +152,12 @@ AUTHORITATIVE PRINCIPAL EXAMINER PRINCIPLES:
    - Written economics alone can achieve full marks (including 6/6 in AO2 and full overall marks).
    - NEVER penalise or deduct marks for the absence of a diagram. If either pass deducted marks for lack of a diagram, OVERTURN that deduction.
    - If an accurate diagram is described or drawn, ensure it is POSITIVELY REWARDED under AO2.
-5. EVALUATION DIRECTIVE (STRONG AND WIDE, FOCUS ON QUESTION DIRECTIVE):
-   - Evaluation must be strong and wide, comparing multiple perspectives (short-run vs long-run, differing stakeholders e.g. consumers vs producers vs taxpayers, trade-offs, opportunity costs, elasticity, policy alternatives).
-   - QUESTION FOCUS: For questions assessing whether a policy is the 'best way' or 'most effective' intervention, candidates must directly compare against alternative policies (e.g. permits, regulation, subsidies) against explicit criteria (PED pass-through, equity/regressive impacts, administrative feasibility, government failure in tax calibration). Superficial or missing comparative weighing cannot exceed Level 1 (0-1/4) in AO3.
-   - Be strict on superficial evaluation: a single token sentence or generic conclusion ('a mix of both is best') without justified weighing criteria should not reach top band.
+5. EVALUATION DIRECTIVE (STRONG, WIDE, AND RIGOROUS +3-5% STRICTNESS):
+   - Apply calibrated strictness (+3-5%) to AO3 Evaluation:
+   - Demand critical prioritization: top band evaluation requires the candidate to explicitly justify which factor or criterion is most decisive (e.g. why inelastic demand limits short-run effectiveness vs long-run substitution).
+   - Reject unprioritized textbook lists: merely reciting 'it depends on PED, time, and government budget' without contextual weighing belongs in middle band (2/4).
+   - For questions assessing whether a policy is the 'best way' or 'most effective' intervention, candidates must directly compare against alternative policies (e.g. permits, regulation, subsidies) against explicit criteria (PED pass-through, equity/regressive impacts, administrative feasibility, government failure in tax calibration). Superficial or missing comparative weighing cannot exceed Level 1 (0-1/4) in AO3.
+   - Be strict on superficial evaluation: a single token sentence or generic conclusion ('a mix of both is best') without justified weighing criteria must not reach top band.
    - NO ARTIFICIAL NUMERIC CAPS: Do NOT apply rigid programmatic caps or formulaic ceiling rules (such as 'caps AO3 at 1/4' or 'Table B capped'). Evaluate the candidate's evaluative depth and breadth holistically on its economic merit.
 6. ACCURATE ECONOMICS VS ERRORS & REALISTIC CALIBRATION:
    - Distinguish correct economics from genuine errors:
@@ -277,14 +279,15 @@ export function synthesizeDualPasses(
     };
   }
 
-  // If marks are identical, consensus is established
-  // If delta is 1, take the pass with the more detailed evidence or balanced middle
-  const preferred = pass1.total_mark <= pass2.total_mark ? pass2 : pass1;
+  // If marks are identical, consensus is established.
+  // When delta is 1, prefer the rigorous Error-Audit pass (pass1) to maintain calibrated evaluative strictness.
+  const preferred = pass1.total_mark <= pass2.total_mark ? pass1 : pass2;
 
   // Reconcile individual AO awarded marks ensuring sum equals total
   let kMark = Math.min(split.ao1_marks, Math.round((pass1.ao_breakdown.knowledge.awarded + pass2.ao_breakdown.knowledge.awarded) / 2));
   let aMark = Math.min(split.ao2_marks, Math.round((pass1.ao_breakdown.analysis.awarded + pass2.ao_breakdown.analysis.awarded) / 2));
-  let eMark = Math.min(split.ao3_marks, Math.round((pass1.ao_breakdown.evaluation.awarded + pass2.ao_breakdown.evaluation.awarded) / 2));
+  // Evaluation (AO3) calibrated with strictness: take conservative round if passes differ
+  let eMark = Math.min(split.ao3_marks, Math.floor((pass1.ao_breakdown.evaluation.awarded + pass2.ao_breakdown.evaluation.awarded) / 2 + 0.45));
 
   let total = kMark + aMark + eMark;
   // If rounding drifted from target total mark, adjust analysis or evaluation

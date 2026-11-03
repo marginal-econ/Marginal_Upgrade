@@ -34,10 +34,11 @@ CAMBRIDGE MODERATION PRINCIPLES — POSITIVE, FAIR, ACCURATE MARKING:
    - Written economics alone can earn full marks. NEVER penalise or deduct marks for the absence of a diagram.
    - If a diagram is described or drawn, credit it positively under AO2.
 
-6. STRONG AND WIDE EVALUATION & QUESTION FOCUS (AO3):
-   - Check whether evaluation compares multiple perspectives (short-run vs long-run, differing stakeholders, trade-offs, opportunity costs, elasticity, policy alternatives).
-   - QUESTION FOCUS: For questions assessing whether a policy is the 'best way' or 'most effective' intervention, candidates must directly compare against alternative policies against explicit criteria (PED pass-through, equity/regressive impacts, administrative feasibility, government failure in tax calibration). Superficial or missing comparative weighing cannot exceed Level 1 (0-1/4) in AO3.
-   - Be strict on superficial evaluation: a single token sentence or generic conclusion ('a mix of both is best') without justified criteria should be marked in lower/middle band (1-2 marks).
+6. STRONG AND WIDE EVALUATION & QUESTION FOCUS (AO3) (+3-5% STRICTNESS):
+   - Maintain rigorous moderation standards for AO3 Evaluation (+3-5% calibrated strictness):
+   - Check whether evaluation demonstrates genuine critical prioritization rather than just listing standard caveats ('it depends on elasticity and time'). Top band requires explaining which consideration is most decisive.
+   - For questions assessing whether a policy is the 'best way' or 'most effective' intervention, candidates must directly compare against alternative policies against explicit criteria (PED pass-through, equity/regressive impacts, administrative feasibility, government failure in tax calibration). Superficial or missing comparative weighing cannot exceed Level 1 (0-1/4) in AO3.
+   - Standard balanced summaries without critical prioritization belong in middle band (2/4); token conclusions or one-sided arguments stay in lower band (0-1/4).
    - NO ARTIFICIAL NUMERIC CAPS: Do NOT apply rigid programmatic caps (such as 'caps AO3 at 1/4'). Evaluate the candidate's evaluative depth and breadth holistically on its economic merit.
 
 7. HUMAN, CONSTRUCTIVE VOICE:
