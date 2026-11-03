@@ -97,6 +97,8 @@ function EssayPage() {
       queryClient.invalidateQueries({ queryKey: ["essay", essayId] });
       queryClient.invalidateQueries({ queryKey: ["progress"] });
       queryClient.invalidateQueries({ queryKey: ["essays"] });
+      queryClient.invalidateQueries({ queryKey: ["review-essays"] });
+      queryClient.invalidateQueries({ queryKey: ["review-panel"] });
     },
     onError: (error: Error) => toast.error(error.message),
   });

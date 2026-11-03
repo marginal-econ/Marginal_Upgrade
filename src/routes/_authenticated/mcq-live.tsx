@@ -963,6 +963,9 @@ function fillMissingQuestionPages(
       }
       topicPerformance.refetch();
       queryClient.invalidateQueries({ queryKey: ["mcq-paper-history"] });
+      queryClient.invalidateQueries({ queryKey: ["review-mcq-history"] });
+      queryClient.invalidateQueries({ queryKey: ["review-mcq-topics"] });
+      queryClient.invalidateQueries({ queryKey: ["review-panel"] });
       toast.success(`Marked — ${score}/${scored.length}.`);
     } catch (err) {
       toast.error("Marking failed — your answers are still on screen, try again.");

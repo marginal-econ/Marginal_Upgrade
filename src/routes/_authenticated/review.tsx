@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
+import { toast } from "sonner";
 import {
   AlertTriangle,
   ArrowRight,
@@ -95,12 +96,38 @@ export function ReviewPanelPage() {
   const [essayBandFilter, setEssayBandFilter] = useState<"all" | "band1" | "band2" | "band3">("all");
   const [mcqLevelFilter, setMcqLevelFilter] = useState<"all" | "as" | "a2">("all");
 
+  const queryClient = useQueryClient();
+  const [isRecalculating, setIsRecalculating] = useState(false);
+
   // Queries
   const reviewQuery = useQuery({
     queryKey: ["review-panel"],
     queryFn: () => fetchReview(),
-    staleTime: 1000 * 60 * 60 * 24, // Recalculates after 30 days
+    staleTime: 1000 * 60 * 5, // 5 min client cache; auto-invalidates on new essays/MCQs
   });
+
+  const handleRefresh = async (force = false) => {
+    try {
+      setIsRecalculating(true);
+      if (force) {
+        const fresh = await fetchReview({ data: { force: true } });
+        queryClient.setQueryData(["review-panel"], fresh);
+        toast.success("Review & Cambridge grade projection recalculated with latest submissions!");
+      } else {
+        await reviewQuery.refetch();
+      }
+      await Promise.all([
+        essaysQuery.refetch(),
+        mcqHistoryQuery.refetch(),
+        mcqTopicsQuery.refetch(),
+        progressQuery.refetch(),
+      ]);
+    } catch (err) {
+      toast.error((err as Error).message || "Failed to refresh review data.");
+    } finally {
+      setIsRecalculating(false);
+    }
+  };
 
   const essaysQuery = useQuery({
     queryKey: ["review-essays"],
@@ -220,16 +247,12 @@ export function ReviewPanelPage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => {
-                reviewQuery.refetch();
-                essaysQuery.refetch();
-                mcqHistoryQuery.refetch();
-              }}
-              disabled={reviewQuery.isFetching}
+              onClick={() => handleRefresh(true)}
+              disabled={isRecalculating || reviewQuery.isFetching}
               className="print:hidden h-8 text-xs"
             >
-              <RefreshCw className={cn("size-3.5 mr-1.5", reviewQuery.isFetching && "animate-spin")} />
-              Refresh
+              <RefreshCw className={cn("size-3.5 mr-1.5", (isRecalculating || reviewQuery.isFetching) && "animate-spin")} />
+              {isRecalculating ? "Recalculating…" : "Refresh"}
             </Button>
           </div>
         }
@@ -364,7 +387,11 @@ export function ReviewPanelPage() {
                 onRetry={() => reviewQuery.refetch()}
               />
             ) : isEligible && reviewData ? (
-              <ReviewResults data={reviewData} />
+              <ReviewResults
+                data={reviewData}
+                onRecalculate={() => handleRefresh(true)}
+                isRecalculating={isRecalculating}
+              />
             ) : (
               <DiagnosticInProgressView
                 essayCount={essayList.length}
@@ -862,7 +889,15 @@ function ErrorState({ message, onRetry }: { message: string; onRetry: () => void
 
 type Eligible = Extract<Awaited<ReturnType<typeof getReviewPanel>>, { eligible: true }>;
 
-function ReviewResults({ data }: { data: Eligible }) {
+function ReviewResults({
+  data,
+  onRecalculate,
+  isRecalculating,
+}: {
+  data: Eligible;
+  onRecalculate?: () => void;
+  isRecalculating?: boolean;
+}) {
   const trendIcon =
     data.gradeTrend === "improving"
       ? TrendingUp
@@ -1069,8 +1104,22 @@ function ReviewResults({ data }: { data: Eligible }) {
           <Badge variant="secondary">{data.essayCount} essays evaluated</Badge>
           <Badge variant="secondary">{data.mcqPaperCount} MCQ papers evaluated</Badge>
           <Badge variant="outline" className="text-[11px] border-primary/30 bg-primary/10 text-primary">
-            30-day evaluation cycle ({data.daysRemainingInCycle ?? 30}d until recalculation)
+            {data.isCached
+              ? `Diagnostic snapshot (${data.daysRemainingInCycle ?? 30}d cycle · auto-updates on new work)`
+              : "Live recalculated portfolio assessment"}
           </Badge>
+          {onRecalculate ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onRecalculate}
+              disabled={isRecalculating}
+              className="h-6 px-2 text-[11px] text-primary hover:text-primary/80 gap-1 font-medium"
+            >
+              <RefreshCw className={cn("size-3", isRecalculating && "animate-spin")} />
+              {isRecalculating ? "Recalculating…" : "Recalculate now"}
+            </Button>
+          ) : null}
           <span className={cn("ml-auto flex items-center gap-1.5 text-xs font-medium", trendTone)}>
             <TrendIcon className="size-3.5" />
             {data.gradeTrend === "not enough data"

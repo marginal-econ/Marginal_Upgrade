@@ -477,6 +477,8 @@ function GradePage() {
     onSuccess: (data) => {
       setResult({ grading: data.grading as Grading, essayId: data.essayId });
       queryClient.invalidateQueries({ queryKey: ["essays"] });
+      queryClient.invalidateQueries({ queryKey: ["review-essays"] });
+      queryClient.invalidateQueries({ queryKey: ["review-panel"] });
       queryClient.invalidateQueries({ queryKey: ["progress"] });
       try {
         localStorage.removeItem(DRAFT_STORAGE_KEY);

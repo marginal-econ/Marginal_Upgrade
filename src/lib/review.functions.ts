@@ -279,60 +279,7 @@ export const getReviewPanel = createServerFn({ method: "POST" })
       };
     }
 
-    // Check 30-day cached diagnostic review
-    const cacheTerm = `__REVIEW_CACHE_${userId}`;
-    const { data: cachedRow } = await supabase
-      .from("definitions")
-      .select("term, definition_text, updated_at")
-      .eq("term", cacheTerm)
-      .order("updated_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (cachedRow?.definition_text && !data?.force) {
-      try {
-        const parsed = JSON.parse(cachedRow.definition_text) as ReviewPanelResult;
-        const cachedSeriesId = parsed.gradeProjection?.seriesId;
-
-        // If the user hasn't switched series and cached cutoffs exist, use valid 30-day cache
-        if (cachedSeriesId === seriesId && parsed.gradeProjection?.cutoffs) {
-          const generatedTime = new Date(parsed.generatedAt || cachedRow.updated_at).getTime();
-          const ageInDays = (Date.now() - generatedTime) / (1000 * 60 * 60 * 24);
-
-          if (ageInDays < 30) {
-            const daysRemaining = Math.max(1, Math.ceil(30 - ageInDays));
-            const nextDate = new Date(generatedTime + 30 * 24 * 60 * 60 * 1000).toISOString();
-
-            // Re-calibrate against official Cambridge thresholds in case of past model drift
-            const recalc = calculatePredictedGradeFromThresholds(
-              parsed.gradeProjection.currentAveragePercent,
-              targetLevel,
-              seriesId,
-            );
-            parsed.gradeProjection.projectedGrade = recalc.projectedGrade;
-            parsed.gradeProjection.targetGrade = recalc.targetGrade;
-            parsed.gradeProjection.cutoffs = recalc.cutoffs;
-            parsed.gradeProjection.seriesId = recalc.seriesId;
-            parsed.gradeProjection.seriesLabel = recalc.seriesLabel;
-            parsed.gradeProjection.isCustomSeries = recalc.isCustomSeries;
-            if (recalc.projectedGrade === "A*") {
-              parsed.gradeProjection.marksToNextGrade = "Solid Cambridge A* benchmark maintained";
-            }
-
-            return cleanStars({
-              ...parsed,
-              eligible: true,
-              isCached: true,
-              daysRemainingInCycle: daysRemaining,
-              nextRecalculationDate: nextDate,
-            });
-          }
-        }
-      } catch (err) {
-        console.error("Failed to parse cached review panel:", err);
-      }
-    }
-
+    // Fetch latest versions and summaries upfront to compute live empirical percentage
     const essayIds = (essayRows ?? []).map((row) => row.id);
     const { data: versionRows, error: versionError } = await supabase
       .from("essay_versions")
@@ -368,6 +315,91 @@ export const getReviewPanel = createServerFn({ method: "POST" })
         return summary;
       })
       .filter((item): item is EssaySummary => item !== null);
+
+    // Compute live empirical average percentage from essays & MCQs
+    let totalScore = 0;
+    let totalMax = 0;
+    essaySummaries.forEach((e) => {
+      totalScore += e.totalMark;
+      totalMax += e.maxMark;
+    });
+    (mcqRows ?? []).forEach((m) => {
+      totalScore += m.score ?? 0;
+      totalMax += m.total ?? 0;
+    });
+    const empiricalPercent = totalMax > 0 ? Math.round((totalScore / totalMax) * 100) : 65;
+
+    // Check cached diagnostic review (auto-invalidated on new submissions or forced refresh)
+    const cacheTerm = `__REVIEW_CACHE_${userId}`;
+    const { data: cachedRow } = await supabase
+      .from("definitions")
+      .select("term, definition_text, updated_at")
+      .eq("term", cacheTerm)
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (cachedRow?.definition_text && !data?.force) {
+      try {
+        const parsed = JSON.parse(cachedRow.definition_text) as ReviewPanelResult;
+        const cachedSeriesId = parsed.gradeProjection?.seriesId;
+
+        // Auto-refresh when candidate has submitted new essays or MCQ papers since cache was created
+        const hasWorkCountChanged =
+          parsed.essayCount !== totalEssays ||
+          parsed.mcqPaperCount !== totalMcqPapers;
+
+        // Auto-refresh if empirical performance has shifted noticeably (>= 2%)
+        const cachedAvg = parsed.gradeProjection?.currentAveragePercent;
+        const hasAverageDrifted =
+          cachedAvg != null && Math.abs(cachedAvg - empiricalPercent) >= 2;
+
+        // If no force flag, series matches, count is unchanged, and performance has not diverged:
+        if (
+          !hasWorkCountChanged &&
+          !hasAverageDrifted &&
+          cachedSeriesId === seriesId &&
+          parsed.gradeProjection?.cutoffs
+        ) {
+          const generatedTime = new Date(parsed.generatedAt || cachedRow.updated_at).getTime();
+          const ageInDays = (Date.now() - generatedTime) / (1000 * 60 * 60 * 24);
+
+          if (ageInDays < 30) {
+            const daysRemaining = Math.max(1, Math.ceil(30 - ageInDays));
+            const nextDate = new Date(generatedTime + 30 * 24 * 60 * 60 * 1000).toISOString();
+
+            // Re-calibrate against official Cambridge thresholds in case of past model drift
+            const recalc = calculatePredictedGradeFromThresholds(
+              empiricalPercent,
+              targetLevel,
+              seriesId,
+            );
+            parsed.gradeProjection.currentAveragePercent = empiricalPercent;
+            parsed.gradeProjection.projectedGrade = recalc.projectedGrade;
+            parsed.gradeProjection.targetGrade = recalc.targetGrade;
+            parsed.gradeProjection.cutoffs = recalc.cutoffs;
+            parsed.gradeProjection.seriesId = recalc.seriesId;
+            parsed.gradeProjection.seriesLabel = recalc.seriesLabel;
+            parsed.gradeProjection.isCustomSeries = recalc.isCustomSeries;
+            if (recalc.projectedGrade === "A*") {
+              parsed.gradeProjection.marksToNextGrade = "Solid Cambridge A* benchmark maintained";
+            }
+
+            return cleanStars({
+              ...parsed,
+              eligible: true,
+              isCached: true,
+              essayCount: totalEssays,
+              mcqPaperCount: totalMcqPapers,
+              daysRemainingInCycle: daysRemaining,
+              nextRecalculationDate: nextDate,
+            });
+          }
+        }
+      } catch (err) {
+        console.error("Failed to parse cached review panel:", err);
+      }
+    }
 
     type StoredPdfQuestion = {
       number: number;
@@ -433,19 +465,6 @@ export const getReviewPanel = createServerFn({ method: "POST" })
           `${MCQ_DOMAIN_LABEL[entry.domain]}: ${entry.correct}/${entry.attempted} correct (${entry.accuracyPct}%)`,
       )
       .join("\n");
-
-    // Compute empirical average percentage from essays & MCQs
-    let totalScore = 0;
-    let totalMax = 0;
-    essaySummaries.forEach((e) => {
-      totalScore += e.totalMark;
-      totalMax += e.maxMark;
-    });
-    (mcqRows ?? []).forEach((m) => {
-      totalScore += m.score ?? 0;
-      totalMax += m.total ?? 0;
-    });
-    const empiricalPercent = totalMax > 0 ? Math.round((totalScore / totalMax) * 100) : 65;
 
     // Compute Cambridge threshold prediction using chosen series or multi-year all-series average
     const thresholdPrediction = calculatePredictedGradeFromThresholds(
