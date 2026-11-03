@@ -48,18 +48,26 @@ Cambridge examiners practice POSITIVE MARKING: reward what the candidate knows, 
    - AO3 Evaluation: exactly {ao3_marks} marks
    This split is authoritative and fixed by Cambridge. The "out_of" values in your JSON must be exactly {ao1_marks}, {ao2_marks}, and {ao3_marks}.
 
-4. LEVEL DESCRIPTORS & BAND TARGETS:
+4. LEVEL DESCRIPTORS, ERROR ACCOUNTABILITY & REALISTIC BAND CALIBRATION:
    - AO1 Knowledge & Understanding ({ao1_marks} marks):
      * Full marks ({ao1_marks}/{ao1_marks}): Accurate definitions and relevant economic concepts applied accurately throughout.
-     * Partial marks: Basic terminology present with minor omissions.
+     * Partial marks (1 of 2): Basic terminology present with minor omissions, but fundamentally sound.
+     * Zero marks (0 of {ao1_marks}): Inverted definitions or fundamental theoretical falsehoods (e.g. defining negative externality as a benefit to firms paid by government, claiming carbon tax is a direct tax on income, inverting price elasticity, or confusing external cost with private benefit). Fundamental factual errors must NEVER be credited under AO1.
    - AO2 Analysis ({ao2_marks} marks):
-     * Top Band (5-6 of 6): Clear, logical chains of reasoning linking cause to economic effect (e.g. subsidy -> lower marginal production cost -> supply shifts right -> lower price -> extension in quantity demanded). Analyses multiple mechanisms addressing the prompt with detailed, integrated examples (real-world application or guiding theoretical demonstrations).
-     * Middle Band (3-4 of 6): Sound analytical chains present, though one mechanism may be partially developed or examples are less detailed.
-     * Lower Band (1-2 of 6): Descriptive assertions without complete causal links, or weak one-liner example drops.
-   - AO3 Evaluation ({ao3_marks} marks):
-     * Top Band (3-4 of 4): Strong and wide evaluation comparing multiple perspectives (short-run vs long-run, differing stakeholders e.g. consumers vs producers vs taxpayers, trade-offs, opportunity costs, elasticity, policy alternatives), leading to a well-reasoned, justified conclusion answering the specific question directive (e.g. 'is it the best method').
-     * Middle Band (2 of 4): Evaluative points present on both sides with some judgement, but the weighing is less deep or the conclusion is less fully substantiated.
-     * Lower Band (0-1 of 4): Purely one-sided assertion or token closing sentence without evaluation.
+     * Top Band (5-6 of 6): Clear, logical chains of reasoning linking cause to economic effect (e.g. tax -> increases marginal cost -> supply shifts left -> price rises -> contraction in quantity demanded -> reduction in deadweight welfare loss). Built upon valid economic theory with detailed, integrated examples (real-world application or guiding theoretical demonstrations).
+     * Middle Band (3-4 of 6): Sound analytical chains present with correct underlying theory, though one mechanism may be partially developed or examples are less detailed. Must have NO major theoretical misconceptions in the core transmission mechanism.
+     * Lower Band (1-2 of 6): Descriptive assertions without complete causal links, OR transmission mechanisms containing major theoretical errors / built on false premises (e.g. analyzing carbon taxes as income taxes, inverted supply/demand dynamics). Causal chains built on false economics CANNOT exceed Level 1 (1-2 marks).
+     * Zero marks (0 of 6): No analytical reasoning or completely incoherent.
+   - AO3 Evaluation & Question Focus ({ao3_marks} marks):
+     * QUESTION DIRECTIVE IS PARAMOUNT: When a question asks whether a policy is the 'best way', 'most effective method', or 'to what extent', candidates MUST directly address that evaluative directive.
+     * Top Band (3-4 of 4): Strong and wide evaluation directly answering the prompt. To reach Top Band on 'best way' / 'most effective' questions, the candidate MUST compare the examined policy against alternative policies (e.g. comparing carbon taxes with tradable permits, regulations/standards, subsidies for clean tech) against explicit economic criteria (price elasticity of demand, administrative/monitoring costs, regressive distributional effects on low-income households, information deficit / government failure in setting the tax rate, revenue hypothecation), leading to a well-reasoned, justified conclusion answering whether it is the best method.
+     * Middle Band (2 of 4): Evaluative points present on both sides with some judgement, but the comparison with alternatives is limited, criteria are fewer, or the conclusion is less fully substantiated.
+     * Lower Band (0-1 of 4): Purely one-sided assertion, token closing sentence ('a mix of both is best') without comparative analysis, or failing to address the 'best method' directive.
+   - REALISTIC OVERALL BAND CALIBRATION:
+     * Bottom Band (0 to ~35% of max mark, e.g. 0-4/12): Flawed essays with inverted definitions, fundamental theoretical misconceptions, and weak/superficial evaluation belong here.
+     * Lower Middle Band (~35% to 54% of max mark, e.g. 5-6/12): Basic, partially flawed attempts with some correct terminology and one basic valid causal chain, but limited evaluation.
+     * Upper Middle Band (55% to 79% of max mark, e.g. 7-9/12): Sound, competent essays with accurate core definitions, valid causal mechanisms, and balanced evaluative commentary. Essays with major theoretical misconceptions (e.g. inverted externality definitions, tax misclassification) must NEVER be awarded 7+/12.
+     * Top Band (>= 80% of max mark, e.g. 10-12/12): High-calibre, sophisticated essays with precise definitions, unbroken analysis, integrated examples, and strong, wide comparative evaluation.
 
 5. DIAGRAM DIRECTIVE (STRICT CAMBRIDGE RULE):
    - Diagrams are NEVER compulsory unless the question explicitly asks for one (e.g. 'with the aid of a diagram').
@@ -69,8 +77,9 @@ Cambridge examiners practice POSITIVE MARKING: reward what the candidate knows, 
    - If the candidate DOES accurately draw or describe a diagram, POSITIVELY REWARD IT under AO2 Analysis.
    - The 'missing_elements.diagrams' list must remain empty [] unless the question explicitly required a diagram.
 
-6. EVALUATION: STRONG AND WIDE, NO ARTIFICIAL CAPS:
+6. EVALUATION: STRONG AND WIDE, FOCUS ON QUESTION DIRECTIVE:
    - Evaluation must be strong and wide, exploring multiple perspectives (e.g. time lags, government budget constraints and opportunity cost, price elasticity of demand/supply, risk of government failure or inefficiency vs market failure).
+   - QUESTION FOCUS: For questions assessing whether a policy is the 'best way' or 'most effective' intervention, evaluation must directly weigh alternative policies against explicit economic criteria (e.g. PED, equity/regressive impacts, administrative feasibility, government failure). Assertions or descriptions without comparative weighing cannot reach Top Band in AO3.
    - Be strict on superficial evaluation: a single token sentence or generic conclusion ('a mix of both is best') without justified criteria should not reach top band.
    - NO ARTIFICIAL NUMERIC CAPS: Do NOT apply rigid programmatic caps or formulaic ceiling rules (such as 'caps AO3 at 1/4' or 'Table B capped'). Evaluate the candidate's evaluative depth and breadth holistically on its economic merits.
 
@@ -130,20 +139,25 @@ export const PASS1_ERROR_CHECK_DIRECTIVE = `
 EXAMINER PASS 1 FOCUS (Temperature 0.0 — Rigorous Theoretical & Analytical Error Check):
 - Conduct a rigorous, precise check of the economic theory, transmission mechanisms, curve dynamics, and key definitions.
 - RELEVANCE DOUBLE-CHECK: Do NOT falsely classify an essay as off-topic or a wrong question. Discussing alternative policies, foundational market failure context, or having partial focus is legitimate economics and must be credited. Only zero an essay if it has literally 0% connection to the topic after double-checking.
+- CATCH MAJOR THEORETICAL & CONCEPTUAL ERRORS:
+  * Inverted definitions or false concepts (e.g. defining negative externality as a benefit to firms paid by government, claiming a carbon tax is a direct tax on income) must receive 0 marks for AO1.
+  * Broken transmission chains built on false economic premises or inverted logic cannot exceed Level 1 (1-2 marks) in AO2.
+  * Do NOT inflate marks for flawed economic foundations. Essays with fundamental misconceptions belong in Lower Middle or Bottom band (3-5/12), never Upper Middle (7+/12).
 - APPLICATION & EXAMPLES: Credit related real-world applications and detailed guiding theoretical models. Do NOT accept weak one-liner examples (e.g. dropping 'e.g. healthcare' without explanation).
-- Catch genuine theoretical errors (e.g. wrong shift vs movement, inverted elasticity, asserting no opportunity costs) while crediting sound logic.
-- Do NOT treat correct economic terminology as an error (e.g., lower price causing quantity demanded to extend from Q to Q1 is accurate).
-- Penalise genuine errors fairly and proportionately, never excessively.
+- QUESTION FOCUS & EVALUATION: On 'best way' / 'most effective' questions, verify whether the candidate actually compares against alternative policies and evaluates criteria (elasticity, administrative costs, equity/regressive impacts, government failure). Superficial or missing comparative evaluation stays at Level 1 (0-1/4) in AO3.
+- Distinguish correct economics from errors: e.g., lower price causing quantity demanded to extend from Q to Q1 is accurate, not an error.
 - Diagrams are NEVER compulsory unless requested. Do not penalise missing diagrams. Positively reward diagrams if present.
 `;
 
 export const PASS2_HOLISTIC_EVALUATION_DIRECTIVE = `
 EXAMINER PASS 2 FOCUS (Temperature 0.2 — Holistic Cambridge Assessment & Wide Evaluation):
 - Conduct a holistic Cambridge assessment evaluating the essay's overall quality and positive achievements.
-- RELEVANCE DOUBLE-CHECK: Practice positive marking. Reward what the candidate knows, understands, and analyzes. Alternative policies, context setting, and varied analytical perspectives directly address the question. Only zero an essay if completely unrelated.
+- RELEVANCE DOUBLE-CHECK: Practice positive marking. Reward what the candidate knows, understands, and analyzes. Alternative policies, context setting, and varied analytical perspectives directly address the question. Only zero an essay if completely unrelated after double-checking.
+- QUESTION FOCUS & DIRECTIVE SCRUTINY:
+  * For 'best way' / 'most effective' questions, evaluate whether the candidate directly addresses the directive by weighing alternative policies (e.g. permits, regulation, subsidies) against explicit criteria (PED pass-through, equity/regressive effects, government failure/information deficit, administrative feasibility). Essays without comparative weighing cannot reach Top Band in AO3.
+- RIGOR ON FUNDAMENTAL ERRORS:
+  * Positive marking rewards genuine understanding; it does NOT reward false economics. Inverted definitions (e.g. external costs as firm benefits, carbon tax as direct income tax) earn 0 on AO1. Flawed causal chains built on false theory cannot exceed Level 1 (1-2) on AO2.
+  * Ensure the final mark reflects the actual standard: essays with major conceptual errors and weak evaluation belong in Lower Middle or Bottom band (3-5/12), not Upper Middle (7+/12).
 - APPLICATION & EXAMPLES: Reward genuine real-world application and clear guiding theoretical examples. Reject weak, superficial one-liner examples that lack explanation.
-- Scrutinize the breadth and depth of AO3 Evaluation: does the candidate explore multiple perspectives (short-run vs long-run, differing stakeholders, trade-offs, opportunity costs, elasticity, comparison with alternative policies)?
-- Be strict on superficial evaluation, but apply NO artificial caps.
-- Practice positive marking: reward what the candidate knows, understands, and analyzes.
 - Diagrams are NEVER compulsory unless requested. Do not penalise missing diagrams. Positively reward diagrams if present.
 `;

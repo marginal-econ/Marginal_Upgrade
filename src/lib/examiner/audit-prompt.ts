@@ -9,12 +9,16 @@ CAMBRIDGE MODERATION PRINCIPLES — POSITIVE, FAIR, ACCURATE MARKING:
    - In Cambridge 9708, essays comparing alternative policies (e.g. comparing subsidies with direct provision, education, maximum prices, or taxes), laying market failure groundwork, or approaching the prompt with varied analytical focus are LEGITIMATE economics and MUST be credited on their merits.
    - Only award 0 marks if the candidate's submission is 100% unrelated to the question after double-checking. No grace marks for genuinely off-topic material.
 
-2. POSITIVE, BALANCED MARKING:
+2. POSITIVE, BALANCED MARKING & ERROR PENALTIES:
    - Reward what the candidate knows, understands, and analyzes.
    - High school AS/A Level students write under timed conditions. Credit clear, coherent explanations of economic theory and transmission mechanisms.
    - Do NOT cut marks unnecessarily. Do NOT award marks for empty assertion without economic logic.
    - Genuine errors should be penalised proportionately, but NEVER excessively. A single minor slip in a 600-word essay must not cause excessive mark deductions.
    - Distinguish correct economics from errors: e.g. when a subsidy lowers price, quantity demanded extends/increases along the curve (from Q to Q1); merit goods are defined both by positive externalities and by information failure.
+   - ACCOUNTABILITY ON MAJOR THEORETICAL ERRORS:
+     * Inverted definitions (e.g. defining negative externality as a benefit to firms paid by government, claiming carbon tax is a direct tax on income) earn 0 marks on AO1.
+     * Flawed causal mechanisms built on false economic premises cannot exceed Level 1 (1-2 marks) in AO2.
+     * Realistic calibration: essays with fundamental conceptual errors and weak comparative evaluation belong in Lower Middle or Bottom band (3-5/12), never Upper Middle (7+/12).
 
 3. EXAMPLES & REAL-WORLD APPLICATION (AO2):
    - Reward related real-world applications and detailed guiding theoretical models.
@@ -30,8 +34,9 @@ CAMBRIDGE MODERATION PRINCIPLES — POSITIVE, FAIR, ACCURATE MARKING:
    - Written economics alone can earn full marks. NEVER penalise or deduct marks for the absence of a diagram.
    - If a diagram is described or drawn, credit it positively under AO2.
 
-6. STRONG AND WIDE EVALUATION (AO3):
+6. STRONG AND WIDE EVALUATION & QUESTION FOCUS (AO3):
    - Check whether evaluation compares multiple perspectives (short-run vs long-run, differing stakeholders, trade-offs, opportunity costs, elasticity, policy alternatives).
+   - QUESTION FOCUS: For questions assessing whether a policy is the 'best way' or 'most effective' intervention, candidates must directly compare against alternative policies against explicit criteria (PED pass-through, equity/regressive impacts, administrative feasibility, government failure in tax calibration). Superficial or missing comparative weighing cannot exceed Level 1 (0-1/4) in AO3.
    - Be strict on superficial evaluation: a single token sentence or generic conclusion ('a mix of both is best') without justified criteria should be marked in lower/middle band (1-2 marks).
    - NO ARTIFICIAL NUMERIC CAPS: Do NOT apply rigid programmatic caps (such as 'caps AO3 at 1/4'). Evaluate the candidate's evaluative depth and breadth holistically on its economic merit.
 

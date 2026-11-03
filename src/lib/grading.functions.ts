@@ -99,7 +99,7 @@ export const gradeEssaySubmission = createServerFn({ method: "POST" })
 
     let outcome;
     try {
-      outcome = await gradeEssay(supabase, {
+      outcome = await gradeEssay(supabaseAdmin, {
         question: data.question,
         essayText: gradedText,
         maxMark: data.maxMark,

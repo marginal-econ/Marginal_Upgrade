@@ -148,44 +148,59 @@ export async function gradeEssay(
 
   // --- retrieval grounding ---------------------------------------------------
   let sources: GroundingSource[] = [];
+  
+  // Tier 1: Direct clean question query (exact vector match with syllabus and coursebook chapters)
   try {
-    sources = await Promise.race([
-      retrieve(supabase, {
-        query: `${question}\n\nMark scheme, coursebook chapter, band descriptors, and examiner report guidance for this question.`,
-        matchCount: 8,
-        docTypes: ["mark_scheme", "examiner_report", "syllabus", "coursebook", "notes", "past_paper", "other"],
-        topicId: options.topicId ?? null,
-        minSimilarity: 0.45,
-        enableHybridRrf: true,
-      }),
-      new Promise<GroundingSource[]>((_, reject) =>
-        setTimeout(() => reject(new Error("Knowledge base lookup timed out (>12s)")), 12000),
-      ),
-    ]);
+    sources = await retrieve(supabase, {
+      query: question,
+      matchCount: 8,
+      minSimilarity: 0.38,
+      enableHybridRrf: true,
+    });
+  } catch (err1) {
+    console.warn("[grade.server] Direct question retrieval warning:", err1 instanceof Error ? err1.message : err1);
+  }
 
-    if (!sources || sources.length === 0) {
+  // Tier 2: Broader similarity threshold fallback
+  if (!sources || sources.length === 0) {
+    try {
       sources = await retrieve(supabase, {
         query: question,
         matchCount: 8,
-        minSimilarity: 0.38,
+        minSimilarity: 0.25,
         enableHybridRrf: true,
       });
+    } catch (err2) {
+      console.warn("[grade.server] Fallback similarity retrieval warning:", err2 instanceof Error ? err2.message : err2);
     }
+  }
 
-    if (!sources || sources.length === 0) {
+  // Tier 3: Syllabus and mark scheme enriched query fallback
+  if (!sources || sources.length === 0) {
+    try {
+      sources = await retrieve(supabase, {
+        query: `${question} - Cambridge 9708 mark scheme, syllabus, and coursebook criteria`,
+        matchCount: 8,
+        minSimilarity: 0.20,
+        enableHybridRrf: true,
+      });
+    } catch (err3) {
+      console.warn("[grade.server] Enriched retrieval warning:", err3 instanceof Error ? err3.message : err3);
+    }
+  }
+
+  // Tier 4: Broad syllabus floor fallback ensuring grounding is always established if any syllabus material exists
+  if (!sources || sources.length === 0) {
+    try {
       sources = await retrieve(supabase, {
         query: question,
         matchCount: 8,
-        minSimilarity: 0.28,
+        minSimilarity: 0.12,
         enableHybridRrf: true,
       });
+    } catch (err4) {
+      console.warn("[grade.server] Floor retrieval warning:", err4 instanceof Error ? err4.message : err4);
     }
-  } catch (error) {
-    console.warn(
-      "Knowledge base retrieval skipped or timed out, proceeding with Cambridge 9708 syllabus marking:",
-      error instanceof Error ? error.message : error,
-    );
-    sources = [];
   }
   if (sources.length > 0) {
     baseSystemPrompt = `${baseSystemPrompt}\n\n${renderContext(sources)}`;
