@@ -10,6 +10,8 @@ import { diffSentences, splitSentences } from "@/lib/writing-check/sentence-diff
 import { AO_DEFINITIONS, defaultSplitForMaxMark } from "@/lib/examiner/config";
 import { isMarginalAdmin } from "@/lib/auth-admin";
 import { normalizeIssueSpan } from "@/lib/live-examiner/normalize-issue-span";
+import { classifySentence } from "@/lib/live-examiner/sentence-engine";
+import { evaluateCambridgeAnswer } from "@/lib/live-examiner/client-evaluation";
 
 type AuthContextLike = {
   id?: string;
@@ -298,11 +300,11 @@ QUESTION (${level === "a2" ? "A Level" : "AS Level"}, ${maxMark} marks): ${quest
 ${contextBlock || "No syllabus material was retrieved for this question — be conservative about flagging economics content. Grammar/clarity/terminology issues are still fine to flag."}
 
 CRITICAL RULES:
-1. NO SYNONYMS: NEVER suggest mere synonyms (e.g. replacing 'leads to' with 'results in', or 'causes' with 'brings about'). If the student's phrasing is valid English and acceptable economics, DO NOT FLAG IT.
-2. DO NOT REPLACE CORRECT SENTENCES: If a sentence is economically sound and grammatically correct, leave it completely untouched. Only flag genuine errors.
+1. NO SYNONYMS: NEVER suggest mere synonyms (e.g. replacing 'leads to' with 'results in', or 'causes' with 'brings about'). If the student's phrasing is valid English and developed economics, DO NOT FLAG IT for style.
+2. FLAG SHALLOW / UNDEVELOPED CLAIMS FOR "analysis": If a sentence states an undeveloped economic assertion or stops at defining a concept without explaining the step-by-step causal mechanism (e.g. "Free trade can lead to specialisation where countries focus on producing a limited range of products" without explaining comparative advantage, lower opportunity cost, economies of scale, and lower consumer prices), flag the trailing phrase as "analysis" and suggest extending the causal chain.
 3. NO ASTERISKS OR MARKDOWN: Output strictly clean plain text. NEVER include asterisks (** or *), bolding, or markdown in "original", "suggestion", "explanation", or "headline".
 4. MINIMAL SPANS & NO SENTENCE CHOPPING:
-   - "original" MUST be ONLY the exact erroneous word or short phrase inside the sentence (typically 1 to 4 words). DO NOT quote the entire sentence in "original" unless the whole sentence is fundamentally flawed and needs a complete rewrite.
+   - "original" MUST be ONLY the exact erroneous word or short phrase inside the sentence (typically 1 to 6 words). DO NOT quote the entire sentence in "original" unless the whole sentence is fundamentally flawed and needs a complete rewrite.
    - "suggestion" MUST be ONLY the exact drop-in replacement for "original" (never a partial word, never the whole sentence unless "original" was the whole sentence). When "original" is replaced by "suggestion", the sentence must read smoothly and correctly. Never output a suggestion identical to "original".
    - NEVER chop off the start or end of words (e.g. if the typo is "Exmaples", suggestion must be "Examples", NEVER "amples").
 5. STRICT GRAMMAR QUALITY:
@@ -324,17 +326,21 @@ Categories you may flag, and ONLY these:
 - "clarity": a sentence that is genuinely hard to follow, broken, or ambiguous — not merely simple. (Writing mechanics.)
 - "economics_accuracy": a factually wrong economics claim that DIRECTLY CONTRADICTS the syllabus material above. (${AO_DEFINITIONS.ao1.code} ${AO_DEFINITIONS.ao1.name} — ${AO_DEFINITIONS.ao1.description}.)
 - "terminology": an economics term used incorrectly or misspelled (e.g. 'monopolistic' instead of 'monopoly'). (${AO_DEFINITIONS.ao1.code} ${AO_DEFINITIONS.ao1.name}.)
-- "analysis": a claim stated with no causal chain (e.g. "prices rise so GDP falls" without explaining why). (${AO_DEFINITIONS.ao2.code} ${AO_DEFINITIONS.ao2.name} — ${AO_DEFINITIONS.ao2.description}.)
+- "analysis": a claim stated with no causal chain, or stopping at a definition without explaining the economic mechanism (cause -> market adjustment -> outcome on costs, prices, output, or welfare). (${AO_DEFINITIONS.ao2.code} ${AO_DEFINITIONS.ao2.name} — ${AO_DEFINITIONS.ao2.description}.)
 - "application": analysis that ignores the context/scenario in the question. (${AO_DEFINITIONS.ao2.code} ${AO_DEFINITIONS.ao2.name}.)
 - "reasoning_chain": a genuine logical contradiction where the conclusion contradicts the premise. (${AO_DEFINITIONS.ao2.code} ${AO_DEFINITIONS.ao2.name}.)
 - "evaluation": an assertive claim made without justification, limitation, or balance where the question requires evaluation. (${AO_DEFINITIONS.ao3.code} ${AO_DEFINITIONS.ao3.name}.)
 
-WHOLE SENTENCE CLASSIFICATION:
-Classify every creditworthy economic sentence into assessment objectives. The student needs to see whole sentences highlighted:
-- AO1: Knowledge, definitions, concepts, diagrams, facts, and terminology.
-- AO2: Application to context, explanation of mechanisms, causal links, and developed analysis.
-- AO3: Evaluation, balance, weighing significance, limitations, and justified judgement.
+WHOLE SENTENCE CLASSIFICATION & STRICT RUNNING MARK CALIBRATION:
+Classify every creditworthy economic sentence into assessment objectives:
+- AO1: Knowledge, definitions, concepts, formulas, diagrams, facts, or identifying what a term means. IMPORTANT: A sentence that states "X can lead to Y where Y means..." (e.g. "Free trade can lead to specialisation where countries can focus on producing a limited range of products") is AO1 Knowledge (defining specialisation), NEVER AO2 Analysis!
+- AO2: ONLY sentences that explain a multi-step causal economic mechanism with directional market/macro outcomes (e.g. how comparative advantage and economies of scale lower average costs, reduce consumer prices, and increase real GDP).
+- AO3: Evaluation, balance, weighing significance, limitations, elasticity/time-lag conditions, and justified judgement.
 For "original" in classifications, return the FULL sentence text from "SENTENCES TO CHECK", so the whole sentence is cleanly highlighted.
+When estimating "predicted_mark":
+- 1 AO1 definition sentence earns 1 AO1 mark; 2+ AO1 sentences earn ${split.ao1_marks}/${split.ao1_marks} AO1 marks.
+- If there are 0 genuine AO2 causal mechanism sentences, analysis.awarded MUST be 0 (never award 4/12 for two AO1 sentences!).
+- If there are 0 genuine AO3 evaluation sentences, evaluation.awarded MUST be 0.
 
 Respond ONLY with a single valid JSON object, no markdown fences, no commentary, in exactly this shape:
 {
@@ -370,10 +376,9 @@ QUESTION: ${question}
 ${contextBlock || "No syllabus material is available."}
 
 For EACH candidate below, decide keep or reject:
-- REJECT any candidate that is merely suggesting a synonym or stylistic rephrasing for an already correct sentence.
-- REJECT any candidate whose original sentence was already valid economics and acceptable English.
+- REJECT any candidate that is merely suggesting a synonym or stylistic rephrasing for an already developed sentence.
 - REJECT any "economics_accuracy" candidate whose "evidence" is not an exact, verbatim quote from the syllabus material above, or whose evidence does not actually contradict the student's sentence when you re-read both side by side.
-- REJECT any "analysis" / "application" / "evaluation" / "reasoning_chain" candidate if the student's original sentence is actually a valid way of making a correct point.
+- KEEP any "analysis" / "application" / "evaluation" candidate that shows the student how to extend a shallow/undeveloped claim or definition into a full Cambridge causal mechanism or evaluative judgement.
 - REJECT anything vague, debatable, or where a reasonable examiner could disagree.
 - KEEP only candidates you would be comfortable defending in front of the student with the evidence shown.
 - Ensure "explanation" contains NO asterisks or markdown formatting.
@@ -523,10 +528,43 @@ export function sanitisePredictedMark(
   const analysis = parseAo(["analysis", "AO2", "ao2"], split.ao2_marks);
   const evaluation = parseAo(["evaluation", "AO3", "ao3"], split.ao3_marks);
 
+  // Calibrate against deterministic Cambridge AO classification so LLM cannot inflate AO2/AO3
+  // when there are 0 genuine AO2/AO3 sentences in the essay (e.g. 2 AO1 definition sentences = 2/12, never 4/12).
+  if (essayText && essayText.trim().length > 0 && question) {
+    const detEval = evaluateCambridgeAnswer(essayText, question, maxMark, "as");
+    const ao2Count = detEval.classifications.filter((c) => c.ao === "AO2").length;
+    const ao3Count = detEval.classifications.filter((c) => c.ao === "AO3").length;
+    if (ao2Count === 0) {
+      analysis.awarded = 0;
+    } else {
+      analysis.awarded = Math.min(
+        analysis.out_of,
+        analysis.awarded,
+        detEval.predictedMark.ao_breakdown.analysis.awarded + 1,
+      );
+    }
+    if (ao3Count === 0) {
+      evaluation.awarded = 0;
+    } else {
+      evaluation.awarded = Math.min(
+        evaluation.out_of,
+        evaluation.awarded,
+        detEval.predictedMark.ao_breakdown.evaluation.awarded + 1,
+      );
+    }
+    knowledge.awarded = Math.min(
+      knowledge.out_of,
+      Math.max(knowledge.awarded, detEval.predictedMark.ao_breakdown.knowledge.awarded),
+    );
+  }
+
   const totalCalculated = knowledge.awarded + analysis.awarded + evaluation.awarded;
-  let totalMark = rawObj.total_mark !== undefined 
-    ? (typeof rawObj.total_mark === "number" ? rawObj.total_mark : parseFloat(String(rawObj.total_mark)))
-    : totalCalculated;
+  let totalMark =
+    rawObj.total_mark !== undefined && (!essayText || !question)
+      ? typeof rawObj.total_mark === "number"
+        ? rawObj.total_mark
+        : parseFloat(String(rawObj.total_mark))
+      : totalCalculated;
 
   if (isNaN(totalMark)) totalMark = totalCalculated;
   totalMark = Math.min(Math.max(0, Math.round(totalMark)), totalCalculated);
@@ -692,12 +730,21 @@ export const checkEssayWriting = createServerFn({ method: "POST" })
         const idx = Number(record.sentence_index);
         const sentence = Number.isInteger(idx) ? toSend[idx - 1] : undefined;
         let original = typeof record.original === "string" ? stripAsterisks(record.original) : "";
-        const explanation = typeof record.explanation === "string" ? stripAsterisks(record.explanation) : "";
-        const ao = AO_CODES.includes(record.ao as (typeof AO_CODES)[number])
+        let explanation = typeof record.explanation === "string" ? stripAsterisks(record.explanation) : "";
+        let ao = AO_CODES.includes(record.ao as (typeof AO_CODES)[number])
           ? (record.ao as (typeof AO_CODES)[number])
           : null;
         if (!sentence || !ao) return [];
         if (/\[DIAGRAM:[^\]]*\]/i.test(original)) return [];
+
+        // Cross-check with deterministic sentence classifier: if the sentence is a high-confidence
+        // AO1 definition (e.g. "Free trade is when..." or "Free trade can lead to specialisation where..."),
+        // prevent the LLM from misclassifying it as AO2 Analysis.
+        const detClassification = classifySentence(sentence);
+        if (detClassification && detClassification.ao === "AO1" && detClassification.confidence >= 0.9) {
+          ao = "AO1";
+          explanation = detClassification.explanation;
+        }
 
         // If model returns a partial phrase or exact sentence, prefer whole sentence
         // so highlighting is clean, seamless, and unbroken across the entire sentence.

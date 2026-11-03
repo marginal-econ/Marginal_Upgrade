@@ -962,25 +962,45 @@ function LiveExaminerPage() {
               </div>
               <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-border bg-muted/25 px-4 py-2 text-[11px]">
                 <span className="flex items-center gap-1.5 font-medium">
-                  <span className="size-2 rounded-full bg-ao1" /> AO1 Knowledge
-                  <span className="rounded bg-ao1/15 px-1.5 py-0.5 font-mono text-[10px] font-bold text-ao1">
+                  <span className="size-2 rounded-full bg-sky-400" />
+                  <span className="underline decoration-sky-400 decoration-2 underline-offset-4">
+                    AO1 Knowledge
+                  </span>
+                  <span className="rounded bg-sky-500/15 px-1.5 py-0.5 font-mono text-[10px] font-bold text-sky-400">
                     {classifications.filter((c) => c.ao === "AO1").length}
                   </span>
                 </span>
                 <span className="flex items-center gap-1.5 font-medium">
-                  <span className="size-2 rounded-full bg-ao2" /> AO2 Analysis
-                  <span className="rounded bg-ao2/15 px-1.5 py-0.5 font-mono text-[10px] font-bold text-ao2">
+                  <span className="size-2 rounded-full bg-emerald-400" />
+                  <span className="underline decoration-emerald-400 decoration-2 underline-offset-4">
+                    AO2 Analysis
+                  </span>
+                  <span className="rounded bg-emerald-500/15 px-1.5 py-0.5 font-mono text-[10px] font-bold text-emerald-400">
                     {classifications.filter((c) => c.ao === "AO2").length}
                   </span>
                 </span>
                 <span className="flex items-center gap-1.5 font-medium">
-                  <span className="size-2 rounded-full bg-ao3" /> AO3 Evaluation
-                  <span className="rounded bg-ao3/15 px-1.5 py-0.5 font-mono text-[10px] font-bold text-ao3">
+                  <span className="size-2 rounded-full bg-amber-400" />
+                  <span className="underline decoration-amber-400 decoration-2 underline-offset-4">
+                    AO3 Evaluation
+                  </span>
+                  <span className="rounded bg-amber-500/15 px-1.5 py-0.5 font-mono text-[10px] font-bold text-amber-400">
                     {classifications.filter((c) => c.ao === "AO3").length}
                   </span>
                 </span>
+                {issues.length > 0 ? (
+                  <span className="flex items-center gap-1.5 font-medium">
+                    <span className="size-2 rounded-full bg-orange-400" />
+                    <span className="underline decoration-orange-400 decoration-wavy decoration-2 underline-offset-4">
+                      Suggestions
+                    </span>
+                    <span className="rounded bg-orange-500/15 px-1.5 py-0.5 font-mono text-[10px] font-bold text-orange-400">
+                      {issues.length}
+                    </span>
+                  </span>
+                ) : null}
                 <span className="ml-auto text-muted-foreground hidden sm:inline">
-                  Hover or click any highlighted sentence or word for instant examiner feedback
+                  Hover or click any underlined sentence or wavy phrase for instant feedback
                 </span>
               </div>
               <LiveExaminerEditor

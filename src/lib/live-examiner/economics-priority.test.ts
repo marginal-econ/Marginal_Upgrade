@@ -273,25 +273,64 @@ Here is a very long script that was 4000 characters long and should be stripped 
     expect(dirtySuggestion).not.toContain("*");
   });
 
-  it("immediately awards running marks once a definition is given (including the Free Trade prompt)", async () => {
+  it("accurately classifies both Free Trade definition sentences as AO1 (2/12, never 4/12) and coaches AO2 expansion", async () => {
     const { evaluateCambridgeAnswer } = await import("./client-evaluation");
+    const { sanitisePredictedMark } = await import("../live-examiner.functions");
     const question =
       "Assess the extent to which the consequences of free trade are always positive for an economy";
 
-    // 1. Definition only
+    // 1. First definition sentence only -> 1/12 (AO1: 1/2)
     const defOnly =
-      "Free trade is when countries trade with each other with minimal restriction such as tariffs and quotas.";
+      "Free trade is when countries trade with each other with few barriers such as tariffs and quotas.";
     const defEval = evaluateCambridgeAnswer(defOnly, question, 12);
-    expect(defEval.predictedMark.ao_breakdown.knowledge.awarded).toBe(2);
-    expect(defEval.predictedMark.total_mark).toBeGreaterThanOrEqual(2);
+    expect(defEval.classifications).toHaveLength(1);
+    expect(defEval.classifications[0].ao).toBe("AO1");
+    expect(defEval.predictedMark.ao_breakdown.knowledge.awarded).toBe(1);
+    expect(defEval.predictedMark.ao_breakdown.analysis.awarded).toBe(0);
+    expect(defEval.predictedMark.total_mark).toBe(1);
 
-    // 2. Definition + initial AO2 specialisation sentence (34 words from screenshot)
+    // 2. Both sentences from screenshot (defining free trade + defining specialisation) -> BOTH are AO1, score is 2/12 (never 4/12)
     const twoSentences =
-      "Free trade is when countries trade with each other with minimal restriction such as tariffs and quotas. Free trade can lead to specialisation where countries can focus on producing a limited range of products.";
+      "Free trade is when countries trade with each other with few barriers such as tariffs and quotas. Free trade can lead to specialisation where countries can focus on producing a limited range of products.";
     const twoEval = evaluateCambridgeAnswer(twoSentences, question, 12);
+    expect(twoEval.classifications).toHaveLength(2);
+    expect(twoEval.classifications[0].ao).toBe("AO1");
+    expect(twoEval.classifications[1].ao).toBe("AO1");
     expect(twoEval.predictedMark.ao_breakdown.knowledge.awarded).toBe(2);
-    expect(twoEval.predictedMark.ao_breakdown.analysis.awarded).toBeGreaterThanOrEqual(1);
-    expect(twoEval.predictedMark.total_mark).toBeGreaterThanOrEqual(3);
+    expect(twoEval.predictedMark.ao_breakdown.analysis.awarded).toBe(0);
+    expect(twoEval.predictedMark.ao_breakdown.evaluation.awarded).toBe(0);
+    expect(twoEval.predictedMark.total_mark).toBe(2);
+
+    // Must flag an AO2 analysis coaching suggestion on the shallow specialisation definition
+    expect(twoEval.issues.some((i) => i.category === "analysis")).toBe(true);
+
+    // Even if LLM hallucinated 4/12 (AO1: 2, AO2: 2), sanitisePredictedMark must clamp AO2 to 0 -> 2/12
+    const clamped = sanitisePredictedMark(
+      {
+        total_mark: 4,
+        confidence: 0.8,
+        headline: "Inflated mark",
+        ao_breakdown: {
+          knowledge: { awarded: 2, out_of: 2 },
+          analysis: { awarded: 2, out_of: 6 },
+          evaluation: { awarded: 0, out_of: 4 },
+        },
+      },
+      12,
+      question,
+      twoSentences,
+    );
+    expect(clamped?.ao_breakdown.knowledge.awarded).toBe(2);
+    expect(clamped?.ao_breakdown.analysis.awarded).toBe(0);
+    expect(clamped?.total_mark).toBe(2);
+
+    // 3. Adding a genuine AO2 causal mechanism sentence earns AO2 credit (3-4/12)
+    const withDevelopedAo2 = `${twoSentences} By specialising in goods with a lower opportunity cost due to comparative advantage, firms exploit economies of scale, lowering average costs and reducing consumer prices, which raises consumer surplus and real GDP.`;
+    const devEval = evaluateCambridgeAnswer(withDevelopedAo2, question, 12);
+    expect(devEval.classifications[2].ao).toBe("AO2");
+    expect(devEval.predictedMark.ao_breakdown.knowledge.awarded).toBe(2);
+    expect(devEval.predictedMark.ao_breakdown.analysis.awarded).toBeGreaterThanOrEqual(1);
+    expect(devEval.predictedMark.total_mark).toBeGreaterThanOrEqual(3);
   });
 });
 

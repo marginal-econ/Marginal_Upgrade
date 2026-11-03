@@ -796,6 +796,51 @@ const RULES: RuleDefinition[] = [
     },
     explanation: "Use 'a' instead of 'an' before words starting with a consonant sound.",
   },
+  {
+    id: "grammar_minimal_restriction_plural",
+    category: "grammar",
+    severity: "low",
+    pattern: /\b(minimal|few|no)\s+restriction\s+such\s+as\b/gi,
+    getSuggestion: (m) => `${m[1]} restrictions such as`,
+    explanation:
+      "Plural agreement: use plural 'restrictions' when followed by multiple examples ('such as tariffs and quotas').",
+  },
+  // ---- LAYER 5: Undeveloped AO2 Analysis Coaching (shallow claims stopping at definitions) ----
+  {
+    id: "shallow_specialisation_chain",
+    category: "analysis",
+    severity: "medium",
+    pattern:
+      /\bproducing\s+a\s+(?:limited|narrow)\s+range\s+of\s+(?:products|goods(?:\s+and\s+services)?)\b/i,
+    getSuggestion: () =>
+      "producing goods where they hold a comparative advantage (lower opportunity cost), exploiting economies of scale to lower average costs and reduce consumer prices",
+    explanation:
+      "AO2 Analysis needed: Defining specialisation earns AO1 Knowledge, but to earn AO2 Analysis marks you must explain the mechanism — how comparative advantage and economies of scale lower average costs, reduce prices, and raise consumer surplus or real GDP.",
+    evidence:
+      "Cambridge 9708 AO2 requires developed causal chains linking specialisation via comparative advantage and economies of scale to lower costs, lower prices, and higher welfare.",
+  },
+  {
+    id: "shallow_free_trade_benefit_claim",
+    category: "analysis",
+    severity: "medium",
+    pattern:
+      /\bfree\s+trade\s+(?:is|can\s+be)\s+(?:always\s+)?(?:positive|beneficial|good)\s+for\s+(?:an?\s+)?(?:economy|countries|consumers)\b/i,
+    getSuggestion: () =>
+      "free trade raises economic welfare by enabling specialisation according to comparative advantage, expanding world output and lowering domestic prices",
+    explanation:
+      "AO2 Analysis needed: Avoid bare assertions that free trade is positive; state the exact transmission mechanism (comparative advantage, lower import prices, consumer surplus, and outward shift of AD/AS).",
+  },
+  {
+    id: "shallow_policy_good_bad_claim",
+    category: "analysis",
+    severity: "medium",
+    pattern:
+      /\b(subsidies|tariffs|quotas|indirect\s+taxes|fiscal\s+policy|monetary\s+policy|supply-side\s+policies)\s+(?:are|is)\s+(?:very\s+)?(?:good|bad|beneficial|harmful|positive|negative)\s+for\s+(?:the\s+|an\s+)?(?:economy|consumers|firms|government)\b/i,
+    getSuggestion: (m) =>
+      `${m[1]} shift market incentives and resource allocation, impacting price, output, and economic welfare`,
+    explanation:
+      "AO2 Analysis needed: Replace general 'good/bad for the economy' assertions with a step-by-step causal chain showing which curve shifts (Demand, Supply, AD, or AS) and how equilibrium price and output adjust.",
+  },
 ];
 
 export const COMMON_TYPOS: Readonly<Record<string, string>> = {

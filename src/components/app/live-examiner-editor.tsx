@@ -41,83 +41,83 @@ const CATEGORY_META: Record<IssueCategory, UnderlineStyleMeta> = {
   grammar: {
     label: "Grammar",
     dot: "bg-rose-500 dark:bg-rose-400",
-    underlineColor: "rgba(244, 63, 94, 0.75)",
-    underlineStyle: "dashed",
-    underlineThickness: "1.5px",
-    offset: "6px",
-    backgroundColor: "rgba(244, 63, 94, 0.07)",
+    underlineColor: "rgba(251, 113, 133, 0.95)",
+    underlineStyle: "wavy",
+    underlineThickness: "2px",
+    offset: "5px",
+    backgroundColor: "rgba(244, 63, 94, 0.16)",
   },
   clarity: {
     label: "Clarity",
-    dot: "bg-muted-foreground",
-    underlineColor: "rgba(161, 161, 170, 0.75)",
+    dot: "bg-purple-400",
+    underlineColor: "rgba(192, 132, 252, 0.95)",
     underlineStyle: "dashed",
-    underlineThickness: "1.5px",
-    offset: "6px",
-    backgroundColor: "rgba(161, 161, 170, 0.07)",
+    underlineThickness: "2px",
+    offset: "5px",
+    backgroundColor: "rgba(192, 132, 252, 0.14)",
   },
   economics_accuracy: {
     label: "Economics accuracy",
     dot: "bg-rose-600 dark:bg-rose-400",
-    underlineColor: "rgba(225, 29, 72, 0.85)",
+    underlineColor: "rgba(244, 63, 94, 0.98)",
     underlineStyle: "wavy",
-    underlineThickness: "1.75px",
-    offset: "6px",
-    backgroundColor: "rgba(225, 29, 72, 0.08)",
+    underlineThickness: "2px",
+    offset: "5px",
+    backgroundColor: "rgba(225, 29, 72, 0.18)",
   },
   misconception: {
     label: "Economic misconception",
     dot: "bg-red-600 dark:bg-red-400",
-    underlineColor: "rgba(220, 38, 38, 0.90)",
+    underlineColor: "rgba(239, 68, 68, 0.98)",
     underlineStyle: "wavy",
-    underlineThickness: "1.75px",
-    offset: "6px",
-    backgroundColor: "rgba(220, 38, 38, 0.09)",
+    underlineThickness: "2px",
+    offset: "5px",
+    backgroundColor: "rgba(220, 38, 38, 0.18)",
   },
   analysis: {
-    label: "Analysis",
-    dot: "bg-ao2",
-    underlineColor: "rgba(16, 185, 129, 0.65)",
-    underlineStyle: "solid",
-    underlineThickness: "1.5px",
-    offset: "6px",
-    backgroundColor: "rgba(16, 185, 129, 0.09)",
+    label: "Extend AO2 Analysis",
+    dot: "bg-orange-400",
+    underlineColor: "rgba(251, 146, 60, 0.96)",
+    underlineStyle: "wavy",
+    underlineThickness: "2px",
+    offset: "5px",
+    backgroundColor: "rgba(251, 146, 60, 0.16)",
   },
   application: {
-    label: "Application",
-    dot: "bg-ao2",
-    underlineColor: "rgba(16, 185, 129, 0.65)",
-    underlineStyle: "solid",
-    underlineThickness: "1.5px",
-    offset: "6px",
-    backgroundColor: "rgba(16, 185, 129, 0.09)",
+    label: "Extend AO2 Application",
+    dot: "bg-orange-400",
+    underlineColor: "rgba(251, 146, 60, 0.96)",
+    underlineStyle: "wavy",
+    underlineThickness: "2px",
+    offset: "5px",
+    backgroundColor: "rgba(251, 146, 60, 0.16)",
   },
   evaluation: {
-    label: "Evaluation",
-    dot: "bg-ao3",
-    underlineColor: "rgba(245, 158, 11, 0.70)",
-    underlineStyle: "solid",
-    underlineThickness: "1.5px",
-    offset: "6px",
-    backgroundColor: "rgba(245, 158, 11, 0.10)",
+    label: "Extend AO3 Evaluation",
+    dot: "bg-amber-400",
+    underlineColor: "rgba(251, 191, 36, 0.96)",
+    underlineStyle: "wavy",
+    underlineThickness: "2px",
+    offset: "5px",
+    backgroundColor: "rgba(251, 191, 36, 0.16)",
   },
   reasoning_chain: {
     label: "Chain of reasoning",
-    dot: "bg-ao2",
-    underlineColor: "rgba(16, 185, 129, 0.65)",
-    underlineStyle: "solid",
-    underlineThickness: "1.5px",
-    offset: "6px",
-    backgroundColor: "rgba(16, 185, 129, 0.09)",
+    dot: "bg-orange-400",
+    underlineColor: "rgba(251, 146, 60, 0.96)",
+    underlineStyle: "wavy",
+    underlineThickness: "2px",
+    offset: "5px",
+    backgroundColor: "rgba(251, 146, 60, 0.16)",
   },
   terminology: {
     label: "Terminology",
-    dot: "bg-ao1",
-    underlineColor: "rgba(59, 130, 246, 0.65)",
-    underlineStyle: "solid",
-    underlineThickness: "1.5px",
-    offset: "6px",
-    backgroundColor: "rgba(59, 130, 246, 0.09)",
+    dot: "bg-purple-400",
+    underlineColor: "rgba(192, 132, 252, 0.95)",
+    underlineStyle: "dashed",
+    underlineThickness: "2px",
+    offset: "5px",
+    backgroundColor: "rgba(192, 132, 252, 0.15)",
   },
 };
 
@@ -126,30 +126,30 @@ const DIAGRAM_TAG = /\[DIAGRAM:[^\]]*\]/g;
 export const AO_META: Record<"AO1" | "AO2" | "AO3", UnderlineStyleMeta> = {
   AO1: {
     label: "AO1 Knowledge",
-    dot: "bg-ao1",
-    underlineColor: "rgba(59, 130, 246, 0.65)",
+    dot: "bg-sky-400",
+    underlineColor: "rgba(56, 189, 248, 0.95)",
     underlineStyle: "solid",
-    underlineThickness: "1.5px",
+    underlineThickness: "2px",
     offset: "6px",
-    backgroundColor: "rgba(59, 130, 246, 0.09)",
+    backgroundColor: "rgba(56, 189, 248, 0.11)",
   },
   AO2: {
     label: "AO2 Analysis",
-    dot: "bg-ao2",
-    underlineColor: "rgba(16, 185, 129, 0.65)",
+    dot: "bg-emerald-400",
+    underlineColor: "rgba(16, 185, 129, 0.95)",
     underlineStyle: "solid",
-    underlineThickness: "1.5px",
+    underlineThickness: "2px",
     offset: "6px",
-    backgroundColor: "rgba(16, 185, 129, 0.09)",
+    backgroundColor: "rgba(16, 185, 129, 0.12)",
   },
   AO3: {
     label: "AO3 Evaluation",
-    dot: "bg-ao3",
-    underlineColor: "rgba(245, 158, 11, 0.70)",
+    dot: "bg-amber-400",
+    underlineColor: "rgba(245, 158, 11, 0.95)",
     underlineStyle: "solid",
-    underlineThickness: "1.5px",
+    underlineThickness: "2.25px",
     offset: "6px",
-    backgroundColor: "rgba(245, 158, 11, 0.10)",
+    backgroundColor: "rgba(245, 158, 11, 0.13)",
   },
 };
 
@@ -309,14 +309,19 @@ export function computeRanges(
     const matched = sortedClassifications.find((c) => {
       const cContext = (c.context || "").trim();
       const cOrig = (c.original || "").trim();
-      return (
-        cContext === trimmed ||
-        cOrig === trimmed ||
-        cContext.includes(trimmed) ||
-        trimmed.includes(cContext) ||
-        cOrig.includes(trimmed) ||
-        trimmed.includes(cOrig)
-      );
+      if (
+        cContext.length >= 8 &&
+        (cContext === trimmed || cContext.includes(trimmed) || trimmed.includes(cContext))
+      ) {
+        return true;
+      }
+      if (
+        cOrig.length >= 8 &&
+        (cOrig === trimmed || cOrig.includes(trimmed) || trimmed.includes(cOrig))
+      ) {
+        return true;
+      }
+      return false;
     });
 
     const activeClassification: ActiveAoClassification = matched

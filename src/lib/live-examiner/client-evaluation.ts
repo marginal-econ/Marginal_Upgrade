@@ -162,10 +162,9 @@ export function evaluateCambridgeAnswer(
   // Calculate marks calibrated to Cambridge 9708 tariffs & Essay Grader bands
   let ao1Awarded = 0;
   if (
-    (wordCount >= 10 && ao1Count >= 1) ||
     ao1Count >= 2 ||
-    (ao1Count >= 1 && matchedTerms.size >= 1) ||
-    (wordCount >= 12 && matchedTerms.size >= 2)
+    (wordCount >= 40 && ao1Count >= 1) ||
+    (ao1Count >= 1 && ao2Count >= 1 && wordCount >= 28)
   ) {
     ao1Awarded = split.ao1_marks;
   } else if (ao1Count >= 1 || (wordCount >= 4 && matchedTerms.size >= 1)) {
@@ -185,10 +184,10 @@ export function evaluateCambridgeAnswer(
     ao2Awarded = Math.min(split.ao2_marks, Math.max(5, Math.round(split.ao2_marks * 0.95)));
   } else if ((wordCount >= 120 && ao2Count >= 3) || ao2Count >= 3 || ao2Units >= 3.2) {
     ao2Awarded = Math.min(split.ao2_marks, Math.max(4, Math.round(split.ao2_marks * 0.8)));
-  } else if ((wordCount >= 50 && ao2Count >= 2) || (ao2Count >= 2 && hasDiagram)) {
-    ao2Awarded = Math.min(split.ao2_marks, Math.max(3, Math.round(split.ao2_marks * 0.6)));
-  } else if ((wordCount >= 8 && ao2Count >= 1) || hasDiagram) {
-    ao2Awarded = Math.min(split.ao2_marks, Math.max(1, Math.round(split.ao2_marks * 0.3)));
+  } else if ((wordCount >= 60 && ao2Count >= 2) || (ao2Count >= 2 && hasDiagram) || ao2Units >= 2.3) {
+    ao2Awarded = Math.min(split.ao2_marks, Math.max(2, Math.round(split.ao2_marks * 0.5)));
+  } else if ((wordCount >= 10 && ao2Count >= 1) || hasDiagram) {
+    ao2Awarded = 1;
   }
 
   // Theoretical misconceptions cap AO2 analysis at Level 2 unless overridden by abundant clean chains

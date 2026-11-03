@@ -66,13 +66,13 @@ const EVAL_STRONG =
   /\b(however|although|though|even though|whereas|whilst|nevertheless|nonetheless|conversely|in contrast|by contrast|on the other hand|on the one hand|despite this|in spite of|despite the fact|depends? (?:on|upon)|depending on|dependent on|contingent (?:on|upon)|to (?:what|the) extent|the extent to which|degree to which|on balance|in conclusion|to conclude|in summary|to summarise|to summarize|ultimately|overall|all things considered|unless|provided that|only if|even if|only effective|only works if|limitations?|drawbacks?|trade-?offs?|unintended consequences?|government failure|black markets?|informal markets?|shadow econom\w+|regressive impact|time lags?|in the (?:short|long)[- ]run|short[- ]run (?:vs|versus) long[- ]run|not always|may not|might not|will not necessarily|not necessarily|most (?:important|significant|effective|critical)|more (?:important|effective|significant) than|less effective than|alternative polic(?:y|ies)|compared to|outweighs?|outweighed by|critical factor|crucial factor|pivotal factor|key determinant|questionable whether|debatable whether|fails to account for|overlooks|ceteris paribus|in practice|in reality|judgement|weigh(?:ing)?)\b/i;
 const EVAL_WEAK = /\b(but|yet|while|whilst|ineffective|effective|likely|unlikely|significant|magnitude|scale|elasticity|short-run|long-run)\b/i;
 const DEFINITION =
-  /\b(is defined as|are defined as|can be defined as|refers to|is the degree of responsiveness|is a measure of|is the measure of|measures the percentage change|measures how|is calculated as|is equal to|formula for|is the percentage change|occurs when|is the (?:total|amount|value|rate|ratio|process|situation|cost|price|quantity|difference|increase|decrease|sum|level)|are goods that are|are goods which|is a (?:good|service|tax|policy|market|situation|price|type)|are (?:goods|services|markets|firms|taxes|policies))\b/i;
+  /\b(is when|are when|occurs when|happens when|is defined as|are defined as|can be defined as|refers to|is the degree of responsiveness|is a measure of|is the measure of|measures the percentage change|measures how|is calculated as|is equal to|formula for|is the percentage change|is the (?:total|amount|value|rate|ratio|process|situation|cost|price|quantity|difference|increase|decrease|sum|level|ability|exchange|removal|absence)|are goods that are|are goods which|is a (?:good|service|tax|policy|market|situation|price|type|system|limit|ban|barrier)|are (?:goods|services|markets|firms|taxes|policies|barriers|restrictions)|with (?:few|no|minimal) (?:trade )?(?:barriers|restrictions) such as|where (?:countries|firms|producers|workers|economies|nations|individuals) (?:can )?(?:focus|concentrate|speciali[sz]e) on|focus(?:ing)? on producing a (?:limited|narrow|specific) range of (?:goods|products|services))\b/i;
 const DEFINITION_START =
   /^(?:a|an|the)?\s*[\w\s\-()/]{0,60}?\s(?:is|are)\s+(?:the|a|an|when|where|defined|goods|services)\b/i;
 const ECON_TERM =
-  /\b(demand|supply|price|elastic\w*|inelastic|ped|yed|pes|xed|equilibrium|externalit\w+|market failure|merit|demerit|public good|subsid\w+|tax\w*|tariff|quota|inflation|deflation|gdp|monopol\w+|oligopol\w+|competition|efficien\w+|surplus|opportunity cost|fiscal|monetary|interest rate|exchange rate|unemployment|aggregate|multiplier|welfare|incidence|margin\w*|utility|revenue|profit|output|firms?|consumers?|producers?|government)\b/i;
+  /\b(demand|supply|price|elastic\w*|inelastic|ped|yed|pes|xed|equilibrium|externalit\w+|market failure|merit|demerit|public good|subsid\w+|tax\w*|tariff\w*|quota\w*|free trade|protectionism|speciali[sz]ation|comparative advantage|absolute advantage|inflation|deflation|gdp|monopol\w+|oligopol\w+|competition|efficien\w+|surplus|opportunity cost|fiscal|monetary|interest rate|exchange rate|unemployment|aggregate|multiplier|welfare|incidence|margin\w*|utility|revenue|profit|output|firms?|consumers?|producers?|government)\b/i;
 const CONTEXT_APP =
-  /\b(for example|for instance|such as|in the case of|e\.g\.|toyota|apple|tesla|india|china|uk|us|usa|europe|opec|nhs|covid)\b/i;
+  /\b(for example|for instance|in the case of|e\.g\.|toyota|apple|tesla|india|china|uk|us|usa|europe|opec|nhs|covid)\b/i;
 
 /** Confidence-scored AO classification of one sentence. Pure and free. */
 export function classifySentence(sentence: string): SentenceClass {
@@ -83,7 +83,8 @@ export function classifySentence(sentence: string): SentenceClass {
 
   const isDef =
     DEFINITION.test(lower) ||
-    /^(?:ped|yed|pes|xed|price elasticity|income elasticity|cross elasticity|elasticity of supply|inflation|gdp|cpi|opportunity cost|fiscal policy|monetary policy)\s+(?:is|measures|refers to|represents)\b/i.test(
+    DEFINITION_START.test(lower) ||
+    /^(?:ped|yed|pes|xed|price elasticity|income elasticity|cross elasticity|elasticity of supply|inflation|deflation|gdp|cpi|opportunity cost|fiscal policy|monetary policy|free trade|protectionism|speciali[sz]ation|comparative advantage|absolute advantage|tariff\w*|quota\w*|subsid\w*)\s+(?:is|are|measures|refers to|represents|means|occurs when)\b/i.test(
       lower,
     ) ||
     /\b(demerit goods? are|merit goods? are|public goods? are|free riders? are)\b/i.test(lower);
@@ -93,8 +94,8 @@ export function classifySentence(sentence: string): SentenceClass {
   const direction = DIRECTION.test(lower);
   const applied = CONTEXT_APP.test(lower);
 
-  // 1. Definitions — unmistakably AO1, unless the sentence goes on to evaluate.
-  if (isDef && evalStrong === 0 && causal <= 1) {
+  // 1. Definitions — unmistakably AO1, unless the sentence goes on to evaluate or build a multi-step directional chain.
+  if (isDef && evalStrong === 0 && (causal === 0 || (causal === 1 && !direction))) {
     return {
       ao: "AO1",
       confidence: 0.95,
@@ -134,17 +135,21 @@ export function classifySentence(sentence: string): SentenceClass {
     };
   }
 
-  // 3. Analysis
-  if (causal >= 1 && hasEcon) {
+  // 3. Analysis — requires an actual causal transmission mechanism (multi-step causal chain, or causal + directional economic adjustment)
+  if ((causal >= 2 || (causal >= 1 && (direction || applied))) && hasEcon && !isDef) {
     return {
       ao: "AO2",
-      confidence: causal >= 2 || /because|leads? to|results? in|therefore|as a result|which means|consequently/i.test(lower) ? 0.88 : 0.74,
+      confidence:
+        causal >= 2 ||
+        /because|therefore|as a result|which means|consequently|leading to|resulting in/i.test(lower)
+          ? 0.88
+          : 0.76,
       strength: words >= 12 && (causal >= 2 || applied) ? 2 : 1,
       explanation:
         "AO2 Analysis: Causal transmission mechanism linking cause, market reaction, and economic outcome.",
     };
   }
-  if (applied && hasEcon) {
+  if (applied && hasEcon && !isDef) {
     return {
       ao: "AO2",
       confidence: 0.72,
@@ -153,20 +158,20 @@ export function classifySentence(sentence: string): SentenceClass {
         "AO2 Application: Economic theory applied to a specific example or context.",
     };
   }
-  if (causal >= 1 || (direction && hasEcon && words >= 8)) {
+  if ((causal >= 2 || (direction && hasEcon && words >= 10)) && !isDef) {
     return {
       ao: "AO2",
-      confidence: 0.6, // ambiguous -> may ask the AI
+      confidence: 0.65,
       strength: 1,
       explanation:
         "AO2 Analysis: Causal transmission mechanism linking cause, market reaction, and economic outcome.",
     };
   }
 
-  // 4. Knowledge / foundation
+  // 4. Knowledge / foundation (including single-step concept identification without a mechanism)
   return {
     ao: "AO1",
-    confidence: hasEcon ? 0.66 : 0.5,
+    confidence: hasEcon ? 0.82 : 0.5,
     strength: words < 5 ? 0 : hasEcon ? 1 : 0,
     explanation:
       "AO1 Knowledge: Foundational economic statement, terminology, or theoretical premise.",

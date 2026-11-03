@@ -10,6 +10,7 @@ import { isDailyLimitError } from "@/lib/usage-limits";
 import { cleanSuggestion } from "@/lib/live-examiner/clean-suggestion";
 import { normalizeIssueSpan } from "@/lib/live-examiner/normalize-issue-span";
 import { evaluateCambridgeAnswer } from "@/lib/live-examiner/client-evaluation";
+import { classifySentence } from "@/lib/live-examiner/sentence-engine";
 
 export type { PredictedMark };
 
@@ -381,18 +382,26 @@ export function useLiveExaminerCheck(params: {
             aiClassificationsRef.current.set(context.trim().toLowerCase(), activeCls);
           }
 
-          setClassifications(
-            clientBaseline.classifications.map((detCls) => {
-              const aiCls = aiClassificationsRef.current.get(detCls.context.trim().toLowerCase());
-              if (aiCls && currentText.includes(aiCls.context)) {
-                return aiCls;
-              }
+          const mergedClassifications = clientBaseline.classifications.map((detCls) => {
+            const detCheck = classifySentence(detCls.context);
+            // If deterministic classifier is >= 0.90 confident this is an AO1 definition,
+            // never allow an LLM classification to override it to AO2.
+            if (detCheck && detCheck.ao === "AO1" && detCheck.confidence >= 0.9) {
               return {
                 ...detCls,
                 id: classificationId(detCls),
               };
-            }),
-          );
+            }
+            const aiCls = aiClassificationsRef.current.get(detCls.context.trim().toLowerCase());
+            if (aiCls && currentText.includes(aiCls.context)) {
+              return aiCls;
+            }
+            return {
+              ...detCls,
+              id: classificationId(detCls),
+            };
+          });
+          setClassifications(mergedClassifications);
 
           recordHistory(combinedIssues);
           setDirty(false);
@@ -402,6 +411,9 @@ export function useLiveExaminerCheck(params: {
             const aOut = result.predictedMark.ao_breakdown.analysis.out_of;
             const eOut = result.predictedMark.ao_breakdown.evaluation.out_of;
             const hasClientCredit = clientBaseline.predictedMark.total_mark > 0;
+            const ao2SentenceCount = mergedClassifications.filter((c) => c.ao === "AO2").length;
+            const ao3SentenceCount = mergedClassifications.filter((c) => c.ao === "AO3").length;
+
             const kAw = hasClientCredit
               ? Math.min(
                   kOut,
@@ -411,29 +423,40 @@ export function useLiveExaminerCheck(params: {
                   ),
                 )
               : result.predictedMark.ao_breakdown.knowledge.awarded;
-            const aAw = hasClientCredit
-              ? Math.min(
-                  aOut,
-                  Math.max(
-                    result.predictedMark.ao_breakdown.analysis.awarded,
-                    clientBaseline.predictedMark.ao_breakdown.analysis.awarded,
-                  ),
-                )
-              : result.predictedMark.ao_breakdown.analysis.awarded;
-            const eAw = hasClientCredit
-              ? Math.min(
-                  eOut,
-                  Math.max(
-                    result.predictedMark.ao_breakdown.evaluation.awarded,
-                    clientBaseline.predictedMark.ao_breakdown.evaluation.awarded,
-                  ),
-                )
-              : result.predictedMark.ao_breakdown.evaluation.awarded;
+
+            const aAw =
+              ao2SentenceCount === 0
+                ? 0
+                : hasClientCredit
+                  ? Math.min(
+                      aOut,
+                      clientBaseline.predictedMark.ao_breakdown.analysis.awarded + 1,
+                      Math.max(
+                        result.predictedMark.ao_breakdown.analysis.awarded,
+                        clientBaseline.predictedMark.ao_breakdown.analysis.awarded,
+                      ),
+                    )
+                  : result.predictedMark.ao_breakdown.analysis.awarded;
+
+            const eAw =
+              ao3SentenceCount === 0
+                ? 0
+                : hasClientCredit
+                  ? Math.min(
+                      eOut,
+                      clientBaseline.predictedMark.ao_breakdown.evaluation.awarded + 1,
+                      Math.max(
+                        result.predictedMark.ao_breakdown.evaluation.awarded,
+                        clientBaseline.predictedMark.ao_breakdown.evaluation.awarded,
+                      ),
+                    )
+                  : result.predictedMark.ao_breakdown.evaluation.awarded;
+
             const calibratedMark: PredictedMark = {
               total_mark: Math.min(maxMark, kAw + aAw + eAw),
               confidence: result.predictedMark.confidence,
               headline:
-                kAw + aAw + eAw > result.predictedMark.total_mark
+                kAw + aAw + eAw !== result.predictedMark.total_mark
                   ? clientBaseline.predictedMark.headline
                   : result.predictedMark.headline,
               ao_breakdown: {
