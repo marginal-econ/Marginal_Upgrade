@@ -1157,12 +1157,12 @@ function GradePage() {
               active
               stages={[
                 { label: "Referring Cambridge 9708 Knowledge Base & Mark Schemes", weight: 3 },
-                { label: "Checking Assessment Objectives: AO1 Knowledge · AO2 Analysis · AO3 Evaluation", weight: 4 },
-                { label: "Evaluating diagrams, chains of reasoning & policy trade-offs", weight: 3 },
-                ...(auditPass ? [{ label: "Independent moderation & multi-pass verification", weight: 2 }] : []),
-                { label: "Synthesizing diagnostic examiner report & actionable feedback", weight: 2 },
+                { label: "Dual-Examiner Parallel Evaluation (Pass 1 Error Check & Pass 2 Holistic)", weight: 5 },
+                { label: "Checking Assessment Objectives: AO1 Knowledge · AO2 Application · AO3 Evaluation", weight: 4 },
+                { label: "Evaluating policy trade-offs, multi-perspective weighing & examples", weight: 3 },
+                { label: "Synthesizing diagnostic examiner report & actionable feedback", weight: 3 },
               ]}
-              totalMs={30_000}
+              totalMs={48_000}
             />
           ) : result ? (
             <div className="space-y-4">

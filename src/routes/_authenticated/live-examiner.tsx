@@ -1130,12 +1130,12 @@ function LiveExaminerPage() {
             <GradingProgress
               active
               stages={[
-                { label: "Reading question & rubric", weight: 1 },
-                { label: "Marking AO1 · AO2 · AO3", weight: 4 },
-                { label: "Independent audit pass", weight: 3 },
-                { label: "Finalising report", weight: 1 },
+                { label: "Referring Cambridge 9708 Knowledge Base & Mark Schemes", weight: 3 },
+                { label: "Dual-Examiner Parallel Evaluation (Pass 1 & Pass 2)", weight: 5 },
+                { label: "Checking Assessment Objectives: AO1 Knowledge · AO2 Analysis · AO3 Evaluation", weight: 4 },
+                { label: "Synthesizing diagnostic examiner report & actionable feedback", weight: 3 },
               ]}
-              totalMs={26_000}
+              totalMs={48_000}
             />
           ) : gradeMutation.data ? (
             <div className="space-y-4">

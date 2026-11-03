@@ -113,6 +113,7 @@ export async function gradeEssay(
   supabase: SupabaseClient<any>,
   options: GradeOptions,
 ): Promise<GradeOutcome> {
+  const startedAt = Date.now();
   const { question, essayText, maxMark, split } = options;
   const { ao1_marks, ao2_marks, ao3_marks } = split;
 
@@ -395,13 +396,14 @@ export async function gradeEssay(
   finalGrading.keyRotated = keyRotated;
   finalGrading.modelSwapped = modelSwapped;
   finalGrading.activeKeyType = activeKeyType;
-  finalGrading.latencyMs = latencyMs;
+  const totalLatencyMs = Date.now() - startedAt;
+  finalGrading.latencyMs = totalLatencyMs;
 
   return {
     grading: finalGrading,
     model: activeModel,
     promptTokens,
     completionTokens,
-    latencyMs,
+    latencyMs: totalLatencyMs,
   };
 }

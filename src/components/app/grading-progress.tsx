@@ -17,59 +17,58 @@ const DEFAULT_STAGE_DETAILS: Record<number, { title: string; bullets: string[] }
     bullets: [
       "Vector Embeddings: Executing cosine similarity search against official Cambridge mark schemes, coursebooks, and examiner reports in Supabase pgvector.",
       "Syllabus Grounding: Retrieving specific AS/A Level 9708 learning objectives and syllabus criteria corresponding to the essay prompt.",
-      "Chief Examiner Benchmarks: Referencing common candidate pitfalls and grade threshold boundaries from past exam series.",
+      "Relevance Pre-flight: Verifying question alignment (unrelated essays receive zero marks with no grace marks).",
     ],
   },
   1: {
-    title: "Assessment Objectives Analysis (AO1 Knowledge & AO2 Analysis)",
+    title: "Dual-Examiner Parallel Evaluation (Pass 1 Error Audit & Pass 2 Holistic)",
     bullets: [
-      "AO1 (Knowledge & Understanding): Verifying accuracy of economic definitions, theoretical terms, and foundational principles.",
-      "AO2 (Analysis): Tracing cause-and-effect transmission chains (e.g. monetary policy adjustments -> cost of borrowing -> consumption & investment -> AD shifts).",
-      "Diagrammatical Alignment: Ensuring theoretical assertions match the shifts and equilibrium points represented in the essay.",
+      "Examiner Pass 1 (Temp 0.0): Rigorous analytical check of economic transmission mechanisms, curve shifts, and key-term definitions.",
+      "Examiner Pass 2 (Temp 0.2): Holistic Cambridge assessment of overall argument quality, positive marking, and level descriptors.",
+      "Diagram Policy: Full credit for developed written analysis without diagrams; positive credit for diagram integration.",
     ],
   },
   2: {
-    title: "Evaluative Depth (AO3) & Policy Trade-offs",
+    title: "AO2 Real-World Application & Theoretical Models",
     bullets: [
-      "AO3 (Evaluation): Testing critical judgment, realism of underlying ceteris paribus assumptions, and short-run vs long-run distinctions.",
-      "Stakeholder Impact: Evaluating divergent outcomes across consumers, producers, workers, and government finances.",
-      "Synthesis: Checking whether conclusions directly address the prompt's command word ('Discuss', 'Evaluate', 'To what extent').",
+      "Real-World Application: Crediting detailed, context-specific applications (e.g. named markets or concrete empirical examples).",
+      "Guiding Theoretical Models: Evaluating theoretical demonstrations that provide a good show of the mechanism rather than empty one-liners.",
+      "Filtering Superficial References: Rejecting weak, passing one-liners that lack economic explanation.",
     ],
   },
   3: {
-    title: "Senior Examiner Moderation & Quality Benchmarks",
+    title: "AO3 Multi-Perspective Evaluation & Policy Trade-offs",
     bullets: [
-      "Senior Examiner Verification: Calibrating level descriptors across Cambridge 9708 standards to eliminate grade clustering.",
-      "Senior Examiner Moderation: Cross-verifying marks against Cambridge Assessment International Education rubric descriptors.",
-      "Cambridge Grade Band Calibration: Harmonizing raw marks against historical 9708 Grade A*, A, B, C cut-offs.",
+      "Multi-Perspective Weighing: Testing short-run vs long-run impacts, conflicting stakeholder outcomes, and elasticity conditions.",
+      "Policy Trade-offs & Opportunity Costs: Comparing the policy against alternatives on stated criteria without artificial numeric caps.",
+      "Synthesis: Ensuring conclusions directly address the prompt's command directive.",
     ],
   },
   4: {
-    title: "Diagnostic Examiner Report Synthesis",
+    title: "Principal Examiner Synthesis & Diagnostic Report",
     bullets: [
-      "Line-by-Line Annotations: Attaching constructive examiner feedback tags directly to specific student sentences.",
-      "Band Classification: Determining definitive marks across AO1, AO2, AO3, and overall tariff.",
-      "Exemplar Model Rewrite: Synthesizing concrete upgrade suggestions showing how to elevate the essay to the next band.",
+      "Authoritative Concluding Pass: Reconciling dual-examiner findings and evidence density into final AO marks.",
+      "Actionable Rewrite Steps: Producing clear, constructive, human examiner recommendations to elevate the grade.",
+      "Diagnostic Breakdown: Finalizing comprehensive summary and verified Cambridge band classification.",
     ],
   },
 };
 
 const LIVE_BACKEND_OPERATIONS = [
-  { atSec: 0, title: "Query Ingestion & Syllabus Expansion", detail: "Expanding question into Cambridge 9708 micro/macro syllabus keywords..." },
-  { atSec: 3, title: "Knowledge Base Vector Search", detail: "Querying Supabase pgvector across official mark schemes, coursebooks, and syllabus..." },
-  { atSec: 7, title: "Syllabus Grounding & Descriptors", detail: "Grounding evaluation against verified level descriptors and past exam benchmarks..." },
-  { atSec: 11, title: "AO1 Theoretical Audit", detail: "Scrutinizing economic terminology, definitions, and foundational models..." },
-  { atSec: 15, title: "AO2 Analytical Transmission Chains", detail: "Tracing cause-and-effect logic steps and diagrammatical equilibrium shifts..." },
-  { atSec: 19, title: "AO3 Critical Evaluation Audit", detail: "Testing ceteris paribus assumptions, short-run vs long-run trade-offs, and elasticity..." },
-  { atSec: 23, title: "Senior Examiner Calibration", detail: "Harmonizing raw marks against historical Cambridge 9708 grade boundaries..." },
-  { atSec: 26, title: "Diagnostic Report Synthesis", detail: "Assembling final Cambridge examiner summary, missing elements, and band marks..." },
+  { atSec: 0, title: "Query Ingestion & Vector Retrieval", detail: "Querying Supabase pgvector across official 9708 mark schemes and coursebooks..." },
+  { atSec: 6, title: "Syllabus Grounding & Level Descriptors", detail: "Grounding criteria against official Cambridge level descriptors and past exam benchmarks..." },
+  { atSec: 14, title: "Dual Examiner Execution (Pass 1 & Pass 2)", detail: "Simultaneously running Pass 1 (0.0 error audit) and Pass 2 (0.2 holistic Cambridge assessment)..." },
+  { atSec: 24, title: "AO1 Knowledge & Relevance Verification", detail: "Verifying precision of economic terms and checking topical relevance (unrelated essays receive 0)..." },
+  { atSec: 32, title: "AO2 Analytical Transmission & Application Audit", detail: "Tracing causal chains; rewarding detailed real-world applications and rejecting weak one-liners..." },
+  { atSec: 40, title: "AO3 Multi-Perspective Evaluation Weighing", detail: "Testing short-run vs long-run trade-offs, stakeholder impacts, and justified conclusions without caps..." },
+  { atSec: 48, title: "Principal Examiner Synthesis & Report Assembly", detail: "Concluding dual-examiner findings into authoritative marks, diagnostic feedback, and rewrite steps..." },
 ];
 
 /**
- * Simulates staged progress calibrated to modern LLM completion speeds (~20–35s).
+ * Simulates staged progress calibrated to dual-examiner completion speeds (~45–60s).
  * Holds at 96% until the network request completes so it is never prematurely "done".
  */
-export function useStagedProgress(stages: ProgressStage[], active: boolean, totalMs = 30_000) {
+export function useStagedProgress(stages: ProgressStage[], active: boolean, totalMs = 48_000) {
   const [elapsed, setElapsed] = useState(0);
 
   useEffect(() => {
@@ -84,7 +83,7 @@ export function useStagedProgress(stages: ProgressStage[], active: boolean, tota
 
   const totalWeight = useMemo(() => stages.reduce((sum, s) => sum + s.weight, 0), [stages]);
 
-  // Smooth quadratic ease-out curve calibrated to ~25-35s duration.
+  // Smooth quadratic ease-out curve calibrated to ~45-60s duration.
   const rawFraction = Math.min(1, elapsed / totalMs);
   const eased = 1 - Math.pow(1 - rawFraction, 2);
   const percent = Math.min(96, Math.round(eased * 96));
@@ -107,7 +106,7 @@ export function useStagedProgress(stages: ProgressStage[], active: boolean, tota
 export function GradingProgress({
   stages,
   active,
-  totalMs = 30_000,
+  totalMs = 48_000,
 }: {
   stages: ProgressStage[];
   active: boolean;
@@ -157,7 +156,7 @@ export function GradingProgress({
         <div className="flex flex-wrap items-center gap-2 shrink-0">
           <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">
             <Clock className="size-3 text-primary shrink-0" />
-            <span>Est: 20–35s</span>
+            <span>Est: ~45–60s</span>
           </span>
 
           <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary tabular-nums">
@@ -191,7 +190,7 @@ export function GradingProgress({
             <span className="font-semibold text-foreground text-xs">Cambridge Examination Engine</span>
           </div>
           <span className="text-[10px] text-emerald-500 font-mono font-medium flex items-center gap-1">
-            <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" /> Active Marking
+            <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" /> Dual-Pass Active
           </span>
         </div>
 
@@ -207,10 +206,10 @@ export function GradingProgress({
       </div>
 
       {/* Extended evaluation notice */}
-      {elapsedSeconds >= 45 && (
+      {elapsedSeconds >= 60 && (
         <div className="flex items-center gap-2 text-[11.5px] text-primary font-medium bg-primary/10 border border-primary/20 rounded-md px-3 py-2 animate-in fade-in duration-300">
           <RotateCw className="size-3.5 shrink-0 animate-spin" />
-          <span>Thorough Assessment In Progress: Examiner completing comprehensive line-by-line mark breakdown and exemplar rewrite...</span>
+          <span>Thorough Assessment In Progress: Principal examiner reconciling dual-pass evidence and synthesizing diagnostic report...</span>
         </div>
       )}
 
@@ -292,7 +291,7 @@ export function GradingProgress({
         </div>
       )}
 
-      {/* Grounding & Timeout Guarantee Footer */}
+      {/* Grounding & Guarantee Footer */}
       <div className="rounded-lg border border-border/80 bg-muted/30 p-3 text-xs text-muted-foreground flex items-start gap-2.5">
         <Sparkles className="size-4 shrink-0 text-primary mt-0.5" />
         <div className="space-y-1">
@@ -300,11 +299,10 @@ export function GradingProgress({
             Free Community Access · Deep Cambridge 9708 Grounding Guarantee
           </p>
           <p className="text-[11px] leading-relaxed text-muted-foreground">
-            Estimated completion time: <strong>200–300 seconds</strong>. Deep Cambridge 9708 evaluation involves vector search over 259 past papers, diagram OCR verification, and senior examiner moderation. Single-key execution with up to 300 seconds allocated per evaluation.
+            Estimated completion time: <strong>45–60 seconds</strong>. Dual-examiner parallel execution evaluates the script across theoretical precision, real-world application, and multi-perspective evaluation grounded in official Cambridge 9708 mark schemes.
           </p>
         </div>
       </div>
     </div>
   );
 }
-

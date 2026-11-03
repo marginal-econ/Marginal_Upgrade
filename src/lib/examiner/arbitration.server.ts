@@ -122,21 +122,28 @@ FIXED AO MARK ALLOCATION (syllabus 9708, {max_mark}-mark essay):
 
 AUTHORITATIVE PRINCIPAL EXAMINER PRINCIPLES:
 1. VERBATIM EVIDENCE: Base your decision on direct evidence from the student's text.
-2. DIAGRAM DIRECTIVE (STRICT CAMBRIDGE RULE):
+2. RELEVANCE DIRECTIVE (ZERO MARKS FOR UNRELATED ESSAYS — NO GRACE MARKS):
+   - If the student's essay is unrelated to the question asked or discusses a completely different economic topic, total_mark MUST be 0 and all awarded AOs must be 0.
+   - Do NOT award courtesy or grace marks for off-topic, unrelated content.
+3. EXAMPLES & APPLICATION CRITERIA (AO2):
+   - If an example is related to the question and demonstrates genuine real-world application, reward that mark under AO2.
+   - If theoretical, it must provide a clear demonstration of what is being described or serve as an explanatory guiding illustration.
+   - REJECT weak one-liner examples (e.g. passing mentions like "e.g. healthcare" without explanation). Examples must be at least somewhat detailed.
+4. DIAGRAM DIRECTIVE (STRICT CAMBRIDGE RULE):
    - Diagrams are NEVER compulsory unless the question explicitly asks for one (e.g. 'with the aid of a diagram').
    - Written economics alone can achieve full marks (including 6/6 in AO2 and full overall marks).
    - NEVER penalise or deduct marks for the absence of a diagram. If either pass deducted marks for lack of a diagram, OVERTURN that deduction.
    - If an accurate diagram is described or drawn, ensure it is POSITIVELY REWARDED under AO2.
-3. EVALUATION DIRECTIVE (STRONG AND WIDE, NO ARTIFICIAL CAPS):
+5. EVALUATION DIRECTIVE (STRONG AND WIDE, NO ARTIFICIAL CAPS):
    - Evaluation must be strong and wide, comparing multiple perspectives (short-run vs long-run, differing stakeholders e.g. consumers vs producers vs taxpayers, trade-offs, opportunity costs, elasticity, policy alternatives).
    - Be strict on superficial evaluation: a single token sentence or generic conclusion ('a mix of both is best') without justified weighing criteria should not reach top band.
    - NO ARTIFICIAL NUMERIC CAPS: Do NOT apply rigid programmatic caps or formulaic ceiling rules (such as 'caps AO3 at 1/4' or 'Table B capped'). Evaluate the candidate's evaluative depth and breadth holistically on its economic merit.
-4. ACCURATE ECONOMICS VS ERRORS:
+6. ACCURATE ECONOMICS VS ERRORS:
    - Distinguish correct economics from genuine errors:
      * When a subsidy lowers market price, quantity demanded extends/increases along the curve (from Q to Q1). That is accurate economic terminology, not an error.
      * Merit goods are defined both by positive externalities and by information failure / undervaluation of private benefits. Both are syllabus-correct.
    - Penalise genuine economic errors fairly and proportionately, never excessively.
-5. HUMAN, CONSTRUCTIVE TONE:
+7. HUMAN, CONSTRUCTIVE TONE:
    - Write feedback that feels genuinely human, encouraging, and supportive. Quote verbatim phrases from the student's text.
    - Zero asterisks (* or **): return clean plain text only.
 
@@ -229,6 +236,25 @@ export function synthesizeDualPasses(
   maxMark: number,
   split: AoSplit,
 ): Grading {
+  // If either pass determined the essay was completely off-topic / unrelated (awarded 0),
+  // uphold the strict Cambridge zero-marks rule:
+  if (pass1.total_mark === 0 || pass2.total_mark === 0) {
+    const zeroGrading = pass1.total_mark === 0 ? pass1 : pass2;
+    return {
+      ...zeroGrading,
+      total_mark: 0,
+      band: "Bottom band",
+      ao_breakdown: {
+        knowledge: { awarded: 0, out_of: split.ao1_marks, comment: zeroGrading.ao_breakdown.knowledge.comment || "No relevant economic knowledge demonstrated for the question asked." },
+        analysis: { awarded: 0, out_of: split.ao2_marks, comment: zeroGrading.ao_breakdown.analysis.comment || "Content is unrelated to the question; no analytical credit can be awarded." },
+        evaluation: { awarded: 0, out_of: split.ao3_marks, comment: zeroGrading.ao_breakdown.evaluation.comment || "No evaluative credit awarded for off-topic material." },
+      },
+      audited: true,
+      arbitrated: false,
+      confidence: 0.98,
+    };
+  }
+
   // If marks are identical, consensus is established
   // If delta is 1, take the pass with the more detailed evidence or balanced middle
   const preferred = pass1.total_mark <= pass2.total_mark ? pass2 : pass1;
