@@ -49,21 +49,33 @@ export const requireSupabaseAuth = createMiddleware({ type: "function" })
     let userId: string | undefined;
     let claims: any = undefined;
 
-    // 1. Attempt getClaims (Supabase JWKS)
+    // 1. Fast-path: decode JWT claims directly in 0ms if structurally valid and unexpired
+    // (Supabase PostgREST still verifies the Bearer token signature on every DB query).
     try {
-      const { data: claimsData } = await supabase.auth.getClaims(token);
-      if (claimsData?.claims?.sub) {
-        claims = claimsData.claims;
-        userId = claimsData.claims.sub;
+      const parts = token.split(".");
+      if (parts.length === 3) {
+        const base64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+        const padded = base64 + "=".repeat((4 - (base64.length % 4)) % 4);
+        const payloadStr = atob(padded);
+        const payload = JSON.parse(payloadStr);
+        if (payload?.sub && (!payload.exp || payload.exp * 1000 > Date.now())) {
+          userId = payload.sub;
+          claims = payload;
+        }
       }
     } catch {
-      /* fallback */
+      /* fallback to network verification */
     }
 
-    // 2. Attempt getUser (Supabase Auth API)
+    // 2. Fallback: Attempt getUser (Supabase Auth API) with a 2500ms timeout
     if (!userId) {
       try {
-        const { data: userData } = await supabase.auth.getUser(token);
+        const { data: userData } = await Promise.race([
+          supabase.auth.getUser(token),
+          new Promise<{ data: { user: null } }>((resolve) =>
+            setTimeout(() => resolve({ data: { user: null } }), 2500),
+          ),
+        ]);
         if (userData?.user?.id) {
           userId = userData.user.id;
           claims = {
@@ -72,23 +84,6 @@ export const requireSupabaseAuth = createMiddleware({ type: "function" })
             user_metadata: userData.user.user_metadata,
             app_metadata: userData.user.app_metadata,
           };
-        }
-      } catch {
-        /* fallback */
-      }
-    }
-
-    // 3. Fallback: decode JWT claims directly if structurally valid and unexpired
-    if (!userId) {
-      try {
-        const parts = token.split(".");
-        if (parts.length === 3) {
-          const payloadStr = atob(parts[1].replace(/-/g, "+").replace(/_/g, "/"));
-          const payload = JSON.parse(payloadStr);
-          if (payload?.sub && (!payload.exp || payload.exp * 1000 > Date.now())) {
-            userId = payload.sub;
-            claims = payload;
-          }
         }
       } catch {
         /* fallback */

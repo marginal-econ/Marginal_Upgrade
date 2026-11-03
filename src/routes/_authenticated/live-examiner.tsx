@@ -138,14 +138,17 @@ function combineDiagramTags(diagrams: AttachedDiagram[]): string | undefined {
 function LiveExaminerPage() {
   const routeContext = Route.useRouteContext() as { user?: { id?: string; email?: string } } | undefined;
   const routeUser = routeContext?.user;
+  const isRouteUserAdmin = isMarginalAdmin({ userId: routeUser?.id, email: routeUser?.email });
+  const fetchMe = useServerFn(getMe);
   const meQuery = useQuery({
-    queryKey: ["account", "me"],
-    queryFn: () => getMe(),
+    queryKey: ["me"],
+    queryFn: () => fetchMe(),
     staleTime: 60_000,
+    retry: 1,
   });
 
   const isAdmin = Boolean(
-    isMarginalAdmin({ userId: routeUser?.id, email: routeUser?.email }) ||
+    isRouteUserAdmin ||
       meQuery.data?.role === "admin" ||
       meQuery.data?.isAdmin ||
       meQuery.data?.subscription?.isAdmin ||
@@ -616,7 +619,7 @@ function LiveExaminerPage() {
     toast.success("Cleared — write the full answer again from scratch.");
   }
 
-  if (meQuery.isLoading) {
+  if (!isAdmin && meQuery.isLoading) {
     return (
       <div className="flex h-96 items-center justify-center">
         <div className="flex flex-col items-center gap-3 text-muted-foreground">

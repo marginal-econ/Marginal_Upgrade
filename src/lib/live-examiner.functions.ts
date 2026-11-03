@@ -11,7 +11,6 @@ import { AO_DEFINITIONS, defaultSplitForMaxMark } from "@/lib/examiner/config";
 import { isMarginalAdmin } from "@/lib/auth-admin";
 import { normalizeIssueSpan } from "@/lib/live-examiner/normalize-issue-span";
 import { classifySentence } from "@/lib/live-examiner/sentence-engine";
-import { evaluateCambridgeAnswer } from "@/lib/live-examiner/client-evaluation";
 
 type AuthContextLike = {
   id?: string;
@@ -531,31 +530,29 @@ export function sanitisePredictedMark(
   // Calibrate against deterministic Cambridge AO classification so LLM cannot inflate AO2/AO3
   // when there are 0 genuine AO2/AO3 sentences in the essay (e.g. 2 AO1 definition sentences = 2/12, never 4/12).
   if (essayText && essayText.trim().length > 0 && question) {
-    const detEval = evaluateCambridgeAnswer(essayText, question, maxMark, "as");
-    const ao2Count = detEval.classifications.filter((c) => c.ao === "AO2").length;
-    const ao3Count = detEval.classifications.filter((c) => c.ao === "AO3").length;
+    const sentences = splitSentences(essayText)
+      .map((s) => s.trim())
+      .filter((s) => s.length >= 5 && !/\[DIAGRAM:[^\]]*\]/i.test(s));
+    const classified = sentences.map((s) => classifySentence(s));
+    const ao1Count = classified.filter((c) => c.ao === "AO1" && c.strength > 0).length;
+    const ao2Count = classified.filter((c) => c.ao === "AO2").length;
+    const ao3Count = classified.filter((c) => c.ao === "AO3").length;
+
     if (ao2Count === 0) {
       analysis.awarded = 0;
     } else {
-      analysis.awarded = Math.min(
-        analysis.out_of,
-        analysis.awarded,
-        detEval.predictedMark.ao_breakdown.analysis.awarded + 1,
-      );
+      const maxReasonableAo2 = ao2Count === 1 ? 2 : ao2Count === 2 ? 4 : analysis.out_of;
+      analysis.awarded = Math.min(analysis.out_of, analysis.awarded, maxReasonableAo2);
     }
     if (ao3Count === 0) {
       evaluation.awarded = 0;
     } else {
-      evaluation.awarded = Math.min(
-        evaluation.out_of,
-        evaluation.awarded,
-        detEval.predictedMark.ao_breakdown.evaluation.awarded + 1,
-      );
+      const maxReasonableAo3 = ao3Count === 1 ? 2 : evaluation.out_of;
+      evaluation.awarded = Math.min(evaluation.out_of, evaluation.awarded, maxReasonableAo3);
     }
-    knowledge.awarded = Math.min(
-      knowledge.out_of,
-      Math.max(knowledge.awarded, detEval.predictedMark.ao_breakdown.knowledge.awarded),
-    );
+    const detAo1Awarded =
+      ao1Count >= 2 ? knowledge.out_of : ao1Count >= 1 ? Math.max(1, Math.floor(knowledge.out_of * 0.5)) : 0;
+    knowledge.awarded = Math.min(knowledge.out_of, Math.max(knowledge.awarded, detAo1Awarded));
   }
 
   const totalCalculated = knowledge.awarded + analysis.awarded + evaluation.awarded;
@@ -991,17 +988,24 @@ export const getLiveExaminerSession = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => GetSessionInput.parse(input))
   .handler(async ({ data, context }) => {
     assertAdminOnlyAccess(context);
-    const { data: row, error } = await context.supabase
-      .from("live_examiner_sessions")
-      .select(
-        "id, level, topic, question, max_mark, essay_text, issues_history, diagram_tag, updated_at",
-      )
-      .eq("user_id", context.userId)
-      .eq("question", data.question)
-      .maybeSingle();
-
-    if (error) throw new Error(error.message);
-    return { session: row ?? null };
+    try {
+      const result = await Promise.race([
+        context.supabase
+          .from("live_examiner_sessions")
+          .select(
+            "id, level, topic, question, max_mark, essay_text, issues_history, diagram_tag, updated_at",
+          )
+          .eq("user_id", context.userId)
+          .eq("question", data.question)
+          .maybeSingle(),
+        new Promise<{ data: null; error: null }>((resolve) =>
+          setTimeout(() => resolve({ data: null, error: null }), 3000),
+        ),
+      ]);
+      return { session: result.data ?? null };
+    } catch {
+      return { session: null };
+    }
   });
 
 // ---------------------------------------------------------------------------
@@ -1015,28 +1019,35 @@ export const listLiveExaminerSessions = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     assertAdminOnlyAccess(context);
-    const { data, error } = await context.supabase
-      .from("live_examiner_sessions")
-      .select("id, level, topic, question, max_mark, essay_text, updated_at")
-      .eq("user_id", context.userId)
-      .order("updated_at", { ascending: false })
-      .limit(100);
+    try {
+      const result = await Promise.race([
+        context.supabase
+          .from("live_examiner_sessions")
+          .select("id, level, topic, question, max_mark, essay_text, updated_at")
+          .eq("user_id", context.userId)
+          .order("updated_at", { ascending: false })
+          .limit(100),
+        new Promise<{ data: []; error: null }>((resolve) =>
+          setTimeout(() => resolve({ data: [], error: null }), 3500),
+        ),
+      ]);
 
-    if (error) throw new Error(error.message);
-
-    return (data ?? []).map((row) => {
-      const essayText = (row.essay_text as string | null) ?? "";
-      const trimmed = essayText.trim();
-      return {
-        id: row.id as string,
-        level: row.level as "as" | "a2",
-        topic: row.topic as string,
-        question: row.question as string,
-        maxMark: row.max_mark as number,
-        wordCount: trimmed.length === 0 ? 0 : trimmed.split(/\s+/).length,
-        updatedAt: row.updated_at as string,
-      };
-    });
+      return (result.data ?? []).map((row) => {
+        const essayText = (row.essay_text as string | null) ?? "";
+        const trimmed = essayText.trim();
+        return {
+          id: row.id as string,
+          level: row.level as "as" | "a2",
+          topic: row.topic as string,
+          question: row.question as string,
+          maxMark: row.max_mark as number,
+          wordCount: trimmed.length === 0 ? 0 : trimmed.split(/\s+/).length,
+          updatedAt: row.updated_at as string,
+        };
+      });
+    } catch {
+      return [];
+    }
   });
 
 const DeleteSessionInput = z.object({ id: z.string().uuid() });

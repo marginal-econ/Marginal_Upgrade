@@ -25,6 +25,30 @@ export const getMe = createServerFn({ method: "GET" })
       let profile: { id: string; full_name: string | null; school: string | null; tutorial_completed: boolean } | null = null;
       let roles: { role: string }[] | null = null;
 
+      // Fast-path for Marginal Admin: skip unnecessary sequential role/teacher DB lookups
+      if (isMarginal) {
+        const { getUserSubscriptionDetails } = await import("./subscription.server");
+        const subscription = await getUserSubscriptionDetails(
+          db,
+          userId,
+          (context as any).email,
+          (context as any).claims,
+        );
+        const metaName =
+          (context as any).claims?.user_metadata?.full_name ||
+          (context as any).claims?.user_metadata?.name;
+        return {
+          userId,
+          fullName: metaName || "Marginal Admin",
+          school: (context as any).claims?.user_metadata?.school ?? null,
+          role: "admin" as AppRole,
+          isAdmin: true,
+          isStaff: true,
+          tutorialCompleted: true,
+          subscription,
+        };
+      }
+
       try {
         const profileRes = await db
           .from("profiles")

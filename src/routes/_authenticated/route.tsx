@@ -14,7 +14,18 @@ export const Route = createFileRoute("/_authenticated")({
   ssr: false,
   beforeLoad: async ({ location }) => {
     try {
-      const { data, error } = await supabase.auth.getUser();
+      // Fast-path: read cached session from localStorage in 0ms without blocking route entry on a network call
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (sessionData?.session?.user) {
+        return { user: sessionData.session.user };
+      }
+
+      const { data, error } = await Promise.race([
+        supabase.auth.getUser(),
+        new Promise<{ data: { user: null }; error: Error }>((resolve) =>
+          setTimeout(() => resolve({ data: { user: null }, error: new Error("Auth timeout") }), 4000),
+        ),
+      ]);
       if (error || !data.user) {
         throw redirect({
           to: "/auth",
