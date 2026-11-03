@@ -9,6 +9,7 @@ import {
   BarChart3,
   BookOpen,
   Calendar,
+  Camera,
   Check,
   CheckCircle2,
   ChevronDown,
@@ -33,6 +34,7 @@ import {
   MessageCircle,
   MessageSquare,
   MoreVertical,
+  PenLine,
   Pin,
   Plus,
   RefreshCw,
@@ -57,6 +59,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { PageHeader } from "@/components/app/app-shell";
+import { HandwritingUpload } from "@/components/app/handwriting-upload";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -1588,6 +1591,8 @@ function ClassworkTab({
   // Student Submission state
   const [submittingAssignmentId, setSubmittingAssignmentId] = useState<string | null>(null);
   const [submissionText, setSubmissionText] = useState("");
+  const [submissionTab, setSubmissionTab] = useState<"handwritten" | "typed">("handwritten");
+  const [isHandwrittenSubmission, setIsHandwrittenSubmission] = useState(false);
 
   const { data: assignments, isLoading } = useQuery({
     queryKey: ["classroom_assignments", classroom.id],
@@ -1640,12 +1645,21 @@ function ClassworkTab({
   });
 
   const submitMutation = useMutation({
-    mutationFn: async ({ assignmentId, text }: { assignmentId: string; text: string }) => {
+    mutationFn: async ({
+      assignmentId,
+      text,
+      submissionType,
+    }: {
+      assignmentId: string;
+      text: string;
+      submissionType?: "handwritten" | "typed";
+    }) => {
       return submitWorkFn({
         data: {
           assignmentId,
           classroomId: classroom.id,
           submissionText: text,
+          submissionType,
         },
       });
     },
@@ -1653,6 +1667,7 @@ function ClassworkTab({
       toast.success("Assignment submitted successfully!");
       setSubmittingAssignmentId(null);
       setSubmissionText("");
+      setIsHandwrittenSubmission(false);
       queryClient.invalidateQueries({ queryKey: ["classroom_assignments", classroom.id] });
     },
     onError: (err: Error) => toast.error(err.message),
@@ -1838,7 +1853,7 @@ function ClassworkTab({
                         ) : isSubmitted ? (
                           <Badge className="bg-blue-950 text-blue-300 border-blue-700 text-xs px-2.5 py-1">
                             <CheckCircle2 className="h-3.5 w-3.5 mr-1 text-blue-400" />
-                            Turned In
+                            Turned In {mySub?.submissionType === "handwritten" ? "(Handwritten)" : ""}
                           </Badge>
                         ) : (
                           <Badge className="bg-amber-950/60 text-amber-300 border-amber-700/60 text-xs px-2.5 py-1">
@@ -1965,66 +1980,217 @@ function ClassworkTab({
                         )}
                       </div>
                     ) : isSubmitted ? (
-                      <div className="flex items-center justify-between p-3 rounded-xl bg-background/60 border border-border text-xs text-muted-foreground">
-                        <span>Submitted on {new Date(mySub!.submittedAt).toLocaleString()}</span>
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 rounded-xl bg-background/60 border border-border text-xs text-muted-foreground">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span>Submitted on {new Date(mySub!.submittedAt).toLocaleString()}</span>
+                          {mySub?.submissionType === "handwritten" && (
+                            <Badge variant="outline" className="border-purple-500/40 bg-purple-500/10 text-purple-300 text-[10px]">
+                              <PenLine className="h-3 w-3 mr-1 text-purple-400" />
+                              Handwritten Script
+                            </Badge>
+                          )}
+                        </div>
                         <Button
                           size="sm"
                           variant="ghost"
-                          onClick={() => setSubmittingAssignmentId(a.id)}
-                          className="text-xs text-purple-400 hover:text-white"
+                          onClick={() => {
+                            setSubmittingAssignmentId(a.id);
+                            setSubmissionText(mySub?.submissionText || "");
+                            setIsHandwrittenSubmission(mySub?.submissionType === "handwritten");
+                            setSubmissionTab(mySub?.submissionType === "handwritten" ? "handwritten" : "typed");
+                          }}
+                          className="text-xs text-purple-400 hover:text-white self-start sm:self-auto"
                         >
                           Resubmit Work
                         </Button>
                       </div>
                     ) : submittingAssignmentId === a.id ? (
-                      <div className="space-y-3 pt-2">
-                        <Label className="text-xs font-semibold text-foreground">
-                          Write or Paste Your Essay Answer:
-                        </Label>
-                        <Textarea
-                          value={submissionText}
-                          onChange={(e) => setSubmissionText(e.target.value)}
-                          placeholder="Type your Cambridge essay response here..."
-                          className="bg-background border-input text-white min-h-[160px] text-sm leading-relaxed"
-                        />
-                        <div className="flex items-center justify-end gap-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              setSubmittingAssignmentId(null);
-                              setSubmissionText("");
-                            }}
-                            className="text-muted-foreground hover:text-white text-xs"
-                          >
-                            Cancel
-                          </Button>
-                          <Button
-                            size="sm"
-                            onClick={() =>
-                              submitMutation.mutate({ assignmentId: a.id, text: submissionText })
+                      <div className="space-y-4 pt-3 p-4 rounded-2xl bg-purple-950/10 border border-purple-800/40 animate-in fade-in">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                          <div>
+                            <Label className="text-xs font-bold text-foreground flex items-center gap-2">
+                              <FileEdit className="h-4 w-4 text-purple-400" />
+                              Submit Your Answer for: <span className="text-purple-300 font-semibold">{a.title}</span>
+                            </Label>
+                            <p className="text-[11px] text-muted-foreground mt-0.5">
+                              Upload photos of your handwritten pages or type/paste your essay directly.
+                            </p>
+                          </div>
+
+                          {/* Segmented Mode Selector */}
+                          <div className="flex items-center p-0.5 bg-background border border-border rounded-xl self-start sm:self-auto shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => setSubmissionTab("handwritten")}
+                              className={cn(
+                                "px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-all cursor-pointer",
+                                submissionTab === "handwritten"
+                                  ? "bg-purple-600 text-white shadow-xs font-semibold"
+                                  : "text-muted-foreground hover:text-foreground",
+                              )}
+                            >
+                              <PenLine className="h-3.5 w-3.5" />
+                              Handwritten (Scan / Photos)
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setSubmissionTab("typed")}
+                              className={cn(
+                                "px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-all cursor-pointer",
+                                submissionTab === "typed"
+                                  ? "bg-purple-600 text-white shadow-xs font-semibold"
+                                  : "text-muted-foreground hover:text-foreground",
+                              )}
+                            >
+                              <FileText className="h-3.5 w-3.5" />
+                              Type / Paste Text
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Handwritten Mode */}
+                        {submissionTab === "handwritten" && (
+                          <div className="space-y-3 pt-1 animate-in fade-in">
+                            <div className="rounded-xl p-3 bg-purple-950/30 border border-purple-800/40 text-[11px] text-purple-200/90 flex items-center gap-2">
+                              <PenLine className="h-4 w-4 text-purple-400 shrink-0" />
+                              <span>
+                                Photograph your handwritten exam pages with your camera, or upload photos / scanned PDFs. The OCR will transcribe each page into the text box below.
+                              </span>
+                            </div>
+
+                            <HandwritingUpload
+                              hint={a.essayQuestion || a.title}
+                              onText={(text) => {
+                                setSubmissionText((current) =>
+                                  current.trim() ? `${current.trim()}\n\n${text}` : text,
+                                );
+                                setIsHandwrittenSubmission(true);
+                                toast.success(
+                                  "Handwritten pages transcribed! Review your text below before submitting.",
+                                );
+                              }}
+                            />
+                          </div>
+                        )}
+
+                        {/* Review / Editable Submission Box */}
+                        <div className="space-y-1.5">
+                          <div className="flex items-center justify-between text-xs">
+                            <Label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                              {submissionTab === "handwritten" ? (
+                                <>
+                                  <PenLine className="h-3.5 w-3.5 text-purple-400" />
+                                  Transcribed Essay Text (review &amp; edit if needed):
+                                </>
+                              ) : (
+                                <>
+                                  <FileText className="h-3.5 w-3.5 text-purple-400" />
+                                  Your Essay Answer:
+                                </>
+                              )}
+                            </Label>
+                            <span className="text-[11px] text-muted-foreground font-mono">
+                              {submissionText.trim()
+                                ? `${submissionText.trim().split(/\s+/).length} words`
+                                : "0 words"}
+                            </span>
+                          </div>
+
+                          <Textarea
+                            value={submissionText}
+                            onChange={(e) => setSubmissionText(e.target.value)}
+                            placeholder={
+                              submissionTab === "handwritten"
+                                ? "Upload handwritten page photos or scans above, and the OCR will transcribe your essay here for review..."
+                                : "Type or paste your Cambridge essay response here..."
                             }
-                            disabled={!submissionText.trim() || submitMutation.isPending}
-                            className="bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold"
-                          >
-                            <Send className="h-3.5 w-3.5 mr-1.5" />
-                            {submitMutation.isPending ? "Submitting..." : "Turn In Essay"}
-                          </Button>
+                            className="bg-background border-input text-foreground min-h-[160px] text-sm leading-relaxed"
+                          />
+                        </div>
+
+                        {/* Actions */}
+                        <div className="flex items-center justify-between pt-1">
+                          <div className="text-[11px] text-muted-foreground">
+                            {isHandwrittenSubmission ? (
+                              <Badge
+                                variant="outline"
+                                className="border-purple-500/40 bg-purple-500/10 text-purple-300 text-[10px]"
+                              >
+                                <PenLine className="h-3 w-3 mr-1" />
+                                Handwritten OCR Submission
+                              </Badge>
+                            ) : null}
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setSubmittingAssignmentId(null);
+                                setSubmissionText("");
+                                setIsHandwrittenSubmission(false);
+                              }}
+                              className="text-muted-foreground hover:text-white text-xs"
+                            >
+                              Cancel
+                            </Button>
+                            <Button
+                              size="sm"
+                              onClick={() =>
+                                submitMutation.mutate({
+                                  assignmentId: a.id,
+                                  text: submissionText,
+                                  submissionType: isHandwrittenSubmission ? "handwritten" : "typed",
+                                })
+                              }
+                              disabled={!submissionText.trim() || submitMutation.isPending}
+                              className="bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold shadow-md shadow-purple-500/20"
+                            >
+                              <Send className="h-3.5 w-3.5 mr-1.5" />
+                              {submitMutation.isPending
+                                ? "Submitting..."
+                                : isHandwrittenSubmission
+                                  ? "Turn In Handwritten Essay"
+                                  : "Turn In Essay"}
+                            </Button>
+                          </div>
                         </div>
                       </div>
                     ) : (
-                      <div className="flex items-center justify-between pt-1">
+                      <div className="flex items-center justify-between pt-1 flex-wrap gap-2">
                         <span className="text-xs text-muted-foreground">
                           Your work has not been turned in yet.
                         </span>
-                        <Button
-                          size="sm"
-                          onClick={() => setSubmittingAssignmentId(a.id)}
-                          className="bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold"
-                        >
-                          <FileEdit className="h-3.5 w-3.5 mr-1.5" />
-                          Write & Submit Answer
-                        </Button>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setSubmittingAssignmentId(a.id);
+                              setSubmissionTab("handwritten");
+                              setSubmissionText("");
+                              setIsHandwrittenSubmission(true);
+                            }}
+                            className="bg-purple-950/30 text-purple-300 border-purple-800/60 hover:bg-purple-900/40 text-xs font-semibold"
+                          >
+                            <PenLine className="h-3.5 w-3.5 mr-1.5 text-purple-400" />
+                            Submit Handwritten Essay
+                          </Button>
+                          <Button
+                            size="sm"
+                            onClick={() => {
+                              setSubmittingAssignmentId(a.id);
+                              setSubmissionTab("typed");
+                              setSubmissionText("");
+                              setIsHandwrittenSubmission(false);
+                            }}
+                            className="bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold"
+                          >
+                            <FileEdit className="h-3.5 w-3.5 mr-1.5" />
+                            Write / Type Answer
+                          </Button>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -2771,9 +2937,20 @@ function TeacherSubmissionsModal({
 
                       {/* Submitted Text */}
                       <div className="space-y-2">
-                        <Label className="text-xs font-bold uppercase text-muted-foreground tracking-wider">
-                          Student's Submitted Essay Answer:
-                        </Label>
+                        <div className="flex items-center justify-between flex-wrap gap-2">
+                          <Label className="text-xs font-bold uppercase text-muted-foreground tracking-wider">
+                            Student's Submitted Essay Answer:
+                          </Label>
+                          {activeStudent.submission.submissionType === "handwritten" && (
+                            <Badge
+                              variant="outline"
+                              className="border-purple-500/40 bg-purple-500/10 text-purple-300 text-[10px] font-semibold"
+                            >
+                              <PenLine className="h-3 w-3 mr-1 text-purple-400" />
+                              Handwritten OCR Script
+                            </Badge>
+                          )}
+                        </div>
                         <div className="p-4 rounded-2xl bg-background border border-border text-sm text-foreground leading-relaxed whitespace-pre-wrap">
                           {activeStudent.submission.submissionText ||
                             "Linked graded essay version."}
@@ -3612,9 +3789,20 @@ function StudentLifetimePortfolioModal({
 
                               {e.submissionText && (
                                 <div>
-                                  <span className="font-bold text-muted-foreground uppercase text-[10px] block mb-1">
-                                    Student Submission Text
-                                  </span>
+                                  <div className="flex items-center justify-between mb-1">
+                                    <span className="font-bold text-muted-foreground uppercase text-[10px]">
+                                      Student Submission Text
+                                    </span>
+                                    {e.submissionType === "handwritten" && (
+                                      <Badge
+                                        variant="outline"
+                                        className="border-purple-500/40 bg-purple-500/10 text-purple-300 text-[10px]"
+                                      >
+                                        <PenLine className="h-3 w-3 mr-1 text-purple-400" />
+                                        Handwritten
+                                      </Badge>
+                                    )}
+                                  </div>
                                   <div className="p-3 rounded-lg bg-background/60 border border-border text-foreground leading-relaxed whitespace-pre-wrap max-h-56 overflow-y-auto">
                                     {e.submissionText}
                                   </div>

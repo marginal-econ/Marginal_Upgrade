@@ -1578,6 +1578,9 @@ export const listClassroomAssignments = createServerFn({ method: "GET" })
               id: mySub.id,
               status: mySub.status as "assigned" | "submitted" | "graded" | "returned",
               submissionText: mySub.submission_text ?? null,
+              submissionType:
+                mySub.submission_type ??
+                (mySub.submission_text?.includes("[DIAGRAM:") ? "handwritten" : "typed"),
               essayId: mySub.essay_id ?? null,
               aiScore: mySub.ai_score ?? null,
               teacherScore: mySub.teacher_score ?? null,
@@ -1682,9 +1685,10 @@ export const submitAssignmentWork = createServerFn({ method: "POST" })
           .string()
           .trim()
           .min(1, "Submission text cannot be empty.")
-          .max(20000)
+          .max(30000)
           .optional(),
         essayId: z.string().uuid().optional(),
+        submissionType: z.enum(["handwritten", "typed"]).optional(),
       })
       .parse(input),
   )
@@ -1725,6 +1729,9 @@ export const submitAssignmentWork = createServerFn({ method: "POST" })
       classroom_id: data.classroomId,
       student_id: context.userId,
       submission_text: data.submissionText || null,
+      submission_type:
+        data.submissionType ||
+        (data.submissionText?.includes("[DIAGRAM:") ? "handwritten" : "typed"),
       essay_id: data.essayId || null,
       status: "submitted",
       ai_score: aiScore,
@@ -1833,6 +1840,9 @@ export const getAssignmentSubmissions = createServerFn({ method: "GET" })
               id: sub.id,
               status: sub.status as "assigned" | "submitted" | "graded" | "returned",
               submissionText: sub.submission_text,
+              submissionType:
+                sub.submission_type ??
+                (sub.submission_text?.includes("[DIAGRAM:") ? "handwritten" : "typed"),
               essayId: sub.essay_id,
               aiScore: sub.ai_score,
               aiFeedback: sub.ai_feedback,
@@ -2832,6 +2842,9 @@ export const getStudentLifetimePortfolio = createServerFn({ method: "GET" })
         feedback: aiFeedback,
         teacherFeedback: sub.teacher_feedback || null,
         submissionText: sub.submission_text || null,
+        submissionType:
+          sub.submission_type ??
+          (sub.submission_text?.includes("[DIAGRAM:") ? "handwritten" : "typed"),
         createdAt: sub.submitted_at || sub.created_at || new Date().toISOString(),
         isAssignment: true,
       };
