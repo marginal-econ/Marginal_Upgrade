@@ -11,8 +11,21 @@ import { AO_DEFINITIONS, defaultSplitForMaxMark } from "@/lib/examiner/config";
 import { isMarginalAdmin } from "@/lib/auth-admin";
 import { normalizeIssueSpan } from "@/lib/live-examiner/normalize-issue-span";
 
-function assertAdminOnlyAccess(user?: { id?: string; email?: string } | null) {
-  if (!user || !isMarginalAdmin({ userId: user.id, email: user.email })) {
+type AuthContextLike = {
+  id?: string;
+  userId?: string;
+  email?: string | null;
+  isAdmin?: boolean;
+  user?: { id?: string; email?: string | null } | null;
+};
+
+function assertAdminOnlyAccess(auth?: AuthContextLike | null) {
+  if (!auth) {
+    throw new Error("Live Examiner is currently restricted to the Marginal Administrator.");
+  }
+  const userId = auth.userId ?? auth.id ?? auth.user?.id;
+  const email = auth.email ?? auth.user?.email ?? undefined;
+  if (!auth.isAdmin && !isMarginalAdmin({ userId, email })) {
     throw new Error("Live Examiner is currently restricted to the Marginal Administrator.");
   }
 }
@@ -24,12 +37,10 @@ async function assertLiveExaminerSessionAllowed(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any,
   question: string,
-  user?: { id?: string; email?: string } | null,
+  auth?: AuthContextLike | null,
 ) {
-  assertAdminOnlyAccess(user);
-  if (user && isMarginalAdmin({ userId: user.id, email: user.email })) {
-    return;
-  }
+  assertAdminOnlyAccess(auth);
+  return;
   const { data, error } = await supabase.rpc("claim_live_examiner_session", {
     p_question: question,
   });
@@ -151,7 +162,7 @@ export const prepareLiveExaminerContext = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => PrepareContextInput.parse(input))
   .handler(async ({ data, context }) => {
-    await assertLiveExaminerSessionAllowed(context.supabase, data.question, context.user);
+    await assertLiveExaminerSessionAllowed(context.supabase, data.question, context);
 
     const { retrieve, renderContext } = await import("./retrieval.server");
     const { fetchCalibrationAnchors, buildAnchorBlock } =
@@ -557,7 +568,7 @@ export const checkEssayWriting = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => CheckInput.parse(input))
   .handler(async ({ data, context }) => {
-    await assertLiveExaminerSessionAllowed(context.supabase, data.question, context.user);
+    await assertLiveExaminerSessionAllowed(context.supabase, data.question, context);
 
     const currentSentences = splitSentences(data.essayText);
     const previousSentences = data.previousText ? splitSentences(data.previousText) : [];
@@ -900,7 +911,7 @@ export const saveLiveExaminerSession = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => SaveSessionInput.parse(input))
   .handler(async ({ data, context }) => {
-    await assertLiveExaminerSessionAllowed(context.supabase, data.question, context.user);
+    await assertLiveExaminerSessionAllowed(context.supabase, data.question, context);
 
     const { data: row, error } = await context.supabase
       .from("live_examiner_sessions")
@@ -932,7 +943,7 @@ export const getLiveExaminerSession = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => GetSessionInput.parse(input))
   .handler(async ({ data, context }) => {
-    assertAdminOnlyAccess(context.user);
+    assertAdminOnlyAccess(context);
     const { data: row, error } = await context.supabase
       .from("live_examiner_sessions")
       .select(
@@ -956,7 +967,7 @@ export const getLiveExaminerSession = createServerFn({ method: "POST" })
 export const listLiveExaminerSessions = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    assertAdminOnlyAccess(context.user);
+    assertAdminOnlyAccess(context);
     const { data, error } = await context.supabase
       .from("live_examiner_sessions")
       .select("id, level, topic, question, max_mark, essay_text, updated_at")
@@ -987,7 +998,7 @@ export const deleteLiveExaminerSession = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => DeleteSessionInput.parse(input))
   .handler(async ({ data, context }) => {
-    assertAdminOnlyAccess(context.user);
+    assertAdminOnlyAccess(context);
     // Scoped to user_id as well as id — belt and braces alongside the RLS
     // policy, so this can never touch a row that isn't the caller's own.
     const { error, count } = await context.supabase
@@ -1164,7 +1175,7 @@ export const getMaxOutSuggestions = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => MaxOutInput.parse(input))
   .handler(async ({ data, context }) => {
-    assertAdminOnlyAccess(context.user);
+    assertAdminOnlyAccess(context);
     const { chat } = await import("./ai.server");
     const { MODEL_GRADING, TEMPERATURE_TUTOR } = await import("./examiner/config");
     const { extractFirstJsonObject } = await import("./examiner/json");

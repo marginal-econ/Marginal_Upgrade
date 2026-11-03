@@ -402,12 +402,12 @@ function LiveExaminerPage() {
   // subsequent live check call so nothing re-embeds on every keystroke ---
   const prepareContext = useServerFn(prepareLiveExaminerContext);
   const contextMutation = useMutation({
-    mutationFn: () => prepareContext({ data: { level, topic, question } }),
+    mutationFn: (override?: { level: "as" | "a2"; topic: string; question: string }) =>
+      prepareContext({ data: override ?? { level, topic, question } }),
     onError: (error: Error) => {
-      toast.error(error.message);
-      // Today's one session is already used on another question — send the
-      // student back to the setup screen instead of leaving a dead editor.
+      // Only surface daily limit errors; never block the editor on background context sync issues
       if (isDailyLimitError(error)) {
+        toast.error(error.message);
         setStarted(false);
         setLimitNotice(error.message);
       }
@@ -437,7 +437,7 @@ function LiveExaminerPage() {
     }
     setLimitNotice(null);
     setStarted(true);
-    contextMutation.mutate();
+    contextMutation.mutate({ level, topic, question });
   }
 
   /** Resume a past essay from the history panel — same as picking that
@@ -450,7 +450,11 @@ function LiveExaminerPage() {
     setMaxMark(entry.maxMark);
     setLimitNotice(null);
     setStarted(true);
-    contextMutation.mutate();
+    contextMutation.mutate({
+      level: entry.level,
+      topic: entry.topic,
+      question: entry.question,
+    });
   }
 
   const contextBlock = contextMutation.data?.contextBlock ?? "";

@@ -108,7 +108,14 @@ export const requireSupabaseAuth = createMiddleware({ type: "function" })
       Boolean(email && email.toLowerCase().trim() === "marginal.econ.ai@gmail.com");
 
     return next({
-      context: { supabase, userId, claims: claims ?? {}, email, isAdmin },
+      context: {
+        supabase,
+        userId,
+        claims: claims ?? {},
+        email,
+        isAdmin,
+        user: { id: userId, email: email ?? undefined },
+      },
     });
   },
 );
