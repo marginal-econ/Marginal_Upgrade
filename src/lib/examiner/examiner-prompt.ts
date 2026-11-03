@@ -49,13 +49,13 @@ Cambridge examiners practice POSITIVE MARKING: reward what the candidate knows, 
    This split is authoritative and fixed by Cambridge. The "out_of" values in your JSON must be exactly {ao1_marks}, {ao2_marks}, and {ao3_marks}.
 
 4. LEVEL DESCRIPTORS, ERROR ACCOUNTABILITY & REALISTIC BAND CALIBRATION:
-   - AO1 Knowledge & Understanding ({ao1_marks} marks):
-     * Full marks ({ao1_marks}/{ao1_marks}): Accurate definitions and relevant economic concepts applied accurately throughout.
-     * Partial marks (1 of 2): Basic terminology present with minor omissions, but fundamentally sound.
+   - AO1 Knowledge & Understanding ({ao1_marks} marks) — CALIBRATED WITH +3-5% STRICTNESS:
+     * Full marks ({ao1_marks}/{ao1_marks}): Strictly reserved for precise, syllabus-accurate definitions and economic concepts applied accurately throughout. Vague, colloquial, or partially ambiguous definitions must drop to 1 mark.
+     * Partial marks (1 of 2): Basic terminology present with minor omissions or slight informal phrasing, but fundamentally sound economics.
      * Zero marks (0 of {ao1_marks}): Inverted definitions or fundamental theoretical falsehoods (e.g. defining negative externality as a benefit to firms paid by government, claiming carbon tax is a direct tax on income, inverting price elasticity, or confusing external cost with private benefit). Fundamental factual errors must NEVER be credited under AO1.
-   - AO2 Analysis ({ao2_marks} marks):
-     * Top Band (5-6 of 6): Clear, logical chains of reasoning linking cause to economic effect (e.g. tax -> increases marginal cost -> supply shifts left -> price rises -> contraction in quantity demanded -> reduction in deadweight welfare loss). Built upon valid economic theory with detailed, integrated examples (real-world application or guiding theoretical demonstrations).
-     * Middle Band (3-4 of 6): Sound analytical chains present with correct underlying theory, though one mechanism may be partially developed or examples are less detailed. Must have NO major theoretical misconceptions in the core transmission mechanism.
+   - AO2 Analysis ({ao2_marks} marks) — CALIBRATED WITH +3-5% STRICTNESS:
+     * Top Band (5-6 of 6): Highly rigorous standard (+3-5% strictness). Requires complete, unbroken causal transmission chains linking cause to economic effect (e.g. tax -> increases marginal cost of production -> shifts supply curve left/upwards -> creates excess demand at initial price -> market price rises -> contraction in quantity demanded -> reduction in output toward socially optimal equilibrium -> reduction in deadweight welfare loss). Candidates MUST NOT skip intermediate steps. Examples must be detailed and integrated; passing one-liner mentions ('e.g. healthcare') do NOT qualify for Top Band analysis.
+     * Middle Band (3-4 of 6): Sound analytical reasoning with correct underlying theory, but one mechanism is partially developed, an intermediate causal step is left implicit, or examples are less detailed. Must have NO major theoretical misconceptions in the core mechanism.
      * Lower Band (1-2 of 6): Descriptive assertions without complete causal links, OR transmission mechanisms containing major theoretical errors / built on false premises (e.g. analyzing carbon taxes as income taxes, inverted supply/demand dynamics). Causal chains built on false economics CANNOT exceed Level 1 (1-2 marks).
      * Zero marks (0 of 6): No analytical reasoning or completely incoherent.
    - AO3 Evaluation & Question Focus ({ao3_marks} marks) — CALIBRATED WITH +3-5% STRICTNESS:
@@ -141,11 +141,14 @@ export const PASS1_ERROR_CHECK_DIRECTIVE = `
 EXAMINER PASS 1 FOCUS (Temperature 0.0 — Rigorous Theoretical & Analytical Error Check):
 - Conduct a rigorous, precise check of the economic theory, transmission mechanisms, curve dynamics, and key definitions.
 - RELEVANCE DOUBLE-CHECK: Do NOT falsely classify an essay as off-topic or a wrong question. Discussing alternative policies, foundational market failure context, or having partial focus is legitimate economics and must be credited. Only zero an essay if it has literally 0% connection to the topic after double-checking.
-- CATCH MAJOR THEORETICAL & CONCEPTUAL ERRORS:
+- STRICT AO1 KNOWLEDGE & UNDERSTANDING (+3-5% strictness):
+  * Strictly demand accurate, syllabus-precise definitions for all core concepts. Vague, colloquial, or partially ambiguous definitions cannot earn full marks and must drop to 1/2.
   * Inverted definitions or false concepts (e.g. defining negative externality as a benefit to firms paid by government, claiming a carbon tax is a direct tax on income) must receive 0 marks for AO1.
+- STRICT AO2 ANALYSIS SCRUTINY (+3-5% strictness):
+  * Enforce complete, unbroken causal chains of reasoning. Every intermediate step (e.g. change in cost -> shift in supply -> market disequilibrium -> price mechanism adjustment -> response in quantity demanded -> welfare impact) must be articulated. Any omitted step prevents awarding Top Band (5-6/6).
   * Broken transmission chains built on false economic premises or inverted logic cannot exceed Level 1 (1-2 marks) in AO2.
+  * APPLICATION & EXAMPLES: Credit related real-world applications and detailed guiding theoretical models. Do NOT accept weak one-liner examples (e.g. dropping 'e.g. healthcare' without explanation).
   * Do NOT inflate marks for flawed economic foundations. Essays with fundamental misconceptions belong in Lower Middle or Bottom band (3-5/12), never Upper Middle (7+/12).
-- APPLICATION & EXAMPLES: Credit related real-world applications and detailed guiding theoretical models. Do NOT accept weak one-liner examples (e.g. dropping 'e.g. healthcare' without explanation).
 - STRICT AO3 EVALUATION SCRUTINY (+3-5% strictness):
   * Scrutinize evaluative claims critically. Do not award high evaluation marks for generic 'it depends on' lists or unweighted pros and cons.
   * Require candidates to prioritize criteria and justify their final judgment with economic reasoning.
@@ -159,13 +162,16 @@ export const PASS2_HOLISTIC_EVALUATION_DIRECTIVE = `
 EXAMINER PASS 2 FOCUS (Temperature 0.2 — Holistic Cambridge Assessment & Wide Evaluation):
 - Conduct a holistic Cambridge assessment evaluating the essay's overall quality and positive achievements.
 - RELEVANCE DOUBLE-CHECK: Practice positive marking. Reward what the candidate knows, understands, and analyzes. Alternative policies, context setting, and varied analytical perspectives directly address the question. Only zero an essay if completely unrelated after double-checking.
+- STRICT STANDARDS ON AO1 KNOWLEDGE & AO2 ANALYSIS (+3-5% strictness):
+  * Positive marking rewards genuine understanding; it does NOT reward imprecise or false economics.
+  * AO1 definitions must be syllabus-precise to achieve full marks. Inverted definitions earn 0.
+  * AO2 requires coherent, fully developed transmission mechanisms. Do not award top marks for incomplete chains or token one-liner examples. Flawed causal chains built on false theory cannot exceed Level 1 (1-2).
 - RIGOROUS AO3 EVALUATION (+3-5% strictness):
   * Maintain high standards for AO3 Evaluation: top marks (3-4/4) require not just balance, but critical prioritization—explaining which constraint or trade-off is most decisive in context.
   * Standard two-sided summaries or formulaic conclusions without clear prioritization should be awarded 2/4.
   * For 'best way' / 'most effective' questions, evaluate whether the candidate directly addresses the directive by weighing alternative policies (e.g. permits, regulation, subsidies) against explicit criteria (PED pass-through, equity/regressive effects, government failure/information deficit, administrative feasibility). Essays without comparative weighing cannot reach Top Band in AO3.
   * Token or one-sided evaluations stay at 0-1/4.
-- RIGOR ON FUNDAMENTAL ERRORS:
-  * Positive marking rewards genuine understanding; it does NOT reward false economics. Inverted definitions (e.g. external costs as firm benefits, carbon tax as direct income tax) earn 0 on AO1. Flawed causal chains built on false theory cannot exceed Level 1 (1-2) on AO2.
+- RIGOR ON FUNDAMENTAL ERRORS & REALISTIC CALIBRATION:
   * Ensure the final mark reflects the actual standard: essays with major conceptual errors and weak evaluation belong in Lower Middle or Bottom band (3-5/12), not Upper Middle (7+/12).
 - APPLICATION & EXAMPLES: Reward genuine real-world application and clear guiding theoretical examples. Reject weak, superficial one-liner examples that lack explanation.
 - Diagrams are NEVER compulsory unless requested. Do not penalise missing diagrams. Positively reward diagrams if present.

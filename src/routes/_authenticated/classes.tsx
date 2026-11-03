@@ -47,6 +47,7 @@ import {
   Target,
   Trash2,
   TrendingUp,
+  Upload,
   UserCheck,
   UserMinus,
   UserPlus,
@@ -60,6 +61,7 @@ import { toast } from "sonner";
 
 import { PageHeader } from "@/components/app/app-shell";
 import { HandwritingUpload } from "@/components/app/handwriting-upload";
+import { extractTextFromFile } from "@/lib/extract-text";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -1591,8 +1593,38 @@ function ClassworkTab({
   // Student Submission state
   const [submittingAssignmentId, setSubmittingAssignmentId] = useState<string | null>(null);
   const [submissionText, setSubmissionText] = useState("");
-  const [submissionTab, setSubmissionTab] = useState<"handwritten" | "typed">("handwritten");
-  const [isHandwrittenSubmission, setIsHandwrittenSubmission] = useState(false);
+  const [submissionTab, setSubmissionTab] = useState<"document" | "handwritten" | "typed">("document");
+  const [uploadedDocName, setUploadedDocName] = useState<string | null>(null);
+  const [isExtractingDoc, setIsExtractingDoc] = useState(false);
+  const [docExtractProgress, setDocExtractProgress] = useState<string | null>(null);
+  const docFileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleDocumentFile = async (file: File) => {
+    try {
+      setIsExtractingDoc(true);
+      setDocExtractProgress(`Reading ${file.name}…`);
+      const text = await extractTextFromFile(file, (page, total) => {
+        setDocExtractProgress(`Extracting page ${page} of ${total}…`);
+      });
+      if (!text || !text.trim()) {
+        throw new Error(
+          "No readable text could be extracted from this document. If this is an image-only scan, please use the 'Handwritten (Scan / Photos)' tab.",
+        );
+      }
+      setUploadedDocName(file.name);
+      setSubmissionText(text.trim());
+      setSubmissionTab("document");
+      const wordCount = text.trim().split(/\s+/).length;
+      toast.success(
+        `Loaded ${wordCount} words from "${file.name}"! Review below before turning in.`,
+      );
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to extract text from document.");
+    } finally {
+      setIsExtractingDoc(false);
+      setDocExtractProgress(null);
+    }
+  };
 
   const { data: assignments, isLoading } = useQuery({
     queryKey: ["classroom_assignments", classroom.id],
@@ -1652,7 +1684,7 @@ function ClassworkTab({
     }: {
       assignmentId: string;
       text: string;
-      submissionType?: "handwritten" | "typed";
+      submissionType?: "document" | "handwritten" | "typed";
     }) => {
       return submitWorkFn({
         data: {
@@ -1667,7 +1699,7 @@ function ClassworkTab({
       toast.success("Assignment submitted successfully!");
       setSubmittingAssignmentId(null);
       setSubmissionText("");
-      setIsHandwrittenSubmission(false);
+      setUploadedDocName(null);
       queryClient.invalidateQueries({ queryKey: ["classroom_assignments", classroom.id] });
     },
     onError: (err: Error) => toast.error(err.message),
@@ -1853,7 +1885,7 @@ function ClassworkTab({
                         ) : isSubmitted ? (
                           <Badge className="bg-blue-950 text-blue-300 border-blue-700 text-xs px-2.5 py-1">
                             <CheckCircle2 className="h-3.5 w-3.5 mr-1 text-blue-400" />
-                            Turned In {mySub?.submissionType === "handwritten" ? "(Handwritten)" : ""}
+                            Turned In {mySub?.submissionType === "document" ? "(Word/PDF)" : mySub?.submissionType === "handwritten" ? "(Handwritten)" : ""}
                           </Badge>
                         ) : (
                           <Badge className="bg-amber-950/60 text-amber-300 border-amber-700/60 text-xs px-2.5 py-1">
@@ -1983,10 +2015,22 @@ function ClassworkTab({
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 rounded-xl bg-background/60 border border-border text-xs text-muted-foreground">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span>Submitted on {new Date(mySub!.submittedAt).toLocaleString()}</span>
+                          {mySub?.submissionType === "document" && (
+                            <Badge variant="outline" className="border-blue-500/40 bg-blue-500/10 text-blue-300 text-[10px]">
+                              <FileText className="h-3 w-3 mr-1 text-blue-400" />
+                              Word / PDF Document
+                            </Badge>
+                          )}
                           {mySub?.submissionType === "handwritten" && (
                             <Badge variant="outline" className="border-purple-500/40 bg-purple-500/10 text-purple-300 text-[10px]">
                               <PenLine className="h-3 w-3 mr-1 text-purple-400" />
                               Handwritten Script
+                            </Badge>
+                          )}
+                          {mySub?.submissionType === "typed" && (
+                            <Badge variant="outline" className="border-emerald-500/40 bg-emerald-500/10 text-emerald-300 text-[10px]">
+                              <FileEdit className="h-3 w-3 mr-1 text-emerald-400" />
+                              Typed Answer
                             </Badge>
                           )}
                         </div>
@@ -1996,8 +2040,14 @@ function ClassworkTab({
                           onClick={() => {
                             setSubmittingAssignmentId(a.id);
                             setSubmissionText(mySub?.submissionText || "");
-                            setIsHandwrittenSubmission(mySub?.submissionType === "handwritten");
-                            setSubmissionTab(mySub?.submissionType === "handwritten" ? "handwritten" : "typed");
+                            setUploadedDocName(null);
+                            setSubmissionTab(
+                              mySub?.submissionType === "document"
+                                ? "document"
+                                : mySub?.submissionType === "handwritten"
+                                  ? "handwritten"
+                                  : "typed",
+                            );
                           }}
                           className="text-xs text-purple-400 hover:text-white self-start sm:self-auto"
                         >
@@ -2013,12 +2063,25 @@ function ClassworkTab({
                               Submit Your Answer for: <span className="text-purple-300 font-semibold">{a.title}</span>
                             </Label>
                             <p className="text-[11px] text-muted-foreground mt-0.5">
-                              Upload photos of your handwritten pages or type/paste your essay directly.
+                              Upload a Word or PDF document, photograph handwritten pages, or type directly.
                             </p>
                           </div>
 
                           {/* Segmented Mode Selector */}
-                          <div className="flex items-center p-0.5 bg-background border border-border rounded-xl self-start sm:self-auto shrink-0">
+                          <div className="flex items-center p-0.5 bg-background border border-border rounded-xl self-start sm:self-auto shrink-0 flex-wrap gap-1">
+                            <button
+                              type="button"
+                              onClick={() => setSubmissionTab("document")}
+                              className={cn(
+                                "px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-all cursor-pointer",
+                                submissionTab === "document"
+                                  ? "bg-blue-600 text-white shadow-xs font-semibold"
+                                  : "text-muted-foreground hover:text-foreground",
+                              )}
+                            >
+                              <FileText className="h-3.5 w-3.5" />
+                              Word / PDF Document
+                            </button>
                             <button
                               type="button"
                               onClick={() => setSubmissionTab("handwritten")}
@@ -2042,11 +2105,113 @@ function ClassworkTab({
                                   : "text-muted-foreground hover:text-foreground",
                               )}
                             >
-                              <FileText className="h-3.5 w-3.5" />
-                              Type / Paste Text
+                              <FileEdit className="h-3.5 w-3.5" />
+                              Type / Paste
                             </button>
                           </div>
                         </div>
+
+                        {/* Document Mode */}
+                        {submissionTab === "document" && (
+                          <div className="space-y-3 pt-1 animate-in fade-in">
+                            <div className="rounded-xl p-3 bg-blue-950/30 border border-blue-800/40 text-[11px] text-blue-200/90 flex items-center gap-2">
+                              <FileText className="h-4 w-4 text-blue-400 shrink-0" />
+                              <span>
+                                Upload a Word document (.docx, .doc), PDF (.pdf), or text file (.txt, .rtf, .md). The text will be extracted below for review before turning in.
+                              </span>
+                            </div>
+
+                            <div
+                              onClick={() => docFileInputRef.current?.click()}
+                              onDragOver={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                              }}
+                              onDrop={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                const files = Array.from(e.dataTransfer.files || []);
+                                if (files[0]) handleDocumentFile(files[0]);
+                              }}
+                              className={cn(
+                                "border-2 border-dashed rounded-2xl p-6 sm:p-8 text-center cursor-pointer transition-all",
+                                isExtractingDoc
+                                  ? "border-blue-500 bg-blue-950/20"
+                                  : uploadedDocName
+                                    ? "border-emerald-500/50 bg-emerald-950/20 hover:border-emerald-500"
+                                    : "border-border hover:border-blue-500 hover:bg-blue-950/10",
+                              )}
+                            >
+                              <input
+                                ref={docFileInputRef}
+                                type="file"
+                                accept=".docx,.doc,.pdf,.txt,.rtf,.md,.csv,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword,application/pdf,text/plain"
+                                className="hidden"
+                                onChange={(e) => {
+                                  const files = Array.from(e.target.files || []);
+                                  if (files[0]) handleDocumentFile(files[0]);
+                                  e.target.value = "";
+                                }}
+                              />
+
+                              {isExtractingDoc ? (
+                                <div className="flex flex-col items-center justify-center space-y-2 text-blue-400">
+                                  <Loader2 className="h-8 w-8 animate-spin" />
+                                  <p className="text-xs font-semibold">{docExtractProgress || "Extracting text from document…"}</p>
+                                  <p className="text-[11px] text-muted-foreground">Parsing paragraphs and headings…</p>
+                                </div>
+                              ) : uploadedDocName ? (
+                                <div className="flex flex-col items-center justify-center space-y-2">
+                                  <div className="h-10 w-10 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400">
+                                    <CheckCircle2 className="h-5 w-5" />
+                                  </div>
+                                  <div>
+                                    <p className="text-xs font-semibold text-foreground flex items-center justify-center gap-1.5">
+                                      <FileText className="h-4 w-4 text-emerald-400" />
+                                      {uploadedDocName}
+                                    </p>
+                                    <p className="text-[11px] text-emerald-400/90 mt-0.5">
+                                      Document extracted! You can click to replace or review the text below.
+                                    </p>
+                                  </div>
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      docFileInputRef.current?.click();
+                                    }}
+                                    className="text-xs text-blue-400 hover:text-white mt-1 h-7 px-3"
+                                  >
+                                    <Upload className="h-3 w-3 mr-1" />
+                                    Choose Another File
+                                  </Button>
+                                </div>
+                              ) : (
+                                <div className="flex flex-col items-center justify-center space-y-2.5">
+                                  <div className="h-11 w-11 rounded-2xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
+                                    <Upload className="h-5 w-5" />
+                                  </div>
+                                  <div>
+                                    <p className="text-xs font-semibold text-foreground">
+                                      Click to select a file or drag and drop here
+                                    </p>
+                                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                                      Supports Microsoft Word (.docx, .doc), Adobe PDF (.pdf), or text documents (.txt, .rtf)
+                                    </p>
+                                  </div>
+                                  <div className="flex items-center gap-1.5 flex-wrap justify-center pt-1">
+                                    <Badge variant="outline" className="text-[10px] bg-background/60 border-border text-muted-foreground">.DOCX</Badge>
+                                    <Badge variant="outline" className="text-[10px] bg-background/60 border-border text-muted-foreground">.PDF</Badge>
+                                    <Badge variant="outline" className="text-[10px] bg-background/60 border-border text-muted-foreground">.DOC</Badge>
+                                    <Badge variant="outline" className="text-[10px] bg-background/60 border-border text-muted-foreground">.TXT</Badge>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
 
                         {/* Handwritten Mode */}
                         {submissionTab === "handwritten" && (
@@ -2064,7 +2229,7 @@ function ClassworkTab({
                                 setSubmissionText((current) =>
                                   current.trim() ? `${current.trim()}\n\n${text}` : text,
                                 );
-                                setIsHandwrittenSubmission(true);
+                                setUploadedDocName(null);
                                 toast.success(
                                   "Handwritten pages transcribed! Review your text below before submitting.",
                                 );
@@ -2077,7 +2242,12 @@ function ClassworkTab({
                         <div className="space-y-1.5">
                           <div className="flex items-center justify-between text-xs">
                             <Label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
-                              {submissionTab === "handwritten" ? (
+                              {submissionTab === "document" ? (
+                                <>
+                                  <FileText className="h-3.5 w-3.5 text-blue-400" />
+                                  Extracted Document Text (review &amp; edit if needed):
+                                </>
+                              ) : submissionTab === "handwritten" ? (
                                 <>
                                   <PenLine className="h-3.5 w-3.5 text-purple-400" />
                                   Transcribed Essay Text (review &amp; edit if needed):
@@ -2100,9 +2270,11 @@ function ClassworkTab({
                             value={submissionText}
                             onChange={(e) => setSubmissionText(e.target.value)}
                             placeholder={
-                              submissionTab === "handwritten"
-                                ? "Upload handwritten page photos or scans above, and the OCR will transcribe your essay here for review..."
-                                : "Type or paste your Cambridge essay response here..."
+                              submissionTab === "document"
+                                ? "Upload a Word document or PDF above to extract your essay text here for review..."
+                                : submissionTab === "handwritten"
+                                  ? "Upload handwritten page photos or scans above, and the OCR will transcribe your essay here for review..."
+                                  : "Type or paste your Cambridge essay response here..."
                             }
                             className="bg-background border-input text-foreground min-h-[160px] text-sm leading-relaxed"
                           />
@@ -2111,13 +2283,21 @@ function ClassworkTab({
                         {/* Actions */}
                         <div className="flex items-center justify-between pt-1">
                           <div className="text-[11px] text-muted-foreground">
-                            {isHandwrittenSubmission ? (
+                            {submissionTab === "document" && uploadedDocName ? (
+                              <Badge
+                                variant="outline"
+                                className="border-blue-500/40 bg-blue-500/10 text-blue-300 text-[10px]"
+                              >
+                                <FileText className="h-3 w-3 mr-1" />
+                                {uploadedDocName}
+                              </Badge>
+                            ) : submissionTab === "handwritten" ? (
                               <Badge
                                 variant="outline"
                                 className="border-purple-500/40 bg-purple-500/10 text-purple-300 text-[10px]"
                               >
                                 <PenLine className="h-3 w-3 mr-1" />
-                                Handwritten OCR Submission
+                                Handwritten Script
                               </Badge>
                             ) : null}
                           </div>
@@ -2129,7 +2309,7 @@ function ClassworkTab({
                               onClick={() => {
                                 setSubmittingAssignmentId(null);
                                 setSubmissionText("");
-                                setIsHandwrittenSubmission(false);
+                                setUploadedDocName(null);
                               }}
                               className="text-muted-foreground hover:text-white text-xs"
                             >
@@ -2141,18 +2321,20 @@ function ClassworkTab({
                                 submitMutation.mutate({
                                   assignmentId: a.id,
                                   text: submissionText,
-                                  submissionType: isHandwrittenSubmission ? "handwritten" : "typed",
+                                  submissionType: submissionTab,
                                 })
                               }
-                              disabled={!submissionText.trim() || submitMutation.isPending}
+                              disabled={!submissionText.trim() || submitMutation.isPending || isExtractingDoc}
                               className="bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold shadow-md shadow-purple-500/20"
                             >
                               <Send className="h-3.5 w-3.5 mr-1.5" />
                               {submitMutation.isPending
                                 ? "Submitting..."
-                                : isHandwrittenSubmission
-                                  ? "Turn In Handwritten Essay"
-                                  : "Turn In Essay"}
+                                : submissionTab === "document"
+                                  ? "Turn In Document Essay"
+                                  : submissionTab === "handwritten"
+                                    ? "Turn In Handwritten Essay"
+                                    : "Turn In Essay"}
                             </Button>
                           </div>
                         </div>
@@ -2162,7 +2344,21 @@ function ClassworkTab({
                         <span className="text-xs text-muted-foreground">
                           Your work has not been turned in yet.
                         </span>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setSubmittingAssignmentId(a.id);
+                              setSubmissionTab("document");
+                              setSubmissionText("");
+                              setUploadedDocName(null);
+                            }}
+                            className="bg-blue-950/30 text-blue-300 border-blue-800/60 hover:bg-blue-900/40 text-xs font-semibold"
+                          >
+                            <Upload className="h-3.5 w-3.5 mr-1.5 text-blue-400" />
+                            Upload Word / PDF
+                          </Button>
                           <Button
                             size="sm"
                             variant="outline"
@@ -2170,12 +2366,12 @@ function ClassworkTab({
                               setSubmittingAssignmentId(a.id);
                               setSubmissionTab("handwritten");
                               setSubmissionText("");
-                              setIsHandwrittenSubmission(true);
+                              setUploadedDocName(null);
                             }}
                             className="bg-purple-950/30 text-purple-300 border-purple-800/60 hover:bg-purple-900/40 text-xs font-semibold"
                           >
                             <PenLine className="h-3.5 w-3.5 mr-1.5 text-purple-400" />
-                            Submit Handwritten Essay
+                            Submit Handwritten
                           </Button>
                           <Button
                             size="sm"
@@ -2183,12 +2379,12 @@ function ClassworkTab({
                               setSubmittingAssignmentId(a.id);
                               setSubmissionTab("typed");
                               setSubmissionText("");
-                              setIsHandwrittenSubmission(false);
+                              setUploadedDocName(null);
                             }}
                             className="bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold"
                           >
                             <FileEdit className="h-3.5 w-3.5 mr-1.5" />
-                            Write / Type Answer
+                            Write / Type
                           </Button>
                         </div>
                       </div>
@@ -2941,13 +3137,29 @@ function TeacherSubmissionsModal({
                           <Label className="text-xs font-bold uppercase text-muted-foreground tracking-wider">
                             Student's Submitted Essay Answer:
                           </Label>
-                          {activeStudent.submission.submissionType === "handwritten" && (
+                          {activeStudent.submission.submissionType === "document" ? (
+                            <Badge
+                              variant="outline"
+                              className="border-blue-500/40 bg-blue-500/10 text-blue-300 text-[10px] font-semibold"
+                            >
+                              <FileText className="h-3 w-3 mr-1 text-blue-400" />
+                              Word / PDF Document
+                            </Badge>
+                          ) : activeStudent.submission.submissionType === "handwritten" ? (
                             <Badge
                               variant="outline"
                               className="border-purple-500/40 bg-purple-500/10 text-purple-300 text-[10px] font-semibold"
                             >
                               <PenLine className="h-3 w-3 mr-1 text-purple-400" />
                               Handwritten OCR Script
+                            </Badge>
+                          ) : (
+                            <Badge
+                              variant="outline"
+                              className="border-emerald-500/40 bg-emerald-500/10 text-emerald-300 text-[10px] font-semibold"
+                            >
+                              <FileEdit className="h-3 w-3 mr-1 text-emerald-400" />
+                              Typed Answer
                             </Badge>
                           )}
                         </div>
@@ -3793,7 +4005,15 @@ function StudentLifetimePortfolioModal({
                                     <span className="font-bold text-muted-foreground uppercase text-[10px]">
                                       Student Submission Text
                                     </span>
-                                    {e.submissionType === "handwritten" && (
+                                    {e.submissionType === "document" ? (
+                                      <Badge
+                                        variant="outline"
+                                        className="border-blue-500/40 bg-blue-500/10 text-blue-300 text-[10px]"
+                                      >
+                                        <FileText className="h-3 w-3 mr-1 text-blue-400" />
+                                        Word / PDF
+                                      </Badge>
+                                    ) : e.submissionType === "handwritten" ? (
                                       <Badge
                                         variant="outline"
                                         className="border-purple-500/40 bg-purple-500/10 text-purple-300 text-[10px]"
@@ -3801,7 +4021,7 @@ function StudentLifetimePortfolioModal({
                                         <PenLine className="h-3 w-3 mr-1 text-purple-400" />
                                         Handwritten
                                       </Badge>
-                                    )}
+                                    ) : null}
                                   </div>
                                   <div className="p-3 rounded-lg bg-background/60 border border-border text-foreground leading-relaxed whitespace-pre-wrap max-h-56 overflow-y-auto">
                                     {e.submissionText}

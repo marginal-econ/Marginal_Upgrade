@@ -143,10 +143,10 @@ AUTHORITATIVE PRINCIPAL EXAMINER PRINCIPLES:
      * Approaching the prompt with differing analytical emphasis or partial focus.
      All of these MUST be marked positively on their economic merits.
    - Only award 0 marks across all AOs if you have double-checked that the essay has ZERO economic relation to the question prompt (no economic overlap whatsoever). No grace marks for genuinely off-topic material.
-3. EXAMPLES & APPLICATION CRITERIA (AO2):
-   - If an example is related to the question and demonstrates genuine real-world application, reward that mark under AO2.
-   - If theoretical, it must provide a clear demonstration of what is being described or serve as an explanatory guiding illustration.
-   - REJECT weak one-liner examples (e.g. passing mentions like "e.g. healthcare" without explanation). Examples must be at least somewhat detailed.
+3. KNOWLEDGE & ANALYSIS CRITERIA (+3-5% STRICTNESS):
+   - AO1 Knowledge: Demand syllabus-precise definitions and sound economic terminology. Vague or ambiguous terms earn 1 mark; inverted/false definitions receive 0.
+   - AO2 Analysis: Demand complete, unbroken causal transmission chains. Omitted causal steps restrict analysis from Top Band.
+   - Examples & Application: If an example is related to the question and demonstrates genuine real-world application, reward that mark under AO2. If theoretical, it must provide a clear demonstration of the mechanism. REJECT weak one-liner examples (e.g. passing mentions like "e.g. healthcare" without explanation).
 4. DIAGRAM DIRECTIVE (STRICT CAMBRIDGE RULE):
    - Diagrams are NEVER compulsory unless the question explicitly asks for one (e.g. 'with the aid of a diagram').
    - Written economics alone can achieve full marks (including 6/6 in AO2 and full overall marks).
@@ -283,11 +283,20 @@ export function synthesizeDualPasses(
   // When delta is 1, prefer the rigorous Error-Audit pass (pass1) to maintain calibrated evaluative strictness.
   const preferred = pass1.total_mark <= pass2.total_mark ? pass1 : pass2;
 
-  // Reconcile individual AO awarded marks ensuring sum equals total
-  let kMark = Math.min(split.ao1_marks, Math.round((pass1.ao_breakdown.knowledge.awarded + pass2.ao_breakdown.knowledge.awarded) / 2));
-  let aMark = Math.min(split.ao2_marks, Math.round((pass1.ao_breakdown.analysis.awarded + pass2.ao_breakdown.analysis.awarded) / 2));
+  // Reconcile individual AO awarded marks ensuring sum equals total with calibrated strictness (+3-5% on AO1/AO2/AO3)
+  let kMark = Math.min(
+    split.ao1_marks,
+    Math.floor((pass1.ao_breakdown.knowledge.awarded + pass2.ao_breakdown.knowledge.awarded) / 2 + 0.45),
+  );
+  let aMark = Math.min(
+    split.ao2_marks,
+    Math.floor((pass1.ao_breakdown.analysis.awarded + pass2.ao_breakdown.analysis.awarded) / 2 + 0.45),
+  );
   // Evaluation (AO3) calibrated with strictness: take conservative round if passes differ
-  let eMark = Math.min(split.ao3_marks, Math.floor((pass1.ao_breakdown.evaluation.awarded + pass2.ao_breakdown.evaluation.awarded) / 2 + 0.45));
+  let eMark = Math.min(
+    split.ao3_marks,
+    Math.floor((pass1.ao_breakdown.evaluation.awarded + pass2.ao_breakdown.evaluation.awarded) / 2 + 0.45),
+  );
 
   let total = kMark + aMark + eMark;
   // If rounding drifted from target total mark, adjust analysis or evaluation

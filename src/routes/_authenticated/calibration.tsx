@@ -68,7 +68,11 @@ function CalibrationPage() {
   const toggle = useServerFn(setAnchorActive);
   const remove = useServerFn(deleteAnchor);
 
-  const anchors = useQuery({ queryKey: ["anchors"], queryFn: () => fetchAnchors() });
+  const anchors = useQuery({
+    queryKey: ["anchors"],
+    queryFn: () => fetchAnchors(),
+    enabled: Boolean(me.data?.isAdmin),
+  });
 
   const [question, setQuestion] = useState("");
   const [essayText, setEssayText] = useState("");

@@ -1688,7 +1688,7 @@ export const submitAssignmentWork = createServerFn({ method: "POST" })
           .max(30000)
           .optional(),
         essayId: z.string().uuid().optional(),
-        submissionType: z.enum(["handwritten", "typed"]).optional(),
+        submissionType: z.enum(["document", "handwritten", "typed"]).optional(),
       })
       .parse(input),
   )
