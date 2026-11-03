@@ -57,6 +57,7 @@ import {
   type PaperHistoryEntry,
 } from "@/lib/mcq-pdf.functions";
 import { MCQ_DOMAIN_LABEL } from "@/lib/mcq-domain";
+import { calculatePredictedGradeFromThresholds } from "@/lib/cambridge-thresholds";
 
 export const Route = createFileRoute("/_authenticated/review")({
   head: () => ({
@@ -164,9 +165,9 @@ export function ReviewPanelPage() {
       const mark = e.latest_mark ?? 0;
       const max = e.max_mark ?? 12;
       const pct = max > 0 ? (mark / max) * 100 : 0;
-      if (essayBandFilter === "band1") return pct >= 75;
-      if (essayBandFilter === "band2") return pct >= 50 && pct < 75;
-      if (essayBandFilter === "band3") return pct < 50;
+      if (essayBandFilter === "band1") return pct >= 80;
+      if (essayBandFilter === "band2") return pct >= 55 && pct < 80;
+      if (essayBandFilter === "band3") return pct < 55;
       return true;
     });
   }, [essayList, essaySearch, essayBandFilter]);
@@ -245,11 +246,18 @@ export function ReviewPanelPage() {
             </div>
             <div className="mt-2 flex items-baseline gap-2">
               <span className="text-2xl font-bold tracking-tight text-foreground">
-                {reviewData?.gradeProjection?.projectedGrade ?? (essayList.length > 0 ? "Calibrating" : "—")}
+                {reviewData?.gradeProjection?.projectedGrade ??
+                  (essayAvgPct !== null
+                    ? calculatePredictedGradeFromThresholds(essayAvgPct).projectedGrade
+                    : "—")}
               </span>
               {reviewData?.gradeProjection?.targetGrade ? (
                 <span className="text-[11px] font-medium text-muted-foreground">
                   Target: {reviewData.gradeProjection.targetGrade}
+                </span>
+              ) : essayAvgPct !== null ? (
+                <span className="text-[11px] font-medium text-muted-foreground">
+                  Target: {calculatePredictedGradeFromThresholds(essayAvgPct).targetGrade}
                 </span>
               ) : null}
             </div>

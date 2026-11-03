@@ -50,7 +50,7 @@ Respond ONLY with a single valid JSON object, no markdown fences, no commentary 
 {{
   "total_mark": <integer, sum of the three awarded values below>,
   "max_mark": {max_mark},
-  "band": "<Top band | Upper middle band | Lower middle band | Bottom band>",
+  "band": "<Top Band | Upper Middle Band | Lower Middle Band | Bottom Band>",
   "ao_breakdown": {{
     "knowledge": {{"awarded": <int>, "out_of": {ao1_marks}, "comment": "<justification>"}},
     "analysis": {{"awarded": <int>, "out_of": {ao2_marks}, "comment": "<justification>"}},

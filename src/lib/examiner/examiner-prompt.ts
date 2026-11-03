@@ -96,7 +96,7 @@ Respond ONLY with a single valid JSON object, with NO commentary outside the JSO
 {{
   "total_mark": <integer, sum of awarded AO marks>,
   "max_mark": {max_mark},
-  "band": "<Top band | Upper middle band | Lower middle band | Bottom band>",
+  "band": "<Top Band | Upper Middle Band | Lower Middle Band | Bottom Band>",
   "ao_breakdown": {{
     "knowledge": {{ "awarded": <int>, "out_of": {ao1_marks}, "comment": "<detailed justification>" }},
     "analysis": {{ "awarded": <int>, "out_of": {ao2_marks}, "comment": "<detailed justification>" }},

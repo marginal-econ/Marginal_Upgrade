@@ -6,6 +6,10 @@ import {
   type GradeProjection,
   type MasteryPillar,
 } from "./review.functions";
+import {
+  calculatePredictedGradeFromThresholds,
+  getCambridgeGradeStandard,
+} from "./cambridge-thresholds";
 import type { McqDiagnostic, McqExplanationResult } from "./mcq/mcq-pdf.server";
 
 describe("Review Panel & Holistic Diagnostics", () => {
@@ -14,24 +18,24 @@ describe("Review Panel & Holistic Diagnostics", () => {
     expect(MIN_MCQ_PAPERS_FOR_REVIEW).toBe(1);
   });
 
-  it("projects Cambridge grade boundaries accurately", () => {
-    function computeGrade(percent: number): GradeProjection["projectedGrade"] {
-      if (percent >= 85) return "A*";
-      if (percent >= 75) return "A";
-      if (percent >= 65) return "B";
-      if (percent >= 55) return "C";
-      if (percent >= 45) return "D";
-      if (percent >= 35) return "E";
-      return "U";
-    }
+  it("projects Cambridge grade boundaries accurately using official thresholds", () => {
+    expect(calculatePredictedGradeFromThresholds(91.67).projectedGrade).toBe("A*");
+    expect(calculatePredictedGradeFromThresholds(80).projectedGrade).toBe("A*");
+    expect(calculatePredictedGradeFromThresholds(68).projectedGrade).toBe("A*");
+    expect(calculatePredictedGradeFromThresholds(62).projectedGrade).toBe("A");
+    expect(calculatePredictedGradeFromThresholds(55).projectedGrade).toBe("B");
+    expect(calculatePredictedGradeFromThresholds(48).projectedGrade).toBe("C");
+    expect(calculatePredictedGradeFromThresholds(40).projectedGrade).toBe("D");
+    expect(calculatePredictedGradeFromThresholds(34).projectedGrade).toBe("E");
+    expect(calculatePredictedGradeFromThresholds(25).projectedGrade).toBe("U");
+  });
 
-    expect(computeGrade(90)).toBe("A*");
-    expect(computeGrade(78)).toBe("A");
-    expect(computeGrade(68)).toBe("B");
-    expect(computeGrade(58)).toBe("C");
-    expect(computeGrade(48)).toBe("D");
-    expect(computeGrade(38)).toBe("E");
-    expect(computeGrade(25)).toBe("U");
+  it("verifies 11/12 is strictly Grade A* Standard and Top Band", () => {
+    const std = getCambridgeGradeStandard(11, 12);
+    expect(std.letter).toBe("A*");
+    expect(std.grade).toBe("Grade A* Standard");
+    expect(std.band).toBe("Top Band");
+    expect(std.percent).toBe(92);
   });
 
   it("evaluates the 5 pillars of Cambridge Economics", () => {

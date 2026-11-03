@@ -302,6 +302,23 @@ export const getReviewPanel = createServerFn({ method: "POST" })
           if (ageInDays < 30) {
             const daysRemaining = Math.max(1, Math.ceil(30 - ageInDays));
             const nextDate = new Date(generatedTime + 30 * 24 * 60 * 60 * 1000).toISOString();
+
+            // Re-calibrate against official Cambridge thresholds in case of past model drift
+            const recalc = calculatePredictedGradeFromThresholds(
+              parsed.gradeProjection.currentAveragePercent,
+              targetLevel,
+              seriesId,
+            );
+            parsed.gradeProjection.projectedGrade = recalc.projectedGrade;
+            parsed.gradeProjection.targetGrade = recalc.targetGrade;
+            parsed.gradeProjection.cutoffs = recalc.cutoffs;
+            parsed.gradeProjection.seriesId = recalc.seriesId;
+            parsed.gradeProjection.seriesLabel = recalc.seriesLabel;
+            parsed.gradeProjection.isCustomSeries = recalc.isCustomSeries;
+            if (recalc.projectedGrade === "A*") {
+              parsed.gradeProjection.marksToNextGrade = "Solid Cambridge A* benchmark maintained";
+            }
+
             return cleanStars({
               ...parsed,
               eligible: true,
@@ -430,6 +447,13 @@ export const getReviewPanel = createServerFn({ method: "POST" })
     });
     const empiricalPercent = totalMax > 0 ? Math.round((totalScore / totalMax) * 100) : 65;
 
+    // Compute Cambridge threshold prediction using chosen series or multi-year all-series average
+    const thresholdPrediction = calculatePredictedGradeFromThresholds(
+      empiricalPercent,
+      targetLevel,
+      seriesId,
+    );
+
     const thresholdInstruction = buildThresholdPromptInstruction(seriesId);
 
     const systemPrompt = [
@@ -437,6 +461,9 @@ export const getReviewPanel = createServerFn({ method: "POST" })
       "full academic diagnostic portfolio — essays AND MCQ papers together — to write a holistic diagnostic assessment.",
       "",
       thresholdInstruction,
+      `Candidate's empirical weighted achievement: ${empiricalPercent}%.`,
+      `Official Cambridge projected grade: Grade ${thresholdPrediction.projectedGrade} (Target: Grade ${thresholdPrediction.targetGrade}).`,
+      "Your diagnostic summary, feedback, and action plan MUST remain strictly calibrated to this Cambridge grade standard.",
       "",
       "Provide actionable advice across the 5 core pillars of Cambridge economics (Definitions, Causal chains,",
       "Evaluation weighing, Diagram synthesis, and MCQ distractor rejection).",
@@ -542,35 +569,19 @@ export const getReviewPanel = createServerFn({ method: "POST" })
           ? "steady"
           : "not enough data";
 
-    // Compute Cambridge threshold prediction using chosen series or multi-year all-series average
-    const thresholdPrediction = calculatePredictedGradeFromThresholds(
-      empiricalPercent,
-      targetLevel,
-      seriesId,
-    );
-
-    // Build Grade Projection grounded in Cambridge thresholds
+    // Build Grade Projection strictly grounded in Cambridge thresholds (authoritative, never hallucinated)
     const rawProj = (raw.grade_projection ?? {}) as Record<string, unknown>;
-    const projectedGrade = (
-      ["A*", "A", "B", "C", "D", "E", "U"].includes(String(rawProj.projected_grade))
-        ? (rawProj.projected_grade as GradeProjection["projectedGrade"])
-        : thresholdPrediction.projectedGrade
-    );
-
-    const targetGrade = (
-      ["A*", "A", "B"].includes(String(rawProj.target_grade))
-        ? (rawProj.target_grade as GradeProjection["targetGrade"])
-        : thresholdPrediction.targetGrade
-    );
 
     const gradeProjection: GradeProjection = {
-      projectedGrade,
-      currentAveragePercent: Number(rawProj.current_average_percent) || empiricalPercent,
-      targetGrade,
+      projectedGrade: thresholdPrediction.projectedGrade,
+      currentAveragePercent: empiricalPercent,
+      targetGrade: thresholdPrediction.targetGrade,
       marksToNextGrade:
-        typeof rawProj.marks_to_next_grade === "string" && rawProj.marks_to_next_grade.length > 0
-          ? rawProj.marks_to_next_grade
-          : thresholdPrediction.marksToNextGrade,
+        thresholdPrediction.projectedGrade === "A*"
+          ? "Solid Cambridge A* benchmark maintained"
+          : (typeof rawProj.marks_to_next_grade === "string" && rawProj.marks_to_next_grade.length > 0
+              ? rawProj.marks_to_next_grade
+              : thresholdPrediction.marksToNextGrade),
       confidence: totalEssays >= 5 ? "high" : totalEssays >= 3 ? "medium" : "emerging",
       seriesId: thresholdPrediction.seriesId,
       seriesLabel: thresholdPrediction.seriesLabel,

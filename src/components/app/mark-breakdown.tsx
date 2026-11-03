@@ -21,7 +21,8 @@ import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import type { Grading } from "@/lib/examiner/types";
+import { bandFor, type Grading } from "@/lib/examiner/types";
+import { getCambridgeGradeStandard } from "@/lib/cambridge-thresholds";
 import { cn, stripStars } from "@/lib/utils";
 
 const AO_META = [
@@ -91,24 +92,32 @@ const AO_META = [
   },
 ];
 
-function getBandTheme(band: string) {
-  if (band.includes("1") || band.includes("Top")) {
+function getBandTheme(band: string, totalMark?: number, maxMark?: number) {
+  if (typeof totalMark === "number" && typeof maxMark === "number" && maxMark > 0) {
+    const std = getCambridgeGradeStandard(totalMark, maxMark);
+    return {
+      ...std.theme,
+      grade: std.grade,
+    };
+  }
+  const norm = band.toLowerCase();
+  if (norm.includes("1") || norm.includes("top") || norm.includes("level 4")) {
     return {
       card: "border-emerald-500/40 bg-gradient-to-br from-emerald-950/40 via-emerald-900/10 to-background shadow-emerald-500/5",
       badge: "border-emerald-500/30 bg-emerald-500/15 text-emerald-400 font-semibold",
       progress: "from-emerald-500 via-teal-400 to-emerald-500",
-      grade: "Grade A* / A Standard",
+      grade: "Grade A* Standard",
     };
   }
-  if (band.includes("2") || band.includes("Upper")) {
+  if (norm.includes("2") || norm.includes("upper") || norm.includes("level 3")) {
     return {
-      card: "border-blue-500/40 bg-gradient-to-br from-blue-950/40 via-sky-900/10 to-background shadow-blue-500/5",
-      badge: "border-blue-500/30 bg-blue-500/15 text-blue-400 font-semibold",
-      progress: "from-blue-500 via-indigo-400 to-blue-500",
-      grade: "Grade B Standard",
+      card: "border-teal-500/40 bg-gradient-to-br from-teal-950/40 via-teal-900/10 to-background shadow-teal-500/5",
+      badge: "border-teal-500/30 bg-teal-500/15 text-teal-400 font-semibold",
+      progress: "from-teal-500 via-emerald-400 to-teal-500",
+      grade: "Grade A / B Standard",
     };
   }
-  if (band.includes("3") || band.includes("Middle")) {
+  if (norm.includes("3") || norm.includes("middle") || norm.includes("level 2")) {
     return {
       card: "border-amber-500/40 bg-gradient-to-br from-amber-950/40 via-amber-900/10 to-background shadow-amber-500/5",
       badge: "border-amber-500/30 bg-amber-500/15 text-amber-400 font-semibold",
@@ -133,13 +142,23 @@ export function MarkBreakdown({ grading }: { grading: Grading }) {
   const [copied, setCopied] = useState(false);
   const [sourcesOpen, setSourcesOpen] = useState(false);
 
-  const theme = getBandTheme(grading.band);
+  // Authoritative Cambridge calibration: guarantees 11/12 (and any >= 80% mark) is Top Band & Grade A* Standard
+  const cal = getCambridgeGradeStandard(grading.total_mark, grading.max_mark);
+  const resolvedBand = bandFor(grading.total_mark, grading.max_mark);
+  const theme = {
+    ...cal.theme,
+    grade: cal.grade,
+  };
 
   // Fallbacks to ensure full-fledged feedback is ALWAYS visible for every essay
-  const summary =
+  let summary =
     grading.examiner_summary && grading.examiner_summary.trim().length > 10
       ? stripStars(grading.examiner_summary)
-      : `This submission achieves ${grading.total_mark}/${grading.max_mark} marks (${grading.band}). Knowledge and terminology are established (${grading.ao_breakdown?.knowledge?.awarded ?? 0}/${grading.ao_breakdown?.knowledge?.out_of ?? 2}) alongside clear analytical progression (${grading.ao_breakdown?.analysis?.awarded ?? 0}/${grading.ao_breakdown?.analysis?.out_of ?? 6}) and balanced evaluation (${grading.ao_breakdown?.evaluation?.awarded ?? 0}/${grading.ao_breakdown?.evaluation?.out_of ?? 4}).`;
+      : `This submission achieves ${grading.total_mark}/${grading.max_mark} marks (${resolvedBand}). Knowledge and terminology are established (${grading.ao_breakdown?.knowledge?.awarded ?? 0}/${grading.ao_breakdown?.knowledge?.out_of ?? 2}) alongside clear analytical progression (${grading.ao_breakdown?.analysis?.awarded ?? 0}/${grading.ao_breakdown?.analysis?.out_of ?? 6}) and balanced evaluation (${grading.ao_breakdown?.evaluation?.awarded ?? 0}/${grading.ao_breakdown?.evaluation?.out_of ?? 4}).`;
+
+  if (resolvedBand === "Top Band") {
+    summary = summary.replace(/upper middle band/gi, "Top Band");
+  }
 
   const strengths =
     grading.strengths && grading.strengths.length > 0
@@ -170,7 +189,7 @@ export function MarkBreakdown({ grading }: { grading: Grading }) {
 
   const handleCopySummary = () => {
     const text = `Cambridge 9708 Economics Essay Assessment
-Total Mark: ${grading.total_mark}/${grading.max_mark} (${grading.band} - ${Math.round(percent)}%)
+Total Mark: ${grading.total_mark}/${grading.max_mark} (${resolvedBand} - ${Math.round(percent)}%)
 Standard: ${theme.grade}
 
 Assessment Objective Breakdown:
@@ -255,7 +274,7 @@ ${actionableFeedback.map((f, i) => `${i + 1}. ${stripStars(f)}`).join("\n")}`;
               <div className="flex flex-wrap items-center gap-1.5">
                 <Badge variant="outline" className={cn("px-2.5 py-0.5 text-xs", theme.badge)}>
                   <Award className="size-3 mr-1" />
-                  {grading.band}
+                  {resolvedBand}
                 </Badge>
                 <Badge variant="outline" className="border-border/80 bg-background/60 text-foreground/80 text-[11px] font-medium">
                   {theme.grade}

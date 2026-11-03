@@ -48,11 +48,15 @@ export function shouldTriggerArbitration(
     };
   }
 
-  const bandMismatch = examiner.band !== moderator.band;
+  const normEx = (examiner.band || "").toLowerCase();
+  const normMod = (moderator.band || "").toLowerCase();
+  const bandMismatch = normEx !== normMod;
   // Significant band discrepancy: e.g. Top band vs Middle band
   const extremeBandMismatch =
-    (examiner.band.includes("Top") && moderator.band.includes("Lower")) ||
-    (examiner.band.includes("Bottom") && moderator.band.includes("Upper"));
+    (normEx.includes("top") && normMod.includes("lower")) ||
+    (normMod.includes("top") && normEx.includes("lower")) ||
+    (normEx.includes("bottom") && normMod.includes("upper")) ||
+    (normMod.includes("bottom") && normEx.includes("upper"));
 
   if (delta >= threshold) {
     return {
@@ -180,7 +184,7 @@ Respond ONLY with a single valid JSON object, no markdown fences, no commentary 
     "analysis": { "awarded": <int>, "out_of": {ao2_marks}, "comment": "<string explaining authoritative decision>" },
     "evaluation": { "awarded": <int>, "out_of": {ao3_marks}, "comment": "<string explaining authoritative decision>" }
   },
-  "band": "<string>",
+  "band": "<Top Band | Upper Middle Band | Lower Middle Band | Bottom Band>",
   "examiner_summary": "<authoritative 2-3 sentence Principal Examiner verdict>",
   "strengths": ["<string quoting student text>", "..."],
   "weaknesses": ["<string highlighting genuine economic improvement>", "..."],

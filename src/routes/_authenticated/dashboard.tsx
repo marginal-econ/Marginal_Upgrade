@@ -626,13 +626,13 @@ export function DashboardPage() {
             </div>
             <div className="flex items-center gap-3 text-xs text-muted-foreground">
               <span className="flex items-center gap-1.5">
-                <span className="size-2 rounded-full bg-emerald-500" /> Band 1 (Top)
+                <span className="size-2 rounded-full bg-emerald-500" /> Top Band (80%+)
               </span>
               <span className="flex items-center gap-1.5">
-                <span className="size-2 rounded-full bg-blue-500" /> Band 2 (Mid)
+                <span className="size-2 rounded-full bg-blue-500" /> Upper Band (55%+)
               </span>
               <span className="flex items-center gap-1.5">
-                <span className="size-2 rounded-full bg-amber-500" /> Band 3 (Lower)
+                <span className="size-2 rounded-full bg-amber-500" /> Lower Band (35%+)
               </span>
             </div>
           </div>
@@ -1304,13 +1304,13 @@ function PerformanceChart({
           </linearGradient>
         </defs>
 
-        {/* Band Reference Lines */}
-        {/* Band 1: 75% Distinction Target */}
+        {/* Band Reference Lines calibrated to official Cambridge 9708 Level boundaries */}
+        {/* Top Band / Level 4: 80% (Grade A* Standard) */}
         <line
           x1={padding.left}
-          y1={padding.top + chartHeight * (1 - 0.75)}
+          y1={padding.top + chartHeight * (1 - 0.8)}
           x2={padding.left + chartWidth + 6}
-          y2={padding.top + chartHeight * (1 - 0.75)}
+          y2={padding.top + chartHeight * (1 - 0.8)}
           stroke="currentColor"
           strokeDasharray="4 4"
           className="text-emerald-500/40"
@@ -1318,7 +1318,7 @@ function PerformanceChart({
         />
         <rect
           x={width - 105}
-          y={padding.top + chartHeight * (1 - 0.75) - 8}
+          y={padding.top + chartHeight * (1 - 0.8) - 8}
           width="95"
           height="16"
           rx="4"
@@ -1327,19 +1327,19 @@ function PerformanceChart({
         />
         <text
           x={width - 57}
-          y={padding.top + chartHeight * (1 - 0.75) + 3.5}
+          y={padding.top + chartHeight * (1 - 0.8) + 3.5}
           textAnchor="middle"
           className="text-[9.5px] fill-emerald-600 dark:fill-emerald-400 font-semibold select-none"
         >
-          Band 1 (75%+)
+          Top Band (80%+)
         </text>
 
-        {/* Band 2: 50% Mid Band */}
+        {/* Upper Middle Band / Level 3: 55% (Grade A/B Standard) */}
         <line
           x1={padding.left}
-          y1={padding.top + chartHeight * (1 - 0.5)}
+          y1={padding.top + chartHeight * (1 - 0.55)}
           x2={padding.left + chartWidth + 6}
-          y2={padding.top + chartHeight * (1 - 0.5)}
+          y2={padding.top + chartHeight * (1 - 0.55)}
           stroke="currentColor"
           strokeDasharray="4 4"
           className="text-blue-500/40"
@@ -1347,7 +1347,7 @@ function PerformanceChart({
         />
         <rect
           x={width - 105}
-          y={padding.top + chartHeight * (1 - 0.5) - 8}
+          y={padding.top + chartHeight * (1 - 0.55) - 8}
           width="95"
           height="16"
           rx="4"
@@ -1356,14 +1356,14 @@ function PerformanceChart({
         />
         <text
           x={width - 57}
-          y={padding.top + chartHeight * (1 - 0.5) + 3.5}
+          y={padding.top + chartHeight * (1 - 0.55) + 3.5}
           textAnchor="middle"
           className="text-[9.5px] fill-blue-600 dark:fill-blue-400 font-semibold select-none"
         >
-          Band 2 (50%+)
+          Upper Band (55%+)
         </text>
 
-        {/* Band 3: 35% Lower Band */}
+        {/* Lower Middle Band / Level 2: 35% (Grade C/D Standard) */}
         <line
           x1={padding.left}
           y1={padding.top + chartHeight * (1 - 0.35)}
@@ -1389,7 +1389,7 @@ function PerformanceChart({
           textAnchor="middle"
           className="text-[9.5px] fill-amber-600 dark:fill-amber-400 font-semibold select-none"
         >
-          Band 3 (35%+)
+          Lower Band (35%+)
         </text>
 
         {/* Area fill */}

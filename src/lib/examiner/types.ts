@@ -130,7 +130,9 @@ export function normaliseGrading(
   // The AO marks are the source of truth; a stated total that disagrees is a
   // model arithmetic slip, not a separate judgement.
   const total = Math.max(0, Math.min(maxMark, aoTotal || declaredTotal));
-  const band = typeof raw.band === "string" ? raw.band : bandFor(total, maxMark);
+  // The awarded mark is the source of truth for the Cambridge grade band:
+  // A score of 10-12/12 is strictly Top Band (Level 4), never Upper Middle or Lower.
+  const band = bandFor(total, maxMark);
 
   const rawMissing = (raw.missing_elements ?? {}) as Record<string, unknown>;
 
@@ -218,9 +220,9 @@ export function normaliseGrading(
 
 export function bandFor(total: number, maxMark: number): string {
   const ratio = maxMark > 0 ? total / maxMark : 0;
-  if (ratio >= 0.8) return "Top band";
-  if (ratio >= 0.55) return "Upper middle band";
-  if (ratio >= 0.35) return "Lower middle band";
-  return "Bottom band";
+  if (ratio >= 0.8) return "Top Band";
+  if (ratio >= 0.55) return "Upper Middle Band";
+  if (ratio >= 0.35) return "Lower Middle Band";
+  return "Bottom Band";
 }
 

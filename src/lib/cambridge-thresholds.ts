@@ -387,6 +387,163 @@ export function calculatePredictedGradeFromThresholds(
   };
 }
 
+export type CambridgeGradeStandard = {
+  grade: string; // e.g. "Grade A* Standard", "Grade A Standard"
+  letter: "A*" | "A" | "B" | "C" | "D" | "E" | "U";
+  band: "Top Band" | "Upper Middle Band" | "Lower Middle Band" | "Bottom Band";
+  percent: number;
+  theme: {
+    card: string;
+    badge: string;
+    progress: string;
+  };
+};
+
+/**
+ * Calibrates an essay mark (e.g. 11/12) directly to official Cambridge 9708 standards.
+ * Guaranteed invariant: Any score >= 80% (including 10-12/12) is unequivocally Top Band and Grade A* Standard.
+ */
+export function getCambridgeGradeStandard(
+  totalMark: number,
+  maxMark: number,
+  seriesId?: string,
+): CambridgeGradeStandard {
+  const percent = maxMark > 0 ? (totalMark / maxMark) * 100 : 0;
+  const roundedPercent = Math.round(percent);
+  const ratio = maxMark > 0 ? totalMark / maxMark : 0;
+
+  // Derive authoritative Cambridge Level / Band
+  let band: CambridgeGradeStandard["band"];
+  if (ratio >= 0.8) {
+    band = "Top Band";
+  } else if (ratio >= 0.55) {
+    band = "Upper Middle Band";
+  } else if (ratio >= 0.35) {
+    band = "Lower Middle Band";
+  } else {
+    band = "Bottom Band";
+  }
+
+  // Derive Cambridge Grade Standard based on official 9708 thresholds:
+  // A* cutoff is ~68%, A is ~60%, B is ~52%, C is ~46%, D is ~39%, E is ~33%
+  if (totalMark <= 0) {
+    return {
+      grade: "Ungraded (0 Marks)",
+      letter: "U",
+      band: "Bottom Band",
+      percent: roundedPercent,
+      theme: {
+        card: "border-rose-500/40 bg-gradient-to-br from-rose-950/40 via-rose-900/10 to-background shadow-rose-500/5",
+        badge: "border-rose-500/30 bg-rose-500/15 text-rose-400 font-semibold",
+        progress: "from-rose-500 via-red-400 to-rose-500",
+      },
+    };
+  }
+
+  // Grade A* Standard: >= 68% or top band (>= 10/12, >= 7/8, >= 16/20)
+  if (percent >= 68 || (maxMark <= 12 && totalMark >= 10)) {
+    return {
+      grade: "Grade A* Standard",
+      letter: "A*",
+      band,
+      percent: roundedPercent,
+      theme: {
+        card: "border-emerald-500/40 bg-gradient-to-br from-emerald-950/40 via-emerald-900/10 to-background shadow-emerald-500/5",
+        badge: "border-emerald-500/30 bg-emerald-500/15 text-emerald-400 font-semibold",
+        progress: "from-emerald-500 via-teal-400 to-emerald-500",
+      },
+    };
+  }
+
+  // Grade A Standard: >= 60% (or 8-9 on 12-mark essay, 5-6 on 8-mark essay, 12-15 on 20-mark)
+  if (percent >= 60 || (maxMark === 12 && totalMark >= 8)) {
+    return {
+      grade: "Grade A Standard",
+      letter: "A",
+      band,
+      percent: roundedPercent,
+      theme: {
+        card: "border-teal-500/40 bg-gradient-to-br from-teal-950/40 via-teal-900/10 to-background shadow-teal-500/5",
+        badge: "border-teal-500/30 bg-teal-500/15 text-teal-400 font-semibold",
+        progress: "from-teal-500 via-emerald-400 to-teal-500",
+      },
+    };
+  }
+
+  // Grade B Standard: >= 52% (or 7 on 12-mark essay, 11 on 20-mark)
+  if (percent >= 52 || (maxMark === 12 && totalMark >= 7)) {
+    return {
+      grade: "Grade B Standard",
+      letter: "B",
+      band,
+      percent: roundedPercent,
+      theme: {
+        card: "border-blue-500/40 bg-gradient-to-br from-blue-950/40 via-sky-900/10 to-background shadow-blue-500/5",
+        badge: "border-blue-500/30 bg-blue-500/15 text-blue-400 font-semibold",
+        progress: "from-blue-500 via-indigo-400 to-blue-500",
+      },
+    };
+  }
+
+  // Grade C Standard: >= 46% (or 6 on 12-mark essay, 4 on 8-mark)
+  if (percent >= 46 || (maxMark === 12 && totalMark >= 6)) {
+    return {
+      grade: "Grade C Standard",
+      letter: "C",
+      band,
+      percent: roundedPercent,
+      theme: {
+        card: "border-cyan-500/40 bg-gradient-to-br from-cyan-950/40 via-sky-900/10 to-background shadow-cyan-500/5",
+        badge: "border-cyan-500/30 bg-cyan-500/15 text-cyan-400 font-semibold",
+        progress: "from-cyan-500 via-sky-400 to-cyan-500",
+      },
+    };
+  }
+
+  // Grade D Standard: >= 39% (or 5 on 12-mark essay)
+  if (percent >= 39 || (maxMark === 12 && totalMark >= 5)) {
+    return {
+      grade: "Grade D Standard",
+      letter: "D",
+      band,
+      percent: roundedPercent,
+      theme: {
+        card: "border-amber-500/40 bg-gradient-to-br from-amber-950/40 via-amber-900/10 to-background shadow-amber-500/5",
+        badge: "border-amber-500/30 bg-amber-500/15 text-amber-400 font-semibold",
+        progress: "from-amber-500 via-orange-400 to-amber-500",
+      },
+    };
+  }
+
+  // Grade E Standard: >= 33% (or 4 on 12-mark essay - minimum Cambridge pass)
+  if (percent >= 33 || (maxMark === 12 && totalMark >= 4)) {
+    return {
+      grade: "Grade E Standard",
+      letter: "E",
+      band,
+      percent: roundedPercent,
+      theme: {
+        card: "border-orange-500/40 bg-gradient-to-br from-orange-950/40 via-amber-900/10 to-background shadow-orange-500/5",
+        badge: "border-orange-500/30 bg-orange-500/15 text-orange-400 font-semibold",
+        progress: "from-orange-500 via-amber-400 to-orange-500",
+      },
+    };
+  }
+
+  // Working towards standard (below passing grade E)
+  return {
+    grade: "Working Towards Standard",
+    letter: "U",
+    band: "Bottom Band",
+    percent: roundedPercent,
+    theme: {
+      card: "border-rose-500/40 bg-gradient-to-br from-rose-950/40 via-rose-900/10 to-background shadow-rose-500/5",
+      badge: "border-rose-500/30 bg-rose-500/15 text-rose-400 font-semibold",
+      progress: "from-rose-500 via-red-400 to-rose-500",
+    },
+  };
+}
+
 /** Formats the threshold guidance string for injecting into LLM system prompts. */
 export function buildThresholdPromptInstruction(seriesId?: string): string {
   const normId = normalizeSeriesId(seriesId);

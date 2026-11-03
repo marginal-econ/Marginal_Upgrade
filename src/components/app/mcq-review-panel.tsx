@@ -117,17 +117,19 @@ export function McqReviewPanel({
   const overallPct = Math.round((totalCorrect / Math.max(totalAttempted, 1)) * 100);
 
   const gradeBand =
-    overallPct >= 85
+    overallPct >= 80
       ? { grade: "A*", color: "text-amber-500 bg-amber-500/10 border-amber-500/30" }
-      : overallPct >= 75
+      : overallPct >= 70
         ? { grade: "A", color: "text-emerald-600 bg-emerald-500/10 border-emerald-500/30" }
-        : overallPct >= 65
+        : overallPct >= 60
           ? { grade: "B", color: "text-sky-600 bg-sky-500/10 border-sky-500/30" }
           : overallPct >= 50
-            ? { grade: "C", color: "text-yellow-600 bg-yellow-500/10 border-yellow-500/30" }
+            ? { grade: "C", color: "text-cyan-600 bg-cyan-500/10 border-cyan-500/30" }
             : overallPct >= 40
-              ? { grade: "D", color: "text-orange-600 bg-orange-500/10 border-orange-500/30" }
-              : { grade: "U", color: "text-rose-600 bg-rose-500/10 border-rose-500/30" };
+              ? { grade: "D", color: "text-amber-600 bg-amber-500/10 border-amber-500/30" }
+              : overallPct >= 33
+                ? { grade: "E", color: "text-orange-600 bg-orange-500/10 border-orange-500/30" }
+                : { grade: "U", color: "text-rose-600 bg-rose-500/10 border-rose-500/30" };
 
   return (
     <Card>
