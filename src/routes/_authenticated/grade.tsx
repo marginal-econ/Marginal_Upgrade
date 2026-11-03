@@ -312,6 +312,7 @@ function GradePage() {
   // its own [DIAGRAM: ...] tag, and all of them are joined together when the
   // essay is submitted for marking.
   const [diagrams, setDiagrams] = useState<AttachedDiagram[]>([]);
+  const [markSchemeImages, setMarkSchemeImages] = useState<MarkSchemeImage[]>([]);
   const [diagramMode, setDiagramMode] = useState<"none" | "upload" | "library" | "url">("none");
   const [diagramLibraryId, setDiagramLibraryId] = useState<string>("");
   const [diagramUrl, setDiagramUrl] = useState("");
@@ -342,11 +343,6 @@ function GradePage() {
       toast.info("Please use Ctrl+V to paste your text directly into the box.");
     }
   };
-
-  // A pasted screenshot of the mark scheme, sent to the examiner as an
-  // actual image (vision) alongside the retrieved text context — see
-  // grading.functions.ts / grade.server.ts.
-  const [markSchemeImages, setMarkSchemeImages] = useState<MarkSchemeImage[]>([]);
 
   const [writingCheck, setWritingCheck] = useState<WritingCheck | null>(null);
   const [checkedTextSnapshot, setCheckedTextSnapshot] = useState<string | null>(null);
