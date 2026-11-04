@@ -118,13 +118,13 @@ export const FREE_ESSAY_LIMIT_MESSAGE =
 
 export const TEACHER_FREE_ESSAY_LIMIT_MESSAGE =
   `${TIER_LIMIT_PREFIX}: You have used your 3 free trial essay evaluations for educators. ` +
-  `Upgrade to an Educator AI Pass (from ₹99/mo) or School Department License to continue grading personal essays. Student classroom submissions can still be reviewed anytime.`;
+  `Upgrade to an Educator AI Pass (from $19/mo) or School Department License to continue grading personal essays. Student classroom submissions can still be reviewed anytime.`;
 
 export const TEACHER_SCHOOL_LICENSE_REQUIRED_MESSAGE =
-  "Teacher accounts require an active Educator AI Pass (from ₹99/mo) or School Department License to use the AI Essay Grader. Student submissions to your classrooms are covered under student quotas.";
+  "Teacher accounts require an active Educator AI Pass (from $19/mo) or School Department License to use the AI Essay Grader. Student submissions to your classrooms are covered under student quotas.";
 
 export const TEACHER_LIVE_EXAMINER_REQUIRED_MESSAGE =
-  "Teacher accounts require an active Educator AI Pass (from ₹99/mo) or School Department License to use the Live Examiner. To demonstrate or test Live Examiner, please activate an Educator Pass or School License.";
+  "Teacher accounts require an active Educator AI Pass (from $19/mo) or School Department License to use the Live Examiner. To demonstrate or test Live Examiner, please activate an Educator Pass or School License.";
 
 export const LIVE_EXAMINER_PAID_ONLY_MESSAGE =
   `Live Examiner is a premium feature available on paid plans. ` +

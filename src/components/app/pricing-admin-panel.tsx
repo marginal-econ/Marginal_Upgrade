@@ -75,6 +75,14 @@ import {
   type PlanRestrictions,
   type PricingTierConfig,
 } from "@/lib/pricing-plans";
+import {
+  getAllCurrencyBreakdowns,
+  convertFromUsd,
+  formatCurrencyAmount,
+  CURRENCY_LIST,
+  SUPPORTED_CURRENCIES,
+  type CurrencyCode,
+} from "@/lib/currency";
 
 export function PricingAdminPanel() {
   const queryClient = useQueryClient();
@@ -100,6 +108,7 @@ export function PricingAdminPanel() {
   // Filtering & Search
   const [searchQuery, setSearchQuery] = useState("");
   const [visibilityFilter, setVisibilityFilter] = useState<"all" | "public" | "private">("all");
+  const [allCurrenciesModalOpen, setAllCurrenciesModalOpen] = useState(false);
 
   // Create new plan modal
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -120,8 +129,8 @@ export function PricingAdminPanel() {
     name: "",
     tagline: "",
     badge: "Exclusive",
-    monthlyPrice: 299,
-    annualPrice: 2499,
+    monthlyPrice: 49,
+    annualPrice: 490,
     essaysPerMonth: 20,
     liveCredits: 6,
     hasExperimentalLabs: false,
@@ -398,6 +407,17 @@ export function PricingAdminPanel() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2 self-start lg:self-center shrink-0">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setAllCurrenciesModalOpen(true)}
+              className="h-8 text-xs font-semibold gap-1.5 shadow-2xs border-primary/30 text-primary hover:bg-primary/10"
+            >
+              <Globe className="size-3.5" />
+              <span>All Currencies Matrix</span>
+            </Button>
+
             <Button
               type="button"
               variant="default"
@@ -686,10 +706,10 @@ export function PricingAdminPanel() {
                     </div>
                   </div>
 
-                  {/* Pricing Inputs */}
+                  {/* Pricing Inputs ($ USD Base) */}
                   <div className="grid grid-cols-2 gap-3 text-xs pt-0.5">
                     <div>
-                      <Label className="text-[11px] text-muted-foreground font-medium">Monthly (₹)</Label>
+                      <Label className="text-[11px] text-muted-foreground font-medium">Monthly ($ USD)</Label>
                       <Input
                         type="number"
                         value={current.monthlyPrice}
@@ -699,13 +719,13 @@ export function PricingAdminPanel() {
                             [tierKey]: { ...current, monthlyPrice: Number(e.target.value) },
                           }))
                         }
-                        className="h-8 text-xs font-semibold tabular-nums mt-1"
+                        className="h-8 text-xs font-semibold tabular-nums mt-1 font-mono"
                       />
                     </div>
                     <div>
                       <div className="flex items-center justify-between gap-1">
                         <Label className="text-[11px] text-muted-foreground font-medium whitespace-nowrap">
-                          Annual (₹)
+                          Annual ($ USD)
                         </Label>
                         {current.annualPrice > 0 && current.monthlyPrice > 0 && (
                           <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-semibold whitespace-nowrap shrink-0">
@@ -722,9 +742,52 @@ export function PricingAdminPanel() {
                             [tierKey]: { ...current, annualPrice: Number(e.target.value) },
                           }))
                         }
-                        className="h-8 text-xs font-semibold tabular-nums mt-1"
+                        className="h-8 text-xs font-semibold tabular-nums mt-1 font-mono"
                       />
                     </div>
+                  </div>
+
+                  {/* All Currencies Preview Breakdown (Live across top international currencies) */}
+                  <div className="p-2.5 rounded-xl border border-border/70 bg-muted/20 space-y-1.5">
+                    <div className="flex items-center justify-between text-[10px]">
+                      <span className="font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                        <Globe className="size-3 text-primary" />
+                        All Currencies
+                      </span>
+                      <span className="font-mono text-muted-foreground text-[10px]">
+                        Base: ${current.monthlyPrice || 0}/mo
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-1 text-[11px]">
+                      {getAllCurrencyBreakdowns(current.monthlyPrice || 0)
+                        .filter((c) => ["USD", "INR", "GBP", "EUR", "SGD", "AED"].includes(c.code))
+                        .map((c) => (
+                          <div
+                            key={c.code}
+                            className="flex items-center justify-between p-1 rounded-md bg-background/90 border border-border/40 text-[10px]"
+                          >
+                            <span className="flex items-center gap-1 font-semibold text-muted-foreground">
+                              <span>{c.flag}</span>
+                              <span className="font-mono">{c.code}</span>
+                            </span>
+                            <span className="font-bold tabular-nums text-foreground">
+                              {c.formatted}
+                              <span className="text-muted-foreground font-normal text-[9px]">/mo</span>
+                            </span>
+                          </div>
+                        ))}
+                    </div>
+                    {current.annualPrice > 0 && (
+                      <div className="pt-1 border-t border-border/40 flex items-center justify-between text-[10px] text-muted-foreground">
+                        <span className="text-[9.5px]">Annual:</span>
+                        <div className="flex items-center gap-2 font-mono text-[9.5px]">
+                          <span>🇺🇸 ${current.annualPrice}</span>
+                          <span>🇮🇳 ₹{convertFromUsd(current.annualPrice, "INR").toLocaleString()}</span>
+                          <span>🇬🇧 £{convertFromUsd(current.annualPrice, "GBP")}</span>
+                          <span>🇪🇺 €{convertFromUsd(current.annualPrice, "EUR")}</span>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Quotas Inputs */}
@@ -1445,26 +1508,44 @@ export function PricingAdminPanel() {
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <Label className="text-[11px]">Monthly Price (₹)</Label>
+                <Label className="text-[11px]">Monthly Price ($ USD)</Label>
                 <Input
                   type="number"
                   value={newPlan.monthlyPrice}
                   onChange={(e) =>
                     setNewPlan((p) => ({ ...p, monthlyPrice: Number(e.target.value) }))
                   }
-                  className="h-8 text-xs tabular-nums"
+                  className="h-8 text-xs tabular-nums font-mono font-semibold"
                 />
               </div>
               <div className="space-y-1">
-                <Label className="text-[11px]">Annual Price (₹)</Label>
+                <Label className="text-[11px]">Annual Price ($ USD)</Label>
                 <Input
                   type="number"
                   value={newPlan.annualPrice}
                   onChange={(e) =>
                     setNewPlan((p) => ({ ...p, annualPrice: Number(e.target.value) }))
                   }
-                  className="h-8 text-xs tabular-nums"
+                  className="h-8 text-xs tabular-nums font-mono font-semibold"
                 />
+              </div>
+            </div>
+
+            {/* Live multi-currency preview for new plan */}
+            <div className="p-2.5 rounded-xl border border-border/70 bg-muted/20 space-y-1 text-[11px]">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                <Globe className="size-3 text-primary" />
+                Live Multi-Currency Breakdown
+              </span>
+              <div className="grid grid-cols-3 gap-1">
+                {getAllCurrencyBreakdowns(newPlan.monthlyPrice || 0)
+                  .filter((c) => ["USD", "INR", "GBP", "EUR", "SGD", "AED"].includes(c.code))
+                  .map((c) => (
+                    <div key={c.code} className="p-1 rounded bg-background border border-border/40 text-[10px] flex items-center justify-between">
+                      <span className="text-muted-foreground">{c.flag} {c.code}</span>
+                      <span className="font-bold tabular-nums">{c.formatted}</span>
+                    </div>
+                  ))}
               </div>
             </div>
 
@@ -1540,6 +1621,119 @@ export function PricingAdminPanel() {
               className="text-xs font-semibold"
             >
               {updateTierMutation.isPending ? "Creating Plan..." : "Create Plan"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal: All Currencies Matrix Overview for Admin */}
+      <Dialog open={allCurrenciesModalOpen} onOpenChange={setAllCurrenciesModalOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] sm:max-h-[85vh] flex flex-col p-0 overflow-hidden shadow-2xl border border-border/80">
+          <DialogHeader className="p-6 pb-4 border-b border-border/70 shrink-0 bg-background/95 backdrop-blur-sm pr-12">
+            <DialogTitle className="flex items-center gap-2 text-base font-bold">
+              <Globe className="size-5 text-primary" />
+              <span>All Currencies Platform Pricing Matrix</span>
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Live international student prices across all 8 supported currencies, calculated from active USD base pricing. Students see localized prices and can toggle their currency anytime on /pricing and during checkout.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex-1 overflow-y-auto p-6 space-y-4 overscroll-contain">
+            <div className="rounded-xl border border-border/80 overflow-hidden shadow-xs">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="border-b border-border bg-muted/60 text-muted-foreground font-semibold">
+                    <th className="py-2.5 px-3">Plan Name</th>
+                    <th className="py-2.5 px-2 text-right">🇺🇸 USD</th>
+                    <th className="py-2.5 px-2 text-right">🇮🇳 INR</th>
+                    <th className="py-2.5 px-2 text-right">🇬🇧 GBP</th>
+                    <th className="py-2.5 px-2 text-right">🇪🇺 EUR</th>
+                    <th className="py-2.5 px-2 text-right">🇸🇬 SGD</th>
+                    <th className="py-2.5 px-2 text-right">🇦🇪 AED</th>
+                    <th className="py-2.5 px-2 text-center">Essays / Mo</th>
+                    <th className="py-2.5 px-2 text-center">Live Credits</th>
+                    <th className="py-2.5 px-3 text-center">Visibility</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border/60">
+                  {uniqueTierKeys.map((tierKey) => {
+                    const current = getTierState(tierKey);
+                    const isPub = current.isPublic !== false;
+                    return (
+                      <tr key={tierKey} className="hover:bg-muted/20 transition-colors">
+                        <td className="py-2.5 px-3">
+                          <span className="font-bold text-foreground block">{current.name || tierKey}</span>
+                          <span className="font-mono text-[10px] text-muted-foreground">{tierKey}</span>
+                        </td>
+                        <td className="py-2.5 px-2 text-right font-mono font-bold text-foreground">
+                          ${current.monthlyPrice}
+                          <span className="block text-[10px] text-muted-foreground font-normal">${current.annualPrice}/yr</span>
+                        </td>
+                        <td className="py-2.5 px-2 text-right font-mono font-semibold text-foreground">
+                          ₹{convertFromUsd(current.monthlyPrice, "INR").toLocaleString()}
+                          <span className="block text-[10px] text-muted-foreground font-normal">₹{convertFromUsd(current.annualPrice, "INR").toLocaleString()}/yr</span>
+                        </td>
+                        <td className="py-2.5 px-2 text-right font-mono font-semibold text-foreground">
+                          £{convertFromUsd(current.monthlyPrice, "GBP")}
+                          <span className="block text-[10px] text-muted-foreground font-normal">£{convertFromUsd(current.annualPrice, "GBP")}/yr</span>
+                        </td>
+                        <td className="py-2.5 px-2 text-right font-mono font-semibold text-foreground">
+                          €{convertFromUsd(current.monthlyPrice, "EUR")}
+                          <span className="block text-[10px] text-muted-foreground font-normal">€{convertFromUsd(current.annualPrice, "EUR")}/yr</span>
+                        </td>
+                        <td className="py-2.5 px-2 text-right font-mono font-semibold text-foreground">
+                          S${convertFromUsd(current.monthlyPrice, "SGD")}
+                          <span className="block text-[10px] text-muted-foreground font-normal">S${convertFromUsd(current.annualPrice, "SGD")}/yr</span>
+                        </td>
+                        <td className="py-2.5 px-2 text-right font-mono font-semibold text-foreground">
+                          AED {convertFromUsd(current.monthlyPrice, "AED")}
+                          <span className="block text-[10px] text-muted-foreground font-normal">AED {convertFromUsd(current.annualPrice, "AED")}/yr</span>
+                        </td>
+                        <td className="py-2.5 px-2 text-center font-bold text-foreground">
+                          {current.essaysPerMonth}
+                        </td>
+                        <td className="py-2.5 px-2 text-center font-bold text-foreground">
+                          {current.liveCredits}
+                        </td>
+                        <td className="py-2.5 px-3 text-center">
+                          {isPub ? (
+                            <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-[10px] font-semibold">
+                              Public
+                            </Badge>
+                          ) : (
+                            <Badge className="bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20 text-[10px] font-semibold">
+                              Unlisted
+                            </Badge>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="p-3 rounded-xl bg-muted/40 border border-border/60 text-xs text-muted-foreground space-y-1">
+              <p className="font-semibold text-foreground flex items-center gap-1.5">
+                <Globe className="size-3.5 text-primary" />
+                Multi-Currency Information
+              </p>
+              <p className="text-[11px] leading-relaxed">
+                Base prices are saved in USD. Exchange rates automatically recalculate into local currency price points (with charm pricing in INR and integer rounding in GBP/EUR/SGD/AED). Students can freely switch currency at any time via the currency switcher.
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter className="p-4 border-t border-border/70 bg-muted/20 shrink-0">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setAllCurrenciesModalOpen(false)}
+              className="text-xs"
+            >
+              Close Matrix
             </Button>
           </DialogFooter>
         </DialogContent>

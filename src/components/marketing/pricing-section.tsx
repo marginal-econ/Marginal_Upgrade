@@ -31,6 +31,8 @@ import { cn } from "@/lib/utils";
 import { getMe } from "@/lib/account.functions";
 import { getPlatformPricing } from "@/lib/pricing.functions";
 import { DEFAULT_PRICING_PLANS, FREE_STARTER_TIER } from "@/lib/pricing-plans";
+import { useCurrency } from "@/hooks/use-currency";
+import { CurrencySelector } from "@/components/ui/currency-selector";
 import { CosmicAtmosphere } from "./cosmic-atmosphere";
 
 type Audience = "students" | "educators" | "schools";
@@ -41,10 +43,10 @@ const EDUCATOR_TIERS = [
     id: "foundation",
     name: "Individual Educator AI Pass",
     tagline: "Essential AI marking, custom mark schemes, and live coaching for Cambridge 9708 educators.",
-    monthlyPrice: 99,
-    annualPrice: 1188,
-    annualEquivalentMonthly: 99,
-    savePct: 0,
+    monthlyPrice: 35,
+    annualPrice: 349,
+    annualEquivalentMonthly: 29,
+    savePct: 17,
     quota: "8 Graded Essays / mo · 3 Live Examiner Credits",
     badge: "Most Popular for Teachers",
     popular: true,
@@ -63,10 +65,10 @@ const EDUCATOR_TIERS = [
     id: "scholar_plus",
     name: "Senior Educator Pass",
     tagline: "Expanded assessment capacity: 15 essays & 5 Live Examiner credits for active Cambridge teachers.",
-    monthlyPrice: 199,
-    annualPrice: 1999,
-    annualEquivalentMonthly: 166,
-    savePct: 16,
+    monthlyPrice: 69,
+    annualPrice: 690,
+    annualEquivalentMonthly: 58,
+    savePct: 17,
     quota: "15 Graded Essays / mo · 5 Live Examiner Credits",
     badge: "Senior Educator",
     popular: true,
@@ -84,10 +86,10 @@ const EDUCATOR_TIERS = [
     id: "pro",
     name: "Department Lead Pass",
     tagline: "For active departmental heads and high-volume Cambridge essay evaluation.",
-    monthlyPrice: 399,
-    annualPrice: 3499,
-    annualEquivalentMonthly: 291,
-    savePct: 27,
+    monthlyPrice: 119,
+    annualPrice: 1190,
+    annualEquivalentMonthly: 99,
+    savePct: 17,
     quota: "20 Graded Essays / mo · 10 Live Examiner Credits",
     badge: "Head of Economics",
     features: [
@@ -104,9 +106,9 @@ const EDUCATOR_TIERS = [
     id: "school-starter",
     name: "Department Starter",
     tagline: "Full school department licensing with 50 student seats and 2 teacher admins.",
-    monthlyPrice: 4999,
-    annualPrice: 49999,
-    annualEquivalentMonthly: 4166,
+    monthlyPrice: 199,
+    annualPrice: 1990,
+    annualEquivalentMonthly: 166,
     savePct: 17,
     quota: "50 Student Seats · 15 essays / student / mo",
     badge: "School License",
@@ -138,8 +140,8 @@ interface SchoolTier {
   id: string;
   name: string;
   tagline: string;
-  monthlyPrice: string;
-  annualPrice: string;
+  monthlyPriceUsd: number;
+  annualPriceUsd: number;
   studentCapacity: string;
   effectiveCostPerStudent: string;
   teacherSeats: string;
@@ -153,11 +155,11 @@ const STUDENT_TIERS: StudentTier[] = [
   {
     id: "foundation",
     name: "Foundation Scholar",
-    tagline: "Accessible entry point: less than a coffee, flat ₹99/mo for 8 essays & 2 Live Examiner sessions.",
-    monthlyPrice: 99,
-    annualPrice: 1188,
-    annualEquivalentMonthly: 99,
-    savePct: 0,
+    tagline: "Accessible entry point: flat $19/mo for 8 Cambridge essays & 2 Live Examiner sessions.",
+    monthlyPrice: 19,
+    annualPrice: 190,
+    annualEquivalentMonthly: 16,
+    savePct: 17,
     quota: "8 Graded Essays / mo · 2 Live Examiner Credits",
     badge: "Most Accessible",
     features: [
@@ -172,11 +174,11 @@ const STUDENT_TIERS: StudentTier[] = [
   {
     id: "scholar_plus",
     name: "Scholar Plus",
-    tagline: "Focused exam booster: flat ₹199/mo for 15 essays & 4 Live Examiner sessions.",
-    monthlyPrice: 199,
-    annualPrice: 1999,
-    annualEquivalentMonthly: 166,
-    savePct: 16,
+    tagline: "Focused exam booster: flat $35/mo for 15 Cambridge essays & 4 Live Examiner sessions.",
+    monthlyPrice: 35,
+    annualPrice: 349,
+    annualEquivalentMonthly: 29,
+    savePct: 17,
     quota: "15 Graded Essays / mo · 4 Live Examiner Credits",
     badge: "Great Value",
     features: [
@@ -193,10 +195,10 @@ const STUDENT_TIERS: StudentTier[] = [
     id: "pro",
     name: "Pro Accelerator",
     tagline: "The benchmark for serious Cambridge candidates: 25 essays & 8 Live Examiner sessions.",
-    monthlyPrice: 399,
-    annualPrice: 3499,
-    annualEquivalentMonthly: 291,
-    savePct: 27,
+    monthlyPrice: 59,
+    annualPrice: 590,
+    annualEquivalentMonthly: 49,
+    savePct: 17,
     quota: "25 Graded Essays / mo · 8 Live Examiner Credits",
     badge: "Most Popular",
     popular: true,
@@ -215,10 +217,10 @@ const STUDENT_TIERS: StudentTier[] = [
     id: "mastery",
     name: "A* Mastery Sprint",
     tagline: "Peak revision powerhouse for Oct/Nov & May/June exam series: 50 essays & 14 Live Examiner sessions.",
-    monthlyPrice: 699,
-    annualPrice: 5999,
-    annualEquivalentMonthly: 499,
-    savePct: 28,
+    monthlyPrice: 99,
+    annualPrice: 990,
+    annualEquivalentMonthly: 82,
+    savePct: 17,
     quota: "50 Graded Essays / mo · 14 Live Examiner Credits",
     badge: "A* Target Cohort",
     features: [
@@ -236,10 +238,10 @@ const STUDENT_TIERS: StudentTier[] = [
     id: "elite",
     name: "Cambridge Elite Pass",
     tagline: "VIP all-inclusive pass for complete syllabus dominance: 75 essays & 22 Live Examiner sessions.",
-    monthlyPrice: 999,
-    annualPrice: 8999,
-    annualEquivalentMonthly: 749,
-    savePct: 25,
+    monthlyPrice: 179,
+    annualPrice: 1790,
+    annualEquivalentMonthly: 149,
+    savePct: 17,
     quota: "75 Graded Essays / mo · 22 Live Examiner Credits",
     badge: "VIP All-Access Pass",
     features: [
@@ -260,10 +262,10 @@ const SCHOOL_TIERS: SchoolTier[] = [
     id: "school-starter",
     name: "Department Starter",
     tagline: "For boutique classes and small Economics cohorts.",
-    monthlyPrice: "₹4,999",
-    annualPrice: "₹49,999",
+    monthlyPriceUsd: 99,
+    annualPriceUsd: 990,
     studentCapacity: "Up to 50 Students",
-    effectiveCostPerStudent: "~₹83 / student / mo",
+    effectiveCostPerStudent: "~$1.60 / student / mo",
     teacherSeats: "2 Teacher Admin Seats",
     quota: "15 essays / student / mo",
     badge: "Small Cohorts",
@@ -279,10 +281,10 @@ const SCHOOL_TIERS: SchoolTier[] = [
     id: "school-campus",
     name: "Campus Standard",
     tagline: "Ideal for Cambridge international schools and exam centers.",
-    monthlyPrice: "₹11,999",
-    annualPrice: "₹1,19,999",
+    monthlyPriceUsd: 199,
+    annualPriceUsd: 1990,
     studentCapacity: "Up to 150 Students",
-    effectiveCostPerStudent: "~₹66 / student / mo",
+    effectiveCostPerStudent: "~$1.10 / student / mo",
     teacherSeats: "5 Teacher Admin Seats",
     quota: "25 essays / student / mo",
     badge: "Recommended for Schools",
@@ -300,10 +302,10 @@ const SCHOOL_TIERS: SchoolTier[] = [
     id: "school-institution",
     name: "Institution Premium",
     tagline: "Comprehensive capacity for large high schools and prep academies.",
-    monthlyPrice: "₹24,999",
-    annualPrice: "₹2,49,999",
+    monthlyPriceUsd: 399,
+    annualPriceUsd: 3990,
     studentCapacity: "Up to 400 Students",
-    effectiveCostPerStudent: "~₹52 / student / mo",
+    effectiveCostPerStudent: "~$0.80 / student / mo",
     teacherSeats: "15 Teacher Admin Seats",
     quota: "40 essays / student / mo",
     badge: "Large Departments",
@@ -320,20 +322,19 @@ const SCHOOL_TIERS: SchoolTier[] = [
     id: "school-enterprise",
     name: "Multi-Campus Enterprise",
     tagline: "Custom solution for school networks, trusts, and franchises.",
-    monthlyPrice: "₹49,999+",
-    annualPrice: "Custom Contract",
+    monthlyPriceUsd: 799,
+    annualPriceUsd: 7990,
     studentCapacity: "1,000+ Students",
-    effectiveCostPerStudent: "< ₹45 / student / mo",
+    effectiveCostPerStudent: "< $0.65 / student / mo",
     teacherSeats: "Unlimited Teacher Seats",
     quota: "Unlimited cohort volume",
     badge: "Multi-Campus",
     features: [
-      "1,000+ student capacity across campuses",
-      "Unlimited teacher and administrative seats",
-      "Custom school branding & LMS/ERP integration",
-      "Dedicated Cambridge Academic Account Manager",
-      "Onsite or remote faculty training workshops",
-      "Custom mark scheme and anchor calibration",
+      "1,000+ Students Across Multiple Campuses",
+      "Centralized administrative console with SSO integration",
+      "Dedicated AI model fine-tuning with your historical exam papers",
+      "On-site teacher training & examiner workshops",
+      "Custom SLA with dedicated 24/7 technical lead",
     ],
   },
 ];
@@ -363,6 +364,7 @@ export function PricingSection({ className }: { className?: string }) {
     return "students";
   });
   const [cycle, setCycle] = useState<BillingCycle>("annual");
+  const { currency, setCurrency, format } = useCurrency();
 
   const [userSelectedAudience, setUserSelectedAudience] = useState(false);
 
@@ -419,9 +421,11 @@ export function PricingSection({ className }: { className?: string }) {
           </h2>
           <p className="mx-auto mt-4 max-w-2xl text-sm leading-relaxed text-muted-foreground sm:text-base">
             Private 1-on-1 Cambridge tutoring costs{" "}
-            <span className="font-semibold text-foreground">₹2,500 – ₹5,000 / hour</span>. Marginal
+            <span className="font-semibold text-foreground">
+              {currency === "INR" ? "₹2,500 – ₹5,000 / hour" : "$45 – $120 / hour"}
+            </span>. Marginal
             delivers 24/7 instant AO1/AO2/AO3 feedback and live coaching starting at just{" "}
-            <span className="font-semibold text-foreground">₹99 / month</span>.
+            <span className="font-semibold text-foreground">{format(19)} / month</span>.
           </p>
 
           {/* ── Audience Selector (Students vs Educators vs Schools) ── */}
@@ -518,6 +522,16 @@ export function PricingSection({ className }: { className?: string }) {
               </Badge>
             </span>
           </div>
+
+          {/* ── Currency Selector (Students can pick USD, INR, GBP, EUR, SGD, AED) ── */}
+          <div className="mt-4 flex items-center justify-center">
+            <CurrencySelector
+              value={currency}
+              onChange={setCurrency}
+              variant="pill-row"
+              showLabel={true}
+            />
+          </div>
         </div>
 
         {/* ── Pricing Cards Grid ── */}
@@ -525,7 +539,7 @@ export function PricingSection({ className }: { className?: string }) {
           <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3 max-w-5xl mx-auto items-stretch">
             {EDUCATOR_TIERS.map((tier) => {
               const displayPrice =
-                cycle === "annual" ? `₹${tier.annualEquivalentMonthly}` : `₹${tier.monthlyPrice}`;
+                cycle === "annual" ? format(tier.annualEquivalentMonthly) : format(tier.monthlyPrice);
               const periodText = cycle === "annual" ? "/ mo (billed annually)" : "/ mo";
 
               return (
@@ -571,7 +585,7 @@ export function PricingSection({ className }: { className?: string }) {
                         </div>
                         {cycle === "annual" ? (
                           <p className="mt-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400 min-h-[16px]">
-                            ₹{tier.annualPrice.toLocaleString()} / year (Save {tier.savePct}%)
+                            {format(tier.annualPrice)} / year (Save {tier.savePct}%)
                           </p>
                         ) : (
                           <p className="mt-1 text-[11px] text-muted-foreground min-h-[16px]">
@@ -715,7 +729,7 @@ export function PricingSection({ className }: { className?: string }) {
             {/* ── Columns 2-5: Dynamic Paid Student Tiers ── */}
             {dynamicStudentTiers.map((tier) => {
               const displayPrice =
-                cycle === "annual" ? `₹${tier.annualEquivalentMonthly}` : `₹${tier.monthlyPrice}`;
+                cycle === "annual" ? format(tier.annualEquivalentMonthly) : format(tier.monthlyPrice);
               const periodText = cycle === "annual" ? "/ mo (billed annually)" : "/ mo";
 
               return (
@@ -759,7 +773,7 @@ export function PricingSection({ className }: { className?: string }) {
                         </div>
                         {cycle === "annual" ? (
                           <p className="mt-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400 min-h-[16px]">
-                            ₹{tier.annualPrice.toLocaleString()} / year (Save {tier.savePct}%)
+                            {format(tier.annualPrice)} / year (Save {tier.savePct}%)
                           </p>
                         ) : (
                           <p className="mt-1 text-[11px] text-muted-foreground min-h-[16px]">
@@ -815,7 +829,7 @@ export function PricingSection({ className }: { className?: string }) {
         ) : (
           <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4 items-stretch">
             {SCHOOL_TIERS.map((tier) => {
-              const displayPrice = cycle === "annual" ? tier.annualPrice : tier.monthlyPrice;
+              const displayPrice = cycle === "annual" ? format(tier.annualPriceUsd) : format(tier.monthlyPriceUsd);
               const periodText = cycle === "annual" ? " / year" : " / month";
 
               const handleAction = () => {
@@ -955,31 +969,31 @@ export function PricingSection({ className }: { className?: string }) {
                     </th>
                     <th className="py-4 px-3 text-center font-bold text-foreground min-w-[100px]">
                       Free Starter
-                      <span className="block text-[10px] text-muted-foreground font-normal">₹0</span>
+                      <span className="block text-[10px] text-muted-foreground font-normal">{format(0, { showFree: true })}</span>
                     </th>
                     <th className="py-4 px-3 text-center font-bold text-foreground min-w-[100px]">
                       Foundation
-                      <span className="block text-[10px] text-muted-foreground font-normal">₹99/mo</span>
+                      <span className="block text-[10px] text-muted-foreground font-normal">{format(19)}/mo</span>
                     </th>
                     <th className="py-4 px-3 text-center font-bold text-foreground min-w-[100px]">
                       Scholar Plus
-                      <span className="block text-[10px] text-muted-foreground font-normal">₹199/mo</span>
+                      <span className="block text-[10px] text-muted-foreground font-normal">{format(35)}/mo</span>
                     </th>
                     <th className="py-4 px-3 text-center font-bold text-primary min-w-[110px] bg-primary/5">
                       Pro Accelerator
-                      <span className="block text-[10px] text-primary/80 font-normal">₹399/mo · Popular</span>
+                      <span className="block text-[10px] text-primary/80 font-normal">{format(59)}/mo · Popular</span>
                     </th>
                     <th className="py-4 px-3 text-center font-bold text-foreground min-w-[100px]">
                       A* Mastery
-                      <span className="block text-[10px] text-muted-foreground font-normal">₹699/mo</span>
+                      <span className="block text-[10px] text-muted-foreground font-normal">{format(99)}/mo</span>
                     </th>
                     <th className="py-4 px-3 text-center font-bold text-foreground min-w-[100px]">
                       Elite Pass
-                      <span className="block text-[10px] text-muted-foreground font-normal">₹999/mo</span>
+                      <span className="block text-[10px] text-muted-foreground font-normal">{format(179)}/mo</span>
                     </th>
                     <th className="py-4 px-3 text-center font-bold text-foreground min-w-[110px]">
                       Revision Sprint
-                      <span className="block text-[10px] text-muted-foreground font-normal">₹249/mo</span>
+                      <span className="block text-[10px] text-muted-foreground font-normal">{format(49)}/mo</span>
                     </th>
                   </tr>
                 </thead>
