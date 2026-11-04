@@ -1488,12 +1488,20 @@ export const listClassroomAssignments = createServerFn({ method: "GET" })
     const assIds = finalAssList.map((a) => a.id);
 
     let subList: any[] = [];
+    const draftMap = new Map<string, any>();
 
-    // Fetch submissions from CR_STORE
+    // Fetch submissions and drafts from CR_STORE
     for (const assId of assIds) {
       const crSubs = await CR_STORE.list<any>(authority.admin, `__CR_SUB_${assId}_`);
       if (crSubs && crSubs.length > 0) {
         subList.push(...crSubs);
+      }
+      const draft = await CR_STORE.get<any>(
+        authority.admin,
+        `__CR_DRAFT_${assId}_${context.userId}`,
+      );
+      if (draft) {
+        draftMap.set(assId, draft);
       }
     }
 
@@ -1590,6 +1598,13 @@ export const listClassroomAssignments = createServerFn({ method: "GET" })
               returnedAt: mySub.returned_at ?? null,
             }
           : null,
+        myDraft: draftMap.get(a.id)
+          ? {
+              draftText: draftMap.get(a.id).draftText ?? "",
+              submissionType: draftMap.get(a.id).submissionType ?? "typed",
+              savedAt: draftMap.get(a.id).savedAt ?? null,
+            }
+          : null,
       };
     });
   });
@@ -1674,6 +1689,39 @@ export const deleteClassroomAssignment = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+export const saveAssignmentDraft = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z
+      .object({
+        assignmentId: z.string().uuid(),
+        classroomId: z.string().uuid(),
+        draftText: z.string().max(30000),
+        submissionType: z.enum(["document", "handwritten", "typed"]).optional(),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const authority = await getClassroomAuthority(context.userId, data.classroomId);
+    if (!authority.isMember && !authority.isStaff) {
+      throw new Error("You must be enrolled in this class to save drafts.");
+    }
+
+    const draftKey = `__CR_DRAFT_${data.assignmentId}_${context.userId}`;
+    const now = new Date().toISOString();
+    const payload = {
+      assignmentId: data.assignmentId,
+      classroomId: data.classroomId,
+      studentId: context.userId,
+      draftText: data.draftText,
+      submissionType: data.submissionType || "typed",
+      savedAt: now,
+    };
+
+    await CR_STORE.set(authority.admin, draftKey, payload);
+    return { ok: true, savedAt: now };
+  });
+
 export const submitAssignmentWork = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) =>
@@ -1744,6 +1792,10 @@ export const submitAssignmentWork = createServerFn({ method: "POST" })
     };
 
     await CR_STORE.set(authority.admin, subKey, sub);
+
+    // Clear draft after successful submission
+    const draftKey = `__CR_DRAFT_${data.assignmentId}_${context.userId}`;
+    await CR_STORE.remove(authority.admin, draftKey);
 
     // Try dedicated table
     try {

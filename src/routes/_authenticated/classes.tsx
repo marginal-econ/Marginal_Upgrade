@@ -28,6 +28,7 @@ import {
   HelpCircle,
   Layers,
   ListChecks,
+  Loader2,
   LogOut,
   Mail,
   Maximize2,
@@ -108,6 +109,7 @@ import {
   removeClassroomMember,
   removeClassroomTeacher,
   rotateClassroomCode,
+  saveAssignmentDraft,
   sendClassroomMessage,
   submitAssignmentWork,
   togglePinAnnouncement,
@@ -1565,6 +1567,7 @@ function ClassworkTab({
   const createAssignmentFn = useServerFn(createClassroomAssignment);
   const deleteAssignmentFn = useServerFn(deleteClassroomAssignment);
   const submitWorkFn = useServerFn(submitAssignmentWork);
+  const saveDraftFn = useServerFn(saveAssignmentDraft);
   const listBankQuestionsFn = useServerFn(listClassroomBankQuestions);
   const listMcqPapersFn = useServerFn(listMcqPapers);
 
@@ -1597,6 +1600,8 @@ function ClassworkTab({
   const [uploadedDocName, setUploadedDocName] = useState<string | null>(null);
   const [isExtractingDoc, setIsExtractingDoc] = useState(false);
   const [docExtractProgress, setDocExtractProgress] = useState<string | null>(null);
+  const [autosaveStatus, setAutosaveStatus] = useState<"saved" | "saving" | "unsaved" | null>(null);
+  const [lastSavedTime, setLastSavedTime] = useState<string | null>(null);
   const docFileInputRef = useRef<HTMLInputElement>(null);
 
   const handleDocumentFile = async (file: File) => {
@@ -1697,13 +1702,67 @@ function ClassworkTab({
     },
     onSuccess: () => {
       toast.success("Assignment submitted successfully!");
+      if (submittingAssignmentId) {
+        try {
+          localStorage.removeItem(`cr_draft_${submittingAssignmentId}`);
+        } catch {}
+      }
       setSubmittingAssignmentId(null);
       setSubmissionText("");
       setUploadedDocName(null);
+      setAutosaveStatus(null);
+      setLastSavedTime(null);
       queryClient.invalidateQueries({ queryKey: ["classroom_assignments", classroom.id] });
     },
     onError: (err: Error) => toast.error(err.message),
   });
+
+  // Debounced Autosave for Typed / Edited Answer
+  useEffect(() => {
+    if (!submittingAssignmentId) return;
+
+    // Cache locally immediately
+    try {
+      localStorage.setItem(
+        `cr_draft_${submittingAssignmentId}`,
+        JSON.stringify({
+          text: submissionText,
+          tab: submissionTab,
+          updatedAt: Date.now(),
+        }),
+      );
+    } catch {}
+
+    // If empty text, skip remote sync
+    if (!submissionText.trim()) {
+      setAutosaveStatus(null);
+      return;
+    }
+
+    setAutosaveStatus("unsaved");
+
+    const timer = window.setTimeout(async () => {
+      try {
+        setAutosaveStatus("saving");
+        await saveDraftFn({
+          data: {
+            assignmentId: submittingAssignmentId,
+            classroomId: classroom.id,
+            draftText: submissionText,
+            submissionType: submissionTab,
+          },
+        });
+        setAutosaveStatus("saved");
+        setLastSavedTime(
+          new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }),
+        );
+      } catch {
+        setAutosaveStatus("unsaved");
+      }
+    }, 1200);
+
+    return () => window.clearTimeout(timer);
+  }, [submissionText, submittingAssignmentId, submissionTab, classroom.id, saveDraftFn]);
 
   const filteredAssignments = useMemo(() => {
     const list = assignments ?? [];
@@ -2259,11 +2318,30 @@ function ClassworkTab({
                                 </>
                               )}
                             </Label>
-                            <span className="text-[11px] text-muted-foreground font-mono">
-                              {submissionText.trim()
-                                ? `${submissionText.trim().split(/\s+/).length} words`
-                                : "0 words"}
-                            </span>
+                            <div className="flex items-center gap-3">
+                              {autosaveStatus === "saving" && (
+                                <span className="inline-flex items-center gap-1.5 text-[11px] text-purple-400">
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                  <span>Autosaving draft...</span>
+                                </span>
+                              )}
+                              {autosaveStatus === "saved" && (
+                                <span className="inline-flex items-center gap-1 text-[11px] text-emerald-400">
+                                  <Check className="h-3 w-3" />
+                                  <span>Autosaved{lastSavedTime ? ` at ${lastSavedTime}` : ""}</span>
+                                </span>
+                              )}
+                              {autosaveStatus === "unsaved" && (
+                                <span className="text-[11px] text-muted-foreground italic">
+                                  Unsaved changes...
+                                </span>
+                              )}
+                              <span className="text-[11px] text-muted-foreground font-mono">
+                                {submissionText.trim()
+                                  ? `${submissionText.trim().split(/\s+/).length} words`
+                                  : "0 words"}
+                              </span>
+                            </div>
                           </div>
 
                           <Textarea
@@ -2341,18 +2419,31 @@ function ClassworkTab({
                       </div>
                     ) : (
                       <div className="flex items-center justify-between pt-1 flex-wrap gap-2">
-                        <span className="text-xs text-muted-foreground">
-                          Your work has not been turned in yet.
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground">
+                            Your work has not been turned in yet.
+                          </span>
+                          {a.myDraft && a.myDraft.draftText && (
+                            <Badge
+                              variant="outline"
+                              className="border-purple-500/40 bg-purple-500/10 text-purple-300 text-[10px]"
+                            >
+                              <Clock className="h-3 w-3 mr-1 text-purple-400" />
+                              Autosaved Draft Available
+                            </Badge>
+                          )}
+                        </div>
                         <div className="flex items-center gap-2 flex-wrap">
                           <Button
                             size="sm"
                             variant="outline"
                             onClick={() => {
+                              const draft = a.myDraft;
                               setSubmittingAssignmentId(a.id);
-                              setSubmissionTab("document");
-                              setSubmissionText("");
+                              setSubmissionTab(draft?.submissionType || "document");
+                              setSubmissionText(draft?.draftText || "");
                               setUploadedDocName(null);
+                              setAutosaveStatus(draft?.draftText ? "saved" : null);
                             }}
                             className="bg-blue-950/30 text-blue-300 border-blue-800/60 hover:bg-blue-900/40 text-xs font-semibold"
                           >
@@ -2363,10 +2454,12 @@ function ClassworkTab({
                             size="sm"
                             variant="outline"
                             onClick={() => {
+                              const draft = a.myDraft;
                               setSubmittingAssignmentId(a.id);
-                              setSubmissionTab("handwritten");
-                              setSubmissionText("");
+                              setSubmissionTab(draft?.submissionType || "handwritten");
+                              setSubmissionText(draft?.draftText || "");
                               setUploadedDocName(null);
+                              setAutosaveStatus(draft?.draftText ? "saved" : null);
                             }}
                             className="bg-purple-950/30 text-purple-300 border-purple-800/60 hover:bg-purple-900/40 text-xs font-semibold"
                           >
@@ -2376,15 +2469,17 @@ function ClassworkTab({
                           <Button
                             size="sm"
                             onClick={() => {
+                              const draft = a.myDraft;
                               setSubmittingAssignmentId(a.id);
-                              setSubmissionTab("typed");
-                              setSubmissionText("");
+                              setSubmissionTab(draft?.submissionType || "typed");
+                              setSubmissionText(draft?.draftText || "");
                               setUploadedDocName(null);
+                              setAutosaveStatus(draft?.draftText ? "saved" : null);
                             }}
                             className="bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold"
                           >
                             <FileEdit className="h-3.5 w-3.5 mr-1.5" />
-                            Write / Type
+                            {a.myDraft?.draftText ? "Resume Draft" : "Write / Type"}
                           </Button>
                         </div>
                       </div>
