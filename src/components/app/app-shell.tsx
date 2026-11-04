@@ -78,8 +78,8 @@ const COLLAPSED_GROUPS_STORAGE_KEY = "marginal.collapsedNavGroups";
  * 1. Essay Marking & Live: Grade Essay, Live Examiner (Chained for Free), Exemplars & Submissions
  * 2. Classroom & Progress: Dashboard, Classes, Review & Diagnostics (Together!)
  * 3. Syllabus & Knowledge: Definitions Hub, Diagram Library (Required!), Command Words, MCQ Past Papers, Question Bank
- * 4. Experimental Labs: Diagram CAD Lab, Past Paper Predictor, Teacher Examiner (Chained for Free, Unlocked for Pro/Mastery/Elite/Admin)
- * 5. Administration: Admin Console & Staff Console (Admin only)
+ * 4. Administration: Admin Console & Staff Console (Admin only)
+
  */
 const NAV_GROUPS: NavGroup[] = [
   {
@@ -113,6 +113,7 @@ const NAV_GROUPS: NavGroup[] = [
     label: "Syllabus Resources",
     collapsible: true,
     items: [
+      { to: "/paper-matrix", label: "Paper Predictor", icon: Flame, badge: "15-Yr" },
       { to: "/definitions", label: "Definitions Hub", icon: BookText },
       { to: "/question-bank", label: "Question Bank", icon: BookMarked },
       { to: "/diagrams", label: "Diagram Library", icon: LineChart },
@@ -162,6 +163,7 @@ const TEACHER_NAV_GROUPS: NavGroup[] = [
     label: "Syllabus Resources",
     collapsible: true,
     items: [
+      { to: "/paper-matrix", label: "Paper Predictor", icon: Flame, badge: "15-Yr" },
       { to: "/definitions", label: "Definitions Hub", icon: BookText },
       { to: "/question-bank", label: "Question Bank", icon: BookMarked },
       { to: "/diagrams", label: "Diagram Library", icon: LineChart },

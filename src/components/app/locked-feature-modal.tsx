@@ -150,19 +150,13 @@ export function LockedFeatureModal({
     experimental: {
       badge: "Experimental Lab · Locked",
       title: "Experimental Labs Locked",
-      desc: "Cambridge Chat Lab, Diagram CAD Lab, and Past Paper Predictor are experimental suites reserved for A* Mastery and Cambridge Elite passes.",
+      desc: "Cambridge Chat Lab and Diagram CAD Lab are experimental suites reserved for A* Mastery and Cambridge Elite passes.",
       items: [
         {
           icon: Sparkles,
           color: "text-primary",
           title: "Cambridge Grounded Chat & Voiceover Lab",
           desc: "Conversational examiner with 100% syllabus grounding, interactive voiceover studio, and auto-draft essays.",
-        },
-        {
-          icon: Flame,
-          color: "text-amber-500",
-          title: "15-Year Past Paper Matrix Predictor",
-          desc: "Statistical exam cycle modeling analyzing recurrence trends across 15 years of Cambridge papers.",
         },
         {
           icon: Sliders,

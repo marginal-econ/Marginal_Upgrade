@@ -707,6 +707,13 @@ export function DashboardPage() {
               badge="9708 Past Papers"
               description="Filter hundreds of past paper essay and MCQ questions, or generate fresh syllabus prompts."
             />
+            <QuickActionCard
+              to="/paper-matrix"
+              icon={Flame}
+              title="Paper Predictor"
+              badge="15-Yr Matrix"
+              description="Statistical cycle intelligence analyzing 15 years of Cambridge 9708 past papers to flag overdue topics."
+            />
           </div>
 
           {/* Conditional Experimental Labs Compartment (Admin Only) */}
@@ -722,7 +729,7 @@ export function DashboardPage() {
                   </span>
                 </div>
               </div>
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 <QuickActionCard
                   to="/live-examiner"
                   icon={Sparkles}
@@ -743,13 +750,6 @@ export function DashboardPage() {
                   title="Diagram CAD Lab"
                   badge="Vector CAD"
                   description="Interactive vector economics canvas. Manipulate curves, equilibrium points, deadweight loss, and tax shifts."
-                />
-                <QuickActionCard
-                  to="/paper-matrix"
-                  icon={Flame}
-                  title="Paper Predictor"
-                  badge="15-Yr Matrix"
-                  description="Statistical cycle intelligence analyzing 15 years of Cambridge 9708 past papers to flag overdue topics."
                 />
               </div>
             </div>

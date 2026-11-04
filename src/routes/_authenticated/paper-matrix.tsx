@@ -25,7 +25,6 @@ import {
 import { useMemo, useState } from "react";
 
 import { PageHeader } from "@/components/app/app-shell";
-import { ChainedChamber } from "@/components/app/chained-chamber";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -44,7 +43,6 @@ import {
   type MatrixArchiveEssay,
   type MatrixArchivePaper,
 } from "@/lib/paper-matrix/matrix.functions";
-import { getMe } from "@/lib/account.functions";
 
 export const Route = createFileRoute("/_authenticated/paper-matrix")({
   head: () => ({
@@ -62,14 +60,6 @@ export const Route = createFileRoute("/_authenticated/paper-matrix")({
 
 function PaperMatrixPage() {
   const navigate = useNavigate();
-  const getMeFn = useServerFn(getMe);
-  const meQuery = useQuery({
-    queryKey: ["me"],
-    queryFn: () => getMeFn(),
-    staleTime: 30_000,
-  });
-
-  const isAdmin = meQuery.data?.isAdmin ?? false;
 
   const [mainTab, setMainTab] = useState<"matrix" | "archive">("matrix");
 
@@ -156,32 +146,12 @@ function PaperMatrixPage() {
       .slice(0, 3);
   }, []);
 
-  const handlePracticeQuestion = (question: PastPaperQuestion) => {
-    navigate({
-      to: "/live-examiner",
-      search: {
-        q: question.stem,
-        marks: question.marks,
-      },
-    });
-  };
-
   const handleGradeQuestion = (question: PastPaperQuestion) => {
     navigate({
       to: "/grade",
       search: {
         q: question.stem,
         marks: question.marks,
-      },
-    });
-  };
-
-  const handlePracticeEssayText = (text: string, marks: number) => {
-    navigate({
-      to: "/live-examiner",
-      search: {
-        q: text,
-        marks: marks,
       },
     });
   };
@@ -195,12 +165,6 @@ function PaperMatrixPage() {
       },
     });
   };
-
-  // Experimental Labs are strictly confidential to platform administrators
-  if (!meQuery.isLoading && !isAdmin) {
-    navigate({ to: "/dashboard", replace: true });
-    return null;
-  }
 
   return (
     <>
@@ -710,7 +674,7 @@ function PaperMatrixPage() {
                         </h3>
                       </div>
                       <span className="text-xs text-muted-foreground">
-                        Real 8m, 12m, 20m & 25m questions with Live Examiner grading
+                        Real 8m, 12m, 20m & 25m exam questions with instant grading
                       </span>
                     </div>
 
@@ -757,14 +721,14 @@ function PaperMatrixPage() {
                                   onClick={() => handleGradeEssayText(essay.questionText, essay.maxMark)}
                                   className="h-7 text-xs"
                                 >
-                                  <ExternalLink className="size-3 mr-1" /> Grade Essay
+                                  <ExternalLink className="size-3 mr-1" /> View in Grader
                                 </Button>
                                 <Button
                                   size="sm"
-                                  onClick={() => handlePracticeEssayText(essay.questionText, essay.maxMark)}
+                                  onClick={() => handleGradeEssayText(essay.questionText, essay.maxMark)}
                                   className="h-7 text-xs font-semibold"
                                 >
-                                  <PenLine className="size-3 mr-1" /> Practice in Live Examiner
+                                  <PenLine className="size-3 mr-1" /> Practice Question
                                 </Button>
                               </div>
                             </div>
@@ -884,25 +848,14 @@ function PaperMatrixPage() {
                       {/* ACTION BUTTONS */}
                       <div className="pt-2 border-t border-border/60 flex items-center justify-end gap-2">
                         <Button
-                          variant="outline"
                           size="sm"
                           onClick={() => {
                             setSelectedTopic(null);
                             handleGradeQuestion(q);
                           }}
-                          className="text-xs"
-                        >
-                          <ExternalLink className="size-3 mr-1" /> Grade Essay
-                        </Button>
-                        <Button
-                          size="sm"
-                          onClick={() => {
-                            setSelectedTopic(null);
-                            handlePracticeQuestion(q);
-                          }}
                           className="text-xs font-semibold"
                         >
-                          <PenLine className="size-3 mr-1" /> Practice in Live Examiner
+                          <PenLine className="size-3 mr-1" /> Practice in Essay Grader
                         </Button>
                       </div>
                     </div>
