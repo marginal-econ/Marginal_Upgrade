@@ -445,7 +445,7 @@ export function AiComparisonSection({ className }: { className?: string }) {
               Don't leave your Cambridge grade to hallucinated chat tokens.
             </h4>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Practice against official Cambridge 9708 mark schemes with 2 free essay evaluations.
+              Practice against official Cambridge 9708 mark schemes with unlimited essay evaluations.
             </p>
           </div>
           <Button asChild size="default" className="text-xs font-bold shrink-0 bg-primary hover:bg-primary/90 text-primary-foreground shadow-md">

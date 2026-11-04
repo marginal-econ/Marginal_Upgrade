@@ -67,7 +67,7 @@ export function LockedFeatureModal({
           icon: Users,
           color: "text-primary",
           title: "Student Quotas are Independent",
-          desc: "Students in your classrooms submit essay assignments using their own student tier quotas (2 free + upgrades).",
+          desc: "Students in your classrooms submit essay assignments using their own student tier quotas (unlimited essays + upgrades).",
         },
       ],
     },

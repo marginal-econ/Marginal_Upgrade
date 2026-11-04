@@ -529,7 +529,7 @@ function GradePage() {
       toast.error(
         isTeacher
           ? "Plan limit reached: You've completed your 3 free educator trial evaluations. Upgrade to an Educator AI Pass (from ₹99/mo) to continue."
-          : "Plan limit reached: You've completed your 2 free essays. Redirecting to pricing...",
+          : "Plan limit reached. Redirecting to pricing...",
         {
           duration: 4000,
         }
@@ -591,7 +591,7 @@ function GradePage() {
                     icon: Users,
                     iconColor: "text-purple-500",
                     title: "Students Submit with Their Own Quotas",
-                    description: "Students enrolled in your classrooms submit essay assignments using their own student tier quotas (2 free + upgrades).",
+                    description: "Students enrolled in your classrooms submit essay assignments using their own student tier quotas (unlimited essays + upgrades).",
                   },
                 ]
               : [

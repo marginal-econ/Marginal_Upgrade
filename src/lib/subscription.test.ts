@@ -92,7 +92,7 @@ describe("Subscription Details & Entitlements", () => {
     expect(details.canGradeEssay).toBe(true);
   });
 
-  it("restricts free tier user to 2 essays and 0 Live Examiner credits", async () => {
+  it("grants free tier user unlimited essays and 0 Live Examiner credits", async () => {
     const mockDb = createMockSupabase([]);
 
     const details = await getUserSubscriptionDetails(

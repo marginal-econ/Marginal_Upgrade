@@ -5629,7 +5629,7 @@ function PricingAdminPanel() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="free">Free Starter (2 essays)</SelectItem>
+                <SelectItem value="free">Free Community (Unlimited essays)</SelectItem>
                 <SelectItem value="foundation">Foundation Scholar</SelectItem>
                 <SelectItem value="scholar_plus">Scholar Plus</SelectItem>
                 <SelectItem value="pro">Pro Accelerator</SelectItem>

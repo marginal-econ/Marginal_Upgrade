@@ -384,7 +384,7 @@ export function RealEssayShowcase() {
             <div className="pt-2 border-t border-border">
               <Button asChild className="w-full text-xs font-semibold h-10 shadow-xs">
                 <Link to="/grade">
-                  Grade Your Own Essay Now (2 Free Essays) <ArrowRight className="size-3.5 ml-1.5" />
+                  Grade Your Own Essay Now (Unlimited Essays) <ArrowRight className="size-3.5 ml-1.5" />
                 </Link>
               </Button>
             </div>

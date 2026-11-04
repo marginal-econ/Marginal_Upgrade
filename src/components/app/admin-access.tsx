@@ -687,7 +687,7 @@ export function AccessPanel() {
             <div className="grid grid-cols-2 gap-2 text-[11px]">
               <div className="rounded border border-border/50 bg-background/50 p-2">
                 <div className="font-semibold text-foreground">Free Tier</div>
-                <div className="text-muted-foreground">2 essays total · 0 live credits</div>
+                <div className="text-muted-foreground">Unlimited essays · 0 live credits</div>
               </div>
               <div className="rounded border border-border/50 bg-background/50 p-2">
                 <div className="font-semibold text-foreground">Foundation Scholar</div>

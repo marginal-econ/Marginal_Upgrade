@@ -131,17 +131,17 @@ export const DEFAULT_PRICING_PLANS: PlatformPricingPlans = {
 
 export const FREE_STARTER_TIER = {
   id: "free",
-  name: "Free Starter",
-  tagline: "Instant start: try Cambridge 9708 examiner marking risk-free.",
+  name: "Free Community Edition",
+  tagline: "Instant start: grade Cambridge 9708 essays with zero limits.",
   price: "₹0",
-  period: "Lifetime",
-  quota: "2 Graded Essays (Lifetime) · 30-Day MCQ",
-  badge: "Get Started Free",
+  period: "Free Access",
+  quota: "Unlimited Graded Essays · Full MCQ Access",
+  badge: "100% Free Access",
   features: [
-    "2 Full Cambridge Graded Essays (Lifetime)",
-    "30-Day Full MCQ Past Paper Access with Explanations",
+    "Unlimited Cambridge Graded Essays (No Limits)",
+    "Full Cambridge Past Paper MCQ Access with Timers & Resume",
     "Unlimited Instant In-Browser Grammar & Economics Terminology Checks",
     "Full AO1, AO2, AO3 Diagnostic Reports",
-    "Cambridge Definitions Hub & Drills",
+    "Cambridge Definitions Hub, Diagram Studio & Drills",
   ],
 };

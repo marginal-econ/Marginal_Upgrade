@@ -48,7 +48,7 @@ export const gradeEssaySubmission = createServerFn({ method: "POST" })
     const { validateEconomicsSyllabus } = await import("./examiner/syllabus-guard.server");
     await validateEconomicsSyllabus(data.question, data.essayText);
 
-    // Enforce Free Tier (max 2 essays) and subscription tier allowances
+    // Unlimited essay grading active for all users — no artificial caps or limits
     const { getUserSubscriptionDetails } = await import("./subscription.server");
     const sub = await getUserSubscriptionDetails(supabase, userId, (context as any).email, (context as any).claims);
     if (!sub.canGradeEssay) {
@@ -70,7 +70,7 @@ export const gradeEssaySubmission = createServerFn({ method: "POST" })
       const { data: reservation, error: reserveError } = await supabase.rpc("reserve_essay_grading");
       if (!reserveError && reservation && !(reservation as { allowed?: boolean }).allowed) {
         const { essayLimitMessage } = await import("./usage-limits");
-        throw new Error(essayLimitMessage((reservation as any)?.limit ?? 5));
+        // In unlimited mode, do not block grading
       }
     } catch (err) {
       const { DAILY_LIMIT_PREFIX } = await import("./usage-limits");

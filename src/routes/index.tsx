@@ -77,7 +77,7 @@ export const Route = createFileRoute("/")({
       {
         name: "description",
         content:
-          "Marginal marks AS and A Level Economics (9708) essays with AO1/AO2/AO3 breakdowns, grounded in official syllabus and mark schemes. Start free with 2 graded essays.",
+          "Marginal marks AS and A Level Economics (9708) essays with AO1/AO2/AO3 breakdowns, grounded in official syllabus and mark schemes. Grade unlimited essays free.",
       },
       {
         property: "og:title",
@@ -86,7 +86,7 @@ export const Route = createFileRoute("/")({
       {
         property: "og:description",
         content:
-          "Examiner-standard marks, assessment-objective breakdowns and rewrite plans for Cambridge 9708 Economics.",
+          "Examiner-standard marks, assessment-objective breakdowns, real-time Live Examiner coaching, and resume-enabled MCQ drills for Cambridge 9708 Economics.",
       },
     ],
   }),
@@ -94,13 +94,15 @@ export const Route = createFileRoute("/")({
 });
 
 const RIBBON_ITEMS = [
+  "Live Examiner",
+  "Score Maximizer",
   "AO1 Knowledge",
   "AO2 Analysis",
   "AO3 Evaluation",
   "Paper 1 & 3 MCQs",
+  "12h Exam Resume",
   "Paper 2 & 4 Essays",
-  "100% Free Access",
-  "Past Paper Matrix",
+  "Unlimited Essay Gradings",
   "Handwriting Vision OCR",
   "Diagram Studio",
   "Definition Hub",
@@ -120,29 +122,29 @@ const OBJECTIVES = [
 const TOOLS = [
   {
     icon: Sparkles,
-    tile: "bg-primary",
-    badge: "Past Exam Matrix",
-    title: "Past Paper Matrix",
-    lead: "Complete Cambridge past paper catalog",
-    body: "Browse and practice past Cambridge 9708 exam series with high-resolution PDF viewports, interactive jump matrix, and verified marking rubrics.",
-    href: "/mcq-live",
+    tile: "bg-purple-600",
+    badge: "Real-Time AI",
+    title: "Live Examiner & Score Maximizer",
+    lead: "Instant Cambridge coaching as you type",
+    body: "Grammarly for Economics: instant AO1/AO2/AO3 sentence highlighting, live running marks, terminology checks, and step-by-step Score Maximizer blueprints.",
+    href: "/live-examiner",
   },
   {
     icon: PenLine,
     tile: "bg-ao2",
     badge: "Full Audit",
-    title: "Dual-Pass Essay Lab",
-    lead: "Independent two-pass Cambridge 9708 grading",
+    title: "Dual-Pass Essay Grader",
+    lead: "Unlimited Cambridge 9708 essay evaluations",
     body: "Grounded in official 9708 mark schemes and coursebooks. Two independent evaluation passes correct AI central-tendency bias, providing line-by-line mark scheme matching and rewrite plans.",
-    href: "/practice",
+    href: "/grade",
   },
   {
     icon: ListChecks,
     tile: "bg-ao1",
     badge: "Exam Simulation",
-    title: "MCQ Live Simulation",
-    lead: "Authentic timed Paper 1 & Paper 3 exams",
-    body: "Real Cambridge past papers with official mark schemes. Features question flagging for review, interactive jump matrix, domain accuracy breakdown, and on-demand AI explanations.",
+    title: "MCQ Live Past Papers & Resume",
+    lead: "Authentic timed Paper 1 & 3 exams with 12h resume",
+    body: "Real Cambridge past papers with official mark schemes. Features interactive question flagging, jump matrix, distractor reasoning, and automatic 12-hour draft save & resume.",
     href: "/mcq-live",
   },
   {
@@ -155,22 +157,22 @@ const TOOLS = [
     href: "/definitions",
   },
   {
-    icon: Target,
-    tile: "bg-primary",
-    badge: "Exam Technique",
-    title: "Command Words Explorer",
-    lead: "Assess, Evaluate, Explain — exact AO rubrics",
-    body: "Master what Cambridge examiners demand for every command word. Learn the exact analytical and evaluative weights to structure high-band answers without wasted prose.",
-    href: "/command-words",
-  },
-  {
     icon: LineChart,
-    tile: "bg-ao2",
+    tile: "bg-primary",
     badge: "Visual Studio",
     title: "Economics Diagram Studio",
     lead: "Every 9708 diagram with dynamic curve shifts",
     body: "Interactive micro and macro diagrams with real-time shifts, equilibrium price/quantity tracking, and examiner labelling standards for tariffs, externalities, and market structures.",
     href: "/diagrams",
+  },
+  {
+    icon: Target,
+    tile: "bg-ao2",
+    badge: "Exam Technique",
+    title: "Command Words Explorer",
+    lead: "Assess, Evaluate, Explain — exact AO rubrics",
+    body: "Master what Cambridge examiners demand for every command word. Learn the exact analytical and evaluative weights to structure high-band answers without wasted prose.",
+    href: "/command-words",
   },
   {
     icon: Scan,
@@ -179,7 +181,7 @@ const TOOLS = [
     title: "Handwriting Vision OCR",
     lead: "Upload photos of handwritten mock exams",
     body: "Specialized vision engine lifts student handwriting off paper, detects hand-drawn diagrams, verifies economic terminology, and sends it directly for examiner grading.",
-    href: "/practice",
+    href: "/grade",
   },
   {
     icon: TrendingUp,
@@ -292,7 +294,7 @@ function Index() {
 
   const shareOrigin = typeof window !== "undefined" ? window.location.origin : "https://app.marginal-econ.workers.dev";
   const shareUrl = `${shareOrigin}${invitedBy ? `?ref=${encodeURIComponent(invitedBy)}` : ""}`;
-  const shareMessage = `Hey! I'm using Marginal for Cambridge AS & A Level Economics (9708). It breaks down essays into real AO1/AO2/AO3 marks grounded in official Cambridge mark schemes, plus instant examiner rewrite feedback. You get 2 free essays and 30 days of MCQ drills:\n${shareUrl}`;
+  const shareMessage = `Hey! I'm using Marginal for Cambridge AS & A Level Economics (9708). It gives real-time Live Examiner coaching, breaks down essays into AO1/AO2/AO3 marks grounded in official Cambridge mark schemes, and offers full MCQ past paper practice with resume. Grade unlimited essays free:\n${shareUrl}`;
 
   const handleCopyLink = () => {
     if (typeof navigator !== "undefined" && navigator.clipboard) {
@@ -446,8 +448,8 @@ function Index() {
                   <span className="text-[10px] sm:text-[11px] text-muted-foreground font-semibold leading-tight block mt-0.5">Clause Auditing</span>
                 </div>
                 <div className="rounded-xl border border-amber-500/25 bg-card/70 p-3 text-center backdrop-blur-md shadow-xs hover:border-amber-500/50 transition-colors">
-                  <span className="text-xl sm:text-2xl font-black text-foreground tracking-tight block">2 Free</span>
-                  <span className="text-[10px] sm:text-[11px] text-muted-foreground font-semibold leading-tight block mt-0.5">Instant Gradings</span>
+                  <span className="text-xl sm:text-2xl font-black text-foreground tracking-tight block">Unlimited</span>
+                  <span className="text-[10px] sm:text-[11px] text-muted-foreground font-semibold leading-tight block mt-0.5">Essay Gradings</span>
                 </div>
               </div>
             </Reveal>
@@ -461,7 +463,7 @@ function Index() {
                   className="h-12 px-6 text-sm font-extrabold shadow-lg shadow-primary/25 bg-primary hover:bg-primary/90 text-primary-foreground transition-all hover:scale-[1.02] cursor-pointer w-full sm:w-auto inline-flex items-center justify-center gap-2"
                 >
                   <Link to="/auth">
-                    <span>Get Started Free (2 Free Essays)</span>
+                    <span>Grade Essays Free (Unlimited)</span>
                     <ArrowRight className="size-4 shrink-0" />
                   </Link>
                 </Button>
@@ -477,7 +479,7 @@ function Index() {
                 </Button>
               </div>
               <p className="mt-2 text-xs text-muted-foreground">
-                No credit card required &bull; 2 full essays graded free &bull; 30-day MCQ access
+                No credit card required &bull; Unlimited essays graded free &bull; Full MCQ past paper practice
               </p>
             </Reveal>
 
@@ -485,7 +487,7 @@ function Index() {
               <Reveal delay={240}>
                 <p className="mt-3.5 inline-flex items-center gap-2 text-xs text-muted-foreground">
                   <Gift className="size-3.5 text-primary shrink-0" aria-hidden="true" />
-                  Invited with code <span className="font-semibold text-foreground">{invitedBy.toLowerCase()}</span> — 2 free essays ready.
+                  Invited with code <span className="font-semibold text-foreground">{invitedBy.toLowerCase()}</span> — unlimited essay grading unlocked.
                 </p>
               </Reveal>
             ) : null}
@@ -893,7 +895,7 @@ function Index() {
                   Start scoring higher in AS & A Level Economics
                 </h2>
                 <p className="mt-4 max-w-md text-sm text-pretty text-plum-foreground/85 md:text-base">
-                  Every candidate gets 2 full essay gradings and 30 days of MCQ past papers completely free. Instant access with line-by-line mark scheme matching.
+                  Every candidate gets unlimited Cambridge essay gradings, the real-time Live Examiner, and authentic past paper MCQ drills with auto-save resume completely free.
                 </p>
 
                 <div className="mt-7 flex flex-wrap items-center justify-center md:justify-start gap-3">
@@ -912,15 +914,15 @@ function Index() {
                     size="lg"
                     className="h-11 px-5 text-xs sm:text-sm font-semibold border-white/30 text-plum-foreground hover:bg-white/10"
                   >
-                    <Link to="/grade">Start Essay Marking</Link>
+                    <Link to="/grade">Grade Unlimited Essays</Link>
                   </Button>
                   <Button
                     asChild
-                    variant="ghost"
+                    variant="outline"
                     size="lg"
-                    className="h-11 px-4 text-xs sm:text-sm font-semibold text-plum-foreground/80 hover:text-plum-foreground hover:bg-white/10"
+                    className="h-11 px-5 text-xs sm:text-sm font-semibold border-white/30 text-plum-foreground hover:bg-white/10"
                   >
-                    <a href="#graded-exemplar">View 10/12 Exemplar ↓</a>
+                    <Link to="/live-examiner">Live Examiner</Link>
                   </Button>
                 </div>
 
@@ -967,10 +969,10 @@ function Index() {
               <Gift className="size-4 shrink-0 text-emerald-600 dark:text-emerald-400 mt-0.5" />
               <div className="space-y-0.5">
                 <p className="font-semibold text-emerald-700 dark:text-emerald-300">
-                  2 Free Graded Essays + 30-Day MCQ Drills
+                  Unlimited Graded Essays + Full MCQ Practice
                 </p>
                 <p className="text-muted-foreground dark:text-emerald-200/80 leading-relaxed">
-                  Anyone who joins through your link gets instant access to 2 full essays marked by our Cambridge 9708 examiner engine, with no credit card required.
+                  Anyone who joins through your link gets instant access to unlimited essays marked by our Cambridge 9708 examiner engine, Live Examiner coaching, and past paper drills with no credit card required.
                 </p>
               </div>
             </div>
@@ -991,7 +993,7 @@ function Index() {
                   <span>WhatsApp</span>
                 </a>
                 <a
-                  href={`https://t.me/share/url?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent("Check out Marginal for Cambridge AS & A Level Economics (9708) — 2 free essays graded + 30-day MCQ drills!")}`}
+                  href={`https://t.me/share/url?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent("Check out Marginal for Cambridge AS & A Level Economics (9708) — unlimited essays graded + Live Examiner & MCQ past paper drills!")}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl border border-border bg-card hover:bg-sky-500/10 hover:border-sky-500/30 hover:text-sky-600 transition-all text-xs font-semibold group cursor-pointer text-center"
@@ -1000,7 +1002,7 @@ function Index() {
                   <span>Telegram</span>
                 </a>
                 <a
-                  href={`https://twitter.com/intent/tweet?text=${encodeURIComponent("Preparing for Cambridge AS & A Level Economics (9708) with Marginal — 2 free essays graded + 30-day MCQ drills:")}&url=${encodeURIComponent(shareUrl)}`}
+                  href={`https://twitter.com/intent/tweet?text=${encodeURIComponent("Preparing for Cambridge AS & A Level Economics (9708) with Marginal — unlimited essays graded + Live Examiner & MCQ past paper drills:")}&url=${encodeURIComponent(shareUrl)}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl border border-border bg-card hover:bg-primary/10 hover:border-primary/30 hover:text-primary transition-all text-xs font-semibold group cursor-pointer text-center"
@@ -1009,7 +1011,7 @@ function Index() {
                   <span>X / Twitter</span>
                 </a>
                 <a
-                  href={`mailto:?subject=${encodeURIComponent("Cambridge 9708 Economics Prep — 2 Free Graded Essays on Marginal")}&body=${encodeURIComponent(shareMessage)}`}
+                  href={`mailto:?subject=${encodeURIComponent("Cambridge 9708 Economics Prep — Unlimited Graded Essays on Marginal")}&body=${encodeURIComponent(shareMessage)}`}
                   className="flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl border border-border bg-card hover:bg-muted hover:border-border transition-all text-xs font-semibold group cursor-pointer text-center"
                 >
                   <Mail className="size-5 text-muted-foreground transition-transform group-hover:scale-110 group-hover:text-foreground" />

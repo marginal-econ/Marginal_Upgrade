@@ -215,7 +215,7 @@ export async function getUserSubscriptionDetails(
   }
 
   const essaysRemaining = Math.max(0, essaysLimit - essaysGradedCount);
-  const canGradeEssay = essaysRemaining > 0;
+  const canGradeEssay = true; // Unlimited essay grading enabled for all users (no limitation)
 
   const allocatedCredits = limits.liveExaminerCredits;
   const remainingCredits = Math.max(0, allocatedCredits - liveCreditsUsed);

@@ -745,7 +745,7 @@ export function PricingSection({ className }: { className?: string }) {
                     to={isAuthenticated ? "/grade" : "/auth"}
                     search={isAuthenticated ? undefined : ({ redirect: "/grade" } as any)}
                   >
-                    Start Free (2 Essays) <ArrowRight className="size-3.5 ml-1.5" />
+                    Start Free (Unlimited Essays) <ArrowRight className="size-3.5 ml-1.5" />
                   </Link>
                 </Button>
               </div>
@@ -978,9 +978,9 @@ export function PricingSection({ className }: { className?: string }) {
                 <ShieldCheck className="size-5" />
               </span>
               <div>
-                <h4 className="text-sm font-semibold">2 Free Graded Essays</h4>
+                <h4 className="text-sm font-semibold">Unlimited Graded Essays</h4>
                 <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
-                  Try the full Cambridge examiner marking engine with 2 full essays completely free.
+                  Try the full Cambridge examiner marking engine with unlimited essays right now.
                   No credit card required.
                 </p>
               </div>

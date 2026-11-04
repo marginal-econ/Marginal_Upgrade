@@ -97,8 +97,8 @@ export function essayLimitMessage(limit: number): string {
 }
 
 export const FREE_ESSAY_LIMIT_MESSAGE =
-  `${TIER_LIMIT_PREFIX}: You have used your 2 free Cambridge essay gradings on the Free Tier. ` +
-  `Upgrade to Foundation Scholar (₹99/mo), Scholar Plus (₹199/mo), Pro (₹399/mo), or Mastery to continue grading essays with line-by-line mark scheme matching.`;
+  `${TIER_LIMIT_PREFIX}: Unlimited Cambridge essay gradings are enabled. ` +
+  `Upgrade to Foundation Scholar, Scholar Plus, Pro, or Mastery for additional Live Examiner coaching credits.`;
 
 export const TEACHER_FREE_ESSAY_LIMIT_MESSAGE =
   `${TIER_LIMIT_PREFIX}: You have used your 3 free trial essay evaluations for educators. ` +
