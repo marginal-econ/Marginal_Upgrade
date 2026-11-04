@@ -109,7 +109,7 @@ export function FeedbackDialog({
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[480px]">
+      <DialogContent className="sm:max-w-[480px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <div className="flex items-center gap-2 mb-1">
             <div className="size-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center">

@@ -688,8 +688,8 @@ export function CouponsAdminPanel() {
           }
         }}
       >
-        <DialogContent className="max-w-md">
-          <DialogHeader>
+        <DialogContent className="max-w-lg max-h-[90vh] sm:max-h-[85vh] flex flex-col p-0 overflow-hidden shadow-2xl border border-border/80">
+          <DialogHeader className="p-6 pb-4 border-b border-border/70 shrink-0 bg-background/95 backdrop-blur-sm pr-12">
             <DialogTitle className="flex items-center gap-2">
               <Tag className="size-5 text-primary" />
               <span>{editingCoupon ? `Edit Coupon: ${editingCoupon.code}` : "Create New Coupon Code"}</span>
@@ -701,7 +701,7 @@ export function CouponsAdminPanel() {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 py-2">
+          <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4 overscroll-contain">
             {!editingCoupon ? (
               <div className="space-y-1.5">
                 <Label htmlFor="coupon-code" className="text-xs font-semibold">
@@ -938,7 +938,7 @@ export function CouponsAdminPanel() {
             </div>
           </div>
 
-          <DialogFooter className="gap-2 sm:gap-0">
+          <DialogFooter className="p-4 sm:p-5 border-t border-border/70 bg-muted/20 shrink-0 gap-2 sm:gap-2">
             <Button
               type="button"
               variant="outline"
