@@ -1,5 +1,6 @@
 import nspell from "nspell";
-import dictEnGb from "dictionary-en-gb";
+import aff from "./dict/index.aff?raw";
+import dic from "./dict/index.dic?raw";
 import type { IssueV2, RawSegment } from "./types";
 import { CAMBRIDGE_ECONOMICS_WHITELIST } from "./grammar-engine";
 
@@ -107,7 +108,6 @@ for (const t of EXTRA_TERMS) {
 
 export function getSpellChecker(): ReturnType<typeof nspell> {
   if (!spellChecker) {
-    const { aff, dic } = (dictEnGb as any).default || dictEnGb;
     spellChecker = nspell(aff, dic);
     // Add custom terms to nspell
     for (const word of CUSTOM_WHITELIST) {
