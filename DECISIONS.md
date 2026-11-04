@@ -24,3 +24,13 @@
 ## Decision 5: Non-Destructive Additive Database Migration
 - Migration adds `sentence_cache jsonb`, `score_history jsonb`, `doc_version int`, and `schema_version int default 2` to `public.live_examiner_sessions`.
 - Preserves all v1 session data without breaking existing schema or client sessions.
+
+## Decision 6: Single Source Live Mark Widget & UI Deduplication
+- **Context:** The right-hand column previously showed both `<ScoreWidget />` (the top predicted mark card with tariff bars, words indicator, and delta chips) and `<PredictedMarkCard />` inside `<LiveExaminerPanel />` (the bottom running mark card), causing confusing double scoring in the UI.
+- **Decision:** Deduplicated the live mark interface. During active writing, only the user's preferred `<ScoreWidget />` is displayed. `<PredictedMarkCard />` is now conditionally shown only when official grading completes (`finalGrading !== null`).
+- **Score Maximizer Integration:** Embedded the "Maximise Score Blueprint" action directly into `<NextMarks />` and the top action bar so students can seamlessly upgrade their draft to full marks without card clutter.
+
+## Decision 7: Model Adaptation (Mistral & Gemini) & Universal Formatting Scrubbing
+- **Mistral Adaptations:** Configured explicit system instructions forbidding markdown code fences (```json), conversational pleasantries, and markdown asterisks (`*` and `**`).
+- **Universal Asterisk Scrubbing:** Implemented aggressive, recursive sanitization across all layers (`cleanStars`, `stripStars`, `cleanSuggestion`). All `explanation`, `evidence`, `original`, `suggestion`, `insertAfter`, `aoImpact`, and `headline` strings are thoroughly stripped of bold/italic asterisks, backticks, audit tags, and awkward command lead-ins (`Use:`, `e.g.`, `Suggestion:`) before reaching the UI or cache.
+
