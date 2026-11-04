@@ -248,6 +248,7 @@ const ADMIN_SECTIONS: Record<string, AdminSectionMeta> = {
     id: "overview",
     category: "Platform & Intelligence",
     title: "Executive Platform Dashboard",
+    sidebarLabel: "Executive Overview",
     subtitle: "Real-time user sessions, grading throughput, AI token spend, database health, and error telemetry.",
     icon: Activity,
   },
@@ -271,49 +272,47 @@ const ADMIN_SECTIONS: Record<string, AdminSectionMeta> = {
     badge: "Live Submissions",
     badgeColor: "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/30 font-medium",
   },
+  feedback: {
+    id: "feedback",
+    category: "User & Community Support",
+    title: "Bug Reports & User Feedback",
+    sidebarLabel: "Bug Reports & Feedback",
+    subtitle: "Direct in-app communication channel: Read, reply to, and manage bug reports, questions, and suggestions from students and teachers.",
+    icon: MessageSquare,
+  },
   messages: {
     id: "messages",
-    category: "Users & Access",
+    category: "User & Community Support",
     title: "Direct In-App User Texting Portal",
+    sidebarLabel: "Direct Messaging",
     subtitle: "Real-time 1-on-1 portal to text students and teachers directly inside the Marginal web application.",
     icon: Send,
     badge: "Direct Text",
     badgeColor: "border-primary/40 text-primary bg-primary/10",
   },
-  feedback: {
-    id: "feedback",
-    category: "Users & Access",
-    title: "User Feedback & Direct Messages",
-    subtitle: "Direct in-app communication channel: Read, reply to, and manage questions, bug reports, and suggestions from students and teachers.",
-    icon: MessageSquare,
-  },
   users: {
     id: "users",
-    category: "Users & Access",
+    category: "User & Community Support",
     title: "User Directory & Role Management",
+    sidebarLabel: "User Directory",
     subtitle: "Manage registered student and teacher accounts, grant staff privileges, and audit account states.",
     icon: Users,
   },
   teachers: {
     id: "teachers",
-    category: "Users & Access",
+    category: "User & Community Support",
     title: "Teacher Verification Desk",
+    sidebarLabel: "Teacher Verification",
     subtitle: "Verify Cambridge 9708 educators, review compulsory school domains, and approve staff access to Knowledge Base & Classrooms.",
     icon: GraduationCap,
     badge: "Staff Verification",
     badgeColor: "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/30",
   },
-  access: {
-    id: "access",
-    category: "Users & Access",
-    title: "Capacity & AI Rate Controls",
-    subtitle: "Administer per-user daily essay allowances, global request quotas, and VIP token overrides.",
-    icon: Coins,
-  },
   waitlist: {
     id: "waitlist",
-    category: "Users & Access",
+    category: "User & Community Support",
     title: "Public Waitlist & Access Invitations",
+    sidebarLabel: "Public Waitlist",
     subtitle: "Manage early signups, preview invitation templates, and send official access invitations via Mailjet.",
     icon: Mail,
     badge: "Mailjet Live",
@@ -321,17 +320,43 @@ const ADMIN_SECTIONS: Record<string, AdminSectionMeta> = {
   },
   pricing: {
     id: "pricing",
-    category: "Monetization & Plans",
+    category: "Monetization & Quotas",
     title: "Pricing Plans & Credit Control",
+    sidebarLabel: "Pricing Plans",
     subtitle: "Real-time pricing editor: customize monthly/annual tier pricing, essay allowances, Live Examiner credit quotas, and user balances.",
     icon: Coins,
     badge: "Live Dynamic",
     badgeColor: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30",
   },
+  payments: {
+    id: "payments",
+    category: "Monetization & Quotas",
+    title: "UPI Payment Approvals Desk",
+    sidebarLabel: "UPI Payments",
+    subtitle: "Verify incoming student UPI transaction references (UTR) against your bank credits, approve subscriptions with 1 click, or reject invalid entries.",
+    icon: Coins,
+  },
+  coupons: {
+    id: "coupons",
+    category: "Monetization & Quotas",
+    title: "Coupon Codes & Discounts",
+    sidebarLabel: "Coupon Codes",
+    subtitle: "Create, manipulate, pause, or cancel promotional discount codes. Configure flat ₹ or % cuts, caps, and expirations.",
+    icon: Tag,
+  },
+  access: {
+    id: "access",
+    category: "Monetization & Quotas",
+    title: "Capacity & AI Rate Controls",
+    sidebarLabel: "Rate Limits & Capacity",
+    subtitle: "Administer per-user daily essay allowances, global request quotas, and VIP token overrides.",
+    icon: Coins,
+  },
   showcase: {
     id: "showcase",
     category: "Curriculum & Content",
     title: "Exemplar Showcase Curation",
+    sidebarLabel: "Exemplar Showcase",
     subtitle: "Review, approve, and curate Level 4 and Level 5 high-scoring Cambridge 9708 model essays.",
     icon: Trophy,
   },
@@ -339,6 +364,7 @@ const ADMIN_SECTIONS: Record<string, AdminSectionMeta> = {
     id: "diagrams",
     category: "Curriculum & Content",
     title: "Diagram Library Engine",
+    sidebarLabel: "Diagram Library",
     subtitle: "Cambridge 9708 interactive visual graphs: label-by-label definitions, axes calibration, and custom graphs.",
     icon: LineChart,
   },
@@ -366,6 +392,7 @@ const ADMIN_SECTIONS: Record<string, AdminSectionMeta> = {
     id: "embeddings",
     category: "AI Engine & Infrastructure",
     title: "Embedding Models & Vector Search",
+    sidebarLabel: "Embedding Models",
     subtitle: "Configure semantic vector search models for syllabus retrieval, RAG grounding, and batch recalibration.",
     icon: Layers,
   },
@@ -373,22 +400,9 @@ const ADMIN_SECTIONS: Record<string, AdminSectionMeta> = {
     id: "vision",
     category: "AI Engine & Infrastructure",
     title: "Vision OCR & Handwriting Engine",
+    sidebarLabel: "Vision OCR",
     subtitle: "Extract handwritten student scripts, diagrams, and mark scheme photos using multimodal AI models.",
     icon: ImagePlus,
-  },
-  payments: {
-    id: "payments",
-    category: "Monetization & Plans",
-    title: "UPI Payment Approvals Desk",
-    subtitle: "Verify incoming student UPI transaction references (UTR) against your bank credits, approve subscriptions with 1 click, or reject invalid entries.",
-    icon: Coins,
-  },
-  coupons: {
-    id: "coupons",
-    category: "Monetization & Plans",
-    title: "Coupon Codes & Discounts",
-    subtitle: "Create, manipulate, pause, or cancel promotional discount codes. Configure flat ₹ or % cuts, caps, and expirations.",
-    icon: Tag,
   },
 };
 
@@ -401,12 +415,12 @@ const ADMIN_CATEGORIES = [
     ],
   },
   {
-    title: "Users & Access",
-    items: [ADMIN_SECTIONS.messages, ADMIN_SECTIONS.feedback, ADMIN_SECTIONS.users, ADMIN_SECTIONS.teachers, ADMIN_SECTIONS.access, ADMIN_SECTIONS.waitlist],
+    title: "User & Community Support",
+    items: [ADMIN_SECTIONS.feedback, ADMIN_SECTIONS.messages, ADMIN_SECTIONS.users, ADMIN_SECTIONS.teachers, ADMIN_SECTIONS.waitlist],
   },
   {
-    title: "Monetization & Plans",
-    items: [ADMIN_SECTIONS.pricing, ADMIN_SECTIONS.payments, ADMIN_SECTIONS.coupons],
+    title: "Monetization & Quotas",
+    items: [ADMIN_SECTIONS.pricing, ADMIN_SECTIONS.payments, ADMIN_SECTIONS.coupons, ADMIN_SECTIONS.access],
   },
   {
     title: "Curriculum & Content",
@@ -419,7 +433,7 @@ const ADMIN_CATEGORIES = [
     ],
   },
   {
-    title: "AI Infrastructure",
+    title: "AI Engine & Infrastructure",
     items: [ADMIN_SECTIONS.gemini, ADMIN_SECTIONS.providers, ADMIN_SECTIONS.embeddings, ADMIN_SECTIONS.vision],
   },
 ];
@@ -555,7 +569,7 @@ function AdminPage() {
                 className="h-7 text-xs whitespace-nowrap gap-1 shrink-0"
               >
                 <sec.icon className="size-3" />
-                {sec.id === "godmode" ? "God Mode" : sec.sidebarLabel || sec.title.split(" ")[0]}
+                {sec.sidebarLabel || sec.title}
               </Button>
             ))}
           </div>
@@ -587,7 +601,7 @@ function AdminPage() {
                       >
                         <div className="flex items-center gap-2.5 min-w-0">
                           <ItemIcon className={cn("size-4 shrink-0 transition-transform group-hover:scale-110", isActive ? "text-primary" : "text-muted-foreground")} />
-                          <span className="truncate">{item.sidebarLabel || `${item.title.split(" ")[0]} ${item.title.split(" ")[1] ?? ""}`}</span>
+                          <span className="truncate">{item.sidebarLabel || item.title}</span>
                         </div>
                         {item.id === "feedback" && (overviewQuery.data?.feedbackCount ?? 0) > 0 ? (
                           <Badge variant="secondary" className="text-[9px] px-1.5 py-0 h-4 font-bold bg-primary/20 text-primary">

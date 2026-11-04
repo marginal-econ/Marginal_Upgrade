@@ -99,6 +99,7 @@ import {
   getStudentClassroomOverview,
   getStudentLifetimePortfolio,
   gradeAssignmentSubmission,
+  inferCambridgeEssayMaxMark,
   joinClassroom,
   leaveClassroom,
   listAnnouncements,
@@ -1871,6 +1872,10 @@ function ClassworkTab({
         <div className="space-y-4">
           {filteredAssignments.map((a) => {
             const isEssay = a.kind === "essay";
+            const effectiveMaxMarks = inferCambridgeEssayMaxMark(
+              a.essayMaxMark,
+              `${a.essayQuestion || ""} ${a.title || ""}`,
+            );
             const mySub = a.mySubmission;
             const isSubmitted = Boolean(
               mySub &&
@@ -1904,7 +1909,7 @@ function ClassworkTab({
                           variant="outline"
                           className="bg-background text-foreground border-input text-[10px]"
                         >
-                          {isEssay ? `${a.essayMaxMark || 20} Marks` : "30 MCQs"}
+                          {isEssay ? `${effectiveMaxMarks} Marks` : "30 MCQs"}
                         </Badge>
                         {a.essayTopic && (
                           <Badge
@@ -1938,7 +1943,7 @@ function ClassworkTab({
                         {isGraded ? (
                           <div className="flex items-center gap-2">
                             <Badge className="bg-emerald-950 text-emerald-300 border-emerald-700 text-xs px-2.5 py-1">
-                              Graded: {mySub?.teacherScore ?? mySub?.aiScore}/{a.essayMaxMark || 20}
+                              Graded: {mySub?.teacherScore ?? mySub?.aiScore}/{effectiveMaxMarks}
                             </Badge>
                           </div>
                         ) : isSubmitted ? (
@@ -2788,7 +2793,14 @@ function ClassworkTab({
                         </Label>
                         <Textarea
                           value={essayQuestion}
-                          onChange={(e) => setEssayQuestion(e.target.value)}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setEssayQuestion(val);
+                            const detected = inferCambridgeEssayMaxMark(null, val);
+                            if (detected === 8 || detected === 12 || detected === 20 || detected === 15 || detected === 25) {
+                              setEssayMaxMark(detected);
+                            }
+                          }}
                           placeholder="Enter the exact Cambridge 9708 past paper question prompt..."
                           className="bg-background border-input text-white min-h-[80px]"
                         />
@@ -3041,6 +3053,10 @@ function TeacherSubmissionsModal({
 
   const students = useMemo(() => data?.students ?? [], [data?.students]);
   const assignment = data?.assignment;
+  const effectiveMaxMarks = inferCambridgeEssayMaxMark(
+    assignment?.essay_max_mark,
+    `${assignment?.essay_question || ""} ${assignment?.title || ""}`,
+  );
 
   // Sync selected student
   useEffect(() => {
@@ -3152,7 +3168,7 @@ function TeacherSubmissionsModal({
                     <div>
                       {sub?.teacherScore !== null && sub?.teacherScore !== undefined ? (
                         <Badge className="bg-emerald-950 text-emerald-300 border-emerald-700 text-[10px] px-2">
-                          {sub.teacherScore}/{assignment?.essay_max_mark || 20}
+                          {sub.teacherScore}/{effectiveMaxMarks}
                         </Badge>
                       ) : isTurnedIn ? (
                         <Badge className="bg-blue-950 text-blue-300 border-blue-700 text-[10px] px-2">
@@ -3212,7 +3228,9 @@ function TeacherSubmissionsModal({
                           to="/grade"
                           search={{
                             q: assignment?.essay_question || assignment?.title || "",
-                            marks: (assignment?.essay_max_mark || 20) as 8 | 12 | 20,
+                            marks: (effectiveMaxMarks === 8 || effectiveMaxMarks === 12 || effectiveMaxMarks === 20
+                              ? effectiveMaxMarks
+                              : 20) as 8 | 12 | 20,
                             text: activeStudent.submission.submissionText || "",
                             assignmentId: assignment?.id,
                             studentId: activeStudent.studentId,
@@ -3274,7 +3292,7 @@ function TeacherSubmissionsModal({
                             </span>
                             <span>
                               {activeStudent.submission.aiScore} /{" "}
-                              {assignment?.essay_max_mark || 20}
+                              {effectiveMaxMarks}
                             </span>
                           </div>
                         </div>
@@ -3293,12 +3311,12 @@ function TeacherSubmissionsModal({
                   <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 items-end">
                     <div className="space-y-1.5">
                       <Label className="text-xs font-bold text-foreground">
-                        Awarded Score (/{assignment?.essay_max_mark || 20})
+                        Awarded Score (/{effectiveMaxMarks})
                       </Label>
                       <Input
                         type="number"
                         min={0}
-                        max={assignment?.essay_max_mark || 20}
+                        max={effectiveMaxMarks}
                         value={scoreInput}
                         onChange={(e) => setScoreInput(e.target.value)}
                         placeholder="e.g. 17"

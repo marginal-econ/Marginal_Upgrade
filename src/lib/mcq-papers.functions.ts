@@ -36,6 +36,7 @@ export const listMcqPapers = createServerFn({ method: "GET" })
         "id, title, level, exam_year, exam_series, question_count, qp_url, ms_url, answer_key, created_at",
       )
       .order("exam_year", { ascending: false })
+      .order("title", { ascending: true })
       .order("created_at", { ascending: false });
     if (error) throw new Error(error.message);
     return {

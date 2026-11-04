@@ -21,6 +21,34 @@ async function assertAdmin(context: { supabase: SupabaseClient<Database>; userId
   throw new Error("Administrator privileges are required to create or remove classrooms. Marginal is the platform administrator.");
 }
 
+/**
+ * Automatically infers the correct Cambridge mark scheme maximum marks (8, 12, 20)
+ * from explicit question bracket tariffs (e.g. "[12]", "[8]", "[20]") if present,
+ * or falls back to stored marks / default 20.
+ */
+export function inferCambridgeEssayMaxMark(
+  storedMaxMark: number | string | null | undefined,
+  questionOrTitle: string | null | undefined,
+): number {
+  if (questionOrTitle) {
+    const match =
+      questionOrTitle.match(/\[\s*(\d{1,2})\s*(?:marks?|m)?\s*\]/i) ||
+      questionOrTitle.match(/\(\s*(\d{1,2})\s*(?:marks?|m)\s*\)/i);
+    if (match && match[1]) {
+      const parsed = parseInt(match[1], 10);
+      if (parsed === 8 || parsed === 12 || parsed === 20 || parsed === 25 || parsed === 15) {
+        return parsed;
+      }
+    }
+  }
+
+  const parsedStored = Number(storedMaxMark);
+  if (parsedStored && parsedStored > 0) {
+    return parsedStored;
+  }
+  return 20;
+}
+
 export const CR_STORE = {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async get<T>(admin: any, term: string): Promise<T | null> {
@@ -1572,7 +1600,7 @@ export const listClassroomAssignments = createServerFn({ method: "GET" })
         bankEssayQuestionId: a.bank_essay_question_id ?? null,
         essayQuestion: a.essay_question ?? null,
         essayTopic: a.essay_topic ?? null,
-        essayMaxMark: a.essay_max_mark ?? 20,
+        essayMaxMark: inferCambridgeEssayMaxMark(a.essay_max_mark, `${a.essay_question || ""} ${a.title || ""}`),
         mcqPaperId: a.mcq_paper_id ?? null,
         stats: {
           totalStudents,
@@ -1646,7 +1674,10 @@ export const createClassroomAssignment = createServerFn({ method: "POST" })
       bank_essay_question_id: data.bankEssayQuestionId || null,
       essay_question: data.kind === "essay" ? data.essayQuestion || data.title : null,
       essay_topic: data.kind === "essay" ? data.essayTopic || "Economics" : null,
-      essay_max_mark: data.kind === "essay" ? data.essayMaxMark || 20 : null,
+      essay_max_mark:
+        data.kind === "essay"
+          ? inferCambridgeEssayMaxMark(data.essayMaxMark, `${data.essayQuestion || ""} ${data.title || ""}`)
+          : null,
       mcq_paper_id: data.kind === "mcq_paper" ? data.mcqPaperId || null : null,
     };
 
@@ -1837,7 +1868,7 @@ export const getAssignmentSubmissions = createServerFn({ method: "GET" })
       try {
         const { data: row } = await authority.admin
           .from("classroom_assignments")
-          .select("id, title, kind, essay_max_mark, due_at")
+          .select("id, title, kind, essay_question, instructions, essay_max_mark, due_at")
           .eq("id", data.assignmentId)
           .single();
         if (row) assignment = row;
@@ -1845,6 +1876,11 @@ export const getAssignmentSubmissions = createServerFn({ method: "GET" })
     }
 
     if (!assignment) throw new Error("Assignment not found.");
+
+    assignment.essay_max_mark = inferCambridgeEssayMaxMark(
+      assignment.essay_max_mark,
+      `${assignment.essay_question || ""} ${assignment.title || ""}`,
+    );
 
     // Retrieve roster
     let members: any[] = [];
@@ -1997,7 +2033,7 @@ export const getClassroomGradebook = createServerFn({ method: "GET" })
     try {
       const { data: assignments, error: aErr } = await authority.admin
         .from("classroom_assignments")
-        .select("id, title, kind, essay_max_mark, due_at, created_at")
+        .select("id, title, kind, essay_question, instructions, essay_max_mark, due_at, created_at")
         .eq("classroom_id", data.classroomId)
         .eq("archived", false)
         .order("created_at", { ascending: true });
@@ -2080,7 +2116,10 @@ export const getClassroomGradebook = createServerFn({ method: "GET" })
 
     for (const sub of uniqueSubMap.values()) {
       const assignment = finalAssList.find((a) => a.id === sub.assignment_id);
-      const maxMark = assignment?.essay_max_mark ?? 20;
+      const maxMark = inferCambridgeEssayMaxMark(
+        assignment?.essay_max_mark,
+        `${assignment?.essay_question || ""} ${assignment?.title || ""}`,
+      );
       const score = sub.teacher_score ?? sub.ai_score;
       const percentage = score !== null ? Math.round((Number(score) / maxMark) * 100) : null;
 
@@ -2129,7 +2168,7 @@ export const getClassroomGradebook = createServerFn({ method: "GET" })
         id: a.id,
         title: a.title,
         kind: a.kind,
-        maxMark: a.essay_max_mark ?? 20,
+        maxMark: inferCambridgeEssayMaxMark(a.essay_max_mark, `${a.essay_question || ""} ${a.title || ""}`),
         dueAt: a.due_at,
         classAvgPct,
       };
@@ -2519,7 +2558,10 @@ export const getClassroomAggregateAnalytics = createServerFn({ method: "GET" })
       // Also include graded classroom assignment submissions
       for (const sub of sAssSubs) {
         const mark = sub.teacher_score ?? sub.ai_score;
-        const maxMark = Number(sub.assignment?.essay_max_mark) || 20;
+        const maxMark = inferCambridgeEssayMaxMark(
+          sub.assignment?.essay_max_mark,
+          `${sub.assignment?.essay_question || ""} ${sub.assignment?.title || ""}`,
+        );
         if (mark !== null && mark !== undefined && maxMark > 0) {
           const pct = Math.round((Number(mark) / maxMark) * 100);
           essayPcts.push(pct);
@@ -2855,7 +2897,7 @@ export const getStudentLifetimePortfolio = createServerFn({ method: "GET" })
     const assignmentEssays = crStudentSubs.map((sub) => {
       const asg = assignmentMap.get(sub.assignment_id);
       const question = asg?.essay_question || asg?.title || "Classroom Essay Assignment";
-      const maxMark = Number(asg?.essay_max_mark) || 20;
+      const maxMark = inferCambridgeEssayMaxMark(asg?.essay_max_mark, `${question} ${asg?.title || ""}`);
 
       const teacherScore =
         sub.teacher_score !== null && sub.teacher_score !== undefined ? Number(sub.teacher_score) : null;

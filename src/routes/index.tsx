@@ -1309,7 +1309,7 @@ function SectionHeading({
 
 function Wordmark({ muted = false }: { muted?: boolean }) {
   return (
-    <span className="group flex items-center gap-2 sm:gap-2.5">
+    <span className="group flex items-center gap-2 sm:gap-2.5 whitespace-nowrap shrink-0">
       <img
         src="/marginal-m-icon-clean.png"
         alt=""

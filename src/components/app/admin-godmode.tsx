@@ -230,50 +230,74 @@ export function AdminGodmodeDashboard({
 
       {/* Vault Navigation Tabs */}
       <Tabs value={subTab} onValueChange={(val) => setSubTab(val as typeof subTab)}>
-        <TabsList className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 w-full h-auto p-1 bg-muted/60 border border-border">
-          <TabsTrigger value="radar" className="py-2.5 text-xs font-medium gap-2">
-            <Radio className="size-3.5 text-emerald-500 animate-pulse" />
-            <span>Live Radar &amp; Keystrokes</span>
+        <TabsList className="flex flex-wrap items-center justify-start gap-2 h-auto w-full p-1.5 rounded-2xl bg-muted/50 border border-border/80 shadow-2xs">
+          <TabsTrigger
+            value="radar"
+            className="flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold transition-all border border-transparent data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:border-border/60 data-[state=active]:shadow-xs text-muted-foreground hover:text-foreground hover:bg-background/40 shrink-0"
+          >
+            <Radio className="size-3.5 shrink-0 text-emerald-500 animate-pulse" />
+            <span className="whitespace-nowrap">Live Radar &amp; Keystrokes</span>
             {typingCount > 0 && (
-              <Badge variant="secondary" className="text-[9px] h-4 px-1 bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-mono">
+              <Badge
+                variant="secondary"
+                className="text-[9px] h-4 px-1.5 bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-mono shrink-0 font-semibold"
+              >
                 {typingCount}
               </Badge>
             )}
           </TabsTrigger>
 
-          <TabsTrigger value="failures" className="py-2.5 text-xs font-medium gap-2">
-            <Wrench className="size-3.5 text-rose-500" />
-            <span>Essay Failures &amp; Fix</span>
+          <TabsTrigger
+            value="failures"
+            className="flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold transition-all border border-transparent data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:border-border/60 data-[state=active]:shadow-xs text-muted-foreground hover:text-foreground hover:bg-background/40 shrink-0"
+          >
+            <Wrench className="size-3.5 shrink-0 text-rose-500" />
+            <span className="whitespace-nowrap">Essay Failures &amp; Fix</span>
             {openFailuresCount > 0 && (
-              <Badge variant="destructive" className="text-[9px] h-4 px-1 font-mono">
+              <Badge variant="destructive" className="text-[9px] h-4 px-1.5 font-mono shrink-0 font-semibold">
                 {openFailuresCount}
               </Badge>
             )}
           </TabsTrigger>
 
-          <TabsTrigger value="dossier" className="py-2.5 text-xs font-medium gap-2">
-            <User className="size-3.5 text-amber-500" />
-            <span>Student 360° Dossier</span>
+          <TabsTrigger
+            value="dossier"
+            className="flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold transition-all border border-transparent data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:border-border/60 data-[state=active]:shadow-xs text-muted-foreground hover:text-foreground hover:bg-background/40 shrink-0"
+          >
+            <User className="size-3.5 shrink-0 text-amber-500" />
+            <span className="whitespace-nowrap">Student 360° Dossier</span>
           </TabsTrigger>
 
-          <TabsTrigger value="activity" className="py-2.5 text-xs font-medium gap-2">
-            <Activity className="size-3.5 text-indigo-500" />
-            <span>Activity Feed</span>
+          <TabsTrigger
+            value="activity"
+            className="flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold transition-all border border-transparent data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:border-border/60 data-[state=active]:shadow-xs text-muted-foreground hover:text-foreground hover:bg-background/40 shrink-0"
+          >
+            <Activity className="size-3.5 shrink-0 text-indigo-500" />
+            <span className="whitespace-nowrap">Activity Feed</span>
           </TabsTrigger>
 
-          <TabsTrigger value="essays" className="py-2.5 text-xs font-medium gap-2">
-            <FileText className="size-3.5 text-primary" />
-            <span>Essays Vault</span>
+          <TabsTrigger
+            value="essays"
+            className="flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold transition-all border border-transparent data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:border-border/60 data-[state=active]:shadow-xs text-muted-foreground hover:text-foreground hover:bg-background/40 shrink-0"
+          >
+            <FileText className="size-3.5 shrink-0 text-primary" />
+            <span className="whitespace-nowrap">Essays Vault</span>
           </TabsTrigger>
 
-          <TabsTrigger value="mcq" className="py-2.5 text-xs font-medium gap-2">
-            <Target className="size-3.5 text-emerald-500" />
-            <span>MCQ Attempts</span>
+          <TabsTrigger
+            value="mcq"
+            className="flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold transition-all border border-transparent data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:border-border/60 data-[state=active]:shadow-xs text-muted-foreground hover:text-foreground hover:bg-background/40 shrink-0"
+          >
+            <Target className="size-3.5 shrink-0 text-emerald-500" />
+            <span className="whitespace-nowrap">MCQ Attempts</span>
           </TabsTrigger>
 
-          <TabsTrigger value="live" className="py-2.5 text-xs font-medium gap-2">
-            <PenLine className="size-3.5 text-indigo-500" />
-            <span>Live Examiner</span>
+          <TabsTrigger
+            value="live"
+            className="flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold transition-all border border-transparent data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:border-border/60 data-[state=active]:shadow-xs text-muted-foreground hover:text-foreground hover:bg-background/40 shrink-0"
+          >
+            <PenLine className="size-3.5 shrink-0 text-indigo-500" />
+            <span className="whitespace-nowrap">Live Examiner</span>
           </TabsTrigger>
         </TabsList>
 
@@ -2429,8 +2453,10 @@ function PlatformActivityTab() {
  * ============================================================================ */
 
 function StudentDossierTab() {
+  const queryClient = useQueryClient();
   const fetchAllDossierUsers = useServerFn(adminListAllDossierUsers);
   const fetchDossier = useServerFn(adminGetStudentDossier);
+  const deleteMcq = useServerFn(adminDeleteMcqAttempt);
 
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<"all" | "online" | "has_essays" | "has_mcq" | "teachers">("all");

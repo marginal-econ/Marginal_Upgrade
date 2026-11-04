@@ -22,6 +22,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/backend/client";
 import { registerTeacher, getTeacherProfileStatus } from "@/lib/teacher.functions";
+import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
 
 export const Route = createFileRoute("/teacher-auth")({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -549,6 +550,24 @@ export function TeacherAuthPage() {
             </div>
           ) : (
             <div>
+              {/* Role Switcher: Student vs Teacher */}
+              <div className="grid grid-cols-2 p-1 bg-muted/70 rounded-xl mb-6 border border-border/80">
+                <Link
+                  to="/auth"
+                  className="flex items-center justify-center gap-2 py-2 text-xs font-bold rounded-lg text-muted-foreground hover:text-foreground transition-all"
+                >
+                  <GraduationCap className="size-3.5 text-muted-foreground" />
+                  <span>Student Workspace</span>
+                </Link>
+                <button
+                  type="button"
+                  className="flex items-center justify-center gap-2 py-2 text-xs font-bold rounded-lg bg-background text-purple-600 dark:text-purple-400 shadow-xs cursor-default"
+                >
+                  <School className="size-3.5 text-purple-600 dark:text-purple-400" />
+                  <span>Teacher &amp; School</span>
+                </button>
+              </div>
+
               <div className="mb-6">
                 <div className="flex items-center gap-2 text-purple-600 dark:text-purple-400 text-xs font-semibold uppercase tracking-wider mb-1">
                   <GraduationCap className="size-4" />
@@ -573,11 +592,29 @@ export function TeacherAuthPage() {
               <Tabs value={activeTab} onValueChange={setActiveTab}>
                 <TabsList className="grid w-full grid-cols-2 mb-6">
                   <TabsTrigger value="signin">Teacher Sign In</TabsTrigger>
-                  <TabsTrigger value="signup">Register as Teacher</TabsTrigger>
+                  <TabsTrigger value="signup">Create Teacher Account</TabsTrigger>
                 </TabsList>
 
                 {/* Teacher Sign In Tab */}
                 <TabsContent value="signin">
+                  <div className="space-y-3 mb-5">
+                    <GoogleSignInButton
+                      redirectTo="/classes"
+                      label="Sign in with Google"
+                    />
+
+                    <div className="relative flex items-center justify-center my-3">
+                      <div className="absolute inset-0 flex items-center">
+                        <span className="w-full border-t border-border/80" />
+                      </div>
+                      <div className="relative flex justify-center text-[11px] uppercase">
+                        <span className="bg-card px-3 text-muted-foreground font-semibold tracking-wider">
+                          or sign in with email
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
                   <form onSubmit={handleSignIn} className="space-y-4">
                     <div className="space-y-1.5">
                       <Label htmlFor="t-signin-email">School / Institutional Email</Label>
@@ -632,6 +669,24 @@ export function TeacherAuthPage() {
 
                 {/* Teacher Sign Up Tab */}
                 <TabsContent value="signup">
+                  <div className="space-y-3 mb-5">
+                    <GoogleSignInButton
+                      redirectTo="/classes"
+                      label="Sign up with Google"
+                    />
+
+                    <div className="relative flex items-center justify-center my-3">
+                      <div className="absolute inset-0 flex items-center">
+                        <span className="w-full border-t border-border/80" />
+                      </div>
+                      <div className="relative flex justify-center text-[11px] uppercase">
+                        <span className="bg-card px-3 text-muted-foreground font-semibold tracking-wider">
+                          or register with school email
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
                   <form onSubmit={handleSignUp} className="space-y-4">
                     <div className="space-y-1.5">
                       <Label htmlFor="t-signup-name">Full Name</Label>

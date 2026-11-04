@@ -56,61 +56,53 @@ function TwinkleStar({
 }
 
 /**
- * Small, sleek, delicate shooting star with a sparkling diamond glint head.
- * Swiftly glides across the dark night sky.
+ * Grand Bluish-White Celestial Comet with a long, luminous ethereal tail.
+ * Glides majestically across the sky on the start page (Night Theme only).
  */
-function GlimmerShootingStar({
-  top,
-  left,
-  angle = 32,
-  length = 95,
-  delay = "0s",
-  duration = "6s",
-  glowColor = "#38bdf8",
-}: {
-  top: string;
-  left: string;
-  angle?: number;
-  length?: number;
-  delay?: string;
-  duration?: string;
-  glowColor?: string;
-}) {
+function GrandBluishComet() {
   return (
-    <div
-      className="glimmer-shooting-star"
-      style={
-        {
-          top,
-          left,
-          transform: `rotate(${angle}deg)`,
-          "--star-length": `${length}px`,
-          "--glide-duration": duration,
-          "--glide-delay": delay,
-          "--star-glow": glowColor,
-        } as React.CSSProperties
-      }
-      aria-hidden="true"
-    >
-      <div className="glimmer-star-streak">
-        {/* Diamond sparkling star glint at the head */}
-        <svg
-          viewBox="0 0 16 16"
-          className="glimmer-star-head"
-          fill="#ffffff"
-        >
-          <path d="M8 0 Q8 8 16 8 Q8 8 8 16 Q8 8 0 8 Q8 8 8 0 Z" />
-        </svg>
+    <div className="grand-celestial-comet" aria-hidden="true">
+      <div className="grand-comet-container">
+        {/* Soft ethereal outer ion vapor plume */}
+        <div className="grand-comet-plume" />
 
-        {/* Delicate trailing stardust spark */}
-        <span
-          className="glimmer-trail-sparkle size-1"
-          style={{ right: "22px", top: "-1.5px", opacity: 0.85 }}
-        />
-        <span
-          className="glimmer-trail-sparkle size-0.5"
-          style={{ right: "48px", top: "2px", opacity: 0.65 }}
-        />
+        {/* Dense luminous inner tail */}
+        <div className="grand-comet-tail">
+          {/* Stardust particles trailing behind along the tail stream */}
+          <span
+            className="grand-comet-stardust size-1.5"
+            style={{ right: "80px", top: "-4px" }}
+          />
+          <span
+            className="grand-comet-stardust size-1"
+            style={{ right: "160px", top: "5px" }}
+          />
+          <span
+            className="grand-comet-stardust size-1"
+            style={{ right: "260px", top: "-3px" }}
+          />
+          <span
+            className="grand-comet-stardust size-0.5"
+            style={{ right: "370px", top: "4px" }}
+          />
+          <span
+            className="grand-comet-stardust size-0.5"
+            style={{ right: "470px", top: "-2px" }}
+          />
+        </div>
+
+        {/* Radiant celestial coma and nucleus head */}
+        <div className="grand-comet-head">
+          <div className="grand-comet-coma" />
+          <div className="grand-comet-nucleus" />
+          <svg
+            viewBox="0 0 24 24"
+            className="grand-comet-diffraction"
+            fill="#ffffff"
+          >
+            <path d="M12 2 L13.5 10.5 L22 12 L13.5 13.5 L12 22 L10.5 13.5 L2 12 L10.5 10.5 Z" />
+          </svg>
+        </div>
       </div>
     </div>
   );
@@ -162,63 +154,6 @@ const STAR_CONFIGS = [
   { top: "32%", left: "34%", size: 8, delay: "1.4s", duration: "2.9s", color: "text-primary/60 dark:text-white/80" },
   { top: "68%", left: "75%", size: 9, delay: "3.3s", duration: "3.3s", color: "text-amber-500/65 dark:text-white/85" },
   { top: "15%", left: "25%", size: 8, delay: "0.9s", duration: "3.7s", color: "text-primary/65 dark:text-amber-200/70" },
-];
-
-/**
- * Small, delicate shooting stars configured across natural celestial angles.
- * Fast, elegant glimmers without bulky bodies or heavy plumes.
- */
-const GLIMMER_SHOOTING_STARS = [
-  {
-    id: "star-cyan",
-    top: "7%",
-    left: "8%",
-    angle: 32,
-    length: 95,
-    duration: "5.8s",
-    delay: "0.4s",
-    glowColor: "rgba(56, 189, 248, 0.8)",
-  },
-  {
-    id: "star-gold",
-    top: "16%",
-    left: "52%",
-    angle: 34,
-    length: 105,
-    duration: "7.2s",
-    delay: "2.8s",
-    glowColor: "rgba(251, 191, 36, 0.75)",
-  },
-  {
-    id: "star-emerald",
-    top: "30%",
-    left: "18%",
-    angle: 29,
-    length: 85,
-    duration: "6.6s",
-    delay: "4.5s",
-    glowColor: "rgba(52, 211, 153, 0.75)",
-  },
-  {
-    id: "star-violet",
-    top: "12%",
-    left: "76%",
-    angle: 36,
-    length: 100,
-    duration: "8.1s",
-    delay: "1.2s",
-    glowColor: "rgba(192, 132, 252, 0.75)",
-  },
-  {
-    id: "star-starlight",
-    top: "38%",
-    left: "44%",
-    angle: 31,
-    length: 90,
-    duration: "9.0s",
-    delay: "5.6s",
-    glowColor: "rgba(255, 255, 255, 0.85)",
-  },
 ];
 
 /**
@@ -395,21 +330,10 @@ export function CosmicAtmosphere({
       {/* 3. Deep-Space Starfield Mesh (Night / Dark Theme) */}
       <div className="starfield pointer-events-none absolute inset-0 hidden dark:block" />
 
-      {/* 4. Small Glimmering Shooting Stars (Night / Dark Theme Only) */}
+      {/* 4. One Grand Bluish-White Celestial Comet with Long Tail (Start page - Night Theme only) */}
       {showShootingStars && (
         <div className="pointer-events-none absolute inset-0 overflow-hidden hidden dark:block">
-          {GLIMMER_SHOOTING_STARS.map((star) => (
-            <GlimmerShootingStar
-              key={star.id}
-              top={star.top}
-              left={star.left}
-              angle={star.angle}
-              length={star.length}
-              duration={star.duration}
-              delay={star.delay}
-              glowColor={star.glowColor}
-            />
-          ))}
+          <GrandBluishComet />
         </div>
       )}
 
