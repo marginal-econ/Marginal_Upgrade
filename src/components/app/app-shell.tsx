@@ -43,6 +43,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/co
 import { LockedFeatureModal, type LockedFeatureType } from "@/components/app/locked-feature-modal";
 import { FeedbackDialog, FloatingFeedbackPill } from "@/components/feedback/feedback-dialog";
 import { StudentMessagesDialog, playMessageNotificationChime } from "@/components/app/student-messages-dialog";
+import { UserAvatar } from "@/components/app/user-avatar";
 import { getUnreadMessageCount } from "@/lib/messages.functions";
 import { usePresenceHeartbeat } from "@/hooks/use-presence";
 import { supabase } from "@/integrations/backend/client";
@@ -97,15 +98,14 @@ const NAV_GROUPS: NavGroup[] = [
     label: "Exam Practice",
     collapsible: true,
     items: [
-      { to: "/grade", label: "Grade Essay", icon: PenLine },
+      { to: "/grade", label: "Grade Unlimited Essays", icon: PenLine },
+      { to: "/mcq-live", label: "MCQ Past Papers", icon: ListChecks, badge: "P1 & P3" },
       {
         to: "/live-examiner",
         label: "Live Examiner",
         icon: Sparkles,
-        badge: "Admin",
-        adminOnly: true,
+        badge: "Under Building",
       },
-      { to: "/mcq-live", label: "MCQ Past Papers", icon: ListChecks },
     ],
   },
   {
@@ -132,7 +132,7 @@ const NAV_GROUPS: NavGroup[] = [
         to: "/live-examiner",
         label: "Live Examiner Studio",
         icon: Sparkles,
-        badge: "Admin Only",
+        badge: "Under Building",
       },
     ],
   },
@@ -154,8 +154,14 @@ const TEACHER_NAV_GROUPS: NavGroup[] = [
     label: "Exam Practice",
     collapsible: true,
     items: [
-      { to: "/grade", label: "Essay Grader", icon: PenLine },
-      { to: "/mcq-live", label: "MCQ Past Papers", icon: ListChecks },
+      { to: "/grade", label: "Grade Essays", icon: PenLine },
+      { to: "/mcq-live", label: "MCQ Past Papers", icon: ListChecks, badge: "P1 & P3" },
+      {
+        to: "/live-examiner",
+        label: "Live Examiner",
+        icon: Sparkles,
+        badge: "Under Building",
+      },
     ],
   },
   {
@@ -230,6 +236,9 @@ export function AppShell({
   role,
   name,
   school,
+  avatarUrl,
+  bio,
+  birthday,
   userId,
   subscription,
 }: {
@@ -237,6 +246,9 @@ export function AppShell({
   role: "student" | "teacher" | "admin";
   name: string | null;
   school?: string | null;
+  avatarUrl?: string | null;
+  bio?: string | null;
+  birthday?: string | null;
   userId: string;
   subscription?: UserSubscriptionDetails;
 }) {
@@ -532,7 +544,19 @@ export function AppShell({
                       {label}
                     </span>
                     {item.badge && (!sidebarCollapsed || isMobile) ? (
-                      <span className="ml-auto rounded-full bg-emerald-500/15 border border-emerald-500/20 px-1.5 py-0.2 text-[9px] font-bold text-emerald-600 dark:text-emerald-400 shadow-2xs group-hover:bg-emerald-500/25 transition-colors">
+                      <span
+                        className={cn(
+                          "ml-auto rounded-full px-1.5 py-0.5 text-[9px] font-bold shadow-2xs transition-colors shrink-0 flex items-center gap-1",
+                          item.badge === "Under Building"
+                            ? "bg-amber-500/15 border border-amber-500/35 text-amber-600 dark:text-amber-400 group-hover:bg-amber-500/25"
+                            : item.badge === "Root" || item.badge === "Admin"
+                            ? "bg-purple-500/15 border border-purple-500/30 text-purple-600 dark:text-purple-400"
+                            : "bg-emerald-500/15 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 group-hover:bg-emerald-500/25",
+                        )}
+                      >
+                        {item.badge === "Under Building" && (
+                          <span className="size-1.5 rounded-full bg-amber-500 animate-pulse" />
+                        )}
                         {item.badge}
                       </span>
                     ) : null}
@@ -604,96 +628,183 @@ export function AppShell({
         </div>
 
         {sidebarCollapsed ? (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="mb-2 size-8 self-center text-muted-foreground hover:text-foreground shrink-0"
-            onClick={toggleSidebar}
-            title="Expand sidebar"
-            aria-label="Expand sidebar"
-          >
-            <PanelLeftOpen className="size-3.5" />
-          </Button>
+          <div className="flex flex-col items-center gap-2 mb-2 shrink-0">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-8 text-muted-foreground hover:text-foreground"
+              onClick={toggleSidebar}
+              title="Expand sidebar"
+              aria-label="Expand sidebar"
+            >
+              <PanelLeftOpen className="size-3.5" />
+            </Button>
+            <Link
+              to="/settings"
+              className="group relative flex items-center justify-center p-0.5 rounded-xl hover:ring-2 hover:ring-primary/40 transition-all"
+              title={`${name ?? "Candidate"} — Profile & Settings`}
+            >
+              <UserAvatar
+                avatarUrl={avatarUrl}
+                name={name}
+                fallbackInitials={candidateInitials}
+                showStatusDot={true}
+                className="size-8 transition-transform group-hover:scale-105"
+              />
+            </Link>
+          </div>
         ) : null}
 
         {/* User Status Widget */}
         {!sidebarCollapsed && subscription ? (
-          role === "admin" || subscription.isAdmin ? (
-            <div className="mb-3 rounded-2xl border border-amber-500/30 bg-gradient-to-br from-amber-500/15 via-card to-amber-500/5 p-3 shrink-0 shadow-sm relative overflow-hidden group">
-              <div className="absolute -right-6 -top-6 size-20 bg-amber-500/15 rounded-full blur-xl pointer-events-none group-hover:scale-125 transition-transform duration-500" />
-              <div className="flex items-center justify-between gap-2 relative z-10">
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <div className="relative size-8 rounded-xl bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center text-xs font-bold shrink-0 border border-amber-500/30 shadow-xs">
-                    {candidateInitials}
-                    <span className="absolute -bottom-0.5 -right-0.5 size-2 rounded-full bg-emerald-500 border-2 border-background animate-pulse" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-xs font-bold truncate text-foreground leading-tight">
-                      {name ?? "Marginal Admin"}
-                    </p>
-                    <p className="text-[10px] text-amber-600 dark:text-amber-400 font-bold leading-tight flex items-center gap-1 mt-0.5">
-                      <ShieldCheck className="size-3" /> Administrator
-                    </p>
-                  </div>
-                </div>
-                <Badge className="bg-amber-500/25 text-amber-600 dark:text-amber-400 border-amber-500/40 text-[9px] font-extrabold uppercase shadow-2xs">
-                  Root
-                </Badge>
-              </div>
-            </div>
-          ) : role === "teacher" || subscription.isTeacher ? (
-            <div className="mb-3 rounded-2xl border border-purple-500/30 bg-gradient-to-br from-purple-500/15 via-card to-purple-500/5 p-3 shrink-0 shadow-sm relative overflow-hidden group">
-              <div className="absolute -right-6 -top-6 size-20 bg-purple-500/15 rounded-full blur-xl pointer-events-none group-hover:scale-125 transition-transform duration-500" />
-              <div className="flex items-center justify-between gap-2 relative z-10">
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <div className="relative size-8 rounded-xl bg-purple-500/20 text-purple-600 dark:text-purple-400 flex items-center justify-center text-xs font-bold shrink-0 border border-purple-500/30 shadow-xs">
-                    {candidateInitials}
-                    <span className="absolute -bottom-0.5 -right-0.5 size-2 rounded-full bg-emerald-500 border-2 border-background animate-pulse" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-xs font-bold truncate text-foreground leading-tight">
-                      {name ?? "Educator"}
-                    </p>
-                    <p className="text-[10px] text-purple-600 dark:text-purple-400 font-bold leading-tight flex items-center gap-1 mt-0.5 truncate">
-                      <GraduationCap className="size-3 shrink-0" /> {school || "CS Academy"}
-                    </p>
+          <div className="mb-3 shrink-0">
+            {role === "admin" || subscription.isAdmin ? (
+              <div className="rounded-2xl border border-amber-500/30 bg-gradient-to-br from-amber-500/15 via-card to-amber-500/5 p-3 shadow-sm relative overflow-hidden group">
+                <div className="absolute -right-6 -top-6 size-20 bg-amber-500/15 rounded-full blur-xl pointer-events-none group-hover:scale-125 transition-transform duration-500" />
+                <div className="flex items-center justify-between gap-2 relative z-10">
+                  <Link
+                    to="/settings"
+                    className="flex items-center gap-2.5 min-w-0 group/profile flex-1"
+                    title="Open Administrator Profile Settings"
+                  >
+                    <UserAvatar
+                      avatarUrl={avatarUrl}
+                      name={name}
+                      fallbackInitials={candidateInitials}
+                      showStatusDot={true}
+                      className="size-9 shrink-0 transition-transform group-hover/profile:scale-105"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-bold truncate text-foreground leading-tight group-hover/profile:text-primary transition-colors">
+                        {name ?? "Marginal Admin"}
+                      </p>
+                      <p className="text-[10.5px] text-amber-600 dark:text-amber-400 font-bold leading-tight flex items-center gap-1 mt-0.5">
+                        <ShieldCheck className="size-3 shrink-0" /> Administrator
+                      </p>
+                    </div>
+                  </Link>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <Badge className="bg-amber-500/25 text-amber-600 dark:text-amber-400 border-amber-500/40 text-[9px] font-extrabold uppercase shadow-2xs">
+                      Root
+                    </Badge>
+                    <Link
+                      to="/settings"
+                      className="size-6 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-background/80 transition-colors"
+                      title="Settings"
+                    >
+                      <Settings className="size-3" />
+                    </Link>
                   </div>
                 </div>
-                <Badge
-                  variant="outline"
-                  className="bg-purple-500/20 text-purple-600 dark:text-purple-400 border-purple-500/35 text-[9.5px] font-bold uppercase shadow-2xs"
-                >
-                  Educator
-                </Badge>
+                <div className="mt-2 pt-2 border-t border-amber-500/20 text-[10px] text-muted-foreground flex items-center gap-1.5 font-medium relative z-10">
+                  <Sparkles className="size-3 text-amber-500 animate-pulse shrink-0" />
+                  <span className="text-foreground truncate">Uncapped Godmode · No Limits</span>
+                </div>
               </div>
-            </div>
-          ) : (
-            <div className="mb-3 rounded-2xl border border-border/80 bg-gradient-to-br from-card via-card to-primary/[0.04] p-3 shrink-0 shadow-sm relative overflow-hidden group">
-              <div className="absolute -right-6 -top-6 size-20 bg-primary/10 rounded-full blur-xl pointer-events-none group-hover:scale-125 transition-transform duration-500" />
-              <div className="flex items-center justify-between gap-2 relative z-10">
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <div className="relative size-8 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 text-primary flex items-center justify-center text-xs font-bold shrink-0 border border-primary/25 shadow-xs">
-                    {candidateInitials}
-                    <span className="absolute -bottom-0.5 -right-0.5 size-2 rounded-full bg-emerald-500 border-2 border-background animate-pulse" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-xs font-bold truncate text-foreground leading-tight">
-                      {name ?? "Candidate"}
-                    </p>
-                    <p className="text-[10px] text-muted-foreground capitalize leading-tight mt-0.5 font-medium">
-                      {role}
-                    </p>
+            ) : role === "teacher" || subscription.isTeacher ? (
+              <div className="rounded-2xl border border-purple-500/30 bg-gradient-to-br from-purple-500/15 via-card to-purple-500/5 p-3 shadow-sm relative overflow-hidden group">
+                <div className="absolute -right-6 -top-6 size-20 bg-purple-500/15 rounded-full blur-xl pointer-events-none group-hover:scale-125 transition-transform duration-500" />
+                <div className="flex items-center justify-between gap-2 relative z-10">
+                  <Link
+                    to="/settings"
+                    className="flex items-center gap-2.5 min-w-0 group/profile flex-1"
+                    title="Open Educator Profile Settings"
+                  >
+                    <UserAvatar
+                      avatarUrl={avatarUrl}
+                      name={name}
+                      fallbackInitials={candidateInitials}
+                      showStatusDot={true}
+                      className="size-9 shrink-0 transition-transform group-hover/profile:scale-105"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-bold truncate text-foreground leading-tight group-hover/profile:text-primary transition-colors">
+                        {name ?? "Educator"}
+                      </p>
+                      <p className="text-[10px] text-purple-600 dark:text-purple-400 font-bold leading-tight flex items-center gap-1 mt-0.5 truncate">
+                        <GraduationCap className="size-3 shrink-0" /> {school || "CS Academy"}
+                      </p>
+                    </div>
+                  </Link>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <Badge
+                      variant="outline"
+                      className="bg-purple-500/20 text-purple-600 dark:text-purple-400 border-purple-500/35 text-[9.5px] font-bold uppercase shadow-2xs"
+                    >
+                      Educator
+                    </Badge>
+                    <Link
+                      to="/settings"
+                      className="size-6 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-background/80 transition-colors"
+                      title="Settings"
+                    >
+                      <Settings className="size-3" />
+                    </Link>
                   </div>
                 </div>
-                <Badge
-                  variant="outline"
-                  className="border-primary/30 bg-primary/10 text-primary text-[9.5px] px-2 py-0.5 font-bold shrink-0 shadow-2xs"
-                >
-                  Candidate
-                </Badge>
+                <div className="mt-2.5 pt-2 border-t border-purple-500/20 flex items-center justify-between text-[10px] text-muted-foreground relative z-10">
+                  <span className="flex items-center gap-1 font-medium truncate">
+                    <PenLine className="size-3 text-purple-500 shrink-0" />
+                    {subscription.essaysLimit === 9999 ? "Unlimited" : `${subscription.essaysRemaining} essays left`}
+                  </span>
+                  <span className="font-semibold text-purple-600 dark:text-purple-400">
+                    {subscription.tierName || "Educator"}
+                  </span>
+                </div>
               </div>
-            </div>
-          )
+            ) : (
+              <div className="rounded-2xl border border-border/80 bg-gradient-to-br from-card via-card to-primary/[0.04] p-3 shadow-sm relative overflow-hidden group">
+                <div className="absolute -right-6 -top-6 size-20 bg-primary/10 rounded-full blur-xl pointer-events-none group-hover:scale-125 transition-transform duration-500" />
+                <div className="flex items-center justify-between gap-2 relative z-10">
+                  <Link
+                    to="/settings"
+                    className="flex items-center gap-2.5 min-w-0 group/profile flex-1"
+                    title="Open Student Profile Settings"
+                  >
+                    <UserAvatar
+                      avatarUrl={avatarUrl}
+                      name={name}
+                      fallbackInitials={candidateInitials}
+                      showStatusDot={true}
+                      className="size-9 shrink-0 transition-transform group-hover/profile:scale-105"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-bold truncate text-foreground leading-tight group-hover/profile:text-primary transition-colors">
+                        {name ?? "Candidate"}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground leading-tight mt-0.5 truncate font-medium">
+                        {school || "Cambridge 9708 Candidate"}
+                      </p>
+                    </div>
+                  </Link>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <Badge
+                      variant="outline"
+                      className="border-primary/30 bg-primary/10 text-primary text-[9.5px] px-2 py-0.5 font-bold shadow-2xs"
+                    >
+                      {subscription.tierName || "Candidate"}
+                    </Badge>
+                    <Link
+                      to="/settings"
+                      className="size-6 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-background/80 transition-colors"
+                      title="Settings"
+                    >
+                      <Settings className="size-3" />
+                    </Link>
+                  </div>
+                </div>
+                <div className="mt-2.5 pt-2 border-t border-border/60 flex items-center justify-between text-[10px] text-muted-foreground relative z-10">
+                  <span className="flex items-center gap-1 font-medium truncate">
+                    <PenLine className="size-3 text-primary shrink-0" />
+                    {subscription.essaysLimit === 9999 ? "Unlimited Essays" : `${subscription.essaysRemaining} essays left`}
+                  </span>
+                  <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                    {subscription.isPaid ? "Active Pass" : "Free Plan"}
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
         ) : null}
 
         {/* Scrollable Navigation Groups */}
@@ -820,12 +931,20 @@ export function AppShell({
                   role === "admin" || subscription.isAdmin ? (
                     <div className="mb-3 rounded-2xl border border-amber-500/30 bg-gradient-to-br from-amber-500/15 via-card to-amber-500/5 p-3 shrink-0 shadow-sm relative overflow-hidden">
                       <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <div className="size-6 rounded-lg bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center text-[10px] font-bold shrink-0">
-                            {candidateInitials}
-                          </div>
-                          <span className="font-bold text-foreground text-xs">{name ?? "Marginal Admin"}</span>
-                        </div>
+                        <Link
+                          to="/settings"
+                          onClick={() => setMobileDrawerOpen(false)}
+                          className="flex items-center gap-2 min-w-0 flex-1"
+                        >
+                          <UserAvatar
+                            avatarUrl={avatarUrl}
+                            name={name}
+                            fallbackInitials={candidateInitials}
+                            showStatusDot={true}
+                            className="size-7 shrink-0"
+                          />
+                          <span className="font-bold text-foreground text-xs truncate">{name ?? "Marginal Admin"}</span>
+                        </Link>
                         <Badge className="bg-amber-500/25 text-amber-600 dark:text-amber-400 border-amber-500/40 text-[9px] font-extrabold uppercase shadow-2xs">
                           Root Admin
                         </Badge>
@@ -838,15 +957,23 @@ export function AppShell({
                   ) : role === "teacher" || subscription.isTeacher ? (
                     <div className="mb-3 rounded-2xl border border-purple-500/30 bg-gradient-to-br from-purple-500/15 via-card to-purple-500/5 p-3 shrink-0 shadow-sm relative overflow-hidden">
                       <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <div className="size-6 rounded-lg bg-purple-500/20 text-purple-600 dark:text-purple-400 flex items-center justify-center text-[10px] font-bold shrink-0">
-                            {candidateInitials}
-                          </div>
+                        <Link
+                          to="/settings"
+                          onClick={() => setMobileDrawerOpen(false)}
+                          className="flex items-center gap-2 min-w-0 flex-1"
+                        >
+                          <UserAvatar
+                            avatarUrl={avatarUrl}
+                            name={name}
+                            fallbackInitials={candidateInitials}
+                            showStatusDot={true}
+                            className="size-7 shrink-0"
+                          />
                           <div className="min-w-0">
                             <span className="font-bold text-xs text-foreground block truncate">{name ?? "Educator"}</span>
                             <span className="text-[10px] text-purple-600 dark:text-purple-400 font-medium block truncate">{school || "CS Academy"}</span>
                           </div>
-                        </div>
+                        </Link>
                         <Badge className="bg-purple-500/25 text-purple-600 dark:text-purple-400 border-purple-500/40 text-[9px] font-extrabold uppercase shadow-2xs">
                           Educator
                         </Badge>
@@ -855,20 +982,31 @@ export function AppShell({
                         <span className="flex items-center gap-1 font-medium">
                           <PenLine className="size-3 text-purple-500" /> Essays: {subscription.essaysLimit === 9999 ? "Unlimited" : `${subscription.essaysRemaining}/${subscription.essaysLimit}`}
                         </span>
-                        <span className="flex items-center gap-1 font-medium">
-                          <Sparkles className="size-3 text-purple-500" /> Live: {subscription.liveExaminerCredits > 0 ? `${subscription.liveExaminerCredits}` : "Paid"}
+                        <span className="font-semibold text-purple-600 dark:text-purple-400">
+                          {subscription.tierName || "Educator"}
                         </span>
                       </div>
                     </div>
                   ) : (
                     <div className="mb-3 rounded-2xl border border-border/80 bg-gradient-to-br from-card via-card to-primary/[0.04] p-3 shrink-0 shadow-sm">
                       <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <div className="size-6 rounded-lg bg-primary/10 text-primary flex items-center justify-center text-[10px] font-bold shrink-0">
-                            {candidateInitials}
+                        <Link
+                          to="/settings"
+                          onClick={() => setMobileDrawerOpen(false)}
+                          className="flex items-center gap-2 min-w-0 flex-1"
+                        >
+                          <UserAvatar
+                            avatarUrl={avatarUrl}
+                            name={name}
+                            fallbackInitials={candidateInitials}
+                            showStatusDot={true}
+                            className="size-7 shrink-0"
+                          />
+                          <div className="min-w-0">
+                            <span className="font-bold text-xs text-foreground block truncate">{name ?? "Candidate"}</span>
+                            <span className="text-[10px] text-muted-foreground block truncate">{school || "Cambridge Candidate"}</span>
                           </div>
-                          <span className="font-bold text-xs text-foreground">{name ?? "Candidate"}</span>
-                        </div>
+                        </Link>
                         <Badge
                           variant="outline"
                           className={cn(
@@ -878,15 +1016,15 @@ export function AppShell({
                               : "border-primary/30 bg-primary/10 text-primary"
                           )}
                         >
-                          {subscription.isPaid ? subscription.tierName.split(" ")[0] : "Free Tier"}
+                          {subscription.isPaid ? subscription.tierName.split(" ")[0] : "Free Plan"}
                         </Badge>
                       </div>
                       <div className="mt-2.5 pt-2 border-t border-border/60 flex justify-between text-[10.5px] text-muted-foreground">
                         <span className="flex items-center gap-1 font-medium">
                           <PenLine className="size-3 text-primary" /> Essays: {subscription.essaysLimit === 9999 ? "Unlimited" : `${subscription.essaysRemaining}/${subscription.essaysLimit}`}
                         </span>
-                        <span className="flex items-center gap-1 font-medium">
-                          <Zap className="size-3 text-amber-500" /> Credits: {subscription.liveExaminerCredits}
+                        <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                          {subscription.isPaid ? "Active" : "Free"}
                         </span>
                       </div>
                     </div>

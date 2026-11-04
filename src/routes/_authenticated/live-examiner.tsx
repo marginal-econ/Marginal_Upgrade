@@ -638,9 +638,9 @@ function LiveExaminerPage() {
           description="Write your answer and get instant, syllabus-grounded feedback as you go — grammar, clarity, economics accuracy, analysis, application, evaluation and terminology."
         />
         <ChainedChamber
-          badgeText="Restricted — Platform Admin Only"
-          title="Live Examiner is Restricted to Marginal Administrators"
-          description="The real-time keystroke coaching engine is currently undergoing private administrator testing and calibration against official Cambridge 9708 examiner standards. During this period, all core platform features remain 100% Free with unlimited access for all students and teachers."
+          badgeText="Under Building — In Active Development"
+          title="Live Examiner is Currently Under Building"
+          description="Our real-time keystroke coaching engine is actively under construction and undergoing calibration against official Cambridge 9708 examiner standards. All core platform features (Unlimited Cambridge Essay Grading, AI Reworks, and Past Paper MCQs) remain 100% Free and unlocked."
           primaryCtaText="Open Free Essay Grader"
           primaryCtaLink="/grade"
           secondaryCtaText="Practice MCQ Past Papers"

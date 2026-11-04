@@ -168,7 +168,7 @@ const TOOLS = [
   {
     icon: Sparkles,
     tile: "bg-purple-600",
-    badge: "Real-Time AI",
+    badge: "Under Building",
     title: "Live Examiner & Score Maximizer",
     lead: "Instant Cambridge coaching as you type",
     body: "Grammarly for Economics: instant AO1/AO2/AO3 sentence highlighting, live running marks, terminology checks, and step-by-step Score Maximizer blueprints.",
@@ -957,14 +957,20 @@ function Index() {
                   >
                     <Link to="/grade">Grade Unlimited Essays</Link>
                   </Button>
-                  <Button
-                    asChild
-                    variant="outline"
-                    size="lg"
-                    className="h-11 px-5 text-xs sm:text-sm font-semibold border-white/30 text-plum-foreground hover:bg-white/10"
-                  >
-                    <Link to="/live-examiner">Live Examiner</Link>
-                  </Button>
+                  <div className="relative inline-block">
+                    <span className="absolute -top-2.5 -right-2 px-2 py-0.5 rounded-full bg-amber-400 text-amber-950 text-[9px] font-extrabold uppercase tracking-wider shadow-sm border border-amber-300 pointer-events-none flex items-center gap-1 z-20">
+                      <span className="size-1.5 rounded-full bg-amber-600 animate-pulse" />
+                      Under Building
+                    </span>
+                    <Button
+                      asChild
+                      variant="outline"
+                      size="lg"
+                      className="h-11 px-5 text-xs sm:text-sm font-semibold border-white/30 text-plum-foreground hover:bg-white/10"
+                    >
+                      <Link to="/live-examiner">Live Examiner</Link>
+                    </Button>
+                  </div>
                 </div>
 
                 <p className="mt-5 text-xs text-plum-foreground/70">

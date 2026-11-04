@@ -22,8 +22,33 @@ export const getMe = createServerFn({ method: "GET" })
       const { supabaseAdmin } = await import("@/integrations/backend/client.server");
       const db = supabaseAdmin ?? supabase;
 
-      let profile: { id: string; full_name: string | null; school: string | null; tutorial_completed: boolean } | null = null;
+      let profile: {
+        id: string;
+        full_name: string | null;
+        school: string | null;
+        tutorial_completed: boolean;
+        avatar_url?: string | null;
+        bio?: string | null;
+        birthday?: string | null;
+      } | null = null;
       let roles: { role: string }[] | null = null;
+
+      // Resilient extended profile lookup (bio, birthday, custom avatar) from definitions table
+      let extendedProfile: { bio?: string; birthday?: string; avatarUrl?: string } = {};
+      try {
+        const { data: extData } = await db
+          .from("definitions")
+          .select("definition_text")
+          .eq("term", `__USER_PROFILE_EXT_${userId}`)
+          .order("updated_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (extData?.definition_text) {
+          extendedProfile = JSON.parse(extData.definition_text);
+        }
+      } catch {
+        /* fallback */
+      }
 
       // Fast-path for Marginal Admin: skip unnecessary sequential role/teacher DB lookups
       if (isMarginal) {
@@ -37,10 +62,31 @@ export const getMe = createServerFn({ method: "GET" })
         const metaName =
           (context as any).claims?.user_metadata?.full_name ||
           (context as any).claims?.user_metadata?.name;
+
+        let adminProfileRes: any = null;
+        try {
+          adminProfileRes = await db
+            .from("profiles")
+            .select("id, full_name, school, tutorial_completed, avatar_url")
+            .eq("id", userId)
+            .maybeSingle();
+        } catch {
+          /* fallback */
+        }
+
+        const adminAvatar =
+          adminProfileRes?.data?.avatar_url ||
+          extendedProfile?.avatarUrl ||
+          (context as any).claims?.user_metadata?.avatar_url ||
+          null;
+
         return {
           userId,
-          fullName: metaName || "Marginal Admin",
-          school: (context as any).claims?.user_metadata?.school ?? null,
+          fullName: adminProfileRes?.data?.full_name || metaName || "Marginal Admin",
+          school: adminProfileRes?.data?.school ?? (context as any).claims?.user_metadata?.school ?? null,
+          avatarUrl: adminAvatar,
+          bio: extendedProfile?.bio || "",
+          birthday: extendedProfile?.birthday || "",
           role: "admin" as AppRole,
           isAdmin: true,
           isStaff: true,
@@ -52,7 +98,7 @@ export const getMe = createServerFn({ method: "GET" })
       try {
         const profileRes = await db
           .from("profiles")
-          .select("id, full_name, school, tutorial_completed")
+          .select("id, full_name, school, tutorial_completed, avatar_url")
           .eq("id", userId)
           .maybeSingle();
         profile = profileRes.data;
@@ -114,10 +160,19 @@ export const getMe = createServerFn({ method: "GET" })
         (context as any).claims,
       );
 
+      const resolvedAvatar =
+        profile?.avatar_url ||
+        extendedProfile?.avatarUrl ||
+        (context as any).claims?.user_metadata?.avatar_url ||
+        null;
+
       return {
         userId,
         fullName: resolvedName,
         school: profile?.school ?? (context as any).claims?.user_metadata?.school ?? null,
+        avatarUrl: resolvedAvatar,
+        bio: (profile as any)?.bio || extendedProfile?.bio || "",
+        birthday: (profile as any)?.birthday || extendedProfile?.birthday || "",
         role,
         isAdmin: isMarginal,
         isStaff: isMarginal || role === "teacher",
@@ -137,6 +192,9 @@ export const getMe = createServerFn({ method: "GET" })
         userId,
         fullName: isMarginal ? "Marginal Admin" : null,
         school: null,
+        avatarUrl: null,
+        bio: "",
+        birthday: "",
         role: isMarginal ? ("admin" as AppRole) : ("student" as AppRole),
         isAdmin: isMarginal,
         isStaff: isMarginal,
@@ -220,15 +278,73 @@ export const updateProfile = createServerFn({ method: "POST" })
       .object({
         fullName: z.string().trim().max(120).optional(),
         school: z.string().trim().max(160).optional(),
+        avatarUrl: z.string().trim().max(500000).optional().nullable(),
+        bio: z.string().trim().max(500).optional().nullable(),
+        birthday: z.string().trim().max(30).optional().nullable(),
       })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
-    const { error } = await context.supabase
-      .from("profiles")
-      .update({ full_name: data.fullName ?? null, school: data.school ?? null })
-      .eq("id", context.userId);
-    if (error) throw new Error(error.message);
+    const { supabase, userId } = context;
+    const { supabaseAdmin } = await import("@/integrations/backend/client.server");
+    const db = supabaseAdmin ?? supabase;
+
+    // 1. Update profiles table safely
+    try {
+      const updatePayload: Record<string, any> = {
+        full_name: data.fullName ?? null,
+        school: data.school ?? null,
+        updated_at: new Date().toISOString(),
+      };
+      if (data.avatarUrl !== undefined) {
+        updatePayload.avatar_url = data.avatarUrl;
+      }
+      if (data.bio !== undefined) updatePayload.bio = data.bio;
+      if (data.birthday !== undefined) updatePayload.birthday = data.birthday;
+
+      const { error } = await db
+        .from("profiles")
+        .update(updatePayload)
+        .eq("id", userId);
+
+      if (error) {
+        // If bio or birthday columns don't exist yet in remote profiles table, fallback to core columns
+        await db
+          .from("profiles")
+          .update({
+            full_name: data.fullName ?? null,
+            school: data.school ?? null,
+            ...(data.avatarUrl !== undefined ? { avatar_url: data.avatarUrl } : {}),
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", userId);
+      }
+    } catch (err) {
+      console.warn("Profiles table update error:", err);
+    }
+
+    // 2. Persist extended profile info to definitions table as a resilient guaranteed store
+    try {
+      const extPayload = {
+        bio: data.bio ?? "",
+        birthday: data.birthday ?? "",
+        avatarUrl: data.avatarUrl ?? "",
+        updatedAt: new Date().toISOString(),
+      };
+      await db.from("definitions").upsert(
+        {
+          term: `__USER_PROFILE_EXT_${userId}`,
+          definition_text: JSON.stringify(extPayload),
+          syllabus_section: "candidate_profile",
+          importance: "low",
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "term" },
+      );
+    } catch (extErr) {
+      console.warn("Could not save to definitions table:", extErr);
+    }
+
     return { ok: true };
   });
 

@@ -4,6 +4,8 @@ import { useServerFn } from "@tanstack/react-start";
 import {
   Award,
   BookOpen,
+  Calendar,
+  Camera,
   Check,
   CheckCircle2,
   Clock,
@@ -11,6 +13,8 @@ import {
   Download,
   GraduationCap,
   HelpCircle,
+  Image as ImageIcon,
+  Info,
   Layers,
   Loader2,
   Mail,
@@ -21,9 +25,14 @@ import {
   ShieldCheck,
   Sliders,
   Sparkles,
+  Trash2,
+  Upload,
   User,
+  UserCheck,
+  X,
+  Zap,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { PageHeader } from "@/components/app/app-shell";
@@ -31,6 +40,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -39,6 +49,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import {
+  UserAvatar,
+  ACADEMIC_AVATAR_PRESETS,
+  getPresetById,
+} from "@/components/app/user-avatar";
 import {
   getMe,
   updateProfile,
@@ -52,16 +67,25 @@ import { cn } from "@/lib/utils";
 export const Route = createFileRoute("/_authenticated/settings")({
   head: () => ({
     meta: [
-      { title: "Account & Preferences — Marginal Economics" },
+      { title: "Candidate Profile & Settings — Marginal Economics" },
       {
         name: "description",
         content:
-          "Manage your Cambridge 9708 candidate profile, academic goals, evaluation depth, and platform settings.",
+          "Manage your Cambridge 9708 candidate profile, profile avatar, biography, exam benchmarks, evaluation depth, and workspace settings.",
       },
     ],
   }),
   component: SettingsPage,
 });
+
+const BIO_SUGGESTIONS = [
+  "Target: Cambridge / Oxford Economics",
+  "Reading PPE / Economics at LSE",
+  "Cambridge 9708 Candidate targeting A*",
+  "Passionate about Monetary Policy & Macro",
+  "Focus: Microeconomic Market Failure",
+  "Aiming for First Class Cambridge Tripos",
+];
 
 export function SettingsPage() {
   const queryClient = useQueryClient();
@@ -76,8 +100,17 @@ export function SettingsPage() {
     queryFn: () => fetchAcademicPrefs(),
   });
 
+  // Profile Identity States
   const [fullName, setFullName] = useState("");
   const [school, setSchool] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [bio, setBio] = useState("");
+  const [birthday, setBirthday] = useState("");
+  const [customUrlInput, setCustomUrlInput] = useState("");
+  const [showUrlInput, setShowUrlInput] = useState(false);
+  const [avatarPickerOpen, setAvatarPickerOpen] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState(false);
 
@@ -137,18 +170,29 @@ export function SettingsPage() {
     if (seeded || !me.data) return;
     setFullName(me.data.fullName ?? "");
     setSchool(me.data.school ?? "");
+    setAvatarUrl((me.data as any).avatarUrl ?? null);
+    setBio((me.data as any).bio ?? "");
+    setBirthday((me.data as any).birthday ?? "");
     setSeeded(true);
   }, [me.data, seeded]);
 
   const profileMutation = useMutation({
     mutationFn: () =>
-      save({ data: { fullName: fullName.trim(), school: school.trim() || undefined } }),
+      save({
+        data: {
+          fullName: fullName.trim(),
+          school: school.trim() || undefined,
+          avatarUrl: avatarUrl ?? undefined,
+          bio: bio.trim() || undefined,
+          birthday: birthday.trim() || undefined,
+        },
+      }),
     onSuccess: () => {
-      toast.success("Profile identity updated successfully.");
+      toast.success("Cambridge candidate profile updated successfully.");
       queryClient.invalidateQueries({ queryKey: ["me"] });
       queryClient.invalidateQueries({ queryKey: ["admin-users"] });
     },
-    onError: (error: Error) => toast.error(error.message),
+    onError: (error: Error) => toast.error(error.message || "Failed to save profile changes."),
   });
 
   const academicPrefsMutation = useMutation({
@@ -198,15 +242,118 @@ export function SettingsPage() {
     }
   };
 
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please select an image file (PNG, JPG, WebP).");
+      return;
+    }
+
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error("Image size must be under 2MB.");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const result = event.target?.result as string;
+      if (result) {
+        setAvatarUrl(result);
+        setAvatarPickerOpen(false);
+        toast.success("Profile photo uploaded. Click 'Save Profile' to persist.");
+      }
+    };
+    reader.onerror = () => {
+      toast.error("Failed to read image file.");
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleCustomUrlApply = () => {
+    const trimmed = customUrlInput.trim();
+    if (!trimmed) return;
+    if (!trimmed.startsWith("http://") && !trimmed.startsWith("https://")) {
+      toast.error("Please enter a valid URL starting with http:// or https://");
+      return;
+    }
+    setAvatarUrl(trimmed);
+    setCustomUrlInput("");
+    setShowUrlInput(false);
+    setAvatarPickerOpen(false);
+    toast.success("Avatar image URL applied. Click 'Save Profile' to persist.");
+  };
+
+  const handleBioSuggestionClick = (suggestion: string) => {
+    if (bio.includes(suggestion)) return;
+    const newBio = bio ? `${bio.trim()} · ${suggestion}` : suggestion;
+    if (newBio.length <= 500) {
+      setBio(newBio);
+    } else {
+      toast.error("Bio is close to the 500-character limit.");
+    }
+  };
+
+  const calculatedAge = useMemo(() => {
+    if (!birthday) return null;
+    const birthDate = new Date(birthday);
+    if (isNaN(birthDate.getTime())) return null;
+    const diff = Date.now() - birthDate.getTime();
+    const ageDate = new Date(diff);
+    const age = Math.abs(ageDate.getUTCFullYear() - 1970);
+    return `${age} years old`;
+  }, [birthday]);
+
+  const formattedBirthday = useMemo(() => {
+    if (!birthday) return null;
+    try {
+      const parts = birthday.split("-");
+      if (parts.length === 3) {
+        const d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+        return d.toLocaleDateString("en-GB", {
+          day: "numeric",
+          month: "long",
+          year: "numeric",
+        });
+      }
+      return birthday;
+    } catch {
+      return birthday;
+    }
+  }, [birthday]);
+
+  const candidateInitials = useMemo(() => {
+    const target = fullName || me.data?.fullName;
+    if (!target) return "CA";
+    const parts = target.trim().split(/\s+/);
+    if (parts.length >= 2) return `${parts[0]![0]}${parts[1]![0]}`.toUpperCase();
+    return (target[0] ?? "C").toUpperCase();
+  }, [fullName, me.data?.fullName]);
+
+  const candidateRefNumber = useMemo(() => {
+    const uid = me.data?.userId || "candidate";
+    const hash = uid.replace(/[^a-zA-Z0-9]/g, "").slice(0, 6).toUpperCase();
+    return `9708-${hash || "7402"}`;
+  }, [me.data?.userId]);
+
   const handleExportData = () => {
     try {
       const exportObject = {
         candidateName: fullName || me.data?.fullName || "Candidate",
-        school: school || me.data?.school || "Independent",
+        candidateId: me.data?.userId || "unknown",
+        candidateReference: candidateRefNumber,
+        school: school || me.data?.school || "Independent Centre",
+        avatarUrl: avatarUrl || undefined,
+        bio: bio || undefined,
+        birthday: birthday || undefined,
+        calculatedAge: calculatedAge || undefined,
         accountRole: me.data?.role || "student",
         exportedAt: new Date().toISOString(),
         examSeries,
         targetGrade,
+        targetLevel,
+        currencyContext,
         syllabus: "Cambridge International AS & A Level Economics (9708)",
         platform: "Marginal Economics Engine v2.4",
       };
@@ -226,46 +373,50 @@ export function SettingsPage() {
   return (
     <div>
       <PageHeader
-        title="Settings & Preferences"
-        description="Configure your Cambridge candidate profile, examination targets, evaluation depth, and account workspace."
+        title="Student Profile & Settings"
+        description="Configure your official Cambridge 9708 candidate identity, avatar, statement, examination targets, and evaluation preferences."
       />
 
       <div className="space-y-6 px-4 py-5 sm:px-6 md:px-8 max-w-6xl mx-auto">
         {me.isLoading ? (
           <div className="flex flex-col items-center justify-center py-24 space-y-3">
             <Loader2 className="size-8 animate-spin text-primary" />
-            <p className="text-xs text-muted-foreground font-medium">Loading account settings...</p>
+            <p className="text-xs text-muted-foreground font-medium">Loading account settings &amp; dossier...</p>
           </div>
         ) : (
-          <div className="grid gap-6 lg:grid-cols-3">
-            {/* Left 2 Columns: Profile & Academic Goals */}
-            <div className="lg:col-span-2 space-y-6">
+          <div className="grid gap-6 lg:grid-cols-12">
+            {/* Left 7 Columns: Profile Studio & Academic Goals */}
+            <div className="lg:col-span-7 space-y-6">
               {/* 1. Candidate Identity & Profile */}
-              <div className="rounded-2xl border border-border/80 bg-card p-5 sm:p-6 shadow-xs space-y-5">
+              <div className="rounded-2xl border border-border/80 bg-card p-5 sm:p-6 shadow-xs space-y-6">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border/80 pb-4">
                   <div className="flex items-center gap-3">
-                    <div className="size-11 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-bold text-lg">
-                      {fullName ? fullName.slice(0, 2).toUpperCase() : <User className="size-5" />}
-                    </div>
+                    <UserAvatar
+                      avatarUrl={avatarUrl}
+                      name={fullName || me.data?.fullName}
+                      fallbackInitials={candidateInitials}
+                      showStatusDot={true}
+                      className="size-12 shadow-sm ring-2 ring-primary/20"
+                    />
                     <div>
                       <h2 className="text-sm sm:text-base font-bold text-foreground flex items-center gap-2">
-                        Candidate Identity
+                        Candidate Identity &amp; Profile
                         {me.data?.role === "teacher" ? (
                           <Badge className="bg-purple-500/20 text-purple-600 dark:text-purple-400 border-purple-500/30 text-[10px] font-bold">
                             Authorized Educator
                           </Badge>
                         ) : me.data?.isAdmin ? (
                           <Badge className="bg-primary/20 text-primary border-primary/30 text-[10px] font-bold">
-                            Administrator
+                            Root Administrator
                           </Badge>
                         ) : (
                           <Badge variant="outline" className="text-[10px] font-medium bg-muted">
-                            Cambridge Candidate
+                            Cambridge 9708 Candidate
                           </Badge>
                         )}
                       </h2>
                       <p className="text-xs text-muted-foreground">
-                        Your registered name and institution for official Cambridge grading reports.
+                        Your registered academic identity and student dossier for Cambridge 9708 evaluations.
                       </p>
                     </div>
                   </div>
@@ -276,8 +427,174 @@ export function SettingsPage() {
                     e.preventDefault();
                     profileMutation.mutate();
                   }}
-                  className="space-y-4"
+                  className="space-y-5"
                 >
+                  {/* Avatar Picker Studio */}
+                  <div className="rounded-xl border border-border/70 bg-muted/20 p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                        <Camera className="size-3.5 text-primary" /> Profile Picture &amp; Academic Avatar
+                      </Label>
+                      <div className="flex items-center gap-1.5">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-[11px] px-2.5"
+                          onClick={() => setAvatarPickerOpen(!avatarPickerOpen)}
+                        >
+                          {avatarPickerOpen ? "Hide Avatar Studio" : "Change Avatar"}
+                        </Button>
+                        {avatarUrl && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 text-[11px] px-2 text-muted-foreground hover:text-destructive"
+                            onClick={() => setAvatarUrl(null)}
+                            title="Reset to Initials"
+                          >
+                            <Trash2 className="size-3 mr-1" /> Remove
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <UserAvatar
+                        avatarUrl={avatarUrl}
+                        name={fullName || me.data?.fullName}
+                        fallbackInitials={candidateInitials}
+                        showStatusDot={true}
+                        className="size-14 shadow-sm ring-2 ring-primary/30 shrink-0"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-semibold text-foreground">
+                          {avatarUrl
+                            ? getPresetById(avatarUrl)?.name || (avatarUrl.startsWith("data:") ? "Custom Uploaded Photo" : "Custom Web Image")
+                            : "Standard Candidate Initials"}
+                        </p>
+                        <p className="text-[11px] text-muted-foreground leading-relaxed mt-0.5">
+                          Choose an official Cambridge academic persona, upload your photo, or paste a link.
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Expandable Avatar Selection Grid */}
+                    {avatarPickerOpen && (
+                      <div className="pt-3 border-t border-border/60 space-y-3.5 animate-in fade-in-50 duration-200">
+                        <div>
+                          <p className="text-[11px] font-bold text-foreground mb-2 flex items-center gap-1">
+                            <Sparkles className="size-3 text-primary" /> Curated Cambridge Academic Presets
+                          </p>
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                            {ACADEMIC_AVATAR_PRESETS.map((preset) => {
+                              const isSelected = avatarUrl === preset.id;
+                              const Icon = preset.icon;
+                              return (
+                                <button
+                                  key={preset.id}
+                                  type="button"
+                                  onClick={() => {
+                                    setAvatarUrl(preset.id);
+                                    toast.success(`Selected ${preset.name}`);
+                                  }}
+                                  className={cn(
+                                    "flex flex-col items-center text-center p-2.5 rounded-xl border transition-all text-xs cursor-pointer group",
+                                    isSelected
+                                      ? "border-primary bg-primary/10 shadow-xs ring-1 ring-primary/40"
+                                      : "border-border/70 hover:border-primary/40 hover:bg-card/80",
+                                  )}
+                                >
+                                  <div
+                                    className={cn(
+                                      "size-9 rounded-lg flex items-center justify-center mb-1.5 transition-transform group-hover:scale-105",
+                                      preset.bg,
+                                      preset.border,
+                                      preset.text,
+                                    )}
+                                  >
+                                    <Icon className="size-4" />
+                                  </div>
+                                  <span className="font-bold text-[11px] text-foreground leading-tight truncate w-full">
+                                    {preset.name}
+                                  </span>
+                                  <span className="text-[9.5px] text-muted-foreground mt-0.5 leading-tight truncate w-full">
+                                    {preset.title}
+                                  </span>
+                                  {isSelected && (
+                                    <span className="mt-1 text-[9px] font-bold text-primary flex items-center gap-0.5">
+                                      <Check className="size-2.5" /> Selected
+                                    </span>
+                                  )}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        {/* Upload & Link Buttons */}
+                        <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-border/50">
+                          <input
+                            ref={fileInputRef}
+                            type="file"
+                            accept="image/*"
+                            onChange={handleFileUpload}
+                            className="hidden"
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-8 text-xs font-medium"
+                            onClick={() => fileInputRef.current?.click()}
+                          >
+                            <Upload className="size-3.5 mr-1.5 text-primary" /> Upload Photo File (Max 2MB)
+                          </Button>
+
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-8 text-xs font-medium"
+                            onClick={() => setShowUrlInput(!showUrlInput)}
+                          >
+                            <ImageIcon className="size-3.5 mr-1.5" /> Paste Image URL
+                          </Button>
+                        </div>
+
+                        {showUrlInput && (
+                          <div className="flex items-center gap-2 pt-1 animate-in fade-in-50">
+                            <Input
+                              value={customUrlInput}
+                              onChange={(e) => setCustomUrlInput(e.target.value)}
+                              placeholder="https://example.com/my-photo.jpg"
+                              className="h-8 text-xs font-mono"
+                            />
+                            <Button
+                              type="button"
+                              size="sm"
+                              className="h-8 text-xs px-3 font-semibold"
+                              onClick={handleCustomUrlApply}
+                            >
+                              Apply
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 text-xs px-2"
+                              onClick={() => setShowUrlInput(false)}
+                            >
+                              Cancel
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Name and School Inputs */}
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div className="space-y-1.5">
                       <Label htmlFor="settings-name" className="text-xs font-semibold">
@@ -294,7 +611,7 @@ export function SettingsPage() {
 
                     <div className="space-y-1.5">
                       <Label htmlFor="settings-school" className="text-xs font-semibold">
-                        School / Exam Centre
+                        School / Examination Centre
                       </Label>
                       <Input
                         id="settings-school"
@@ -306,7 +623,31 @@ export function SettingsPage() {
                     </div>
                   </div>
 
-                  <div className="grid gap-4 sm:grid-cols-2 pt-1">
+                  {/* Birthday & Age Field */}
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="settings-birthday" className="text-xs font-semibold flex items-center gap-1.5">
+                          <Calendar className="size-3 text-primary" /> Date of Birth
+                        </Label>
+                        {calculatedAge && (
+                          <span className="text-[10.5px] font-bold text-primary">
+                            {calculatedAge}
+                          </span>
+                        )}
+                      </div>
+                      <Input
+                        id="settings-birthday"
+                        type="date"
+                        value={birthday}
+                        onChange={(e) => setBirthday(e.target.value)}
+                        className="h-9 text-xs"
+                      />
+                      <p className="text-[10.5px] text-muted-foreground">
+                        {formattedBirthday ? `Recorded as: ${formattedBirthday}` : "Used to calibrate candidate cohort analytics."}
+                      </p>
+                    </div>
+
                     <div className="space-y-1.5">
                       <div className="flex items-center justify-between">
                         <Label className="text-xs font-semibold text-muted-foreground">
@@ -320,40 +661,79 @@ export function SettingsPage() {
                         <Mail className="size-3.5 text-muted-foreground shrink-0" />
                         <span className="truncate">{userEmail || "Signed in candidate"}</span>
                       </div>
+                      <p className="text-[10.5px] text-muted-foreground">
+                        Authentication identity secured via Google / Supabase.
+                      </p>
                     </div>
+                  </div>
 
+                  {/* Bio & Academic Statement */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="settings-bio" className="text-xs font-semibold flex items-center gap-1.5">
+                        <PenLine className="size-3 text-primary" /> Candidate Personal Statement &amp; Bio
+                      </Label>
+                      <span className={cn("text-[10px] font-mono", bio.length > 450 ? "text-amber-500 font-bold" : "text-muted-foreground")}>
+                        {bio.length} / 500
+                      </span>
+                    </div>
+                    <Textarea
+                      id="settings-bio"
+                      value={bio}
+                      onChange={(e) => setBio(e.target.value.slice(0, 500))}
+                      placeholder="e.g. Cambridge 9708 candidate preparing for May/June series. Targeting A* with aspirations to read PPE or Economics at Cambridge / LSE. Interested in monetary policy and behavioral market failure."
+                      rows={3}
+                      className="text-xs leading-relaxed resize-none"
+                    />
+                    {/* Bio Quick Suggestions */}
                     <div className="space-y-1.5">
-                      <div className="flex items-center justify-between">
-                        <Label className="text-xs font-semibold text-muted-foreground">
-                          Candidate User ID
-                        </Label>
-                        <button
-                          type="button"
-                          onClick={copyUserId}
-                          className="text-[10px] font-semibold text-primary hover:underline inline-flex items-center gap-1 cursor-pointer"
-                        >
-                          {copiedId ? <Check className="size-3 text-emerald-500" /> : <Copy className="size-3" />}
-                          {copiedId ? "Copied" : "Copy"}
-                        </button>
-                      </div>
-                      <div className="flex items-center justify-between rounded-lg border border-border/80 bg-muted/40 px-3 py-2 text-xs font-mono text-muted-foreground">
-                        <span className="truncate">{me.data?.userId ? `${me.data.userId.slice(0, 18)}...` : "—"}</span>
+                      <p className="text-[10.5px] font-semibold text-muted-foreground">
+                        Quick Inspiration Pills (click to add):
+                      </p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {BIO_SUGGESTIONS.map((sug) => (
+                          <button
+                            key={sug}
+                            type="button"
+                            onClick={() => handleBioSuggestionClick(sug)}
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-muted/60 hover:bg-primary/10 hover:text-primary text-[10.5px] text-muted-foreground border border-border/70 transition-colors cursor-pointer"
+                          >
+                            + {sug}
+                          </button>
+                        ))}
                       </div>
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between pt-2 border-t border-border/70">
+                  {/* User ID & Reference */}
+                  <div className="pt-2 border-t border-border/60">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-medium text-muted-foreground">
+                        Candidate Reference: <strong className="font-mono text-foreground">{candidateRefNumber}</strong>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={copyUserId}
+                        className="text-[11px] font-semibold text-primary hover:underline inline-flex items-center gap-1 cursor-pointer"
+                      >
+                        {copiedId ? <Check className="size-3 text-emerald-500" /> : <Copy className="size-3" />}
+                        {copiedId ? "Copied ID" : "Copy Account UUID"}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-3 border-t border-border/70">
                     <span className="text-[11px] text-muted-foreground">
-                      Updates appear across all your essay submissions and teacher exports.
+                      Updates appear across your Cambridge Dossier, essay reports, and classrooms.
                     </span>
-                    <Button type="submit" size="sm" disabled={profileMutation.isPending} className="h-8 text-xs font-semibold">
+                    <Button type="submit" size="sm" disabled={profileMutation.isPending} className="h-9 px-4 text-xs font-bold shadow-sm">
                       {profileMutation.isPending ? (
                         <>
                           <Loader2 className="size-3.5 animate-spin mr-1.5" /> Saving...
                         </>
                       ) : (
                         <>
-                          <Save className="size-3.5 mr-1.5" /> Save Identity
+                          <Save className="size-3.5 mr-1.5" /> Save Candidate Profile
                         </>
                       )}
                     </Button>
@@ -431,7 +811,7 @@ export function SettingsPage() {
                     </Select>
                   </div>
 
-                  <div className="space-y-1.5">
+                  <div className="space-y-1.5 sm:col-span-2">
                     <Label className="text-xs font-semibold">Economic Context &amp; Currency</Label>
                     <Select value={currencyContext} onValueChange={setCurrencyContext}>
                       <SelectTrigger className="h-9 text-xs">
@@ -494,7 +874,7 @@ export function SettingsPage() {
 
                 <div className="flex items-center justify-between pt-2 border-t border-border/70">
                   <span className="text-[11px] text-muted-foreground">
-                    Preferences calibrate your Live Examiner prompts and diagnostic rubrics.
+                    Preferences calibrate your essay diagnostics, MCQ drills, and rubrics.
                   </span>
                   <Button
                     type="button"
@@ -509,7 +889,7 @@ export function SettingsPage() {
                       </>
                     ) : (
                       <>
-                        <Save className="size-3.5 mr-1.5" /> Save Academic Goals &amp; Thresholds
+                        <Save className="size-3.5 mr-1.5" /> Save Academic Goals
                       </>
                     )}
                   </Button>
@@ -532,14 +912,14 @@ export function SettingsPage() {
                     <div className="space-y-0.5 max-w-[80%]">
                       <Label className="text-xs font-semibold">Automatic Exam Timer by Default</Label>
                       <p className="text-[11px] text-muted-foreground">
-                        Automatically start the official Cambridge clock (e.g. 1 hour for Paper 1) when opening MCQ papers.
+                        Automatically start official Cambridge clock (e.g. 1 hour for Paper 1) when opening MCQ papers.
                       </p>
                     </div>
                     <Switch
                       checked={timedModeDefault}
                       onCheckedChange={(val) => {
                         setTimedModeDefault(val);
-                        handleSaveAcademicPrefs();
+                        handleSaveAcademicPrefs({ timedModeDefault: val });
                       }}
                     />
                   </div>
@@ -555,7 +935,7 @@ export function SettingsPage() {
                       checked={showDiagramLabels}
                       onCheckedChange={(val) => {
                         setShowDiagramLabels(val);
-                        handleSaveAcademicPrefs();
+                        handleSaveAcademicPrefs({ showDiagramLabels: val });
                       }}
                     />
                   </div>
@@ -563,8 +943,109 @@ export function SettingsPage() {
               </div>
             </div>
 
-            {/* Right Column: Grounding & Security */}
-            <div className="space-y-6">
+            {/* Right 5 Columns: Cambridge Candidate Dossier (Live Preview) & Grounding */}
+            <div className="lg:col-span-5 space-y-6">
+              {/* Cambridge Candidate Dossier (Official ID Card Card) */}
+              <div className="rounded-2xl border-2 border-primary/40 bg-gradient-to-br from-card via-card to-primary/[0.05] p-5 sm:p-6 shadow-lg relative overflow-hidden space-y-4">
+                {/* Holographic header stripe */}
+                <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-primary via-indigo-500 to-amber-500" />
+                <div className="absolute -right-10 -bottom-10 size-32 bg-primary/10 rounded-full blur-2xl pointer-events-none" />
+
+                <div className="flex items-center justify-between border-b border-border/80 pb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="size-6 rounded-md bg-primary/20 text-primary flex items-center justify-center font-bold text-xs">
+                      M
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-extrabold tracking-wider uppercase text-primary">
+                        Cambridge 9708 Candidate Dossier
+                      </p>
+                      <p className="text-[9px] text-muted-foreground">Official Academic Verification</p>
+                    </div>
+                  </div>
+                  <Badge className="bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-[9px] font-extrabold uppercase">
+                    Active
+                  </Badge>
+                </div>
+
+                {/* Candidate Photo & Basic Info */}
+                <div className="flex items-start gap-3.5">
+                  <UserAvatar
+                    avatarUrl={avatarUrl}
+                    name={fullName || me.data?.fullName}
+                    fallbackInitials={candidateInitials}
+                    showStatusDot={true}
+                    className="size-16 shadow-md ring-2 ring-primary/40 shrink-0"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <h3 className="text-base font-extrabold text-foreground truncate">
+                      {fullName || me.data?.fullName || "Cambridge Candidate"}
+                    </h3>
+                    <p className="text-xs text-muted-foreground truncate font-medium">
+                      {school || me.data?.school || "Independent Cambridge Centre"}
+                    </p>
+                    <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                      <span className="font-mono text-[10px] px-2 py-0.5 rounded-md bg-muted text-foreground font-bold">
+                        {candidateRefNumber}
+                      </span>
+                      {calculatedAge && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-primary/10 text-primary font-medium">
+                          {calculatedAge}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Candidate Statement / Bio Quote */}
+                <div className="rounded-xl border border-border/70 bg-muted/30 p-3 relative">
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1 flex items-center gap-1">
+                    <PenLine className="size-2.5" /> Personal Statement
+                  </p>
+                  <p className="text-xs text-foreground italic leading-relaxed">
+                    {bio ? `"${bio}"` : '"No statement added yet. Add your university aspirations, economics interests, and target grades above."'}
+                  </p>
+                </div>
+
+                {/* Academic Metadata Grid */}
+                <div className="grid grid-cols-2 gap-2 text-xs pt-1">
+                  <div className="rounded-lg border border-border/60 bg-card p-2.5 space-y-0.5">
+                    <p className="text-[10px] text-muted-foreground uppercase font-bold">Exam Target Series</p>
+                    <p className="font-bold text-foreground text-xs truncate">
+                      {AVAILABLE_CAMBRIDGE_SERIES.find((s) => s.id === examSeries)?.label || "Multi-Year Average"}
+                    </p>
+                  </div>
+                  <div className="rounded-lg border border-border/60 bg-card p-2.5 space-y-0.5">
+                    <p className="text-[10px] text-muted-foreground uppercase font-bold">Benchmark Grade</p>
+                    <p className="font-bold text-primary text-xs flex items-center gap-1">
+                      <Award className="size-3.5" /> Target {targetGrade}
+                    </p>
+                  </div>
+                  <div className="rounded-lg border border-border/60 bg-card p-2.5 space-y-0.5">
+                    <p className="text-[10px] text-muted-foreground uppercase font-bold">Curriculum Level</p>
+                    <p className="font-semibold text-foreground text-xs truncate">
+                      {targetLevel === "as_level" ? "AS Level (P1 & P2)" : targetLevel === "a2_level" ? "A2 Level (P3 & P4)" : "Full A Level (9708)"}
+                    </p>
+                  </div>
+                  <div className="rounded-lg border border-border/60 bg-card p-2.5 space-y-0.5">
+                    <p className="text-[10px] text-muted-foreground uppercase font-bold">Membership Tier</p>
+                    <p className="font-semibold text-emerald-600 dark:text-emerald-400 text-xs truncate">
+                      {me.data?.subscription?.tierName || "Cambridge Scholar"}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Footer seal */}
+                <div className="pt-2 border-t border-border/70 flex items-center justify-between text-[10.5px]">
+                  <span className="text-muted-foreground flex items-center gap-1">
+                    <ShieldCheck className="size-3 text-primary" /> Verified Cambridge Dossier
+                  </span>
+                  <span className="font-mono text-muted-foreground text-[10px]">
+                    Syllabus 9708
+                  </span>
+                </div>
+              </div>
+
               {/* Cambridge 9708 Knowledge Grounding Status */}
               <div className="rounded-2xl border border-primary/30 bg-primary/[0.03] p-5 shadow-xs space-y-3 text-xs">
                 <div className="flex items-center gap-2">
@@ -600,7 +1081,7 @@ export function SettingsPage() {
                     onClick={handleExportData}
                     className="w-full text-xs h-8 justify-start"
                   >
-                    <Download className="size-3.5 mr-2 text-primary" /> Export Candidate Profile JSON
+                    <Download className="size-3.5 mr-2 text-primary" /> Export Candidate Dossier JSON
                   </Button>
 
                   <Button
