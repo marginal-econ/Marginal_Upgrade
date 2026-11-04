@@ -505,7 +505,7 @@ export function PricingAdminPanel() {
         </div>
 
         {/* Tier Cards Grid - Padded at bottom to prevent overlap with floating widgets */}
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 pb-24">
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 pb-36 sm:pb-40">
           {filteredTierKeys.map((tierKey) => {
             const plan = activePlans[tierKey] || (DEFAULT_PRICING_PLANS as any)[tierKey] || {};
             const current = getTierState(tierKey);
@@ -565,11 +565,11 @@ export function PricingAdminPanel() {
               >
                 <div className="space-y-3.5">
                   {/* Card Top Action Bar: Slug on Left, Public/Unlisted + Save + Delete on Right */}
-                  <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-border/60">
+                  <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-border/60">
                     {/* Slug & Monospace Label */}
-                    <div className="flex items-center gap-1.5 min-w-0">
+                    <div className="flex items-center gap-1.5 min-w-0 max-w-[48%]">
                       <span
-                        className="font-mono text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-md bg-primary/10 text-primary border border-primary/20 truncate block max-w-[130px]"
+                        className="font-mono text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-md bg-primary/10 text-primary border border-primary/20 truncate block"
                         title={tierKey}
                       >
                         {tierKey}
@@ -577,7 +577,8 @@ export function PricingAdminPanel() {
                       {current.badge && (
                         <Badge
                           variant="secondary"
-                          className="text-[9px] px-1.5 py-0 h-4 font-normal hidden xl:inline-flex truncate max-w-[110px]"
+                          className="text-[9px] px-1.5 py-0 h-4 font-normal hidden xl:inline-flex truncate max-w-[80px]"
+                          title={current.badge}
                         >
                           {current.badge}
                         </Badge>
@@ -585,7 +586,7 @@ export function PricingAdminPanel() {
                     </div>
 
                     {/* Header Action Cluster */}
-                    <div className="flex items-center gap-1.5 shrink-0">
+                    <div className="flex items-center gap-1.5 shrink-0 ml-auto">
                       {/* Top Public / Unlisted Toggle Button */}
                       <button
                         type="button"
@@ -603,7 +604,7 @@ export function PricingAdminPanel() {
                           );
                         }}
                         className={cn(
-                          "inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-lg border transition-all cursor-pointer shadow-2xs select-none",
+                          "inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-md border transition-all cursor-pointer shadow-2xs select-none shrink-0",
                           current.isPublic !== false
                             ? "bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border-emerald-500/30"
                             : "bg-purple-500/10 hover:bg-purple-500/20 text-purple-700 dark:text-purple-300 border-purple-500/30",
@@ -618,13 +619,11 @@ export function PricingAdminPanel() {
                           <>
                             <Globe className="size-3 text-emerald-500 shrink-0" />
                             <span>Public</span>
-                            <span className="text-[9px] opacity-60 ml-0.5 font-mono">✕</span>
                           </>
                         ) : (
                           <>
                             <Lock className="size-3 text-purple-500 shrink-0" />
                             <span>Unlisted</span>
-                            <span className="text-[9px] opacity-60 ml-0.5 font-mono">+ Pub</span>
                           </>
                         )}
                       </button>
@@ -635,7 +634,7 @@ export function PricingAdminPanel() {
                         size="sm"
                         variant={isDirty ? "default" : "outline"}
                         className={cn(
-                          "h-7 px-2 text-xs font-semibold gap-1 transition-all cursor-pointer",
+                          "h-7 px-2 text-xs font-semibold gap-1 transition-all cursor-pointer shrink-0",
                           isDirty && "bg-primary text-primary-foreground shadow-xs ring-2 ring-primary/30",
                         )}
                         disabled={isSaving}
@@ -647,7 +646,7 @@ export function PricingAdminPanel() {
                         ) : (
                           <Save className="size-3" />
                         )}
-                        <span>Save</span>
+                        <span className="hidden sm:inline text-[11px]">Save</span>
                       </Button>
 
                       {/* Delete Option */}
@@ -1331,16 +1330,16 @@ export function PricingAdminPanel() {
                   <Button
                     type="button"
                     size="sm"
-                    className="w-full text-xs font-semibold h-9 shadow-xs cursor-pointer gap-1.5"
+                    className="w-full text-xs font-semibold h-9 shadow-xs cursor-pointer gap-1.5 min-w-0"
                     disabled={isSaving}
                     onClick={() => handleSaveTier(tierKey)}
                   >
                     {isSaving ? (
                       <RefreshCw className="size-3.5 animate-spin" />
                     ) : (
-                      <Save className="size-3.5" />
+                      <Save className="size-3.5 shrink-0" />
                     )}
-                    <span>Save {current.name || plan.name}</span>
+                    <span className="truncate">Save Plan Changes</span>
                   </Button>
                 </div>
               </div>

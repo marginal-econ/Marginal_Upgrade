@@ -230,10 +230,10 @@ export function AdminGodmodeDashboard({
 
       {/* Vault Navigation Tabs */}
       <Tabs value={subTab} onValueChange={(val) => setSubTab(val as typeof subTab)}>
-        <TabsList className="flex flex-wrap items-center justify-start gap-2 h-auto w-full p-1.5 rounded-2xl bg-muted/50 border border-border/80 shadow-2xs">
+        <TabsList className="flex items-center justify-start gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar w-full h-auto p-1.5 rounded-2xl bg-muted/50 border border-border/80 shadow-2xs scroll-smooth">
           <TabsTrigger
             value="radar"
-            className="flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold transition-all border border-transparent data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:border-border/60 data-[state=active]:shadow-xs text-muted-foreground hover:text-foreground hover:bg-background/40 shrink-0"
+            className="flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold transition-all border border-transparent data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:border-border/60 data-[state=active]:shadow-xs text-muted-foreground hover:text-foreground hover:bg-background/40 shrink-0 whitespace-nowrap cursor-pointer"
           >
             <Radio className="size-3.5 shrink-0 text-emerald-500 animate-pulse" />
             <span className="whitespace-nowrap">Live Radar &amp; Keystrokes</span>
@@ -249,7 +249,7 @@ export function AdminGodmodeDashboard({
 
           <TabsTrigger
             value="failures"
-            className="flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold transition-all border border-transparent data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:border-border/60 data-[state=active]:shadow-xs text-muted-foreground hover:text-foreground hover:bg-background/40 shrink-0"
+            className="flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold transition-all border border-transparent data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:border-border/60 data-[state=active]:shadow-xs text-muted-foreground hover:text-foreground hover:bg-background/40 shrink-0 whitespace-nowrap cursor-pointer"
           >
             <Wrench className="size-3.5 shrink-0 text-rose-500" />
             <span className="whitespace-nowrap">Essay Failures &amp; Fix</span>
@@ -262,7 +262,7 @@ export function AdminGodmodeDashboard({
 
           <TabsTrigger
             value="dossier"
-            className="flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold transition-all border border-transparent data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:border-border/60 data-[state=active]:shadow-xs text-muted-foreground hover:text-foreground hover:bg-background/40 shrink-0"
+            className="flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold transition-all border border-transparent data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:border-border/60 data-[state=active]:shadow-xs text-muted-foreground hover:text-foreground hover:bg-background/40 shrink-0 whitespace-nowrap cursor-pointer"
           >
             <User className="size-3.5 shrink-0 text-amber-500" />
             <span className="whitespace-nowrap">Student 360° Dossier</span>
@@ -270,7 +270,7 @@ export function AdminGodmodeDashboard({
 
           <TabsTrigger
             value="activity"
-            className="flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold transition-all border border-transparent data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:border-border/60 data-[state=active]:shadow-xs text-muted-foreground hover:text-foreground hover:bg-background/40 shrink-0"
+            className="flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold transition-all border border-transparent data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:border-border/60 data-[state=active]:shadow-xs text-muted-foreground hover:text-foreground hover:bg-background/40 shrink-0 whitespace-nowrap cursor-pointer"
           >
             <Activity className="size-3.5 shrink-0 text-indigo-500" />
             <span className="whitespace-nowrap">Activity Feed</span>
@@ -278,7 +278,7 @@ export function AdminGodmodeDashboard({
 
           <TabsTrigger
             value="essays"
-            className="flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold transition-all border border-transparent data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:border-border/60 data-[state=active]:shadow-xs text-muted-foreground hover:text-foreground hover:bg-background/40 shrink-0"
+            className="flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold transition-all border border-transparent data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:border-border/60 data-[state=active]:shadow-xs text-muted-foreground hover:text-foreground hover:bg-background/40 shrink-0 whitespace-nowrap cursor-pointer"
           >
             <FileText className="size-3.5 shrink-0 text-primary" />
             <span className="whitespace-nowrap">Essays Vault</span>
@@ -286,7 +286,7 @@ export function AdminGodmodeDashboard({
 
           <TabsTrigger
             value="mcq"
-            className="flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold transition-all border border-transparent data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:border-border/60 data-[state=active]:shadow-xs text-muted-foreground hover:text-foreground hover:bg-background/40 shrink-0"
+            className="flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold transition-all border border-transparent data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:border-border/60 data-[state=active]:shadow-xs text-muted-foreground hover:text-foreground hover:bg-background/40 shrink-0 whitespace-nowrap cursor-pointer"
           >
             <Target className="size-3.5 shrink-0 text-emerald-500" />
             <span className="whitespace-nowrap">MCQ Attempts</span>
@@ -294,7 +294,7 @@ export function AdminGodmodeDashboard({
 
           <TabsTrigger
             value="live"
-            className="flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold transition-all border border-transparent data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:border-border/60 data-[state=active]:shadow-xs text-muted-foreground hover:text-foreground hover:bg-background/40 shrink-0"
+            className="flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold transition-all border border-transparent data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:border-border/60 data-[state=active]:shadow-xs text-muted-foreground hover:text-foreground hover:bg-background/40 shrink-0 whitespace-nowrap cursor-pointer"
           >
             <PenLine className="size-3.5 shrink-0 text-indigo-500" />
             <span className="whitespace-nowrap">Live Examiner</span>

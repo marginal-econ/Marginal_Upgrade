@@ -391,29 +391,21 @@ function Index() {
             <SiteNavMobile />
             <Link
               to="/teacher-auth"
-              className="hidden sm:inline-flex items-center gap-1.5 rounded-lg border border-border bg-card/80 px-2.5 py-1.5 text-xs font-semibold text-foreground hover:bg-muted hover:text-foreground transition-all shadow-2xs"
+              className="hidden lg:inline-flex items-center gap-1.5 rounded-lg border border-purple-500/30 bg-purple-500/10 px-2.5 py-1.5 text-xs font-semibold text-purple-700 dark:text-purple-300 hover:bg-purple-500/20 transition-all shadow-2xs whitespace-nowrap"
             >
               <School className="size-3.5 text-purple-600 dark:text-purple-400" />
               <span>Teacher Portal</span>
             </Link>
             <Link
-              to="/teacher-auth"
-              search={{ tab: "signup" }}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-purple-500/40 bg-purple-500/10 px-2.5 py-1.5 text-xs font-semibold text-purple-700 dark:text-purple-300 hover:bg-purple-500/20 transition-all shadow-2xs"
-            >
-              <GraduationCap className="size-3.5 text-purple-600 dark:text-purple-400" />
-              <span>Sign up as a teacher</span>
-            </Link>
-            <Link
               to="/auth"
-              className="hidden rounded-lg px-3 py-2 text-sm font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:inline-flex"
+              className="hidden rounded-lg px-3 py-1.5 text-xs xl:text-sm font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:inline-flex whitespace-nowrap"
             >
               Sign in
             </Link>
             <Magnetic strength={8}>
               <Link
                 to="/auth"
-                className="pop-sm pop-press shine inline-flex min-h-9 items-center justify-center gap-1.5 whitespace-nowrap bg-primary px-3.5 py-2 text-xs font-semibold text-primary-foreground sm:text-sm rounded-lg"
+                className="pop-sm pop-press shine inline-flex min-h-8 sm:min-h-9 items-center justify-center gap-1.5 whitespace-nowrap bg-primary px-3 sm:px-3.5 py-1.5 text-xs font-semibold text-primary-foreground sm:text-sm rounded-lg"
               >
                 <span>Get Started Free</span>
               </Link>
