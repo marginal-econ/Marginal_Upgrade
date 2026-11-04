@@ -1,8 +1,8 @@
 export const DEFAULT_SETTINGS = {
-  heroTitle: "Why do strong Economics essays still miss the top band?",
-  heroHighlight: "That is the question we are answering.",
+  heroTitle: "Marginal —",
+  heroHighlight: "The AI Cambridge Economics Platform",
   heroDescription:
-    "Marginal is the complete Cambridge 9708 Economics mastery platform — uniting line-by-line AI Essay Grading, the real-time Live Examiner, Paper 1 & 3 MCQ question banks, and causal transmission structuring grounded in official Cambridge mark schemes.",
+    "Marginal is the complete Cambridge 9708 Economics mastery platform with AI Essay Grading, Live Examiner, and Paper 1 & 3 MCQ practice.",
   heroNotice:
     "Start immediately with unlimited essay evaluations and full past paper MCQ drills. Instant AO1/AO2/AO3 breakdowns, syllabus citations, and line-by-line mark scheme matching.",
   joinTitle: "Master Cambridge 9708 Economics.",

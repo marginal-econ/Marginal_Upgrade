@@ -74,20 +74,78 @@ import { supabase } from "@/integrations/backend/client";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Marginal — Cambridge AS & A Level Economics (9708) Marking & Live Examiner" },
+      { title: "Marginal | AI Cambridge Economics (9708) Prep" },
       {
         name: "description",
         content:
-          "Marginal marks AS and A Level Economics (9708) essays with AO1/AO2/AO3 breakdowns, grounded in official syllabus and mark schemes. Grade unlimited essays free.",
+          "Marginal is the complete Cambridge 9708 Economics mastery platform with AI Essay Grading, Live Examiner, and Paper 1 & 3 MCQ practice.",
+      },
+      {
+        name: "keywords",
+        content:
+          "Marginal, Marginal Economics, Marginal AI, Cambridge Economics 9708, A Level Economics, AS Level Economics, Cambridge 9708 AI grading, economics essay marker, live examiner",
+      },
+      {
+        property: "og:site_name",
+        content: "Marginal",
       },
       {
         property: "og:title",
-        content: "Marginal — Cambridge AS & A Level Economics (9708) Marking & Live Examiner",
+        content: "Marginal | AI Cambridge Economics (9708) Prep",
       },
       {
         property: "og:description",
         content:
-          "Examiner-standard marks, assessment-objective breakdowns, real-time Live Examiner coaching, and resume-enabled MCQ drills for Cambridge 9708 Economics.",
+          "Marginal is the complete Cambridge 9708 Economics mastery platform with AI Essay Grading, Live Examiner, and Paper 1 & 3 MCQ practice.",
+      },
+      {
+        property: "og:url",
+        content: "https://marginal-econ.com",
+      },
+      {
+        property: "og:type",
+        content: "website",
+      },
+      {
+        property: "og:image",
+        content: "https://marginal-econ.com/marginal-m-icon-clean.png",
+      },
+      {
+        name: "twitter:card",
+        content: "summary_large_image",
+      },
+      {
+        name: "twitter:title",
+        content: "Marginal | AI Cambridge Economics (9708) Prep",
+      },
+      {
+        name: "twitter:description",
+        content:
+          "Marginal is the complete Cambridge 9708 Economics mastery platform with AI Essay Grading, Live Examiner, and Paper 1 & 3 MCQ practice.",
+      },
+      {
+        name: "robots",
+        content: "index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1",
+      },
+    ],
+    links: [
+      {
+        rel: "canonical",
+        href: "https://marginal-econ.com",
+      },
+    ],
+    scripts: [
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "Organization",
+          "name": "Marginal",
+          "alternateName": ["Marginal Economics", "Marginal AI Economics"],
+          "url": "https://marginal-econ.com",
+          "description":
+            "AI Cambridge Economics 9708 mastery platform featuring automated essay grading and live examiner practice.",
+        }),
       },
     ],
   }),
@@ -405,13 +463,16 @@ function Index() {
 
             <Reveal delay={60}>
               <h1 className="mt-5 text-[2.35rem] leading-[1.08] font-extrabold text-balance min-[380px]:text-4xl md:text-[3.25rem] lg:text-[3.5rem] xl:text-[3.85rem] tracking-tight">
-                {settings.heroTitle}{" "}
+                Marginal —{" "}
                 <span className="relative inline-block mt-1 sm:mt-1.5 px-3 py-1 rounded-xl bg-purple-950/60 dark:bg-purple-950/70 border border-purple-500/40 text-amber-300 shadow-[0_0_20px_rgba(168,85,247,0.25)] backdrop-blur-md">
                   <span className="bg-gradient-to-r from-amber-300 via-yellow-200 to-amber-400 bg-clip-text text-transparent font-black tracking-tight">
-                    {settings.heroHighlight}
+                    The AI Cambridge Economics Platform
                   </span>
                 </span>
               </h1>
+              <h2 className="mt-3 text-lg font-semibold text-primary sm:text-xl md:text-2xl">
+                Master AS & A Level Economics (9708) with AI Grading
+              </h2>
             </Reveal>
 
             <Reveal delay={85}>
