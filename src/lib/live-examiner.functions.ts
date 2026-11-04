@@ -961,7 +961,7 @@ export const saveLiveExaminerSession = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await assertLiveExaminerSessionAllowed(context.supabase, data.question, context);
 
-    const { data: row, error } = await context.supabase
+    let { data: row, error } = await context.supabase
       .from("live_examiner_sessions")
       .upsert(
         {
@@ -983,6 +983,28 @@ export const saveLiveExaminerSession = createServerFn({ method: "POST" })
       .select("id, updated_at")
       .single();
 
+    if (error && (error.code === "PGRST204" || error.message?.includes("column"))) {
+      const fallback = await context.supabase
+        .from("live_examiner_sessions")
+        .upsert(
+          {
+            user_id: context.userId,
+            level: data.level,
+            topic: data.topic,
+            question: data.question,
+            max_mark: data.maxMark,
+            essay_text: data.essayText,
+            issues_history: data.issuesHistory as Json,
+            diagram_tag: data.diagramTag ?? null,
+          },
+          { onConflict: "user_id,question" },
+        )
+        .select("id, updated_at")
+        .single();
+      row = fallback.data;
+      error = fallback.error;
+    }
+
     if (error) throw new Error(error.message);
     return { sessionId: row.id as string, savedAt: row.updated_at as string };
   });
@@ -997,7 +1019,7 @@ export const getLiveExaminerSession = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     assertAdminOnlyAccess(context);
     try {
-      const result = await Promise.race([
+      let result = await Promise.race([
         context.supabase
           .from("live_examiner_sessions")
           .select(
@@ -1010,6 +1032,18 @@ export const getLiveExaminerSession = createServerFn({ method: "POST" })
           setTimeout(() => resolve({ data: null, error: null }), 3000),
         ),
       ]);
+
+      if (result.error && ((result.error as any).code === "PGRST204" || (result.error.message && result.error.message.includes("column")))) {
+        result = await context.supabase
+          .from("live_examiner_sessions")
+          .select(
+            "id, level, topic, question, max_mark, essay_text, issues_history, diagram_tag, updated_at",
+          )
+          .eq("user_id", context.userId)
+          .eq("question", data.question)
+          .maybeSingle();
+      }
+
       const session = result.data ? {
         ...result.data,
         sentence_cache: (result.data as any).sentence_cache ?? {},
