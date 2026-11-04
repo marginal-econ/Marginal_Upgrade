@@ -484,28 +484,28 @@ function PredictedMarkCard({
     const total_mark = finalGrading.total_mark;
     const band = finalGrading.band;
     const knowledgeAw =
-      finalGrading.ao_breakdown?.knowledge?.mark ??
-      finalGrading.breakdown?.knowledge?.mark ??
+      finalGrading.ao_breakdown?.knowledge?.awarded ??
+      (finalGrading as any).breakdown?.knowledge?.awarded ??
       0;
     const knowledgeMax =
-      finalGrading.ao_breakdown?.knowledge?.max_mark ??
-      finalGrading.breakdown?.knowledge?.max_mark ??
+      finalGrading.ao_breakdown?.knowledge?.out_of ??
+      (finalGrading as any).breakdown?.knowledge?.out_of ??
       0;
     const analysisAw =
-      finalGrading.ao_breakdown?.analysis?.mark ??
-      finalGrading.breakdown?.analysis?.mark ??
+      finalGrading.ao_breakdown?.analysis?.awarded ??
+      (finalGrading as any).breakdown?.analysis?.awarded ??
       0;
     const analysisMax =
-      finalGrading.ao_breakdown?.analysis?.max_mark ??
-      finalGrading.breakdown?.analysis?.max_mark ??
+      finalGrading.ao_breakdown?.analysis?.out_of ??
+      (finalGrading as any).breakdown?.analysis?.out_of ??
       0;
     const evalAw =
-      finalGrading.ao_breakdown?.evaluation?.mark ??
-      finalGrading.breakdown?.evaluation?.mark ??
+      finalGrading.ao_breakdown?.evaluation?.awarded ??
+      (finalGrading as any).breakdown?.evaluation?.awarded ??
       0;
     const evalMax =
-      finalGrading.ao_breakdown?.evaluation?.max_mark ??
-      finalGrading.breakdown?.evaluation?.max_mark ??
+      finalGrading.ao_breakdown?.evaluation?.out_of ??
+      (finalGrading as any).breakdown?.evaluation?.out_of ??
       0;
 
     return (
@@ -534,9 +534,9 @@ function PredictedMarkCard({
             </span>
             <span className="text-sm text-muted-foreground font-medium">/ {maxMark}</span>
           </div>
-          {finalGrading.summary ? (
+          {finalGrading.examiner_summary ? (
             <p className="mt-1.5 text-[11px] text-muted-foreground line-clamp-2">
-              {cleanStars(finalGrading.summary)}
+              {cleanStars(finalGrading.examiner_summary)}
             </p>
           ) : null}
           <div className="mt-3 space-y-2">

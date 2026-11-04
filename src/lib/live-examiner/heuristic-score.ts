@@ -2,13 +2,16 @@ import { defaultSplitForMaxMark, TARIFF_SPLITS } from "@/lib/examiner/config";
 import type { AoBreakdown, NextMove, ScoreEstimate, SentenceSpan } from "./types";
 
 const DEFINITION_PATTERN =
-  /\b(is defined as|refers to|means that|is when|are when|occurs when|is the responsiveness|measures the percentage change|formula for)\b/i;
+  /\b(is defined as|refers to|means that|is when|are when|occurs when|is the responsiveness|measures the percentage change|formula for|is a good that|is a good which|are goods that|are goods which|refers to government|is a tax on|is an expenditure tax)\b/i;
+
 const CAUSAL_CONNECTIVES =
-  /\b(because|therefore|this leads to|as a result|which means|consequently|meaning that|thus|hence|causes?|results? in)\b/gi;
+  /\b(because|therefore|this leads to|leads? to|as a result|which means|this means|meaning that|consequently|thus|hence|causes?|causing|results? in|resulting in|raises?|reduces?|shifts?|increases?|enables?|expands?|expansion|foster\w*|diversif\w*|alleviat\w*|distorts?|breeds?|precipitat\w*|nurtur\w*|contraction|excess (?:supply|demand)|generates?|incentivis\w*|incentiviz\w*|forces?|induces?|diminishe?s?)\b/gi;
+
 const EVAL_PATTERNS =
-  /\b(however|on the other hand|depends on|depending on|in the short run|in the long run|to what extent|overall|in conclusion|on balance|ultimately|trade-off|limitation|unintended consequence)\b/gi;
+  /\b(however|on the other hand|on the one hand|depends? (?:on|upon)|depending on|crucially on|in the (?:short|long)[- ]run|to what extent|overall|in conclusion|to conclude|on balance|ultimately|trade-?offs?|limitations?|unintended consequences?|black markets?|regressive|not (?:always|the most effective)|deadweight|x-inefficiency|comparative advantage|rent-seeking|retaliat\w*)\b/gi;
+
 const CONTEXT_PATTERNS =
-  /\b(for example|for instance|e\.g\.|uk|us|usa|china|india|singapore|firms?|consumers?|government|market|tax|subsidy|ped|cpi|inflation|unemployment)\b/gi;
+  /\b(for example|for instance|e\.g\.|uk|us|usa|china|india|singapore|firms?|consumers?|government|market|tax|subsidy|ped|cpi|inflation|unemployment|nhs|cigarettes|multinational|infant industr\w*)\b/gi;
 
 /**
  * Computes an instant, provisional Cambridge 9708 score estimate based on structural signals,
@@ -68,36 +71,44 @@ export function computeHeuristicScore(params: {
     if (/\[DIAGRAM:[^\]]*\]/i.test(text)) hasDiagram = true;
 
     if (
-      s.paragraphIndex === maxParagraph &&
-      maxParagraph > 0 &&
+      (s.paragraphIndex === maxParagraph && maxParagraph > 0) ||
       /\b(overall|in conclusion|to conclude|on balance|ultimately)\b/i.test(text)
     ) {
-      hasConclusion = true;
+      if (/\b(overall|in conclusion|to conclude|on balance|ultimately)\b/i.test(text)) {
+        hasConclusion = true;
+      }
     }
   }
 
   // Calculate provisional AO marks
-  // AO1: Knowledge & Understanding (Cap = split.ao1_marks)
+  // AO1: Knowledge & Understanding (Cap = split.ao1_marks, which is 2)
   let rawAo1 = 0;
   if (defCount > 0) rawAo1 += 1;
-  if (totalWords >= 50 && (defCount > 1 || causalLinks >= 1)) rawAo1 += 1;
+  if (totalWords >= 40 && (defCount >= 1 || causalLinks >= 1)) rawAo1 += 1;
   const ao1 = Math.min(split.ao1_marks, rawAo1);
 
   // AO2: Analysis & Application (Cap = split.ao2_marks)
   let rawAo2 = 0;
-  // Analysis chains credit
-  if (causalLinks >= 1) rawAo2 += 1;
-  if (causalLinks >= 3) rawAo2 += 1;
-  if (causalLinks >= 5) rawAo2 += 1;
-  // Application credit
-  if (contextLinks >= 1) rawAo2 += 1;
-  if (contextLinks >= 3) rawAo2 += 1;
-  if (hasDiagram || causalLinks >= 7) rawAo2 += 1;
-  if (maxMark === 20) {
-    // Extended tariff scaling for 20 markers
-    if (causalLinks >= 9) rawAo2 += 2;
-    if (causalLinks >= 12) rawAo2 += 2;
-    if (contextLinks >= 5) rawAo2 += 2;
+  if (causalLinks === 0) {
+    rawAo2 = 0;
+  } else {
+    rawAo2 += 1;
+    if (causalLinks >= 2) rawAo2 += 1;
+    if (causalLinks >= 3 && contextLinks >= 1) rawAo2 += 1;
+    if (causalLinks >= 4 && contextLinks >= 1) rawAo2 += 1;
+    if (causalLinks >= 5 && contextLinks >= 2) rawAo2 += 1;
+    if (causalLinks >= 6 && (contextLinks >= 3 || hasDiagram)) rawAo2 += 1;
+
+    if (maxMark === 20) {
+      if (causalLinks >= 5) rawAo2 += 2;
+      if (causalLinks >= 8) rawAo2 += 2;
+      if (causalLinks >= 10 && contextLinks >= 3) rawAo2 += 2;
+    }
+
+    // One-sided essay cap: in an evaluative question (12 or 20 marks), if evaluation is absent (0), analysis cannot achieve top band
+    if (evalLinks === 0 && maxMark >= 12) {
+      rawAo2 = Math.min(maxMark === 12 ? 4 : 6, rawAo2);
+    }
   }
   const ao2 = Math.min(split.ao2_marks, rawAo2);
 
@@ -106,8 +117,11 @@ export function computeHeuristicScore(params: {
   if (evalLinks >= 1) rawAo3 += 1;
   if (evalLinks >= 2) rawAo3 += 1;
   if (hasConclusion) rawAo3 += 1;
-  if (evalLinks >= 4 && hasConclusion) rawAo3 += 1;
-  if (maxMark === 20 && evalLinks >= 6) rawAo3 += 2;
+  if (evalLinks >= 3 && hasConclusion) rawAo3 += 1;
+  if (maxMark === 20) {
+    if (evalLinks >= 4) rawAo3 += 1;
+    if (evalLinks >= 6) rawAo3 += 1;
+  }
   const ao3 = Math.min(split.ao3_marks, rawAo3);
 
   // Total clamped

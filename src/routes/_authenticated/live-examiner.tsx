@@ -26,6 +26,10 @@ import { toast } from "sonner";
 import { PageHeader } from "@/components/app/app-shell";
 import { ChainedChamber } from "@/components/app/chained-chamber";
 import { LiveExaminerEditor } from "@/components/app/live-examiner-editor";
+import { AoLegend } from "@/components/app/live-examiner/ao-legend";
+import { ScoreWidget } from "@/components/app/live-examiner/score-widget";
+import { NextMarks } from "@/components/app/live-examiner/next-marks";
+import type { LiveExaminerEditorHandle } from "@/components/app/live-examiner/editor";
 import {
   LiveExaminerHistoryPanel,
   type LiveExaminerSessionSummary,
@@ -472,21 +476,29 @@ function LiveExaminerPage() {
   const textForCheck = combinedDiagramTag ? `${essayText}\n\n${combinedDiagramTag}` : essayText;
 
   const [focusedIssueId, setFocusedIssueId] = useState<string | null>(null);
+  const [showAo, setShowAo] = useState(true);
+  const [showIssues, setShowIssues] = useState(true);
+  const [activeAoFilter, setActiveAoFilter] = useState<any>(null);
+  const editorRef = useRef<LiveExaminerEditorHandle>(null);
 
   const {
     issues,
     classifications,
+    sentences,
     history,
     checking,
     pending,
     error: checkError,
     predictedMark,
+    scoreEstimate,
     lastUpdatedAt,
     acceptIssue,
     acceptAllIssues,
+    acceptAllMechanical,
     dismissIssue,
     rescan,
     clearAll,
+    cache,
   } = useLiveExaminerCheck({
     text: textForCheck,
     question,
@@ -494,13 +506,12 @@ function LiveExaminerPage() {
     maxMark,
     contextBlock,
     enabled: started,
+    initialCache: sessionQuery.data?.session
+      ? { sentences: (sessionQuery.data.session as any).sentence_cache }
+      : undefined,
   });
 
   // --- Autosave, debounced, independent of the AI check debounce --------
-  // Flawless here means: never silently stop trying. A failed save keeps
-  // retrying with backoff on its own — it doesn't wait for the next
-  // keystroke to get another chance — and the tab warns before closing if
-  // anything typed hasn't made it to the server yet.
   const saveSession = useServerFn(saveLiveExaminerSession);
   const autosaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -515,11 +526,6 @@ function LiveExaminerPage() {
       if (savingRef.current) return;
       savingRef.current = true;
       setAutosave("saving");
-      // Cap what's sent, newest-first — the server itself rejects payloads
-      // over 500 entries, and a long session's full issue history can grow
-      // past that. Without this cap, autosave would fail validation forever
-      // once a session crossed the limit, retrying the same oversized
-      // payload on an endless loop instead of ever succeeding again.
       const boundedHistory = [...history]
         .sort((a, b) => (b.resolvedAt ?? b.firstSeenAt) - (a.resolvedAt ?? a.firstSeenAt))
         .slice(0, 400);
@@ -531,6 +537,10 @@ function LiveExaminerPage() {
           maxMark,
           essayText: textToSave,
           issuesHistory: boundedHistory,
+          sentenceCache: (cache as any)?.toJSON()?.sentences || {},
+          scoreHistory: scoreEstimate ? [scoreEstimate] : [],
+          docVersion: 1,
+          schemaVersion: 2,
           diagramTag: combinedDiagramTag,
         },
       })
@@ -539,9 +549,6 @@ function LiveExaminerPage() {
           lastSavedTextRef.current = textToSave;
           retryCountRef.current = 0;
           setAutosave("saved");
-          // If more was typed while this save was in flight, it's already
-          // covered by the text-change effect below re-firing on the newer
-          // value — nothing further to do here.
         })
         .catch(() => {
           savingRef.current = false;
@@ -963,54 +970,31 @@ function LiveExaminerPage() {
                   {level === "a2" ? "A Level" : "AS Level"} · {maxMark} marks
                 </span>
               </div>
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-border bg-muted/25 px-4 py-2 text-[11px]">
-                <span className="flex items-center gap-1.5 font-medium">
-                  <span className="size-2 rounded-full bg-sky-400" />
-                  <span className="underline decoration-sky-400 decoration-2 underline-offset-4">
-                    AO1 Knowledge
-                  </span>
-                  <span className="rounded bg-sky-500/15 px-1.5 py-0.5 font-mono text-[10px] font-bold text-sky-400">
-                    {classifications.filter((c) => c.ao === "AO1").length}
-                  </span>
-                </span>
-                <span className="flex items-center gap-1.5 font-medium">
-                  <span className="size-2 rounded-full bg-emerald-400" />
-                  <span className="underline decoration-emerald-400 decoration-2 underline-offset-4">
-                    AO2 Analysis
-                  </span>
-                  <span className="rounded bg-emerald-500/15 px-1.5 py-0.5 font-mono text-[10px] font-bold text-emerald-400">
-                    {classifications.filter((c) => c.ao === "AO2").length}
-                  </span>
-                </span>
-                <span className="flex items-center gap-1.5 font-medium">
-                  <span className="size-2 rounded-full bg-amber-400" />
-                  <span className="underline decoration-amber-400 decoration-2 underline-offset-4">
-                    AO3 Evaluation
-                  </span>
-                  <span className="rounded bg-amber-500/15 px-1.5 py-0.5 font-mono text-[10px] font-bold text-amber-400">
-                    {classifications.filter((c) => c.ao === "AO3").length}
-                  </span>
-                </span>
-                {issues.length > 0 ? (
-                  <span className="flex items-center gap-1.5 font-medium">
-                    <span className="size-2 rounded-full bg-orange-400" />
-                    <span className="underline decoration-orange-400 decoration-wavy decoration-2 underline-offset-4">
-                      Suggestions
-                    </span>
-                    <span className="rounded bg-orange-500/15 px-1.5 py-0.5 font-mono text-[10px] font-bold text-orange-400">
-                      {issues.length}
-                    </span>
-                  </span>
-                ) : null}
-                <span className="ml-auto text-muted-foreground hidden sm:inline">
-                  Hover or click any underlined sentence or wavy phrase for instant feedback
-                </span>
-              </div>
+              <AoLegend
+                sentences={sentences}
+                issuesCount={issues.length}
+                showAo={showAo}
+                showIssues={showIssues}
+                onToggleAo={() => setShowAo((prev) => !prev)}
+                onToggleIssues={() => setShowIssues((prev) => !prev)}
+                activeFilter={activeAoFilter}
+                onSelectAo={(tag) => {
+                  setActiveAoFilter((current: any) => (current === tag ? null : tag));
+                  const target = sentences.find((s) => s.ao?.tag === tag);
+                  if (target) {
+                    editorRef.current?.focusSpan(target.id);
+                  }
+                }}
+              />
               <LiveExaminerEditor
+                ref={editorRef}
                 value={essayText}
                 onChange={setEssayText}
                 issues={issues}
+                sentences={sentences}
                 classifications={classifications}
+                showAo={showAo}
+                showIssues={showIssues}
                 onAccept={(id) => setEssayText((current) => acceptIssue(id, current))}
                 onDismiss={dismissIssue}
                 focusedIssueId={focusedIssueId}
@@ -1061,7 +1045,25 @@ function LiveExaminerPage() {
             ) : null}
           </section>
 
-          <aside className="min-w-0 p-4 md:p-5">
+          <aside className="min-w-0 p-4 md:p-5 space-y-4">
+            <ScoreWidget
+              scoreEstimate={scoreEstimate}
+              wordCount={wordCount}
+              maxMark={maxMark}
+              checking={checking}
+            />
+
+            {scoreEstimate && scoreEstimate.nextMoves.length > 0 ? (
+              <NextMarks
+                nextMoves={scoreEstimate.nextMoves}
+                onSelectMove={(move) => {
+                  toast.info(`Next mark tip: ${move.title}`, {
+                    description: move.detail,
+                  });
+                }}
+              />
+            ) : null}
+
             <LiveExaminerPanel
               issues={issues}
               history={history}

@@ -13,7 +13,8 @@
     "format": "prettier --write .",
     "harvest:papers": "npx tsx --env-file=.env scripts/harvest-papers.ts",
     "migrate:db": "npx tsx scripts/migrate-databases.ts",
-    "invite:waitlist": "npx tsx scripts/invite-waitlist-users.ts"
+    "invite:waitlist": "npx tsx scripts/invite-waitlist-users.ts",
+    "eval:live-examiner": "npx tsx scripts/eval-live-examiner.ts"
   },
   "dependencies": {
     "@codemirror/commands": "^6.11.1",
