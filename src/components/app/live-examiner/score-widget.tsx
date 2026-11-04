@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { TARIFF_SPLITS, defaultSplitForMaxMark } from "@/lib/examiner/config";
 import type { ScoreEstimate, AoBreakdown } from "@/lib/live-examiner/types";
+import { stripStars } from "@/lib/live-examiner/clean-suggestion";
 import { cn } from "@/lib/utils";
 
 export type ScoreWidgetProps = {
@@ -50,7 +51,7 @@ export function ScoreWidget({
   const ao2 = scoreEstimate ? Math.min(split.ao2_marks, Math.max(0, scoreEstimate.aoBreakdown.ao2)) : 0;
   const ao3 = scoreEstimate ? Math.min(split.ao3_marks, Math.max(0, scoreEstimate.aoBreakdown.ao3)) : 0;
 
-  const band = scoreEstimate?.band || "No answer written yet";
+  const band = stripStars(scoreEstimate?.band || "No answer written yet");
   const targetInfo = WORD_TARGETS[validTariff] || { min: 200, target: 400, label: "~350 words" };
 
   return (

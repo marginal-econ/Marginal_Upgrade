@@ -25,6 +25,7 @@ import type {
 } from "./use-live-examiner-check";
 import type { IssueV2, SentenceSpan, ScoreEstimate } from "@/lib/live-examiner/types";
 import { defaultSplitForMaxMark, TARIFF_SPLITS } from "@/lib/examiner/config";
+import { cleanSuggestion, stripStars } from "@/lib/live-examiner/clean-suggestion";
 
 export type { PredictedMark };
 
@@ -286,18 +287,18 @@ export function useLiveExaminer(params: {
           const matchedIssues = (result.issues || [])
             .filter((i: any) => i.context?.trim().toLowerCase() === seg.text.trim().toLowerCase())
             .map((i: any) => ({
-              id: `${i.category}::${seg.hash}::${i.original}`,
+              id: `${i.category}::${seg.hash}::${stripStars(i.original)}`,
               from: seg.from,
               to: seg.to,
               sentenceId: seg.id,
               category: i.category,
               severity: i.severity || "medium",
-              original: i.original,
-              suggestion: i.suggestion,
-              insertAfter: i.insertAfter,
-              explanation: i.explanation,
-              evidence: i.evidence,
-              aoImpact: i.aoImpact,
+              original: stripStars(i.original),
+              suggestion: cleanSuggestion(stripStars(i.suggestion)),
+              insertAfter: i.insertAfter ? cleanSuggestion(stripStars(i.insertAfter)) : undefined,
+              explanation: stripStars(i.explanation),
+              evidence: stripStars(i.evidence),
+              aoImpact: stripStars(i.aoImpact),
               status: "active" as const,
             }));
 
@@ -306,7 +307,7 @@ export function useLiveExaminer(params: {
             ao: matchedAo
               ? {
                   tag: (matchedAo.ao.toLowerCase() as any) || "ao1",
-                  reason: matchedAo.explanation,
+                  reason: stripStars(matchedAo.explanation),
                 }
               : null,
             issues: matchedIssues,

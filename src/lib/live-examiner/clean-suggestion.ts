@@ -1,4 +1,18 @@
 /**
+ * Aggressively removes all markdown formatting, bold/italic asterisks (* and **),
+ * backticks, and audit tags from feedback strings.
+ */
+export function stripStars(str: string | undefined | null): string {
+  if (!str) return "";
+  return String(str)
+    .replace(/<audit>[\s\S]*?<\/audit>/gi, "")
+    .replace(/<audit>[\s\S]*$/gi, "")
+    .replace(/\*+/g, "")
+    .replace(/[`_]/g, "")
+    .trim();
+}
+
+/**
  * Sanitizes an examiner or grammar suggestion so it can be substituted
  * directly into the student's text without awkward prefixes, quotes, or meta-language.
  * Fully adapted for Gemini, Mistral, and other models that output bold asterisks,

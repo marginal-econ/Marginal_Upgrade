@@ -12,6 +12,7 @@ import { useEffect, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { IssueV2, SentenceSpan, AoTag } from "@/lib/live-examiner/types";
+import { cleanSuggestion, stripStars } from "@/lib/live-examiner/clean-suggestion";
 import { cn } from "@/lib/utils";
 
 export type IssueCardProps = {
@@ -191,20 +192,20 @@ export function IssueCard({
       <div className="space-y-3 py-3 text-xs leading-relaxed">
         {issue ? (
           <div>
-            <p className="font-medium text-foreground">{issue.explanation}</p>
+            <p className="font-medium text-foreground">{stripStars(issue.explanation)}</p>
             {issue.evidence ? (
               <div className="mt-2 rounded-md border border-border/60 bg-muted/40 p-2 text-[11px] text-muted-foreground">
                 <span className="font-semibold text-foreground">Syllabus evidence: </span>
-                <span className="italic">"{issue.evidence}"</span>
+                <span className="italic">"{stripStars(issue.evidence)}"</span>
               </div>
             ) : null}
           </div>
         ) : sentence?.ao ? (
           <div>
-            <p className="text-foreground">{sentence.ao.reason}</p>
+            <p className="text-foreground">{stripStars(sentence.ao.reason)}</p>
             {sentence.ao.sub ? (
               <p className="mt-1 font-mono text-[11px] text-muted-foreground">
-                Role: {sentence.ao.sub.replace(/_/g, " ")}
+                Role: {stripStars(sentence.ao.sub.replace(/_/g, " "))}
               </p>
             ) : null}
           </div>
@@ -218,11 +219,11 @@ export function IssueCard({
             </span>
             <div className="mt-1 flex flex-wrap items-center gap-1.5 font-sans">
               <span className="rounded bg-rose-500/15 px-1 py-0.5 text-rose-600 line-through dark:text-rose-400">
-                {issue.original}
+                {stripStars(issue.original)}
               </span>
               <span className="text-muted-foreground">→</span>
               <span className="rounded bg-emerald-500/15 px-1.5 py-0.5 font-semibold text-emerald-600 dark:text-emerald-400">
-                {issue.suggestion}
+                {cleanSuggestion(issue.suggestion)}
               </span>
             </div>
           </div>
@@ -231,7 +232,7 @@ export function IssueCard({
             <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
               Add after this sentence
             </span>
-            <p className="mt-1 italic text-muted-foreground">"{issue.insertAfter}"</p>
+            <p className="mt-1 italic text-muted-foreground">"{cleanSuggestion(issue.insertAfter)}"</p>
           </div>
         ) : null}
 
@@ -239,7 +240,7 @@ export function IssueCard({
         {issue?.aoImpact ? (
           <div className="flex items-center gap-1.5 font-medium text-emerald-600 dark:text-emerald-400">
             <Sparkles className="size-3.5" />
-            <span>{issue.aoImpact}</span>
+            <span>{stripStars(issue.aoImpact)}</span>
           </div>
         ) : null}
 

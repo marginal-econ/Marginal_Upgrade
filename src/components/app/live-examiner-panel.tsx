@@ -27,9 +27,15 @@ import type { Grading } from "@/lib/examiner/types";
 import { cleanSuggestion } from "@/lib/live-examiner/clean-suggestion";
 import { cn } from "@/lib/utils";
 
-function cleanStars(str: string): string {
+function cleanStars(str: string | undefined | null): string {
   if (!str) return "";
-  return str.replace(/\*\*/g, "").replace(/\*/g, "").replace(/[`_]/g, "").trim();
+  return String(str)
+    .replace(/<audit>[\s\S]*?<\/audit>/gi, "")
+    .replace(/<audit>[\s\S]*$/gi, "")
+    .replace(/\*+/g, "")
+    .replace(/[`_]/g, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
 }
 
 const CATEGORY_AO: Record<IssueCategory, string | null> = {
@@ -128,6 +134,7 @@ export function LiveExaminerPanel({
   onFocusIssue,
   onOpenMaximizer,
   maximizerLoading,
+  showPredictedMark = false,
 }: {
   issues: ActiveIssue[];
   history: HistoryEntry[];
@@ -148,6 +155,7 @@ export function LiveExaminerPanel({
   onFocusIssue?: (id: string) => void;
   onOpenMaximizer?: () => void;
   maximizerLoading?: boolean;
+  showPredictedMark?: boolean;
 }) {
   const [filter, setFilter] = useState<FilterKey>("all");
 
@@ -169,13 +177,15 @@ export function LiveExaminerPanel({
 
   return (
     <div className="flex h-full flex-col gap-3">
-      <PredictedMarkCard
-        predictedMark={predictedMark}
-        maxMark={maxMark}
-        finalGrading={finalGrading}
-        onOpenMaximizer={onOpenMaximizer}
-        maximizerLoading={maximizerLoading}
-      />
+      {(showPredictedMark || finalGrading) ? (
+        <PredictedMarkCard
+          predictedMark={predictedMark}
+          maxMark={maxMark}
+          finalGrading={finalGrading}
+          onOpenMaximizer={onOpenMaximizer}
+          maximizerLoading={maximizerLoading}
+        />
+      ) : null}
       {gradedHelp}
 
       <div className="grid grid-cols-3 gap-1.5" aria-label="Assessment objective colour key">

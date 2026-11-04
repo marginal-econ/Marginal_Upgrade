@@ -11,6 +11,8 @@ import { AO_DEFINITIONS, defaultSplitForMaxMark } from "@/lib/examiner/config";
 import { isMarginalAdmin } from "@/lib/auth-admin";
 import { normalizeIssueSpan } from "@/lib/live-examiner/normalize-issue-span";
 import { classifySentence } from "@/lib/live-examiner/sentence-engine";
+import { cleanSuggestion } from "@/lib/live-examiner/clean-suggestion";
+import { cleanStars } from "@/lib/utils";
 
 type AuthContextLike = {
   id?: string;
@@ -245,9 +247,9 @@ function stripAsterisks(str: string): string {
   return str
     .replace(/<audit>[\s\S]*?<\/audit>/gi, "")
     .replace(/<audit>[\s\S]*$/gi, "")
-    .replace(/\*\*/g, "")
-    .replace(/\*/g, "")
+    .replace(/\*+/g, "")
     .replace(/[`_]/g, "")
+    .replace(/\s{2,}/g, " ")
     .trim();
 }
 
@@ -301,7 +303,7 @@ ${contextBlock || "No syllabus material was retrieved for this question — be c
 CRITICAL RULES:
 1. NO SYNONYMS: NEVER suggest mere synonyms (e.g. replacing 'leads to' with 'results in', or 'causes' with 'brings about'). If the student's phrasing is valid English and developed economics, DO NOT FLAG IT for style.
 2. FLAG SHALLOW / UNDEVELOPED CLAIMS FOR "analysis": If a sentence states an undeveloped economic assertion or stops at defining a concept without explaining the step-by-step causal mechanism (e.g. "Free trade can lead to specialisation where countries focus on producing a limited range of products" without explaining comparative advantage, lower opportunity cost, economies of scale, and lower consumer prices), flag the trailing phrase as "analysis" and suggest extending the causal chain.
-3. NO ASTERISKS OR MARKDOWN: Output strictly clean plain text. NEVER include asterisks (** or *), bolding, or markdown in "original", "suggestion", "explanation", or "headline".
+3. NO ASTERISKS OR MARKDOWN (MISTRAL MANDATE): Output strictly clean plain English text. NEVER include asterisks (** or *), bolding, backticks, or markdown formatting anywhere in "original", "suggestion", "explanation", "evidence", or "headline". Keep all wording clean, professional, and unformatted.
 4. MINIMAL SPANS & NO SENTENCE CHOPPING:
    - "original" MUST be ONLY the exact erroneous word or short phrase inside the sentence (typically 1 to 6 words). DO NOT quote the entire sentence in "original" unless the whole sentence is fundamentally flawed and needs a complete rewrite.
    - "suggestion" MUST be ONLY the exact drop-in replacement for "original" (never a partial word, never the whole sentence unless "original" was the whole sentence). When "original" is replaced by "suggestion", the sentence must read smoothly and correctly. Never output a suggestion identical to "original".
@@ -341,7 +343,7 @@ When estimating "predicted_mark":
 - If there are 0 genuine AO2 causal mechanism sentences, analysis.awarded MUST be 0 (never award 4/12 for two AO1 sentences!).
 - If there are 0 genuine AO3 evaluation sentences, evaluation.awarded MUST be 0.
 
-Respond ONLY with a single valid JSON object, no markdown fences, no commentary, in exactly this shape:
+Respond ONLY with a single valid JSON object. Do NOT wrap the JSON inside markdown codeblocks or triple backticks. Do NOT include conversational greetings, preamble, or trailing commentary. Exactly this JSON structure:
 {
   "issues": [
     {
@@ -793,8 +795,8 @@ export const checkEssayWriting = createServerFn({ method: "POST" })
         });
         if (!normalized) return [];
 
-        original = normalized.original;
-        suggestion = normalized.suggestion;
+        original = stripAsterisks(normalized.original);
+        suggestion = cleanSuggestion(stripAsterisks(normalized.suggestion));
 
         if (original.toLowerCase().trim() === suggestion.toLowerCase().trim()) return [];
 
@@ -909,19 +911,19 @@ export const checkEssayWriting = createServerFn({ method: "POST" })
 
       const merged = dedupeAndCap([...carryForward(), ...deterministic, ...freshIssues]);
 
-      return {
+      return cleanStars({
         issues: merged,
         classifications,
         classifiedContexts: toSend,
         clean: merged.length === 0,
         checkedText: data.essayText,
         predictedMark,
-      };
+      });
     } catch (_error) {
       // A failed check is an enhancement failing, never a hard gate — keep
       // whatever was already found (plus the free deterministic pass).
       const surviving = dedupeAndCap([...carryForward(), ...deterministic]);
-      return {
+      return cleanStars({
         issues: surviving,
         classifications: [] as LiveExaminerAoClassification[],
         classifiedContexts: [] as string[],
@@ -929,7 +931,7 @@ export const checkEssayWriting = createServerFn({ method: "POST" })
         checkedText: data.essayText,
         checkFailed: true,
         predictedMark: null,
-      };
+      });
     }
   });
 
@@ -1323,7 +1325,7 @@ export const getMaxOutSuggestions = createServerFn({ method: "POST" })
     if (!parsed.success) {
       throw new Error("Couldn't generate suggestions just now — try again.");
     }
-    return {
+    return cleanStars({
       headline: stripAsterisks(parsed.data.headline),
       target_band: parsed.data.target_band ? stripAsterisks(parsed.data.target_band) : undefined,
       perfection_summary: parsed.data.perfection_summary
@@ -1332,7 +1334,7 @@ export const getMaxOutSuggestions = createServerFn({ method: "POST" })
       suggestions: parsed.data.suggestions.map((s) => ({
         ...s,
         title: stripAsterisks(s.title),
-        suggestion: stripAsterisks(s.suggestion),
+        suggestion: cleanSuggestion(stripAsterisks(s.suggestion)),
         mark_uplift: stripAsterisks(s.mark_uplift),
         placement: s.placement ? stripAsterisks(s.placement) : undefined,
         placement_rationale: s.placement_rationale ? stripAsterisks(s.placement_rationale) : undefined,
@@ -1344,5 +1346,5 @@ export const getMaxOutSuggestions = createServerFn({ method: "POST" })
         })),
         model_phrasing: s.model_phrasing ? stripAsterisks(s.model_phrasing) : undefined,
       })),
-    };
+    });
   });

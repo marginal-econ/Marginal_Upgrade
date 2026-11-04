@@ -1,11 +1,15 @@
-import { ArrowRight, Lightbulb, Sparkles } from "lucide-react";
+import { ArrowRight, Lightbulb, Loader2, Sparkles, Wand2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import type { NextMove } from "@/lib/live-examiner/types";
+import { stripStars } from "@/lib/live-examiner/clean-suggestion";
 import { cn } from "@/lib/utils";
 
 export type NextMarksProps = {
   nextMoves: NextMove[];
   onSelectMove?: (move: NextMove) => void;
+  onOpenMaximizer?: () => void;
+  maximizerLoading?: boolean;
   className?: string;
 };
 
@@ -58,7 +62,7 @@ export function NextMarks({ nextMoves, onSelectMove, className }: NextMarksProps
                     {theme.label}
                   </Badge>
                   <span className="text-xs font-semibold text-foreground group-hover:text-primary transition-colors">
-                    {move.title}
+                    {stripStars(move.title)}
                   </span>
                 </div>
 
@@ -68,12 +72,33 @@ export function NextMarks({ nextMoves, onSelectMove, className }: NextMarksProps
               </div>
 
               <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
-                {move.detail}
+                {stripStars(move.detail)}
               </p>
             </div>
           );
         })}
       </div>
+
+      {onOpenMaximizer ? (
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          onClick={onOpenMaximizer}
+          disabled={maximizerLoading}
+          className="w-full h-8 gap-1.5 text-xs font-semibold border-amber-500/40 bg-amber-500/5 hover:bg-amber-500/10 text-amber-600 dark:text-amber-400"
+        >
+          {maximizerLoading ? (
+            <>
+              <Loader2 className="size-3.5 animate-spin" /> Generating Blueprint…
+            </>
+          ) : (
+            <>
+              <Sparkles className="size-3.5 text-amber-500" /> Maximise Score Blueprint
+            </>
+          )}
+        </Button>
+      ) : null}
     </div>
   );
 }

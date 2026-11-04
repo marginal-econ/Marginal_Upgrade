@@ -1061,6 +1061,8 @@ function LiveExaminerPage() {
                     description: move.detail,
                   });
                 }}
+                onOpenMaximizer={() => setMaximizerOpen(true)}
+                maximizerLoading={maximizerLoading}
               />
             ) : null}
 
