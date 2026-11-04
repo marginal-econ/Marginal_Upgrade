@@ -5,11 +5,20 @@ import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import {
   ArrowRight,
+  BookOpen,
+  Bot,
+  Brain,
   Building2,
+  Camera,
   Check,
   Clock,
+  FileDown,
   GraduationCap,
   HelpCircle,
+  LineChart,
+  Mic,
+  Minus,
+  Scale,
   School,
   ShieldCheck,
   Sparkles,
@@ -921,6 +930,325 @@ export function PricingSection({ className }: { className?: string }) {
             })}
           </div>
         )}
+
+        {/* ── Feature Segregation & Tier Comparison Matrix ── */}
+        <div className="mt-20 space-y-6">
+          <div className="text-center space-y-2 max-w-2xl mx-auto">
+            <Badge className="bg-primary/10 text-primary border border-primary/20 px-3 py-1 text-xs font-semibold">
+              <Sparkles className="size-3.5 mr-1.5" /> Full Feature Segregation &amp; Specifications
+            </Badge>
+            <h3 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">
+              Compare Features Across All Cambridge 9708 Tiers
+            </h3>
+            <p className="text-xs sm:text-sm text-muted-foreground">
+              Deep dive into evaluation diagnostics, revision studio modalities, Live Examiner coaching, and speed infrastructure.
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-border bg-card/60 backdrop-blur-sm overflow-hidden shadow-xs">
+            <div className="overflow-x-auto no-scrollbar">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="border-b border-border/80 bg-muted/40">
+                    <th className="py-4 px-4 font-bold text-foreground min-w-[220px]">
+                      Capability / Feature
+                    </th>
+                    <th className="py-4 px-3 text-center font-bold text-foreground min-w-[100px]">
+                      Free Starter
+                      <span className="block text-[10px] text-muted-foreground font-normal">₹0</span>
+                    </th>
+                    <th className="py-4 px-3 text-center font-bold text-foreground min-w-[100px]">
+                      Foundation
+                      <span className="block text-[10px] text-muted-foreground font-normal">₹99/mo</span>
+                    </th>
+                    <th className="py-4 px-3 text-center font-bold text-foreground min-w-[100px]">
+                      Scholar Plus
+                      <span className="block text-[10px] text-muted-foreground font-normal">₹199/mo</span>
+                    </th>
+                    <th className="py-4 px-3 text-center font-bold text-primary min-w-[110px] bg-primary/5">
+                      Pro Accelerator
+                      <span className="block text-[10px] text-primary/80 font-normal">₹399/mo · Popular</span>
+                    </th>
+                    <th className="py-4 px-3 text-center font-bold text-foreground min-w-[100px]">
+                      A* Mastery
+                      <span className="block text-[10px] text-muted-foreground font-normal">₹699/mo</span>
+                    </th>
+                    <th className="py-4 px-3 text-center font-bold text-foreground min-w-[100px]">
+                      Elite Pass
+                      <span className="block text-[10px] text-muted-foreground font-normal">₹999/mo</span>
+                    </th>
+                    <th className="py-4 px-3 text-center font-bold text-foreground min-w-[110px]">
+                      Revision Sprint
+                      <span className="block text-[10px] text-muted-foreground font-normal">₹249/mo</span>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border/60">
+                  {/* CATEGORY 1 */}
+                  <tr className="bg-blue-500/10 font-bold text-blue-700 dark:text-blue-300">
+                    <td colSpan={8} className="py-2.5 px-4 text-xs">
+                      <span className="flex items-center gap-2">
+                        <Brain className="size-4 text-blue-500" />
+                        1. AI Evaluation &amp; Diagnostic Engine
+                      </span>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="py-3 px-4 font-medium text-foreground">
+                      AO1 Knowledge &amp; Mark Scheme Rubrics
+                      <span className="block text-[10px] text-muted-foreground font-normal">Grounded in Cambridge 9708 examiner notes</span>
+                    </td>
+                    <td className="py-3 px-3 text-center"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                    <td className="py-3 px-3 text-center"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                    <td className="py-3 px-3 text-center"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                    <td className="py-3 px-3 text-center bg-primary/5"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                    <td className="py-3 px-3 text-center"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                    <td className="py-3 px-3 text-center"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                    <td className="py-3 px-3 text-center"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                  </tr>
+                  <tr>
+                    <td className="py-3 px-4 font-medium text-foreground">
+                      AO Sentence Diagnostics &amp; Causal Chains
+                      <span className="block text-[10px] text-muted-foreground font-normal">Sub-second sentence-by-sentence attribution (&lt;50ms)</span>
+                    </td>
+                    <td className="py-3 px-3 text-center"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                    <td className="py-3 px-3 text-center"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                    <td className="py-3 px-3 text-center"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                    <td className="py-3 px-3 text-center bg-primary/5"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                    <td className="py-3 px-3 text-center"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                    <td className="py-3 px-3 text-center"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                    <td className="py-3 px-3 text-center"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                  </tr>
+                  <tr>
+                    <td className="py-3 px-4 font-medium text-foreground">
+                      Level 4 &amp; 5 Evaluative Refinement Engine
+                      <span className="block text-[10px] text-muted-foreground font-normal">Advanced synoptic balance &amp; critical evaluation synthesis</span>
+                    </td>
+                    <td className="py-3 px-3 text-center text-muted-foreground/40">—</td>
+                    <td className="py-3 px-3 text-center text-muted-foreground/40">—</td>
+                    <td className="py-3 px-3 text-center text-muted-foreground/40">—</td>
+                    <td className="py-3 px-3 text-center bg-primary/5 text-muted-foreground/40">—</td>
+                    <td className="py-3 px-3 text-center"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                    <td className="py-3 px-3 text-center"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                    <td className="py-3 px-3 text-center"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                  </tr>
+                  <tr>
+                    <td className="py-3 px-4 font-medium text-foreground">
+                      Dual-Examiner Principal Arbitration
+                      <span className="block text-[10px] text-muted-foreground font-normal">Multi-model consensus for contentious essay marks</span>
+                    </td>
+                    <td className="py-3 px-3 text-center text-muted-foreground/40">—</td>
+                    <td className="py-3 px-3 text-center text-muted-foreground/40">—</td>
+                    <td className="py-3 px-3 text-center text-muted-foreground/40">—</td>
+                    <td className="py-3 px-3 text-center bg-primary/5"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                    <td className="py-3 px-3 text-center"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                    <td className="py-3 px-3 text-center"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                    <td className="py-3 px-3 text-center text-muted-foreground/40">—</td>
+                  </tr>
+                  <tr>
+                    <td className="py-3 px-4 font-medium text-foreground">
+                      Cambridge Definitions Hub &amp; Drills
+                      <span className="block text-[10px] text-muted-foreground font-normal">Command words, flashcards &amp; glossary tests</span>
+                    </td>
+                    <td className="py-3 px-3 text-center"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                    <td className="py-3 px-3 text-center"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                    <td className="py-3 px-3 text-center"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                    <td className="py-3 px-3 text-center bg-primary/5"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                    <td className="py-3 px-3 text-center"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                    <td className="py-3 px-3 text-center"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                    <td className="py-3 px-3 text-center"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                  </tr>
+
+                  {/* CATEGORY 2 */}
+                  <tr className="bg-emerald-500/10 font-bold text-emerald-700 dark:text-emerald-300">
+                    <td colSpan={8} className="py-2.5 px-4 text-xs">
+                      <span className="flex items-center gap-2">
+                        <LineChart className="size-4 text-emerald-500" />
+                        2. Exam Revision &amp; Generation Studio
+                      </span>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="py-3 px-4 font-medium text-foreground">
+                      Handwritten Essay OCR Photo Scanning
+                      <span className="block text-[10px] text-muted-foreground font-normal">Camera / mobile photo transcription</span>
+                    </td>
+                    <td className="py-3 px-3 text-center text-muted-foreground/40">—</td>
+                    <td className="py-3 px-3 text-center text-muted-foreground/40">—</td>
+                    <td className="py-3 px-3 text-center text-muted-foreground/40">—</td>
+                    <td className="py-3 px-3 text-center bg-primary/5 text-muted-foreground/40">—</td>
+                    <td className="py-3 px-3 text-center"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                    <td className="py-3 px-3 text-center"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                    <td className="py-3 px-3 text-center"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                  </tr>
+                  <tr>
+                    <td className="py-3 px-4 font-medium text-foreground">
+                      AI Perfect Model Answer Generator
+                      <span className="block text-[10px] text-muted-foreground font-normal">Full 20/20 &amp; Level 5 exemplar responses</span>
+                    </td>
+                    <td className="py-3 px-3 text-center text-muted-foreground/40">—</td>
+                    <td className="py-3 px-3 text-center text-muted-foreground/40">—</td>
+                    <td className="py-3 px-3 text-center text-muted-foreground/40">—</td>
+                    <td className="py-3 px-3 text-center bg-primary/5"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                    <td className="py-3 px-3 text-center"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                    <td className="py-3 px-3 text-center"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                    <td className="py-3 px-3 text-center"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                  </tr>
+                  <tr>
+                    <td className="py-3 px-4 font-medium text-foreground">
+                      Interactive Diagram Studio &amp; Drills
+                      <span className="block text-[10px] text-muted-foreground font-normal">50+ Cambridge micro/macro graphs with sliders</span>
+                    </td>
+                    <td className="py-3 px-3 text-center"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                    <td className="py-3 px-3 text-center"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                    <td className="py-3 px-3 text-center"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                    <td className="py-3 px-3 text-center bg-primary/5"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                    <td className="py-3 px-3 text-center"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                    <td className="py-3 px-3 text-center"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                    <td className="py-3 px-3 text-center"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                  </tr>
+                  <tr>
+                    <td className="py-3 px-4 font-medium text-foreground">
+                      Diagnostic PDF Report Export
+                      <span className="block text-[10px] text-muted-foreground font-normal">Downloadable official mark breakdown sheets</span>
+                    </td>
+                    <td className="py-3 px-3 text-center text-muted-foreground/40">—</td>
+                    <td className="py-3 px-3 text-center text-muted-foreground/40">—</td>
+                    <td className="py-3 px-3 text-center"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                    <td className="py-3 px-3 text-center bg-primary/5"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                    <td className="py-3 px-3 text-center"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                    <td className="py-3 px-3 text-center"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                    <td className="py-3 px-3 text-center"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                  </tr>
+
+                  {/* CATEGORY 3 */}
+                  <tr className="bg-purple-500/10 font-bold text-purple-700 dark:text-purple-300">
+                    <td colSpan={8} className="py-2.5 px-4 text-xs">
+                      <span className="flex items-center gap-2">
+                        <School className="size-4 text-purple-500" />
+                        3. Live Examiner &amp; Classroom Cohorts
+                      </span>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="py-3 px-4 font-medium text-foreground">
+                      Live Examiner Credits / month
+                      <span className="block text-[10px] text-muted-foreground font-normal">Real-time Socratic voice &amp; timed exam drills</span>
+                    </td>
+                    <td className="py-3 px-3 text-center font-mono">0</td>
+                    <td className="py-3 px-3 text-center font-mono font-bold text-primary">2</td>
+                    <td className="py-3 px-3 text-center font-mono font-bold text-primary">4</td>
+                    <td className="py-3 px-3 text-center font-mono font-bold text-primary bg-primary/5">8</td>
+                    <td className="py-3 px-3 text-center font-mono font-bold text-primary">14</td>
+                    <td className="py-3 px-3 text-center font-mono font-bold text-primary">22</td>
+                    <td className="py-3 px-3 text-center font-mono font-bold text-primary">6</td>
+                  </tr>
+                  <tr>
+                    <td className="py-3 px-4 font-medium text-foreground">
+                      School Classrooms &amp; Homework Sync
+                      <span className="block text-[10px] text-muted-foreground font-normal">Teacher assignment distribution &amp; cohort markbooks</span>
+                    </td>
+                    <td className="py-3 px-3 text-center text-muted-foreground/40">—</td>
+                    <td className="py-3 px-3 text-center text-muted-foreground/40">—</td>
+                    <td className="py-3 px-3 text-center"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                    <td className="py-3 px-3 text-center bg-primary/5"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                    <td className="py-3 px-3 text-center"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                    <td className="py-3 px-3 text-center"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                    <td className="py-3 px-3 text-center text-muted-foreground/40">—</td>
+                  </tr>
+                  <tr>
+                    <td className="py-3 px-4 font-medium text-foreground">
+                      Senior Examiner 1-on-1 Review Desk
+                      <span className="block text-[10px] text-muted-foreground font-normal">Direct human examiner pedagogical support channel</span>
+                    </td>
+                    <td className="py-3 px-3 text-center text-muted-foreground/40">—</td>
+                    <td className="py-3 px-3 text-center text-muted-foreground/40">—</td>
+                    <td className="py-3 px-3 text-center text-muted-foreground/40">—</td>
+                    <td className="py-3 px-3 text-center bg-primary/5 text-muted-foreground/40">—</td>
+                    <td className="py-3 px-3 text-center"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                    <td className="py-3 px-3 text-center"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                    <td className="py-3 px-3 text-center text-muted-foreground/40">—</td>
+                  </tr>
+
+                  {/* CATEGORY 4 */}
+                  <tr className="bg-amber-500/10 font-bold text-amber-700 dark:text-amber-300">
+                    <td colSpan={8} className="py-2.5 px-4 text-xs">
+                      <span className="flex items-center gap-2">
+                        <Zap className="size-4 text-amber-500" />
+                        4. Quotas, Speed &amp; Platform Infrastructure
+                      </span>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="py-3 px-4 font-medium text-foreground">
+                      Monthly Graded Essays Quota
+                      <span className="block text-[10px] text-muted-foreground font-normal">Comprehensive AO evaluations &amp; re-marks</span>
+                    </td>
+                    <td className="py-3 px-3 text-center font-semibold text-emerald-600">Unlimited</td>
+                    <td className="py-3 px-3 text-center font-mono font-bold">8 / mo</td>
+                    <td className="py-3 px-3 text-center font-mono font-bold">15 / mo</td>
+                    <td className="py-3 px-3 text-center font-mono font-bold bg-primary/5">25 / mo</td>
+                    <td className="py-3 px-3 text-center font-mono font-bold">50 / mo</td>
+                    <td className="py-3 px-3 text-center font-mono font-bold">75 / mo</td>
+                    <td className="py-3 px-3 text-center font-mono font-bold">20 / mo</td>
+                  </tr>
+                  <tr>
+                    <td className="py-3 px-4 font-medium text-foreground">
+                      Max Words Allowed Per Submission
+                      <span className="block text-[10px] text-muted-foreground font-normal">Upper word count threshold for deep analysis</span>
+                    </td>
+                    <td className="py-3 px-3 text-center font-mono text-[11px]">1,200</td>
+                    <td className="py-3 px-3 text-center font-mono text-[11px]">1,500</td>
+                    <td className="py-3 px-3 text-center font-mono text-[11px]">2,000</td>
+                    <td className="py-3 px-3 text-center font-mono text-[11px] bg-primary/5">3,000</td>
+                    <td className="py-3 px-3 text-center font-mono text-[11px]">4,000</td>
+                    <td className="py-3 px-3 text-center font-semibold text-emerald-600 text-[11px]">Unlimited</td>
+                    <td className="py-3 px-3 text-center font-mono text-[11px]">2,500</td>
+                  </tr>
+                  <tr>
+                    <td className="py-3 px-4 font-medium text-foreground">
+                      Processing Queue Speed
+                      <span className="block text-[10px] text-muted-foreground font-normal">Evaluation queue tier &amp; server acceleration</span>
+                    </td>
+                    <td className="py-3 px-3 text-center text-muted-foreground">Standard</td>
+                    <td className="py-3 px-3 text-center text-muted-foreground">Standard</td>
+                    <td className="py-3 px-3 text-center text-muted-foreground">Standard</td>
+                    <td className="py-3 px-3 text-center bg-primary/5 text-muted-foreground">Standard</td>
+                    <td className="py-3 px-3 text-center font-bold text-amber-600 dark:text-amber-400">⚡ Priority</td>
+                    <td className="py-3 px-3 text-center font-bold text-amber-600 dark:text-amber-400">⚡ Dedicated</td>
+                    <td className="py-3 px-3 text-center text-muted-foreground">Standard</td>
+                  </tr>
+                  <tr>
+                    <td className="py-3 px-4 font-medium text-foreground">
+                      Beta Experimental Labs Access
+                      <span className="block text-[10px] text-muted-foreground font-normal">Early preview access to cutting-edge features</span>
+                    </td>
+                    <td className="py-3 px-3 text-center text-muted-foreground/40">—</td>
+                    <td className="py-3 px-3 text-center text-muted-foreground/40">—</td>
+                    <td className="py-3 px-3 text-center text-muted-foreground/40">—</td>
+                    <td className="py-3 px-3 text-center bg-primary/5 text-muted-foreground/40">—</td>
+                    <td className="py-3 px-3 text-center text-muted-foreground/40">—</td>
+                    <td className="py-3 px-3 text-center"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                    <td className="py-3 px-3 text-center"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                  </tr>
+                  <tr>
+                    <td className="py-3 px-4 font-medium text-foreground">
+                      Past Paper MCQ Exam Library
+                      <span className="block text-[10px] text-muted-foreground font-normal">2017 to latest series with timed test canvas</span>
+                    </td>
+                    <td className="py-3 px-3 text-center text-[11px] font-medium text-emerald-600">Full + Timers</td>
+                    <td className="py-3 px-3 text-center text-[11px] font-medium text-emerald-600">Full + Timers</td>
+                    <td className="py-3 px-3 text-center text-[11px] font-medium text-emerald-600">Full + Timers</td>
+                    <td className="py-3 px-3 text-center text-[11px] font-medium text-emerald-600 bg-primary/5">Full + Timers</td>
+                    <td className="py-3 px-3 text-center text-[11px] font-medium text-emerald-600">Full + Timers</td>
+                    <td className="py-3 px-3 text-center text-[11px] font-medium text-emerald-600">Full + Timers</td>
+                    <td className="py-3 px-3 text-center text-[11px] font-medium text-emerald-600">Full + Timers</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
 
         {/* ── Trust & Risk Reversal Banner ── */}
         <div className="mt-14 rounded-2xl border border-border bg-muted/40 p-6 sm:p-8">

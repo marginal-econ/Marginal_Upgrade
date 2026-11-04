@@ -26,11 +26,15 @@ import {
   Zap,
   Camera,
   Bot,
+  Brain,
+  FileDown,
+  Mic,
   LineChart,
   Scale,
   School,
   Timer,
   BookOpen,
+  CheckCircle2,
   ChevronDown,
   ChevronUp,
   SlidersHorizontal,
@@ -67,21 +71,10 @@ import {
 } from "@/lib/pricing.functions";
 import {
   DEFAULT_PRICING_PLANS,
+  DEFAULT_RESTRICTIONS,
   type PlanRestrictions,
   type PricingTierConfig,
 } from "@/lib/pricing-plans";
-
-const DEFAULT_RESTRICTIONS: PlanRestrictions = {
-  allowHandwritingOcr: false,
-  allowModelAnswers: false,
-  allowDiagramStudio: true,
-  allowArbitration: false,
-  allowClassrooms: false,
-  allowPriorityQueue: false,
-  mcqAccessLevel: "full",
-  maxEssayWords: 2000,
-  dailyEssayLimit: 0,
-};
 
 export function PricingAdminPanel() {
   const queryClient = useQueryClient();
@@ -501,17 +494,44 @@ export function PricingAdminPanel() {
             const isExpanded = Boolean(expandedRestrictions[tierKey]);
             const isCustomOrUnlisted = !["foundation", "scholar_plus", "pro", "mastery", "elite"].includes(tierKey);
 
-            // Count enabled features
+            // Segregated feature counts
             const restrictions = current.restrictions || DEFAULT_RESTRICTIONS;
-            const enabledCount = [
-              restrictions.allowHandwritingOcr,
-              restrictions.allowModelAnswers,
-              restrictions.allowDiagramStudio,
-              restrictions.allowArbitration,
-              restrictions.allowClassrooms,
-              restrictions.allowPriorityQueue,
-              current.hasExperimentalLabs,
-            ].filter(Boolean).length;
+
+            // 1. AI Evaluation Engine
+            const evalList = [
+              restrictions.allowSentenceAnalysis !== false,
+              Boolean(restrictions.allowEvaluativeEngine),
+              Boolean(restrictions.allowArbitration),
+              restrictions.allowDefinitionsDrills !== false,
+            ];
+            const evalActive = evalList.filter(Boolean).length;
+
+            // 2. Exam Revision Studio
+            const studioList = [
+              Boolean(restrictions.allowHandwritingOcr),
+              Boolean(restrictions.allowModelAnswers),
+              Boolean(restrictions.allowDiagramStudio),
+              restrictions.allowPdfExport !== false,
+            ];
+            const studioActive = studioList.filter(Boolean).length;
+
+            // 3. Live & Classrooms
+            const cohortList = [
+              restrictions.allowLiveExaminer !== false,
+              Boolean(restrictions.allowClassrooms),
+              Boolean(restrictions.allowDirectExaminerSupport),
+            ];
+            const cohortActive = cohortList.filter(Boolean).length;
+
+            // 4. Infrastructure & Speed
+            const infraList = [
+              Boolean(restrictions.allowPriorityQueue),
+              Boolean(current.hasExperimentalLabs),
+            ];
+            const infraActive = infraList.filter(Boolean).length;
+
+            const totalActive = evalActive + studioActive + cohortActive + infraActive;
+            const totalCount = evalList.length + studioList.length + cohortList.length + infraList.length;
 
             return (
               <div
@@ -739,6 +759,26 @@ export function PricingAdminPanel() {
                     </div>
                   </div>
 
+                  {/* Segregation Health Summary Strip */}
+                  <div className="grid grid-cols-2 gap-1.5 pt-0.5 text-[10px]">
+                    <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-blue-500/10 text-blue-700 dark:text-blue-300 font-medium">
+                      <Brain className="size-3 text-blue-500 shrink-0" />
+                      <span className="truncate">AI Eval: <strong>{evalActive}/4</strong></span>
+                    </div>
+                    <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-medium">
+                      <LineChart className="size-3 text-emerald-500 shrink-0" />
+                      <span className="truncate">Studio: <strong>{studioActive}/4</strong></span>
+                    </div>
+                    <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-purple-500/10 text-purple-700 dark:text-purple-300 font-medium">
+                      <School className="size-3 text-purple-500 shrink-0" />
+                      <span className="truncate">Cohorts: <strong>{cohortActive}/3</strong></span>
+                    </div>
+                    <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-amber-500/10 text-amber-700 dark:text-amber-300 font-medium">
+                      <Zap className="size-3 text-amber-500 shrink-0" />
+                      <span className="truncate">{restrictions.allowPriorityQueue ? "Turbo Flash" : "Standard Speed"}</span>
+                    </div>
+                  </div>
+
                   {/* Feature Restrictions Accordion Drawer */}
                   <div className="border border-border/70 rounded-xl overflow-hidden bg-background/50">
                     <button
@@ -753,11 +793,11 @@ export function PricingAdminPanel() {
                     >
                       <span className="flex items-center gap-1.5">
                         <SlidersHorizontal className="size-3 text-primary" />
-                        Feature Restrictions
+                        Feature Segregations &amp; Controls
                       </span>
                       <div className="flex items-center gap-1.5">
                         <Badge variant="secondary" className="text-[9px] h-4 px-1.5 font-mono">
-                          {enabledCount}/7 Features Active
+                          {totalActive}/{totalCount} Enabled
                         </Badge>
                         {isExpanded ? (
                           <ChevronUp className="size-3.5 text-muted-foreground" />
@@ -768,218 +808,455 @@ export function PricingAdminPanel() {
                     </button>
 
                     {isExpanded && (
-                      <div className="p-3 space-y-2.5 text-xs border-t border-border/70 bg-background/80">
-                        {/* Handwriting OCR */}
-                        <div className="flex items-center justify-between">
-                          <span className="text-[11px] text-foreground flex items-center gap-1.5">
-                            <Camera className="size-3 text-amber-500 shrink-0" />
-                            Handwriting OCR Scanning
-                          </span>
-                          <Switch
-                            checked={Boolean(restrictions.allowHandwritingOcr)}
-                            onCheckedChange={(val) =>
-                              setTierForms((prev) => ({
-                                ...prev,
-                                [tierKey]: {
-                                  ...current,
-                                  restrictions: { ...restrictions, allowHandwritingOcr: val },
-                                },
-                              }))
-                            }
-                          />
-                        </div>
+                      <div className="p-3 space-y-3 text-xs border-t border-border/70 bg-background/80">
+                        {/* ── 1. AI Marking & Diagnostic Engine ── */}
+                        <div className="rounded-xl border border-blue-500/25 bg-blue-500/[0.03] p-2.5 space-y-2">
+                          <div className="flex items-center justify-between border-b border-blue-500/15 pb-1">
+                            <span className="flex items-center gap-1.5 text-[11px] font-bold text-blue-700 dark:text-blue-300">
+                              <Brain className="size-3.5 text-blue-500" />
+                              AI Evaluation &amp; Diagnostics
+                            </span>
+                            <Badge className="text-[9px] bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30 px-1.5 py-0 h-4 font-mono">
+                              {evalActive}/4 Enabled
+                            </Badge>
+                          </div>
 
-                        {/* AI Model Answer Generator */}
-                        <div className="flex items-center justify-between">
-                          <span className="text-[11px] text-foreground flex items-center gap-1.5">
-                            <Bot className="size-3 text-indigo-500 shrink-0" />
-                            AI Model Answer Generator
-                          </span>
-                          <Switch
-                            checked={Boolean(restrictions.allowModelAnswers)}
-                            onCheckedChange={(val) =>
-                              setTierForms((prev) => ({
-                                ...prev,
-                                [tierKey]: {
-                                  ...current,
-                                  restrictions: { ...restrictions, allowModelAnswers: val },
-                                },
-                              }))
-                            }
-                          />
-                        </div>
-
-                        {/* Diagram Studio & Drills */}
-                        <div className="flex items-center justify-between">
-                          <span className="text-[11px] text-foreground flex items-center gap-1.5">
-                            <LineChart className="size-3 text-emerald-500 shrink-0" />
-                            Diagram Studio &amp; Drills
-                          </span>
-                          <Switch
-                            checked={Boolean(restrictions.allowDiagramStudio)}
-                            onCheckedChange={(val) =>
-                              setTierForms((prev) => ({
-                                ...prev,
-                                [tierKey]: {
-                                  ...current,
-                                  restrictions: { ...restrictions, allowDiagramStudio: val },
-                                },
-                              }))
-                            }
-                          />
-                        </div>
-
-                        {/* Dual-Examiner Arbitration */}
-                        <div className="flex items-center justify-between">
-                          <span className="text-[11px] text-foreground flex items-center gap-1.5">
-                            <Scale className="size-3 text-purple-500 shrink-0" />
-                            Dual-Examiner Arbitration
-                          </span>
-                          <Switch
-                            checked={Boolean(restrictions.allowArbitration)}
-                            onCheckedChange={(val) =>
-                              setTierForms((prev) => ({
-                                ...prev,
-                                [tierKey]: {
-                                  ...current,
-                                  restrictions: { ...restrictions, allowArbitration: val },
-                                },
-                              }))
-                            }
-                          />
-                        </div>
-
-                        {/* School Classrooms Access */}
-                        <div className="flex items-center justify-between">
-                          <span className="text-[11px] text-foreground flex items-center gap-1.5">
-                            <School className="size-3 text-rose-500 shrink-0" />
-                            School Classrooms Access
-                          </span>
-                          <Switch
-                            checked={Boolean(restrictions.allowClassrooms)}
-                            onCheckedChange={(val) =>
-                              setTierForms((prev) => ({
-                                ...prev,
-                                [tierKey]: {
-                                  ...current,
-                                  restrictions: { ...restrictions, allowClassrooms: val },
-                                },
-                              }))
-                            }
-                          />
-                        </div>
-
-                        {/* Priority High-Speed Queue */}
-                        <div className="flex items-center justify-between">
-                          <span className="text-[11px] text-foreground flex items-center gap-1.5">
-                            <Zap className="size-3 text-amber-400 shrink-0" />
-                            Priority High-Speed Queue
-                          </span>
-                          <Switch
-                            checked={Boolean(restrictions.allowPriorityQueue)}
-                            onCheckedChange={(val) =>
-                              setTierForms((prev) => ({
-                                ...prev,
-                                [tierKey]: {
-                                  ...current,
-                                  restrictions: { ...restrictions, allowPriorityQueue: val },
-                                },
-                              }))
-                            }
-                          />
-                        </div>
-
-                        {/* Beta Experimental Labs */}
-                        <div className="flex items-center justify-between">
-                          <span className="text-[11px] text-foreground flex items-center gap-1.5">
-                            <Sparkles className="size-3 text-indigo-400 shrink-0" />
-                            Beta Experimental Labs
-                          </span>
-                          <Switch
-                            checked={Boolean(current.hasExperimentalLabs)}
-                            onCheckedChange={(val) =>
-                              setTierForms((prev) => ({
-                                ...prev,
-                                [tierKey]: { ...current, hasExperimentalLabs: val },
-                              }))
-                            }
-                          />
-                        </div>
-
-                        {/* Max Essay Words & Daily Limit */}
-                        <div className="pt-2 border-t border-border/50 grid grid-cols-2 gap-2">
-                          <div className="space-y-1">
-                            <div className="flex items-center justify-between">
-                              <Label className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">
-                                Max Words
-                              </Label>
-                              <span className="text-[9px] text-muted-foreground font-mono">0=unlimited</span>
+                          {/* AO Sentence Diagnostics */}
+                          <div className="flex items-start justify-between gap-2 pt-0.5">
+                            <div className="space-y-0.5">
+                              <span className="text-[11px] font-semibold text-foreground flex items-center gap-1.5">
+                                <Bot className="size-3 text-blue-500 shrink-0" />
+                                AO Sentence Attribution
+                              </span>
+                              <p className="text-[10px] text-muted-foreground leading-tight">
+                                Sub-second AO1 knowledge, AO2 analysis &amp; AO3 causal chain diagnostics (&lt;50ms)
+                              </p>
                             </div>
-                            <Input
-                              type="number"
-                              value={restrictions.maxEssayWords ?? 2000}
-                              onChange={(e) =>
+                            <Switch
+                              checked={restrictions.allowSentenceAnalysis !== false}
+                              onCheckedChange={(val) =>
                                 setTierForms((prev) => ({
                                   ...prev,
                                   [tierKey]: {
                                     ...current,
-                                    restrictions: { ...restrictions, maxEssayWords: Number(e.target.value) },
+                                    restrictions: { ...restrictions, allowSentenceAnalysis: val },
                                   },
                                 }))
                               }
-                              className="h-7 text-xs font-mono"
                             />
                           </div>
-                          <div className="space-y-1">
-                            <div className="flex items-center justify-between">
-                              <Label className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">
-                                Daily Cap
-                              </Label>
-                              <span className="text-[9px] text-muted-foreground font-mono">0=unlimited</span>
+
+                          {/* Level 4/5 Evaluative Refinements */}
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="space-y-0.5">
+                              <span className="text-[11px] font-semibold text-foreground flex items-center gap-1.5">
+                                <Sparkles className="size-3 text-indigo-500 shrink-0" />
+                                Level 4/5 Evaluative Refinements
+                              </span>
+                              <p className="text-[10px] text-muted-foreground leading-tight">
+                                Synoptic weighting, counter-perspectives, and evaluative conclusion refinement
+                              </p>
                             </div>
-                            <Input
-                              type="number"
-                              value={restrictions.dailyEssayLimit ?? 0}
-                              onChange={(e) =>
+                            <Switch
+                              checked={Boolean(restrictions.allowEvaluativeEngine)}
+                              onCheckedChange={(val) =>
                                 setTierForms((prev) => ({
                                   ...prev,
                                   [tierKey]: {
                                     ...current,
-                                    restrictions: { ...restrictions, dailyEssayLimit: Number(e.target.value) },
+                                    restrictions: { ...restrictions, allowEvaluativeEngine: val },
                                   },
                                 }))
                               }
-                              className="h-7 text-xs font-mono"
+                            />
+                          </div>
+
+                          {/* Dual-Examiner Arbitration */}
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="space-y-0.5">
+                              <span className="text-[11px] font-semibold text-foreground flex items-center gap-1.5">
+                                <Scale className="size-3 text-purple-500 shrink-0" />
+                                Dual-Examiner Arbitration
+                              </span>
+                              <p className="text-[10px] text-muted-foreground leading-tight">
+                                Cross-model principal consensus grading to resolve borderline marks
+                              </p>
+                            </div>
+                            <Switch
+                              checked={Boolean(restrictions.allowArbitration)}
+                              onCheckedChange={(val) =>
+                                setTierForms((prev) => ({
+                                  ...prev,
+                                  [tierKey]: {
+                                    ...current,
+                                    restrictions: { ...restrictions, allowArbitration: val },
+                                  },
+                                }))
+                              }
+                            />
+                          </div>
+
+                          {/* Definitions Hub & Drills */}
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="space-y-0.5">
+                              <span className="text-[11px] font-semibold text-foreground flex items-center gap-1.5">
+                                <BookOpen className="size-3 text-blue-500 shrink-0" />
+                                Cambridge Definitions Hub &amp; Drills
+                              </span>
+                              <p className="text-[10px] text-muted-foreground leading-tight">
+                                Syllabus 9708 glossary, command word drills, and memory flashcards
+                              </p>
+                            </div>
+                            <Switch
+                              checked={restrictions.allowDefinitionsDrills !== false}
+                              onCheckedChange={(val) =>
+                                setTierForms((prev) => ({
+                                  ...prev,
+                                  [tierKey]: {
+                                    ...current,
+                                    restrictions: { ...restrictions, allowDefinitionsDrills: val },
+                                  },
+                                }))
+                              }
                             />
                           </div>
                         </div>
 
-                        {/* MCQ Access Policy */}
-                        <div className="pt-1.5 border-t border-border/50 space-y-1">
-                          <Label className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">
-                            MCQ Access Policy
-                          </Label>
-                          <Select
-                            value={restrictions.mcqAccessLevel || "full"}
-                            onValueChange={(val: any) =>
-                              setTierForms((prev) => ({
-                                ...prev,
-                                [tierKey]: {
-                                  ...current,
-                                  restrictions: { ...restrictions, mcqAccessLevel: val },
-                                },
-                              }))
-                            }
-                          >
-                            <SelectTrigger className="h-7 text-xs">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="full">Full Past Papers + Topic Drills</SelectItem>
-                              <SelectItem value="topics_only">Topic Practice Only</SelectItem>
-                              <SelectItem value="locked">Locked (Paid Upgrade Only)</SelectItem>
-                            </SelectContent>
-                          </Select>
+                        {/* ── 2. Exam Revision & Generation Studio ── */}
+                        <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/[0.03] p-2.5 space-y-2">
+                          <div className="flex items-center justify-between border-b border-emerald-500/15 pb-1">
+                            <span className="flex items-center gap-1.5 text-[11px] font-bold text-emerald-700 dark:text-emerald-300">
+                              <LineChart className="size-3.5 text-emerald-500" />
+                              Exam Revision &amp; Generation Studio
+                            </span>
+                            <Badge className="text-[9px] bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 px-1.5 py-0 h-4 font-mono">
+                              {studioActive}/4 Enabled
+                            </Badge>
+                          </div>
+
+                          {/* Handwriting OCR */}
+                          <div className="flex items-start justify-between gap-2 pt-0.5">
+                            <div className="space-y-0.5">
+                              <span className="text-[11px] font-semibold text-foreground flex items-center gap-1.5">
+                                <Camera className="size-3 text-amber-500 shrink-0" />
+                                Handwriting OCR Photo Scanning
+                              </span>
+                              <p className="text-[10px] text-muted-foreground leading-tight">
+                                Direct mobile photo or PDF scan transcription of handwritten essays
+                              </p>
+                            </div>
+                            <Switch
+                              checked={Boolean(restrictions.allowHandwritingOcr)}
+                              onCheckedChange={(val) =>
+                                setTierForms((prev) => ({
+                                  ...prev,
+                                  [tierKey]: {
+                                    ...current,
+                                    restrictions: { ...restrictions, allowHandwritingOcr: val },
+                                  },
+                                }))
+                              }
+                            />
+                          </div>
+
+                          {/* AI Model Answer Generator */}
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="space-y-0.5">
+                              <span className="text-[11px] font-semibold text-foreground flex items-center gap-1.5">
+                                <Bot className="size-3 text-indigo-500 shrink-0" />
+                                AI Perfect Model Answer Generator
+                              </span>
+                              <p className="text-[10px] text-muted-foreground leading-tight">
+                                Full 20/20 &amp; Level 5 exemplar responses strictly matching Cambridge rubrics
+                              </p>
+                            </div>
+                            <Switch
+                              checked={Boolean(restrictions.allowModelAnswers)}
+                              onCheckedChange={(val) =>
+                                setTierForms((prev) => ({
+                                  ...prev,
+                                  [tierKey]: {
+                                    ...current,
+                                    restrictions: { ...restrictions, allowModelAnswers: val },
+                                  },
+                                }))
+                              }
+                            />
+                          </div>
+
+                          {/* Diagram Studio & Drills */}
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="space-y-0.5">
+                              <span className="text-[11px] font-semibold text-foreground flex items-center gap-1.5">
+                                <LineChart className="size-3 text-emerald-500 shrink-0" />
+                                Interactive Diagram Studio &amp; Drills
+                              </span>
+                              <p className="text-[10px] text-muted-foreground leading-tight">
+                                50+ Cambridge micro/macro economics graphs with shift sliders &amp; drills
+                              </p>
+                            </div>
+                            <Switch
+                              checked={Boolean(restrictions.allowDiagramStudio)}
+                              onCheckedChange={(val) =>
+                                setTierForms((prev) => ({
+                                  ...prev,
+                                  [tierKey]: {
+                                    ...current,
+                                    restrictions: { ...restrictions, allowDiagramStudio: val },
+                                  },
+                                }))
+                              }
+                            />
+                          </div>
+
+                          {/* Diagnostic PDF Export */}
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="space-y-0.5">
+                              <span className="text-[11px] font-semibold text-foreground flex items-center gap-1.5">
+                                <FileDown className="size-3 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                                Diagnostic PDF Report Export
+                              </span>
+                              <p className="text-[10px] text-muted-foreground leading-tight">
+                                Export official Cambridge examiner diagnostic reports with mark breakdowns
+                              </p>
+                            </div>
+                            <Switch
+                              checked={restrictions.allowPdfExport !== false}
+                              onCheckedChange={(val) =>
+                                setTierForms((prev) => ({
+                                  ...prev,
+                                  [tierKey]: {
+                                    ...current,
+                                    restrictions: { ...restrictions, allowPdfExport: val },
+                                  },
+                                }))
+                              }
+                            />
+                          </div>
+                        </div>
+
+                        {/* ── 3. Live Examiner Coaching & Classrooms ── */}
+                        <div className="rounded-xl border border-purple-500/25 bg-purple-500/[0.03] p-2.5 space-y-2">
+                          <div className="flex items-center justify-between border-b border-purple-500/15 pb-1">
+                            <span className="flex items-center gap-1.5 text-[11px] font-bold text-purple-700 dark:text-purple-300">
+                              <School className="size-3.5 text-purple-500" />
+                              Live Examiner &amp; Classroom Cohorts
+                            </span>
+                            <Badge className="text-[9px] bg-purple-500/15 text-purple-700 dark:text-purple-300 border-purple-500/30 px-1.5 py-0 h-4 font-mono">
+                              {cohortActive}/3 Enabled
+                            </Badge>
+                          </div>
+
+                          {/* Live Examiner Voice Coaching */}
+                          <div className="flex items-start justify-between gap-2 pt-0.5">
+                            <div className="space-y-0.5">
+                              <span className="text-[11px] font-semibold text-foreground flex items-center gap-1.5">
+                                <Mic className="size-3 text-purple-500 shrink-0" />
+                                Real-Time Live Examiner Voice &amp; AI
+                              </span>
+                              <p className="text-[10px] text-muted-foreground leading-tight">
+                                Interactive AI examiner audio guidance and timed exam practice sessions
+                              </p>
+                            </div>
+                            <Switch
+                              checked={restrictions.allowLiveExaminer !== false}
+                              onCheckedChange={(val) =>
+                                setTierForms((prev) => ({
+                                  ...prev,
+                                  [tierKey]: {
+                                    ...current,
+                                    restrictions: { ...restrictions, allowLiveExaminer: val },
+                                  },
+                                }))
+                              }
+                            />
+                          </div>
+
+                          {/* School Classrooms Access */}
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="space-y-0.5">
+                              <span className="text-[11px] font-semibold text-foreground flex items-center gap-1.5">
+                                <School className="size-3 text-rose-500 shrink-0" />
+                                School Classrooms Access
+                              </span>
+                              <p className="text-[10px] text-muted-foreground leading-tight">
+                                Teacher cohort assignments, homework grading sync, and class markbooks
+                              </p>
+                            </div>
+                            <Switch
+                              checked={Boolean(restrictions.allowClassrooms)}
+                              onCheckedChange={(val) =>
+                                setTierForms((prev) => ({
+                                  ...prev,
+                                  [tierKey]: {
+                                    ...current,
+                                    restrictions: { ...restrictions, allowClassrooms: val },
+                                  },
+                                }))
+                              }
+                            />
+                          </div>
+
+                          {/* Senior Examiner Support Desk */}
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="space-y-0.5">
+                              <span className="text-[11px] font-semibold text-foreground flex items-center gap-1.5">
+                                <CheckCircle2 className="size-3 text-indigo-500 shrink-0" />
+                                Senior Examiner Support Desk
+                              </span>
+                              <p className="text-[10px] text-muted-foreground leading-tight">
+                                Priority 1-on-1 pedagogical review desk for disputed marks and re-evaluations
+                              </p>
+                            </div>
+                            <Switch
+                              checked={Boolean(restrictions.allowDirectExaminerSupport)}
+                              onCheckedChange={(val) =>
+                                setTierForms((prev) => ({
+                                  ...prev,
+                                  [tierKey]: {
+                                    ...current,
+                                    restrictions: { ...restrictions, allowDirectExaminerSupport: val },
+                                  },
+                                }))
+                              }
+                            />
+                          </div>
+                        </div>
+
+                        {/* ── 4. Quotas, Speed & Infrastructure ── */}
+                        <div className="rounded-xl border border-amber-500/25 bg-amber-500/[0.03] p-2.5 space-y-2">
+                          <div className="flex items-center justify-between border-b border-amber-500/15 pb-1">
+                            <span className="flex items-center gap-1.5 text-[11px] font-bold text-amber-700 dark:text-amber-300">
+                              <Zap className="size-3.5 text-amber-500" />
+                              Quotas, Speed &amp; Infrastructure
+                            </span>
+                            <Badge className="text-[9px] bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30 px-1.5 py-0 h-4 font-mono">
+                              {restrictions.allowPriorityQueue ? "Turbo Flash" : "Standard Speed"}
+                            </Badge>
+                          </div>
+
+                          {/* Priority Queue */}
+                          <div className="flex items-start justify-between gap-2 pt-0.5">
+                            <div className="space-y-0.5">
+                              <span className="text-[11px] font-semibold text-foreground flex items-center gap-1.5">
+                                <Zap className="size-3 text-amber-400 shrink-0" />
+                                Priority High-Speed Queue
+                              </span>
+                              <p className="text-[10px] text-muted-foreground leading-tight">
+                                Sub-second dedicated Flash cluster processing bypass
+                              </p>
+                            </div>
+                            <Switch
+                              checked={Boolean(restrictions.allowPriorityQueue)}
+                              onCheckedChange={(val) =>
+                                setTierForms((prev) => ({
+                                  ...prev,
+                                  [tierKey]: {
+                                    ...current,
+                                    restrictions: { ...restrictions, allowPriorityQueue: val },
+                                  },
+                                }))
+                              }
+                            />
+                          </div>
+
+                          {/* Beta Experimental Labs */}
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="space-y-0.5">
+                              <span className="text-[11px] font-semibold text-foreground flex items-center gap-1.5">
+                                <Sparkles className="size-3 text-indigo-400 shrink-0" />
+                                Beta Experimental Labs
+                              </span>
+                              <p className="text-[10px] text-muted-foreground leading-tight">
+                                Preview unreleased Cambridge revision modules and next-gen AI features
+                              </p>
+                            </div>
+                            <Switch
+                              checked={Boolean(current.hasExperimentalLabs)}
+                              onCheckedChange={(val) =>
+                                setTierForms((prev) => ({
+                                  ...prev,
+                                  [tierKey]: { ...current, hasExperimentalLabs: val },
+                                }))
+                              }
+                            />
+                          </div>
+
+                          {/* Max Essay Words & Daily Limit */}
+                          <div className="pt-2 border-t border-border/50 grid grid-cols-2 gap-2">
+                            <div className="space-y-1">
+                              <div className="flex items-center justify-between">
+                                <Label className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">
+                                  Max Words
+                                </Label>
+                                <span className="text-[9px] text-muted-foreground font-mono">0=unlimited</span>
+                              </div>
+                              <Input
+                                type="number"
+                                value={restrictions.maxEssayWords ?? 2000}
+                                onChange={(e) =>
+                                  setTierForms((prev) => ({
+                                    ...prev,
+                                    [tierKey]: {
+                                      ...current,
+                                      restrictions: { ...restrictions, maxEssayWords: Number(e.target.value) },
+                                    },
+                                  }))
+                                }
+                                className="h-7 text-xs font-mono"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <div className="flex items-center justify-between">
+                                <Label className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">
+                                  Daily Cap
+                                </Label>
+                                <span className="text-[9px] text-muted-foreground font-mono">0=unlimited</span>
+                              </div>
+                              <Input
+                                type="number"
+                                value={restrictions.dailyEssayLimit ?? 0}
+                                onChange={(e) =>
+                                  setTierForms((prev) => ({
+                                    ...prev,
+                                    [tierKey]: {
+                                      ...current,
+                                      restrictions: { ...restrictions, dailyEssayLimit: Number(e.target.value) },
+                                    },
+                                  }))
+                                }
+                                className="h-7 text-xs font-mono"
+                              />
+                            </div>
+                          </div>
+
+                          {/* MCQ Access Policy */}
+                          <div className="pt-1.5 border-t border-border/50 space-y-1">
+                            <Label className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">
+                              MCQ Past Paper Policy
+                            </Label>
+                            <Select
+                              value={restrictions.mcqAccessLevel || "full"}
+                              onValueChange={(val: any) =>
+                                setTierForms((prev) => ({
+                                  ...prev,
+                                  [tierKey]: {
+                                    ...current,
+                                    restrictions: { ...restrictions, mcqAccessLevel: val },
+                                  },
+                                }))
+                              }
+                            >
+                              <SelectTrigger className="h-7 text-xs">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="full">Full Past Papers + Timers + Topic Drills</SelectItem>
+                                <SelectItem value="topics_only">Topic Drills Only (No Past Exam Timers)</SelectItem>
+                                <SelectItem value="locked">Locked (Paid Upgrade Required)</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
                         </div>
                       </div>
                     )}

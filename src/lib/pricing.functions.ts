@@ -99,11 +99,24 @@ const TierUpdateSchema = z.object({
   badge: z.string().optional(),
   restrictions: z
     .object({
+      // 1. AI Evaluation Engine
+      allowSentenceAnalysis: z.boolean().optional(),
+      allowEvaluativeEngine: z.boolean().optional(),
+      allowArbitration: z.boolean().optional(),
+      allowDefinitionsDrills: z.boolean().optional(),
+
+      // 2. Exam Revision Studio
       allowHandwritingOcr: z.boolean().optional(),
       allowModelAnswers: z.boolean().optional(),
       allowDiagramStudio: z.boolean().optional(),
-      allowArbitration: z.boolean().optional(),
+      allowPdfExport: z.boolean().optional(),
+
+      // 3. Live Examiner Coaching & Classrooms
+      allowLiveExaminer: z.boolean().optional(),
       allowClassrooms: z.boolean().optional(),
+      allowDirectExaminerSupport: z.boolean().optional(),
+
+      // 4. Quotas & Infrastructure
       allowPriorityQueue: z.boolean().optional(),
       mcqAccessLevel: z.enum(["full", "topics_only", "locked"]).optional(),
       maxEssayWords: z.number().optional(),

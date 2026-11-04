@@ -3,6 +3,7 @@ import { ArrowRight, BookOpen, CheckCircle2, GraduationCap, ShieldCheck, Sparkle
 import { useEffect, useState } from "react";
 
 import { AiComparisonSection } from "@/components/marketing/ai-comparison-section";
+import { PricingSection } from "@/components/marketing/pricing-section";
 import { SiteFooter } from "@/components/marketing/footer";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -207,6 +208,9 @@ function PricingPage() {
             </CardContent>
           </Card>
         </section>
+
+        {/* ── Dynamic Platform Pricing & Segregated Specifications ── */}
+        <PricingSection />
 
         <AiComparisonSection />
       </main>

@@ -4,13 +4,26 @@
  */
 
 export interface PlanRestrictions {
-  allowHandwritingOcr: boolean;
-  allowModelAnswers: boolean;
-  allowDiagramStudio: boolean;
-  allowArbitration: boolean;
-  allowClassrooms: boolean;
-  allowPriorityQueue: boolean;
-  mcqAccessLevel: "full" | "topics_only" | "locked";
+  // ── Segregation 1: AI Evaluation & Diagnostic Engine ──
+  allowSentenceAnalysis?: boolean; // Sub-second AO1/AO2/AO3 sentence diagnostics & causal chains
+  allowEvaluativeEngine?: boolean; // Level 4 & 5 Evaluative Refinement Engine (synoptic balance)
+  allowArbitration: boolean; // Dual-Examiner Principal Consensus Arbitration
+  allowDefinitionsDrills?: boolean; // Cambridge Definitions Hub & Vocabulary flashcard drills
+
+  // ── Segregation 2: Exam Revision & Generation Studio ──
+  allowHandwritingOcr: boolean; // Handwritten Essay OCR Photo Scanning (Camera/Upload)
+  allowModelAnswers: boolean; // Perfect Model Answer Generator (20/20 Exemplars)
+  allowDiagramStudio: boolean; // Interactive Cambridge Diagram Studio & Drills
+  allowPdfExport?: boolean; // Downloadable Official Diagnostic PDF Reports
+
+  // ── Segregation 3: Live Examiner Coaching & Classrooms ──
+  allowLiveExaminer?: boolean; // Real-Time Live Examiner Voice & Timed Coaching Sessions
+  allowClassrooms: boolean; // School Classrooms & Teacher Assignment Integration
+  allowDirectExaminerSupport?: boolean; // Priority 1-on-1 pedagogical review desk
+
+  // ── Segregation 4: Quotas, Speed & Infrastructure ──
+  allowPriorityQueue: boolean; // Dedicated High-Speed Flash Acceleration Queue
+  mcqAccessLevel: "full" | "topics_only" | "locked"; // Past Paper MCQ Exam Access Policy
   maxEssayWords: number; // 0 = unlimited
   dailyEssayLimit?: number; // 0 = unlimited
 }
@@ -34,6 +47,31 @@ export interface PricingTierConfig {
 
 export type PlatformPricingPlans = Record<string, PricingTierConfig>;
 
+export const DEFAULT_RESTRICTIONS: PlanRestrictions = {
+  // ── Segregation 1: AI Evaluation Engine ──
+  allowSentenceAnalysis: true,
+  allowEvaluativeEngine: false,
+  allowArbitration: false,
+  allowDefinitionsDrills: true,
+
+  // ── Segregation 2: Revision Studio ──
+  allowHandwritingOcr: false,
+  allowModelAnswers: false,
+  allowDiagramStudio: true,
+  allowPdfExport: true,
+
+  // ── Segregation 3: Live Coaching & Classrooms ──
+  allowLiveExaminer: true,
+  allowClassrooms: false,
+  allowDirectExaminerSupport: false,
+
+  // ── Segregation 4: Quotas & Infrastructure ──
+  allowPriorityQueue: false,
+  mcqAccessLevel: "full",
+  maxEssayWords: 2000,
+  dailyEssayLimit: 0,
+};
+
 export const DEFAULT_PRICING_PLANS: PlatformPricingPlans = {
   foundation: {
     id: "foundation",
@@ -49,11 +87,17 @@ export const DEFAULT_PRICING_PLANS: PlatformPricingPlans = {
     isPublic: true,
     badge: "Most Accessible",
     restrictions: {
+      allowSentenceAnalysis: true,
+      allowEvaluativeEngine: false,
+      allowArbitration: false,
+      allowDefinitionsDrills: true,
       allowHandwritingOcr: false,
       allowModelAnswers: false,
       allowDiagramStudio: true,
-      allowArbitration: false,
+      allowPdfExport: false,
+      allowLiveExaminer: true,
       allowClassrooms: false,
+      allowDirectExaminerSupport: false,
       allowPriorityQueue: false,
       mcqAccessLevel: "full",
       maxEssayWords: 1500,
@@ -82,11 +126,17 @@ export const DEFAULT_PRICING_PLANS: PlatformPricingPlans = {
     isPublic: true,
     badge: "Great Value",
     restrictions: {
+      allowSentenceAnalysis: true,
+      allowEvaluativeEngine: false,
+      allowArbitration: false,
+      allowDefinitionsDrills: true,
       allowHandwritingOcr: false,
       allowModelAnswers: false,
       allowDiagramStudio: true,
-      allowArbitration: false,
+      allowPdfExport: true,
+      allowLiveExaminer: true,
       allowClassrooms: true,
+      allowDirectExaminerSupport: false,
       allowPriorityQueue: false,
       mcqAccessLevel: "full",
       maxEssayWords: 2000,
@@ -116,11 +166,17 @@ export const DEFAULT_PRICING_PLANS: PlatformPricingPlans = {
     isPublic: true,
     badge: "Most Popular",
     restrictions: {
+      allowSentenceAnalysis: true,
+      allowEvaluativeEngine: false,
+      allowArbitration: true,
+      allowDefinitionsDrills: true,
       allowHandwritingOcr: false,
       allowModelAnswers: true,
       allowDiagramStudio: true,
-      allowArbitration: true,
+      allowPdfExport: true,
+      allowLiveExaminer: true,
       allowClassrooms: true,
+      allowDirectExaminerSupport: false,
       allowPriorityQueue: false,
       mcqAccessLevel: "full",
       maxEssayWords: 3000,
@@ -151,11 +207,17 @@ export const DEFAULT_PRICING_PLANS: PlatformPricingPlans = {
     isPublic: true,
     badge: "A* Target Cohort",
     restrictions: {
+      allowSentenceAnalysis: true,
+      allowEvaluativeEngine: true,
+      allowArbitration: true,
+      allowDefinitionsDrills: true,
       allowHandwritingOcr: true,
       allowModelAnswers: true,
       allowDiagramStudio: true,
-      allowArbitration: true,
+      allowPdfExport: true,
+      allowLiveExaminer: true,
       allowClassrooms: true,
+      allowDirectExaminerSupport: true,
       allowPriorityQueue: true,
       mcqAccessLevel: "full",
       maxEssayWords: 4000,
@@ -186,11 +248,17 @@ export const DEFAULT_PRICING_PLANS: PlatformPricingPlans = {
     isPublic: true,
     badge: "VIP All-Access Pass",
     restrictions: {
+      allowSentenceAnalysis: true,
+      allowEvaluativeEngine: true,
+      allowArbitration: true,
+      allowDefinitionsDrills: true,
       allowHandwritingOcr: true,
       allowModelAnswers: true,
       allowDiagramStudio: true,
-      allowArbitration: true,
+      allowPdfExport: true,
+      allowLiveExaminer: true,
       allowClassrooms: true,
+      allowDirectExaminerSupport: true,
       allowPriorityQueue: true,
       mcqAccessLevel: "full",
       maxEssayWords: 0,
@@ -223,11 +291,17 @@ export const DEFAULT_PRICING_PLANS: PlatformPricingPlans = {
     isPublic: true, // 🌐 Public by default
     badge: "30-Day Exam Sprint",
     restrictions: {
+      allowSentenceAnalysis: true,
+      allowEvaluativeEngine: true,
+      allowArbitration: false,
+      allowDefinitionsDrills: true,
       allowHandwritingOcr: true,
       allowModelAnswers: true,
       allowDiagramStudio: true,
-      allowArbitration: false,
+      allowPdfExport: true,
+      allowLiveExaminer: true,
       allowClassrooms: false,
+      allowDirectExaminerSupport: false,
       allowPriorityQueue: false,
       mcqAccessLevel: "full",
       maxEssayWords: 2500,
@@ -257,11 +331,17 @@ export const DEFAULT_PRICING_PLANS: PlatformPricingPlans = {
     isPublic: true, // 🌐 Public by default
     badge: "School Partner",
     restrictions: {
+      allowSentenceAnalysis: true,
+      allowEvaluativeEngine: true,
+      allowArbitration: true,
+      allowDefinitionsDrills: true,
       allowHandwritingOcr: true,
       allowModelAnswers: true,
       allowDiagramStudio: true,
-      allowArbitration: true,
+      allowPdfExport: true,
+      allowLiveExaminer: true,
       allowClassrooms: true,
+      allowDirectExaminerSupport: true,
       allowPriorityQueue: true,
       mcqAccessLevel: "full",
       maxEssayWords: 4500,
