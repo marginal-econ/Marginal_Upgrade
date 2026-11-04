@@ -945,6 +945,10 @@ const SaveSessionInput = z.object({
   maxMark: z.number().int().positive().max(30),
   essayText: z.string().max(40_000),
   issuesHistory: z.array(z.record(z.string(), z.unknown())).max(1000).default([]),
+  sentenceCache: z.record(z.string(), z.unknown()).default({}),
+  scoreHistory: z.array(z.record(z.string(), z.unknown())).default([]),
+  docVersion: z.number().int().default(0),
+  schemaVersion: z.number().int().default(2),
   /** The attached diagrams' [DIAGRAM: ...] tags, joined together if there's
    *  more than one, so they survive a reload/resume exactly like the essay
    *  text does. Sized for several diagrams, not just one. */
@@ -968,6 +972,10 @@ export const saveLiveExaminerSession = createServerFn({ method: "POST" })
           max_mark: data.maxMark,
           essay_text: data.essayText,
           issues_history: data.issuesHistory as Json,
+          sentence_cache: data.sentenceCache as Json,
+          score_history: data.scoreHistory as Json,
+          doc_version: data.docVersion,
+          schema_version: data.schemaVersion,
           diagram_tag: data.diagramTag ?? null,
         },
         { onConflict: "user_id,question" },
@@ -993,7 +1001,7 @@ export const getLiveExaminerSession = createServerFn({ method: "POST" })
         context.supabase
           .from("live_examiner_sessions")
           .select(
-            "id, level, topic, question, max_mark, essay_text, issues_history, diagram_tag, updated_at",
+            "id, level, topic, question, max_mark, essay_text, issues_history, sentence_cache, score_history, doc_version, schema_version, diagram_tag, updated_at",
           )
           .eq("user_id", context.userId)
           .eq("question", data.question)
@@ -1002,7 +1010,14 @@ export const getLiveExaminerSession = createServerFn({ method: "POST" })
           setTimeout(() => resolve({ data: null, error: null }), 3000),
         ),
       ]);
-      return { session: result.data ?? null };
+      const session = result.data ? {
+        ...result.data,
+        sentence_cache: (result.data as any).sentence_cache ?? {},
+        score_history: (result.data as any).score_history ?? [],
+        doc_version: (result.data as any).doc_version ?? 0,
+        schema_version: (result.data as any).schema_version ?? 1,
+      } : null;
+      return { session };
     } catch {
       return { session: null };
     }

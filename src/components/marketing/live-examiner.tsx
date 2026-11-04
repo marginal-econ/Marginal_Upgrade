@@ -41,23 +41,23 @@ const AO_META: Record<Ao, { label: string; code: string; dot: string; badge: str
   ao1: {
     label: "Knowledge & Understanding",
     code: "AO1",
-    dot: "bg-blue-500",
-    badge: "border-blue-500/40 bg-blue-500/15 text-blue-600 dark:text-blue-400",
-    card: "border-blue-500/30 bg-blue-500/5",
+    dot: "bg-[var(--ao1)]",
+    badge: "border-[var(--ao1)]/40 bg-[var(--ao1)]/15 text-[var(--ao1)]",
+    card: "border-[var(--ao1)]/30 bg-[var(--ao1)]/5",
   },
   ao2: {
     label: "Analysis & Causal Chains",
     code: "AO2",
-    dot: "bg-emerald-500",
-    badge: "border-emerald-500/40 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
-    card: "border-emerald-500/30 bg-emerald-500/5",
+    dot: "bg-[var(--ao2)]",
+    badge: "border-[var(--ao2)]/40 bg-[var(--ao2)]/15 text-[var(--ao2)]",
+    card: "border-[var(--ao2)]/30 bg-[var(--ao2)]/5",
   },
   ao3: {
     label: "Evaluation & Judgement",
     code: "AO3",
-    dot: "bg-amber-500",
-    badge: "border-amber-500/45 bg-amber-500/20 text-amber-700 dark:text-amber-400",
-    card: "border-amber-500/35 bg-amber-500/10",
+    dot: "bg-[var(--ao3)]",
+    badge: "border-[var(--ao3)]/45 bg-[var(--ao3)]/20 text-[var(--ao3)]",
+    card: "border-[var(--ao3)]/35 bg-[var(--ao3)]/10",
   },
 };
 
