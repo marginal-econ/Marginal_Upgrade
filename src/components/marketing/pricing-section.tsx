@@ -379,69 +379,21 @@ export function PricingSection({ className }: { className?: string }) {
 
   const activePlans = pricingQuery.data?.plans ?? DEFAULT_PRICING_PLANS;
 
-  const dynamicStudentTiers: StudentTier[] = [
-    {
-      id: "foundation",
-      name: activePlans.foundation.name,
-      tagline: activePlans.foundation.tagline,
-      monthlyPrice: activePlans.foundation.monthlyPrice,
-      annualPrice: activePlans.foundation.annualPrice,
-      annualEquivalentMonthly: activePlans.foundation.annualEquivalentMonthly,
-      savePct: activePlans.foundation.savePct,
-      quota: `${activePlans.foundation.essaysPerMonth} Graded Essays / mo · ${activePlans.foundation.liveCredits} Live Credits`,
-      badge: "Most Accessible",
-      features: activePlans.foundation.features,
-    },
-    {
-      id: "scholar_plus",
-      name: activePlans.scholar_plus.name,
-      tagline: activePlans.scholar_plus.tagline,
-      monthlyPrice: activePlans.scholar_plus.monthlyPrice,
-      annualPrice: activePlans.scholar_plus.annualPrice,
-      annualEquivalentMonthly: activePlans.scholar_plus.annualEquivalentMonthly,
-      savePct: activePlans.scholar_plus.savePct,
-      quota: `${activePlans.scholar_plus.essaysPerMonth} Graded Essays / mo · ${activePlans.scholar_plus.liveCredits} Live Credits`,
-      badge: "Great Value",
-      features: activePlans.scholar_plus.features,
-    },
-    {
-      id: "pro",
-      name: activePlans.pro.name,
-      tagline: activePlans.pro.tagline,
-      monthlyPrice: activePlans.pro.monthlyPrice,
-      annualPrice: activePlans.pro.annualPrice,
-      annualEquivalentMonthly: activePlans.pro.annualEquivalentMonthly,
-      savePct: activePlans.pro.savePct,
-      quota: `${activePlans.pro.essaysPerMonth} Graded Essays / mo · ${activePlans.pro.liveCredits} Live Credits`,
-      badge: "Most Popular",
-      popular: true,
-      features: activePlans.pro.features,
-    },
-    {
-      id: "mastery",
-      name: activePlans.mastery.name,
-      tagline: activePlans.mastery.tagline,
-      monthlyPrice: activePlans.mastery.monthlyPrice,
-      annualPrice: activePlans.mastery.annualPrice,
-      annualEquivalentMonthly: activePlans.mastery.annualEquivalentMonthly,
-      savePct: activePlans.mastery.savePct,
-      quota: `${activePlans.mastery.essaysPerMonth} Graded Essays / mo · ${activePlans.mastery.liveCredits} Live Credits`,
-      badge: "A* Target Cohort",
-      features: activePlans.mastery.features,
-    },
-    {
-      id: "elite",
-      name: activePlans.elite.name,
-      tagline: activePlans.elite.tagline,
-      monthlyPrice: activePlans.elite.monthlyPrice,
-      annualPrice: activePlans.elite.annualPrice,
-      annualEquivalentMonthly: activePlans.elite.annualEquivalentMonthly,
-      savePct: activePlans.elite.savePct,
-      quota: `${activePlans.elite.essaysPerMonth} Graded Essays / mo · ${activePlans.elite.liveCredits} Live Credits`,
-      badge: "VIP All-Access Pass",
-      features: activePlans.elite.features,
-    },
-  ];
+  const dynamicStudentTiers: StudentTier[] = Object.entries(activePlans)
+    .filter(([_, plan]) => plan.isPublic !== false)
+    .map(([id, plan]) => ({
+      id,
+      name: plan.name,
+      tagline: plan.tagline,
+      monthlyPrice: plan.monthlyPrice,
+      annualPrice: plan.annualPrice,
+      annualEquivalentMonthly: plan.annualEquivalentMonthly,
+      savePct: plan.savePct,
+      quota: `${plan.essaysPerMonth} Graded Essays / mo · ${plan.liveCredits} Live Credits`,
+      badge: plan.badge || (id === "pro" ? "Most Popular" : id === "foundation" ? "Most Accessible" : id === "scholar_plus" ? "Great Value" : id === "mastery" ? "A* Target Cohort" : id === "elite" ? "VIP All-Access Pass" : undefined),
+      popular: id === "pro",
+      features: plan.features,
+    }));
 
   return (
     <section

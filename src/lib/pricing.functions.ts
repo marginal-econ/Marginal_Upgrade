@@ -23,15 +23,26 @@ export const getPlatformPricing = createServerFn({ method: "GET" }).handler(asyn
 
     if (defRow?.definition_text) {
       const customPlans = JSON.parse(defRow.definition_text);
-      return {
-        plans: {
-          foundation: { ...DEFAULT_PRICING_PLANS.foundation, ...customPlans.foundation },
-          pro: { ...DEFAULT_PRICING_PLANS.pro, ...customPlans.pro },
-          mastery: { ...DEFAULT_PRICING_PLANS.mastery, ...customPlans.mastery },
-          elite: { ...DEFAULT_PRICING_PLANS.elite, ...customPlans.elite },
-        } as PlatformPricingPlans,
-        isCustom: true,
-      };
+      if (customPlans && typeof customPlans === "object") {
+        const merged: PlatformPricingPlans = { ...DEFAULT_PRICING_PLANS };
+        for (const [key, val] of Object.entries(customPlans)) {
+          if (val && typeof val === "object") {
+            const base = (DEFAULT_PRICING_PLANS as any)[key] || {};
+            merged[key] = {
+              ...base,
+              ...(val as any),
+              restrictions: {
+                ...(base.restrictions || {}),
+                ...((val as any).restrictions || {}),
+              },
+            };
+          }
+        }
+        return {
+          plans: merged,
+          isCustom: true,
+        };
+      }
     }
   } catch (err) {
     console.warn("Exception reading custom pricing from definitions:", err);
@@ -47,16 +58,26 @@ export const getPlatformPricing = createServerFn({ method: "GET" }).handler(asyn
 
     if (data?.value && typeof data.value === "object" && "pricing_plans" in data.value) {
       const customPlans = (data.value as any).pricing_plans;
-      return {
-        plans: {
-          foundation: { ...DEFAULT_PRICING_PLANS.foundation, ...customPlans.foundation },
-          scholar_plus: { ...DEFAULT_PRICING_PLANS.scholar_plus, ...customPlans.scholar_plus },
-          pro: { ...DEFAULT_PRICING_PLANS.pro, ...customPlans.pro },
-          mastery: { ...DEFAULT_PRICING_PLANS.mastery, ...customPlans.mastery },
-          elite: { ...DEFAULT_PRICING_PLANS.elite, ...customPlans.elite },
-        } as PlatformPricingPlans,
-        isCustom: true,
-      };
+      if (customPlans && typeof customPlans === "object") {
+        const merged: PlatformPricingPlans = { ...DEFAULT_PRICING_PLANS };
+        for (const [key, val] of Object.entries(customPlans)) {
+          if (val && typeof val === "object") {
+            const base = (DEFAULT_PRICING_PLANS as any)[key] || {};
+            merged[key] = {
+              ...base,
+              ...(val as any),
+              restrictions: {
+                ...(base.restrictions || {}),
+                ...((val as any).restrictions || {}),
+              },
+            };
+          }
+        }
+        return {
+          plans: merged,
+          isCustom: true,
+        };
+      }
     }
   } catch (err) {
     console.warn("Exception in getPlatformPricing, using defaults:", err);
@@ -66,17 +87,35 @@ export const getPlatformPricing = createServerFn({ method: "GET" }).handler(asyn
 });
 
 const TierUpdateSchema = z.object({
-  tier: z.enum(["foundation", "scholar_plus", "pro", "mastery", "elite"]),
-  monthlyPrice: z.number().int().min(0).max(100000),
-  annualPrice: z.number().int().min(0).max(1000000),
-  essaysPerMonth: z.number().int().min(1).max(99999),
-  liveCredits: z.number().int().min(0).max(99999),
+  tier: z.string().min(1).max(64),
+  name: z.string().optional(),
+  tagline: z.string().optional(),
+  monthlyPrice: z.number().int().min(0).max(1000000),
+  annualPrice: z.number().int().min(0).max(10000000),
+  essaysPerMonth: z.number().int().min(1).max(999999),
+  liveCredits: z.number().int().min(0).max(999999),
   hasExperimentalLabs: z.boolean().optional(),
+  isPublic: z.boolean().optional(),
+  badge: z.string().optional(),
+  restrictions: z
+    .object({
+      allowHandwritingOcr: z.boolean().optional(),
+      allowModelAnswers: z.boolean().optional(),
+      allowDiagramStudio: z.boolean().optional(),
+      allowArbitration: z.boolean().optional(),
+      allowClassrooms: z.boolean().optional(),
+      allowPriorityQueue: z.boolean().optional(),
+      mcqAccessLevel: z.enum(["full", "topics_only", "locked"]).optional(),
+      maxEssayWords: z.number().optional(),
+      dailyEssayLimit: z.number().optional(),
+    })
+    .optional(),
+  features: z.array(z.string()).optional(),
 });
 
 /**
- * Admin-only server function: updates prices, quotas, and credit allowances for any tier.
- * Immediately persists to site_settings and reflects across the entire platform.
+ * Admin-only server function: updates prices, quotas, credit allowances, visibility, and feature restrictions for any tier.
+ * Immediately persists to definitions and site_settings.
  */
 export const updatePlatformPricing = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -94,34 +133,67 @@ export const updatePlatformPricing = createServerFn({ method: "POST" })
       throw new Error("Unauthorized: Only the platform administrator can modify pricing plans.");
     }
 
-    // Retrieve existing site_settings
-    let existingValue: Record<string, any> = {};
+    // Retrieve existing custom plans
+    let currentPricing: Record<string, any> = { ...DEFAULT_PRICING_PLANS };
     try {
-      const { data: row } = await supabaseAdmin
-        .from("site_settings")
-        .select("value")
-        .eq("id", 1)
+      const { data: defRow } = await supabaseAdmin
+        .from("definitions")
+        .select("definition_text")
+        .eq("term", "__SYS_PRICING_PLANS__")
         .maybeSingle();
-      if (row?.value && typeof row.value === "object") {
-        existingValue = row.value;
+
+      if (defRow?.definition_text) {
+        const parsed = JSON.parse(defRow.definition_text);
+        if (parsed && typeof parsed === "object") {
+          currentPricing = { ...currentPricing, ...parsed };
+        }
       }
     } catch {
-      existingValue = {};
+      /* fallback to defaults */
     }
 
-    const currentPricing = existingValue.pricing_plans || DEFAULT_PRICING_PLANS;
-    const tierKey = data.tier as keyof PlatformPricingPlans;
+    const tierKey = data.tier;
+    const baseTier = currentPricing[tierKey] || (DEFAULT_PRICING_PLANS as any)[tierKey] || {
+      name: data.name || tierKey,
+      tagline: data.tagline || "Custom platform tier",
+      monthlyPrice: data.monthlyPrice,
+      annualPrice: data.annualPrice,
+      annualEquivalentMonthly: Math.round(data.annualPrice / 12),
+      savePct: 0,
+      essaysPerMonth: data.essaysPerMonth,
+      liveCredits: data.liveCredits,
+      hasExperimentalLabs: Boolean(data.hasExperimentalLabs),
+      isPublic: data.isPublic ?? false,
+      badge: data.badge,
+      restrictions: {
+        allowHandwritingOcr: false,
+        allowModelAnswers: false,
+        allowDiagramStudio: true,
+        allowArbitration: false,
+        allowClassrooms: false,
+        allowPriorityQueue: false,
+        mcqAccessLevel: "full",
+        maxEssayWords: 2000,
+      },
+      features: [
+        `${data.essaysPerMonth} Graded Essays / month`,
+        `${data.liveCredits} Live Examiner Credits / month`,
+        "Cambridge 9708 Diagnostics & Syllabus Rubrics",
+      ],
+    };
 
-    const baseTier = currentPricing[tierKey] || DEFAULT_PRICING_PLANS[tierKey];
     const savePct =
       data.annualPrice > 0 && data.monthlyPrice > 0
         ? Math.max(0, Math.round((1 - data.annualPrice / (data.monthlyPrice * 12)) * 100))
-        : baseTier.savePct;
+        : baseTier.savePct ?? 0;
     const annualEquivalentMonthly =
       data.annualPrice > 0 ? Math.round(data.annualPrice / 12) : data.monthlyPrice;
 
     const updatedTier = {
       ...baseTier,
+      id: tierKey,
+      name: data.name || baseTier.name,
+      tagline: data.tagline || baseTier.tagline,
       monthlyPrice: data.monthlyPrice,
       annualPrice: data.annualPrice,
       annualEquivalentMonthly,
@@ -132,6 +204,13 @@ export const updatePlatformPricing = createServerFn({ method: "POST" })
         data.hasExperimentalLabs !== undefined
           ? data.hasExperimentalLabs
           : baseTier.hasExperimentalLabs,
+      isPublic: data.isPublic !== undefined ? data.isPublic : baseTier.isPublic ?? true,
+      badge: data.badge !== undefined ? data.badge : baseTier.badge,
+      restrictions: {
+        ...(baseTier.restrictions || {}),
+        ...(data.restrictions || {}),
+      },
+      features: data.features || baseTier.features,
     };
 
     const nextPricing = {
@@ -139,7 +218,7 @@ export const updatePlatformPricing = createServerFn({ method: "POST" })
       [tierKey]: updatedTier,
     };
 
-    // 1. Primary: Save to definitions table (persistent, reliable)
+    // 1. Primary: Save to definitions table
     try {
       const { data: existing } = await supabaseAdmin
         .from("definitions")
@@ -167,12 +246,18 @@ export const updatePlatformPricing = createServerFn({ method: "POST" })
       console.warn("Failed saving pricing plans to definitions table:", err);
     }
 
-    // 2. Secondary: site_settings table (if available)
+    // 2. Secondary: site_settings table
     try {
+      const { data: row } = await supabaseAdmin
+        .from("site_settings")
+        .select("value")
+        .eq("id", 1)
+        .maybeSingle();
+      const existingVal = row?.value && typeof row.value === "object" ? row.value : {};
       await supabaseAdmin.from("site_settings").upsert({
         id: 1,
         value: {
-          ...existingValue,
+          ...existingVal,
           pricing_plans: nextPricing,
         },
         updated_at: new Date().toISOString(),
@@ -185,8 +270,82 @@ export const updatePlatformPricing = createServerFn({ method: "POST" })
       success: true,
       tier: tierKey,
       updatedTier,
-      message: `Successfully updated pricing for ${updatedTier.name}. Changes are now live.`,
+      message: `Successfully saved ${updatedTier.name} (${updatedTier.isPublic ? "Public" : "Private"}). Changes are live.`,
     };
+  });
+
+/**
+ * Admin-only server function: deletes a custom or unlisted tier.
+ */
+export const adminDeletePlatformTier = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => z.object({ tier: z.string().min(1) }).parse(input))
+  .handler(async ({ data, context }) => {
+    const isAdmin =
+      Boolean((context as any).isAdmin) ||
+      isMarginalAdmin({
+        userId: context.userId,
+        claims: (context as any).claims,
+        email: (context as any).email,
+      });
+
+    if (!isAdmin) {
+      throw new Error("Unauthorized: Only the platform administrator can delete pricing plans.");
+    }
+
+    try {
+      const { data: defRow } = await supabaseAdmin
+        .from("definitions")
+        .select("id, definition_text")
+        .eq("term", "__SYS_PRICING_PLANS__")
+        .maybeSingle();
+
+      let currentPricing: Record<string, any> = { ...DEFAULT_PRICING_PLANS };
+      if (defRow?.definition_text) {
+        currentPricing = JSON.parse(defRow.definition_text);
+      }
+
+      delete currentPricing[data.tier];
+
+      if (defRow?.id) {
+        await supabaseAdmin
+          .from("definitions")
+          .update({
+            definition_text: JSON.stringify(currentPricing),
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", defRow.id);
+      }
+      return { success: true, message: `Deleted plan "${data.tier}".` };
+    } catch (err: any) {
+      throw new Error(`Failed to delete tier: ${err.message}`);
+    }
+  });
+
+/**
+ * Admin-only server function: resets pricing back to hardcoded platform defaults.
+ */
+export const adminResetPlatformPricing = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const isAdmin =
+      Boolean((context as any).isAdmin) ||
+      isMarginalAdmin({
+        userId: context.userId,
+        claims: (context as any).claims,
+        email: (context as any).email,
+      });
+
+    if (!isAdmin) {
+      throw new Error("Unauthorized.");
+    }
+
+    try {
+      await supabaseAdmin.from("definitions").delete().eq("term", "__SYS_PRICING_PLANS__");
+      return { success: true, message: "Pricing plans reset to platform defaults." };
+    } catch (err: any) {
+      throw new Error(`Failed to reset: ${err.message}`);
+    }
   });
 
 const AdminManageCreditsSchema = z.object({

@@ -358,19 +358,20 @@ function PaymentPortalPage() {
     activePlanTagline = sPlan.tagline;
     savePct = sPlan.savePct;
   } else {
-    const pTier = (["foundation", "scholar_plus", "pro", "mastery", "elite"].includes(selectedTier)
-      ? selectedTier
-      : "foundation") as PlanTier;
-    const currentPlan = activePlans[pTier] ?? DEFAULT_PRICING_PLANS[pTier];
+    const currentPlan =
+      activePlans[selectedTier] ??
+      (DEFAULT_PRICING_PLANS as any)[selectedTier] ??
+      activePlans.foundation ??
+      DEFAULT_PRICING_PLANS.foundation;
     finalBasePrice = cycle === "annual" ? currentPlan.annualPrice : currentPlan.monthlyPrice;
     activePlanName = isTeacherMode
-      ? pTier === "foundation"
+      ? selectedTier === "foundation"
         ? "Individual Educator AI Pass"
-        : pTier === "scholar_plus"
+        : selectedTier === "scholar_plus"
         ? "Senior Educator Pass"
-        : pTier === "pro"
+        : selectedTier === "pro"
         ? "Department Lead Pass"
-        : pTier === "mastery"
+        : selectedTier === "mastery"
         ? "Mastery Department Pass"
         : "Elite Institutional Pass"
       : currentPlan.name;

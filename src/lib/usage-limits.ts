@@ -70,6 +70,22 @@ export const TIER_LIMITS = {
     liveExaminerEnabled: true,
     mcqFreeDays: 365,
   },
+  revision_sprint: {
+    name: "Revision Sprint Pass",
+    maxEssaysTotal: Infinity,
+    maxEssaysPerMonth: 20,
+    liveExaminerCredits: 6,
+    liveExaminerEnabled: true,
+    mcqFreeDays: 365,
+  },
+  institutional_scholar: {
+    name: "Institutional Partner Pass",
+    maxEssaysTotal: Infinity,
+    maxEssaysPerMonth: 40,
+    liveExaminerCredits: 12,
+    liveExaminerEnabled: true,
+    mcqFreeDays: 365,
+  },
 } as const;
 
 export type PlanTier = keyof typeof TIER_LIMITS;
