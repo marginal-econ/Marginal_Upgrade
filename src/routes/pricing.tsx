@@ -73,6 +73,7 @@ function PricingPage() {
             </a>
             <Link
               to="/teacher-auth"
+              search={{ tab: "signin" }}
               className="flex items-center gap-1 text-purple-600 dark:text-purple-400 hover:text-purple-500 transition-colors"
             >
               <GraduationCap className="size-3.5" />

@@ -50,6 +50,7 @@ import { TIER_LIMITS, type PlanTier } from "@/lib/usage-limits";
 import { cn } from "@/lib/utils";
 import { useCurrency } from "@/hooks/use-currency";
 import { CurrencySelector } from "@/components/ui/currency-selector";
+import { convertFromUsd } from "@/lib/currency";
 
 const searchSchema = z
   .object({
@@ -1743,7 +1744,7 @@ function PaymentPortalPage() {
                             </Button>
                           </div>
                           <p className="text-[11px] text-muted-foreground">
-                            Amount: <strong className="text-foreground font-bold">{currency === "INR" ? `₹${finalPrice.toLocaleString()}` : `${meta.symbol}${finalPrice.toLocaleString()} (₹${convert(baseAmountUsd, "INR").toLocaleString()})`}</strong>
+                            Amount: <strong className="text-foreground font-bold">{currency === "INR" ? `₹${finalPrice.toLocaleString()}` : `${meta.symbol}${finalPrice.toLocaleString()} (₹${convertFromUsd(baseAmountUsd, "INR").toLocaleString()})`}</strong>
                           </p>
                         </div>
                       </div>

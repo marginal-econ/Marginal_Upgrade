@@ -1380,7 +1380,7 @@ export function PricingAdminPanel() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="free">Free Community Edition</SelectItem>
-                {allTierKeys.map((k) => (
+                {uniqueTierKeys.map((k) => (
                   <SelectItem key={k} value={k}>
                     {activePlans[k]?.name || k} {activePlans[k]?.isPublic === false ? "(Private)" : ""}
                   </SelectItem>
