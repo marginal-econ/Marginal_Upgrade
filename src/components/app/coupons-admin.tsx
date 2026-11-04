@@ -7,16 +7,20 @@ import {
   Clock,
   Copy,
   Edit3,
+  Eye,
+  Globe,
   Loader2,
   Percent,
   Plus,
   PowerOff,
   RefreshCw,
+  Save,
   Search,
   Sparkles,
   Tag,
   Trash2,
   TrendingUp,
+  Wand2,
   XCircle,
 } from "lucide-react";
 import { useState } from "react";
@@ -71,27 +75,29 @@ const PLAN_PRESETS = [
   {
     group: "Student Revision Plans",
     plans: [
-      { id: "foundation", label: "Foundation Scholar" },
-      { id: "scholar_plus", label: "Scholar Plus" },
-      { id: "pro", label: "Pro Accelerator" },
-      { id: "mastery", label: "A* Mastery Sprint" },
-      { id: "elite", label: "Cambridge Elite Pass" },
+      { id: "foundation", label: "Foundation Scholar ($19)" },
+      { id: "scholar_plus", label: "Scholar Plus ($35)" },
+      { id: "pro", label: "Pro Accelerator ($59)" },
+      { id: "mastery", label: "A* Mastery Sprint ($99)" },
+      { id: "elite", label: "Cambridge Elite Pass ($179)" },
+      { id: "revision_sprint", label: "Revision Sprint ($49)" },
+      { id: "institutional_scholar", label: "Institutional Partner ($149)" },
     ],
   },
   {
     group: "Teacher & Educator Passes",
     plans: [
-      { id: "foundation", label: "Individual Educator AI Pass" },
-      { id: "scholar_plus", label: "Senior Educator Pass" },
-      { id: "pro", label: "Department Lead Pass" },
+      { id: "teacher_individual", label: "Individual Educator AI Pass" },
+      { id: "teacher_senior", label: "Senior Educator Pass" },
+      { id: "teacher_lead", label: "Department Lead Pass" },
     ],
   },
   {
     group: "School Department Licensing",
     plans: [
-      { id: "school_starter", label: "Department Starter (50 seats)" },
-      { id: "school_campus", label: "Campus Standard (150 seats)" },
-      { id: "school_institution", label: "Institution Premium (400 seats)" },
+      { id: "school-starter", label: "Department Starter (50 seats)" },
+      { id: "school-campus", label: "Campus Standard (150 seats)" },
+      { id: "school-institution", label: "Institution Premium (400 seats)" },
     ],
   },
 ];
@@ -678,7 +684,7 @@ export function CouponsAdminPanel() {
         </div>
       )}
 
-      {/* Create / Edit Dialog */}
+      {/* Create / Edit Dialog - Horizontal Full-Screen Studio */}
       <Dialog
         open={isCreateOpen || editingCoupon !== null}
         onOpenChange={(open) => {
@@ -688,279 +694,483 @@ export function CouponsAdminPanel() {
           }
         }}
       >
-        <DialogContent className="max-w-lg max-h-[90vh] sm:max-h-[85vh] flex flex-col p-0 overflow-hidden shadow-2xl border border-border/80">
-          <DialogHeader className="p-6 pb-4 border-b border-border/70 shrink-0 bg-background/95 backdrop-blur-sm pr-12">
-            <DialogTitle className="flex items-center gap-2">
-              <Tag className="size-5 text-primary" />
-              <span>{editingCoupon ? `Edit Coupon: ${editingCoupon.code}` : "Create New Coupon Code"}</span>
-            </DialogTitle>
-            <DialogDescription>
-              {editingCoupon
-                ? "Update promotional discount parameters, caps, or validity."
-                : "Generate a custom code that students can enter during checkout to receive an instant discount."}
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4 overscroll-contain">
-            {!editingCoupon ? (
-              <div className="space-y-1.5">
-                <Label htmlFor="coupon-code" className="text-xs font-semibold">
-                  Coupon Code
-                </Label>
-                <Input
-                  id="coupon-code"
-                  placeholder="e.g. SAVE20, ECON50, LAUNCH100"
-                  value={formCode}
-                  onChange={(e) => setFormCode(e.target.value.toUpperCase().replace(/[^A-Z0-9_-]/g, ""))}
-                  className="font-mono text-sm tracking-wider uppercase"
-                />
-                <p className="text-[10px] text-muted-foreground">
-                  Alphanumeric only. Letters, numbers, underscores, and hyphens.
-                </p>
+        <DialogContent className="w-[96vw] max-w-5xl xl:max-w-6xl h-[92vh] max-h-[92vh] flex flex-col p-0 overflow-hidden shadow-2xl border border-border/80 rounded-2xl bg-background">
+          {/* Sticky Header with 1-Click Save */}
+          <div className="px-6 py-3.5 border-b border-border/70 shrink-0 bg-background/95 backdrop-blur-md flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="size-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0 border border-primary/20">
+                <Tag className="size-4" />
               </div>
-            ) : null}
-
-            {/* Target Audience Selector */}
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold">Eligible Audience</Label>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 p-1 rounded-xl border bg-muted/40">
-                {AUDIENCE_OPTIONS.map((opt) => (
-                  <button
-                    key={opt.id}
-                    type="button"
-                    onClick={() => setFormAudience(opt.id)}
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <DialogTitle className="text-base font-bold text-foreground truncate">
+                    {editingCoupon ? `Edit Coupon: ${editingCoupon.code}` : "Create New Coupon Code"}
+                  </DialogTitle>
+                  <Badge
+                    variant="outline"
                     className={cn(
-                      "py-2 px-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer flex flex-col items-center gap-0.5 text-center",
-                      formAudience === opt.id
-                        ? "bg-background text-foreground shadow-xs font-bold border border-border"
-                        : "text-muted-foreground hover:text-foreground",
+                      "text-[10px] font-mono shrink-0",
+                      formActive
+                        ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                        : "border-muted-foreground/30 text-muted-foreground",
                     )}
                   >
-                    <span className="text-base">{opt.icon}</span>
-                    <span className="text-[11px] leading-tight">{opt.shortLabel}</span>
-                  </button>
-                ))}
-              </div>
-              <p className="text-[10px] text-muted-foreground">
-                {AUDIENCE_OPTIONS.find((o) => o.id === formAudience)?.description}
-              </p>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold">Discount Type</Label>
-                <div className="grid grid-cols-2 gap-1 p-0.5 rounded-lg border bg-muted/40">
-                  <button
-                    type="button"
-                    onClick={() => setFormType("percentage")}
-                    className={cn(
-                      "py-1.5 text-xs font-bold rounded-md transition-all cursor-pointer",
-                      formType === "percentage"
-                        ? "bg-background text-foreground shadow-xs"
-                        : "text-muted-foreground hover:text-foreground",
-                    )}
-                  >
-                    Percent (%)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setFormType("fixed")}
-                    className={cn(
-                      "py-1.5 text-xs font-bold rounded-md transition-all cursor-pointer",
-                      formType === "fixed"
-                        ? "bg-background text-foreground shadow-xs"
-                        : "text-muted-foreground hover:text-foreground",
-                    )}
-                  >
-                    Flat (₹)
-                  </button>
+                    {formActive ? "Active" : "Draft / Inactive"}
+                  </Badge>
                 </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="coupon-val" className="text-xs font-semibold">
-                  Discount Value {formType === "percentage" ? "(%)" : "(₹)"}
-                </Label>
-                <Input
-                  id="coupon-val"
-                  type="number"
-                  min={1}
-                  max={formType === "percentage" ? 100 : undefined}
-                  value={formValue}
-                  onChange={(e) => setFormValue(Number(e.target.value))}
-                  className="font-bold tabular-nums"
-                />
+                <DialogDescription className="text-xs text-muted-foreground truncate hidden sm:block">
+                  {editingCoupon
+                    ? "Update promotional discount parameters, caps, or validity."
+                    : "Generate a custom code that students or schools can enter during checkout for an instant discount."}
+                </DialogDescription>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="max-uses" className="text-xs font-semibold">
-                  Max Redemptions
-                </Label>
-                <Input
-                  id="max-uses"
-                  type="number"
-                  min={1}
-                  placeholder="Unlimited"
-                  value={formMaxUses}
-                  onChange={(e) => setFormMaxUses(e.target.value)}
-                  className="text-xs tabular-nums"
-                />
-                <p className="text-[10px] text-muted-foreground">Leave empty for unlimited</p>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="expires-at" className="text-xs font-semibold">
-                  Expiration Date
-                </Label>
-                <Input
-                  id="expires-at"
-                  type="date"
-                  value={formExpiresAt}
-                  onChange={(e) => setFormExpiresAt(e.target.value)}
-                  className="text-xs"
-                />
-                <p className="text-[10px] text-muted-foreground">Leave empty for no expiry</p>
-              </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="min-cart" className="text-xs font-semibold">
-                Minimum Cart Amount (₹)
-              </Label>
-              <Input
-                id="min-cart"
-                type="number"
-                min={0}
-                placeholder="No minimum requirement"
-                value={formMinAmount}
-                onChange={(e) => setFormMinAmount(e.target.value)}
-                className="text-xs tabular-nums"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="description" className="text-xs font-semibold">
-                Description / Internal Note
-              </Label>
-              <Input
-                id="description"
-                placeholder="e.g. Partner school discount, Teacher onboarding, 20% off"
-                value={formDescription}
-                onChange={(e) => setFormDescription(e.target.value)}
-                className="text-xs"
-              />
-            </div>
-
-            <div className="space-y-2 pt-1 border-t border-border/60">
-              <div className="flex items-center justify-between">
-                <Label className="text-xs font-semibold">Restricted Plan Tiers (Optional)</Label>
-                {formTiers.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => setFormTiers([])}
-                    className="text-[10px] text-primary hover:underline font-semibold cursor-pointer"
-                  >
-                    Clear all (Valid on all plans)
-                  </button>
+            {/* Quick Header Actions: Save Button is 100% visible at all times! */}
+            <div className="flex items-center gap-2 shrink-0">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setIsCreateOpen(false);
+                  setEditingCoupon(null);
+                }}
+                className="h-8 text-xs font-semibold cursor-pointer"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                disabled={createMutation.isPending || updateMutation.isPending}
+                onClick={editingCoupon ? handleSaveEdit : handleSaveCreate}
+                className="h-8 text-xs font-bold gap-1.5 shadow-sm cursor-pointer bg-primary text-primary-foreground hover:bg-primary/90"
+              >
+                {createMutation.isPending || updateMutation.isPending ? (
+                  <Loader2 className="size-3.5 animate-spin" />
+                ) : (
+                  <Save className="size-3.5" />
                 )}
-              </div>
-              <p className="text-[10px] text-muted-foreground">
-                Leave all unchecked to make this coupon valid across all subscription plans in the selected audience.
-              </p>
-              <div className="space-y-3 pt-1">
-                {PLAN_PRESETS.filter((group) => {
-                  if (formAudience === "students") return group.group.includes("Student");
-                  if (formAudience === "teachers") return group.group.includes("Teacher");
-                  if (formAudience === "schools") return group.group.includes("School");
-                  return true;
-                }).map((group) => (
-                  <div key={group.group} className="space-y-1.5">
-                    <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground">
-                      {group.group}
-                    </p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-                      {group.plans.map((p) => {
-                        const isChecked = formTiers.includes(p.id);
-                        return (
-                          <button
-                            key={group.group + p.id}
-                            type="button"
-                            onClick={() => {
-                              if (isChecked) {
-                                setFormTiers((prev) => prev.filter((t) => t !== p.id));
-                              } else {
-                                setFormTiers((prev) => [...prev, p.id]);
-                              }
-                            }}
-                            className={cn(
-                              "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-semibold transition-all cursor-pointer text-left",
-                              isChecked
-                                ? "border-primary bg-primary/10 text-primary"
-                                : "border-border text-muted-foreground hover:bg-muted/60",
-                            )}
-                          >
-                            <div
-                              className={cn(
-                                "size-3.5 rounded border flex items-center justify-center shrink-0",
-                                isChecked
-                                  ? "border-primary bg-primary text-primary-foreground"
-                                  : "border-muted-foreground/40",
-                              )}
-                            >
-                              {isChecked ? <Check className="size-2.5 stroke-[3]" /> : null}
-                            </div>
-                            <span className="truncate text-[11px]">{p.label}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between pt-2 border-t border-border/60">
-              <div>
-                <Label htmlFor="active-toggle" className="text-xs font-semibold block">
-                  Activate Immediately
-                </Label>
-                <p className="text-[10px] text-muted-foreground">
-                  Students can use this code upon saving
-                </p>
-              </div>
-              <Switch
-                id="active-toggle"
-                checked={formActive}
-                onCheckedChange={setFormActive}
-              />
+                <span>{editingCoupon ? "Save Changes" : "Save Coupon"}</span>
+              </Button>
             </div>
           </div>
 
-          <DialogFooter className="p-4 sm:p-5 border-t border-border/70 bg-muted/20 shrink-0 gap-2 sm:gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                setIsCreateOpen(false);
-                setEditingCoupon(null);
-              }}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              disabled={createMutation.isPending || updateMutation.isPending}
-              onClick={editingCoupon ? handleSaveEdit : handleSaveCreate}
-              className="gap-1.5"
-            >
-              {createMutation.isPending || updateMutation.isPending ? (
-                <Loader2 className="size-3.5 animate-spin" />
-              ) : null}
-              <span>{editingCoupon ? "Save Changes" : "Create Coupon"}</span>
-            </Button>
-          </DialogFooter>
+          {/* Horizontal 2-Column Studio Body */}
+          <div className="flex-1 overflow-y-auto px-6 py-5 overscroll-contain">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+              {/* Left Column (7 cols): Parameters & Inputs */}
+              <div className="lg:col-span-7 space-y-4">
+                {/* Coupon Code Input & Generator */}
+                {!editingCoupon ? (
+                  <div className="rounded-xl border border-border/80 bg-muted/20 p-3.5 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="coupon-code" className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                        <Tag className="size-3.5 text-primary" /> Coupon Code
+                      </Label>
+                      <span className="text-[10px] text-muted-foreground font-mono">Alphanumeric, uppercase</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        id="coupon-code"
+                        placeholder="e.g. SAVE20, ECON50, LAUNCH100"
+                        value={formCode}
+                        onChange={(e) => setFormCode(e.target.value.toUpperCase().replace(/[^A-Z0-9_-]/g, ""))}
+                        className="font-mono text-sm tracking-wider uppercase font-bold h-9 bg-background"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const prefixes = ["SAVE", "ECON", "SCHOLAR", "CAMBRIDGE", "ALPHA", "BOOST"];
+                          const discounts = [15, 20, 25, 30, 40, 50];
+                          const randomPrefix = prefixes[Math.floor(Math.random() * prefixes.length)];
+                          const randomDiscount = discounts[Math.floor(Math.random() * discounts.length)];
+                          setFormCode(`${randomPrefix}${randomDiscount}`);
+                          setFormValue(randomDiscount);
+                          setFormType("percentage");
+                        }}
+                        className="h-9 px-3 text-xs font-semibold gap-1 shrink-0"
+                        title="Generate random coupon code"
+                      >
+                        <Wand2 className="size-3.5 text-primary" />
+                        <span className="hidden sm:inline">Suggest</span>
+                      </Button>
+                    </div>
+
+                    {/* Quick Suggestions Chips */}
+                    <div className="flex items-center gap-1.5 pt-1 overflow-x-auto no-scrollbar">
+                      <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold shrink-0">
+                        Quick Presets:
+                      </span>
+                      {[
+                        { code: "SAVE20", type: "percentage", val: 20 },
+                        { code: "ECON50", type: "percentage", val: 50 },
+                        { code: "SCHOLAR10", type: "percentage", val: 10 },
+                        { code: "FLAT500", type: "fixed", val: 500 },
+                      ].map((preset) => (
+                        <button
+                          key={preset.code}
+                          type="button"
+                          onClick={() => {
+                            setFormCode(preset.code);
+                            setFormType(preset.type as "percentage" | "fixed");
+                            setFormValue(preset.val);
+                          }}
+                          className="px-2 py-0.5 rounded-md border border-border text-[10px] font-mono font-semibold text-muted-foreground hover:text-foreground hover:bg-background transition-colors shrink-0"
+                        >
+                          {preset.code}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="rounded-xl border border-primary/30 bg-primary/5 p-3 flex items-center justify-between">
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground">Editing Coupon Code</p>
+                      <p className="font-mono text-base font-bold text-primary">{editingCoupon.code}</p>
+                    </div>
+                    <Badge variant="outline" className="font-mono text-xs border-primary/30 text-primary">
+                      {editingCoupon.usedCount || 0} times redeemed
+                    </Badge>
+                  </div>
+                )}
+
+                {/* Target Audience Selector */}
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold">Eligible Audience</Label>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 p-1 rounded-xl border bg-muted/40">
+                    {AUDIENCE_OPTIONS.map((opt) => (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => setFormAudience(opt.id)}
+                        className={cn(
+                          "py-2 px-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer flex flex-col items-center gap-0.5 text-center",
+                          formAudience === opt.id
+                            ? "bg-background text-foreground shadow-xs font-bold border border-border"
+                            : "text-muted-foreground hover:text-foreground",
+                        )}
+                      >
+                        <span className="text-base">{opt.icon}</span>
+                        <span className="text-[11px] leading-tight">{opt.shortLabel}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">
+                    {AUDIENCE_OPTIONS.find((o) => o.id === formAudience)?.description}
+                  </p>
+                </div>
+
+                {/* Discount Type & Value */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold">Discount Type</Label>
+                    <div className="grid grid-cols-2 gap-1 p-0.5 rounded-lg border bg-muted/40">
+                      <button
+                        type="button"
+                        onClick={() => setFormType("percentage")}
+                        className={cn(
+                          "py-1.5 text-xs font-bold rounded-md transition-all cursor-pointer",
+                          formType === "percentage"
+                            ? "bg-background text-foreground shadow-xs"
+                            : "text-muted-foreground hover:text-foreground",
+                        )}
+                      >
+                        Percent (%)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setFormType("fixed")}
+                        className={cn(
+                          "py-1.5 text-xs font-bold rounded-md transition-all cursor-pointer",
+                          formType === "fixed"
+                            ? "bg-background text-foreground shadow-xs"
+                            : "text-muted-foreground hover:text-foreground",
+                        )}
+                      >
+                        Flat (₹)
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label htmlFor="coupon-val" className="text-xs font-semibold">
+                      Discount Value {formType === "percentage" ? "(%)" : "(₹)"}
+                    </Label>
+                    <Input
+                      id="coupon-val"
+                      type="number"
+                      min={1}
+                      max={formType === "percentage" ? 100 : undefined}
+                      value={formValue}
+                      onChange={(e) => setFormValue(Number(e.target.value))}
+                      className="font-bold tabular-nums h-9"
+                    />
+                  </div>
+                </div>
+
+                {/* Max Redemptions & Expiration */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="max-uses" className="text-xs font-semibold">
+                      Max Redemptions
+                    </Label>
+                    <Input
+                      id="max-uses"
+                      type="number"
+                      min={1}
+                      placeholder="Unlimited"
+                      value={formMaxUses}
+                      onChange={(e) => setFormMaxUses(e.target.value)}
+                      className="text-xs tabular-nums h-8"
+                    />
+                    <p className="text-[10px] text-muted-foreground">Leave empty for unlimited</p>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label htmlFor="expires-at" className="text-xs font-semibold">
+                      Expiration Date
+                    </Label>
+                    <Input
+                      id="expires-at"
+                      type="date"
+                      value={formExpiresAt}
+                      onChange={(e) => setFormExpiresAt(e.target.value)}
+                      className="text-xs h-8"
+                    />
+                    <p className="text-[10px] text-muted-foreground">Leave empty for no expiry</p>
+                  </div>
+                </div>
+
+                {/* Minimum Cart & Description */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="min-cart" className="text-xs font-semibold">
+                      Minimum Cart (₹)
+                    </Label>
+                    <Input
+                      id="min-cart"
+                      type="number"
+                      min={0}
+                      placeholder="None"
+                      value={formMinAmount}
+                      onChange={(e) => setFormMinAmount(e.target.value)}
+                      className="text-xs tabular-nums h-8"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label htmlFor="description" className="text-xs font-semibold">
+                      Internal Note / Reason
+                    </Label>
+                    <Input
+                      id="description"
+                      placeholder="e.g. Cambridge revision cohort discount"
+                      value={formDescription}
+                      onChange={(e) => setFormDescription(e.target.value)}
+                      className="text-xs h-8"
+                    />
+                  </div>
+                </div>
+
+                {/* Activation Switch */}
+                <div className="flex items-center justify-between p-3 rounded-xl border border-border/70 bg-card/60">
+                  <div>
+                    <Label htmlFor="active-toggle" className="text-xs font-bold block cursor-pointer">
+                      Activate Coupon Immediately
+                    </Label>
+                    <p className="text-[10px] text-muted-foreground">
+                      When active, users can immediately apply this code at checkout
+                    </p>
+                  </div>
+                  <Switch
+                    id="active-toggle"
+                    checked={formActive}
+                    onCheckedChange={setFormActive}
+                  />
+                </div>
+              </div>
+
+              {/* Right Column (5 cols): Live Checkout Preview & Applicable Tiers */}
+              <div className="lg:col-span-5 space-y-4">
+                {/* Live Checkout Preview Card */}
+                <div className="rounded-xl border border-border/80 bg-card p-4 space-y-3 shadow-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                      <Eye className="size-3.5 text-primary" /> Live Student Checkout Preview
+                    </span>
+                    <Badge variant="secondary" className="text-[9px] font-mono px-1.5">
+                      /payment
+                    </Badge>
+                  </div>
+
+                  {/* Coupon Pill Representation */}
+                  <div className="p-3.5 rounded-lg border-2 border-dashed border-emerald-500/40 bg-emerald-500/[0.04] space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5">
+                        <Tag className="size-4 text-emerald-600 dark:text-emerald-400" />
+                        <span className="font-mono text-sm font-extrabold text-foreground tracking-wider">
+                          {formCode.trim().toUpperCase() || "CODE"}
+                        </span>
+                      </div>
+                      <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 text-[10px] font-bold">
+                        {formType === "percentage" ? `${formValue || 0}% OFF` : `₹${formValue || 0} OFF`}
+                      </Badge>
+                    </div>
+
+                    <p className="text-[11px] text-muted-foreground">
+                      {formDescription.trim() || "Promotional coupon discount applied"}
+                    </p>
+
+                    <div className="pt-2 border-t border-emerald-500/20 flex items-center justify-between text-xs">
+                      <span className="text-muted-foreground">Sample Pro Tier ($59/mo):</span>
+                      <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                        {formType === "percentage"
+                          ? `$${Math.max(0, Math.round(59 * (1 - (formValue || 0) / 100)))}/mo`
+                          : `-$${Math.min(59, Math.round((formValue || 0) / 85))}`}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 text-[10px] text-muted-foreground pt-1">
+                    <div>
+                      <span className="font-semibold block text-foreground">Audience:</span>
+                      <span className="capitalize">{formAudience}</span>
+                    </div>
+                    <div>
+                      <span className="font-semibold block text-foreground">Expires:</span>
+                      <span>{formExpiresAt || "No expiration date"}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Restricted Plan Tiers */}
+                <div className="rounded-xl border border-border/80 bg-card p-4 space-y-3 shadow-xs">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Label className="text-xs font-bold text-foreground block">
+                        Applicable Plans ({formTiers.length === 0 ? "All Plans" : `${formTiers.length} Selected`})
+                      </Label>
+                      <p className="text-[10px] text-muted-foreground">
+                        {formTiers.length === 0
+                          ? "Coupon is valid across all plans within the selected audience"
+                          : "Coupon restricted only to the selected plans below"}
+                      </p>
+                    </div>
+                    {formTiers.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setFormTiers([])}
+                        className="text-[10px] text-primary hover:underline font-bold cursor-pointer shrink-0"
+                      >
+                        Reset All
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="space-y-3 pt-1 max-h-[220px] overflow-y-auto pr-1">
+                    {PLAN_PRESETS.filter((group) => {
+                      if (formAudience === "students") return group.group.includes("Student");
+                      if (formAudience === "teachers") return group.group.includes("Teacher");
+                      if (formAudience === "schools") return group.group.includes("School");
+                      return true;
+                    }).map((group) => (
+                      <div key={group.group} className="space-y-1.5">
+                        <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground">
+                          {group.group}
+                        </p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                          {group.plans.map((p) => {
+                            const isChecked = formTiers.includes(p.id);
+                            return (
+                              <button
+                                key={group.group + p.id}
+                                type="button"
+                                onClick={() => {
+                                  if (isChecked) {
+                                    setFormTiers((prev) => prev.filter((t) => t !== p.id));
+                                  } else {
+                                    setFormTiers((prev) => [...prev, p.id]);
+                                  }
+                                }}
+                                className={cn(
+                                  "flex items-center gap-1.5 px-2 py-1.5 rounded-lg border text-xs font-medium transition-all cursor-pointer text-left",
+                                  isChecked
+                                    ? "border-primary bg-primary/10 text-primary font-semibold"
+                                    : "border-border/70 text-muted-foreground hover:bg-muted/50 hover:text-foreground",
+                                )}
+                              >
+                                <div
+                                  className={cn(
+                                    "size-3.5 rounded border flex items-center justify-center shrink-0",
+                                    isChecked
+                                      ? "border-primary bg-primary text-primary-foreground"
+                                      : "border-muted-foreground/40",
+                                  )}
+                                >
+                                  {isChecked ? <Check className="size-2.5 stroke-[3]" /> : null}
+                                </div>
+                                <span className="truncate text-[11px]">{p.label}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Sticky Bottom Footer: Second Save Button */}
+          <div className="px-6 py-3 border-t border-border/70 bg-muted/25 shrink-0 flex items-center justify-between gap-4">
+            <div className="text-xs text-muted-foreground flex items-center gap-2 truncate">
+              <span className="font-mono font-bold text-foreground">
+                {formCode.trim().toUpperCase() || "NEW-COUPON"}
+              </span>
+              <span>•</span>
+              <span className="font-semibold text-primary">
+                {formType === "percentage" ? `${formValue || 0}% OFF` : `₹${formValue || 0} FLAT`}
+              </span>
+              <span>•</span>
+              <span className="capitalize">{formAudience}</span>
+              <span>•</span>
+              <span>{formActive ? "Active" : "Draft"}</span>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setIsCreateOpen(false);
+                  setEditingCoupon(null);
+                }}
+                className="h-8 text-xs font-semibold cursor-pointer"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                disabled={createMutation.isPending || updateMutation.isPending}
+                onClick={editingCoupon ? handleSaveEdit : handleSaveCreate}
+                className="h-8 text-xs font-bold gap-1.5 shadow-sm cursor-pointer bg-primary text-primary-foreground hover:bg-primary/90"
+              >
+                {createMutation.isPending || updateMutation.isPending ? (
+                  <Loader2 className="size-3.5 animate-spin" />
+                ) : (
+                  <Save className="size-3.5" />
+                )}
+                <span>{editingCoupon ? "Save Changes" : "Save & Activate Coupon"}</span>
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
 
