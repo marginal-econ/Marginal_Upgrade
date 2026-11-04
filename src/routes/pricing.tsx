@@ -24,6 +24,7 @@ export const Route = createFileRoute("/pricing")({
         content: "Marginal Economics — 100% Free Access for Cambridge 9708 Economics",
       },
     ],
+    links: [{ rel: "canonical", href: "https://marginal-econ.com/pricing" }],
   }),
   component: PricingPage,
 });

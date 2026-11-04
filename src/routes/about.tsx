@@ -23,6 +23,7 @@ export const Route = createFileRoute("/about")({
           "Meet the two people building Marginal, the AS and A Level Economics (9708) essay-marking tool.",
       },
     ],
+    links: [{ rel: "canonical", href: "https://marginal-econ.com/about" }],
   }),
   component: AboutPage,
 });

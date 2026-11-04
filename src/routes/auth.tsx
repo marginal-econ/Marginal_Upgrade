@@ -79,6 +79,7 @@ export const Route = createFileRoute("/auth")({
         content: "Cambridge 9708 Economics essay marking, calibrated to real examiner standards.",
       },
     ],
+    links: [{ rel: "canonical", href: "https://marginal-econ.com/auth" }],
   }),
   component: AuthPage,
 });

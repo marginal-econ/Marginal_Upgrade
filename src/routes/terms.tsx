@@ -12,6 +12,7 @@ export const Route = createFileRoute("/terms")({
           "The terms of use for Marginal, the AS and A Level Economics (9708) essay-marking tool: independence from Cambridge, access rights, academic honesty, the limits of an automated mark, and how your work is handled.",
       },
     ],
+    links: [{ rel: "canonical", href: "https://marginal-econ.com/terms" }],
   }),
   component: TermsPage,
 });

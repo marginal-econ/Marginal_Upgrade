@@ -40,6 +40,7 @@ export const Route = createFileRoute("/help")({
           "Contact Marginal about technical problems, bugs, partnerships, accounts, privacy, or general questions.",
       },
     ],
+    links: [{ rel: "canonical", href: "https://marginal-econ.com/help" }],
   }),
   component: HelpPage,
 });

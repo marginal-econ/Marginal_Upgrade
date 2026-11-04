@@ -12,6 +12,7 @@ export const Route = createFileRoute("/privacy")({
           "What Marginal collects when you have an essay marked, why, who can see it, how long it is kept, and how to get it deleted. Marginal is independent of Cambridge Assessment International Education.",
       },
     ],
+    links: [{ rel: "canonical", href: "https://marginal-econ.com/privacy" }],
   }),
   component: PrivacyPage,
 });

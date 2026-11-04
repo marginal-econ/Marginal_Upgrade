@@ -134,20 +134,6 @@ export const Route = createFileRoute("/")({
         href: "https://marginal-econ.com",
       },
     ],
-    scripts: [
-      {
-        type: "application/ld+json",
-        children: JSON.stringify({
-          "@context": "https://schema.org",
-          "@type": "Organization",
-          "name": "Marginal",
-          "alternateName": ["Marginal Economics", "Marginal AI Economics"],
-          "url": "https://marginal-econ.com",
-          "description":
-            "AI Cambridge Economics 9708 mastery platform featuring automated essay grading and live examiner practice.",
-        }),
-      },
-    ],
   }),
   component: Index,
 });
