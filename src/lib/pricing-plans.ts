@@ -57,6 +57,7 @@ export const DEFAULT_PRICING_PLANS: PlatformPricingPlans = {
       allowPriorityQueue: false,
       mcqAccessLevel: "full",
       maxEssayWords: 1500,
+      dailyEssayLimit: 0,
     },
     features: [
       "8 Cambridge Graded Essays / month",
@@ -89,6 +90,7 @@ export const DEFAULT_PRICING_PLANS: PlatformPricingPlans = {
       allowPriorityQueue: false,
       mcqAccessLevel: "full",
       maxEssayWords: 2000,
+      dailyEssayLimit: 0,
     },
     features: [
       "15 Cambridge Graded Essays / month",
@@ -122,6 +124,7 @@ export const DEFAULT_PRICING_PLANS: PlatformPricingPlans = {
       allowPriorityQueue: false,
       mcqAccessLevel: "full",
       maxEssayWords: 3000,
+      dailyEssayLimit: 0,
     },
     features: [
       "25 Cambridge Graded Essays / month",
@@ -156,6 +159,7 @@ export const DEFAULT_PRICING_PLANS: PlatformPricingPlans = {
       allowPriorityQueue: true,
       mcqAccessLevel: "full",
       maxEssayWords: 4000,
+      dailyEssayLimit: 0,
     },
     features: [
       "Multi-Paper Diagnostic Feedback & Evaluative Refinements",
@@ -190,6 +194,7 @@ export const DEFAULT_PRICING_PLANS: PlatformPricingPlans = {
       allowPriorityQueue: true,
       mcqAccessLevel: "full",
       maxEssayWords: 0,
+      dailyEssayLimit: 0,
     },
     features: [
       "Comprehensive Cambridge Evaluation Suite (Papers 1, 2, 3 & 4 Coverage)",
@@ -203,7 +208,7 @@ export const DEFAULT_PRICING_PLANS: PlatformPricingPlans = {
     ],
   },
 
-  // ── Default Unlisted / Private Plans (Not Public) ──
+  // ── Pre-configured Plans (Can be toggled Public or Unlisted / Private at any time) ──
   revision_sprint: {
     id: "revision_sprint",
     name: "Revision Sprint Pass",
@@ -215,8 +220,8 @@ export const DEFAULT_PRICING_PLANS: PlatformPricingPlans = {
     essaysPerMonth: 20,
     liveCredits: 6,
     hasExperimentalLabs: true,
-    isPublic: false, // 🔒 Private / Unlisted
-    badge: "30-Day Crunch (Private)",
+    isPublic: true, // 🌐 Public by default
+    badge: "30-Day Exam Sprint",
     restrictions: {
       allowHandwritingOcr: true,
       allowModelAnswers: true,
@@ -226,6 +231,7 @@ export const DEFAULT_PRICING_PLANS: PlatformPricingPlans = {
       allowPriorityQueue: false,
       mcqAccessLevel: "full",
       maxEssayWords: 2500,
+      dailyEssayLimit: 0,
     },
     features: [
       "20 Cambridge Graded Essays / month",
@@ -248,8 +254,8 @@ export const DEFAULT_PRICING_PLANS: PlatformPricingPlans = {
     essaysPerMonth: 40,
     liveCredits: 12,
     hasExperimentalLabs: true,
-    isPublic: false, // 🔒 Private / Unlisted
-    badge: "School Partner (Private)",
+    isPublic: true, // 🌐 Public by default
+    badge: "School Partner",
     restrictions: {
       allowHandwritingOcr: true,
       allowModelAnswers: true,
@@ -259,6 +265,7 @@ export const DEFAULT_PRICING_PLANS: PlatformPricingPlans = {
       allowPriorityQueue: true,
       mcqAccessLevel: "full",
       maxEssayWords: 4500,
+      dailyEssayLimit: 0,
     },
     features: [
       "40 Cambridge Graded Essays / month & re-marks",

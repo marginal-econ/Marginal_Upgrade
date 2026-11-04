@@ -143,30 +143,6 @@ export function PricingAdminPanel() {
   const [bonusEssays, setBonusEssays] = useState<number>(0);
   const [resetUsage, setResetUsage] = useState<boolean>(false);
 
-  const getTierState = (tierKey: string): PricingTierConfig => {
-    if (tierForms[tierKey]) return tierForms[tierKey];
-    const base = activePlans[tierKey] || (DEFAULT_PRICING_PLANS as any)[tierKey] || {
-      name: tierKey,
-      tagline: "Custom plan",
-      monthlyPrice: 0,
-      annualPrice: 0,
-      annualEquivalentMonthly: 0,
-      savePct: 0,
-      essaysPerMonth: 10,
-      liveCredits: 2,
-      hasExperimentalLabs: false,
-      isPublic: true,
-      features: [],
-      restrictions: { ...DEFAULT_RESTRICTIONS },
-    };
-    return {
-      ...base,
-      restrictions: {
-        ...DEFAULT_RESTRICTIONS,
-        ...(base.restrictions || {}),
-      },
-    };
-  };
 
   const updateTierMutation = useMutation({
     mutationFn: (data: {
@@ -226,26 +202,109 @@ export function PricingAdminPanel() {
     onError: (err: any) => toast.error(err?.message || "Failed to update user credits."),
   });
 
-  // Compute tier metrics
-  const allTierKeys = Object.keys(activePlans);
-  const publicCount = allTierKeys.filter((k) => activePlans[k].isPublic !== false).length;
-  const privateCount = allTierKeys.filter((k) => activePlans[k].isPublic === false).length;
+  // List of all tiers in canonical order
+  const uniqueTierKeys = useMemo(() => {
+    const standardOrder = [
+      "foundation",
+      "scholar_plus",
+      "pro",
+      "mastery",
+      "elite",
+      "revision_sprint",
+      "institutional_scholar",
+    ];
+    const set = new Set([...standardOrder, ...Object.keys(DEFAULT_PRICING_PLANS), ...Object.keys(activePlans)]);
+    return Array.from(set).filter((k) => k in DEFAULT_PRICING_PLANS || k in activePlans);
+  }, [activePlans]);
+
+  // Read current tier state with guaranteed fallback for all 7 plans and custom tiers
+  const getTierState = (tierKey: string): PricingTierConfig => {
+    if (tierForms[tierKey]) return tierForms[tierKey];
+    const defaultTier = (DEFAULT_PRICING_PLANS as any)[tierKey];
+    const base = activePlans[tierKey] || defaultTier || {
+      name: tierKey,
+      tagline: "Platform membership plan",
+      monthlyPrice: 199,
+      annualPrice: 1999,
+      annualEquivalentMonthly: 166,
+      savePct: 16,
+      essaysPerMonth: 15,
+      liveCredits: 4,
+      hasExperimentalLabs: false,
+      isPublic: true,
+      features: [],
+      restrictions: { ...DEFAULT_RESTRICTIONS },
+    };
+
+    const defaultTierRestrictions = defaultTier?.restrictions || DEFAULT_RESTRICTIONS;
+    return {
+      ...base,
+      isPublic: base.isPublic !== undefined ? base.isPublic : (defaultTier?.isPublic ?? true),
+      restrictions: {
+        ...defaultTierRestrictions,
+        ...(base.restrictions || {}),
+      },
+    };
+  };
+
+  // Full map of active states (reacts immediately when user edits form or toggles public)
+  const tierStates = useMemo(() => {
+    const result: Record<string, PricingTierConfig> = {};
+    for (const k of uniqueTierKeys) {
+      result[k] = getTierState(k);
+    }
+    return result;
+  }, [uniqueTierKeys, tierForms, activePlans]);
+
+  const publicCount = uniqueTierKeys.filter((k) => tierStates[k]?.isPublic !== false).length;
+  const privateCount = uniqueTierKeys.filter((k) => tierStates[k]?.isPublic === false).length;
 
   const filteredTierKeys = useMemo(() => {
-    return allTierKeys.filter((k) => {
-      const plan = activePlans[k];
-      if (visibilityFilter === "public" && plan.isPublic === false) return false;
-      if (visibilityFilter === "private" && plan.isPublic !== false) return false;
+    return uniqueTierKeys.filter((k) => {
+      const plan = tierStates[k];
+      if (!plan) return false;
+      const isPub = plan.isPublic !== false;
+      if (visibilityFilter === "public" && !isPub) return false;
+      if (visibilityFilter === "private" && isPub) return false;
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
-        const matchesName = plan.name.toLowerCase().includes(q);
+        const matchesName = plan.name?.toLowerCase().includes(q);
         const matchesKey = k.toLowerCase().includes(q);
         const matchesTag = plan.tagline?.toLowerCase().includes(q);
         if (!matchesName && !matchesKey && !matchesTag) return false;
       }
       return true;
     });
-  }, [allTierKeys, activePlans, visibilityFilter, searchQuery]);
+  }, [uniqueTierKeys, tierStates, visibilityFilter, searchQuery]);
+
+  const handleSaveTier = (tierKey: string) => {
+    const current = getTierState(tierKey);
+    const plan = activePlans[tierKey] || (DEFAULT_PRICING_PLANS as any)[tierKey] || {};
+    updateTierMutation.mutate(
+      {
+        tier: tierKey,
+        name: current.name || plan.name,
+        tagline: current.tagline || plan.tagline,
+        monthlyPrice: Number(current.monthlyPrice),
+        annualPrice: Number(current.annualPrice),
+        essaysPerMonth: Number(current.essaysPerMonth),
+        liveCredits: Number(current.liveCredits),
+        hasExperimentalLabs: Boolean(current.hasExperimentalLabs),
+        isPublic: current.isPublic !== false,
+        badge: current.badge || plan.badge,
+        restrictions: current.restrictions,
+      },
+      {
+        onSuccess: () => {
+          setTierForms((prev) => {
+            const next = { ...prev };
+            delete next[tierKey];
+            return next;
+          });
+        },
+      },
+    );
+  };
 
   const handleCreatePlan = () => {
     const slug = newPlan.id
@@ -384,19 +443,19 @@ export function PricingAdminPanel() {
               type="button"
               onClick={() => setVisibilityFilter("all")}
               className={cn(
-                "px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap",
+                "px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap cursor-pointer",
                 visibilityFilter === "all"
                   ? "bg-background text-foreground shadow-2xs border border-border/80"
                   : "text-muted-foreground hover:text-foreground hover:bg-background/40",
               )}
             >
-              All Plans ({allTierKeys.length})
+              All Plans ({uniqueTierKeys.length})
             </button>
             <button
               type="button"
               onClick={() => setVisibilityFilter("public")}
               className={cn(
-                "px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap flex items-center gap-1.5",
+                "px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap flex items-center gap-1.5 cursor-pointer",
                 visibilityFilter === "public"
                   ? "bg-background text-emerald-600 dark:text-emerald-400 shadow-2xs border border-border/80"
                   : "text-muted-foreground hover:text-foreground hover:bg-background/40",
@@ -409,7 +468,7 @@ export function PricingAdminPanel() {
               type="button"
               onClick={() => setVisibilityFilter("private")}
               className={cn(
-                "px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap flex items-center gap-1.5",
+                "px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap flex items-center gap-1.5 cursor-pointer",
                 visibilityFilter === "private"
                   ? "bg-background text-purple-600 dark:text-purple-400 shadow-2xs border border-border/80"
                   : "text-muted-foreground hover:text-foreground hover:bg-background/40",
@@ -432,16 +491,17 @@ export function PricingAdminPanel() {
           </div>
         </div>
 
-        {/* Tier Cards Grid */}
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3">
+        {/* Tier Cards Grid - Padded at bottom to prevent overlap with floating widgets */}
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 pb-24">
           {filteredTierKeys.map((tierKey) => {
-            const plan = activePlans[tierKey];
+            const plan = activePlans[tierKey] || (DEFAULT_PRICING_PLANS as any)[tierKey] || {};
             const current = getTierState(tierKey);
+            const isDirty = Boolean(tierForms[tierKey]);
             const isSaving = updateTierMutation.isPending && updateTierMutation.variables?.tier === tierKey;
             const isExpanded = Boolean(expandedRestrictions[tierKey]);
             const isCustomOrUnlisted = !["foundation", "scholar_plus", "pro", "mastery", "elite"].includes(tierKey);
 
-            // Count enabled restrictions
+            // Count enabled features
             const restrictions = current.restrictions || DEFAULT_RESTRICTIONS;
             const enabledCount = [
               restrictions.allowHandwritingOcr,
@@ -459,93 +519,157 @@ export function PricingAdminPanel() {
                 className={cn(
                   "flex flex-col justify-between rounded-2xl border p-5 space-y-4 shadow-xs transition-all",
                   current.isPublic === false
-                    ? "border-purple-500/30 bg-purple-500/[0.02]"
-                    : "border-border/90 bg-card",
+                    ? "border-purple-500/40 bg-purple-500/[0.03]"
+                    : "border-border/90 bg-card hover:border-border",
                 )}
               >
-                <div className="space-y-3">
-                  {/* Card Header */}
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-mono text-[10px] uppercase font-bold tracking-wider text-primary">
-                          {tierKey}
-                        </span>
-                        {current.isPublic === false ? (
-                          <Badge className="text-[9px] bg-purple-500/10 text-purple-700 dark:text-purple-300 border border-purple-500/30 gap-1">
-                            <Lock className="size-2.5" />
-                            Private / Unlisted
-                          </Badge>
-                        ) : (
-                          <Badge className="text-[9px] bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 gap-1">
-                            <Globe className="size-2.5" />
-                            Public
-                          </Badge>
-                        )}
-                      </div>
-                      <h4 className="text-base font-bold text-foreground mt-1">
-                        {current.name || plan.name}
-                      </h4>
-                      <p className="text-[11px] text-muted-foreground line-clamp-2 mt-0.5">
-                        {current.tagline || plan.tagline}
-                      </p>
+                <div className="space-y-3.5">
+                  {/* Card Top Action Bar: Slug on Left, Public/Unlisted + Save + Delete on Right */}
+                  <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-border/60">
+                    {/* Slug & Monospace Label */}
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span
+                        className="font-mono text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-md bg-primary/10 text-primary border border-primary/20 truncate block max-w-[130px]"
+                        title={tierKey}
+                      >
+                        {tierKey}
+                      </span>
+                      {current.badge && (
+                        <Badge
+                          variant="secondary"
+                          className="text-[9px] px-1.5 py-0 h-4 font-normal hidden xl:inline-flex truncate max-w-[110px]"
+                        >
+                          {current.badge}
+                        </Badge>
+                      )}
                     </div>
 
-                    {isCustomOrUnlisted && (
-                      <Button
+                    {/* Header Action Cluster */}
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {/* Top Public / Unlisted Toggle Button */}
+                      <button
                         type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="size-7 text-muted-foreground hover:text-destructive shrink-0"
-                        title="Delete custom plan"
                         onClick={() => {
-                          if (confirm(`Delete plan "${current.name || tierKey}"?`)) {
-                            deleteTierMutation.mutate(tierKey);
-                          }
+                          const nextPublic = current.isPublic === false ? true : false;
+                          setTierForms((prev) => ({
+                            ...prev,
+                            [tierKey]: { ...current, isPublic: nextPublic },
+                          }));
+                          toast.info(
+                            nextPublic
+                              ? `"${current.name || tierKey}" marked as Public. Click Save to publish on /pricing.`
+                              : `"${current.name || tierKey}" removed from Public (now Unlisted). Click Save to apply.`,
+                            { duration: 2500 },
+                          );
                         }}
+                        className={cn(
+                          "inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-lg border transition-all cursor-pointer shadow-2xs select-none",
+                          current.isPublic !== false
+                            ? "bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border-emerald-500/30"
+                            : "bg-purple-500/10 hover:bg-purple-500/20 text-purple-700 dark:text-purple-300 border-purple-500/30",
+                        )}
+                        title={
+                          current.isPublic !== false
+                            ? "Currently Live on /pricing. Click to remove from public (make unlisted)."
+                            : "Currently Unlisted (Private). Click to publish live on /pricing."
+                        }
                       >
-                        <Trash2 className="size-3.5" />
-                      </Button>
-                    )}
-                  </div>
-
-                  {/* Visibility & Badge row */}
-                  <div className="flex items-center justify-between rounded-xl bg-muted/40 p-2.5 border border-border/60 text-xs">
-                    <div className="space-y-0.5">
-                      <span className="text-[11px] font-semibold text-foreground flex items-center gap-1.5">
                         {current.isPublic !== false ? (
                           <>
-                            <Eye className="size-3 text-emerald-500" />
-                            Public on /pricing
+                            <Globe className="size-3 text-emerald-500 shrink-0" />
+                            <span>Public</span>
+                            <span className="text-[9px] opacity-60 ml-0.5 font-mono">✕</span>
                           </>
                         ) : (
                           <>
-                            <EyeOff className="size-3 text-purple-500" />
-                            Hidden / Private
+                            <Lock className="size-3 text-purple-500 shrink-0" />
+                            <span>Unlisted</span>
+                            <span className="text-[9px] opacity-60 ml-0.5 font-mono">+ Pub</span>
                           </>
                         )}
-                      </span>
-                      <p className="text-[10px] text-muted-foreground">
-                        {current.isPublic !== false
-                          ? "Visible to all visitors"
-                          : "Accessible only via admin or direct link"}
-                      </p>
+                      </button>
+
+                      {/* Quick Save in Header */}
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={isDirty ? "default" : "outline"}
+                        className={cn(
+                          "h-7 px-2 text-xs font-semibold gap-1 transition-all cursor-pointer",
+                          isDirty && "bg-primary text-primary-foreground shadow-xs ring-2 ring-primary/30",
+                        )}
+                        disabled={isSaving}
+                        onClick={() => handleSaveTier(tierKey)}
+                        title="Save changes for this plan"
+                      >
+                        {isSaving ? (
+                          <RefreshCw className="size-3 animate-spin" />
+                        ) : (
+                          <Save className="size-3" />
+                        )}
+                        <span>Save</span>
+                      </Button>
+
+                      {/* Delete Option */}
+                      {isCustomOrUnlisted && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="size-7 text-muted-foreground hover:text-destructive shrink-0 cursor-pointer"
+                          title="Delete custom plan"
+                          onClick={() => {
+                            if (confirm(`Delete plan "${current.name || tierKey}"?`)) {
+                              deleteTierMutation.mutate(tierKey);
+                            }
+                          }}
+                        >
+                          <Trash2 className="size-3.5" />
+                        </Button>
+                      )}
                     </div>
-                    <Switch
-                      checked={current.isPublic !== false}
-                      onCheckedChange={(val) =>
-                        setTierForms((prev) => ({
-                          ...prev,
-                          [tierKey]: { ...current, isPublic: val },
-                        }))
-                      }
-                    />
+                  </div>
+
+                  {/* Plan Name & Tagline */}
+                  <div className="space-y-1.5">
+                    <div className="space-y-0.5">
+                      <Label className="text-[10px] uppercase font-semibold text-muted-foreground tracking-wider">
+                        Plan Display Name
+                      </Label>
+                      <Input
+                        value={current.name || ""}
+                        onChange={(e) =>
+                          setTierForms((prev) => ({
+                            ...prev,
+                            [tierKey]: { ...current, name: e.target.value },
+                          }))
+                        }
+                        className="h-8 font-bold text-sm bg-background/50 border-border/80 focus:border-primary"
+                        placeholder="Plan Name"
+                      />
+                    </div>
+                    <div className="space-y-0.5">
+                      <Label className="text-[10px] uppercase font-semibold text-muted-foreground tracking-wider">
+                        Tagline / Summary
+                      </Label>
+                      <Input
+                        value={current.tagline || ""}
+                        onChange={(e) =>
+                          setTierForms((prev) => ({
+                            ...prev,
+                            [tierKey]: { ...current, tagline: e.target.value },
+                          }))
+                        }
+                        className="h-7 text-xs text-muted-foreground bg-background/50 border-border/80 focus:border-primary"
+                        placeholder="Value proposition / summary"
+                      />
+                    </div>
                   </div>
 
                   {/* Pricing Inputs */}
-                  <div className="grid grid-cols-2 gap-3 text-xs pt-1">
+                  <div className="grid grid-cols-2 gap-3 text-xs pt-0.5">
                     <div>
-                      <Label className="text-[11px] text-muted-foreground">Monthly (₹)</Label>
+                      <Label className="text-[11px] text-muted-foreground font-medium">Monthly (₹)</Label>
                       <Input
                         type="number"
                         value={current.monthlyPrice}
@@ -559,11 +683,13 @@ export function PricingAdminPanel() {
                       />
                     </div>
                     <div>
-                      <div className="flex items-center justify-between">
-                        <Label className="text-[11px] text-muted-foreground">Annual (₹)</Label>
+                      <div className="flex items-center justify-between gap-1">
+                        <Label className="text-[11px] text-muted-foreground font-medium whitespace-nowrap">
+                          Annual (₹)
+                        </Label>
                         {current.annualPrice > 0 && current.monthlyPrice > 0 && (
-                          <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 font-semibold">
-                            Save {Math.max(0, Math.round((1 - current.annualPrice / (current.monthlyPrice * 12)) * 100))}%
+                          <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-semibold whitespace-nowrap shrink-0">
+                            {Math.max(0, Math.round((1 - current.annualPrice / (current.monthlyPrice * 12)) * 100))}% off
                           </span>
                         )}
                       </div>
@@ -584,7 +710,7 @@ export function PricingAdminPanel() {
                   {/* Quotas Inputs */}
                   <div className="grid grid-cols-2 gap-3 text-xs">
                     <div>
-                      <Label className="text-[11px] text-muted-foreground">Essays / Mo</Label>
+                      <Label className="text-[11px] text-muted-foreground font-medium">Essays / Mo</Label>
                       <Input
                         type="number"
                         value={current.essaysPerMonth}
@@ -598,7 +724,7 @@ export function PricingAdminPanel() {
                       />
                     </div>
                     <div>
-                      <Label className="text-[11px] text-muted-foreground">Live Credits</Label>
+                      <Label className="text-[11px] text-muted-foreground font-medium">Live Credits</Label>
                       <Input
                         type="number"
                         value={current.liveCredits}
@@ -623,7 +749,7 @@ export function PricingAdminPanel() {
                           [tierKey]: !isExpanded,
                         }))
                       }
-                      className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold text-foreground bg-muted/30 hover:bg-muted/50 transition-colors"
+                      className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold text-foreground bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer"
                     >
                       <span className="flex items-center gap-1.5">
                         <SlidersHorizontal className="size-3 text-primary" />
@@ -631,7 +757,7 @@ export function PricingAdminPanel() {
                       </span>
                       <div className="flex items-center gap-1.5">
                         <Badge variant="secondary" className="text-[9px] h-4 px-1.5 font-mono">
-                          {enabledCount}/7 Active
+                          {enabledCount}/7 Features Active
                         </Badge>
                         {isExpanded ? (
                           <ChevronUp className="size-3.5 text-muted-foreground" />
@@ -646,11 +772,11 @@ export function PricingAdminPanel() {
                         {/* Handwriting OCR */}
                         <div className="flex items-center justify-between">
                           <span className="text-[11px] text-foreground flex items-center gap-1.5">
-                            <Camera className="size-3 text-amber-500" />
+                            <Camera className="size-3 text-amber-500 shrink-0" />
                             Handwriting OCR Scanning
                           </span>
                           <Switch
-                            checked={restrictions.allowHandwritingOcr}
+                            checked={Boolean(restrictions.allowHandwritingOcr)}
                             onCheckedChange={(val) =>
                               setTierForms((prev) => ({
                                 ...prev,
@@ -663,14 +789,14 @@ export function PricingAdminPanel() {
                           />
                         </div>
 
-                        {/* Model Answers Generator */}
+                        {/* AI Model Answer Generator */}
                         <div className="flex items-center justify-between">
                           <span className="text-[11px] text-foreground flex items-center gap-1.5">
-                            <Bot className="size-3 text-indigo-500" />
+                            <Bot className="size-3 text-indigo-500 shrink-0" />
                             AI Model Answer Generator
                           </span>
                           <Switch
-                            checked={restrictions.allowModelAnswers}
+                            checked={Boolean(restrictions.allowModelAnswers)}
                             onCheckedChange={(val) =>
                               setTierForms((prev) => ({
                                 ...prev,
@@ -683,14 +809,14 @@ export function PricingAdminPanel() {
                           />
                         </div>
 
-                        {/* Economics Diagram Studio */}
+                        {/* Diagram Studio & Drills */}
                         <div className="flex items-center justify-between">
                           <span className="text-[11px] text-foreground flex items-center gap-1.5">
-                            <LineChart className="size-3 text-emerald-500" />
+                            <LineChart className="size-3 text-emerald-500 shrink-0" />
                             Diagram Studio &amp; Drills
                           </span>
                           <Switch
-                            checked={restrictions.allowDiagramStudio}
+                            checked={Boolean(restrictions.allowDiagramStudio)}
                             onCheckedChange={(val) =>
                               setTierForms((prev) => ({
                                 ...prev,
@@ -703,14 +829,14 @@ export function PricingAdminPanel() {
                           />
                         </div>
 
-                        {/* Dual Model Arbitration */}
+                        {/* Dual-Examiner Arbitration */}
                         <div className="flex items-center justify-between">
                           <span className="text-[11px] text-foreground flex items-center gap-1.5">
-                            <Scale className="size-3 text-purple-500" />
+                            <Scale className="size-3 text-purple-500 shrink-0" />
                             Dual-Examiner Arbitration
                           </span>
                           <Switch
-                            checked={restrictions.allowArbitration}
+                            checked={Boolean(restrictions.allowArbitration)}
                             onCheckedChange={(val) =>
                               setTierForms((prev) => ({
                                 ...prev,
@@ -723,14 +849,14 @@ export function PricingAdminPanel() {
                           />
                         </div>
 
-                        {/* Classroom & School Submissions */}
+                        {/* School Classrooms Access */}
                         <div className="flex items-center justify-between">
                           <span className="text-[11px] text-foreground flex items-center gap-1.5">
-                            <School className="size-3 text-rose-500" />
+                            <School className="size-3 text-rose-500 shrink-0" />
                             School Classrooms Access
                           </span>
                           <Switch
-                            checked={restrictions.allowClassrooms}
+                            checked={Boolean(restrictions.allowClassrooms)}
                             onCheckedChange={(val) =>
                               setTierForms((prev) => ({
                                 ...prev,
@@ -743,14 +869,14 @@ export function PricingAdminPanel() {
                           />
                         </div>
 
-                        {/* Priority Queue */}
+                        {/* Priority High-Speed Queue */}
                         <div className="flex items-center justify-between">
                           <span className="text-[11px] text-foreground flex items-center gap-1.5">
-                            <Zap className="size-3 text-amber-400" />
+                            <Zap className="size-3 text-amber-400 shrink-0" />
                             Priority High-Speed Queue
                           </span>
                           <Switch
-                            checked={restrictions.allowPriorityQueue}
+                            checked={Boolean(restrictions.allowPriorityQueue)}
                             onCheckedChange={(val) =>
                               setTierForms((prev) => ({
                                 ...prev,
@@ -763,14 +889,14 @@ export function PricingAdminPanel() {
                           />
                         </div>
 
-                        {/* Experimental Labs */}
+                        {/* Beta Experimental Labs */}
                         <div className="flex items-center justify-between">
                           <span className="text-[11px] text-foreground flex items-center gap-1.5">
-                            <Sparkles className="size-3 text-indigo-400" />
+                            <Sparkles className="size-3 text-indigo-400 shrink-0" />
                             Beta Experimental Labs
                           </span>
                           <Switch
-                            checked={current.hasExperimentalLabs}
+                            checked={Boolean(current.hasExperimentalLabs)}
                             onCheckedChange={(val) =>
                               setTierForms((prev) => ({
                                 ...prev,
@@ -780,7 +906,55 @@ export function PricingAdminPanel() {
                           />
                         </div>
 
-                        {/* MCQ Access Level */}
+                        {/* Max Essay Words & Daily Limit */}
+                        <div className="pt-2 border-t border-border/50 grid grid-cols-2 gap-2">
+                          <div className="space-y-1">
+                            <div className="flex items-center justify-between">
+                              <Label className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">
+                                Max Words
+                              </Label>
+                              <span className="text-[9px] text-muted-foreground font-mono">0=unlimited</span>
+                            </div>
+                            <Input
+                              type="number"
+                              value={restrictions.maxEssayWords ?? 2000}
+                              onChange={(e) =>
+                                setTierForms((prev) => ({
+                                  ...prev,
+                                  [tierKey]: {
+                                    ...current,
+                                    restrictions: { ...restrictions, maxEssayWords: Number(e.target.value) },
+                                  },
+                                }))
+                              }
+                              className="h-7 text-xs font-mono"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <div className="flex items-center justify-between">
+                              <Label className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">
+                                Daily Cap
+                              </Label>
+                              <span className="text-[9px] text-muted-foreground font-mono">0=unlimited</span>
+                            </div>
+                            <Input
+                              type="number"
+                              value={restrictions.dailyEssayLimit ?? 0}
+                              onChange={(e) =>
+                                setTierForms((prev) => ({
+                                  ...prev,
+                                  [tierKey]: {
+                                    ...current,
+                                    restrictions: { ...restrictions, dailyEssayLimit: Number(e.target.value) },
+                                  },
+                                }))
+                              }
+                              className="h-7 text-xs font-mono"
+                            />
+                          </div>
+                        </div>
+
+                        {/* MCQ Access Policy */}
                         <div className="pt-1.5 border-t border-border/50 space-y-1">
                           <Label className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">
                             MCQ Access Policy
@@ -812,28 +986,14 @@ export function PricingAdminPanel() {
                   </div>
                 </div>
 
-                {/* Card Action Button - Fully visible, never clipped */}
-                <div className="pt-3 border-t border-border/70">
+                {/* Card Bottom Action Button */}
+                <div className="pt-3 border-t border-border/70 mt-auto">
                   <Button
                     type="button"
                     size="sm"
                     className="w-full text-xs font-semibold h-9 shadow-xs cursor-pointer gap-1.5"
                     disabled={isSaving}
-                    onClick={() =>
-                      updateTierMutation.mutate({
-                        tier: tierKey,
-                        name: current.name || plan.name,
-                        tagline: current.tagline || plan.tagline,
-                        monthlyPrice: current.monthlyPrice,
-                        annualPrice: current.annualPrice,
-                        essaysPerMonth: current.essaysPerMonth,
-                        liveCredits: current.liveCredits,
-                        hasExperimentalLabs: current.hasExperimentalLabs,
-                        isPublic: current.isPublic !== false,
-                        badge: current.badge || plan.badge,
-                        restrictions: current.restrictions,
-                      })
-                    }
+                    onClick={() => handleSaveTier(tierKey)}
                   >
                     {isSaving ? (
                       <RefreshCw className="size-3.5 animate-spin" />
