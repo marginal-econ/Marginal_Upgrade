@@ -59,6 +59,28 @@ export function computeHeuristicScore(params: {
     0,
   );
 
+  // Strict Cambridge Examiner Guard: Fragments or < 10 words earn ZERO marks
+  if (totalWords < 10) {
+    return {
+      total: 0,
+      maxMark,
+      band: "No answer written yet",
+      confidence: 1.0,
+      aoBreakdown: { ao1: 0, ao2: 0, ao3: 0 },
+      nextMoves: [
+        {
+          id: "start_definition",
+          aoTarget: "ao1",
+          title: "Write your opening sentence",
+          detail: "Begin by accurately defining the core economic concept in the question.",
+          potentialGain: 1,
+        },
+      ],
+      isProvisional: true,
+      timestamp: Date.now(),
+    };
+  }
+
   const paragraphs = new Set(sentences.map((s) => s.paragraphIndex));
   const maxParagraph = Math.max(...Array.from(paragraphs), 0);
 

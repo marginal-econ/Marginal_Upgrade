@@ -79,6 +79,17 @@ export function classifySentence(sentence: string): SentenceClass {
   const s = sentence.trim();
   const lower = s.toLowerCase();
   const words = wordCountOf(s);
+
+  // Incomplete fragment or single isolated word earns NO credit
+  if (words < 5) {
+    return {
+      ao: "AO1",
+      confidence: 0,
+      strength: 0,
+      explanation: "Sentence fragment — write a complete thought to earn marks.",
+    };
+  }
+
   const hasEcon = ECON_TERM.test(lower);
 
   const isDef =
@@ -267,7 +278,7 @@ export function computeRunningMark(input: MarkInput): RunningMark {
     const words = wordCountOf(sentence);
     // A trailing, unfinished sentence earns credit only once it is substantial.
     if (!complete && words < 8) continue;
-    if (words < 4) continue;
+    if (words < 5) continue;
     if (wrongContexts?.has(sentence)) continue;
 
     const tok = tokens(sentence);
@@ -282,16 +293,17 @@ export function computeRunningMark(input: MarkInput): RunningMark {
     units[cls.ao] += weight;
   }
 
+  const wc = wordCountOf(text);
   const round = (u: number, upm: number, cap: number) =>
-    Math.max(0, Math.min(cap, Math.floor(u / upm + 0.5)));
+    wc < 10 ? 0 : Math.max(0, Math.min(cap, Math.floor(u / upm + 0.5)));
   const ao1 = round(units.AO1, UNITS_PER_MARK.ao1, split.ao1_marks);
   const ao2 = round(units.AO2, UNITS_PER_MARK.ao2, split.ao2_marks);
   // You cannot be credited for evaluating analysis that is not there.
-  const ao3 = Math.min(
+  const ao3 = wc < 10 ? 0 : Math.min(
     round(units.AO3, UNITS_PER_MARK.ao3, split.ao3_marks),
     split.ao3_marks === 0 ? 0 : ao2 + 1,
   );
-  const total = Math.min(maxMark, ao1 + ao2 + ao3);
+  const total = wc < 10 ? 0 : Math.min(maxMark, ao1 + ao2 + ao3);
 
   const weakest = (
     [
@@ -301,13 +313,12 @@ export function computeRunningMark(input: MarkInput): RunningMark {
     ] as [string, number][]
   ).sort((a, b) => a[1] - b[1])[0];
   const headline =
-    counted === 0
+    counted === 0 || wc < 10
       ? "Start writing to earn marks"
       : total >= maxMark
         ? "Full marks on current evidence"
         : `Next: ${weakest[0]}`;
 
-  const wc = wordCountOf(text);
   const confidence = Math.min(
     0.95,
     0.5 + Math.min(0.25, wc / 800) + (counted ? (aiCount / counted) * 0.2 : 0),

@@ -165,6 +165,12 @@ export function useLiveExaminer(params: {
           }
         }
 
+        const segWords = seg.text.trim().split(/\s+/).filter(Boolean).length;
+        // Incomplete fragments or short phrases (< 5 words) earn NO AO credit until completed
+        if (segWords < 5 || !seg.isComplete) {
+          aoTag = "no_credit";
+        }
+
         // Add to active issues
         for (const iss of sentenceIssues) {
           const id = `${iss.category}::${seg.text.toLowerCase()}::${iss.original.toLowerCase()}`;

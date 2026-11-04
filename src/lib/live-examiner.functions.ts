@@ -532,29 +532,36 @@ export function sanitisePredictedMark(
   // Calibrate against deterministic Cambridge AO classification so LLM cannot inflate AO2/AO3
   // when there are 0 genuine AO2/AO3 sentences in the essay (e.g. 2 AO1 definition sentences = 2/12, never 4/12).
   if (essayText && essayText.trim().length > 0 && question) {
-    const sentences = splitSentences(essayText)
-      .map((s) => s.trim())
-      .filter((s) => s.length >= 5 && !/\[DIAGRAM:[^\]]*\]/i.test(s));
-    const classified = sentences.map((s) => classifySentence(s));
-    const ao1Count = classified.filter((c) => c.ao === "AO1" && c.strength > 0).length;
-    const ao2Count = classified.filter((c) => c.ao === "AO2").length;
-    const ao3Count = classified.filter((c) => c.ao === "AO3").length;
-
-    if (ao2Count === 0) {
+    const wc = essayText.trim().split(/\s+/).filter(Boolean).length;
+    if (wc < 10) {
+      knowledge.awarded = 0;
       analysis.awarded = 0;
-    } else {
-      const maxReasonableAo2 = ao2Count === 1 ? 2 : ao2Count === 2 ? 4 : analysis.out_of;
-      analysis.awarded = Math.min(analysis.out_of, analysis.awarded, maxReasonableAo2);
-    }
-    if (ao3Count === 0) {
       evaluation.awarded = 0;
     } else {
-      const maxReasonableAo3 = ao3Count === 1 ? 2 : evaluation.out_of;
-      evaluation.awarded = Math.min(evaluation.out_of, evaluation.awarded, maxReasonableAo3);
+      const sentences = splitSentences(essayText)
+        .map((s) => s.trim())
+        .filter((s) => s.length >= 5 && !/\[DIAGRAM:[^\]]*\]/i.test(s));
+      const classified = sentences.map((s) => classifySentence(s));
+      const ao1Count = classified.filter((c) => c.ao === "AO1" && c.strength > 0).length;
+      const ao2Count = classified.filter((c) => c.ao === "AO2").length;
+      const ao3Count = classified.filter((c) => c.ao === "AO3").length;
+
+      if (ao2Count === 0) {
+        analysis.awarded = 0;
+      } else {
+        const maxReasonableAo2 = ao2Count === 1 ? 2 : ao2Count === 2 ? 4 : analysis.out_of;
+        analysis.awarded = Math.min(analysis.out_of, analysis.awarded, maxReasonableAo2);
+      }
+      if (ao3Count === 0) {
+        evaluation.awarded = 0;
+      } else {
+        const maxReasonableAo3 = ao3Count === 1 ? 2 : evaluation.out_of;
+        evaluation.awarded = Math.min(evaluation.out_of, evaluation.awarded, maxReasonableAo3);
+      }
+      const detAo1Awarded =
+        ao1Count >= 2 ? knowledge.out_of : ao1Count >= 1 ? Math.max(1, Math.floor(knowledge.out_of * 0.5)) : 0;
+      knowledge.awarded = Math.min(knowledge.out_of, Math.max(knowledge.awarded, detAo1Awarded));
     }
-    const detAo1Awarded =
-      ao1Count >= 2 ? knowledge.out_of : ao1Count >= 1 ? Math.max(1, Math.floor(knowledge.out_of * 0.5)) : 0;
-    knowledge.awarded = Math.min(knowledge.out_of, Math.max(knowledge.awarded, detAo1Awarded));
   }
 
   const totalCalculated = knowledge.awarded + analysis.awarded + evaluation.awarded;
