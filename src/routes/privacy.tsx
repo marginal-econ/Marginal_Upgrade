@@ -14,6 +14,7 @@ export const Route = createFileRoute("/privacy")({
       { property: "og:site_name", content: "Marginal AI" },
       { property: "og:title", content: "Privacy Policy — Marginal AI" },
     ],
+    links: [{ rel: "canonical", href: "https://marginal-econ.com/privacy" }],
   }),
   component: PrivacyPage,
 });

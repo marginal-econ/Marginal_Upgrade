@@ -528,7 +528,7 @@ function GradePage() {
     if (isLimitReached) {
       toast.error(
         isTeacher
-          ? "Plan limit reached: You've completed your 3 free educator trial evaluations. Upgrade to an Educator AI Pass (from ₹99/mo) to continue."
+          ? "Plan limit reached: You've completed your 3 free educator trial evaluations. Upgrade to an Educator AI Pass (from $19/mo) to continue."
           : "Plan limit reached. Redirecting to pricing...",
         {
           duration: 4000,
@@ -565,10 +565,10 @@ function GradePage() {
           title={isTeacherUnpaid ? "Unlock Teacher AI Grading & Moderation" : "Essay Grader is Chained"}
           description={
             isTeacherUnpaid
-              ? "Teacher accounts require an active Educator AI Pass (from ₹99/mo) or School Department License to grade essays directly. Student homework assignments in your Cambridge classrooms are covered under your students' accounts."
+              ? "Teacher accounts require an active Educator AI Pass (from $19/mo) or School Department License to grade essays directly. Student homework assignments in your Cambridge classrooms are covered under your students' accounts."
               : `You have completed your included Cambridge essay evaluations for your ${sub?.tierName ?? "Free Tier"} account. Upgrade your revision pass to unlock additional essay evaluations, Live Examiner credits, and full Cambridge mark schemes.`
           }
-          primaryCtaText={isTeacherUnpaid ? "Unlock Educator AI Pass (from ₹99/mo)" : "Unlock Plan from ₹99/mo"}
+          primaryCtaText={isTeacherUnpaid ? "Unlock Educator AI Pass (from $19/mo)" : "Unlock Plan from $19/mo"}
           primaryCtaLink="/pricing"
           secondaryCtaText={isTeacherUnpaid ? "View School Department Licensing" : "View Previous Submissions"}
           secondaryCtaLink={isTeacherUnpaid ? "/pricing" : "/showcase"}
@@ -578,7 +578,7 @@ function GradePage() {
                   {
                     icon: Sparkles,
                     iconColor: "text-amber-500",
-                    title: "Educator AI Pass (From ₹99/mo)",
+                    title: "Educator AI Pass (From $19/mo)",
                     description: "Subscribe individually to grade student essays, test mark schemes, and generate exemplar Cambridge answers.",
                   },
                   {

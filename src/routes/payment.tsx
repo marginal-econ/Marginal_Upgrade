@@ -48,6 +48,9 @@ import { DEFAULT_PRICING_PLANS } from "@/lib/pricing-plans";
 import { getMe } from "@/lib/account.functions";
 import { TIER_LIMITS, type PlanTier } from "@/lib/usage-limits";
 import { cn } from "@/lib/utils";
+import { useCurrency } from "@/hooks/use-currency";
+import { CurrencySelector } from "@/components/ui/currency-selector";
+import { convertFromUsd } from "@/lib/currency";
 
 const searchSchema = z
   .object({
@@ -90,9 +93,9 @@ const SCHOOL_PLANS: Record<
   school_starter: {
     name: "Department Starter",
     tagline: "For boutique classes and small cohorts (up to 50 students, 2 teacher admins).",
-    monthlyPrice: 4999,
-    annualPrice: 49999,
-    annualEquivalentMonthly: 4166,
+    monthlyPrice: 99,
+    annualPrice: 990,
+    annualEquivalentMonthly: 83,
     savePct: 17,
     studentCapacity: "Up to 50 Students",
     teacherSeats: "2 Teacher Admin Seats",
@@ -102,9 +105,9 @@ const SCHOOL_PLANS: Record<
   school_campus: {
     name: "Campus Standard",
     tagline: "Ideal for Cambridge international schools (up to 150 students, 5 teacher admins).",
-    monthlyPrice: 11999,
-    annualPrice: 119999,
-    annualEquivalentMonthly: 10000,
+    monthlyPrice: 199,
+    annualPrice: 1990,
+    annualEquivalentMonthly: 166,
     savePct: 17,
     studentCapacity: "Up to 150 Students",
     teacherSeats: "5 Teacher Admin Seats",
@@ -114,9 +117,9 @@ const SCHOOL_PLANS: Record<
   school_institution: {
     name: "Institution Premium",
     tagline: "Comprehensive capacity for large high schools (up to 400 students, 15 teacher admins).",
-    monthlyPrice: 24999,
-    annualPrice: 249999,
-    annualEquivalentMonthly: 20833,
+    monthlyPrice: 399,
+    annualPrice: 3990,
+    annualEquivalentMonthly: 333,
     savePct: 17,
     studentCapacity: "Up to 400 Students",
     teacherSeats: "15 Teacher Admin Seats",
@@ -142,39 +145,39 @@ export const Route = createFileRoute("/payment")({
 
 const TIER_PRICING = {
   foundation: {
-    monthly: 99,
-    annual: 1188,
-    annualMonthlyEq: 99,
-    savePct: 0,
-    tagline: "Foundation Scholar — 8 essays/mo and 3 Live Examiner credits (₹99/mo flat)",
+    monthly: 19,
+    annual: 190,
+    annualMonthlyEq: 16,
+    savePct: 17,
+    tagline: "Foundation Scholar — 8 essays/mo and 2 Live Examiner credits",
   },
   scholar_plus: {
-    monthly: 199,
-    annual: 1999,
-    annualMonthlyEq: 166,
-    savePct: 16,
-    tagline: "Scholar Plus — 15 essays/mo and 5 Live Examiner credits (₹199/mo)",
+    monthly: 35,
+    annual: 349,
+    annualMonthlyEq: 29,
+    savePct: 17,
+    tagline: "Scholar Plus — 15 essays/mo and 4 Live Examiner credits",
   },
   pro: {
-    monthly: 399,
-    annual: 3499,
-    annualMonthlyEq: 291,
-    savePct: 27,
-    tagline: "Pro Accelerator — 20 essays/mo, 10 Live Examiner credits, arbitration",
+    monthly: 59,
+    annual: 590,
+    annualMonthlyEq: 49,
+    savePct: 17,
+    tagline: "Pro Accelerator — 25 essays/mo, 8 Live Examiner credits, arbitration",
   },
   mastery: {
-    monthly: 699,
-    annual: 5999,
-    annualMonthlyEq: 499,
-    savePct: 28,
-    tagline: "A* Mastery Sprint — 45 essays/mo, 20 Live Examiner credits, handwriting OCR",
+    monthly: 99,
+    annual: 990,
+    annualMonthlyEq: 82,
+    savePct: 17,
+    tagline: "A* Mastery Sprint — 50 essays/mo, 14 Live Examiner credits, handwriting OCR",
   },
   elite: {
-    monthly: 999,
-    annual: 8999,
-    annualMonthlyEq: 749,
-    savePct: 25,
-    tagline: "Cambridge Elite Pass — 80 essays/mo and 35 Live Examiner credits",
+    monthly: 179,
+    annual: 1790,
+    annualMonthlyEq: 149,
+    savePct: 17,
+    tagline: "Cambridge Elite Pass — 75 essays/mo and 22 Live Examiner credits",
   },
 };
 
@@ -337,6 +340,8 @@ function PaymentPortalPage() {
     }
   }, [isSchoolMode]);
 
+  const { currency, setCurrency, format, convert, meta } = useCurrency();
+
   const fetchPlatformPricing = useServerFn(getPlatformPricing);
   const platformPricingQuery = useQuery({
     queryKey: ["platform-pricing"],
@@ -346,37 +351,41 @@ function PaymentPortalPage() {
 
   const activePlans = platformPricingQuery.data?.plans ?? DEFAULT_PRICING_PLANS;
 
-  let finalBasePrice = 0;
+  let baseAmountUsd = 0;
   let activePlanName = "";
   let activePlanTagline = "";
   let savePct = 0;
 
   if (isSchoolMode) {
     const sPlan = SCHOOL_PLANS[selectedTier] ?? SCHOOL_PLANS.school_starter;
-    finalBasePrice = cycle === "annual" ? sPlan.annualPrice : sPlan.monthlyPrice;
+    baseAmountUsd = cycle === "annual" ? sPlan.annualPrice : sPlan.monthlyPrice;
     activePlanName = sPlan.name;
     activePlanTagline = sPlan.tagline;
     savePct = sPlan.savePct;
   } else {
-    const pTier = (["foundation", "scholar_plus", "pro", "mastery", "elite"].includes(selectedTier)
-      ? selectedTier
-      : "foundation") as PlanTier;
-    const currentPlan = activePlans[pTier] ?? DEFAULT_PRICING_PLANS[pTier];
-    finalBasePrice = cycle === "annual" ? currentPlan.annualPrice : currentPlan.monthlyPrice;
+    const currentPlan =
+      activePlans[selectedTier] ??
+      (DEFAULT_PRICING_PLANS as any)[selectedTier] ??
+      activePlans.foundation ??
+      DEFAULT_PRICING_PLANS.foundation;
+    baseAmountUsd = cycle === "annual" ? currentPlan.annualPrice : currentPlan.monthlyPrice;
     activePlanName = isTeacherMode
-      ? pTier === "foundation"
+      ? selectedTier === "foundation"
         ? "Individual Educator AI Pass"
-        : pTier === "scholar_plus"
+        : selectedTier === "scholar_plus"
         ? "Senior Educator Pass"
-        : pTier === "pro"
+        : selectedTier === "pro"
         ? "Department Lead Pass"
-        : pTier === "mastery"
+        : selectedTier === "mastery"
         ? "Mastery Department Pass"
         : "Elite Institutional Pass"
       : currentPlan.name;
     activePlanTagline = currentPlan.tagline;
     savePct = currentPlan.savePct;
   }
+
+  // Convert base USD amount to active localized currency
+  const finalBasePrice = convert(baseAmountUsd);
 
   const limits = TIER_LIMITS[selectedTier as PlanTier] ?? TIER_LIMITS.foundation;
 
@@ -397,7 +406,7 @@ function PaymentPortalPage() {
   const discountAmount = appliedCoupon
     ? appliedCoupon.type === "percentage"
       ? Math.round((finalBasePrice * appliedCoupon.value) / 100)
-      : Math.min(appliedCoupon.value, finalBasePrice)
+      : Math.min(currency === "INR" ? appliedCoupon.value : convert(appliedCoupon.value), finalBasePrice)
     : 0;
   const payableAmount = Math.max(0, finalBasePrice - discountAmount);
   // Alias for backward compatibility with existing component references
@@ -818,7 +827,7 @@ function PaymentPortalPage() {
             {isSchoolMode
               ? "Equip your economics department with bulk student essay allocations, teacher dashboard oversight, and shared mark scheme calibrations."
               : isTeacherMode
-              ? "Unlock personal Cambridge 9708 examiner AI marking, custom school mark scheme ingestion, and live Socratic coaching from ₹99/mo."
+              ? `Unlock personal Cambridge 9708 examiner AI marking, custom school mark scheme ingestion, and live Socratic coaching from ${format(19)}/mo.`
               : "Choose your Cambridge study tier, unlock instant Live Examiner AI credits, and begin scoring higher with official mark scheme calibrations."}
           </p>
         </div>
@@ -1008,35 +1017,40 @@ function PaymentPortalPage() {
                 </button>
               </div>
 
-              {/* Billing Cycle Toggle */}
-              <div className="mb-5 flex items-center justify-between rounded-xl bg-muted/60 p-1 text-xs sm:p-1.5">
-                <button
-                  type="button"
-                  onClick={() => setCycle("monthly")}
-                  className={cn(
-                    "flex-1 rounded-lg py-2 font-medium transition-all text-center text-xs",
-                    cycle === "monthly"
-                      ? "bg-background text-foreground shadow-xs font-semibold"
-                      : "text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  Monthly Billing
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setCycle("annual")}
-                  className={cn(
-                    "flex-1 rounded-lg py-2 font-medium transition-all flex flex-wrap sm:flex-nowrap items-center justify-center gap-1 sm:gap-1.5 text-xs text-center",
-                    cycle === "annual"
-                      ? "bg-background text-foreground shadow-xs font-semibold"
-                      : "text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  <span>Annual Billing</span>
-                  <span className="rounded-full bg-emerald-500/15 border border-emerald-500/30 px-1.5 py-0.5 text-[9px] sm:text-[10px] font-bold text-emerald-600 dark:text-emerald-400 whitespace-nowrap">
-                    Save up to 33%
-                  </span>
-                </button>
+              {/* Billing Cycle & Currency Bar */}
+              <div className="mb-5 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-muted/40 p-1.5 sm:p-2 rounded-xl border border-border/60">
+                <div className="flex-1 flex items-center rounded-lg bg-muted/80 p-1 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => setCycle("monthly")}
+                    className={cn(
+                      "flex-1 rounded-md py-1.5 font-medium transition-all text-center text-xs",
+                      cycle === "monthly"
+                        ? "bg-background text-foreground shadow-xs font-semibold"
+                        : "text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    Monthly
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCycle("annual")}
+                    className={cn(
+                      "flex-1 rounded-md py-1.5 font-medium transition-all flex items-center justify-center gap-1 text-xs text-center",
+                      cycle === "annual"
+                        ? "bg-background text-foreground shadow-xs font-semibold"
+                        : "text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    <span>Annual</span>
+                    <span className="rounded-full bg-emerald-500/15 border border-emerald-500/30 px-1.5 py-0.2 text-[9px] font-bold text-emerald-600 dark:text-emerald-400">
+                      Save 17%
+                    </span>
+                  </button>
+                </div>
+                <div className="shrink-0 flex items-center justify-end">
+                  <CurrencySelector value={currency} onChange={setCurrency} variant="select" />
+                </div>
               </div>
 
               {/* Tiers List */}
@@ -1045,7 +1059,7 @@ function PaymentPortalPage() {
                   Object.entries(SCHOOL_PLANS).map(([tierKey, sPlan]) => {
                     const isSelected = selectedTier === tierKey;
                     const priceShow =
-                      cycle === "annual" ? `₹${sPlan.annualEquivalentMonthly}` : `₹${sPlan.monthlyPrice}`;
+                      cycle === "annual" ? format(sPlan.annualEquivalentMonthly) : format(sPlan.monthlyPrice);
 
                     return (
                       <div
@@ -1143,7 +1157,7 @@ function PaymentPortalPage() {
                     const tLimits = TIER_LIMITS[tierKey];
                     const isSelected = selectedTier === tierKey;
                     const priceShow =
-                      cycle === "annual" ? `₹${tPricing.annualMonthlyEq}` : `₹${tPricing.monthly}`;
+                      cycle === "annual" ? format(tPricing.annualMonthlyEq) : format(tPricing.monthly);
 
                     let tierTitle = tLimits.name;
                     let tierSubtitle = tPricing.tagline;
@@ -1326,7 +1340,7 @@ function PaymentPortalPage() {
               <div className="my-5 space-y-3.5 text-xs">
                 <div className="flex justify-between items-baseline">
                   <span className="font-medium text-foreground">{activePlanName}</span>
-                  <span className="font-bold text-sm">₹{finalBasePrice.toLocaleString()}</span>
+                  <span className="font-bold text-sm">{meta.symbol}{finalBasePrice.toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between text-muted-foreground text-[11px]">
                   <span>Billing Frequency</span>
@@ -1351,7 +1365,7 @@ function PaymentPortalPage() {
                             <p className="font-bold text-xs flex items-center gap-1.5">
                               <span className="font-mono tracking-wider">{appliedCoupon.code}</span>
                               <Badge className="bg-emerald-600/20 text-emerald-700 dark:text-emerald-300 border-none text-[9px] px-1.5 py-0 font-bold">
-                                {appliedCoupon.type === "percentage" ? `${appliedCoupon.value}% OFF` : `₹${appliedCoupon.value} OFF`}
+                                {appliedCoupon.type === "percentage" ? `${appliedCoupon.value}% OFF` : `${meta.symbol}${appliedCoupon.value} OFF`}
                               </Badge>
                             </p>
                             <p className="text-[10px] text-muted-foreground truncate">
@@ -1361,7 +1375,7 @@ function PaymentPortalPage() {
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
                           <span className="font-bold text-xs text-emerald-600 dark:text-emerald-400 tabular-nums">
-                            -₹{discountAmount.toLocaleString()}
+                            -{meta.symbol}{discountAmount.toLocaleString()}
                           </span>
                           <Button
                             type="button"
@@ -1461,18 +1475,18 @@ function PaymentPortalPage() {
                       {isSchoolMode
                         ? "Official GST invoice issued on PO requisition"
                         : appliedCoupon
-                        ? `Discount applied (saved ₹${discountAmount.toLocaleString()})`
+                        ? `Discount applied (saved ${meta.symbol}${discountAmount.toLocaleString()})`
                         : "Includes all platform taxes"}
                     </p>
                   </div>
                   <div className="text-right">
                     {appliedCoupon && discountAmount > 0 ? (
                       <span className="text-xs line-through text-muted-foreground mr-1.5 tabular-nums">
-                        ₹{finalBasePrice.toLocaleString()}
+                        {meta.symbol}{finalBasePrice.toLocaleString()}
                       </span>
                     ) : null}
                     <span className="text-2xl font-black text-primary tabular-nums">
-                      ₹{payableAmount.toLocaleString()}
+                      {meta.symbol}{payableAmount.toLocaleString()}
                     </span>
                   </div>
                 </div>
@@ -1518,7 +1532,7 @@ function PaymentPortalPage() {
                     <div className="flex justify-between items-center text-muted-foreground pt-1 border-t border-border/60">
                       <span>Institutional Rate:</span>
                       <strong className="text-emerald-600 dark:text-emerald-400 font-extrabold text-sm tabular-nums">
-                        ₹{finalPrice.toLocaleString()}{cycle === "annual" ? " / yr" : " / mo"}
+                        {meta.symbol}{finalPrice.toLocaleString()}{cycle === "annual" ? " / yr" : " / mo"}
                       </strong>
                     </div>
                   </div>
@@ -1655,7 +1669,7 @@ function PaymentPortalPage() {
                           )}
                         >
                           <Lock className="size-3.5 text-amber-500" />
-                          Pay ₹{finalPrice.toLocaleString()} via Razorpay (Locked)
+                          Pay {meta.symbol}{finalPrice.toLocaleString()} via Card / Razorpay (Locked)
                         </Button>
 
                         <Button
@@ -1730,7 +1744,7 @@ function PaymentPortalPage() {
                             </Button>
                           </div>
                           <p className="text-[11px] text-muted-foreground">
-                            Amount: <strong className="text-foreground font-bold">₹{finalPrice.toLocaleString()}</strong>
+                            Amount: <strong className="text-foreground font-bold">{currency === "INR" ? `₹${finalPrice.toLocaleString()}` : `${meta.symbol}${finalPrice.toLocaleString()} (₹${convertFromUsd(baseAmountUsd, "INR").toLocaleString()})`}</strong>
                           </p>
                         </div>
                       </div>

@@ -147,7 +147,6 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       },
     ],
     links: [
-      { rel: "canonical", href: "https://marginal-econ.com" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
@@ -159,8 +158,14 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         href: appCss,
       },
       { rel: "stylesheet", href: waitlistCss },
-      { rel: "icon", href: "/favicon.svg?v=4", type: "image/svg+xml" },
-      { rel: "apple-touch-icon", href: "/apple-touch-icon.png?v=4" },
+      // Google Search favicon requirements: square, a multiple of 48px, stable URL.
+      { rel: "icon", href: "/favicon.ico", sizes: "48x48" },
+      { rel: "icon", href: "/favicon-48x48.png", type: "image/png", sizes: "48x48" },
+      { rel: "icon", href: "/favicon-96x96.png", type: "image/png", sizes: "96x96" },
+      { rel: "icon", href: "/favicon-192x192.png", type: "image/png", sizes: "192x192" },
+      { rel: "icon", href: "/favicon.svg", type: "image/svg+xml" },
+      { rel: "apple-touch-icon", href: "/apple-touch-icon.png", sizes: "180x180" },
+      { rel: "manifest", href: "/site.webmanifest" },
     ],
   }),
   shellComponent: RootShell,
@@ -179,9 +184,9 @@ function RootShell({ children }: { children: ReactNode }) {
           dangerouslySetInnerHTML={{
             __html: JSON.stringify({
               "@context": "https://schema.org",
-              "@type": "EducationalOrganization",
+"@type": "EducationalOrganization",
               "name": "Marginal AI",
-              "alternateName": ["Marginal", "Marginal AI Economics", "Marginal Economics", "marginal-econ"],
+              "alternateName": ["Marginal", "Marginal Econ", "Marginal Economics", "Marginal AI Economics", "marginal-econ.com"],
               "url": "https://marginal-econ.com",
               "logo": "https://marginal-econ.com/icon-512.png",
               "description":
@@ -195,8 +200,8 @@ function RootShell({ children }: { children: ReactNode }) {
             __html: JSON.stringify({
               "@context": "https://schema.org",
               "@type": "WebSite",
-              "name": "Marginal AI",
-              "alternateName": ["Marginal", "Marginal AI Economics", "Marginal Economics"],
+"name": "Marginal AI",
+              "alternateName": ["Marginal", "Marginal Econ", "Marginal Economics", "Marginal AI Economics", "marginal-econ.com"],
               "url": "https://marginal-econ.com",
             }),
           }}

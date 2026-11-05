@@ -42,6 +42,7 @@ export const Route = createFileRoute("/help")({
       { property: "og:site_name", content: "Marginal AI" },
       { property: "og:title", content: "Help & Support — Marginal AI" },
     ],
+    links: [{ rel: "canonical", href: "https://marginal-econ.com/help" }],
   }),
   component: HelpPage,
 });

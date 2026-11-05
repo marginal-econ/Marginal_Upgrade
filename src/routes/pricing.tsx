@@ -3,6 +3,7 @@ import { ArrowRight, BookOpen, CheckCircle2, GraduationCap, ShieldCheck, Sparkle
 import { useEffect, useState } from "react";
 
 import { AiComparisonSection } from "@/components/marketing/ai-comparison-section";
+import { PricingSection } from "@/components/marketing/pricing-section";
 import { SiteFooter } from "@/components/marketing/footer";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -29,6 +30,7 @@ export const Route = createFileRoute("/pricing")({
           "Marginal AI is 100% Free for Cambridge International 9708 Economics students and educators.",
       },
     ],
+    links: [{ rel: "canonical", href: "https://marginal-econ.com/pricing" }],
   }),
   component: PricingPage,
 });
@@ -78,6 +80,7 @@ function PricingPage() {
             </a>
             <Link
               to="/teacher-auth"
+              search={{ tab: "signin" }}
               className="flex items-center gap-1 text-purple-600 dark:text-purple-400 hover:text-purple-500 transition-colors"
             >
               <GraduationCap className="size-3.5" />
@@ -213,6 +216,9 @@ function PricingPage() {
             </CardContent>
           </Card>
         </section>
+
+        {/* ── Dynamic Platform Pricing & Segregated Specifications ── */}
+        <PricingSection />
 
         <AiComparisonSection />
       </main>

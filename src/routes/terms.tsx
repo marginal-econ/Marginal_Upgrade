@@ -14,6 +14,7 @@ export const Route = createFileRoute("/terms")({
       { property: "og:site_name", content: "Marginal AI" },
       { property: "og:title", content: "Terms & Conditions — Marginal AI" },
     ],
+    links: [{ rel: "canonical", href: "https://marginal-econ.com/terms" }],
   }),
   component: TermsPage,
 });

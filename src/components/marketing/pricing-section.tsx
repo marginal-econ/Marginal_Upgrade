@@ -5,11 +5,20 @@ import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import {
   ArrowRight,
+  BookOpen,
+  Bot,
+  Brain,
   Building2,
+  Camera,
   Check,
   Clock,
+  FileDown,
   GraduationCap,
   HelpCircle,
+  LineChart,
+  Mic,
+  Minus,
+  Scale,
   School,
   ShieldCheck,
   Sparkles,
@@ -22,6 +31,8 @@ import { cn } from "@/lib/utils";
 import { getMe } from "@/lib/account.functions";
 import { getPlatformPricing } from "@/lib/pricing.functions";
 import { DEFAULT_PRICING_PLANS, FREE_STARTER_TIER } from "@/lib/pricing-plans";
+import { useCurrency } from "@/hooks/use-currency";
+import { CurrencySelector } from "@/components/ui/currency-selector";
 import { CosmicAtmosphere } from "./cosmic-atmosphere";
 
 type Audience = "students" | "educators" | "schools";
@@ -32,10 +43,10 @@ const EDUCATOR_TIERS = [
     id: "foundation",
     name: "Individual Educator AI Pass",
     tagline: "Essential AI marking, custom mark schemes, and live coaching for Cambridge 9708 educators.",
-    monthlyPrice: 99,
-    annualPrice: 1188,
-    annualEquivalentMonthly: 99,
-    savePct: 0,
+    monthlyPrice: 35,
+    annualPrice: 349,
+    annualEquivalentMonthly: 29,
+    savePct: 17,
     quota: "8 Graded Essays / mo · 3 Live Examiner Credits",
     badge: "Most Popular for Teachers",
     popular: true,
@@ -54,10 +65,10 @@ const EDUCATOR_TIERS = [
     id: "scholar_plus",
     name: "Senior Educator Pass",
     tagline: "Expanded assessment capacity: 15 essays & 5 Live Examiner credits for active Cambridge teachers.",
-    monthlyPrice: 199,
-    annualPrice: 1999,
-    annualEquivalentMonthly: 166,
-    savePct: 16,
+    monthlyPrice: 69,
+    annualPrice: 690,
+    annualEquivalentMonthly: 58,
+    savePct: 17,
     quota: "15 Graded Essays / mo · 5 Live Examiner Credits",
     badge: "Senior Educator",
     popular: true,
@@ -75,10 +86,10 @@ const EDUCATOR_TIERS = [
     id: "pro",
     name: "Department Lead Pass",
     tagline: "For active departmental heads and high-volume Cambridge essay evaluation.",
-    monthlyPrice: 399,
-    annualPrice: 3499,
-    annualEquivalentMonthly: 291,
-    savePct: 27,
+    monthlyPrice: 119,
+    annualPrice: 1190,
+    annualEquivalentMonthly: 99,
+    savePct: 17,
     quota: "20 Graded Essays / mo · 10 Live Examiner Credits",
     badge: "Head of Economics",
     features: [
@@ -95,9 +106,9 @@ const EDUCATOR_TIERS = [
     id: "school-starter",
     name: "Department Starter",
     tagline: "Full school department licensing with 50 student seats and 2 teacher admins.",
-    monthlyPrice: 4999,
-    annualPrice: 49999,
-    annualEquivalentMonthly: 4166,
+    monthlyPrice: 199,
+    annualPrice: 1990,
+    annualEquivalentMonthly: 166,
     savePct: 17,
     quota: "50 Student Seats · 15 essays / student / mo",
     badge: "School License",
@@ -129,8 +140,8 @@ interface SchoolTier {
   id: string;
   name: string;
   tagline: string;
-  monthlyPrice: string;
-  annualPrice: string;
+  monthlyPriceUsd: number;
+  annualPriceUsd: number;
   studentCapacity: string;
   effectiveCostPerStudent: string;
   teacherSeats: string;
@@ -144,11 +155,11 @@ const STUDENT_TIERS: StudentTier[] = [
   {
     id: "foundation",
     name: "Foundation Scholar",
-    tagline: "Accessible entry point: less than a coffee, flat ₹99/mo for 8 essays & 2 Live Examiner sessions.",
-    monthlyPrice: 99,
-    annualPrice: 1188,
-    annualEquivalentMonthly: 99,
-    savePct: 0,
+    tagline: "Accessible entry point: flat $19/mo for 8 Cambridge essays & 2 Live Examiner sessions.",
+    monthlyPrice: 19,
+    annualPrice: 190,
+    annualEquivalentMonthly: 16,
+    savePct: 17,
     quota: "8 Graded Essays / mo · 2 Live Examiner Credits",
     badge: "Most Accessible",
     features: [
@@ -163,11 +174,11 @@ const STUDENT_TIERS: StudentTier[] = [
   {
     id: "scholar_plus",
     name: "Scholar Plus",
-    tagline: "Focused exam booster: flat ₹199/mo for 15 essays & 4 Live Examiner sessions.",
-    monthlyPrice: 199,
-    annualPrice: 1999,
-    annualEquivalentMonthly: 166,
-    savePct: 16,
+    tagline: "Focused exam booster: flat $35/mo for 15 Cambridge essays & 4 Live Examiner sessions.",
+    monthlyPrice: 35,
+    annualPrice: 349,
+    annualEquivalentMonthly: 29,
+    savePct: 17,
     quota: "15 Graded Essays / mo · 4 Live Examiner Credits",
     badge: "Great Value",
     features: [
@@ -184,10 +195,10 @@ const STUDENT_TIERS: StudentTier[] = [
     id: "pro",
     name: "Pro Accelerator",
     tagline: "The benchmark for serious Cambridge candidates: 25 essays & 8 Live Examiner sessions.",
-    monthlyPrice: 399,
-    annualPrice: 3499,
-    annualEquivalentMonthly: 291,
-    savePct: 27,
+    monthlyPrice: 59,
+    annualPrice: 590,
+    annualEquivalentMonthly: 49,
+    savePct: 17,
     quota: "25 Graded Essays / mo · 8 Live Examiner Credits",
     badge: "Most Popular",
     popular: true,
@@ -206,10 +217,10 @@ const STUDENT_TIERS: StudentTier[] = [
     id: "mastery",
     name: "A* Mastery Sprint",
     tagline: "Peak revision powerhouse for Oct/Nov & May/June exam series: 50 essays & 14 Live Examiner sessions.",
-    monthlyPrice: 699,
-    annualPrice: 5999,
-    annualEquivalentMonthly: 499,
-    savePct: 28,
+    monthlyPrice: 99,
+    annualPrice: 990,
+    annualEquivalentMonthly: 82,
+    savePct: 17,
     quota: "50 Graded Essays / mo · 14 Live Examiner Credits",
     badge: "A* Target Cohort",
     features: [
@@ -227,10 +238,10 @@ const STUDENT_TIERS: StudentTier[] = [
     id: "elite",
     name: "Cambridge Elite Pass",
     tagline: "VIP all-inclusive pass for complete syllabus dominance: 75 essays & 22 Live Examiner sessions.",
-    monthlyPrice: 999,
-    annualPrice: 8999,
-    annualEquivalentMonthly: 749,
-    savePct: 25,
+    monthlyPrice: 179,
+    annualPrice: 1790,
+    annualEquivalentMonthly: 149,
+    savePct: 17,
     quota: "75 Graded Essays / mo · 22 Live Examiner Credits",
     badge: "VIP All-Access Pass",
     features: [
@@ -251,10 +262,10 @@ const SCHOOL_TIERS: SchoolTier[] = [
     id: "school-starter",
     name: "Department Starter",
     tagline: "For boutique classes and small Economics cohorts.",
-    monthlyPrice: "₹4,999",
-    annualPrice: "₹49,999",
+    monthlyPriceUsd: 99,
+    annualPriceUsd: 990,
     studentCapacity: "Up to 50 Students",
-    effectiveCostPerStudent: "~₹83 / student / mo",
+    effectiveCostPerStudent: "~$1.60 / student / mo",
     teacherSeats: "2 Teacher Admin Seats",
     quota: "15 essays / student / mo",
     badge: "Small Cohorts",
@@ -270,10 +281,10 @@ const SCHOOL_TIERS: SchoolTier[] = [
     id: "school-campus",
     name: "Campus Standard",
     tagline: "Ideal for Cambridge international schools and exam centers.",
-    monthlyPrice: "₹11,999",
-    annualPrice: "₹1,19,999",
+    monthlyPriceUsd: 199,
+    annualPriceUsd: 1990,
     studentCapacity: "Up to 150 Students",
-    effectiveCostPerStudent: "~₹66 / student / mo",
+    effectiveCostPerStudent: "~$1.10 / student / mo",
     teacherSeats: "5 Teacher Admin Seats",
     quota: "25 essays / student / mo",
     badge: "Recommended for Schools",
@@ -291,10 +302,10 @@ const SCHOOL_TIERS: SchoolTier[] = [
     id: "school-institution",
     name: "Institution Premium",
     tagline: "Comprehensive capacity for large high schools and prep academies.",
-    monthlyPrice: "₹24,999",
-    annualPrice: "₹2,49,999",
+    monthlyPriceUsd: 399,
+    annualPriceUsd: 3990,
     studentCapacity: "Up to 400 Students",
-    effectiveCostPerStudent: "~₹52 / student / mo",
+    effectiveCostPerStudent: "~$0.80 / student / mo",
     teacherSeats: "15 Teacher Admin Seats",
     quota: "40 essays / student / mo",
     badge: "Large Departments",
@@ -311,20 +322,19 @@ const SCHOOL_TIERS: SchoolTier[] = [
     id: "school-enterprise",
     name: "Multi-Campus Enterprise",
     tagline: "Custom solution for school networks, trusts, and franchises.",
-    monthlyPrice: "₹49,999+",
-    annualPrice: "Custom Contract",
+    monthlyPriceUsd: 799,
+    annualPriceUsd: 7990,
     studentCapacity: "1,000+ Students",
-    effectiveCostPerStudent: "< ₹45 / student / mo",
+    effectiveCostPerStudent: "< $0.65 / student / mo",
     teacherSeats: "Unlimited Teacher Seats",
     quota: "Unlimited cohort volume",
     badge: "Multi-Campus",
     features: [
-      "1,000+ student capacity across campuses",
-      "Unlimited teacher and administrative seats",
-      "Custom school branding & LMS/ERP integration",
-      "Dedicated Cambridge Academic Account Manager",
-      "Onsite or remote faculty training workshops",
-      "Custom mark scheme and anchor calibration",
+      "1,000+ Students Across Multiple Campuses",
+      "Centralized administrative console with SSO integration",
+      "Dedicated AI model fine-tuning with your historical exam papers",
+      "On-site teacher training & examiner workshops",
+      "Custom SLA with dedicated 24/7 technical lead",
     ],
   },
 ];
@@ -354,6 +364,7 @@ export function PricingSection({ className }: { className?: string }) {
     return "students";
   });
   const [cycle, setCycle] = useState<BillingCycle>("annual");
+  const { currency, setCurrency, format } = useCurrency();
 
   const [userSelectedAudience, setUserSelectedAudience] = useState(false);
 
@@ -379,69 +390,21 @@ export function PricingSection({ className }: { className?: string }) {
 
   const activePlans = pricingQuery.data?.plans ?? DEFAULT_PRICING_PLANS;
 
-  const dynamicStudentTiers: StudentTier[] = [
-    {
-      id: "foundation",
-      name: activePlans.foundation.name,
-      tagline: activePlans.foundation.tagline,
-      monthlyPrice: activePlans.foundation.monthlyPrice,
-      annualPrice: activePlans.foundation.annualPrice,
-      annualEquivalentMonthly: activePlans.foundation.annualEquivalentMonthly,
-      savePct: activePlans.foundation.savePct,
-      quota: `${activePlans.foundation.essaysPerMonth} Graded Essays / mo · ${activePlans.foundation.liveCredits} Live Credits`,
-      badge: "Most Accessible",
-      features: activePlans.foundation.features,
-    },
-    {
-      id: "scholar_plus",
-      name: activePlans.scholar_plus.name,
-      tagline: activePlans.scholar_plus.tagline,
-      monthlyPrice: activePlans.scholar_plus.monthlyPrice,
-      annualPrice: activePlans.scholar_plus.annualPrice,
-      annualEquivalentMonthly: activePlans.scholar_plus.annualEquivalentMonthly,
-      savePct: activePlans.scholar_plus.savePct,
-      quota: `${activePlans.scholar_plus.essaysPerMonth} Graded Essays / mo · ${activePlans.scholar_plus.liveCredits} Live Credits`,
-      badge: "Great Value",
-      features: activePlans.scholar_plus.features,
-    },
-    {
-      id: "pro",
-      name: activePlans.pro.name,
-      tagline: activePlans.pro.tagline,
-      monthlyPrice: activePlans.pro.monthlyPrice,
-      annualPrice: activePlans.pro.annualPrice,
-      annualEquivalentMonthly: activePlans.pro.annualEquivalentMonthly,
-      savePct: activePlans.pro.savePct,
-      quota: `${activePlans.pro.essaysPerMonth} Graded Essays / mo · ${activePlans.pro.liveCredits} Live Credits`,
-      badge: "Most Popular",
-      popular: true,
-      features: activePlans.pro.features,
-    },
-    {
-      id: "mastery",
-      name: activePlans.mastery.name,
-      tagline: activePlans.mastery.tagline,
-      monthlyPrice: activePlans.mastery.monthlyPrice,
-      annualPrice: activePlans.mastery.annualPrice,
-      annualEquivalentMonthly: activePlans.mastery.annualEquivalentMonthly,
-      savePct: activePlans.mastery.savePct,
-      quota: `${activePlans.mastery.essaysPerMonth} Graded Essays / mo · ${activePlans.mastery.liveCredits} Live Credits`,
-      badge: "A* Target Cohort",
-      features: activePlans.mastery.features,
-    },
-    {
-      id: "elite",
-      name: activePlans.elite.name,
-      tagline: activePlans.elite.tagline,
-      monthlyPrice: activePlans.elite.monthlyPrice,
-      annualPrice: activePlans.elite.annualPrice,
-      annualEquivalentMonthly: activePlans.elite.annualEquivalentMonthly,
-      savePct: activePlans.elite.savePct,
-      quota: `${activePlans.elite.essaysPerMonth} Graded Essays / mo · ${activePlans.elite.liveCredits} Live Credits`,
-      badge: "VIP All-Access Pass",
-      features: activePlans.elite.features,
-    },
-  ];
+  const dynamicStudentTiers: StudentTier[] = Object.entries(activePlans)
+    .filter(([_, plan]) => plan.isPublic !== false)
+    .map(([id, plan]) => ({
+      id,
+      name: plan.name,
+      tagline: plan.tagline,
+      monthlyPrice: plan.monthlyPrice,
+      annualPrice: plan.annualPrice,
+      annualEquivalentMonthly: plan.annualEquivalentMonthly,
+      savePct: plan.savePct,
+      quota: `${plan.essaysPerMonth} Graded Essays / mo · ${plan.liveCredits} Live Credits`,
+      badge: plan.badge || (id === "pro" ? "Most Popular" : id === "foundation" ? "Most Accessible" : id === "scholar_plus" ? "Great Value" : id === "mastery" ? "A* Target Cohort" : id === "elite" ? "VIP All-Access Pass" : undefined),
+      popular: id === "pro",
+      features: plan.features,
+    }));
 
   return (
     <section
@@ -458,9 +421,11 @@ export function PricingSection({ className }: { className?: string }) {
           </h2>
           <p className="mx-auto mt-4 max-w-2xl text-sm leading-relaxed text-muted-foreground sm:text-base">
             Private 1-on-1 Cambridge tutoring costs{" "}
-            <span className="font-semibold text-foreground">₹2,500 – ₹5,000 / hour</span>. Marginal
+            <span className="font-semibold text-foreground">
+              {currency === "INR" ? "₹2,500 – ₹5,000 / hour" : "$45 – $120 / hour"}
+            </span>. Marginal
             delivers 24/7 instant AO1/AO2/AO3 feedback and live coaching starting at just{" "}
-            <span className="font-semibold text-foreground">₹99 / month</span>.
+            <span className="font-semibold text-foreground">{format(19)} / month</span>.
           </p>
 
           {/* ── Audience Selector (Students vs Educators vs Schools) ── */}
@@ -557,6 +522,16 @@ export function PricingSection({ className }: { className?: string }) {
               </Badge>
             </span>
           </div>
+
+          {/* ── Currency Selector (Students can pick USD, INR, GBP, EUR, SGD, AED) ── */}
+          <div className="mt-4 flex items-center justify-center">
+            <CurrencySelector
+              value={currency}
+              onChange={setCurrency}
+              variant="pill-row"
+              showLabel={true}
+            />
+          </div>
         </div>
 
         {/* ── Pricing Cards Grid ── */}
@@ -564,7 +539,7 @@ export function PricingSection({ className }: { className?: string }) {
           <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3 max-w-5xl mx-auto items-stretch">
             {EDUCATOR_TIERS.map((tier) => {
               const displayPrice =
-                cycle === "annual" ? `₹${tier.annualEquivalentMonthly}` : `₹${tier.monthlyPrice}`;
+                cycle === "annual" ? format(tier.annualEquivalentMonthly) : format(tier.monthlyPrice);
               const periodText = cycle === "annual" ? "/ mo (billed annually)" : "/ mo";
 
               return (
@@ -610,7 +585,7 @@ export function PricingSection({ className }: { className?: string }) {
                         </div>
                         {cycle === "annual" ? (
                           <p className="mt-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400 min-h-[16px]">
-                            ₹{tier.annualPrice.toLocaleString()} / year (Save {tier.savePct}%)
+                            {format(tier.annualPrice)} / year (Save {tier.savePct}%)
                           </p>
                         ) : (
                           <p className="mt-1 text-[11px] text-muted-foreground min-h-[16px]">
@@ -754,7 +729,7 @@ export function PricingSection({ className }: { className?: string }) {
             {/* ── Columns 2-5: Dynamic Paid Student Tiers ── */}
             {dynamicStudentTiers.map((tier) => {
               const displayPrice =
-                cycle === "annual" ? `₹${tier.annualEquivalentMonthly}` : `₹${tier.monthlyPrice}`;
+                cycle === "annual" ? format(tier.annualEquivalentMonthly) : format(tier.monthlyPrice);
               const periodText = cycle === "annual" ? "/ mo (billed annually)" : "/ mo";
 
               return (
@@ -798,7 +773,7 @@ export function PricingSection({ className }: { className?: string }) {
                         </div>
                         {cycle === "annual" ? (
                           <p className="mt-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400 min-h-[16px]">
-                            ₹{tier.annualPrice.toLocaleString()} / year (Save {tier.savePct}%)
+                            {format(tier.annualPrice)} / year (Save {tier.savePct}%)
                           </p>
                         ) : (
                           <p className="mt-1 text-[11px] text-muted-foreground min-h-[16px]">
@@ -854,7 +829,7 @@ export function PricingSection({ className }: { className?: string }) {
         ) : (
           <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4 items-stretch">
             {SCHOOL_TIERS.map((tier) => {
-              const displayPrice = cycle === "annual" ? tier.annualPrice : tier.monthlyPrice;
+              const displayPrice = cycle === "annual" ? format(tier.annualPriceUsd) : format(tier.monthlyPriceUsd);
               const periodText = cycle === "annual" ? " / year" : " / month";
 
               const handleAction = () => {
@@ -969,6 +944,325 @@ export function PricingSection({ className }: { className?: string }) {
             })}
           </div>
         )}
+
+        {/* ── Feature Segregation & Tier Comparison Matrix ── */}
+        <div className="mt-20 space-y-6">
+          <div className="text-center space-y-2 max-w-2xl mx-auto">
+            <Badge className="bg-primary/10 text-primary border border-primary/20 px-3 py-1 text-xs font-semibold">
+              <Sparkles className="size-3.5 mr-1.5" /> Full Feature Segregation &amp; Specifications
+            </Badge>
+            <h3 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">
+              Compare Features Across All Cambridge 9708 Tiers
+            </h3>
+            <p className="text-xs sm:text-sm text-muted-foreground">
+              Deep dive into evaluation diagnostics, revision studio modalities, Live Examiner coaching, and speed infrastructure.
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-border bg-card/60 backdrop-blur-sm overflow-hidden shadow-xs">
+            <div className="overflow-x-auto no-scrollbar">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="border-b border-border/80 bg-muted/40">
+                    <th className="py-4 px-4 font-bold text-foreground min-w-[220px]">
+                      Capability / Feature
+                    </th>
+                    <th className="py-4 px-3 text-center font-bold text-foreground min-w-[100px]">
+                      Free Starter
+                      <span className="block text-[10px] text-muted-foreground font-normal">{format(0, { showFree: true })}</span>
+                    </th>
+                    <th className="py-4 px-3 text-center font-bold text-foreground min-w-[100px]">
+                      Foundation
+                      <span className="block text-[10px] text-muted-foreground font-normal">{format(19)}/mo</span>
+                    </th>
+                    <th className="py-4 px-3 text-center font-bold text-foreground min-w-[100px]">
+                      Scholar Plus
+                      <span className="block text-[10px] text-muted-foreground font-normal">{format(35)}/mo</span>
+                    </th>
+                    <th className="py-4 px-3 text-center font-bold text-primary min-w-[110px] bg-primary/5">
+                      Pro Accelerator
+                      <span className="block text-[10px] text-primary/80 font-normal">{format(59)}/mo · Popular</span>
+                    </th>
+                    <th className="py-4 px-3 text-center font-bold text-foreground min-w-[100px]">
+                      A* Mastery
+                      <span className="block text-[10px] text-muted-foreground font-normal">{format(99)}/mo</span>
+                    </th>
+                    <th className="py-4 px-3 text-center font-bold text-foreground min-w-[100px]">
+                      Elite Pass
+                      <span className="block text-[10px] text-muted-foreground font-normal">{format(179)}/mo</span>
+                    </th>
+                    <th className="py-4 px-3 text-center font-bold text-foreground min-w-[110px]">
+                      Revision Sprint
+                      <span className="block text-[10px] text-muted-foreground font-normal">{format(49)}/mo</span>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border/60">
+                  {/* CATEGORY 1 */}
+                  <tr className="bg-blue-500/10 font-bold text-blue-700 dark:text-blue-300">
+                    <td colSpan={8} className="py-2.5 px-4 text-xs">
+                      <span className="flex items-center gap-2">
+                        <Brain className="size-4 text-blue-500" />
+                        1. AI Evaluation &amp; Diagnostic Engine
+                      </span>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="py-3 px-4 font-medium text-foreground">
+                      AO1 Knowledge &amp; Mark Scheme Rubrics
+                      <span className="block text-[10px] text-muted-foreground font-normal">Grounded in Cambridge 9708 examiner notes</span>
+                    </td>
+                    <td className="py-3 px-3 text-center"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                    <td className="py-3 px-3 text-center"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                    <td className="py-3 px-3 text-center"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                    <td className="py-3 px-3 text-center bg-primary/5"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                    <td className="py-3 px-3 text-center"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                    <td className="py-3 px-3 text-center"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                    <td className="py-3 px-3 text-center"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                  </tr>
+                  <tr>
+                    <td className="py-3 px-4 font-medium text-foreground">
+                      AO Sentence Diagnostics &amp; Causal Chains
+                      <span className="block text-[10px] text-muted-foreground font-normal">Sub-second sentence-by-sentence attribution (&lt;50ms)</span>
+                    </td>
+                    <td className="py-3 px-3 text-center"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                    <td className="py-3 px-3 text-center"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                    <td className="py-3 px-3 text-center"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                    <td className="py-3 px-3 text-center bg-primary/5"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                    <td className="py-3 px-3 text-center"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                    <td className="py-3 px-3 text-center"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                    <td className="py-3 px-3 text-center"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                  </tr>
+                  <tr>
+                    <td className="py-3 px-4 font-medium text-foreground">
+                      Level 4 &amp; 5 Evaluative Refinement Engine
+                      <span className="block text-[10px] text-muted-foreground font-normal">Advanced synoptic balance &amp; critical evaluation synthesis</span>
+                    </td>
+                    <td className="py-3 px-3 text-center text-muted-foreground/40">—</td>
+                    <td className="py-3 px-3 text-center text-muted-foreground/40">—</td>
+                    <td className="py-3 px-3 text-center text-muted-foreground/40">—</td>
+                    <td className="py-3 px-3 text-center bg-primary/5 text-muted-foreground/40">—</td>
+                    <td className="py-3 px-3 text-center"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                    <td className="py-3 px-3 text-center"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                    <td className="py-3 px-3 text-center"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                  </tr>
+                  <tr>
+                    <td className="py-3 px-4 font-medium text-foreground">
+                      Dual-Examiner Principal Arbitration
+                      <span className="block text-[10px] text-muted-foreground font-normal">Multi-model consensus for contentious essay marks</span>
+                    </td>
+                    <td className="py-3 px-3 text-center text-muted-foreground/40">—</td>
+                    <td className="py-3 px-3 text-center text-muted-foreground/40">—</td>
+                    <td className="py-3 px-3 text-center text-muted-foreground/40">—</td>
+                    <td className="py-3 px-3 text-center bg-primary/5"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                    <td className="py-3 px-3 text-center"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                    <td className="py-3 px-3 text-center"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                    <td className="py-3 px-3 text-center text-muted-foreground/40">—</td>
+                  </tr>
+                  <tr>
+                    <td className="py-3 px-4 font-medium text-foreground">
+                      Cambridge Definitions Hub &amp; Drills
+                      <span className="block text-[10px] text-muted-foreground font-normal">Command words, flashcards &amp; glossary tests</span>
+                    </td>
+                    <td className="py-3 px-3 text-center"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                    <td className="py-3 px-3 text-center"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                    <td className="py-3 px-3 text-center"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                    <td className="py-3 px-3 text-center bg-primary/5"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                    <td className="py-3 px-3 text-center"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                    <td className="py-3 px-3 text-center"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                    <td className="py-3 px-3 text-center"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                  </tr>
+
+                  {/* CATEGORY 2 */}
+                  <tr className="bg-emerald-500/10 font-bold text-emerald-700 dark:text-emerald-300">
+                    <td colSpan={8} className="py-2.5 px-4 text-xs">
+                      <span className="flex items-center gap-2">
+                        <LineChart className="size-4 text-emerald-500" />
+                        2. Exam Revision &amp; Generation Studio
+                      </span>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="py-3 px-4 font-medium text-foreground">
+                      Handwritten Essay OCR Photo Scanning
+                      <span className="block text-[10px] text-muted-foreground font-normal">Camera / mobile photo transcription</span>
+                    </td>
+                    <td className="py-3 px-3 text-center text-muted-foreground/40">—</td>
+                    <td className="py-3 px-3 text-center text-muted-foreground/40">—</td>
+                    <td className="py-3 px-3 text-center text-muted-foreground/40">—</td>
+                    <td className="py-3 px-3 text-center bg-primary/5 text-muted-foreground/40">—</td>
+                    <td className="py-3 px-3 text-center"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                    <td className="py-3 px-3 text-center"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                    <td className="py-3 px-3 text-center"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                  </tr>
+                  <tr>
+                    <td className="py-3 px-4 font-medium text-foreground">
+                      AI Perfect Model Answer Generator
+                      <span className="block text-[10px] text-muted-foreground font-normal">Full 20/20 &amp; Level 5 exemplar responses</span>
+                    </td>
+                    <td className="py-3 px-3 text-center text-muted-foreground/40">—</td>
+                    <td className="py-3 px-3 text-center text-muted-foreground/40">—</td>
+                    <td className="py-3 px-3 text-center text-muted-foreground/40">—</td>
+                    <td className="py-3 px-3 text-center bg-primary/5"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                    <td className="py-3 px-3 text-center"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                    <td className="py-3 px-3 text-center"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                    <td className="py-3 px-3 text-center"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                  </tr>
+                  <tr>
+                    <td className="py-3 px-4 font-medium text-foreground">
+                      Interactive Diagram Studio &amp; Drills
+                      <span className="block text-[10px] text-muted-foreground font-normal">50+ Cambridge micro/macro graphs with sliders</span>
+                    </td>
+                    <td className="py-3 px-3 text-center"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                    <td className="py-3 px-3 text-center"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                    <td className="py-3 px-3 text-center"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                    <td className="py-3 px-3 text-center bg-primary/5"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                    <td className="py-3 px-3 text-center"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                    <td className="py-3 px-3 text-center"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                    <td className="py-3 px-3 text-center"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                  </tr>
+                  <tr>
+                    <td className="py-3 px-4 font-medium text-foreground">
+                      Diagnostic PDF Report Export
+                      <span className="block text-[10px] text-muted-foreground font-normal">Downloadable official mark breakdown sheets</span>
+                    </td>
+                    <td className="py-3 px-3 text-center text-muted-foreground/40">—</td>
+                    <td className="py-3 px-3 text-center text-muted-foreground/40">—</td>
+                    <td className="py-3 px-3 text-center"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                    <td className="py-3 px-3 text-center bg-primary/5"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                    <td className="py-3 px-3 text-center"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                    <td className="py-3 px-3 text-center"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                    <td className="py-3 px-3 text-center"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                  </tr>
+
+                  {/* CATEGORY 3 */}
+                  <tr className="bg-purple-500/10 font-bold text-purple-700 dark:text-purple-300">
+                    <td colSpan={8} className="py-2.5 px-4 text-xs">
+                      <span className="flex items-center gap-2">
+                        <School className="size-4 text-purple-500" />
+                        3. Live Examiner &amp; Classroom Cohorts
+                      </span>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="py-3 px-4 font-medium text-foreground">
+                      Live Examiner Credits / month
+                      <span className="block text-[10px] text-muted-foreground font-normal">Real-time Socratic voice &amp; timed exam drills</span>
+                    </td>
+                    <td className="py-3 px-3 text-center font-mono">0</td>
+                    <td className="py-3 px-3 text-center font-mono font-bold text-primary">2</td>
+                    <td className="py-3 px-3 text-center font-mono font-bold text-primary">4</td>
+                    <td className="py-3 px-3 text-center font-mono font-bold text-primary bg-primary/5">8</td>
+                    <td className="py-3 px-3 text-center font-mono font-bold text-primary">14</td>
+                    <td className="py-3 px-3 text-center font-mono font-bold text-primary">22</td>
+                    <td className="py-3 px-3 text-center font-mono font-bold text-primary">6</td>
+                  </tr>
+                  <tr>
+                    <td className="py-3 px-4 font-medium text-foreground">
+                      School Classrooms &amp; Homework Sync
+                      <span className="block text-[10px] text-muted-foreground font-normal">Teacher assignment distribution &amp; cohort markbooks</span>
+                    </td>
+                    <td className="py-3 px-3 text-center text-muted-foreground/40">—</td>
+                    <td className="py-3 px-3 text-center text-muted-foreground/40">—</td>
+                    <td className="py-3 px-3 text-center"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                    <td className="py-3 px-3 text-center bg-primary/5"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                    <td className="py-3 px-3 text-center"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                    <td className="py-3 px-3 text-center"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                    <td className="py-3 px-3 text-center text-muted-foreground/40">—</td>
+                  </tr>
+                  <tr>
+                    <td className="py-3 px-4 font-medium text-foreground">
+                      Senior Examiner 1-on-1 Review Desk
+                      <span className="block text-[10px] text-muted-foreground font-normal">Direct human examiner pedagogical support channel</span>
+                    </td>
+                    <td className="py-3 px-3 text-center text-muted-foreground/40">—</td>
+                    <td className="py-3 px-3 text-center text-muted-foreground/40">—</td>
+                    <td className="py-3 px-3 text-center text-muted-foreground/40">—</td>
+                    <td className="py-3 px-3 text-center bg-primary/5 text-muted-foreground/40">—</td>
+                    <td className="py-3 px-3 text-center"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                    <td className="py-3 px-3 text-center"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                    <td className="py-3 px-3 text-center text-muted-foreground/40">—</td>
+                  </tr>
+
+                  {/* CATEGORY 4 */}
+                  <tr className="bg-amber-500/10 font-bold text-amber-700 dark:text-amber-300">
+                    <td colSpan={8} className="py-2.5 px-4 text-xs">
+                      <span className="flex items-center gap-2">
+                        <Zap className="size-4 text-amber-500" />
+                        4. Quotas, Speed &amp; Platform Infrastructure
+                      </span>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="py-3 px-4 font-medium text-foreground">
+                      Monthly Graded Essays Quota
+                      <span className="block text-[10px] text-muted-foreground font-normal">Comprehensive AO evaluations &amp; re-marks</span>
+                    </td>
+                    <td className="py-3 px-3 text-center font-semibold text-emerald-600">Unlimited</td>
+                    <td className="py-3 px-3 text-center font-mono font-bold">8 / mo</td>
+                    <td className="py-3 px-3 text-center font-mono font-bold">15 / mo</td>
+                    <td className="py-3 px-3 text-center font-mono font-bold bg-primary/5">25 / mo</td>
+                    <td className="py-3 px-3 text-center font-mono font-bold">50 / mo</td>
+                    <td className="py-3 px-3 text-center font-mono font-bold">75 / mo</td>
+                    <td className="py-3 px-3 text-center font-mono font-bold">20 / mo</td>
+                  </tr>
+                  <tr>
+                    <td className="py-3 px-4 font-medium text-foreground">
+                      Max Words Allowed Per Submission
+                      <span className="block text-[10px] text-muted-foreground font-normal">Upper word count threshold for deep analysis</span>
+                    </td>
+                    <td className="py-3 px-3 text-center font-mono text-[11px]">1,200</td>
+                    <td className="py-3 px-3 text-center font-mono text-[11px]">1,500</td>
+                    <td className="py-3 px-3 text-center font-mono text-[11px]">2,000</td>
+                    <td className="py-3 px-3 text-center font-mono text-[11px] bg-primary/5">3,000</td>
+                    <td className="py-3 px-3 text-center font-mono text-[11px]">4,000</td>
+                    <td className="py-3 px-3 text-center font-semibold text-emerald-600 text-[11px]">Unlimited</td>
+                    <td className="py-3 px-3 text-center font-mono text-[11px]">2,500</td>
+                  </tr>
+                  <tr>
+                    <td className="py-3 px-4 font-medium text-foreground">
+                      Processing Queue Speed
+                      <span className="block text-[10px] text-muted-foreground font-normal">Evaluation queue tier &amp; server acceleration</span>
+                    </td>
+                    <td className="py-3 px-3 text-center text-muted-foreground">Standard</td>
+                    <td className="py-3 px-3 text-center text-muted-foreground">Standard</td>
+                    <td className="py-3 px-3 text-center text-muted-foreground">Standard</td>
+                    <td className="py-3 px-3 text-center bg-primary/5 text-muted-foreground">Standard</td>
+                    <td className="py-3 px-3 text-center font-bold text-amber-600 dark:text-amber-400">⚡ Priority</td>
+                    <td className="py-3 px-3 text-center font-bold text-amber-600 dark:text-amber-400">⚡ Dedicated</td>
+                    <td className="py-3 px-3 text-center text-muted-foreground">Standard</td>
+                  </tr>
+                  <tr>
+                    <td className="py-3 px-4 font-medium text-foreground">
+                      Beta Experimental Labs Access
+                      <span className="block text-[10px] text-muted-foreground font-normal">Early preview access to cutting-edge features</span>
+                    </td>
+                    <td className="py-3 px-3 text-center text-muted-foreground/40">—</td>
+                    <td className="py-3 px-3 text-center text-muted-foreground/40">—</td>
+                    <td className="py-3 px-3 text-center text-muted-foreground/40">—</td>
+                    <td className="py-3 px-3 text-center bg-primary/5 text-muted-foreground/40">—</td>
+                    <td className="py-3 px-3 text-center text-muted-foreground/40">—</td>
+                    <td className="py-3 px-3 text-center"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                    <td className="py-3 px-3 text-center"><Check className="size-4 text-emerald-500 mx-auto" /></td>
+                  </tr>
+                  <tr>
+                    <td className="py-3 px-4 font-medium text-foreground">
+                      Past Paper MCQ Exam Library
+                      <span className="block text-[10px] text-muted-foreground font-normal">2017 to latest series with timed test canvas</span>
+                    </td>
+                    <td className="py-3 px-3 text-center text-[11px] font-medium text-emerald-600">Full + Timers</td>
+                    <td className="py-3 px-3 text-center text-[11px] font-medium text-emerald-600">Full + Timers</td>
+                    <td className="py-3 px-3 text-center text-[11px] font-medium text-emerald-600">Full + Timers</td>
+                    <td className="py-3 px-3 text-center text-[11px] font-medium text-emerald-600 bg-primary/5">Full + Timers</td>
+                    <td className="py-3 px-3 text-center text-[11px] font-medium text-emerald-600">Full + Timers</td>
+                    <td className="py-3 px-3 text-center text-[11px] font-medium text-emerald-600">Full + Timers</td>
+                    <td className="py-3 px-3 text-center text-[11px] font-medium text-emerald-600">Full + Timers</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
 
         {/* ── Trust & Risk Reversal Banner ── */}
         <div className="mt-14 rounded-2xl border border-border bg-muted/40 p-6 sm:p-8">

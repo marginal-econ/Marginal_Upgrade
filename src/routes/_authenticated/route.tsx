@@ -105,6 +105,9 @@ function AuthenticatedLayout() {
       role={resolvedRole}
       name={resolvedName}
       school={data?.school || (user.user_metadata as any)?.school || null}
+      avatarUrl={data?.avatarUrl || (user.user_metadata as any)?.avatar_url || null}
+      bio={data?.bio}
+      birthday={data?.birthday}
       userId={user.id}
       subscription={userSub}
     >

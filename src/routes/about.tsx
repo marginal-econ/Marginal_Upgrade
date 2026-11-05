@@ -30,6 +30,7 @@ export const Route = createFileRoute("/about")({
           "Meet the team building Marginal AI, the Cambridge International AS and A Level Economics (9708) AI platform.",
       },
     ],
+    links: [{ rel: "canonical", href: "https://marginal-econ.com/about" }],
   }),
   component: AboutPage,
 });

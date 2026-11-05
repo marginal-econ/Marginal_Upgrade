@@ -14,8 +14,8 @@ describe("Pricing Plans & Tier Specifications", () => {
     expect(TIER_LIMITS.elite.liveExaminerCredits).toBe(22);
   });
 
-  it("educator plans structure aligns with ₹99/mo starting price", () => {
-    // ₹99 foundation, ₹199 scholar_plus, ₹399 pro, ₹699 mastery, ₹999 elite
+  it("educator plans structure aligns with $19/mo starting price", () => {
+    // $19 foundation, $35 scholar_plus, $59 pro, $99 mastery, $179 elite
     const tiers: PlanTier[] = ["foundation", "scholar_plus", "pro", "mastery", "elite"];
     tiers.forEach((tier) => {
       expect(TIER_LIMITS[tier]).toBeDefined();

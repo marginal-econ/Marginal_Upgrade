@@ -234,7 +234,7 @@ const TOOLS = [
   {
     icon: Sparkles,
     tile: "bg-purple-600",
-    badge: "Real-Time AI",
+    badge: "Under Building",
     title: "Live Examiner & Score Maximizer",
     lead: "Instant Cambridge coaching as you type",
     body: "Grammarly for Economics: instant AO1/AO2/AO3 sentence highlighting, live running marks, terminology checks, and step-by-step Score Maximizer blueprints.",
@@ -443,29 +443,22 @@ function Index() {
             <SiteNavMobile />
             <Link
               to="/teacher-auth"
-              className="hidden sm:inline-flex items-center gap-1.5 rounded-lg border border-border bg-card/80 px-2.5 py-1.5 text-xs font-semibold text-foreground hover:bg-muted hover:text-foreground transition-all shadow-2xs"
+              search={{ tab: "signin" }}
+              className="hidden lg:inline-flex items-center gap-1.5 rounded-lg border border-purple-500/30 bg-purple-500/10 px-2.5 py-1.5 text-xs font-semibold text-purple-700 dark:text-purple-300 hover:bg-purple-500/20 transition-all shadow-2xs whitespace-nowrap"
             >
               <School className="size-3.5 text-purple-600 dark:text-purple-400" />
               <span>Teacher Portal</span>
             </Link>
             <Link
-              to="/teacher-auth"
-              search={{ tab: "signup" }}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-purple-500/40 bg-purple-500/10 px-2.5 py-1.5 text-xs font-semibold text-purple-700 dark:text-purple-300 hover:bg-purple-500/20 transition-all shadow-2xs"
-            >
-              <GraduationCap className="size-3.5 text-purple-600 dark:text-purple-400" />
-              <span>Sign up as a teacher</span>
-            </Link>
-            <Link
               to="/auth"
-              className="hidden rounded-lg px-3 py-2 text-sm font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:inline-flex"
+              className="hidden rounded-lg px-3 py-1.5 text-xs xl:text-sm font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:inline-flex whitespace-nowrap"
             >
               Sign in
             </Link>
             <Magnetic strength={8}>
               <Link
                 to="/auth"
-                className="pop-sm pop-press shine inline-flex min-h-9 items-center justify-center gap-1.5 whitespace-nowrap bg-primary px-3.5 py-2 text-xs font-semibold text-primary-foreground sm:text-sm rounded-lg"
+                className="pop-sm pop-press shine inline-flex min-h-8 sm:min-h-9 items-center justify-center gap-1.5 whitespace-nowrap bg-primary px-3 sm:px-3.5 py-1.5 text-xs font-semibold text-primary-foreground sm:text-sm rounded-lg"
               >
                 <span>Get Started Free</span>
               </Link>
@@ -1030,14 +1023,20 @@ function Index() {
                   >
                     <Link to="/grade">Grade Unlimited Essays</Link>
                   </Button>
-                  <Button
-                    asChild
-                    variant="outline"
-                    size="lg"
-                    className="h-11 px-5 text-xs sm:text-sm font-semibold border-white/30 text-plum-foreground hover:bg-white/10"
-                  >
-                    <Link to="/live-examiner">Live Examiner</Link>
-                  </Button>
+                  <div className="relative inline-block">
+                    <span className="absolute -top-2.5 -right-2 px-2 py-0.5 rounded-full bg-amber-400 text-amber-950 text-[9px] font-extrabold uppercase tracking-wider shadow-sm border border-amber-300 pointer-events-none flex items-center gap-1 z-20">
+                      <span className="size-1.5 rounded-full bg-amber-600 animate-pulse" />
+                      Under Building
+                    </span>
+                    <Button
+                      asChild
+                      variant="outline"
+                      size="lg"
+                      className="h-11 px-5 text-xs sm:text-sm font-semibold border-white/30 text-plum-foreground hover:bg-white/10"
+                    >
+                      <Link to="/live-examiner">Live Examiner</Link>
+                    </Button>
+                  </div>
                 </div>
 
                 <p className="mt-5 text-xs text-plum-foreground/70">
