@@ -44,6 +44,12 @@ import {
 } from "./examiner-prompt";
 import { extractFirstJsonObject } from "./json";
 import { bandFor, normaliseGrading, type Grading, type GroundingSource } from "./types";
+import {
+  analyzeEssayQuality,
+  applyWritingQualityGuardrail,
+  buildQualityPromptDirective,
+  type EssayQualityAnalysis,
+} from "./writing-quality.server";
 
 /** Fill `{placeholder}` tokens in the prompt templates. */
 function loadPrompt(template: string, values: Record<string, string | number>): string {
@@ -126,6 +132,8 @@ export async function gradeEssay(
   }
 
   const structureNote = formatStructureNote(getStructureGuidance(maxMark, split));
+  const qualityAnalysis = analyzeEssayQuality(essayText, maxMark, split);
+  const qualityDirective = buildQualityPromptDirective(qualityAnalysis, maxMark);
 
   const promptValues = {
     syllabus_code: "9708",
@@ -135,6 +143,7 @@ export async function gradeEssay(
     ao3_marks,
     ao_definitions: renderAoDefinitions(),
     structure_note: structureNote,
+    essay_quality_profile: qualityDirective,
   };
 
   let baseSystemPrompt = loadPrompt(EXAMINER_PROMPT, promptValues);
@@ -297,6 +306,7 @@ export async function gradeEssay(
         });
 
     finalGrading = normaliseGrading(extractFirstJsonObject(res.text), maxMark, split);
+    finalGrading = applyWritingQualityGuardrail(finalGrading, qualityAnalysis, maxMark, split);
     if (finalGrading.off_syllabus) {
       throw new OffSyllabusError(
         finalGrading.detected_subject || "another subject",
@@ -323,7 +333,7 @@ export async function gradeEssay(
             imageDataUrls: markSchemeImages,
             maxCompletionTokens: 8192,
             userId: options.userId,
-            feature: "grade_essay_pass1_error_audit",
+          feature: "grade_essay_pass1_error_audit",
           })
         : chat({
             model: MODEL_EXAMINER,
@@ -331,7 +341,7 @@ export async function gradeEssay(
             json: true,
             isBudgetTier: options.isBudgetTier,
             userId: options.userId,
-            feature: "grade_essay_pass1_error_audit",
+          feature: "grade_essay_pass1_error_audit",
             reasoningEffort: "low",
             maxCompletionTokens: 8192,
             messages: [
@@ -347,7 +357,7 @@ export async function gradeEssay(
             imageDataUrls: markSchemeImages,
             maxCompletionTokens: 8192,
             userId: options.userId,
-            feature: "grade_essay_pass2_holistic",
+          feature: "grade_essay_pass2_holistic",
           })
         : chat({
             model: MODEL_EXAMINER,
@@ -355,7 +365,7 @@ export async function gradeEssay(
             json: true,
             isBudgetTier: options.isBudgetTier,
             userId: options.userId,
-            feature: "grade_essay_pass2_holistic",
+          feature: "grade_essay_pass2_holistic",
             reasoningEffort: "low",
             maxCompletionTokens: 8192,
             messages: [
@@ -365,8 +375,10 @@ export async function gradeEssay(
           }),
     ]);
 
-    const grading1 = normaliseGrading(extractFirstJsonObject(first.text), maxMark, split);
-    const grading2 = normaliseGrading(extractFirstJsonObject(second.text), maxMark, split);
+    let grading1 = normaliseGrading(extractFirstJsonObject(first.text), maxMark, split);
+    grading1 = applyWritingQualityGuardrail(grading1, qualityAnalysis, maxMark, split);
+    let grading2 = normaliseGrading(extractFirstJsonObject(second.text), maxMark, split);
+    grading2 = applyWritingQualityGuardrail(grading2, qualityAnalysis, maxMark, split);
 
     if (grading1.off_syllabus || grading2.off_syllabus) {
       const rejected = grading1.off_syllabus ? grading1 : grading2;
@@ -400,16 +412,17 @@ export async function gradeEssay(
           moderatorGrading: grading2,
           disputeReason: disputeCheck.reason,
           userId: options.userId,
+          qualityAnalysis,
         });
         finalGrading = arbitratedGrading;
       } catch (arbitrationErr) {
         console.warn("[grade.server] Arbitration failed, synthesizing dual passes directly:", arbitrationErr);
-        finalGrading = synthesizeDualPasses(grading1, grading2, maxMark, split);
+        finalGrading = synthesizeDualPasses(grading1, grading2, maxMark, split, qualityAnalysis);
       }
     } else {
       // Passes converged within tolerance (delta <= 1 and matching band):
       // Synthesize both passes, embedding Pass 1's error precision with Pass 2's holistic judgment
-      finalGrading = synthesizeDualPasses(grading1, grading2, maxMark, split);
+      finalGrading = synthesizeDualPasses(grading1, grading2, maxMark, split, qualityAnalysis);
     }
   }
 

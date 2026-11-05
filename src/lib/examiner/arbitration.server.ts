@@ -13,9 +13,15 @@
  */
 
 import { chat } from "../ai.server";
-import { MODEL_EXAMINER, TEMPERATURE_EXAMINER, type AoSplit } from "./config";
+import { formatStructureNote, getStructureGuidance, MODEL_EXAMINER, TEMPERATURE_EXAMINER, type AoSplit } from "./config";
 import { extractFirstJsonObject } from "./json";
 import { bandFor, normaliseGrading, type Grading } from "./types";
+import {
+  analyzeEssayQuality,
+  applyWritingQualityGuardrail,
+  buildQualityPromptDirective,
+  type EssayQualityAnalysis,
+} from "./writing-quality.server";
 
 export type DisputeCheckResult = {
   shouldArbitrate: boolean;
@@ -175,6 +181,19 @@ AUTHORITATIVE PRINCIPAL EXAMINER PRINCIPLES:
    - Write feedback that feels genuinely human, encouraging, and supportive. Quote verbatim phrases from the student's text.
    - Zero asterisks (* or **): return clean plain text only.
 
+8. CAMBRIDGE WRITING QUALITY, DEPTH & PARAGRAPH STRUCTURE:
+   - Ensure the arbitrated mark complies with Cambridge writing standards:
+   - An essay under 350 words (for 12 marks) is an outline summary where transmission links are compressed into short compound assertions. It must NOT be awarded Top Band Level 3 for AO2 (max 4/6) or AO3 (max 2/4).
+   - Single-paragraph monolithic submissions fail Cambridge organizational standards and cannot exceed Level 2.
+   - AI-generated formatting artifacts (**bolding**, raw LaTeX) must be penalized as compressed outline notes rather than examination essays.
+   - Preserve full credit (10-12/12) for well-developed, paragraphed student essays (500+ words) that demonstrate sustained analysis and prioritized evaluation.
+
+9. OFFICIAL CAMBRIDGE RESPONSE STRUCTURE GUIDANCE:
+{structure_note}
+
+10. SUBMISSION QUALITY & DEPTH PROFILE:
+{essay_quality_profile}
+
 Respond ONLY with a single valid JSON object, no markdown fences, no commentary outside the JSON. Never use markdown asterisks or bolding (**) in any string field:
 {
   "total_mark": <integer, sum of the three awarded values below>,
@@ -208,16 +227,24 @@ export type ArbitrateOptions = {
   moderatorGrading: Grading;
   disputeReason: string;
   userId?: string;
+  qualityAnalysis?: EssayQualityAnalysis;
 };
 
 export async function arbitrateGrading(options: ArbitrateOptions): Promise<Grading> {
   const { question, essayText, maxMark, split, examinerGrading, moderatorGrading, disputeReason } =
     options;
 
+  const quality =
+    options.qualityAnalysis ?? analyzeEssayQuality(essayText, maxMark, split);
+  const structureNote = formatStructureNote(getStructureGuidance(maxMark, split));
+  const qualityDirective = buildQualityPromptDirective(quality, maxMark);
+
   const promptTemplate = ARBITRATION_PROMPT.replace(/{max_mark}/g, String(maxMark))
     .replace(/{ao1_marks}/g, String(split.ao1_marks))
     .replace(/{ao2_marks}/g, String(split.ao2_marks))
-    .replace(/{ao3_marks}/g, String(split.ao3_marks));
+    .replace(/{ao3_marks}/g, String(split.ao3_marks))
+    .replace(/{structure_note}/g, structureNote)
+    .replace(/{essay_quality_profile}/g, qualityDirective);
 
   const userMessage = [
     `Exam Question (${maxMark} marks):\n${question}\n`,
@@ -250,7 +277,7 @@ export async function arbitrateGrading(options: ArbitrateOptions): Promise<Gradi
       : "Concluded authoritatively by Cambridge Principal Examiner pass.";
 
   reconciled.confidence = computeObjectiveConfidence(examinerGrading, moderatorGrading, true);
-  return reconciled;
+  return applyWritingQualityGuardrail(reconciled, quality, maxMark, split);
 }
 
 /**
@@ -263,6 +290,7 @@ export function synthesizeDualPasses(
   pass2: Grading,
   maxMark: number,
   split: AoSplit,
+  quality?: EssayQualityAnalysis,
 ): Grading {
   // If BOTH passes independently determined the essay was completely off-topic / unrelated (both awarded 0),
   // uphold the strict Cambridge zero-marks rule:
@@ -410,4 +438,6 @@ export function synthesizeDualPasses(
     audited: true,
     arbitrated: false,
   };
+
+  return quality ? applyWritingQualityGuardrail(result, quality, maxMark, split) : result;
 }

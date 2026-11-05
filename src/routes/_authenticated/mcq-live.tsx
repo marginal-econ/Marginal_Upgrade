@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Award,
   BookOpen,
+  Calculator as CalculatorIcon,
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
@@ -28,6 +29,7 @@ import { z } from "zod";
 
 import { PageHeader } from "@/components/app/app-shell";
 import { ChainedChamber } from "@/components/app/chained-chamber";
+import { McqCalculator } from "@/components/app/mcq-calculator";
 import { getMe } from "@/lib/account.functions";
 import {
   McqReviewPanel,
@@ -336,6 +338,19 @@ function McqLivePage() {
   }, []);
 
   const [graded, setGraded] = useState(false);
+  const [calcOpen, setCalcOpen] = useState(false);
+
+  // Global Alt+C shortcut to toggle Cambridge Economics Calculator
+  useEffect(() => {
+    const handleGlobalKey = (e: KeyboardEvent) => {
+      if (e.altKey && (e.key === "c" || e.key === "C")) {
+        e.preventDefault();
+        setCalcOpen((prev) => !prev);
+      }
+    };
+    window.addEventListener("keydown", handleGlobalKey);
+    return () => window.removeEventListener("keydown", handleGlobalKey);
+  }, []);
   const [result, setResult] = useState<{ score: number; total: number } | null>(null);
   const [attemptTopics, setAttemptTopics] = useState<TopicStat[]>([]);
   // SAT-"Reading vs Writing" style micro/macro split for this one paper,
@@ -1120,6 +1135,18 @@ function fillMissingQuestionPages(
         <PageHeader
           title="MCQ Live"
           description="Practice straight off a real past paper — answer from the button panel beside it."
+          action={
+            <Button
+              size="sm"
+              variant={calcOpen ? "default" : "outline"}
+              onClick={() => setCalcOpen((v) => !v)}
+              className="h-9 gap-1.5 rounded-xl border-border font-medium shadow-2xs hover:bg-muted"
+              title="Open Cambridge Economics Calculator & Solvers (Alt+C)"
+            >
+              <CalculatorIcon className="h-4 w-4 text-primary" />
+              <span>Cambridge Calculator</span>
+            </Button>
+          }
         />
       ) : null}
 
@@ -1351,6 +1378,20 @@ function fillMissingQuestionPages(
               >
                 <Pencil className="h-3.5 w-3.5" />
                 <span className="hidden sm:inline">Annotate</span>
+              </Button>
+
+              <Button
+                size="sm"
+                variant={calcOpen ? "default" : "outline"}
+                onClick={() => setCalcOpen((v) => !v)}
+                className={cn(
+                  "h-8 px-2 text-xs gap-1.5 transition-all",
+                  calcOpen && "bg-primary text-primary-foreground shadow-xs font-semibold"
+                )}
+                title="Cambridge Economics Calculator & Formula Solvers (Alt+C)"
+              >
+                <CalculatorIcon className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Calculator</span>
               </Button>
 
               <div className="hidden md:flex items-center gap-2 min-w-[7rem]">
@@ -1738,6 +1779,7 @@ function fillMissingQuestionPages(
           }
         }}
       />
+      <McqCalculator isOpen={calcOpen} onClose={() => setCalcOpen(false)} />
     </div>
   );
 }

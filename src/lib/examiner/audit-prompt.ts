@@ -45,6 +45,18 @@ CAMBRIDGE MODERATION PRINCIPLES — POSITIVE, FAIR, ACCURATE MARKING:
    - Speak constructively and encouragingly. Quote verbatim phrases from the student's text.
    - Zero asterisks: never use * or ** in any JSON string.
 
+8. CAMBRIDGE WRITING QUALITY, DEPTH & PARAGRAPH STRUCTURE:
+   - Moderate marks against authentic Cambridge standards: an essay under 350 words (for 12 marks) is an outline summary where transmission links are compressed into short assertions. It must NOT be awarded Top Band Level 3 for AO2 (max 4/6) or AO3 (max 2/4).
+   - Single-paragraph monolithic submissions fail Cambridge organizational standards and cannot exceed Level 2.
+   - AI-generated formatting artifacts (**bolding**, raw LaTeX) must be penalized as compressed outline notes rather than examination essays.
+   - Preserve full credit (10-12/12) for well-developed, paragraphed student essays (500+ words) that demonstrate sustained analysis and prioritized evaluation.
+
+9. OFFICIAL CAMBRIDGE RESPONSE STRUCTURE GUIDANCE:
+{structure_note}
+
+10. SUBMISSION QUALITY & DEPTH PROFILE:
+{essay_quality_profile}
+
 Respond ONLY with a single valid JSON object, no markdown fences, no commentary outside the JSON:
 
 {{
