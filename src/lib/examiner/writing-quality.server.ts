@@ -125,22 +125,22 @@ export function analyzeEssayQuality(
       );
     }
   } else if (maxMark === 8) {
-    targetRangeText = "300–450 words";
+    targetRangeText = split.ao3_marks === 0 ? "250–400 words" : "300–450 words";
     if (words < 120) {
       isSeverelyUndersized = true;
       maxAllowableTotalMark = 3;
-      maxAllowableAo2 = 1;
+      maxAllowableAo2 = split.ao3_marks === 0 ? 2 : 1;
       maxAllowableAo3 = 0;
       qualityIssues.push(
-        `Fragment / extreme brevity (${words} words). Cambridge 8-mark questions expect 300–450 words.`,
+        `Fragment / extreme brevity (${words} words). Cambridge 8-mark questions expect ${targetRangeText}.`,
       );
     } else if (words < 200) {
       isUndersized = true;
       maxAllowableTotalMark = 5;
-      maxAllowableAo2 = 2;
-      maxAllowableAo3 = 1;
+      maxAllowableAo2 = split.ao3_marks === 0 ? 3 : 2;
+      maxAllowableAo3 = split.ao3_marks === 0 ? 0 : 1;
       qualityIssues.push(
-        `Undersized (${words} words vs 300–450 expected). Analytical points lack sufficient explanatory depth.`,
+        `Undersized (${words} words vs ${targetRangeText} expected). Analytical points lack sufficient explanatory depth.`,
       );
     }
   } else if (maxMark >= 20) {

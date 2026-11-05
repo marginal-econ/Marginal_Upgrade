@@ -75,16 +75,16 @@ describe("Examiner Configuration & Gemini Model Allocation", () => {
     expect(isEvaluativeQuestion("Analyse how changes in interest rates affect consumption")).toBe(false);
     expect(isEvaluativeQuestion("Distinguish between allocative and productive efficiency")).toBe(false);
 
-    // Legacy 8-mark split has AO3 = 0
-    expect(TARIFF_SPLIT_8_LEGACY).toEqual({ ao1_marks: 4, ao2_marks: 4, ao3_marks: 0 });
+    // Legacy 8-mark split has AO3 = 0, AO1 = 2, AO2 = 6
+    expect(TARIFF_SPLIT_8_LEGACY).toEqual({ ao1_marks: 2, ao2_marks: 6, ao3_marks: 0 });
 
     // Explicit legacy essayType parameter
     const legacySplit = defaultSplitForMaxMark(8, "8_legacy");
-    expect(legacySplit).toEqual({ ao1_marks: 4, ao2_marks: 4, ao3_marks: 0 });
+    expect(legacySplit).toEqual({ ao1_marks: 2, ao2_marks: 6, ao3_marks: 0 });
 
     // Automatic detection for 8-mark question lacking evaluative keywords
     const autoSplit = defaultSplitForMaxMark(8, undefined, "Explain two causes of an increase in aggregate demand");
-    expect(autoSplit).toEqual({ ao1_marks: 4, ao2_marks: 4, ao3_marks: 0 });
+    expect(autoSplit).toEqual({ ao1_marks: 2, ao2_marks: 6, ao3_marks: 0 });
 
     // 8-mark question with evaluative keywords retains 2/4/2
     const evalSplit = defaultSplitForMaxMark(8, undefined, "Discuss whether interest rate rises reduce inflation");

@@ -794,7 +794,7 @@ function GradePage() {
                       label: "8M Legacy",
                       tag: "No Evaluation",
                       subtitle: "Explain / Analyse",
-                      split: "AO1 4 · AO2 4 (No AO3)",
+                      split: "AO1 2 · AO2 6 (No AO3)",
                       targetWords: "250–400w",
                     },
                     {
@@ -857,7 +857,7 @@ function GradePage() {
                     <div>
                       <span className="font-semibold text-sky-300">Legacy Non-Evaluative 8-Mark Essay</span>
                       <p className="text-[11px] text-sky-200/90 leading-normal mt-0.5">
-                        Pure descriptive and causal analysis from legacy papers (e.g. &quot;Explain...&quot; or &quot;Analyse...&quot;). Evaluation is <strong>not required</strong> and candidates are <strong>never penalized</strong> for having no evaluation or conclusion. Scored out of 4 marks AO1 Knowledge and 4 marks AO2 Analysis.
+                        Pure descriptive and causal analysis from legacy papers (e.g. &quot;Explain...&quot; or &quot;Analyse...&quot;). Evaluation is <strong>not required</strong> and candidates are <strong>never penalized</strong> for having no evaluation or conclusion. Scored out of 2 marks AO1 Knowledge and 6 marks AO2 Analysis.
                       </p>
                     </div>
                   </div>

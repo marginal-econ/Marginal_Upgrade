@@ -126,10 +126,10 @@ export function isEvaluativeQuestion(question?: string | null): boolean {
   );
 }
 
-/** Legacy Cambridge 9708 8-mark split (no evaluation required: Explain / Analyse). */
+/** Legacy Cambridge 9708 8-mark split (no evaluation required: 2 knowledge, 6 analysis, 0 evaluation). */
 export const TARIFF_SPLIT_8_LEGACY: AoSplit = {
-  ao1_marks: 4,
-  ao2_marks: 4,
+  ao1_marks: 2,
+  ao2_marks: 6,
   ao3_marks: 0,
 } as const;
 
@@ -138,7 +138,7 @@ export const TARIFF_SPLIT_8_LEGACY: AoSplit = {
  * and must not be derived from a ratio.
  *
  *   - 8-mark evaluative questions: AO1 2 / AO2 4 / AO3 2 (standard evaluative).
- *   - 8-mark legacy / explain questions: AO1 4 / AO2 4 / AO3 0 (no evaluation).
+ *   - 8-mark legacy / explain questions: AO1 2 / AO2 6 / AO3 0 (no evaluation).
  *   - 12-mark evaluative essays: AO1 2 / AO2 6 / AO3 4 (unchanged — original split).
  *   - There is NO 25-mark question anywhere in this syllabus. Paper 4's
  *     extended essays (Section B/C, Q2–5, EITHER/OR) are each worth 20
@@ -325,20 +325,20 @@ export const STRUCTURE_GUIDANCE_8_LEGACY: StructureGuidance = {
   label: "8-mark legacy question (no evaluation required)",
   questionType:
     "A legacy Cambridge 8-mark question (e.g. 'Explain...' or 'Analyse...' without evaluative keywords like 'discuss', 'consider', or 'to what extent') — pure knowledge and causal analysis.",
-  aoSummary: "AO1 Knowledge: 4 marks · AO2 Analysis: 4 marks · AO3 Evaluation: 0 marks (NOT REQUIRED)",
+  aoSummary: "AO1 Knowledge: 2 marks · AO2 Analysis: 6 marks · AO3 Evaluation: 0 marks (NOT REQUIRED)",
   steps: [
     {
-      title: "Knowledge and Understanding (4 marks)",
+      title: "Knowledge and Understanding (2 marks)",
       detail:
-        "Define all core economic terms accurately and outline the theoretical framework or concepts relevant to the prompt.",
+        "Open by defining all core economic terms accurately and establishing the key economic concepts relevant to the prompt.",
     },
     {
-      title: "Causal Analysis (4 marks)",
+      title: "Causal Analysis (6 marks)",
       detail:
-        "Build clear, step-by-step causal transmission mechanisms (define -> explain mechanism -> analyse effects). Explain how and why economic changes occur.",
+        "Build clear, step-by-step causal transmission mechanisms (define -> explain mechanism -> analyse effects -> apply to context). Unpack each link in explanatory sentences.",
     },
   ],
-  note: "This legacy question requires ONLY knowledge and analysis. Evaluation, weighing of alternatives, and overall conclusions are NOT required and candidates are NOT penalized for omitting them.",
+  note: "This legacy question requires ONLY knowledge (2 marks) and analysis (6 marks). Evaluation, weighing of alternatives, and overall conclusions are NOT required and candidates are NOT penalized for omitting them.",
 };
 
 /**

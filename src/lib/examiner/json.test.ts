@@ -118,7 +118,7 @@ The candidate scored well on AO1.
       weaknesses: ["Missing evaluation weakens the overall conclusion."],
     };
 
-    const split = { ao1_marks: 4, ao2_marks: 4, ao3_marks: 0 };
+    const split = { ao1_marks: 2, ao2_marks: 6, ao3_marks: 0 };
     const result = normaliseGrading(raw, 8, split);
 
     expect(result.ao_breakdown.evaluation.out_of).toBe(0);
