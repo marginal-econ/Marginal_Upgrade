@@ -1,44 +1,9 @@
-# Allow search engines to index all public marketing and education pages
-User-agent: Googlebot
-Allow: /
-Disallow: /admin
-Disallow: /dashboard
-Disallow: /essay/
-Disallow: /practice
-Disallow: /live-examiner
-Disallow: /settings
-Disallow: /classes
-Disallow: /mcq
-Disallow: /api/
-
-User-agent: Bingbot
-Allow: /
-Disallow: /admin
-Disallow: /dashboard
-Disallow: /essay/
-Disallow: /practice
-Disallow: /live-examiner
-Disallow: /settings
-Disallow: /classes
-Disallow: /mcq
-Disallow: /api/
-
-User-agent: Twitterbot
-Allow: /
-
-User-agent: facebookexternalhit
-Allow: /
-
+# Allow search engine crawlers full access to index all public pages
 User-agent: *
 Allow: /
 Disallow: /admin
 Disallow: /dashboard
 Disallow: /essay/
-Disallow: /practice
-Disallow: /live-examiner
-Disallow: /settings
-Disallow: /classes
-Disallow: /mcq
 Disallow: /api/
 
 Host: https://marginal-econ.com

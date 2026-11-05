@@ -141,6 +141,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       },
       { name: "application-name", content: "Marginal AI" },
       { name: "apple-mobile-web-app-title", content: "Marginal AI" },
+      { name: "robots", content: "index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" },
       {
         name: "google-site-verification",
         content: (typeof process !== "undefined" && process.env?.GOOGLE_SITE_VERIFICATION) || "gsc-marginal-ai-verification",
