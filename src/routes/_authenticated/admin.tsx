@@ -8,6 +8,7 @@ import {
   ArrowUp,
   BellOff,
   BookOpen,
+  Calendar,
   Check,
   CheckCircle2,
   Clipboard,
@@ -17,6 +18,7 @@ import {
   Copy,
   Crown,
   Cpu,
+  Download,
   Eraser,
   ExternalLink,
   Eye,
@@ -46,6 +48,7 @@ import {
   Trophy,
   UploadCloud,
   Users,
+  UserPlus,
   XCircle,
   Zap,
 } from "lucide-react";
@@ -70,6 +73,7 @@ import {
   useUserActivity,
 } from "@/components/app/admin-access";
 import { PageHeader } from "@/components/app/app-shell";
+import { UserAvatar } from "@/components/app/user-avatar";
 import { MARGINAL_ADMIN_USER_ID, MARGINAL_ADMIN_EMAIL, isMarginalAdmin } from "@/lib/auth-admin";
 import {
   AlertDialog,
@@ -734,6 +738,7 @@ function AdminPage() {
               <OverviewPanel
                 onOpenGodmode={() => setActiveTab("godmode")}
                 onOpenEssays={() => setActiveTab("essays")}
+                onOpenUsers={() => setActiveTab("users")}
               />
             )}
             {activeTab === "messages" && (
@@ -3740,9 +3745,11 @@ type AdminMetrics = {
 function OverviewPanel({
   onOpenGodmode,
   onOpenEssays,
+  onOpenUsers,
 }: {
   onOpenGodmode?: () => void;
   onOpenEssays?: () => void;
+  onOpenUsers?: () => void;
 } = {}) {
   const queryClient = useQueryClient();
   const fetchOverview = useServerFn(adminOverview);
@@ -4067,20 +4074,24 @@ function OverviewPanel({
       <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
         {tiles.map((tile) => {
           const isEssays = tile.label === "Essays marked";
+          const isUsers = tile.label === "Users";
+          const isClickable = (isEssays && onOpenEssays) || (isUsers && onOpenUsers);
           return (
             <div
               key={tile.label}
               onClick={() => {
                 if (isEssays && onOpenEssays) onOpenEssays();
+                if (isUsers && onOpenUsers) onOpenUsers();
               }}
               className={cn(
                 "panel rounded-xl border border-border p-4 transition-all",
-                isEssays && onOpenEssays && "cursor-pointer hover:border-primary/50 hover:bg-muted/40 shadow-xs"
+                isClickable && "cursor-pointer hover:border-primary/50 hover:bg-muted/40 shadow-xs",
               )}
             >
               <div className="flex items-center justify-between">
                 <p className="text-xs text-muted-foreground">{tile.label}</p>
                 {isEssays && <span className="text-[10px] text-primary font-medium hover:underline">View all &rarr;</span>}
+                {isUsers && <span className="text-[10px] text-primary font-medium hover:underline">Directory &rarr;</span>}
               </div>
               <p className="mt-1 text-xl font-semibold tabular-nums">{tile.value}</p>
             </div>
@@ -4281,7 +4292,11 @@ function UsersPanel({ onTextUser }: { onTextUser?: (userId: string) => void } = 
   const users = useQuery({ queryKey: ["admin-users"], queryFn: () => fetchUsers() });
   const activity = useUserActivity();
   const activityById = new Map((activity.data ?? []).map((row) => [row.userId, row]));
+
   const [search, setSearch] = useState("");
+  const [filterRole, setFilterRole] = useState<"all" | "new" | "student" | "teacher" | "online" | "writers">("all");
+  const [sortBy, setSortBy] = useState<"newest" | "oldest" | "essays" | "active" | "name">("newest");
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const [resetTarget, setResetTarget] = useState<{ id: string; name: string } | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
@@ -4323,119 +4338,691 @@ function UsersPanel({ onTextUser }: { onTextUser?: (userId: string) => void } = 
     onError: (error: Error) => toast.error(error.message),
   });
 
+  const copyToClipboard = (text: string, id: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedId(id);
+    toast.success("Copied to clipboard");
+    setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  const usersList = (users.data ?? []) as Array<{
+    id: string;
+    email?: string | null;
+    fullName: string;
+    school?: string | null;
+    avatarUrl?: string | null;
+    createdAt: string;
+    lastSignInAt?: string | null;
+    role: "admin" | "teacher" | "student";
+  }>;
+
+  const nowMs = Date.now();
+  const weekAgoMs = nowMs - 7 * 24 * 60 * 60 * 1000;
+  const dayAgoMs = nowMs - 24 * 60 * 60 * 1000;
+  const twoDaysAgoMs = nowMs - 2 * 24 * 60 * 60 * 1000;
+
+  // Key KPI Metrics
+  const totalUsers = usersList.length;
+  const studentsCount = usersList.filter((u) => u.role === "student").length;
+  const teachersCount = usersList.filter((u) => u.role === "teacher").length;
+  const adminsCount = usersList.filter((u) => u.role === "admin").length;
+  const onlineUsers = usersList.filter((u) => activityById.get(u.id)?.isOnline);
+  const onlineCount = onlineUsers.length;
+  const joinedThisWeek = usersList.filter(
+    (u) => new Date(u.createdAt).getTime() >= weekAgoMs,
+  );
+  const joinedToday = usersList.filter(
+    (u) => new Date(u.createdAt).getTime() >= dayAgoMs,
+  );
+  const writersCount = usersList.filter(
+    (u) => (activityById.get(u.id)?.essaysGraded ?? 0) > 0,
+  ).length;
+
+  // Sorted list by newest joined for the spotlight
+  const sortedByNewest = [...usersList].sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+  );
+  const latestUser = sortedByNewest[0] ?? null;
+  const topLatestUsers = sortedByNewest.slice(0, 6);
+
+  // Filtered & Sorted Users
+  const filteredUsers = usersList
+    .filter((user) => {
+      const extra = activityById.get(user.id);
+      const email = user.email || extra?.email;
+
+      if (filterRole === "new") {
+        if (new Date(user.createdAt).getTime() < weekAgoMs) return false;
+      } else if (filterRole === "student") {
+        if (user.role !== "student") return false;
+      } else if (filterRole === "teacher") {
+        if (user.role !== "teacher") return false;
+      } else if (filterRole === "online") {
+        if (!extra?.isOnline) return false;
+      } else if (filterRole === "writers") {
+        if ((extra?.essaysGraded ?? 0) <= 0) return false;
+      }
+
+      return matchesSearch(
+        [user.fullName, user.school, user.role, email, user.id],
+        search,
+      );
+    })
+    .sort((a, b) => {
+      const extraA = activityById.get(a.id);
+      const extraB = activityById.get(b.id);
+
+      if (sortBy === "newest") {
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      }
+      if (sortBy === "oldest") {
+        return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+      }
+      if (sortBy === "essays") {
+        return (extraB?.essaysGraded ?? 0) - (extraA?.essaysGraded ?? 0);
+      }
+      if (sortBy === "active") {
+        const timeA = extraA?.lastActivity ? new Date(extraA.lastActivity).getTime() : 0;
+        const timeB = extraB?.lastActivity ? new Date(extraB.lastActivity).getTime() : 0;
+        return timeB - timeA;
+      }
+      if (sortBy === "name") {
+        return (a.fullName || "").localeCompare(b.fullName || "");
+      }
+      return 0;
+    });
+
+  const exportUsersCsv = () => {
+    try {
+      const rows = [
+        ["User ID", "Full Name", "Email", "Role", "School / Centre", "Joined At", "Essays Graded", "MCQ Attempts", "Live Sessions", "Status"],
+        ...filteredUsers.map((u) => {
+          const extra = activityById.get(u.id);
+          return [
+            u.id,
+            `"${(u.fullName || "").replace(/"/g, '""')}"`,
+            u.email || extra?.email || "",
+            u.role,
+            `"${(u.school || "").replace(/"/g, '""')}"`,
+            u.createdAt,
+            extra?.essaysGraded ?? 0,
+            extra?.mcqAttempts ?? 0,
+            extra?.liveExaminerSessions ?? 0,
+            extra?.isOnline ? "Online" : "Offline",
+          ];
+        }),
+      ];
+      const csvContent = rows.map((r) => r.join(",")).join("\n");
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `marginal-users-${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success("Candidate directory exported to CSV.");
+    } catch {
+      toast.error("Failed to export CSV.");
+    }
+  };
+
   if (users.isLoading) return <Skeleton className="h-64 w-full" />;
 
   return (
-    <>
-      <SearchBox
-        value={search}
-        onChange={setSearch}
-        placeholder="Search by name, email, school or role"
-        className="mb-4 max-w-xl"
-      />
-      <div className="panel divide-y divide-border rounded-xl border border-border">
-        {(users.data ?? [])
-          .filter((user) => {
-            const extra = activityById.get(user.id);
-            return matchesSearch([user.fullName, user.school, user.role, extra?.email], search);
-          })
-          .map((user) => {
-            const extra = activityById.get(user.id);
-            return (
-              <div key={user.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
-                <span
-                  className={
-                    extra?.isOnline
-                      ? "inline-block size-2 shrink-0 rounded-full bg-emerald-500 shadow-[0_0_0_3px_rgba(16,185,129,0.2)]"
-                      : "inline-block size-2 shrink-0 rounded-full bg-muted-foreground/30"
-                  }
-                  title={extra?.isOnline ? "Online now" : "Offline"}
+    <div className="space-y-6">
+      {/* ── 1. Top KPI Intelligence Cards: Total Users, Latest Joined, Roles & Online ── */}
+      <div className="grid gap-3.5 sm:grid-cols-2 lg:grid-cols-4">
+        {/* Total Registered Users */}
+        <div className="rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/[0.07] via-card to-card p-4 shadow-xs relative overflow-hidden group">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+              <Users className="size-3.5 text-primary" /> Total Users
+            </span>
+            <Badge className="bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold">
+              +{joinedThisWeek.length} this wk
+            </Badge>
+          </div>
+          <div className="flex items-baseline gap-2">
+            <span className="text-3xl font-extrabold tracking-tight text-foreground">
+              {totalUsers}
+            </span>
+            <span className="text-xs text-muted-foreground font-medium">
+              registered accounts
+            </span>
+          </div>
+          <p className="text-[11px] text-muted-foreground mt-2 pt-2 border-t border-border/60 flex items-center justify-between">
+            <span>+{joinedToday.length} joined today</span>
+            <span className="font-semibold text-primary">{studentsCount} students</span>
+          </p>
+        </div>
+
+        {/* Latest Joined Member Spotlight */}
+        <div className="rounded-2xl border border-amber-500/25 bg-gradient-to-br from-amber-500/[0.08] via-card to-card p-4 shadow-xs relative overflow-hidden group">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
+              <Sparkles className="size-3.5 text-amber-500" /> Latest Joined
+            </span>
+            {latestUser && (
+              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30">
+                {timeAgo(latestUser.createdAt)}
+              </span>
+            )}
+          </div>
+          {latestUser ? (
+            <div className="flex items-center justify-between gap-2 mt-1">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <UserAvatar
+                  avatarUrl={latestUser.avatarUrl}
+                  name={latestUser.fullName}
+                  showStatusDot={activityById.get(latestUser.id)?.isOnline}
+                  className="size-8 shrink-0 shadow-xs ring-1 ring-amber-500/30"
                 />
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-medium">
-                    {user.fullName ?? "Unnamed account"}
+                  <p className="text-sm font-bold truncate text-foreground leading-tight">
+                    {latestUser.fullName}
                   </p>
-                  <p className="text-xs text-muted-foreground">
-                    {extra?.email ? `${extra.email} · ` : ""}
-                    {user.school ?? "No school"} · joined{" "}
-                    {new Date(user.createdAt).toLocaleDateString()}
-                    {extra
-                      ? ` · ${extra.isOnline ? "online now" : `last active ${timeAgo(extra.lastActivity)}`}`
-                      : ""}
+                  <p className="text-[10.5px] text-muted-foreground truncate mt-0.5">
+                    {latestUser.email || latestUser.school || "New Candidate"}
                   </p>
                 </div>
-                <div className="ml-auto flex items-center gap-1.5">
-                  {user.id === MARGINAL_ADMIN_USER_ID || extra?.email?.toLowerCase().trim() === MARGINAL_ADMIN_EMAIL.toLowerCase() ? (
-                    <Badge variant="outline" className="h-8 px-2.5 font-semibold border-amber-500/40 text-amber-600 dark:text-amber-400 bg-amber-500/10">
-                      Sole Admin
-                    </Badge>
-                  ) : (
-                    <Select
-                      value={user.role === "admin" ? "student" : user.role}
-                      onValueChange={(value) =>
-                        roleMutation.mutate({
-                          userId: user.id,
-                          role: value as "student" | "teacher",
-                        })
-                      }
+              </div>
+              {onTextUser && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => onTextUser(latestUser.id)}
+                  className="h-7 px-2 text-[11px] gap-1 border-amber-500/40 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 shrink-0 font-semibold cursor-pointer"
+                  title="Direct message this newly joined user"
+                >
+                  <Send className="size-3" /> Text
+                </Button>
+              )}
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground mt-2">No users registered yet.</p>
+          )}
+          <p className="text-[11px] text-muted-foreground mt-2 pt-2 border-t border-border/60 truncate">
+            {latestUser ? `Joined ${new Date(latestUser.createdAt).toLocaleDateString()} (${latestUser.role})` : "Waiting for candidates"}
+          </p>
+        </div>
+
+        {/* Students & Educators Breakdown */}
+        <div className="rounded-2xl border border-indigo-500/20 bg-gradient-to-br from-indigo-500/[0.07] via-card to-card p-4 shadow-xs relative overflow-hidden group">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider flex items-center gap-1.5">
+              <GraduationCap className="size-3.5 text-indigo-500" /> User Roles
+            </span>
+            <span className="text-[10px] font-bold text-muted-foreground">
+              {Math.round((studentsCount / Math.max(1, totalUsers)) * 100)}% students
+            </span>
+          </div>
+          <div className="flex items-baseline gap-2">
+            <span className="text-3xl font-extrabold tracking-tight text-foreground">
+              {studentsCount}
+            </span>
+            <span className="text-xs text-muted-foreground font-medium">
+              Students · <strong className="text-foreground">{teachersCount}</strong> Teachers
+            </span>
+          </div>
+          <p className="text-[11px] text-muted-foreground mt-2 pt-2 border-t border-border/60 flex items-center justify-between">
+            <span>{teachersCount} authorized educators</span>
+            <span>{adminsCount} platform admin</span>
+          </p>
+        </div>
+
+        {/* Live Active Now */}
+        <div className="rounded-2xl border border-emerald-500/25 bg-gradient-to-br from-emerald-500/[0.08] via-card to-card p-4 shadow-xs relative overflow-hidden group">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
+              <span className="size-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
+              Online Now
+            </span>
+            <Badge className="bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-500/35 text-[10px] font-bold">
+              Live Presence
+            </Badge>
+          </div>
+          <div className="flex items-baseline gap-2">
+            <span className="text-3xl font-extrabold tracking-tight text-foreground">
+              {onlineCount}
+            </span>
+            <span className="text-xs text-muted-foreground font-medium">
+              active in app right now
+            </span>
+          </div>
+          <p className="text-[11px] text-muted-foreground mt-2 pt-2 border-t border-border/60 flex items-center justify-between">
+            <span>{writersCount} active essay writers</span>
+            <span className="text-emerald-600 dark:text-emerald-400 font-semibold">Real-time Heartbeat</span>
+          </p>
+        </div>
+      </div>
+
+      {/* ── 2. Latest Joined Candidates Quick Spotlight Strip ── */}
+      {topLatestUsers.length > 0 && (
+        <div className="rounded-2xl border border-border/80 bg-card p-4 sm:p-5 shadow-xs space-y-3">
+          <div className="flex items-center justify-between border-b border-border/70 pb-2.5">
+            <div className="flex items-center gap-2">
+              <Sparkles className="size-4 text-amber-500" />
+              <h3 className="text-xs sm:text-sm font-bold text-foreground">
+                Latest Joined Members Spotlight
+              </h3>
+              <Badge variant="outline" className="text-[10px] font-semibold bg-muted">
+                Newest {topLatestUsers.length} signups
+              </Badge>
+            </div>
+            <span className="text-[11px] text-muted-foreground">
+              Instant welcome &amp; direct messaging channel
+            </span>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 pt-1">
+            {topLatestUsers.map((u) => {
+              const extra = activityById.get(u.id);
+              const isRecent = new Date(u.createdAt).getTime() >= twoDaysAgoMs;
+              return (
+                <div
+                  key={u.id}
+                  className="rounded-xl border border-border/70 bg-muted/25 hover:bg-muted/50 p-3 flex flex-col justify-between transition-all group/card hover:border-primary/40 hover:shadow-xs"
+                >
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <UserAvatar
+                      avatarUrl={u.avatarUrl}
+                      name={u.fullName}
+                      showStatusDot={extra?.isOnline}
+                      className="size-8 ring-1 ring-border/80 shrink-0"
+                    />
+                    <span
+                      className={cn(
+                        "text-[9.5px] font-extrabold uppercase px-1.5 py-0.5 rounded-full",
+                        isRecent
+                          ? "bg-amber-500/15 border border-amber-500/30 text-amber-600 dark:text-amber-400 font-bold"
+                          : "bg-muted text-muted-foreground",
+                      )}
                     >
-                      <SelectTrigger className="w-36">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="student">Student</SelectItem>
-                        <SelectItem value="teacher">Teacher</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  )}
-                  {onTextUser && !(user.id === MARGINAL_ADMIN_USER_ID || extra?.email?.toLowerCase().trim() === MARGINAL_ADMIN_EMAIL.toLowerCase()) && (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      className="h-8 gap-1.5 text-xs text-primary hover:text-primary hover:bg-primary/10 border-primary/30"
-                      title="Send direct in-app message"
-                      onClick={() => onTextUser(user.id)}
-                    >
-                      <Send className="size-3.5" />
-                      <span>Text</span>
-                    </Button>
-                  )}
+                      {timeAgo(u.createdAt)}
+                    </span>
+                  </div>
+
+                  <div className="min-w-0 mb-2">
+                    <p className="text-xs font-bold text-foreground truncate group-hover/card:text-primary transition-colors">
+                      {u.fullName}
+                    </p>
+                    <p className="text-[10px] font-mono text-muted-foreground truncate">
+                      {u.email || activityById.get(u.id)?.email || "—"}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground/80 truncate mt-0.5">
+                      {u.school || "Independent"}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-2 border-t border-border/60 text-[10px]">
+                    <span className="capitalize font-semibold text-muted-foreground">
+                      {u.role}
+                    </span>
+                    {onTextUser && u.role !== "admin" && (
+                      <button
+                        type="button"
+                        onClick={() => onTextUser(u.id)}
+                        className="text-[10.5px] font-bold text-primary hover:underline inline-flex items-center gap-1 cursor-pointer"
+                      >
+                        <Send className="size-2.5" /> Text
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* ── 3. Filters, Search & Sorting Controls ── */}
+      <div className="space-y-3">
+        {/* Filter Pills */}
+        <div className="flex flex-wrap items-center gap-1.5">
+          <Button
+            type="button"
+            size="sm"
+            variant={filterRole === "all" ? "default" : "outline"}
+            onClick={() => setFilterRole("all")}
+            className="h-8 text-xs font-semibold rounded-lg"
+          >
+            All Accounts ({totalUsers})
+          </Button>
+
+          <Button
+            type="button"
+            size="sm"
+            variant={filterRole === "new" ? "default" : "outline"}
+            onClick={() => setFilterRole("new")}
+            className={cn(
+              "h-8 text-xs font-semibold rounded-lg gap-1.5",
+              filterRole === "new" ? "bg-amber-600 hover:bg-amber-700 text-white" : "border-amber-500/40 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10",
+            )}
+          >
+            <Sparkles className="size-3 text-amber-500" />
+            Latest (7d) ({joinedThisWeek.length})
+          </Button>
+
+          <Button
+            type="button"
+            size="sm"
+            variant={filterRole === "student" ? "default" : "outline"}
+            onClick={() => setFilterRole("student")}
+            className="h-8 text-xs font-semibold rounded-lg"
+          >
+            Students ({studentsCount})
+          </Button>
+
+          <Button
+            type="button"
+            size="sm"
+            variant={filterRole === "teacher" ? "default" : "outline"}
+            onClick={() => setFilterRole("teacher")}
+            className="h-8 text-xs font-semibold rounded-lg"
+          >
+            Teachers ({teachersCount})
+          </Button>
+
+          <Button
+            type="button"
+            size="sm"
+            variant={filterRole === "online" ? "default" : "outline"}
+            onClick={() => setFilterRole("online")}
+            className={cn(
+              "h-8 text-xs font-semibold rounded-lg gap-1.5",
+              filterRole === "online" ? "bg-emerald-600 hover:bg-emerald-700 text-white" : "border-emerald-500/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10",
+            )}
+          >
+            <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
+            Online Now ({onlineCount})
+          </Button>
+
+          <Button
+            type="button"
+            size="sm"
+            variant={filterRole === "writers" ? "default" : "outline"}
+            onClick={() => setFilterRole("writers")}
+            className="h-8 text-xs font-semibold rounded-lg"
+          >
+            Active Writers ({writersCount})
+          </Button>
+
+          <div className="ml-auto flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={exportUsersCsv}
+              className="h-8 text-xs gap-1.5 font-semibold shrink-0 cursor-pointer"
+              title="Download user directory CSV"
+            >
+              <Download className="size-3.5" />
+              <span>Export CSV</span>
+            </Button>
+          </div>
+        </div>
+
+        {/* Search & Sort Row */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+          <SearchBox
+            value={search}
+            onChange={setSearch}
+            placeholder="Search by name, email, school, role, or UUID…"
+            className="max-w-xl flex-1"
+          />
+
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="text-xs text-muted-foreground font-medium">Sort:</span>
+            <Select value={sortBy} onValueChange={(val: any) => setSortBy(val)}>
+              <SelectTrigger className="h-9 w-48 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="newest">Latest Joined (Newest first)</SelectItem>
+                <SelectItem value="oldest">Oldest Joined (Earliest first)</SelectItem>
+                <SelectItem value="essays">Most Essays Marked</SelectItem>
+                <SelectItem value="active">Recently Active (Last seen)</SelectItem>
+                <SelectItem value="name">Candidate Name (A - Z)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      </div>
+
+      {/* Directory Count Header */}
+      <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
+        <span>
+          Showing <strong className="text-foreground">{filteredUsers.length}</strong> of{" "}
+          <strong className="text-foreground">{totalUsers}</strong> accounts
+        </span>
+        {search && (
+          <button
+            type="button"
+            onClick={() => setSearch("")}
+            className="text-primary hover:underline font-semibold cursor-pointer"
+          >
+            Clear search
+          </button>
+        )}
+      </div>
+
+      {/* ── 4. Main User Directory List ── */}
+      <div className="panel divide-y divide-border rounded-2xl border border-border bg-card shadow-xs overflow-hidden">
+        {filteredUsers.map((user) => {
+          const extra = activityById.get(user.id);
+          const email = user.email || extra?.email;
+          const isSoleAdmin =
+            user.id === MARGINAL_ADMIN_USER_ID ||
+            email?.toLowerCase().trim() === MARGINAL_ADMIN_EMAIL.toLowerCase();
+          const isNewlyJoined = new Date(user.createdAt).getTime() >= twoDaysAgoMs;
+
+          return (
+            <div
+              key={user.id}
+              className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 px-4 sm:px-5 py-3.5 hover:bg-muted/30 transition-colors"
+            >
+              {/* User Avatar + Details */}
+              <div className="flex items-start sm:items-center gap-3.5 min-w-0 flex-1">
+                <UserAvatar
+                  avatarUrl={user.avatarUrl}
+                  name={user.fullName}
+                  showStatusDot={extra?.isOnline}
+                  className="size-11 shrink-0 ring-1 ring-border shadow-xs"
+                />
+
+                <div className="min-w-0 flex-1 space-y-1">
+                  {/* Top Line: Name, Badges, Status */}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-sm font-bold text-foreground truncate">
+                      {user.fullName ?? "Unnamed candidate"}
+                    </span>
+
+                    {isSoleAdmin ? (
+                      <Badge className="h-5 px-2 text-[9.5px] font-extrabold uppercase border-amber-500/40 text-amber-600 dark:text-amber-400 bg-amber-500/10 shadow-2xs">
+                        Root Admin
+                      </Badge>
+                    ) : user.role === "teacher" ? (
+                      <Badge className="h-5 px-2 text-[9.5px] font-bold uppercase bg-purple-500/15 text-purple-600 dark:text-purple-400 border border-purple-500/30">
+                        Educator
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="h-5 px-2 text-[9.5px] font-medium bg-muted text-muted-foreground">
+                        Candidate
+                      </Badge>
+                    )}
+
+                    {isNewlyJoined && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-[9.5px] font-extrabold uppercase shadow-2xs">
+                        <Sparkles className="size-2.5" /> New Member
+                      </span>
+                    )}
+
+                    {extra?.isOnline ? (
+                      <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
+                        <span className="size-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
+                        Online now {extra.currentPath ? `(${extra.currentPath})` : ""}
+                      </span>
+                    ) : extra?.lastActivity ? (
+                      <span className="text-[11px] text-muted-foreground">
+                        Active {timeAgo(extra.lastActivity)}
+                      </span>
+                    ) : null}
+                  </div>
+
+                  {/* Middle Line: Email, School, Joined Date */}
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                    {email ? (
+                      <button
+                        type="button"
+                        onClick={() => copyToClipboard(email, user.id)}
+                        className="inline-flex items-center gap-1 font-mono text-[11px] text-foreground hover:text-primary transition-colors cursor-pointer"
+                        title="Click to copy email address"
+                      >
+                        <Mail className="size-3 text-muted-foreground" />
+                        <span className="truncate max-w-[200px] sm:max-w-xs">{email}</span>
+                        {copiedId === user.id ? (
+                          <Check className="size-3 text-emerald-500 shrink-0" />
+                        ) : (
+                          <Copy className="size-3 text-muted-foreground/60 shrink-0" />
+                        )}
+                      </button>
+                    ) : (
+                      <span className="text-muted-foreground">No email</span>
+                    )}
+
+                    <span>·</span>
+                    <span className="truncate max-w-xs">
+                      {user.school ? `🏫 ${user.school}` : "🏫 Independent"}
+                    </span>
+
+                    <span>·</span>
+                    <span className="text-foreground/90 font-medium">
+                      Joined <strong className="text-primary">{timeAgo(user.createdAt)}</strong> ({new Date(user.createdAt).toLocaleDateString()})
+                    </span>
+                  </div>
+
+                  {/* Bottom Line: Practice Counters */}
+                  <div className="flex flex-wrap items-center gap-2 pt-0.5 text-[11px]">
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-muted/60 text-foreground font-medium">
+                      <BookOpen className="size-3 text-primary" />
+                      {extra?.essaysGraded ?? 0} essays marked
+                      {(extra?.essaysToday ?? 0) > 0 && (
+                        <strong className="text-emerald-600 dark:text-emerald-400 font-bold ml-0.5">
+                          (+{extra?.essaysToday} today)
+                        </strong>
+                      )}
+                    </span>
+
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-muted/60 text-foreground font-medium">
+                      <Target className="size-3 text-emerald-500" />
+                      {extra?.mcqAttempts ?? 0} MCQs
+                    </span>
+
+                    {(extra?.liveExaminerSessions ?? 0) > 0 && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-muted/60 text-foreground font-medium">
+                        <Sparkles className="size-3 text-indigo-500" />
+                        {extra?.liveExaminerSessions} Live sessions
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons on the Right */}
+              <div className="flex flex-wrap items-center gap-2 shrink-0 self-end lg:self-center">
+                {isSoleAdmin ? (
+                  <Badge variant="outline" className="h-8 px-2.5 font-semibold border-amber-500/40 text-amber-600 dark:text-amber-400 bg-amber-500/10">
+                    Administrator
+                  </Badge>
+                ) : (
+                  <Select
+                    value={user.role === "admin" ? "student" : user.role}
+                    onValueChange={(value) =>
+                      roleMutation.mutate({
+                        userId: user.id,
+                        role: value as "student" | "teacher",
+                      })
+                    }
+                  >
+                    <SelectTrigger className="w-32 h-8 text-xs font-semibold">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="student">Student</SelectItem>
+                      <SelectItem value="teacher">Teacher</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+
+                {onTextUser && !isSoleAdmin && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-8 gap-1.5 text-xs text-primary hover:text-primary hover:bg-primary/10 border-primary/30 font-semibold cursor-pointer"
+                    title="Send direct in-app message"
+                    onClick={() => onTextUser(user.id)}
+                  >
+                    <Send className="size-3.5" />
+                    <span>Text</span>
+                  </Button>
+                )}
+
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="ghost"
+                  className="size-8 text-muted-foreground hover:text-foreground cursor-pointer"
+                  aria-label="Clear practice data"
+                  title="Clear practice data (essays, MCQ attempts, Live Examiner sessions)"
+                  onClick={() =>
+                    setResetTarget({ id: user.id, name: user.fullName ?? "this account" })
+                  }
+                >
+                  <Eraser className="size-4" />
+                </Button>
+
+                {!isSoleAdmin && (
                   <Button
                     type="button"
                     size="icon"
                     variant="ghost"
-                    className="size-8 text-muted-foreground hover:text-foreground"
-                    aria-label="Clear this account's practice data"
-                    title="Clear practice data (essays, MCQ attempts, Live Examiner sessions)"
+                    className="size-8 text-muted-foreground hover:text-destructive cursor-pointer"
+                    aria-label="Delete this account"
+                    title="Delete account permanently"
                     onClick={() =>
-                      setResetTarget({ id: user.id, name: user.fullName ?? "this account" })
+                      setDeleteTarget({ id: user.id, name: user.fullName ?? "this account" })
                     }
                   >
-                    <Eraser className="size-4" />
+                    <Trash2 className="size-4" />
                   </Button>
-                  {!(user.id === MARGINAL_ADMIN_USER_ID || extra?.email?.toLowerCase().trim() === MARGINAL_ADMIN_EMAIL.toLowerCase()) && (
-                    <Button
-                      type="button"
-                      size="icon"
-                      variant="ghost"
-                      className="size-8 text-muted-foreground hover:text-destructive"
-                      aria-label="Delete this account"
-                      title="Delete account permanently"
-                      onClick={() =>
-                        setDeleteTarget({ id: user.id, name: user.fullName ?? "this account" })
-                      }
-                    >
-                      <Trash2 className="size-4" />
-                    </Button>
-                  )}
-                </div>
+                )}
               </div>
-            );
-          })}
-        {users.data && users.data.length === 0 ? (
-          <p className="px-4 py-4 text-sm text-muted-foreground">No accounts yet.</p>
-        ) : null}
+            </div>
+          );
+        })}
+
+        {filteredUsers.length === 0 && (
+          <div className="py-12 px-4 text-center space-y-2">
+            <Users className="size-8 text-muted-foreground/50 mx-auto" />
+            <p className="text-sm font-semibold text-foreground">No accounts match your criteria</p>
+            <p className="text-xs text-muted-foreground">
+              Try adjusting your search terms or clearing your role filter.
+            </p>
+            {search && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setSearch("")}
+                className="mt-2 text-xs"
+              >
+                Clear Search
+              </Button>
+            )}
+          </div>
+        )}
       </div>
 
       <AlertDialog open={!!resetTarget} onOpenChange={(open) => !open && setResetTarget(null)}>
@@ -4493,7 +5080,7 @@ function UsersPanel({ onTextUser }: { onTextUser?: (userId: string) => void } = 
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </>
+    </div>
   );
 }
 /* ------------------------------------------------------------------ */

@@ -564,11 +564,12 @@ export const listUsers = createServerFn({ method: "GET" })
       full_name: string | null;
       school: string | null;
       created_at: string;
+      avatar_url?: string | null;
     }[] = [];
     for (let offset = 0; ; offset += 1000) {
       const { data, error } = await supabaseAdmin
         .from("profiles")
-        .select("id, full_name, school, created_at")
+        .select("id, full_name, school, created_at, avatar_url")
         .order("created_at", { ascending: false })
         .range(offset, offset + 999);
       if (error) throw new Error(error.message);
@@ -593,40 +594,53 @@ export const listUsers = createServerFn({ method: "GET" })
     }
 
     const profileMap = new Map(profiles.map((profile) => [profile.id, profile]));
-    if (authUsers.length > 0) {
-      return authUsers.map((user) => {
-        const profile = profileMap.get(user.id);
-        const list = roleMap.get(user.id) ?? [];
-        const isMarginal = isMarginalAdmin({
-          userId: user.id,
-          email: user.email,
-          claims: user.user_metadata,
-        });
-        return {
-          id: user.id,
-          fullName:
-            profile?.full_name ??
-            (typeof user.user_metadata?.full_name === "string"
-              ? user.user_metadata.full_name
-              : (user.email ?? (isMarginal ? "Marginal Admin" : "Unnamed account"))),
-          school: profile?.school ?? null,
-          createdAt: user.created_at,
-          role: isMarginal ? "admin" : list.includes("teacher") ? "teacher" : "student",
-        };
+    const userMap = new Map<string, any>();
+
+    for (const user of authUsers) {
+      const profile = profileMap.get(user.id);
+      const list = roleMap.get(user.id) ?? [];
+      const isMarginal = isMarginalAdmin({
+        userId: user.id,
+        email: user.email,
+        claims: user.user_metadata,
+      });
+
+      userMap.set(user.id, {
+        id: user.id,
+        email: user.email ?? null,
+        fullName:
+          profile?.full_name ??
+          (typeof user.user_metadata?.full_name === "string"
+            ? user.user_metadata.full_name
+            : (user.email ?? (isMarginal ? "Marginal Admin" : "Unnamed account"))),
+        school: profile?.school ?? (user.user_metadata?.school as string | undefined) ?? null,
+        avatarUrl: profile?.avatar_url ?? (user.user_metadata?.avatar_url as string | undefined) ?? null,
+        createdAt: user.created_at || profile?.created_at || new Date().toISOString(),
+        lastSignInAt: user.last_sign_in_at ?? null,
+        role: isMarginal ? "admin" : list.includes("teacher") ? "teacher" : "student",
       });
     }
 
-    return profiles.map((profile) => {
-      const list = roleMap.get(profile.id) ?? [];
-      const isMarginal = isMarginalAdmin({ userId: profile.id });
-      return {
-        id: profile.id,
-        fullName: profile.full_name ?? (isMarginal ? "Marginal Admin" : "Unnamed account"),
-        school: profile.school ?? null,
-        createdAt: profile.created_at,
-        role: isMarginal ? "admin" : list.includes("teacher") ? "teacher" : "student",
-      };
-    });
+    for (const profile of profiles) {
+      if (!userMap.has(profile.id)) {
+        const list = roleMap.get(profile.id) ?? [];
+        const isMarginal = isMarginalAdmin({ userId: profile.id });
+        userMap.set(profile.id, {
+          id: profile.id,
+          email: null,
+          fullName: profile.full_name ?? (isMarginal ? "Marginal Admin" : "Unnamed account"),
+          school: profile.school ?? null,
+          avatarUrl: profile.avatar_url ?? null,
+          createdAt: profile.created_at,
+          lastSignInAt: null,
+          role: isMarginal ? "admin" : list.includes("teacher") ? "teacher" : "student",
+        });
+      }
+    }
+
+    const allUsers = Array.from(userMap.values());
+    allUsers.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    return allUsers;
   });
 
 export const setUserRole = createServerFn({ method: "POST" })
