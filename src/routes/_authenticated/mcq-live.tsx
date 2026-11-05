@@ -383,14 +383,23 @@ function McqLivePage() {
       setActiveQuestion(number);
       setHighlightNumber(number);
 
-      // 1. Scroll PDF paper directly to the page containing this question
+      // 1. Scroll PDF paper directly to the page containing this question.
+      // Auto-scrolling the paper is designed for phone view where the viewport is narrow.
+      // On laptop/desktop (screen width >= 1024px), NEVER scroll the paper if the target page
+      // is already visible, or if skipScrollPaper is requested, preventing disruptive "scroll-up" jumps.
       if (!options?.skipScrollPaper) {
+        const isDesktop = typeof window !== "undefined" && window.innerWidth >= 1024;
         const targetPage =
           questionPages[number] ??
           Math.min(pages.length, Math.max(1, Math.ceil(number / 2) + 1));
-        const pageEl = document.getElementById(`mcq-page-${targetPage}`);
-        if (pageEl) {
-          pageEl.scrollIntoView({ behavior: "smooth", block: "start" });
+
+        const shouldScrollPaper = !isDesktop || targetPage !== visiblePage;
+
+        if (shouldScrollPaper) {
+          const pageEl = document.getElementById(`mcq-page-${targetPage}`);
+          if (pageEl) {
+            pageEl.scrollIntoView({ behavior: "smooth", block: "start" });
+          }
         }
       }
 
@@ -400,7 +409,7 @@ function McqLivePage() {
 
       window.setTimeout(() => setHighlightNumber((cur) => (cur === number ? null : cur)), 2000);
     },
-    [pages.length, questionPages],
+    [pages.length, questionPages, visiblePage],
   );
 
   // ---- timer ----
@@ -1718,9 +1727,11 @@ function fillMissingQuestionPages(
                   onToggleFlag={toggleFlag}
                   highlightNumber={highlightNumber}
                   rowRefs={answerRowRefs}
-                  onJumpToQuestion={(q) => {
-                    goToQuestion(q);
-                    setMobileSheetOpen(false);
+                  onJumpToQuestion={(q, opts) => {
+                    goToQuestion(q, opts);
+                    if (!opts?.skipScrollPaper) {
+                      setMobileSheetOpen(false);
+                    }
                   }}
                   activeQuestion={activeQuestion}
                   questionPages={questionPages}
@@ -2162,7 +2173,7 @@ function AnswerSidePanel({
   /** Question number to visually pulse right now (from clicking a review-list row), or null. */
   highlightNumber?: number | null;
   rowRefs: React.MutableRefObject<Map<number, HTMLDivElement>>;
-  onJumpToQuestion?: (number: number) => void;
+  onJumpToQuestion?: (number: number, options?: { skipScrollPaper?: boolean }) => void;
   activeQuestion?: number;
   questionPages?: Record<number, number>;
 }) {
@@ -2381,7 +2392,8 @@ function AnswerSidePanel({
                       wrong={graded && answers[number] === l && answerKey[number] !== l}
                       onClick={() => {
                         onPick(number, l);
-                        onJumpToQuestion?.(number);
+                        // On laptop/desktop side panel, picking an answer should NOT auto-scroll the paper!
+                        onJumpToQuestion?.(number, { skipScrollPaper: true });
                       }}
                     />
                   ))}
