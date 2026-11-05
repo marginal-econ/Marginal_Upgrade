@@ -71,6 +71,7 @@ import { splitSentences } from "@/lib/writing-check/sentence-diff";
 import { getMe } from "@/lib/account.functions";
 import { cn } from "@/lib/utils";
 import type { Grading } from "@/lib/examiner/types";
+import { isEvaluativeQuestion } from "@/lib/examiner/config";
 
 // Optional prefill from the Question bank, Practice desk, or Classroom Direct Grading
 const gradeSearchSchema = z
@@ -88,6 +89,7 @@ const gradeSearchSchema = z
       .optional()
       .transform((val) => (val ? (Number(val) as 8 | 12 | 20) : undefined))
       .catch(undefined),
+    essayType: z.string().optional().catch(undefined),
     text: z.string().optional().catch(undefined),
     assignmentId: z.string().uuid().optional().catch(undefined),
     studentId: z.string().uuid().optional().catch(undefined),
@@ -197,6 +199,31 @@ function GradePage() {
     return "";
   });
 
+  const [essayCategory, setEssayCategory] = useState<"8_legacy" | "8_eval" | "12" | "20">(() => {
+    if (search.essayType === "8_legacy" || search.essayType === "legacy") return "8_legacy";
+    if (search.essayType === "8_eval") return "8_eval";
+    if (search.marks === 8) {
+      if (search.q && !isEvaluativeQuestion(search.q)) return "8_legacy";
+      return "8_eval";
+    }
+    if (search.marks === 20) return "20";
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem(DRAFT_STORAGE_KEY);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed.essayCategory) return parsed.essayCategory;
+          if (parsed.maxMark === "8" || parsed.maxMark === 8) {
+            if (parsed.question && !isEvaluativeQuestion(parsed.question)) return "8_legacy";
+            return "8_eval";
+          }
+          if (parsed.maxMark === "20" || parsed.maxMark === 20) return "20";
+        }
+      } catch {}
+    }
+    return "12";
+  });
+
   const [maxMark, setMaxMark] = useState(() => {
     if (search.marks) return String(search.marks);
     if (typeof window !== "undefined") {
@@ -211,12 +238,35 @@ function GradePage() {
     return "12";
   });
 
+  // Keep maxMark synchronized with essayCategory
+  useEffect(() => {
+    if (essayCategory === "8_legacy" || essayCategory === "8_eval") {
+      setMaxMark("8");
+    } else if (essayCategory === "20") {
+      setMaxMark("20");
+    } else {
+      setMaxMark("12");
+    }
+  }, [essayCategory]);
+
   // Sync state if direct grading search params arrive
   useEffect(() => {
     if (search.q) setQuestion(search.q);
     if (search.text) setEssayText(search.text);
-    if (search.marks) setMaxMark(String(search.marks));
-  }, [search.q, search.text, search.marks]);
+    if (search.essayType === "8_legacy" || search.essayType === "legacy") {
+      setEssayCategory("8_legacy");
+      setMaxMark("8");
+    } else if (search.marks) {
+      setMaxMark(String(search.marks));
+      if (search.marks === 8) {
+        setEssayCategory(search.q && !isEvaluativeQuestion(search.q) ? "8_legacy" : "8_eval");
+      } else if (search.marks === 20) {
+        setEssayCategory("20");
+      } else {
+        setEssayCategory("12");
+      }
+    }
+  }, [search.q, search.text, search.marks, search.essayType]);
 
   const handleReturnToClassroom = async () => {
     if (!search.assignmentId || !search.studentId || !search.classroomId || !result) return;
@@ -258,6 +308,7 @@ function GradePage() {
             question,
             essayText,
             maxMark,
+            essayCategory,
             updatedAt: Date.now(),
           }),
         );
@@ -466,7 +517,8 @@ function GradePage() {
         data: {
           question,
           essayText,
-          maxMark: Number(maxMark),
+          maxMark: essayCategory === "8_legacy" || essayCategory === "8_eval" ? 8 : Number(maxMark),
+          essayType: essayCategory,
           auditPass,
           diagramReference:
             diagrams.length > 0 ? diagrams.map((d) => d.tag).join("\n\n") : undefined,
@@ -735,35 +787,104 @@ function GradePage() {
                   <span className="text-[11px] text-muted-foreground font-mono">Cambridge 9708</span>
                 </div>
 
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
                   {[
-                    { value: "8", label: "8 Marks", subtitle: "AS Micro / Macro", split: "AO1 2 · AO2 4 · AO3 2", targetWords: "300–450w" },
-                    { value: "12", label: "12 Marks", subtitle: "AS Evaluative", split: "AO1 2 · AO2 6 · AO3 4", targetWords: "500–750w" },
-                    { value: "20", label: "20 Marks", subtitle: "A Level Extended", split: "AO1 2 · AO2 12 · AO3 6", targetWords: "800–1200w" },
+                    {
+                      value: "8_legacy",
+                      label: "8M Legacy",
+                      tag: "No Evaluation",
+                      subtitle: "Explain / Analyse",
+                      split: "AO1 4 · AO2 4 (No AO3)",
+                      targetWords: "250–400w",
+                    },
+                    {
+                      value: "8_eval",
+                      label: "8M Evaluative",
+                      tag: "Discuss / Assess",
+                      subtitle: "Consider / Extent",
+                      split: "AO1 2 · AO2 4 · AO3 2",
+                      targetWords: "300–450w",
+                    },
+                    {
+                      value: "12",
+                      label: "12 Marks",
+                      tag: "Standard",
+                      subtitle: "AS Evaluative",
+                      split: "AO1 2 · AO2 6 · AO3 4",
+                      targetWords: "500–750w",
+                    },
+                    {
+                      value: "20",
+                      label: "20 Marks",
+                      tag: "Extended",
+                      subtitle: "A Level Extended",
+                      split: "AO1 2 · AO2 12 · AO3 6",
+                      targetWords: "800–1200w",
+                    },
                   ].map((opt) => (
                     <button
                       key={opt.value}
                       type="button"
                       onClick={() => {
-                        setMaxMark(opt.value);
+                        setEssayCategory(opt.value as any);
                         setWritingCheck(null);
                       }}
                       className={cn(
                         "flex flex-col text-left p-2.5 rounded-xl border transition-all cursor-pointer relative",
-                        maxMark === opt.value
+                        essayCategory === opt.value
                           ? "border-primary bg-primary/10 shadow-xs ring-1 ring-primary/40 text-foreground"
                           : "border-border/70 bg-background/60 hover:bg-muted/40 text-muted-foreground hover:text-foreground"
                       )}
                     >
                       <div className="flex items-center justify-between w-full">
                         <span className="font-bold text-xs sm:text-sm text-foreground">{opt.label}</span>
-                        <span className="text-[10px] font-mono text-muted-foreground hidden sm:inline">{opt.targetWords}</span>
+                        <span className="text-[9.5px] font-mono text-muted-foreground hidden sm:inline">{opt.targetWords}</span>
                       </div>
-                      <span className="text-[10.5px] font-medium text-foreground/85 mt-0.5 truncate">{opt.subtitle}</span>
-                      <span className="text-[10px] text-muted-foreground font-mono mt-0.5 truncate">{opt.split}</span>
+                      <div className="flex items-center gap-1 mt-0.5">
+                        <Badge variant="outline" className="text-[9px] px-1 py-0 border-primary/30 text-primary">
+                          {opt.tag}
+                        </Badge>
+                        <span className="text-[10px] font-medium text-foreground/80 truncate">{opt.subtitle}</span>
+                      </div>
+                      <span className="text-[9.5px] text-muted-foreground font-mono mt-0.5 truncate">{opt.split}</span>
                     </button>
                   ))}
                 </div>
+
+                {essayCategory === "8_legacy" && (
+                  <div className="flex items-start gap-2 p-2.5 rounded-xl border border-sky-500/30 bg-sky-500/10 text-xs text-sky-200">
+                    <Sparkles className="size-4 shrink-0 mt-0.5 text-sky-400" />
+                    <div>
+                      <span className="font-semibold text-sky-300">Legacy Non-Evaluative 8-Mark Essay</span>
+                      <p className="text-[11px] text-sky-200/90 leading-normal mt-0.5">
+                        Pure descriptive and causal analysis from legacy papers (e.g. &quot;Explain...&quot; or &quot;Analyse...&quot;). Evaluation is <strong>not required</strong> and candidates are <strong>never penalized</strong> for having no evaluation or conclusion. Scored out of 4 marks AO1 Knowledge and 4 marks AO2 Analysis.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {essayCategory === "8_eval" && question.trim().length >= 15 && !isEvaluativeQuestion(question) && (
+                  <div className="flex items-center justify-between gap-2 p-2.5 rounded-xl border border-amber-500/30 bg-amber-500/10 text-xs text-amber-200">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <AlertCircle className="size-4 shrink-0 text-amber-400" />
+                      <span className="text-[11px]">
+                        No evaluative keywords detected (&quot;consider&quot;, &quot;to what extent&quot;). Is this a legacy 8-mark question with no evaluation required?
+                      </span>
+                    </div>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setEssayCategory("8_legacy");
+                        toast.success("Switched to 8M Legacy (No evaluation required)");
+                      }}
+                      className="shrink-0 h-6 px-2 text-[10px] font-medium border-amber-500/40 text-amber-300 hover:bg-amber-500/20"
+                    >
+                      Switch to Legacy (No Eval)
+                    </Button>
+                  </div>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -776,18 +897,20 @@ function GradePage() {
                       <span
                         className={cn(
                           "text-[10.5px] font-medium px-2 py-0.5 rounded-full border",
-                          (maxMark === "8" && words >= 300 && words <= 500) ||
-                          (maxMark === "12" && words >= 500 && words <= 750) ||
-                          (maxMark === "20" && words >= 800 && words <= 1300)
+                          (essayCategory === "8_legacy" && words >= 250 && words <= 450) ||
+                          (essayCategory === "8_eval" && words >= 300 && words <= 500) ||
+                          (essayCategory === "12" && words >= 500 && words <= 750) ||
+                          (essayCategory === "20" && words >= 800 && words <= 1300)
                             ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
                             : "border-border/60 bg-muted/30 text-muted-foreground"
                         )}
                       >
-                        {(maxMark === "8" && words >= 300 && words <= 500) ||
-                         (maxMark === "12" && words >= 500 && words <= 750) ||
-                         (maxMark === "20" && words >= 800 && words <= 1300)
+                        {(essayCategory === "8_legacy" && words >= 250 && words <= 450) ||
+                         (essayCategory === "8_eval" && words >= 300 && words <= 500) ||
+                         (essayCategory === "12" && words >= 500 && words <= 750) ||
+                         (essayCategory === "20" && words >= 800 && words <= 1300)
                           ? "Target word count reached"
-                          : `Target: ~${maxMark === "8" ? "300–450" : maxMark === "12" ? "500–750" : "800–1200"}w`}
+                          : `Target: ~${essayCategory === "8_legacy" ? "250–400" : essayCategory === "8_eval" ? "300–450" : essayCategory === "12" ? "500–750" : "800–1200"}w`}
                       </span>
                     )}
                   </div>

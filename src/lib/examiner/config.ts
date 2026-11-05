@@ -113,10 +113,32 @@ export const MODEL_EMBEDDING = "google/gemini-embedding-2";
 export const EMBEDDING_DIMS = 2048;
 
 /**
+ * Checks whether a question explicitly requires evaluation (AO3).
+ * Questions with keywords like "consider", "to what extent", "discuss",
+ * "evaluate", "assess", "justify" require evaluation.
+ * Legacy/analytical questions (e.g. "Explain...", "Analyse...") without these
+ * keywords do NOT require evaluation and must never be penalized for omitting it.
+ */
+export function isEvaluativeQuestion(question?: string | null): boolean {
+  if (!question || typeof question !== "string") return true;
+  return /\b(consider|to\s+what\s+extent|extent\s+to\s+which|discuss|evaluate|assess|whether|justify|weigh|compare\s+and\s+contrast|is\s+it\s+desirable)\b/i.test(
+    question,
+  );
+}
+
+/** Legacy Cambridge 9708 8-mark split (no evaluation required: Explain / Analyse). */
+export const TARIFF_SPLIT_8_LEGACY: AoSplit = {
+  ao1_marks: 4,
+  ao2_marks: 4,
+  ao3_marks: 0,
+} as const;
+
+/**
  * Exact Cambridge 9708 AO splits per question tariff. These are authoritative
  * and must not be derived from a ratio.
  *
- *   - 8-mark questions: AO1 2 / AO2 4 / AO3 2 (unchanged — original split).
+ *   - 8-mark evaluative questions: AO1 2 / AO2 4 / AO3 2 (standard evaluative).
+ *   - 8-mark legacy / explain questions: AO1 4 / AO2 4 / AO3 0 (no evaluation).
  *   - 12-mark evaluative essays: AO1 2 / AO2 6 / AO3 4 (unchanged — original split).
  *   - There is NO 25-mark question anywhere in this syllabus. Paper 4's
  *     extended essays (Section B/C, Q2–5, EITHER/OR) are each worth 20
@@ -131,14 +153,31 @@ export const TARIFF_SPLITS: Record<number, AoSplit> = {
   20: { ao1_marks: 2, ao2_marks: 12, ao3_marks: 6 },
 };
 
-/** AO split by question tariff: exact for 8 and 12, proportional otherwise. */
-export function defaultSplitForMaxMark(maxMark: number): AoSplit {
+/** AO split by question tariff: exact for 8, 12, 20; supports legacy 8-mark non-evaluative essays. */
+export function defaultSplitForMaxMark(
+  maxMark: number,
+  essayType?: string,
+  question?: string,
+): AoSplit {
   const numericMax =
     typeof maxMark === "number" && Number.isFinite(maxMark) && maxMark > 0
       ? maxMark
       : Number.isFinite(Number(maxMark)) && Number(maxMark) > 0
         ? Number(maxMark)
         : 12;
+
+  // Legacy 8-mark non-evaluative category (Explain / Analyse questions without evaluative command words)
+  if (numericMax === 8) {
+    if (
+      essayType === "8_legacy" ||
+      essayType === "legacy" ||
+      essayType === "explain" ||
+      essayType === "legacy_8" ||
+      (essayType !== "8_eval" && essayType !== "eval" && question && !isEvaluativeQuestion(question))
+    ) {
+      return { ...TARIFF_SPLIT_8_LEGACY };
+    }
+  }
 
   const exact = TARIFF_SPLITS[numericMax];
   if (exact) return { ...exact };
@@ -281,6 +320,27 @@ export const STRUCTURE_GUIDANCE: Record<number, StructureGuidance> = {
   },
 };
 
+export const STRUCTURE_GUIDANCE_8_LEGACY: StructureGuidance = {
+  tariff: 8,
+  label: "8-mark legacy question (no evaluation required)",
+  questionType:
+    "A legacy Cambridge 8-mark question (e.g. 'Explain...' or 'Analyse...' without evaluative keywords like 'discuss', 'consider', or 'to what extent') — pure knowledge and causal analysis.",
+  aoSummary: "AO1 Knowledge: 4 marks · AO2 Analysis: 4 marks · AO3 Evaluation: 0 marks (NOT REQUIRED)",
+  steps: [
+    {
+      title: "Knowledge and Understanding (4 marks)",
+      detail:
+        "Define all core economic terms accurately and outline the theoretical framework or concepts relevant to the prompt.",
+    },
+    {
+      title: "Causal Analysis (4 marks)",
+      detail:
+        "Build clear, step-by-step causal transmission mechanisms (define -> explain mechanism -> analyse effects). Explain how and why economic changes occur.",
+    },
+  ],
+  note: "This legacy question requires ONLY knowledge and analysis. Evaluation, weighing of alternatives, and overall conclusions are NOT required and candidates are NOT penalized for omitting them.",
+};
+
 /**
  * Single source of truth for "how a response should be structured" across
  * every tool (grading's structure note, the essay generator's section plan,
@@ -291,6 +351,10 @@ export const STRUCTURE_GUIDANCE: Record<number, StructureGuidance> = {
  * invent its own structure independently.
  */
 export function getStructureGuidance(maxMark: number, split?: AoSplit): StructureGuidance {
+  if (maxMark === 8 && split?.ao3_marks === 0) {
+    return STRUCTURE_GUIDANCE_8_LEGACY;
+  }
+
   const exact = STRUCTURE_GUIDANCE[maxMark];
   if (exact) return exact;
 

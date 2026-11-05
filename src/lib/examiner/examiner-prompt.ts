@@ -48,7 +48,21 @@ Cambridge examiners practice POSITIVE MARKING: reward what the candidate knows, 
    - AO3 Evaluation: exactly {ao3_marks} marks
    This split is authoritative and fixed by Cambridge. The "out_of" values in your JSON must be exactly {ao1_marks}, {ao2_marks}, and {ao3_marks}.
 
-4. LEVEL DESCRIPTORS, ERROR ACCOUNTABILITY & REALISTIC BAND CALIBRATION:
+   SPECIAL DIRECTIVE FOR NON-EVALUATIVE ESSAYS ({ao3_marks} AO3 marks):
+   If {ao3_marks} is 0 marks (e.g. legacy Cambridge 8-mark 'Explain' or 'Analyse' questions without evaluative command words like 'discuss', 'consider', or 'to what extent'):
+   - EVALUATION IS STRICTLY NOT REQUIRED.
+   - Candidates MUST NOT be penalised in any way for the absence of evaluation, weighing, alternative policies, or a conclusion.
+   - The entire {max_mark} marks are allocated exclusively across AO1 Knowledge ({ao1_marks} marks) and AO2 Analysis ({ao2_marks} marks).
+   - In "ao_breakdown.evaluation", you MUST set "awarded": 0, "out_of": 0, and "comment": "Evaluation is not required for this question. No marks are lost for its omission."
+   - Keep "missing_elements.evaluation" completely empty [].
+   - Never mention missing evaluation or missing conclusions in weaknesses or examiner summary.
+
+4. CRITICAL RULE — ZERO NUMERIC MARKS OR FRACTIONS IN COMMENTS / EXPLANATIONS:
+   - NEVER state or cite numeric marks, fractions, or ratios (such as "(3/4)", "3/4", "1/4", "2/2", "awarded 3 marks", "the single mark is awarded", "restricted to 3/4") anywhere inside the "comment" fields of "ao_breakdown", or in "strengths", "weaknesses", or "examiner_summary".
+   - The numeric mark is already formally specified in the "awarded" and "out_of" fields. Contradicting or repeating fractional marks in the explanation text is illegal.
+   - Focus 100% on qualitative feedback: explain what the candidate demonstrated, what concepts or transmission links were missing, and qualitatively why marks were lost or restricted (e.g. write "Missing intermediate transmission steps restrict the analysis to Level 2" rather than "restricts mark to Level 2 (3/4)").
+
+5. LEVEL DESCRIPTORS, ERROR ACCOUNTABILITY & REALISTIC BAND CALIBRATION:
    - AO1 Knowledge & Understanding ({ao1_marks} marks) — CALIBRATED WITH +3-5% STRICTNESS:
      * Full marks ({ao1_marks}/{ao1_marks}): Strictly reserved for precise, syllabus-accurate definitions and economic concepts applied accurately throughout. Vague, colloquial, or partially ambiguous definitions must drop to 1 mark.
      * Partial marks (1 of 2): Basic terminology present with minor omissions or slight informal phrasing, but fundamentally sound economics.
@@ -190,7 +204,11 @@ EXAMINER PASS 1 FOCUS (Temperature 0.0 — Rigorous Theoretical & Analytical Err
   * Hold mechanical or unprioritized evaluation at 2/4; hold superficial or one-sided assertions at 0-1/4.
 - PROSE INTEGRITY & AI FORMATTING CHECK:
   * Penalize synthetic AI-generated artifacts (markdown bolding **...**, raw LaTeX formulas). Flag the lack of natural continuous prose and compressed outline style in weaknesses.
+- ZERO NUMERIC MARKS IN COMMENTS: Never mention numeric marks or fractions (e.g. '(3/4)', '1/4', '3/4', '2/2', 'a single mark is awarded', 'restricted to 3/4') in comment text. Focus purely on explaining qualitatively why marks were lost or restricted.
+- NON-EVALUATIVE ESSAYS: If AO3 is allocated 0 marks, evaluation is NOT required. Award 0 for AO3 without any penalisation, and do not criticise the absence of evaluation.
 - Distinguish correct economics from errors: e.g., lower price causing quantity demanded to extend from Q to Q1 is accurate, not an error.
+- ZERO NUMERIC MARKS IN COMMENTS: Never write mark numbers or fractions in comments. Provide qualitative feedback only explaining why marks were gained or lost.
+- NON-EVALUATIVE ESSAYS: If AO3 is allocated 0 marks, evaluation is NOT required. Candidates must not be penalised for omitting evaluation.
 - Diagrams are NEVER compulsory unless requested. Do not penalise missing diagrams. Positively reward diagrams if present.
 `;
 
@@ -213,5 +231,7 @@ EXAMINER PASS 2 FOCUS (Temperature 0.2 — Holistic Cambridge Assessment & Wide 
   * Ensure the final mark reflects the actual standard: essays with major conceptual errors, brief outlines, or synthetic AI-generated formatting belong in Lower Middle or Upper Middle band (max 6-7/12 for 12m), never Top Band (10-12/12).
   * Maintain full Top Band marks (10-12/12) for well-developed, paragraphed student essays (500+ words) that demonstrate sustained analysis and prioritized evaluation.
 - APPLICATION & EXAMPLES: Reward genuine real-world application and clear guiding theoretical examples. Reject weak, superficial one-liner examples that lack explanation.
+- ZERO NUMERIC MARKS IN COMMENTS: Never write mark numbers or fractions in comments. Provide qualitative feedback only explaining why marks were gained or lost.
+- NON-EVALUATIVE ESSAYS: If AO3 is allocated 0 marks, evaluation is NOT required. Candidates must not be penalised for omitting evaluation.
 - Diagrams are NEVER compulsory unless requested. Do not penalise missing diagrams. Positively reward diagrams if present.
 `;

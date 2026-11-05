@@ -79,4 +79,55 @@ The candidate scored well on AO1.
       "The examiner returned a response that could not be read as valid JSON.",
     );
   });
+
+  it("strips conflicting score fractions from comments and explanations", async () => {
+    const { stripScoreFractionsFromText } = await import("./types");
+
+    // The exact string from the user's screenshot
+    const text1 = "The missing intermediate steps (e.g., multiplier effect, transmission to AD) restrict the mark to Level 2 (3/4).";
+    expect(stripScoreFractionsFromText(text1)).toBe(
+      "The missing intermediate steps (e.g., multiplier effect, transmission to AD) restrict the mark to Level 2.",
+    );
+
+    // The other exact string from the user's screenshot
+    const text2 = "Since the question is purely descriptive, the absence of evaluation is not penalized beyond the standard AO3 expectation. The single mark is awarded for the direct, accurate response to the question without errors.";
+    expect(stripScoreFractionsFromText(text2)).toBe(
+      "Since the question is purely descriptive, the absence of evaluation is not penalized beyond the standard AO3 expectation. Credit is awarded for the direct, accurate response to the question without errors.",
+    );
+
+    // Score fractions like (1/4), (0/2), (2/2)
+    expect(stripScoreFractionsFromText("Analysis is sound (3/4) but could be deeper.")).toBe(
+      "Analysis is sound but could be deeper.",
+    );
+  });
+
+  it("normalises legacy 8-mark question with 0 evaluation marks and no evaluation penalty", async () => {
+    const { normaliseGrading } = await import("./types");
+    const raw = {
+      total_mark: 6,
+      ao_breakdown: {
+        knowledge: { awarded: 2, out_of: 2, comment: "Accurate definitions." },
+        analysis: { awarded: 4, out_of: 4, comment: "Developed mechanism restrict the mark to Level 2 (3/4)." },
+        evaluation: { awarded: 1, out_of: 2, comment: "The single mark is awarded for accurate response." },
+      },
+      missing_elements: {
+        definitions: [],
+        analysis: [],
+        evaluation: ["Needs evaluation of alternatives"],
+      },
+      weaknesses: ["Missing evaluation weakens the overall conclusion."],
+    };
+
+    const split = { ao1_marks: 4, ao2_marks: 4, ao3_marks: 0 };
+    const result = normaliseGrading(raw, 8, split);
+
+    expect(result.ao_breakdown.evaluation.out_of).toBe(0);
+    expect(result.ao_breakdown.evaluation.awarded).toBe(0);
+    expect(result.ao_breakdown.evaluation.comment).toContain("Evaluation is not required");
+    expect(result.missing_elements.evaluation).toEqual([]);
+    // Comments must have score fractions stripped
+    expect(result.ao_breakdown.analysis.comment).not.toContain("(3/4)");
+    // Weaknesses mentioning missing evaluation must be filtered out for non-evaluative essays
+    expect(result.weaknesses.some((w) => w.toLowerCase().includes("missing evaluation"))).toBe(false);
+  });
 });

@@ -62,4 +62,32 @@ describe("Examiner Configuration & Gemini Model Allocation", () => {
     expect(formatAoLine("ao2")).toContain("AO2 Analysis");
     expect(formatAoLine("ao3")).toContain("AO3 Evaluation");
   });
+
+  it("correctly identifies evaluative vs non-evaluative legacy questions", async () => {
+    const { isEvaluativeQuestion, TARIFF_SPLIT_8_LEGACY } = await import("./config");
+    expect(isEvaluativeQuestion("Discuss whether tariffs are beneficial")).toBe(true);
+    expect(isEvaluativeQuestion("Evaluate the impact of monetary policy")).toBe(true);
+    expect(isEvaluativeQuestion("Consider the extent to which inflation causes unemployment")).toBe(true);
+    expect(isEvaluativeQuestion("Assess whether a subsidy is effective")).toBe(true);
+
+    // Non-evaluative legacy questions (no "consider", "to what extent", "discuss", "evaluate")
+    expect(isEvaluativeQuestion("Explain two causes of an increase in aggregate demand")).toBe(false);
+    expect(isEvaluativeQuestion("Analyse how changes in interest rates affect consumption")).toBe(false);
+    expect(isEvaluativeQuestion("Distinguish between allocative and productive efficiency")).toBe(false);
+
+    // Legacy 8-mark split has AO3 = 0
+    expect(TARIFF_SPLIT_8_LEGACY).toEqual({ ao1_marks: 4, ao2_marks: 4, ao3_marks: 0 });
+
+    // Explicit legacy essayType parameter
+    const legacySplit = defaultSplitForMaxMark(8, "8_legacy");
+    expect(legacySplit).toEqual({ ao1_marks: 4, ao2_marks: 4, ao3_marks: 0 });
+
+    // Automatic detection for 8-mark question lacking evaluative keywords
+    const autoSplit = defaultSplitForMaxMark(8, undefined, "Explain two causes of an increase in aggregate demand");
+    expect(autoSplit).toEqual({ ao1_marks: 4, ao2_marks: 4, ao3_marks: 0 });
+
+    // 8-mark question with evaluative keywords retains 2/4/2
+    const evalSplit = defaultSplitForMaxMark(8, undefined, "Discuss whether interest rate rises reduce inflation");
+    expect(evalSplit).toEqual({ ao1_marks: 2, ao2_marks: 4, ao3_marks: 2 });
+  });
 });

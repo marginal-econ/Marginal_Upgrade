@@ -15,7 +15,7 @@
 import { chat } from "../ai.server";
 import { formatStructureNote, getStructureGuidance, MODEL_EXAMINER, TEMPERATURE_EXAMINER, type AoSplit } from "./config";
 import { extractFirstJsonObject } from "./json";
-import { bandFor, normaliseGrading, type Grading } from "./types";
+import { bandFor, normaliseGrading, stripScoreFractionsFromText, type Grading } from "./types";
 import {
   analyzeEssayQuality,
   applyWritingQualityGuardrail,
@@ -382,24 +382,35 @@ export function synthesizeDualPasses(
     }
   }
 
-  // Pick the best comment for each AO (prefer pass that gives substantive detail)
-  const kComment = (pass2.ao_breakdown.knowledge.comment.length > pass1.ao_breakdown.knowledge.comment.length
+  // Pick the best comment for each AO and strip any numeric fractions
+  const rawKComment = pass2.ao_breakdown.knowledge.comment.length > pass1.ao_breakdown.knowledge.comment.length
     ? pass2.ao_breakdown.knowledge.comment
-    : pass1.ao_breakdown.knowledge.comment).replace(/[*_]/g, "").trim();
+    : pass1.ao_breakdown.knowledge.comment;
+  const kComment = stripScoreFractionsFromText(rawKComment.replace(/[*_]/g, "").trim());
 
-  const aComment = (pass2.ao_breakdown.analysis.comment.length > pass1.ao_breakdown.analysis.comment.length
+  const rawAComment = pass2.ao_breakdown.analysis.comment.length > pass1.ao_breakdown.analysis.comment.length
     ? pass2.ao_breakdown.analysis.comment
-    : pass1.ao_breakdown.analysis.comment).replace(/[*_]/g, "").trim();
+    : pass1.ao_breakdown.analysis.comment;
+  const aComment = stripScoreFractionsFromText(rawAComment.replace(/[*_]/g, "").trim());
 
-  const eComment = (pass2.ao_breakdown.evaluation.comment.length > pass1.ao_breakdown.evaluation.comment.length
+  const rawEComment = pass2.ao_breakdown.evaluation.comment.length > pass1.ao_breakdown.evaluation.comment.length
     ? pass2.ao_breakdown.evaluation.comment
-    : pass1.ao_breakdown.evaluation.comment).replace(/[*_]/g, "").trim();
+    : pass1.ao_breakdown.evaluation.comment;
+  const eComment = split.ao3_marks === 0
+    ? "Evaluation is not required for this question. No marks are lost for its omission."
+    : stripScoreFractionsFromText(rawEComment.replace(/[*_]/g, "").trim());
+
+  if (split.ao3_marks === 0) {
+    eMark = 0;
+  }
 
   // Diagrams missing elements must always be empty unless specifically required
   const missingElements = {
     definitions: Array.from(new Set([...(pass1.missing_elements.definitions || []), ...(pass2.missing_elements.definitions || [])])).slice(0, 3),
     analysis: Array.from(new Set([...(pass1.missing_elements.analysis || []), ...(pass2.missing_elements.analysis || [])])).slice(0, 3),
-    evaluation: Array.from(new Set([...(pass1.missing_elements.evaluation || []), ...(pass2.missing_elements.evaluation || [])])).slice(0, 3),
+    evaluation: split.ao3_marks === 0
+      ? []
+      : Array.from(new Set([...(pass1.missing_elements.evaluation || []), ...(pass2.missing_elements.evaluation || [])])).slice(0, 3),
     examples: Array.from(new Set([...(pass1.missing_elements.examples || []), ...(pass2.missing_elements.examples || [])])).slice(0, 3),
     diagrams: [],
   };
@@ -427,11 +438,11 @@ export function synthesizeDualPasses(
         comment: eComment || "Evaluative points consider context and reach a supported conclusion.",
       },
     },
-    examiner_summary: preferred.examiner_summary.replace(/[*_]/g, "").trim(),
-    strengths,
-    weaknesses,
+    examiner_summary: stripScoreFractionsFromText(preferred.examiner_summary.replace(/[*_]/g, "").trim()),
+    strengths: strengths.map((s) => stripScoreFractionsFromText(s)),
+    weaknesses: weaknesses.map((w) => stripScoreFractionsFromText(w)),
     missing_elements: missingElements,
-    actionable_feedback: actionableFeedback,
+    actionable_feedback: actionableFeedback.map((f) => stripScoreFractionsFromText(f)),
     suggested_resources: Array.from(new Set([...pass2.suggested_resources, ...pass1.suggested_resources])).slice(0, 3),
     suggested_practice: Array.from(new Set([...pass2.suggested_practice, ...pass1.suggested_practice])).slice(0, 3),
     confidence,

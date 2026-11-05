@@ -21,7 +21,7 @@ import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { bandFor, type Grading } from "@/lib/examiner/types";
+import { bandFor, stripScoreFractionsFromText, type Grading } from "@/lib/examiner/types";
 import { getCambridgeGradeStandard } from "@/lib/cambridge-thresholds";
 import { cn, stripStars } from "@/lib/utils";
 
@@ -41,6 +41,12 @@ const AO_META = [
         if (awarded === 1) return "Level 1 (Basic / Terminology)";
         return "Below Level 1";
       }
+      if (max === 4) {
+        if (awarded === 4) return "Level 2 (Accurate & Precise)";
+        if (awarded >= 2) return "Level 2 (Sound)";
+        if (awarded >= 1) return "Level 1 (Basic / Terminology)";
+        return "Below Level 1";
+      }
       const pct = max > 0 ? awarded / max : 0;
       if (pct >= 0.75) return "Level 3 (Developed)";
       if (pct >= 0.45) return "Level 2 (Sound)";
@@ -57,6 +63,12 @@ const AO_META = [
     border: "border-indigo-500/30",
     bg: "bg-indigo-500/5",
     levelFor: (awarded: number, max: number) => {
+      if (max === 4) {
+        if (awarded === 4) return "Level 3 (Developed)";
+        if (awarded >= 2) return "Level 2 (Sound Mechanism)";
+        if (awarded >= 1) return "Level 1 (Descriptive)";
+        return "Below Level 1";
+      }
       if (max === 6) {
         if (awarded >= 5) return "Level 3 (Full Chains & Integrated)";
         if (awarded >= 3) return "Level 2 (Sound Mechanism)";
@@ -79,6 +91,12 @@ const AO_META = [
     border: "border-emerald-500/30",
     bg: "bg-emerald-500/5",
     levelFor: (awarded: number, max: number) => {
+      if (max === 0) return "Not Required (No Penalty)";
+      if (max <= 2) {
+        if (awarded === 2) return "Level 2 (Substantiated)";
+        if (awarded === 1) return "Level 1 (Basic / Token)";
+        return "No Evaluation (0/2)";
+      }
       if (max === 4) {
         if (awarded >= 3) return "Level 2 (Substantiated & Wide)";
         if (awarded >= 1) return "Level 1 (Generic / Token)";
@@ -87,6 +105,7 @@ const AO_META = [
       const pct = max > 0 ? awarded / max : 0;
       if (pct >= 0.7) return "Level 3 (Substantiated)";
       if (pct >= 0.35) return "Level 2 (Sound)";
+      if (awarded === 0) return "No Evaluation";
       return "Level 1 (Superficial)";
     },
   },
@@ -195,7 +214,7 @@ Standard: ${theme.grade}
 Assessment Objective Breakdown:
 • AO1 Knowledge: ${grading.ao_breakdown.knowledge.awarded}/${grading.ao_breakdown.knowledge.out_of}
 • AO2 Analysis: ${grading.ao_breakdown.analysis.awarded}/${grading.ao_breakdown.analysis.out_of}
-• AO3 Evaluation: ${grading.ao_breakdown.evaluation.awarded}/${grading.ao_breakdown.evaluation.out_of}
+• AO3 Evaluation: ${grading.ao_breakdown.evaluation.out_of === 0 ? "Not Required (0 marks)" : `${grading.ao_breakdown.evaluation.awarded}/${grading.ao_breakdown.evaluation.out_of}`}
 
 Examiner Summary:
 ${summary}
@@ -351,7 +370,7 @@ ${actionableFeedback.map((f, i) => `${i + 1}. ${stripStars(f)}`).join("\n")}`;
                     <span className="text-xs font-semibold text-foreground truncate">{meta.shortLabel}</span>
                   </div>
                   <span className={cn("text-sm font-bold tabular-nums px-2 py-0.5 rounded-md bg-background/80 border border-border/60", meta.text)}>
-                    {score.awarded}/{score.out_of}
+                    {score.out_of === 0 ? "Not Required" : `${score.awarded}/${score.out_of}`}
                   </span>
                 </div>
 
@@ -359,7 +378,7 @@ ${actionableFeedback.map((f, i) => `${i + 1}. ${stripStars(f)}`).join("\n")}`;
                   <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted/80">
                     <div
                       className={cn("h-full rounded-full transition-all duration-500", meta.bar)}
-                      style={{ width: `${Math.max(2, width)}%` }}
+                      style={{ width: `${score.out_of === 0 ? 100 : Math.max(2, width)}%` }}
                     />
                   </div>
                   <span className="text-[10.5px] font-medium text-muted-foreground block">
@@ -368,7 +387,7 @@ ${actionableFeedback.map((f, i) => `${i + 1}. ${stripStars(f)}`).join("\n")}`;
                 </div>
 
                 <p className="mt-2 text-xs leading-relaxed text-muted-foreground/90">
-                  {stripStars(score.comment)}
+                  {stripScoreFractionsFromText(stripStars(score.comment))}
                 </p>
               </div>
             </div>
@@ -562,7 +581,10 @@ function MissingElements({ grading }: { grading: Grading }) {
   const groups = [
     { label: "Definitions", items: grading.missing_elements.definitions },
     { label: "Analysis Chains", items: grading.missing_elements.analysis },
-    { label: "Evaluation Dimensions", items: grading.missing_elements.evaluation },
+    {
+      label: "Evaluation Dimensions",
+      items: grading.ao_breakdown?.evaluation?.out_of === 0 ? [] : grading.missing_elements.evaluation,
+    },
     { label: "Examples & Application", items: grading.missing_elements.examples },
     { label: "Diagrams", items: grading.missing_elements.diagrams },
   ].filter((group) => group.items.length > 0);

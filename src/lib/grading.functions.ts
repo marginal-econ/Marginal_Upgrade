@@ -12,6 +12,7 @@ const GradeInput = z.object({
   // (matches essay.functions.ts's generator validator and grade.tsx's
   // dropdown, which only ever offers 8/12/20).
   maxMark: z.number().int().min(4).max(20),
+  essayType: z.string().optional(),
   essayId: z.string().uuid().nullable().optional(),
   auditPass: z.boolean().optional(),
   /**
@@ -83,7 +84,7 @@ export const gradeEssaySubmission = createServerFn({ method: "POST" })
     const { gradeEssay } = await import("./examiner/grade.server");
     const { defaultSplitForMaxMark } = await import("./examiner/config");
 
-    const split = defaultSplitForMaxMark(data.maxMark);
+    const split = defaultSplitForMaxMark(data.maxMark, data.essayType, data.question);
 
     // A referenced diagram is appended after the student's own text, exactly
     // like a hand-drawn diagram tag from OCR, so the examiner prompt's

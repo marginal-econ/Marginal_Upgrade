@@ -63,9 +63,54 @@ const EMPTY_MISSING: MissingElements = {
 
 import { cleanStars, stripStars } from "@/lib/utils";
 
+/**
+ * Strips conflicting numeric mark fractions (e.g. "(3/4)", "1/4", "Level 2 (3/4)")
+ * from prose explanations so that comments focus purely on qualitative feedback
+ * without stating conflicting or confusing numbers.
+ */
+export function stripScoreFractionsFromText(value: unknown): string {
+  if (typeof value !== "string" || !value) return "";
+  let s = value;
+
+  // Level X (Y/Z) or Level X (Y of Z) or Level X (Y-Z/W) -> Level X
+  s = s.replace(/\bLevel\s*(\d+)\s*\(\s*\d+(?:\s*-\s*\d+)?\s*(?:\/|\s*of\s*)\s*\d+\s*(?:marks?)?\s*\)/gi, "Level $1");
+
+  // Parenthesized score fractions like (3/4), (1/4), (0/2), (2/2), (4/4), (1 of 2), (3 of 4)
+  s = s.replace(/\s*\(\s*\d+(?:\s*-\s*\d+)?\s*(?:\/|\s*of\s*)\s*\d+\s*(?:marks?)?\s*\)/gi, "");
+
+  // Standalone phrases like "restricted to 3/4" or "restrict the mark to 3/4" -> "restricted to this level"
+  s = s.replace(/\b(?:restricts?|restricted)\s+(?:the\s+mark\s+)?to\s+\d+\s*\/\s*\d+\b/gi, "restricted to this level");
+
+  // Standalone fractions followed by marks: "3/4 marks", "1/4 marks"
+  s = s.replace(/\b\d+\s*\/\s*\d+\s*marks?\b/gi, "credit");
+
+  // Expressions like "The single mark is awarded" -> "Credit is awarded"
+  s = s.replace(/\b(?:The|A)\s+single\s+mark\s+is\s+awarded\b/gi, "Credit is awarded");
+  s = s.replace(/\bOne\s+mark\s+is\s+awarded\b/gi, "Credit is awarded");
+  s = s.replace(/\b\d+\s+marks?\s+are\s+awarded\b/gi, "Credit is awarded");
+
+  // Standalone score fractions like "3/4" or "1/4" when between 0 and 20
+  s = s.replace(/\b(\d+)\s*\/\s*(\d+)\b/g, (match, p1, p2) => {
+    const n1 = Number(p1);
+    const n2 = Number(p2);
+    if (n2 <= 20 && n1 <= n2) {
+      return "";
+    }
+    return match;
+  });
+
+  // Clean up punctuation artifacts from removals
+  s = s.replace(/\s+,/g, ",");
+  s = s.replace(/\s+\./g, ".");
+  s = s.replace(/\(\s*\)/g, "");
+  s = s.replace(/\s{2,}/g, " ");
+  return s.trim();
+}
+
 export function cleanMarkdownText(value: unknown): string {
   if (typeof value !== "string") return "";
   let text = stripStars(value);
+  text = stripScoreFractionsFromText(text);
   // Repair trailing truncated fragments like "assertion (" or dangling colons/commas
   text = text.replace(/\s*\([^)]*$/, "");
   text = text.replace(/[,;:\-\s]+$/, "");
@@ -125,6 +170,13 @@ export function normaliseGrading(
   analysis.awarded = Math.min(analysis.awarded, split.ao2_marks);
   evaluation.awarded = Math.min(evaluation.awarded, split.ao3_marks);
 
+  // If question does not require evaluation (e.g. legacy 8-mark question), AO3 is strictly 0
+  if (split.ao3_marks === 0) {
+    evaluation.out_of = 0;
+    evaluation.awarded = 0;
+    evaluation.comment = "Evaluation is not required for this question. No marks are lost for its omission.";
+  }
+
   const aoTotal = knowledge.awarded + analysis.awarded + evaluation.awarded;
   const declaredTotal = Math.round(toNumber(raw.total_mark, aoTotal));
   // The AO marks are the source of truth; a stated total that disagrees is a
@@ -145,31 +197,61 @@ export function normaliseGrading(
 
   // Ensure full-fledged feedback is ALWAYS provided to the student
   if (!examinerSummary || examinerSummary.length < 25) {
-    examinerSummary = `This submission achieves ${total}/${maxMark} marks (${band}). The candidate demonstrates sound economic understanding with ${knowledge.awarded}/${knowledge.out_of} for AO1 Knowledge, ${analysis.awarded}/${analysis.out_of} for AO2 Analysis, and ${evaluation.awarded}/${evaluation.out_of} for AO3 Evaluation. Arguments are structured and address the prompt, with opportunities to deepen transmission mechanisms and comparative evaluation in subsequent rewrites.`;
+    if (split.ao3_marks === 0) {
+      examinerSummary = `This submission achieves ${total}/${maxMark} marks (${band}). The candidate demonstrates sound economic understanding with ${knowledge.awarded}/${knowledge.out_of} for AO1 Knowledge and ${analysis.awarded}/${analysis.out_of} for AO2 Analysis. Evaluation is not required for this question. Arguments are structured and address the prompt, with opportunities to deepen causal transmission mechanisms in subsequent rewrites.`;
+    } else {
+      examinerSummary = `This submission achieves ${total}/${maxMark} marks (${band}). The candidate demonstrates sound economic understanding with ${knowledge.awarded}/${knowledge.out_of} for AO1 Knowledge, ${analysis.awarded}/${analysis.out_of} for AO2 Analysis, and ${evaluation.awarded}/${evaluation.out_of} for AO3 Evaluation. Arguments are structured and address the prompt, with opportunities to deepen transmission mechanisms and comparative evaluation in subsequent rewrites.`;
+    }
+  }
+
+  if (split.ao3_marks === 0) {
+    // Strip any false claims of lost marks for missing evaluation on non-evaluative questions
+    weaknesses = weaknesses.filter(
+      (w) => !/\b(evaluation|evaluative|counter-argument|weighing|conclusion)\b/i.test(w),
+    );
+    actionableFeedback = actionableFeedback.filter(
+      (f) => !/\b(evaluate|evaluation|evaluative|opposing argument|conclusion)\b/i.test(f),
+    );
   }
 
   if (strengths.length === 0) {
     strengths = [
-      `Accurate and appropriate use of economic terminology contextually applied (${knowledge.awarded}/${knowledge.out_of} on AO1).`,
-      `Clear analytical reasoning establishing cause-and-effect links for core mechanisms (${analysis.awarded}/${analysis.out_of} on AO2).`,
-      `Presents balanced perspectives addressing multiple dimensions of the prompt (${evaluation.awarded}/${evaluation.out_of} on AO3).`,
+      `Accurate and appropriate use of economic terminology contextually applied.`,
+      `Clear analytical reasoning establishing cause-and-effect links for core mechanisms.`,
     ];
+    if (split.ao3_marks > 0) {
+      strengths.push(`Presents balanced perspectives addressing multiple dimensions of the prompt.`);
+    }
   }
 
   if (weaknesses.length === 0) {
     weaknesses = [
       "Economic transmission mechanisms can be extended further to connect intermediate changes with final macroeconomic and welfare outcomes.",
-      "Evaluation could be deepened by explicitly weighing opposing arguments on a shared criterion such as time frame, elasticity, or relative magnitude.",
       "Substantiating theoretical arguments with concrete context or specific scenarios would elevate the answer to the top band.",
     ];
+    if (split.ao3_marks > 0) {
+      weaknesses.splice(
+        1,
+        0,
+        "Evaluation could be deepened by explicitly weighing opposing arguments on a shared criterion such as time frame, elasticity, or relative magnitude.",
+      );
+    }
   }
 
   if (actionableFeedback.length === 0) {
     actionableFeedback = [
-      "Explicitly articulate every step in your economic chains of reasoning: define the initial shock, explain the transmission mechanism, analyse market adjustments, and evaluate final welfare impacts.",
-      "Weigh opposing arguments against explicit economic criteria (e.g. short run vs long run, elasticity, degree of dependency) before forming a conclusion.",
-      "Ensure the conclusion directly confronts the question's qualifiers and command words with a justified, context-dependent judgement.",
+      "Explicitly articulate every step in your economic chains of reasoning: define the initial shock, explain the transmission mechanism, analyse market adjustments, and explain final economic impacts.",
     ];
+    if (split.ao3_marks > 0) {
+      actionableFeedback.push(
+        "Weigh opposing arguments against explicit economic criteria (e.g. short run vs long run, elasticity, degree of dependency) before forming a conclusion.",
+        "Ensure the conclusion directly confronts the question's qualifiers and command words with a justified, context-dependent judgement.",
+      );
+    } else {
+      actionableFeedback.push(
+        "Provide precise definitions for every economic term referenced and unpack each link of the cause-and-effect chain in separate sentences.",
+      );
+    }
   }
 
   if (suggestedResources.length === 0) {
@@ -198,7 +280,7 @@ export function normaliseGrading(
       ...EMPTY_MISSING,
       definitions: toStringArray(rawMissing.definitions),
       analysis: toStringArray(rawMissing.analysis),
-      evaluation: toStringArray(rawMissing.evaluation),
+      evaluation: split.ao3_marks === 0 ? [] : toStringArray(rawMissing.evaluation),
       examples: toStringArray(rawMissing.examples),
       diagrams: toStringArray(rawMissing.diagrams),
     },

@@ -23,7 +23,7 @@
  *      remain uninhibited and receive full top-band marks on their merits.
  */
 
-import { bandFor, type Grading } from "./types";
+import { bandFor, stripScoreFractionsFromText, type Grading } from "./types";
 import type { AoSplit } from "./config";
 
 export type EssayQualityAnalysis = {
@@ -377,8 +377,22 @@ export function applyWritingQualityGuardrail(
 
   let examinerSummary = grading.examiner_summary;
   if (modified) {
-    examinerSummary = `This response achieves ${total}/${maxMark} marks (${updatedBand}). While core economic definitions and theoretical concepts are accurate (${ao1}/${split.ao1_marks} for AO1), the submission is an undersized, compressed outline of ${quality.wordCount} words written without proper paragraph structure. In Cambridge 9708, condensed compound assertions of concepts cannot earn Level 3 Analysis (${ao2}/${split.ao2_marks}) or top-band Evaluation (${ao3}/${split.ao3_marks}). To attain Top Band, arguments must be developed in continuous prose across distinct paragraphs with step-by-step causal explanations.`;
+    if (split.ao3_marks === 0) {
+      examinerSummary = `This response achieves ${total}/${maxMark} marks (${updatedBand}). While core economic definitions and theoretical concepts are accurate for AO1, the submission is an undersized, compressed outline of ${quality.wordCount} words written without proper paragraph structure. In Cambridge 9708, condensed compound assertions of concepts cannot earn Level 3 Analysis. To attain Top Band, arguments must be developed in continuous prose across distinct paragraphs with step-by-step causal explanations.`;
+    } else {
+      examinerSummary = `This response achieves ${total}/${maxMark} marks (${updatedBand}). While core economic definitions and theoretical concepts are accurate for AO1, the submission is an undersized, compressed outline of ${quality.wordCount} words written without proper paragraph structure. In Cambridge 9708, condensed compound assertions of concepts cannot earn Level 3 Analysis or top-band Evaluation. To attain Top Band, arguments must be developed in continuous prose across distinct paragraphs with step-by-step causal explanations.`;
+    }
   }
+
+  const cleanWeaknesses = (split.ao3_marks === 0
+    ? weaknesses.filter((w) => !/\b(evaluation|evaluative|counter-argument|weighing|conclusion)\b/i.test(w))
+    : weaknesses
+  ).map((w) => stripScoreFractionsFromText(w));
+
+  const cleanActions = (split.ao3_marks === 0
+    ? actionableFeedback.filter((f) => !/\b(evaluate|evaluation|evaluative|opposing argument|conclusion)\b/i.test(f))
+    : actionableFeedback
+  ).map((f) => stripScoreFractionsFromText(f));
 
   return {
     ...grading,
@@ -388,6 +402,7 @@ export function applyWritingQualityGuardrail(
       knowledge: {
         ...grading.ao_breakdown.knowledge,
         awarded: ao1,
+        comment: stripScoreFractionsFromText(grading.ao_breakdown.knowledge.comment),
       },
       analysis: {
         ...grading.ao_breakdown.analysis,
@@ -395,19 +410,22 @@ export function applyWritingQualityGuardrail(
         comment:
           quality.isUndersized || quality.isMonolithicBlock
             ? `Analysis demonstrates sound theoretical understanding but mechanisms are compressed into short assertions without step-by-step sentence-level development (Level 2).`
-            : grading.ao_breakdown.analysis.comment,
+            : stripScoreFractionsFromText(grading.ao_breakdown.analysis.comment),
       },
       evaluation: {
         ...grading.ao_breakdown.evaluation,
-        awarded: ao3,
+        awarded: split.ao3_marks === 0 ? 0 : ao3,
+        out_of: split.ao3_marks,
         comment:
-          quality.isUndersized
-            ? `Evaluative points identify relevant limitations but lack the sustained comparative development and criteria prioritization required for Top Band (Level 1/2).`
-            : grading.ao_breakdown.evaluation.comment,
+          split.ao3_marks === 0
+            ? "Evaluation is not required for this question. No marks are lost for its omission."
+            : quality.isUndersized
+              ? `Evaluative points identify relevant limitations but lack sustained comparative development and criteria prioritization.`
+              : stripScoreFractionsFromText(grading.ao_breakdown.evaluation.comment),
       },
     },
-    examiner_summary: examinerSummary,
-    weaknesses: weaknesses.slice(0, 4),
-    actionable_feedback: actionableFeedback.slice(0, 4),
+    examiner_summary: stripScoreFractionsFromText(examinerSummary),
+    weaknesses: cleanWeaknesses.slice(0, 4),
+    actionable_feedback: cleanActions.slice(0, 4),
   };
 }
