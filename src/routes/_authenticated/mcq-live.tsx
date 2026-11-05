@@ -87,7 +87,7 @@ const RENDER_SCALE = 1.6;
 // Direct navigation still opens the library picker.
 const mcqLiveSearchSchema = z
   .object({
-    paperId: z.string().uuid().optional().catch(undefined),
+    paperId: z.string().optional().catch(undefined),
   })
   .passthrough()
   .catch({});
@@ -134,49 +134,79 @@ type McqDraft = {
 };
 
 function mcqDraftKey(userId: string, paperId: string) {
-  return `marginal.mcq-draft.v${MCQ_DRAFT_VERSION}.${userId}.${paperId}`;
+  const safeUser = userId || "guest";
+  return `marginal.mcq-draft.v${MCQ_DRAFT_VERSION}.${safeUser}.${paperId}`;
 }
 
 function mcqActiveKey(userId: string) {
-  return `marginal.mcq-active.v${MCQ_ACTIVE_VERSION}.${userId}`;
+  const safeUser = userId || "guest";
+  return `marginal.mcq-active.v${MCQ_ACTIVE_VERSION}.${safeUser}`;
 }
 
 function readActiveMcqPaper(userId: string): string | null {
+  const safeUser = userId || "guest";
   try {
-    const raw = window.localStorage.getItem(mcqActiveKey(userId));
-    if (!raw) return null;
-    const value = JSON.parse(raw) as { version: number; paperId: string; savedAt?: number };
-    if (value.version !== MCQ_ACTIVE_VERSION) return null;
-    // Check corresponding draft for 12hr expiration
-    const draft = readMcqDraft(userId, value.paperId);
-    if (!draft) {
-      window.localStorage.removeItem(mcqActiveKey(userId));
-      return null;
+    const raw = window.localStorage.getItem(mcqActiveKey(safeUser));
+    if (raw) {
+      const value = JSON.parse(raw) as { version: number; paperId: string; savedAt?: number };
+      if (value.version === MCQ_ACTIVE_VERSION && value.paperId) {
+        const draft = readMcqDraft(safeUser, value.paperId);
+        if (draft) return value.paperId;
+      }
     }
-    return value.paperId;
+  } catch {}
+
+  // Fallback: search for any active, unexpired draft for this user
+  try {
+    const prefix = `marginal.mcq-draft.v${MCQ_DRAFT_VERSION}.${safeUser}.`;
+    let latestPaperId: string | null = null;
+    let latestSavedAt = 0;
+    for (let i = 0; i < window.localStorage.length; i++) {
+      const key = window.localStorage.key(i);
+      if (key && key.startsWith(prefix)) {
+        const paperId = key.slice(prefix.length);
+        const draft = readMcqDraft(safeUser, paperId);
+        if (draft && draft.savedAt > latestSavedAt) {
+          latestSavedAt = draft.savedAt;
+          latestPaperId = paperId;
+        }
+      }
+    }
+    return latestPaperId;
   } catch {
     return null;
   }
 }
 
 function readMcqDraft(userId: string, paperId: string): McqDraft | null {
+  const safeUser = userId || "guest";
   try {
-    const key = mcqDraftKey(userId, paperId);
-    const raw = window.localStorage.getItem(key);
+    const key = mcqDraftKey(safeUser, paperId);
+    let raw = window.localStorage.getItem(key);
+    if (!raw && safeUser !== "guest") {
+      const guestRaw = window.localStorage.getItem(mcqDraftKey("guest", paperId));
+      if (guestRaw) {
+        raw = guestRaw;
+        try {
+          window.localStorage.setItem(key, guestRaw);
+          window.localStorage.removeItem(mcqDraftKey("guest", paperId));
+        } catch {}
+      }
+    }
     if (!raw) return null;
     const draft = JSON.parse(raw) as McqDraft;
     if (draft.version !== MCQ_DRAFT_VERSION || draft.paperId !== paperId) return null;
-    
+
     // Auto-expire after 12 hours
     const age = Date.now() - (draft.savedAt || 0);
     if (age > MCQ_DRAFT_EXPIRY_MS) {
       window.localStorage.removeItem(key);
-      const activeRaw = window.localStorage.getItem(mcqActiveKey(userId));
+      const activeRaw = window.localStorage.getItem(mcqActiveKey(safeUser));
       if (activeRaw) {
         try {
           const parsed = JSON.parse(activeRaw);
           if (parsed.paperId === paperId) {
-            window.localStorage.removeItem(mcqActiveKey(userId));
+            window.localStorage.removeItem(mcqActiveKey(safeUser));
           }
         } catch {}
       }
@@ -206,12 +236,16 @@ function getActiveDraftSummary(userId: string, papers: McqPaperSummary[]): {
 }
 
 export function cleanupExpiredMcqDrafts(userId: string): void {
+  const safeUser = userId || "guest";
   try {
-    const prefix = `marginal_mcq_draft_${userId}_`;
+    const prefixes = [
+      `marginal.mcq-draft.v${MCQ_DRAFT_VERSION}.${safeUser}.`,
+      `marginal_mcq_draft_${safeUser}_`,
+    ];
     const toRemove: string[] = [];
     for (let i = 0; i < window.localStorage.length; i++) {
       const key = window.localStorage.key(i);
-      if (key && key.startsWith(prefix)) {
+      if (key && prefixes.some((p) => key.startsWith(p))) {
         try {
           const raw = window.localStorage.getItem(key);
           if (raw) {
@@ -311,9 +345,12 @@ function base64ToArrayBuffer(base64: string): ArrayBuffer {
 
 function McqLivePage() {
   const search = Route.useSearch();
+  const navigate = Route.useNavigate();
+  const routeContext = Route.useRouteContext() as { user?: { id?: string; email?: string } } | undefined;
   const queryClient = useQueryClient();
   const fetchMe = useServerFn(getMe);
   const me = useQuery({ queryKey: ["me"], queryFn: () => fetchMe() });
+  const effectiveUserId = routeContext?.user?.id || me.data?.userId || "guest";
   const isLimitReached = false;
   const [stage, setStage] = useState<"library" | "practice">("library");
   const [selectedPaperId, setSelectedPaperId] = useState<string | null>(null);
@@ -328,14 +365,19 @@ function McqLivePage() {
   const [answers, setAnswers] = useState<Record<number, Letter>>({});
   const [flagged, setFlagged] = useState<Set<number>>(new Set());
 
-  const toggleFlag = useCallback((number: number) => {
-    setFlagged((prev) => {
-      const next = new Set(prev);
-      if (next.has(number)) next.delete(number);
-      else next.add(number);
-      return next;
-    });
-  }, []);
+  // Autosave status & immediate-persistence tracking
+  const [saveStatus, setSaveStatus] = useState<"saved" | "saving">("saved");
+  const saveTimerRef = useRef<number | null>(null);
+  const answersRef = useRef(answers);
+  answersRef.current = answers;
+  const flaggedRef = useRef(flagged);
+  flaggedRef.current = flagged;
+  const selectedPaperIdRef = useRef(selectedPaperId);
+  selectedPaperIdRef.current = selectedPaperId;
+  const paperTitleRef = useRef(paperTitle);
+  paperTitleRef.current = paperTitle;
+  const levelRef = useRef(level);
+  levelRef.current = level;
 
   const [graded, setGraded] = useState(false);
   const [calcOpen, setCalcOpen] = useState(false);
@@ -414,6 +456,8 @@ function McqLivePage() {
 
   // ---- timer ----
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
+  const timeLeftRef = useRef(timeLeft);
+  timeLeftRef.current = timeLeft;
   const [timeUp, setTimeUp] = useState(false);
   const [timerEnabled, setTimerEnabled] = useState(() => {
     try {
@@ -459,16 +503,14 @@ function McqLivePage() {
 
   // Proactively clean up any abandoned drafts older than 12 hours
   useEffect(() => {
-    if (me.data?.userId) {
-      cleanupExpiredMcqDrafts(me.data.userId);
-    }
-  }, [me.data?.userId]);
+    cleanupExpiredMcqDrafts(effectiveUserId);
+  }, [effectiveUserId]);
 
   const activeDraftSummary = useMemo(() => {
-    if (stage !== "library" || !me.data?.userId || !papersQuery.data?.papers) return null;
-    return getActiveDraftSummary(me.data.userId, papersQuery.data.papers);
+    if (stage !== "library" || !papersQuery.data?.papers) return null;
+    return getActiveDraftSummary(effectiveUserId, papersQuery.data.papers);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stage, me.data?.userId, papersQuery.data?.papers, draftRefreshKey]);
+  }, [stage, effectiveUserId, papersQuery.data?.papers, draftRefreshKey]);
 
   // Tick every 15 seconds while on library stage to update time left and auto-purge if expired
   useEffect(() => {
@@ -691,12 +733,15 @@ function fillMissingQuestionPages(
       return;
     }
     setSelectedPaperId(paper.id);
+    selectedPaperIdRef.current = paper.id;
     setPaperTitle(paper.title);
+    paperTitleRef.current = paper.title;
     setLevel(paper.level);
+    levelRef.current = paper.level;
     setQCount(paper.questionCount);
     setAnswerKey(paper.answerKey as Record<number, Letter>);
     const draft =
-      !completedAttempt && me.data?.userId ? readMcqDraft(me.data.userId, paper.id) : null;
+      !completedAttempt ? readMcqDraft(effectiveUserId, paper.id) : null;
     const completedAnswers = completedAttempt
       ? Object.fromEntries(
           completedAttempt.questions.flatMap((question) =>
@@ -704,8 +749,12 @@ function fillMissingQuestionPages(
           ),
         )
       : null;
-    setAnswers(completedAnswers ?? draft?.answers ?? {});
-    setFlagged(new Set(draft?.flagged ?? []));
+    const initialAnswers = completedAnswers ?? draft?.answers ?? {};
+    const initialFlagged = new Set(draft?.flagged ?? []);
+    setAnswers(initialAnswers);
+    answersRef.current = initialAnswers;
+    setFlagged(initialFlagged);
+    flaggedRef.current = initialFlagged;
     setGraded(!!completedAttempt);
     setResult(
       completedAttempt && completedAttempt.score !== null
@@ -746,13 +795,13 @@ function fillMissingQuestionPages(
     // Reset the clock and scratch marks for this fresh attempt — real
     // Cambridge 9708 timings: Paper 1 (AS) is 1 hour, Paper 3 (A Level) is
     // 1 hour 15.
-    setTimeLeft(
-      completedAttempt
-        ? null
-        : draft?.timeLeft == null
-          ? PAPER_DURATION_SECONDS[paper.level]
-          : Math.min(draft.timeLeft, PAPER_DURATION_SECONDS[paper.level]),
-    );
+    const initialTimeLeft = completedAttempt
+      ? null
+      : draft?.timeLeft == null
+        ? PAPER_DURATION_SECONDS[paper.level]
+        : Math.min(draft.timeLeft, PAPER_DURATION_SECONDS[paper.level]);
+    setTimeLeft(initialTimeLeft);
+    timeLeftRef.current = initialTimeLeft;
     setTimeUp(false);
     autoSubmittedRef.current = false;
     setAnnotateMode(false);
@@ -848,11 +897,17 @@ function fillMissingQuestionPages(
       setStemBlobs(stems);
       setActiveQuestion(1);
       setStage("practice");
-      if (me.data?.userId && !completedAttempt) {
-        window.localStorage.setItem(
-          mcqActiveKey(me.data.userId),
-          JSON.stringify({ version: MCQ_ACTIVE_VERSION, paperId: paper.id }),
+      if (!completedAttempt) {
+        saveDraftToStorage(
+          initialAnswers,
+          initialFlagged,
+          initialTimeLeft,
+          paper.id,
         );
+        navigate({
+          search: (prev) => ({ ...prev, paperId: paper.id }),
+          replace: true,
+        });
       }
       if (draft && Object.keys(draft.answers).length > 0) {
         toast.success(
@@ -876,14 +931,14 @@ function fillMissingQuestionPages(
   const autoStartedRef = useRef(false);
   useEffect(() => {
     if (autoStartedRef.current) return;
-    if (stage !== "library" || !me.data?.userId) return;
+    if (stage !== "library") return;
     if (!search.paperId) return; // Only auto-start on explicit link search parameter
     const paper = papersQuery.data?.papers.find((p) => p.id === search.paperId);
     if (!paper) return;
     autoStartedRef.current = true;
     beginPractice(paper);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search.paperId, papersQuery.data, stage, me.data?.userId]);
+  }, [search.paperId, papersQuery.data, stage]);
 
   // Track currently visible page during scrolling so questions on the viewed page are known
   useEffect(() => {
@@ -968,42 +1023,98 @@ function fillMissingQuestionPages(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timeLeft, stage, graded, timerEnabled]);
 
-  // Keep an account-scoped draft for the active paper. A refresh, closed tab,
-  // or temporary connection loss no longer discards the student's choices.
-  useEffect(() => {
-    if (stage !== "practice" || graded || !selectedPaperId || !me.data?.userId) return;
-    const id = window.setTimeout(() => {
-      const draft: McqDraft = {
-        version: MCQ_DRAFT_VERSION,
-        paperId: selectedPaperId,
-        paperTitle,
-        level,
-        answers,
-        flagged: Array.from(flagged),
-        timeLeft,
-        savedAt: Date.now(),
-      };
-      window.localStorage.setItem(
-        mcqDraftKey(me.data.userId, selectedPaperId),
-        JSON.stringify(draft),
-      );
-      window.localStorage.setItem(
-        mcqActiveKey(me.data.userId),
-        JSON.stringify({ version: MCQ_ACTIVE_VERSION, paperId: selectedPaperId, savedAt: Date.now() }),
-      );
-    }, 300);
-    return () => window.clearTimeout(id);
-  }, [answers, flagged, graded, me.data?.userId, selectedPaperId, stage, timeLeft]);
+  /* ---------------- resilient autosave engine ---------------- */
 
-  /* ---------------- answering ---------------- */
+  const saveDraftToStorage = useCallback(
+    (
+      currentAnswers: Record<number, Letter>,
+      currentFlagged: Set<number>,
+      currentTimeLeft: number | null,
+      overridePaperId?: string,
+    ) => {
+      const targetPaperId = overridePaperId || selectedPaperIdRef.current;
+      if (!targetPaperId || graded) return;
+      try {
+        const draft: McqDraft = {
+          version: MCQ_DRAFT_VERSION,
+          paperId: targetPaperId,
+          paperTitle: paperTitleRef.current,
+          level: levelRef.current,
+          answers: currentAnswers,
+          flagged: Array.from(currentFlagged),
+          timeLeft: currentTimeLeft,
+          savedAt: Date.now(),
+        };
+        window.localStorage.setItem(
+          mcqDraftKey(effectiveUserId, targetPaperId),
+          JSON.stringify(draft),
+        );
+        window.localStorage.setItem(
+          mcqActiveKey(effectiveUserId),
+          JSON.stringify({ version: MCQ_ACTIVE_VERSION, paperId: targetPaperId, savedAt: Date.now() }),
+        );
+        setSaveStatus("saved");
+      } catch (err) {
+        console.warn("MCQ autosave error:", err);
+      }
+    },
+    [effectiveUserId, graded],
+  );
+
+  const toggleFlag = useCallback(
+    (number: number) => {
+      setSaveStatus("saving");
+      setFlagged((prev) => {
+        const next = new Set(prev);
+        if (next.has(number)) next.delete(number);
+        else next.add(number);
+        saveDraftToStorage(answersRef.current, next, timeLeftRef.current);
+        return next;
+      });
+      if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = window.setTimeout(() => setSaveStatus("saved"), 400);
+    },
+    [saveDraftToStorage],
+  );
 
   const pick = useCallback(
     (number: number, letter: Letter) => {
       if (timeUp) return;
-      setAnswers((prev) => ({ ...prev, [number]: letter }));
+      setSaveStatus("saving");
+      setAnswers((prev) => {
+        const next = { ...prev, [number]: letter };
+        saveDraftToStorage(next, flaggedRef.current, timeLeftRef.current);
+        return next;
+      });
+      if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = window.setTimeout(() => setSaveStatus("saved"), 400);
     },
-    [timeUp],
+    [timeUp, saveDraftToStorage],
   );
+
+  // Periodic background draft sync (saves timer countdown progress every 5 seconds)
+  useEffect(() => {
+    if (stage !== "practice" || graded || !selectedPaperId) return;
+    const interval = window.setInterval(() => {
+      saveDraftToStorage(answersRef.current, flaggedRef.current, timeLeftRef.current);
+    }, 5000);
+    return () => window.clearInterval(interval);
+  }, [stage, graded, selectedPaperId, saveDraftToStorage]);
+
+  // Immediately flush draft state on tab close, page refresh, or navigation
+  useEffect(() => {
+    const handleFlush = () => {
+      if (stage === "practice" && !graded && selectedPaperIdRef.current) {
+        saveDraftToStorage(answersRef.current, flaggedRef.current, timeLeftRef.current);
+      }
+    };
+    window.addEventListener("beforeunload", handleFlush);
+    window.addEventListener("pagehide", handleFlush);
+    return () => {
+      window.removeEventListener("beforeunload", handleFlush);
+      window.removeEventListener("pagehide", handleFlush);
+    };
+  }, [stage, graded, saveDraftToStorage]);
 
   /* ---------------- grading + feedback ---------------- */
 
@@ -1088,10 +1199,21 @@ function fillMissingQuestionPages(
           questions: graded_,
         },
       });
-      if (me.data?.userId && selectedPaperId) {
-        window.localStorage.removeItem(mcqDraftKey(me.data.userId, selectedPaperId));
-        window.localStorage.removeItem(mcqActiveKey(me.data.userId));
+      if (selectedPaperId) {
+        window.localStorage.removeItem(mcqDraftKey(effectiveUserId, selectedPaperId));
+        window.localStorage.removeItem(mcqActiveKey(effectiveUserId));
+        window.localStorage.removeItem(mcqDraftKey("guest", selectedPaperId));
+        window.localStorage.removeItem(mcqActiveKey("guest"));
       }
+      setDraftRefreshKey((k) => k + 1);
+      navigate({
+        search: (prev) => {
+          const next = { ...prev };
+          delete next.paperId;
+          return next;
+        },
+        replace: true,
+      });
       topicPerformance.refetch();
       queryClient.invalidateQueries({ queryKey: ["mcq-paper-history"] });
       queryClient.invalidateQueries({ queryKey: ["review-mcq-history"] });
@@ -1122,7 +1244,15 @@ function fillMissingQuestionPages(
 
   function leavePractice() {
     setStage("library");
-    if (me.data?.userId) window.localStorage.removeItem(mcqActiveKey(me.data.userId));
+    setDraftRefreshKey((k) => k + 1);
+    navigate({
+      search: (prev) => {
+        const next = { ...prev };
+        delete next.paperId;
+        return next;
+      },
+      replace: true,
+    });
   }
 
   async function openFullPastPaper() {
@@ -1230,14 +1360,16 @@ function fillMissingQuestionPages(
                             "Are you sure you want to discard your in-progress exam? All unsaved answers will be deleted.",
                           )
                         ) {
-                          if (me.data?.userId) {
-                            window.localStorage.removeItem(
-                              mcqDraftKey(me.data.userId, activeDraftSummary.paper.id),
-                            );
-                            window.localStorage.removeItem(mcqActiveKey(me.data.userId));
-                            setDraftRefreshKey((k) => k + 1);
-                            toast.success("Exam draft discarded.");
-                          }
+                          window.localStorage.removeItem(
+                            mcqDraftKey(effectiveUserId, activeDraftSummary.paper.id),
+                          );
+                          window.localStorage.removeItem(mcqActiveKey(effectiveUserId));
+                          window.localStorage.removeItem(
+                            mcqDraftKey("guest", activeDraftSummary.paper.id),
+                          );
+                          window.localStorage.removeItem(mcqActiveKey("guest"));
+                          setDraftRefreshKey((k) => k + 1);
+                          toast.success("Exam draft discarded.");
                         }
                       }}
                     >
@@ -1420,6 +1552,25 @@ function fillMissingQuestionPages(
                 </UiBadge>
               ) : null}
 
+              {!graded ? (
+                <div
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-border/60 bg-muted/40 font-mono text-[11px] text-muted-foreground select-none"
+                  title="Autosave is active — all answers and timer progress are saved locally in your browser."
+                >
+                  {saveStatus === "saving" ? (
+                    <>
+                      <Loader2 className="h-3 w-3 animate-spin text-amber-500" />
+                      <span className="hidden xs:inline">Saving…</span>
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="h-3 w-3 text-emerald-500" />
+                      <span className="hidden xs:inline">Saved</span>
+                    </>
+                  )}
+                </div>
+              ) : null}
+
               <Button
                 size="sm"
                 onClick={gradeAndSave}
@@ -1570,6 +1721,7 @@ function fillMissingQuestionPages(
                     onJumpToQuestion={goToQuestion}
                     activeQuestion={activeQuestion}
                     questionPages={questionPages}
+                    saveStatus={saveStatus}
                   />
                 )}
               </div>
@@ -2162,6 +2314,7 @@ function AnswerSidePanel({
   onJumpToQuestion,
   activeQuestion,
   questionPages,
+  saveStatus,
 }: {
   numbers: number[];
   answers: Record<number, Letter>;
@@ -2176,6 +2329,7 @@ function AnswerSidePanel({
   onJumpToQuestion?: (number: number, options?: { skipScrollPaper?: boolean }) => void;
   activeQuestion?: number;
   questionPages?: Record<number, number>;
+  saveStatus?: "saved" | "saving";
 }) {
   const [filter, setFilter] = useState<"all" | "flagged" | "unanswered">("all");
   const [showGrid, setShowGrid] = useState(false);
@@ -2202,17 +2356,37 @@ function AnswerSidePanel({
           <span className="text-xs font-semibold tracking-tight text-foreground">
             Questions ({answeredCount}/{numbers.length})
           </span>
-          <Button
-            type="button"
-            variant={showGrid ? "secondary" : "ghost"}
-            size="sm"
-            onClick={() => setShowGrid((v) => !v)}
-            className="h-7 px-2 text-xs gap-1"
-            title={showGrid ? "Hide question matrix" : "Show quick jump matrix"}
-          >
-            <LayoutGrid className="h-3.5 w-3.5" />
-            <span className="sr-only sm:not-sr-only sm:inline-block">Matrix</span>
-          </Button>
+          <div className="flex items-center gap-1.5">
+            {!graded && saveStatus ? (
+              <span
+                className="inline-flex items-center gap-1 font-mono text-[10px] text-muted-foreground select-none"
+                title="Autosave is active — all answers and timer progress are saved locally in your browser."
+              >
+                {saveStatus === "saving" ? (
+                  <>
+                    <Loader2 className="h-2.5 w-2.5 animate-spin text-amber-500" />
+                    <span>Saving…</span>
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="h-2.5 w-2.5 text-emerald-500" />
+                    <span>Saved</span>
+                  </>
+                )}
+              </span>
+            ) : null}
+            <Button
+              type="button"
+              variant={showGrid ? "secondary" : "ghost"}
+              size="sm"
+              onClick={() => setShowGrid((v) => !v)}
+              className="h-7 px-2 text-xs gap-1"
+              title={showGrid ? "Hide question matrix" : "Show quick jump matrix"}
+            >
+              <LayoutGrid className="h-3.5 w-3.5" />
+              <span className="sr-only sm:not-sr-only sm:inline-block">Matrix</span>
+            </Button>
+          </div>
         </div>
 
         {/* Quick jump matrix */}
