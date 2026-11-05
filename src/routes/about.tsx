@@ -16,11 +16,18 @@ import { Reveal } from "@/components/marketing/reveal";
 export const Route = createFileRoute("/about")({
   head: () => ({
     meta: [
-      { title: "About us — Marginal" },
+      { title: "About Us — Marginal AI | Cambridge Economics (9708)" },
       {
         name: "description",
         content:
-          "Meet the two people building Marginal, the AS and A Level Economics (9708) essay-marking tool.",
+          "Meet the team building Marginal AI, the Cambridge International AS and A Level Economics (9708) AI platform featuring automated essay grading and Live Examiner coaching.",
+      },
+      { property: "og:site_name", content: "Marginal AI" },
+      { property: "og:title", content: "About Us — Marginal AI | Cambridge Economics (9708)" },
+      {
+        property: "og:description",
+        content:
+          "Meet the team building Marginal AI, the Cambridge International AS and A Level Economics (9708) AI platform.",
       },
     ],
   }),

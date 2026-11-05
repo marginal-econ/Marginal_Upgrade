@@ -5,12 +5,14 @@ import { LegalPage, type LegalSection } from "@/components/marketing/legal";
 export const Route = createFileRoute("/terms")({
   head: () => ({
     meta: [
-      { title: "Terms & conditions — Marginal" },
+      { title: "Terms & Conditions — Marginal AI" },
       {
         name: "description",
         content:
-          "The terms of use for Marginal, the AS and A Level Economics (9708) essay-marking tool: independence from Cambridge, access rights, academic honesty, the limits of an automated mark, and how your work is handled.",
+          "The terms of use for Marginal AI, the Cambridge International AS and A Level Economics (9708) platform.",
       },
+      { property: "og:site_name", content: "Marginal AI" },
+      { property: "og:title", content: "Terms & Conditions — Marginal AI" },
     ],
   }),
   component: TermsPage,

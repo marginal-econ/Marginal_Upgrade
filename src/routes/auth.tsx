@@ -67,16 +67,17 @@ export const Route = createFileRoute("/auth")({
   validateSearch: (search: Record<string, unknown>) => authSearchSchema.parse(search),
   head: () => ({
     meta: [
-      { title: "Sign in — Marginal | AS/A Level Economics marking" },
+      { title: "Sign In & Register — Marginal AI | Cambridge Economics (9708)" },
       {
         name: "description",
         content:
-          "Sign in to Marginal to mark Cambridge 9708 Economics essays against your own coursebook, syllabus and mark schemes.",
+          "Sign in or register for Marginal AI to mark Cambridge 9708 Economics essays, practice MCQs, and prepare with the AI Live Examiner.",
       },
-      { property: "og:title", content: "Sign in — Marginal" },
+      { property: "og:site_name", content: "Marginal AI" },
+      { property: "og:title", content: "Sign In & Register — Marginal AI" },
       {
         property: "og:description",
-        content: "Cambridge 9708 Economics essay marking, calibrated to real examiner standards.",
+        content: "Cambridge 9708 Economics AI essay marking, calibrated to real examiner standards.",
       },
     ],
   }),

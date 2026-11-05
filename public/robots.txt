@@ -1,8 +1,27 @@
+# Allow search engines to index all public marketing and education pages
 User-agent: Googlebot
 Allow: /
+Disallow: /admin
+Disallow: /dashboard
+Disallow: /essay/
+Disallow: /practice
+Disallow: /live-examiner
+Disallow: /settings
+Disallow: /classes
+Disallow: /mcq
+Disallow: /api/
 
 User-agent: Bingbot
 Allow: /
+Disallow: /admin
+Disallow: /dashboard
+Disallow: /essay/
+Disallow: /practice
+Disallow: /live-examiner
+Disallow: /settings
+Disallow: /classes
+Disallow: /mcq
+Disallow: /api/
 
 User-agent: Twitterbot
 Allow: /
@@ -12,5 +31,15 @@ Allow: /
 
 User-agent: *
 Allow: /
+Disallow: /admin
+Disallow: /dashboard
+Disallow: /essay/
+Disallow: /practice
+Disallow: /live-examiner
+Disallow: /settings
+Disallow: /classes
+Disallow: /mcq
+Disallow: /api/
 
+Host: https://marginal-econ.com
 Sitemap: https://marginal-econ.com/sitemap.xml

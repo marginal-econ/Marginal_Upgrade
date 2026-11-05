@@ -12,15 +12,21 @@ import { supabase } from "@/integrations/backend/client";
 export const Route = createFileRoute("/pricing")({
   head: () => ({
     meta: [
-      { title: "100% Free Access — Marginal Economics" },
+      { title: "100% Free Access — Marginal AI Economics" },
       {
         name: "description",
         content:
-          "Marginal Economics is 100% Free for all Cambridge International 9708 Economics students and educators. Unlimited essay evaluations, past-paper matrix, MCQ drills, and classroom cohorts.",
+          "Marginal AI is 100% Free for all Cambridge International 9708 Economics students and educators. Unlimited AI essay evaluations, Live Examiner coaching, and past-paper MCQ drills.",
       },
+      { property: "og:site_name", content: "Marginal AI" },
       {
         property: "og:title",
-        content: "Marginal Economics — 100% Free Access for Cambridge 9708 Economics",
+        content: "100% Free Access — Marginal AI Economics for Cambridge 9708",
+      },
+      {
+        property: "og:description",
+        content:
+          "Marginal AI is 100% Free for Cambridge International 9708 Economics students and educators.",
       },
     ],
   }),

@@ -33,12 +33,14 @@ import { Textarea } from "@/components/ui/textarea";
 export const Route = createFileRoute("/help")({
   head: () => ({
     meta: [
-      { title: "Help & contact — Marginal" },
+      { title: "Help & Support — Marginal AI" },
       {
         name: "description",
         content:
-          "Contact Marginal about technical problems, bugs, partnerships, accounts, privacy, or general questions.",
+          "Contact Marginal AI about technical support, Cambridge 9708 Economics questions, partnerships, or accounts.",
       },
+      { property: "og:site_name", content: "Marginal AI" },
+      { property: "og:title", content: "Help & Support — Marginal AI" },
     ],
   }),
   component: HelpPage,

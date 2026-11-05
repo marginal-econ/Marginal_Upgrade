@@ -25,17 +25,19 @@ import { registerTeacher, getTeacherProfileStatus } from "@/lib/teacher.function
 import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
 
 export const Route = createFileRoute("/teacher-auth")({
-  validateSearch: (search: Record<string, unknown>) => ({
+  validateSearch: (search: Record<string, unknown>): { tab?: string } => ({
     tab: typeof search.tab === "string" ? search.tab : undefined,
   }),
   head: () => ({
     meta: [
-      { title: "Teacher & Department Portal — Marginal | Cambridge 9708 Economics" },
+      { title: "Teacher & Department Portal — Marginal AI | Cambridge 9708 Economics" },
       {
         name: "description",
         content:
-          "Official Teacher Portal for Cambridge 9708 Economics educators. Ingest mark schemes, manage cohorts, and moderate student scripts.",
+          "Official Teacher Portal for Marginal AI and Cambridge 9708 Economics educators. Ingest mark schemes, manage cohorts, and moderate student scripts.",
       },
+      { property: "og:site_name", content: "Marginal AI" },
+      { property: "og:title", content: "Teacher & Department Portal — Marginal AI" },
     ],
   }),
   component: TeacherAuthPage,

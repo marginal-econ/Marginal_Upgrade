@@ -5,12 +5,14 @@ import { LegalPage, type LegalSection } from "@/components/marketing/legal";
 export const Route = createFileRoute("/privacy")({
   head: () => ({
     meta: [
-      { title: "Privacy policy — Marginal" },
+      { title: "Privacy Policy — Marginal AI" },
       {
         name: "description",
         content:
-          "What Marginal collects when you have an essay marked, why, who can see it, how long it is kept, and how to get it deleted. Marginal is independent of Cambridge Assessment International Education.",
+          "Privacy policy for Marginal AI. Understand how your submitted essays and account details are protected.",
       },
+      { property: "og:site_name", content: "Marginal AI" },
+      { property: "og:title", content: "Privacy Policy — Marginal AI" },
     ],
   }),
   component: PrivacyPage,

@@ -74,29 +74,29 @@ import { supabase } from "@/integrations/backend/client";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Marginal | AI Cambridge Economics (9708) Prep" },
+      { title: "Marginal AI — Cambridge Economics (9708) AI Platform & Essay Grader" },
       {
         name: "description",
         content:
-          "Marginal is the complete Cambridge 9708 Economics mastery platform with AI Essay Grading, Live Examiner, and Paper 1 & 3 MCQ practice.",
+          "Marginal AI is the Cambridge International AS & A Level Economics (9708) AI platform featuring instant essay grading, Live Examiner coaching, and official past paper practice.",
       },
       {
         name: "keywords",
         content:
-          "Marginal, Marginal Economics, Marginal AI, Cambridge Economics 9708, A Level Economics, AS Level Economics, Cambridge 9708 AI grading, economics essay marker, live examiner",
+          "Marginal AI, Marginal, Marginal Economics, Cambridge Economics 9708, A Level Economics AI, AS Level Economics, Cambridge 9708 AI grading, economics essay marker, Live Examiner AI",
       },
       {
         property: "og:site_name",
-        content: "Marginal",
+        content: "Marginal AI",
       },
       {
         property: "og:title",
-        content: "Marginal | AI Cambridge Economics (9708) Prep",
+        content: "Marginal AI — Cambridge Economics (9708) AI Platform & Essay Grader",
       },
       {
         property: "og:description",
         content:
-          "Marginal is the complete Cambridge 9708 Economics mastery platform with AI Essay Grading, Live Examiner, and Paper 1 & 3 MCQ practice.",
+          "Marginal AI is the Cambridge International AS & A Level Economics (9708) AI platform featuring instant essay grading, Live Examiner coaching, and official past paper practice.",
       },
       {
         property: "og:url",
@@ -116,12 +116,20 @@ export const Route = createFileRoute("/")({
       },
       {
         name: "twitter:title",
-        content: "Marginal | AI Cambridge Economics (9708) Prep",
+        content: "Marginal AI — Cambridge Economics (9708) AI Platform & Essay Grader",
       },
       {
         name: "twitter:description",
         content:
-          "Marginal is the complete Cambridge 9708 Economics mastery platform with AI Essay Grading, Live Examiner, and Paper 1 & 3 MCQ practice.",
+          "Marginal AI is the Cambridge International AS & A Level Economics (9708) AI platform featuring instant essay grading, Live Examiner coaching, and official past paper practice.",
+      },
+      {
+        name: "application-name",
+        content: "Marginal AI",
+      },
+      {
+        name: "apple-mobile-web-app-title",
+        content: "Marginal AI",
       },
       {
         name: "robots",
@@ -139,12 +147,56 @@ export const Route = createFileRoute("/")({
         type: "application/ld+json",
         children: JSON.stringify({
           "@context": "https://schema.org",
-          "@type": "Organization",
-          "name": "Marginal",
-          "alternateName": ["Marginal Economics", "Marginal AI Economics"],
+          "@type": "WebSite",
+          "name": "Marginal AI",
+          "alternateName": ["Marginal", "Marginal AI Economics", "Marginal Economics"],
           "url": "https://marginal-econ.com",
-          "description":
-            "AI Cambridge Economics 9708 mastery platform featuring automated essay grading and live examiner practice.",
+          "potentialAction": {
+            "@type": "SearchAction",
+            "target": "https://marginal-econ.com/?q={search_term_string}",
+            "query-input": "required name=search_term_string",
+          },
+        }),
+      },
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          "mainEntity": [
+            {
+              "@type": "Question",
+              "name": "What is Marginal AI?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Marginal AI is the Cambridge International AS & A Level Economics (9708) mastery platform featuring real-time Live Examiner coaching, automated AO1/AO2/AO3 essay grading calibrated against official Cambridge mark schemes, and Paper 1 & 3 MCQ past paper drills.",
+              },
+            },
+            {
+              "@type": "Question",
+              "name": "Is Marginal AI free to use?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Yes, Marginal AI provides free access to unlimited essay evaluations, syllabus citations, and full past paper MCQ practice.",
+              },
+            },
+            {
+              "@type": "Question",
+              "name": "How does Marginal AI grade Cambridge 9708 essays?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Marginal AI uses Cambridge 9708 syllabus mark schemes, official examiner reports, and calibrated anchor scripts to grade essays across AO1 (Knowledge), AO2 (Analysis), and AO3 (Evaluation) assessment objectives.",
+              },
+            },
+            {
+              "@type": "Question",
+              "name": "Can Marginal AI read handwritten essays and economic diagrams?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Yes, photograph your handwritten script or essay diagram and Marginal AI OCR extracts the text while isolating diagrams for accurate examiner assessment.",
+              },
+            },
+          ],
         }),
       },
     ],
@@ -463,10 +515,10 @@ function Index() {
 
             <Reveal delay={60}>
               <h1 className="mt-5 text-[2.35rem] leading-[1.08] font-extrabold text-balance min-[380px]:text-4xl md:text-[3.25rem] lg:text-[3.5rem] xl:text-[3.85rem] tracking-tight">
-                Marginal —{" "}
+                Marginal AI —{" "}
                 <span className="relative inline-block mt-1 sm:mt-1.5 px-3 py-1 rounded-xl bg-purple-950/60 dark:bg-purple-950/70 border border-purple-500/40 text-amber-300 shadow-[0_0_20px_rgba(168,85,247,0.25)] backdrop-blur-md">
                   <span className="bg-gradient-to-r from-amber-300 via-yellow-200 to-amber-400 bg-clip-text text-transparent font-black tracking-tight">
-                    The AI Cambridge Economics Platform
+                    The Cambridge Economics Platform
                   </span>
                 </span>
               </h1>
@@ -1312,8 +1364,7 @@ function Wordmark({ muted = false }: { muted?: boolean }) {
     <span className="group flex items-center gap-2 sm:gap-2.5 whitespace-nowrap shrink-0">
       <img
         src="/marginal-m-icon-clean.png"
-        alt=""
-        aria-hidden="true"
+        alt="Marginal AI logo"
         className={
           "size-8 shrink-0 object-contain transition-transform duration-300 group-hover:-rotate-6 sm:size-9 " +
           (muted ? "opacity-70 grayscale" : "")
@@ -1322,11 +1373,14 @@ function Wordmark({ muted = false }: { muted?: boolean }) {
       <span
         className={
           muted
-            ? "text-sm font-semibold text-muted-foreground sm:text-base"
-            : "text-sm font-semibold sm:text-base"
+            ? "text-sm font-semibold text-muted-foreground sm:text-base flex items-center gap-1.5"
+            : "text-sm font-semibold sm:text-base flex items-center gap-1.5"
         }
       >
-        Marginal
+        <span>Marginal</span>
+        <span className="text-[10px] font-mono font-bold tracking-tight px-1.5 py-0.5 rounded-md bg-purple-500/15 text-purple-600 dark:text-purple-300 border border-purple-500/30">
+          AI
+        </span>
       </span>
     </span>
   );
