@@ -1,4 +1,3 @@
-# Allow search engine crawlers full access to index all public pages
 User-agent: *
 Allow: /
 Disallow: /admin

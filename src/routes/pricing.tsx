@@ -54,7 +54,7 @@ function PricingPage() {
             <Link to="/" className="group flex items-center gap-2.5">
               <img
                 src="/marginal-m-icon-clean.png"
-                alt="Marginal"
+                alt="Marginal AI Cambridge Economics 9708 Prep Pricing"
                 className="size-8 object-contain transition-transform duration-300 group-hover:-rotate-6"
               />
               <span className="text-base font-bold tracking-tight text-foreground">Marginal</span>

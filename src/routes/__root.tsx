@@ -110,34 +110,32 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       {
-        title: "Marginal AI — Cambridge Economics (9708) AI Platform & Essay Grader",
+        title: "Marginal | AI Cambridge Economics (9708) Prep & Essay Examiner",
       },
       {
         name: "description",
         content:
-          "Marginal AI is the Cambridge International AS & A Level Economics (9708) AI platform featuring instant essay grading, Live Examiner coaching, and official past papers.",
+          "Master Cambridge International AS & A Level Economics (9708) with Marginal. Features instant AI essay grading, live examiner feedback, and Paper 1 & Paper 3 MCQ practice.",
       },
       {
         name: "keywords",
         content:
-          "Marginal AI, Marginal, Marginal Economics, Cambridge Economics 9708, A Level Economics AI, AS Level Economics, Cambridge 9708 AI grading, economics essay marker, Live Examiner AI",
+          "9708 economics, 9708 economics prep, Cambridge Economics 9708, A Level Economics 9708, Marginal AI, Marginal Cambridge Economics, parginal, parginal AI, marginal-econ, AS Level Economics, Cambridge 9708 AI grading, economics essay examiner",
       },
-      { property: "og:site_name", content: "Marginal AI" },
-      { property: "og:title", content: "Marginal AI — Cambridge Economics (9708) AI Platform & Essay Grader" },
+      { property: "og:site_name", content: "Marginal" },
+      { property: "og:title", content: "Marginal | AI Cambridge Economics (9708) Prep" },
       {
         property: "og:description",
-        content:
-          "Marginal AI is the Cambridge International AS & A Level Economics (9708) AI platform featuring instant essay grading, Live Examiner coaching, and official past papers.",
+        content: "The complete Cambridge 9708 Economics mastery platform with AI essay grading and MCQ practice.",
       },
       { property: "og:type", content: "website" },
       { property: "og:url", content: "https://marginal-econ.com" },
       { property: "og:image", content: "https://marginal-econ.com/marginal-m-icon-clean.png" },
       { name: "twitter:card", content: "summary_large_image" },
-      { name: "twitter:title", content: "Marginal AI — Cambridge Economics (9708) AI Platform & Essay Grader" },
+      { name: "twitter:title", content: "Marginal | AI Cambridge Economics (9708) Prep" },
       {
         name: "twitter:description",
-        content:
-          "Marginal AI is the Cambridge International AS & A Level Economics (9708) AI platform featuring instant essay grading, Live Examiner coaching, and official past papers.",
+        content: "The complete Cambridge 9708 Economics mastery platform with AI essay grading and MCQ practice.",
       },
       { name: "application-name", content: "Marginal AI" },
       { name: "apple-mobile-web-app-title", content: "Marginal AI" },
@@ -185,13 +183,13 @@ function RootShell({ children }: { children: ReactNode }) {
           dangerouslySetInnerHTML={{
             __html: JSON.stringify({
               "@context": "https://schema.org",
-"@type": "EducationalOrganization",
-              "name": "Marginal AI",
-              "alternateName": ["Marginal", "Marginal Econ", "Marginal Economics", "Marginal AI Economics", "marginal-econ.com"],
-              "url": "https://marginal-econ.com",
-              "logo": "https://marginal-econ.com/icon-512.png",
-              "description":
-                "Marginal AI is the Cambridge International AS & A Level Economics (9708) platform featuring AI essay grading, Live Examiner coaching, and official past papers.",
+              "@type": "Organization",
+              name: "Marginal",
+              legalName: "Marginal AI",
+              alternateName: ["Marginal AI", "Marginal Economics", "Parginal", "Marginal Econ"],
+              url: "https://marginal-econ.com",
+              logo: "https://marginal-econ.com/marginal-m-icon-clean.png",
+              description: "AI platform for Cambridge International AS & A Level Economics (9708) preparation.",
             }),
           }}
         />
@@ -201,9 +199,35 @@ function RootShell({ children }: { children: ReactNode }) {
             __html: JSON.stringify({
               "@context": "https://schema.org",
               "@type": "WebSite",
-"name": "Marginal AI",
-              "alternateName": ["Marginal", "Marginal Econ", "Marginal Economics", "Marginal AI Economics", "marginal-econ.com"],
-              "url": "https://marginal-econ.com",
+              name: "Marginal",
+              alternateName: "Parginal",
+              url: "https://marginal-econ.com",
+              potentialAction: {
+                "@type": "SearchAction",
+                target: {
+                  "@type": "EntryPoint",
+                  urlTemplate: "https://marginal-econ.com/search?q={search_term_string}",
+                },
+                "query-input": "required name=search_term_string",
+              },
+            }),
+          }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "Course",
+              name: "Cambridge International AS & A Level Economics Prep",
+              courseCode: "9708",
+              provider: {
+                "@type": "Organization",
+                name: "Marginal",
+                url: "https://marginal-econ.com",
+              },
+              educationalLevel: "A Level / AS Level",
+              description: "Complete prep tool for Cambridge Economics 9708 including Papers 1, 2, 3, and 4.",
             }),
           }}
         />
@@ -213,14 +237,15 @@ function RootShell({ children }: { children: ReactNode }) {
             __html: JSON.stringify({
               "@context": "https://schema.org",
               "@type": "SoftwareApplication",
-              "name": "Marginal AI",
-              "applicationCategory": "EducationalApplication",
-              "operatingSystem": "Web Browser",
-              "url": "https://marginal-econ.com",
-              "offers": {
+              name: "Marginal",
+              applicationCategory: "EducationalApplication",
+              operatingSystem: "Web Browser",
+              url: "https://marginal-econ.com",
+              description: "Complete Cambridge 9708 Economics mastery platform with AI essay grading and MCQ practice.",
+              offers: {
                 "@type": "Offer",
-                "price": "0",
-                "priceCurrency": "USD",
+                price: "0",
+                priceCurrency: "USD",
               },
             }),
           }}

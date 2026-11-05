@@ -147,8 +147,7 @@ export function SiteFooter() {
             <span className="flex items-center gap-2.5">
               <img
                 src="/marginal-m-icon-clean.png"
-                alt=""
-                aria-hidden="true"
+                alt="Marginal AI Cambridge Economics 9708 Prep logo"
                 className="size-9 object-contain"
               />
               <span className="font-semibold">Marginal</span>

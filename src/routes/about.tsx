@@ -78,7 +78,7 @@ function AboutPage() {
           <Link to="/" className="group flex items-center gap-2.5">
             <img
               src="/marginal-m-icon-clean.png"
-              alt=""
+              alt="Marginal AI Cambridge Economics 9708 Prep"
               aria-hidden="true"
               className="size-9 object-contain transition-transform duration-300 group-hover:-rotate-6"
             />

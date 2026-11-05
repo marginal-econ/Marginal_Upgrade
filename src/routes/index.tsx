@@ -74,29 +74,28 @@ import { supabase } from "@/integrations/backend/client";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Marginal AI — Cambridge Economics (9708) AI Platform & Essay Grader" },
+      { title: "Marginal | AI Cambridge Economics (9708) Prep & Essay Examiner" },
       {
         name: "description",
         content:
-          "Marginal AI is the Cambridge International AS & A Level Economics (9708) AI platform featuring instant essay grading, Live Examiner coaching, and official past paper practice.",
+          "Master Cambridge International AS & A Level Economics (9708) with Marginal. Features instant AI essay grading, live examiner feedback, and Paper 1 & Paper 3 MCQ practice.",
       },
       {
         name: "keywords",
         content:
-          "Marginal AI, Marginal, Marginal Economics, Cambridge Economics 9708, A Level Economics AI, AS Level Economics, Cambridge 9708 AI grading, economics essay marker, Live Examiner AI",
+          "9708 economics, Cambridge Economics 9708, Marginal AI, AS Level Economics, A Level Economics 9708 prep, parginal, parginal AI, marginal-econ, Marginal Cambridge Economics, 9708 economics prep, A Level Economics 9708",
       },
       {
         property: "og:site_name",
-        content: "Marginal AI",
+        content: "Marginal",
       },
       {
         property: "og:title",
-        content: "Marginal AI — Cambridge Economics (9708) AI Platform & Essay Grader",
+        content: "Marginal | AI Cambridge Economics (9708) Prep",
       },
       {
         property: "og:description",
-        content:
-          "Marginal AI is the Cambridge International AS & A Level Economics (9708) AI platform featuring instant essay grading, Live Examiner coaching, and official past paper practice.",
+        content: "The complete Cambridge 9708 Economics mastery platform with AI essay grading and MCQ practice.",
       },
       {
         property: "og:url",
@@ -116,12 +115,11 @@ export const Route = createFileRoute("/")({
       },
       {
         name: "twitter:title",
-        content: "Marginal AI — Cambridge Economics (9708) AI Platform & Essay Grader",
+        content: "Marginal | AI Cambridge Economics (9708) Prep",
       },
       {
         name: "twitter:description",
-        content:
-          "Marginal AI is the Cambridge International AS & A Level Economics (9708) AI platform featuring instant essay grading, Live Examiner coaching, and official past paper practice.",
+        content: "The complete Cambridge 9708 Economics mastery platform with AI essay grading and MCQ practice.",
       },
       {
         name: "application-name",
@@ -148,12 +146,12 @@ export const Route = createFileRoute("/")({
         children: JSON.stringify({
           "@context": "https://schema.org",
           "@type": "WebSite",
-          "name": "Marginal AI",
-          "alternateName": ["Marginal", "Marginal AI Economics", "Marginal Economics"],
+          "name": "Marginal",
+          "alternateName": "Parginal",
           "url": "https://marginal-econ.com",
           "potentialAction": {
             "@type": "SearchAction",
-            "target": "https://marginal-econ.com/?q={search_term_string}",
+            "target": "https://marginal-econ.com/search?q={search_term_string}",
             "query-input": "required name=search_term_string",
           },
         }),
@@ -508,12 +506,7 @@ function Index() {
 
             <Reveal delay={60}>
               <h1 className="mt-5 text-[2.35rem] leading-[1.08] font-extrabold text-balance min-[380px]:text-4xl md:text-[3.25rem] lg:text-[3.5rem] xl:text-[3.85rem] tracking-tight">
-                Marginal AI —{" "}
-                <span className="relative inline-block mt-1 sm:mt-1.5 px-3 py-1 rounded-xl bg-purple-950/60 dark:bg-purple-950/70 border border-purple-500/40 text-amber-300 shadow-[0_0_20px_rgba(168,85,247,0.25)] backdrop-blur-md">
-                  <span className="bg-gradient-to-r from-amber-300 via-yellow-200 to-amber-400 bg-clip-text text-transparent font-black tracking-tight">
-                    The Cambridge Economics Platform
-                  </span>
-                </span>
+                AI-Powered Cambridge Economics (9708) Mastery
               </h1>
               <h2 className="mt-3 text-lg font-semibold text-primary sm:text-xl md:text-2xl">
                 Master AS & A Level Economics (9708) with AI Grading
@@ -678,7 +671,7 @@ function Index() {
             <Reveal>
               <p className="eyebrow eyebrow-accent">What you get back</p>
               <h2 className="mt-2.5 text-2xl font-bold text-balance md:text-4xl">
-                Not a grade. A diagnosis.
+                Instant AI Essay Grading for 9708 Paper 2 & Paper 4
               </h2>
               <p className="mt-4 max-w-md text-sm leading-relaxed text-pretty text-muted-foreground md:text-base">
                 Every mark comes apart into the three assessment objectives, so you can see which
@@ -731,8 +724,8 @@ function Index() {
         <div className="relative z-10 mx-auto max-w-7xl 2xl:max-w-[1440px] px-4 sm:px-6 md:px-10 lg:px-12 xl:px-16 py-16 md:py-20">
           <Reveal>
             <SectionHeading
-              eyebrow="What's inside"
-              title="Eight specialized tools, one Cambridge syllabus"
+              eyebrow="Cambridge 9708 Tools"
+              title="Master 9708 Paper 1 & Paper 3 MCQs"
               lead="Everything in Marginal is engineered exclusively for Cambridge AS & A Level Economics (9708). No generic chatbots, no vague study widgets. Hover or tap a card to see what it does."
             />
           </Reveal>
@@ -865,8 +858,8 @@ function Index() {
         <div className="relative z-10 mx-auto max-w-7xl 2xl:max-w-[1440px] px-4 sm:px-6 md:px-10 lg:px-12 xl:px-16 py-16 md:py-20">
           <Reveal>
             <SectionHeading
-              eyebrow="Why the mark is worth something"
-              title="An AI mark is only useful if you can check where it came from"
+              eyebrow="Trusted by Cambridge Students"
+              title="Why Cambridge A Level Economics Students Choose Marginal"
               lead="So all three of these are mechanisms, not promises. You'll be able to go and look at each one."
             />
           </Reveal>
@@ -1363,7 +1356,7 @@ function Wordmark({ muted = false }: { muted?: boolean }) {
     <span className="group flex items-center gap-2 sm:gap-2.5 whitespace-nowrap shrink-0">
       <img
         src="/marginal-m-icon-clean.png"
-        alt="Marginal AI logo"
+        alt="Marginal AI Cambridge Economics 9708 Essay Examiner dashboard logo"
         className={
           "size-8 shrink-0 object-contain transition-transform duration-300 group-hover:-rotate-6 sm:size-9 " +
           (muted ? "opacity-70 grayscale" : "")

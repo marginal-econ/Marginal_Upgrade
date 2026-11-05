@@ -778,7 +778,7 @@ function PaymentPortalPage() {
           <Link to="/" className="group flex items-center gap-2 sm:gap-2.5 shrink-0">
             <img
               src="/marginal-m-icon-clean.png"
-              alt="Marginal"
+              alt="Marginal AI Cambridge Economics 9708 Prep"
               className="size-7 sm:size-8 object-contain transition-transform group-hover:-rotate-6"
             />
             <span className="text-sm sm:text-base font-bold tracking-tight">Marginal</span>

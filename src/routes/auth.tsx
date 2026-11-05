@@ -544,7 +544,7 @@ function AuthPage() {
           <Link to="/" className="group flex animate-in fade-in items-center gap-2 duration-500">
             <img
               src="/marginal-m-icon-clean.png"
-              alt=""
+              alt="Marginal AI Cambridge Economics 9708 Essay Examiner"
               aria-hidden="true"
               className="size-8 object-contain transition-transform duration-200 group-hover:-rotate-6 sm:size-9"
             />

@@ -332,7 +332,7 @@ export function TeacherAuthPage() {
           <Link to="/" className="group flex items-center gap-2.5">
             <img
               src="/marginal-m-icon-clean.png"
-              alt="Marginal"
+              alt="Marginal AI Cambridge Economics 9708 Teacher Workspace"
               className="size-9 object-contain transition-transform group-hover:-rotate-6"
             />
             <div className="flex items-center gap-2">
