@@ -448,7 +448,7 @@ export function AppShell({
                 const isChainedEssay =
                   item.to === "/grade" &&
                   !isUserAdmin &&
-                  (Boolean(subscription) && !subscription.canGradeEssay);
+                  Boolean(subscription && !subscription.canGradeEssay);
                 const isChainedLiveExaminer =
                   item.to === "/live-examiner" &&
                   !isUserAdmin &&
@@ -456,8 +456,8 @@ export function AppShell({
                 const isChainedMCQ =
                   item.to === "/mcq-live" &&
                   !isUserAdmin &&
-                  Boolean(subscription) &&
-                  !subscription.canUseMCQ;
+                  // check mcq access
+                  Boolean(subscription && !subscription.canUseMCQ);
                 const isLockedExperimental = item.requiresHigherTier && !isHigherTierUser;
                 const isLocked =
                   isChainedPaid || isChainedEssay || isChainedLiveExaminer || isChainedMCQ || isLockedExperimental;

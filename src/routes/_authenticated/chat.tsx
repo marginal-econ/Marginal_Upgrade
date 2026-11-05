@@ -747,10 +747,33 @@ export function GroundedChatPage() {
     });
   };
 
-  // Experimental Labs are strictly confidential to platform administrators
+  // Experimental Labs: Informative chamber for non-admin students
   if (!meQuery.isLoading && !isAdmin) {
-    navigate({ to: "/dashboard", replace: true });
-    return null;
+    return (
+      <div className="mx-auto max-w-5xl px-4 py-10">
+        <ChainedChamber
+          badgeText="Lab Restricted · Admin & Scholar Pass"
+          title="Cambridge Grounded Chat Lab"
+          description="Interactive conversational economics examiner with 100% syllabus grounding, voiceover studio, and auto-draft essays. This experimental module is currently open to Cambridge educators, administrators, and scholarship cohorts."
+          primaryCtaText="Return to Dashboard"
+          primaryCtaLink="/dashboard"
+          features={[
+            {
+              icon: BookOpen,
+              iconColor: "text-primary",
+              title: "Authentic Mark Scheme Grounding",
+              description: "Direct answers grounded in official Cambridge 9708 past papers, definitions, and examiner reports.",
+            },
+            {
+              icon: Sparkles,
+              iconColor: "text-amber-500",
+              title: "Interactive Voiceover Studio",
+              description: "Conversational voice coaching with real-time speech recognition and auto-draft essay generation.",
+            },
+          ]}
+        />
+      </div>
+    );
   }
 
   return (
