@@ -853,6 +853,7 @@ function ClassChatTab({ classroom, isStaff }: { classroom: Classroom; isStaff: b
   const togglePinFn = useServerFn(togglePinClassroomMessage);
 
   const [text, setText] = useState("");
+  const [copiedMsgId, setCopiedMsgId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const { data: messages, isLoading } = useQuery({
@@ -890,36 +891,63 @@ function ClassChatTab({ classroom, isStaff }: { classroom: Classroom; isStaff: b
 
   const pinnedMessages = useMemo(() => (messages ?? []).filter((m) => m.isPinned), [messages]);
 
+  const copyMessageText = (msgId: string, content: string) => {
+    navigator.clipboard.writeText(content);
+    setCopiedMsgId(msgId);
+    toast.success("Message copied to clipboard!");
+    setTimeout(() => setCopiedMsgId(null), 1800);
+  };
+
+  const QUICK_TOPIC_CHIPS = [
+    "📚 Mark scheme question",
+    "📈 Diagram curves help",
+    "🕒 Essay due date",
+    "💡 PED vs PES help",
+    "📝 Cambridge essay structure",
+  ];
+
   return (
-    <div className="max-w-4xl mx-auto flex flex-col h-[75vh] bg-card border border-border rounded-3xl overflow-hidden shadow-2xl">
+    <div className="max-w-4xl mx-auto flex flex-col h-[75vh] min-h-[520px] bg-card border border-border/80 rounded-3xl overflow-hidden shadow-xl">
       {/* Chat Room Top Header */}
-      <div className="p-4 px-6 bg-background/80 border-b border-border flex items-center justify-between">
+      <div className="p-4 px-6 bg-muted/30 border-b border-border/80 flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div className="h-9 w-9 rounded-full bg-purple-600/80 flex items-center justify-center font-bold text-white text-sm">
+          <div className="h-10 w-10 rounded-2xl bg-gradient-to-tr from-purple-600 to-indigo-600 flex items-center justify-center font-bold text-white shadow-sm shrink-0">
             <MessageCircle className="h-5 w-5" />
           </div>
           <div>
-            <h3 className="text-sm font-bold text-foreground tracking-tight flex items-center gap-2">
-              {classroom.name} Class Chat
-            </h3>
-            <p className="text-[11px] text-muted-foreground">
-              Live discussion channel for all enrolled students & teachers.
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-bold text-foreground tracking-tight">
+                {classroom.name} Class Chat
+              </h3>
+              <Badge variant="outline" className="text-[10px] bg-purple-500/10 text-purple-700 dark:text-purple-300 border-purple-300 dark:border-purple-800">
+                Live Cohort
+              </Badge>
+            </div>
+            <p className="text-[11px] text-muted-foreground mt-0.5">
+              Real-time collaboration channel for Cambridge 9708 students & educators.
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-          <span>Active Channel</span>
+        <div className="flex items-center gap-2.5">
+          <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs font-medium">
+            <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span>Active Channel</span>
+          </div>
+          {(messages ?? []).length > 0 && (
+            <Badge variant="outline" className="text-[10px] text-muted-foreground border-border font-mono">
+              {(messages ?? []).length} msgs
+            </Badge>
+          )}
         </div>
       </div>
 
       {/* Pinned Announcement in Chat Header */}
       {pinnedMessages.length > 0 && (
-        <div className="p-3 px-6 bg-purple-950/40 border-b border-purple-800/40 text-xs text-purple-200 flex items-center justify-between gap-3">
+        <div className="p-3 px-6 bg-purple-100 dark:bg-purple-950/60 border-b border-purple-200 dark:border-purple-800/60 text-xs text-purple-900 dark:text-purple-200 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 overflow-hidden">
-            <Pin className="h-3.5 w-3.5 text-purple-400 shrink-0" />
-            <span className="font-semibold text-purple-300 shrink-0">Pinned:</span>
+            <Pin className="h-3.5 w-3.5 text-purple-600 dark:text-purple-400 shrink-0" />
+            <span className="font-bold text-purple-800 dark:text-purple-300 shrink-0">Pinned Notice:</span>
             <span className="truncate">{pinnedMessages[pinnedMessages.length - 1].content}</span>
           </div>
           {isStaff && (
@@ -932,10 +960,11 @@ function ClassChatTab({ classroom, isStaff }: { classroom: Classroom; isStaff: b
                     isPinned: false,
                   },
                 }).then(() => {
+                  toast.success("Unpinned message");
                   queryClient.invalidateQueries({ queryKey: ["classroom_chat", classroom.id] });
                 });
               }}
-              className="text-[11px] text-purple-400 hover:text-purple-200 underline shrink-0"
+              className="text-[11px] text-purple-600 dark:text-purple-400 hover:underline font-semibold shrink-0 cursor-pointer"
             >
               Unpin
             </button>
@@ -944,21 +973,25 @@ function ClassChatTab({ classroom, isStaff }: { classroom: Classroom; isStaff: b
       )}
 
       {/* Messages Scroll Area */}
-      <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-background/40">
+      <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 bg-background/50">
         {isLoading ? (
           <div className="space-y-3">
             {[1, 2, 3].map((n) => (
-              <div key={n} className="h-16 rounded-2xl bg-muted/50 animate-pulse" />
+              <div key={n} className="h-16 rounded-2xl bg-muted/40 animate-pulse" />
             ))}
           </div>
         ) : (messages ?? []).length === 0 ? (
-          <div className="text-center py-20 text-muted-foreground space-y-2">
-            <MessageSquare className="h-10 w-10 text-muted-foreground mx-auto" />
-            <h4 className="text-sm font-semibold text-foreground">Welcome to your class chat!</h4>
-            <p className="text-xs text-muted-foreground max-w-sm mx-auto">
-              Ask Economics questions, discuss Cambridge essay topics, collaborate on past papers,
-              and share study tips here.
-            </p>
+          <div className="text-center py-20 text-muted-foreground space-y-3">
+            <div className="h-12 w-12 rounded-2xl bg-purple-500/10 text-purple-500 flex items-center justify-center mx-auto">
+              <MessageSquare className="h-6 w-6" />
+            </div>
+            <div className="space-y-1">
+              <h4 className="text-sm font-bold text-foreground">Welcome to your class chat!</h4>
+              <p className="text-xs text-muted-foreground max-w-sm mx-auto leading-relaxed">
+                Ask Economics questions, discuss Cambridge essay topics, collaborate on past papers,
+                and share revision notes with your teacher and peers.
+              </p>
+            </div>
           </div>
         ) : (
           (messages ?? []).map((msg) => (
@@ -969,23 +1002,38 @@ function ClassChatTab({ classroom, isStaff }: { classroom: Classroom; isStaff: b
                 msg.isMine ? "flex-row-reverse" : "flex-row",
               )}
             >
-              <div className="h-8 w-8 rounded-full bg-purple-700/80 flex items-center justify-center font-bold text-white text-xs shrink-0 mt-0.5">
+              <div
+                className={cn(
+                  "h-8 w-8 rounded-full flex items-center justify-center font-bold text-xs shrink-0 mt-0.5 shadow-2xs",
+                  msg.isTeacher
+                    ? "bg-gradient-to-tr from-purple-700 to-indigo-600 text-white ring-2 ring-purple-400/30"
+                    : msg.isMine
+                      ? "bg-purple-600 text-white"
+                      : "bg-muted text-foreground border border-border"
+                )}
+              >
                 {getInitials(msg.userName)}
               </div>
 
               <div
                 className={cn(
-                  "max-w-[75%] space-y-1",
+                  "max-w-[80%] sm:max-w-[70%] space-y-1",
                   msg.isMine ? "items-end text-right" : "items-start text-left",
                 )}
               >
-                <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                <div
+                  className={cn(
+                    "flex items-center gap-1.5 text-[11px] text-muted-foreground",
+                    msg.isMine ? "justify-end" : "justify-start"
+                  )}
+                >
                   <span className="font-semibold text-foreground">{msg.userName}</span>
                   {msg.isTeacher && (
-                    <Badge className="bg-purple-100 dark:bg-purple-950 text-purple-800 dark:text-purple-300 border-purple-200 dark:border-purple-700 text-[9px] py-0 px-1">
+                    <Badge className="bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-700 text-[9px] py-0 px-1 font-bold">
                       Teacher
                     </Badge>
                   )}
+                  <span>•</span>
                   <span>
                     {new Date(msg.createdAt).toLocaleTimeString([], {
                       hour: "2-digit",
@@ -996,10 +1044,10 @@ function ClassChatTab({ classroom, isStaff }: { classroom: Classroom; isStaff: b
 
                 <div
                   className={cn(
-                    "p-3.5 rounded-2xl text-xs leading-relaxed whitespace-pre-wrap relative",
+                    "p-3.5 px-4 rounded-2xl text-xs leading-relaxed whitespace-pre-wrap relative shadow-xs",
                     msg.isMine
-                      ? "bg-purple-600 text-white rounded-tr-none shadow-md shadow-purple-500/10"
-                      : "bg-muted border border-border text-foreground rounded-tl-none shadow-sm",
+                      ? "bg-purple-600 text-white rounded-tr-xs"
+                      : "bg-card border border-border text-foreground rounded-tl-xs",
                   )}
                 >
                   {msg.content}
@@ -1008,10 +1056,28 @@ function ClassChatTab({ classroom, isStaff }: { classroom: Classroom; isStaff: b
                 {/* Message Hover Actions */}
                 <div
                   className={cn(
-                    "opacity-0 group-hover:opacity-100 flex items-center gap-1.5 text-[10px] text-muted-foreground pt-0.5",
+                    "opacity-0 group-hover:opacity-100 flex items-center gap-2 text-[10px] text-muted-foreground pt-0.5 transition-opacity",
                     msg.isMine ? "justify-end" : "justify-start",
                   )}
                 >
+                  <button
+                    onClick={() => copyMessageText(msg.id, msg.content)}
+                    className="hover:text-foreground flex items-center gap-1 cursor-pointer"
+                    title="Copy text"
+                  >
+                    {copiedMsgId === msg.id ? (
+                      <>
+                        <Check className="h-3 w-3 text-emerald-500" />
+                        <span className="text-emerald-500 font-semibold">Copied</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="h-3 w-3" />
+                        <span>Copy</span>
+                      </>
+                    )}
+                  </button>
+
                   {msg.canPin && (
                     <button
                       onClick={() => {
@@ -1030,9 +1096,10 @@ function ClassChatTab({ classroom, isStaff }: { classroom: Classroom; isStaff: b
                           });
                         });
                       }}
-                      className="hover:text-purple-400"
+                      className="hover:text-purple-500 flex items-center gap-1 cursor-pointer"
                     >
-                      {msg.isPinned ? "Unpin" : "Pin"}
+                      <Pin className="h-3 w-3" />
+                      <span>{msg.isPinned ? "Unpin" : "Pin"}</span>
                     </button>
                   )}
 
@@ -1045,14 +1112,16 @@ function ClassChatTab({ classroom, isStaff }: { classroom: Classroom; isStaff: b
                             classroomId: classroom.id,
                           },
                         }).then(() => {
+                          toast.success("Message deleted");
                           queryClient.invalidateQueries({
                             queryKey: ["classroom_chat", classroom.id],
                           });
                         });
                       }}
-                      className="hover:text-rose-400"
+                      className="hover:text-rose-500 flex items-center gap-1 cursor-pointer"
                     >
-                      Delete
+                      <Trash2 className="h-3 w-3" />
+                      <span>Delete</span>
                     </button>
                   )}
                 </div>
@@ -1064,7 +1133,24 @@ function ClassChatTab({ classroom, isStaff }: { classroom: Classroom; isStaff: b
       </div>
 
       {/* Chat Composer Input Footer */}
-      <div className="p-4 bg-background/90 border-t border-border">
+      <div className="p-3 sm:p-4 bg-card/90 border-t border-border space-y-2">
+        {/* Quick Suggestion Chips */}
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none text-[11px]">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground shrink-0 mr-1">
+            Quick:
+          </span>
+          {QUICK_TOPIC_CHIPS.map((chip, idx) => (
+            <button
+              key={idx}
+              type="button"
+              onClick={() => setText((prev) => (prev ? `${prev} ${chip}` : chip))}
+              className="px-2.5 py-0.5 rounded-full border border-border/70 bg-muted/40 hover:bg-muted text-muted-foreground hover:text-foreground transition-all shrink-0 cursor-pointer"
+            >
+              {chip}
+            </button>
+          ))}
+        </div>
+
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -1072,7 +1158,7 @@ function ClassChatTab({ classroom, isStaff }: { classroom: Classroom; isStaff: b
               sendMutation.mutate(text.trim());
             }
           }}
-          className="flex items-center gap-3"
+          className="flex items-center gap-2"
         >
           <Input
             value={text}
@@ -1083,17 +1169,21 @@ function ClassChatTab({ classroom, isStaff }: { classroom: Classroom; isStaff: b
                 sendMutation.mutate(text.trim());
               }
             }}
-            placeholder="Type a message to your classmates..."
-            className="bg-background border-input text-xs text-foreground placeholder:text-muted-foreground focus:border-purple-500 h-10"
+            placeholder="Type a message to your class... (Enter to send)"
+            className="bg-background border-input text-xs text-foreground placeholder:text-muted-foreground focus:border-purple-500 h-10 rounded-xl"
           />
 
           <Button
             type="submit"
             disabled={!text.trim() || sendMutation.isPending}
-            className="bg-purple-600 hover:bg-purple-500 text-white h-10 px-4 shrink-0 font-semibold"
+            className="bg-purple-600 hover:bg-purple-500 text-white h-10 px-4 rounded-xl shrink-0 font-semibold gap-1.5 shadow-sm"
           >
-            <Send className="h-4 w-4 mr-1.5" />
-            Send
+            {sendMutation.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Send className="h-4 w-4" />
+            )}
+            <span className="hidden sm:inline">Send</span>
           </Button>
         </form>
       </div>
