@@ -534,7 +534,7 @@ function JoinClassDialog({ onJoined }: { onJoined: () => void }) {
               </h3>
               <button
                 onClick={() => setOpen(false)}
-                className="text-muted-foreground hover:text-white transition-colors"
+                className="text-muted-foreground hover:text-foreground transition-colors"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -564,7 +564,7 @@ function JoinClassDialog({ onJoined }: { onJoined: () => void }) {
               <Button
                 variant="ghost"
                 onClick={() => setOpen(false)}
-                className="text-muted-foreground hover:text-white"
+                className="text-muted-foreground hover:text-foreground"
               >
                 Cancel
               </Button>
@@ -629,7 +629,7 @@ function CreateClassDialog({ onCreated }: { onCreated: () => void }) {
               </h3>
               <button
                 onClick={() => setOpen(false)}
-                className="text-muted-foreground hover:text-white transition-colors"
+                className="text-muted-foreground hover:text-foreground transition-colors"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -671,7 +671,7 @@ function CreateClassDialog({ onCreated }: { onCreated: () => void }) {
               <Button
                 variant="ghost"
                 onClick={() => setOpen(false)}
-                className="text-muted-foreground hover:text-white"
+                className="text-muted-foreground hover:text-foreground"
               >
                 Cancel
               </Button>
@@ -719,7 +719,7 @@ function ClassroomDetailView({
                 variant="ghost"
                 size="sm"
                 onClick={onBack}
-                className="text-muted-foreground hover:text-white -ml-2"
+                className="text-muted-foreground hover:text-foreground -ml-2"
               >
                 <ArrowLeft className="h-4 w-4 mr-1.5" />
                 All Classes
@@ -1259,7 +1259,7 @@ function StreamTab({
                     onClick={onGoToClasswork}
                     className="p-2.5 rounded-xl bg-background/40 border border-border/80 hover:border-purple-500/40 hover:bg-background transition-all cursor-pointer space-y-1"
                   >
-                    <div className="text-xs font-semibold text-white line-clamp-1">{a.title}</div>
+                    <div className="text-xs font-semibold text-foreground line-clamp-1">{a.title}</div>
                     <div className="text-[11px] text-purple-300 flex items-center gap-1">
                       <Calendar className="h-3 w-3" />
                       Due{" "}
@@ -1521,7 +1521,7 @@ function StreamTab({
                           }
                         }}
                         placeholder="Add a class comment..."
-                        className="bg-background border-border text-xs text-white placeholder:text-muted-foreground focus:border-purple-500 h-8"
+                        className="bg-background border-border text-xs text-foreground placeholder:text-muted-foreground focus:border-purple-500 h-8"
                       />
                       <Button
                         size="sm"
@@ -1808,7 +1808,7 @@ function ClassworkTab({
             onClick={() => setFilter("all")}
             className={cn(
               "text-xs",
-              filter === "all" ? "bg-purple-600 text-foreground" : "text-muted-foreground",
+              filter === "all" ? "bg-purple-600 text-white font-semibold shadow-xs" : "text-muted-foreground hover:text-foreground hover:bg-muted",
             )}
           >
             All Topics
@@ -1819,7 +1819,7 @@ function ClassworkTab({
             onClick={() => setFilter("essay")}
             className={cn(
               "text-xs",
-              filter === "essay" ? "bg-purple-600 text-foreground" : "text-muted-foreground",
+              filter === "essay" ? "bg-purple-600 text-white font-semibold shadow-xs" : "text-muted-foreground hover:text-foreground hover:bg-muted",
             )}
           >
             Cambridge Essays (8, 12, 20m)
@@ -1830,7 +1830,7 @@ function ClassworkTab({
             onClick={() => setFilter("mcq_paper")}
             className={cn(
               "text-xs",
-              filter === "mcq_paper" ? "bg-purple-600 text-foreground" : "text-muted-foreground",
+              filter === "mcq_paper" ? "bg-purple-600 text-white font-semibold shadow-xs" : "text-muted-foreground hover:text-foreground hover:bg-muted",
             )}
           >
             MCQ Past Papers
@@ -2113,7 +2113,7 @@ function ClassworkTab({
                                   : "typed",
                             );
                           }}
-                          className="text-xs text-purple-400 hover:text-white self-start sm:self-auto"
+                          className="text-xs text-purple-600 dark:text-purple-400 hover:underline self-start sm:self-auto"
                         >
                           Resubmit Work
                         </Button>
@@ -2246,7 +2246,7 @@ function ClassworkTab({
                                       e.stopPropagation();
                                       docFileInputRef.current?.click();
                                     }}
-                                    className="text-xs text-blue-400 hover:text-white mt-1 h-7 px-3"
+                                    className="text-xs text-blue-600 dark:text-blue-400 hover:underline mt-1 h-7 px-3"
                                   >
                                     <Upload className="h-3 w-3 mr-1" />
                                     Choose Another File
@@ -2394,7 +2394,7 @@ function ClassworkTab({
                                 setSubmissionText("");
                                 setUploadedDocName(null);
                               }}
-                              className="text-muted-foreground hover:text-white text-xs"
+                              className="text-muted-foreground hover:text-foreground text-xs"
                             >
                               Cancel
                             </Button>
@@ -2496,15 +2496,15 @@ function ClassworkTab({
                 {isStaff && (
                   <div className="flex items-center gap-6 pt-2 border-t border-border/60 text-xs text-muted-foreground">
                     <div>
-                      <span className="font-bold text-white mr-1">{a.stats.turnedIn}</span>
+                      <span className="font-bold text-foreground mr-1">{a.stats.turnedIn}</span>
                       <span>Turned in</span>
                     </div>
                     <div>
-                      <span className="font-bold text-white mr-1">{a.stats.assigned}</span>
+                      <span className="font-bold text-foreground mr-1">{a.stats.assigned}</span>
                       <span>Assigned</span>
                     </div>
                     <div>
-                      <span className="font-bold text-white mr-1">{a.stats.graded}</span>
+                      <span className="font-bold text-foreground mr-1">{a.stats.graded}</span>
                       <span>Graded</span>
                     </div>
                     {a.stats.averageScore !== null && (
@@ -2534,7 +2534,7 @@ function ClassworkTab({
               </h3>
               <button
                 onClick={() => setCreateOpen(false)}
-                className="text-muted-foreground hover:text-white"
+                className="text-muted-foreground hover:text-foreground"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -2574,7 +2574,7 @@ function ClassworkTab({
                           "px-2.5 py-1 rounded-md transition-all font-medium",
                           essaySource === "bank"
                             ? "bg-purple-600 text-white shadow-sm"
-                            : "text-muted-foreground hover:text-white",
+                            : "text-muted-foreground hover:text-foreground hover:bg-muted/60",
                         )}
                       >
                         <ListChecks className="h-3 w-3 inline mr-1" />
@@ -2587,7 +2587,7 @@ function ClassworkTab({
                           "px-2.5 py-1 rounded-md transition-all font-medium",
                           essaySource === "custom"
                             ? "bg-purple-600 text-white shadow-sm"
-                            : "text-muted-foreground hover:text-white",
+                            : "text-muted-foreground hover:text-foreground hover:bg-muted/60",
                         )}
                       >
                         <FileEdit className="h-3 w-3 inline mr-1" />
@@ -2605,7 +2605,7 @@ function ClassworkTab({
                             value={bankSearch}
                             onChange={(e) => setBankSearch(e.target.value)}
                             placeholder="Search Question Bank by keyword (e.g. inflation, tariff, subsidy)..."
-                            className="pl-8 text-xs bg-card border-border text-white h-9"
+                            className="pl-8 text-xs bg-card border-border text-foreground h-9"
                           />
                         </div>
                         <div className="flex items-center gap-1 shrink-0">
@@ -2802,7 +2802,7 @@ function ClassworkTab({
                             }
                           }}
                           placeholder="Enter the exact Cambridge 9708 past paper question prompt..."
-                          className="bg-background border-input text-white min-h-[80px]"
+                          className="bg-background border-input text-foreground min-h-[80px]"
                         />
                       </div>
                     </div>
@@ -2830,7 +2830,7 @@ function ClassworkTab({
                         value={mcqSearch}
                         onChange={(e) => setMcqSearch(e.target.value)}
                         placeholder="Search past papers (e.g. 2024, Paper 11, June)..."
-                        className="pl-8 text-xs bg-card border-border text-white h-9"
+                        className="pl-8 text-xs bg-card border-border text-foreground h-9"
                       />
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
@@ -2988,7 +2988,7 @@ function ClassworkTab({
                   value={instructions}
                   onChange={(e) => setInstructions(e.target.value)}
                   placeholder="e.g. Include AD/AS diagram with labeled equilibrium shift..."
-                  className="bg-background border-input text-white min-h-[80px]"
+                  className="bg-background border-input text-foreground min-h-[80px]"
                 />
               </div>
             </div>
@@ -2997,7 +2997,7 @@ function ClassworkTab({
               <Button
                 variant="ghost"
                 onClick={() => setCreateOpen(false)}
-                className="text-muted-foreground hover:text-white"
+                className="text-muted-foreground hover:text-foreground"
               >
                 Cancel
               </Button>
@@ -3119,7 +3119,7 @@ function TeacherSubmissionsModal({
             </p>
           </div>
 
-          <button onClick={onClose} className="text-muted-foreground hover:text-white p-1 rounded-lg">
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground p-1 rounded-lg hover:bg-muted transition-colors">
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -3320,7 +3320,7 @@ function TeacherSubmissionsModal({
                         value={scoreInput}
                         onChange={(e) => setScoreInput(e.target.value)}
                         placeholder="e.g. 17"
-                        className="bg-card border-input text-white text-base font-bold focus:border-purple-500"
+                        className="bg-card border-input text-foreground text-base font-bold focus:border-purple-500"
                       />
                     </div>
 
@@ -3332,7 +3332,7 @@ function TeacherSubmissionsModal({
                         value={feedbackInput}
                         onChange={(e) => setFeedbackInput(e.target.value)}
                         placeholder="e.g. Strong AO1 definitions and AO2 application; expand on AO3 evaluation."
-                        className="bg-card border-input text-white text-xs focus:border-purple-500"
+                        className="bg-card border-input text-foreground text-xs focus:border-purple-500"
                       />
                     </div>
                   </div>
@@ -3343,7 +3343,7 @@ function TeacherSubmissionsModal({
                       size="sm"
                       onClick={() => gradeMutation.mutate(false)}
                       disabled={scoreInput === "" || gradeMutation.isPending}
-                      className="text-muted-foreground hover:text-white text-xs"
+                      className="text-muted-foreground hover:text-foreground text-xs"
                     >
                       Save Draft
                     </Button>
@@ -3631,7 +3631,7 @@ function PeopleTab({
                           name: st.full_name || "Student",
                         })
                       }
-                      className="text-xs text-purple-400 hover:text-white hover:bg-purple-950/40"
+                      className="text-xs text-purple-600 dark:text-purple-400 hover:bg-purple-500/10 rounded-md px-2 py-1"
                     >
                       <BarChart3 className="h-3.5 w-3.5 mr-1" />
                       Analytics
@@ -3700,7 +3700,7 @@ function PeopleTab({
               </h3>
               <button
                 onClick={() => setInviteTeacherOpen(false)}
-                className="text-muted-foreground hover:text-white"
+                className="text-muted-foreground hover:text-foreground"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -3726,7 +3726,7 @@ function PeopleTab({
               <Button
                 variant="ghost"
                 onClick={() => setInviteTeacherOpen(false)}
-                className="text-muted-foreground hover:text-white"
+                className="text-muted-foreground hover:text-foreground"
               >
                 Cancel
               </Button>
@@ -3753,7 +3753,7 @@ function PeopleTab({
               </h3>
               <button
                 onClick={() => setInviteStudentOpen(false)}
-                className="text-muted-foreground hover:text-white"
+                className="text-muted-foreground hover:text-foreground"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -3778,7 +3778,7 @@ function PeopleTab({
               <Button
                 variant="ghost"
                 onClick={() => setInviteStudentOpen(false)}
-                className="text-muted-foreground hover:text-white"
+                className="text-muted-foreground hover:text-foreground"
               >
                 Cancel
               </Button>
@@ -3867,7 +3867,7 @@ function StudentLifetimePortfolioModal({
           </div>
           <button
             onClick={onClose}
-            className="text-muted-foreground hover:text-white p-1.5 rounded-lg hover:bg-muted transition-colors"
+            className="text-muted-foreground hover:text-foreground p-1.5 rounded-lg hover:bg-muted transition-colors"
           >
             <X className="h-5 w-5" />
           </button>
@@ -3949,7 +3949,7 @@ function StudentLifetimePortfolioModal({
                     "px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2",
                     activeTab === "essays"
                       ? "bg-purple-600 text-white shadow-md shadow-purple-500/10"
-                      : "text-muted-foreground hover:text-white hover:bg-muted/40",
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted/60",
                   )}
                 >
                   <FileText className="h-4 w-4" />
@@ -3962,7 +3962,7 @@ function StudentLifetimePortfolioModal({
                     "px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2",
                     activeTab === "mcqs"
                       ? "bg-purple-600 text-white shadow-md shadow-purple-500/10"
-                      : "text-muted-foreground hover:text-white hover:bg-muted/40",
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted/60",
                   )}
                 >
                   <BookOpen className="h-4 w-4" />
@@ -3975,7 +3975,7 @@ function StudentLifetimePortfolioModal({
                     "px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2",
                     activeTab === "topics"
                       ? "bg-purple-600 text-white shadow-md shadow-purple-500/10"
-                      : "text-muted-foreground hover:text-white hover:bg-muted/40",
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted/60",
                   )}
                 >
                   <BarChart3 className="h-4 w-4" />
@@ -4262,7 +4262,7 @@ function StudentLifetimePortfolioModal({
                                 </Badge>
                               </div>
 
-                              <h4 className="text-sm font-semibold text-white mt-1">{m.title}</h4>
+                              <h4 className="text-sm font-semibold text-foreground mt-1">{m.title}</h4>
                               <div className="text-[10px] text-muted-foreground">
                                 Completed {new Date(m.completedAt).toLocaleString(undefined, {
                                   dateStyle: "medium",
@@ -4307,7 +4307,7 @@ function StudentLifetimePortfolioModal({
                                     >
                                       <div className="space-y-0.5">
                                         <div className="flex items-center gap-2">
-                                          <span className="font-bold text-white text-xs">
+                                          <span className="font-bold text-foreground text-xs">
                                             Q{q?.number || idx + 1}
                                           </span>
                                           {q?.topic && (
@@ -4515,7 +4515,7 @@ function GradesTab({ classroom }: { classroom: Classroom }) {
             "px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2",
             gradeView === "matrix"
               ? "bg-purple-600 text-white shadow-md shadow-purple-500/10"
-              : "text-muted-foreground hover:text-white",
+              : "text-muted-foreground hover:text-foreground hover:bg-muted/60",
           )}
         >
           <Clipboard className="h-4 w-4" />
@@ -4528,7 +4528,7 @@ function GradesTab({ classroom }: { classroom: Classroom }) {
             "px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2",
             gradeView === "aggregate"
               ? "bg-purple-600 text-white shadow-md shadow-purple-500/10"
-              : "text-muted-foreground hover:text-white",
+              : "text-muted-foreground hover:text-foreground hover:bg-muted/60",
           )}
         >
           <TrendingUp className="h-4 w-4" />
@@ -4641,7 +4641,7 @@ function GradesTab({ classroom }: { classroom: Classroom }) {
                 <tbody className="divide-y divide-border text-foreground">
                   {students.map((st) => (
                     <tr key={st.id} className="hover:bg-muted/40 transition-colors">
-                      <td className="p-4 pl-6 font-medium text-white sticky left-0 bg-card z-10">
+                      <td className="p-4 pl-6 font-medium text-foreground sticky left-0 bg-card z-10">
                         <div className="flex items-center gap-2.5">
                           <div className="h-7 w-7 rounded-full bg-purple-700 flex items-center justify-center font-bold text-white text-[10px]">
                             {getInitials(st.fullName)}
@@ -4678,7 +4678,7 @@ function GradesTab({ classroom }: { classroom: Classroom }) {
                           <td key={a.id} className="p-4 text-center">
                             {cell?.score !== null && cell?.score !== undefined ? (
                               <div className="inline-flex flex-col items-center">
-                                <span className="font-bold text-white text-xs">
+                                <span className="font-bold text-foreground text-xs">
                                   {cell.score}{" "}
                                   <span className="text-muted-foreground text-[10px]">/ {a.maxMark}</span>
                                 </span>
