@@ -741,67 +741,72 @@ function ClassroomDetailView({
             </div>
 
             {/* GCR 5-Tabs Navigation Header */}
-            <div className="flex items-center gap-1 sm:gap-1.5 overflow-x-auto">
+            <div className="flex items-center gap-1 p-1 bg-muted/60 dark:bg-muted/40 rounded-xl border border-border/60 overflow-x-auto">
               <button
                 onClick={() => setActiveTab("stream")}
                 className={cn(
-                  "px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap",
+                  "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap cursor-pointer",
                   activeTab === "stream"
-                    ? "bg-purple-600 text-white shadow-md shadow-purple-500/10"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted",
+                    ? "bg-purple-600 text-white shadow-sm shadow-purple-500/20"
+                    : "text-muted-foreground hover:text-foreground hover:bg-background/80",
                 )}
               >
-                Stream
+                <Layers className="h-3.5 w-3.5" />
+                <span>Stream</span>
               </button>
 
               <button
                 onClick={() => setActiveTab("classwork")}
                 className={cn(
-                  "px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap",
+                  "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap cursor-pointer",
                   activeTab === "classwork"
-                    ? "bg-purple-600 text-white shadow-md shadow-purple-500/10"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted/60",
+                    ? "bg-purple-600 text-white shadow-sm shadow-purple-500/20"
+                    : "text-muted-foreground hover:text-foreground hover:bg-background/80",
                 )}
               >
-                Classwork
+                <BookOpen className="h-3.5 w-3.5" />
+                <span>Classwork</span>
               </button>
 
               <button
                 onClick={() => setActiveTab("chat")}
                 className={cn(
-                  "px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap flex items-center gap-1.5",
+                  "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap cursor-pointer",
                   activeTab === "chat"
-                    ? "bg-purple-600 text-white shadow-md shadow-purple-500/10"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted/60",
+                    ? "bg-purple-600 text-white shadow-sm shadow-purple-500/20"
+                    : "text-muted-foreground hover:text-foreground hover:bg-background/80",
                 )}
               >
                 <MessageCircle className="h-3.5 w-3.5" />
                 <span>Class Chat</span>
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse ml-0.5" />
               </button>
 
               <button
                 onClick={() => setActiveTab("people")}
                 className={cn(
-                  "px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap",
+                  "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap cursor-pointer",
                   activeTab === "people"
-                    ? "bg-purple-600 text-white shadow-md shadow-purple-500/10"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted/60",
+                    ? "bg-purple-600 text-white shadow-sm shadow-purple-500/20"
+                    : "text-muted-foreground hover:text-foreground hover:bg-background/80",
                 )}
               >
-                People
+                <UsersRound className="h-3.5 w-3.5" />
+                <span>People</span>
               </button>
 
               {isStaff && (
                 <button
                   onClick={() => setActiveTab("grades")}
                   className={cn(
-                    "px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap",
+                    "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap cursor-pointer",
                     activeTab === "grades"
-                      ? "bg-purple-600 text-white shadow-md shadow-purple-500/10"
-                      : "text-muted-foreground hover:text-foreground hover:bg-muted/60",
+                      ? "bg-purple-600 text-white shadow-sm shadow-purple-500/20"
+                      : "text-muted-foreground hover:text-foreground hover:bg-background/80",
                   )}
                 >
-                  Grades
+                  <Award className="h-3.5 w-3.5" />
+                  <span>Grades</span>
                 </button>
               )}
             </div>
