@@ -27,6 +27,7 @@ import {
   TrendingUp,
   Users,
   FileSpreadsheet,
+  Wand2,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -265,6 +266,24 @@ const TOOLS = [
     lead: "Authentic Cambridge Papers 2 & 4 Section A practice",
     body: "Interactive Table 1.1 data interpretation, Own Figure Rule (OFR) calculations, and SVG curve shift diagrams graded strictly against official 9708 mark schemes.",
     href: "/data-response",
+  },
+  {
+    icon: Wand2,
+    tile: "bg-purple-600",
+    badge: "AI Models",
+    title: "Sample Essay Generator",
+    lead: "Examiner-standard model essays with SVG diagrams",
+    body: "Generate full-mark Cambridge 9708 model answers tailored to any 8m, 12m, or 20m question, featuring verified diagrams, AO mark allocations, and justified evaluative conclusions.",
+    href: "/essay-generator",
+  },
+  {
+    icon: GraduationCap,
+    tile: "bg-indigo-600",
+    badge: "Structure Guide",
+    title: "How to Write an Essay",
+    lead: "Class-taught response structures for 8, 12 & 20 marks",
+    body: "Master the exact step-by-step layout rewarded by Cambridge examiners: knowledge setup, multi-step analysis chains, and balanced evaluation.",
+    href: "/response-structure",
   },
   {
     icon: BookOpen,

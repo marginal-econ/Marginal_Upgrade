@@ -33,6 +33,7 @@ import {
   Trophy,
   ArrowRight,
   FileSpreadsheet,
+  Wand2,
 } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState, useRef } from "react";
@@ -102,6 +103,8 @@ const NAV_GROUPS: NavGroup[] = [
       { to: "/grade", label: "Grade Unlimited Essays", icon: PenLine },
       { to: "/mcq-live", label: "MCQ Past Papers", icon: ListChecks, badge: "P1 & P3" },
       { to: "/data-response", label: "Data Response Papers", icon: FileSpreadsheet, badge: "P2 & P4" },
+      { to: "/essay-generator", label: "Sample Essay Generator", icon: Wand2, badge: "AI Models" },
+      { to: "/response-structure", label: "How to Write an Essay", icon: GraduationCap, badge: "Guide" },
       {
         to: "/live-examiner",
         label: "Live Examiner",
@@ -159,6 +162,8 @@ const TEACHER_NAV_GROUPS: NavGroup[] = [
       { to: "/grade", label: "Grade Essays", icon: PenLine },
       { to: "/mcq-live", label: "MCQ Past Papers", icon: ListChecks, badge: "P1 & P3" },
       { to: "/data-response", label: "Data Response Papers", icon: FileSpreadsheet, badge: "P2 & P4" },
+      { to: "/essay-generator", label: "Sample Essay Generator", icon: Wand2, badge: "AI Models" },
+      { to: "/response-structure", label: "How to Write an Essay", icon: GraduationCap, badge: "Guide" },
       {
         to: "/live-examiner",
         label: "Live Examiner",

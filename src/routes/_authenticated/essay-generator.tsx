@@ -40,13 +40,13 @@ import { cn } from "@/lib/utils";
 export const Route = createFileRoute("/_authenticated/essay-generator")({
   head: () => ({
     meta: [
-      { title: "Perfect essay generator — Cambridge 9708 Economics" },
+      { title: "Sample Essay Generator — Cambridge 9708 Economics" },
       {
         name: "description",
         content:
-          "Generate a full-mark Cambridge AS & A Level Economics essay, structured exactly as taught in class — knowledge, analysis with application, evaluation and a reasoned conclusion — with correct diagrams and an AO mark breakdown.",
+          "Generate full-mark Cambridge AS & A Level Economics model essays, structured exactly as taught in class — knowledge, analysis with application, evaluation and a reasoned conclusion — with correct diagrams and an AO mark breakdown.",
       },
-      { property: "og:title", content: "Perfect essay generator — Cambridge 9708 Economics" },
+      { property: "og:title", content: "Sample Essay Generator — Cambridge 9708 Economics" },
       {
         property: "og:description",
         content:
@@ -208,8 +208,8 @@ function EssayGeneratorPage() {
   return (
     <>
       <PageHeader
-        title="Perfect essay generator"
-        description="An examiner-standard model answer, structured exactly as the mark scheme rewards, capped at 650 words to match real exam-script length, with the correct diagrams inserted and an AO breakdown."
+        title="Sample Essay Generator"
+        description="Generate examiner-standard model answers structured exactly as Cambridge mark schemes reward, capped at realistic exam length, with verified SVG diagrams and AO mark breakdowns."
       />
 
       <div className="grid gap-0 lg:grid-cols-[380px_1fr]">

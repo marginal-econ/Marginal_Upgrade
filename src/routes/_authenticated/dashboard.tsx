@@ -28,6 +28,7 @@ import {
   ClipboardCheck,
   UsersRound,
   FileSpreadsheet,
+  Wand2,
 } from "lucide-react";
 import { useMemo, useState, useEffect } from "react";
 
@@ -693,6 +694,20 @@ export function DashboardPage() {
               title="Data Response Papers"
               badge="Papers 2 & 4 Section A"
               description="Authentic case studies, Table 1.1 interpretation, and strict mark scheme grading for Paper 2 & 4 Section A."
+            />
+            <QuickActionCard
+              to="/essay-generator"
+              icon={Wand2}
+              title="Sample Essay Generator"
+              badge="Full-Mark Models"
+              description="Examiner-standard Cambridge model essays with embedded diagrams, AO mark allocations, and evaluative judgements."
+            />
+            <QuickActionCard
+              to="/response-structure"
+              icon={GraduationCap}
+              title="How to Write an Essay"
+              badge="8, 12 & 20 Marks"
+              description="Cambridge class-taught layout for 8m, 12m, and 20m essays with chains of analysis and justified evaluation."
             />
             <QuickActionCard
               to="/definitions"

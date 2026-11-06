@@ -31,6 +31,7 @@ import {
   Users,
   X,
   Zap,
+  Wand2,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -735,12 +736,23 @@ function GradePage() {
                   <Label htmlFor="question" className="text-xs sm:text-sm font-semibold text-foreground">
                     Exam question
                   </Label>
-                  <Link
-                    to="/response-structure"
-                    className="text-[11px] text-muted-foreground hover:text-foreground underline underline-offset-2 transition-colors shrink-0"
-                  >
-                    Structure guide
-                  </Link>
+                  <div className="flex items-center gap-2">
+                    <Link
+                      to="/response-structure"
+                      className="text-[11px] text-muted-foreground hover:text-foreground underline underline-offset-2 transition-colors shrink-0 flex items-center gap-1"
+                    >
+                      <GraduationCap className="size-3" />
+                      How to write an essay
+                    </Link>
+                    <span className="text-muted-foreground/40">·</span>
+                    <Link
+                      to="/essay-generator"
+                      className="text-[11px] text-purple-600 dark:text-purple-400 hover:underline transition-colors shrink-0 flex items-center gap-1"
+                    >
+                      <Wand2 className="size-3" />
+                      Sample model essay
+                    </Link>
+                  </div>
                 </div>
                 <Textarea
                   id="question"

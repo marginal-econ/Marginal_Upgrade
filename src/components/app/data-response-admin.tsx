@@ -207,22 +207,6 @@ export function DataResponseStudio() {
     },
   });
 
-  // Quick Action: Pre-fill realistic sample answers for standardisation testing
-  const handleFillSampleAnswers = () => {
-    if (!currentPaper) return;
-    if (currentPaper.sampleAnswers) {
-      setAnswers({ ...currentPaper.sampleAnswers });
-      toast.info("Pre-filled realistic sample answers from Cambridge standardisation.");
-    } else {
-      const sample: Record<string, string> = {};
-      currentPaper.questions.forEach((q) => {
-        sample[q.number] = `According to the extract, this situation relates to ${currentPaper.extract.title}. Evidence indicates clear transmission mechanisms and relevant economic application.`;
-      });
-      setAnswers(sample);
-      toast.info("Generated sample candidate text for all questions.");
-    }
-  };
-
   // Quick Action: Copy extract snippet to current question answer
   const handleInsertExtractQuote = (paragraphText: string) => {
     if (!currentQuestion) return;
@@ -615,18 +599,8 @@ export function DataResponseStudio() {
                   </Select>
                 </div>
 
-                {/* Standardisation Test Controls & Submission Trigger */}
+                {/* Test Controls & Submission Trigger */}
                 <div className="flex items-center gap-2 shrink-0">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleFillSampleAnswers}
-                    className="text-xs gap-1.5 border-dashed h-9"
-                    title="Fills realistic student responses from standardisation scripts for immediate examiner testing"
-                  >
-                    <Sparkles className="h-3.5 w-3.5 text-amber-500" />
-                    Fill Sample Answers
-                  </Button>
                   <Button
                     variant="outline"
                     size="sm"
