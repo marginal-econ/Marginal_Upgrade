@@ -26,6 +26,7 @@ import {
   Target,
   TrendingUp,
   Users,
+  FileSpreadsheet,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -255,6 +256,15 @@ const TOOLS = [
     lead: "Authentic timed Paper 1 & 3 exams with 12h resume",
     body: "Real Cambridge past papers with official mark schemes. Features interactive question flagging, jump matrix, distractor reasoning, and automatic 12-hour draft save & resume.",
     href: "/mcq-live",
+  },
+  {
+    icon: FileSpreadsheet,
+    tile: "bg-emerald-600",
+    badge: "Section A Studio",
+    title: "Data Response & Case Studies",
+    lead: "Authentic Cambridge Papers 2 & 4 Section A practice",
+    body: "Interactive Table 1.1 data interpretation, Own Figure Rule (OFR) calculations, and SVG curve shift diagrams graded strictly against official 9708 mark schemes.",
+    href: "/data-response",
   },
   {
     icon: BookOpen,

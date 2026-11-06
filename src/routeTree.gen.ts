@@ -27,6 +27,7 @@ import { Route as AuthenticatedClassesRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedCommandWordsRouteImport } from './routes/_authenticated/command-words'
 import { Route as AuthenticatedContentAdminRouteImport } from './routes/_authenticated/content-admin'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as AuthenticatedDataResponseRouteImport } from './routes/_authenticated/data-response'
 import { Route as AuthenticatedDefinitionsRouteImport } from './routes/_authenticated/definitions'
 import { Route as AuthenticatedDiagramLabRouteImport } from './routes/_authenticated/diagram-lab'
 import { Route as AuthenticatedDiagramsRouteImport } from './routes/_authenticated/diagrams'
@@ -144,6 +145,12 @@ const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedDataResponseRoute =
+  AuthenticatedDataResponseRouteImport.update({
+    id: '/data-response',
+    path: '/data-response',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedDefinitionsRoute =
   AuthenticatedDefinitionsRouteImport.update({
     id: '/definitions',
@@ -297,6 +304,7 @@ export interface FileRoutesByFullPath {
   '/command-words': typeof AuthenticatedCommandWordsRoute
   '/content-admin': typeof AuthenticatedContentAdminRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/data-response': typeof AuthenticatedDataResponseRoute
   '/definitions': typeof AuthenticatedDefinitionsRoute
   '/diagram-lab': typeof AuthenticatedDiagramLabRoute
   '/diagrams': typeof AuthenticatedDiagramsRoute
@@ -340,6 +348,7 @@ export interface FileRoutesByTo {
   '/command-words': typeof AuthenticatedCommandWordsRoute
   '/content-admin': typeof AuthenticatedContentAdminRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/data-response': typeof AuthenticatedDataResponseRoute
   '/definitions': typeof AuthenticatedDefinitionsRoute
   '/diagram-lab': typeof AuthenticatedDiagramLabRoute
   '/diagrams': typeof AuthenticatedDiagramsRoute
@@ -385,6 +394,7 @@ export interface FileRoutesById {
   '/_authenticated/command-words': typeof AuthenticatedCommandWordsRoute
   '/_authenticated/content-admin': typeof AuthenticatedContentAdminRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
+  '/_authenticated/data-response': typeof AuthenticatedDataResponseRoute
   '/_authenticated/definitions': typeof AuthenticatedDefinitionsRoute
   '/_authenticated/diagram-lab': typeof AuthenticatedDiagramLabRoute
   '/_authenticated/diagrams': typeof AuthenticatedDiagramsRoute
@@ -430,6 +440,7 @@ export interface FileRouteTypes {
     | '/command-words'
     | '/content-admin'
     | '/dashboard'
+    | '/data-response'
     | '/definitions'
     | '/diagram-lab'
     | '/diagrams'
@@ -473,6 +484,7 @@ export interface FileRouteTypes {
     | '/command-words'
     | '/content-admin'
     | '/dashboard'
+    | '/data-response'
     | '/definitions'
     | '/diagram-lab'
     | '/diagrams'
@@ -517,6 +529,7 @@ export interface FileRouteTypes {
     | '/_authenticated/command-words'
     | '/_authenticated/content-admin'
     | '/_authenticated/dashboard'
+    | '/_authenticated/data-response'
     | '/_authenticated/definitions'
     | '/_authenticated/diagram-lab'
     | '/_authenticated/diagrams'
@@ -683,6 +696,13 @@ declare module '@tanstack/react-router' {
       path: '/dashboard'
       fullPath: '/dashboard'
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/data-response': {
+      id: '/_authenticated/data-response'
+      path: '/data-response'
+      fullPath: '/data-response'
+      preLoaderRoute: typeof AuthenticatedDataResponseRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/definitions': {
@@ -864,6 +884,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedCommandWordsRoute: typeof AuthenticatedCommandWordsRoute
   AuthenticatedContentAdminRoute: typeof AuthenticatedContentAdminRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
+  AuthenticatedDataResponseRoute: typeof AuthenticatedDataResponseRoute
   AuthenticatedDefinitionsRoute: typeof AuthenticatedDefinitionsRoute
   AuthenticatedDiagramLabRoute: typeof AuthenticatedDiagramLabRoute
   AuthenticatedDiagramsRoute: typeof AuthenticatedDiagramsRoute
@@ -898,6 +919,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedCommandWordsRoute: AuthenticatedCommandWordsRoute,
   AuthenticatedContentAdminRoute: AuthenticatedContentAdminRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
+  AuthenticatedDataResponseRoute: AuthenticatedDataResponseRoute,
   AuthenticatedDefinitionsRoute: AuthenticatedDefinitionsRoute,
   AuthenticatedDiagramLabRoute: AuthenticatedDiagramLabRoute,
   AuthenticatedDiagramsRoute: AuthenticatedDiagramsRoute,

@@ -32,6 +32,7 @@ import {
   Send,
   Trophy,
   ArrowRight,
+  FileSpreadsheet,
 } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState, useRef } from "react";
@@ -100,6 +101,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { to: "/grade", label: "Grade Unlimited Essays", icon: PenLine },
       { to: "/mcq-live", label: "MCQ Past Papers", icon: ListChecks, badge: "P1 & P3" },
+      { to: "/data-response", label: "Data Response Papers", icon: FileSpreadsheet, badge: "P2 & P4" },
       {
         to: "/live-examiner",
         label: "Live Examiner",
@@ -156,6 +158,7 @@ const TEACHER_NAV_GROUPS: NavGroup[] = [
     items: [
       { to: "/grade", label: "Grade Essays", icon: PenLine },
       { to: "/mcq-live", label: "MCQ Past Papers", icon: ListChecks, badge: "P1 & P3" },
+      { to: "/data-response", label: "Data Response Papers", icon: FileSpreadsheet, badge: "P2 & P4" },
       {
         to: "/live-examiner",
         label: "Live Examiner",

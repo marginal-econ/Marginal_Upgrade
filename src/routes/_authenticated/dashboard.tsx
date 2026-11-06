@@ -27,6 +27,7 @@ import {
   ChevronUp,
   ClipboardCheck,
   UsersRound,
+  FileSpreadsheet,
 } from "lucide-react";
 import { useMemo, useState, useEffect } from "react";
 
@@ -685,6 +686,13 @@ export function DashboardPage() {
               title="MCQ Past Papers"
               badge="Papers 1 & 3"
               description="Real Cambridge past papers with interactive jump matrix, timer, and AI mark-scheme explanations."
+            />
+            <QuickActionCard
+              to="/data-response"
+              icon={FileSpreadsheet}
+              title="Data Response Papers"
+              badge="Papers 2 & 4 Section A"
+              description="Authentic case studies, Table 1.1 interpretation, and strict mark scheme grading for Paper 2 & 4 Section A."
             />
             <QuickActionCard
               to="/definitions"
