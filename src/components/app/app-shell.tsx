@@ -606,7 +606,7 @@ export function AppShell({
       {/* ── Desktop Sidebar: Sticky, fixed-height, perfectly pinned ── */}
       <aside
         className={cn(
-          "sticky top-0 h-screen shrink-0 flex-col border-r border-sidebar-border bg-sidebar py-3 transition-[width,padding] duration-300 ease-out hidden md:flex z-30 select-none",
+          "sticky top-0 h-screen h-[100dvh] max-h-[100dvh] shrink-0 flex-col border-r border-sidebar-border bg-sidebar py-3 transition-[width,padding] duration-300 ease-out hidden lg:flex z-30 select-none",
           sidebarCollapsed ? "w-[4.5rem] px-2" : "w-64 px-3",
         )}
       >
@@ -914,7 +914,7 @@ export function AppShell({
 
       {/* ── Main Content & Mobile Header ── */}
       <div className="flex min-w-0 flex-1 flex-col overflow-x-hidden">
-        <header className="flex items-center justify-between border-b border-border bg-card/80 px-4 py-2.5 backdrop-blur-sm md:hidden sticky top-0 z-40 w-full max-w-full">
+        <header className="flex items-center justify-between border-b border-border bg-card/80 px-4 py-2.5 backdrop-blur-sm lg:hidden sticky top-0 z-40 w-full max-w-full">
           <div className="flex items-center gap-2.5">
             <Sheet open={mobileDrawerOpen} onOpenChange={setMobileDrawerOpen}>
               <SheetTrigger asChild>
@@ -1125,7 +1125,7 @@ export function AppShell({
         </header>
 
         {/* ── Desktop Top Header Bar: Clean, sleek utility bar pinned on top ── */}
-        <header className="hidden md:flex items-center justify-between border-b border-border/70 bg-card/70 px-6 py-2.5 backdrop-blur-md sticky top-0 z-30 w-full shrink-0">
+        <header className="hidden lg:flex items-center justify-between border-b border-border/70 bg-card/70 px-6 py-2.5 backdrop-blur-md sticky top-0 z-30 w-full shrink-0">
           <div className="flex items-center gap-2.5 min-w-0">
             {currentTutorial ? (
               <div className="flex items-center gap-2.5 min-w-0">

@@ -1427,7 +1427,7 @@ function fillMissingQuestionPages(
           </div>
         </div>
       ) : (
-        <div className="flex flex-col h-[calc(100dvh-3.5rem)] md:h-[100dvh] overflow-hidden bg-background">
+        <div className="flex flex-col h-[calc(100dvh-3.5rem)] lg:h-[100dvh] overflow-hidden bg-background">
           <div className="shrink-0 z-30 flex items-center justify-between gap-2 border-b border-border bg-background/95 px-3 py-2.5 backdrop-blur md:px-6">
             <div className="flex items-center gap-2 min-w-0">
               <Button size="sm" variant="ghost" onClick={leavePractice} className="h-8 px-2 text-xs gap-1 shrink-0">
