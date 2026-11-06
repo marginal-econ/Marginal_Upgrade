@@ -1,0 +1,216 @@
+import { createServerFn } from "@tanstack/react-start";
+import { z } from "zod";
+import { requireSupabaseAuth } from "@/integrations/backend/auth-middleware";
+import { supabaseAdmin } from "@/integrations/backend/client.server";
+
+import type { DataResponsePaper, DataResponseSubmissionResult } from "./types";
+import { PRELOADED_DATA_RESPONSE_PAPERS } from "./preloaded-papers";
+import { parseDataResponseFromTexts } from "./parser.server";
+import { gradeFullDataResponsePaper } from "./marking-engine.server";
+
+const STORAGE_BUCKET = "learning-records";
+const PAPERS_PREFIX = "data_response/papers";
+const SUBMISSIONS_PREFIX = "data_response/submissions";
+
+// Helper: Get Supabase Admin client
+function getAdmin() {
+  return supabaseAdmin as any;
+}
+
+// 1. List all available Data Response Papers (Pre-loaded + Uploaded custom)
+export const listDataResponsePapers = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async () => {
+    const admin = getAdmin();
+    const customPapers: DataResponsePaper[] = [];
+
+    try {
+      const { data: files, error } = await admin.storage
+        .from(STORAGE_BUCKET)
+        .list(PAPERS_PREFIX, { limit: 100 });
+
+      if (!error && files && files.length > 0) {
+        for (const file of files) {
+          if (!file.name.endsWith(".json")) continue;
+          try {
+            const { data: fileBlob } = await admin.storage
+              .from(STORAGE_BUCKET)
+              .download(`${PAPERS_PREFIX}/${file.name}`);
+            if (fileBlob) {
+              const text = await fileBlob.text();
+              const paper = JSON.parse(text) as DataResponsePaper;
+              customPapers.push(paper);
+            }
+          } catch (e) {
+            console.warn(`Failed to read paper file ${file.name}:`, e);
+          }
+        }
+      }
+    } catch (err) {
+      console.warn("Could not list custom papers from storage:", err);
+    }
+
+    // Merge custom papers with built-in official preloaded papers
+    return {
+      papers: [...PRELOADED_DATA_RESPONSE_PAPERS, ...customPapers],
+    };
+  });
+
+// 2. Get a single Data Response Paper by ID
+export const getDataResponsePaper = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .validator((input: unknown) => z.object({ paperId: z.string() }).parse(input))
+  .handler(async ({ data }) => {
+    // 1. Check preloaded
+    const foundPreloaded = PRELOADED_DATA_RESPONSE_PAPERS.find((p) => p.id === data.paperId);
+    if (foundPreloaded) return { paper: foundPreloaded };
+
+    // 2. Check storage
+    const admin = getAdmin();
+    try {
+      const { data: fileBlob, error } = await admin.storage
+        .from(STORAGE_BUCKET)
+        .download(`${PAPERS_PREFIX}/${data.paperId}.json`);
+
+      if (!error && fileBlob) {
+        const text = await fileBlob.text();
+        const paper = JSON.parse(text) as DataResponsePaper;
+        return { paper };
+      }
+    } catch (err) {
+      console.warn(`Error fetching paper ${data.paperId}:`, err);
+    }
+
+    throw new Error(`Data response paper with ID "${data.paperId}" not found.`);
+  });
+
+// 3. Parse QP and MS raw texts into structured Data Response Paper
+export const parseDataResponseUpload = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((input: unknown) =>
+    z
+      .object({
+        qpText: z.string().min(50, "Question Paper text must contain at least 50 characters."),
+        msText: z.string().min(50, "Mark Scheme text must contain at least 50 characters."),
+        defaultLevel: z.enum(["as", "a2"]).default("as"),
+        defaultSubject: z.enum(["9708", "9609"]).default("9708"),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data }) => {
+    const parsedPaper = await parseDataResponseFromTexts({
+      qpText: data.qpText,
+      msText: data.msText,
+      defaultLevel: data.defaultLevel,
+      defaultSubject: data.defaultSubject,
+    });
+
+    return { paper: parsedPaper };
+  });
+
+// 4. Save a Data Response Paper to storage repository
+export const saveDataResponsePaper = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((input: unknown) => z.object({ paper: z.any() }).parse(input))
+  .handler(async ({ data }) => {
+    const admin = getAdmin();
+    const paper = data.paper as DataResponsePaper;
+    if (!paper || !paper.id || !paper.title) {
+      throw new Error("Invalid paper payload provided.");
+    }
+
+    const jsonString = JSON.stringify(paper, null, 2);
+    const filePath = `${PAPERS_PREFIX}/${paper.id}.json`;
+
+    const { error } = await admin.storage
+      .from(STORAGE_BUCKET)
+      .upload(filePath, jsonString, {
+        contentType: "application/json",
+        upsert: true,
+      });
+
+    if (error) {
+      throw new Error(`Failed to save paper: ${error.message}`);
+    }
+
+    return { ok: true, paperId: paper.id };
+  });
+
+// 5. Submit candidate answers for Strict Mark Scheme Grading
+export const gradeDataResponseSubmission = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((input: unknown) =>
+    z
+      .object({
+        paperId: z.string(),
+        candidateName: z.string().optional(),
+        answers: z.record(z.string()), // questionId/number -> text
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    // 1. Fetch paper
+    let paper: DataResponsePaper | undefined = PRELOADED_DATA_RESPONSE_PAPERS.find(
+      (p) => p.id === data.paperId,
+    );
+
+    if (!paper) {
+      const admin = getAdmin();
+      const { data: fileBlob } = await admin.storage
+        .from(STORAGE_BUCKET)
+        .download(`${PAPERS_PREFIX}/${data.paperId}.json`);
+      if (fileBlob) {
+        const text = await fileBlob.text();
+        paper = JSON.parse(text) as DataResponsePaper;
+      }
+    }
+
+    if (!paper) {
+      throw new Error(`Data response paper "${data.paperId}" not found for grading.`);
+    }
+
+    // 2. Run Strict Marking Engine
+    const submissionResult = await gradeFullDataResponsePaper({
+      paper,
+      answers: data.answers,
+      candidateName: data.candidateName || "Admin Test Candidate",
+    });
+
+    // 3. Save Submission Result to storage
+    const admin = getAdmin();
+    try {
+      const subFilePath = `${SUBMISSIONS_PREFIX}/${submissionResult.id}.json`;
+      await admin.storage
+        .from(STORAGE_BUCKET)
+        .upload(subFilePath, JSON.stringify(submissionResult, null, 2), {
+          contentType: "application/json",
+          upsert: true,
+        });
+
+      // Log AI usage
+      await admin.from("ai_usage_log").insert({
+        user_id: context.userId,
+        feature: "data_response_grading",
+        model: "gemini-3.8-flash",
+        ok: true,
+      });
+    } catch (saveErr) {
+      console.warn("Could not save submission to storage:", saveErr);
+    }
+
+    return { result: submissionResult };
+  });
+
+// 6. Delete a custom Data Response Paper
+export const deleteDataResponsePaper = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((input: unknown) => z.object({ paperId: z.string() }).parse(input))
+  .handler(async ({ data }) => {
+    const admin = getAdmin();
+    const filePath = `${PAPERS_PREFIX}/${data.paperId}.json`;
+    const { error } = await admin.storage.from(STORAGE_BUCKET).remove([filePath]);
+    if (error) {
+      throw new Error(`Failed to delete paper: ${error.message}`);
+    }
+    return { ok: true };
+  });

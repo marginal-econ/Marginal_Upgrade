@@ -21,6 +21,7 @@ import {
   ExternalLink,
   Eye,
   EyeOff,
+  FileCheck2,
   GraduationCap,
   ImagePlus,
   KeyRound,
@@ -60,6 +61,7 @@ import { MessagesAdminPanel } from "@/components/app/messages-admin";
 import { PublicWaitlistPanel } from "@/components/app/public-waitlist-admin";
 import { TeacherApprovalsPanel } from "@/components/app/teacher-approvals-admin";
 import { PricingAdminPanel } from "@/components/app/pricing-admin-panel";
+import { DataResponseAdminPanel } from "@/components/app/data-response-admin";
 import {
   AccessPanel,
   ActivityOverview,
@@ -353,6 +355,16 @@ const ADMIN_SECTIONS: Record<string, AdminSectionMeta> = {
     subtitle: "Administer per-user daily essay allowances, global request quotas, and VIP token overrides.",
     icon: Coins,
   },
+  data_response: {
+    id: "data_response",
+    category: "Curriculum & Content",
+    title: "Cambridge Data Response & Case Study Studio",
+    sidebarLabel: "Data Response Studio",
+    subtitle: "Manage, upload QP & MS via OCR, practice Section A case study questions, and test strict mark scheme evaluation.",
+    icon: FileCheck2,
+    badge: "Section A",
+    badgeColor: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 font-semibold",
+  },
   showcase: {
     id: "showcase",
     category: "Curriculum & Content",
@@ -425,7 +437,7 @@ const ADMIN_CATEGORIES = [
   },
   {
     title: "Curriculum & Content",
-    items: [ADMIN_SECTIONS.showcase, ADMIN_SECTIONS.diagrams],
+    items: [ADMIN_SECTIONS.data_response, ADMIN_SECTIONS.showcase, ADMIN_SECTIONS.diagrams],
     externalLinks: [
       { label: "Knowledge Base", to: "/knowledge", icon: BookOpen, desc: "RAG Syllabus & Mark Schemes" },
       { label: "Calibration Anchors", to: "/calibration", icon: Target, desc: "Worked Exam Exemplars" },
@@ -771,6 +783,7 @@ function AdminPage() {
             {activeTab === "pricing" && <PricingAdminPanel />}
             {activeTab === "payments" && <PaymentApprovalsAdminPanel />}
             {activeTab === "coupons" && <CouponsAdminPanel />}
+            {activeTab === "data_response" && <DataResponseAdminPanel />}
             {activeTab === "showcase" && <ShowcaseAdminPanel />}
             {activeTab === "diagrams" && <DiagramsPanel />}
             {activeTab === "gemini" && (
