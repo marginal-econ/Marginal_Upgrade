@@ -6,6 +6,8 @@ import { useCallback, useState } from "react";
 import { AppShell } from "@/components/app/app-shell";
 import { OnboardingTutorial } from "@/components/app/onboarding-tutorial";
 import { PrivacyConsent } from "@/components/app/privacy-consent";
+import { FeatureTutorialProvider } from "@/components/tutorials/tutorial-context";
+import { FeatureTutorialDialog } from "@/components/tutorials/feature-tutorial-dialog";
 import { supabase } from "@/integrations/backend/client";
 import { getMe } from "@/lib/account.functions";
 import { TIER_LIMITS, type PlanTier } from "@/lib/usage-limits";
@@ -23,7 +25,10 @@ export const Route = createFileRoute("/_authenticated")({
       const { data, error } = await Promise.race([
         supabase.auth.getUser(),
         new Promise<{ data: { user: null }; error: Error }>((resolve) =>
-          setTimeout(() => resolve({ data: { user: null }, error: new Error("Auth timeout") }), 4000),
+          setTimeout(
+            () => resolve({ data: { user: null }, error: new Error("Auth timeout") }),
+            4000,
+          ),
         ),
       ]);
       if (error || !data.user) {
@@ -83,8 +88,10 @@ function AuthenticatedLayout() {
       user.id === "00296414-0221-4d5b-aa1c-04dc9366a218" ||
       user.email?.toLowerCase().trim() === "marginal.econ.ai@gmail.com",
     essaysGradedCount: 0,
-    essaysLimit: (tierLimits as any).maxEssaysPerMonth ?? (tierLimits as any).monthlyEssayLimit ?? 999999,
-    essaysRemaining: (tierLimits as any).maxEssaysPerMonth ?? (tierLimits as any).monthlyEssayLimit ?? 999999,
+    essaysLimit:
+      (tierLimits as any).maxEssaysPerMonth ?? (tierLimits as any).monthlyEssayLimit ?? 999999,
+    essaysRemaining:
+      (tierLimits as any).maxEssaysPerMonth ?? (tierLimits as any).monthlyEssayLimit ?? 999999,
     canGradeEssay: true,
     liveExaminerCredits: tierLimits.liveExaminerCredits,
     canUseLiveExaminer: tierLimits.liveExaminerCredits > 0,
@@ -99,27 +106,31 @@ function AuthenticatedLayout() {
     (user.email ? user.email.split("@")[0] : null);
 
   const resolvedRole = data?.role ?? userRole;
+  const initialOnboardingActive = Boolean(privacyResolved && data?.tutorialCompleted === false);
 
   return (
-    <AppShell
-      role={resolvedRole}
-      name={resolvedName}
-      school={data?.school || (user.user_metadata as any)?.school || null}
-      avatarUrl={data?.avatarUrl || (user.user_metadata as any)?.avatar_url || null}
-      bio={data?.bio}
-      birthday={data?.birthday}
-      userId={user.id}
-      subscription={userSub}
-    >
-      <Outlet />
-      <PrivacyConsent userId={user.id} onResolved={handlePrivacyResolved} />
-      <OnboardingTutorial
-        open={privacyResolved && data?.tutorialCompleted === false}
-        initialFullName={resolvedName || ""}
-        initialSchool={data?.school || (user.user_metadata as any)?.school || ""}
+    <FeatureTutorialProvider canAutoTrigger={!initialOnboardingActive && privacyResolved}>
+      <AppShell
         role={resolvedRole}
-        onFinished={() => {}}
-      />
-    </AppShell>
+        name={resolvedName}
+        school={data?.school || (user.user_metadata as any)?.school || null}
+        avatarUrl={data?.avatarUrl || (user.user_metadata as any)?.avatar_url || null}
+        bio={data?.bio}
+        birthday={data?.birthday}
+        userId={user.id}
+        subscription={userSub}
+      >
+        <Outlet />
+        <PrivacyConsent userId={user.id} onResolved={handlePrivacyResolved} />
+        <OnboardingTutorial
+          open={initialOnboardingActive}
+          initialFullName={resolvedName || ""}
+          initialSchool={data?.school || (user.user_metadata as any)?.school || ""}
+          role={resolvedRole}
+          onFinished={() => {}}
+        />
+        <FeatureTutorialDialog />
+      </AppShell>
+    </FeatureTutorialProvider>
   );
 }

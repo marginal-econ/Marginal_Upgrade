@@ -49,11 +49,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import {
-  UserAvatar,
-  ACADEMIC_AVATAR_PRESETS,
-  getPresetById,
-} from "@/components/app/user-avatar";
+import { useFeatureTutorial } from "@/components/tutorials/tutorial-context";
+import { FEATURE_TUTORIALS } from "@/lib/tutorials-data";
+import { UserAvatar, ACADEMIC_AVATAR_PRESETS, getPresetById } from "@/components/app/user-avatar";
 import {
   getMe,
   updateProfile,
@@ -123,6 +121,19 @@ export function SettingsPage() {
   const [timedModeDefault, setTimedModeDefault] = useState(true);
   const [showDiagramLabels, setShowDiagramLabels] = useState(true);
 
+  const {
+    openTutorial,
+    seenTutorials,
+    autoTutorialsEnabled,
+    toggleAutoTutorials,
+    resetSeenStatus,
+  } = useFeatureTutorial();
+
+  const totalTutorialsCount = FEATURE_TUTORIALS.length;
+  const completedTutorialsCount = useMemo(() => {
+    return Object.keys(seenTutorials).filter((k) => seenTutorials[k]).length;
+  }, [seenTutorials]);
+
   // Initialize from server preferences or fallback to localStorage
   const [prefsSeeded, setPrefsSeeded] = useState(false);
   useEffect(() => {
@@ -148,8 +159,10 @@ export function SettingsPage() {
         if (parsed.targetGrade) setTargetGrade(parsed.targetGrade);
         if (parsed.currencyContext) setCurrencyContext(parsed.currencyContext);
         if (parsed.feedbackDepth) setFeedbackDepth(parsed.feedbackDepth);
-        if (typeof parsed.timedModeDefault === "boolean") setTimedModeDefault(parsed.timedModeDefault);
-        if (typeof parsed.showDiagramLabels === "boolean") setShowDiagramLabels(parsed.showDiagramLabels);
+        if (typeof parsed.timedModeDefault === "boolean")
+          setTimedModeDefault(parsed.timedModeDefault);
+        if (typeof parsed.showDiagramLabels === "boolean")
+          setShowDiagramLabels(parsed.showDiagramLabels);
       }
     } catch {
       /* ignore */
@@ -207,7 +220,8 @@ export function SettingsPage() {
     }) => {
       const payload = {
         examSeries: overrides?.examSeries ?? examSeries,
-        targetLevel: (overrides?.targetLevel ?? targetLevel) as "as_level" | "a2_level" | "full_a_level",
+        targetLevel: (overrides?.targetLevel ?? targetLevel) as
+          "as_level" | "a2_level" | "full_a_level",
         targetGrade: (overrides?.targetGrade ?? targetGrade) as "A*" | "A" | "B" | "C",
         currencyContext: overrides?.currencyContext ?? currencyContext,
         feedbackDepth: overrides?.feedbackDepth ?? feedbackDepth,
@@ -333,7 +347,10 @@ export function SettingsPage() {
 
   const candidateRefNumber = useMemo(() => {
     const uid = me.data?.userId || "candidate";
-    const hash = uid.replace(/[^a-zA-Z0-9]/g, "").slice(0, 6).toUpperCase();
+    const hash = uid
+      .replace(/[^a-zA-Z0-9]/g, "")
+      .slice(0, 6)
+      .toUpperCase();
     return `9708-${hash || "7402"}`;
   }, [me.data?.userId]);
 
@@ -381,7 +398,9 @@ export function SettingsPage() {
         {me.isLoading ? (
           <div className="flex flex-col items-center justify-center py-24 space-y-3">
             <Loader2 className="size-8 animate-spin text-primary" />
-            <p className="text-xs text-muted-foreground font-medium">Loading account settings &amp; dossier...</p>
+            <p className="text-xs text-muted-foreground font-medium">
+              Loading account settings &amp; dossier...
+            </p>
           </div>
         ) : (
           <div className="grid gap-6 lg:grid-cols-12">
@@ -416,7 +435,8 @@ export function SettingsPage() {
                         )}
                       </h2>
                       <p className="text-xs text-muted-foreground">
-                        Your registered academic identity and student dossier for Cambridge 9708 evaluations.
+                        Your registered academic identity and student dossier for Cambridge 9708
+                        evaluations.
                       </p>
                     </div>
                   </div>
@@ -433,7 +453,8 @@ export function SettingsPage() {
                   <div className="rounded-xl border border-border/70 bg-muted/20 p-4 space-y-3">
                     <div className="flex items-center justify-between">
                       <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                        <Camera className="size-3.5 text-primary" /> Profile Picture &amp; Academic Avatar
+                        <Camera className="size-3.5 text-primary" /> Profile Picture &amp; Academic
+                        Avatar
                       </Label>
                       <div className="flex items-center gap-1.5">
                         <Button
@@ -471,11 +492,15 @@ export function SettingsPage() {
                       <div className="min-w-0 flex-1">
                         <p className="text-xs font-semibold text-foreground">
                           {avatarUrl
-                            ? getPresetById(avatarUrl)?.name || (avatarUrl.startsWith("data:") ? "Custom Uploaded Photo" : "Custom Web Image")
+                            ? getPresetById(avatarUrl)?.name ||
+                              (avatarUrl.startsWith("data:")
+                                ? "Custom Uploaded Photo"
+                                : "Custom Web Image")
                             : "Standard Candidate Initials"}
                         </p>
                         <p className="text-[11px] text-muted-foreground leading-relaxed mt-0.5">
-                          Choose an official Cambridge academic persona, upload your photo, or paste a link.
+                          Choose an official Cambridge academic persona, upload your photo, or paste
+                          a link.
                         </p>
                       </div>
                     </div>
@@ -485,7 +510,8 @@ export function SettingsPage() {
                       <div className="pt-3 border-t border-border/60 space-y-3.5 animate-in fade-in-50 duration-200">
                         <div>
                           <p className="text-[11px] font-bold text-foreground mb-2 flex items-center gap-1">
-                            <Sparkles className="size-3 text-primary" /> Curated Cambridge Academic Presets
+                            <Sparkles className="size-3 text-primary" /> Curated Cambridge Academic
+                            Presets
                           </p>
                           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                             {ACADEMIC_AVATAR_PRESETS.map((preset) => {
@@ -549,7 +575,8 @@ export function SettingsPage() {
                             className="h-8 text-xs font-medium"
                             onClick={() => fileInputRef.current?.click()}
                           >
-                            <Upload className="size-3.5 mr-1.5 text-primary" /> Upload Photo File (Max 2MB)
+                            <Upload className="size-3.5 mr-1.5 text-primary" /> Upload Photo File
+                            (Max 2MB)
                           </Button>
 
                           <Button
@@ -627,7 +654,10 @@ export function SettingsPage() {
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div className="space-y-1.5">
                       <div className="flex items-center justify-between">
-                        <Label htmlFor="settings-birthday" className="text-xs font-semibold flex items-center gap-1.5">
+                        <Label
+                          htmlFor="settings-birthday"
+                          className="text-xs font-semibold flex items-center gap-1.5"
+                        >
                           <Calendar className="size-3 text-primary" /> Date of Birth
                         </Label>
                         {calculatedAge && (
@@ -644,7 +674,9 @@ export function SettingsPage() {
                         className="h-9 text-xs"
                       />
                       <p className="text-[10.5px] text-muted-foreground">
-                        {formattedBirthday ? `Recorded as: ${formattedBirthday}` : "Used to calibrate candidate cohort analytics."}
+                        {formattedBirthday
+                          ? `Recorded as: ${formattedBirthday}`
+                          : "Used to calibrate candidate cohort analytics."}
                       </p>
                     </div>
 
@@ -670,10 +702,19 @@ export function SettingsPage() {
                   {/* Bio & Academic Statement */}
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <Label htmlFor="settings-bio" className="text-xs font-semibold flex items-center gap-1.5">
-                        <PenLine className="size-3 text-primary" /> Candidate Personal Statement &amp; Bio
+                      <Label
+                        htmlFor="settings-bio"
+                        className="text-xs font-semibold flex items-center gap-1.5"
+                      >
+                        <PenLine className="size-3 text-primary" /> Candidate Personal Statement
+                        &amp; Bio
                       </Label>
-                      <span className={cn("text-[10px] font-mono", bio.length > 450 ? "text-amber-500 font-bold" : "text-muted-foreground")}>
+                      <span
+                        className={cn(
+                          "text-[10px] font-mono",
+                          bio.length > 450 ? "text-amber-500 font-bold" : "text-muted-foreground",
+                        )}
+                      >
                         {bio.length} / 500
                       </span>
                     </div>
@@ -709,14 +750,19 @@ export function SettingsPage() {
                   <div className="pt-2 border-t border-border/60">
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-medium text-muted-foreground">
-                        Candidate Reference: <strong className="font-mono text-foreground">{candidateRefNumber}</strong>
+                        Candidate Reference:{" "}
+                        <strong className="font-mono text-foreground">{candidateRefNumber}</strong>
                       </span>
                       <button
                         type="button"
                         onClick={copyUserId}
                         className="text-[11px] font-semibold text-primary hover:underline inline-flex items-center gap-1 cursor-pointer"
                       >
-                        {copiedId ? <Check className="size-3 text-emerald-500" /> : <Copy className="size-3" />}
+                        {copiedId ? (
+                          <Check className="size-3 text-emerald-500" />
+                        ) : (
+                          <Copy className="size-3" />
+                        )}
                         {copiedId ? "Copied ID" : "Copy Account UUID"}
                       </button>
                     </div>
@@ -726,7 +772,12 @@ export function SettingsPage() {
                     <span className="text-[11px] text-muted-foreground">
                       Updates appear across your Cambridge Dossier, essay reports, and classrooms.
                     </span>
-                    <Button type="submit" size="sm" disabled={profileMutation.isPending} className="h-9 px-4 text-xs font-bold shadow-sm">
+                    <Button
+                      type="submit"
+                      size="sm"
+                      disabled={profileMutation.isPending}
+                      className="h-9 px-4 text-xs font-bold shadow-sm"
+                    >
                       {profileMutation.isPending ? (
                         <>
                           <Loader2 className="size-3.5 animate-spin mr-1.5" /> Saving...
@@ -746,13 +797,18 @@ export function SettingsPage() {
                 <div className="flex items-center justify-between border-b border-border/80 pb-4">
                   <div className="space-y-0.5">
                     <h2 className="text-sm sm:text-base font-bold text-foreground flex items-center gap-2">
-                      <GraduationCap className="size-4 text-primary" /> Cambridge 9708 Academic Profile
+                      <GraduationCap className="size-4 text-primary" /> Cambridge 9708 Academic
+                      Profile
                     </h2>
                     <p className="text-xs text-muted-foreground">
-                      Tailor feedback, exemplar comparisons, and question suggestions to your syllabus track.
+                      Tailor feedback, exemplar comparisons, and question suggestions to your
+                      syllabus track.
                     </p>
                   </div>
-                  <Badge variant="outline" className="border-primary/30 bg-primary/10 text-primary text-[10px] font-semibold">
+                  <Badge
+                    variant="outline"
+                    className="border-primary/30 bg-primary/10 text-primary text-[10px] font-semibold"
+                  >
                     9708 Syllabus Grounded
                   </Badge>
                 </div>
@@ -760,7 +816,9 @@ export function SettingsPage() {
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-1.5 sm:col-span-2">
                     <div className="flex items-center justify-between">
-                      <Label className="text-xs font-semibold">Examination Target Series &amp; Thresholds</Label>
+                      <Label className="text-xs font-semibold">
+                        Examination Target Series &amp; Thresholds
+                      </Label>
                       <span className="text-[10px] text-muted-foreground font-medium">
                         Calibrates predicted marks &amp; grades
                       </span>
@@ -778,7 +836,9 @@ export function SettingsPage() {
                       </SelectContent>
                     </Select>
                     <p className="text-[11px] text-muted-foreground">
-                      Marginal applies official Cambridge 9708 grade thresholds for your chosen series. If left as default, the multi-year all-series average (A* 68%, A 60%, B 52%, C 46%) is used across all papers.
+                      Marginal applies official Cambridge 9708 grade thresholds for your chosen
+                      series. If left as default, the multi-year all-series average (A* 68%, A 60%,
+                      B 52%, C 46%) is used across all papers.
                     </p>
                   </div>
 
@@ -789,9 +849,15 @@ export function SettingsPage() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="as_level">AS Level Focus (Paper 1 MCQ &amp; Paper 2 Essays)</SelectItem>
-                        <SelectItem value="a2_level">A2 Level Focus (Paper 3 MCQ &amp; Paper 4 Essays)</SelectItem>
-                        <SelectItem value="full_a_level">Full Cambridge A Level (Papers 1, 2, 3 &amp; 4)</SelectItem>
+                        <SelectItem value="as_level">
+                          AS Level Focus (Paper 1 MCQ &amp; Paper 2 Essays)
+                        </SelectItem>
+                        <SelectItem value="a2_level">
+                          A2 Level Focus (Paper 3 MCQ &amp; Paper 4 Essays)
+                        </SelectItem>
+                        <SelectItem value="full_a_level">
+                          Full Cambridge A Level (Papers 1, 2, 3 &amp; 4)
+                        </SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -803,7 +869,9 @@ export function SettingsPage() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="A*">Target A* (80%+ Overall Cambridge Band 1)</SelectItem>
+                        <SelectItem value="A*">
+                          Target A* (80%+ Overall Cambridge Band 1)
+                        </SelectItem>
                         <SelectItem value="A">Target A (70% - 79% Solid Band 1)</SelectItem>
                         <SelectItem value="B">Target B (60% - 69% Band 2 Competence)</SelectItem>
                         <SelectItem value="C">Target C (50% - 59% Foundational Pass)</SelectItem>
@@ -818,7 +886,9 @@ export function SettingsPage() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="uk_intl">UK &amp; International Standards (£ / $)</SelectItem>
+                        <SelectItem value="uk_intl">
+                          UK &amp; International Standards (£ / $)
+                        </SelectItem>
                         <SelectItem value="us_global">US &amp; Global Markets ($)</SelectItem>
                         <SelectItem value="inr">South Asian Markets &amp; Rupee (₹)</SelectItem>
                         <SelectItem value="eur">European Economic Area (€)</SelectItem>
@@ -843,10 +913,13 @@ export function SettingsPage() {
                         <span className="flex items-center gap-1.5">
                           <Sparkles className="size-3.5 text-primary" /> Full Diagnostic Marking
                         </span>
-                        {feedbackDepth === "detailed" && <Check className="size-3.5 text-primary" />}
+                        {feedbackDepth === "detailed" && (
+                          <Check className="size-3.5 text-primary" />
+                        )}
                       </div>
                       <p className="text-[11px] text-muted-foreground leading-relaxed">
-                        Line-by-line mark scheme breakdown, explicit AO1/AO2/AO3 allocations, and rewritten model answers.
+                        Line-by-line mark scheme breakdown, explicit AO1/AO2/AO3 allocations, and
+                        rewritten model answers.
                       </p>
                     </div>
 
@@ -866,7 +939,8 @@ export function SettingsPage() {
                         {feedbackDepth === "concise" && <Check className="size-3.5 text-primary" />}
                       </div>
                       <p className="text-[11px] text-muted-foreground leading-relaxed">
-                        Fast band assignment, total marks, and top 3 decisive improvement levers for rapid practice sessions.
+                        Fast band assignment, total marks, and top 3 decisive improvement levers for
+                        rapid practice sessions.
                       </p>
                     </div>
                   </div>
@@ -910,9 +984,12 @@ export function SettingsPage() {
                 <div className="space-y-3.5 divide-y divide-border/60">
                   <div className="flex items-center justify-between pt-2">
                     <div className="space-y-0.5 max-w-[80%]">
-                      <Label className="text-xs font-semibold">Automatic Exam Timer by Default</Label>
+                      <Label className="text-xs font-semibold">
+                        Automatic Exam Timer by Default
+                      </Label>
                       <p className="text-[11px] text-muted-foreground">
-                        Automatically start official Cambridge clock (e.g. 1 hour for Paper 1) when opening MCQ papers.
+                        Automatically start official Cambridge clock (e.g. 1 hour for Paper 1) when
+                        opening MCQ papers.
                       </p>
                     </div>
                     <Switch
@@ -926,9 +1003,12 @@ export function SettingsPage() {
 
                   <div className="flex items-center justify-between pt-3">
                     <div className="space-y-0.5 max-w-[80%]">
-                      <Label className="text-xs font-semibold">Show Diagram Equilibrium Annotations</Label>
+                      <Label className="text-xs font-semibold">
+                        Show Diagram Equilibrium Annotations
+                      </Label>
                       <p className="text-[11px] text-muted-foreground">
-                        Highlight equilibrium shift lines (P1 to P2, Q1 to Q2) directly on vector diagram canvases.
+                        Highlight equilibrium shift lines (P1 to P2, Q1 to Q2) directly on vector
+                        diagram canvases.
                       </p>
                     </div>
                     <Switch
@@ -938,6 +1018,90 @@ export function SettingsPage() {
                         handleSaveAcademicPrefs({ showDiagramLabels: val });
                       }}
                     />
+                  </div>
+                </div>
+              </div>
+
+              {/* 4. Feature Tutorials & Platform Guides */}
+              <div className="rounded-2xl border border-border/80 bg-card p-5 sm:p-6 shadow-xs space-y-4">
+                <div className="border-b border-border/80 pb-3 flex items-center justify-between gap-2">
+                  <div>
+                    <h2 className="text-sm sm:text-base font-bold text-foreground flex items-center gap-2">
+                      <GraduationCap className="size-4 text-purple-600 dark:text-purple-400" />
+                      Feature Tutorials &amp; Walkthroughs
+                    </h2>
+                    <p className="text-xs text-muted-foreground">
+                      Learn how every feature in Marginal Upgrade works with step-by-step Cambridge
+                      9708 guides.
+                    </p>
+                  </div>
+                  <Badge
+                    variant="outline"
+                    className="text-xs font-semibold border-purple-500/30 text-purple-600 bg-purple-500/10"
+                  >
+                    {completedTutorialsCount} / {totalTutorialsCount} Seen
+                  </Badge>
+                </div>
+
+                <div className="space-y-3.5 divide-y divide-border/60">
+                  <div className="flex items-center justify-between pt-2">
+                    <div className="space-y-0.5 max-w-[80%]">
+                      <Label className="text-xs font-semibold">
+                        Auto-Show Tutorials on New Features
+                      </Label>
+                      <p className="text-[11px] text-muted-foreground">
+                        When you visit a feature for the first time, a helpful 60-second walkthrough
+                        will show automatically.
+                      </p>
+                    </div>
+                    <Switch checked={autoTutorialsEnabled} onCheckedChange={toggleAutoTutorials} />
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3">
+                    <div className="space-y-0.5">
+                      <p className="text-xs font-semibold text-foreground">
+                        Launch Interactive Tutorials Directory
+                      </p>
+                      <p className="text-[11px] text-muted-foreground">
+                        Browse all {totalTutorialsCount} feature guides with full examiner rubrics
+                        and tips.
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => openTutorial()}
+                      className="h-8 text-xs font-semibold bg-purple-600 hover:bg-purple-700 text-white rounded-xl gap-1.5"
+                    >
+                      <GraduationCap className="size-3.5" />
+                      Open Feature Tutorials
+                    </Button>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-3">
+                    <div className="space-y-0.5">
+                      <p className="text-xs font-semibold text-foreground">
+                        Reset All Tutorial Seen Badges
+                      </p>
+                      <p className="text-[11px] text-muted-foreground">
+                        Clear all seen statuses so you can re-experience first-time feature intros.
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        resetSeenStatus();
+                        toast.success(
+                          "Tutorial history reset. First-time walkthroughs will appear again.",
+                        );
+                      }}
+                      className="h-8 text-xs rounded-xl gap-1 text-muted-foreground hover:text-foreground"
+                    >
+                      <RotateCcw className="size-3.5" />
+                      Reset History
+                    </Button>
                   </div>
                 </div>
               </div>
@@ -960,7 +1124,9 @@ export function SettingsPage() {
                       <p className="text-[10px] font-extrabold tracking-wider uppercase text-primary">
                         Cambridge 9708 Candidate Dossier
                       </p>
-                      <p className="text-[9px] text-muted-foreground">Official Academic Verification</p>
+                      <p className="text-[9px] text-muted-foreground">
+                        Official Academic Verification
+                      </p>
                     </div>
                   </div>
                   <Badge className="bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-[9px] font-extrabold uppercase">
@@ -1003,32 +1169,47 @@ export function SettingsPage() {
                     <PenLine className="size-2.5" /> Personal Statement
                   </p>
                   <p className="text-xs text-foreground italic leading-relaxed">
-                    {bio ? `"${bio}"` : '"No statement added yet. Add your university aspirations, economics interests, and target grades above."'}
+                    {bio
+                      ? `"${bio}"`
+                      : '"No statement added yet. Add your university aspirations, economics interests, and target grades above."'}
                   </p>
                 </div>
 
                 {/* Academic Metadata Grid */}
                 <div className="grid grid-cols-2 gap-2 text-xs pt-1">
                   <div className="rounded-lg border border-border/60 bg-card p-2.5 space-y-0.5">
-                    <p className="text-[10px] text-muted-foreground uppercase font-bold">Exam Target Series</p>
+                    <p className="text-[10px] text-muted-foreground uppercase font-bold">
+                      Exam Target Series
+                    </p>
                     <p className="font-bold text-foreground text-xs truncate">
-                      {AVAILABLE_CAMBRIDGE_SERIES.find((s) => s.id === examSeries)?.label || "Multi-Year Average"}
+                      {AVAILABLE_CAMBRIDGE_SERIES.find((s) => s.id === examSeries)?.label ||
+                        "Multi-Year Average"}
                     </p>
                   </div>
                   <div className="rounded-lg border border-border/60 bg-card p-2.5 space-y-0.5">
-                    <p className="text-[10px] text-muted-foreground uppercase font-bold">Benchmark Grade</p>
+                    <p className="text-[10px] text-muted-foreground uppercase font-bold">
+                      Benchmark Grade
+                    </p>
                     <p className="font-bold text-primary text-xs flex items-center gap-1">
                       <Award className="size-3.5" /> Target {targetGrade}
                     </p>
                   </div>
                   <div className="rounded-lg border border-border/60 bg-card p-2.5 space-y-0.5">
-                    <p className="text-[10px] text-muted-foreground uppercase font-bold">Curriculum Level</p>
+                    <p className="text-[10px] text-muted-foreground uppercase font-bold">
+                      Curriculum Level
+                    </p>
                     <p className="font-semibold text-foreground text-xs truncate">
-                      {targetLevel === "as_level" ? "AS Level (P1 & P2)" : targetLevel === "a2_level" ? "A2 Level (P3 & P4)" : "Full A Level (9708)"}
+                      {targetLevel === "as_level"
+                        ? "AS Level (P1 & P2)"
+                        : targetLevel === "a2_level"
+                          ? "A2 Level (P3 & P4)"
+                          : "Full A Level (9708)"}
                     </p>
                   </div>
                   <div className="rounded-lg border border-border/60 bg-card p-2.5 space-y-0.5">
-                    <p className="text-[10px] text-muted-foreground uppercase font-bold">Membership Tier</p>
+                    <p className="text-[10px] text-muted-foreground uppercase font-bold">
+                      Membership Tier
+                    </p>
                     <p className="font-semibold text-emerald-600 dark:text-emerald-400 text-xs truncate">
                       {me.data?.subscription?.tierName || "Cambridge Scholar"}
                     </p>
@@ -1040,9 +1221,7 @@ export function SettingsPage() {
                   <span className="text-muted-foreground flex items-center gap-1">
                     <ShieldCheck className="size-3 text-primary" /> Verified Cambridge Dossier
                   </span>
-                  <span className="font-mono text-muted-foreground text-[10px]">
-                    Syllabus 9708
-                  </span>
+                  <span className="font-mono text-muted-foreground text-[10px]">Syllabus 9708</span>
                 </div>
               </div>
 
@@ -1053,11 +1232,15 @@ export function SettingsPage() {
                   <h3 className="font-bold text-foreground">Knowledge Base Grounding</h3>
                 </div>
                 <p className="text-muted-foreground text-[11.5px] leading-relaxed">
-                  Evaluations and model answers are grounded in 259 official Cambridge mark schemes, chief examiner reports, and syllabi via 2048-dimension vector search.
+                  Evaluations and model answers are grounded in 259 official Cambridge mark schemes,
+                  chief examiner reports, and syllabi via 2048-dimension vector search.
                 </p>
                 <div className="pt-2 border-t border-primary/20 flex items-center justify-between text-[11px]">
                   <span className="text-muted-foreground">RAG Accuracy Index:</span>
-                  <Badge variant="outline" className="border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px]">
+                  <Badge
+                    variant="outline"
+                    className="border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px]"
+                  >
                     100% Calibrated
                   </Badge>
                 </div>
@@ -1071,7 +1254,8 @@ export function SettingsPage() {
                 </div>
 
                 <p className="text-[11.5px] text-muted-foreground leading-relaxed">
-                  Your academic essays and performance trajectories are strictly private to you and your authorized classroom teachers.
+                  Your academic essays and performance trajectories are strictly private to you and
+                  your authorized classroom teachers.
                 </p>
 
                 <div className="space-y-2 pt-1">
@@ -1081,14 +1265,19 @@ export function SettingsPage() {
                     onClick={handleExportData}
                     className="w-full text-xs h-8 justify-start"
                   >
-                    <Download className="size-3.5 mr-2 text-primary" /> Export Candidate Dossier JSON
+                    <Download className="size-3.5 mr-2 text-primary" /> Export Candidate Dossier
+                    JSON
                   </Button>
 
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => {
-                      if (confirm("Reset local practice cache and filters? (Your saved essays on the server will NOT be touched).")) {
+                      if (
+                        confirm(
+                          "Reset local practice cache and filters? (Your saved essays on the server will NOT be touched).",
+                        )
+                      ) {
                         localStorage.removeItem("marginal_candidate_prefs");
                         toast.success("Local cache reset to defaults.");
                         window.location.reload();

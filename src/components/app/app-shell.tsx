@@ -44,13 +44,19 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { LockedFeatureModal, type LockedFeatureType } from "@/components/app/locked-feature-modal";
 import { FeedbackDialog, FloatingFeedbackPill } from "@/components/feedback/feedback-dialog";
-import { StudentMessagesDialog, playMessageNotificationChime } from "@/components/app/student-messages-dialog";
+import {
+  StudentMessagesDialog,
+  playMessageNotificationChime,
+} from "@/components/app/student-messages-dialog";
 import { UserAvatar } from "@/components/app/user-avatar";
 import { getUnreadMessageCount } from "@/lib/messages.functions";
 import { usePresenceHeartbeat } from "@/hooks/use-presence";
 import { supabase } from "@/integrations/backend/client";
 import type { UserSubscriptionDetails } from "@/lib/usage-limits";
 import { cn } from "@/lib/utils";
+import { TopTutorialButton } from "@/components/tutorials/feature-tutorial-dialog";
+import { matchTutorialByPath } from "@/lib/tutorials-data";
+import { useFeatureTutorial } from "@/components/tutorials/tutorial-context";
 
 export type NavItem = {
   to: string;
@@ -102,9 +108,19 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { to: "/grade", label: "Grade Unlimited Essays", icon: PenLine },
       { to: "/mcq-live", label: "MCQ Past Papers", icon: ListChecks, badge: "P1 & P3" },
-      { to: "/data-response", label: "Data Response Papers", icon: FileSpreadsheet, badge: "P2 & P4" },
+      {
+        to: "/data-response",
+        label: "Data Response Papers",
+        icon: FileSpreadsheet,
+        badge: "P2 & P4",
+      },
       { to: "/essay-generator", label: "Sample Essay Generator", icon: Wand2, badge: "AI Models" },
-      { to: "/response-structure", label: "How to Write an Essay", icon: GraduationCap, badge: "Guide" },
+      {
+        to: "/response-structure",
+        label: "How to Write an Essay",
+        icon: GraduationCap,
+        badge: "Guide",
+      },
       {
         to: "/live-examiner",
         label: "Live Examiner",
@@ -161,9 +177,19 @@ const TEACHER_NAV_GROUPS: NavGroup[] = [
     items: [
       { to: "/grade", label: "Grade Essays", icon: PenLine },
       { to: "/mcq-live", label: "MCQ Past Papers", icon: ListChecks, badge: "P1 & P3" },
-      { to: "/data-response", label: "Data Response Papers", icon: FileSpreadsheet, badge: "P2 & P4" },
+      {
+        to: "/data-response",
+        label: "Data Response Papers",
+        icon: FileSpreadsheet,
+        badge: "P2 & P4",
+      },
       { to: "/essay-generator", label: "Sample Essay Generator", icon: Wand2, badge: "AI Models" },
-      { to: "/response-structure", label: "How to Write an Essay", icon: GraduationCap, badge: "Guide" },
+      {
+        to: "/response-structure",
+        label: "How to Write an Essay",
+        icon: GraduationCap,
+        badge: "Guide",
+      },
       {
         to: "/live-examiner",
         label: "Live Examiner",
@@ -213,10 +239,7 @@ function filterGroupForRole(
   return { ...group, items: visibleItems };
 }
 
-const GROUP_META: Record<
-  string,
-  { dot: string; text: string; bg: string }
-> = {
+const GROUP_META: Record<string, { dot: string; text: string; bg: string }> = {
   dashboard_analytics: {
     dot: "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]",
     text: "text-emerald-600 dark:text-emerald-400",
@@ -264,6 +287,8 @@ export function AppShell({
   const queryClient = useQueryClient();
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   usePresenceHeartbeat(pathname, userId);
+  const { openTutorial } = useFeatureTutorial();
+  const currentTutorial = useMemo(() => matchTutorialByPath(pathname), [pathname]);
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => new Set());
@@ -332,7 +357,8 @@ export function AppShell({
   const classroomLabel = role === "student" ? "Classroom" : "Classes";
 
   const isUserAdmin = role === "admin" || Boolean(subscription?.isAdmin);
-  const isHigherTierUser = isUserAdmin || subscription?.tier === "mastery" || subscription?.tier === "elite";
+  const isHigherTierUser =
+    isUserAdmin || subscription?.tier === "mastery" || subscription?.tier === "elite";
   const canLiveExaminer = isUserAdmin || Boolean(subscription?.canUseLiveExaminer);
   const isPaidUser = isUserAdmin || Boolean(subscription?.isPaid);
 
@@ -383,7 +409,10 @@ export function AppShell({
       if (to === "/grade") return pathname === "/grade" || pathname.startsWith("/essay");
       return true;
     }
-    if ((to === "/admin" || to === "/knowledge") && ["/calibration", "/content-admin", "/mcq-papers-admin"].some((p) => pathname.startsWith(p))) {
+    if (
+      (to === "/admin" || to === "/knowledge") &&
+      ["/calibration", "/content-admin", "/mcq-papers-admin"].some((p) => pathname.startsWith(p))
+    ) {
       return true;
     }
     return false;
@@ -406,7 +435,9 @@ export function AppShell({
               className={cn(
                 "w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-[10.5px] font-bold tracking-tight uppercase select-none transition-all duration-200 group cursor-pointer text-left",
                 meta?.bg ?? "hover:bg-sidebar-accent/50",
-                isOpen ? (meta?.text ?? "text-foreground") : "text-muted-foreground/70 hover:text-foreground",
+                isOpen
+                  ? (meta?.text ?? "text-foreground")
+                  : "text-muted-foreground/70 hover:text-foreground",
               )}
               title={isOpen ? "Collapse section" : "Expand section"}
             >
@@ -458,9 +489,7 @@ export function AppShell({
                   !isUserAdmin &&
                   Boolean(subscription && !subscription.canGradeEssay);
                 const isChainedLiveExaminer =
-                  item.to === "/live-examiner" &&
-                  !isUserAdmin &&
-                  isChainedPaid;
+                  item.to === "/live-examiner" && !isUserAdmin && isChainedPaid;
                 const isChainedMCQ =
                   item.to === "/mcq-live" &&
                   !isUserAdmin &&
@@ -468,22 +497,27 @@ export function AppShell({
                   Boolean(subscription && !subscription.canUseMCQ);
                 const isLockedExperimental = item.requiresHigherTier && !isHigherTierUser;
                 const isLocked =
-                  isChainedPaid || isChainedEssay || isChainedLiveExaminer || isChainedMCQ || isLockedExperimental;
+                  isChainedPaid ||
+                  isChainedEssay ||
+                  isChainedLiveExaminer ||
+                  isChainedMCQ ||
+                  isLockedExperimental;
 
                 if (isLocked) {
                   const lockType: LockedFeatureType =
                     isTeacherUnpaid && (item.to === "/grade" || item.to === "/live-examiner")
                       ? "school_license"
                       : isLockedExperimental
-                      ? "experimental"
-                      : isChainedLiveExaminer || isChainedPaid
-                      ? "live_examiner"
-                      : isChainedEssay
-                      ? "essay_limit"
-                      : isChainedMCQ
-                      ? "mcq_limit"
-                      : "school_license";
-                  const isChained = isChainedPaid || isChainedEssay || isChainedLiveExaminer || isChainedMCQ;
+                        ? "experimental"
+                        : isChainedLiveExaminer || isChainedPaid
+                          ? "live_examiner"
+                          : isChainedEssay
+                            ? "essay_limit"
+                            : isChainedMCQ
+                              ? "mcq_limit"
+                              : "school_license";
+                  const isChained =
+                    isChainedPaid || isChainedEssay || isChainedLiveExaminer || isChainedMCQ;
 
                   return (
                     <button
@@ -517,8 +551,8 @@ export function AppShell({
                           {isTeacherUnpaid && (item.to === "/grade" || item.to === "/live-examiner")
                             ? "School Pass"
                             : isChained
-                            ? "Chained"
-                            : "Locked"}
+                              ? "Chained"
+                              : "Locked"}
                         </span>
                       ) : null}
                     </button>
@@ -545,7 +579,9 @@ export function AppShell({
                     <item.icon
                       className={cn(
                         "size-4 shrink-0 transition-transform duration-200 group-hover:scale-110",
-                        active ? "text-primary" : "text-muted-foreground/80 group-hover:text-foreground",
+                        active
+                          ? "text-primary"
+                          : "text-muted-foreground/80 group-hover:text-foreground",
                       )}
                     />
                     <span className={cn("truncate", sidebarCollapsed && !isMobile && "sr-only")}>
@@ -558,8 +594,8 @@ export function AppShell({
                           item.badge === "Under Building"
                             ? "bg-amber-500/15 border border-amber-500/35 text-amber-600 dark:text-amber-400 group-hover:bg-amber-500/25"
                             : item.badge === "Root" || item.badge === "Admin"
-                            ? "bg-purple-500/15 border border-purple-500/30 text-purple-600 dark:text-purple-400"
-                            : "bg-emerald-500/15 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 group-hover:bg-emerald-500/25",
+                              ? "bg-purple-500/15 border border-purple-500/30 text-purple-600 dark:text-purple-400"
+                              : "bg-emerald-500/15 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 group-hover:bg-emerald-500/25",
                         )}
                       >
                         {item.badge === "Under Building" && (
@@ -613,7 +649,10 @@ export function AppShell({
               className="size-7 shrink-0 object-contain transition-transform group-hover:scale-105"
             />
             <span
-              className={cn("text-sm leading-tight font-bold tracking-tight text-foreground", sidebarCollapsed && "hidden")}
+              className={cn(
+                "text-sm leading-tight font-bold tracking-tight text-foreground",
+                sidebarCollapsed && "hidden",
+              )}
             >
               Marginal
               <span className="block text-[10px] font-normal text-muted-foreground">
@@ -753,7 +792,9 @@ export function AppShell({
                 <div className="mt-2.5 pt-2 border-t border-purple-500/20 flex items-center justify-between text-[10px] text-muted-foreground relative z-10">
                   <span className="flex items-center gap-1 font-medium truncate">
                     <PenLine className="size-3 text-purple-500 shrink-0" />
-                    {subscription.essaysLimit === 9999 ? "Unlimited" : `${subscription.essaysRemaining} essays left`}
+                    {subscription.essaysLimit === 9999
+                      ? "Unlimited"
+                      : `${subscription.essaysRemaining} essays left`}
                   </span>
                   <span className="font-semibold text-purple-600 dark:text-purple-400">
                     {subscription.tierName || "Educator"}
@@ -804,7 +845,9 @@ export function AppShell({
                 <div className="mt-2.5 pt-2 border-t border-border/60 flex items-center justify-between text-[10px] text-muted-foreground relative z-10">
                   <span className="flex items-center gap-1 font-medium truncate">
                     <PenLine className="size-3 text-primary shrink-0" />
-                    {subscription.essaysLimit === 9999 ? "Unlimited Essays" : `${subscription.essaysRemaining} essays left`}
+                    {subscription.essaysLimit === 9999
+                      ? "Unlimited Essays"
+                      : `${subscription.essaysRemaining} essays left`}
                   </span>
                   <span className="font-semibold text-emerald-600 dark:text-emerald-400">
                     {subscription.isPaid ? "Active Pass" : "Free Plan"}
@@ -833,9 +876,7 @@ export function AppShell({
               title="Direct In-App User Texting Portal"
             >
               <Send className="size-4 shrink-0 text-primary" />
-              <span className={cn("truncate", sidebarCollapsed && "sr-only")}>
-                Direct Messages
-              </span>
+              <span className={cn("truncate", sidebarCollapsed && "sr-only")}>Direct Messages</span>
               {unreadMsgCount > 0 && (
                 <span className="absolute top-1.5 right-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white shadow-xs">
                   {unreadMsgCount}
@@ -880,19 +921,31 @@ export function AppShell({
             }
           />
 
+          <button
+            type="button"
+            onClick={() => openTutorial()}
+            className={cn(
+              "flex items-center rounded-lg py-1.5 text-xs font-medium text-sidebar-foreground/80 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground w-full text-left cursor-pointer",
+              sidebarCollapsed ? "justify-center px-1" : "gap-2.5 px-2.5",
+            )}
+            title="Feature Tutorials & Syllabus Guides"
+          >
+            <GraduationCap className="size-4 shrink-0 text-purple-500" />
+            <span className={cn("truncate", sidebarCollapsed && "sr-only")}>Tutorials</span>
+          </button>
+
           <Link
             to="/settings"
             className={cn(
               "flex items-center rounded-lg py-1.5 text-xs font-medium text-sidebar-foreground/80 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
               sidebarCollapsed ? "justify-center px-1" : "gap-2.5 px-2.5",
-              pathname.startsWith("/settings") && "bg-sidebar-accent text-sidebar-accent-foreground font-semibold",
+              pathname.startsWith("/settings") &&
+                "bg-sidebar-accent text-sidebar-accent-foreground font-semibold",
             )}
             title="Account settings"
           >
             <Settings className="size-4 shrink-0 text-muted-foreground/80" />
-            <span className={cn("truncate", sidebarCollapsed && "sr-only")}>
-              Settings
-            </span>
+            <span className={cn("truncate", sidebarCollapsed && "sr-only")}>Settings</span>
           </Link>
 
           <Button
@@ -900,7 +953,7 @@ export function AppShell({
             size="sm"
             className={cn(
               "h-8 w-full text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors",
-              sidebarCollapsed ? "justify-center p-0" : "justify-start px-2.5 gap-2.5"
+              sidebarCollapsed ? "justify-center p-0" : "justify-start px-2.5 gap-2.5",
             )}
             onClick={signOut}
             title="Sign out of account"
@@ -951,7 +1004,9 @@ export function AppShell({
                             showStatusDot={true}
                             className="size-7 shrink-0"
                           />
-                          <span className="font-bold text-foreground text-xs truncate">{name ?? "Marginal Admin"}</span>
+                          <span className="font-bold text-foreground text-xs truncate">
+                            {name ?? "Marginal Admin"}
+                          </span>
                         </Link>
                         <Badge className="bg-amber-500/25 text-amber-600 dark:text-amber-400 border-amber-500/40 text-[9px] font-extrabold uppercase shadow-2xs">
                           Root Admin
@@ -978,8 +1033,12 @@ export function AppShell({
                             className="size-7 shrink-0"
                           />
                           <div className="min-w-0">
-                            <span className="font-bold text-xs text-foreground block truncate">{name ?? "Educator"}</span>
-                            <span className="text-[10px] text-purple-600 dark:text-purple-400 font-medium block truncate">{school || "CS Academy"}</span>
+                            <span className="font-bold text-xs text-foreground block truncate">
+                              {name ?? "Educator"}
+                            </span>
+                            <span className="text-[10px] text-purple-600 dark:text-purple-400 font-medium block truncate">
+                              {school || "CS Academy"}
+                            </span>
                           </div>
                         </Link>
                         <Badge className="bg-purple-500/25 text-purple-600 dark:text-purple-400 border-purple-500/40 text-[9px] font-extrabold uppercase shadow-2xs">
@@ -988,7 +1047,10 @@ export function AppShell({
                       </div>
                       <div className="mt-2.5 pt-2 border-t border-purple-500/20 flex justify-between text-[10.5px] text-muted-foreground">
                         <span className="flex items-center gap-1 font-medium">
-                          <PenLine className="size-3 text-purple-500" /> Essays: {subscription.essaysLimit === 9999 ? "Unlimited" : `${subscription.essaysRemaining}/${subscription.essaysLimit}`}
+                          <PenLine className="size-3 text-purple-500" /> Essays:{" "}
+                          {subscription.essaysLimit === 9999
+                            ? "Unlimited"
+                            : `${subscription.essaysRemaining}/${subscription.essaysLimit}`}
                         </span>
                         <span className="font-semibold text-purple-600 dark:text-purple-400">
                           {subscription.tierName || "Educator"}
@@ -1011,8 +1073,12 @@ export function AppShell({
                             className="size-7 shrink-0"
                           />
                           <div className="min-w-0">
-                            <span className="font-bold text-xs text-foreground block truncate">{name ?? "Candidate"}</span>
-                            <span className="text-[10px] text-muted-foreground block truncate">{school || "Cambridge Candidate"}</span>
+                            <span className="font-bold text-xs text-foreground block truncate">
+                              {name ?? "Candidate"}
+                            </span>
+                            <span className="text-[10px] text-muted-foreground block truncate">
+                              {school || "Cambridge Candidate"}
+                            </span>
                           </div>
                         </Link>
                         <Badge
@@ -1021,7 +1087,7 @@ export function AppShell({
                             "text-[9px] px-1.5 py-0 font-bold",
                             subscription.isPaid
                               ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                              : "border-primary/30 bg-primary/10 text-primary"
+                              : "border-primary/30 bg-primary/10 text-primary",
                           )}
                         >
                           {subscription.isPaid ? subscription.tierName.split(" ")[0] : "Free Plan"}
@@ -1029,7 +1095,10 @@ export function AppShell({
                       </div>
                       <div className="mt-2.5 pt-2 border-t border-border/60 flex justify-between text-[10.5px] text-muted-foreground">
                         <span className="flex items-center gap-1 font-medium">
-                          <PenLine className="size-3 text-primary" /> Essays: {subscription.essaysLimit === 9999 ? "Unlimited" : `${subscription.essaysRemaining}/${subscription.essaysLimit}`}
+                          <PenLine className="size-3 text-primary" /> Essays:{" "}
+                          {subscription.essaysLimit === 9999
+                            ? "Unlimited"
+                            : `${subscription.essaysRemaining}/${subscription.essaysLimit}`}
                         </span>
                         <span className="font-semibold text-emerald-600 dark:text-emerald-400">
                           {subscription.isPaid ? "Active" : "Free"}
@@ -1082,6 +1151,16 @@ export function AppShell({
                       </button>
                     }
                   />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMobileDrawerOpen(false);
+                      openTutorial();
+                    }}
+                    className="flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-xs font-medium text-foreground hover:bg-muted w-full text-left cursor-pointer"
+                  >
+                    <GraduationCap className="size-4 text-purple-500" /> Feature Tutorials
+                  </button>
                   <Link
                     to="/settings"
                     onClick={() => setMobileDrawerOpen(false)}
@@ -1113,6 +1192,7 @@ export function AppShell({
           </div>
 
           <div className="flex items-center gap-2">
+            <TopTutorialButton size="sm" />
             {isUserAdmin ? (
               <Link
                 to="/admin"
@@ -1138,15 +1218,87 @@ export function AppShell({
                   role === "teacher" || subscription?.isTeacher
                     ? "border-purple-500/30 bg-purple-500/10 text-purple-600 dark:text-purple-400"
                     : subscription?.isPaid
-                    ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                    : "text-primary border-primary/30",
+                      ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                      : "text-primary border-primary/30",
                 )}
               >
                 {role === "teacher" || subscription?.isTeacher
                   ? "Educator"
                   : subscription?.isPaid
-                  ? subscription.tierName.split(" ")[0]
-                  : "Free Tier"}
+                    ? subscription.tierName.split(" ")[0]
+                    : "Free Tier"}
+              </Badge>
+            </Link>
+          </div>
+        </header>
+
+        {/* ── Desktop Top Header Bar: Clean, sleek utility bar pinned on top ── */}
+        <header className="hidden md:flex items-center justify-between border-b border-border/70 bg-card/70 px-6 py-2.5 backdrop-blur-md sticky top-0 z-30 w-full shrink-0">
+          <div className="flex items-center gap-2.5 min-w-0">
+            {currentTutorial ? (
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="size-7 rounded-lg bg-purple-500/10 border border-purple-500/20 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
+                  {React.createElement(currentTutorial.icon, { className: "size-4" })}
+                </div>
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="text-xs font-bold text-foreground truncate">
+                    {currentTutorial.title}
+                  </span>
+                  {currentTutorial.paperTag && (
+                    <Badge
+                      variant="outline"
+                      className="text-[10px] text-muted-foreground border-border/80 py-0 hidden lg:inline-flex"
+                    >
+                      {currentTutorial.paperTag}
+                    </Badge>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <span className="text-xs font-semibold text-muted-foreground">
+                Cambridge International Economics 9708
+              </span>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2.5 shrink-0">
+            <TopTutorialButton />
+
+            {isUserAdmin ? (
+              <Link
+                to="/admin"
+                search={{ tab: "messages" }}
+                className="relative flex items-center justify-center size-8 rounded-full border border-border/80 hover:bg-muted transition-colors"
+                title="Direct Messages Portal"
+              >
+                <Send className="size-3.5 text-primary" />
+                {unreadMsgCount > 0 && (
+                  <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white shadow-xs">
+                    {unreadMsgCount}
+                  </span>
+                )}
+              </Link>
+            ) : (
+              <StudentMessagesDialog />
+            )}
+
+            <Link to="/pricing">
+              <Badge
+                variant="outline"
+                className={cn(
+                  "text-[10px] font-bold",
+                  role === "teacher" || subscription?.isTeacher
+                    ? "border-purple-500/30 bg-purple-500/10 text-purple-600 dark:text-purple-400"
+                    : subscription?.isPaid
+                      ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                      : "text-primary border-primary/30",
+                )}
+              >
+                {role === "teacher" || subscription?.isTeacher
+                  ? "Educator"
+                  : subscription?.isPaid
+                    ? subscription.tierName.split(" ")[0]
+                    : "Free Tier"}
               </Badge>
             </Link>
           </div>
@@ -1183,7 +1335,9 @@ export function PageHeader({
         <div className="min-w-0">
           <h1 className="text-lg font-bold tracking-tight text-foreground sm:text-2xl">{title}</h1>
           {description ? (
-            <p className="mt-0.5 text-xs text-muted-foreground sm:mt-1 sm:text-sm leading-relaxed">{description}</p>
+            <p className="mt-0.5 text-xs text-muted-foreground sm:mt-1 sm:text-sm leading-relaxed">
+              {description}
+            </p>
           ) : null}
         </div>
         {action ? <div className="shrink-0 pt-0.5 sm:pt-0">{action}</div> : null}
