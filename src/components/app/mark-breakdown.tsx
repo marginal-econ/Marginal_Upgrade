@@ -95,7 +95,7 @@ const AO_META = [
       if (max <= 2) {
         if (awarded === 2) return "Level 2 (Substantiated)";
         if (awarded === 1) return "Level 1 (Basic / Token)";
-        return "No Evaluation (0/2)";
+        return "No Evaluation";
       }
       if (max === 4) {
         if (awarded >= 3) return "Level 2 (Substantiated & Wide)";

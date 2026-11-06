@@ -72,28 +72,35 @@ export function stripScoreFractionsFromText(value: unknown): string {
   if (typeof value !== "string" || !value) return "";
   let s = value;
 
-  // Level X (Y/Z) or Level X (Y of Z) or Level X (Y-Z/W) -> Level X
-  s = s.replace(/\bLevel\s*(\d+)\s*\(\s*\d+(?:\s*-\s*\d+)?\s*(?:\/|\s*of\s*)\s*\d+\s*(?:marks?)?\s*\)/gi, "Level $1");
+  // Level X (Y/Z) or Level X (Y of Z) or Level X (Y-Z/W) or Level X (anything with marks/numbers) -> Level X
+  s = s.replace(/\bLevel\s*(\d+)\s*\([^)]*\)/gi, "Level $1");
 
   // Parenthesized score fractions like (3/4), (1/4), (0/2), (2/2), (4/4), (1 of 2), (3 of 4)
-  s = s.replace(/\s*\(\s*\d+(?:\s*-\s*\d+)?\s*(?:\/|\s*of\s*)\s*\d+\s*(?:marks?)?\s*\)/gi, "");
+  s = s.replace(/\s*\(\s*\d+(?:\s*-\s*\d+)?\s*(?:\/|\s*of\s*)\s*\d+\s*(?:marks?|pts?)?\s*\)/gi, "");
+
+  // Parenthesized marks like (1-2 marks), (3 marks), (0 marks)
+  s = s.replace(/\s*\(\s*\d+(?:\s*-\s*\d+)?\s*(?:marks?|pts?)\s*\)/gi, "");
 
   // Standalone phrases like "restricted to 3/4" or "restrict the mark to 3/4" -> "restricted to this level"
-  s = s.replace(/\b(?:restricts?|restricted)\s+(?:the\s+mark\s+)?to\s+\d+\s*\/\s*\d+\b/gi, "restricted to this level");
+  s = s.replace(/\b(?:restricts?|restricted|restricting)\s+(?:the\s+mark\s+)?to\s+\d+\s*\/\s*\d+\b/gi, "restricted to this level");
 
   // Standalone fractions followed by marks: "3/4 marks", "1/4 marks"
   s = s.replace(/\b\d+\s*\/\s*\d+\s*marks?\b/gi, "credit");
+  s = s.replace(/\b\d+\s*of\s*\d+\s*marks?\b/gi, "credit");
 
   // Expressions like "The single mark is awarded" -> "Credit is awarded"
   s = s.replace(/\b(?:The|A)\s+single\s+mark\s+is\s+awarded\b/gi, "Credit is awarded");
   s = s.replace(/\bOne\s+mark\s+is\s+awarded\b/gi, "Credit is awarded");
+  s = s.replace(/\bfull\s+marks\s+are\s+awarded\b/gi, "full credit is awarded");
   s = s.replace(/\b\d+\s+marks?\s+are\s+awarded\b/gi, "Credit is awarded");
+  s = s.replace(/\bmarks?\s+are\s+awarded\b/gi, "credit is awarded");
+  s = s.replace(/\b\d+\s+marks?\s+for\s+AO(\d)\b/gi, "credit for AO$1");
 
-  // Standalone score fractions like "3/4" or "1/4" when between 0 and 20
+  // Standalone score fractions like "3/4" or "1/4" when between 0 and 30
   s = s.replace(/\b(\d+)\s*\/\s*(\d+)\b/g, (match, p1, p2) => {
     const n1 = Number(p1);
     const n2 = Number(p2);
-    if (n2 <= 20 && n1 <= n2) {
+    if (n2 <= 30 && n1 <= n2) {
       return "";
     }
     return match;
@@ -198,9 +205,9 @@ export function normaliseGrading(
   // Ensure full-fledged feedback is ALWAYS provided to the student
   if (!examinerSummary || examinerSummary.length < 25) {
     if (split.ao3_marks === 0) {
-      examinerSummary = `This submission achieves ${total}/${maxMark} marks (${band}). The candidate demonstrates sound economic understanding with ${knowledge.awarded}/${knowledge.out_of} for AO1 Knowledge and ${analysis.awarded}/${analysis.out_of} for AO2 Analysis. Evaluation is not required for this question. Arguments are structured and address the prompt, with opportunities to deepen causal transmission mechanisms in subsequent rewrites.`;
+      examinerSummary = `This submission achieves a ${band} standard. The candidate demonstrates sound economic understanding across AO1 Knowledge and AO2 Analysis. Evaluation is not required for this question. Arguments are structured and address the prompt, with opportunities to deepen causal transmission mechanisms in subsequent rewrites.`;
     } else {
-      examinerSummary = `This submission achieves ${total}/${maxMark} marks (${band}). The candidate demonstrates sound economic understanding with ${knowledge.awarded}/${knowledge.out_of} for AO1 Knowledge, ${analysis.awarded}/${analysis.out_of} for AO2 Analysis, and ${evaluation.awarded}/${evaluation.out_of} for AO3 Evaluation. Arguments are structured and address the prompt, with opportunities to deepen transmission mechanisms and comparative evaluation in subsequent rewrites.`;
+      examinerSummary = `This submission achieves a ${band} standard. The candidate demonstrates sound economic understanding across AO1 Knowledge, AO2 Analysis, and AO3 Evaluation. Arguments are structured and address the prompt, with opportunities to deepen transmission mechanisms and comparative evaluation in subsequent rewrites.`;
     }
   }
 
