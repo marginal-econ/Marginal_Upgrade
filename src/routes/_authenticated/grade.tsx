@@ -136,6 +136,57 @@ type WritingCheck = {
 
 type AttachedDiagram = { id: string; label: string; tag: string };
 
+const TARIFF_OPTIONS = [
+  {
+    value: "8_legacy" as const,
+    marks: "8M",
+    badge: "Legacy",
+    subtitle: "Explain / Analyse",
+    targetWords: "250–400w",
+    paperLevel: "Paper 2",
+    fullTitle: "8 Marks · Legacy Non-Evaluative",
+    guidance:
+      "Pure descriptive and causal analysis. Evaluation is not required and candidates are never penalized for having no conclusion.",
+    aoFull: "AO1: 2 · AO2: 6 (No AO3)",
+  },
+  {
+    value: "8_eval" as const,
+    marks: "8M",
+    badge: "Evaluative",
+    subtitle: "Discuss / Assess",
+    targetWords: "300–450w",
+    paperLevel: "Paper 2",
+    fullTitle: "8 Marks · Evaluative Section B",
+    guidance:
+      "Requires two-sided balanced analysis with an evaluative concluding judgement ('Discuss', 'Assess', 'Consider').",
+    aoFull: "AO1: 2 · AO2: 4 · AO3: 2",
+  },
+  {
+    value: "12" as const,
+    marks: "12M",
+    badge: "AS Level",
+    subtitle: "Standard Essay",
+    targetWords: "500–750w",
+    paperLevel: "Paper 2",
+    fullTitle: "12 Marks · AS Evaluative Essay",
+    guidance:
+      "Standard AS Section B/C essay requiring economic definitions, diagrammatic chains of reasoning, and substantiated evaluation.",
+    aoFull: "AO1: 2 · AO2: 6 · AO3: 4",
+  },
+  {
+    value: "20" as const,
+    marks: "20M",
+    badge: "A Level",
+    subtitle: "Extended Essay",
+    targetWords: "800–1200w",
+    paperLevel: "Paper 4",
+    fullTitle: "20 Marks · A Level Extended Essay",
+    guidance:
+      "Comprehensive synoptic essay requiring thorough analysis, counter-perspectives, policy trade-offs, and critical synthesis.",
+    aoFull: "AO1: 2 · AO2: 12 · AO3: 6",
+  },
+];
+
 function GradePage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -708,7 +759,7 @@ function GradePage() {
                 ) : null}
               </div>
 
-              <div className="space-y-2">
+              <div className="space-y-2.5">
                 <div className="flex items-center justify-between">
                   <Label htmlFor="maxMark" className="text-xs sm:text-sm font-semibold text-foreground">
                     Question type &amp; mark scheme
@@ -716,81 +767,131 @@ function GradePage() {
                   <span className="text-[11px] text-muted-foreground font-mono">Cambridge 9708</span>
                 </div>
 
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
-                  {[
-                    {
-                      value: "8_legacy",
-                      label: "8M Legacy",
-                      tag: "No Evaluation",
-                      subtitle: "Explain / Analyse",
-                      split: "AO1 2 · AO2 6 (No AO3)",
-                      targetWords: "250–400w",
-                    },
-                    {
-                      value: "8_eval",
-                      label: "8M Evaluative",
-                      tag: "Discuss / Assess",
-                      subtitle: "Consider / Extent",
-                      split: "AO1 2 · AO2 4 · AO3 2",
-                      targetWords: "300–450w",
-                    },
-                    {
-                      value: "12",
-                      label: "12 Marks",
-                      tag: "Standard",
-                      subtitle: "AS Evaluative",
-                      split: "AO1 2 · AO2 6 · AO3 4",
-                      targetWords: "500–750w",
-                    },
-                    {
-                      value: "20",
-                      label: "20 Marks",
-                      tag: "Extended",
-                      subtitle: "A Level Extended",
-                      split: "AO1 2 · AO2 12 · AO3 6",
-                      targetWords: "800–1200w",
-                    },
-                  ].map((opt) => (
-                    <button
-                      key={opt.value}
-                      type="button"
-                      onClick={() => {
-                        setEssayCategory(opt.value as any);
-                        setWritingCheck(null);
-                      }}
-                      className={cn(
-                        "flex flex-col text-left p-2.5 rounded-xl border transition-all cursor-pointer relative",
-                        essayCategory === opt.value
-                          ? "border-primary bg-primary/10 shadow-xs ring-1 ring-primary/40 text-foreground"
-                          : "border-border/70 bg-background/60 hover:bg-muted/40 text-muted-foreground hover:text-foreground"
-                      )}
-                    >
-                      <div className="flex items-center justify-between w-full">
-                        <span className="font-bold text-xs sm:text-sm text-foreground">{opt.label}</span>
-                        <span className="text-[9.5px] font-mono text-muted-foreground hidden sm:inline">{opt.targetWords}</span>
-                      </div>
-                      <div className="flex items-center gap-1 mt-0.5">
-                        <Badge variant="outline" className="text-[9px] px-1 py-0 border-primary/30 text-primary">
-                          {opt.tag}
-                        </Badge>
-                        <span className="text-[10px] font-medium text-foreground/80 truncate">{opt.subtitle}</span>
-                      </div>
-                      <span className="text-[9.5px] text-muted-foreground font-mono mt-0.5 truncate">{opt.split}</span>
-                    </button>
-                  ))}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {TARIFF_OPTIONS.map((opt) => {
+                    const isSelected = essayCategory === opt.value;
+                    return (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => {
+                          setEssayCategory(opt.value);
+                          setWritingCheck(null);
+                        }}
+                        className={cn(
+                          "group relative flex flex-col justify-between text-left p-2.5 sm:p-3 rounded-xl border transition-all cursor-pointer",
+                          isSelected
+                            ? "border-primary bg-primary/[0.08] shadow-xs ring-1 ring-primary/40 text-foreground"
+                            : "border-border/60 bg-muted/20 hover:bg-muted/40 hover:border-border text-muted-foreground hover:text-foreground"
+                        )}
+                      >
+                        <div className="w-full">
+                          <div className="flex items-center justify-between gap-1 w-full">
+                            <span
+                              className={cn(
+                                "text-sm sm:text-base font-bold tracking-tight",
+                                isSelected ? "text-primary" : "text-foreground"
+                              )}
+                            >
+                              {opt.marks}
+                            </span>
+                            <span
+                              className={cn(
+                                "text-[9.5px] font-medium px-1.5 py-0.5 rounded border leading-none shrink-0",
+                                isSelected
+                                  ? "border-primary/40 bg-primary/10 text-primary"
+                                  : "border-border/60 bg-muted/40 text-muted-foreground"
+                              )}
+                            >
+                              {opt.badge}
+                            </span>
+                          </div>
+
+                          <div className="text-[11px] font-medium text-foreground/90 mt-1 leading-snug">
+                            {opt.subtitle}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between text-[10px] font-mono text-muted-foreground mt-2 pt-1.5 border-t border-border/40 w-full">
+                          <span>{opt.targetWords}</span>
+                          {isSelected ? (
+                            <span className="flex items-center gap-1 text-[9px] font-sans font-medium text-primary">
+                              <span className="size-1.5 rounded-full bg-primary animate-pulse" />
+                              Active
+                            </span>
+                          ) : (
+                            <span className="text-[9px] font-sans text-muted-foreground/60">{opt.paperLevel}</span>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
 
-                {essayCategory === "8_legacy" && (
-                  <div className="flex items-start gap-2 p-2.5 rounded-xl border border-sky-500/30 bg-sky-500/10 text-xs text-sky-200">
-                    <Sparkles className="size-4 shrink-0 mt-0.5 text-sky-400" />
-                    <div>
-                      <span className="font-semibold text-sky-300">Legacy Non-Evaluative 8-Mark Essay</span>
-                      <p className="text-[11px] text-sky-200/90 leading-normal mt-0.5">
-                        Pure descriptive and causal analysis from legacy papers (e.g. &quot;Explain...&quot; or &quot;Analyse...&quot;). Evaluation is <strong>not required</strong> and candidates are <strong>never penalized</strong> for having no evaluation or conclusion. Scored out of 2 marks AO1 Knowledge and 6 marks AO2 Analysis.
-                      </p>
+                {/* Unified contextual Cambridge specification bar */}
+                {(() => {
+                  const currentTariff =
+                    TARIFF_OPTIONS.find((t) => t.value === essayCategory) || TARIFF_OPTIONS[2];
+                  const isLegacy = essayCategory === "8_legacy";
+
+                  return (
+                    <div
+                      className={cn(
+                        "flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2.5 sm:px-3 sm:py-2 rounded-xl border text-xs transition-colors",
+                        isLegacy
+                          ? "border-sky-500/30 bg-sky-500/[0.08] text-sky-200"
+                          : "border-primary/25 bg-primary/[0.04] text-foreground/90"
+                      )}
+                    >
+                      <div className="flex items-start sm:items-center gap-2 min-w-0">
+                        {isLegacy ? (
+                          <Sparkles className="size-4 shrink-0 mt-0.5 sm:mt-0 text-sky-400" />
+                        ) : (
+                          <CheckCircle2 className="size-4 shrink-0 mt-0.5 sm:mt-0 text-primary" />
+                        )}
+                        <div className="min-w-0 space-y-0.5">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-semibold text-foreground text-xs">
+                              {currentTariff.fullTitle}
+                            </span>
+                            <Badge
+                              variant="outline"
+                              className={cn(
+                                "text-[9px] px-1.5 py-0",
+                                isLegacy
+                                  ? "border-sky-500/40 text-sky-300"
+                                  : "border-primary/40 text-primary"
+                              )}
+                            >
+                              {currentTariff.badge}
+                            </Badge>
+                          </div>
+                          <p
+                            className={cn(
+                              "text-[11px] leading-relaxed",
+                              isLegacy ? "text-sky-200/90" : "text-muted-foreground"
+                            )}
+                          >
+                            {currentTariff.guidance}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0 self-start sm:self-center">
+                        <span
+                          className={cn(
+                            "font-mono text-[10.5px] font-medium px-2 py-0.5 rounded-md border",
+                            isLegacy
+                              ? "border-sky-500/30 bg-sky-500/15 text-sky-200"
+                              : "border-border/60 bg-muted/60 text-foreground/80"
+                          )}
+                        >
+                          {currentTariff.aoFull}
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                )}
+                  );
+                })()}
 
                 {essayCategory === "8_eval" && question.trim().length >= 15 && !isEvaluativeQuestion(question) && (
                   <div className="flex items-center justify-between gap-2 p-2.5 rounded-xl border border-amber-500/30 bg-amber-500/10 text-xs text-amber-200">
