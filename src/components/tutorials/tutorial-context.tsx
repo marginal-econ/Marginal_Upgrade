@@ -1,6 +1,7 @@
 import * as React from "react";
 import { createContext, useContext, useEffect, useState, useCallback, useRef } from "react";
 import { useRouterState } from "@tanstack/react-router";
+import { toast } from "sonner";
 import { FEATURE_TUTORIALS, matchTutorialByPath, type FeatureTutorial } from "@/lib/tutorials-data";
 
 const STORAGE_KEY_SEEN = "marginal_seen_tutorials_v2";
@@ -13,8 +14,12 @@ interface TutorialContextType {
   viewMode: "walkthrough" | "directory";
   seenTutorials: Record<string, boolean>;
   autoTutorialsEnabled: boolean;
+  inviteTutorial: FeatureTutorial | null;
   openTutorial: (tutorialId?: string, step?: number) => void;
   closeTutorial: () => void;
+  acceptInvite: () => void;
+  dismissInvite: () => void;
+  disableAllAutoTutorials: () => void;
   nextStep: () => void;
   prevStep: () => void;
   goToStep: (step: number) => void;
@@ -62,6 +67,7 @@ export function FeatureTutorialProvider({
   const [viewMode, setViewMode] = useState<"walkthrough" | "directory">("walkthrough");
   const [seenTutorials, setSeenTutorials] = useState<Record<string, boolean>>({});
   const [autoTutorialsEnabled, setAutoTutorialsEnabled] = useState(true);
+  const [inviteTutorial, setInviteTutorial] = useState<FeatureTutorial | null>(null);
 
   // Keep a session-level set of checked routes to prevent any duplicate prompts or stuttering
   const checkedRoutesInSession = useRef<Set<string>>(new Set());
@@ -109,6 +115,7 @@ export function FeatureTutorialProvider({
 
   const openTutorial = useCallback(
     (tutorialId?: string, step: number = 0) => {
+      setInviteTutorial(null);
       let targetId = tutorialId;
       if (!targetId) {
         const currentMatch = matchTutorialByPath(pathname);
@@ -122,6 +129,32 @@ export function FeatureTutorialProvider({
     },
     [pathname],
   );
+
+  const acceptInvite = useCallback(() => {
+    if (inviteTutorial) {
+      const id = inviteTutorial.id;
+      setInviteTutorial(null);
+      openTutorial(id, 0);
+    }
+  }, [inviteTutorial, openTutorial]);
+
+  const dismissInvite = useCallback(() => {
+    if (inviteTutorial) {
+      markTutorialSeen(inviteTutorial.id);
+      setInviteTutorial(null);
+    }
+  }, [inviteTutorial, markTutorialSeen]);
+
+  const disableAllAutoTutorials = useCallback(() => {
+    if (inviteTutorial) {
+      markTutorialSeen(inviteTutorial.id);
+      setInviteTutorial(null);
+    }
+    toggleAutoTutorials(false);
+    toast.info("Automatic walkthroughs turned off. You can still open any guide anytime via the Tutorials button in the top navigation bar.", {
+      duration: 5000,
+    });
+  }, [inviteTutorial, markTutorialSeen, toggleAutoTutorials]);
 
   const nextStep = useCallback(() => {
     if (!activeTutorial) return;
@@ -178,8 +211,11 @@ export function FeatureTutorialProvider({
     [seenTutorials],
   );
 
-  // Auto-trigger when a user navigates to a new feature that has not been seen yet
+  // Polite invite: when a user navigates to a new feature, politely ASK first instead of interrupting them with a blocking modal
   useEffect(() => {
+    // Clear any invite from previous route
+    setInviteTutorial(null);
+
     if (!canAutoTrigger || !autoTutorialsEnabled) return;
 
     // Do not trigger on auth or landing pages
@@ -208,17 +244,15 @@ export function FeatureTutorialProvider({
       clearTimeout(timerRef.current);
     }
 
-    // Delay briefly so the route page renders smoothly before the helpful guide appears
+    // Delay briefly so the route page renders smoothly before the polite invite prompt appears
     timerRef.current = setTimeout(() => {
       // Re-verify that user hasn't already marked it seen in the meantime
       const currentSeen = loadSeenTutorials();
       if (!currentSeen[matched.id]) {
-        setActiveTutorialId(matched.id);
-        setActiveStep(0);
-        setViewMode("walkthrough");
-        setIsOpen(true);
+        // Ask the user if they actually want the tutorial instead of forcing the full modal
+        setInviteTutorial(matched);
       }
-    }, 600);
+    }, 1200);
 
     return () => {
       if (timerRef.current) {
@@ -236,8 +270,12 @@ export function FeatureTutorialProvider({
         viewMode,
         seenTutorials,
         autoTutorialsEnabled,
+        inviteTutorial,
         openTutorial,
         closeTutorial,
+        acceptInvite,
+        dismissInvite,
+        disableAllAutoTutorials,
         nextStep,
         prevStep,
         goToStep,
@@ -264,8 +302,12 @@ export function useFeatureTutorial() {
       viewMode: "walkthrough" as const,
       seenTutorials: {},
       autoTutorialsEnabled: true,
+      inviteTutorial: null,
       openTutorial: () => {},
       closeTutorial: () => {},
+      acceptInvite: () => {},
+      dismissInvite: () => {},
+      disableAllAutoTutorials: () => {},
       nextStep: () => {},
       prevStep: () => {},
       goToStep: () => {},

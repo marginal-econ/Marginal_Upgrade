@@ -48,6 +48,7 @@ export function OnboardingTutorial({
   const [school, setSchool] = useState(initialSchool);
   const [targetLevel, setTargetLevel] = useState<"as_level" | "a2_level" | "full_a_level">("as_level");
   const [targetGrade, setTargetGrade] = useState<"A*" | "A" | "B" | "C">("A*");
+  const [wantTutorials, setWantTutorials] = useState(true);
   const [acknowledged, setAcknowledged] = useState(false);
 
   useEffect(() => {
@@ -86,7 +87,16 @@ export function OnboardingTutorial({
         } catch {}
       }
 
-      // 3. Mark Tutorial Completed
+      // 3. Save Feature Tutorial Preference
+      try {
+        if (!wantTutorials) {
+          localStorage.setItem("marginal_auto_tutorials_disabled", "true");
+        } else {
+          localStorage.removeItem("marginal_auto_tutorials_disabled");
+        }
+      } catch {}
+
+      // 4. Mark Tutorial Completed
       return finishTutorialFn();
     },
     onSuccess: () => {
@@ -350,7 +360,64 @@ export function OnboardingTutorial({
             </div>
           </div>
 
-          {/* STEP 3: MANDATORY ACKNOWLEDGMENT CHECKBOX */}
+          {/* STEP 3: TUTORIAL PREFERENCE (ASK NEW USERS DIRECTLY) */}
+          <div className="p-4 sm:p-5 rounded-2xl bg-muted/30 border border-border space-y-3">
+            <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+              <GraduationCap className="h-3.5 w-3.5 text-purple-500" />
+              <span>3. Guided Feature Walkthroughs</span>
+            </div>
+
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Would you like interactive walkthroughs and Cambridge 9708 examiner guides when exploring new features?
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-0.5">
+              <button
+                type="button"
+                onClick={() => setWantTutorials(true)}
+                className={cn(
+                  "p-3 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between",
+                  wantTutorials
+                    ? "border-purple-600 bg-purple-500/10 dark:bg-purple-950/30 ring-1 ring-purple-500 text-foreground"
+                    : "border-border bg-background hover:bg-muted/40 text-muted-foreground hover:text-foreground",
+                )}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-foreground">Yes, show walkthroughs</span>
+                  <Badge
+                    variant="outline"
+                    className="text-[9.5px] border-purple-500/30 text-purple-600 dark:text-purple-400"
+                  >
+                    Recommended
+                  </Badge>
+                </div>
+                <p className="text-[11px] text-muted-foreground mt-1 leading-normal">
+                  Politely asks before offering a 1-minute guide on new tools.
+                </p>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setWantTutorials(false)}
+                className={cn(
+                  "p-3 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between",
+                  !wantTutorials
+                    ? "border-purple-600 bg-purple-500/10 dark:bg-purple-950/30 ring-1 ring-purple-500 text-foreground"
+                    : "border-border bg-background hover:bg-muted/40 text-muted-foreground hover:text-foreground",
+                )}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-foreground">No thanks, skip them</span>
+                  <span className="text-[10px] text-muted-foreground font-mono">Independent</span>
+                </div>
+                <p className="text-[11px] text-muted-foreground mt-1 leading-normal">
+                  Never interrupt with guides. You can still open them anytime from the top bar.
+                </p>
+              </button>
+            </div>
+          </div>
+
+          {/* STEP 4: MANDATORY ACKNOWLEDGMENT CHECKBOX */}
           <div className="p-4 rounded-2xl bg-muted/40 border border-border space-y-2">
             <div className="flex items-start gap-3">
               <Checkbox

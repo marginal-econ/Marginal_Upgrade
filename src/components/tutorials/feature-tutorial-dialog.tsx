@@ -38,6 +38,7 @@ export function FeatureTutorialDialog() {
     viewMode,
     seenTutorials,
     autoTutorialsEnabled,
+    inviteTutorial,
     closeTutorial,
     nextStep,
     prevStep,
@@ -47,6 +48,9 @@ export function FeatureTutorialDialog() {
     openTutorial,
     resetSeenStatus,
     toggleAutoTutorials,
+    acceptInvite,
+    dismissInvite,
+    disableAllAutoTutorials,
   } = useFeatureTutorial();
 
   const navigate = useNavigate();
@@ -82,13 +86,12 @@ export function FeatureTutorialDialog() {
     "Dashboard",
   ];
 
-  if (!isOpen) return null;
-
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && closeTutorial()}>
-      <DialogContent
-        className="max-w-2xl w-[95vw] sm:w-[90vw] md:w-[720px] max-h-[92vh] flex flex-col p-0 rounded-3xl border border-border bg-card shadow-2xl overflow-hidden text-left z-50 focus:outline-none [&>button.absolute]:hidden"
-        onEscapeKeyDown={closeTutorial}
+    <>
+      <Dialog open={isOpen} onOpenChange={(open) => !open && closeTutorial()}>
+        <DialogContent
+          className="max-w-2xl w-[95vw] sm:w-[90vw] md:w-[720px] max-h-[92vh] flex flex-col p-0 rounded-3xl border border-border bg-card shadow-2xl overflow-hidden text-left z-50 focus:outline-none [&>button.absolute]:hidden"
+          onEscapeKeyDown={closeTutorial}
       >
         {/* Pinned Top Navigation Bar */}
         <div className="p-4 sm:p-5 pb-3 border-b border-border/70 bg-muted/20 shrink-0">
@@ -476,6 +479,116 @@ export function FeatureTutorialDialog() {
         </div>
       </DialogContent>
     </Dialog>
+
+    {inviteTutorial && !isOpen && (
+      <TutorialInviteBanner
+        tutorial={inviteTutorial}
+        onAccept={acceptInvite}
+        onDismiss={dismissInvite}
+        onDisableAll={disableAllAutoTutorials}
+      />
+    )}
+  </>
+  );
+}
+
+/**
+ * Non-intrusive invite prompt shown on route entry.
+ * Never blocks the screen, never steals focus, and politely asks if the user wants a tutorial.
+ */
+export function TutorialInviteBanner({
+  tutorial,
+  onAccept,
+  onDismiss,
+  onDisableAll,
+}: {
+  tutorial: FeatureTutorial;
+  onAccept: () => void;
+  onDismiss: () => void;
+  onDisableAll: () => void;
+}) {
+  const Icon = tutorial.icon || GraduationCap;
+
+  // Auto-dismiss after 25 seconds if untouched to prevent being an inconvenience
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      onDismiss();
+    }, 25000);
+    return () => clearTimeout(timer);
+  }, [onDismiss]);
+
+  return (
+    <aside
+      aria-label="Feature Tutorial Suggestion"
+      className="fixed bottom-4 right-4 z-50 max-w-sm w-[calc(100vw-2rem)] sm:w-[380px] p-4 rounded-2xl border border-purple-500/30 bg-card/95 backdrop-blur-md shadow-2xl text-left animate-in slide-in-from-bottom-4 duration-300 transition-all pointer-events-auto"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start gap-3 min-w-0">
+          <div className="size-9 rounded-xl bg-purple-500/15 border border-purple-500/25 flex items-center justify-center text-purple-600 dark:text-purple-400 shrink-0 mt-0.5">
+            <Icon className="size-5" />
+          </div>
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-purple-600 dark:text-purple-400 bg-purple-500/10 px-1.5 py-0.5 rounded">
+                Cambridge 9708 Guide
+              </span>
+              {tutorial.paperTag && (
+                <span className="text-[10px] text-muted-foreground font-mono">
+                  • {tutorial.paperTag}
+                </span>
+              )}
+            </div>
+            <h4 className="text-xs sm:text-sm font-bold text-foreground mt-1 truncate">
+              {tutorial.title}
+            </h4>
+            <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">
+              Would you like a quick 1-minute walkthrough of this feature?
+            </p>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={onDismiss}
+          className="size-6 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted/80 flex items-center justify-center shrink-0 transition-colors cursor-pointer"
+          title="Dismiss for now"
+        >
+          <X className="size-3.5" />
+          <span className="sr-only">Close</span>
+        </button>
+      </div>
+
+      <div className="flex items-center justify-between gap-2 mt-3 pt-2.5 border-t border-border/50">
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            size="sm"
+            onClick={onAccept}
+            className="h-7 px-3 text-xs font-semibold bg-purple-600 hover:bg-purple-700 text-white rounded-xl shadow-xs gap-1 cursor-pointer"
+          >
+            <Sparkles className="size-3" />
+            Start Guide
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={onDismiss}
+            className="h-7 px-2.5 text-xs text-muted-foreground hover:text-foreground rounded-xl cursor-pointer"
+          >
+            Not now
+          </Button>
+        </div>
+
+        <button
+          type="button"
+          onClick={onDisableAll}
+          className="text-[10px] text-muted-foreground/70 hover:text-muted-foreground underline cursor-pointer shrink-0"
+        >
+          Don&apos;t show guides
+        </button>
+      </div>
+    </aside>
   );
 }
 
