@@ -903,7 +903,10 @@ export function DataResponseStudio() {
                           <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
                             <div className="md:col-span-7 bg-background rounded-lg border border-border/80 p-2 shadow-xs flex items-center justify-center">
                               <div className="w-full max-w-[380px]">
-                                <EconomicsDiagram spec={currentQuestion.diagramSpec} />
+                                <EconomicsDiagram
+                                  spec={currentQuestion.diagramSpec}
+                                  title={currentQuestion.diagramGuidance?.diagramName || currentQuestion.title}
+                                />
                               </div>
                             </div>
                             <div className="md:col-span-5 text-xs space-y-2">
@@ -1188,14 +1191,14 @@ export function DataResponseStudio() {
                         <Badge
                           className={cn(
                             "font-mono text-xs font-bold",
-                            result.diagramEvaluation.marksAwarded === result.diagramEvaluation.maxDiagramMarks
+                            result.diagramEvaluation.marksAwarded === (currentQuestion?.diagramGuidance?.marksAllocated || 2)
                               ? "bg-emerald-600 text-white"
                               : result.diagramEvaluation.marksAwarded > 0
                               ? "bg-primary text-primary-foreground"
                               : "bg-destructive text-destructive-foreground"
                           )}
                         >
-                          Diagram Marks: {result.diagramEvaluation.marksAwarded} / {result.diagramEvaluation.maxDiagramMarks}
+                          Diagram Marks: {result.diagramEvaluation.marksAwarded} / {currentQuestion?.diagramGuidance?.marksAllocated || 2}
                         </Badge>
                       </div>
 
@@ -1203,62 +1206,62 @@ export function DataResponseStudio() {
                         <div
                           className={cn(
                             "p-2 rounded border text-center font-medium",
-                            result.diagramEvaluation.diagramDetected
+                            result.diagramEvaluation.detected
                               ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-300"
                               : "bg-destructive/10 border-destructive/30 text-destructive"
                           )}
                         >
                           <div className="text-[10px] text-muted-foreground uppercase">Diagram</div>
                           <div className="text-xs font-semibold">
-                            {result.diagramEvaluation.diagramDetected ? "Detected" : "Missing"}
+                            {result.diagramEvaluation.detected ? "Detected" : "Missing"}
                           </div>
                         </div>
 
                         <div
                           className={cn(
                             "p-2 rounded border text-center font-medium",
-                            result.diagramEvaluation.axesCorrect
+                            result.diagramEvaluation.axesLabelledCorrectly
                               ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-300"
                               : "bg-destructive/10 border-destructive/30 text-destructive"
                           )}
                         >
                           <div className="text-[10px] text-muted-foreground uppercase">Axes</div>
                           <div className="text-xs font-semibold">
-                            {result.diagramEvaluation.axesCorrect ? "Correct" : "Inaccurate"}
+                            {result.diagramEvaluation.axesLabelledCorrectly ? "Correct" : "Inaccurate"}
                           </div>
                         </div>
 
                         <div
                           className={cn(
                             "p-2 rounded border text-center font-medium",
-                            result.diagramEvaluation.shiftsAccurate
+                            result.diagramEvaluation.shiftDirectionCorrect
                               ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-300"
                               : "bg-amber-500/10 border-amber-500/30 text-amber-700 dark:text-amber-300"
                           )}
                         >
                           <div className="text-[10px] text-muted-foreground uppercase">Shifts</div>
                           <div className="text-xs font-semibold">
-                            {result.diagramEvaluation.shiftsAccurate ? "Accurate" : "Flawed/Missing"}
+                            {result.diagramEvaluation.shiftDirectionCorrect ? "Accurate" : "Flawed/Missing"}
                           </div>
                         </div>
 
                         <div
                           className={cn(
                             "p-2 rounded border text-center font-medium",
-                            result.diagramEvaluation.equilibriumCorrect
+                            result.diagramEvaluation.equilibriumLabelled
                               ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-300"
                               : "bg-amber-500/10 border-amber-500/30 text-amber-700 dark:text-amber-300"
                           )}
                         >
                           <div className="text-[10px] text-muted-foreground uppercase">Equilibrium</div>
                           <div className="text-xs font-semibold">
-                            {result.diagramEvaluation.equilibriumCorrect ? "Identified" : "Omitted"}
+                            {result.diagramEvaluation.equilibriumLabelled ? "Identified" : "Omitted"}
                           </div>
                         </div>
                       </div>
 
                       <p className="text-xs text-muted-foreground bg-background p-2.5 rounded border border-border/60 leading-relaxed">
-                        <strong>Diagram Evaluation:</strong> {result.diagramEvaluation.rationale}
+                        <strong>Diagram Evaluation:</strong> {result.diagramEvaluation.examinerComment}
                       </p>
                     </div>
                   )}
