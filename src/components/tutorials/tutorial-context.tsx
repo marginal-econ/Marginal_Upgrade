@@ -98,6 +98,17 @@ export function FeatureTutorialProvider({
     });
   }, []);
 
+  const toggleAutoTutorials = useCallback((enabled: boolean) => {
+    setAutoTutorialsEnabled(enabled);
+    try {
+      if (enabled) {
+        localStorage.removeItem(STORAGE_KEY_AUTO_DISABLED);
+      } else {
+        localStorage.setItem(STORAGE_KEY_AUTO_DISABLED, "true");
+      }
+    } catch {}
+  }, []);
+
   const completeCurrentTutorial = useCallback(() => {
     if (activeTutorialId) {
       markTutorialSeen(activeTutorialId);
@@ -191,17 +202,6 @@ export function FeatureTutorialProvider({
         localStorage.removeItem(STORAGE_KEY_SEEN);
       } catch {}
     }
-  }, []);
-
-  const toggleAutoTutorials = useCallback((enabled: boolean) => {
-    setAutoTutorialsEnabled(enabled);
-    try {
-      if (enabled) {
-        localStorage.removeItem(STORAGE_KEY_AUTO_DISABLED);
-      } else {
-        localStorage.setItem(STORAGE_KEY_AUTO_DISABLED, "true");
-      }
-    } catch {}
   }, []);
 
   const isFeatureSeen = useCallback(
