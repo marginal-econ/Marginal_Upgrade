@@ -234,7 +234,7 @@ const TOOLS = [
   {
     icon: Sparkles,
     tile: "bg-purple-600",
-    badge: "Under Building",
+    badge: "In Active Beta",
     title: "Live Examiner & Score Maximizer",
     lead: "Instant Cambridge coaching as you type",
     body: "Grammarly for Economics: instant AO1/AO2/AO3 sentence highlighting, live running marks, terminology checks, and step-by-step Score Maximizer blueprints.",
@@ -495,7 +495,7 @@ function Index() {
       </header>
 
       {/* ── Hero ─────────────────────────────────────────────────────────── */}
-      <section className="relative overflow-hidden border-b-[1.5px] border-ink pb-10 sm:pb-12 md:pb-14">
+      <section className="relative overflow-hidden border-b-[1.5px] border-ink pb-0">
         {/* Three background layers, back to front: the CSS aurora wash, WebGL curtain,
             cosmic twinkling starfield, and paper-grid overlay. */}
         <div className="aurora-wash pointer-events-none absolute inset-0" aria-hidden="true" />
@@ -671,10 +671,10 @@ function Index() {
           </Reveal>
         </div>
 
-        <Ribbon
-          items={RIBBON_ITEMS}
-          className="right-8 bottom-3 left-8 -rotate-[1deg] md:right-20 md:bottom-4 md:left-20"
-        />
+        {/* Docked Cambridge 9708 Feature Marquee Ticker */}
+        <div className="relative mt-8 sm:mt-10 md:mt-12 w-full">
+          <Ribbon items={RIBBON_ITEMS} />
+        </div>
       </section>
 
       {/* ── Real Graded Essay Showcase (User Scored Exemplar) ────────────── */}
@@ -1031,34 +1031,39 @@ function Index() {
                   <Button
                     asChild
                     size="lg"
-                    className="h-11 px-6 text-xs sm:text-sm font-bold bg-background text-foreground hover:bg-background/90 shadow-lg"
+                    className="h-11 sm:h-12 px-6 text-xs sm:text-sm font-bold bg-white text-zinc-950 hover:bg-white/90 shadow-xl shadow-black/25 hover:scale-[1.02] active:scale-[0.98] transition-all rounded-xl cursor-pointer"
                   >
-                    <Link to="/auth">
-                      Create Free Account <ArrowRight className="size-4 ml-1.5" />
+                    <Link to="/auth" className="inline-flex items-center gap-2">
+                      <span>Create Free Account</span>
+                      <ArrowRight className="size-4" />
                     </Link>
                   </Button>
                   <Button
                     asChild
                     variant="outline"
                     size="lg"
-                    className="h-11 px-5 text-xs sm:text-sm font-semibold border-white/30 text-plum-foreground hover:bg-white/10"
+                    className="h-11 sm:h-12 px-5 text-xs sm:text-sm font-semibold border-white/25 bg-white/5 text-white hover:bg-white/15 hover:border-white/40 backdrop-blur-md rounded-xl transition-all cursor-pointer"
                   >
-                    <Link to="/grade">Grade Unlimited Essays</Link>
+                    <Link to="/grade" className="inline-flex items-center gap-2">
+                      <PenLine className="size-4 text-emerald-400" />
+                      <span>Grade Essays Free</span>
+                    </Link>
                   </Button>
-                  <div className="relative inline-block">
-                    <span className="absolute -top-2.5 -right-2 px-2 py-0.5 rounded-full bg-amber-400 text-amber-950 text-[9px] font-extrabold uppercase tracking-wider shadow-sm border border-amber-300 pointer-events-none flex items-center gap-1 z-20">
-                      <span className="size-1.5 rounded-full bg-amber-600 animate-pulse" />
-                      Under Building
-                    </span>
-                    <Button
-                      asChild
-                      variant="outline"
-                      size="lg"
-                      className="h-11 px-5 text-xs sm:text-sm font-semibold border-white/30 text-plum-foreground hover:bg-white/10"
-                    >
-                      <Link to="/live-examiner">Live Examiner</Link>
-                    </Button>
-                  </div>
+                  <Button
+                    asChild
+                    variant="outline"
+                    size="lg"
+                    className="h-11 sm:h-12 px-5 text-xs sm:text-sm font-semibold border-white/20 bg-white/5 text-white hover:bg-white/15 hover:border-white/35 backdrop-blur-md rounded-xl transition-all cursor-pointer group"
+                  >
+                    <Link to="/live-examiner" className="inline-flex items-center gap-2">
+                      <Sparkles className="size-4 text-purple-300 group-hover:rotate-12 transition-transform" />
+                      <span>Live Examiner</span>
+                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-400/20 px-2 py-0.5 text-[10px] font-bold text-amber-300 border border-amber-400/35 tracking-wider uppercase">
+                        <span className="size-1.5 rounded-full bg-amber-400 animate-pulse" />
+                        In Beta
+                      </span>
+                    </Link>
+                  </Button>
                 </div>
 
                 <p className="mt-5 text-xs text-plum-foreground/70">

@@ -126,7 +126,7 @@ const NAV_GROUPS: NavGroup[] = [
         to: "/live-examiner",
         label: "Live Examiner",
         icon: Sparkles,
-        badge: "Under Building",
+        badge: "Beta",
       },
     ],
   },
@@ -154,7 +154,7 @@ const NAV_GROUPS: NavGroup[] = [
         to: "/live-examiner",
         label: "Live Examiner Studio",
         icon: Sparkles,
-        badge: "Under Building",
+        badge: "Beta",
       },
     ],
   },
@@ -195,7 +195,7 @@ const TEACHER_NAV_GROUPS: NavGroup[] = [
         to: "/live-examiner",
         label: "Live Examiner",
         icon: Sparkles,
-        badge: "Under Building",
+        badge: "Beta",
       },
     ],
   },
@@ -481,28 +481,7 @@ export function AppShell({
                 const active = isItemActive(item.to);
                 const label = item.to === "/classes" ? classroomLabel : item.label;
 
-                const isTeacherUser = role === "teacher" || Boolean(subscription?.isTeacher);
-                const isTeacherUnpaid = false;
-
-                const isChainedPaid = item.requiresPaid && !canLiveExaminer;
-                const isChainedEssay =
-                  item.to === "/grade" &&
-                  !isUserAdmin &&
-                  Boolean(subscription && !subscription.canGradeEssay);
-                const isChainedLiveExaminer =
-                  item.to === "/live-examiner" && !isUserAdmin && isChainedPaid;
-                const isChainedMCQ =
-                  item.to === "/mcq-live" &&
-                  !isUserAdmin &&
-                  // check mcq access
-                  Boolean(subscription && !subscription.canUseMCQ);
-                const isLockedExperimental = item.requiresHigherTier && !isHigherTierUser;
-                const isLocked =
-                  isChainedPaid ||
-                  isChainedEssay ||
-                  isChainedLiveExaminer ||
-                  isChainedMCQ ||
-                  isLockedExperimental;
+                const isLocked = false;
 
                 if (isLocked) {
                   const lockType: LockedFeatureType =
@@ -592,14 +571,14 @@ export function AppShell({
                       <span
                         className={cn(
                           "ml-auto rounded-full px-1.5 py-0.5 text-[9px] font-bold shadow-2xs transition-colors shrink-0 flex items-center gap-1",
-                          item.badge === "Under Building"
+                          item.badge === "Beta" || item.badge === "Under Building"
                             ? "bg-amber-500/15 border border-amber-500/35 text-amber-600 dark:text-amber-400 group-hover:bg-amber-500/25"
                             : item.badge === "Root" || item.badge === "Admin"
                               ? "bg-purple-500/15 border border-purple-500/30 text-purple-600 dark:text-purple-400"
                               : "bg-emerald-500/15 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 group-hover:bg-emerald-500/25",
                         )}
                       >
-                        {item.badge === "Under Building" && (
+                        {(item.badge === "Beta" || item.badge === "Under Building") && (
                           <span className="size-1.5 rounded-full bg-amber-500 animate-pulse" />
                         )}
                         {item.badge}
@@ -744,10 +723,6 @@ export function AppShell({
                     </Link>
                   </div>
                 </div>
-                <div className="mt-2 pt-2 border-t border-amber-500/20 text-[10px] text-muted-foreground flex items-center gap-1.5 font-medium relative z-10">
-                  <Sparkles className="size-3 text-amber-500 animate-pulse shrink-0" />
-                  <span className="text-foreground truncate">Uncapped Godmode · No Limits</span>
-                </div>
               </div>
             ) : role === "teacher" || subscription.isTeacher ? (
               <div className="rounded-2xl border border-purple-500/30 bg-gradient-to-br from-purple-500/15 via-card to-purple-500/5 p-3 shadow-sm relative overflow-hidden group">
@@ -790,17 +765,6 @@ export function AppShell({
                     </Link>
                   </div>
                 </div>
-                <div className="mt-2.5 pt-2 border-t border-purple-500/20 flex items-center justify-between text-[10px] text-muted-foreground relative z-10">
-                  <span className="flex items-center gap-1 font-medium truncate">
-                    <PenLine className="size-3 text-purple-500 shrink-0" />
-                    {subscription.essaysLimit === 9999
-                      ? "Unlimited"
-                      : `${subscription.essaysRemaining} essays left`}
-                  </span>
-                  <span className="font-semibold text-purple-600 dark:text-purple-400">
-                    {subscription.tierName || "Educator"}
-                  </span>
-                </div>
               </div>
             ) : (
               <div className="rounded-2xl border border-border/80 bg-gradient-to-br from-card via-card to-primary/[0.04] p-3 shadow-sm relative overflow-hidden group">
@@ -828,12 +792,6 @@ export function AppShell({
                     </div>
                   </Link>
                   <div className="flex items-center gap-1 shrink-0">
-                    <Badge
-                      variant="outline"
-                      className="border-primary/30 bg-primary/10 text-primary text-[9.5px] px-2 py-0.5 font-bold shadow-2xs"
-                    >
-                      {subscription.tierName || "Candidate"}
-                    </Badge>
                     <Link
                       to="/settings"
                       className="size-6 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-background/80 transition-colors"
@@ -842,17 +800,6 @@ export function AppShell({
                       <Settings className="size-3" />
                     </Link>
                   </div>
-                </div>
-                <div className="mt-2.5 pt-2 border-t border-border/60 flex items-center justify-between text-[10px] text-muted-foreground relative z-10">
-                  <span className="flex items-center gap-1 font-medium truncate">
-                    <PenLine className="size-3 text-primary shrink-0" />
-                    {subscription.essaysLimit === 9999
-                      ? "Unlimited Essays"
-                      : `${subscription.essaysRemaining} essays left`}
-                  </span>
-                  <span className="font-semibold text-emerald-600 dark:text-emerald-400">
-                    {subscription.isPaid ? "Active Pass" : "Free Plan"}
-                  </span>
                 </div>
               </div>
             )}
@@ -1013,10 +960,6 @@ export function AppShell({
                           Root Admin
                         </Badge>
                       </div>
-                      <div className="mt-2 pt-2 border-t border-amber-500/20 text-[10px] text-muted-foreground flex items-center gap-1.5 font-medium">
-                        <Sparkles className="size-3 text-amber-500 animate-pulse" />
-                        <span className="text-foreground">Uncapped Godmode · No Limits</span>
-                      </div>
                     </div>
                   ) : role === "teacher" || subscription.isTeacher ? (
                     <div className="mb-3 rounded-2xl border border-purple-500/30 bg-gradient-to-br from-purple-500/15 via-card to-purple-500/5 p-3 shrink-0 shadow-sm relative overflow-hidden">
@@ -1046,17 +989,6 @@ export function AppShell({
                           Educator
                         </Badge>
                       </div>
-                      <div className="mt-2.5 pt-2 border-t border-purple-500/20 flex justify-between text-[10.5px] text-muted-foreground">
-                        <span className="flex items-center gap-1 font-medium">
-                          <PenLine className="size-3 text-purple-500" /> Essays:{" "}
-                          {subscription.essaysLimit === 9999
-                            ? "Unlimited"
-                            : `${subscription.essaysRemaining}/${subscription.essaysLimit}`}
-                        </span>
-                        <span className="font-semibold text-purple-600 dark:text-purple-400">
-                          {subscription.tierName || "Educator"}
-                        </span>
-                      </div>
                     </div>
                   ) : (
                     <div className="mb-3 rounded-2xl border border-border/80 bg-gradient-to-br from-card via-card to-primary/[0.04] p-3 shrink-0 shadow-sm">
@@ -1082,28 +1014,6 @@ export function AppShell({
                             </span>
                           </div>
                         </Link>
-                        <Badge
-                          variant="outline"
-                          className={cn(
-                            "text-[9px] px-1.5 py-0 font-bold",
-                            subscription.isPaid
-                              ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                              : "border-primary/30 bg-primary/10 text-primary",
-                          )}
-                        >
-                          {subscription.isPaid ? subscription.tierName.split(" ")[0] : "Free Plan"}
-                        </Badge>
-                      </div>
-                      <div className="mt-2.5 pt-2 border-t border-border/60 flex justify-between text-[10.5px] text-muted-foreground">
-                        <span className="flex items-center gap-1 font-medium">
-                          <PenLine className="size-3 text-primary" /> Essays:{" "}
-                          {subscription.essaysLimit === 9999
-                            ? "Unlimited"
-                            : `${subscription.essaysRemaining}/${subscription.essaysLimit}`}
-                        </span>
-                        <span className="font-semibold text-emerald-600 dark:text-emerald-400">
-                          {subscription.isPaid ? "Active" : "Free"}
-                        </span>
                       </div>
                     </div>
                   )
@@ -1211,25 +1121,6 @@ export function AppShell({
             ) : (
               <StudentMessagesDialog />
             )}
-            <Link to="/pricing">
-              <Badge
-                variant="outline"
-                className={cn(
-                  "text-[10px] font-bold",
-                  role === "teacher" || subscription?.isTeacher
-                    ? "border-purple-500/30 bg-purple-500/10 text-purple-600 dark:text-purple-400"
-                    : subscription?.isPaid
-                      ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                      : "text-primary border-primary/30",
-                )}
-              >
-                {role === "teacher" || subscription?.isTeacher
-                  ? "Educator"
-                  : subscription?.isPaid
-                    ? subscription.tierName.split(" ")[0]
-                    : "Free Tier"}
-              </Badge>
-            </Link>
           </div>
         </header>
 
@@ -1282,26 +1173,6 @@ export function AppShell({
             ) : (
               <StudentMessagesDialog />
             )}
-
-            <Link to="/pricing">
-              <Badge
-                variant="outline"
-                className={cn(
-                  "text-[10px] font-bold",
-                  role === "teacher" || subscription?.isTeacher
-                    ? "border-purple-500/30 bg-purple-500/10 text-purple-600 dark:text-purple-400"
-                    : subscription?.isPaid
-                      ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                      : "text-primary border-primary/30",
-                )}
-              >
-                {role === "teacher" || subscription?.isTeacher
-                  ? "Educator"
-                  : subscription?.isPaid
-                    ? subscription.tierName.split(" ")[0]
-                    : "Free Tier"}
-              </Badge>
-            </Link>
           </div>
         </header>
 

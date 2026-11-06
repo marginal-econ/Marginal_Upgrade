@@ -1,40 +1,20 @@
+import { cn } from "@/lib/utils";
+
 /**
- * The ribbon across the foot of the hero.
+ * Feature marquee ticker across the hero section.
  *
- * It is an actual ribbon, not a band running off both edges of the screen:
- * a printed centre panel inset from the viewport, with two folded tails
- * falling behind it and a swallowtail cut in each outer end. The tails are
- * drawn as SVG so the ink outline follows the notch — a CSS clip-path would
- * shear the border off along exactly the edge that needs one most.
- *
- * The scrolling text holds the phrase list twice and translates exactly
- * -50%, so the loop is seamless with no visible reset.
- *
- * Decorative throughout: aria-hidden, pointer-transparent, and the
- * reduced-motion block in styles.css stops the scroll dead (leaving a
- * legible static band rather than removing it).
+ * Displays key Cambridge 9708 Economics capabilities in an infinite,
+ * smooth kinetic loop with dual edge fade masks and assessment-objective-specific
+ * glowing indicators.
  */
 
-/** One folded tail: a rectangle with a V cut out of its outer end. */
-function Tail({ className }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 88 52"
-      preserveAspectRatio="none"
-      className={className}
-      aria-hidden="true"
-      focusable="false"
-    >
-      <path
-        d="M88 3H6l19 23L6 49h82z"
-        fill="var(--plum-deep)"
-        stroke="var(--ink)"
-        strokeWidth="3"
-        strokeLinejoin="round"
-        vectorEffect="non-scaling-stroke"
-      />
-    </svg>
-  );
+function getDotColor(item: string): string {
+  if (item.includes("AO1")) return "bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.7)]";
+  if (item.includes("AO2")) return "bg-sky-400 shadow-[0_0_8px_rgba(56,189,248,0.7)]";
+  if (item.includes("AO3")) return "bg-purple-400 shadow-[0_0_8px_rgba(192,132,252,0.7)]";
+  if (item.includes("Unlimited") || item.includes("Resume"))
+    return "bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.7)]";
+  return "bg-primary shadow-[0_0_8px_rgba(168,85,247,0.7)]";
 }
 
 export function Ribbon({ items, className }: { items: string[]; className?: string }) {
@@ -43,21 +23,32 @@ export function Ribbon({ items, className }: { items: string[]; className?: stri
   return (
     <div
       aria-hidden="true"
-      className={"ribbon pointer-events-none absolute z-20 select-none " + (className ?? "")}
+      className={cn(
+        "marquee-container group relative w-full overflow-hidden border-y border-border/70 bg-card/60 backdrop-blur-xl py-2.5 sm:py-3 select-none transition-colors",
+        className,
+      )}
     >
-      <Tail className="ribbon-tail ribbon-tail-left" />
-      <Tail className="ribbon-tail ribbon-tail-right" />
+      {/* Subtle top & bottom edge cosmic ambient glow lines */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-purple-500/20 to-transparent" />
 
-      <div className="ribbon-band">
-        <div className="marquee-track">
+      {/* Smooth gradient fade masks on both edges prevent harsh letter clipping */}
+      <div className="marquee-mask w-full overflow-hidden">
+        <div className="marquee-track flex items-center">
           {doubled.map((item, index) => (
-            <span
+            <div
               key={`${item}-${index}`}
-              className="flex shrink-0 items-center gap-6 px-6 text-sm font-semibold tracking-wide"
+              className="flex shrink-0 items-center gap-2.5 px-4 sm:px-6 text-xs sm:text-[13px] font-semibold text-foreground/90 transition-colors group-hover:text-foreground"
             >
-              {item}
-              <span className="opacity-55">✦</span>
-            </span>
+              <span className={cn("size-2 rounded-full shrink-0", getDotColor(item))} />
+              <span className="tracking-wide whitespace-nowrap">{item}</span>
+              <span
+                className="text-primary/35 text-xs font-mono ml-2 sm:ml-3 select-none"
+                aria-hidden="true"
+              >
+                ✦
+              </span>
+            </div>
           ))}
         </div>
       </div>

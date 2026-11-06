@@ -156,8 +156,6 @@ function GradePage() {
   const sub = meQuery.data?.subscription;
   const isAdmin = meQuery.data?.isAdmin ?? false;
   const isTeacher = meQuery.data?.role === "teacher" || Boolean(sub?.isTeacher);
-  const isTeacherUnpaid = isTeacher && !sub?.isPaid && !isAdmin;
-  const isLimitReached = false;
 
   const DRAFT_STORAGE_KEY = "marginal_essay_draft_v1";
 
@@ -578,18 +576,6 @@ function GradePage() {
   }
 
   function handleMarkClick() {
-    if (isLimitReached) {
-      toast.error(
-        isTeacher
-          ? "Plan limit reached: You've completed your 3 free educator trial evaluations. Upgrade to an Educator AI Pass (from $19/mo) to continue."
-          : "Plan limit reached. Redirecting to pricing...",
-        {
-          duration: 4000,
-        }
-      );
-      navigate({ to: "/pricing" });
-      return;
-    }
     if (!readyToMark) {
       if (grammarCheckEngine === "in_house") {
         runInHouseCheck();
@@ -608,76 +594,7 @@ function GradePage() {
         description="Marked to Cambridge 9708 standards, grounded in your own coursebook and mark schemes, then independently audited for central-tendency bias."
       />
 
-      {isLimitReached ? (
-        <ChainedChamber
-          badgeText={
-            isTeacherUnpaid
-              ? "Teacher AI Pass Required"
-              : `Limit Reached · ${sub?.essaysGradedCount ?? 2}/${sub?.essaysLimit ?? 2} Essays Used`
-          }
-          title={isTeacherUnpaid ? "Unlock Teacher AI Grading & Moderation" : "Essay Grader is Chained"}
-          description={
-            isTeacherUnpaid
-              ? "Teacher accounts require an active Educator AI Pass (from $19/mo) or School Department License to grade essays directly. Student homework assignments in your Cambridge classrooms are covered under your students' accounts."
-              : `You have completed your included Cambridge essay evaluations for your ${sub?.tierName ?? "Free Tier"} account. Upgrade your revision pass to unlock additional essay evaluations, Live Examiner credits, and full Cambridge mark schemes.`
-          }
-          primaryCtaText={isTeacherUnpaid ? "Unlock Educator AI Pass (from $19/mo)" : "Unlock Plan from $19/mo"}
-          primaryCtaLink="/pricing"
-          secondaryCtaText={isTeacherUnpaid ? "View School Department Licensing" : "View Previous Submissions"}
-          secondaryCtaLink={isTeacherUnpaid ? "/pricing" : "/showcase"}
-          features={
-            isTeacherUnpaid
-              ? [
-                  {
-                    icon: Sparkles,
-                    iconColor: "text-amber-500",
-                    title: "Educator AI Pass (From $19/mo)",
-                    description: "Subscribe individually to grade student essays, test mark schemes, and generate exemplar Cambridge answers.",
-                  },
-                  {
-                    icon: Building2,
-                    iconColor: "text-primary",
-                    title: "School Department Licensing",
-                    description: "License 50 to 400+ student seats for your department with teacher administrative seats and moderation tools.",
-                  },
-                  {
-                    icon: Users,
-                    iconColor: "text-purple-500",
-                    title: "Students Submit with Their Own Quotas",
-                    description: "Students enrolled in your classrooms submit essay assignments using their own student tier quotas (unlimited essays + upgrades).",
-                  },
-                ]
-              : [
-                  {
-                    icon: PenLine,
-                    iconColor: "text-primary",
-                    title: "Higher Monthly Essay Quota",
-                    description: "Get 10 essays/mo on Foundation, 30 essays/mo on Pro, or Unlimited essays on Cambridge Elite.",
-                  },
-                  {
-                    icon: Sparkles,
-                    iconColor: "text-amber-500",
-                    title: "Clause-by-Clause Cambridge Grounding",
-                    description: "Audited against 1,400+ published mark schemes with sentence-level AO1/AO2/AO3 allocations.",
-                  },
-                  {
-                    icon: Zap,
-                    iconColor: "text-emerald-500",
-                    title: "Live Examiner Keystroke Credits",
-                    description: "Real-time socratic coaching and grammar checking as you draft your answers.",
-                  },
-                  {
-                    icon: ShieldCheck,
-                    iconColor: "text-blue-500",
-                    title: "Dual-Pass Auditor Bias Elimination",
-                    description: "Stops AI central-tendency clumping and awards genuine distinction marks.",
-                  },
-                ]
-          }
-        />
-      ) : (
-        <>
-          {isDirectGradingMode && (
+      {isDirectGradingMode && (
             <div className="px-3.5 pt-3 pb-0 sm:px-6 sm:pt-4 md:px-8">
               <div className="p-4 rounded-2xl bg-gradient-to-r from-purple-950/80 via-indigo-950/80 to-purple-950/80 border border-purple-500/40 shadow-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
@@ -1407,27 +1324,16 @@ function GradePage() {
 
           <Button
             size="lg"
-            className={cn(
-              "w-full h-11 sm:h-12 text-sm font-semibold rounded-xl shadow-md transition-all cursor-pointer",
-              isLimitReached
-                ? "bg-amber-600 hover:bg-amber-500 text-white"
-                : "bg-gradient-to-r from-primary via-indigo-600 to-primary text-white hover:opacity-95 hover:shadow-lg hover:shadow-primary/20"
-            )}
+            className="w-full h-11 sm:h-12 text-sm font-semibold rounded-xl shadow-md transition-all cursor-pointer bg-gradient-to-r from-primary via-indigo-600 to-primary text-white hover:opacity-95 hover:shadow-lg hover:shadow-primary/20"
             disabled={
-              !isLimitReached && (
-                mutation.isPending ||
-                checkMutation.isPending ||
-                question.trim().length < 10 ||
-                words < 20
-              )
+              mutation.isPending ||
+              checkMutation.isPending ||
+              question.trim().length < 10 ||
+              words < 20
             }
             onClick={handleMarkClick}
           >
-            {isLimitReached ? (
-              <>
-                <Sparkles className="size-4 mr-2" /> Upgrade Plan to Mark Essay (Limit Reached)
-              </>
-            ) : checkMutation.isPending ? (
+            {checkMutation.isPending ? (
               <>
                 <SpellCheck className="size-4 mr-2 animate-pulse" /> Checking spelling &amp; grammar…
               </>
@@ -1609,8 +1515,6 @@ function GradePage() {
           )}
         </div>
       </div>
-        </>
-      )}
     </>
   );
 }

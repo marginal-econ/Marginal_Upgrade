@@ -351,7 +351,6 @@ function McqLivePage() {
   const fetchMe = useServerFn(getMe);
   const me = useQuery({ queryKey: ["me"], queryFn: () => fetchMe() });
   const effectiveUserId = routeContext?.user?.id || me.data?.userId || "guest";
-  const isLimitReached = false;
   const [stage, setStage] = useState<"library" | "practice">("library");
   const [selectedPaperId, setSelectedPaperId] = useState<string | null>(null);
   const [level, setLevel] = useState<Level>("as");
@@ -725,13 +724,6 @@ function fillMissingQuestionPages(
       questions: GradedQuestion[];
     },
   ) {
-    if (isLimitReached) {
-      toast.error(
-        "MCQ Past Papers are chained: Your 30-day Free Trial has expired. Please upgrade your plan.",
-        { duration: 5000 },
-      );
-      return;
-    }
     setSelectedPaperId(paper.id);
     selectedPaperIdRef.current = paper.id;
     setPaperTitle(paper.title);
@@ -1270,7 +1262,7 @@ function fillMissingQuestionPages(
 
   return (
     <div>
-      {stage === "library" || isLimitReached ? (
+      {stage === "library" ? (
         <PageHeader
           title="MCQ Live"
           description="Practice straight off a real past paper — answer from the button panel beside it."
@@ -1289,29 +1281,7 @@ function fillMissingQuestionPages(
         />
       ) : null}
 
-      {isLimitReached ? (
-        <ChainedChamber
-          badgeText="Feature Chained · 30-Day Trial Expired"
-          title="MCQ Past Papers are Chained"
-          description="Your 30-day Free Trial for Cambridge 9708 Multiple Choice Past Papers has concluded. Upgrade to Foundation Scholar, Pro, or Mastery to unlock unlimited past paper practice, mark schemes, and topic diagnostics."
-          primaryCtaText="Unlock MCQ Papers (from $19/mo)"
-          primaryCtaLink="/pricing"
-          features={[
-            {
-              icon: Sparkles,
-              iconColor: "text-primary",
-              title: "Full Past Paper Archive Access",
-              description: "Practice all Cambridge 9708 Paper 1 (AS) and Paper 3 (A Level) exam sessions from 2016–2025.",
-            },
-            {
-              icon: TrendingUp,
-              iconColor: "text-amber-500",
-              title: "Instant Answer Key & Topic Breakdown",
-              description: "Pinpoint weak syllabus areas across micro and macro with question-level examiner diagnostics.",
-            },
-          ]}
-        />
-      ) : stage === "library" ? (
+      {stage === "library" ? (
         <div className="mx-auto grid max-w-5xl gap-8 px-5 py-10 md:px-8 lg:grid-cols-[1fr_20rem]">
           <div className="min-w-0 max-w-2xl">
             {activeDraftSummary ? (

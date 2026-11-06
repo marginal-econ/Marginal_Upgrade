@@ -1208,10 +1208,10 @@ export function SettingsPage() {
                   </div>
                   <div className="rounded-lg border border-border/60 bg-card p-2.5 space-y-0.5">
                     <p className="text-[10px] text-muted-foreground uppercase font-bold">
-                      Membership Tier
+                      Platform Access
                     </p>
                     <p className="font-semibold text-emerald-600 dark:text-emerald-400 text-xs truncate">
-                      {me.data?.subscription?.tierName || "Cambridge Scholar"}
+                      Full Uncapped Access
                     </p>
                   </div>
                 </div>

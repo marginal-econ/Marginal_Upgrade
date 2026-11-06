@@ -337,17 +337,8 @@ export function DashboardPage() {
               <h2 className="text-base sm:text-lg font-bold text-foreground">
                 {greeting}, {userDisplayName.split(" ")[0]}!
               </h2>
-              {isTeacherUser && (
+              {isTeacherUser ? (
                 <Badge className="bg-purple-500/20 text-purple-600 dark:text-purple-400 border-purple-500/30 text-[10px] font-bold">
-                  Authorized Educator
-                </Badge>
-              )}
-              {isPaidUser ? (
-                <Badge className="bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 text-[10px] font-bold">
-                  {userTierName}
-                </Badge>
-              ) : isTeacherUser ? (
-                <Badge variant="outline" className="border-purple-500/30 bg-purple-500/10 text-purple-600 dark:text-purple-400 text-[10px] font-semibold">
                   Authorized Educator
                 </Badge>
               ) : (
@@ -355,7 +346,7 @@ export function DashboardPage() {
                   variant="outline"
                   className="border-primary/30 bg-primary/10 text-primary text-[10px] font-semibold"
                 >
-                  9708 RAG Grounded
+                  9708 Candidate
                 </Badge>
               )}
             </div>
