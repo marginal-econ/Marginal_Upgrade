@@ -17,7 +17,7 @@ function getAdmin() {
   return supabaseAdmin as any;
 }
 
-// 1. List all available Data Response Papers (Pre-loaded + Uploaded custom)
+// 1. List all available Cambridge 9708 Data Response Papers
 export const listDataResponsePapers = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async () => {
@@ -50,7 +50,6 @@ export const listDataResponsePapers = createServerFn({ method: "GET" })
       console.warn("Could not list custom papers from storage:", err);
     }
 
-    // Merge custom papers with built-in official preloaded papers
     return {
       papers: [...PRELOADED_DATA_RESPONSE_PAPERS, ...customPapers],
     };
@@ -93,7 +92,6 @@ export const parseDataResponseUpload = createServerFn({ method: "POST" })
         qpText: z.string().min(50, "Question Paper text must contain at least 50 characters."),
         msText: z.string().min(50, "Mark Scheme text must contain at least 50 characters."),
         defaultLevel: z.enum(["as", "a2"]).default("as"),
-        defaultSubject: z.enum(["9708", "9609"]).default("9708"),
       })
       .parse(input),
   )
@@ -102,7 +100,6 @@ export const parseDataResponseUpload = createServerFn({ method: "POST" })
       qpText: data.qpText,
       msText: data.msText,
       defaultLevel: data.defaultLevel,
-      defaultSubject: data.defaultSubject,
     });
 
     return { paper: parsedPaper };
@@ -144,12 +141,11 @@ export const gradeDataResponseSubmission = createServerFn({ method: "POST" })
       .object({
         paperId: z.string(),
         candidateName: z.string().optional(),
-        answers: z.record(z.string()), // questionId/number -> text
+        answers: z.record(z.string()), // questionNumber -> text
       })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
-    // 1. Fetch paper
     let paper: DataResponsePaper | undefined = PRELOADED_DATA_RESPONSE_PAPERS.find(
       (p) => p.id === data.paperId,
     );
@@ -169,14 +165,14 @@ export const gradeDataResponseSubmission = createServerFn({ method: "POST" })
       throw new Error(`Data response paper "${data.paperId}" not found for grading.`);
     }
 
-    // 2. Run Strict Marking Engine
+    // Run Strict Marking Engine
     const submissionResult = await gradeFullDataResponsePaper({
       paper,
       answers: data.answers,
       candidateName: data.candidateName || "Admin Test Candidate",
     });
 
-    // 3. Save Submission Result to storage
+    // Save Submission Result to storage
     const admin = getAdmin();
     try {
       const subFilePath = `${SUBMISSIONS_PREFIX}/${submissionResult.id}.json`;

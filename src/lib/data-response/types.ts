@@ -1,7 +1,9 @@
 /**
- * Cambridge International AS & A Level Data Response & Case Study Types
- * Syllabuses: Economics (9708) & Business (9609)
+ * Cambridge International AS & A Level Economics (9708)
+ * Data Response & Case Study Types (Section A)
  */
+
+import type { DiagramSpec } from "@/lib/diagrams/spec";
 
 export type QuestionCategory =
   | "definition"
@@ -20,7 +22,7 @@ export type RubricLevelSpec = {
 
 export type DataResponseQuestion = {
   id: string;
-  number: string; // e.g. "1(a)(i)", "1(a)(ii)", "1(b)", "1(c)", "1(d)", "1"
+  number: string; // e.g. "1(a)(i)", "1(a)(ii)", "1(b)", "1(c)", "1(d)"
   title: string;
   maxMark: number;
   category: QuestionCategory;
@@ -28,7 +30,7 @@ export type DataResponseQuestion = {
     ao1: number; // Knowledge & Understanding
     ao2: number; // Application (Context to extract)
     ao3: number; // Analysis
-    ao4?: number; // Evaluation (used in 9609 Business and A Level rubrics)
+    ao4?: number; // Evaluation (where syllabus/rubric breaks out evaluation)
   };
   rubricLevels?: RubricLevelSpec[];
   indicativePoints?: string[];
@@ -37,6 +39,16 @@ export type DataResponseQuestion = {
     correctAnswer?: string;
     ofrApplies?: boolean;
     markingSteps?: string[];
+  };
+  hasDiagramRequirement: boolean;
+  diagramSpec?: DiagramSpec; // Authentic SVG Cambridge Economics Diagram specification
+  diagramGuidance?: {
+    diagramName: string;
+    axes: string[];
+    curves: string[];
+    shiftDescription: string;
+    equilibriumDescription: string;
+    marksAllocated: number;
   };
   markingGuide: string; // Full official MS text
   extractLinkageExpected: boolean; // Must directly use facts, figures, or context from extract
@@ -58,10 +70,10 @@ export type DataResponseExtract = {
 export type DataResponsePaper = {
   id: string;
   title: string;
-  subjectCode: "9708" | "9609" | string;
+  subjectCode: "9708";
   subjectTitle: string;
   qualificationLevel: "as" | "a2";
-  paperNumber: string; // "22", "42", "21", etc.
+  paperNumber: string; // "22", "42", "21", "41"
   examSeries: string; // "2026_feb_march", "2024_may_june", etc.
   seriesLabel: string; // "February/March 2026"
   totalMarks: number;
@@ -71,6 +83,17 @@ export type DataResponsePaper = {
   isOfficial: boolean;
   createdAt?: string;
   sampleAnswers?: Record<string, string>; // Sub-question number -> exemplar answer for testing
+};
+
+export type DiagramEvaluationResult = {
+  detected: boolean;
+  name?: string;
+  axesLabelledCorrectly: boolean;
+  curvesDrawnCorrectly: boolean;
+  shiftDirectionCorrect: boolean;
+  equilibriumLabelled: boolean;
+  examinerComment: string;
+  marksAwarded: number;
 };
 
 export type QuestionEvaluationResult = {
@@ -96,6 +119,7 @@ export type QuestionEvaluationResult = {
     marksRange: string;
     evaluativeComment?: string;
   };
+  diagramEvaluation?: DiagramEvaluationResult;
   examinerRationale: string;
   evidenceQuotes: string[];
   creditedPoints: string[];

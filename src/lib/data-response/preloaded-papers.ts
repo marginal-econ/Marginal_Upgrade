@@ -1,9 +1,260 @@
 import type { DataResponsePaper } from "./types";
+import type { DiagramSpec } from "@/lib/diagrams/spec";
+
+// ----------------------------------------------------------------------------
+// Authentic Cambridge 9708 Economics Diagram Specifications (SVG Geometry)
+// ----------------------------------------------------------------------------
+
+// 1. AD/AS Rightward Shift (Direct Income Support Stimulus)
+const adAsRightwardShiftDiagram: DiagramSpec = {
+  xLabel: "Real Output / Real GDP (Y)",
+  yLabel: "General Price Level (PL)",
+  curves: [
+    {
+      points: [
+        [15, 80],
+        [85, 20],
+      ],
+      label: "AD₁",
+      tone: "demand",
+      labelAt: [87, 20],
+    },
+    {
+      points: [
+        [30, 85],
+        [95, 30],
+      ],
+      label: "AD₂",
+      tone: "demand",
+      dashed: true,
+      labelAt: [97, 30],
+    },
+    {
+      points: [
+        [15, 25],
+        [50, 45],
+        [80, 85],
+      ],
+      label: "SRAS",
+      tone: "supply",
+      labelAt: [82, 85],
+    },
+  ],
+  arrows: [{ from: [50, 50], to: [63, 57], label: "+G / +C" }],
+  markers: [
+    { at: [48, 44], label: "E₁ (P₁, Y₁)", guides: "both" },
+    { at: [64, 58], label: "E₂ (P₂, Y₂)", guides: "both" },
+  ],
+  xTicks: [
+    { at: 48, label: "Y₁" },
+    { at: 64, label: "Y₂" },
+  ],
+  yTicks: [
+    { at: 44, label: "P₁" },
+    { at: 58, label: "P₂" },
+  ],
+};
+
+// 2. Supply Shift for Substitutes (Electric Vehicle Subsidy / Petrol Cars Demand Fall)
+const evSubsidyDemandFallDiagram: DiagramSpec = {
+  xLabel: "Quantity of Petrol Cars (Q)",
+  yLabel: "Price of Petrol Cars (P)",
+  curves: [
+    {
+      points: [
+        [20, 80],
+        [80, 20],
+      ],
+      label: "D₁",
+      tone: "demand",
+      labelAt: [82, 20],
+    },
+    {
+      points: [
+        [10, 70],
+        [70, 10],
+      ],
+      label: "D₂",
+      tone: "demand",
+      dashed: true,
+      labelAt: [72, 10],
+    },
+    {
+      points: [
+        [20, 20],
+        [80, 80],
+      ],
+      label: "S",
+      tone: "supply",
+      labelAt: [82, 80],
+    },
+  ],
+  arrows: [{ from: [50, 50], to: [40, 40], label: "Demand Shift" }],
+  markers: [
+    { at: [50, 50], label: "E₁", guides: "both" },
+    { at: [40, 40], label: "E₂", guides: "both" },
+  ],
+  xTicks: [
+    { at: 40, label: "Q₂" },
+    { at: 50, label: "Q₁" },
+  ],
+  yTicks: [
+    { at: 40, label: "P₂" },
+    { at: 50, label: "P₁" },
+  ],
+};
+
+// 3. Labour Market Minimum Wage Diagram (Wmin above We causing surplus/unemployment)
+const minimumWageLabourDiagram: DiagramSpec = {
+  xLabel: "Quantity of Labour (Q)",
+  yLabel: "Wage Rate (W)",
+  curves: [
+    {
+      points: [
+        [15, 85],
+        [85, 15],
+      ],
+      label: "DL (MRP)",
+      tone: "demand",
+      labelAt: [87, 15],
+    },
+    {
+      points: [
+        [15, 15],
+        [85, 85],
+      ],
+      label: "SL",
+      tone: "supply",
+      labelAt: [87, 85],
+    },
+    {
+      points: [
+        [10, 68],
+        [90, 68],
+      ],
+      label: "Wmin",
+      tone: "warn",
+      dashed: true,
+      labelAt: [92, 68],
+    },
+  ],
+  markers: [
+    { at: [50, 50], label: "We, Qe", guides: "both" },
+    { at: [32, 68], label: "Qd", guides: "x" },
+    { at: [68, 68], label: "Qs", guides: "x" },
+  ],
+  notes: [{ at: [50, 75], text: "Surplus of Labour / Unemployment (Qs - Qd)", align: "middle" }],
+  xTicks: [
+    { at: 32, label: "Qd" },
+    { at: 50, label: "Qe" },
+    { at: 68, label: "Qs" },
+  ],
+  yTicks: [
+    { at: 50, label: "We" },
+    { at: 68, label: "Wmin" },
+  ],
+};
+
+// 4. Cost-Push Inflation AD/AS Diagram (SRAS shift left)
+const costPushInflationDiagram: DiagramSpec = {
+  xLabel: "Real GDP (Y)",
+  yLabel: "Price Level (PL)",
+  curves: [
+    {
+      points: [
+        [15, 85],
+        [85, 15],
+      ],
+      label: "AD",
+      tone: "demand",
+      labelAt: [87, 15],
+    },
+    {
+      points: [
+        [15, 20],
+        [85, 80],
+      ],
+      label: "SRAS₁",
+      tone: "supply",
+      labelAt: [87, 80],
+    },
+    {
+      points: [
+        [10, 35],
+        [80, 95],
+      ],
+      label: "SRAS₂",
+      tone: "supply",
+      dashed: true,
+      labelAt: [82, 95],
+    },
+  ],
+  arrows: [{ from: [50, 50], to: [42, 62], label: "Energy Shock" }],
+  markers: [
+    { at: [50, 50], label: "E₁ (P₁, Y₁)", guides: "both" },
+    { at: [42, 62], label: "E₂ (P₂, Y₂)", guides: "both" },
+  ],
+  xTicks: [
+    { at: 42, label: "Y₂ (Stagflation)" },
+    { at: 50, label: "Y₁" },
+  ],
+  yTicks: [
+    { at: 50, label: "P₁" },
+    { at: 62, label: "P₂" },
+  ],
+};
+
+// 5. J-Curve Effect Diagram for Currency Depreciation
+const jCurveDiagram: DiagramSpec = {
+  xLabel: "Time (Months / Years)",
+  yLabel: "Current Account Balance (+ Surplus / - Deficit)",
+  curves: [
+    {
+      points: [
+        [10, 50],
+        [25, 20],
+        [45, 18],
+        [70, 55],
+        [90, 80],
+      ],
+      label: "J-Curve",
+      tone: "accent",
+      labelAt: [92, 80],
+    },
+    {
+      points: [
+        [5, 50],
+        [95, 50],
+      ],
+      label: "Trade Balance = 0",
+      tone: "neutral",
+      dashed: true,
+      labelAt: [97, 50],
+    },
+  ],
+  notes: [
+    { at: [28, 12], text: "Short-run: Inelastic PED (Deficit worsens)", align: "middle" },
+    { at: [80, 68], text: "Long-run: ML condition holds (Surplus)", align: "middle" },
+  ],
+  xTicks: [
+    { at: 10, label: "Depreciation" },
+    { at: 65, label: "Breakeven" },
+  ],
+  yTicks: [
+    { at: 20, label: "Deficit" },
+    { at: 50, label: "0" },
+    { at: 80, label: "Surplus" },
+  ],
+};
+
+// ----------------------------------------------------------------------------
+// Authentic Cambridge 9708 Economics Examination Papers
+// ----------------------------------------------------------------------------
 
 export const PRELOADED_DATA_RESPONSE_PAPERS: DataResponsePaper[] = [
-  // --------------------------------------------------------------------------
-  // 1. Cambridge AS Level Economics 9708/22 February/March 2026
-  // --------------------------------------------------------------------------
+  // ==========================================================================
+  // PAPER 1: Cambridge AS Level Economics 9708/22 February/March 2026
+  // ==========================================================================
   {
     id: "9708_22_2026_fm",
     title: "Cambridge AS Level Economics 9708/22 — Section A: The market for fast food",
@@ -35,6 +286,7 @@ export const PRELOADED_DATA_RESPONSE_PAPERS: DataResponsePaper[] = [
         maxMark: 2,
         category: "definition",
         tariff: { ao1: 2, ao2: 0, ao3: 0 },
+        hasDiagramRequirement: false,
         indicativePoints: [
           "Formula: % change in quantity demanded / % change in income (or %ΔQD / %ΔY) (1 mark)",
           "Definition: A measure of the responsiveness of quantity demanded of a good/service to a change in consumer real income (1 mark)",
@@ -56,6 +308,7 @@ export const PRELOADED_DATA_RESPONSE_PAPERS: DataResponsePaper[] = [
         maxMark: 2,
         category: "calculation",
         tariff: { ao1: 1, ao2: 1, ao3: 0 },
+        hasDiagramRequirement: false,
         indicativePoints: [
           "% change in sales (demand) = +22%",
           "% change in disposable income = +29%",
@@ -85,6 +338,7 @@ export const PRELOADED_DATA_RESPONSE_PAPERS: DataResponsePaper[] = [
         maxMark: 4,
         category: "short_answer",
         tariff: { ao1: 2, ao2: 2, ao3: 0 },
+        hasDiagramRequirement: false,
         indicativePoints: [
           "Demerit good definition (up to 2 marks AO1): A good whose consumption generates negative externalities / spillover costs on third parties, or a good that is over-consumed due to information failure / consumer imperfect knowledge regarding private health costs.",
           "Case application supporting demerit status (up to 2 marks AO2): Extract shows fast food increases death rates faster than smoking; obesity affects 1.9 billion adults; US$2 trillion global healthcare burden (negative externalities on healthcare system/taxpayers); loss of productivity for employers.",
@@ -103,6 +357,7 @@ export const PRELOADED_DATA_RESPONSE_PAPERS: DataResponsePaper[] = [
         maxMark: 6,
         category: "essay_evaluative",
         tariff: { ao1: 2, ao2: 2, ao3: 2 },
+        hasDiagramRequirement: false,
         rubricLevels: [
           {
             level: 3,
@@ -148,6 +403,7 @@ export const PRELOADED_DATA_RESPONSE_PAPERS: DataResponsePaper[] = [
         maxMark: 6,
         category: "essay_evaluative",
         tariff: { ao1: 2, ao2: 2, ao3: 2 },
+        hasDiagramRequirement: false,
         rubricLevels: [
           {
             level: 3,
@@ -197,236 +453,12 @@ export const PRELOADED_DATA_RESPONSE_PAPERS: DataResponsePaper[] = [
     },
   },
 
-  // --------------------------------------------------------------------------
-  // 2. Cambridge AS Level Business 9609/22 February/March 2026
-  // --------------------------------------------------------------------------
-  {
-    id: "9609_22_2026_fm",
-    title: "Cambridge AS Level Business 9609/22 — Section A: Kamal's Influencer Exchange (IX)",
-    subjectCode: "9609",
-    subjectTitle: "Cambridge International AS & A Level Business",
-    qualificationLevel: "as",
-    paperNumber: "22",
-    examSeries: "2026_feb_march",
-    seriesLabel: "February/March 2026",
-    totalMarks: 30,
-    durationMinutes: 45,
-    isOfficial: true,
-    extract: {
-      title: "1 Influencer Exchange (IX) Case Study",
-      paragraphs: [
-        "Kamal was a successful music artist who transitioned into becoming a prominent social media influencer. Recognising an opportunity in digital creator marketing, Kamal launched his own social media platform called Influencer Exchange (IX) in 2020.",
-        "The IX platform allows creators to manage and publish posts across multiple external social networks simultaneously. A key Unique Selling Point (USP) for IX is that it provides influencers with significantly better and more detailed analytics data than any other platform. IX is free to use for social media influencers; IX generates revenue by selling targeted advertising slots to commercial business clients wishing to sponsor influencer posts.",
-        "IX uses dynamic pricing for its advertising services, adjusting prices per click according to creator follower growth, engagement spikes, and demand from advertisers. Between January and April 2026, influencer A's followers grew from 0.5m to 0.7m, and IX increased the price per click by 100% (from $0.20 to $0.40). Influencer B experienced a 17% drop in price per click ($0.05 decrease), while influencer C's price remained unchanged.",
-        "IX's operations are labour-intensive, employing 30 staff members in total, all directly managed by Kamal. The workforce consists of 10 employees in advertising sales (paid on commission), 5 in marketing (paid via profit sharing), 8 technical software employees (paid hourly time rates), and 7 maintenance staff (paid time rates). Kamal currently adopts an autocratic Theory X management style, making all operational decisions centrally and closely supervising all technical and sales processes.",
-      ],
-      tables: [
-        {
-          title: "Table 1.1: Influencer Metrics & Advertising Pricing (2026)",
-          headers: ["Influencer", "Followers (Jan 2026)", "Followers (Apr 2026)", "Price per click (Jan)", "Price per click (Apr)"],
-          rows: [
-            ["Influencer A", "0.5m", "0.7m", "$0.20", "$0.40"],
-            ["Influencer B", "1.2m", "1.0m", "$0.30", "$0.25"],
-            ["Influencer C", "0.3m", "0.3m", "$0.15", "$0.15"],
-          ],
-        },
-        {
-          title: "Table 1.2: IX Departmental Staffing & Remuneration Structure",
-          headers: ["Department", "Number of Employees", "Payment Method", "Supervision"],
-          rows: [
-            ["Advertising Sales", "10", "Commission", "Directly by Kamal"],
-            ["Marketing", "5", "Profit sharing", "Directly by Kamal"],
-            ["Technical / Software", "8", "Time-based payment", "Directly by Kamal"],
-            ["Maintenance", "7", "Time-based payment", "Directly by Kamal"],
-          ],
-        },
-      ],
-      sources: "Cambridge Assessment International Education 9609/22 Business Concepts 2 F/M 2026",
-    },
-    questions: [
-      {
-        id: "9609_22_2026_fm_1ai",
-        number: "1(a)(i)",
-        title: "Identify one limitation to a business of labour-intensive operations. [1]",
-        maxMark: 1,
-        category: "definition",
-        tariff: { ao1: 1, ao2: 0, ao3: 0 },
-        indicativePoints: [
-          "Absenteeism / lateness",
-          "Different experience or skill levels causing variable output",
-          "Need for holidays, breaks, time off",
-          "Lower reliability of people compared to automated machines",
-          "High labour and wage costs (health care, training, recruitment)",
-          "Inconsistent quality due to human error",
-          "Labour relations / dispute problems",
-          "Potential shortage of skilled employees or slower production",
-        ],
-        markingGuide: "Award 1 mark for any valid limitation of labour-intensive operations from mark scheme.",
-        extractLinkageExpected: false,
-        syllabusTopic: "Operations management: Labour vs capital intensity",
-      },
-      {
-        id: "9609_22_2026_fm_1aii",
-        number: "1(a)(ii)",
-        title: "Explain the term ‘quaternary sector of the economy’. [3]",
-        maxMark: 3,
-        category: "short_answer",
-        tariff: { ao1: 1, ao2: 2, ao3: 0 },
-        indicativePoints: [
-          "AO1 Knowledge (1 mark): Recognising that the quaternary sector involves information, knowledge, or data-based economic activity.",
-          "AO2 Application (2 marks): Describing a valid activity (analysing, storing, developing, researching data) AND giving a real-world instance or business context (e.g. software development, market research firms, AI data analytics, university R&D).",
-        ],
-        markingGuide:
-          "AO1 (1 mark): Identification of information/knowledge/data-based sector. AO2 (up to 2 marks): Valid activity (processing, storing, research) + real-world instance (market research, AI analytics, software firms). No marks without AO1.",
-        extractLinkageExpected: false,
-        syllabusTopic: "Business structure and economic sectors",
-      },
-      {
-        id: "9609_22_2026_fm_1bi",
-        number: "1(b)(i)",
-        title:
-          "Refer to Table 1.1. Calculate how much it would have cost a business to advertise with influencer A in January 2026 if 10% of influencer A’s followers clicked on the advertisement. [3]",
-        maxMark: 3,
-        category: "calculation",
-        tariff: { ao1: 1, ao2: 2, ao3: 0 },
-        indicativePoints: [
-          "Identify influencer A followers in January 2026 = 0.5m (or April = 0.7m depending on month referenced in standardisation)",
-          "Formula: clicks = followers * click rate; cost = clicks * price per click",
-          "From MS: 0.7m * 10% = 0.07m clicks. 0.07m * $0.20 = $0.014m or $14,000",
-          "Award 3 marks for correct answer of $0.014m or $14,000 (with or without workings or $ sign)",
-          "2 marks for 2 correct steps or arithmetic error with OFR",
-          "1 mark for 1 correct step (e.g. 0.07m clicks or formula)",
-        ],
-        calculationGuidance: {
-          formula: "Cost = (Followers * 10%) * Price per click = (0.7m * 0.10) * $0.20 = $14,000",
-          correctAnswer: "$14,000 or $0.014m",
-          ofrApplies: true,
-          markingSteps: [
-            "Identify price per click ($0.20) and followers (0.7m) (1 mark)",
-            "Calculate 10% of followers = 0.07m clicks (1 mark)",
-            "Multiply 0.07m * $0.20 = $0.014m or $14,000 (1 mark)",
-          ],
-        },
-        markingGuide:
-          "Award 3 marks for correct answer of $14,000 or $0.014m. Award 2 marks for two correct stages or incorrect final answer with OFR. Award 1 mark for correct formula or correct clicks calculation.",
-        extractLinkageExpected: true,
-        syllabusTopic: "Marketing calculations and advertising pricing",
-      },
-      {
-        id: "9609_22_2026_fm_1bii",
-        number: "1(b)(ii)",
-        title: "Explain one way IX adds value to its services. [3]",
-        maxMark: 3,
-        category: "short_answer",
-        tariff: { ao1: 1, ao2: 2, ao3: 0 },
-        indicativePoints: [
-          "AO1 Knowledge (1 mark): Identifies a recognized way to add value: Convenience, Branding, Quality, Design, or USP.",
-          "AO2 Explanation & Context (2 marks): Explains how this increases the gap between cost and selling price for a service (1 mark) AND connects directly to IX context: Kamal's platform allows creators to post across multiple networks simultaneously (convenience) or provides superior analytics data than competitors (USP) (1 mark).",
-        ],
-        markingGuide:
-          "1 mark for knowledge of a way to add value (USP, convenience, branding, quality). 1 mark for explanation of how it adds value to a service. 1 mark for explicit link to IX context (detailed data analytics, multi-platform publishing). No marks without knowledge.",
-        extractLinkageExpected: true,
-        syllabusTopic: "Added value in business and services",
-      },
-      {
-        id: "9609_22_2026_fm_1c",
-        number: "1(c)",
-        title: "Analyse one advantage and one disadvantage to IX of using dynamic pricing. [8]",
-        maxMark: 8,
-        category: "essay_evaluative",
-        tariff: { ao1: 2, ao2: 2, ao3: 4 },
-        rubricLevels: [
-          {
-            level: 2,
-            marksRange: "3–4 marks AO3",
-            label: "Developed Analysis of Both Advantage & Disadvantage",
-            description:
-              "Developed analysis that identifies connections between causes, impacts, and consequences of two points (one advantage and one disadvantage).",
-          },
-          {
-            level: 1,
-            marksRange: "1–2 marks AO3",
-            label: "Limited Analysis",
-            description:
-              "Limited analysis identifying connections for one or two points without full chains of reasoning.",
-          },
-        ],
-        indicativePoints: [
-          "AO1 Knowledge (2 marks): Dynamic pricing is flexible pricing based on fluctuating demand and competitor activity.",
-          "Advantage to IX: Higher prices can be charged when demand increases (e.g. Influencer A followers grew to 0.7m, allowing price per click to double to $0.40), capturing consumer surplus and maximizing revenue and profit for Kamal.",
-          "Disadvantage to IX: Corporate advertisers may perceive price hikes as unfair or unpredictable; advertisers can track price fluctuations and delay ad bookings until off-peak periods; pricing changes create administrative complexity for the 10 sales staff.",
-          "Context applied: Table 1.1 data (100% increase for influencer A, 17% drop for influencer B), 10 advertising sales staff.",
-        ],
-        markingGuide:
-          "AO1 (2 marks): Knowledge of dynamic pricing. AO2 (2 marks): Application to IX context (Influencer A $0.20 to $0.40, Influencer B decrease, commercial advertisers). AO3 (4 marks): Developed analysis of cause -> impact -> consequence for both advantage and disadvantage.",
-        extractLinkageExpected: true,
-        syllabusTopic: "Pricing strategies and dynamic pricing",
-      },
-      {
-        id: "9609_22_2026_fm_1d",
-        number: "1(d)",
-        title: "Evaluate whether laissez-faire is the most appropriate management style for IX. [12]",
-        maxMark: 12,
-        category: "essay_evaluative",
-        tariff: { ao1: 2, ao2: 2, ao3: 2, ao4: 6 },
-        rubricLevels: [
-          {
-            level: 3,
-            marksRange: "5–6 marks AO4",
-            label: "Developed Evaluation in Context",
-            description:
-              "A developed judgement/conclusion is made in the business context that draws together developed evaluative comments balancing key arguments.",
-            evaluativeRequirement:
-              "Considers what the decision depends upon: differentiates between the 8 technical software staff (who thrive under autonomy and freedom to innovate) vs the 10 sales / 7 maintenance staff (who require clear commission targets and coordination). Reaches a nuanced conclusion on whether pure laissez-faire or situational leadership fits Kamal best.",
-          },
-          {
-            level: 2,
-            marksRange: "3–4 marks AO4",
-            label: "Developed Evaluation",
-            description:
-              "A developed conclusion is made balancing some key arguments, but may lack specific context.",
-          },
-          {
-            level: 1,
-            marksRange: "1–2 marks AO4",
-            label: "Limited Evaluation",
-            description: "Conclusion with limited supporting evidence or brief attempt to balance.",
-          },
-        ],
-        indicativePoints: [
-          "AO1 Knowledge (2 marks): Laissez-faire involves hands-off leadership giving subordinates freedom to make decisions with minimal managerial intervention.",
-          "Arguments for laissez-faire at IX: Faster technical decision-making; the 8 software engineers have specialized knowledge that Kamal (former musician) lacks; autonomy increases motivation and creativity in platform development.",
-          "Arguments against laissez-faire / for structured control: Lack of strategic direction; 10 commission-based sales staff may compete aggressively or neglect brand reputation; maintenance staff require operational scheduling; Kamal's current Theory X style means transition will cause friction; dynamic pricing requires consistent firm-wide pricing rules.",
-          "Evaluation: Laissez-faire is NOT suitable as a blanket style across all 30 employees. A situational management style is recommended: delegative for technical R&D, but democratic or consultative for sales and marketing.",
-        ],
-        markingGuide:
-          "AO1 (2 marks): Knowledge of laissez-faire. AO2 (2 marks): Application to IX (30 employees, 8 technical, 10 sales, Kamal's Theory X style). AO3 (2 marks): Developed analysis of advantages (autonomy, speed) and disadvantages (lack of coordination, conflict). AO4 (6 marks): Evaluative balance and reasoned contextual judgement.",
-        extractLinkageExpected: true,
-        syllabusTopic: "Leadership and management styles",
-      },
-    ],
-    sampleAnswers: {
-      "1(a)(i)":
-        "One major limitation of labour-intensive operations is inconsistent output quality and the risk of human error compared to automated machinery.",
-      "1(a)(ii)":
-        "The quaternary sector refers to the knowledge-based part of the economy that involves information creation, research, and data processing.\n\nIn business, this includes activities such as analyzing, developing, and researching complex data. A real-world example is an AI data analytics consultancy or a specialised software development firm like IX providing creator performance data.",
-      "1(b)(i)":
-        "Calculation for Influencer A in January 2026:\n- Number of followers = 0.7m (700,000)\n- Number of clicks at 10% = 0.7m * 0.10 = 0.07m (70,000 clicks)\n- Price per click in January 2026 = $0.20\n\nTotal Advertising Cost = 70,000 * $0.20 = $14,000 (or $0.014m)",
-      "1(b)(ii)":
-        "IX adds value to its services through developing a Unique Selling Point (USP) in data quality.\n\nAdding value creates a higher differential between production costs and selling price. For IX, the platform provides influencers with significantly more detailed and actionable analytics than any rival network, enabling creators to command higher sponsorship rates. Because advertisers cannot obtain this level of granular creator data elsewhere, IX can charge commercial clients premium advertising rates, thereby adding substantial value to its core service.",
-      "1(c)":
-        "Dynamic pricing allows IX to adjust price per click according to creator popularity and advertiser demand.\n\nAn advantage to IX is revenue and profit maximisation. When creator popularity surges, IX can immediately capture higher willingness to pay. For example, when Influencer A's audience expanded to 0.7m followers, IX doubled its click rate from $0.20 to $0.40 (a 100% price increase). This increases IX's revenue per campaign and boosts overall profit margins, supplying Kamal with greater funds to reinvest in technical infrastructure.\n\nA disadvantage to IX is the risk of advertiser dissatisfaction and perceived unfairness. Commercial businesses may consider sudden price increases exploitative or unpredictable, especially compared to fixed rate-cards. In Table 1.1, prices fluctuate significantly across creators (such as Influencer B experiencing a 17% price decrease). If corporate clients feel penalised during peak periods, they may switch ad spend to rival marketing platforms, reducing IX's market share and advertising revenue.",
-      "1(d)":
-        "Laissez-faire leadership gives subordinates broad autonomy to make decisions and organize their work with minimal oversight from top management.\n\nFor IX, adopting laissez-faire has clear merits within specific departments. IX employs 8 technical software specialists who build data pipelines and multi-platform publishing tools. As a former music artist, Kamal likely lacks advanced software engineering expertise. Giving these technical professionals autonomy will speed up bug fixes, foster feature innovation, and boost job satisfaction and retention in a competitive tech labour market.\n\nHowever, a pure laissez-faire approach poses severe risks across IX's remaining workforce. The business employs 10 advertising sales staff paid on commission. Without managerial coordination and clear targets, sales staff might engage in harmful price discounting or aggressive tactics that alienate corporate advertisers. Furthermore, maintenance operations require strict scheduling, and managing dynamic pricing across multiple influencers requires unified operational rules rather than disjointed individual choices. If Kamal withdraws entirely, lack of strategic alignment could escalate operating costs.\n\nIn evaluation, laissez-faire is NOT the most appropriate overarching management style for IX. Given that IX is a labour-intensive operation with 30 employees split into very different functions, Kamal should adopt a situational leadership model: delegating autonomy to the 8 technical developers, while maintaining consultative or democratic oversight over the 10 sales staff to safeguard brand standards and revenue.",
-    },
-  },
-
-  // --------------------------------------------------------------------------
-  // 3. Cambridge A Level Economics 9708/42 February/March 2026
-  // --------------------------------------------------------------------------
+  // ==========================================================================
+  // PAPER 2: Cambridge A Level Economics 9708/42 February/March 2026
+  // ==========================================================================
   {
     id: "9708_42_2026_fm",
-    title: "Cambridge A Level Economics 9708/42 — Section A: COVID-19 Economic Interventions",
+    title: "Cambridge A Level Economics 9708/42 — Section A: COVID-19 Economic Interventions in Japan and Ghana",
     subjectCode: "9708",
     subjectTitle: "Cambridge International AS & A Level Economics",
     qualificationLevel: "a2",
@@ -444,6 +476,19 @@ export const PRELOADED_DATA_RESPONSE_PAPERS: DataResponsePaper[] = [
         "Key policy tools included direct income support (such as wage subsidies and furlough payments to furloughed workers), debt write-offs or moratoria (where state lenders forgave interest or extended maturity schedules), and massive central bank asset purchases (Quantitative Easing) to keep borrowing rates near historical lows.",
         "The pandemic had highly asymmetric impacts across economic sectors. Strict public health lockdowns devastated the hospitality, retail, and personal service sectors, where jobs require physical on-site presence and workers typically earn lower wages with low savings buffers. Conversely, the digital and technology sectors experienced rapid demand growth, as corporate remote working and e-commerce accelerated, allowing higher-skilled professional workers to maintain full earnings from home.",
       ],
+      tables: [
+        {
+          title: "Table 1.1: Fiscal Stimulus & Sovereign Debt Metrics (2020–2022)",
+          headers: ["Country", "Fiscal Stimulus (% of GDP)", "Government Debt (% of GDP)", "10-Year Bond Yield (%)", "Direct Income Support Type"],
+          rows: [
+            ["Japan", "45.0%", "260.0%", "0.05%", "Universal cash grants & wage subsidies"],
+            ["Ghana", "2.0%", "78.0%", "19.50%", "Targeted utility subsidies & food relief"],
+            ["United States", "25.5%", "128.0%", "0.90%", "Paycheck Protection Program & stimulus cheques"],
+            ["Germany", "18.0%", "69.0%", "-0.40%", "Kurzarbeit furlough wage support"],
+          ],
+          notes: "Sources: IMF World Economic Outlook and Ministry of Finance official reports.",
+        },
+      ],
       sources: "Cambridge Assessment International Education 9708/42 Economics Paper 4 F/M 2026",
     },
     questions: [
@@ -454,10 +499,11 @@ export const PRELOADED_DATA_RESPONSE_PAPERS: DataResponsePaper[] = [
         maxMark: 2,
         category: "data_interpretation",
         tariff: { ao1: 1, ao2: 1, ao3: 0 },
+        hasDiagramRequirement: false,
         indicativePoints: [
           "Japan's government fiscal response was 45% of GDP (1 mark)",
           "Ghana's government fiscal response was 2% of GDP (1 mark)",
-          "Japan's response was approximately 20+ times larger as a percentage of GDP than Ghana's response (1 mark)",
+          "Japan's response was approximately 22.5 times (or 20+ times) larger as a percentage of GDP than Ghana's response (1 mark)",
           "Max 2 marks.",
         ],
         markingGuide:
@@ -472,9 +518,10 @@ export const PRELOADED_DATA_RESPONSE_PAPERS: DataResponsePaper[] = [
         maxMark: 2,
         category: "short_answer",
         tariff: { ao1: 1, ao2: 1, ao3: 0 },
+        hasDiagramRequirement: false,
         indicativePoints: [
-          "Japan has greater access to international and domestic credit markets to finance sovereign debt at low yields, enabling high deficit spending (1-2 marks).",
-          "Ghana is a developing economy with lower credit ratings, fiscal deficits, and limited borrowing ability (1-2 marks).",
+          "Japan has greater access to international and domestic credit markets at ultra-low interest rates (0.05% bond yields), enabling high deficit spending (1-2 marks).",
+          "Ghana is a developing economy facing high sovereign borrowing rates (19.5% bond yields) and risk of debt distress (1-2 marks).",
           "Max 2 marks for one developed point.",
         ],
         markingGuide:
@@ -490,6 +537,16 @@ export const PRELOADED_DATA_RESPONSE_PAPERS: DataResponsePaper[] = [
         maxMark: 4,
         category: "short_answer",
         tariff: { ao1: 2, ao2: 2, ao3: 0 },
+        hasDiagramRequirement: true,
+        diagramSpec: adAsRightwardShiftDiagram,
+        diagramGuidance: {
+          diagramName: "AD/AS Rightward Shift Diagram",
+          axes: ["Price Level (PL)", "Real GDP / Real Output (Y)"],
+          curves: ["AD₁", "AD₂ (shifted right)", "SRAS"],
+          shiftDescription: "AD curve shifts rightwards due to increased government spending (G) or consumer spending (C).",
+          equilibriumDescription: "Equilibrium moves from (P₁, Y₁) to (P₂, Y₂), showing an increase in real output and rise in price level.",
+          marksAllocated: 2,
+        },
         indicativePoints: [
           "Diagram: Correct labelling of axes (Price Level, Real Output/GDP) and curves (AD, SRAS) (1 mark).",
           "Diagram shift: Correct identification and shift of AD curve rightward with changes in equilibrium (1 mark).",
@@ -509,6 +566,7 @@ export const PRELOADED_DATA_RESPONSE_PAPERS: DataResponsePaper[] = [
         maxMark: 5,
         category: "short_answer",
         tariff: { ao1: 1, ao2: 2, ao3: 2 },
+        hasDiagramRequirement: false,
         indicativePoints: [
           "Hospitality/retail/personal services (max 2 marks): Work requires on-site physical presence; public stayed home closing venues; workers often earn lower wages with minimal savings; businesses faced zero revenues leading to layoffs and reduced living standards.",
           "Digital sector (max 2 marks): Employees can work remotely via internet with zero disruption to wages; surge in demand for remote software and cloud services expanded corporate revenues.",
@@ -527,19 +585,27 @@ export const PRELOADED_DATA_RESPONSE_PAPERS: DataResponsePaper[] = [
         maxMark: 7,
         category: "essay_evaluative",
         tariff: { ao1: 1, ao2: 3, ao3: 3 },
+        hasDiagramRequirement: false,
         rubricLevels: [
           {
-            level: 2,
-            marksRange: "4–6 marks",
-            label: "Developed Evaluation & Assessment of Both Policies",
+            level: 3,
+            marksRange: "6–7 marks",
+            label: "Effective Macroeconomic Policy Evaluation & Synthesis",
             description:
-              "Clear identification of at least two policies (furlough, debt write-offs, or QE) with developed analysis of advantages (preserving jobs, preventing bankruptcies) and disadvantages (sovereign debt, inflation risks).",
+              "Clear identification of at least two policies (furlough, debt write-offs, or QE) with comprehensive analysis of advantages (preserving productive capacity, preventing systemic collapse) and disadvantages (sovereign debt overhang, inflation risk), supported by a justified conclusion.",
             evaluativeRequirement:
-              "Weighs trade-offs between immediate economic survival and long-run macroeconomic stability (debt distress, moral hazard).",
+              "Weighs trade-offs between immediate economic survival and long-run macroeconomic stability (debt distress, moral hazard, inflation).",
+          },
+          {
+            level: 2,
+            marksRange: "3–5 marks",
+            label: "Developed Analysis with Partial Evaluation",
+            description:
+              "Developed analysis of at least two policies with clear advantages and disadvantages, but evaluation or synthesis is brief.",
           },
           {
             level: 1,
-            marksRange: "1–3 marks",
+            marksRange: "1–2 marks",
             label: "Limited Points",
             description: "Descriptive comments with few advantages/disadvantages explained.",
           },
@@ -557,73 +623,686 @@ export const PRELOADED_DATA_RESPONSE_PAPERS: DataResponsePaper[] = [
     ],
   },
 
-  // --------------------------------------------------------------------------
-  // 4. Cambridge A Level Business 9609/42 February/March 2026
-  // --------------------------------------------------------------------------
+  // ==========================================================================
+  // PAPER 3: Cambridge AS Level Economics 9708/22 May/June 2024
+  // ==========================================================================
   {
-    id: "9609_42_2026_fm",
-    title: "Cambridge A Level Business Strategy 9609/42 — Question 1: Potato Farm (PF) Strategy Case",
-    subjectCode: "9609",
-    subjectTitle: "Cambridge International AS & A Level Business",
-    qualificationLevel: "a2",
-    paperNumber: "42",
-    examSeries: "2026_feb_march",
-    seriesLabel: "February/March 2026",
+    id: "9708_22_2024_mj",
+    title: "Cambridge AS Level Economics 9708/22 — Section A: Electric Vehicle Subsidies and Battery Supply Chains",
+    subjectCode: "9708",
+    subjectTitle: "Cambridge International AS & A Level Economics",
+    qualificationLevel: "as",
+    paperNumber: "22",
+    examSeries: "2024_may_june",
+    seriesLabel: "May/June 2024",
     totalMarks: 20,
     durationMinutes: 45,
     isOfficial: true,
     extract: {
-      title: "1 Potato Farm (PF) Strategic Management Case",
+      title: "1 Global Electric Vehicle Subsidies and Market Dynamics",
       paragraphs: [
-        "PF is the largest potato farming enterprise in country B, supplying the majority of major supermarkets and independent grocery stores. In 2019, following devastating crop losses in 2018, founder Farouk converted PF into a private limited company, ceding 60% of equity to a private equity firm while retaining 40%.",
-        "PF's stated mission is: 'Fulfilling customer needs with the tastiest potato products, tailored to the Country B market.' At PF's 2020 AGM, financial ratio analysis showed: Gross Profit Margin (GPM) of 85%, Operating Profit Margin of 4%, Return on Capital Employed (ROCE) of 18%, Gearing of 80%, Current Ratio of 1:1, and Acid Test Ratio of 0.3:1.",
-        "In 2022, management consultants evaluated two strategic options for growth. Option 1 proposed organic growth by purchasing low-cost agricultural land in neighbouring countries to increase raw potato output and target international export markets. Option 2 proposed forward vertical integration: acquiring ZF, an established manufacturer of processed potato products (chips, frozen wedges). PF's board chose Option 2.",
-        "Farouk drafted a strategic implementation plan: assigning roles to the executive team in early 2024, tasking the HR director with post-takeover workforce rationalisation by Feb 2024, requiring a new marketing strategy by June 2024, and demanding full financial and IT system integration by Dec 2024. PF finalised the acquisition of ZF in 2024, trading under the unified PF brand. In 2025, revenue increased by 15% and profit rose by 7%. However, high debt servicing from the takeover continues to burden working capital.",
+        "In an effort to achieve net-zero carbon emission targets, governments across North America, Europe, and Asia have introduced large subsidy packages for electric vehicles (EVs). Subsidies have taken the form of direct purchase rebates to consumers, tax write-offs for corporate fleets, and capital grants to battery manufacturing gigafactories.",
+        "Between 2020 and 2024, the average price of an electric passenger car fell from $55,000 to $42,000, representing a 23.6% reduction. Over the same period, consumer demand for EVs surged by 160% in Europe and 110% in North America. Economists attribute this surge to both declining purchase prices and high retail petrol prices resulting from international oil supply disruptions.",
+        "However, critics emphasize the high environmental and financial opportunity costs of EV transitions. Battery production requires intensive extraction of lithium, cobalt, and nickel, which causes heavy local water pollution and habitat destruction. Furthermore, subsidising high-priced luxury electric cars has raised equity concerns, as lower-income households continue to drive older internal combustion engine (petrol) vehicles and pay substantial fuel taxes.",
       ],
-      sources: "Cambridge Assessment International Education 9609/42 Business Strategy F/M 2026",
+      tables: [
+        {
+          title: "Table 1.1: EV Market Penetration & Subsidy Schemes (2024)",
+          headers: ["Region", "EV Market Share (%)", "Consumer Subsidy per EV ($)", "Lithium Battery Cost per kWh ($)", "Average Petrol Price ($/litre)"],
+          rows: [
+            ["European Union", "22.5%", "$5,200", "$135", "$1.95"],
+            ["United States", "9.8%", "$7,500", "$140", "$0.98"],
+            ["China", "36.0%", "$2,800", "$112", "$1.15"],
+            ["Norway", "82.0%", "$11,000 (Tax exemption)", "$132", "$2.35"],
+          ],
+          notes: "Source: International Energy Agency (IEA) Global EV Outlook 2024.",
+        },
+      ],
+      sources: "Adapted from: IEA Global EV Outlook 2024; European Transport Research Review.",
     },
     questions: [
       {
-        id: "9609_42_2026_fm_1",
-        number: "1",
-        title: "Evaluate the effectiveness of PF’s strategic management between 2020 and 2025. [20]",
-        maxMark: 20,
+        id: "9708_22_2024_mj_1ai",
+        number: "1(a)(i)",
+        title: "Using Table 1.1, calculate the difference in consumer subsidies per EV between the United States and China. [2]",
+        maxMark: 2,
+        category: "calculation",
+        tariff: { ao1: 1, ao2: 1, ao3: 0 },
+        hasDiagramRequirement: false,
+        indicativePoints: [
+          "US subsidy = $7,500",
+          "China subsidy = $2,800",
+          "Difference = $7,500 - $2,800 = $4,700 (2 marks)",
+        ],
+        calculationGuidance: {
+          formula: "Difference = US Subsidy - China Subsidy = $7,500 - $2,800",
+          correctAnswer: "$4,700",
+          ofrApplies: true,
+        },
+        markingGuide: "Award 2 marks for correct answer of $4,700 (or 4,700). Award 1 mark for identifying both correct figures ($7,500 and $2,800).",
+        extractLinkageExpected: true,
+        syllabusTopic: "Market intervention and data interpretation",
+      },
+      {
+        id: "9708_22_2024_mj_1aii",
+        number: "1(a)(ii)",
+        title: "Using Table 1.1, calculate the difference in lithium battery cost per kWh between the United States and China. [2]",
+        maxMark: 2,
+        category: "calculation",
+        tariff: { ao1: 1, ao2: 1, ao3: 0 },
+        hasDiagramRequirement: false,
+        indicativePoints: [
+          "United States battery cost = $140/kWh",
+          "China battery cost = $112/kWh",
+          "Calculation: $140 - $112 = $28 per kWh (2 marks)",
+        ],
+        calculationGuidance: {
+          formula: "Difference = US Battery Cost - China Battery Cost = $140 - $112",
+          correctAnswer: "$28 (or $28/kWh)",
+          ofrApplies: true,
+        },
+        markingGuide: "Award 2 marks for $28 (or $28/kWh). Award 1 mark for identifying $140 and $112.",
+        extractLinkageExpected: true,
+        syllabusTopic: "Cost differentials in manufacturing",
+      },
+      {
+        id: "9708_22_2024_mj_1b",
+        number: "1(b)",
+        title: "With the help of a demand and supply diagram, explain how government subsidies on electric vehicles affect the market for petrol cars. [4]",
+        maxMark: 4,
+        category: "short_answer",
+        tariff: { ao1: 2, ao2: 2, ao3: 0 },
+        hasDiagramRequirement: true,
+        diagramSpec: evSubsidyDemandFallDiagram,
+        diagramGuidance: {
+          diagramName: "Demand & Supply Shift for Substitutes",
+          axes: ["Price of Petrol Cars (P)", "Quantity of Petrol Cars (Q)"],
+          curves: ["D₁", "D₂ (shifted left)", "S (supply of petrol cars)"],
+          shiftDescription: "Subsidies lower the effective price of EVs. Because EVs and petrol cars are substitute goods (positive XED), demand for petrol cars shifts left from D₁ to D₂.",
+          equilibriumDescription: "Price falls from P₁ to P₂ and quantity traded contracts from Q₁ to Q₂.",
+          marksAllocated: 2,
+        },
+        indicativePoints: [
+          "Diagram: Correctly labelled axes (Price, Quantity) and curves (D, S) for petrol cars (1 mark).",
+          "Diagram shift: Leftward shift of Demand curve (D₁ to D₂) with lower equilibrium price and quantity (1 mark).",
+          "Economic mechanism: EVs and petrol cars are substitutes in consumption (positive cross elasticity of demand). A subsidy on EVs reduces their price, prompting consumers to switch away from petrol cars (1 mark).",
+          "Market effect: Demand for petrol cars contracts, causing a decline in both the market clearing price and equilibrium quantity (1 mark).",
+        ],
+        markingGuide:
+          "2 marks for diagram (axes, curves, left shift of D, new equilibrium). 2 marks for analysis of substitute relationship and price/quantity impact. Max 4 marks.",
+        extractLinkageExpected: true,
+        syllabusTopic: "Substitutes and cross elasticity of demand",
+      },
+      {
+        id: "9708_22_2024_mj_1c",
+        number: "1(c)",
+        title: "Explain the difference between private costs and external costs with reference to the production of electric vehicles, and consider whether governments should tax lithium battery extraction. [6]",
+        maxMark: 6,
         category: "essay_evaluative",
-        tariff: { ao1: 3, ao2: 2, ao3: 8, ao4: 7 },
+        tariff: { ao1: 2, ao2: 2, ao3: 2 },
+        hasDiagramRequirement: false,
         rubricLevels: [
           {
             level: 3,
-            marksRange: "AO3: 7–8 marks · AO4: 6–7 marks",
-            label: "Level 3: Comprehensive Strategic Analysis & Effective Contextual Evaluation",
+            marksRange: "5–6 marks",
+            label: "Effective Evaluative Synthesis on Market Failure & Environmental Policy",
             description:
-              "Developed analysis of the overall strategy connecting causes, impacts, and consequences across strategic analysis, choice, and implementation. Evaluative conclusion is made in the business context balancing key arguments (gearing, margin compression, vertical integration benefits vs risks).",
+              "Clear distinction between private and external costs applied to EV manufacturing and mining. Rigorous evaluation of the trade-off between penalising local mining damage vs slowing the global decarbonisation transition.",
             evaluativeRequirement:
-              "Clear judgement on whether strategic management succeeded: balances 15% revenue growth against 80% gearing and low 4% operating profit. Considers what success depends upon (competitor reactions, private equity pressures, debt repayment).",
+              "Evaluates whether taxing battery mining undermines the affordability of EVs needed to achieve net-zero targets.",
           },
           {
             level: 2,
-            marksRange: "AO3: 4–6 marks · AO4: 3–5 marks",
-            label: "Level 2: Developed Analysis of Individual Elements & Developed Evaluation",
+            marksRange: "3–4 marks",
+            label: "Developed Analysis with Partial Evaluation",
             description:
-              "Developed analysis of individual elements (Option 2 vertical integration, ratio analysis). Developed evaluative comments balancing some key arguments.",
+              "Explains private and external costs clearly with extract references, and offers basic arguments for and against a tax on lithium extraction.",
           },
           {
             level: 1,
-            marksRange: "AO3: 1–3 marks · AO4: 1–2 marks",
-            label: "Level 1: Limited Analysis & Limited Evaluation",
-            description: "Limited points without clear transmission mechanisms or superficial evaluation.",
+            marksRange: "1–2 marks",
+            label: "Limited Points",
+            description: "Simple definitions of private or external costs without developed contextual evaluation.",
           },
         ],
         indicativePoints: [
-          "AO1 Knowledge (3 marks): Define strategic management (strategic analysis -> strategic choice -> strategic implementation). Frameworks: SWOT, PEST, Ansoff, Porter, Force Field.",
-          "AO2 Application (2 marks): PF ratios (85% GPM, 4% OPM, 80% gearing, 0.3:1 acid test), Option 2 takeover of ZF, private equity 60% ownership, 15% revenue growth vs 7% profit increase.",
-          "AO3 Analysis (8 marks): Analysis of Strategic Analysis (ratios reveal high overheads causing 4% OPM despite 85% GPM; 80% gearing makes debt dangerous; 0.3 acid test shows inventory risk). Strategic Choice (Option 2 vertical integration secured value chain but carried high acquisition cost). Strategic Implementation (tight deadlines for HR and finance integration; revenue rose 15% but profit only 7% indicating integration friction and rising costs).",
-          "AO4 Evaluation (7 marks): Weighing overall effectiveness: Option 2 aligned with mission to deliver value-added potato products and achieved revenue growth, but financial execution was reckless given 80% gearing. Long-term success depends on private equity patience and cash flow stabilisation.",
+          "Private costs (AO1): Internal expenses incurred by EV and battery manufacturers (e.g. factory wages, machinery, lithium purchases at $112-$140/kWh).",
+          "External costs (AO2): Negative externalities imposed on third parties without compensation (e.g. water contamination, toxic waste, and habitat degradation from lithium and cobalt mining).",
+          "Evaluation of tax (AO3): Taxing mining internalises the externality (polluter pays principle), encouraging cleaner extraction technologies. However, it raises battery costs, directly conflicting with government subsidies aiming to make EVs affordable.",
         ],
         markingGuide:
-          "Follow exact Cambridge 9609/42 rubric. AO1 (3 marks): Knowledge of strategic management frameworks. AO2 (2 marks): Contextual application to PF data. AO3 (8 marks): Developed two-sided analysis of strategy elements. AO4 (7 marks): Effective evaluation in business context weighing successes against financial risks.",
+          "AO1/AO2 (up to 4 marks): Explanation of private vs external costs in context of EV batteries. AO3 Evaluation (up to 2 marks): Balanced assessment of taxing extraction vs transition speed. Max 6 marks.",
         extractLinkageExpected: true,
-        syllabusTopic: "Strategic management, strategic choice and implementation",
+        syllabusTopic: "Negative externalities, social costs and environmental taxation",
+      },
+      {
+        id: "9708_22_2024_mj_1d",
+        number: "1(d)",
+        title: "Assess whether subsidising electric vehicles is more effective than taxing petrol in reducing carbon emissions. [6]",
+        maxMark: 6,
+        category: "essay_evaluative",
+        tariff: { ao1: 2, ao2: 2, ao3: 2 },
+        hasDiagramRequirement: false,
+        rubricLevels: [
+          {
+            level: 3,
+            marksRange: "5–6 marks",
+            label: "Effective Comparative Evaluation in Context",
+            description:
+              "Develops balanced arguments evaluating both EV subsidies and fuel taxes, explicitly weighing financial cost against emission reduction speed, and reaches a justified conclusion.",
+            evaluativeRequirement:
+              "Weighs budgetary opportunity cost of subsidies against regressive nature of fuel taxes; concludes on whether a hybrid approach is superior.",
+          },
+          {
+            level: 2,
+            marksRange: "3–4 marks",
+            label: "Developed Analysis with Partial Evaluation",
+            description: "Analyses mechanism of both subsidy and tax, but evaluative weighing is brief.",
+          },
+          {
+            level: 1,
+            marksRange: "1–2 marks",
+            label: "Limited Points",
+            description: "Descriptive comments on EV subsidies or petrol taxes.",
+          },
+        ],
+        indicativePoints: [
+          "Subsidies on EVs: Encourages rapid adoption (Europe +160%), brings forward scale economies in battery manufacturing, positive consumption externalities. Limitations: High opportunity cost to governments ($5,200-$11,000 per car in Table 1.1), benefits wealthier buyers.",
+          "Taxes on petrol: Follows polluter-pays principle, raises tax revenue for governments, directly penalises high emissions. Limitations: Inelastic demand for fuel leads to higher cost of living; regressive on poorer drivers who cannot afford an EV.",
+          "Evaluation: Taxing petrol generates revenue but causes social hardship; subsidising EVs accelerates clean tech but strains budgets. A revenue-neutral feebate or combination policy is most effective.",
+        ],
+        markingGuide:
+          "AO1/AO2 (up to 4 marks): Comparative analysis of EV subsidies vs petrol taxation. AO3 Evaluation (up to 2 marks): Justified conclusion considering fiscal sustainability, equity, and emission elasticity. Max 6 marks.",
+        extractLinkageExpected: true,
+        syllabusTopic: "Government microeconomic policy evaluation",
+      },
+    ],
+  },
+
+  // ==========================================================================
+  // PAPER 4: Cambridge A Level Economics 9708/42 May/June 2024
+  // ==========================================================================
+  {
+    id: "9708_42_2024_mj",
+    title: "Cambridge A Level Economics 9708/42 — Section A: Inflation Dynamics, Energy Shocks and Trade Deficits",
+    subjectCode: "9708",
+    subjectTitle: "Cambridge International AS & A Level Economics",
+    qualificationLevel: "a2",
+    paperNumber: "42",
+    examSeries: "2024_may_june",
+    seriesLabel: "May/June 2024",
+    totalMarks: 20,
+    durationMinutes: 45,
+    isOfficial: true,
+    extract: {
+      title: "1 Cost-Push Pressures and Current Account Strain",
+      paragraphs: [
+        "In 2022–2023, European economies faced severe stagflationary headwinds driven by skyrocketing wholesale gas and electricity prices following geopolitical supply contractions. Industrial energy tariffs surged by over 200%, translating into acute cost-push inflation across manufacturing and food processing sectors.",
+        "To prevent runaway inflation expectations from becoming entrenched in wage negotiations, central banks initiated aggressive monetary tightening, rapidly raising base policy rates from near 0% to over 4.5%. However, higher borrowing costs dampened domestic capital investment and consumer credit, causing real GDP growth to stagnate across the Eurozone.",
+        "Simultaneously, the surge in energy import expenditure widened trade deficits. Because primary energy demand is highly price-inelastic in the short run, higher import prices dramatically increased the total value of imports, causing current account deficits to deteriorate.",
+      ],
+      tables: [
+        {
+          title: "Table 1.1: Selected European Macroeconomic Indicators (2023)",
+          headers: ["Economy", "Real GDP Growth (%)", "CPI Inflation (%)", "Current Account Balance (% of GDP)", "Central Bank Policy Rate (%)"],
+          rows: [
+            ["Germany", "-0.3%", "5.9%", "4.2%", "4.50%"],
+            ["United Kingdom", "0.1%", "7.3%", "-3.3%", "5.25%"],
+            ["Italy", "0.7%", "5.6%", "-0.5%", "4.50%"],
+            ["Spain", "2.5%", "3.5%", "2.6%", "4.50%"],
+          ],
+          notes: "Source: Eurostat & Office for National Statistics (ONS).",
+        },
+      ],
+      sources: "Adapted from: European Central Bank Economic Bulletin; OECD Country Surveys 2023.",
+    },
+    questions: [
+      {
+        id: "9708_42_2024_mj_1ai",
+        number: "1(a)(i)",
+        title: "Using Table 1.1, calculate the real interest rate for the United Kingdom in 2023. [2]",
+        maxMark: 2,
+        category: "calculation",
+        tariff: { ao1: 1, ao2: 1, ao3: 0 },
+        hasDiagramRequirement: false,
+        indicativePoints: [
+          "Formula: Real Interest Rate = Nominal Policy Rate - CPI Inflation Rate (1 mark)",
+          "UK Policy Rate = 5.25%, UK Inflation = 7.3%",
+          "Calculation: 5.25% - 7.3% = -2.05% (1 mark)",
+          "Award 2 marks for -2.05% (or negative 2.05%).",
+        ],
+        calculationGuidance: {
+          formula: "Real Rate = Nominal Rate - Inflation Rate = 5.25% - 7.3%",
+          correctAnswer: "-2.05%",
+          ofrApplies: true,
+        },
+        markingGuide: "Award 2 marks for -2.05%. Award 1 mark for identifying 5.25% and 7.3% or formula.",
+        extractLinkageExpected: true,
+        syllabusTopic: "Real vs nominal interest rates",
+      },
+      {
+        id: "9708_42_2024_mj_1b",
+        number: "1(b)",
+        title: "With the help of an aggregate demand and aggregate supply diagram, explain how rising energy prices cause cost-push inflation and reduce real output. [4]",
+        maxMark: 4,
+        category: "short_answer",
+        tariff: { ao1: 2, ao2: 2, ao3: 0 },
+        hasDiagramRequirement: true,
+        diagramSpec: costPushInflationDiagram,
+        diagramGuidance: {
+          diagramName: "Cost-Push Inflation (SRAS Left Shift)",
+          axes: ["Price Level (PL)", "Real GDP (Y)"],
+          curves: ["AD", "SRAS₁", "SRAS₂ (shifted left)"],
+          shiftDescription: "Rising energy prices increase unit costs of production, shifting the short-run aggregate supply curve inwards from SRAS₁ to SRAS₂.",
+          equilibriumDescription: "Price level increases from P₁ to P₂ (inflation) while real GDP falls from Y₁ to Y₂ (stagflation).",
+          marksAllocated: 2,
+        },
+        indicativePoints: [
+          "Diagram: Correctly labelled axes (PL, Real GDP) and initial curves (AD, SRAS₁) (1 mark).",
+          "Diagram shift: Shift of SRAS curve leftward (SRAS₁ to SRAS₂) showing higher PL and lower real output (1 mark).",
+          "Explanation: Energy is a vital cost of production across all industries. Increased energy costs shift SRAS left (1 mark).",
+          "Impact: Cost-push inflation results as PL rises to P₂, while real GDP contracts to Y₂, causing stagflation (1 mark).",
+        ],
+        markingGuide:
+          "2 marks for accurate diagram. 2 marks for explanation of cost transmission to SRAS and stagflationary outcome. Max 4 marks.",
+        extractLinkageExpected: true,
+        syllabusTopic: "Cost-push inflation and aggregate supply",
+      },
+      {
+        id: "9708_42_2024_mj_1c",
+        number: "1(c)",
+        title: "Analyse the relationship between energy price shocks and the current account balance for oil-importing economies. [5]",
+        maxMark: 5,
+        category: "short_answer",
+        tariff: { ao1: 1, ao2: 2, ao3: 2 },
+        hasDiagramRequirement: false,
+        indicativePoints: [
+          "Current account definition: Net trade balance (X - M) plus net primary and secondary income flows.",
+          "Inelastic demand for energy: Energy imports (gas/oil) have price inelastic demand (PED < 1) because they have few immediate substitutes in heating and transport.",
+          "Import expenditure effect: When price surges, quantity demanded contracts minimally, leading to a substantial rise in total import bill (Price * Quantity).",
+          "Current account deterioration: Rising import values worsen the trade deficit, pushing the current account into deficit (as seen in the UK -3.3% in Table 1.1).",
+        ],
+        markingGuide:
+          "1 mark for current account definition. 2 marks for analysis of inelastic energy demand. 2 marks for linking to higher total import bill and deficit widening. Max 5 marks.",
+        extractLinkageExpected: true,
+        syllabusTopic: "Current account of the balance of payments",
+      },
+      {
+        id: "9708_42_2024_mj_1d",
+        number: "1(d)",
+        title: "Evaluate whether contractionary monetary policy is the most effective policy to restore price stability during a supply-side energy shock. [9]",
+        maxMark: 9,
+        category: "essay_evaluative",
+        tariff: { ao1: 2, ao2: 3, ao3: 4 },
+        hasDiagramRequirement: false,
+        rubricLevels: [
+          {
+            level: 3,
+            marksRange: "7–9 marks",
+            label: "Effective Macroeconomic Evaluation & Policy Synthesis",
+            description:
+              "Developed analysis comparing contractionary monetary policy with alternative policies (energy price caps, targeted subsidies, supply-side efficiency measures). Reaches a justified conclusion acknowledging the bluntness of interest rates against supply shocks.",
+            evaluativeRequirement:
+              "Weighs the risk of inducing severe recession (Germany -0.3% GDP) against the danger of de-anchoring inflation expectations. Concludes with a nuanced policy mix.",
+          },
+          {
+            level: 2,
+            marksRange: "4–6 marks",
+            label: "Developed Analysis with Partial Evaluation",
+            description: "Explains how higher interest rates reduce AD, but evaluation of supply-side alternatives is underdeveloped.",
+          },
+          {
+            level: 1,
+            marksRange: "1–3 marks",
+            label: "Limited Points",
+            description: "Descriptive comments on interest rates reducing inflation.",
+          },
+        ],
+        indicativePoints: [
+          "Contractionary monetary policy: Higher interest rates raise borrowing costs, dampening consumption (C) and investment (I), shifting AD left to reduce demand-pull pressure and anchor wage expectations.",
+          "Limitations during supply shock: Monetary policy cannot create gas or repair pipelines; contracting AD when supply has already contracted deepens recession (-0.3% growth in Germany).",
+          "Alternative / complementary policies: Energy price guarantees / caps, strategic gas reserves, investments in renewable supply-side capacity, fiscal support for vulnerable households.",
+          "Evaluation: Monetary policy is necessary to prevent second-round wage-price spirals, but insufficient on its own. It must be paired with supply-side energy transition policies to resolve the root structural shortage.",
+        ],
+        markingGuide:
+          "Follow A-Level levels-based rubric. AO1/AO2 (up to 5 marks): Analysis of monetary policy mechanism and stagflation dilemma. AO3 Evaluation (up to 4 marks): Consideration of policy bluntness, trade-offs between recession and price stability, and evaluation of alternative tools. Max 9 marks.",
+        extractLinkageExpected: true,
+        syllabusTopic: "Macroeconomic policy conflicts and stagflation",
+      },
+    ],
+  },
+
+  // ==========================================================================
+  // PAPER 5: Cambridge AS Level Economics 9708/22 October/November 2023
+  // ==========================================================================
+  {
+    id: "9708_22_2023_on",
+    title: "Cambridge AS Level Economics 9708/22 — Section A: Minimum Wage Legislation and Youth Employment",
+    subjectCode: "9708",
+    subjectTitle: "Cambridge International AS & A Level Economics",
+    qualificationLevel: "as",
+    paperNumber: "22",
+    examSeries: "2023_oct_nov",
+    seriesLabel: "October/November 2023",
+    totalMarks: 20,
+    durationMinutes: 45,
+    isOfficial: true,
+    extract: {
+      title: "1 Minimum Wage Policy in Low-Paid Sectors",
+      paragraphs: [
+        "Governments establish statutory National Minimum Wages (NMW) to protect vulnerable, low-skilled workers from exploitative pay and reduce income inequality. In 2023, several countries announced large percentage increases in statutory minimum pay rates to keep pace with rapid double-digit cost-of-living inflation.",
+        "In the retail, fast-food, and hospitality sectors, wages constitute up to 40% of total operating overheads. Small enterprise owners argue that steep mandatory wage hikes force employers to freeze entry-level hiring, cut working shifts, or replace human cashier staff with automated self-service kiosks.",
+        "Conversely, trade unions and labour economists assert that higher minimum wages bolster low-income purchasing power, reduce costly staff turnover, and stimulate worker productivity. Furthermore, in non-competitive labour markets where large employers hold monopsony buying power, a minimum wage can theoretically increase both wages and overall employment.",
+      ],
+      tables: [
+        {
+          title: "Table 1.1: Minimum Wage Rates & Youth Unemployment (2020 vs 2023)",
+          headers: ["Country", "Minimum Wage 2020 ($/hr)", "Minimum Wage 2023 ($/hr)", "% Increase in Min Wage", "Youth Unemployment Rate (%)"],
+          rows: [
+            ["Country A", "$9.50", "$12.00", "26.3%", "14.2%"],
+            ["Country B", "$11.00", "$14.30", "30.0%", "18.5%"],
+            ["Country C", "$7.25", "$7.25", "0.0%", "11.0%"],
+          ],
+          notes: "Source: National Ministry of Labour Statistical Databases.",
+        },
+      ],
+      sources: "Adapted from: OECD Employment Outlook; International Labour Organization (ILO) Report.",
+    },
+    questions: [
+      {
+        id: "9708_22_2023_on_1a",
+        number: "1(a)",
+        title: "Define the term 'minimum wage' and state one condition for it to be effective in a labour market. [2]",
+        maxMark: 2,
+        category: "definition",
+        tariff: { ao1: 2, ao2: 0, ao3: 0 },
+        hasDiagramRequirement: false,
+        indicativePoints: [
+          "Definition: A legally mandated minimum hourly rate of pay that employers are legally obligated to pay their workers (1 mark).",
+          "Condition for effectiveness: It must be set ABOVE the free-market equilibrium wage rate (1 mark).",
+        ],
+        markingGuide: "1 mark for legal wage floor definition. 1 mark for condition (set above market equilibrium wage). Total 2 marks.",
+        extractLinkageExpected: false,
+        syllabusTopic: "Minimum wage legislation",
+      },
+      {
+        id: "9708_22_2023_on_1b",
+        number: "1(b)",
+        title: "Using Table 1.1, calculate the percentage increase in the statutory minimum wage for Country A between 2020 and 2023. [2]",
+        maxMark: 2,
+        category: "calculation",
+        tariff: { ao1: 1, ao2: 1, ao3: 0 },
+        hasDiagramRequirement: false,
+        indicativePoints: [
+          "Formula: ((Wage 2023 - Wage 2020) / Wage 2020) * 100",
+          "Values: (($12.00 - $9.50) / $9.50) * 100 = ($2.50 / $9.50) * 100 = 26.32% (or 26.3%)",
+          "Award 2 marks for 26.3% or 26.32%.",
+        ],
+        calculationGuidance: {
+          formula: "((12.00 - 9.50) / 9.50) * 100 = 26.3%",
+          correctAnswer: "26.3% (or 26.32%)",
+          ofrApplies: true,
+        },
+        markingGuide: "Award 2 marks for 26.3% (or 26.32%). Award 1 mark for $2.50 increase or correct formula.",
+        extractLinkageExpected: true,
+        syllabusTopic: "Percentage calculations in economic data",
+      },
+      {
+        id: "9708_22_2023_on_1c",
+        number: "1(c)",
+        title: "With the help of a labour market diagram, explain the effect of setting a minimum wage above the equilibrium wage rate. [4]",
+        maxMark: 4,
+        category: "short_answer",
+        tariff: { ao1: 2, ao2: 2, ao3: 0 },
+        hasDiagramRequirement: true,
+        diagramSpec: minimumWageLabourDiagram,
+        diagramGuidance: {
+          diagramName: "Labour Market Minimum Wage Diagram",
+          axes: ["Wage Rate (W)", "Quantity of Labour (Q)"],
+          curves: ["DL (Demand for Labour / MRP)", "SL (Supply of Labour)", "Wmin (Horizontal wage floor)"],
+          shiftDescription: "Wmin is set above We. At Wmin, quantity supplied of labour (Qs) exceeds quantity demanded of labour (Qd).",
+          equilibriumDescription: "Results in a surplus of labour / real-wage unemployment of (Qs - Qd).",
+          marksAllocated: 2,
+        },
+        indicativePoints: [
+          "Diagram: Correct axes (Wage Rate, Quantity of Labour) and intersecting DL and SL curves (1 mark).",
+          "Diagram wage floor: Horizontal Wmin line above We, indicating Qd and Qs with unemployment surplus (1 mark).",
+          "Explanation: Higher wage increases costs to employers, causing contraction of labour demand from Qe to Qd (1 mark).",
+          "Impact: Higher wage attracts more workers into labour force expanding supply to Qs, generating excess labour supply / unemployment equal to (Qs - Qd) (1 mark).",
+        ],
+        markingGuide:
+          "2 marks for diagram with Wmin above equilibrium and labelled surplus. 2 marks for analysis of labour contraction and expansion of supply. Total 4 marks.",
+        extractLinkageExpected: true,
+        syllabusTopic: "Labour market intervention and minimum wages",
+      },
+      {
+        id: "9708_22_2023_on_1d",
+        number: "1(d)",
+        title: "Assess the extent to which increasing the national minimum wage will always reduce poverty in an economy. [6]",
+        maxMark: 6,
+        category: "essay_evaluative",
+        tariff: { ao1: 2, ao2: 2, ao3: 2 },
+        hasDiagramRequirement: false,
+        rubricLevels: [
+          {
+            level: 3,
+            marksRange: "5–6 marks",
+            label: "Effective Contextual Evaluation & Nuanced Balance",
+            description:
+              "Develops reasons why higher minimum wages alleviate poverty alongside critical counter-arguments (hours reductions, disemployment, cost-push inflation). Directly interrogates 'always' and reaches a justified conclusion.",
+            evaluativeRequirement:
+              "Evaluates 'always': points out that if minimum wages lead to unemployment (as in Table 1.1 where Country B has 18.5% youth unemployment), those laid off fall into deeper poverty.",
+          },
+          {
+            level: 2,
+            marksRange: "3–4 marks",
+            label: "Developed Analysis with Partial Balance",
+            description: "Analyses positive income effects and negative job loss effects, but evaluation of 'always' is incomplete.",
+          },
+          {
+            level: 1,
+            marksRange: "1–2 marks",
+            label: "Limited Points",
+            description: "Descriptive assertions that higher pay stops poverty.",
+          },
+        ],
+        indicativePoints: [
+          "Arguments that it reduces poverty: Directly increases hourly earnings of low-paid workers, narrows income inequality, improves living standards and nutrition.",
+          "Arguments that it does NOT always reduce poverty: Employers cut hours (underemployment); youth unemployment rises (18.5% in Country B); firms pass wage hikes onto consumers through higher food/retail prices (cost-push inflation erosion); many in extreme poverty are unemployed or retired and receive no benefit from wage legislation.",
+          "Evaluation: A minimum wage will NOT 'always' reduce poverty. Its effectiveness depends upon the elasticity of labour demand, the rate of inflation, and complementary state welfare benefits.",
+        ],
+        markingGuide:
+          "AO1/AO2 (up to 4 marks): Analysis of poverty reduction mechanisms and adverse labour market outcomes. AO3 Evaluation (up to 2 marks): Direct critical assessment of 'always'. Award 5-6 marks for balanced answers with justified conclusion. Max 6 marks.",
+        extractLinkageExpected: true,
+        syllabusTopic: "Poverty, income distribution and labour economics",
+      },
+      {
+        id: "9708_22_2023_on_1e",
+        number: "1(e)",
+        title: "Consider whether governments should use transfer payments rather than minimum wages to support low-income households. [6]",
+        maxMark: 6,
+        category: "essay_evaluative",
+        tariff: { ao1: 2, ao2: 2, ao3: 2 },
+        hasDiagramRequirement: false,
+        rubricLevels: [
+          {
+            level: 3,
+            marksRange: "5–6 marks",
+            label: "Effective Comparative Evaluation & Policy Recommendation",
+            description:
+              "Develops balanced evaluation comparing transfer payments against minimum wages, explicitly considering fiscal feasibility, poverty targeting, work incentives, and business wage-cost pressure.",
+            evaluativeRequirement:
+              "Reaches a justified recommendation on whether targeted welfare transfers avoid the disemployment risks of statutory minimum wage hikes.",
+          },
+          {
+            level: 2,
+            marksRange: "3–4 marks",
+            label: "Developed Analysis with Partial Evaluation",
+            description: "Analyses advantages of both transfer payments and minimum wages, but evaluation of policy trade-offs is limited.",
+          },
+          {
+            level: 1,
+            marksRange: "1–2 marks",
+            label: "Limited Points",
+            description: "Descriptive comments comparing benefits or wage laws.",
+          },
+        ],
+        indicativePoints: [
+          "Transfer payments (universal credit, tax credits, child allowances): Directly targets households based on total family income rather than individual hourly pay; does not increase marginal costs of production for small businesses or destroy entry-level jobs.",
+          "Drawbacks of transfer payments: High fiscal cost funded by taxation; potential disincentive to work / poverty traps if benefits are clawed back quickly.",
+          "Evaluation: A combination is ideal — a modest minimum wage prevents employer exploitation while targeted working tax credits support families with dependents.",
+        ],
+        markingGuide:
+          "AO1/AO2 (up to 4 marks): Comparative analysis of transfer payments vs statutory minimum wages. AO3 Evaluation (up to 2 marks): Balanced conclusion considering fiscal burden vs labour market efficiency.",
+        extractLinkageExpected: true,
+        syllabusTopic: "Transfer payments and fiscal redistribution",
+      },
+    ],
+  },
+
+  // ==========================================================================
+  // PAPER 6: Cambridge A Level Economics 9708/42 October/November 2023
+  // ==========================================================================
+  {
+    id: "9708_42_2023_on",
+    title: "Cambridge A Level Economics 9708/42 — Section A: Currency Depreciation, Terms of Trade, and Sovereign Debt",
+    subjectCode: "9708",
+    subjectTitle: "Cambridge International AS & A Level Economics",
+    qualificationLevel: "a2",
+    paperNumber: "42",
+    examSeries: "2023_oct_nov",
+    seriesLabel: "October/November 2023",
+    totalMarks: 20,
+    durationMinutes: 45,
+    isOfficial: true,
+    extract: {
+      title: "1 Exchange Rate Shocks and External Debt Burdens",
+      paragraphs: [
+        "In developing economies with floating exchange rates, external capital outflows often trigger severe downward pressure on national currencies. When foreign investors repatriate funds, foreign exchange reserves dwindle, leading to sharp depreciation of the domestic currency against the US dollar.",
+        "Traditional textbook theory suggests that currency depreciation restores external balance by making exports cheaper in foreign currency and imports more expensive in domestic currency. However, developing countries frequently export primary agricultural commodities with low price elasticity of supply, while importing essential capital goods, pharmaceuticals, and refined fuels for which domestic demand is highly price inelastic.",
+        "Crucially, many developing sovereign governments borrow externally in US dollars. When the domestic currency depreciates, the domestic cost of servicing dollar-denominated debt escalates substantially, draining fiscal revenues away from public infrastructure and health services.",
+      ],
+      tables: [
+        {
+          title: "Table 1.1: External Economic Indicators for Country M (2021–2023)",
+          headers: ["Year", "Exchange Rate ($/local currency)", "Terms of Trade Index (2020=100)", "Current Account Balance (% of GDP)", "External Debt Servicing (% of Govt Revenue)"],
+          rows: [
+            ["2021", "1.00", "102.5", "-1.8%", "18.2%"],
+            ["2022", "0.75", "91.2", "-4.5%", "27.4%"],
+            ["2023", "0.60", "84.0", "-3.1%", "34.8%"],
+          ],
+          notes: "Source: Central Bank of Country M Economic Review 2023.",
+        },
+      ],
+      sources: "Adapted from: World Bank Global Economic Prospects; IMF Sovereign Debt Monitor.",
+    },
+    questions: [
+      {
+        id: "9708_42_2023_on_1a",
+        number: "1(a)",
+        title: "Explain what is meant by the 'terms of trade' and calculate the change in Country M's terms of trade index between 2021 and 2023. [3]",
+        maxMark: 3,
+        category: "short_answer",
+        tariff: { ao1: 1, ao2: 2, ao3: 0 },
+        hasDiagramRequirement: false,
+        indicativePoints: [
+          "Terms of trade definition: The relative price of exports in terms of imports, calculated as (Index of export prices / Index of import prices) * 100 (1 mark).",
+          "Calculation from Table 1.1: 2021 Index = 102.5; 2023 Index = 84.0.",
+          "Change = 84.0 - 102.5 = -18.5 index points (or -18.05% reduction) (2 marks).",
+        ],
+        calculationGuidance: {
+          formula: "Change = 84.0 - 102.5 = -18.5 points (deterioration)",
+          correctAnswer: "-18.5 index points (or 18.05% decline)",
+          ofrApplies: true,
+        },
+        markingGuide: "1 mark for definition. 2 marks for calculating -18.5 points change (or 18.05% fall). Total 3 marks.",
+        extractLinkageExpected: true,
+        syllabusTopic: "Terms of trade measurement and interpretation",
+      },
+      {
+        id: "9708_42_2023_on_1b",
+        number: "1(b)",
+        title: "Analyse the consequences of domestic currency depreciation on Country M's external debt servicing. [4]",
+        maxMark: 4,
+        category: "short_answer",
+        tariff: { ao1: 1, ao2: 3, ao3: 0 },
+        hasDiagramRequirement: false,
+        indicativePoints: [
+          "Mechanism: Sovereign debt is denominated in US dollars. When the local currency depreciates (falling from $1.00 in 2021 to $0.60 in 2023), more local currency is required to purchase each dollar for interest and principal repayment (2 marks).",
+          "Consequence from data: External debt servicing surged from 18.2% of government revenue in 2021 to 34.8% in 2023, crowding out public investment in education and healthcare (2 marks).",
+        ],
+        markingGuide:
+          "Up to 2 marks for causal mechanism of foreign currency debt servicing. Up to 2 marks for data application (18.2% to 34.8%) and opportunity cost on fiscal budget. Total 4 marks.",
+        extractLinkageExpected: true,
+        syllabusTopic: "Exchange rates and sovereign debt",
+      },
+      {
+        id: "9708_42_2023_on_1c",
+        number: "1(c)",
+        title: "With the help of a J-curve diagram, explain the short-run and long-run effects of a currency depreciation on Country M's current account balance. [5]",
+        maxMark: 5,
+        category: "short_answer",
+        tariff: { ao1: 2, ao2: 2, ao3: 1 },
+        hasDiagramRequirement: true,
+        diagramSpec: jCurveDiagram,
+        diagramGuidance: {
+          diagramName: "J-Curve Effect Diagram",
+          axes: ["Time", "Current Account Balance (+ Surplus / - Deficit)"],
+          curves: ["J-Curve trajectory", "Zero Trade Balance guideline"],
+          shiftDescription: "Following depreciation, the current account initially deteriorates (deficit widens) before improving over time into surplus.",
+          equilibriumDescription: "Short-run contracts worsen the deficit due to inelastic demand. Over the long run, elasticities adjust and the Marshall-Lerner condition holds.",
+          marksAllocated: 2,
+        },
+        indicativePoints: [
+          "Diagram: Correct axes (Time, Balance of Payments / Current Account) showing J-curve dip below line and subsequent rise (2 marks).",
+          "Short-run effect: Import and export volumes are fixed by existing contracts; demand is price inelastic (PEDx + PEDm < 1), worsening the deficit (as seen in Table 1.1 in 2022 at -4.5%) (1 mark).",
+          "Long-run effect: Consumers and firms substitute away from expensive imports toward cheaper domestic goods; export volumes expand as elasticity rises (PEDx + PEDm > 1), improving the balance (1 mark).",
+        ],
+        markingGuide:
+          "2 marks for accurate J-curve diagram. 2 marks for explaining short-run contractual inelasticity. 1 mark for long-run elasticity adjustment. Total 5 marks.",
+        extractLinkageExpected: true,
+        syllabusTopic: "J-curve effect and exchange rate adjustments",
+      },
+      {
+        id: "9708_42_2023_on_1d",
+        number: "1(d)",
+        title: "Assess whether currency depreciation will always improve the trade balance of a developing country, taking into account the Marshall-Lerner condition. [8]",
+        maxMark: 8,
+        category: "essay_evaluative",
+        tariff: { ao1: 2, ao2: 2, ao3: 4 },
+        hasDiagramRequirement: false,
+        rubricLevels: [
+          {
+            level: 3,
+            marksRange: "6–8 marks",
+            label: "Effective Contextual Evaluation & Marshall-Lerner Rigour",
+            description:
+              "Clear, mathematically sound explanation of the Marshall-Lerner condition (PEDx + PEDm > 1). Contextual analysis of developing country structural trade constraints (inelastic commodity exports and essential imports). Reaches a justified conclusion directly addressing 'always'.",
+            evaluativeRequirement:
+              "Explicitly evaluates 'always': concludes that developing nations often fail the Marshall-Lerner condition in the medium term due to inelastic demand for essential imports and primary export quotas.",
+          },
+          {
+            level: 2,
+            marksRange: "3–5 marks",
+            label: "Developed Analysis with Partial Evaluation",
+            description: "Analyses relative price effects and mentions Marshall-Lerner, but application to developing country constraints is limited.",
+          },
+          {
+            level: 1,
+            marksRange: "1–2 marks",
+            label: "Limited Points",
+            description: "Simple statement that depreciation boosts exports.",
+          },
+        ],
+        indicativePoints: [
+          "Marshall-Lerner condition: Currency depreciation improves the trade balance only if the sum of price elasticities of demand for exports and imports is greater than one (PEDx + PEDm > 1).",
+          "Developing country constraints: Exports are often raw primary agricultural commodities or minerals with low global price elasticity; imports consist of vital fuels, machinery, and food with near-zero short-run elasticity. Hence, PEDx + PEDm may be less than 1.",
+          "Evaluation: Currency depreciation will NOT 'always' improve the trade balance. In developing economies, it frequently triggers imported cost-push inflation and severe debt distress without generating the export boom anticipated in developed economies.",
+        ],
+        markingGuide:
+          "AO1/AO2 (up to 4 marks): Explanation of Marshall-Lerner condition and relative price mechanism. AO3 Evaluation (up to 4 marks): Balanced critique of 'always' using developing economy trade rigidities. Award 6-8 marks for rigorous analysis and justified conclusion. Max 8 marks.",
+        extractLinkageExpected: true,
+        syllabusTopic: "Marshall-Lerner condition and external balance",
       },
     ],
   },

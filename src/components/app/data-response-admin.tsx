@@ -28,6 +28,7 @@ import {
   PenTool,
   Send,
   Zap,
+  BarChart2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -48,6 +49,7 @@ import type {
 } from "@/lib/data-response/types";
 import { extractTextFromFile } from "@/lib/extract-text";
 import { ocrPdf } from "@/lib/pdf-ocr";
+import { EconomicsDiagram } from "@/components/diagrams/economics-diagram";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -97,7 +99,7 @@ export function DataResponseAdminPanel() {
   // Upload & OCR State
   const [qpFile, setQpFile] = useState<File | null>(null);
   const [msFile, setMsFile] = useState<File | null>(null);
-  const [uploadSubject, setUploadSubject] = useState<"9708" | "9609">("9708");
+  const [uploadSubject, setUploadSubject] = useState<"9708">("9708");
   const [uploadLevel, setUploadLevel] = useState<"as" | "a2">("as");
   const [isOcrProcessing, setIsOcrProcessing] = useState<boolean>(false);
   const [ocrStatusMessage, setOcrStatusMessage] = useState<string>("");
@@ -206,6 +208,23 @@ export function DataResponseAdminPanel() {
       [key]: existing ? `${existing}\n\n${quote}` : quote,
     });
     toast.success("Inserted extract quote into answer.");
+  };
+
+  // Quick Action: Insert diagram analysis template
+  const handleInsertDiagramTemplate = (q: DataResponseQuestion) => {
+    if (!q.diagramSpec) return;
+    const key = q.number;
+    const existing = answers[key] || "";
+    const axesY = q.diagramSpec.yLabel;
+    const axesX = q.diagramSpec.xLabel;
+    const shift = q.diagramGuidance?.shiftDescription || "Shift direction...";
+    const eq = q.diagramGuidance?.equilibriumDescription || "Equilibrium changes from (P1, Q1) to (P2, Q2)...";
+    const template = `[DIAGRAM ANALYSIS: ${q.diagramGuidance?.diagramName || "Cambridge Economic Model"}]\n- Vertical Axis: ${axesY}\n- Horizontal Axis: ${axesX}\n- Initial Equilibrium: (P1, Q1) established where initial curves intersect.\n- Curve Shift: ${shift}\n- New Equilibrium: ${eq}`;
+    setAnswers({
+      ...answers,
+      [key]: existing ? `${existing}\n\n${template}` : template,
+    });
+    toast.success("Inserted Cambridge diagram analysis template into answer.");
   };
 
   // OCR and Extraction pipeline
@@ -571,6 +590,61 @@ export function DataResponseAdminPanel() {
                         </div>
                       )}
 
+                      {/* Visual Cambridge Model Diagram Container */}
+                      {currentQuestion.diagramSpec && (
+                        <div className="mt-3 rounded-xl border border-primary/30 bg-primary/5 p-4 space-y-3">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                              <BarChart2 className="h-4 w-4 text-primary" />
+                              <span className="font-semibold text-xs text-foreground">
+                                Cambridge Diagram Requirement: {currentQuestion.diagramGuidance?.diagramName || "Economics Diagram"}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Badge className="bg-primary text-primary-foreground text-[10px] font-bold">
+                                {currentQuestion.diagramGuidance?.marksAllocated || 2} Diagram Marks
+                              </Badge>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleInsertDiagramTemplate(currentQuestion)}
+                                className="h-6 px-2 text-[10px] gap-1 text-primary border-primary/40 hover:bg-primary/10"
+                              >
+                                <Sparkles className="h-3 w-3" />
+                                Insert Diagram Analysis Template
+                              </Button>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
+                            <div className="md:col-span-7 bg-background rounded-lg border border-border/80 p-2 shadow-xs flex items-center justify-center">
+                              <div className="w-full max-w-[380px]">
+                                <EconomicsDiagram spec={currentQuestion.diagramSpec} />
+                              </div>
+                            </div>
+                            <div className="md:col-span-5 text-xs space-y-2">
+                              <div className="p-2 rounded bg-muted/40 border border-border/50 space-y-1">
+                                <span className="font-semibold text-[11px] text-muted-foreground uppercase tracking-wider block">
+                                  Mark Scheme Diagram Criteria:
+                                </span>
+                                <p className="text-[11px] text-foreground/90">
+                                  <strong>Axes:</strong> {currentQuestion.diagramGuidance?.axes.join(" & ") || `${currentQuestion.diagramSpec.yLabel} vs ${currentQuestion.diagramSpec.xLabel}`}
+                                </p>
+                                <p className="text-[11px] text-foreground/90">
+                                  <strong>Shift:</strong> {currentQuestion.diagramGuidance?.shiftDescription}
+                                </p>
+                                <p className="text-[11px] text-foreground/90">
+                                  <strong>Equilibrium:</strong> {currentQuestion.diagramGuidance?.equilibriumDescription}
+                                </p>
+                              </div>
+                              <p className="text-[10px] text-muted-foreground italic">
+                                Note: Online candidates explain diagram movements with precise labels (axes, curve shifts, and equilibrium coordinates).
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
                       {/* Collapsible Mark Scheme / Rubric preview for Teacher/Admin reference */}
                       <Accordion type="single" collapsible className="mt-2 text-xs">
                         <AccordionItem value="rubric-preview" className="border-border/40">
@@ -817,6 +891,70 @@ export function DataResponseAdminPanel() {
                 </CardHeader>
 
                 <CardContent className="p-4 space-y-4">
+                  {/* Diagram Mark Scheme Criteria Audit */}
+                  {result.diagramEvaluation && (
+                    <div className="rounded-xl border border-border/80 bg-muted/20 p-4 space-y-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/50 pb-2">
+                        <div className="flex items-center gap-2">
+                          <BarChart2 className="h-4 w-4 text-primary" />
+                          <span className="font-bold text-xs text-foreground">
+                            Cambridge Diagram Criteria Audit
+                          </span>
+                        </div>
+                        <Badge
+                          className={cn(
+                            "font-mono text-xs font-bold",
+                            result.diagramEvaluation.marksAwarded === result.diagramEvaluation.maxDiagramMarks
+                              ? "bg-emerald-600 text-white"
+                              : result.diagramEvaluation.marksAwarded > 0
+                              ? "bg-primary text-primary-foreground"
+                              : "bg-destructive text-destructive-foreground"
+                          )}
+                        >
+                          Diagram Marks: {result.diagramEvaluation.marksAwarded} / {result.diagramEvaluation.maxDiagramMarks}
+                        </Badge>
+                      </div>
+
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                        <div className={cn(
+                          "p-2 rounded border text-center font-medium",
+                          result.diagramEvaluation.diagramDetected ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-300" : "bg-destructive/10 border-destructive/30 text-destructive"
+                        )}>
+                          <div className="text-[10px] text-muted-foreground uppercase">Diagram</div>
+                          <div className="text-xs font-semibold">{result.diagramEvaluation.diagramDetected ? "Detected" : "Missing"}</div>
+                        </div>
+
+                        <div className={cn(
+                          "p-2 rounded border text-center font-medium",
+                          result.diagramEvaluation.axesCorrect ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-300" : "bg-destructive/10 border-destructive/30 text-destructive"
+                        )}>
+                          <div className="text-[10px] text-muted-foreground uppercase">Axes</div>
+                          <div className="text-xs font-semibold">{result.diagramEvaluation.axesCorrect ? "Correct" : "Inaccurate"}</div>
+                        </div>
+
+                        <div className={cn(
+                          "p-2 rounded border text-center font-medium",
+                          result.diagramEvaluation.shiftsAccurate ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-300" : "bg-amber-500/10 border-amber-500/30 text-amber-700 dark:text-amber-300"
+                        )}>
+                          <div className="text-[10px] text-muted-foreground uppercase">Shifts</div>
+                          <div className="text-xs font-semibold">{result.diagramEvaluation.shiftsAccurate ? "Accurate" : "Flawed/Missing"}</div>
+                        </div>
+
+                        <div className={cn(
+                          "p-2 rounded border text-center font-medium",
+                          result.diagramEvaluation.equilibriumCorrect ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-300" : "bg-amber-500/10 border-amber-500/30 text-amber-700 dark:text-amber-300"
+                        )}>
+                          <div className="text-[10px] text-muted-foreground uppercase">Equilibrium</div>
+                          <div className="text-xs font-semibold">{result.diagramEvaluation.equilibriumCorrect ? "Identified" : "Omitted"}</div>
+                        </div>
+                      </div>
+
+                      <p className="text-xs text-muted-foreground bg-background p-2.5 rounded border border-border/60 leading-relaxed">
+                        <strong>Diagram Evaluation:</strong> {result.diagramEvaluation.rationale}
+                      </p>
+                    </div>
+                  )}
+
                   {/* AO Breakdown Pills */}
                   <div className="flex flex-wrap items-center gap-3 text-xs bg-muted/40 p-2.5 rounded-lg border border-border/50">
                     <span className="font-semibold text-muted-foreground uppercase text-[10px] tracking-wider">
@@ -939,7 +1077,6 @@ export function DataResponseAdminPanel() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="9708">Economics (9708)</SelectItem>
-                      <SelectItem value="9609">Business (9609)</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
