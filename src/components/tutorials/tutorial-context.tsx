@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from "react";
+import * as React from "react";
+import { createContext, useContext, useEffect, useState, useCallback, useRef } from "react";
 import { useRouterState } from "@tanstack/react-router";
 import { FEATURE_TUTORIALS, matchTutorialByPath, type FeatureTutorial } from "@/lib/tutorials-data";
 

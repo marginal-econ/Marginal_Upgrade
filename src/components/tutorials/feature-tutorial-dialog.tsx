@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from "react";
+import * as React from "react";
+import { useState, useMemo } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import {
   GraduationCap,
@@ -125,7 +126,7 @@ export function FeatureTutorialDialog() {
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2.5 min-w-0">
               <div className="size-9 rounded-xl bg-purple-500/15 border border-purple-500/25 flex items-center justify-center text-purple-600 dark:text-purple-400 shrink-0 shadow-xs">
-                {React.createElement(tutorial.icon, { className: "size-5" })}
+                <tutorial.icon className="size-5" />
               </div>
               <div className="min-w-0">
                 <DialogTitle className="text-base sm:text-lg font-bold text-foreground truncate">
@@ -315,7 +316,7 @@ export function FeatureTutorialDialog() {
                         <div className="flex items-center justify-between gap-1.5">
                           <div className="flex items-center gap-2 min-w-0">
                             <div className="size-7 rounded-lg bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
-                              {React.createElement(feat.icon, { className: "size-4" })}
+                              <feat.icon className="size-4" />
                             </div>
                             <span className="font-bold text-xs text-foreground truncate">
                               {feat.navLabel}

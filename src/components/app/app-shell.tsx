@@ -35,6 +35,7 @@ import {
   FileSpreadsheet,
   Wand2,
 } from "lucide-react";
+import * as React from "react";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState, useRef } from "react";
 import { toast } from "sonner";
@@ -1238,7 +1239,7 @@ export function AppShell({
             {currentTutorial ? (
               <div className="flex items-center gap-2.5 min-w-0">
                 <div className="size-7 rounded-lg bg-purple-500/10 border border-purple-500/20 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
-                  {React.createElement(currentTutorial.icon, { className: "size-4" })}
+                  <currentTutorial.icon className="size-4" />
                 </div>
                 <div className="flex items-center gap-2 min-w-0">
                   <span className="text-xs font-bold text-foreground truncate">
