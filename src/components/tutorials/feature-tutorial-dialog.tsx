@@ -87,7 +87,7 @@ export function FeatureTutorialDialog() {
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && closeTutorial()}>
       <DialogContent
-        className="max-w-2xl w-[95vw] sm:w-[90vw] md:w-[720px] max-h-[92vh] flex flex-col p-0 rounded-3xl border border-border bg-card shadow-2xl overflow-hidden text-left z-50 focus:outline-none"
+        className="max-w-2xl w-[95vw] sm:w-[90vw] md:w-[720px] max-h-[92vh] flex flex-col p-0 rounded-3xl border border-border bg-card shadow-2xl overflow-hidden text-left z-50 focus:outline-none [&>button.absolute]:hidden"
         onEscapeKeyDown={closeTutorial}
       >
         {/* Pinned Top Navigation Bar */}
