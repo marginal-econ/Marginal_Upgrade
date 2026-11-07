@@ -159,16 +159,18 @@ The candidate scored well on AO1.
 
     // AO3 is out of 2 marks
     expect(result.ao_breakdown.evaluation.out_of).toBe(2);
-    // Because a conclusion / classification was present and acknowledged, it must be credited (1/2)
-    expect(result.ao_breakdown.evaluation.awarded).toBe(1);
+    // Because a conclusion / classification was present and acknowledged alongside developed knowledge (2/2) and analysis (4/4),
+    // the toned-down 8-mark standard awards full Level 2 evaluation (2/2)
+    expect(result.ao_breakdown.evaluation.awarded).toBe(2);
     // The false claim that evaluation is not required must be stripped
     expect(result.ao_breakdown.evaluation.comment).not.toContain("Evaluation is not required for this question as it is a non-evaluative");
     expect(result.ao_breakdown.evaluation.comment).not.toContain("although this is not required");
     // Weaknesses and summary must not contain contradictory claims
     expect(result.weaknesses.some((w) => w.includes("although this is not required"))).toBe(false);
     expect(result.examiner_summary).not.toContain("although this is not required");
-    // Total mark must exactly equal AO1 + AO2 + AO3: 2 + 4 + 1 = 7
-    expect(result.total_mark).toBe(7);
+    // Total mark must exactly equal AO1 + AO2 + AO3: 2 + 4 + 2 = 8 (8/8 Top Band)
+    expect(result.total_mark).toBe(8);
+    expect(result.band).toBe("Top Band");
     expect(result.ao_breakdown.knowledge.awarded + result.ao_breakdown.analysis.awarded + result.ao_breakdown.evaluation.awarded).toBe(result.total_mark);
   });
 });

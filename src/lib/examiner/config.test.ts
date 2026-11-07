@@ -101,10 +101,10 @@ describe("Examiner Configuration & Gemini Model Allocation", () => {
 
     const evalDirective = buildAoEvaluationDirective(8, evalSplit);
     expect(evalDirective).toContain("2 AO3 Evaluation Marks Allocated");
-    expect(evalDirective).toContain("EVALUATION IS MANDATORY");
-    expect(evalDirective).toContain("Even if the question stem begins with 'Explain'");
-    expect(evalDirective).toContain("Award up to 1 mark for balanced evaluative reasoning");
-    expect(evalDirective).toContain("Award up to 1 mark for a reasoned, context-specific conclusion");
+    expect(evalDirective).toContain("THIS IS AN 8-MARK SECTION B EVALUATIVE ESSAY");
+    expect(evalDirective).toContain("REALISTIC, TONED-DOWN EVALUATION STRICTNESS FOR 8-MARK QUESTIONS");
+    expect(evalDirective).toContain("AWARD FULL 2/2 MARKS (Level 2)");
+    expect(evalDirective).toContain("NEVER state that evaluation is not required");
 
     const legacySplit = defaultSplitForMaxMark(8, "8_legacy");
     expect(legacySplit).toEqual({ ao1_marks: 2, ao2_marks: 6, ao3_marks: 0 });

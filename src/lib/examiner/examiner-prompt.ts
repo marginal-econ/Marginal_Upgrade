@@ -185,12 +185,9 @@ EXAMINER PASS 1 FOCUS (Temperature 0.0 — Rigorous Theoretical & Analytical Err
   * Broken transmission chains built on false economic premises or inverted logic cannot exceed Level 1 in AO2.
   * APPLICATION & EXAMPLES: Credit related real-world applications and detailed guiding theoretical models. Do NOT accept weak one-liner examples (e.g. dropping 'e.g. healthcare' without explanation).
   * Do NOT inflate marks for flawed economic foundations. Essays with fundamental misconceptions belong in Lower Middle or Bottom band, never Upper Middle.
-- STRICT AO3 EVALUATION SCRUTINY (+3-5% strictness):
-  * Scrutinize evaluative claims critically. Do not award high evaluation marks for generic 'it depends on' lists or unweighted pros and cons.
-  * Brief 1-2 sentence nods to alternatives (e.g. adding 30 words at the end saying 'fiscal policy is better due to multiplier') stay at Level 1/2. Top Band requires sustained comparative weighing.
-  * Require candidates to prioritize criteria and justify their final judgment with economic reasoning.
-  * On 'best way' / 'most effective' questions, verify whether the candidate actually compares against alternative policies and evaluates criteria (elasticity, administrative costs, equity/regressive impacts, government failure). Superficial or missing comparative evaluation stays at Level 1 in AO3.
-  * Hold mechanical or unprioritized evaluation at Level 2; hold superficial or one-sided assertions at Level 1.
+- STRICT AO3 EVALUATION SCRUTINY (+3-5% strictness for 12m/20m; Calibrated & Toned Down for 8m):
+  * 8-MARK EVALUATIVE ESSAYS (2 AO3 marks allocated): TONE DOWN strictness appropriately for an 8-mark Section B question (~300–450w target). Do NOT demand 12m/20m criteria such as equity, efficiency, administrative feasibility, or prioritization matrices. If the candidate explores both dimensions/perspectives in context and provides a supported concluding judgement directly answering the question, award Level 2 (2/2 marks) in full.
+  * 12-MARK & 20-MARK ESSAYS (4-6 AO3 marks): Scrutinize evaluative claims critically. Do not award high evaluation marks for generic 'it depends on' lists or unweighted pros and cons. Top Band requires sustained comparative weighing and prioritized criteria on 'best way' / 'most effective' questions.
 - PROSE INTEGRITY & AI FORMATTING CHECK:
   * Penalize synthetic AI-generated artifacts (markdown bolding **...**, raw LaTeX formulas). Flag the lack of natural continuous prose and compressed outline style in weaknesses.
 - ZERO NUMERIC MARKS IN COMMENTS: Never mention numeric marks or fractions (e.g. '(3/4)', '1/4', '3/4', '2/2', 'a single mark is awarded', 'restricted to 3/4') in comment text. Focus purely on explaining qualitatively why marks were lost or restricted.
@@ -211,12 +208,9 @@ EXAMINER PASS 2 FOCUS (Temperature 0.2 — Holistic Cambridge Assessment & Wide 
   * AO1 definitions must be syllabus-precise to achieve full marks. Inverted definitions earn 0.
   * AO2 requires coherent, fully developed transmission mechanisms in continuous prose. Do not award top marks for incomplete chains, compressed 1-sentence assertions, or token one-liner examples.
   * ESSAY ARCHITECTURE: Top Band requires structured writing across distinct paragraphs. Single-paragraph monolithic submissions or undersized outlines (< 350 words for 12m) cannot exceed Level 2 in AO2 or AO3.
-- RIGOROUS AO3 EVALUATION (+3-5% strictness):
-  * Maintain high standards for AO3 Evaluation: top marks require not just balance, but sustained comparative evaluation with critical prioritization—explaining which constraint or trade-off is most decisive in context.
-  * Brief comparative mentions (1-2 sentences at the end) stay at Level 1/2.
-  * Standard two-sided summaries or formulaic conclusions without clear prioritization should be awarded Level 2.
-  * For 'best way' / 'most effective' questions, evaluate whether the candidate directly addresses the directive by weighing alternative policies (e.g. permits, regulation, subsidies) against explicit criteria (PED pass-through, equity/regressive effects, government failure/information deficit, administrative feasibility). Essays without comparative weighing cannot reach Top Band in AO3.
-  * Token or one-sided evaluations stay at Level 1.
+- RIGOROUS AO3 EVALUATION (+3-5% strictness for 12m/20m; Calibrated & Toned Down for 8m):
+  * 8-MARK EVALUATIVE ESSAYS (2 AO3 marks allocated): TONE DOWN strictness appropriately for an 8-mark Section B question (~300–450w target). Do NOT demand 12m/20m criteria such as equity, efficiency, administrative feasibility, or prioritization matrices. If the candidate explores both dimensions/perspectives in context and provides a supported concluding judgement directly answering the question, award Level 2 (2/2 marks) in full.
+  * 12-MARK & 20-MARK ESSAYS (4-6 AO3 marks): Top marks require sustained comparative evaluation with critical prioritization—explaining which constraint or trade-off is most decisive in context against explicit criteria.
 - RIGOR ON WRITING QUALITY, AI FORMATTING & REALISTIC CALIBRATION:
   * Ensure the final mark reflects the actual standard: essays with major conceptual errors, brief outlines, or synthetic AI-generated formatting belong in Lower Middle or Upper Middle band (max 6-7/12 for 12m), never Top Band (10-12/12).
   * Maintain full Top Band marks (10-12/12) for well-developed, paragraphed student essays (500+ words) that demonstrate sustained analysis and prioritized evaluation.

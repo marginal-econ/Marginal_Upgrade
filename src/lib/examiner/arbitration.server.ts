@@ -166,6 +166,7 @@ AUTHORITATIVE PRINCIPAL EXAMINER PRINCIPLES:
    - EVALUATIVE VS NON-EVALUATIVE TARIFF DIRECTIVE:
      * If {ao3_marks} is 0 marks: Evaluation is strictly NOT required (legacy Cambridge 8-mark 'Explain' questions). Set awarded: 0, out_of: 0, and comment: "Evaluation is not required for this question. No marks are lost for its omission." Keep missing_elements.evaluation empty [].
      * If {ao3_marks} > 0 marks: Evaluation IS MANDATORY. You MUST grade AO3 out of {ao3_marks} marks. NEVER state that evaluation is not required, even if the question starts with 'Explain'.
+     * For 8-mark evaluative questions ({ao3_marks} = 2 marks): Tone down evaluation strictness appropriately for an 8-mark Section B question (~300–450 words). Do NOT demand multi-criteria frameworks, equity/efficiency/administrative feasibility trade-offs, or extensive alternative policy comparisons. Award 2/2 marks in full if the candidate discusses both aspects in context and reaches a supported concluding judgement answering the prompt.
    - Apply calibrated strictness (+3-5%) to AO3 Evaluation:
    - Demand critical prioritization: top band evaluation requires the candidate to explicitly justify which factor or criterion is most decisive (e.g. why inelastic demand limits short-run effectiveness vs long-run substitution).
    - Reject unprioritized textbook lists: merely reciting 'it depends on PED, time, and government budget' without contextual weighing belongs in middle band (Level 2).
@@ -330,7 +331,9 @@ export function synthesizeDualPasses(
   // Evaluation (AO3) calibrated with strictness: take conservative round if passes differ
   let eMark = Math.min(
     split.ao3_marks,
-    Math.floor((pass1.ao_breakdown.evaluation.awarded + pass2.ao_breakdown.evaluation.awarded) / 2 + 0.45),
+    split.ao3_marks === 2
+      ? Math.round((pass1.ao_breakdown.evaluation.awarded + pass2.ao_breakdown.evaluation.awarded) / 2)
+      : Math.floor((pass1.ao_breakdown.evaluation.awarded + pass2.ao_breakdown.evaluation.awarded) / 2 + 0.45),
   );
 
   let total = kMark + aMark + eMark;
@@ -420,6 +423,13 @@ export function synthesizeDualPasses(
     );
     if (hasEvalMention) {
       eMark = 1;
+    }
+  } else if (maxMark === 8 && split.ao3_marks === 2 && eMark === 1 && kMark === 2 && aMark === 4) {
+    const hasSubstantiatedConclusion = /conclusion|judgement|judgment|classif/i.test(
+      (pass1.ao_breakdown.evaluation.comment || "") + " " + (pass2.ao_breakdown.evaluation.comment || "")
+    );
+    if (hasSubstantiatedConclusion) {
+      eMark = 2;
     }
   }
 

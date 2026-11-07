@@ -216,14 +216,14 @@ export function buildAoEvaluationDirective(maxMark: number, split: AoSplit): str
 
   if (maxMark === 8 && split.ao3_marks === 2) {
     return `SPECIAL DIRECTIVE FOR 8-MARK EVALUATIVE ESSAYS (2 AO3 Evaluation Marks Allocated):
-- THIS IS AN EVALUATIVE ESSAY (${maxMark} marks total: AO1: ${split.ao1_marks}, AO2: ${split.ao2_marks}, AO3: ${split.ao3_marks}).
-- EVALUATION IS MANDATORY. The prompt contains an evaluative requirement (e.g. 'consider', 'discuss', 'assess', 'whether', 'to what extent', 'should').
-- IMPORTANT: Even if the question stem begins with 'Explain' (e.g. 'Explain X and consider whether Y'), the evaluative clause DEMANDS EVALUATION.
-- In "ao_breakdown.evaluation", you MUST evaluate the candidate's evaluation out of exactly 2 marks:
-  * Award up to 1 mark for balanced evaluative reasoning (weighing opposing perspectives, context, alternatives, or limitations).
-  * Award up to 1 mark for a reasoned, context-specific conclusion or judgement directly addressing the question prompt.
-  * If the candidate provides evaluation or a concluding judgement (e.g. classifying healthcare and explaining why), AWARD CREDIT (1/2 or 2/2).
-- NEVER state or write that "Evaluation is not required" or that this is a "non-evaluative question"! Evaluation IS REQUIRED for this 8-mark evaluative essay.`;
+- THIS IS AN 8-MARK SECTION B EVALUATIVE ESSAY (${maxMark} marks total: AO1: ${split.ao1_marks}, AO2: ${split.ao2_marks}, AO3: ${split.ao3_marks}).
+- REALISTIC, TONED-DOWN EVALUATION STRICTNESS FOR 8-MARK QUESTIONS (~300–450 words target):
+  * AO3 is allocated ONLY 2 MARKS TOTAL. This is a concise Section B essay, NOT a 12-mark or 20-mark extended essay.
+  * DO NOT demand 12/20-mark evaluation expectations such as multi-criteria prioritization frameworks, complex trade-off matrices, extensive alternative policy comparisons, or administrative feasibility / equity criteria. Demanding those on a 2-mark tariff is an examiner error.
+  * AWARD FULL 2/2 MARKS (Level 2) when the candidate addresses both dimensions/aspects in context (e.g. recognizing healthcare has both private/merit good characteristics like clinical treatment and public good characteristics like disease prevention) AND provides a supported conclusion or judgement answering the question prompt (e.g. concluding whether it is primarily a merit good with economic justification).
+  * Award 1/2 marks (Level 1) ONLY if the candidate makes a bare token assertion with zero reasoning or only considers one side with no conclusion.
+  * If the candidate considers both aspects and reaches a reasoned conclusion, AWARD 2/2 MARKS IN FULL.
+- NEVER state that evaluation is not required, and do not withhold the 2nd mark for missing disproportionate 12m/20m criteria.`;
   }
 
   return `SPECIAL DIRECTIVE FOR EVALUATIVE ESSAYS (${split.ao3_marks} AO3 Evaluation Marks Allocated):
@@ -241,10 +241,10 @@ export function renderAo3Descriptors(maxMark: number, ao3Marks: number): string 
     return `- AO3 Evaluation (0 marks): Evaluation is NOT required for this question. Candidates must not be penalised for omitting evaluation, weighing, or conclusions.`;
   }
   if (ao3Marks === 2) {
-    return `- AO3 Evaluation & Concluding Judgement (2 marks total) — EVALUATIVE 8-MARK ESSAY:
-      * Full Evaluation (2 of 2): Balanced evaluative reasoning weighing opposing arguments/perspectives (1 mark) AND a substantiated, context-specific conclusion or judgement directly addressing the question prompt (1 mark).
-      * Partial Evaluation (1 of 2): Evaluative commentary is present (either basic weighing/context OR a concluding judgement), but lacking full balance or depth.
-      * Zero Evaluation (0 of 2): Purely descriptive or one-sided analysis with NO evaluative weighing and NO concluding judgement.
+    return `- AO3 Evaluation & Concluding Judgement (2 marks total) — 8-MARK EVALUATIVE ESSAY (CALIBRATED REALISTIC STANDARD):
+      * Level 2 (2 of 2): Reasoned evaluative conclusion based on the analysis. The candidate considers both perspectives or classifications in context (e.g. acknowledging healthcare has both merit good and public good characteristics) and provides a supported final judgement answering the prompt. AWARD 2/2 IN FULL. Do NOT penalize for omitting 12m/20m criteria such as equity, efficiency, administrative feasibility, or formal prioritization matrices.
+      * Level 1 (1 of 2): Basic evaluative points without a conclusion, OR a bare unsupported assertion/conclusion without reasoning.
+      * Level 0 (0 of 2): Purely descriptive or one-sided analysis with no evaluative weighing and no concluding judgement.
       * CRITICAL RULE: If the candidate evaluates or provides an evaluative conclusion (e.g. classifying healthcare and explaining why), AWARD CREDIT (1 or 2 marks). NEVER claim evaluation is not required when AO3 is allocated 2 marks.`;
   }
   if (ao3Marks === 4) {
