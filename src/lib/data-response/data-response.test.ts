@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { PRELOADED_DATA_RESPONSE_PAPERS } from "./preloaded-papers";
+import { reconcileAoBreakdown } from "./marking-engine.server";
 import type { DataResponsePaper } from "./types";
 
 describe("Cambridge Economics (9708) Data Response Papers & Preloaded Suite", () => {
@@ -173,5 +174,114 @@ describe("Cambridge Economics (9708) Data Response Papers & Preloaded Suite", ()
         expect(tariffSum).toBe(q.maxMark);
       }
     }
+  });
+
+  describe("AO Reconciliation Engine (reconcileAoBreakdown)", () => {
+    it("guarantees sum(AO awarded) strictly equals awardedMark for 2-mark definition questions", () => {
+      const res = reconcileAoBreakdown({
+        awardedMark: 2,
+        maxMark: 2,
+        tariff: { ao1: 2, ao2: 0, ao3: 0 },
+        rawAo: { knowledge: { awarded: 1 } },
+      });
+      expect(res.awardedMark).toBe(2);
+      const sum = res.aoBreakdown.knowledge.awarded + res.aoBreakdown.application.awarded + res.aoBreakdown.analysis.awarded;
+      expect(sum).toBe(2);
+      expect(res.aoBreakdown.knowledge.outOf).toBe(2);
+    });
+
+    it("guarantees sum(AO awarded) strictly equals awardedMark for 4-mark questions", () => {
+      const res = reconcileAoBreakdown({
+        awardedMark: 3,
+        maxMark: 4,
+        tariff: { ao1: 2, ao2: 2, ao3: 0 },
+        rawAo: { knowledge: { awarded: 1 }, application: { awarded: 1 } },
+      });
+      expect(res.awardedMark).toBe(3);
+      const sum = res.aoBreakdown.knowledge.awarded + res.aoBreakdown.application.awarded + res.aoBreakdown.analysis.awarded;
+      expect(sum).toBe(3);
+      expect(res.aoBreakdown.knowledge.outOf + res.aoBreakdown.application.outOf + res.aoBreakdown.analysis.outOf).toBe(4);
+    });
+
+    it("guarantees 6-mark evaluative questions reconcile outOf sum to 6 and awarded sum to awardedMark", () => {
+      // Full marks: 6/6
+      const res6 = reconcileAoBreakdown({
+        awardedMark: 6,
+        maxMark: 6,
+        tariff: { ao1: 2, ao2: 2, ao3: 2 },
+        rawAo: { knowledge: { awarded: 2 }, application: { awarded: 2 }, analysis: { awarded: 2 }, evaluation: { awarded: 0 } },
+      });
+      expect(res6.awardedMark).toBe(6);
+      expect(res6.aoBreakdown.evaluation).toBeDefined();
+      expect(res6.aoBreakdown.evaluation?.awarded).toBe(2); // Top evaluative level credited
+      const outOfSum = res6.aoBreakdown.knowledge.outOf + res6.aoBreakdown.application.outOf + res6.aoBreakdown.analysis.outOf + (res6.aoBreakdown.evaluation?.outOf ?? 0);
+      expect(outOfSum).toBe(6);
+      const awardedSum = res6.aoBreakdown.knowledge.awarded + res6.aoBreakdown.application.awarded + res6.aoBreakdown.analysis.awarded + (res6.aoBreakdown.evaluation?.awarded ?? 0);
+      expect(awardedSum).toBe(6);
+
+      // Level 3 Pass: 5/6 (evaluation must never be 0)
+      const res5 = reconcileAoBreakdown({
+        awardedMark: 5,
+        maxMark: 6,
+        tariff: { ao1: 2, ao2: 2, ao3: 2 },
+        rawAo: { knowledge: { awarded: 2 }, application: { awarded: 2 }, analysis: { awarded: 1 }, evaluation: { awarded: 0 } },
+      });
+      expect(res5.awardedMark).toBe(5);
+      expect(res5.aoBreakdown.evaluation?.awarded).toBeGreaterThanOrEqual(1);
+      const awardedSum5 = res5.aoBreakdown.knowledge.awarded + res5.aoBreakdown.application.awarded + res5.aoBreakdown.analysis.awarded + (res5.aoBreakdown.evaluation?.awarded ?? 0);
+      expect(awardedSum5).toBe(5);
+
+      // Level 2: 4/6 (evaluation can be 0)
+      const res4 = reconcileAoBreakdown({
+        awardedMark: 4,
+        maxMark: 6,
+        tariff: { ao1: 2, ao2: 2, ao3: 2 },
+        rawAo: { knowledge: { awarded: 2 }, application: { awarded: 1 }, analysis: { awarded: 1 } },
+      });
+      expect(res4.awardedMark).toBe(4);
+      const awardedSum4 = res4.aoBreakdown.knowledge.awarded + res4.aoBreakdown.application.awarded + res4.aoBreakdown.analysis.awarded + (res4.aoBreakdown.evaluation?.awarded ?? 0);
+      expect(awardedSum4).toBe(4);
+    });
+
+    it("handles zero marks gracefully with all AOs equal to 0", () => {
+      const res0 = reconcileAoBreakdown({
+        awardedMark: 0,
+        maxMark: 6,
+        tariff: { ao1: 2, ao2: 2, ao3: 2 },
+      });
+      expect(res0.awardedMark).toBe(0);
+      expect(res0.aoBreakdown.knowledge.awarded).toBe(0);
+      expect(res0.aoBreakdown.application.awarded).toBe(0);
+      expect(res0.aoBreakdown.analysis.awarded).toBe(0);
+      expect(res0.aoBreakdown.evaluation?.awarded).toBe(0);
+    });
+
+    it("reconciles across every single question across all 30 papers for any arbitrary test score", () => {
+      for (const paper of PRELOADED_DATA_RESPONSE_PAPERS) {
+        for (const q of paper.questions) {
+          for (let score = 0; score <= q.maxMark; score++) {
+            const result = reconcileAoBreakdown({
+              awardedMark: score,
+              maxMark: q.maxMark,
+              tariff: q.tariff,
+            });
+            expect(result.awardedMark).toBe(score);
+            const sumAwarded =
+              result.aoBreakdown.knowledge.awarded +
+              result.aoBreakdown.application.awarded +
+              result.aoBreakdown.analysis.awarded +
+              (result.aoBreakdown.evaluation?.awarded ?? 0);
+            expect(sumAwarded).toBe(score);
+
+            const sumOutOf =
+              result.aoBreakdown.knowledge.outOf +
+              result.aoBreakdown.application.outOf +
+              result.aoBreakdown.analysis.outOf +
+              (result.aoBreakdown.evaluation?.outOf ?? 0);
+            expect(sumOutOf).toBe(q.maxMark);
+          }
+        }
+      }
+    });
   });
 });
