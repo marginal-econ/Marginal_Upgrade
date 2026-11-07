@@ -12,6 +12,7 @@ import {
   Check,
   CheckCircle2,
   Clipboard,
+  ChevronLeft,
   ChevronRight,
   Clock,
   Coins,
@@ -53,7 +54,7 @@ import {
   XCircle,
   Zap,
 } from "lucide-react";
-import { useRef, useState, useEffect } from "react";
+import { useRef, useState, useEffect, useMemo } from "react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -465,6 +466,31 @@ function AdminPage() {
   const [activeTab, setActiveTab] = useState(searchParams?.tab || "overview");
   const [textTargetUserId, setTextTargetUserId] = useState<string | null>(null);
   const [localAlertDismissed, setLocalAlertDismissed] = useState(false);
+  const [adminModuleSearch, setAdminModuleSearch] = useState("");
+
+  const filteredCategories = useMemo(() => {
+    if (!adminModuleSearch.trim()) return ADMIN_CATEGORIES;
+    const q = adminModuleSearch.toLowerCase().trim();
+    return ADMIN_CATEGORIES.map((cat) => {
+      const matchingItems = cat.items.filter(
+        (item) =>
+          item.title.toLowerCase().includes(q) ||
+          (item.sidebarLabel && item.sidebarLabel.toLowerCase().includes(q)) ||
+          item.subtitle.toLowerCase().includes(q),
+      );
+      const matchingLinks = (cat.externalLinks || []).filter(
+        (link) =>
+          link.label.toLowerCase().includes(q) ||
+          (link.desc && link.desc.toLowerCase().includes(q)),
+      );
+      if (matchingItems.length === 0 && matchingLinks.length === 0) return null;
+      return {
+        ...cat,
+        items: matchingItems,
+        externalLinks: matchingLinks,
+      };
+    }).filter(Boolean) as typeof ADMIN_CATEGORIES;
+  }, [adminModuleSearch]);
 
   useEffect(() => {
     if (searchParams?.tab) {
@@ -576,7 +602,7 @@ function AdminPage() {
             <span className="font-semibold uppercase tracking-wider text-[10px]">Studio Module:</span>
             <span className="font-medium text-foreground">{currentSection.title}</span>
           </div>
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+          <div className="flex items-center gap-1.5 overflow-x-auto custom-scrollbar pb-1.5">
             {Object.values(ADMIN_SECTIONS).map((sec) => (
               <Button
                 key={sec.id}
@@ -593,9 +619,42 @@ function AdminPage() {
         </div>
 
         {/* Desktop Left-Hand Studio Sidebar (md:) */}
-        <aside className="hidden md:flex md:w-64 lg:w-72 shrink-0 flex-col justify-between border-r border-border/70 bg-card/40 p-3.5 space-y-4">
-          <div className="space-y-4 overflow-y-auto">
-            {ADMIN_CATEGORIES.map((cat) => (
+        <aside className="hidden md:flex md:w-64 lg:w-72 shrink-0 flex-col justify-between border-r border-border/70 bg-card/40 p-3.5 space-y-3">
+          {/* Module Filter Input */}
+          <div className="relative shrink-0">
+            <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={adminModuleSearch}
+              onChange={(e) => setAdminModuleSearch(e.target.value)}
+              placeholder="Search 16 modules..."
+              className="h-8 pl-8 pr-6 text-xs bg-background/80 rounded-lg"
+            />
+            {adminModuleSearch && (
+              <button
+                type="button"
+                onClick={() => setAdminModuleSearch("")}
+                className="absolute top-1/2 right-2 -translate-y-1/2 text-[10px] text-muted-foreground hover:text-foreground font-semibold cursor-pointer"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+
+          <div className="space-y-4 overflow-y-auto custom-scrollbar flex-1 pr-1">
+            {filteredCategories.length === 0 ? (
+              <div className="p-4 text-center text-xs text-muted-foreground">
+                <p>No modules match &quot;{adminModuleSearch}&quot;.</p>
+                <button
+                  type="button"
+                  onClick={() => setAdminModuleSearch("")}
+                  className="mt-1 text-primary hover:underline font-semibold cursor-pointer text-[11px]"
+                >
+                  Clear filter
+                </button>
+              </div>
+            ) : null}
+
+            {filteredCategories.map((cat) => (
               <div key={cat.title} className="space-y-1">
                 <p className="px-2.5 text-[10px] font-bold tracking-wider text-muted-foreground/70 uppercase">
                   {cat.title}
@@ -610,7 +669,7 @@ function AdminPage() {
                         type="button"
                         onClick={() => setActiveTab(item.id)}
                         className={cn(
-                          "group relative flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-left text-xs transition-all",
+                          "group relative flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-left text-xs transition-all cursor-pointer",
                           isActive
                             ? "bg-primary/10 font-semibold text-primary shadow-xs"
                             : "text-muted-foreground hover:bg-muted/70 hover:text-foreground",
@@ -751,6 +810,10 @@ function AdminPage() {
                 onOpenGodmode={() => setActiveTab("godmode")}
                 onOpenEssays={() => setActiveTab("essays")}
                 onOpenUsers={() => setActiveTab("users")}
+                onTextUser={(userId) => {
+                  setTextTargetUserId(userId);
+                  setActiveTab("messages");
+                }}
               />
             )}
             {activeTab === "messages" && (
@@ -3759,10 +3822,12 @@ function OverviewPanel({
   onOpenGodmode,
   onOpenEssays,
   onOpenUsers,
+  onTextUser,
 }: {
   onOpenGodmode?: () => void;
   onOpenEssays?: () => void;
   onOpenUsers?: () => void;
+  onTextUser?: (userId: string) => void;
 } = {}) {
   const queryClient = useQueryClient();
   const fetchOverview = useServerFn(adminOverview);
@@ -3774,6 +3839,7 @@ function OverviewPanel({
   });
   const activity = useUserActivity();
   const [search, setSearch] = useState("");
+  const [overviewSubTab, setOverviewSubTab] = useState<"activeness" | "ai" | "platform">("activeness");
   const [featureFilter, setFeatureFilter] = useState<"all" | "live_examiner" | "essay_grade" | "other">("all");
   const [clearAiDialogOpen, setClearAiDialogOpen] = useState(false);
   const [clearConfirmText, setClearConfirmText] = useState("");
@@ -3867,250 +3933,521 @@ function OverviewPanel({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <SearchBox
-          value={search}
-          onChange={setSearch}
-          placeholder="Search everything below — a person, email, page, feature or error…"
-          className="max-w-xl flex-1"
-        />
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          onClick={() => overview.refetch()}
-          disabled={overview.isFetching}
-          className="gap-2 shrink-0"
-        >
-          <RefreshCw className={cn("size-3.5", overview.isFetching && "animate-spin")} />
-          <span>Refresh metrics</span>
-        </Button>
-      </div>
-
-      {/* God-Mode Quick Entry Banner */}
-      <div className="relative overflow-hidden rounded-xl border border-amber-500/30 bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
-        <div className="flex items-center gap-3">
-          <span className="flex size-8 items-center justify-center rounded-lg bg-amber-500/20 text-amber-500 shrink-0">
-            <Crown className="size-4" />
-          </span>
-          <div>
-            <h3 className="text-xs font-bold text-foreground sm:text-sm flex items-center gap-1.5">
-              God-Mode Platform Vault &amp; Live Keystroke Monitor
-              <Badge variant="outline" className="border-amber-500/40 text-amber-600 dark:text-amber-400 text-[10px] py-0 font-bold">
-                ROOT ACCESS
-              </Badge>
-            </h3>
-            <p className="text-[11px] text-muted-foreground">
-              Watch live student screens and typing in real time, 1-click fix failed essays, and inspect 360° dossiers for all users.
-            </p>
-          </div>
-        </div>
-        {onOpenGodmode && (
+      {/* ── Top Header Bar with Search & Executive Sub-Tab Switcher ── */}
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <SearchBox
+            value={search}
+            onChange={setSearch}
+            placeholder="Search everything — user name, email, feature, model, or status…"
+            className="max-w-xl flex-1"
+          />
           <Button
             type="button"
             size="sm"
-            variant="default"
-            className="h-8 text-xs font-semibold bg-amber-600 hover:bg-amber-700 text-white shrink-0 gap-1.5 shadow-sm"
-            onClick={onOpenGodmode}
+            variant="outline"
+            onClick={() => overview.refetch()}
+            disabled={overview.isFetching}
+            className="gap-2 shrink-0 h-9 text-xs cursor-pointer"
           >
-            <span>Open God Mode Console</span>
-            <ChevronRight className="size-3.5" />
+            <RefreshCw className={cn("size-3.5", overview.isFetching && "animate-spin")} />
+            <span>Refresh metrics</span>
           </Button>
-        )}
-      </div>
+        </div>
 
-      <ActivityOverview search={search} />
-
-      {/* Real-time AI Token & Credit Analytics (Private Admin Console) */}
-      <section className="panel rounded-xl border border-border p-5 space-y-5 bg-card/40">
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-3">
-          <div>
-            <h2 className="flex items-center gap-2 text-sm font-semibold">
-              <Zap className="size-4 text-emerald-500" /> Real-time AI Token &amp; Credit Consumption
-            </h2>
-            <p className="mt-0.5 text-xs text-muted-foreground">
-              Internal accounting of Gemini and Claude token expenditures across Live Examiner, Essay Grader, and generators.
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button
+        {/* 3 Executive Tabs: Activeness / AI Spend / Platform Vault */}
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/80 pb-3 pt-1">
+          <div className="inline-flex rounded-xl bg-muted/60 p-1 border border-border/70 text-xs font-semibold shadow-2xs">
+            <button
               type="button"
-              variant="outline"
-              size="sm"
-              className="h-7 text-xs border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
-              onClick={() => {
-                setClearAiDialogOpen(true);
-                setClearConfirmText("");
-              }}
-              disabled={clearAiMutation.isPending}
-            >
-              <Eraser className="size-3.5 mr-1" />
-              Clear calls &amp; cost
-            </Button>
-            <Badge variant="outline" className="font-mono text-xs border-emerald-500/40 text-emerald-600 dark:text-emerald-400">
-              Real-time Log Active
-            </Badge>
-          </div>
-        </div>
-
-        {/* 4 Hero KPI Cards */}
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="rounded-lg border border-border/70 bg-background/60 p-3.5 space-y-1">
-            <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span>Total Tokens Consumed</span>
-              <Zap className="size-3.5 text-emerald-500" />
-            </div>
-            <p className="text-2xl font-bold tracking-tight tabular-nums">
-              {(metrics?.totalTokens ?? 0).toLocaleString()}
-            </p>
-            <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-1">
-              <span>{(metrics?.totalPromptTokens ?? 0).toLocaleString()} in / {(metrics?.totalCompletionTokens ?? 0).toLocaleString()} out</span>
-              <span className="text-emerald-600 dark:text-emerald-400 font-medium">
-                +{(metrics?.last24hTokens ?? 0).toLocaleString()} 24h
-              </span>
-            </div>
-          </div>
-
-          <div className="rounded-lg border border-border/70 bg-background/60 p-3.5 space-y-1">
-            <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span>Total Estimated Cost</span>
-              <Coins className="size-3.5 text-amber-500" />
-            </div>
-            <p className="text-2xl font-bold tracking-tight tabular-nums text-foreground">
-              ₹{(metrics?.totalCostInr ?? 0).toFixed(2)}
-            </p>
-            <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-1">
-              <span>${(metrics?.totalCostUsd ?? 0).toFixed(3)} USD</span>
-              <span className="text-muted-foreground font-medium">
-                ₹{(metrics?.last24hCostInr ?? 0).toFixed(2)} 24h
-              </span>
-            </div>
-          </div>
-
-          <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3.5 space-y-1">
-            <div className="flex items-center justify-between text-xs text-emerald-700 dark:text-emerald-400 font-medium">
-              <span>Live Examiner</span>
-              <Badge variant="outline" className="text-[10px] border-emerald-500/40 text-emerald-700 dark:text-emerald-300">
-                {(metrics?.liveExaminer?.calls ?? 0)} calls
-              </Badge>
-            </div>
-            <p className="text-2xl font-bold tracking-tight tabular-nums text-foreground">
-              {(metrics?.liveExaminer?.totalTokens ?? 0).toLocaleString()}
-              <span className="text-xs font-normal text-muted-foreground ml-1">tokens</span>
-            </p>
-            <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-1">
-              <span>Est: ₹{(metrics?.liveExaminer?.costInr ?? 0).toFixed(2)}</span>
-              <span className="font-mono text-emerald-600 dark:text-emerald-400">
-                ⚡ ~{(metrics?.liveExaminer?.avgLatencyMs ?? 0)}ms
-              </span>
-            </div>
-          </div>
-
-          <div className="rounded-lg border border-primary/30 bg-primary/5 p-3.5 space-y-1">
-            <div className="flex items-center justify-between text-xs text-primary font-medium">
-              <span>Essay Grader</span>
-              <Badge variant="outline" className="text-[10px] border-primary/40 text-primary">
-                {(metrics?.essayGrader?.calls ?? 0)} essays
-              </Badge>
-            </div>
-            <p className="text-2xl font-bold tracking-tight tabular-nums text-foreground">
-              {(metrics?.essayGrader?.totalTokens ?? 0).toLocaleString()}
-              <span className="text-xs font-normal text-muted-foreground ml-1">tokens</span>
-            </p>
-            <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-1">
-              <span>Est: ₹{(metrics?.essayGrader?.costInr ?? 0).toFixed(2)}</span>
-              <span className="font-mono text-muted-foreground">
-                ~{(metrics?.essayGrader?.avgLatencyMs ?? 0)}ms
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Feature Breakdown Table */}
-        {metrics?.byFeature && metrics.byFeature.length > 0 ? (
-          <div className="rounded-lg border border-border overflow-hidden">
-            <div className="bg-muted/40 px-3.5 py-2 text-xs font-semibold flex items-center justify-between">
-              <span>Feature Breakdown &amp; Unit Economics</span>
-              <span className="text-[11px] font-normal text-muted-foreground">Based on latest 500 AI calls</span>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead className="border-b border-border bg-muted/20 text-muted-foreground text-[11px]">
-                  <tr>
-                    <th className="px-3.5 py-2">Feature</th>
-                    <th className="px-3.5 py-2 text-right">Calls</th>
-                    <th className="px-3.5 py-2 text-right">Prompt In</th>
-                    <th className="px-3.5 py-2 text-right">Completion Out</th>
-                    <th className="px-3.5 py-2 text-right">Total Tokens</th>
-                    <th className="px-3.5 py-2 text-right">Avg Latency</th>
-                    <th className="px-3.5 py-2 text-right">Est. Cost (₹)</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {metrics.byFeature.map((f) => (
-                    <tr key={f.feature} className="hover:bg-muted/10 transition-colors">
-                      <td className="px-3.5 py-2">
-                        <div className="font-medium">{f.label}</div>
-                        <div className="text-[10px] font-mono text-muted-foreground">{f.feature}</div>
-                      </td>
-                      <td className="px-3.5 py-2 text-right tabular-nums">
-                        {f.calls}
-                        {f.failedCalls > 0 ? (
-                          <span className="text-destructive ml-1 text-[10px]">({f.failedCalls} fail)</span>
-                        ) : null}
-                      </td>
-                      <td className="px-3.5 py-2 text-right tabular-nums text-muted-foreground">
-                        {(f.promptTokens ?? 0).toLocaleString()}
-                      </td>
-                      <td className="px-3.5 py-2 text-right tabular-nums text-muted-foreground">
-                        {(f.completionTokens ?? 0).toLocaleString()}
-                      </td>
-                      <td className="px-3.5 py-2 text-right tabular-nums font-semibold">
-                        {(f.totalTokens ?? 0).toLocaleString()}
-                      </td>
-                      <td className="px-3.5 py-2 text-right tabular-nums text-muted-foreground">
-                        {f.avgLatencyMs > 0 ? `${f.avgLatencyMs} ms` : "—"}
-                      </td>
-                      <td className="px-3.5 py-2 text-right tabular-nums font-medium">
-                        ₹{(f.estCostInr ?? 0).toFixed(2)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        ) : null}
-      </section>
-
-      {/* Platform Totals */}
-      <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
-        {tiles.map((tile) => {
-          const isEssays = tile.label === "Essays marked";
-          const isUsers = tile.label === "Users";
-          const isClickable = (isEssays && onOpenEssays) || (isUsers && onOpenUsers);
-          return (
-            <div
-              key={tile.label}
-              onClick={() => {
-                if (isEssays && onOpenEssays) onOpenEssays();
-                if (isUsers && onOpenUsers) onOpenUsers();
-              }}
+              onClick={() => setOverviewSubTab("activeness")}
               className={cn(
-                "panel rounded-xl border border-border p-4 transition-all",
-                isClickable && "cursor-pointer hover:border-primary/50 hover:bg-muted/40 shadow-xs",
+                "flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg transition-all cursor-pointer",
+                overviewSubTab === "activeness"
+                  ? "bg-background text-foreground shadow-xs font-bold"
+                  : "text-muted-foreground hover:text-foreground",
               )}
             >
-              <div className="flex items-center justify-between">
-                <p className="text-xs text-muted-foreground">{tile.label}</p>
-                {isEssays && <span className="text-[10px] text-primary font-medium hover:underline">View all &rarr;</span>}
-                {isUsers && <span className="text-[10px] text-primary font-medium hover:underline">Directory &rarr;</span>}
-              </div>
-              <p className="mt-1 text-xl font-semibold tabular-nums">{tile.value}</p>
-            </div>
-          );
-        })}
+              <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span>User Activeness &amp; Presence</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setOverviewSubTab("ai")}
+              className={cn(
+                "flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg transition-all cursor-pointer",
+                overviewSubTab === "ai"
+                  ? "bg-background text-foreground shadow-xs font-bold"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              <Zap className="size-3.5 text-amber-500" />
+              <span>AI Telemetry &amp; Unit Economics</span>
+              <span className="text-[10px] font-mono text-muted-foreground ml-0.5">
+                (₹{(metrics?.totalCostInr ?? 0).toFixed(0)})
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setOverviewSubTab("platform")}
+              className={cn(
+                "flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg transition-all cursor-pointer",
+                overviewSubTab === "platform"
+                  ? "bg-background text-foreground shadow-xs font-bold"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              <Crown className="size-3.5 text-primary" />
+              <span>Platform Vault &amp; Totals</span>
+            </button>
+          </div>
+
+          <div className="text-[11px] text-muted-foreground">
+            Auto-refreshes every 5s · Production Telemetry
+          </div>
+        </div>
       </div>
+
+      {/* ── Sub-Tab 1: User Activeness & Presence ── */}
+      {overviewSubTab === "activeness" && (
+        <ActivityOverview search={search} onTextUser={onTextUser} />
+      )}
+
+      {/* ── Sub-Tab 2: Real-time AI Token & Credit Analytics ── */}
+      {overviewSubTab === "ai" && (
+        <div className="space-y-6">
+          <section className="panel rounded-xl border border-border p-5 space-y-5 bg-card/40">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-3">
+              <div>
+                <h2 className="flex items-center gap-2 text-sm font-semibold">
+                  <Zap className="size-4 text-emerald-500" /> Real-time AI Token &amp; Credit Consumption
+                </h2>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  Internal accounting of Gemini and Claude token expenditures across Live Examiner, Essay Grader, and generators.
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive cursor-pointer"
+                  onClick={() => {
+                    setClearAiDialogOpen(true);
+                    setClearConfirmText("");
+                  }}
+                  disabled={clearAiMutation.isPending}
+                >
+                  <Eraser className="size-3.5 mr-1" />
+                  Clear calls &amp; cost
+                </Button>
+                <Badge variant="outline" className="font-mono text-xs border-emerald-500/40 text-emerald-600 dark:text-emerald-400">
+                  Real-time Log Active
+                </Badge>
+              </div>
+            </div>
+
+            {/* 4 Hero KPI Cards */}
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="rounded-lg border border-border/70 bg-background/60 p-3.5 space-y-1">
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span>Total Tokens Consumed</span>
+                  <Zap className="size-3.5 text-emerald-500" />
+                </div>
+                <p className="text-2xl font-bold tracking-tight tabular-nums">
+                  {(metrics?.totalTokens ?? 0).toLocaleString()}
+                </p>
+                <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-1">
+                  <span>{(metrics?.totalPromptTokens ?? 0).toLocaleString()} in / {(metrics?.totalCompletionTokens ?? 0).toLocaleString()} out</span>
+                  <span className="text-emerald-600 dark:text-emerald-400 font-medium">
+                    +{(metrics?.last24hTokens ?? 0).toLocaleString()} 24h
+                  </span>
+                </div>
+              </div>
+
+              <div className="rounded-lg border border-border/70 bg-background/60 p-3.5 space-y-1">
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span>Total Estimated Cost</span>
+                  <Coins className="size-3.5 text-amber-500" />
+                </div>
+                <p className="text-2xl font-bold tracking-tight tabular-nums text-foreground">
+                  ₹{(metrics?.totalCostInr ?? 0).toFixed(2)}
+                </p>
+                <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-1">
+                  <span>${(metrics?.totalCostUsd ?? 0).toFixed(3)} USD</span>
+                  <span className="text-muted-foreground font-medium">
+                    ₹{(metrics?.last24hCostInr ?? 0).toFixed(2)} 24h
+                  </span>
+                </div>
+              </div>
+
+              <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3.5 space-y-1">
+                <div className="flex items-center justify-between text-xs text-emerald-700 dark:text-emerald-400 font-medium">
+                  <span>Live Examiner</span>
+                  <Badge variant="outline" className="text-[10px] border-emerald-500/40 text-emerald-700 dark:text-emerald-300">
+                    {(metrics?.liveExaminer?.calls ?? 0)} calls
+                  </Badge>
+                </div>
+                <p className="text-2xl font-bold tracking-tight tabular-nums text-foreground">
+                  {(metrics?.liveExaminer?.totalTokens ?? 0).toLocaleString()}
+                  <span className="text-xs font-normal text-muted-foreground ml-1">tokens</span>
+                </p>
+                <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-1">
+                  <span>Est: ₹{(metrics?.liveExaminer?.costInr ?? 0).toFixed(2)}</span>
+                  <span className="font-mono text-emerald-600 dark:text-emerald-400">
+                    ⚡ ~{(metrics?.liveExaminer?.avgLatencyMs ?? 0)}ms
+                  </span>
+                </div>
+              </div>
+
+              <div className="rounded-lg border border-primary/30 bg-primary/5 p-3.5 space-y-1">
+                <div className="flex items-center justify-between text-xs text-primary font-medium">
+                  <span>Essay Grader</span>
+                  <Badge variant="outline" className="text-[10px] border-primary/40 text-primary">
+                    {(metrics?.essayGrader?.calls ?? 0)} essays
+                  </Badge>
+                </div>
+                <p className="text-2xl font-bold tracking-tight tabular-nums text-foreground">
+                  {(metrics?.essayGrader?.totalTokens ?? 0).toLocaleString()}
+                  <span className="text-xs font-normal text-muted-foreground ml-1">tokens</span>
+                </p>
+                <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-1">
+                  <span>Est: ₹{(metrics?.essayGrader?.costInr ?? 0).toFixed(2)}</span>
+                  <span className="font-mono text-muted-foreground">
+                    ~{(metrics?.essayGrader?.avgLatencyMs ?? 0)}ms
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Feature Breakdown Table with custom scrollbar */}
+            {metrics?.byFeature && metrics.byFeature.length > 0 ? (
+              <div className="rounded-lg border border-border overflow-hidden">
+                <div className="bg-muted/40 px-3.5 py-2 text-xs font-semibold flex items-center justify-between">
+                  <span>Feature Breakdown &amp; Unit Economics</span>
+                  <span className="text-[11px] font-normal text-muted-foreground">Based on latest 500 AI calls</span>
+                </div>
+                <div className="overflow-x-auto custom-scrollbar">
+                  <table className="w-full text-left text-xs">
+                    <thead className="border-b border-border bg-muted/20 text-muted-foreground text-[11px]">
+                      <tr>
+                        <th className="px-3.5 py-2">Feature</th>
+                        <th className="px-3.5 py-2 text-right">Calls</th>
+                        <th className="px-3.5 py-2 text-right">Prompt In</th>
+                        <th className="px-3.5 py-2 text-right">Completion Out</th>
+                        <th className="px-3.5 py-2 text-right">Total Tokens</th>
+                        <th className="px-3.5 py-2 text-right">Avg Latency</th>
+                        <th className="px-3.5 py-2 text-right">Est. Cost (₹)</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {metrics.byFeature.map((f) => (
+                        <tr key={f.feature} className="hover:bg-muted/10 transition-colors">
+                          <td className="px-3.5 py-2">
+                            <div className="font-medium">{f.label}</div>
+                            <div className="text-[10px] font-mono text-muted-foreground">{f.feature}</div>
+                          </td>
+                          <td className="px-3.5 py-2 text-right tabular-nums">
+                            {f.calls}
+                            {f.failedCalls > 0 ? (
+                              <span className="text-destructive ml-1 text-[10px]">({f.failedCalls} fail)</span>
+                            ) : null}
+                          </td>
+                          <td className="px-3.5 py-2 text-right tabular-nums text-muted-foreground">
+                            {(f.promptTokens ?? 0).toLocaleString()}
+                          </td>
+                          <td className="px-3.5 py-2 text-right tabular-nums text-muted-foreground">
+                            {(f.completionTokens ?? 0).toLocaleString()}
+                          </td>
+                          <td className="px-3.5 py-2 text-right tabular-nums font-semibold">
+                            {(f.totalTokens ?? 0).toLocaleString()}
+                          </td>
+                          <td className="px-3.5 py-2 text-right tabular-nums text-muted-foreground">
+                            {f.avgLatencyMs > 0 ? `${f.avgLatencyMs} ms` : "—"}
+                          </td>
+                          <td className="px-3.5 py-2 text-right tabular-nums font-medium">
+                            ₹{(f.estCostInr ?? 0).toFixed(2)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ) : null}
+          </section>
+
+          {/* Recent AI calls with real-time token counts, scroll container and sticky header */}
+          <div className="panel rounded-xl border border-border overflow-hidden">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3 bg-card/60">
+              <p className="text-sm font-semibold">
+                Recent AI Calls Log{" "}
+                <span className="font-normal text-muted-foreground">
+                  (latest {usage.length}
+                  {search || featureFilter !== "all" ? `, ${shownUsage.length} match` : ""})
+                </span>
+              </p>
+              <div className="flex items-center gap-1.5 text-xs">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={featureFilter === "all" ? "default" : "outline"}
+                  className="h-7 px-2.5 text-xs"
+                  onClick={() => setFeatureFilter("all")}
+                >
+                  All
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={featureFilter === "live_examiner" ? "default" : "outline"}
+                  className="h-7 px-2.5 text-xs"
+                  onClick={() => setFeatureFilter("live_examiner")}
+                >
+                  Live Examiner
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={featureFilter === "essay_grade" ? "default" : "outline"}
+                  className="h-7 px-2.5 text-xs"
+                  onClick={() => setFeatureFilter("essay_grade")}
+                >
+                  Essay Grader
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={featureFilter === "other" ? "default" : "outline"}
+                  className="h-7 px-2.5 text-xs"
+                  onClick={() => setFeatureFilter("other")}
+                >
+                  Others
+                </Button>
+              </div>
+            </div>
+
+            {/* Scrollable Container with Custom Scrollbar */}
+            <div className="max-h-[460px] overflow-y-auto custom-scrollbar divide-y divide-border/60">
+              {shownUsage.length === 0 ? (
+                <p className="px-4 py-8 text-center text-xs text-muted-foreground">
+                  {search || featureFilter !== "all" ? "No AI calls match that filter." : "No AI calls logged yet."}
+                </p>
+              ) : null}
+              {shownUsage.map((row) => {
+                const rowTokens = (row.prompt_tokens ?? 0) + (row.completion_tokens ?? 0);
+                const rowCostInr = (((row.prompt_tokens ?? 0) * 0.00000015 + (row.completion_tokens ?? 0) * 0.00000060) * 86.5);
+                return (
+                  <div key={row.id} className="flex flex-wrap items-center gap-2 px-4 py-2.5 text-xs hover:bg-muted/10 transition-colors">
+                    {row.ok ? (
+                      <CheckCircle2 className="size-3.5 text-primary shrink-0" />
+                    ) : (
+                      <XCircle className="size-3.5 text-destructive shrink-0" />
+                    )}
+                    <Badge variant="outline" className="text-[10px] font-medium">
+                      {row.feature}
+                    </Badge>
+                    <span className="text-muted-foreground text-[11px] font-mono">{row.model}</span>
+
+                    {rowTokens > 0 ? (
+                      <Badge variant="secondary" className="font-mono text-[10px] tabular-nums">
+                        ⚡ {rowTokens.toLocaleString()} tok ({row.prompt_tokens ?? 0} in / {row.completion_tokens ?? 0} out)
+                      </Badge>
+                    ) : null}
+
+                    {rowCostInr > 0 ? (
+                      <span className="font-mono text-[11px] text-muted-foreground">
+                        ₹{rowCostInr.toFixed(3)}
+                      </span>
+                    ) : null}
+
+                    {row.latency_ms ? (
+                      <span className="text-muted-foreground text-[11px]">{row.latency_ms} ms</span>
+                    ) : null}
+
+                    {row.user_id && whoIs.get(row.user_id) ? (
+                      <span className="truncate text-muted-foreground text-[11px]">
+                        · {whoIs.get(row.user_id)?.trim()}
+                      </span>
+                    ) : null}
+
+                    <span className="ml-auto text-muted-foreground text-[11px] font-mono">
+                      {row.created_at ? new Date(row.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "—"}
+                    </span>
+
+                    {row.error_message ? (
+                      row.feature === "LIVE_DRAFT_GRADE" || row.ok ? (
+                        <div className="w-full pl-5 mt-1 text-[11px]">
+                          {(() => {
+                            try {
+                              const parsed = JSON.parse(row.error_message);
+                              return (
+                                <div className="flex items-center gap-2 flex-wrap text-muted-foreground font-mono text-[10px] bg-muted/30 px-2.5 py-1 rounded-md border border-border/50">
+                                  <span className="text-purple-400 font-semibold">📝 Live Essay Draft Autosave:</span>
+                                  <span className="truncate max-w-lg text-foreground/90 font-medium">
+                                    &quot;{parsed.question || "Essay Draft"}&quot;
+                                  </span>
+                                  <span className="text-muted-foreground">
+                                    ({parsed.wordCount ?? 0} words · {parsed.charCount ?? 0} chars)
+                                  </span>
+                                  <span className="text-muted-foreground/70">
+                                    Max: {parsed.maxMark ?? 12}m
+                                  </span>
+                                </div>
+                              );
+                            } catch {
+                              return (
+                                <p className="font-mono text-[10px] text-muted-foreground/80">{row.error_message}</p>
+                              );
+                            }
+                          })()}
+                        </div>
+                      ) : (
+                        <p className="w-full text-destructive text-[11px] pl-5 font-mono">{row.error_message}</p>
+                      )
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Sub-Tab 3: Platform Totals & Vault ── */}
+      {overviewSubTab === "platform" && (
+        <div className="space-y-6">
+          {/* God-Mode Quick Entry Banner */}
+          <div className="relative overflow-hidden rounded-xl border border-amber-500/30 bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
+            <div className="flex items-center gap-3">
+              <span className="flex size-9 items-center justify-center rounded-lg bg-amber-500/20 text-amber-500 shrink-0">
+                <Crown className="size-5" />
+              </span>
+              <div>
+                <h3 className="text-sm font-bold text-foreground sm:text-base flex items-center gap-2">
+                  God-Mode Platform Vault &amp; Keystroke Monitor
+                  <Badge variant="outline" className="border-amber-500/40 text-amber-600 dark:text-amber-400 text-[10px] py-0 font-bold">
+                    ROOT ACCESS
+                  </Badge>
+                </h3>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Real-time student surveillance, live typing radar, 1-click failed essay diagnosis &amp; repair, and 360° dossiers.
+                </p>
+              </div>
+            </div>
+            {onOpenGodmode && (
+              <Button
+                type="button"
+                size="sm"
+                variant="default"
+                className="h-8 text-xs font-semibold bg-amber-600 hover:bg-amber-700 text-white shrink-0 gap-1.5 shadow-sm cursor-pointer"
+                onClick={onOpenGodmode}
+              >
+                <span>Launch God Mode Console</span>
+                <ChevronRight className="size-3.5" />
+              </Button>
+            )}
+          </div>
+
+          {/* Platform Totals Grid */}
+          <div>
+            <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">
+              Platform Data Totals &amp; Repositories
+            </h3>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+              {tiles.map((tile) => {
+                const isEssays = tile.label === "Essays marked";
+                const isUsers = tile.label === "Users";
+                const isClickable = (isEssays && onOpenEssays) || (isUsers && onOpenUsers);
+                return (
+                  <div
+                    key={tile.label}
+                    onClick={() => {
+                      if (isEssays && onOpenEssays) onOpenEssays();
+                      if (isUsers && onOpenUsers) onOpenUsers();
+                    }}
+                    className={cn(
+                      "panel rounded-xl border border-border p-4 transition-all",
+                      isClickable && "cursor-pointer hover:border-primary/50 hover:bg-muted/40 shadow-xs",
+                    )}
+                  >
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs text-muted-foreground">{tile.label}</p>
+                      {isEssays && <span className="text-[10px] text-primary font-medium hover:underline">Vault &rarr;</span>}
+                      {isUsers && <span className="text-[10px] text-primary font-medium hover:underline">Directory &rarr;</span>}
+                    </div>
+                    <p className="mt-1 text-2xl font-bold tracking-tight tabular-nums text-foreground">{tile.value}</p>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Direct Vault Links */}
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {onOpenEssays && (
+              <button
+                type="button"
+                onClick={onOpenEssays}
+                className="p-4 rounded-xl border border-border/80 bg-card hover:border-primary/50 hover:bg-muted/30 text-left transition-all space-y-1.5 cursor-pointer group"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="flex size-7 items-center justify-center rounded-lg bg-blue-500/10 text-blue-500">
+                    <BookOpen className="size-4" />
+                  </span>
+                  <ChevronRight className="size-4 text-muted-foreground group-hover:text-primary transition-transform group-hover:translate-x-0.5" />
+                </div>
+                <h4 className="text-xs font-bold text-foreground">Graded Essays Vault</h4>
+                <p className="text-[11px] text-muted-foreground">Every essay ever scored on Marginal with full feedback.</p>
+              </button>
+            )}
+
+            <Link
+              to="/knowledge"
+              className="p-4 rounded-xl border border-border/80 bg-card hover:border-primary/50 hover:bg-muted/30 text-left transition-all space-y-1.5 cursor-pointer group"
+            >
+              <div className="flex items-center justify-between">
+                <span className="flex size-7 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-500">
+                  <BookOpen className="size-4" />
+                </span>
+                <ChevronRight className="size-4 text-muted-foreground group-hover:text-primary transition-transform group-hover:translate-x-0.5" />
+              </div>
+              <h4 className="text-xs font-bold text-foreground">Knowledge Base</h4>
+              <p className="text-[11px] text-muted-foreground">Syllabus vectors, mark scheme chunks, and RAG index.</p>
+            </Link>
+
+            <Link
+              to="/calibration"
+              className="p-4 rounded-xl border border-border/80 bg-card hover:border-primary/50 hover:bg-muted/30 text-left transition-all space-y-1.5 cursor-pointer group"
+            >
+              <div className="flex items-center justify-between">
+                <span className="flex size-7 items-center justify-center rounded-lg bg-purple-500/10 text-purple-500">
+                  <Target className="size-4" />
+                </span>
+                <ChevronRight className="size-4 text-muted-foreground group-hover:text-primary transition-transform group-hover:translate-x-0.5" />
+              </div>
+              <h4 className="text-xs font-bold text-foreground">Anchor Calibration</h4>
+              <p className="text-[11px] text-muted-foreground">Human-verified exemplar anchors and Level boundaries.</p>
+            </Link>
+
+            <Link
+              to="/question-bank"
+              className="p-4 rounded-xl border border-border/80 bg-card hover:border-primary/50 hover:bg-muted/30 text-left transition-all space-y-1.5 cursor-pointer group"
+            >
+              <div className="flex items-center justify-between">
+                <span className="flex size-7 items-center justify-center rounded-lg bg-amber-500/10 text-amber-500">
+                  <Sparkles className="size-4" />
+                </span>
+                <ChevronRight className="size-4 text-muted-foreground group-hover:text-primary transition-transform group-hover:translate-x-0.5" />
+              </div>
+              <h4 className="text-xs font-bold text-foreground">Question Bank</h4>
+              <p className="text-[11px] text-muted-foreground">Cambridge past paper database, diagrams &amp; topics.</p>
+            </Link>
+          </div>
+        </div>
+      )}
 
       {/* Recent AI calls with real-time token counts and cost */}
       <div className="panel rounded-xl border border-border">
@@ -4310,6 +4647,8 @@ function UsersPanel({ onTextUser }: { onTextUser?: (userId: string) => void } = 
   const [filterRole, setFilterRole] = useState<"all" | "new" | "student" | "teacher" | "online" | "writers">("all");
   const [sortBy, setSortBy] = useState<"newest" | "oldest" | "essays" | "active" | "name">("newest");
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(15);
 
   const [resetTarget, setResetTarget] = useState<{ id: string; name: string } | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
@@ -4444,6 +4783,14 @@ function UsersPanel({ onTextUser }: { onTextUser?: (userId: string) => void } = 
       }
       return 0;
     });
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, filterRole, sortBy, pageSize]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredUsers.length / pageSize));
+  const startIndex = (currentPage - 1) * pageSize;
+  const paginatedUsers = filteredUsers.slice(startIndex, startIndex + pageSize);
 
   const exportUsersCsv = () => {
     try {
@@ -4822,7 +5169,8 @@ function UsersPanel({ onTextUser }: { onTextUser?: (userId: string) => void } = 
 
       {/* ── 4. Main User Directory List ── */}
       <div className="panel divide-y divide-border rounded-2xl border border-border bg-card shadow-xs overflow-hidden">
-        {filteredUsers.map((user) => {
+        <div className="max-h-[720px] overflow-y-auto custom-scrollbar divide-y divide-border/60">
+          {paginatedUsers.map((user) => {
           const extra = activityById.get(user.id);
           const email = user.email || extra?.email;
           const isSoleAdmin =
@@ -5034,6 +5382,43 @@ function UsersPanel({ onTextUser }: { onTextUser?: (userId: string) => void } = 
                 Clear Search
               </Button>
             )}
+          </div>
+        )}
+        </div>
+
+        {/* Pagination Controls Footer */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between border-t border-border/80 px-5 py-3 bg-card/60 text-xs">
+            <span className="text-muted-foreground text-xs">
+              Showing {startIndex + 1}–{Math.min(startIndex + pageSize, filteredUsers.length)} of {filteredUsers.length} accounts
+            </span>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage <= 1}
+                className="h-8 px-3 text-xs gap-1 cursor-pointer"
+              >
+                <ChevronLeft className="size-3.5" />
+                <span>Previous</span>
+              </Button>
+              <span className="text-xs font-semibold px-2">
+                Page {currentPage} of {totalPages}
+              </span>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                disabled={currentPage >= totalPages}
+                className="h-8 px-3 text-xs gap-1 cursor-pointer"
+              >
+                <span>Next</span>
+                <ChevronRight className="size-3.5" />
+              </Button>
+            </div>
           </div>
         )}
       </div>

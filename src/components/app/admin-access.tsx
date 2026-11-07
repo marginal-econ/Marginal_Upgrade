@@ -2,19 +2,26 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
   AlertTriangle,
+  Check,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  Copy,
   Cpu,
   Gauge,
   Loader2,
   PauseCircle,
   Save,
   Search,
+  Send,
   Sparkles,
+  Trophy,
   Users,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import { UserAvatar } from "@/components/app/user-avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -160,7 +167,13 @@ function sortValue(row?: UserActivityRow | null, key?: SortKey): number {
   }
 }
 
-export function ActivityOverview({ search }: { search: string }) {
+export function ActivityOverview({
+  search,
+  onTextUser,
+}: {
+  search: string;
+  onTextUser?: (userId: string) => void;
+}) {
   const activity = useUserActivity();
   const fetchSettings = useServerFn(adminGetSettings);
   const settings = useQuery({
@@ -169,6 +182,16 @@ export function ActivityOverview({ search }: { search: string }) {
     refetchInterval: 30_000,
   });
   const [sortKey, setSortKey] = useState<SortKey>("total");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState<number>(10);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const copyEmail = (email: string, id: string) => {
+    navigator.clipboard.writeText(email);
+    setCopiedId(id);
+    toast.success("Email copied to clipboard");
+    setTimeout(() => setCopiedId(null), 2000);
+  };
 
   const rows = useMemo(() => activity.data ?? [], [activity.data]);
   const online = useMemo(() => rows.filter((row) => row.isOnline), [rows]);
@@ -177,7 +200,7 @@ export function ActivityOverview({ search }: { search: string }) {
       [...rows]
         .filter((row) => totalActivity(row) > 0)
         .sort((a, b) => totalActivity(b) - totalActivity(a))
-        .slice(0, 5),
+        .slice(0, 10),
     [rows],
   );
   const maxTotal = topUsers[0] ? totalActivity(topUsers[0]) : 0;
@@ -200,6 +223,15 @@ export function ActivityOverview({ search }: { search: string }) {
       .sort((a, b) => sortValue(b, sortKey) - sortValue(a, sortKey));
   }, [rows, search, sortKey]);
 
+  // Reset to first page when search or sortKey changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, sortKey, pageSize]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const startIndex = (currentPage - 1) * pageSize;
+  const paginatedRows = filtered.slice(startIndex, startIndex + pageSize);
+
   if (activity.isLoading) return <Skeleton className="h-64 w-full" />;
   if (activity.error) {
     return (
@@ -214,162 +246,414 @@ export function ActivityOverview({ search }: { search: string }) {
   const s = settings.data;
   const currentSeats = s?.currentUsers ?? rows.length;
   const maxSeats = s?.maxUsers && s.maxUsers > 0 ? s.maxUsers : 100;
-  const tiles = [
-    { label: "Online now", value: online.length, tone: online.length > 0 },
-    { label: "Active seats", value: `${currentSeats} / ${maxSeats}` },
-    { label: "Registered accounts", value: rows.length },
-    { label: "Essays graded today", value: gradedToday },
-  ];
+  const seatPct = Math.min(100, Math.round((currentSeats / maxSeats) * 100));
 
   return (
     <div className="space-y-5">
+      {/* ── 1. Top KPI Summary Tiles ── */}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {tiles.map((tile) => (
-          <div key={tile.label} className="panel rounded-xl border border-border p-4">
-            <p className="text-xs text-muted-foreground">{tile.label}</p>
-            <p className="mt-1 flex items-center gap-2 text-xl font-semibold">
-              {tile.tone ? <OnlineDot online /> : null}
-              {tile.value}
-            </p>
+        <div className="panel rounded-xl border border-emerald-500/20 bg-gradient-to-br from-emerald-500/5 via-card to-card p-4 shadow-xs">
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <span className="font-semibold uppercase tracking-wider text-[10.5px]">Online Now</span>
+            <span className="size-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
           </div>
-        ))}
+          <div className="mt-2 flex items-baseline gap-2">
+            <span className="text-2xl font-bold tracking-tight text-foreground">{online.length}</span>
+            <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">live candidates</span>
+          </div>
+          <p className="text-[11px] text-muted-foreground mt-1.5 pt-1.5 border-t border-border/60">
+            Real-time WebSocket heartbeat
+          </p>
+        </div>
+
+        <div className="panel rounded-xl border border-border/80 bg-card p-4 shadow-xs">
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <span className="font-semibold uppercase tracking-wider text-[10.5px]">Essays Today</span>
+            <span className="text-primary font-bold">24h</span>
+          </div>
+          <div className="mt-2 flex items-baseline gap-2">
+            <span className="text-2xl font-bold tracking-tight text-foreground">{gradedToday}</span>
+            <span className="text-xs text-muted-foreground font-medium">scripts graded</span>
+          </div>
+          <p className="text-[11px] text-muted-foreground mt-1.5 pt-1.5 border-t border-border/60">
+            Submissions since midnight
+          </p>
+        </div>
+
+        <div className="panel rounded-xl border border-border/80 bg-card p-4 shadow-xs">
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <span className="font-semibold uppercase tracking-wider text-[10.5px]">Active Seats</span>
+            <span className="text-[11px] font-mono font-semibold">{seatPct}%</span>
+          </div>
+          <div className="mt-2 flex items-baseline gap-2">
+            <span className="text-2xl font-bold tracking-tight text-foreground">
+              {currentSeats} <span className="text-xs font-normal text-muted-foreground">/ {maxSeats}</span>
+            </span>
+          </div>
+          <div className="mt-2 h-1.5 w-full rounded-full bg-muted overflow-hidden">
+            <div
+              className={cn("h-full rounded-full transition-all", seatPct > 90 ? "bg-rose-500" : "bg-primary")}
+              style={{ width: `${seatPct}%` }}
+            />
+          </div>
+        </div>
+
+        <div className="panel rounded-xl border border-border/80 bg-card p-4 shadow-xs">
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <span className="font-semibold uppercase tracking-wider text-[10.5px]">Total Accounts</span>
+            <Users className="size-3.5 text-muted-foreground" />
+          </div>
+          <div className="mt-2 flex items-baseline gap-2">
+            <span className="text-2xl font-bold tracking-tight text-foreground">{rows.length}</span>
+            <span className="text-xs text-muted-foreground font-medium">registered</span>
+          </div>
+          <p className="text-[11px] text-muted-foreground mt-1.5 pt-1.5 border-t border-border/60">
+            Students, educators &amp; admin
+          </p>
+        </div>
       </div>
 
+      {/* ── 2. Side-by-Side: Online Right Now & Top Learners ── */}
       <div className="grid gap-5 lg:grid-cols-2">
-        <div className="panel rounded-xl border border-border">
-          <p className="flex items-center gap-2 border-b border-border px-4 py-3 text-sm font-semibold">
-            <OnlineDot online={online.length > 0} /> Online right now
-            <span className="ml-auto text-xs font-normal text-muted-foreground">
-              updates every 30 s
-            </span>
-          </p>
-          <div className="divide-y divide-border">
+        {/* Online Right Now Card */}
+        <div className="panel rounded-xl border border-border/80 bg-card shadow-xs flex flex-col">
+          <div className="flex items-center justify-between border-b border-border/80 px-4 py-3 bg-card/60">
+            <div className="flex items-center gap-2">
+              <OnlineDot online={online.length > 0} />
+              <h3 className="text-sm font-semibold text-foreground">Online Right Now</h3>
+              <Badge variant="secondary" className="text-[10px] h-4 px-1.5 font-bold">
+                {online.length}
+              </Badge>
+            </div>
+            <span className="text-[11px] text-muted-foreground">refreshes every 30s</span>
+          </div>
+
+          <div className="max-h-72 overflow-y-auto custom-scrollbar divide-y divide-border/60 p-1 flex-1">
             {online.length === 0 ? (
-              <p className="px-4 py-4 text-sm text-muted-foreground">
-                Nobody is on the platform at the moment.
-              </p>
+              <div className="p-8 text-center text-xs text-muted-foreground">
+                <p>Nobody is currently online.</p>
+                <p className="text-[11px] mt-1 text-muted-foreground/70">Users active in the last 60 seconds appear here.</p>
+              </div>
             ) : (
               online.map((row) => (
-                <div key={row.userId} className="flex items-center gap-3 px-4 py-2.5 text-sm">
-                  <OnlineDot online />
-                  <div className="min-w-0">
-                    <p className="truncate font-medium">{displayName(row)}</p>
-                    <p className="truncate text-xs text-muted-foreground">{row.email}</p>
+                <div key={row.userId} className="flex items-center justify-between gap-3 px-3 py-2.5 hover:bg-muted/30 rounded-lg transition-colors">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <UserAvatar
+                      avatarUrl={null}
+                      name={row.fullName}
+                      showStatusDot={true}
+                      className="size-7 shrink-0 ring-1 ring-emerald-500/30"
+                    />
+                    <div className="min-w-0">
+                      <p className="truncate text-xs font-semibold text-foreground leading-tight">
+                        {displayName(row)}
+                      </p>
+                      <p className="truncate text-[10.5px] text-muted-foreground font-mono">
+                        {row.email || "No email"}
+                      </p>
+                    </div>
                   </div>
-                  <span className="ml-auto shrink-0 text-xs text-muted-foreground">
-                    {describePath(row.currentPath)}
-                  </span>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Badge variant="outline" className="text-[10px] bg-muted/50 border-border/80 text-foreground/80 py-0 max-w-[140px] truncate">
+                      {describePath(row.currentPath)}
+                    </Badge>
+                    {onTextUser && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => onTextUser(row.userId)}
+                        className="h-6 px-2 text-[10.5px] font-semibold text-primary hover:bg-primary/10 gap-1 cursor-pointer"
+                        title="Direct message user"
+                      >
+                        <Send className="size-2.5" /> Text
+                      </Button>
+                    )}
+                  </div>
                 </div>
               ))
             )}
           </div>
         </div>
 
-        <div className="panel rounded-xl border border-border">
-          <p className="border-b border-border px-4 py-3 text-sm font-semibold">
-            Who uses it the most
-          </p>
-          <div className="divide-y divide-border">
+        {/* Most Active Learners (Leaderboard) */}
+        <div className="panel rounded-xl border border-border/80 bg-card shadow-xs flex flex-col">
+          <div className="flex items-center justify-between border-b border-border/80 px-4 py-3 bg-card/60">
+            <div className="flex items-center gap-2">
+              <Trophy className="size-4 text-amber-500" />
+              <h3 className="text-sm font-semibold text-foreground">Top Learners Leaderboard</h3>
+            </div>
+            <span className="text-[11px] text-muted-foreground">Most practice activity</span>
+          </div>
+
+          <div className="max-h-72 overflow-y-auto custom-scrollbar divide-y divide-border/60 p-1 flex-1">
             {topUsers.length === 0 ? (
-              <p className="px-4 py-4 text-sm text-muted-foreground">No activity recorded yet.</p>
+              <div className="p-8 text-center text-xs text-muted-foreground">
+                <p>No activity recorded yet.</p>
+              </div>
             ) : (
-              topUsers.map((row, index) => (
-                <div key={row.userId} className="px-4 py-2.5 text-sm">
-                  <div className="flex items-center gap-2">
-                    <span className="w-4 text-xs text-muted-foreground">{index + 1}</span>
-                    <span className="truncate font-medium">{displayName(row)}</span>
-                    <span className="ml-auto shrink-0 text-xs text-muted-foreground">
-                      {row.essaysGraded} essays · {row.liveExaminerSessions} live ·{" "}
-                      {row.mcqAttempts} MCQ
-                    </span>
+              topUsers.map((row, index) => {
+                const total = totalActivity(row);
+                const pct = maxTotal ? Math.round((total / maxTotal) * 100) : 0;
+                return (
+                  <div key={row.userId} className="px-3 py-2.5 hover:bg-muted/30 rounded-lg transition-colors space-y-1.5">
+                    <div className="flex items-center justify-between gap-2 text-xs">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span
+                          className={cn(
+                            "flex size-5 shrink-0 items-center justify-center rounded-full text-[10px] font-extrabold",
+                            index === 0
+                              ? "bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/40"
+                              : index === 1
+                                ? "bg-slate-400/20 text-slate-700 dark:text-slate-300 border border-slate-400/40"
+                                : index === 2
+                                  ? "bg-orange-500/20 text-orange-700 dark:text-orange-400 border border-orange-500/40"
+                                  : "bg-muted text-muted-foreground",
+                          )}
+                        >
+                          {index + 1}
+                        </span>
+                        <span className="truncate font-semibold text-foreground">{displayName(row)}</span>
+                        {row.role !== "student" && (
+                          <Badge variant="outline" className="text-[9px] px-1 py-0 uppercase">
+                            {row.role}
+                          </Badge>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-2 text-[11px] text-muted-foreground shrink-0 font-medium">
+                        <span>{row.essaysGraded} essays</span>
+                        <span>·</span>
+                        <span>{row.liveExaminerSessions} live</span>
+                        <span>·</span>
+                        <span>{row.mcqAttempts} MCQ</span>
+                      </div>
+                    </div>
+
+                    <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+                      <div
+                        className={cn(
+                          "h-full rounded-full transition-all",
+                          index === 0 ? "bg-amber-500" : index === 1 ? "bg-indigo-500" : "bg-primary",
+                        )}
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
                   </div>
-                  <div className="mt-1.5 ml-6 h-1.5 overflow-hidden rounded-full bg-muted">
-                    <div
-                      className="h-full rounded-full bg-primary"
-                      style={{ width: `${maxTotal ? (totalActivity(row) / maxTotal) * 100 : 0}%` }}
-                    />
-                  </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </div>
       </div>
 
-      <div className="panel rounded-xl border border-border">
-        <div className="flex flex-wrap items-center gap-3 border-b border-border px-4 py-3">
-          <p className="text-sm font-semibold">
-            All users{" "}
-            <span className="font-normal text-muted-foreground">
-              ({filtered.length}
-              {filtered.length !== rows.length ? ` of ${rows.length}` : ""})
-            </span>
-          </p>
-          <div className="ml-auto w-full sm:w-64">
-            <Select value={sortKey} onValueChange={(value) => setSortKey(value as SortKey)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {(Object.keys(SORT_LABELS) as SortKey[]).map((key) => (
-                  <SelectItem key={key} value={key}>
-                    {SORT_LABELS[key]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+      {/* ── 3. Contained, Scrollable & Paginated All Users Directory ── */}
+      <div className="panel rounded-xl border border-border/80 bg-card shadow-xs overflow-hidden">
+        {/* Table Top Controls Bar */}
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/80 px-4 py-3 bg-card/60">
+          <div>
+            <h3 className="text-sm font-semibold text-foreground">
+              User Activity Stream &amp; Accounts{" "}
+              <span className="font-normal text-muted-foreground text-xs">
+                ({filtered.length} total)
+              </span>
+            </h3>
+            <p className="text-[11px] text-muted-foreground mt-0.5">
+              Showing page {currentPage} of {totalPages} ({paginatedRows.length} displayed)
+            </p>
           </div>
-        </div>
-        <div className="overflow-x-auto">
-          <div className="min-w-[760px] divide-y divide-border">
-            <div className="grid grid-cols-[minmax(0,2.2fr)_repeat(5,minmax(0,0.8fr))_minmax(0,1fr)] gap-3 px-4 py-2 text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
-              <span>User</span>
-              <span className="text-right">Essays</span>
-              <span className="text-right">Today</span>
-              <span className="text-right">Live Ex.</span>
-              <span className="text-right">MCQ</span>
-              <span className="text-right">AI calls</span>
-              <span className="text-right">Last active</span>
+
+          <div className="flex items-center gap-2.5">
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <span className="hidden sm:inline">Sort:</span>
+              <Select value={sortKey} onValueChange={(value) => setSortKey(value as SortKey)}>
+                <SelectTrigger className="h-8 w-44 text-xs bg-background">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {(Object.keys(SORT_LABELS) as SortKey[]).map((key) => (
+                    <SelectItem key={key} value={key} className="text-xs">
+                      {SORT_LABELS[key]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-            {filtered.length === 0 ? (
-              <p className="px-4 py-4 text-sm text-muted-foreground">
-                {search ? "No users match that search." : "No accounts yet."}
-              </p>
-            ) : null}
-            {filtered.map((row) => (
-              <div
-                key={row.userId}
-                className="grid grid-cols-[minmax(0,2.2fr)_repeat(5,minmax(0,0.8fr))_minmax(0,1fr)] items-center gap-3 px-4 py-2.5 text-sm"
+
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <span className="hidden sm:inline">Rows:</span>
+              <Select
+                value={String(pageSize)}
+                onValueChange={(val) => setPageSize(Number(val))}
               >
-                <div className="flex min-w-0 items-center gap-2.5">
-                  <OnlineDot online={row.isOnline} />
-                  <div className="min-w-0">
-                    <p className="flex items-center gap-1.5 truncate font-medium">
-                      {displayName(row)}
-                      {row.role !== "student" ? (
-                        <Badge variant="secondary" className="px-1.5 py-0 text-[10px]">
-                          {row.role}
-                        </Badge>
-                      ) : null}
-                    </p>
-                    <p className="truncate text-xs text-muted-foreground">
-                      {row.email}
-                      {row.isOnline ? ` · ${describePath(row.currentPath)}` : ""}
-                    </p>
-                  </div>
-                </div>
-                <span className="text-right tabular-nums">{row.essaysGraded}</span>
-                <span className="text-right tabular-nums">{row.essaysToday}</span>
-                <span className="text-right tabular-nums">{row.liveExaminerSessions}</span>
-                <span className="text-right tabular-nums">{row.mcqAttempts}</span>
-                <span className="text-right tabular-nums">{row.aiCalls}</span>
-                <span className="text-right text-xs text-muted-foreground">
-                  {row.isOnline ? "online" : timeAgo(row.lastActivity)}
-                </span>
-              </div>
-            ))}
+                <SelectTrigger className="h-8 w-20 text-xs bg-background">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="10">10</SelectItem>
+                  <SelectItem value="25">25</SelectItem>
+                  <SelectItem value="50">50</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </div>
+
+        {/* Scrollable Table Container with Custom Scrollbar */}
+        <div className="max-h-[460px] overflow-auto custom-scrollbar">
+          <table className="w-full text-left text-xs">
+            <thead className="sticky top-0 bg-muted/90 backdrop-blur-sm z-10 border-b border-border text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+              <tr>
+                <th className="px-4 py-2.5">User</th>
+                <th className="px-3 py-2.5 text-right">Essays Marked</th>
+                <th className="px-3 py-2.5 text-right">Today</th>
+                <th className="px-3 py-2.5 text-right">Live Ex.</th>
+                <th className="px-3 py-2.5 text-right">MCQ Attempts</th>
+                <th className="px-3 py-2.5 text-right">AI Calls</th>
+                <th className="px-3 py-2.5 text-right">Last Seen</th>
+                <th className="px-4 py-2.5 text-right">Action</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border/60">
+              {paginatedRows.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="px-4 py-8 text-center text-xs text-muted-foreground">
+                    {search ? "No users match your search." : "No registered accounts yet."}
+                  </td>
+                </tr>
+              ) : (
+                paginatedRows.map((row) => (
+                  <tr key={row.userId} className="hover:bg-muted/30 transition-colors">
+                    <td className="px-4 py-2.5">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <OnlineDot online={row.isOnline} />
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-semibold text-foreground truncate">
+                              {displayName(row)}
+                            </span>
+                            {row.role === "admin" ? (
+                              <Badge className="h-4 px-1 text-[9px] font-extrabold uppercase bg-amber-500/20 text-amber-600 dark:text-amber-400 border-amber-500/30">
+                                Admin
+                              </Badge>
+                            ) : row.role === "teacher" ? (
+                              <Badge className="h-4 px-1 text-[9px] font-bold uppercase bg-purple-500/15 text-purple-600 dark:text-purple-400 border-purple-500/30">
+                                Educator
+                              </Badge>
+                            ) : null}
+                          </div>
+                          <div className="flex items-center gap-2 text-[10.5px] text-muted-foreground mt-0.5">
+                            {row.email ? (
+                              <button
+                                type="button"
+                                onClick={() => copyEmail(row.email!, row.userId)}
+                                className="inline-flex items-center gap-1 font-mono hover:text-foreground transition-colors cursor-pointer"
+                                title="Click to copy email"
+                              >
+                                <span className="truncate max-w-[180px]">{row.email}</span>
+                                {copiedId === row.userId ? (
+                                  <Check className="size-2.5 text-emerald-500 shrink-0" />
+                                ) : (
+                                  <Copy className="size-2.5 text-muted-foreground/60 shrink-0" />
+                                )}
+                              </button>
+                            ) : (
+                              <span>No email</span>
+                            )}
+                            {row.isOnline && (
+                              <span className="text-emerald-600 dark:text-emerald-400 font-semibold truncate max-w-[130px]">
+                                · {describePath(row.currentPath)}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-3 py-2.5 text-right tabular-nums font-semibold text-foreground">
+                      {row.essaysGraded}
+                    </td>
+                    <td className="px-3 py-2.5 text-right tabular-nums">
+                      {row.essaysToday > 0 ? (
+                        <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                          +{row.essaysToday}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">0</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2.5 text-right tabular-nums text-muted-foreground">
+                      {row.liveExaminerSessions}
+                    </td>
+                    <td className="px-3 py-2.5 text-right tabular-nums text-muted-foreground">
+                      {row.mcqAttempts}
+                    </td>
+                    <td className="px-3 py-2.5 text-right tabular-nums text-muted-foreground">
+                      {row.aiCalls}
+                    </td>
+                    <td className="px-3 py-2.5 text-right text-[11px] text-muted-foreground whitespace-nowrap">
+                      {row.isOnline ? (
+                        <span className="font-bold text-emerald-600 dark:text-emerald-400">online</span>
+                      ) : (
+                        timeAgo(row.lastActivity)
+                      )}
+                    </td>
+                    <td className="px-4 py-2.5 text-right">
+                      {onTextUser && (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => onTextUser(row.userId)}
+                          className="h-6 px-2 text-[10.5px] font-semibold text-primary hover:bg-primary/10 gap-1 border-primary/30 cursor-pointer"
+                          title="Direct message this user"
+                        >
+                          <Send className="size-2.5" /> Text
+                        </Button>
+                      )}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Pagination Footer */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between border-t border-border/80 px-4 py-2.5 bg-card/60 text-xs">
+            <span className="text-muted-foreground text-[11px]">
+              Showing {startIndex + 1}–{Math.min(startIndex + pageSize, filtered.length)} of {filtered.length} users
+            </span>
+            <div className="flex items-center gap-1.5">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage <= 1}
+                className="h-7 px-2.5 text-xs gap-1"
+              >
+                <ChevronLeft className="size-3" />
+                <span>Prev</span>
+              </Button>
+              <span className="text-xs font-semibold px-2">
+                {currentPage} / {totalPages}
+              </span>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                disabled={currentPage >= totalPages}
+                className="h-7 px-2.5 text-xs gap-1"
+              >
+                <span>Next</span>
+                <ChevronRight className="size-3" />
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
