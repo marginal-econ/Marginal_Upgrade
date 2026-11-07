@@ -567,10 +567,10 @@ export function AppShell({
 
   return (
     <div className="flex min-h-screen bg-background">
-      {/* ── Desktop Sidebar: Sticky, fixed-height, perfectly pinned ── */}
+      {/* ── Desktop Sidebar: Fixed, locked to viewport, perfectly pinned ── */}
       <aside
         className={cn(
-          "sticky top-0 h-screen h-[100dvh] max-h-[100dvh] self-start shrink-0 flex-col border-r border-sidebar-border bg-sidebar py-3 transition-[width,padding] duration-300 ease-out hidden lg:flex z-30 select-none",
+          "fixed inset-y-0 left-0 h-screen h-[100dvh] max-h-[100dvh] shrink-0 flex-col border-r border-sidebar-border bg-sidebar py-3 transition-[width,padding] duration-300 ease-out hidden lg:flex z-30 select-none",
           sidebarCollapsed ? "w-[4.5rem] px-2" : "w-64 px-3",
         )}
       >
@@ -659,7 +659,12 @@ export function AppShell({
         )}
 
         {/* Scrollable Navigation Groups */}
-        <div className="min-h-0 flex-1 overflow-y-auto custom-scrollbar space-y-2 pr-1">
+        <div
+          className={cn(
+            "min-h-0 flex-1 overflow-y-auto space-y-2",
+            sidebarCollapsed ? "no-scrollbar px-0" : "custom-scrollbar pr-1",
+          )}
+        >
           {visibleGroups.map((group) => renderNavGroup(group))}
         </div>
 
@@ -795,7 +800,12 @@ export function AppShell({
       </aside>
 
       {/* ── Main Content & Mobile Header ── */}
-      <div className="flex min-w-0 flex-1 flex-col overflow-x-hidden">
+      <div
+        className={cn(
+          "flex min-w-0 flex-1 flex-col overflow-x-hidden transition-[padding] duration-300 ease-out",
+          sidebarCollapsed ? "lg:pl-[4.5rem]" : "lg:pl-64",
+        )}
+      >
         <header className="flex items-center justify-between border-b border-border bg-card/80 px-4 py-2.5 backdrop-blur-sm lg:hidden sticky top-0 z-40 w-full max-w-full">
           <div className="flex items-center gap-2.5">
             <Sheet open={mobileDrawerOpen} onOpenChange={setMobileDrawerOpen}>

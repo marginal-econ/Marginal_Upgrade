@@ -2347,13 +2347,13 @@ html.theme-shifting * {
 .custom-scrollbar,
 .styled-scrollbar {
   scrollbar-width: thin;
-  scrollbar-color: hsl(var(--muted-foreground) / 0.28) transparent;
+  scrollbar-color: rgba(148, 163, 184, 0.3) transparent;
 }
 
 .custom-scrollbar::-webkit-scrollbar,
 .styled-scrollbar::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-track,
@@ -2363,12 +2363,23 @@ html.theme-shifting * {
 
 .custom-scrollbar::-webkit-scrollbar-thumb,
 .styled-scrollbar::-webkit-scrollbar-thumb {
-  background: hsl(var(--muted-foreground) / 0.25);
+  background: rgba(148, 163, 184, 0.28);
   border-radius: 9999px;
   transition: background 0.15s ease-in-out;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover,
 .styled-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: hsl(var(--muted-foreground) / 0.5);
+  background: rgba(148, 163, 184, 0.55);
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none !important;
+  scrollbar-width: none !important;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
 }
