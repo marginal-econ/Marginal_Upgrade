@@ -40,9 +40,9 @@ export const PRELOADED_DATA_RESPONSE_PAPERS: DataResponsePaper[] = [
     "sampleAnswers": {
       "1(a)(i)": "Income elasticity of demand (YED) measures the responsiveness of quantity demanded of a good to a change in consumer real income. Formula: YED = % change in quantity demanded / % change in income.",
       "1(a)(ii)": "Using paragraph 2, quantity demanded (sales) rose by 22% while disposable income rose by 29%. YED = +22% / +29% = +0.76. Because YED is positive and less than 1 (0 < YED < 1), an economist would classify fast food as a normal good (a necessity) with income-inelastic demand.",
-      "1(b)": "A demerit good is a good that is overconsumed in a free market because consumers suffer from information failure, failing to perceive the true private health damage of consumption (or where marginal social cost exceeds marginal private cost). Fast food is considered a demerit good because consumers lack full knowledge of the severe health hazards such as diabetes, heart disease, and accelerating mortality rates. Furthermore, it imposes massive external costs on society, including US$2 trillion in worldwide healthcare expenditures and reduced labour productivity from employee absenteeism.",
+      "1(b)": "A demerit good is a good that is overconsumed in a free market because consumers suffer from information failure, failing to perceive the true private health damage of consumption (or where marginal social cost exceeds marginal private cost). Fast food is considered a demerit good because consumers lack full knowledge of calorific content and severe health hazards such as diabetes, heart disease, and accelerating mortality rates. Furthermore, it imposes massive external costs on society, including US$2 trillion in worldwide healthcare expenditures and reduced labour productivity from employee absenteeism.",
       "1(c)": "An indirect tax (such as Colombia's 10% to 20% tax or Denmark's fat tax) increases the cost of production, shifting the market supply curve to the left. This raises market price, internalises negative health impacts, contracts quantity demanded, and raises tax revenue that can fund healthcare services. However, fast food demand is price and income inelastic (+0.76) due to high convenience for time-poor consumers, so consumption falls only marginally. The tax is also regressive, burdening low-income families, and can destroy employment as occurred in Denmark where the tax was repealed after job losses. Therefore, an indirect tax is not solely the best way; it is most effective when combined with subsidies on healthy options, mandatory calorific labelling, menu reformulation, and educational campaigns.",
-      "1(d)": "A significant increase in unemployment is usually harmful to macroeconomic performance. It creates a deflationary output gap where actual GDP falls below potential GDP, leaving labour resources idle. Government finances deteriorate as income tax and VAT receipts decline while welfare transfer spending surges, worsening the fiscal deficit. Long-term unemployment also causes hysteresis, permanently eroding human capital and productivity. However, an increase in unemployment is not always harmful in every circumstance. In an overheating economy experiencing demand-pull inflation and wage-price spirals, a rise in unemployment dampens aggregate demand and cools wage inflation. In structural transitions, short-term unemployment frees up labour from declining sectors to reallocate into expanding, high-technology export industries. In conclusion, while sustained unemployment damages economic growth and living standards, it is not always harmful if it restores price stability in an overheating economy."
+      "1(d)": "Decreasing the consumption of fast food in the United States could lead to an increase in unemployment due to the derived demand for labour. In the US, 5 million workers are employed in fast food; if consumers reduce fast food purchases, restaurant revenues fall, leading to branch closures and worker layoffs. This would also generate indirect unemployment along the supply chain in agriculture, meat processing, packaging, and food delivery services, mirroring Denmark's experience where job losses occurred after taxing unhealthy food. However, decreasing fast food consumption may not increase overall US unemployment. First, disposable income previously spent on fast food will be redirected toward substitutes, such as supermarkets, healthy food outlets, and grocery retailers, creating replacement jobs in those sectors. Second, major fast food corporations can adapt by reformulating their menus, offering healthy options and clear calorie labeling, thereby maintaining sales volumes and retaining staff. Third, lower fast food intake reduces obesity and chronic diseases, lowering the US$2 trillion global healthcare burden and reducing absenteeism, which boosts overall labour productivity and stimulates long-term economic expansion. In conclusion, while short-term transitional unemployment is likely among specialized fast-food workers who may face occupational immobility, overall US unemployment is unlikely to rise permanently as expenditure shifts toward healthier food alternatives and chains adapt their product offerings."
     },
     "questions": [
       {
@@ -109,11 +109,12 @@ export const PRELOADED_DATA_RESPONSE_PAPERS: DataResponsePaper[] = [
         },
         "hasDiagramRequirement": false,
         "indicativePoints": [
-          "Demerit good: Overconsumed due to information failure / lack of consumer information regarding health risks (or marginal social cost exceeding marginal private cost) (up to 2 marks)",
-          "Application: Extract evidence showing accelerated mortality, heart disease, diabetes, US$2 trillion global healthcare burden, lost earnings and productivity losses (up to 2 marks)",
-          "Official Cambridge Note: Do NOT expect reference to 3rd party effects or externalities if imperfect information / private health harm is explained. Never penalize a candidate for omitting external costs."
+          "Demerit good: Overconsumed due to information failure / lack of consumer information regarding health risks and calorific content (or marginal social cost exceeding marginal private cost) (up to 2 marks)",
+          "Application: Accelerated mortality, heart disease, diabetes, US$2 trillion global healthcare burden, lost earnings and productivity losses (up to 2 marks)",
+          "Official Cambridge Note: Do NOT expect reference to 3rd party effects or externalities if imperfect information / private health harm is explained. Never penalize a candidate for omitting external costs.",
+          "Mark Scheme Exemplars: When a candidate mentions information failure, calorie labeling, healthy options, or lack of nutritional awareness, credit immediately. Never call official mark scheme exemplars unrelated or detracting."
         ],
-        "markingGuide": "Up to 2 marks for explanation of demerit good (overconsumed due to information failure / health damage / social cost > private cost). Up to 2 marks for extract application ($2 trillion health costs, absenteeism, diabetes). Crucial rule: Never penalize for omitting third-party effects or externalities if the candidate explains information failure / health damage. Total 4 marks.",
+        "markingGuide": "Point-based question (4 marks): Award marks strictly on the presence of mark-scheme points (up to 2 for demerit good explanation; up to 2 for extract application). Do not demand extract quotes, data citations ($ figures), or externalities unless the mark scheme explicitly requires them. Crucial rule: Never penalize for omitting third-party effects or externalities if the candidate explains information failure / health damage. When candidate evaluation matches mark scheme points (e.g., healthy options, calorie labeling), award credit immediately. Total 4 marks.",
         "extractLinkageExpected": true,
         "syllabusTopic": "Demerit goods and market failure"
       },
@@ -164,7 +165,7 @@ export const PRELOADED_DATA_RESPONSE_PAPERS: DataResponsePaper[] = [
       {
         "id": "9708_22_2026_fm_1d",
         "number": "1(d)",
-        "title": "Assess whether a significant increase in unemployment in an economy is always harmful to its macroeconomic performance. [6]",
+        "title": "Assess whether decreasing the consumption of fast food will increase unemployment in the US. [6]",
         "maxMark": 6,
         "category": "essay_evaluative",
         "tariff": {
@@ -176,32 +177,32 @@ export const PRELOADED_DATA_RESPONSE_PAPERS: DataResponsePaper[] = [
         "rubricLevels": [
           {
             "level": 3,
-            "marksRange": "5\u20136 marks",
-            "label": "Effective Macroeconomic Evaluation",
-            "description": "Balanced macroeconomic assessment critically evaluating the qualifier 'always harmful', weighing lost GDP and fiscal strain against dampening inflation and structural reallocation, with a reasoned conclusion.",
-            "evaluativeRequirement": "Weighs loss of potential national output and fiscal tax deficit against curbing demand-pull inflation and facilitating sectoral labour shifts."
+            "marksRange": "5–6 marks",
+            "label": "Effective Evaluation in Context",
+            "description": "Balanced assessment evaluating whether decreasing fast food consumption will increase US unemployment, weighing derived demand job losses (5 million US fast food workers, Denmark fat tax precedent) against expenditure switching to healthy food substitutes, menu reformulations, and reduced healthcare absenteeism, with a justified conclusion.",
+            "evaluativeRequirement": "Weighs derived demand employment losses in the fast food sector against job creation in healthier substitute sectors and menu adaptations."
           },
           {
             "level": 2,
-            "marksRange": "3\u20134 marks",
+            "marksRange": "3–4 marks",
             "label": "Developed Analysis with Partial Evaluation",
-            "description": "Developed macroeconomic analysis with one-sided or incomplete evaluation of 'always harmful'."
+            "description": "Developed analysis of derived demand labour effects with one-sided or undeveloped evaluation."
           },
           {
             "level": 1,
-            "marksRange": "1\u20132 marks",
+            "marksRange": "1–2 marks",
             "label": "Limited Knowledge & Descriptive Points",
-            "description": "Identifies basic macroeconomic concepts without sustained analytical links."
+            "description": "Identifies basic concepts without sustained analytical links."
           }
         ],
         "indicativePoints": [
-          "Harmful: Output gap / loss of real GDP, reduced income tax/VAT receipts, higher welfare benefits, hysteresis and human capital decay",
-          "Nuance / Non-harmful: Reduces demand-pull wage pressure in an overheating economy, helps curb inflation towards target, frees scarce labour for expanding sectors",
-          "Evaluation: Reasoned conclusion interrogating 'always harmful' — while harmful long-term to living standards, not always harmful short-term if cooling overheating or enabling structural transformation."
+          "Arguments that it will increase unemployment: Labour is in derived demand from the demand for fast food meals. 5 million people work in fast food in the US; reduced sales lead to restaurant closures and layoffs. Supply-chain job losses in agriculture, packaging, logistics, and delivery. Danish fat tax experience cited in extract where job losses forced repeal of the tax.",
+          "Arguments that it will NOT increase unemployment: Consumer expenditure is switched to healthier substitute meals and groceries, creating replacement jobs in alternative food and retail sectors. Fast food firms adapt by reformulating menus, offering healthy options and calorie labeling, retaining their staff. Healthier population reduces US$2 trillion health cost burden and employee absenteeism, raising labour productivity and stimulating overall economic employment.",
+          "Evaluation: A reasoned conclusion directly addressing whether decreasing consumption will increase US unemployment, noting it depends on occupational mobility of displaced workers and the speed with which fast food chains adapt their product lines."
         ],
-        "markingGuide": "AO1/AO2 (up to 4 marks for balanced macroeconomic analysis). AO3/AO4 Evaluation (up to 2 marks for reasoned judgment on 'always harmful'). Check exact sub-question text (macroeconomic focus). Balanced analysis required (harmful vs non-harmful). Reasoned conclusion required for Level 3. Total 6 marks.",
-        "extractLinkageExpected": false,
-        "syllabusTopic": "Consequences of unemployment"
+        "markingGuide": "AO1/AO2 (up to 4 marks for balanced analysis). AO3/AO4 Evaluation (up to 2 marks for reasoned conclusion). Match candidate arguments directly against the advantages/disadvantages listed in the mark scheme. Never penalize mark scheme exemplars (healthy options, calorie labeling, menu reformulation, derived demand). Total 6 marks.",
+        "extractLinkageExpected": true,
+        "syllabusTopic": "Derived demand for labour and unemployment"
       }
     ]
   },

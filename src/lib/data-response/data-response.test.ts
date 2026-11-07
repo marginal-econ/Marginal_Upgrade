@@ -101,4 +101,26 @@ describe("Cambridge Economics (9708) Data Response Papers & Preloaded Suite", ()
       expect(table.rows.length).toBeGreaterThan(1);
     }
   });
+
+  it("verifies zero-hallucination verbatim microeconomic question stem and mark scheme exemplars for 9708_22_2026_fm", () => {
+    const fmPaper = PRELOADED_DATA_RESPONSE_PAPERS.find((p) => p.id === "9708_22_2026_fm");
+    expect(fmPaper).toBeDefined();
+
+    const q1d = fmPaper?.questions.find((q) => q.number === "1(d)");
+    expect(q1d).toBeDefined();
+    // Verbatim microeconomic case study focus, NOT a generalized macro essay
+    expect(q1d?.title).toContain("decreasing the consumption of fast food will increase unemployment in the US");
+    expect(q1d?.category).toBe("essay_evaluative");
+    expect(q1d?.maxMark).toBe(6);
+
+    // Question 1(b) contains official Cambridge notes honoring exemplars without unfair penalties
+    const q1b = fmPaper?.questions.find((q) => q.number === "1(b)");
+    expect(q1b).toBeDefined();
+    expect(q1b?.markingGuide).toContain("Never penalize for omitting third-party effects");
+
+    // Sample answers are provided and unstarred
+    expect(fmPaper?.sampleAnswers).toBeDefined();
+    expect(fmPaper?.sampleAnswers?.["1(d)"]).toContain("derived demand for labour");
+    expect(fmPaper?.sampleAnswers?.["1(d)"]).not.toMatch(/\*+/);
+  });
 });

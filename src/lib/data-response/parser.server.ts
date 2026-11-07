@@ -26,7 +26,7 @@ Extract the following structure cleanly as JSON:
 
 3. Sub-questions in Section A (e.g. 1(a)(i), 1(a)(ii), 1(b), 1(c), 1(d), etc.):
    - number: exact question identifier (e.g. "1(a)(i)", "1(c)")
-   - title: complete question stem including mark allocation (e.g. "Assess the extent to which... [6]")
+   - title: complete question stem including mark allocation transcribed VERBATIM without modification or generalization (e.g. "Assess whether decreasing the consumption of fast food will increase unemployment in the US. [6]"). NEVER substitute microeconomic case-study questions into generic macroeconomic essays.
    - maxMark: integer
    - category: "definition" | "calculation" | "short_answer" | "data_interpretation" | "essay_evaluative" (use essay_evaluative for any question worth 6 marks or more)
    - tariff: { "ao1": int, "ao2": int, "ao3": int, "ao4": int (optional) }
