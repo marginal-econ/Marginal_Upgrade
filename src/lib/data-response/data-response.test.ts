@@ -123,4 +123,55 @@ describe("Cambridge Economics (9708) Data Response Papers & Preloaded Suite", ()
     expect(fmPaper?.sampleAnswers?.["1(d)"]).toContain("derived demand for labour");
     expect(fmPaper?.sampleAnswers?.["1(d)"]).not.toMatch(/\*+/);
   });
+
+  it("verifies ALL 30 papers in bank have complete benchmark sample answers for every sub-question with ZERO asterisks", () => {
+    expect(PRELOADED_DATA_RESPONSE_PAPERS.length).toBe(30);
+
+    for (const paper of PRELOADED_DATA_RESPONSE_PAPERS) {
+      expect(paper.sampleAnswers).toBeDefined();
+      const samples = paper.sampleAnswers!;
+      expect(Object.keys(samples).length).toBeGreaterThan(0);
+
+      // Verify each question has a benchmark answer accessible by both ID and question number
+      for (const q of paper.questions) {
+        const answerById = samples[q.id];
+        const answerByNum = samples[q.number];
+
+        expect(answerById).toBeDefined();
+        expect(answerByNum).toBeDefined();
+        expect(answerById?.length).toBeGreaterThan(20);
+        expect(answerByNum?.length).toBeGreaterThan(20);
+
+        // Strict Cambridge Principal Examiner rule: ZERO asterisks in sample answers
+        expect(answerById).not.toContain("*");
+        expect(answerByNum).not.toContain("*");
+      }
+    }
+  });
+
+  it("enforces zero asterisks across all question titles, indicative points, marking guides, and tariffs in all 30 papers", () => {
+    for (const paper of PRELOADED_DATA_RESPONSE_PAPERS) {
+      expect(paper.title).not.toContain("*");
+      expect(paper.extract.title).not.toContain("*");
+
+      for (const q of paper.questions) {
+        expect(q.title).not.toContain("*");
+        expect(q.markingGuide).not.toContain("*");
+
+        if (q.indicativePoints) {
+          for (const pt of q.indicativePoints) {
+            expect(pt).not.toContain("*");
+          }
+        }
+
+        // Verify tariff sums match maxMark exactly across every paper
+        const tariffSum =
+          (q.tariff.ao1 || 0) +
+          (q.tariff.ao2 || 0) +
+          (q.tariff.ao3 || 0) +
+          (q.tariff.ao4 || 0);
+        expect(tariffSum).toBe(q.maxMark);
+      }
+    }
+  });
 });

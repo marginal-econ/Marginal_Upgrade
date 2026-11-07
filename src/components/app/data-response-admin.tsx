@@ -856,7 +856,7 @@ export function DataResponseStudio() {
                 <div className="flex items-center justify-between gap-2 border-b border-border/60 pb-2">
                   <div className="flex items-center gap-1.5 overflow-x-auto">
                     {currentPaper.questions.map((q, idx) => {
-                      const ans = answers[q.number] || "";
+                      const ans = answers[q.number] || answers[q.id] || "";
                       const hasAnswer = ans.trim().length > 0;
                       const isActive = idx === activeQuestionIdx;
                       return (
@@ -1031,14 +1031,14 @@ export function DataResponseStudio() {
                           <Label htmlFor={`answer_${currentQuestion.number}`} className="font-semibold text-foreground">
                             Candidate Script:
                           </Label>
-                          {answers[currentQuestion.number]?.trim() && (
+                          {(answers[currentQuestion.number] || answers[currentQuestion.id])?.trim() && (
                             <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1">
                               <Check className="h-3 w-3" /> Auto-saved draft
                             </span>
                           )}
                         </div>
                         <span className="font-mono text-[11px]">
-                          Word Count: {(answers[currentQuestion.number] || "").trim().split(/\s+/).filter(Boolean).length} words
+                          Word Count: {((answers[currentQuestion.number] || answers[currentQuestion.id]) || "").trim().split(/\s+/).filter(Boolean).length} words
                         </span>
                       </div>
 
@@ -1046,8 +1046,8 @@ export function DataResponseStudio() {
                         id={`answer_${currentQuestion.number}`}
                         rows={11}
                         placeholder={`Write candidate response for question ${currentQuestion.number} here. Explicitly reference extract facts, data points, and economic theory...`}
-                        value={answers[currentQuestion.number] || ""}
-                        onChange={(e) => setAnswers({ ...answers, [currentQuestion.number]: e.target.value })}
+                        value={answers[currentQuestion.number] || answers[currentQuestion.id] || ""}
+                        onChange={(e) => setAnswers({ ...answers, [currentQuestion.number]: e.target.value, [currentQuestion.id]: e.target.value })}
                         className="font-sans text-sm leading-relaxed resize-y bg-background"
                       />
                     </CardContent>

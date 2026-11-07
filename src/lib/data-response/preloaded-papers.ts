@@ -1,3 +1,4 @@
+import { BENCHMARK_SAMPLE_ANSWERS } from "./benchmark-answers";
 import type { DataResponsePaper } from "./types";
 import {
   adAsRightwardShiftDiagram,
@@ -14,7 +15,7 @@ import {
   forexAppreciationDiagram,
 } from "./diagram-library";
 
-export const PRELOADED_DATA_RESPONSE_PAPERS: DataResponsePaper[] = [
+const RAW_PRELOADED_DATA_RESPONSE_PAPERS: DataResponsePaper[] = [
   {
     "id": "9708_22_2026_fm",
     "title": "Cambridge AS Level Economics 9708/22 \u2014 Section A: The market for fast food",
@@ -539,10 +540,10 @@ export const PRELOADED_DATA_RESPONSE_PAPERS: DataResponsePaper[] = [
         },
         "hasDiagramRequirement": false,
         "indicativePoints": [
-          "Calculation: (($12.00 - $9.50) / $9.50) * 100 = 26.32% (or 26.3%) (2 marks)"
+          "Calculation: (($12.00 - $9.50) / $9.50) × 100 = 26.32% (or 26.3%) (2 marks)"
         ],
         "calculationGuidance": {
-          "formula": "((12.00 - 9.50) / 9.50) * 100",
+          "formula": "((12.00 - 9.50) / 9.50) × 100",
           "correctAnswer": "26.3% (or 26.32%)",
           "ofrApplies": true
         },
@@ -2363,10 +2364,10 @@ export const PRELOADED_DATA_RESPONSE_PAPERS: DataResponsePaper[] = [
         "hasDiagramRequirement": false,
         "indicativePoints": [
           "2012 cost = $1.95; 2022 cost = $0.26",
-          "Calculation: (($0.26 - $1.95) / $1.95) * 100 = -86.67% (or -86.7%) (2 marks)"
+          "Calculation: (($0.26 - $1.95) / $1.95) × 100 = -86.67% (or -86.7%) (2 marks)"
         ],
         "calculationGuidance": {
-          "formula": "((0.26 - 1.95) / 1.95) * 100",
+          "formula": "((0.26 - 1.95) / 1.95) × 100",
           "correctAnswer": "-86.7% (or 86.67% reduction)",
           "ofrApplies": true
         },
@@ -2594,10 +2595,10 @@ export const PRELOADED_DATA_RESPONSE_PAPERS: DataResponsePaper[] = [
         "hasDiagramRequirement": false,
         "indicativePoints": [
           "2020 price = $0.98; 2022 price = $2.35",
-          "Calculation: (($2.35 - $0.98) / $0.98) * 100 = 139.8% (or 140%) (2 marks)"
+          "Calculation: (($2.35 - $0.98) / $0.98) × 100 = 139.8% (or 140%) (2 marks)"
         ],
         "calculationGuidance": {
-          "formula": "((2.35 - 0.98) / 0.98) * 100",
+          "formula": "((2.35 - 0.98) / 0.98) × 100",
           "correctAnswer": "139.8% (or 140%)",
           "ofrApplies": true
         },
@@ -3766,7 +3767,7 @@ export const PRELOADED_DATA_RESPONSE_PAPERS: DataResponsePaper[] = [
         "hasDiagramRequirement": false,
         "indicativePoints": [
           "Current account: Net trade in goods/services plus primary/secondary income (1 mark)",
-          "Inelastic demand: Energy has low PED; when import price surges, total import bill (P*Q) rises sharply (2 marks)",
+          "Inelastic demand: Energy has low PED; when import price surges, total import bill (P × Q) rises sharply (2 marks)",
           "Deficit widening: Higher import expenditure worsens trade balance, pushing current account into deficit (-3.3% in UK) (2 marks)"
         ],
         "markingGuide": "1 mark for definition. 2 marks for inelastic energy import bill. 2 marks for current account deficit linkage. Total 5 marks.",
@@ -3889,7 +3890,7 @@ export const PRELOADED_DATA_RESPONSE_PAPERS: DataResponsePaper[] = [
         },
         "hasDiagramRequirement": false,
         "indicativePoints": [
-          "Definition: Relative price of exports in terms of imports = (Export Price Index / Import Price Index) * 100 (1 mark)",
+          "Definition: Relative price of exports in terms of imports = (Export Price Index / Import Price Index) × 100 (1 mark)",
           "Calculation: 84.0 - 102.5 = -18.5 index points (or -18.05% deterioration) (2 marks)"
         ],
         "calculationGuidance": {
@@ -4829,10 +4830,10 @@ export const PRELOADED_DATA_RESPONSE_PAPERS: DataResponsePaper[] = [
         "hasDiagramRequirement": false,
         "indicativePoints": [
           "2020 revenue = $39.2bn; 2021 revenue = $53.4bn",
-          "Calculation: (($53.4 - $39.2) / $39.2) * 100 = 36.22% (or 36.2%) (3 marks)"
+          "Calculation: (($53.4 - $39.2) / $39.2) × 100 = 36.22% (or 36.2%) (3 marks)"
         ],
         "calculationGuidance": {
-          "formula": "((53.4 - 39.2) / 39.2) * 100",
+          "formula": "((53.4 - 39.2) / 39.2) × 100",
           "correctAnswer": "36.2% (or 36.22%)",
           "ofrApplies": true
         },
@@ -5206,10 +5207,10 @@ export const PRELOADED_DATA_RESPONSE_PAPERS: DataResponsePaper[] = [
         "hasDiagramRequirement": false,
         "indicativePoints": [
           "2020 bill = $4.2bn; 2022 bill = $8.9bn",
-          "Calculation: (($8.9 - $4.2) / $4.2) * 100 = 111.9% (3 marks)"
+          "Calculation: (($8.9 - $4.2) / $4.2) × 100 = 111.9% (3 marks)"
         ],
         "calculationGuidance": {
-          "formula": "((8.9 - 4.2) / 4.2) * 100",
+          "formula": "((8.9 - 4.2) / 4.2) × 100",
           "correctAnswer": "111.9% (or 112%)",
           "ofrApplies": true
         },
@@ -5585,10 +5586,10 @@ export const PRELOADED_DATA_RESPONSE_PAPERS: DataResponsePaper[] = [
         "hasDiagramRequirement": false,
         "indicativePoints": [
           "2021 revenue = $1,250bn; 2022 revenue = $840bn",
-          "Calculation: (($840 - $1,250) / $1,250) * 100 = -32.8% (3 marks)"
+          "Calculation: (($840 - $1,250) / $1,250) × 100 = -32.8% (3 marks)"
         ],
         "calculationGuidance": {
-          "formula": "((840 - 1250) / 1250) * 100",
+          "formula": "((840 - 1250) / 1250) × 100",
           "correctAnswer": "-32.8% (or 32.8% decline)",
           "ofrApplies": true
         },
@@ -6268,3 +6269,8 @@ export const PRELOADED_DATA_RESPONSE_PAPERS: DataResponsePaper[] = [
     ]
   }
 ];
+
+export const PRELOADED_DATA_RESPONSE_PAPERS: DataResponsePaper[] = RAW_PRELOADED_DATA_RESPONSE_PAPERS.map((paper) => ({
+  ...paper,
+  sampleAnswers: BENCHMARK_SAMPLE_ANSWERS[paper.id] || paper.sampleAnswers,
+}));
