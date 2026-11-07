@@ -579,7 +579,7 @@ function AdminPage() {
       {/* ── Studio Layout: Left Sidebar + Right Workspace ── */}
       <div className="flex flex-1 flex-col md:flex-row min-h-[calc(100vh-140px)] border-t border-border/70">
         {/* Mobile Horizontal Selector (< md) */}
-        <div className="md:hidden border-b border-border/70 bg-card/60 p-3 space-y-2">
+        <div className="md:hidden border-b border-border/70 bg-card/95 backdrop-blur-md p-3 space-y-2 sticky top-12 z-20 shadow-xs">
           <div className="flex items-center justify-between text-xs text-muted-foreground">
             <span className="font-semibold uppercase tracking-wider text-[10px]">Studio Module:</span>
             <span className="font-medium text-foreground">{currentSection.title}</span>
@@ -600,8 +600,8 @@ function AdminPage() {
           </div>
         </div>
 
-        {/* Desktop Left-Hand Studio Sidebar (md:) */}
-        <aside className="hidden md:flex md:w-64 lg:w-72 shrink-0 flex-col justify-between border-r border-border/70 bg-card/40 p-3.5 space-y-3">
+        {/* Desktop Left-Hand Studio Sidebar (md:) — Sticky locked on viewport scroll */}
+        <aside className="hidden md:flex md:w-64 lg:w-72 shrink-0 flex-col justify-between border-r border-border/70 bg-card/40 p-3.5 space-y-3 sticky top-12 h-[calc(100dvh-3rem)] self-start overflow-hidden z-20">
           {/* Module Filter Input */}
           <div className="relative shrink-0">
             <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />

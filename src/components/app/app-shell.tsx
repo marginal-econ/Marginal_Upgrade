@@ -570,7 +570,7 @@ export function AppShell({
       {/* ── Desktop Sidebar: Sticky, fixed-height, perfectly pinned ── */}
       <aside
         className={cn(
-          "sticky top-0 h-screen h-[100dvh] max-h-[100dvh] shrink-0 flex-col border-r border-sidebar-border bg-sidebar py-3 transition-[width,padding] duration-300 ease-out hidden lg:flex z-30 select-none",
+          "sticky top-0 h-screen h-[100dvh] max-h-[100dvh] self-start shrink-0 flex-col border-r border-sidebar-border bg-sidebar py-3 transition-[width,padding] duration-300 ease-out hidden lg:flex z-30 select-none",
           sidebarCollapsed ? "w-[4.5rem] px-2" : "w-64 px-3",
         )}
       >

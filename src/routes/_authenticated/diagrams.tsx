@@ -106,7 +106,7 @@ function DiagramLibraryPage() {
       />
 
       <div className="grid min-h-0 flex-1 gap-0 lg:grid-cols-[300px_1fr]">
-        <aside className="border-border lg:border-r">
+        <aside className="border-border lg:border-r lg:sticky lg:top-12 lg:self-start lg:max-h-[calc(100dvh-3rem)] lg:overflow-y-auto custom-scrollbar">
           <div className="space-y-3 border-b border-border p-4">
             <div className="flex gap-1 rounded-lg bg-muted p-1">
               {SECTIONS.map((item) => (
