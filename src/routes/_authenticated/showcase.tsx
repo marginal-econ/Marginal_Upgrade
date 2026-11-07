@@ -438,7 +438,10 @@ function ShowcasePage() {
       }),
   });
 
-  const rawEssays: ShowcaseEssayItem[] = (query.data as ShowcaseEssayItem[]) ?? [];
+  const rawEssays: ShowcaseEssayItem[] = useMemo(() => {
+    const list = (query.data as ShowcaseEssayItem[]) ?? [];
+    return list.filter((e) => !e.is_hidden && !e.is_removed);
+  }, [query.data]);
 
   const filteredEssays = useMemo(() => {
     if (!searchQuery.trim()) return rawEssays;

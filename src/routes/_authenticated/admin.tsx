@@ -36,6 +36,7 @@ import {
   Plug,
   Plus,
   RefreshCw,
+  RotateCcw,
   Search,
   Send,
   Server,
@@ -5914,7 +5915,7 @@ function ShowcaseAdminPanel() {
   });
 
   const toggleMutation = useMutation({
-    mutationFn: (input: { versionId: string; hidden: boolean }) =>
+    mutationFn: (input: { versionId: string; hidden: boolean; essayId?: string }) =>
       toggleVisibility({ data: input }),
     onSuccess: async (res) => {
       toast.success(
@@ -5926,16 +5927,29 @@ function ShowcaseAdminPanel() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => deleteExemplar({ data: { id } }),
+    mutationFn: (item: { id: string; essayId?: string }) =>
+      deleteExemplar({ data: item }),
     onSuccess: async () => {
-      toast.success("Essay removed from showcase.");
+      toast.success("Essay permanently removed from showcase.");
       await refresh();
     },
     onError: (err: Error) => toast.error(err.message),
   });
 
+  const [statusFilter, setStatusFilter] = useState<"active" | "hidden" | "removed" | "all">("active");
+
   const allItems: ShowcaseEssayItem[] = (query.data as ShowcaseEssayItem[]) ?? [];
+  const activeCount = allItems.filter((i) => !i.is_hidden && !i.is_removed).length;
+  const hiddenCount = allItems.filter((i) => i.is_hidden && !i.is_removed).length;
+  const removedCount = allItems.filter((i) => i.is_removed).length;
+
   const filtered = allItems.filter((item) => {
+    // Status filter
+    if (statusFilter === "active" && (item.is_hidden || item.is_removed)) return false;
+    if (statusFilter === "hidden" && (!item.is_hidden || item.is_removed)) return false;
+    if (statusFilter === "removed" && !item.is_removed) return false;
+    if (statusFilter === "all" && item.is_removed) return false;
+
     if (!search.trim()) return true;
     const q = search.toLowerCase().trim();
     return (
@@ -5945,9 +5959,6 @@ function ShowcaseAdminPanel() {
       item.essay_text.toLowerCase().includes(q)
     );
   });
-
-  const visibleCount = allItems.filter((i) => !i.is_hidden).length;
-  const hiddenCount = allItems.filter((i) => i.is_hidden).length;
 
   return (
     <div className="grid gap-5 lg:grid-cols-[440px_1fr]">
@@ -6117,21 +6128,75 @@ function ShowcaseAdminPanel() {
 
       {/* Right: Manage Showcase Essays */}
       <section className="space-y-4">
-        <div className="panel flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border p-4">
-          <div>
-            <h3 className="text-sm font-semibold">Showcase Repository &amp; Moderation</h3>
-            <p className="text-xs text-muted-foreground">
-              {visibleCount} active in student showcase • {hiddenCount} hidden from view
-            </p>
+        <div className="panel space-y-3 rounded-xl border border-border p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h3 className="text-sm font-semibold">Showcase Repository &amp; Moderation</h3>
+              <p className="text-xs text-muted-foreground">
+                {activeCount} live in student showcase • {hiddenCount} hidden • {removedCount} removed
+              </p>
+            </div>
+            <div className="relative min-w-[200px]">
+              <Search className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Filter showcase essays…"
+                className="h-8 pl-8 text-xs"
+              />
+            </div>
           </div>
-          <div className="relative min-w-[200px]">
-            <Search className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Filter showcase essays…"
-              className="h-8 pl-8 text-xs"
-            />
+
+          {/* Quick status tabs */}
+          <div className="flex flex-wrap items-center gap-1.5 border-t border-border/50 pt-2.5">
+            <button
+              type="button"
+              onClick={() => setStatusFilter("active")}
+              className={cn(
+                "rounded-md px-2.5 py-1 text-xs font-medium transition-colors cursor-pointer",
+                statusFilter === "active"
+                  ? "bg-primary text-primary-foreground shadow-xs"
+                  : "bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground",
+              )}
+            >
+              Active in Showcase ({activeCount})
+            </button>
+            <button
+              type="button"
+              onClick={() => setStatusFilter("hidden")}
+              className={cn(
+                "rounded-md px-2.5 py-1 text-xs font-medium transition-colors cursor-pointer",
+                statusFilter === "hidden"
+                  ? "bg-destructive text-destructive-foreground shadow-xs"
+                  : "bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground",
+              )}
+            >
+              Hidden from Students ({hiddenCount})
+            </button>
+            <button
+              type="button"
+              onClick={() => setStatusFilter("removed")}
+              className={cn(
+                "rounded-md px-2.5 py-1 text-xs font-medium transition-colors cursor-pointer",
+                statusFilter === "removed"
+                  ? "bg-amber-600 text-white shadow-xs"
+                  : "bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground",
+              )}
+            >
+              Removed Archive ({removedCount})
+            </button>
+            <button
+              type="button"
+              onClick={() => setStatusFilter("all")}
+              className={cn(
+                "rounded-md px-2.5 py-1 text-xs font-medium transition-colors cursor-pointer",
+                statusFilter === "all"
+                  ? "bg-secondary text-secondary-foreground shadow-xs"
+                  : "bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground",
+              )}
+            >
+              All Live ({activeCount + hiddenCount})
+            </button>
           </div>
         </div>
 
@@ -6142,7 +6207,11 @@ function ShowcaseAdminPanel() {
           </div>
         ) : filtered.length === 0 ? (
           <div className="rounded-xl border border-dashed border-border p-8 text-center text-xs text-muted-foreground">
-            No showcase essays match your search.
+            {statusFilter === "removed"
+              ? "No removed essays in archive."
+              : statusFilter === "hidden"
+                ? "No essays currently hidden."
+                : "No showcase essays match your search or filter."}
           </div>
         ) : (
           <div className="space-y-3">
@@ -6150,23 +6219,32 @@ function ShowcaseAdminPanel() {
               <div
                 key={item.version_id}
                 className={`panel rounded-xl border p-4 transition-all duration-150 ${
-                  item.is_hidden
-                    ? "border-destructive/30 bg-destructive/[0.02] opacity-70"
-                    : "border-border"
+                  item.is_removed
+                    ? "border-amber-500/30 bg-amber-500/[0.03] opacity-75"
+                    : item.is_hidden
+                      ? "border-destructive/30 bg-destructive/[0.02] opacity-75"
+                      : "border-border"
                 }`}
               >
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0 flex-1 space-y-1.5">
                     <div className="flex flex-wrap items-center gap-1.5">
                       <Badge
-                        variant={item.is_hidden ? "destructive" : "default"}
+                        variant={item.is_removed ? "outline" : item.is_hidden ? "destructive" : "default"}
                         className="text-[11px] font-semibold"
                       >
                         <Trophy className="mr-1 size-3" />
                         {item.total_mark} / {item.max_mark} marks
                       </Badge>
 
-                      {item.is_hidden ? (
+                      {item.is_removed ? (
+                        <Badge
+                          variant="outline"
+                          className="border-amber-500/40 bg-amber-500/10 text-[11px] font-semibold text-amber-600 dark:text-amber-400"
+                        >
+                          <Trash2 className="mr-1 size-3" /> Removed from Showcase
+                        </Badge>
+                      ) : item.is_hidden ? (
                         <Badge
                           variant="outline"
                           className="border-destructive/40 text-[11px] text-destructive"
@@ -6239,39 +6317,66 @@ function ShowcaseAdminPanel() {
                       </span>
                     </Button>
 
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-7 text-xs"
-                      onClick={() =>
-                        toggleMutation.mutate({
-                          versionId: item.version_id,
-                          hidden: !item.is_hidden,
-                        })
-                      }
-                      disabled={toggleMutation.isPending}
-                    >
-                      {item.is_hidden ? (
-                        <>
-                          <Eye className="mr-1 size-3.5" /> Restore
-                        </>
-                      ) : (
-                        <>
-                          <EyeOff className="mr-1 size-3.5 text-muted-foreground" /> Hide
-                        </>
-                      )}
-                    </Button>
+                    {item.is_removed ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-xs gap-1 border-amber-500/40 text-amber-700 dark:text-amber-300 hover:bg-amber-500/10"
+                        onClick={() =>
+                          toggleMutation.mutate({
+                            versionId: item.version_id,
+                            essayId: item.essay_id,
+                            hidden: false,
+                          })
+                        }
+                        disabled={toggleMutation.isPending}
+                        title="Restore this exemplar back to the active showcase"
+                      >
+                        <RotateCcw className="size-3.5 mr-1" /> Restore to Showcase
+                      </Button>
+                    ) : (
+                      <>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-xs"
+                          onClick={() =>
+                            toggleMutation.mutate({
+                              versionId: item.version_id,
+                              essayId: item.essay_id,
+                              hidden: !item.is_hidden,
+                            })
+                          }
+                          disabled={toggleMutation.isPending}
+                        >
+                          {item.is_hidden ? (
+                            <>
+                              <Eye className="mr-1 size-3.5" /> Restore
+                            </>
+                          ) : (
+                            <>
+                              <EyeOff className="mr-1 size-3.5 text-muted-foreground" /> Hide
+                            </>
+                          )}
+                        </Button>
 
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 text-xs text-destructive hover:bg-destructive/10"
-                      onClick={() => deleteMutation.mutate(item.version_id)}
-                      disabled={deleteMutation.isPending}
-                      title="Remove or permanently hide"
-                    >
-                      <Trash2 className="size-3.5" />
-                    </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 text-xs text-destructive hover:bg-destructive/10"
+                          onClick={() =>
+                            deleteMutation.mutate({
+                              id: item.version_id,
+                              essayId: item.essay_id,
+                            })
+                          }
+                          disabled={deleteMutation.isPending}
+                          title="Remove permanently from showcase"
+                        >
+                          <Trash2 className="size-3.5" />
+                        </Button>
+                      </>
+                    )}
 
                     <Button
                       variant="secondary"
