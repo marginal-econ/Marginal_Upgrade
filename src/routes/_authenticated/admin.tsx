@@ -600,29 +600,33 @@ function AdminPage() {
           </div>
         </div>
 
-        {/* Desktop Left-Hand Studio Sidebar (md:) — Sticky locked on viewport scroll */}
-        <aside className="hidden md:flex md:w-64 lg:w-72 shrink-0 flex-col justify-between border-r border-border/70 bg-card/40 p-3.5 space-y-3 sticky top-12 h-[calc(100dvh-3rem)] self-start overflow-hidden z-20">
+        {/* Desktop Left-Hand Studio Sidebar (md:) — Sticky locked on viewport scroll with ambient effects */}
+        <aside className="hidden md:flex md:w-64 lg:w-72 shrink-0 flex-col justify-between border-r border-border/70 bg-card/60 backdrop-blur-xl p-3.5 space-y-3 sticky top-12 h-[calc(100dvh-3rem)] self-start overflow-hidden z-20 relative shadow-sm">
+          {/* Ambient lighting orb */}
+          <div className="pointer-events-none absolute -top-10 -left-10 size-36 rounded-full bg-gradient-to-br from-purple-500/15 to-primary/10 blur-2xl" />
+          <div className="pointer-events-none absolute -bottom-10 -right-10 size-36 rounded-full bg-gradient-to-tr from-indigo-500/10 to-transparent blur-2xl" />
+
           {/* Module Filter Input */}
-          <div className="relative shrink-0">
+          <div className="relative shrink-0 z-10">
             <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
             <Input
               value={adminModuleSearch}
               onChange={(e) => setAdminModuleSearch(e.target.value)}
               placeholder="Search 16 modules..."
-              className="h-8 pl-8 pr-6 text-xs bg-background/80 rounded-lg"
+              className="h-8 pl-8 pr-6 text-xs bg-background/80 rounded-lg border-border/70 focus-visible:ring-1 focus-visible:ring-primary/50 focus-visible:border-primary/50 shadow-2xs transition-all"
             />
             {adminModuleSearch && (
               <button
                 type="button"
                 onClick={() => setAdminModuleSearch("")}
-                className="absolute top-1/2 right-2 -translate-y-1/2 text-[10px] text-muted-foreground hover:text-foreground font-semibold cursor-pointer"
+                className="absolute top-1/2 right-2 -translate-y-1/2 text-[10px] text-muted-foreground hover:text-foreground font-semibold cursor-pointer size-4 flex items-center justify-center rounded-full hover:bg-muted"
               >
                 ✕
               </button>
             )}
           </div>
 
-          <div className="space-y-4 overflow-y-auto custom-scrollbar flex-1 pr-1">
+          <div className="space-y-4 overflow-y-auto custom-scrollbar flex-1 pr-1 relative z-10">
             {filteredCategories.length === 0 ? (
               <div className="p-4 text-center text-xs text-muted-foreground">
                 <p>No modules match &quot;{adminModuleSearch}&quot;.</p>
@@ -651,14 +655,14 @@ function AdminPage() {
                         type="button"
                         onClick={() => setActiveTab(item.id)}
                         className={cn(
-                          "group relative flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-left text-xs transition-all cursor-pointer",
+                          "group relative flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-left text-xs transition-all duration-200 cursor-pointer",
                           isActive
-                            ? "bg-primary/10 font-semibold text-primary shadow-xs"
-                            : "text-muted-foreground hover:bg-muted/70 hover:text-foreground",
+                            ? "bg-gradient-to-r from-primary/20 via-primary/10 to-transparent font-semibold text-primary shadow-xs border border-primary/25"
+                            : "text-muted-foreground hover:bg-muted/70 hover:text-foreground hover:translate-x-1",
                         )}
                       >
                         <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                          <ItemIcon className={cn("size-4 shrink-0 transition-transform group-hover:scale-110", isActive ? "text-primary" : "text-muted-foreground")} />
+                          <ItemIcon className={cn("size-4 shrink-0 transition-transform duration-200 group-hover:scale-115 group-hover:-rotate-3", isActive ? "text-primary drop-shadow-[0_0_6px_rgba(99,102,241,0.5)]" : "text-muted-foreground")} />
                           <span className="truncate">{item.sidebarLabel || item.title}</span>
                         </div>
                         {item.id === "feedback" && (overviewQuery.data?.feedbackCount ?? 0) > 0 ? (
@@ -675,7 +679,7 @@ function AdminPage() {
                           </Badge>
                         ) : null}
                         {isActive ? (
-                          <span className="absolute left-0 top-1.5 bottom-1.5 w-1 rounded-r-full bg-primary" />
+                          <span className="absolute left-0 top-1.5 bottom-1.5 w-1 rounded-r-full bg-gradient-to-b from-primary via-indigo-500 to-purple-500 shadow-[0_0_8px_rgba(99,102,241,0.8)]" />
                         ) : null}
                       </button>
                     );
@@ -686,11 +690,11 @@ function AdminPage() {
                     <Link
                       key={link.to}
                       to={link.to}
-                      className="group flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-muted/60 hover:text-foreground transition-colors"
+                      className="group flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-muted/60 hover:text-foreground hover:translate-x-1 transition-all duration-200"
                       title={link.desc}
                     >
                       <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                        <link.icon className="size-3.5 shrink-0 text-muted-foreground group-hover:text-foreground" />
+                        <link.icon className="size-3.5 shrink-0 text-muted-foreground group-hover:text-foreground transition-transform duration-200 group-hover:scale-110" />
                         <span className="truncate">{link.label}</span>
                       </div>
                       <ExternalLink className="size-3 text-muted-foreground/50 group-hover:text-foreground shrink-0" />
@@ -701,10 +705,20 @@ function AdminPage() {
             ))}
           </div>
 
-          {/* Sidebar Footer info */}
-          <div className="border-t border-border/60 pt-3 px-2 text-[11px] text-muted-foreground/80 space-y-1">
-            <p className="font-semibold text-foreground text-xs">Marginal 9708 Engine</p>
-            <p className="text-[10px]">Cloudflare Workers · PostgreSQL</p>
+          {/* Sidebar Footer info with live engine status */}
+          <div className="border-t border-border/60 pt-3 px-2 text-[11px] text-muted-foreground/80 space-y-1.5 relative z-10">
+            <div className="flex items-center justify-between">
+              <p className="font-bold text-foreground text-xs tracking-tight">Marginal 9708 Engine</p>
+              <span className="relative flex size-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                <span className="relative inline-flex size-2 rounded-full bg-emerald-500" />
+              </span>
+            </div>
+            <p className="text-[10px] text-muted-foreground flex items-center gap-1.5">
+              <span>Cloudflare Workers</span>
+              <span>·</span>
+              <span>PostgreSQL</span>
+            </p>
           </div>
         </aside>
 

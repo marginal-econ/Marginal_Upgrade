@@ -512,19 +512,19 @@ export function AppShell({
                       "group relative flex items-center rounded-xl py-2 text-xs font-medium transition-all duration-200",
                       sidebarCollapsed && !isMobile ? "justify-center px-2" : "gap-2.5 px-2.5",
                       active
-                        ? "bg-sidebar-accent text-sidebar-accent-foreground font-semibold shadow-2xs"
-                        : "text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground hover:translate-x-1",
+                        ? "bg-gradient-to-r from-primary/20 via-primary/10 to-transparent text-sidebar-accent-foreground font-semibold shadow-xs border border-primary/25"
+                        : "text-sidebar-foreground/80 hover:bg-sidebar-accent/70 hover:text-sidebar-accent-foreground hover:translate-x-1",
                     )}
                     title={label}
                   >
                     {active && (!sidebarCollapsed || isMobile) ? (
-                      <span className="absolute left-0.5 top-2 bottom-2 w-1 rounded-full bg-primary shadow-[0_0_8px_rgba(var(--primary),0.6)]" />
+                      <span className="absolute left-0.5 top-1.5 bottom-1.5 w-1 rounded-full bg-gradient-to-b from-primary via-indigo-500 to-purple-500 shadow-[0_0_10px_rgba(99,102,241,0.8)]" />
                     ) : null}
                     <item.icon
                       className={cn(
-                        "size-4 shrink-0 transition-transform duration-200 group-hover:scale-110",
+                        "size-4 shrink-0 transition-transform duration-200 group-hover:scale-115 group-hover:-rotate-3",
                         active
-                          ? "text-primary"
+                          ? "text-primary drop-shadow-[0_0_6px_rgba(99,102,241,0.6)]"
                           : "text-muted-foreground/80 group-hover:text-foreground",
                       )}
                     />
@@ -534,16 +534,19 @@ export function AppShell({
                     {item.badge && (!sidebarCollapsed || isMobile) ? (
                       <span
                         className={cn(
-                          "ml-auto rounded-full px-1.5 py-0.5 text-[9px] font-bold shadow-2xs transition-colors shrink-0 flex items-center gap-1",
+                          "ml-auto rounded-full px-1.5 py-0.5 text-[9px] font-bold shadow-2xs transition-colors shrink-0 flex items-center gap-1.5",
                           item.badge === "Live" || item.badge === "Beta"
-                            ? "bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400"
+                            ? "bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 shadow-[0_0_8px_rgba(16,185,129,0.25)]"
                             : item.badge === "Root" || item.badge === "Admin"
-                              ? "bg-purple-500/15 border border-purple-500/30 text-purple-600 dark:text-purple-400"
+                              ? "bg-purple-500/15 border border-purple-500/30 text-purple-600 dark:text-purple-400 shadow-[0_0_8px_rgba(168,85,247,0.3)]"
                               : "bg-muted border border-border/80 text-muted-foreground",
                         )}
                       >
                         {item.badge === "Live" && (
-                          <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                          <span className="relative flex size-1.5">
+                            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                            <span className="relative inline-flex size-1.5 rounded-full bg-emerald-500" />
+                          </span>
                         )}
                         {item.badge}
                       </span>
@@ -567,17 +570,21 @@ export function AppShell({
 
   return (
     <div className="flex min-h-screen bg-background">
-      {/* ── Desktop Sidebar: Fixed, locked to viewport, perfectly pinned ── */}
+      {/* ── Desktop Sidebar: Fixed, locked to viewport, perfectly pinned with ambient glow ── */}
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 h-screen h-[100dvh] max-h-[100dvh] shrink-0 flex-col border-r border-sidebar-border bg-sidebar py-3 transition-[width,padding] duration-300 ease-out hidden lg:flex z-30 select-none",
+          "fixed inset-y-0 left-0 h-screen h-[100dvh] max-h-[100dvh] shrink-0 flex-col border-r border-sidebar-border/80 bg-sidebar/95 backdrop-blur-xl py-3 transition-[width,padding] duration-300 ease-out hidden lg:flex z-30 select-none overflow-hidden",
           sidebarCollapsed ? "w-[4.5rem] px-2" : "w-64 px-3",
         )}
       >
+        {/* Subtle Ambient Background Orbs */}
+        <div className="pointer-events-none absolute -top-12 -left-12 size-36 rounded-full bg-gradient-to-br from-primary/15 via-purple-500/10 to-transparent blur-3xl opacity-75" />
+        <div className="pointer-events-none absolute -bottom-16 -right-12 size-40 rounded-full bg-gradient-to-tr from-sky-500/10 via-primary/10 to-transparent blur-3xl opacity-75" />
+
         {/* Brand Header */}
         <div
           className={cn(
-            "mb-2.5 flex items-center pb-2.5 border-b border-sidebar-border/60 shrink-0",
+            "mb-2.5 flex items-center pb-2.5 border-b border-sidebar-border/60 shrink-0 relative z-10",
             sidebarCollapsed ? "justify-center" : "gap-2 px-1.5",
           )}
         >
@@ -586,20 +593,24 @@ export function AppShell({
             className="flex min-w-0 items-center gap-2.5 group"
             title="Marginal Economics Dashboard"
           >
-            <img
-              src="/marginal-m-icon-clean.png"
-              alt=""
-              aria-hidden="true"
-              className="size-7 shrink-0 object-contain transition-transform group-hover:scale-105"
-            />
+            <div className="relative group/logo shrink-0">
+              <div className="absolute -inset-1 rounded-xl bg-gradient-to-r from-primary/30 to-purple-600/30 blur-xs opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+              <img
+                src="/marginal-m-icon-clean.png"
+                alt=""
+                aria-hidden="true"
+                className="relative size-7 object-contain transition-transform duration-300 group-hover:scale-110"
+              />
+            </div>
             <span
               className={cn(
-                "text-sm leading-tight font-bold tracking-tight text-foreground",
+                "text-sm leading-tight font-bold tracking-tight text-foreground transition-colors group-hover:text-primary",
                 sidebarCollapsed && "hidden",
               )}
             >
               Marginal
-              <span className="block text-[10px] font-normal text-muted-foreground">
+              <span className="flex items-center gap-1.5 text-[10px] font-normal text-muted-foreground mt-0.5">
+                <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
                 Cambridge 9708
               </span>
             </span>
@@ -608,7 +619,7 @@ export function AppShell({
             <Button
               variant="ghost"
               size="icon"
-              className="ml-auto size-7 shrink-0 text-muted-foreground hover:text-foreground"
+              className="ml-auto size-7 shrink-0 text-muted-foreground hover:text-foreground hover:bg-sidebar-accent transition-colors"
               onClick={toggleSidebar}
               title="Collapse sidebar"
               aria-label="Collapse sidebar"
@@ -619,11 +630,11 @@ export function AppShell({
         </div>
 
         {sidebarCollapsed ? (
-          <div className="flex flex-col items-center gap-2 mb-2 shrink-0">
+          <div className="flex flex-col items-center gap-2 mb-2 shrink-0 relative z-10">
             <Button
               variant="ghost"
               size="icon"
-              className="size-8 text-muted-foreground hover:text-foreground"
+              className="size-8 text-muted-foreground hover:text-foreground hover:bg-sidebar-accent transition-all duration-200"
               onClick={toggleSidebar}
               title="Expand sidebar"
               aria-label="Expand sidebar"
@@ -633,26 +644,26 @@ export function AppShell({
             <Button
               variant="ghost"
               size="icon"
-              className="size-8 text-muted-foreground hover:text-foreground"
+              className="size-8 text-muted-foreground hover:text-primary hover:bg-primary/10 hover:border hover:border-primary/30 transition-all duration-200 group/btn"
               onClick={() => setCommandOpen(true)}
               title="Quick Jump (Ctrl+K)"
               aria-label="Quick Jump"
             >
-              <Search className="size-3.5" />
+              <Search className="size-3.5 transition-transform duration-200 group-hover/btn:scale-110" />
             </Button>
           </div>
         ) : (
           <button
             type="button"
             onClick={() => setCommandOpen(true)}
-            className="mb-2.5 flex w-full items-center justify-between rounded-xl border border-sidebar-border/80 bg-sidebar-accent/30 px-2.5 py-1.5 text-xs text-muted-foreground transition-all hover:bg-sidebar-accent hover:text-sidebar-foreground cursor-pointer group shadow-2xs shrink-0"
+            className="relative mb-2.5 flex w-full items-center justify-between rounded-xl border border-sidebar-border/80 bg-gradient-to-r from-sidebar-accent/50 via-sidebar-accent/30 to-sidebar-accent/20 px-2.5 py-1.5 text-xs text-muted-foreground transition-all duration-300 hover:border-primary/40 hover:bg-sidebar-accent/80 hover:shadow-[0_0_15px_rgba(99,102,241,0.12)] cursor-pointer group shrink-0 z-10"
             title="Quick Search or Jump (Ctrl+K)"
           >
             <span className="flex items-center gap-2 min-w-0">
-              <Search className="size-3.5 shrink-0 text-muted-foreground/70 group-hover:text-primary transition-colors" />
-              <span className="truncate text-[11.5px]">Search or jump...</span>
+              <Search className="size-3.5 shrink-0 text-muted-foreground/70 group-hover:text-primary transition-colors duration-200" />
+              <span className="truncate text-[11.5px] font-medium group-hover:text-foreground transition-colors">Search or jump...</span>
             </span>
-            <kbd className="pointer-events-none inline-flex h-4 select-none items-center gap-0.5 rounded border border-border/70 bg-background/80 px-1 font-mono text-[9px] font-medium text-muted-foreground">
+            <kbd className="pointer-events-none inline-flex h-4 select-none items-center gap-0.5 rounded border border-border/80 bg-background/90 px-1 font-mono text-[9px] font-semibold text-muted-foreground shadow-2xs group-hover:border-primary/40 group-hover:text-primary transition-colors">
               <span className="text-[10px]">⌘</span>K
             </kbd>
           </button>
@@ -714,7 +725,7 @@ export function AppShell({
               <button
                 type="button"
                 className={cn(
-                  "flex items-center rounded-xl p-1.5 text-xs transition-colors hover:bg-sidebar-accent w-full text-left cursor-pointer outline-none group border border-transparent hover:border-sidebar-border/60",
+                  "flex items-center rounded-xl p-1.5 text-xs transition-all duration-300 w-full text-left cursor-pointer outline-none group border border-sidebar-border/60 bg-gradient-to-r from-sidebar-accent/30 to-card/40 hover:border-primary/40 hover:bg-sidebar-accent/70 hover:shadow-[0_0_15px_rgba(99,102,241,0.12)]",
                   sidebarCollapsed ? "justify-center" : "gap-2 justify-between",
                 )}
                 title={`${name ?? "Candidate"} — Profile & Menu`}
