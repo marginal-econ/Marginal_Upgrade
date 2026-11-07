@@ -56,6 +56,7 @@ import type {
   DataResponseSubmissionResult,
   QuestionEvaluationResult,
 } from "@/lib/data-response/types";
+import { formatSubQuestionReport, formatFullPaperReport } from "@/lib/data-response/report-formatter";
 import { extractTextFromFile } from "@/lib/extract-text";
 import { ocrPdf } from "@/lib/pdf-ocr";
 import { EconomicsDiagram } from "@/components/diagrams/economics-diagram";
@@ -1159,7 +1160,20 @@ export function DataResponseStudio() {
               </div>
 
               <div className="mt-4 pt-4 border-t border-border/60 flex flex-wrap items-center justify-between gap-3">
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const text = formatFullPaperReport(lastSubmission);
+                      navigator.clipboard.writeText(text);
+                      toast.success("Chief Examiner Assessment Report copied to clipboard");
+                    }}
+                    className="text-xs gap-1.5 font-semibold bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/20"
+                  >
+                    <Copy className="h-3.5 w-3.5" />
+                    Copy Chief Examiner Report
+                  </Button>
                   <Button
                     variant="outline"
                     size="sm"
@@ -1202,11 +1216,26 @@ export function DataResponseStudio() {
                         {result.questionNumber}
                       </Badge>
                       <h5 className="font-semibold text-sm text-foreground">
-                        {stripStars(result.questionTitle)}
+                        {stripStars(result.questionTitle)} [{result.maxMark} Marks]
                       </h5>
                     </div>
 
                     <div className="flex items-center gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          const text = formatSubQuestionReport(result);
+                          navigator.clipboard.writeText(text);
+                          toast.success(`Copied report for ${result.questionNumber}`);
+                        }}
+                        className="h-7 text-[11px] gap-1 px-2 text-muted-foreground hover:text-foreground"
+                        title="Copy Sub-Question Report"
+                      >
+                        <Copy className="h-3 w-3" />
+                        Copy
+                      </Button>
+
                       {/* Extract Context Verification Pill */}
                       <Badge
                         variant="outline"
@@ -1219,7 +1248,7 @@ export function DataResponseStudio() {
                             : "bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30"
                         )}
                       >
-                        Extract: {stripStars(result.extractContextCheck.contextQuality.replace(/_/g, " "))}
+                        Extract: {stripStars(result.extractContextCheck.contextQuality.replace(/_/g, ""))}
                       </Badge>
 
                       <Badge

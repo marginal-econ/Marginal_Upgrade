@@ -176,7 +176,7 @@ describe("Cambridge Economics (9708) Data Response Papers & Preloaded Suite", ()
   });
 
   it("enforces Cambridge 9708 Section A mathematical AO reconciliation invariant: Awarded === AO1 + AO2 + AO3 + AO4", async () => {
-    const { reconcileAoMarks } = await import("./marking-engine.server");
+    const { reconcileAoMarks } = await import("./report-formatter");
 
     // Case 1: 6-mark evaluative question scored 6/6 with raw AO4 missing/0 -> AO4 must be at least 2, sum must be exactly 6
     const res6mFull = reconcileAoMarks({
@@ -254,5 +254,99 @@ describe("Cambridge Economics (9708) Data Response Papers & Preloaded Suite", ()
     const sample = fmPaper?.sampleAnswers?.["1(a)(ii)"];
     expect(sample).toContain("+0.76");
     expect(sample).toContain("normal good");
+  });
+
+  it("strictly enforces Senior Chief Examiner Output Template with zero canned/placeholder text", async () => {
+    const { formatSubQuestionReport, formatFullPaperReport } = await import("./report-formatter");
+
+    const mockEvaluation = {
+      questionNumber: "1(b)",
+      questionTitle: "Explain how a fall in the price of fast food affects consumer surplus in the US fast food market.",
+      maxMark: 4,
+      awardedMark: 3,
+      category: "short_answer" as const,
+      extractContextCheck: {
+        usedContext: true,
+        contextQuality: "strong" as const,
+        feedback: "Directly referenced paragraph 3 fast food price decreases.",
+      },
+      aoBreakdown: {
+        knowledge: { awarded: 1, outOf: 1 },
+        application: { awarded: 1, outOf: 1 },
+        analysis: { awarded: 1, outOf: 2 },
+      },
+      specificCriteriaMet: [
+        {
+          criterion: "Identifies consumer surplus as the difference between willingness to pay and actual price paid.",
+          candidateEvidence: "Consumer surplus is the extra utility consumers get when they pay a price below what they were willing to pay.",
+        },
+        {
+          criterion: "Explains increase in consumer surplus for existing and new fast food consumers.",
+          candidateEvidence: "When price falls from P1 to P2, consumer surplus expands downwards for fast food meals.",
+        },
+      ],
+      examinerRationale: "Candidate accurately defined consumer surplus and demonstrated how price reduction expands the surplus area. 1 mark withheld as diagrammatic transmission mechanism was not fully specified.",
+      evidenceQuotes: [
+        "Consumer surplus is the extra utility consumers get when they pay a price below what they were willing to pay.",
+      ],
+      creditedPoints: [
+        "Consumer surplus definition",
+        "Expansion of consumer surplus area",
+      ],
+      missingMarkSchemePoints: [
+        "Explicit distinction between original buyers gaining more surplus and new consumers entering the market.",
+      ],
+      constructiveFeedback: [
+        "Distinguish between original fast food consumers who gain higher surplus and new consumers who now enter the market.",
+      ],
+      modelAnswerSnippet: "Consumer surplus is the difference between the price consumers are willing to pay and the market price actually paid. When fast food prices decrease, consumer surplus increases for two reasons: existing fast food consumers pay a lower price on meals already consumed, expanding their surplus area, and new consumers enter the market as the lower price brings fast food within their reservation price.",
+      improvementTip: "Explicitly differentiate the surplus gain to existing consumers from the gain attributed to new entrants.",
+    };
+
+    const output = formatSubQuestionReport(mockEvaluation);
+
+    // Verify all mandatory section headers from user's directive are present
+    expect(output).toContain("1(b)");
+    expect(output).toContain("Explain how a fall in the price of fast food affects consumer surplus in the US fast food market. [4 Marks]");
+    expect(output).toContain("Extract: strong 3/4 Marks");
+    expect(output).toContain("AO Allocation:");
+    expect(output).toContain("AO1 (Knowledge): 1/1");
+    expect(output).toContain("AO2 (Application): 1/1");
+    expect(output).toContain("AO3 (Analysis): 1/2");
+    expect(output).toContain("Specific Mark Scheme Criteria Met:");
+    expect(output).toContain("Candidate Evidence: \"Consumer surplus is the extra utility consumers get");
+    expect(output).toContain("Principal Examiner Assessment Rationale:");
+    expect(output).toContain("Cambridge Model Answer Formulation:");
+    expect(output).toContain("Examiner Key Improvement Advice:");
+
+    // Zero asterisks
+    expect(output).not.toContain("**");
+    expect(output).not.toContain("*");
+
+    // Zero canned / placeholder phrases
+    expect(output).not.toContain("Credited for relevant economic reasoning");
+    expect(output).not.toContain("Consult the mark scheme");
+    expect(output).not.toContain("Consult the official");
+
+    // Full paper format test
+    const mockFullPaper = {
+      id: "sub_123",
+      paperId: "9708_22_2026_fm",
+      paperTitle: "Cambridge AS Economics Feb/March 2026 Paper 22",
+      subjectCode: "9708",
+      totalMarksAwarded: 16,
+      maxTotalMarks: 20,
+      percentage: 80,
+      overallBand: "Band A* (Outstanding / Top Band)",
+      examinerExecutiveSummary: "High standard response demonstrating accurate data extraction.",
+      questionResults: { "1(b)": mockEvaluation },
+      submittedAt: new Date().toISOString(),
+    };
+
+    const fullReport = formatFullPaperReport(mockFullPaper);
+    expect(fullReport).toContain("DATA RESPONSE SENIOR CHIEF EXAMINER ASSESSMENT REPORT");
+    expect(fullReport).toContain("Total Score: 16/20 (80%) - Cambridge Band: Band A (Outstanding / Top Band)");
+    expect(fullReport).toContain("Cambridge Model Answer Formulation:");
+    expect(fullReport).not.toContain("**");
   });
 });
