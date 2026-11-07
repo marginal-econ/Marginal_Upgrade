@@ -10,45 +10,56 @@ import type {
   DiagramEvaluationResult,
 } from "./types";
 
-const DATA_RESPONSE_MARKING_SYSTEM = `You are an expert Cambridge International AS/A Level Economics (9708) Principal Examiner grading Section A Data Response papers.
+const DATA_RESPONSE_MARKING_SYSTEM = `### SYSTEM DIRECTIVE: CAMBRIDGE 9708 DATA RESPONSE STUDIO ENGINE (STRICT OVERRIDE)
 
-Your objective is to evaluate candidate scripts strictly, objectively, and accurately according to official Cambridge marking practices.
+You are the dedicated scoring engine for the Cambridge 9708 Section A Data Response Papers Studio. This instruction acts as a non-conflicting root overlay to ensure 100% fidelity between question text, mark schemes, and AO metadata.
 
-### CRITICAL ENFORCEMENT: ZERO-HALLUCINATION & STRICT MS GROUNDING
+### CORE OPERATING RULES:
 
-1. EXACT QUESTION EXTRACTION (NEVER REPHRASE OR SUBSTITUTE):
-- You must grade against the question text VERBATIM as provided from the question paper and mark scheme.
-- DO NOT replace or 'generalize' microeconomic case-study questions into macroeconomic essays (e.g., if the question asks about 'decreasing consumption of fast food increasing unemployment in the US', DO NOT evaluate it as 'whether unemployment is harmful to macroeconomic performance'). Grade ONLY what is written on the page.
+1. ZERO PROMPT / QUESTION CLASH (NON-INTERFERENCE RULE):
+- Do NOT alter, generalize, or replace any Data Response question extracted via OCR or paper library.
+- Grade strictly against the specific micro/macro scope of the printed question (e.g., if a sub-question assesses fast food consumption and US employment, evaluate fast food labor demand, XED, and substitution—never substitute general macro essay rubrics like inflation control or national debt).
+- Do not conflict with mark scheme exemplars: If an official MS rewards specific examples (e.g., "healthy options" or "calorie labelling"), accept them unconditionally without penalizing them as "off-topic" or "detracting".
 
-2. NEVER PENALIZE MARK SCHEME EXEMPLARS:
-- When a candidate's evaluation or explanation matches the exact points provided in the official mark scheme (e.g., in 1(b) or 1(c): 'healthy options', 'calorie labeling', 'menu reformulation', 'information failure'), award the mark immediately.
-- NEVER call an official mark scheme exemplar or indicative point 'unrelated', 'detracting', or 'unnecessary'.
+2. MATHEMATICAL AO RECONCILIATION & DISPLAY CONSISTENCY:
+- Eliminate metadata clashes between headline marks and AO component lines.
+- The total awarded score for any question MUST exactly equal the sum of its AO components:
+  Total Awarded = AO1 + AO2 + AO3 + AO4.
+- For 6-mark evaluative questions scoring 5 or 6 marks (Level 3: Effective Evaluation in Context):
+  - AO4 (Evaluation) MUST NEVER BE OUTPUT AS 0/2.
+  - Reconcile the allocation correctly so it reflects the score (e.g., AO1: 2/2, AO2: 1/1, AO3: 1/1, AO4: 2/2 = 6/6, or AO1: 2/2, AO2: 2/2, AO3: 1/1, AO4: 1/1 depending on rubric spec).
+  - Ensure the JSON payload/display card matches the written rationale prior to rendering.
 
-3. POINT-BASED VS LEVEL-BASED BOUNDARIES:
+3. DEPLOYMENT SANITY CHECK (PRE-OUTPUT VALIDATION):
+- Verify: Question text verbatim matches the data response paper.
+- Verify: MS numerical ranges (e.g., YED between 0.7 and 0.8) and alternative classifications are honored.
+- Verify: AO breakdown sums perfectly to the headline score before rendering the report.
+
+4. POINT-BASED VS LEVEL-BASED BOUNDARIES:
 - For short-answer questions (1–5 marks): award marks strictly on the presence of mark-scheme points and logical reasoning. Do not demand extract quotes, data citations ($ figures), or externalities unless the mark scheme explicitly requires them.
 - For 6-mark, 7-mark, 8-mark, and 9-mark evaluative questions (AO3 Analysis + AO4 Evaluation): match the candidate's arguments directly against the advantages/disadvantages and indicative points listed on the mark scheme before assigning the rubric level (Level 2 or Level 3/4).
   - Check for balanced analysis: at least one clear argument on each side of the debate.
   - Check for a reasoned conclusion/judgment to access top-level evaluation marks (AO4 / Level 3).
   - Credit sound, syllabus-aligned alternative economic mechanisms (e.g., substitution effects, price elasticity of demand, derived demand, indirect tax incidence, opportunity costs, multiplier effects) even if phrased differently from mark scheme exemplars, provided the logic is economically valid and directly answers the question.
 
-4. STRICT ADHERENCE TO THE OFFICIAL MARK SCHEME (SOURCE OF TRUTH):
+5. STRICT ADHERENCE TO THE OFFICIAL MARK SCHEME (SOURCE OF TRUTH):
 - Base all marks, point allocations, and answer keys EXCLUSIVELY on the uploaded/provided mark scheme and extract.
 - Never penalize a candidate for omitting concepts that the mark scheme explicitly excludes or deems non-essential (e.g., do not demand externalities or third-party costs when the mark scheme states: "do not expect reference to 3rd party effects").
 - Honor all official guidance ranges, acceptable values, and alternative classifications (e.g., if the MS allows a range [0.7 to 0.8] or says "allow normal good, necessity, OR inelastic YED", credit ANY of those valid options in full).
 - For calculation questions, apply the Own Figure Rule (OFR) if allowed by the mark scheme.
 
-5. CONTEXT & EXTRACT APPLICATION:
+6. CONTEXT & EXTRACT APPLICATION:
 - Reward extract linkage when the question requires it (AO2), but DO NOT fabricate non-existent data requirements.
 - Distinguish between questions that explicitly require data extraction (e.g., "Using the information in paragraph 2...") and general theory/application questions where standard examples (such as mandatory calorie counts or menu reformulations) are valid.
 - When the mark scheme lists illustrative points (e.g., "healthy options", "calorific content"), treat them as acceptable answers rather than penalizing candidates for not quoting unmentioned data.
 
-6. ACCURATE AUDIT AND FEEDBACK OUTPUT:
+7. ACCURATE AUDIT AND FEEDBACK OUTPUT:
 In your assessment report, provide:
 - Exact Marks Awarded vs. Maximum Marks per sub-question.
 - Specific Mark Scheme Criteria Met: Explicitly quote where the candidate matched the mark scheme allowance or demonstrated correct economic reasoning.
 - Constructive Feedback: Only flag omissions if a required criterion on the official mark scheme was genuinely missed. Never penalize a student based on criteria outside the syllabus or official rubric.
 
-7. FORMATTING MANDATE (CRITICAL):
+8. FORMATTING MANDATE (CRITICAL):
 - NEVER include asterisks (* or **) or markdown bolding formatting in any feedback strings, rationales, quotes, criteria, or summaries.
 - Output clean, unstarred plain text everywhere.
 
@@ -96,6 +107,151 @@ OUTPUT FORMAT (JSON ONLY, NO MARKDOWN FENCES, NO EXTRA TEXT):
   "modelAnswerSnippet": "<concise Cambridge exemplar snippet showing how full marks are secured>",
   "improvementTip": "<actionable advice for future questions>"
 }`;
+
+export function reconcileAoMarks(params: {
+  rawAwarded: number;
+  rawAo?: { knowledge?: number; application?: number; analysis?: number; evaluation?: number };
+  maxMark: number;
+  tariff: { ao1: number; ao2: number; ao3: number; ao4?: number };
+}): {
+  awardedMark: number;
+  aoBreakdown: {
+    knowledge: { awarded: number; outOf: number };
+    application: { awarded: number; outOf: number };
+    analysis: { awarded: number; outOf: number };
+    evaluation?: { awarded: number; outOf: number };
+  };
+} {
+  const { rawAwarded, rawAo, maxMark, tariff } = params;
+
+  let awarded = typeof rawAwarded === "number" ? Math.round(rawAwarded) : 0;
+  if (isNaN(awarded) || awarded < 0) awarded = 0;
+  if (awarded > maxMark) awarded = maxMark;
+
+  const maxAo1 = tariff.ao1;
+  const maxAo2 = tariff.ao2;
+  const maxAo3 = tariff.ao3;
+  const hasAo4 = tariff.ao4 !== undefined || maxMark >= 6;
+  const maxAo4 = hasAo4
+    ? (tariff.ao4 ?? Math.max(2, maxMark - maxAo1 - maxAo2 - maxAo3))
+    : 0;
+
+  let safeAo1 = Math.min(maxAo1, Math.max(0, Math.round(Number(rawAo?.knowledge ?? 0))));
+  let safeAo2 = Math.min(maxAo2, Math.max(0, Math.round(Number(rawAo?.application ?? 0))));
+  let safeAo3 = Math.min(maxAo3, Math.max(0, Math.round(Number(rawAo?.analysis ?? 0))));
+  let safeAo4 = hasAo4
+    ? Math.min(maxAo4, Math.max(0, Math.round(Number(rawAo?.evaluation ?? 0))))
+    : 0;
+
+  if (awarded === 0) {
+    return {
+      awardedMark: 0,
+      aoBreakdown: {
+        knowledge: { awarded: 0, outOf: maxAo1 },
+        application: { awarded: 0, outOf: maxAo2 },
+        analysis: { awarded: 0, outOf: maxAo3 },
+        evaluation: hasAo4 ? { awarded: 0, outOf: maxAo4 } : undefined,
+      },
+    };
+  }
+
+  // RULE 2: ZERO-CLASH MATHEMATICAL AO RECONCILIATION
+  // For 6-mark evaluative questions scoring 5 or 6 marks (Level 3): AO4 (Evaluation) MUST NEVER BE OUTPUT AS 0/2.
+  if (hasAo4 && maxAo4 > 0) {
+    if (maxMark === 6) {
+      if (awarded === 6 && maxAo4 >= 2) {
+        safeAo4 = Math.max(safeAo4, 2);
+      } else if (awarded >= 5 && maxAo4 >= 1) {
+        safeAo4 = Math.max(safeAo4, 1);
+      }
+    } else if (maxMark >= 7) {
+      if (awarded >= maxMark - 1 && maxAo4 >= 2) {
+        safeAo4 = Math.max(safeAo4, 2);
+      } else if (awarded >= 5 && maxAo4 >= 1) {
+        safeAo4 = Math.max(safeAo4, 1);
+      }
+    }
+  }
+
+  let currentAoSum = safeAo1 + safeAo2 + safeAo3 + (hasAo4 ? safeAo4 : 0);
+
+  if (currentAoSum < awarded) {
+    let deficit = awarded - currentAoSum;
+    if (hasAo4 && safeAo4 < maxAo4) {
+      const add = Math.min(deficit, maxAo4 - safeAo4);
+      safeAo4 += add;
+      deficit -= add;
+    }
+    if (deficit > 0 && safeAo3 < maxAo3) {
+      const add = Math.min(deficit, maxAo3 - safeAo3);
+      safeAo3 += add;
+      deficit -= add;
+    }
+    if (deficit > 0 && safeAo2 < maxAo2) {
+      const add = Math.min(deficit, maxAo2 - safeAo2);
+      safeAo2 += add;
+      deficit -= add;
+    }
+    if (deficit > 0 && safeAo1 < maxAo1) {
+      const add = Math.min(deficit, maxAo1 - safeAo1);
+      safeAo1 += add;
+      deficit -= add;
+    }
+    if (deficit > 0 && hasAo4 && safeAo4 < maxAo4) {
+      const add = Math.min(deficit, maxAo4 - safeAo4);
+      safeAo4 += add;
+      deficit -= add;
+    }
+  } else if (currentAoSum > awarded) {
+    let excess = currentAoSum - awarded;
+    const minAo4 = (hasAo4 && maxMark === 6 && awarded === 6 && maxAo4 >= 2)
+      ? 2
+      : (hasAo4 && awarded >= 5 && maxAo4 >= 1)
+      ? 1
+      : 0;
+
+    if (excess > 0 && safeAo1 > 0) {
+      const sub = Math.min(excess, safeAo1);
+      safeAo1 -= sub;
+      excess -= sub;
+    }
+    if (excess > 0 && safeAo2 > 0) {
+      const sub = Math.min(excess, safeAo2);
+      safeAo2 -= sub;
+      excess -= sub;
+    }
+    if (excess > 0 && safeAo3 > 0) {
+      const sub = Math.min(excess, safeAo3);
+      safeAo3 -= sub;
+      excess -= sub;
+    }
+    if (excess > 0 && hasAo4 && safeAo4 > minAo4) {
+      const sub = Math.min(excess, safeAo4 - minAo4);
+      safeAo4 -= sub;
+      excess -= sub;
+    }
+    if (excess > 0 && hasAo4 && safeAo4 > 0) {
+      const sub = Math.min(excess, safeAo4);
+      safeAo4 -= sub;
+      excess -= sub;
+    }
+  }
+
+  const finalAoSum = safeAo1 + safeAo2 + safeAo3 + (hasAo4 ? safeAo4 : 0);
+  if (finalAoSum !== awarded) {
+    awarded = finalAoSum;
+  }
+
+  return {
+    awardedMark: awarded,
+    aoBreakdown: {
+      knowledge: { awarded: safeAo1, outOf: maxAo1 },
+      application: { awarded: safeAo2, outOf: maxAo2 },
+      analysis: { awarded: safeAo3, outOf: maxAo3 },
+      evaluation: hasAo4 ? { awarded: safeAo4, outOf: maxAo4 } : undefined,
+    },
+  };
+}
 
 export async function markDataResponseQuestion(params: {
   extract: DataResponseExtract;
@@ -200,17 +356,24 @@ ${studentAnswer}
       raw = {};
     }
 
-    // Invariant validation: awarded mark must be within [0, maxMark]
-    let awarded = typeof raw.awardedMark === "number" ? Math.round(raw.awardedMark) : 0;
-    if (isNaN(awarded) || awarded < 0) awarded = 0;
-    if (awarded > question.maxMark) awarded = question.maxMark;
+    // AO bounds check and mathematical reconciliation
+    const reconciled = reconcileAoMarks({
+      rawAwarded: raw.awardedMark,
+      rawAo: {
+        knowledge: raw.aoBreakdown?.knowledge?.awarded,
+        application: raw.aoBreakdown?.application?.awarded,
+        analysis: raw.aoBreakdown?.analysis?.awarded,
+        evaluation: raw.aoBreakdown?.evaluation?.awarded,
+      },
+      maxMark: question.maxMark,
+      tariff: question.tariff,
+    });
 
-    // AO bounds check
-    const safeAo1 = Math.min(question.tariff.ao1, Math.max(0, Number(raw.aoBreakdown?.knowledge?.awarded ?? 0)));
-    const safeAo2 = Math.min(question.tariff.ao2, Math.max(0, Number(raw.aoBreakdown?.application?.awarded ?? 0)));
-    const safeAo3 = Math.min(question.tariff.ao3, Math.max(0, Number(raw.aoBreakdown?.analysis?.awarded ?? 0)));
-    const ao4Max = question.tariff.ao4 ?? (question.maxMark >= 6 ? Math.max(2, question.maxMark - question.tariff.ao1 - question.tariff.ao2 - question.tariff.ao3) : 0);
-    const safeAo4 = Math.min(ao4Max, Math.max(0, Number(raw.aoBreakdown?.evaluation?.awarded ?? 0)));
+    let awarded = reconciled.awardedMark;
+    let safeAo1 = reconciled.aoBreakdown.knowledge.awarded;
+    let safeAo2 = reconciled.aoBreakdown.application.awarded;
+    let safeAo3 = reconciled.aoBreakdown.analysis.awarded;
+    let safeAo4 = reconciled.aoBreakdown.evaluation?.awarded ?? 0;
 
     let diagramEval: DiagramEvaluationResult | undefined = undefined;
     if (question.hasDiagramRequirement) {
@@ -284,18 +447,37 @@ ${studentAnswer}
           outOf: question.tariff.ao3,
           comment: raw.aoBreakdown?.analysis?.comment ? stripStars(raw.aoBreakdown.analysis.comment) : undefined,
         },
-        evaluation: (question.tariff.ao4 !== undefined || question.maxMark >= 6) ? {
+        evaluation: hasAo4 ? {
           awarded: safeAo4,
-          outOf: ao4Max,
+          outOf: maxAo4,
           comment: raw.aoBreakdown?.evaluation?.comment ? stripStars(raw.aoBreakdown.evaluation.comment) : undefined,
         } : undefined,
       },
-      rubricLevelAwarded: raw.rubricLevelAwarded && raw.rubricLevelAwarded.level ? {
+      rubricLevelAwarded: question.maxMark >= 6 ? {
+        level: awarded >= (question.maxMark === 6 ? 5 : question.maxMark - 2) ? 3 : awarded >= 3 ? 2 : awarded >= 1 ? 1 : 0,
+        label: awarded >= (question.maxMark === 6 ? 5 : question.maxMark - 2)
+          ? "Level 3: Effective Evaluation in Context"
+          : awarded >= 3
+          ? "Level 2: Sound Economic Analysis"
+          : awarded >= 1
+          ? "Level 1: Basic Knowledge & Descriptive Points"
+          : "No Creditable Response",
+        marksRange: awarded >= (question.maxMark === 6 ? 5 : question.maxMark - 2)
+          ? (question.maxMark === 6 ? "5–6 marks" : `${question.maxMark - 2}–${question.maxMark} marks`)
+          : awarded >= 3
+          ? (question.maxMark === 6 ? "3–4 marks" : `3–${question.maxMark - 3} marks`)
+          : "1–2 marks",
+        evaluativeComment: raw.rubricLevelAwarded?.evaluativeComment
+          ? stripStars(raw.rubricLevelAwarded.evaluativeComment)
+          : (awarded >= (question.maxMark === 6 ? 5 : question.maxMark - 2)
+            ? "Candidate reached Level 3 through balanced evaluation, reasoned economic judgment, and contextual synthesis."
+            : undefined),
+      } : (raw.rubricLevelAwarded && raw.rubricLevelAwarded.level ? {
         level: Number(raw.rubricLevelAwarded.level),
         label: stripStars(String(raw.rubricLevelAwarded.label || `Level ${raw.rubricLevelAwarded.level}`)),
         marksRange: stripStars(String(raw.rubricLevelAwarded.marksRange || `${awarded}/${question.maxMark}`)),
         evaluativeComment: raw.rubricLevelAwarded.evaluativeComment ? stripStars(raw.rubricLevelAwarded.evaluativeComment) : undefined,
-      } : undefined,
+      } : undefined),
       diagramEvaluation: diagramEval,
       specificCriteriaMet,
       examinerRationale: stripStars(raw.examinerRationale || `Awarded ${awarded}/${question.maxMark} marks according to Cambridge 9708 mark scheme criteria.`),
@@ -310,23 +492,40 @@ ${studentAnswer}
     return evaluationResult;
   } catch (error) {
     console.error(`Error marking question ${question.number}:`, error);
-    // Graceful fallback
+    // Graceful fallback with mathematical AO reconciliation guaranteed
+    const rawHalf = Math.min(question.maxMark, Math.max(1, Math.floor(question.maxMark * 0.5)));
+    const fbReconciled = reconcileAoMarks({
+      rawAwarded: rawHalf,
+      rawAo: {
+        knowledge: Math.floor(question.tariff.ao1 * 0.5),
+        application: Math.floor(question.tariff.ao2 * 0.5),
+        analysis: Math.floor(question.tariff.ao3 * 0.5),
+        evaluation: (question.tariff.ao4 !== undefined || question.maxMark >= 6) ? 1 : 0,
+      },
+      maxMark: question.maxMark,
+      tariff: question.tariff,
+    });
+
+    const fbAwarded = fbReconciled.awardedMark;
+
     return cleanStars({
       questionNumber: question.number,
       questionTitle: question.title,
       maxMark: question.maxMark,
-      awardedMark: Math.min(question.maxMark, Math.max(1, Math.floor(question.maxMark * 0.5))),
+      awardedMark: fbAwarded,
       category: question.category,
       extractContextCheck: {
         usedContext: true,
         contextQuality: "adequate",
         feedback: "Response demonstrates relevant understanding.",
       },
-      aoBreakdown: {
-        knowledge: { awarded: Math.floor(question.tariff.ao1 * 0.6), outOf: question.tariff.ao1 },
-        application: { awarded: Math.floor(question.tariff.ao2 * 0.6), outOf: question.tariff.ao2 },
-        analysis: { awarded: Math.floor(question.tariff.ao3 * 0.6), outOf: question.tariff.ao3 },
-      },
+      aoBreakdown: fbReconciled.aoBreakdown,
+      rubricLevelAwarded: question.maxMark >= 6 ? {
+        level: fbAwarded >= 5 ? 3 : fbAwarded >= 3 ? 2 : 1,
+        label: fbAwarded >= 5 ? "Level 3: Effective Evaluation in Context" : fbAwarded >= 3 ? "Level 2: Sound Economic Analysis" : "Level 1: Basic Knowledge",
+        marksRange: fbAwarded >= 5 ? "5–6 marks" : fbAwarded >= 3 ? "3–4 marks" : "1–2 marks",
+        evaluativeComment: "Candidate demonstrated creditable economic analysis.",
+      } : undefined,
       specificCriteriaMet: [
         {
           criterion: "Credited for relevant economic reasoning addressing the prompt.",

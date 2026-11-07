@@ -1360,7 +1360,7 @@ export function DataResponseStudio() {
                     </span>
                     {result.aoBreakdown.evaluation && (
                       <span className="font-mono text-primary font-bold">
-                        <strong>AO4/AO3 (Evaluation):</strong> {result.aoBreakdown.evaluation.awarded}/{result.aoBreakdown.evaluation.outOf}
+                        <strong>AO4 (Evaluation):</strong> {result.aoBreakdown.evaluation.awarded}/{result.aoBreakdown.evaluation.outOf}
                       </span>
                     )}
                   </div>

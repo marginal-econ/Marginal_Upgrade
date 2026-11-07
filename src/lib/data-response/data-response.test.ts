@@ -174,4 +174,85 @@ describe("Cambridge Economics (9708) Data Response Papers & Preloaded Suite", ()
       }
     }
   });
+
+  it("enforces Cambridge 9708 Section A mathematical AO reconciliation invariant: Awarded === AO1 + AO2 + AO3 + AO4", async () => {
+    const { reconcileAoMarks } = await import("./marking-engine.server");
+
+    // Case 1: 6-mark evaluative question scored 6/6 with raw AO4 missing/0 -> AO4 must be at least 2, sum must be exactly 6
+    const res6mFull = reconcileAoMarks({
+      rawAwarded: 6,
+      rawAo: { knowledge: 2, application: 2, analysis: 2, evaluation: 0 },
+      maxMark: 6,
+      tariff: { ao1: 2, ao2: 1, ao3: 1, ao4: 2 },
+    });
+    expect(res6mFull.awardedMark).toBe(6);
+    expect(res6mFull.aoBreakdown.evaluation?.awarded).toBeGreaterThanOrEqual(2);
+    const sum6m =
+      res6mFull.aoBreakdown.knowledge.awarded +
+      res6mFull.aoBreakdown.application.awarded +
+      res6mFull.aoBreakdown.analysis.awarded +
+      (res6mFull.aoBreakdown.evaluation?.awarded ?? 0);
+    expect(sum6m).toBe(6);
+
+    // Case 2: 6-mark evaluative question scored 5/6 with raw AO4 missing/0 -> AO4 must be at least 1, sum must be exactly 5
+    const res6mL3 = reconcileAoMarks({
+      rawAwarded: 5,
+      rawAo: { knowledge: 2, application: 2, analysis: 1, evaluation: 0 },
+      maxMark: 6,
+      tariff: { ao1: 2, ao2: 1, ao3: 1, ao4: 2 },
+    });
+    expect(res6mL3.awardedMark).toBe(5);
+    expect(res6mL3.aoBreakdown.evaluation?.awarded).toBeGreaterThanOrEqual(1);
+    const sum6mL3 =
+      res6mL3.aoBreakdown.knowledge.awarded +
+      res6mL3.aoBreakdown.application.awarded +
+      res6mL3.aoBreakdown.analysis.awarded +
+      (res6mL3.aoBreakdown.evaluation?.awarded ?? 0);
+    expect(sum6mL3).toBe(5);
+
+    // Case 3: 4-mark short question without AO4
+    const res4m = reconcileAoMarks({
+      rawAwarded: 3,
+      rawAo: { knowledge: 1, application: 1, analysis: 1 },
+      maxMark: 4,
+      tariff: { ao1: 1, ao2: 2, ao3: 1 },
+    });
+    expect(res4m.awardedMark).toBe(3);
+    const sum4m =
+      res4m.aoBreakdown.knowledge.awarded +
+      res4m.aoBreakdown.application.awarded +
+      res4m.aoBreakdown.analysis.awarded;
+    expect(sum4m).toBe(3);
+
+    // Case 4: 0 marks awarded
+    const res0m = reconcileAoMarks({
+      rawAwarded: 0,
+      rawAo: { knowledge: 1, application: 1 },
+      maxMark: 6,
+      tariff: { ao1: 2, ao2: 1, ao3: 1, ao4: 2 },
+    });
+    expect(res0m.awardedMark).toBe(0);
+    const sum0m =
+      res0m.aoBreakdown.knowledge.awarded +
+      res0m.aoBreakdown.application.awarded +
+      res0m.aoBreakdown.analysis.awarded +
+      (res0m.aoBreakdown.evaluation?.awarded ?? 0);
+    expect(sum0m).toBe(0);
+  });
+
+  it("verifies numerical ranges and classification flexibility in official mark schemes (e.g. YED 0.7 to 0.8 / normal good / necessity)", () => {
+    const fmPaper = PRELOADED_DATA_RESPONSE_PAPERS.find((p) => p.id === "9708_22_2026_fm");
+    const q1aii = fmPaper?.questions.find((q) => q.number === "1(a)(ii)");
+    expect(q1aii).toBeDefined();
+
+    // Mark scheme accepts ranges [0.7 to 0.8] and classifications (normal good, necessity, inelastic YED)
+    expect(q1aii?.markingGuide).toContain("+0.76");
+    expect(q1aii?.markingGuide).toContain("normal good");
+    expect(q1aii?.markingGuide).toContain("necessity");
+
+    // Sample answer aligns with acceptable range
+    const sample = fmPaper?.sampleAnswers?.["1(a)(ii)"];
+    expect(sample).toContain("+0.76");
+    expect(sample).toContain("normal good");
+  });
 });

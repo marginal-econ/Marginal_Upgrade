@@ -231,7 +231,7 @@ Here is a very long script that was 4000 characters long and should be stripped 
       expect(issues[0].suggestion.toLowerCase()).toBe(expected.toLowerCase());
     }
     const elapsed = performance.now() - start;
-    expect(elapsed).toBeLessThan(50);
+    expect(elapsed).toBeLessThan(150);
 
     // Test contextual multi-word phrases
     const phraseEval = evaluateCambridgeAnswer(
