@@ -267,8 +267,6 @@ const ADMIN_SECTIONS: Record<string, AdminSectionMeta> = {
     sidebarLabel: "God Mode",
     subtitle: "Real-time user surveillance, keystroke radar, 1-click essay repair, and 360° student dossiers.",
     icon: Crown,
-    badge: "God Mode",
-    badgeColor: "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/35 font-bold",
   },
   essays: {
     id: "essays",
@@ -277,8 +275,6 @@ const ADMIN_SECTIONS: Record<string, AdminSectionMeta> = {
     sidebarLabel: "Graded Essays",
     subtitle: "Real-time repository of all Cambridge 9708 essays, automated grades, student scripts, and examiner breakdowns.",
     icon: BookOpen,
-    badge: "Live Submissions",
-    badgeColor: "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/30 font-medium",
   },
   feedback: {
     id: "feedback",
@@ -295,8 +291,6 @@ const ADMIN_SECTIONS: Record<string, AdminSectionMeta> = {
     sidebarLabel: "Direct Messaging",
     subtitle: "Real-time 1-on-1 portal to text students and teachers directly inside the Marginal web application.",
     icon: Send,
-    badge: "Direct Text",
-    badgeColor: "border-primary/40 text-primary bg-primary/10",
   },
   users: {
     id: "users",
@@ -313,8 +307,6 @@ const ADMIN_SECTIONS: Record<string, AdminSectionMeta> = {
     sidebarLabel: "Teacher Verification",
     subtitle: "Verify Cambridge 9708 educators, review compulsory school domains, and approve staff access to Knowledge Base & Classrooms.",
     icon: GraduationCap,
-    badge: "Staff Verification",
-    badgeColor: "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/30",
   },
   waitlist: {
     id: "waitlist",
@@ -323,8 +315,6 @@ const ADMIN_SECTIONS: Record<string, AdminSectionMeta> = {
     sidebarLabel: "Public Waitlist",
     subtitle: "Manage early signups, preview invitation templates, and send official access invitations via Mailjet.",
     icon: Mail,
-    badge: "Mailjet Live",
-    badgeColor: "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/30",
   },
   pricing: {
     id: "pricing",
@@ -333,8 +323,6 @@ const ADMIN_SECTIONS: Record<string, AdminSectionMeta> = {
     sidebarLabel: "Pricing Plans",
     subtitle: "Real-time pricing editor: customize monthly/annual tier pricing, essay allowances, Live Examiner credit quotas, and user balances.",
     icon: Coins,
-    badge: "Live Dynamic",
-    badgeColor: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30",
   },
   payments: {
     id: "payments",
@@ -367,8 +355,6 @@ const ADMIN_SECTIONS: Record<string, AdminSectionMeta> = {
     sidebarLabel: "Data Response Studio",
     subtitle: "Manage, upload QP & MS via OCR, practice Section A case study questions, and test strict mark scheme evaluation.",
     icon: FileCheck2,
-    badge: "Section A",
-    badgeColor: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 font-semibold",
   },
   showcase: {
     id: "showcase",
@@ -393,8 +379,6 @@ const ADMIN_SECTIONS: Record<string, AdminSectionMeta> = {
     sidebarLabel: "Google Gemini",
     subtitle: "Dedicated Google AI Studio layer: multi-project key pooling, 20 RPD free tier rotation, and quota management.",
     icon: Sparkles,
-    badge: "Gemini Core",
-    badgeColor: "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/30",
   },
   providers: {
     id: "providers",
@@ -403,8 +387,6 @@ const ADMIN_SECTIONS: Record<string, AdminSectionMeta> = {
     sidebarLabel: "Multi-Provider Hub",
     subtitle: "Dedicated external provider platform: Groq, xAI Grok, OpenRouter, Mistral, OpenAI, Anthropic, DeepSeek, & Custom.",
     icon: Cpu,
-    badge: "Multi-Engine",
-    badgeColor: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30",
   },
   embeddings: {
     id: "embeddings",
@@ -669,26 +651,26 @@ function AdminPage() {
                         type="button"
                         onClick={() => setActiveTab(item.id)}
                         className={cn(
-                          "group relative flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-left text-xs transition-all cursor-pointer",
+                          "group relative flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-left text-xs transition-all cursor-pointer",
                           isActive
                             ? "bg-primary/10 font-semibold text-primary shadow-xs"
                             : "text-muted-foreground hover:bg-muted/70 hover:text-foreground",
                         )}
                       >
-                        <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="flex items-center gap-2.5 min-w-0 flex-1">
                           <ItemIcon className={cn("size-4 shrink-0 transition-transform group-hover:scale-110", isActive ? "text-primary" : "text-muted-foreground")} />
                           <span className="truncate">{item.sidebarLabel || item.title}</span>
                         </div>
                         {item.id === "feedback" && (overviewQuery.data?.feedbackCount ?? 0) > 0 ? (
-                          <Badge variant="secondary" className="text-[9px] px-1.5 py-0 h-4 font-bold bg-primary/20 text-primary">
+                          <Badge variant="secondary" className="text-[9px] px-1.5 py-0 h-4 font-bold bg-primary/20 text-primary shrink-0 whitespace-nowrap">
                             {overviewQuery.data?.feedbackCount}
                           </Badge>
                         ) : item.id === "providers" && showAlert ? (
-                          <Badge variant="destructive" className="text-[9px] px-1.5 py-0 h-4 font-bold animate-pulse">
-                            🚨 PAID PING
+                          <Badge variant="destructive" className="text-[9px] px-1.5 py-0 h-4 font-bold animate-pulse shrink-0 whitespace-nowrap">
+                            🚨 Alert
                           </Badge>
                         ) : item.badge ? (
-                          <Badge variant="outline" className={cn("text-[9px] px-1.5 py-0 h-4 font-mono uppercase", item.badgeColor)}>
+                          <Badge variant="outline" className={cn("text-[9px] px-1.5 py-0 h-4 font-mono uppercase shrink-0 whitespace-nowrap", item.badgeColor)}>
                             {item.badge}
                           </Badge>
                         ) : null}
@@ -704,10 +686,10 @@ function AdminPage() {
                     <Link
                       key={link.to}
                       to={link.to}
-                      className="group flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-muted/60 hover:text-foreground transition-colors"
+                      className="group flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-muted/60 hover:text-foreground transition-colors"
                       title={link.desc}
                     >
-                      <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="flex items-center gap-2.5 min-w-0 flex-1">
                         <link.icon className="size-3.5 shrink-0 text-muted-foreground group-hover:text-foreground" />
                         <span className="truncate">{link.label}</span>
                       </div>
