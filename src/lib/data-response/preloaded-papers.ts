@@ -37,6 +37,13 @@ export const PRELOADED_DATA_RESPONSE_PAPERS: DataResponsePaper[] = [
       ],
       "sources": "Adapted from: WHO Obesity Report 2024; The Guardian 2023."
     },
+    "sampleAnswers": {
+      "1(a)(i)": "Income elasticity of demand (YED) measures the responsiveness of quantity demanded of a good to a change in consumer real income. Formula: YED = % change in quantity demanded / % change in income.",
+      "1(a)(ii)": "Using paragraph 2, quantity demanded (sales) rose by 22% while disposable income rose by 29%. YED = +22% / +29% = +0.76. Because YED is positive and less than 1 (0 < YED < 1), an economist would classify fast food as a normal good (a necessity) with income-inelastic demand.",
+      "1(b)": "A demerit good is a good that is overconsumed in a free market because consumers suffer from information failure, failing to perceive the true private health damage of consumption (or where marginal social cost exceeds marginal private cost). Fast food is considered a demerit good because consumers lack full knowledge of the severe health hazards such as diabetes, heart disease, and accelerating mortality rates. Furthermore, it imposes massive external costs on society, including US$2 trillion in worldwide healthcare expenditures and reduced labour productivity from employee absenteeism.",
+      "1(c)": "An indirect tax (such as Colombia's 10% to 20% tax or Denmark's fat tax) increases the cost of production, shifting the market supply curve to the left. This raises market price, internalises negative health impacts, contracts quantity demanded, and raises tax revenue that can fund healthcare services. However, fast food demand is price and income inelastic (+0.76) due to high convenience for time-poor consumers, so consumption falls only marginally. The tax is also regressive, burdening low-income families, and can destroy employment as occurred in Denmark where the tax was repealed after job losses. Therefore, an indirect tax is not solely the best way; it is most effective when combined with subsidies on healthy options, mandatory calorific labelling, menu reformulation, and educational campaigns.",
+      "1(d)": "A significant increase in unemployment is usually harmful to macroeconomic performance. It creates a deflationary output gap where actual GDP falls below potential GDP, leaving labour resources idle. Government finances deteriorate as income tax and VAT receipts decline while welfare transfer spending surges, worsening the fiscal deficit. Long-term unemployment also causes hysteresis, permanently eroding human capital and productivity. However, an increase in unemployment is not always harmful in every circumstance. In an overheating economy experiencing demand-pull inflation and wage-price spirals, a rise in unemployment dampens aggregate demand and cools wage inflation. In structural transitions, short-term unemployment frees up labour from declining sectors to reallocate into expanding, high-technology export industries. In conclusion, while sustained unemployment damages economic growth and living standards, it is not always harmful if it restores price stability in an overheating economy."
+    },
     "questions": [
       {
         "id": "9708_22_2026_fm_1ai",
@@ -76,16 +83,16 @@ export const PRELOADED_DATA_RESPONSE_PAPERS: DataResponsePaper[] = [
         },
         "hasDiagramRequirement": false,
         "indicativePoints": [
-          "Calculation: +22% / +29% = +0.76 (1 mark)",
-          "Classification: Normal good / necessity (0 < YED < 1) (1 mark)",
-          "OFR applies to classification."
+          "Calculation: +22% / +29% = +0.76 (allow 0.758... or range 0.7 to 0.8) (1 mark)",
+          "Classification: Normal good, necessity, OR income-inelastic good (0 < YED < 1) (1 mark)",
+          "OFR applies: honor calculated figure for classification. Credit ANY valid classification option in full."
         ],
         "calculationGuidance": {
           "formula": "+22% / +29% = +0.76",
-          "correctAnswer": "+0.76; Normal good / necessity",
+          "correctAnswer": "+0.76 (allow 0.7 to 0.8); Normal good / necessity / inelastic YED",
           "ofrApplies": true
         },
-        "markingGuide": "Calculation: +0.76 (1). Classification: Normal good / necessity (1). OFR applies. Total 2 marks.",
+        "markingGuide": "Calculation: +22% / +29% = +0.76. Honor official guidance ranges: allow [0.7 to 0.8] or [0.75 to 0.76] (1 mark). Classification: allow 'normal good', 'necessity', OR 'inelastic YED' (1 mark). Credit ANY of those valid options in full. Own Figure Rule (OFR) applies. Total 2 marks.",
         "extractLinkageExpected": true,
         "syllabusTopic": "YED calculation and classification"
       },
@@ -102,10 +109,11 @@ export const PRELOADED_DATA_RESPONSE_PAPERS: DataResponsePaper[] = [
         },
         "hasDiagramRequirement": false,
         "indicativePoints": [
-          "Demerit good: Overconsumed due to information failure or negative externalities where social cost exceeds private cost (2 marks)",
-          "Application: $2 trillion global health costs and productivity loss on employers (2 marks)"
+          "Demerit good: Overconsumed due to information failure / lack of consumer information regarding health risks (or marginal social cost exceeding marginal private cost) (up to 2 marks)",
+          "Application: Extract evidence showing accelerated mortality, heart disease, diabetes, US$2 trillion global healthcare burden, lost earnings and productivity losses (up to 2 marks)",
+          "Official Cambridge Note: Do NOT expect reference to 3rd party effects or externalities if imperfect information / private health harm is explained. Never penalize a candidate for omitting external costs."
         ],
-        "markingGuide": "Up to 2 marks for demerit definition. Up to 2 marks for extract application. Total 4 marks.",
+        "markingGuide": "Up to 2 marks for explanation of demerit good (overconsumed due to information failure / health damage / social cost > private cost). Up to 2 marks for extract application ($2 trillion health costs, absenteeism, diabetes). Crucial rule: Never penalize for omitting third-party effects or externalities if the candidate explains information failure / health damage. Total 4 marks.",
         "extractLinkageExpected": true,
         "syllabusTopic": "Demerit goods and market failure"
       },
@@ -126,28 +134,30 @@ export const PRELOADED_DATA_RESPONSE_PAPERS: DataResponsePaper[] = [
             "level": 3,
             "marksRange": "5\u20136 marks",
             "label": "Effective Evaluation in Context",
-            "description": "Balanced assessment of indirect taxes vs subsidies on healthy alternatives, with justified conclusion.",
-            "evaluativeRequirement": "Weighs inelastic demand (+0.76) and regressive living cost burden against tax revenue gains."
+            "description": "Balanced assessment weighing indirect taxes against alternative policies (subsidies on healthy substitutes, education, calorie labelling), with a reasoned, context-specific conclusion directly addressing 'the best way'.",
+            "evaluativeRequirement": "Weighs inelastic demand (+0.76), regressive impact on poor, and employment losses (Denmark) against tax revenue and internalising health costs, concluding with justification."
           },
           {
             "level": 2,
             "marksRange": "3\u20134 marks",
             "label": "Developed Analysis with Partial Evaluation",
-            "description": "Developed analysis with partial evaluation."
+            "description": "Developed analysis showing how tax shifts supply and reduces demand, with one-sided or undeveloped evaluation."
           },
           {
             "level": 1,
             "marksRange": "1\u20132 marks",
             "label": "Limited Knowledge & Descriptive Points",
-            "description": "Identifies basic concepts without sustained analytical links."
+            "description": "Identifies basic concepts without sustained analytical links or context."
           }
         ],
         "indicativePoints": [
-          "Tax shifts supply left, raises price, internalises external costs",
-          "Inelastic demand means consumption falls little; regressive on poor; job losses (Denmark)",
-          "Evaluation: Most effective when paired with subsidies on healthy substitutes"
+          "Tax shifts supply left, raises price, internalises external costs / health damage (analysis)",
+          "Inelastic demand (+0.76) means consumption falls little; regressive impact on low-income groups; job losses (as in Denmark)",
+          "Alternative policies: Subsidies on healthy substitutes, calorie labelling, menu reformulation, educational campaigns",
+          "Credit sound alternative economic mechanisms (e.g. substitution effects, price elasticity of demand, derived demand, indirect tax incidence). Illustrative points (healthy options, calorific content, advertising bans) are acceptable without demanding unmentioned data.",
+          "Evaluation: Tax is not solely the best way; most effective when paired with subsidies on healthy substitutes and information remedies."
         ],
-        "markingGuide": "AO1/AO2 (up to 4 marks). AO3 Evaluation (up to 2 marks). Total 6 marks.",
+        "markingGuide": "AO1/AO2 (up to 4 marks for balanced analysis of tax vs alternatives). AO3/AO4 Evaluation (up to 2 marks for reasoned conclusion on 'best way'). Require at least one argument on each side of the debate. Credit valid economic mechanisms (elasticity, incidence, substitution) and illustrative points (healthy options, calorie counts). Total 6 marks.",
         "extractLinkageExpected": true,
         "syllabusTopic": "Indirect taxation and market failure"
       },
@@ -168,28 +178,28 @@ export const PRELOADED_DATA_RESPONSE_PAPERS: DataResponsePaper[] = [
             "level": 3,
             "marksRange": "5\u20136 marks",
             "label": "Effective Macroeconomic Evaluation",
-            "description": "Balanced assessment critically evaluating 'always harmful' in relation to inflation and structural mobility.",
-            "evaluativeRequirement": "Weighs loss of potential output and fiscal tax losses against dampening demand-pull inflation."
+            "description": "Balanced macroeconomic assessment critically evaluating the qualifier 'always harmful', weighing lost GDP and fiscal strain against dampening inflation and structural reallocation, with a reasoned conclusion.",
+            "evaluativeRequirement": "Weighs loss of potential national output and fiscal tax deficit against curbing demand-pull inflation and facilitating sectoral labour shifts."
           },
           {
             "level": 2,
             "marksRange": "3\u20134 marks",
             "label": "Developed Analysis with Partial Evaluation",
-            "description": "Developed analysis with partial evaluation."
+            "description": "Developed macroeconomic analysis with one-sided or incomplete evaluation of 'always harmful'."
           },
           {
             "level": 1,
             "marksRange": "1\u20132 marks",
             "label": "Limited Knowledge & Descriptive Points",
-            "description": "Identifies basic concepts without sustained analytical links."
+            "description": "Identifies basic macroeconomic concepts without sustained analytical links."
           }
         ],
         "indicativePoints": [
-          "Harmful: Loss of real GDP, reduced tax receipts, higher welfare transfers, hysteresis",
-          "Nuance: Reduces demand-pull wage pressure, frees labour for growing sectors",
-          "Evaluation: Not always completely harmful in the short run if cooling an overheating economy."
+          "Harmful: Output gap / loss of real GDP, reduced income tax/VAT receipts, higher welfare benefits, hysteresis and human capital decay",
+          "Nuance / Non-harmful: Reduces demand-pull wage pressure in an overheating economy, helps curb inflation towards target, frees scarce labour for expanding sectors",
+          "Evaluation: Reasoned conclusion interrogating 'always harmful' — while harmful long-term to living standards, not always harmful short-term if cooling overheating or enabling structural transformation."
         ],
-        "markingGuide": "AO1/AO2 (up to 4 marks). AO3 Evaluation (up to 2 marks). Total 6 marks.",
+        "markingGuide": "AO1/AO2 (up to 4 marks for balanced macroeconomic analysis). AO3/AO4 Evaluation (up to 2 marks for reasoned judgment on 'always harmful'). Check exact sub-question text (macroeconomic focus). Balanced analysis required (harmful vs non-harmful). Reasoned conclusion required for Level 3. Total 6 marks.",
         "extractLinkageExpected": false,
         "syllabusTopic": "Consequences of unemployment"
       }

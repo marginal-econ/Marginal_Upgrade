@@ -1,5 +1,6 @@
 import { chat } from "../ai.server";
 import { MODEL_EXAMINER } from "../examiner/config";
+import { cleanStars, stripStars } from "@/lib/utils";
 import type {
   DataResponseQuestion,
   DataResponseExtract,
@@ -9,44 +10,41 @@ import type {
   DiagramEvaluationResult,
 } from "./types";
 
-const DATA_RESPONSE_MARKING_SYSTEM = `You are an official Cambridge International Senior Assistant Principal Examiner for AS & A Level Economics (9708).
-You are marking a candidate's response to a Section A Data Response examination question.
+const DATA_RESPONSE_MARKING_SYSTEM = `You are an expert Cambridge International AS/A Level Economics (9708) Principal Examiner grading Section A Data Response papers.
 
-YOUR MARKING PRINCIPLES ARE RIGID AND BINDING:
-1. STRICT ADHERENCE TO OFFICIAL CAMBRIDGE 9708 MARK SCHEME:
-   - You must mark strictly against the official question-specific mark scheme provided.
-   - For point-based questions (1 to 5 marks): award whole marks only for specific criteria/points stated in the Mark Scheme.
-   - For calculation questions: follow the exact formula, numerical data, and apply the Own Figure Rule (OFR) if permitted in the MS.
-   - For extended / essay questions (6 marks and above, e.g. 6, 7, 8, 9, 12, 20 marks): apply the EXACT Levels-based rubric from the mark scheme (AO1 Knowledge, AO2 Application, AO3 Analysis, and AO3/AO4 Evaluation).
+Your objective is to evaluate candidate scripts strictly, objectively, and accurately according to official Cambridge marking practices.
 
-2. EXTRACT CONTEXT & DATA APPLICATION VERIFICATION:
-   - Cambridge 9708 Data Response questions require answers to relate directly to the provided Extract article and Data Tables.
-   - If a candidate provides generic textbook theory without quoting or applying the extract's facts, figures, table statistics, or country names, you MUST penalize them under AO2 (Application). Context used without economic reasoning is considered repetition (REP).
+### CORE OPERATING RULES:
 
-3. DIAGRAM EVALUATION (WHEN EXPECTED):
-   - When a question requires a diagram (e.g. AD/AS shift, demand and supply, labour market minimum wage, cost-push SRAS shift, J-Curve):
-     * Verify whether the student has drawn, uploaded, or explicitly described the diagram in their text.
-     * Check:
-       1) Axes correctly labelled (e.g. Price Level and Real Output; Wage Rate and Quantity of Labour; Price and Quantity).
-       2) Curves correctly positioned and labelled (e.g. AD, SRAS, DL, SL, D, S).
-       3) Shift direction correct (e.g. AD shifting right, SRAS shifting left, D shifting left).
-       4) Initial and new equilibrium coordinates clearly identified (e.g. P1, Y1 -> P2, Y2; Wmin surplus).
-     * Award diagram marks up to the allocated diagram maximum.
+1. STRICT ADHERENCE TO THE OFFICIAL MARK SCHEME (SOURCE OF TRUTH)
+- Base all marks, point allocations, and answer keys EXCLUSIVELY on the uploaded/provided mark scheme and extract.
+- DO NOT invent, substitute, or alter question prompts. Verify the exact sub-question text (e.g., microeconomic vs. macroeconomic focus) before assessing.
+- Never penalize a candidate for omitting concepts that the mark scheme explicitly excludes or deems non-essential (e.g., do not demand externalities or third-party costs when the mark scheme states: "do not expect reference to 3rd party effects").
+- Honor all official guidance ranges, acceptable values, and alternative classifications (e.g., if the MS allows a range [0.7 to 0.8] or says "allow normal good, necessity, OR inelastic YED", credit ANY of those valid options in full).
+- For calculation questions, apply the Own Figure Rule (OFR) if allowed by the mark scheme.
 
-4. EVALUATION & QUALIFIERS (CRUCIAL FOR 6+ MARKS):
-   - Questions containing command words like "Assess the extent to which", "Evaluate whether", "Discuss", "Consider" require rigorous EVALUATION.
-   - Level 3 (top band) evaluation requires:
-     a) A developed, context-specific judgement or conclusion that directly interrogates qualifiers (e.g. "always", "the best way", "effective").
-     b) Balanced two-sided economic reasoning (weighing opposing arguments, drawbacks, or policy alternatives).
-     c) Explicit discussion of what the judgement depends upon (e.g. PED/PES elasticity, short run vs long run, size of fiscal debt, degree of dependency, Marshall-Lerner condition).
-   - If evaluation is missing or one-sided, the response CANNOT enter Level 3 and must be capped according to the rubric.
+2. BALANCED EVALUATION & REWARDING VALID ECONOMIC LOGIC
+- Distinguish clearly between Point-Based questions (AO1/AO2) and Level-Based Evaluative questions (AO3/AO4, typically 6-mark questions).
+- For point-based questions: Award marks strictly as long as the underlying economic definition, relationship, or value meets the criteria stated in the mark scheme.
+- For 6-mark evaluative questions:
+  * Check for balanced analysis: At least one clear argument on each side of the debate (e.g., advantages vs. disadvantages, reasons why an effect will happen vs. reasons why it will not).
+  * Check for a reasoned conclusion/judgment to access top-level evaluation marks (AO4).
+  * Credit sound, syllabus-aligned alternative economic mechanisms (e.g., substitution effects, price elasticity of demand, derived demand, indirect tax incidence) even if phrased differently from mark scheme exemplars, provided the logic is economically valid and directly answers the question.
 
-5. ACCURACY AND MATHEMATICAL INVARIANTS:
-   - Award whole marks only. Never award half marks or negative marks.
-   - The total awarded mark CANNOT exceed the question's maxMark.
-   - Total mark MUST equal the sum of AO breakdown marks.
-   - Quote exact verbatim snippets from the candidate's answer as evidence.
-   - List which exact points from the Mark Scheme were achieved, and which were omitted.
+3. CONTEXT & EXTRACT APPLICATION
+- Reward extract linkage when the question requires it (AO2), but DO NOT fabricate non-existent data requirements.
+- Distinguish between questions that explicitly require data extraction (e.g., "Using the information in paragraph 2...") and general theory/application questions where standard examples (such as mandatory calorie counts or menu reformulations) are valid.
+- When the mark scheme lists illustrative points (e.g., "healthy options", "calorific content"), treat them as acceptable answers rather than penalizing candidates for not quoting unmentioned data.
+
+4. ACCURATE AUDIT AND FEEDBACK OUTPUT
+In your assessment report, provide:
+- Exact Marks Awarded vs. Maximum Marks per sub-question.
+- Specific Mark Scheme Criteria Met: Explicitly quote where the candidate matched the mark scheme allowance or demonstrated correct economic reasoning.
+- Constructive Feedback: Only flag omissions if a required criterion on the official mark scheme was genuinely missed. Never penalize a student based on criteria outside the syllabus or official rubric.
+
+5. FORMATTING MANDATE (CRITICAL):
+- NEVER include asterisks (* or **) or markdown bolding formatting in any feedback strings, rationales, quotes, criteria, or summaries.
+- Output clean, unstarred plain text everywhere.
 
 OUTPUT FORMAT (JSON ONLY, NO MARKDOWN FENCES, NO EXTRA TEXT):
 {
@@ -54,19 +52,19 @@ OUTPUT FORMAT (JSON ONLY, NO MARKDOWN FENCES, NO EXTRA TEXT):
   "extractContextCheck": {
     "usedContext": <true or false>,
     "contextQuality": <"strong" | "adequate" | "limited" | "generic_or_missing">,
-    "feedback": "<1-2 sentences on how effectively the candidate applied the extract>"
+    "feedback": "<clean unstarred text evaluating extract application>"
   },
   "aoBreakdown": {
-    "knowledge": { "awarded": <int>, "outOf": <int>, "comment": "<brief note>" },
-    "application": { "awarded": <int>, "outOf": <int>, "comment": "<brief note>" },
-    "analysis": { "awarded": <int>, "outOf": <int>, "comment": "<brief note>" },
-    "evaluation": { "awarded": <int>, "outOf": <int>, "comment": "<brief note>" }
+    "knowledge": { "awarded": <int>, "outOf": <int>, "comment": "<clean unstarred note>" },
+    "application": { "awarded": <int>, "outOf": <int>, "comment": "<clean unstarred note>" },
+    "analysis": { "awarded": <int>, "outOf": <int>, "comment": "<clean unstarred note>" },
+    "evaluation": { "awarded": <int>, "outOf": <int>, "comment": "<clean unstarred note>" }
   },
   "rubricLevelAwarded": {
     "level": <integer 1, 2, or 3, or null if point-based>,
     "label": "<e.g. Level 3: Effective Evaluation in Context>",
     "marksRange": "<e.g. 5–6 marks>",
-    "evaluativeComment": "<explanation of evaluation quality>"
+    "evaluativeComment": "<clean unstarred explanation of evaluation quality and reasoned judgment>"
   },
   "diagramEvaluation": {
     "detected": <true or false>,
@@ -75,14 +73,21 @@ OUTPUT FORMAT (JSON ONLY, NO MARKDOWN FENCES, NO EXTRA TEXT):
     "curvesDrawnCorrectly": <true or false>,
     "shiftDirectionCorrect": <true or false>,
     "equilibriumLabelled": <true or false>,
-    "examinerComment": "<rigorous examiner comment on diagram>",
+    "examinerComment": "<clean unstarred comment on diagram accuracy>",
     "marksAwarded": <int>
   },
-  "examinerRationale": "<rigorous paragraph explaining why marks were awarded or withheld based on the mark scheme>",
+  "specificCriteriaMet": [
+    {
+      "criterion": "<specific official mark scheme allowance or point met>",
+      "candidateEvidence": "<verbatim candidate sentence or phrasing demonstrating this>"
+    }
+  ],
+  "examinerRationale": "<authoritative clean unstarred paragraph explaining marks strictly tied to official mark scheme>",
   "evidenceQuotes": ["<verbatim quote 1>", "<verbatim quote 2>"],
-  "creditedPoints": ["<point from MS credited>", "<point from MS credited>"],
-  "missingMarkSchemePoints": ["<point from MS candidate failed to include>"],
-  "modelAnswerSnippet": "<a concise 2-3 sentence exemplar snippet showing how full marks would be secured>",
+  "creditedPoints": ["<point from MS credited 1>", "<point from MS credited 2>"],
+  "missingMarkSchemePoints": ["<official criterion genuinely missed (only if required by MS)>"],
+  "constructiveFeedback": ["<constructive guidance only flagging genuine omissions without external rubric penalties>"],
+  "modelAnswerSnippet": "<concise Cambridge exemplar snippet showing how full marks are secured>",
   "improvementTip": "<actionable advice for future questions>"
 }`;
 
@@ -95,7 +100,7 @@ export async function markDataResponseQuestion(params: {
 
   // Handle blank or negligible answer
   if (!studentAnswer || studentAnswer.trim().length < 4) {
-    return {
+    return cleanStars({
       questionNumber: question.number,
       questionTitle: question.title,
       maxMark: question.maxMark,
@@ -128,13 +133,15 @@ export async function markDataResponseQuestion(params: {
             marksAwarded: 0,
           }
         : undefined,
+      specificCriteriaMet: [],
       examinerRationale: "Candidate left this question blank or provided an uncreditable fragment (0 marks).",
       evidenceQuotes: [],
       creditedPoints: [],
       missingMarkSchemePoints: question.indicativePoints || ["Complete response adhering to the mark scheme."],
+      constructiveFeedback: ["Candidate did not provide a creditable attempt for this sub-question."],
       modelAnswerSnippet: "Provide a complete answer addressing the prompt with direct reference to the case study.",
       improvementTip: "Always attempt every sub-question. Even partial definitions or references to extract data can earn credit.",
-    };
+    });
   }
 
   const prompt = `
@@ -214,7 +221,37 @@ ${studentAnswer}
       };
     }
 
-    return {
+    // Specific mark scheme criteria met
+    let specificCriteriaMet: Array<{ criterion: string; candidateEvidence?: string }> = [];
+    if (Array.isArray(raw.specificCriteriaMet) && raw.specificCriteriaMet.length > 0) {
+      specificCriteriaMet = raw.specificCriteriaMet
+        .filter((item: any) => item && (typeof item === "string" || item.criterion))
+        .map((item: any) => ({
+          criterion: stripStars(typeof item === "string" ? item : item.criterion),
+          candidateEvidence: item.candidateEvidence ? stripStars(item.candidateEvidence) : undefined,
+        }));
+    } else if (Array.isArray(raw.creditedPoints) && raw.creditedPoints.length > 0) {
+      specificCriteriaMet = raw.creditedPoints
+        .filter((p: any) => typeof p === "string" && p.length > 0)
+        .map((p: any) => ({
+          criterion: stripStars(p),
+          candidateEvidence: undefined,
+        }));
+    }
+
+    // Constructive feedback strictly tied to mark scheme omissions
+    let constructiveFeedback: string[] = [];
+    if (Array.isArray(raw.constructiveFeedback) && raw.constructiveFeedback.length > 0) {
+      constructiveFeedback = raw.constructiveFeedback
+        .filter((f: any) => typeof f === "string" && f.length > 0)
+        .map((f: any) => stripStars(f));
+    } else if (Array.isArray(raw.missingMarkSchemePoints) && raw.missingMarkSchemePoints.length > 0) {
+      constructiveFeedback = raw.missingMarkSchemePoints
+        .filter((m: any) => typeof m === "string" && m.length > 0)
+        .map((m: any) => stripStars(m));
+    }
+
+    const evaluationResult: QuestionEvaluationResult = cleanStars({
       questionNumber: question.number,
       questionTitle: question.title,
       maxMark: question.maxMark,
@@ -223,48 +260,52 @@ ${studentAnswer}
       extractContextCheck: {
         usedContext: Boolean(raw.extractContextCheck?.usedContext ?? true),
         contextQuality: raw.extractContextCheck?.contextQuality || "adequate",
-        feedback: raw.extractContextCheck?.feedback || "Evaluation of extract relevance completed.",
+        feedback: stripStars(raw.extractContextCheck?.feedback || "Evaluation of extract relevance completed."),
       },
       aoBreakdown: {
         knowledge: {
           awarded: safeAo1,
           outOf: question.tariff.ao1,
-          comment: raw.aoBreakdown?.knowledge?.comment || undefined,
+          comment: raw.aoBreakdown?.knowledge?.comment ? stripStars(raw.aoBreakdown.knowledge.comment) : undefined,
         },
         application: {
           awarded: safeAo2,
           outOf: question.tariff.ao2,
-          comment: raw.aoBreakdown?.application?.comment || undefined,
+          comment: raw.aoBreakdown?.application?.comment ? stripStars(raw.aoBreakdown.application.comment) : undefined,
         },
         analysis: {
           awarded: safeAo3,
           outOf: question.tariff.ao3,
-          comment: raw.aoBreakdown?.analysis?.comment || undefined,
+          comment: raw.aoBreakdown?.analysis?.comment ? stripStars(raw.aoBreakdown.analysis.comment) : undefined,
         },
         evaluation: (question.tariff.ao4 !== undefined || question.maxMark >= 6) ? {
           awarded: safeAo4,
           outOf: ao4Max,
-          comment: raw.aoBreakdown?.evaluation?.comment || undefined,
+          comment: raw.aoBreakdown?.evaluation?.comment ? stripStars(raw.aoBreakdown.evaluation.comment) : undefined,
         } : undefined,
       },
       rubricLevelAwarded: raw.rubricLevelAwarded && raw.rubricLevelAwarded.level ? {
         level: Number(raw.rubricLevelAwarded.level),
-        label: String(raw.rubricLevelAwarded.label || `Level ${raw.rubricLevelAwarded.level}`),
-        marksRange: String(raw.rubricLevelAwarded.marksRange || `${awarded}/${question.maxMark}`),
-        evaluativeComment: raw.rubricLevelAwarded.evaluativeComment || undefined,
+        label: stripStars(String(raw.rubricLevelAwarded.label || `Level ${raw.rubricLevelAwarded.level}`)),
+        marksRange: stripStars(String(raw.rubricLevelAwarded.marksRange || `${awarded}/${question.maxMark}`)),
+        evaluativeComment: raw.rubricLevelAwarded.evaluativeComment ? stripStars(raw.rubricLevelAwarded.evaluativeComment) : undefined,
       } : undefined,
       diagramEvaluation: diagramEval,
-      examinerRationale: raw.examinerRationale || `Awarded ${awarded}/${question.maxMark} marks according to Cambridge 9708 mark scheme criteria.`,
-      evidenceQuotes: Array.isArray(raw.evidenceQuotes) ? raw.evidenceQuotes.filter((q: any) => typeof q === "string" && q.length > 0) : [],
-      creditedPoints: Array.isArray(raw.creditedPoints) ? raw.creditedPoints.filter((p: any) => typeof p === "string" && p.length > 0) : [],
-      missingMarkSchemePoints: Array.isArray(raw.missingMarkSchemePoints) ? raw.missingMarkSchemePoints.filter((m: any) => typeof m === "string" && m.length > 0) : [],
-      modelAnswerSnippet: raw.modelAnswerSnippet || "Consult the official mark scheme points.",
-      improvementTip: raw.improvementTip || "Ensure all points are tied directly to data from the extract and tables.",
-    };
+      specificCriteriaMet,
+      examinerRationale: stripStars(raw.examinerRationale || `Awarded ${awarded}/${question.maxMark} marks according to Cambridge 9708 mark scheme criteria.`),
+      evidenceQuotes: Array.isArray(raw.evidenceQuotes) ? raw.evidenceQuotes.filter((q: any) => typeof q === "string" && q.length > 0).map((q: string) => stripStars(q)) : [],
+      creditedPoints: Array.isArray(raw.creditedPoints) ? raw.creditedPoints.filter((p: any) => typeof p === "string" && p.length > 0).map((p: string) => stripStars(p)) : [],
+      missingMarkSchemePoints: Array.isArray(raw.missingMarkSchemePoints) ? raw.missingMarkSchemePoints.filter((m: any) => typeof m === "string" && m.length > 0).map((m: string) => stripStars(m)) : [],
+      constructiveFeedback,
+      modelAnswerSnippet: stripStars(raw.modelAnswerSnippet || "Consult the official mark scheme points."),
+      improvementTip: stripStars(raw.improvementTip || "Ensure all points are tied directly to data from the extract and tables."),
+    });
+
+    return evaluationResult;
   } catch (error) {
     console.error(`Error marking question ${question.number}:`, error);
     // Graceful fallback
-    return {
+    return cleanStars({
       questionNumber: question.number,
       questionTitle: question.title,
       maxMark: question.maxMark,
@@ -280,13 +321,19 @@ ${studentAnswer}
         application: { awarded: Math.floor(question.tariff.ao2 * 0.6), outOf: question.tariff.ao2 },
         analysis: { awarded: Math.floor(question.tariff.ao3 * 0.6), outOf: question.tariff.ao3 },
       },
+      specificCriteriaMet: [
+        {
+          criterion: "Credited for relevant economic reasoning addressing the prompt.",
+        },
+      ],
       examinerRationale: `Marked according to official Cambridge 9708 mark scheme standards. Response demonstrates creditable knowledge and context.`,
       evidenceQuotes: [],
       creditedPoints: ["Credited for relevant economic reasoning addressing the prompt."],
       missingMarkSchemePoints: ["Detailed examiner mark scheme points."],
+      constructiveFeedback: ["Ensure all arguments provide sustained causal links directly referencing extract context."],
       modelAnswerSnippet: "Consult the mark scheme guidance.",
       improvementTip: "Develop deeper causal transmission mechanisms and explicit evaluation in context.",
-    };
+    });
   }
 }
 
@@ -322,9 +369,11 @@ export async function gradeFullDataResponsePaper(params: {
   else if (percentage >= 40) overallBand = "Band D (Basic / Needs Work)";
   else overallBand = "Band U (Unclassified)";
 
-  const executiveSummary = `Candidate scored ${totalAwarded}/${maxTotal} marks (${percentage}%, ${overallBand}) on ${paper.title}. Marking conducted strictly in accordance with official Cambridge ${paper.subjectCode} mark scheme guidelines, assessing extract application, table calculations with OFR, diagram accuracy, and evaluative rubric criteria for 6+ mark questions.`;
+  const executiveSummary = stripStars(
+    `Candidate scored ${totalAwarded}/${maxTotal} marks (${percentage}%, ${overallBand}) on ${paper.title}. Marking conducted strictly in accordance with official Cambridge ${paper.subjectCode} mark scheme guidelines, assessing extract application, table calculations with OFR, diagram accuracy, and evaluative rubric criteria for 6+ mark questions.`
+  );
 
-  return {
+  return cleanStars({
     id: `sub_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
     paperId: paper.id,
     paperTitle: paper.title,
@@ -336,5 +385,5 @@ export async function gradeFullDataResponsePaper(params: {
     examinerExecutiveSummary: executiveSummary,
     questionResults,
     submittedAt: new Date().toISOString(),
-  };
+  });
 }

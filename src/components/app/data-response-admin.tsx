@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
@@ -37,9 +37,10 @@ import {
   Info,
   BookMarked,
   Lightbulb,
+  Printer,
 } from "lucide-react";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
+import { cn, stripStars } from "@/lib/utils";
 
 import {
   listDataResponsePapers,
@@ -97,6 +98,47 @@ export function DataResponseStudio() {
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [activeQuestionIdx, setActiveQuestionIdx] = useState<number>(0);
   const [extractFilter, setExtractFilter] = useState<string>("");
+
+  // Load draft answers from localStorage when paper changes
+  useEffect(() => {
+    if (!selectedPaperId) return;
+    try {
+      const saved = localStorage.getItem(`marginal_dr_draft_${selectedPaperId}`);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && typeof parsed === "object") {
+          setAnswers(parsed);
+          return;
+        }
+      }
+    } catch {
+      // ignore
+    }
+    setAnswers({});
+  }, [selectedPaperId]);
+
+  // Auto-save draft to localStorage whenever answers change
+  useEffect(() => {
+    if (!selectedPaperId) return;
+    try {
+      if (answers && Object.keys(answers).length > 0) {
+        localStorage.setItem(`marginal_dr_draft_${selectedPaperId}`, JSON.stringify(answers));
+      }
+    } catch {
+      // ignore
+    }
+  }, [answers, selectedPaperId]);
+
+  // Quick Action: Load Cambridge Benchmark Script
+  const handleLoadSampleAnswers = () => {
+    if (!currentPaper) return;
+    if (currentPaper.sampleAnswers && Object.keys(currentPaper.sampleAnswers).length > 0) {
+      setAnswers(currentPaper.sampleAnswers);
+      toast.success("Loaded Cambridge benchmark answers into all sub-questions!");
+    } else {
+      toast.info("No benchmark script available for this paper.");
+    }
+  };
 
   // Marking Results State
   const [lastSubmission, setLastSubmission] = useState<DataResponseSubmissionResult | null>(null);
@@ -601,10 +643,28 @@ export function DataResponseStudio() {
 
                 {/* Test Controls & Submission Trigger */}
                 <div className="flex items-center gap-2 shrink-0">
+                  {currentPaper?.sampleAnswers && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleLoadSampleAnswers}
+                      className="text-xs text-primary border-primary/30 hover:bg-primary/10 h-9 font-semibold gap-1.5"
+                      title="Load Cambridge benchmark answers into all sub-questions"
+                    >
+                      <Sparkles className="h-3.5 w-3.5 text-primary" />
+                      Load Benchmark Script
+                    </Button>
+                  )}
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => setAnswers({})}
+                    onClick={() => {
+                      setAnswers({});
+                      try {
+                        localStorage.removeItem(`marginal_dr_draft_${selectedPaperId}`);
+                      } catch {}
+                      toast.info("Cleared all question answers.");
+                    }}
                     className="text-xs text-muted-foreground hover:text-destructive h-9"
                   >
                     Clear All
@@ -967,9 +1027,16 @@ export function DataResponseStudio() {
 
                     <CardContent className="p-4 space-y-3">
                       <div className="flex items-center justify-between text-xs text-muted-foreground">
-                        <Label htmlFor={`answer_${currentQuestion.number}`} className="font-semibold text-foreground">
-                          Candidate Script:
-                        </Label>
+                        <div className="flex items-center gap-2">
+                          <Label htmlFor={`answer_${currentQuestion.number}`} className="font-semibold text-foreground">
+                            Candidate Script:
+                          </Label>
+                          {answers[currentQuestion.number]?.trim() && (
+                            <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1">
+                              <Check className="h-3 w-3" /> Auto-saved draft
+                            </span>
+                          )}
+                        </div>
                         <span className="font-mono text-[11px]">
                           Word Count: {(answers[currentQuestion.number] || "").trim().split(/\s+/).filter(Boolean).length} words
                         </span>
@@ -1053,10 +1120,10 @@ export function DataResponseStudio() {
                     </h3>
                   </div>
                   <p className="text-sm text-foreground/90 font-medium">
-                    {lastSubmission.paperTitle}
+                    {stripStars(lastSubmission.paperTitle)}
                   </p>
                   <p className="text-xs text-muted-foreground leading-relaxed">
-                    {lastSubmission.examinerExecutiveSummary}
+                    {stripStars(lastSubmission.examinerExecutiveSummary)}
                   </p>
                 </div>
 
@@ -1082,7 +1149,7 @@ export function DataResponseStudio() {
 
                   <div className="text-center px-3">
                     <Badge className="bg-emerald-600 text-white font-bold text-xs py-1">
-                      {lastSubmission.overallBand}
+                      {stripStars(lastSubmission.overallBand)}
                     </Badge>
                     <div className="text-[11px] uppercase font-bold text-muted-foreground tracking-wider mt-1">
                       Cambridge Band
@@ -1091,16 +1158,27 @@ export function DataResponseStudio() {
                 </div>
               </div>
 
-              <div className="mt-4 pt-4 border-t border-border/60 flex items-center justify-between">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setActiveTab("practice")}
-                  className="text-xs gap-1.5 font-semibold"
-                >
-                  <PenTool className="h-3.5 w-3.5" />
-                  Return to Answering Studio (Edit & Regrade)
-                </Button>
+              <div className="mt-4 pt-4 border-t border-border/60 flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => window.print()}
+                    className="text-xs gap-1.5 font-semibold"
+                  >
+                    <Printer className="h-3.5 w-3.5" />
+                    Print / Save Report (PDF)
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setActiveTab("practice")}
+                    className="text-xs gap-1.5 font-semibold bg-primary/10 text-primary border-primary/30 hover:bg-primary/20"
+                  >
+                    <PenTool className="h-3.5 w-3.5" />
+                    Return to Answering Studio (Edit & Regrade)
+                  </Button>
+                </div>
                 <span className="text-xs text-muted-foreground font-mono">
                   Standardised: {new Date(lastSubmission.submittedAt).toLocaleTimeString()}
                 </span>
@@ -1124,7 +1202,7 @@ export function DataResponseStudio() {
                         {result.questionNumber}
                       </Badge>
                       <h5 className="font-semibold text-sm text-foreground">
-                        {result.questionTitle}
+                        {stripStars(result.questionTitle)}
                       </h5>
                     </div>
 
@@ -1141,7 +1219,7 @@ export function DataResponseStudio() {
                             : "bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30"
                         )}
                       >
-                        Extract: {result.extractContextCheck.contextQuality.replace(/_/g, " ")}
+                        Extract: {stripStars(result.extractContextCheck.contextQuality.replace(/_/g, " "))}
                       </Badge>
 
                       <Badge
@@ -1161,16 +1239,16 @@ export function DataResponseStudio() {
 
                   {/* Rubric level awarded banner for 6+ mark questions */}
                   {result.rubricLevelAwarded && (
-                    <div className="mt-2 p-2 rounded-md bg-primary/5 border border-primary/20 text-xs flex items-center justify-between">
+                    <div className="mt-2 p-2.5 rounded-lg bg-primary/5 border border-primary/20 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
                       <div className="flex items-center gap-2">
-                        <Award className="h-4 w-4 text-primary" />
+                        <Award className="h-4 w-4 text-primary shrink-0" />
                         <span className="font-semibold text-foreground">
-                          {result.rubricLevelAwarded.label} ({result.rubricLevelAwarded.marksRange})
+                          {stripStars(result.rubricLevelAwarded.label)} ({stripStars(result.rubricLevelAwarded.marksRange)})
                         </span>
                       </div>
                       {result.rubricLevelAwarded.evaluativeComment && (
                         <span className="text-muted-foreground italic text-[11px]">
-                          {result.rubricLevelAwarded.evaluativeComment}
+                          {stripStars(result.rubricLevelAwarded.evaluativeComment)}
                         </span>
                       )}
                     </div>
@@ -1261,7 +1339,7 @@ export function DataResponseStudio() {
                       </div>
 
                       <p className="text-xs text-muted-foreground bg-background p-2.5 rounded border border-border/60 leading-relaxed">
-                        <strong>Diagram Evaluation:</strong> {result.diagramEvaluation.examinerComment}
+                        <strong className="text-foreground">Diagram Evaluation:</strong> {stripStars(result.diagramEvaluation.examinerComment)}
                       </p>
                     </div>
                   )}
@@ -1287,69 +1365,116 @@ export function DataResponseStudio() {
                     )}
                   </div>
 
-                  {/* Examiner Rationale */}
-                  <div className="space-y-1">
-                    <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                      Principal Examiner Rationale:
-                    </span>
-                    <p className="text-xs/relaxed text-foreground bg-card p-3 rounded border border-border/60">
-                      {result.examinerRationale}
-                    </p>
-                  </div>
-
-                  {/* Context Check Feedback */}
-                  {result.extractContextCheck.feedback && (
-                    <div className="text-xs text-muted-foreground bg-muted/20 p-2.5 rounded border border-border/40">
-                      <strong>Contextual Evidence Assessment:</strong> {result.extractContextCheck.feedback}
+                  {/* Specific Mark Scheme Criteria Met & Credited Reasoning */}
+                  {result.specificCriteriaMet && result.specificCriteriaMet.length > 0 ? (
+                    <div className="space-y-2 rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-3.5">
+                      <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
+                        <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                        <span>Specific Mark Scheme Criteria Met:</span>
+                      </div>
+                      <div className="grid grid-cols-1 gap-2 pt-1">
+                        {result.specificCriteriaMet.map((item, cIdx) => (
+                          <div key={cIdx} className="p-2.5 rounded-lg bg-background/80 border border-emerald-500/20 text-xs space-y-1">
+                            <div className="flex items-start gap-2">
+                              <Check className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400 mt-0.5 shrink-0" />
+                              <span className="font-semibold text-foreground/90">{stripStars(item.criterion)}</span>
+                            </div>
+                            {item.candidateEvidence && (
+                              <div className="pl-5 text-[11px] text-muted-foreground italic">
+                                Candidate Evidence: &ldquo;{stripStars(item.candidateEvidence)}&rdquo;
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                  )}
+                  ) : result.creditedPoints && result.creditedPoints.length > 0 ? (
+                    <div className="space-y-2 rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-3.5">
+                      <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
+                        <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                        <span>Specific Mark Scheme Criteria Met:</span>
+                      </div>
+                      <ul className="list-disc pl-5 text-xs text-foreground/90 space-y-1 pt-1">
+                        {result.creditedPoints.map((pt, pIdx) => (
+                          <li key={pIdx}>{stripStars(pt)}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
 
-                  {/* Verbatim quotes rewarded */}
+                  {/* Rewarded Quotations from Candidate Script */}
                   {result.evidenceQuotes.length > 0 && (
-                    <div className="space-y-1">
+                    <div className="space-y-1.5">
                       <span className="text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
                         Rewarded Quotations from Candidate Script:
                       </span>
                       <div className="flex flex-wrap gap-2">
                         {result.evidenceQuotes.map((quote, qIdx) => (
                           <Badge key={qIdx} variant="secondary" className="text-xs font-normal italic bg-emerald-500/10 text-emerald-800 dark:text-emerald-200 border-emerald-500/20">
-                            "{quote}"
+                            &ldquo;{stripStars(quote)}&rdquo;
                           </Badge>
                         ))}
                       </div>
                     </div>
                   )}
 
-                  {/* Missing Mark Scheme Criteria */}
-                  {result.missingMarkSchemePoints.length > 0 && (
-                    <div className="space-y-1">
-                      <span className="text-xs font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">
-                        Omitted / Missing Mark Scheme Criteria:
-                      </span>
-                      <ul className="list-disc pl-5 text-xs text-muted-foreground space-y-0.5">
-                        {result.missingMarkSchemePoints.map((miss, mIdx) => (
-                          <li key={mIdx}>{miss}</li>
+                  {/* Constructive Feedback & Missing Criteria */}
+                  {((result.constructiveFeedback && result.constructiveFeedback.length > 0) || (result.missingMarkSchemePoints && result.missingMarkSchemePoints.length > 0)) && (
+                    <div className="space-y-2 rounded-xl border border-amber-500/30 bg-amber-500/5 p-3.5">
+                      <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400">
+                        <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                        <span>Constructive Feedback & Official Criteria Guidance:</span>
+                      </div>
+                      <ul className="list-disc pl-5 text-xs text-foreground/80 space-y-1 pt-1">
+                        {(result.constructiveFeedback && result.constructiveFeedback.length > 0
+                          ? result.constructiveFeedback
+                          : result.missingMarkSchemePoints
+                        ).map((miss, mIdx) => (
+                          <li key={mIdx} className="leading-relaxed">
+                            {stripStars(miss)}
+                          </li>
                         ))}
                       </ul>
+                      <p className="text-[10px] text-muted-foreground italic pt-1">
+                        Feedback strictly reflects omissions from official Cambridge 9708 mark scheme requirements.
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Examiner Assessment Rationale */}
+                  <div className="space-y-1.5 rounded-lg border border-border/70 bg-card p-3.5 shadow-xs">
+                    <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                      <GraduationCap className="h-4 w-4 text-primary" />
+                      <span>Principal Examiner Assessment Rationale:</span>
+                    </div>
+                    <p className="text-xs/relaxed text-foreground/90 font-medium whitespace-pre-wrap">
+                      {stripStars(result.examinerRationale)}
+                    </p>
+                  </div>
+
+                  {/* Context Check Feedback */}
+                  {result.extractContextCheck.feedback && (
+                    <div className="text-xs text-muted-foreground bg-muted/20 p-2.5 rounded border border-border/40">
+                      <strong className="text-foreground">Contextual Evidence Assessment:</strong> {stripStars(result.extractContextCheck.feedback)}
                     </div>
                   )}
 
                   {/* Model Answer Exemplar & Improvement Tip */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2 border-t border-border/50 text-xs">
-                    <div className="p-3 rounded-lg bg-blue-500/5 border border-blue-500/20 space-y-1">
-                      <span className="font-semibold text-blue-600 dark:text-blue-400 flex items-center gap-1">
+                    <div className="p-3.5 rounded-lg bg-blue-500/5 border border-blue-500/20 space-y-1.5">
+                      <span className="font-semibold text-blue-600 dark:text-blue-400 flex items-center gap-1.5">
                         <Check className="h-3.5 w-3.5" />
                         Cambridge Model Answer Formulation
                       </span>
-                      <p className="text-foreground/90 text-xs/relaxed">{result.modelAnswerSnippet}</p>
+                      <p className="text-foreground/90 text-xs/relaxed leading-relaxed">{stripStars(result.modelAnswerSnippet)}</p>
                     </div>
 
-                    <div className="p-3 rounded-lg bg-emerald-500/5 border border-emerald-500/20 space-y-1">
-                      <span className="font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                    <div className="p-3.5 rounded-lg bg-emerald-500/5 border border-emerald-500/20 space-y-1.5">
+                      <span className="font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
                         <Zap className="h-3.5 w-3.5" />
                         Examiner Key Improvement Advice
                       </span>
-                      <p className="text-foreground/90 text-xs/relaxed">{result.improvementTip}</p>
+                      <p className="text-foreground/90 text-xs/relaxed leading-relaxed">{stripStars(result.improvementTip)}</p>
                     </div>
                   </div>
                 </CardContent>

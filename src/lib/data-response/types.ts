@@ -96,6 +96,11 @@ export type DiagramEvaluationResult = {
   marksAwarded: number;
 };
 
+export type SpecificCriterionMet = {
+  criterion: string;
+  candidateEvidence?: string;
+};
+
 export type QuestionEvaluationResult = {
   questionNumber: string;
   questionTitle: string;
@@ -120,10 +125,12 @@ export type QuestionEvaluationResult = {
     evaluativeComment?: string;
   };
   diagramEvaluation?: DiagramEvaluationResult;
+  specificCriteriaMet?: SpecificCriterionMet[];
   examinerRationale: string;
   evidenceQuotes: string[];
   creditedPoints: string[];
   missingMarkSchemePoints: string[];
+  constructiveFeedback?: string[];
   modelAnswerSnippet: string;
   improvementTip: string;
 };
