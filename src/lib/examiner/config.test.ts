@@ -90,4 +90,33 @@ describe("Examiner Configuration & Gemini Model Allocation", () => {
     const evalSplit = defaultSplitForMaxMark(8, undefined, "Discuss whether interest rate rises reduce inflation");
     expect(evalSplit).toEqual({ ao1_marks: 2, ao2_marks: 4, ao3_marks: 2 });
   });
+  it("builds exact evaluation directives and level descriptors matching 8m tariffs", async () => {
+    const { buildAoEvaluationDirective, renderAo3Descriptors, defaultSplitForMaxMark, isEvaluativeQuestion } = await import("./config");
+
+    const compoundQuestion = "Explain the difference between public goods and merit goods and consider whether healthcare should be classified as a public good or a merit good";
+    expect(isEvaluativeQuestion(compoundQuestion)).toBe(true);
+
+    const evalSplit = defaultSplitForMaxMark(8, "8_eval", compoundQuestion);
+    expect(evalSplit).toEqual({ ao1_marks: 2, ao2_marks: 4, ao3_marks: 2 });
+
+    const evalDirective = buildAoEvaluationDirective(8, evalSplit);
+    expect(evalDirective).toContain("2 AO3 Evaluation Marks Allocated");
+    expect(evalDirective).toContain("EVALUATION IS MANDATORY");
+    expect(evalDirective).toContain("Even if the question stem begins with 'Explain'");
+    expect(evalDirective).toContain("Award up to 1 mark for balanced evaluative reasoning");
+    expect(evalDirective).toContain("Award up to 1 mark for a reasoned, context-specific conclusion");
+
+    const legacySplit = defaultSplitForMaxMark(8, "8_legacy");
+    expect(legacySplit).toEqual({ ao1_marks: 2, ao2_marks: 6, ao3_marks: 0 });
+
+    const legacyDirective = buildAoEvaluationDirective(8, legacySplit);
+    expect(legacyDirective).toContain("0 AO3 Evaluation Marks");
+    expect(legacyDirective).toContain("EVALUATION IS STRICTLY NOT REQUIRED");
+
+    const evalAo3Descriptors = renderAo3Descriptors(8, 2);
+    expect(evalAo3Descriptors).toContain("AO3 Evaluation & Concluding Judgement (2 marks total)");
+
+    const legacyAo3Descriptors = renderAo3Descriptors(8, 0);
+    expect(legacyAo3Descriptors).toContain("AO3 Evaluation (0 marks): Evaluation is NOT required");
+  });
 });

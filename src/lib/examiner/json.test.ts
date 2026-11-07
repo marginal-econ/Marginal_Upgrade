@@ -130,4 +130,45 @@ The candidate scored well on AO1.
     // Weaknesses mentioning missing evaluation must be filtered out for non-evaluative essays
     expect(result.weaknesses.some((w) => w.toLowerCase().includes("missing evaluation"))).toBe(false);
   });
+  it("normalises 8-mark evaluative essay, stripping false 'not required' claims and crediting conclusion", async () => {
+    const { normaliseGrading } = await import("./types");
+    const raw = {
+      total_mark: 6,
+      ao_breakdown: {
+        knowledge: { awarded: 2, out_of: 2, comment: "Accurate definitions of public goods and merit goods." },
+        analysis: { awarded: 4, out_of: 4, comment: "Clear analysis of non-rivalry, non-excludability, and positive externalities." },
+        evaluation: {
+          awarded: 0,
+          out_of: 2,
+          comment: "Evaluation is not required for this question as it is a non-evaluative 'Explain' question. However, the candidate does not directly address the evaluative component of the question ('consider whether healthcare should be classified as a public good or a merit good'). The conclusion merely restates the classification without weighing the arguments or considering alternative perspectives.",
+        },
+      },
+      missing_elements: {
+        definitions: [],
+        analysis: [],
+        evaluation: ["Deeper comparative evaluation"],
+      },
+      weaknesses: [
+        "The response lacks a structured evaluative paragraph, although this is not required for this question type.",
+      ],
+      examiner_summary: "The essay demonstrates strong knowledge and analysis, although this is not required for this question type.",
+    };
+
+    const split = { ao1_marks: 2, ao2_marks: 4, ao3_marks: 2 };
+    const result = normaliseGrading(raw, 8, split);
+
+    // AO3 is out of 2 marks
+    expect(result.ao_breakdown.evaluation.out_of).toBe(2);
+    // Because a conclusion / classification was present and acknowledged, it must be credited (1/2)
+    expect(result.ao_breakdown.evaluation.awarded).toBe(1);
+    // The false claim that evaluation is not required must be stripped
+    expect(result.ao_breakdown.evaluation.comment).not.toContain("Evaluation is not required for this question as it is a non-evaluative");
+    expect(result.ao_breakdown.evaluation.comment).not.toContain("although this is not required");
+    // Weaknesses and summary must not contain contradictory claims
+    expect(result.weaknesses.some((w) => w.includes("although this is not required"))).toBe(false);
+    expect(result.examiner_summary).not.toContain("although this is not required");
+    // Total mark must exactly equal AO1 + AO2 + AO3: 2 + 4 + 1 = 7
+    expect(result.total_mark).toBe(7);
+    expect(result.ao_breakdown.knowledge.awarded + result.ao_breakdown.analysis.awarded + result.ao_breakdown.evaluation.awarded).toBe(result.total_mark);
+  });
 });

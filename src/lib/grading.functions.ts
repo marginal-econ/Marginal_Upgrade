@@ -105,6 +105,7 @@ export const gradeEssaySubmission = createServerFn({ method: "POST" })
         essayText: gradedText,
         maxMark: data.maxMark,
         split,
+        essayType: data.essayType,
         auditPass: data.auditPass,
         markSchemeImageDataUrls: data.markSchemeImageDataUrls,
         isBudgetTier,

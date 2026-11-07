@@ -121,7 +121,7 @@ export const EMBEDDING_DIMS = 2048;
  */
 export function isEvaluativeQuestion(question?: string | null): boolean {
   if (!question || typeof question !== "string") return true;
-  return /\b(consider|to\s+what\s+extent|extent\s+to\s+which|discuss|evaluate|assess|whether|justify|weigh|compare\s+and\s+contrast|is\s+it\s+desirable)\b/i.test(
+  return /\b(consider|to\s+what\s+extent|extent\s+to\s+which|discuss|evaluate|assess|whether|justify|weigh|compare\s+and\s+contrast|is\s+it\s+desirable|should|how\s+far|do\s+you\s+agree|is\s+it\s+always|is\s+it\s+true|critically)\b/i.test(
     question,
   );
 }
@@ -195,6 +195,72 @@ export function defaultSplitForMaxMark(
 export function aoMaxMarks(maxMark: number): { ao1: number; ao2: number; ao3: number } {
   const split = defaultSplitForMaxMark(maxMark);
   return { ao1: split.ao1_marks, ao2: split.ao2_marks, ao3: split.ao3_marks };
+}
+
+/**
+ * Builds the authoritative examiner directive for evaluation based on the question tariff.
+ * For 8-mark questions, strictly distinguishes evaluative (AO1: 2, AO2: 4, AO3: 2) from
+ * non-evaluative legacy (AO1: 2, AO2: 6, AO3: 0).
+ */
+export function buildAoEvaluationDirective(maxMark: number, split: AoSplit): string {
+  if (split.ao3_marks === 0) {
+    return `SPECIAL DIRECTIVE FOR NON-EVALUATIVE LEGACY ESSAYS (0 AO3 Evaluation Marks):
+- THIS IS A PURE EXPLANATORY / ANALYTICAL QUESTION (e.g. legacy Cambridge 8-mark 'Explain' or 'Analyse' question).
+- EVALUATION IS STRICTLY NOT REQUIRED.
+- Candidates MUST NOT be penalised in any way for the absence of evaluation, weighing, alternative policies, or a conclusion.
+- The entire ${maxMark} marks are allocated exclusively across AO1 Knowledge (${split.ao1_marks} marks) and AO2 Analysis (${split.ao2_marks} marks).
+- In "ao_breakdown.evaluation", you MUST set "awarded": 0, "out_of": 0, and "comment": "Evaluation is not required for this question. No marks are lost for its omission."
+- Keep "missing_elements.evaluation" completely empty [].
+- NEVER mention missing evaluation, lack of alternative perspectives, or missing conclusions in weaknesses, comments, or examiner summary.`;
+  }
+
+  if (maxMark === 8 && split.ao3_marks === 2) {
+    return `SPECIAL DIRECTIVE FOR 8-MARK EVALUATIVE ESSAYS (2 AO3 Evaluation Marks Allocated):
+- THIS IS AN EVALUATIVE ESSAY (${maxMark} marks total: AO1: ${split.ao1_marks}, AO2: ${split.ao2_marks}, AO3: ${split.ao3_marks}).
+- EVALUATION IS MANDATORY. The prompt contains an evaluative requirement (e.g. 'consider', 'discuss', 'assess', 'whether', 'to what extent', 'should').
+- IMPORTANT: Even if the question stem begins with 'Explain' (e.g. 'Explain X and consider whether Y'), the evaluative clause DEMANDS EVALUATION.
+- In "ao_breakdown.evaluation", you MUST evaluate the candidate's evaluation out of exactly 2 marks:
+  * Award up to 1 mark for balanced evaluative reasoning (weighing opposing perspectives, context, alternatives, or limitations).
+  * Award up to 1 mark for a reasoned, context-specific conclusion or judgement directly addressing the question prompt.
+  * If the candidate provides evaluation or a concluding judgement (e.g. classifying healthcare and explaining why), AWARD CREDIT (1/2 or 2/2).
+- NEVER state or write that "Evaluation is not required" or that this is a "non-evaluative question"! Evaluation IS REQUIRED for this 8-mark evaluative essay.`;
+  }
+
+  return `SPECIAL DIRECTIVE FOR EVALUATIVE ESSAYS (${split.ao3_marks} AO3 Evaluation Marks Allocated):
+- THIS IS AN EVALUATIVE ESSAY (${maxMark} marks total: AO1: ${split.ao1_marks}, AO2: ${split.ao2_marks}, AO3: ${split.ao3_marks}).
+- EVALUATION IS MANDATORY. The question requires critical evaluation, weighing of arguments, and a substantiated conclusion.
+- In "ao_breakdown.evaluation", you MUST evaluate the candidate's evaluation out of exactly ${split.ao3_marks} marks.
+- NEVER claim that evaluation is not required! Evaluation IS REQUIRED for this essay.`;
+}
+
+/**
+ * Renders syllabus-exact AO3 level descriptors matching the exact allocated mark tariff.
+ */
+export function renderAo3Descriptors(maxMark: number, ao3Marks: number): string {
+  if (ao3Marks === 0) {
+    return `- AO3 Evaluation (0 marks): Evaluation is NOT required for this question. Candidates must not be penalised for omitting evaluation, weighing, or conclusions.`;
+  }
+  if (ao3Marks === 2) {
+    return `- AO3 Evaluation & Concluding Judgement (2 marks total) — EVALUATIVE 8-MARK ESSAY:
+      * Full Evaluation (2 of 2): Balanced evaluative reasoning weighing opposing arguments/perspectives (1 mark) AND a substantiated, context-specific conclusion or judgement directly addressing the question prompt (1 mark).
+      * Partial Evaluation (1 of 2): Evaluative commentary is present (either basic weighing/context OR a concluding judgement), but lacking full balance or depth.
+      * Zero Evaluation (0 of 2): Purely descriptive or one-sided analysis with NO evaluative weighing and NO concluding judgement.
+      * CRITICAL RULE: If the candidate evaluates or provides an evaluative conclusion (e.g. classifying healthcare and explaining why), AWARD CREDIT (1 or 2 marks). NEVER claim evaluation is not required when AO3 is allocated 2 marks.`;
+  }
+  if (ao3Marks === 4) {
+    return `- AO3 Evaluation & Question Focus (4 marks total) — 12-MARK AS ESSAY:
+      * Top Band (3-4 of 4): Highly rigorous standard. Requires genuine critical evaluation and prioritization, directly answering the prompt. Compares policies against explicit economic criteria and explicitly prioritizes the decisive consideration.
+      * Middle Band (2 of 4): Evaluative points present on both sides with some judgement, but comparison with alternatives is limited, criteria are listed rather than prioritized, or conclusion is a mechanical summary.
+      * Lower Band (0-1 of 4): Purely one-sided assertion, token closing sentence without comparative analysis.`;
+  }
+  if (ao3Marks >= 6) {
+    return `- AO3 Evaluation & Synoptic Synthesis (${ao3Marks} marks total) — 20-MARK A LEVEL ESSAY:
+      * Top Band (5-6 of ${ao3Marks}): Comprehensive synoptic evaluation, critical synthesis across micro and macro dimensions, prioritization of decisive factors, and a reasoned contextual verdict.
+      * Middle Band (3-4 of ${ao3Marks}): Clear balanced evaluation on multiple sides with economic criteria, but prioritization is less sustained or verdict is partially detached.
+      * Lower Band (1-2 of ${ao3Marks}): Basic, limited evaluative comments without structured weighing.
+      * Zero (0 of ${ao3Marks}): No evaluative reasoning or conclusions.`;
+  }
+  return `- AO3 Evaluation (${ao3Marks} marks total): Evaluate the candidate's evaluative reasoning, weighing of perspectives, and concluding judgement out of ${ao3Marks} marks.`;
 }
 
 /**

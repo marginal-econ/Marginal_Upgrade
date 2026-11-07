@@ -29,10 +29,12 @@ import {
 import { AUDIT_PROMPT } from "./audit-prompt";
 import { buildAnchorBlock, fetchCalibrationAnchors } from "./calibration.server";
 import {
+  buildAoEvaluationDirective,
   formatStructureNote,
   getStructureGuidance,
   MODEL_EXAMINER,
   renderAoDefinitions,
+  renderAo3Descriptors,
   TEMPERATURE_PASS1,
   TEMPERATURE_PASS2,
   type AoSplit,
@@ -93,6 +95,7 @@ export type GradeOptions = {
   essayText: string;
   maxMark: number;
   split: AoSplit;
+  essayType?: string;
   auditPass?: boolean;
   topicId?: string | null;
   /**
@@ -142,6 +145,8 @@ export async function gradeEssay(
     ao2_marks,
     ao3_marks,
     ao_definitions: renderAoDefinitions(),
+    ao_evaluation_directive: buildAoEvaluationDirective(maxMark, split),
+    ao3_level_descriptors: renderAo3Descriptors(maxMark, ao3_marks),
     structure_note: structureNote,
     essay_quality_profile: qualityDirective,
   };
@@ -256,7 +261,17 @@ export async function gradeEssay(
       `4. Do NOT invent fake mark-scheme references or claim to have consulted specific unseen question mark schemes.`;
   }
 
+  const evalRequirementBanner =
+    split.ao3_marks > 0
+      ? `[QUESTION SPECIFICATION: ${maxMark} Marks · EVALUATIVE ESSAY (AO1: ${ao1_marks}, AO2: ${ao2_marks}, AO3: ${ao3_marks})]\n` +
+        `EVALUATION IS MANDATORY. The prompt contains an evaluative requirement (e.g. 'consider', 'discuss', 'assess', 'whether', 'should', 'to what extent').\n` +
+        `Even if the question begins with 'Explain', any evaluative clause requires critical evaluation and a concluding judgement.\n` +
+        `You MUST evaluate AO3 out of exactly ${ao3_marks} marks. NEVER state that evaluation is not required.`
+      : `[QUESTION SPECIFICATION: ${maxMark} Marks · NON-EVALUATIVE LEGACY ESSAY (AO1: ${ao1_marks}, AO2: ${ao2_marks}, AO3: 0)]\n` +
+        `Pure explanatory / analytical question. Evaluation is NOT required; set AO3 awarded: 0, out_of: 0, with zero penalty.`;
+
   const userMessage =
+    `${evalRequirementBanner}\n\n` +
     `EXAM QUESTION TO MARK IN FULL DEPTH (${maxMark} marks):\n` +
     `"""\n${question}\n"""\n\n` +
     `STUDENT ESSAY SUBMISSION:\n` +

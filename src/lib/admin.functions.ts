@@ -2650,7 +2650,7 @@ export const adminFixFailedEssay = createServerFn({ method: "POST" })
     let model = "google/gemini-3.8-flash";
 
     if (data.mode === "auto_cambridge") {
-      const split = defaultSplitForMaxMark(data.maxMark);
+      const split = defaultSplitForMaxMark(data.maxMark, undefined, data.question);
       const outcome = await gradeEssay(supabaseAdmin, {
         question: data.question,
         essayText: data.essayText,

@@ -182,6 +182,28 @@ export function normaliseGrading(
     evaluation.out_of = 0;
     evaluation.awarded = 0;
     evaluation.comment = "Evaluation is not required for this question. No marks are lost for its omission.";
+  } else {
+    // Evaluative essay: sanitize false claims that evaluation is not required
+    if (/not required|non-evaluative/i.test(evaluation.comment)) {
+      evaluation.comment = evaluation.comment
+        .replace(/Evaluation is (strictly )?not required for this question as it is a non-evaluative ['"][^'"]*['"] question.s*/gi, "")
+        .replace(/Evaluation is (strictly )?not required for this question.?s*/gi, "")
+        .replace(/although this is not required for this question type.?s*/gi, "")
+        .trim();
+
+      if (!evaluation.comment) {
+        evaluation.comment = "Evaluative reasoning and concluding judgement assessed against the question prompt.";
+      }
+
+      // If the examiner had awarded 0 marks solely due to the false belief that evaluation was not required,
+      // but the candidate made an evaluative attempt or provided a conclusion / classification:
+      if (
+        evaluation.awarded === 0 &&
+        /conclusion|judgement|judgment|classif|weigh|perspective|counter/i.test(evaluation.comment)
+      ) {
+        evaluation.awarded = 1;
+      }
+    }
   }
 
   const aoTotal = knowledge.awarded + analysis.awarded + evaluation.awarded;
@@ -219,6 +241,17 @@ export function normaliseGrading(
     actionableFeedback = actionableFeedback.filter(
       (f) => !/\b(evaluate|evaluation|evaluative|opposing argument|conclusion)\b/i.test(f),
     );
+  } else {
+    // Clean weaknesses, examiner summary, and actionable feedback of false claims that evaluation is not required
+    weaknesses = weaknesses.map((w) =>
+      w.replace(/,?\s*although this is not required for this question type/gi, "")
+       .replace(/,?\s*even though evaluation is not required/gi, "")
+       .trim()
+    );
+    examinerSummary = examinerSummary
+      .replace(/,?\s*although this is not required for this question type/gi, "")
+      .replace(/,?\s*even though evaluation is not required/gi, "")
+      .trim();
   }
 
   if (strengths.length === 0) {

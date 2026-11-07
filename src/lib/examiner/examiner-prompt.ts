@@ -48,14 +48,7 @@ Cambridge examiners practice POSITIVE MARKING: reward what the candidate knows, 
    - AO3 Evaluation: exactly {ao3_marks} marks
    This split is authoritative and fixed by Cambridge. The "out_of" values in your JSON must be exactly {ao1_marks}, {ao2_marks}, and {ao3_marks}.
 
-   SPECIAL DIRECTIVE FOR NON-EVALUATIVE ESSAYS ({ao3_marks} AO3 marks):
-   If {ao3_marks} is 0 marks (e.g. legacy Cambridge 8-mark 'Explain' or 'Analyse' questions without evaluative command words like 'discuss', 'consider', or 'to what extent'):
-   - EVALUATION IS STRICTLY NOT REQUIRED.
-   - Candidates MUST NOT be penalised in any way for the absence of evaluation, weighing, alternative policies, or a conclusion.
-   - The entire {max_mark} marks are allocated exclusively across AO1 Knowledge ({ao1_marks} marks) and AO2 Analysis ({ao2_marks} marks).
-   - In "ao_breakdown.evaluation", you MUST set "awarded": 0, "out_of": 0, and "comment": "Evaluation is not required for this question. No marks are lost for its omission."
-   - Keep "missing_elements.evaluation" completely empty [].
-   - Never mention missing evaluation or missing conclusions in weaknesses or examiner summary.
+{ao_evaluation_directive}
 
 4. CRITICAL RULE — ZERO NUMERIC MARKS OR FRACTIONS IN COMMENTS / EXPLANATIONS:
    - NEVER state or cite numeric marks, fractions, or ratios (such as "(3/4)", "3/4", "1/4", "2/2", "awarded 3 marks", "the single mark is awarded", "restricted to 3/4") anywhere inside the "comment" fields of "ao_breakdown", or in "strengths", "weaknesses", or "examiner_summary".
@@ -72,11 +65,7 @@ Cambridge examiners practice POSITIVE MARKING: reward what the candidate knows, 
      * Middle Band (3-4 of 6): Sound analytical reasoning with correct underlying theory, but one mechanism is partially developed, an intermediate causal step is left implicit, or examples are less detailed. Must have NO major theoretical misconceptions in the core mechanism.
      * Lower Band (1-2 of 6): Descriptive assertions without complete causal links, OR transmission mechanisms containing major theoretical errors / built on false premises (e.g. analyzing carbon taxes as income taxes, inverted supply/demand dynamics). Causal chains built on false economics CANNOT exceed Level 1 (1-2 marks).
      * Zero marks (0 of 6): No analytical reasoning or completely incoherent.
-   - AO3 Evaluation & Question Focus ({ao3_marks} marks) — CALIBRATED WITH +3-5% STRICTNESS:
-     * QUESTION DIRECTIVE IS PARAMOUNT: When a question asks whether a policy is the 'best way', 'most effective method', or 'to what extent', candidates MUST directly address that evaluative directive.
-     * Top Band (3-4 of 4): Highly rigorous standard. Requires genuine critical evaluation and prioritization, directly answering the prompt. To reach Top Band (especially 4/4) on 'best way' / 'most effective' questions, the candidate MUST compare the examined policy against alternative policies (e.g. comparing carbon taxes with tradable permits, regulations/standards, subsidies for clean tech) against explicit economic criteria (price elasticity of demand, administrative/monitoring costs, regressive distributional effects on low-income households, information deficit / government failure in setting the tax rate, revenue hypothecation), AND explicitly prioritize which factor or criterion is the decisive consideration in practice. Merely listing textbook dependencies ('it depends on PED and time lags') without justifying which matters most cannot earn 4/4.
-     * Middle Band (2 of 4): Evaluative points present on both sides with some judgement, but the comparison with alternatives is limited, criteria are listed rather than prioritized, or the conclusion is a mechanical summary.
-     * Lower Band (0-1 of 4): Purely one-sided assertion, token closing sentence ('a mix of both is best') without comparative analysis, or failing to address the 'best method' directive.
+   {ao3_level_descriptors}
    - REALISTIC OVERALL BAND CALIBRATION:
      * Bottom Band (0 to ~35% of max mark, e.g. 0-4/12): Flawed essays with inverted definitions, fundamental theoretical misconceptions, and weak/superficial evaluation belong here.
      * Lower Middle Band (~35% to 54% of max mark, e.g. 5-6/12): Basic, partially flawed attempts with some correct terminology and one basic valid causal chain, but limited evaluation.
@@ -205,10 +194,11 @@ EXAMINER PASS 1 FOCUS (Temperature 0.0 — Rigorous Theoretical & Analytical Err
 - PROSE INTEGRITY & AI FORMATTING CHECK:
   * Penalize synthetic AI-generated artifacts (markdown bolding **...**, raw LaTeX formulas). Flag the lack of natural continuous prose and compressed outline style in weaknesses.
 - ZERO NUMERIC MARKS IN COMMENTS: Never mention numeric marks or fractions (e.g. '(3/4)', '1/4', '3/4', '2/2', 'a single mark is awarded', 'restricted to 3/4') in comment text. Focus purely on explaining qualitatively why marks were lost or restricted.
-- NON-EVALUATIVE ESSAYS: If AO3 is allocated 0 marks, evaluation is NOT required. Award 0 for AO3 without any penalisation, and do not criticise the absence of evaluation.
+- EVALUATIVE VS NON-EVALUATIVE TARIFF DIRECTIVE:
+  * If AO3 is allocated > 0 marks (e.g. 2 marks for 8m evaluative, 4m for 12m, 6m for 20m), EVALUATION IS MANDATORY. You MUST evaluate AO3 out of the allocated marks ({ao3_marks} marks) and NEVER claim evaluation is not required. Even if the question starts with 'Explain', any evaluative clause (such as 'consider whether', 'discuss', 'assess', 'should', 'to what extent') DEMANDS full evaluative assessment.
+  * If AO3 is allocated 0 marks (legacy 8-mark 'Explain' questions), evaluation is NOT required. Award 0/0 for AO3 without any penalisation, and do not criticise the absence of evaluation or conclusions.
 - Distinguish correct economics from errors: e.g., lower price causing quantity demanded to extend from Q to Q1 is accurate, not an error.
 - ZERO NUMERIC MARKS IN COMMENTS: Never write mark numbers or fractions in comments. Provide qualitative feedback only explaining why marks were gained or lost.
-- NON-EVALUATIVE ESSAYS: If AO3 is allocated 0 marks, evaluation is NOT required. Candidates must not be penalised for omitting evaluation.
 - Diagrams are NEVER compulsory unless requested. Do not penalise missing diagrams. Positively reward diagrams if present.
 `;
 
@@ -232,6 +222,8 @@ EXAMINER PASS 2 FOCUS (Temperature 0.2 — Holistic Cambridge Assessment & Wide 
   * Maintain full Top Band marks (10-12/12) for well-developed, paragraphed student essays (500+ words) that demonstrate sustained analysis and prioritized evaluation.
 - APPLICATION & EXAMPLES: Reward genuine real-world application and clear guiding theoretical examples. Reject weak, superficial one-liner examples that lack explanation.
 - ZERO NUMERIC MARKS IN COMMENTS: Never write mark numbers or fractions in comments. Provide qualitative feedback only explaining why marks were gained or lost.
-- NON-EVALUATIVE ESSAYS: If AO3 is allocated 0 marks, evaluation is NOT required. Candidates must not be penalised for omitting evaluation.
+- EVALUATIVE VS NON-EVALUATIVE TARIFF DIRECTIVE:
+  * If AO3 is allocated > 0 marks (e.g. 2 marks for 8m evaluative, 4m for 12m, 6m for 20m), EVALUATION IS MANDATORY. You MUST evaluate AO3 out of {ao3_marks} marks and NEVER claim evaluation is not required. Even if the question begins with 'Explain', any evaluative clause ('consider whether', 'discuss', 'assess', 'should', 'to what extent') demands full evaluative grading.
+  * If AO3 is allocated 0 marks, evaluation is NOT required. Candidates must not be penalised for omitting evaluation.
 - Diagrams are NEVER compulsory unless requested. Do not penalise missing diagrams. Positively reward diagrams if present.
 `;

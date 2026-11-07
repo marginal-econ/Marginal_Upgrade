@@ -163,6 +163,9 @@ AUTHORITATIVE PRINCIPAL EXAMINER PRINCIPLES:
    - NEVER penalise or deduct marks for the absence of a diagram. If either pass deducted marks for lack of a diagram, OVERTURN that deduction.
    - If an accurate diagram is described or drawn, ensure it is POSITIVELY REWARDED under AO2.
 5. EVALUATION DIRECTIVE (STRONG, WIDE, AND RIGOROUS +3-5% STRICTNESS):
+   - EVALUATIVE VS NON-EVALUATIVE TARIFF DIRECTIVE:
+     * If {ao3_marks} is 0 marks: Evaluation is strictly NOT required (legacy Cambridge 8-mark 'Explain' questions). Set awarded: 0, out_of: 0, and comment: "Evaluation is not required for this question. No marks are lost for its omission." Keep missing_elements.evaluation empty [].
+     * If {ao3_marks} > 0 marks: Evaluation IS MANDATORY. You MUST grade AO3 out of {ao3_marks} marks. NEVER state that evaluation is not required, even if the question starts with 'Explain'.
    - Apply calibrated strictness (+3-5%) to AO3 Evaluation:
    - Demand critical prioritization: top band evaluation requires the candidate to explicitly justify which factor or criterion is most decisive (e.g. why inelastic demand limits short-run effectiveness vs long-run substitution).
    - Reject unprioritized textbook lists: merely reciting 'it depends on PED, time, and government budget' without contextual weighing belongs in middle band (Level 2).
@@ -393,15 +396,31 @@ export function synthesizeDualPasses(
     : pass1.ao_breakdown.analysis.comment;
   const aComment = stripScoreFractionsFromText(rawAComment.replace(/[*_]/g, "").trim());
 
-  const rawEComment = pass2.ao_breakdown.evaluation.comment.length > pass1.ao_breakdown.evaluation.comment.length
+  let rawEComment = pass2.ao_breakdown.evaluation.comment.length > pass1.ao_breakdown.evaluation.comment.length
     ? pass2.ao_breakdown.evaluation.comment
     : pass1.ao_breakdown.evaluation.comment;
+
+  if (split.ao3_marks > 0) {
+    if (/not required|non-evaluative/i.test(rawEComment)) {
+      const altComment = [pass1.ao_breakdown.evaluation.comment, pass2.ao_breakdown.evaluation.comment]
+        .find(c => !/not required|non-evaluative/i.test(c));
+      rawEComment = altComment || "Evaluative points consider context and reach a supported conclusion.";
+    }
+  }
+
   const eComment = split.ao3_marks === 0
     ? "Evaluation is not required for this question. No marks are lost for its omission."
     : stripScoreFractionsFromText(rawEComment.replace(/[*_]/g, "").trim());
 
   if (split.ao3_marks === 0) {
     eMark = 0;
+  } else if (eMark === 0) {
+    const hasEvalMention = /conclusion|judgement|judgment|weigh|perspective|evaluat/i.test(
+      (pass1.ao_breakdown.evaluation.comment || "") + " " + (pass2.ao_breakdown.evaluation.comment || "")
+    );
+    if (hasEvalMention) {
+      eMark = 1;
+    }
   }
 
   // Diagrams missing elements must always be empty unless specifically required
