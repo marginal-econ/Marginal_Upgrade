@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
-import { Sparkles, TrendingUp } from "lucide-react";
+import { Sparkles, CheckCircle2, Clock, HelpCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { TARIFF_SPLITS, defaultSplitForMaxMark } from "@/lib/examiner/config";
-import type { ScoreEstimate, AoBreakdown } from "@/lib/live-examiner/types";
+import type { ScoreEstimate } from "@/lib/live-examiner/types";
 import { stripStars } from "@/lib/live-examiner/clean-suggestion";
 import { cn } from "@/lib/utils";
 
@@ -12,6 +12,8 @@ export type ScoreWidgetProps = {
   wordCount: number;
   maxMark: number;
   checking?: boolean;
+  status?: "provisional" | "verified" | "uncertain" | "complete";
+  markRange?: [number, number];
   className?: string;
 };
 
@@ -26,6 +28,8 @@ export function ScoreWidget({
   wordCount,
   maxMark,
   checking = false,
+  status = "provisional",
+  markRange,
   className,
 }: ScoreWidgetProps) {
   const validTariff = (maxMark === 8 || maxMark === 12 || maxMark === 20 ? maxMark : 12) as 8 | 12 | 20;
@@ -66,13 +70,23 @@ export function ScoreWidget({
         <div>
           <div className="flex items-center gap-2">
             <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-              Live Predicted Mark
+              Running Mark
             </span>
-            <Badge variant="outline" className="text-[10px] uppercase font-semibold text-muted-foreground">
-              Estimate
-            </Badge>
+            {status === "verified" ? (
+              <Badge className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 text-[10px] font-semibold gap-1">
+                <CheckCircle2 className="size-2.5" /> Verified
+              </Badge>
+            ) : status === "uncertain" ? (
+              <Badge variant="outline" className="text-[10px] text-muted-foreground font-semibold gap-1">
+                <HelpCircle className="size-2.5" /> Early Draft
+              </Badge>
+            ) : (
+              <Badge className="bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30 text-[10px] font-semibold gap-1">
+                <Clock className="size-2.5" /> Provisional
+              </Badge>
+            )}
             {checking && (
-              <span className="size-2 animate-ping rounded-full bg-primary" title="AI verifying" />
+              <span className="size-2 animate-ping rounded-full bg-primary" title="AI verifying in background" />
             )}
           </div>
 
@@ -87,6 +101,12 @@ export function ScoreWidget({
                 {deltaChip}
               </Badge>
             )}
+
+            {markRange && markRange[0] !== markRange[1] && (
+              <span className="text-xs font-mono text-muted-foreground">
+                (Range: {markRange[0]}–{markRange[1]})
+              </span>
+            )}
           </div>
 
           <p className="mt-0.5 text-xs font-medium text-muted-foreground">{band}</p>
@@ -94,69 +114,59 @@ export function ScoreWidget({
 
         {/* Word Count Indicator */}
         <div className="text-right">
-          <span className="font-mono text-xs font-semibold text-foreground">{wordCount} words</span>
-          <p className="text-[11px] text-muted-foreground">{targetInfo.label}</p>
+          <span className="text-xs font-semibold text-foreground font-mono">
+            {wordCount}{" "}
+            <span className="text-[10px] font-normal text-muted-foreground">words</span>
+          </span>
+          <p className="text-[10px] text-muted-foreground">{targetInfo.label}</p>
         </div>
       </div>
 
-      {/* AO Breakdown Bars with Exact Cambridge Tariffs */}
+      {/* AO Breakdown Meters */}
       <div className="mt-5 space-y-3">
         {/* AO1 Knowledge */}
-        <div>
-          <div className="flex justify-between text-xs font-medium pb-1">
-            <span className="flex items-center gap-1.5 text-foreground">
-              <span className="size-2 rounded-full bg-[var(--ao1)]" />
-              <span>AO1 Knowledge & Understanding</span>
-            </span>
-            <span className="font-mono text-muted-foreground font-semibold">
+        <div className="space-y-1">
+          <div className="flex justify-between text-xs font-semibold">
+            <span className="text-ao1">AO1 Knowledge &amp; Definitions</span>
+            <span className="font-mono text-muted-foreground">
               {ao1} / {split.ao1_marks}
             </span>
           </div>
-          <div className="h-2 w-full overflow-hidden rounded-full bg-muted/60">
-            <div
-              className="h-full rounded-full bg-[var(--ao1)] transition-all duration-300"
-              style={{ width: `${Math.min(100, (ao1 / split.ao1_marks) * 100)}%` }}
-            />
-          </div>
+          <Progress
+            value={split.ao1_marks > 0 ? (ao1 / split.ao1_marks) * 100 : 100}
+            className="h-2 bg-ao1/15"
+          />
         </div>
 
         {/* AO2 Analysis */}
-        <div>
-          <div className="flex justify-between text-xs font-medium pb-1">
-            <span className="flex items-center gap-1.5 text-foreground">
-              <span className="size-2 rounded-full bg-[var(--ao2)]" />
-              <span>AO2 Analysis & Application</span>
-            </span>
-            <span className="font-mono text-muted-foreground font-semibold">
+        <div className="space-y-1">
+          <div className="flex justify-between text-xs font-semibold">
+            <span className="text-ao2">AO2 Causal Analysis &amp; Application</span>
+            <span className="font-mono text-muted-foreground">
               {ao2} / {split.ao2_marks}
             </span>
           </div>
-          <div className="h-2 w-full overflow-hidden rounded-full bg-muted/60">
-            <div
-              className="h-full rounded-full bg-[var(--ao2)] transition-all duration-300"
-              style={{ width: `${Math.min(100, (ao2 / split.ao2_marks) * 100)}%` }}
-            />
-          </div>
+          <Progress
+            value={split.ao2_marks > 0 ? (ao2 / split.ao2_marks) * 100 : 100}
+            className="h-2 bg-ao2/15"
+          />
         </div>
 
         {/* AO3 Evaluation */}
-        <div>
-          <div className="flex justify-between text-xs font-medium pb-1">
-            <span className="flex items-center gap-1.5 text-foreground">
-              <span className="size-2 rounded-full bg-[var(--ao3)]" />
-              <span>AO3 Evaluation & Judgement</span>
-            </span>
-            <span className="font-mono text-muted-foreground font-semibold">
-              {ao3} / {split.ao3_marks}
-            </span>
-          </div>
-          <div className="h-2 w-full overflow-hidden rounded-full bg-muted/60">
-            <div
-              className="h-full rounded-full bg-[var(--ao3)] transition-all duration-300"
-              style={{ width: `${Math.min(100, (ao3 / split.ao3_marks) * 100)}%` }}
+        {split.ao3_marks > 0 && (
+          <div className="space-y-1">
+            <div className="flex justify-between text-xs font-semibold">
+              <span className="text-ao3">AO3 Evaluation &amp; Judgement</span>
+              <span className="font-mono text-muted-foreground">
+                {ao3} / {split.ao3_marks}
+              </span>
+            </div>
+            <Progress
+              value={(ao3 / split.ao3_marks) * 100}
+              className="h-2 bg-ao3/15"
             />
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

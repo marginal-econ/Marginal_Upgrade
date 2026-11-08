@@ -510,6 +510,13 @@ function LiveExaminerPage() {
     rescan,
     clearAll,
     cache,
+    rubric,
+    ledger,
+    opportunities,
+    strengths,
+    areasForImprovement,
+    assessmentStatus,
+    markRange,
   } = useLiveExaminerCheck({
     text: textForCheck,
     question,
@@ -1062,20 +1069,23 @@ function LiveExaminerPage() {
               wordCount={wordCount}
               maxMark={maxMark}
               checking={checking}
+              status={assessmentStatus}
+              markRange={markRange}
             />
 
-            {scoreEstimate && scoreEstimate.nextMoves.length > 0 ? (
-              <NextMarks
-                nextMoves={scoreEstimate.nextMoves}
-                onSelectMove={(move) => {
-                  toast.info(`Next mark tip: ${move.title}`, {
-                    description: move.detail,
-                  });
-                }}
-                onOpenMaximizer={() => setMaximizerOpen(true)}
-                maximizerLoading={maximizerLoading}
-              />
-            ) : null}
+            <NextMarks
+              nextMoves={scoreEstimate?.nextMoves || []}
+              opportunities={opportunities}
+              strengths={strengths}
+              areasForImprovement={areasForImprovement}
+              onSelectMove={(move) => {
+                toast.info(`Next mark tip: ${move.title}`, {
+                  description: move.detail,
+                });
+              }}
+              onOpenMaximizer={() => setMaximizerOpen(true)}
+              maximizerLoading={maximizerLoading}
+            />
 
             <LiveExaminerPanel
               issues={issues}

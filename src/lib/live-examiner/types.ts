@@ -229,3 +229,111 @@ export const SavedSessionSchema = z.object({
   schemaVersion: z.number().int().default(2),
 });
 export type SavedSession = z.infer<typeof SavedSessionSchema>;
+
+// ============================================================================
+// Live Examiner 2.0 Intelligence Architecture Types
+// ============================================================================
+
+export type AssessmentStatus = 'provisional' | 'verified' | 'uncertain' | 'complete';
+
+export const SemanticClassificationSchema = z.object({
+  sentenceId: z.string(),
+  documentVersion: z.number().int().nonnegative().default(1),
+  primaryAO: z.enum(['AO1', 'AO2', 'AO3', 'NO_CREDIT', 'UNCERTAIN']),
+  secondaryAOs: z.array(z.enum(['AO1', 'AO2', 'AO3'])).default([]),
+  confidence: z.number().min(0).max(1).default(0.8),
+  economicFunction: z.string(),
+  evidence: z.string().default(''),
+  issues: z.array(IssueSchema).default([]),
+  requiresReview: z.boolean().default(false),
+});
+export type SemanticClassification = z.infer<typeof SemanticClassificationSchema>;
+
+export const QuestionRubricSchema = z.object({
+  questionId: z.string(),
+  questionText: z.string(),
+  commandWord: z.string().default('Discuss'),
+  maximumMarks: z.number().int().positive().default(12),
+  assessmentObjectives: z.array(
+    z.object({
+      ao: z.enum(['AO1', 'AO2', 'AO3']),
+      applicable: z.boolean(),
+      criteria: z.array(z.string()),
+    })
+  ),
+  indicativeContent: z.array(z.string()).default([]),
+  levelDescriptors: z.array(
+    z.object({
+      band: z.number().int(),
+      markRange: z.tuple([z.number(), z.number()]),
+      descriptor: z.string(),
+    })
+  ).default([]),
+  alternativeAcceptableArguments: z.array(z.string()).default([]),
+  markingInstructions: z.array(z.string()).default([]),
+  sourceReferences: z.array(z.string()).default([]),
+  rubricVersion: z.string().default('2.0'),
+});
+export type QuestionRubric = z.infer<typeof QuestionRubricSchema>;
+
+export const EconomicArgumentSchema = z.object({
+  argumentId: z.string(),
+  sentenceIds: z.array(z.string()),
+  claim: z.string(),
+  primaryAO: z.enum(['AO1', 'AO2', 'AO3', 'NO_CREDIT']),
+  transmissionChain: z.array(z.string()).default([]),
+  isCompleteChain: z.boolean().default(false),
+  hasContextualApplication: z.boolean().default(false),
+  evaluativeDepth: z.enum(['none', 'superficial', 'sustained', 'justified_judgement']).optional(),
+  rubricMatch: z.string().optional(),
+});
+export type EconomicArgument = z.infer<typeof EconomicArgumentSchema>;
+
+export const MarkLedgerEntrySchema = z.object({
+  argumentId: z.string(),
+  sentenceIds: z.array(z.string()),
+  assessmentObjective: z.enum(['AO1', 'AO2', 'AO3']),
+  rubricCriterion: z.string(),
+  evidence: z.string(),
+  awardedCredit: z.number().min(0),
+  missingDevelopment: z.array(z.string()).default([]),
+  status: z.enum(['provisional', 'verified', 'uncertain']),
+  reasoning: z.string(),
+});
+export type MarkLedgerEntry = z.infer<typeof MarkLedgerEntrySchema>;
+
+export const ScoreMaximizerOpportunitySchema = z.object({
+  id: z.string(),
+  priority: z.enum(['critical', 'high', 'medium']),
+  aoTarget: z.enum(['ao1', 'ao2', 'ao3']),
+  sentenceIds: z.array(z.string()).default([]),
+  title: z.string(),
+  whyItMatters: z.string(),
+  suggestedAction: z.string(),
+  illustrativeExpansion: z.string().optional(),
+  potentialGain: z.number().int().min(1).max(3).default(1),
+  confidence: z.number().min(0).max(1).default(0.85),
+});
+export type ScoreMaximizerOpportunity = z.infer<typeof ScoreMaximizerOpportunitySchema>;
+
+export const LiveExaminerV2ResultSchema = z.object({
+  docVersion: z.number().int().nonnegative(),
+  status: z.enum(['provisional', 'verified', 'uncertain', 'complete']),
+  runningMark: z.number().int().nonnegative(),
+  maxMark: z.number().int().positive(),
+  markRange: z.tuple([z.number(), z.number()]).optional(),
+  confidence: z.number().min(0).max(1),
+  aoBreakdown: z.object({
+    ao1: z.object({ awarded: z.number(), max: z.number(), coveragePct: z.number() }),
+    ao2: z.object({ awarded: z.number(), max: z.number(), coveragePct: z.number() }),
+    ao3: z.object({ awarded: z.number(), max: z.number(), coveragePct: z.number() }),
+  }),
+  classifications: z.array(SemanticClassificationSchema),
+  ledger: z.array(MarkLedgerEntrySchema),
+  arguments: z.array(EconomicArgumentSchema),
+  opportunities: z.array(ScoreMaximizerOpportunitySchema),
+  strengths: z.array(z.string()),
+  areasForImprovement: z.array(z.string()),
+  issues: z.array(IssueSchema),
+});
+export type LiveExaminerV2Result = z.infer<typeof LiveExaminerV2ResultSchema>;

@@ -1,3 +1,8 @@
+import { buildQuestionRubric } from "./live-examiner/rubric-retrieval";
+import { checkEconomicMisconceptions } from "./live-examiner/reasoning-engine";
+import { evaluateParagraphSemantics } from "./live-examiner/semantic-engine";
+import { buildMarkLedger } from "./live-examiner/mark-ledger";
+import { generateFeedbackAndOpportunities } from "./live-examiner/score-maximizer";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
@@ -654,13 +659,32 @@ export const checkEssayWriting = createServerFn({ method: "POST" })
 
     // Deterministic pass first — zero cost, zero latency, needs no AI
     // confirmation since these are exact-string glossary and 4-layer grammar/misconception matches.
+    const misconceptionIssues: LiveExaminerIssue[] = toSend.flatMap((s, idx) =>
+      checkEconomicMisconceptions(s, `det_misc_${idx}`).map((iss) => ({
+        original: iss.original,
+        suggestion: iss.suggestion || "",
+        category: iss.category as any,
+        severity: iss.severity,
+        explanation: iss.explanation,
+        context: s,
+        evidence: iss.evidence,
+        aoImpact: iss.aoImpact,
+      }))
+    );
     const grammarDeterministic: LiveExaminerIssue[] = analyzeGrammarAndMechanics(toSend).map(
       ({ ruleId: _ruleId, startOffset: _start, endOffset: _end, ...issue }) => issue,
     );
     const deterministic: LiveExaminerIssue[] = [
       ...deterministicTerminologyIssues(toSend),
+      ...misconceptionIssues,
       ...grammarDeterministic,
     ];
+    const rubric = buildQuestionRubric({
+      question: data.question,
+      level: data.level,
+      maxMark: data.maxMark,
+      contextBlock: data.contextBlock,
+    });
 
     // Compact context block so live keystroke checks use ~350 tokens instead of ~4,500
     const compactedContext = compactSyllabusContext(data.contextBlock);
@@ -919,6 +943,55 @@ export const checkEssayWriting = createServerFn({ method: "POST" })
 
       const merged = dedupeAndCap([...carryForward(), ...deterministic, ...freshIssues]);
 
+      const sentenceObjects = currentSentences.map((s, idx) => ({
+        id: `s_${idx}`,
+        text: s,
+        paragraphIndex: 0,
+        sentenceIndex: idx,
+        isComplete: true,
+      }));
+
+      const semanticClassifications = evaluateParagraphSemantics({
+        sentences: sentenceObjects,
+        paragraphText: data.essayText,
+        docVersion: 1,
+        rubric,
+      });
+
+      for (const c of classifications) {
+        const match = semanticClassifications.find(
+          (sc) =>
+            sc.evidence.toLowerCase().includes(c.original.toLowerCase()) ||
+            c.original.toLowerCase().includes(sc.evidence.toLowerCase())
+        );
+        if (match && c.ao) {
+          match.primaryAO = c.ao as any;
+        }
+      }
+
+      const ledgerResult = buildMarkLedger({
+        sentences: sentenceObjects,
+        classifications: semanticClassifications,
+        rubric,
+        isAiVerified: true,
+      });
+
+      const feedbackResult = generateFeedbackAndOpportunities({
+        ledger: ledgerResult.ledger,
+        rubric,
+        aoBreakdown: ledgerResult.aoBreakdown,
+        totalWords: wordCount,
+      });
+
+      if (predictedMark && ledgerResult.totalMark > 0) {
+        predictedMark.total_mark = Math.min(data.maxMark, ledgerResult.totalMark);
+        predictedMark.ao_breakdown = {
+          knowledge: { awarded: ledgerResult.aoBreakdown.ao1.awarded, out_of: ledgerResult.aoBreakdown.ao1.max },
+          analysis: { awarded: ledgerResult.aoBreakdown.ao2.awarded, out_of: ledgerResult.aoBreakdown.ao2.max },
+          evaluation: { awarded: ledgerResult.aoBreakdown.ao3.awarded, out_of: ledgerResult.aoBreakdown.ao3.max },
+        };
+      }
+
       return cleanStars({
         issues: merged,
         classifications,
@@ -926,11 +999,51 @@ export const checkEssayWriting = createServerFn({ method: "POST" })
         clean: merged.length === 0,
         checkedText: data.essayText,
         predictedMark,
+        rubric,
+        ledger: ledgerResult.ledger,
+        arguments: ledgerResult.arguments,
+        opportunities: feedbackResult.opportunities,
+        strengths: feedbackResult.strengths,
+        areasForImprovement: feedbackResult.areasForImprovement,
+        markRange: ledgerResult.markRange,
+        status: ledgerResult.status,
       });
     } catch (_error) {
       // A failed check is an enhancement failing, never a hard gate — keep
       // whatever was already found (plus the free deterministic pass).
       const surviving = dedupeAndCap([...carryForward(), ...deterministic]);
+      const sentenceObjects = currentSentences.map((s, idx) => ({
+        id: `s_${idx}`,
+        text: s,
+        paragraphIndex: 0,
+        sentenceIndex: idx,
+        isComplete: true,
+      }));
+      const fallbackRubric = buildQuestionRubric({
+        question: data.question,
+        level: data.level,
+        maxMark: data.maxMark,
+        contextBlock: data.contextBlock,
+      });
+      const semanticClassifications = evaluateParagraphSemantics({
+        sentences: sentenceObjects,
+        paragraphText: data.essayText,
+        docVersion: 1,
+        rubric: fallbackRubric,
+      });
+      const localLedger = buildMarkLedger({
+        sentences: sentenceObjects,
+        classifications: semanticClassifications,
+        rubric: fallbackRubric,
+        isAiVerified: false,
+      });
+      const localFeedback = generateFeedbackAndOpportunities({
+        ledger: localLedger.ledger,
+        rubric: fallbackRubric,
+        aoBreakdown: localLedger.aoBreakdown,
+        totalWords: wordCount,
+      });
+
       return cleanStars({
         issues: surviving,
         classifications: [] as LiveExaminerAoClassification[],
@@ -939,6 +1052,14 @@ export const checkEssayWriting = createServerFn({ method: "POST" })
         checkedText: data.essayText,
         checkFailed: true,
         predictedMark: null,
+        rubric: fallbackRubric,
+        ledger: localLedger.ledger,
+        arguments: localLedger.arguments,
+        opportunities: localFeedback.opportunities,
+        strengths: localFeedback.strengths,
+        areasForImprovement: localFeedback.areasForImprovement,
+        markRange: localLedger.markRange,
+        status: localLedger.status,
       });
     }
   });

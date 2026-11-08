@@ -1,0 +1,241 @@
+import { describe, expect, it } from "vitest";
+import { buildQuestionRubric, extractCommandWord } from "./rubric-retrieval";
+import { checkEconomicMisconceptions, analyzeCausalChain, evaluateEvaluativeDepth } from "./reasoning-engine";
+import { evaluateSentenceSemantics } from "./semantic-engine";
+import { buildMarkLedger } from "./mark-ledger";
+import { generateFeedbackAndOpportunities } from "./score-maximizer";
+
+describe("Live Examiner 2.0 Engines", () => {
+  describe("Rubric Retrieval Engine", () => {
+    it("extracts command word and sets evaluation expectations accordingly", () => {
+      const qDiscuss = "Discuss the extent to which an indirect tax reduces consumption of demerit goods.";
+      expect(extractCommandWord(qDiscuss)).toBe("discuss");
+      const rubricDiscuss = buildQuestionRubric({ question: qDiscuss, level: "as", maxMark: 12 });
+      expect(rubricDiscuss.maximumMarks).toBe(12);
+      expect(rubricDiscuss.assessmentObjectives.find((ao) => ao.ao === "AO3")?.applicable).toBe(true);
+
+      const qExplain = "Explain how economies of scale reduce average total costs.";
+      expect(extractCommandWord(qExplain)).toBe("explain");
+      const rubricExplain = buildQuestionRubric({ question: qExplain, level: "as", maxMark: 8 });
+      expect(rubricExplain.assessmentObjectives.find((ao) => ao.ao === "AO3")?.applicable).toBe(false);
+    });
+
+    it("builds level descriptors for 20m questions", () => {
+      const rubric20 = buildQuestionRubric({
+        question: "Evaluate whether monetary policy is the most effective policy to control inflation.",
+        level: "a2",
+        maxMark: 20,
+      });
+      expect(rubric20.levelDescriptors.length).toBe(4);
+      expect(rubric20.levelDescriptors[0]!.markRange).toEqual([16, 20]);
+    });
+  });
+
+  describe("Economic Reasoning Engine", () => {
+    it("catches deterministic misconceptions", () => {
+      const sentence = "An indirect tax will shift the demand curve to the left.";
+      const issues = checkEconomicMisconceptions(sentence, "s1");
+      expect(issues.length).toBe(1);
+      expect(issues[0]!.category).toBe("economics_accuracy");
+      expect(issues[0]!.suggestion).toContain("supply curve");
+    });
+
+    it("catches demand vs quantity demanded confusion", () => {
+      const sentence = "A rise in price decreases demand for normal goods.";
+      const issues = checkEconomicMisconceptions(sentence, "s2");
+      expect(issues.length).toBe(1);
+      expect(issues[0]!.suggestion).toContain("contraction in quantity demanded");
+    });
+
+    it("detects complete vs incomplete causal transmission chains", () => {
+      const incomplete = "Because taxes are imposed, output contracts and jobs are lost.";
+      const incompleteResult = analyzeCausalChain(incomplete);
+      expect(incompleteResult.isComplete).toBe(false);
+      expect(incompleteResult.missingLinks.length).toBeGreaterThan(0);
+
+      const complete =
+        "Because an indirect tax raises average costs of production, supply shifts vertically upwards, causing market price to rise and equilibrium quantity to contract.";
+      const completeResult = analyzeCausalChain(complete);
+      expect(completeResult.isComplete).toBe(true);
+      expect(completeResult.missingLinks.length).toBe(0);
+    });
+
+    it("evaluates genuine evaluative depth", () => {
+      const deepEval =
+        "However, in the short run demand is price inelastic; therefore, on balance the policy's success depends upon whether long run substitutes emerge.";
+      const evalResult = evaluateEvaluativeDepth(deepEval);
+      expect(evalResult.depth).toBe("justified_judgement");
+      expect(evalResult.criteriaDetected).toContain("Time Horizon / Elasticity Dynamics");
+      expect(evalResult.criteriaDetected).toContain("Price Elasticity Dependency");
+      expect(evalResult.criteriaDetected).toContain("Decisive Supported Judgement");
+    });
+  });
+
+  describe("Semantic Intelligence Engine", () => {
+    it("classifies definition accurately as AO1 knowledge and does not misclassify as AO2", () => {
+      const rubric = buildQuestionRubric({
+        question: "Discuss the view that free trade is always beneficial.",
+        level: "as",
+        maxMark: 12,
+      });
+      const result = evaluateSentenceSemantics({
+        sentence: {
+          id: "s_def",
+          text: "Free trade is defined as the unrestricted purchase and sale of goods and services between countries without tariffs or quotas.",
+          paragraphText: "Free trade is defined as...",
+          paragraphIndex: 0,
+          sentenceIndex: 0,
+        },
+        docVersion: 1,
+        rubric,
+      });
+      expect(result.primaryAO).toBe("AO1");
+      expect(result.confidence).toBeGreaterThan(0.8);
+    });
+
+    it("classifies multi-step causal mechanism as AO2 analysis", () => {
+      const rubric = buildQuestionRubric({
+        question: "Discuss the view that free trade is always beneficial.",
+        level: "as",
+        maxMark: 12,
+      });
+      const result = evaluateSentenceSemantics({
+        sentence: {
+          id: "s_chain",
+          text: "When tariffs are removed, cheaper imported raw materials lower average costs of production, shifting domestic supply rightward and reducing equilibrium consumer prices.",
+          paragraphText: "When tariffs are removed...",
+          paragraphIndex: 1,
+          sentenceIndex: 0,
+        },
+        docVersion: 1,
+        rubric,
+      });
+      expect(result.primaryAO).toBe("AO2");
+      expect(result.economicFunction).toContain("causal transmission");
+    });
+  });
+
+  describe("Mark Ledger Engine & Anti-Duplication Protection", () => {
+    it("awards marks for distinct arguments and prevents duplicate credit for repeated definitions", () => {
+      const rubric = buildQuestionRubric({
+        question: "Discuss whether indirect taxes are effective in reducing consumption of demerit goods.",
+        level: "as",
+        maxMark: 12,
+      });
+
+      const sentences = [
+        {
+          id: "s1",
+          text: "Demerit goods are goods that are more harmful to consumers than they realize due to information failure.",
+          paragraphIndex: 0,
+          isComplete: true,
+        },
+        {
+          id: "s2",
+          text: "A demerit good is defined as a product whose consumption causes negative externalities and information failure.",
+          paragraphIndex: 0,
+          isComplete: true,
+        },
+        {
+          id: "s3",
+          text: "An indirect tax raises production costs, which shifts the supply curve upwards from S1 to S2, increasing market price and reducing quantity traded.",
+          paragraphIndex: 1,
+          isComplete: true,
+        },
+        {
+          id: "s4",
+          text: "However, in the short run demand is highly inelastic; on balance, the effectiveness depends crucially upon the availability of close substitutes.",
+          paragraphIndex: 2,
+          isComplete: true,
+        },
+      ];
+
+      const classifications = sentences.map((s, idx) =>
+        evaluateSentenceSemantics({
+          sentence: {
+            id: s.id,
+            text: s.text,
+            paragraphText: s.text,
+            paragraphIndex: s.paragraphIndex,
+            sentenceIndex: idx,
+          },
+          docVersion: 1,
+          rubric,
+        }),
+      );
+
+      const ledgerResult = buildMarkLedger({
+        sentences,
+        classifications,
+        rubric,
+        isAiVerified: true,
+      });
+
+      // s1 and s2 both define demerit goods. Only 1 mark should be credited, not 2!
+      const ao1Entries = ledgerResult.ledger.filter((e) => e.assessmentObjective === "AO1");
+      expect(ao1Entries.length).toBe(1); // Grouped / filtered
+      expect(ledgerResult.aoBreakdown.ao1.awarded).toBe(1);
+      expect(ledgerResult.aoBreakdown.ao2.awarded).toBeGreaterThanOrEqual(1);
+      expect(ledgerResult.aoBreakdown.ao3.awarded).toBeGreaterThanOrEqual(1);
+      expect(ledgerResult.totalMark).toBeLessThanOrEqual(12);
+    });
+
+    it("returns uncertain state and 0 marks for young answers under 10 words", () => {
+      const rubric = buildQuestionRubric({
+        question: "Discuss whether free trade is desirable.",
+        level: "as",
+        maxMark: 12,
+      });
+      const sentences = [{ id: "s0", text: "Free trade is good.", paragraphIndex: 0, isComplete: true }];
+      const classifications = [
+        evaluateSentenceSemantics({
+          sentence: { id: "s0", text: "Free trade is good.", paragraphText: "Free trade is good.", paragraphIndex: 0, sentenceIndex: 0 },
+          docVersion: 1,
+          rubric,
+        }),
+      ];
+      const ledgerResult = buildMarkLedger({ sentences, classifications, rubric });
+      expect(ledgerResult.status).toBe("uncertain");
+      expect(ledgerResult.totalMark).toBe(0);
+    });
+  });
+
+  describe("Score Maximizer Engine", () => {
+    it("generates prioritized, educational feedback opportunities", () => {
+      const rubric = buildQuestionRubric({
+        question: "Discuss whether free trade is desirable.",
+        level: "as",
+        maxMark: 12,
+      });
+
+      const feedback = generateFeedbackAndOpportunities({
+        ledger: [
+          {
+            argumentId: "arg1",
+            sentenceIds: ["s1"],
+            assessmentObjective: "AO1",
+            rubricCriterion: "Definitions",
+            evidence: "Free trade is defined as...",
+            awardedCredit: 1,
+            missingDevelopment: [],
+            status: "verified",
+            reasoning: "Accurate definition",
+          },
+        ],
+        rubric,
+        aoBreakdown: {
+          ao1: { awarded: 1, max: 3 },
+          ao2: { awarded: 0, max: 6 },
+          ao3: { awarded: 0, max: 3 },
+        },
+        totalWords: 35,
+      });
+
+      expect(feedback.opportunities.length).toBeGreaterThan(0);
+      // Top opportunity should address missing AO1 definition or AO2 causal chain
+      const targets = feedback.opportunities.map((o) => o.aoTarget);
+      expect(targets).toContain("ao1");
+      expect(targets).toContain("ao2");
+    });
+  });
+});

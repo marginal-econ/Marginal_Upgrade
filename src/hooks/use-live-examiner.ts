@@ -6,6 +6,11 @@ import {
   type PredictedMark,
 } from "@/lib/live-examiner.functions";
 import { isDailyLimitError } from "@/lib/usage-limits";
+import { buildQuestionRubric } from "@/lib/live-examiner/rubric-retrieval";
+import { evaluateParagraphSemantics } from "@/lib/live-examiner/semantic-engine";
+import { buildMarkLedger } from "@/lib/live-examiner/mark-ledger";
+import { generateFeedbackAndOpportunities } from "@/lib/live-examiner/score-maximizer";
+import type { QuestionRubric, MarkLedgerEntry, ScoreMaximizerOpportunity, EconomicArgument } from "@/lib/live-examiner/types";
 import { segmentEssay, type RawSegment } from "@/lib/live-examiner/segment";
 import { runLocalChecksOnSegment } from "@/lib/live-examiner/local-checks";
 import { computeHeuristicScore } from "@/lib/live-examiner/heuristic-score";
@@ -29,8 +34,8 @@ import { cleanSuggestion, stripStars } from "@/lib/live-examiner/clean-suggestio
 
 export type { PredictedMark };
 
-const TYPING_PAUSE_MS = 500;
-const SENTENCE_COMPLETE_PAUSE_MS = 150;
+const TYPING_PAUSE_MS = 650;
+const SENTENCE_COMPLETE_PAUSE_MS = 250;
 const MIN_TEXT_LENGTH = 3;
 
 export function useLiveExaminer(params: {
@@ -65,6 +70,16 @@ export function useLiveExaminer(params: {
   const [predictedMark, setPredictedMark] = useState<PredictedMark | null>(null);
   const [scoreEstimate, setScoreEstimate] = useState<ScoreEstimate | null>(null);
   const [lastDelta, setLastDelta] = useState<{ text: string; time: number } | null>(null);
+
+  // Live Examiner 2.0 Intelligence State
+  const [rubric, setRubric] = useState<QuestionRubric | null>(null);
+  const [ledger, setLedger] = useState<MarkLedgerEntry[]>([]);
+  const [argumentsList, setArgumentsList] = useState<EconomicArgument[]>([]);
+  const [opportunities, setOpportunities] = useState<ScoreMaximizerOpportunity[]>([]);
+  const [strengths, setStrengths] = useState<string[]>([]);
+  const [areasForImprovement, setAreasForImprovement] = useState<string[]>([]);
+  const [assessmentStatus, setAssessmentStatus] = useState<"provisional" | "verified" | "uncertain" | "complete">("uncertain");
+  const [markRange, setMarkRange] = useState<[number, number] | undefined>(undefined);
 
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const issuesRef = useRef<ActiveIssue[]>([]);
@@ -221,8 +236,55 @@ export function useLiveExaminer(params: {
       setClassifications(activeClassifications);
       recordHistory(activeIssues);
 
-      // Instant provisional score from heuristic signals + TARIFF_SPLITS
+      // Live Examiner 2.0: Instant Rubric & Evidence Ledger
       const validTariff = (maxMark === 8 || maxMark === 12 || maxMark === 20 ? maxMark : 12) as 8 | 12 | 20;
+      const localRubric = buildQuestionRubric({
+        question,
+        level,
+        maxMark: validTariff,
+        contextBlock,
+      });
+      setRubric(localRubric);
+
+      const sentenceObjects = segments.map((s) => ({
+        id: s.id,
+        text: s.text,
+        paragraphIndex: s.paragraphIndex,
+        sentenceIndex: s.sentenceIndex,
+        isComplete: s.isComplete,
+      }));
+
+      const semanticClassifications = evaluateParagraphSemantics({
+        sentences: sentenceObjects,
+        paragraphText: currentText,
+        docVersion: docVersionRef.current,
+        rubric: localRubric,
+      });
+
+      const localLedgerResult = buildMarkLedger({
+        sentences: sentenceObjects,
+        classifications: semanticClassifications,
+        rubric: localRubric,
+        isAiVerified: false,
+      });
+
+      setLedger(localLedgerResult.ledger);
+      setArgumentsList(localLedgerResult.arguments);
+      setMarkRange(localLedgerResult.markRange);
+      setAssessmentStatus(localLedgerResult.status);
+
+      const localWords = currentText.trim().split(/\s+/).filter(Boolean).length;
+      const localFeedback = generateFeedbackAndOpportunities({
+        ledger: localLedgerResult.ledger,
+        rubric: localRubric,
+        aoBreakdown: localLedgerResult.aoBreakdown,
+        totalWords: localWords,
+      });
+      setOpportunities(localFeedback.opportunities);
+      setStrengths(localFeedback.strengths);
+      setAreasForImprovement(localFeedback.areasForImprovement);
+
+      // Instant provisional score from heuristic signals + TARIFF_SPLITS
       const heuristic = computeHeuristicScore({
         sentences: segments.map((s) => ({
           text: s.text,
@@ -231,6 +293,21 @@ export function useLiveExaminer(params: {
         question,
         maxMark: validTariff,
       });
+      heuristic.total = localLedgerResult.totalMark;
+      heuristic.aoBreakdown = {
+        ao1: localLedgerResult.aoBreakdown.ao1.awarded,
+        ao2: localLedgerResult.aoBreakdown.ao2.awarded,
+        ao3: localLedgerResult.aoBreakdown.ao3.awarded,
+      };
+      if (localFeedback.opportunities.length > 0) {
+        heuristic.nextMoves = localFeedback.opportunities.map((o) => ({
+          id: o.id,
+          aoTarget: o.aoTarget,
+          title: o.title,
+          detail: o.whyItMatters + ' ' + o.suggestedAction,
+          potentialGain: o.potentialGain,
+        }));
+      }
       setScoreEstimate(heuristic);
 
       const split = TARIFF_SPLITS[validTariff] || defaultSplitForMaxMark(validTariff);
@@ -318,6 +395,17 @@ export function useLiveExaminer(params: {
               : null,
             issues: matchedIssues,
           });
+        }
+
+        if (result && (result as any).ledger) {
+          const res = result as any;
+          if (res.ledger) setLedger(res.ledger);
+          if (res.arguments) setArgumentsList(res.arguments);
+          if (res.opportunities) setOpportunities(res.opportunities);
+          if (res.strengths) setStrengths(res.strengths);
+          if (res.areasForImprovement) setAreasForImprovement(res.areasForImprovement);
+          if (res.markRange) setMarkRange(res.markRange);
+          if (res.status) setAssessmentStatus(res.status);
         }
 
         // Re-run Layer A with fresh cache populated
@@ -443,5 +531,13 @@ export function useLiveExaminer(params: {
     rescan,
     clearAll,
     cache: cacheRef.current,
+    rubric,
+    ledger,
+    argumentsList,
+    opportunities,
+    strengths,
+    areasForImprovement,
+    assessmentStatus,
+    markRange,
   };
 }
