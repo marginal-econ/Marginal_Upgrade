@@ -198,6 +198,23 @@ describe("Live Examiner 2.0 Engines", () => {
       expect(ledgerResult.status).toBe("uncertain");
       expect(ledgerResult.totalMark).toBe(0);
     });
+    it("classifies demerit goods response accurately", () => {
+      const q = "Assess whether the over-consumption of a demerit good should be reduced through the use of a tax or reduced through the use of a public information campaign.";
+      const rubric = buildQuestionRubric({ question: q, level: "as", maxMark: 12 });
+      const s1 = "Demerit goods are goods with significant negative externalities and are overvalued and overconsumed due to information failure.";
+      const s2 = "Over consumption of demerit goods is a market failure (When a market fails to allocate resources efficiently).";
+      const c1 = evaluateSentenceSemantics({
+        sentence: { id: "s0", text: s1, paragraphText: s1 + " " + s2, paragraphIndex: 0, sentenceIndex: 0 },
+        docVersion: 1,
+        rubric,
+      });
+      const c2 = evaluateSentenceSemantics({
+        sentence: { id: "s1", text: s2, paragraphText: s1 + " " + s2, paragraphIndex: 0, sentenceIndex: 1 },
+        docVersion: 1,
+        rubric,
+      });
+      expect(c1.primaryAO).toBe("AO1");
+    });
   });
 
   describe("Score Maximizer Engine", () => {

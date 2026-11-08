@@ -154,39 +154,97 @@ export function useLiveExaminer(params: {
       }
 
       const segments = segmentEssay(currentText);
+
+      // 1. Live Examiner 2.0: Instant Rubric & Evidence Ledger
+      const validTariff = (maxMark === 8 || maxMark === 12 || maxMark === 20 ? maxMark : 12) as 8 | 12 | 20;
+      const localRubric = buildQuestionRubric({
+        question,
+        level,
+        maxMark: validTariff,
+        contextBlock,
+      });
+      setRubric(localRubric);
+
+      const sentenceObjects = segments.map((s) => ({
+        id: s.id,
+        text: s.text,
+        paragraphIndex: s.paragraphIndex,
+        sentenceIndex: s.sentenceIndex,
+        isComplete: s.isComplete,
+      }));
+
+      const semanticClassifications = evaluateParagraphSemantics({
+        sentences: sentenceObjects,
+        paragraphText: currentText,
+        docVersion: docVersionRef.current,
+        rubric: localRubric,
+      });
+
+      const localLedgerResult = buildMarkLedger({
+        sentences: sentenceObjects,
+        classifications: semanticClassifications,
+        rubric: localRubric,
+        isAiVerified: false,
+      });
+
+      setLedger(localLedgerResult.ledger);
+      setArgumentsList(localLedgerResult.arguments);
+      setMarkRange(localLedgerResult.markRange);
+      setAssessmentStatus(localLedgerResult.status);
+
+      const localWords = currentText.trim().split(/\s+/).filter(Boolean).length;
+      const localFeedback = generateFeedbackAndOpportunities({
+        ledger: localLedgerResult.ledger,
+        rubric: localRubric,
+        aoBreakdown: localLedgerResult.aoBreakdown,
+        totalWords: localWords,
+      });
+      setOpportunities(localFeedback.opportunities);
+      setStrengths(localFeedback.strengths);
+      setAreasForImprovement(localFeedback.areasForImprovement);
+
+      // 2. Build Spans, Issues, and Visual Classifications with Semantic Awareness
       const activeIssues: ActiveIssue[] = [];
       const activeClassifications: ActiveAoClassification[] = [];
       const spans: SentenceSpan[] = [];
 
       for (const seg of segments) {
-        // Check cache first for existing AI sentence result
         const cached = cacheRef.current.get(seg.hash);
-
-        // Run local spell/mechanics checks
         const localIssues = runLocalChecksOnSegment(seg);
         const sentenceIssues: IssueV2[] = [...localIssues];
 
         let aoTag: "ao1" | "ao2" | "ao3" | "no_credit" = "no_credit";
         let aoReason = "Provisional heuristic classification";
 
+        const semantic = semanticClassifications.find((sc) => sc.sentenceId === seg.id);
+
         if (cached?.ao) {
           aoTag = cached.ao.tag;
           aoReason = cached.ao.reason;
-          // Merge verified AI issues from cache
           for (const aiIss of cached.issues) {
             if (!cacheRef.current.isDismissed(seg.hash, aiIss.category, aiIss.original)) {
               sentenceIssues.push(aiIss);
             }
           }
+        } else if (semantic && semantic.primaryAO !== "NO_CREDIT" && semantic.primaryAO !== "UNCERTAIN") {
+          aoTag = semantic.primaryAO.toLowerCase() as "ao1" | "ao2" | "ao3";
+          aoReason = semantic.economicFunction || `${semantic.primaryAO} conceptual foundation.`;
+          for (const sIss of semantic.issues) {
+            if (!cacheRef.current.isDismissed(seg.hash, sIss.category, sIss.original)) {
+              sentenceIssues.push({
+                ...sIss,
+                from: seg.from,
+                to: seg.to,
+              });
+            }
+          }
         }
 
         const segWords = seg.text.trim().split(/\s+/).filter(Boolean).length;
-        // Incomplete fragments or short phrases (< 5 words) earn NO AO credit until completed
-        if (segWords < 5 || !seg.isComplete) {
+        if (segWords < 4 || !seg.isComplete) {
           aoTag = "no_credit";
         }
 
-        // Add to active issues
         for (const iss of sentenceIssues) {
           const id = `${iss.category}::${seg.text.toLowerCase()}::${iss.original.toLowerCase()}`;
           if (!cacheRef.current.isDismissed(seg.hash, iss.category, iss.original)) {
@@ -236,55 +294,7 @@ export function useLiveExaminer(params: {
       setClassifications(activeClassifications);
       recordHistory(activeIssues);
 
-      // Live Examiner 2.0: Instant Rubric & Evidence Ledger
-      const validTariff = (maxMark === 8 || maxMark === 12 || maxMark === 20 ? maxMark : 12) as 8 | 12 | 20;
-      const localRubric = buildQuestionRubric({
-        question,
-        level,
-        maxMark: validTariff,
-        contextBlock,
-      });
-      setRubric(localRubric);
-
-      const sentenceObjects = segments.map((s) => ({
-        id: s.id,
-        text: s.text,
-        paragraphIndex: s.paragraphIndex,
-        sentenceIndex: s.sentenceIndex,
-        isComplete: s.isComplete,
-      }));
-
-      const semanticClassifications = evaluateParagraphSemantics({
-        sentences: sentenceObjects,
-        paragraphText: currentText,
-        docVersion: docVersionRef.current,
-        rubric: localRubric,
-      });
-
-      const localLedgerResult = buildMarkLedger({
-        sentences: sentenceObjects,
-        classifications: semanticClassifications,
-        rubric: localRubric,
-        isAiVerified: false,
-      });
-
-      setLedger(localLedgerResult.ledger);
-      setArgumentsList(localLedgerResult.arguments);
-      setMarkRange(localLedgerResult.markRange);
-      setAssessmentStatus(localLedgerResult.status);
-
-      const localWords = currentText.trim().split(/\s+/).filter(Boolean).length;
-      const localFeedback = generateFeedbackAndOpportunities({
-        ledger: localLedgerResult.ledger,
-        rubric: localRubric,
-        aoBreakdown: localLedgerResult.aoBreakdown,
-        totalWords: localWords,
-      });
-      setOpportunities(localFeedback.opportunities);
-      setStrengths(localFeedback.strengths);
-      setAreasForImprovement(localFeedback.areasForImprovement);
-
-      // Instant provisional score from heuristic signals + TARIFF_SPLITS
+      // 3. Instant provisional score from heuristic signals + TARIFF_SPLITS
       const heuristic = computeHeuristicScore({
         sentences: segments.map((s) => ({
           text: s.text,
@@ -304,7 +314,7 @@ export function useLiveExaminer(params: {
           id: o.id,
           aoTarget: o.aoTarget,
           title: o.title,
-          detail: o.whyItMatters + ' ' + o.suggestedAction,
+          detail: o.whyItMatters + " " + o.suggestedAction,
           potentialGain: o.potentialGain,
         }));
       }
@@ -312,7 +322,6 @@ export function useLiveExaminer(params: {
 
       const split = TARIFF_SPLITS[validTariff] || defaultSplitForMaxMark(validTariff);
       setPredictedMark((prev) => {
-        // Hysteresis: only update if changed
         const newTotal = heuristic.total;
         if (prev && prev.total_mark === newTotal) return prev;
         return {
@@ -327,7 +336,7 @@ export function useLiveExaminer(params: {
         };
       });
     },
-    [maxMark, question, recordHistory],
+    [level, maxMark, question, contextBlock, recordHistory],
   );
 
   // ---------------------------------------------------------------------------
@@ -355,18 +364,28 @@ export function useLiveExaminer(params: {
         }));
 
         const result = await checkFn({
-          essayText: currentText,
-          question,
-          level,
-          maxMark,
-          contextBlock,
+          data: {
+            essayText: currentText,
+            question,
+            level,
+            maxMark,
+            contextBlock: contextBlock || "",
+          },
         });
 
         // Store classifications and issues into cache for each sentence
         for (const seg of dirtySegments) {
-          const matchedAo = (result.classifications || []).find(
-            (c: any) => c.original?.trim().toLowerCase() === seg.text.trim().toLowerCase(),
-          );
+          const segTextClean = seg.text.trim().toLowerCase();
+          const matchedAo = (result.classifications || []).find((c: any) => {
+            const orig = (c.original || "").trim().toLowerCase();
+            const ctx = (c.context || "").trim().toLowerCase();
+            return (
+              orig === segTextClean ||
+              ctx === segTextClean ||
+              (orig.length > 5 && segTextClean.includes(orig)) ||
+              (segTextClean.length > 5 && orig.includes(segTextClean))
+            );
+          });
           const matchedIssues = (result.issues || [])
             .filter((i: any) => i.context?.trim().toLowerCase() === seg.text.trim().toLowerCase())
             .map((i: any) => ({
@@ -415,7 +434,13 @@ export function useLiveExaminer(params: {
         if (isDailyLimitError(err)) {
           setError("Daily check limit reached. Instant local checks remain active.");
         } else {
-          setError(err?.message || "AI check paused: retrying");
+          const rawMsg = err?.message || "";
+          if (rawMsg.startsWith("[") || rawMsg.includes("invalid_type")) {
+            // Keep local analysis active, never show raw Zod schema dumps to user
+            setError(null);
+          } else {
+            setError(rawMsg || "AI check paused: retrying");
+          }
         }
       } finally {
         setChecking(false);

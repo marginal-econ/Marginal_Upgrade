@@ -168,7 +168,12 @@ const PrepareContextInput = z.object({
 
 export const prepareLiveExaminerContext = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => PrepareContextInput.parse(input))
+  .inputValidator((input: unknown) => {
+    const raw = (input && typeof input === "object" && "data" in input)
+      ? (input as any).data
+      : input;
+    return PrepareContextInput.parse(raw);
+  })
   .handler(async ({ data, context }) => {
     await assertLiveExaminerSessionAllowed(context.supabase, data.question, context);
 
@@ -237,11 +242,11 @@ const CheckInput = z.object({
     .max(MAX_VISIBLE_ISSUES * 4)
     .optional(),
   question: z.string().trim().min(5).max(2000),
-  level: z.enum(["as", "a2"]),
-  maxMark: z.number().int().positive().max(30),
+  level: z.string().transform((v) => v.toLowerCase()).pipe(z.enum(["as", "a2"])),
+  maxMark: z.coerce.number().int().positive().max(30),
   /** Rendered syllabus context from prepareLiveExaminerContext — passed
    *  through verbatim so this call never re-embeds/re-retrieves. */
-  contextBlock: z.string().max(20_000).default(""),
+  contextBlock: z.string().max(20_000).nullish().transform((v) => v || ""),
 });
 
 const CandidateSchema = IssueSchema.extend({ confidence: z.number().min(0).max(1) });
@@ -616,7 +621,12 @@ function evidenceAppearsInContext(evidence: string, contextBlock: string): boole
 
 export const checkEssayWriting = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => CheckInput.parse(input))
+  .inputValidator((input: unknown) => {
+    const raw = (input && typeof input === "object" && "data" in input)
+      ? (input as any).data
+      : input;
+    return CheckInput.parse(raw);
+  })
   .handler(async ({ data, context }) => {
     await assertLiveExaminerSessionAllowed(context.supabase, data.question, context);
 
