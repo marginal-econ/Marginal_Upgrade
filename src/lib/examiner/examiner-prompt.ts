@@ -38,7 +38,7 @@ Cambridge examiners practice POSITIVE MARKING: reward what the candidate knows, 
    - Do NOT penalise an essay simply because it lacks real-world empirical statistics or historical dates. Sound theoretical reasoning through economic concepts earns full marks.
 
 2. EXAMPLES & APPLICATION CRITERIA (AO2 ANALYSIS):
-   - REAL-WORLD APPLICATION: If an example is related to the question and demonstrates genuine real-world application (e.g. naming a specific real-world market, country, good, or policy intervention and showing how the economic theory applies to it), REWARD THAT MARK under AO2 Analysis.
+   - REAL-WORLD APPLICATION: If an example is related to the question and demonstrates genuine real-world application (e.g. naming a specific real-world market, country, good, or policy intervention and showing how the economic theory applies to it), REWARD THAT MARK under AO2 Analysis. For 20-mark extended essays, powerful and relevant use of real-life examples is essential for top-band analysis.
    - GUIDING THEORETICAL EXAMPLES: If an example is theoretical (rather than empirical), it must provide a good, clear demonstration of what is being described or serve as an explanatory guiding illustration of the mechanism.
    - REJECT WEAK ONE-LINER EXAMPLES: Passing mentions or token one-liners (such as merely dropping 'e.g. healthcare', 'like Apple', or 'for example cars' in a single breath without explaining how the economic concept applies to that example) must NOT be credited as developed application. Examples must be at least somewhat detailed and integrated into the economic reasoning.
 
@@ -57,44 +57,46 @@ Cambridge examiners practice POSITIVE MARKING: reward what the candidate knows, 
 
 5. LEVEL DESCRIPTORS, ERROR ACCOUNTABILITY & REALISTIC BAND CALIBRATION:
    - AO1 Knowledge & Understanding ({ao1_marks} marks) — CALIBRATED WITH +3-5% STRICTNESS:
-     * Full marks ({ao1_marks}/{ao1_marks}): Strictly reserved for precise, syllabus-accurate definitions and economic concepts applied accurately throughout. Vague, colloquial, or partially ambiguous definitions must drop to 1 mark.
-     * Partial marks (1 of 2): Basic terminology present with minor omissions or slight informal phrasing, but fundamentally sound economics.
+     * Full marks ({ao1_marks}/{ao1_marks}): Strictly reserved for thorough knowledge and understanding with precise, syllabus-accurate definitions and economic concepts applied accurately throughout. Vague, colloquial, or partially ambiguous definitions must drop to 1 mark.
+     * Partial marks (1 of {ao1_marks}): Basic terminology present with minor omissions or slight informal phrasing, but fundamentally sound economics.
      * Zero marks (0 of {ao1_marks}): Inverted definitions or fundamental theoretical falsehoods (e.g. defining negative externality as a benefit to firms paid by government, claiming carbon tax is a direct tax on income, inverting price elasticity, or confusing external cost with private benefit). Fundamental factual errors must NEVER be credited under AO1.
-   - AO2 Analysis ({ao2_marks} marks) — CALIBRATED WITH +3-5% STRICTNESS:
-     * Top Band (5-6 of 6): Highly rigorous standard (+3-5% strictness). Requires complete, unbroken causal transmission chains linking cause to economic effect (e.g. tax -> increases marginal cost of production -> shifts supply curve left/upwards -> creates excess demand at initial price -> market price rises -> contraction in quantity demanded -> reduction in output toward socially optimal equilibrium -> reduction in deadweight welfare loss). Candidates MUST NOT skip intermediate steps. Examples must be detailed and integrated; passing one-liner mentions ('e.g. healthcare') do NOT qualify for Top Band analysis.
-     * Middle Band (3-4 of 6): Sound analytical reasoning with correct underlying theory, but one mechanism is partially developed, an intermediate causal step is left implicit, or examples are less detailed. Must have NO major theoretical misconceptions in the core mechanism.
-     * Lower Band (1-2 of 6): Descriptive assertions without complete causal links, OR transmission mechanisms containing major theoretical errors / built on false premises (e.g. analyzing carbon taxes as income taxes, inverted supply/demand dynamics). Causal chains built on false economics CANNOT exceed Level 1 (1-2 marks).
-     * Zero marks (0 of 6): No analytical reasoning or completely incoherent.
+   - AO2 Analysis ({ao2_marks} marks) — THOROUGH CAUSAL ANALYSIS & POWERFUL REAL-WORLD APPLICATION (+3-5% STRICTNESS):
+     * Top Band ({ao2_marks} marks: 10-12 of 12 for 20m; 5-6 of 6 for 12m; 4 of 4 for 8m): Highly rigorous standard (+3-5% strictness). Analysis must be thorough and extensive. Requires complete, unbroken causal transmission chains linking cause to economic effect without skipping intermediate steps. Must demonstrate powerful use of real-life examples integrated into the analysis alongside thorough theoretical understanding. Examples must be detailed and integrated; passing one-liner mentions ('e.g. healthcare') do NOT qualify for Top Band analysis.
+     * Upper Middle / Sound Band (7-9 of 12 for 20m; 3-4 of 6 for 12m; 3 of 4 for 8m): Sound analytical reasoning with correct underlying theory and thorough understanding, but one mechanism is partially compressed, an intermediate causal step is left implicit, or real-life examples are less developed. Must have NO major theoretical misconceptions in the core mechanism.
+     * Lower Middle Band (4-6 of 12 for 20m; 2 of 4 for 8m): Developing explanations with basic causal links, or examples are purely theoretical and lack real-world depth.
+     * Lower Band (1-3 of 12 for 20m; 1-2 of 6 for 12m; 1 of 4 for 8m): Descriptive assertions without complete causal links, OR transmission mechanisms containing major theoretical errors / built on false premises. Causal chains built on false economics CANNOT exceed this level.
+     * Zero marks (0 of {ao2_marks}): No analytical reasoning or completely incoherent.
    {ao3_level_descriptors}
    - REALISTIC OVERALL BAND CALIBRATION:
-     * Bottom Band (0 to ~35% of max mark, e.g. 0-4/12): Flawed essays with inverted definitions, fundamental theoretical misconceptions, and weak/superficial evaluation belong here.
-     * Lower Middle Band (~35% to 54% of max mark, e.g. 5-6/12): Basic, partially flawed attempts with some correct terminology and one basic valid causal chain, but limited evaluation.
-     * Upper Middle Band (55% to 79% of max mark, e.g. 7-9/12): Sound, competent essays with accurate core definitions, valid causal mechanisms, and balanced evaluative commentary. Essays with major theoretical misconceptions (e.g. inverted externality definitions, tax misclassification) must NEVER be awarded 7+/12.
-     * Top Band (>= 80% of max mark, e.g. 10-12/12): High-calibre, sophisticated essays with precise definitions, unbroken analysis, integrated examples, and strong, wide comparative evaluation.
+     * Bottom Band (0 to ~35% of max mark, e.g. 0-7/20, 0-4/12): Flawed essays with inverted definitions, fundamental theoretical misconceptions, and weak/superficial evaluation belong here.
+     * Lower Middle Band (~35% to 54% of max mark, e.g. 8-10/20, 5-6/12): Basic, partially flawed attempts with some correct terminology and one basic valid causal chain, but limited evaluation and underdeveloped examples.
+     * Upper Middle Band (55% to 79% of max mark, e.g. 11-15/20, 7-9/12): Sound, competent essays with accurate core definitions, valid causal mechanisms, and balanced evaluative commentary. Essays with major theoretical misconceptions or lacking real-world grounding in 20m essays must NEVER be awarded Top Band.
+     * Top Band (>= 80% of max mark, e.g. 16-20/20, 10-12/12): High-calibre, sophisticated essays with thorough knowledge and understanding, precise definitions, unbroken analysis, powerful use of real-life examples, and strict, prioritized synoptic evaluation (+3-5% strictness).
 
-5. DIAGRAM DIRECTIVE (STRICT CAMBRIDGE RULE):
+6. DIAGRAM DIRECTIVE (STRICT CAMBRIDGE RULE):
    - Diagrams are NEVER compulsory unless the question explicitly asks for one (e.g. 'with the aid of a diagram').
-   - Written economics alone can score FULL MARKS (including 6/6 in AO2 and full marks overall).
+   - Written economics alone can score FULL MARKS (including full marks in AO2 and overall).
    - NEVER penalise or deduct any marks because an essay lacks a diagram.
    - NEVER criticise the absence of a diagram in feedback, weaknesses, or comments.
    - If the candidate DOES accurately draw or describe a diagram, POSITIVELY REWARD IT under AO2 Analysis.
    - The 'missing_elements.diagrams' list must remain empty [] unless the question explicitly required a diagram.
 
-6. EVALUATION: STRONG, WIDE, AND RIGOROUS (CALIBRATED WITH +3-5% STRICTNESS):
+7. EVALUATION: STRONG, WIDE, AND RIGOROUS (CALIBRATED WITH +3-5% STRICTNESS):
    - Apply 3-5% increased strictness to AO3 Evaluation to ensure high academic standards:
+   - For 20-mark extended essays: Scrutinize synoptic evaluation with +3-5% strictness. Require candidates to synthesize micro and macro impacts, evaluate short-run vs long-run trade-offs, assess elasticity and market context, and provide a reasoned, decisive contextual verdict answering the question prompt directly.
    - Demand critical prioritization: evaluate whether the candidate explains *which* evaluative point is the most decisive (e.g. why short-run price inelasticity dominates initially, but long-run technological substitution shifts the outcome).
-   - Reject unevidenced 'it depends on' lists: a candidate who merely recites standard caveats ('depends on size of tax, PED, and time') without applying them contextually should be held at 2/4.
-   - For 'best method' / 'most effective' questions, comparative evaluation against alternative policies is strictly required to exceed Level 1 (0-1/4).
+   - Reject unevidenced 'it depends on' lists: a candidate who merely recites standard caveats ('depends on size of tax, PED, and time') without applying them contextually should be held at middle band (2/4 for 12m, 3/6 for 20m).
+   - For 'best method' / 'most effective' questions, comparative evaluation against alternative policies is strictly required to exceed Level 1.
    - Be strict on superficial evaluation: a single token sentence or generic conclusion ('a mix of both is best') without justified criteria must not reach top band.
    - NO ARTIFICIAL NUMERIC CAPS: Do NOT apply rigid programmatic caps or formulaic ceiling rules (such as 'caps AO3 at 1/4' or 'Table B capped'). Evaluate the candidate's evaluative depth, critical prioritization, and breadth holistically on its economic merits.
 
-7. HUMAN, CONSTRUCTIVE EXAMINER PERSONA:
+8. HUMAN, CONSTRUCTIVE EXAMINER PERSONA:
    - Tone: Encouraging, supportive, professional Cambridge Senior Examiner.
    - Speak directly to the student. Write feedback that feels genuinely human, insightful, and practical.
    - Quote verbatim phrases from the student's text to validate your observations.
    - NO ASTERISKS: Never use asterisks (* or **) anywhere in any JSON string. Return clean plain text only.
 
-8. CAMBRIDGE ESSAY WRITING QUALITY, DEPTH & COHERENCE STANDARDS:
+9. CAMBRIDGE ESSAY WRITING QUALITY, DEPTH & COHERENCE STANDARDS:
    - PARAGRAPH ARCHITECTURE & COHERENCE:
      A genuine Cambridge examination response is an essay, NOT an outline or unstructured mass of text.
      An essay must have distinct paragraphs:
@@ -117,12 +119,12 @@ Cambridge examiners practice POSITIVE MARKING: reward what the candidate knows, 
      * 8-mark essay: standard target is 300–450 words. If under 200 words, AO2 is restricted to Level 2 and AO3 to Level 1.
      * 20-mark essay: standard target is 800–1200 words. If under 550 words, AO2 is restricted to Level 2 and AO3 to Level 2.
    - PROTECTION OF GENUINELY HIGH-QUALITY STUDENT ESSAYS:
-     When a student writes a thorough, well-paragraphed essay in natural prose (e.g. 500+ words for 12m) with clear step-by-step causal mechanisms and balanced evaluation, reward them fully in Top Band (10–12/12) without artificial reduction!
+     When a student writes a thorough, well-paragraphed essay in natural prose (e.g. 500+ words for 12m, 800+ words for 20m) with clear step-by-step causal mechanisms and balanced evaluation, reward them fully in Top Band without artificial reduction!
 
-9. OFFICIAL CAMBRIDGE RESPONSE STRUCTURE GUIDANCE:
+10. OFFICIAL CAMBRIDGE RESPONSE STRUCTURE GUIDANCE:
 {structure_note}
 
-10. SUBMISSION QUALITY & DEPTH PROFILE:
+11. SUBMISSION QUALITY & DEPTH PROFILE:
 {essay_quality_profile}
 
 Respond ONLY with a single valid JSON object, with NO commentary outside the JSON:
@@ -175,19 +177,21 @@ export const PASS1_ERROR_CHECK_DIRECTIVE = `
 EXAMINER PASS 1 FOCUS (Temperature 0.0 — Rigorous Theoretical & Analytical Error Check):
 - Conduct a rigorous, precise check of the economic theory, transmission mechanisms, curve dynamics, and key definitions.
 - RELEVANCE DOUBLE-CHECK: Do NOT falsely classify an essay as off-topic or a wrong question. Discussing alternative policies, foundational market failure context, or having partial focus is legitimate economics and must be credited. Only zero an essay if it has literally 0% connection to the topic after double-checking.
-- STRICT AO1 KNOWLEDGE & UNDERSTANDING (+3-5% strictness):
-  * Strictly demand accurate, syllabus-precise definitions for all core concepts. Vague, colloquial, or partially ambiguous definitions cannot earn full marks and must drop to 1/2.
+- STRICT AO1 KNOWLEDGE & THOROUGH UNDERSTANDING (+3-5% strictness):
+  * Strictly demand accurate, syllabus-precise definitions and thorough conceptual grounding for all core concepts. Vague, colloquial, or partially ambiguous definitions cannot earn full marks and must drop to 1/2.
+  * In 20-mark questions, demand thorough conceptual mastery across micro and macro dimensions.
   * Inverted definitions or false concepts (e.g. defining negative externality as a benefit to firms paid by government, claiming a carbon tax is a direct tax on income) must receive 0 marks for AO1.
 - STRICT AO2 ANALYSIS SCRUTINY & SENTENCE-LEVEL DEPTH (+3-5% strictness):
-  * Enforce complete, unbroken causal chains of reasoning. Every intermediate step must be articulated in explanatory prose.
+  * Enforce complete, unbroken causal chains of reasoning with thorough analytical depth. Every intermediate step must be articulated in explanatory prose.
+  * For 20-mark essays, analysis across all 12 marks must be thorough, multi-perspective, and extensive.
+  * POWERFUL USE OF REAL-LIFE EXAMPLES: Candidates must integrate genuine real-world examples (naming countries, specific markets, historical or contemporary policy interventions); reject weak one-liners.
   * REJECT COMPRESSED 1-SENTENCE ASSERTIONS: Listing endpoints in a single compound sentence (e.g. 'lower rates stimulate C and I while QE lowers yields to expand credit') without explaining how and why mechanisms operate is Level 2, NEVER Level 3.
-  * Check submission profile: If the response is an undersized outline (< 350 words for 12m) or lacks paragraph structure, AO2 CANNOT exceed Level 2.
+  * Check submission profile: If the response is an undersized outline (< 350 words for 12m, < 550 words for 20m) or lacks paragraph structure, AO2 CANNOT exceed Level 2.
   * Broken transmission chains built on false economic premises or inverted logic cannot exceed Level 1 in AO2.
-  * APPLICATION & EXAMPLES: Credit related real-world applications and detailed guiding theoretical models. Do NOT accept weak one-liner examples (e.g. dropping 'e.g. healthcare' without explanation).
   * Do NOT inflate marks for flawed economic foundations. Essays with fundamental misconceptions belong in Lower Middle or Bottom band, never Upper Middle.
 - STRICT AO3 EVALUATION SCRUTINY (+3-5% strictness for 12m/20m; Calibrated & Toned Down for 8m):
   * 8-MARK EVALUATIVE ESSAYS (2 AO3 marks allocated): TONE DOWN strictness appropriately for an 8-mark Section B question (~300–450w target). Do NOT demand 12m/20m criteria such as equity, efficiency, administrative feasibility, or prioritization matrices. If the candidate explores both dimensions/perspectives in context and provides a supported concluding judgement directly answering the question, award Level 2 (2/2 marks) in full.
-  * 12-MARK & 20-MARK ESSAYS (4-6 AO3 marks): Scrutinize evaluative claims critically. Do not award high evaluation marks for generic 'it depends on' lists or unweighted pros and cons. Top Band requires sustained comparative weighing and prioritized criteria on 'best way' / 'most effective' questions.
+  * 12-MARK & 20-MARK ESSAYS (4-6 AO3 marks): Scrutinize evaluative claims critically (+3-5% strictness). Do not award high evaluation marks for generic 'it depends on' lists or unweighted pros and cons. In 20-mark essays, Top Band (5-6/6) strictly requires sustained synoptic evaluation, critical prioritization of decisive factors, and a reasoned contextual verdict resolving the prompt.
 - PROSE INTEGRITY & AI FORMATTING CHECK:
   * Penalize synthetic AI-generated artifacts (markdown bolding **...**, raw LaTeX formulas). Flag the lack of natural continuous prose and compressed outline style in weaknesses.
 - ZERO NUMERIC MARKS IN COMMENTS: Never mention numeric marks or fractions (e.g. '(3/4)', '1/4', '3/4', '2/2', 'a single mark is awarded', 'restricted to 3/4') in comment text. Focus purely on explaining qualitatively why marks were lost or restricted.
@@ -205,16 +209,16 @@ EXAMINER PASS 2 FOCUS (Temperature 0.2 — Holistic Cambridge Assessment & Wide 
 - RELEVANCE DOUBLE-CHECK: Practice positive marking. Reward what the candidate knows, understands, and analyzes. Alternative policies, context setting, and varied analytical perspectives directly address the question. Only zero an essay if completely unrelated after double-checking.
 - STRICT STANDARDS ON AO1 KNOWLEDGE & AO2 ANALYSIS (+3-5% strictness):
   * Positive marking rewards genuine understanding; it does NOT reward imprecise or false economics.
-  * AO1 definitions must be syllabus-precise to achieve full marks. Inverted definitions earn 0.
-  * AO2 requires coherent, fully developed transmission mechanisms in continuous prose. Do not award top marks for incomplete chains, compressed 1-sentence assertions, or token one-liner examples.
-  * ESSAY ARCHITECTURE: Top Band requires structured writing across distinct paragraphs. Single-paragraph monolithic submissions or undersized outlines (< 350 words for 12m) cannot exceed Level 2 in AO2 or AO3.
+  * AO1 definitions must be syllabus-precise with thorough knowledge and understanding to achieve full marks. Inverted definitions earn 0.
+  * AO2 requires coherent, fully developed transmission mechanisms and thorough analysis in continuous prose. For 20-mark essays, powerful, integrated real-life examples and unbroken causal chains across all 12 marks are required for Top Band. Do not award top marks for incomplete chains, compressed 1-sentence assertions, or token one-liner examples.
+  * ESSAY ARCHITECTURE: Top Band requires structured writing across distinct paragraphs. Single-paragraph monolithic submissions or undersized outlines (< 350 words for 12m, < 550 words for 20m) cannot exceed Level 2 in AO2 or AO3.
 - RIGOROUS AO3 EVALUATION (+3-5% strictness for 12m/20m; Calibrated & Toned Down for 8m):
   * 8-MARK EVALUATIVE ESSAYS (2 AO3 marks allocated): TONE DOWN strictness appropriately for an 8-mark Section B question (~300–450w target). Do NOT demand 12m/20m criteria such as equity, efficiency, administrative feasibility, or prioritization matrices. If the candidate explores both dimensions/perspectives in context and provides a supported concluding judgement directly answering the question, award Level 2 (2/2 marks) in full.
-  * 12-MARK & 20-MARK ESSAYS (4-6 AO3 marks): Top marks require sustained comparative evaluation with critical prioritization—explaining which constraint or trade-off is most decisive in context against explicit criteria.
+  * 12-MARK & 20-MARK ESSAYS (4-6 AO3 marks): Top marks require sustained comparative evaluation with critical prioritization—explaining which constraint or trade-off is most decisive in context against explicit criteria. For 20-mark questions, synoptic synthesis across micro/macro dimensions and short/long run trade-offs with a substantiated contextual conclusion is strictly required for 5-6/6.
 - RIGOR ON WRITING QUALITY, AI FORMATTING & REALISTIC CALIBRATION:
-  * Ensure the final mark reflects the actual standard: essays with major conceptual errors, brief outlines, or synthetic AI-generated formatting belong in Lower Middle or Upper Middle band (max 6-7/12 for 12m), never Top Band (10-12/12).
-  * Maintain full Top Band marks (10-12/12) for well-developed, paragraphed student essays (500+ words) that demonstrate sustained analysis and prioritized evaluation.
-- APPLICATION & EXAMPLES: Reward genuine real-world application and clear guiding theoretical examples. Reject weak, superficial one-liner examples that lack explanation.
+  * Ensure the final mark reflects the actual standard: essays with major conceptual errors, brief outlines, or synthetic AI-generated formatting belong in Lower Middle or Upper Middle band (max 6-7/12 for 12m, max 11-12/20 for 20m), never Top Band.
+  * Maintain full Top Band marks for well-developed, paragraphed student essays (500+ words for 12m, 800+ words for 20m) that demonstrate sustained analysis, powerful real-life examples, and prioritized evaluation.
+- APPLICATION & EXAMPLES: Reward genuine real-world application and clear guiding theoretical examples. For 20-mark essays, powerful use of real-life examples is essential for high marks. Reject weak, superficial one-liner examples that lack explanation.
 - ZERO NUMERIC MARKS IN COMMENTS: Never write mark numbers or fractions in comments. Provide qualitative feedback only explaining why marks were gained or lost.
 - EVALUATIVE VS NON-EVALUATIVE TARIFF DIRECTIVE:
   * If AO3 is allocated > 0 marks (e.g. 2 marks for 8m evaluative, 4m for 12m, 6m for 20m), EVALUATION IS MANDATORY. You MUST evaluate AO3 out of {ao3_marks} marks and NEVER claim evaluation is not required. Even if the question begins with 'Explain', any evaluative clause ('consider whether', 'discuss', 'assess', 'should', 'to what extent') demands full evaluative grading.

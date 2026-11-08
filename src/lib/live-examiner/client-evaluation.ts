@@ -219,6 +219,17 @@ export function evaluateCambridgeAnswer(
     }
   }
 
+  // Writing quality and depth caps for 20-mark extended essays (target 800-1200 words)
+  if (maxMark >= 20) {
+    if (wordCount < 350) {
+      ao2Awarded = Math.min(ao2Awarded, 4);
+      ao3Awarded = Math.min(ao3Awarded, 1);
+    } else if (wordCount < 550) {
+      ao2Awarded = Math.min(ao2Awarded, 8);
+      ao3Awarded = Math.min(ao3Awarded, 3);
+    }
+  }
+
   // Question relevance guard: if completely devoid of economic terms and >15 words, award 0
   if (wordCount >= 15 && matchedTerms.size === 0 && ao2Count === 0 && ao3Count === 0 && question.length > 0) {
     const qTokens = question
@@ -246,6 +257,12 @@ export function evaluateCambridgeAnswer(
     nextCoaching = "Start with precise Cambridge 9708 definitions to unlock AO1 marks";
   } else if (safeAo1 < split.ao1_marks) {
     nextCoaching = "Define key syllabus terms precisely in your opening to secure full AO1 marks";
+  } else if (maxMark >= 20 && wordCount < 550) {
+    nextCoaching = "Extend your response with thorough causal chains and real-life examples (800-1200w target)";
+  } else if (maxMark >= 20 && safeAo2 < 10) {
+    nextCoaching = "Deepen AO2 analysis with unbroken causal transmission and integrated real-world examples";
+  } else if (maxMark >= 20 && safeAo3 < 5) {
+    nextCoaching = "Synthesize synoptic evaluation by prioritizing decisive trade-offs and reaching a supported verdict";
   } else if (safeAo2 < Math.ceil(split.ao2_marks * 0.7)) {
     nextCoaching = "Extend your AO2 causal transmission chains (cause -> market adjustment -> equilibrium outcome)";
   } else if (split.ao3_marks > 0 && safeAo3 < split.ao3_marks) {

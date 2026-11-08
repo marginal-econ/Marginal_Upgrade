@@ -119,4 +119,25 @@ describe("Examiner Configuration & Gemini Model Allocation", () => {
     const legacyAo3Descriptors = renderAo3Descriptors(8, 0);
     expect(legacyAo3Descriptors).toContain("AO3 Evaluation (0 marks): Evaluation is NOT required");
   });
+
+  it("builds exact evaluation directives and level descriptors matching 20m tariffs (+3-5% strictness, thorough analysis, powerful real-life examples)", async () => {
+    const { buildAoEvaluationDirective, renderAo3Descriptors, defaultSplitForMaxMark } = await import("./config");
+
+    const split20 = defaultSplitForMaxMark(20);
+    expect(split20).toEqual({ ao1_marks: 2, ao2_marks: 12, ao3_marks: 6 });
+
+    const directive20 = buildAoEvaluationDirective(20, split20);
+    expect(directive20).toContain("SPECIAL DIRECTIVE FOR 20-MARK A LEVEL EXTENDED ESSAYS");
+    expect(directive20).toContain("RIGOROUS AO1 KNOWLEDGE & THOROUGH UNDERSTANDING");
+    expect(directive20).toContain("THOROUGH AO2 ANALYSIS & POWERFUL REAL-WORLD APPLICATION");
+    expect(directive20).toContain("POWERFUL USE OF REAL-LIFE EXAMPLES");
+    expect(directive20).toContain("STRICT AO3 SYNOPTIC EVALUATION & DECISIVE PRIORITIZATION");
+
+    const descriptors20 = renderAo3Descriptors(20, 6);
+    expect(descriptors20).toContain("20-MARK A LEVEL ESSAY (+3-5% STRICTNESS)");
+    expect(descriptors20).toContain("Top Band (5-6 of 6)");
+    expect(descriptors20).toContain("Sustained, rigorous synoptic evaluation (+3-5% strictness)");
+    expect(descriptors20).toContain("Middle Band (3-4 of 6)");
+    expect(descriptors20).toContain("Lower Band (1-2 of 6)");
+  });
 });

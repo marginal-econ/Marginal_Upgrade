@@ -226,6 +226,23 @@ export function buildAoEvaluationDirective(maxMark: number, split: AoSplit): str
 - NEVER state that evaluation is not required, and do not withhold the 2nd mark for missing disproportionate 12m/20m criteria.`;
   }
 
+  if (maxMark === 20 || split.ao3_marks >= 6) {
+    return `SPECIAL DIRECTIVE FOR 20-MARK A LEVEL EXTENDED ESSAYS (AO1: ${split.ao1_marks}, AO2: ${split.ao2_marks}, AO3: ${split.ao3_marks}):
+- THIS IS A 20-MARK PAPER 4 A LEVEL EXTENDED EVALUATIVE ESSAY (${maxMark} marks total: AO1: ${split.ao1_marks}, AO2: ${split.ao2_marks}, AO3: ${split.ao3_marks}).
+- RIGOROUS AO1 KNOWLEDGE & THOROUGH UNDERSTANDING (+3-5% STRICTNESS):
+  * Strictly demand syllabus-precise definitions and thorough conceptual grounding across all relevant economic principles.
+  * Sound, precise terminology must be sustained across both microeconomic and macroeconomic dimensions. Inverted or false definitions earn 0 marks.
+- THOROUGH AO2 ANALYSIS & POWERFUL REAL-WORLD APPLICATION (${split.ao2_marks} MARKS TOTAL, +3-5% STRICTNESS):
+  * Analysis must be extensive, thorough, and structured across multiple perspectives (e.g. opposing mechanisms, market structures, or micro/macro impacts).
+  * Enforce complete, unbroken causal transmission chains with step-by-step explanatory depth (cause -> intermediate market adjustment -> outcome on prices, output, efficiency, or welfare). Candidates MUST NOT skip intermediate steps or use compressed bullet-like assertions.
+  * POWERFUL USE OF REAL-LIFE EXAMPLES: Candidates must actively integrate genuine, specific real-world examples (naming countries, specific markets, historical or contemporary policy interventions such as QE programs, specific carbon tax regimes, minimum wage legislation, or tariff disputes) directly into their causal mechanisms. Passing one-liner mentions ('e.g. healthcare' or 'like the UK') do NOT qualify for Top Band (${Math.max(10, split.ao2_marks - 2)}-${split.ao2_marks}/${split.ao2_marks}).
+- STRICT AO3 SYNOPTIC EVALUATION & DECISIVE PRIORITIZATION (${split.ao3_marks} MARKS TOTAL, +3-5% STRICTNESS):
+  * Evaluation is strictly mandatory out of exactly ${split.ao3_marks} marks. NEVER claim evaluation is not required.
+  * Scrutinize evaluative claims with high academic rigor (+3-5% strictness).
+  * Demand critical prioritization: the candidate must explicitly weigh competing considerations and justify *which* factor, constraint, time-horizon (short-run vs long-run), or elasticity condition is most decisive in context against explicit criteria.
+  * Reject superficial 'it depends on' lists or unweighted pros/cons. Top Band (${Math.max(5, split.ao3_marks - 1)}-${split.ao3_marks}/${split.ao3_marks}) strictly requires sustained comparative weighing and a substantiated contextual overall judgement directly resolving the question prompt.`;
+  }
+
   return `SPECIAL DIRECTIVE FOR EVALUATIVE ESSAYS (${split.ao3_marks} AO3 Evaluation Marks Allocated):
 - THIS IS AN EVALUATIVE ESSAY (${maxMark} marks total: AO1: ${split.ao1_marks}, AO2: ${split.ao2_marks}, AO3: ${split.ao3_marks}).
 - EVALUATION IS MANDATORY. The question requires critical evaluation, weighing of arguments, and a substantiated conclusion.
@@ -254,10 +271,10 @@ export function renderAo3Descriptors(maxMark: number, ao3Marks: number): string 
       * Lower Band (0-1 of 4): Purely one-sided assertion, token closing sentence without comparative analysis.`;
   }
   if (ao3Marks >= 6) {
-    return `- AO3 Evaluation & Synoptic Synthesis (${ao3Marks} marks total) — 20-MARK A LEVEL ESSAY:
-      * Top Band (5-6 of ${ao3Marks}): Comprehensive synoptic evaluation, critical synthesis across micro and macro dimensions, prioritization of decisive factors, and a reasoned contextual verdict.
-      * Middle Band (3-4 of ${ao3Marks}): Clear balanced evaluation on multiple sides with economic criteria, but prioritization is less sustained or verdict is partially detached.
-      * Lower Band (1-2 of ${ao3Marks}): Basic, limited evaluative comments without structured weighing.
+    return `- AO3 Evaluation & Synoptic Synthesis (${ao3Marks} marks total) — 20-MARK A LEVEL ESSAY (+3-5% STRICTNESS):
+      * Top Band (5-6 of ${ao3Marks}): Sustained, rigorous synoptic evaluation (+3-5% strictness). Evaluates critical trade-offs with explicit prioritization—explaining which constraint, assumption, or stakeholder impact is most decisive in context. Grounded in powerful real-world application and thorough understanding of micro/macro interactions, leading to a substantiated contextual overall verdict directly resolving the prompt.
+      * Middle Band (3-4 of ${ao3Marks}): Clear balanced evaluation across multiple perspectives with sound economic criteria, but prioritization of decisive factors is less sustained, real-world contextualization is limited, or the concluding judgement is partially formulaic.
+      * Lower Band (1-2 of ${ao3Marks}): Basic, limited evaluative comments without structured weighing, or generic unevidenced 'it depends on' lists without contextual application.
       * Zero (0 of ${ao3Marks}): No evaluative reasoning or conclusions.`;
   }
   return `- AO3 Evaluation (${ao3Marks} marks total): Evaluate the candidate's evaluative reasoning, weighing of perspectives, and concluding judgement out of ${ao3Marks} marks.`;
@@ -359,30 +376,30 @@ export const STRUCTURE_GUIDANCE: Record<number, StructureGuidance> = {
     questionType:
       'A Paper 4 (A Level) extended evaluative essay ("discuss"/"assess"/"consider the extent to which") — Section B or C, EITHER/OR.',
     aoSummary:
-      "AO1+AO2 Knowledge & Analysis: 14 marks (of which 2 are knowledge) · AO3 Evaluation: 6 marks",
+      "AO1 Knowledge: 2 marks · AO2 Analysis: 12 marks · AO3 Evaluation: 6 marks",
     steps: [
       {
-        title: "Knowledge (2 of the 14 AO1+AO2 marks)",
+        title: "Knowledge and Understanding (2 of the 14 AO1+AO2 marks)",
         detail:
-          "Open with two clear knowledge points — accurate definitions/concepts the essay will build its analysis from.",
+          "Open with precise, syllabus-accurate definitions and thorough conceptual grounding from which the essay builds its analysis.",
       },
       {
-        title: "Analysis — several developed points (remainder of the 14 marks)",
+        title: "Analysis — thorough, multi-perspective causal chains (12 marks AO2)",
         detail:
-          "At this length the mark scheme expects analysis of multiple sides of the issue (e.g. the case for AND the case against, or two/three distinct mechanisms), each following define -> explain -> analyse -> apply to the specific context in the question, in detail and with accurate use of diagrams/theory where relevant.",
+          "At this length the mark scheme expects thorough analysis of multiple perspectives (e.g. opposing mechanisms, market structures, or micro/macro impacts), each following define -> explain -> analyse -> apply to the specific context in the question, with unbroken transmission chains and powerful use of real-life examples (naming countries, specific markets, or policy cases).",
       },
       {
-        title: "Evaluate each analysis point (part of the 6 AO3 marks)",
+        title: "Synoptic Evaluation & Critical Prioritization (part of the 6 AO3 marks)",
         detail:
-          "Evaluate as you go — is the effect significant, does it depend on a condition (elasticity, time frame, market structure, country context), is there a genuine counter-argument? A one-sided response cannot gain any AO3 marks at this tariff.",
+          "Evaluate synoptically — weigh trade-offs, examine short-run vs long-run dynamics, test elasticity and behavioural assumptions, and prioritize which constraints or effects are most decisive in context against explicit criteria.",
       },
       {
-        title: "Conclusion (remainder of the 6 AO3 marks)",
+        title: "Substantiated Conclusion (remainder of the 6 AO3 marks)",
         detail:
-          "Close with a reasoned, ideally conditional, overall judgement that directly answers the question as asked and weighs the evaluative points against each other.",
+          "Close with a reasoned, contextual overall judgement that directly resolves the question as asked, weighing the evaluative points against each other decisively rather than offering an unweighted summary.",
       },
     ],
-    note: "This is a longer version of the 12-mark essay shape (2 knowledge points -> developed, evaluated analysis -> conclusion), scaled to 20 marks. Not the only valid structure — a well-argued response structured differently is never marked down for that reason alone.",
+    note: "This extended Paper 4 structure combines thorough knowledge and understanding, comprehensive causal analysis with powerful real-life examples, and strict synoptic evaluation with decisive prioritization. Not the only valid structure — an equally well-argued response structured differently is never marked down for that reason alone.",
   },
 };
 

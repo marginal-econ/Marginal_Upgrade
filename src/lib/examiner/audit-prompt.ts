@@ -22,6 +22,7 @@ CAMBRIDGE MODERATION PRINCIPLES — POSITIVE, FAIR, ACCURATE MARKING:
 
 3. EXAMPLES & REAL-WORLD APPLICATION (AO2):
    - Reward related real-world applications and detailed guiding theoretical models.
+   - For 20-mark extended essays, powerful and relevant use of real-life examples (naming countries, specific markets, or policy programs) integrated into the analysis is strictly required for Top Band.
    - REJECT weak one-liner examples (e.g. passing mentions like "e.g. healthcare" without explanation).
 
 4. FIXED AO ALLOCATION (syllabus {syllabus_code}, {max_mark}-mark essay):
@@ -36,9 +37,10 @@ CAMBRIDGE MODERATION PRINCIPLES — POSITIVE, FAIR, ACCURATE MARKING:
 
 6. STRONG AND WIDE EVALUATION & QUESTION FOCUS (AO3) (+3-5% STRICTNESS):
    - Maintain rigorous moderation standards for AO3 Evaluation (+3-5% calibrated strictness):
+   - For 20-mark extended essays: Scrutinize synoptic evaluation with +3-5% strictness. Require candidates to synthesize micro and macro impacts, evaluate short-run vs long-run trade-offs, test elasticity conditions, and provide a reasoned, decisive contextual verdict answering the question prompt directly. Top Band strictly demands critical prioritization of decisive factors.
    - Check whether evaluation demonstrates genuine critical prioritization rather than just listing standard caveats ('it depends on elasticity and time'). Top band requires explaining which consideration is most decisive.
-   - For questions assessing whether a policy is the 'best way' or 'most effective' intervention, candidates must directly compare against alternative policies against explicit criteria (PED pass-through, equity/regressive impacts, administrative feasibility, government failure in tax calibration). Superficial or missing comparative weighing cannot exceed Level 1 (0-1/4) in AO3.
-   - Standard balanced summaries without critical prioritization belong in middle band (2/4); token conclusions or one-sided arguments stay in lower band (0-1/4).
+   - For questions assessing whether a policy is the 'best way' or 'most effective' intervention, candidates must directly compare against alternative policies against explicit criteria (PED pass-through, equity/regressive impacts, administrative feasibility, government failure in tax calibration). Superficial or missing comparative weighing cannot exceed Level 1 in AO3.
+   - Standard balanced summaries without critical prioritization belong in middle band; token conclusions or one-sided arguments stay in lower band.
    - NO ARTIFICIAL NUMERIC CAPS: Do NOT apply rigid programmatic caps (such as 'caps AO3 at 1/4'). Evaluate the candidate's evaluative depth and breadth holistically on its economic merit.
 
 7. HUMAN, CONSTRUCTIVE VOICE:
@@ -46,10 +48,10 @@ CAMBRIDGE MODERATION PRINCIPLES — POSITIVE, FAIR, ACCURATE MARKING:
    - Zero asterisks: never use * or ** in any JSON string.
 
 8. CAMBRIDGE WRITING QUALITY, DEPTH & PARAGRAPH STRUCTURE:
-   - Moderate marks against authentic Cambridge standards: an essay under 350 words (for 12 marks) is an outline summary where transmission links are compressed into short assertions. It must NOT be awarded Top Band Level 3 for AO2 (max 4/6) or AO3 (max 2/4).
+   - Moderate marks against authentic Cambridge standards: an essay under 350 words (for 12 marks) or under 550 words (for 20 marks) is an outline summary where transmission links are compressed into short assertions. It must NOT be awarded Top Band Level 3/4 for AO2 or AO3.
    - Single-paragraph monolithic submissions fail Cambridge organizational standards and cannot exceed Level 2.
    - AI-generated formatting artifacts (**bolding**, raw LaTeX) must be penalized as compressed outline notes rather than examination essays.
-   - Preserve full credit (10-12/12) for well-developed, paragraphed student essays (500+ words) that demonstrate sustained analysis and prioritized evaluation.
+   - Preserve full credit for well-developed, paragraphed student essays (500+ words for 12m, 800+ words for 20m) that demonstrate sustained analysis, powerful real-life examples, and prioritized evaluation.
 
 9. OFFICIAL CAMBRIDGE RESPONSE STRUCTURE GUIDANCE:
 {structure_note}

@@ -342,6 +342,7 @@ When estimating "predicted_mark":
 - 1 AO1 definition sentence earns 1 AO1 mark; 2+ AO1 sentences earn ${split.ao1_marks}/${split.ao1_marks} AO1 marks.
 - If there are 0 genuine AO2 causal mechanism sentences, analysis.awarded MUST be 0 (never award 4/12 for two AO1 sentences!).
 - If there are 0 genuine AO3 evaluation sentences, evaluation.awarded MUST be 0.
+${maxMark >= 20 ? `- For 20-mark questions (${maxMark} marks: AO1: ${split.ao1_marks}, AO2: ${split.ao2_marks}, AO3: ${split.ao3_marks}): AO2 analysis must be thorough with complete causal chains and powerful use of real-life examples (naming countries, markets, policy cases). Top band (${split.ao2_marks - 2}-${split.ao2_marks}/${split.ao2_marks}) requires extensive, multi-perspective causal reasoning with integrated examples. Evaluation requires rigorous synoptic weighing and decisive prioritization (+3-5% strictness). Do NOT award high marks for compressed notes or passing one-liner mentions.` : ""}
 
 Respond ONLY with a single valid JSON object. Do NOT wrap the JSON inside markdown codeblocks or triple backticks. Do NOT include conversational greetings, preamble, or trailing commentary. Exactly this JSON structure:
 {
