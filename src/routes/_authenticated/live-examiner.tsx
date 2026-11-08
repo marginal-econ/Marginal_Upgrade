@@ -1083,8 +1083,8 @@ function LiveExaminerPage() {
                   description: move.detail,
                 });
               }}
-              onOpenMaximizer={() => setMaximizerOpen(true)}
-              maximizerLoading={maximizerLoading}
+              onOpenMaximizer={handleOpenScoreMaximizer}
+              maximizerLoading={maxOutMutation.isPending}
             />
 
             <LiveExaminerPanel
