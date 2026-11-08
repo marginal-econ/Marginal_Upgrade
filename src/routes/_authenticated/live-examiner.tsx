@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
@@ -94,6 +94,17 @@ import type { Grading } from "@/lib/examiner/types";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/live-examiner")({
+  beforeLoad: async ({ context }) => {
+    const user = (context as any)?.user;
+    const isMarginal = isMarginalAdmin({
+      userId: user?.id,
+      email: user?.email,
+      claims: user?.user_metadata,
+    });
+    if (!isMarginal) {
+      throw redirect({ to: "/dashboard" });
+    }
+  },
   head: () => ({
     meta: [
       { title: "Live Examiner — Cambridge 9708 Economics" },

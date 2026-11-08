@@ -59,7 +59,6 @@ import {
 } from "@/components/marketing/doodles";
 import { SiteFooter } from "@/components/marketing/footer";
 import { CommandWordDrill } from "@/components/marketing/interactive";
-import { ExaminerStage, LiveExaminer } from "@/components/marketing/live-examiner";
 import { MarkingHand } from "@/components/marketing/mascot";
 import { CountUp, Reveal } from "@/components/marketing/reveal";
 import { Ribbon } from "@/components/marketing/ribbon";
@@ -231,15 +230,6 @@ const OBJECTIVES = [
 
 // All eight specialized features engineered for Cambridge 9708 Economics.
 const TOOLS = [
-  {
-    icon: Sparkles,
-    tile: "bg-purple-600",
-    badge: "In Active Beta",
-    title: "Live Examiner & Score Maximizer",
-    lead: "Instant Cambridge coaching as you type",
-    body: "Grammarly for Economics: instant AO1/AO2/AO3 sentence highlighting, live running marks, terminology checks, and step-by-step Score Maximizer blueprints.",
-    href: "/live-examiner",
-  },
   {
     icon: PenLine,
     tile: "bg-ao2",
@@ -935,39 +925,6 @@ function Index() {
         </div>
       </section>
 
-      {/* ── Experimental Lab: Live Examiner (Under Development) ──────────── */}
-      <section
-        id="experimental-live-examiner"
-        className="relative border-b-[1.5px] border-ink bg-surface-raised scroll-mt-20 overflow-hidden py-16 md:py-24"
-      >
-        <CosmicAtmosphere variant="purple" sparkles={true} density="high" />
-        <div className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6 md:px-8">
-          <Reveal>
-            <div className="text-center space-y-3 mb-10">
-              <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full border border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400 font-extrabold uppercase text-[11px] tracking-wider">
-                <span className="size-2 rounded-full bg-amber-500 animate-ping inline-block" />
-                Experimental Feature · In Active Development
-              </span>
-              <h2 className="text-2xl sm:text-4xl font-extrabold tracking-tight text-foreground">
-                Live Examiner — Real-Time Keystroke Economics AI
-              </h2>
-              <p className="max-w-2xl mx-auto text-sm sm:text-base text-muted-foreground leading-relaxed">
-                We are currently engineering our next-generation live typing evaluator that diagnoses grammar, causal chains, and Cambridge AO marks in real-time as you write. Try out our interactive development prototype below.
-              </p>
-            </div>
-          </Reveal>
-
-          <Reveal variant="pop" delay={120}>
-            <div className="relative mx-auto w-full max-w-3xl">
-              <div className="absolute -inset-3 rounded-3xl bg-gradient-to-r from-primary/30 via-violet-500/25 to-amber-500/25 blur-2xl opacity-75 -z-10 animate-pulse" />
-              <ExaminerStage className="relative mx-auto w-full min-w-0 shadow-2xl border-2 border-primary/40 rounded-2xl overflow-hidden backdrop-blur-xl ring-1 ring-primary/20">
-                <LiveExaminer />
-              </ExaminerStage>
-            </div>
-          </Reveal>
-        </div>
-      </section>
-
       {/* ── FAQ ──────────────────────────────────────────────────────────── */}
       <section id="faq" className="relative border-b-[1.5px] border-ink bg-surface-raised scroll-mt-20 overflow-hidden">
         <CosmicAtmosphere variant="default" sparkles={true} density="low" />
@@ -1049,21 +1006,7 @@ function Index() {
                       <span>Grade Essays Free</span>
                     </Link>
                   </Button>
-                  <Button
-                    asChild
-                    variant="outline"
-                    size="lg"
-                    className="h-11 sm:h-12 px-5 text-xs sm:text-sm font-semibold border-white/20 bg-white/5 text-white hover:bg-white/15 hover:border-white/35 backdrop-blur-md rounded-xl transition-all cursor-pointer group"
-                  >
-                    <Link to="/live-examiner" className="inline-flex items-center gap-2">
-                      <Sparkles className="size-4 text-purple-300 group-hover:rotate-12 transition-transform" />
-                      <span>Live Examiner</span>
-                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-400/20 px-2 py-0.5 text-[10px] font-bold text-amber-300 border border-amber-400/35 tracking-wider uppercase">
-                        <span className="size-1.5 rounded-full bg-amber-400 animate-pulse" />
-                        In Beta
-                      </span>
-                    </Link>
-                  </Button>
+                  
                 </div>
 
                 <p className="mt-5 text-xs text-plum-foreground/70">

@@ -12,7 +12,6 @@ const NAV_SECTIONS: ReadonlyArray<{ id: string; label: string; to?: string }> = 
   { id: "graded-exemplar", label: "Graded Essays" },
   { id: "tools", label: "Features" },
   { id: "teachers-section", label: "For Teachers" },
-  { id: "experimental-live-examiner", label: "Live Examiner" },
   { id: "faq", label: "FAQ" },
 ];
 

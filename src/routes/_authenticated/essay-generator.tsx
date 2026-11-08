@@ -436,8 +436,8 @@ function EssayGeneratorPage() {
                       {copied ? "Copied!" : "Copy Model Essay"}
                     </Button>
                     <Button asChild size="sm" variant="outline" className="gap-1.5 text-xs">
-                      <Link to="/live-examiner">
-                        <Sparkles className="size-3.5 text-primary" /> Practise in Live Examiner
+                      <Link to="/grade">
+                        <PenLine className="size-3.5 text-primary" /> Mark Essay
                       </Link>
                     </Button>
                   </div>

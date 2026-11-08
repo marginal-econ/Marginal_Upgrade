@@ -118,12 +118,6 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
       { to: "/grade", label: "Grade Essays", icon: PenLine },
-      {
-        to: "/live-examiner",
-        label: "Live Examiner",
-        icon: Sparkles,
-        badge: "Live",
-      },
       { to: "/mcq-live", label: "MCQ Past Papers", icon: ListChecks },
       {
         to: "/data-response",
@@ -167,6 +161,7 @@ const NAV_GROUPS: NavGroup[] = [
     collapsible: true,
     items: [
       { to: "/admin", label: "Admin Console", icon: ShieldCheck, badge: "Root" },
+      { to: "/live-examiner", label: "Live Examiner Studio", icon: Sparkles, badge: "Lab", adminOnly: true },
     ],
   },
 ];
@@ -179,12 +174,6 @@ const TEACHER_NAV_GROUPS: NavGroup[] = [
     items: [
       { to: "/dashboard", label: "Educator Dashboard", icon: LayoutDashboard },
       { to: "/grade", label: "Grade Essays", icon: PenLine },
-      {
-        to: "/live-examiner",
-        label: "Live Examiner",
-        icon: Sparkles,
-        badge: "Live",
-      },
       { to: "/mcq-live", label: "MCQ Past Papers", icon: ListChecks },
       {
         to: "/data-response",
@@ -1084,6 +1073,7 @@ export function AppShell({
               <PenLine className="mr-2 size-4 text-indigo-500" />
               <span>Grade Essays (AI Evaluator)</span>
             </CommandItem>
+            {isUserAdmin && (
             <CommandItem
               onSelect={() => {
                 setCommandOpen(false);
@@ -1092,8 +1082,9 @@ export function AppShell({
               className="cursor-pointer"
             >
               <Sparkles className="mr-2 size-4 text-emerald-500" />
-              <span>Live Examiner</span>
+              <span>Live Examiner Studio (Admin)</span>
             </CommandItem>
+          )}
             <CommandItem
               onSelect={() => {
                 setCommandOpen(false);

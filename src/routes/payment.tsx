@@ -856,7 +856,7 @@ function PaymentPortalPage() {
               </div>
               <div className="flex items-center gap-2">
                 <Button asChild size="sm" className="h-8 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-semibold">
-                  <Link to="/live-examiner">Go to Live Examiner</Link>
+                  <Link to="/grade">Start Essay Grading</Link>
                 </Button>
                 <Button asChild variant="outline" size="sm" className="h-8 text-xs">
                   <Link to="/grade">Grade Essay</Link>
