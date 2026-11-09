@@ -210,3 +210,32 @@ export const deleteDataResponsePaper = createServerFn({ method: "POST" })
     }
     return { ok: true };
   });
+
+// 7. Get authentic past paper PDF buffer as Base64 for same-origin inline rendering
+export const getPaperPdfBase64 = createServerFn({ method: "GET" })
+  .validator((input: unknown) => z.object({ paperId: z.string() }).parse(input))
+  .handler(async ({ data }) => {
+    const paper = PRELOADED_DATA_RESPONSE_PAPERS.find((p) => p.id === data.paperId);
+    if (!paper || !paper.pdfUrl) {
+      throw new Error(`PDF URL not found for paper ID "${data.paperId}".`);
+    }
+
+    try {
+      const res = await fetch(paper.pdfUrl, {
+        headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" },
+      });
+      if (!res.ok) {
+        throw new Error(`Remote repository returned HTTP ${res.status}`);
+      }
+      const arrayBuffer = await res.arrayBuffer();
+      const base64 = Buffer.from(arrayBuffer).toString("base64");
+      return {
+        base64,
+        filename: `${paper.originalExamCode ? paper.originalExamCode.replace(/[\/\\]/g, "_") : paper.id}.pdf`,
+        byteLength: arrayBuffer.byteLength,
+      };
+    } catch (err: any) {
+      console.error(`Could not fetch PDF for paper ${data.paperId}:`, err);
+      throw new Error(`Failed to load authentic PDF: ${err.message}`);
+    }
+  });

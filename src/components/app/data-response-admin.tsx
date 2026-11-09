@@ -62,6 +62,8 @@ import type {
 import { extractTextFromFile } from "@/lib/extract-text";
 import { ocrPdf } from "@/lib/pdf-ocr";
 import { EconomicsDiagram } from "@/components/diagrams/economics-diagram";
+import { CambridgePdfViewer } from "./cambridge-pdf-viewer";
+import { CambridgeExamInsert } from "./cambridge-exam-insert";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -107,7 +109,6 @@ export function DataResponseStudio() {
   // Extract View Mode: "text" | "pdf" (Past Paper PDF / Insert)
   const [extractViewMode, setExtractViewMode] = useState<"text" | "pdf">("text");
   const [pdfModalOpen, setPdfModalOpen] = useState<boolean>(false);
-  const [pdfViewerEngine, setPdfViewerEngine] = useState<"google" | "direct">("google");
 
   // Answering State (questionId/number -> text)
   const [answers, setAnswers] = useState<Record<string, string>>({});
@@ -206,15 +207,6 @@ export function DataResponseStudio() {
     if (!currentPaper || !currentPaper.questions || currentPaper.questions.length === 0) return null;
     return currentPaper.questions[activeQuestionIdx] || currentPaper.questions[0];
   }, [currentPaper, activeQuestionIdx]);
-
-  // Resilient PDF viewer URL (Google Docs HTML5 Viewer fallback avoids cross-origin iframe security blocks)
-  const pdfIframeUrl = useMemo(() => {
-    if (!currentPaper?.pdfUrl) return "";
-    if (pdfViewerEngine === "google") {
-      return `https://docs.google.com/viewer?url=${encodeURIComponent(currentPaper.pdfUrl)}&embedded=true`;
-    }
-    return currentPaper.pdfUrl;
-  }, [currentPaper?.pdfUrl, pdfViewerEngine]);
 
   // Mutation: Grade paper
   const gradeMutation = useMutation({
@@ -760,298 +752,86 @@ export function DataResponseStudio() {
           {currentPaper ? (
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
               {/* LEFT COLUMN: CASE STUDY / EXTRACT VIEWER (5 COLS) */}
-              <div className="lg:col-span-5 space-y-4">
-                <Card className="border border-border/80 h-full flex flex-col shadow-sm">
-                  <CardHeader className="p-4 border-b bg-muted/30 pb-3 space-y-3">
-                    {/* View Mode Toggle: Interactive Extract vs Official Past Paper PDF Insert */}
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-1 bg-muted/80 p-0.5 rounded-lg border border-border/60">
-                        <Button
-                          type="button"
-                          variant={extractViewMode === "text" ? "secondary" : "ghost"}
-                          size="sm"
-                          onClick={() => setExtractViewMode("text")}
-                          className={cn(
-                            "h-7 text-xs font-semibold px-2.5 gap-1.5 transition-all",
-                            extractViewMode === "text"
-                              ? "bg-background shadow-xs text-foreground font-bold"
-                              : "text-muted-foreground hover:text-foreground"
-                          )}
-                        >
-                          <BookOpen className="h-3.5 w-3.5 text-primary" />
-                          Extract & Tables
-                        </Button>
-                        <Button
-                          type="button"
-                          variant={extractViewMode === "pdf" ? "secondary" : "ghost"}
-                          size="sm"
-                          onClick={() => setExtractViewMode("pdf")}
-                          className={cn(
-                            "h-7 text-xs font-semibold px-2.5 gap-1.5 transition-all",
-                            extractViewMode === "pdf"
-                              ? "bg-background shadow-xs text-rose-600 dark:text-rose-400 font-bold"
-                              : "text-muted-foreground hover:text-foreground"
-                          )}
-                        >
-                          <FileText className="h-3.5 w-3.5 text-rose-500" />
-                          Past Paper PDF / Insert
-                          {currentPaper.pdfUrl && (
-                            <span className="flex h-1.5 w-1.5 rounded-full bg-rose-500 animate-pulse" />
-                          )}
-                        </Button>
-                      </div>
-
-                      {currentPaper.originalExamCode && (
-                        <Badge
-                          variant="outline"
-                          className="text-[10px] font-mono font-bold border-rose-500/30 text-rose-600 dark:text-rose-400 bg-rose-500/5 shrink-0"
-                        >
-                          {currentPaper.originalExamCode}
-                        </Badge>
+              <div className="lg:col-span-5 space-y-3 flex flex-col">
+                {/* View Mode Toggle Bar */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2 rounded-xl bg-card border border-border/80 shadow-xs">
+                  <div className="flex items-center gap-1 bg-muted/80 p-0.5 rounded-lg border border-border/60">
+                    <Button
+                      type="button"
+                      variant={extractViewMode === "text" ? "secondary" : "ghost"}
+                      size="sm"
+                      onClick={() => setExtractViewMode("text")}
+                      className={cn(
+                        "h-7 text-xs font-semibold px-2.5 gap-1.5 transition-all",
+                        extractViewMode === "text"
+                          ? "bg-background shadow-xs text-foreground font-bold"
+                          : "text-muted-foreground hover:text-foreground"
                       )}
+                    >
+                      <BookOpen className="h-3.5 w-3.5 text-primary" />
+                      Exam Insert (HTML)
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={extractViewMode === "pdf" ? "secondary" : "ghost"}
+                      size="sm"
+                      onClick={() => setExtractViewMode("pdf")}
+                      className={cn(
+                        "h-7 text-xs font-semibold px-2.5 gap-1.5 transition-all",
+                        extractViewMode === "pdf"
+                          ? "bg-background shadow-xs text-rose-600 dark:text-rose-400 font-bold"
+                          : "text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      <FileText className="h-3.5 w-3.5 text-rose-500" />
+                      Past Paper PDF
+                      {currentPaper.pdfUrl && (
+                        <span className="flex h-1.5 w-1.5 rounded-full bg-rose-500 animate-pulse" />
+                      )}
+                    </Button>
+                  </div>
+
+                  {extractViewMode === "text" ? (
+                    <div className="relative flex-1 sm:w-48">
+                      <Search className="absolute left-2 top-2 h-3 w-3 text-muted-foreground" />
+                      <Input
+                        placeholder="Search extract data…"
+                        value={extractFilter}
+                        onChange={(e) => setExtractFilter(e.target.value)}
+                        className="pl-7 h-7 text-xs bg-background"
+                      />
                     </div>
+                  ) : (
+                    currentPaper.originalExamCode && (
+                      <Badge
+                        variant="outline"
+                        className="text-[10px] font-mono font-bold border-rose-500/30 text-rose-600 dark:text-rose-400 bg-rose-500/5 ml-auto"
+                      >
+                        {currentPaper.originalExamCode}
+                      </Badge>
+                    )
+                  )}
+                </div>
 
-                    <div>
-                      <div className="flex items-center justify-between gap-2">
-                        <CardTitle className="text-sm font-bold tracking-tight">
-                          {extractViewMode === "text" ? "Case Study Extract" : "Official Cambridge Exam Insert"}
-                        </CardTitle>
-                        {extractViewMode === "text" && (
-                          <Badge variant="secondary" className="text-[11px] font-mono">
-                            {currentPaper.extract.paragraphs.length} Paragraphs
-                          </Badge>
-                        )}
-                      </div>
-                      <CardDescription className="text-xs font-semibold text-foreground mt-0.5">
-                        {currentPaper.extract.title}
-                      </CardDescription>
-                    </div>
-
-                    {/* Search inside extract (when in text view) */}
-                    {extractViewMode === "text" && (
-                      <div className="relative">
-                        <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
-                        <Input
-                          placeholder="Search data, names, keywords in extract…"
-                          value={extractFilter}
-                          onChange={(e) => setExtractFilter(e.target.value)}
-                          className="pl-8 h-8 text-xs bg-background"
-                        />
-                      </div>
-                    )}
-                  </CardHeader>
-
-                  <CardContent className="p-4 flex-1">
-                    {extractViewMode === "text" ? (
-                      <ScrollArea className="h-[620px] pr-3">
-                        <div className="space-y-4 text-sm leading-relaxed text-foreground/90">
-                          {currentPaper.extract.paragraphs.map((para, idx) => {
-                            const isMatch = extractFilter && para.toLowerCase().includes(extractFilter.toLowerCase());
-                            return (
-                              <div
-                                key={idx}
-                                className={cn(
-                                  "group relative p-3 rounded-lg border transition-colors",
-                                  isMatch
-                                    ? "bg-amber-500/10 border-amber-500/40"
-                                    : "bg-muted/20 border-border/50 hover:border-primary/40 hover:bg-muted/30"
-                                )}
-                              >
-                                <div className="flex items-center justify-between gap-2 mb-1.5">
-                                  <span className="text-[10px] font-mono font-semibold uppercase text-muted-foreground">
-                                    Paragraph {idx + 1}
-                                  </span>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => handleInsertExtractQuote(para)}
-                                    className="h-6 px-1.5 text-[10px] text-muted-foreground opacity-70 group-hover:opacity-100 hover:text-primary gap-1"
-                                  >
-                                    <Copy className="h-3 w-3" />
-                                    Quote
-                                  </Button>
-                                </div>
-                                <p className="text-xs/relaxed">{para}</p>
-                              </div>
-                            );
-                          })}
-
-                          {/* Tables / Data figures */}
-                          {currentPaper.extract.tables && currentPaper.extract.tables.length > 0 && (
-                            <div className="space-y-3 pt-2">
-                              {currentPaper.extract.tables.map((tbl, tIdx) => (
-                                <div key={tIdx} className="rounded-lg border border-border/70 overflow-hidden text-xs">
-                                  {tbl.title && (
-                                    <div className="bg-muted/60 px-3 py-1.5 font-bold text-[11px] border-b text-foreground">
-                                      {tbl.title}
-                                    </div>
-                                  )}
-                                  <div className="overflow-x-auto">
-                                    <table className="w-full text-left border-collapse">
-                                      <thead>
-                                        <tr className="bg-muted/40 border-b border-border/50">
-                                          {tbl.headers.map((h, hIdx) => (
-                                            <th key={hIdx} className="px-2.5 py-1.5 font-bold text-[11px] text-foreground">
-                                              {h}
-                                            </th>
-                                          ))}
-                                        </tr>
-                                      </thead>
-                                      <tbody className="divide-y divide-border/40">
-                                        {tbl.rows.map((row, rIdx) => (
-                                          <tr key={rIdx} className={cn("hover:bg-muted/20", rIdx % 2 === 1 ? "bg-muted/10" : "")}>
-                                            {row.map((cell, cIdx) => (
-                                              <td key={cIdx} className="px-2.5 py-1.5 text-[11px] font-mono">
-                                                {cell}
-                                              </td>
-                                            ))}
-                                          </tr>
-                                        ))}
-                                      </tbody>
-                                    </table>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-
-                          {currentPaper.extract.sources && (
-                            <p className="text-[11px] text-muted-foreground italic pt-2 border-t border-border/50">
-                              {currentPaper.extract.sources}
-                            </p>
-                          )}
-                        </div>
-                      </ScrollArea>
-                    ) : (
-                      /* Past Paper PDF / Official Insert Mode */
-                      <div className="space-y-3">
-                        <div className="p-3 rounded-xl border border-rose-500/20 bg-rose-500/5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-                          <div className="space-y-0.5">
-                            <div className="flex items-center gap-2">
-                              <FileText className="h-4 w-4 text-rose-500" />
-                              <span className="font-bold text-xs text-foreground">
-                                {currentPaper.originalExamCode || "Cambridge 9708"} Official Exam Insert
-                              </span>
-                            </div>
-                            <p className="text-[11px] text-muted-foreground">
-                              View original past paper figures, diagrams, and case study tables exactly as printed by Cambridge.
-                            </p>
-                          </div>
-
-                          <div className="flex flex-wrap items-center gap-1.5 shrink-0">
-                            {currentPaper.pdfUrl && (
-                              <>
-                                <div className="flex items-center gap-1 bg-background/90 p-0.5 rounded-lg border border-border/60">
-                                  <Button
-                                    type="button"
-                                    variant={pdfViewerEngine === "google" ? "secondary" : "ghost"}
-                                    size="sm"
-                                    onClick={() => setPdfViewerEngine("google")}
-                                    className={cn(
-                                      "h-6 text-[10px] px-2 font-semibold transition-all",
-                                      pdfViewerEngine === "google"
-                                        ? "bg-muted text-primary font-bold shadow-xs"
-                                        : "text-muted-foreground hover:text-foreground"
-                                    )}
-                                  >
-                                    HTML5 Viewer
-                                  </Button>
-                                  <Button
-                                    type="button"
-                                    variant={pdfViewerEngine === "direct" ? "secondary" : "ghost"}
-                                    size="sm"
-                                    onClick={() => setPdfViewerEngine("direct")}
-                                    className={cn(
-                                      "h-6 text-[10px] px-2 font-semibold transition-all",
-                                      pdfViewerEngine === "direct"
-                                        ? "bg-muted text-primary font-bold shadow-xs"
-                                        : "text-muted-foreground hover:text-foreground"
-                                    )}
-                                  >
-                                    Direct PDF
-                                  </Button>
-                                </div>
-
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => setPdfModalOpen(true)}
-                                  className="h-7 text-xs gap-1 border-border/80 hover:bg-muted font-medium"
-                                  title="Open full screen PDF reader"
-                                >
-                                  <Maximize2 className="h-3 w-3" />
-                                  Full Screen
-                                </Button>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => window.open(currentPaper.pdfUrl, "_blank")}
-                                  className="h-7 text-xs gap-1 border-border/80 hover:bg-muted font-medium"
-                                  title="Open PDF in a new browser tab"
-                                >
-                                  <ExternalLink className="h-3 w-3" />
-                                  New Tab
-                                </Button>
-                                <a
-                                  href={currentPaper.pdfUrl}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  download
-                                  className="inline-flex items-center justify-center rounded-md border border-border/80 bg-background h-7 px-2 text-xs font-medium hover:bg-muted gap-1 text-foreground"
-                                  title="Download PDF"
-                                >
-                                  <Download className="h-3 w-3" />
-                                </a>
-                              </>
-                            )}
-                          </div>
-                        </div>
-
-                        {currentPaper.pdfUrl ? (
-                          <div className="space-y-2">
-                            <div className="relative rounded-xl border border-border/80 overflow-hidden bg-muted/40 shadow-inner">
-                              <iframe
-                                src={pdfIframeUrl}
-                                referrerPolicy="no-referrer"
-                                className="w-full h-[540px] bg-white dark:bg-zinc-950"
-                                title={`${currentPaper.title} - Official Past Paper PDF`}
-                              />
-                            </div>
-                            <div className="p-2.5 rounded-lg bg-muted/30 border border-border/60 text-[11px] text-muted-foreground flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                              <span>
-                                Switch between <strong>HTML5 Viewer</strong> and <strong>Direct PDF</strong> above if your browser restricts iframe plugins.
-                              </span>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => window.open(currentPaper.pdfUrl, "_blank")}
-                                className="h-6 text-[11px] text-primary hover:underline p-0 font-semibold gap-1 shrink-0"
-                              >
-                                <ExternalLink className="h-3 w-3" />
-                                Open authentic Cambridge PDF in New Tab →
-                              </Button>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="p-8 text-center border rounded-xl bg-muted/20 space-y-3">
-                            <FileText className="h-10 w-10 text-muted-foreground mx-auto opacity-50" />
-                            <p className="text-xs text-muted-foreground max-w-sm mx-auto">
-                              PDF preview link not configured for this custom paper. Switch to "Extract & Tables" to read the full case study text and data.
-                            </p>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setExtractViewMode("text")}
-                              className="text-xs"
-                            >
-                              Switch to Text View
-                            </Button>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
+                {/* Left Column Content: Typeset Insert vs PDF Viewer */}
+                {extractViewMode === "text" ? (
+                  <CambridgeExamInsert
+                    paper={currentPaper}
+                    activeQuestion={currentQuestion}
+                    onInsertQuote={handleInsertExtractQuote}
+                    searchFilter={extractFilter}
+                    className="flex-1"
+                  />
+                ) : (
+                  <CambridgePdfViewer
+                    paperId={currentPaper.id}
+                    pdfUrl={currentPaper.pdfUrl}
+                    paperTitle={currentPaper.title}
+                    examCode={currentPaper.originalExamCode}
+                    height="660px"
+                    onFullScreenToggle={() => setPdfModalOpen(true)}
+                  />
+                )}
               </div>
 
               {/* RIGHT COLUMN: QUESTIONS & ANSWERING CANVAS (7 COLS) */}
@@ -1294,6 +1074,60 @@ export function DataResponseStudio() {
                         onChange={(e) => setAnswers({ ...answers, [currentQuestion.number]: e.target.value, [currentQuestion.id]: e.target.value })}
                         className="font-sans text-sm leading-relaxed resize-y bg-background"
                       />
+
+                      <div className="flex flex-wrap items-center justify-between gap-2 pt-1 text-xs">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          {currentQuestion.hasDiagramRequirement && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleInsertDiagramTemplate(currentQuestion)}
+                              className="h-7 text-[11px] gap-1 text-primary border-primary/30 hover:bg-primary/10"
+                            >
+                              <BarChart2 className="h-3 w-3" />
+                              Insert Diagram Analysis
+                            </Button>
+                          )}
+                          {currentPaper.sampleAnswers?.[currentQuestion.number] && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                const sample = currentPaper.sampleAnswers?.[currentQuestion.number] || "";
+                                setAnswers({
+                                  ...answers,
+                                  [currentQuestion.number]: sample,
+                                  [currentQuestion.id]: sample,
+                                });
+                                toast.success(`Loaded benchmark exemplar for ${currentQuestion.number}`);
+                              }}
+                              className="h-7 text-[11px] gap-1 text-muted-foreground hover:text-foreground"
+                            >
+                              <Sparkles className="h-3 w-3 text-primary" />
+                              Load Benchmark Answer
+                            </Button>
+                          )}
+                        </div>
+
+                        {(answers[currentQuestion.number] || answers[currentQuestion.id]) && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              const newAns = { ...answers };
+                              delete newAns[currentQuestion.number];
+                              delete newAns[currentQuestion.id];
+                              setAnswers(newAns);
+                            }}
+                            className="h-7 text-[11px] text-muted-foreground hover:text-destructive"
+                          >
+                            Clear Answer
+                          </Button>
+                        )}
+                      </div>
                     </CardContent>
 
                     <CardFooter className="p-4 border-t bg-muted/20 flex items-center justify-between">
@@ -2104,8 +1938,8 @@ export function DataResponseStudio() {
 
       {/* Full-Screen Past Paper PDF Modal */}
       <Dialog open={pdfModalOpen} onOpenChange={setPdfModalOpen}>
-        <DialogContent className="max-w-6xl h-[92vh] flex flex-col p-4">
-          <DialogHeader className="flex flex-row items-center justify-between pb-3 border-b border-border/60">
+        <DialogContent className="max-w-6xl h-[94vh] flex flex-col p-4">
+          <DialogHeader className="flex flex-row items-center justify-between pb-2 border-b border-border/60">
             <div>
               <DialogTitle className="text-base font-bold flex items-center gap-2">
                 <FileText className="h-4 w-4 text-rose-500" />
@@ -2115,67 +1949,15 @@ export function DataResponseStudio() {
                 {currentPaper?.title}
               </DialogDescription>
             </div>
-            {currentPaper?.pdfUrl && (
-              <div className="flex items-center gap-2 mr-6">
-                <div className="flex items-center gap-1 bg-muted p-0.5 rounded-lg border border-border/60">
-                  <Button
-                    type="button"
-                    variant={pdfViewerEngine === "google" ? "secondary" : "ghost"}
-                    size="sm"
-                    onClick={() => setPdfViewerEngine("google")}
-                    className={cn(
-                      "h-6 text-[10px] px-2 font-semibold transition-all",
-                      pdfViewerEngine === "google"
-                        ? "bg-background text-primary font-bold shadow-xs"
-                        : "text-muted-foreground hover:text-foreground"
-                    )}
-                  >
-                    HTML5 Viewer
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={pdfViewerEngine === "direct" ? "secondary" : "ghost"}
-                    size="sm"
-                    onClick={() => setPdfViewerEngine("direct")}
-                    className={cn(
-                      "h-6 text-[10px] px-2 font-semibold transition-all",
-                      pdfViewerEngine === "direct"
-                        ? "bg-background text-primary font-bold shadow-xs"
-                        : "text-muted-foreground hover:text-foreground"
-                    )}
-                  >
-                    Direct PDF
-                  </Button>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => window.open(currentPaper.pdfUrl, "_blank")}
-                  className="gap-1.5 text-xs h-8"
-                >
-                  <ExternalLink className="h-3.5 w-3.5" />
-                  Open in New Tab
-                </Button>
-                <a
-                  href={currentPaper.pdfUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  download
-                  className="inline-flex items-center justify-center rounded-md border border-border/80 bg-background h-8 px-2.5 text-xs font-medium hover:bg-muted gap-1 text-foreground"
-                >
-                  <Download className="h-3.5 w-3.5" />
-                  Download
-                </a>
-              </div>
-            )}
           </DialogHeader>
           <div className="flex-1 w-full h-full min-h-0 pt-2">
-            {currentPaper?.pdfUrl ? (
-              <iframe
-                src={pdfIframeUrl}
-                referrerPolicy="no-referrer"
-                className="w-full h-full rounded-lg border border-border/80 bg-white dark:bg-zinc-950"
-                title={`${currentPaper.title} - Full Screen PDF`}
+            {currentPaper ? (
+              <CambridgePdfViewer
+                paperId={currentPaper.id}
+                pdfUrl={currentPaper.pdfUrl}
+                paperTitle={currentPaper.title}
+                examCode={currentPaper.originalExamCode}
+                height="calc(94vh - 110px)"
               />
             ) : (
               <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
