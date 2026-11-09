@@ -6,6 +6,7 @@ import type {
 } from "./types";
 import { TARIFF_SPLITS, defaultSplitForMaxMark } from "../examiner/config";
 import { stripStars } from "./clean-suggestion";
+import { extractQuestionTopicTokens, detectOffTopicConcept } from "./topic-relevance";
 
 export type BuildLedgerResult = {
   arguments: EconomicArgument[];
@@ -69,18 +70,7 @@ export function buildMarkLedger(params: {
   }
 
   // 1b. Question Topic Relevance Guard
-  const topicTokens = (rubric.questionText || "")
-    .toLowerCase()
-    .replace(/[^a-z0-9\s]/g, " ")
-    .split(/\s+/)
-    .filter(
-      (w) =>
-        w.length > 3 &&
-        !/^(assess|evaluate|discuss|explain|whether|extent|consider|analyse|analyze|impact|effects?|should|would|could|using|through|with|from|what|which|more|than|between|their|there|other|about|good|goods|public|mean|means|meaning)$/.test(
-          w,
-        ),
-    );
-
+  const topicTokens = extractQuestionTopicTokens(rubric.questionText || "");
   const fullEssayText = sentences.map((s) => s.text).join(" ").toLowerCase();
   const hasTopicRelevance =
     topicTokens.length === 0 || topicTokens.some((t) => fullEssayText.includes(t));
@@ -201,14 +191,13 @@ export function buildMarkLedger(params: {
       const claimLower = arg.claim.toLowerCase();
       const qLower = (rubric.questionText || "").toLowerCase();
 
-      // Check for common off-topic syllabus concept substitutions (e.g. defining merit/public goods on demerit goods questions)
-      const isOffTopicDefinition =
-        (/\b(merit goods?|public goods?)\b/i.test(claimLower) && /\bdemerit\b/i.test(qLower)) ||
-        (/\b(demerit goods?|public goods?)\b/i.test(claimLower) && /\bmerit goods?\b/i.test(qLower) && !/\bdemerit\b/i.test(qLower));
+      // Check for off-topic syllabus concept substitutions
+      const offTopicResult = detectOffTopicConcept(arg.claim, rubric.questionText || "");
+      const isOffTopicDefinition = offTopicResult.isOffTopic;
 
       const relatesToTopic =
         !isOffTopicDefinition &&
-        (topicTokens.length === 0 || topicTokens.some((t) => t.length > 4 && claimLower.includes(t)));
+        (topicTokens.length === 0 || topicTokens.some((t) => claimLower.includes(t)));
 
       if (isDuplicate) {
         missingDevelopment.push("Repeated concept definition; duplicate credit prevented under Cambridge mark scheme.");

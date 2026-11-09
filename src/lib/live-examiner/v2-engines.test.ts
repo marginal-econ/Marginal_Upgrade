@@ -254,6 +254,35 @@ describe("Live Examiner 2.0 Engines", () => {
         },
       ];
 
+      // Off-topic economics sentences (defining public or merit goods on a demerit good prompt) must be NO_CREDIT with actionable issues
+      const c0 = evaluateSentenceSemantics({
+        sentence: {
+          id: "s0",
+          text: sentences[0].text,
+          paragraphText: sentences[0].text,
+          paragraphIndex: 0,
+          sentenceIndex: 0,
+        },
+        docVersion: 1,
+        rubric,
+      });
+      expect(c0.primaryAO).toBe("NO_CREDIT");
+      expect(c0.issues.some((i) => i.category === "application" && i.original.toLowerCase().includes("public goods"))).toBe(true);
+
+      const c1 = evaluateSentenceSemantics({
+        sentence: {
+          id: "s1",
+          text: sentences[1].text,
+          paragraphText: sentences[1].text,
+          paragraphIndex: 0,
+          sentenceIndex: 1,
+        },
+        docVersion: 1,
+        rubric,
+      });
+      expect(c1.primaryAO).toBe("NO_CREDIT");
+      expect(c1.issues.some((i) => i.category === "application" && i.original.toLowerCase().includes("merit goods"))).toBe(true);
+
       // Non-economic sentences must be classified as NO_CREDIT
       const c2 = evaluateSentenceSemantics({
         sentence: {

@@ -1,5 +1,6 @@
 import { defaultSplitForMaxMark, TARIFF_SPLITS } from "@/lib/examiner/config";
 import type { AoBreakdown, NextMove, ScoreEstimate, SentenceSpan } from "./types";
+import { extractQuestionTopicTokens } from "./topic-relevance";
 
 const DEFINITION_PATTERN =
   /\b(is defined as|refers to|means that|is when|are when|occurs when|is the responsiveness|measures the percentage change|formula for|is a good that|is a good which|are goods that|are goods which|refers to government|is a tax on|is an expenditure tax)\b/i;
@@ -82,18 +83,7 @@ export function computeHeuristicScore(params: {
   }
 
   // Question Topic Relevance Guard: off-topic writing earns zero marks
-  const topicTokens = (question || "")
-    .toLowerCase()
-    .replace(/[^a-z0-9\s]/g, " ")
-    .split(/\s+/)
-    .filter(
-      (w) =>
-        w.length > 3 &&
-        !/^(assess|evaluate|discuss|explain|whether|extent|consider|analyse|analyze|impact|effects?|should|would|could|using|through|with|from|what|which|more|than|between|their|there|other|about|good|goods|public|mean|means|meaning)$/.test(
-          w,
-        ),
-    );
-
+  const topicTokens = extractQuestionTopicTokens(question || "");
   const fullEssayText = sentences.map((s) => s.text).join(" ").toLowerCase();
   const matchedTopicTokens = topicTokens.filter((token) => fullEssayText.includes(token));
 

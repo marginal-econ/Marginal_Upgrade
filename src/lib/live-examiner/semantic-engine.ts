@@ -2,6 +2,7 @@ import type { SemanticClassification, IssueV2, QuestionRubric } from "./types";
 import { classifySentence } from "./sentence-engine";
 import { checkEconomicMisconceptions, analyzeCausalChain, evaluateEvaluativeDepth, assessApplicationQuality } from "./reasoning-engine";
 import { stripStars } from "./clean-suggestion";
+import { detectOffTopicConcept } from "./topic-relevance";
 
 export type SentenceContextInput = {
   id: string;
@@ -63,6 +64,44 @@ export function evaluateSentenceSemantics(params: {
       aoImpact: "Capped at Level 2 analysis without specific economic condition details.",
       status: "active",
     });
+  }
+
+  // 2b. Strict Cambridge Question Topic & Off-Topic Concept Check
+  const offTopicCheck = detectOffTopicConcept(text, rubric.questionText || "");
+  if (offTopicCheck.isOffTopic) {
+    const offTopicOrig = offTopicCheck.offTopicConcept || text;
+    const matchIdx = text.toLowerCase().indexOf(offTopicOrig.toLowerCase());
+    const issueFrom = matchIdx !== -1 ? matchIdx : 0;
+    const issueTo = matchIdx !== -1 ? issueFrom + offTopicOrig.length : text.length;
+
+    combinedIssues.push({
+      id: `off_topic::${sentence.id}`,
+      sentenceId: sentence.id,
+      from: issueFrom,
+      to: issueTo,
+      category: "application",
+      severity: "high",
+      original: offTopicOrig,
+      suggestion: offTopicCheck.relevantConcept || "Address question prompt concepts",
+      explanation:
+        offTopicCheck.reason ||
+        `Off-topic concept: Writing about unrelated concepts earns 0 marks under Cambridge 9708 mark schemes.`,
+      evidence: "Cambridge 9708: Marks are awarded strictly for relevance to the question prompt.",
+      aoImpact: "0 marks awarded under Cambridge 9708.",
+      status: "active",
+    });
+
+    return {
+      sentenceId: sentence.id,
+      documentVersion: docVersion,
+      primaryAO: "NO_CREDIT",
+      secondaryAOs: [],
+      confidence: 0.95,
+      economicFunction: offTopicCheck.reason || "Off-topic concept (0 marks under Cambridge 9708)",
+      evidence: "",
+      issues: combinedIssues,
+      requiresReview: false,
+    };
   }
 
   // 3. Fallback to existing deterministic classifier for baseline

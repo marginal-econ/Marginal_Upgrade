@@ -18,6 +18,7 @@ import { normalizeIssueSpan } from "@/lib/live-examiner/normalize-issue-span";
 import { classifySentence } from "@/lib/live-examiner/sentence-engine";
 import { cleanSuggestion } from "@/lib/live-examiner/clean-suggestion";
 import { cleanStars } from "@/lib/utils";
+import { extractQuestionTopicTokens, detectOffTopicConcept } from "./live-examiner/topic-relevance";
 
 type AuthContextLike = {
   id?: string;
@@ -401,6 +402,7 @@ ${contextBlock || "No syllabus material is available."}
 For EACH candidate below, decide keep or reject:
 - REJECT any candidate that is merely suggesting a synonym or stylistic rephrasing for an already developed sentence.
 - REJECT any "economics_accuracy" candidate whose "evidence" is not an exact, verbatim quote from the syllabus material above, or whose evidence does not actually contradict the student's sentence when you re-read both side by side.
+- KEEP any candidate that flags off-topic content, unrelated syllabus definitions, or material that does not directly address the question prompt.
 - KEEP any "analysis" / "application" / "evaluation" candidate that shows the student how to extend a shallow/undeveloped claim or definition into a full Cambridge causal mechanism or evaluative judgement.
 - REJECT anything vague, debatable, or where a reasonable examiner could disagree.
 - KEEP only candidates you would be comfortable defending in front of the student with the evidence shown.
@@ -587,17 +589,7 @@ export function sanitisePredictedMark(
       }
 
       // Question topic relevance guard
-      const topicTokens = question
-        .toLowerCase()
-        .replace(/[^a-z0-9\s]/g, " ")
-        .split(/\s+/)
-        .filter(
-          (w) =>
-            w.length > 3 &&
-            !/^(assess|evaluate|discuss|explain|whether|extent|consider|analyse|analyze|impact|effects?|should|would|could|using|through|with|from|what|which|more|than|between|their|there|other|about)$/.test(
-              w,
-            ),
-        );
+      const topicTokens = extractQuestionTopicTokens(question);
       const fullTextLower = essayText.toLowerCase();
       const hasTopicRelevance =
         topicTokens.length === 0 || topicTokens.some((t) => fullTextLower.includes(t));
@@ -719,10 +711,29 @@ export const checkEssayWriting = createServerFn({ method: "POST" })
     const grammarDeterministic: LiveExaminerIssue[] = analyzeGrammarAndMechanics(toSend).map(
       ({ ruleId: _ruleId, startOffset: _start, endOffset: _end, ...issue }) => issue,
     );
+    const offTopicDeterministic: LiveExaminerIssue[] = toSend.flatMap((s) => {
+      const check = detectOffTopicConcept(s, data.question);
+      if (!check.isOffTopic) return [];
+      return [
+        {
+          original: check.offTopicConcept || s,
+          suggestion: check.relevantConcept || "Address question prompt concepts",
+          category: "application",
+          severity: "high",
+          explanation:
+            check.reason ||
+            `Off-topic concept: Writing about unrelated concepts earns 0 marks under Cambridge 9708 mark schemes.`,
+          context: s,
+          evidence: "Cambridge 9708: Marks are awarded strictly for relevance to the question prompt.",
+          aoImpact: "0 marks awarded under Cambridge 9708.",
+        },
+      ];
+    });
     const deterministic: LiveExaminerIssue[] = [
       ...deterministicTerminologyIssues(toSend),
       ...misconceptionIssues,
       ...grammarDeterministic,
+      ...offTopicDeterministic,
     ];
     const rubric = buildQuestionRubric({
       question: data.question,
@@ -813,6 +824,10 @@ export const checkEssayWriting = createServerFn({ method: "POST" })
         if (!sentence || !ao) return [];
         if (/\[DIAGRAM:[^\]]*\]/i.test(original)) return [];
 
+        // Off-topic sentences cannot earn Cambridge AO credit
+        const offTopicCheck = detectOffTopicConcept(sentence, data.question);
+        if (offTopicCheck.isOffTopic) return [];
+
         // Cross-check with deterministic sentence classifier: if the sentence is a high-confidence
         // AO1 definition (e.g. "Free trade is when..." or "Free trade can lead to specialisation where..."),
         // prevent the LLM from misclassifying it as AO2 Analysis.
@@ -844,6 +859,9 @@ export const checkEssayWriting = createServerFn({ method: "POST" })
           },
         ];
       });
+      if (predictedMark && predictedMark.total_mark === 0) {
+        classifications.length = 0;
+      }
       const candidates = issuesRaw.flatMap<Candidate>((item) => {
         const record = (item ?? {}) as Record<string, unknown>;
         const idx = Number(record.sentence_index);
@@ -890,7 +908,9 @@ export const checkEssayWriting = createServerFn({ method: "POST" })
         // here rather than trusted from the model's own claim.
         if (
           parsedCategory === "economics_accuracy" &&
-          !evidenceAppearsInContext(evidence, data.contextBlock)
+          data.contextBlock &&
+          !evidenceAppearsInContext(evidence, data.contextBlock) &&
+          !/off[- ]topic/i.test(explanation + " " + evidence)
         ) {
           return [];
         }

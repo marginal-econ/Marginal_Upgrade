@@ -211,6 +211,11 @@ export function useLiveExaminer(params: {
       const activeClassifications: ActiveAoClassification[] = [];
       const spans: SentenceSpan[] = [];
 
+      const activeVerified = verifiedResult || lastVerifiedResultRef.current;
+      const isZeroMarkDraft =
+        (activeVerified?.predictedMark && activeVerified.predictedMark.total_mark === 0) ||
+        (localLedgerResult.totalMark === 0 && localWords >= 20 && localLedgerResult.arguments.length === 0);
+
       for (const seg of segments) {
         const cached = cacheRef.current.get(seg.hash);
         const localIssues = runLocalChecksOnSegment(seg);
@@ -222,49 +227,66 @@ export function useLiveExaminer(params: {
         const semantic = semanticClassifications.find((sc) => sc.sentenceId === seg.id);
 
         if (cached !== undefined) {
-          if (cached.ao) {
+          if (cached.ao && !isZeroMarkDraft) {
             aoTag = cached.ao.tag;
             aoReason = cached.ao.reason;
           } else {
             aoTag = "no_credit";
-            aoReason = "Cambridge examiner evaluated: not creditworthy for this question.";
+            aoReason = isZeroMarkDraft
+              ? "Cambridge examiner evaluated: off-topic / zero marks for this prompt."
+              : "Cambridge examiner evaluated: not creditworthy for this question.";
           }
           for (const aiIss of cached.issues) {
             if (!cacheRef.current.isDismissed(seg.hash, aiIss.category, aiIss.original)) {
               sentenceIssues.push(aiIss);
             }
           }
-        } else if (semantic && semantic.primaryAO !== "NO_CREDIT" && semantic.primaryAO !== "UNCERTAIN") {
+        } else if (!isZeroMarkDraft && semantic && semantic.primaryAO !== "NO_CREDIT" && semantic.primaryAO !== "UNCERTAIN") {
           aoTag = semantic.primaryAO.toLowerCase() as "ao1" | "ao2" | "ao3";
           aoReason = semantic.economicFunction || `${semantic.primaryAO} conceptual foundation.`;
+        }
+
+        // Always incorporate issues discovered by semantic intelligence (misconceptions, off-topic, superficial application)
+        if (semantic?.issues && semantic.issues.length > 0) {
           for (const sIss of semantic.issues) {
             if (!cacheRef.current.isDismissed(seg.hash, sIss.category, sIss.original)) {
-              sentenceIssues.push({
-                ...sIss,
-                from: seg.from,
-                to: seg.to,
-              });
+              if (!sentenceIssues.some((si) => si.id === sIss.id || (si.category === sIss.category && si.original === sIss.original))) {
+                sentenceIssues.push({
+                  ...sIss,
+                  from: sIss.from !== undefined ? seg.from + sIss.from : seg.from,
+                  to: sIss.to !== undefined ? seg.from + sIss.to : seg.to,
+                });
+              }
             }
           }
         }
 
         const segWords = seg.text.trim().split(/\s+/).filter(Boolean).length;
-        if (segWords < 4 || !seg.isComplete) {
+        if (segWords < 4 || !seg.isComplete || isZeroMarkDraft) {
           aoTag = "no_credit";
         }
 
         for (const iss of sentenceIssues) {
           const id = `${iss.category}::${seg.text.toLowerCase()}::${iss.original.toLowerCase()}`;
           if (!cacheRef.current.isDismissed(seg.hash, iss.category, iss.original)) {
+            const origIdx = iss.original ? seg.text.toLowerCase().indexOf(iss.original.toLowerCase()) : -1;
+            const from = origIdx !== -1 ? seg.from + origIdx : (typeof iss.from === "number" && iss.from >= seg.from && iss.from <= seg.to ? iss.from : seg.from);
+            const to = origIdx !== -1 ? from + iss.original.length : (typeof iss.to === "number" && iss.to >= from && iss.to <= seg.to ? iss.to : seg.to);
+
             activeIssues.push({
               id,
+              from,
+              to,
+              sentenceId: seg.id,
               original: iss.original,
               suggestion: iss.suggestion || "",
               category: iss.category as any,
-              severity: iss.severity,
+              severity: iss.severity || "medium",
               explanation: iss.explanation,
               context: seg.text,
               evidence: iss.evidence,
+              aoImpact: iss.aoImpact,
+              status: "active",
             });
           }
         }
@@ -302,7 +324,6 @@ export function useLiveExaminer(params: {
       setClassifications(activeClassifications);
       recordHistory(activeIssues);
 
-      const activeVerified = verifiedResult || lastVerifiedResultRef.current;
       const split = TARIFF_SPLITS[validTariff] || defaultSplitForMaxMark(validTariff);
 
       if (activeVerified?.predictedMark) {
@@ -414,6 +435,9 @@ export function useLiveExaminer(params: {
 
         const segments = segmentEssay(currentText);
 
+        // If the AI gave 0 total marks or marked the response off-topic, NEVER cache an AO tag!
+        const isAiOffTopic = result?.predictedMark && result.predictedMark.total_mark === 0;
+
         // Store classifications and issues into cache for each sentence
         for (const seg of segments) {
           const segTextClean = seg.text.trim().toLowerCase();
@@ -433,25 +457,32 @@ export function useLiveExaminer(params: {
               const orig = (i.original || "").trim().toLowerCase();
               return ctx === segTextClean || orig === segTextClean || segTextClean.includes(orig) || ctx.includes(segTextClean);
             })
-            .map((i: any) => ({
-              id: `${i.category}::${seg.hash}::${stripStars(i.original)}`,
-              from: seg.from,
-              to: seg.to,
-              sentenceId: seg.id,
-              category: i.category,
-              severity: i.severity || "medium",
-              original: stripStars(i.original),
-              suggestion: cleanSuggestion(stripStars(i.suggestion)),
-              insertAfter: i.insertAfter ? cleanSuggestion(stripStars(i.insertAfter)) : undefined,
-              explanation: stripStars(i.explanation),
-              evidence: stripStars(i.evidence),
-              aoImpact: stripStars(i.aoImpact),
-              status: "active" as const,
-            }));
+            .map((i: any) => {
+              const cleanOrig = stripStars(i.original);
+              const origIdx = cleanOrig ? seg.text.toLowerCase().indexOf(cleanOrig.toLowerCase()) : -1;
+              const issueFrom = origIdx !== -1 ? seg.from + origIdx : seg.from;
+              const issueTo = origIdx !== -1 ? issueFrom + cleanOrig.length : seg.to;
+
+              return {
+                id: `${i.category}::${seg.hash}::${cleanOrig}`,
+                from: issueFrom,
+                to: issueTo,
+                sentenceId: seg.id,
+                category: i.category,
+                severity: i.severity || "medium",
+                original: cleanOrig,
+                suggestion: cleanSuggestion(stripStars(i.suggestion)),
+                insertAfter: i.insertAfter ? cleanSuggestion(stripStars(i.insertAfter)) : undefined,
+                explanation: stripStars(i.explanation),
+                evidence: stripStars(i.evidence),
+                aoImpact: stripStars(i.aoImpact),
+                status: "active" as const,
+              };
+            });
 
           cacheRef.current.set(seg.hash, {
             sentenceHash: seg.hash,
-            ao: matchedAo
+            ao: matchedAo && !isAiOffTopic
               ? {
                   tag: (matchedAo.ao.toLowerCase() as any) || "ao1",
                   reason: stripStars(matchedAo.explanation),
