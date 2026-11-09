@@ -49,20 +49,39 @@ export class LiveExaminerCache {
   }
 
   dismiss(sentenceHash: string, category: string, original: string): void {
-    const key = issueDedupeKey(sentenceHash, category, original);
-    this.dismissedKeys.add(key);
+    const normOrig = (original || "").trim().toLowerCase();
+    const cat = (category || "").trim().toLowerCase();
 
-    // Also remove from any cached sentence entry
-    const entry = this.sentenceMap.get(sentenceHash);
-    if (entry) {
+    if (sentenceHash) {
+      this.dismissedKeys.add(issueDedupeKey(sentenceHash, category, original));
+    }
+    // Global dismissal keys so edits to sentence text do not cause dismissed issues to resurrect
+    this.dismissedKeys.add(`*::${cat}::${normOrig}`);
+    this.dismissedKeys.add(`::${cat}::${normOrig}`);
+    if (normOrig) {
+      this.dismissedKeys.add(normOrig);
+    }
+
+    // Also remove from any cached sentence entries
+    for (const entry of this.sentenceMap.values()) {
       entry.issues = entry.issues.filter(
-        (iss) => issueDedupeKey(sentenceHash, iss.category, iss.original) !== key,
+        (iss) =>
+          iss.original.trim().toLowerCase() !== normOrig ||
+          iss.category.trim().toLowerCase() !== cat,
       );
     }
   }
 
   isDismissed(sentenceHash: string, category: string, original: string): boolean {
-    return this.dismissedKeys.has(issueDedupeKey(sentenceHash, category, original));
+    const normOrig = (original || "").trim().toLowerCase();
+    const cat = (category || "").trim().toLowerCase();
+
+    return (
+      (sentenceHash ? this.dismissedKeys.has(issueDedupeKey(sentenceHash, category, original)) : false) ||
+      this.dismissedKeys.has(`*::${cat}::${normOrig}`) ||
+      this.dismissedKeys.has(`::${cat}::${normOrig}`) ||
+      (normOrig ? this.dismissedKeys.has(normOrig) : false)
+    );
   }
 
   clear(): void {

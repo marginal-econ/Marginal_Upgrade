@@ -100,6 +100,70 @@ const EXTRA_TERMS = [
   "overconsumption",
   "underallocation",
   "overallocation",
+  "demerit",
+  "demerits",
+  "merit",
+  "merits",
+  "deadweight",
+  "unpriced",
+  "unrivalled",
+  "unrivaled",
+  "rivalrous",
+  "excludable",
+  "regressive",
+  "progressive",
+  "proportional",
+  "behaviour",
+  "behavioural",
+  "behaviourist",
+  "favour",
+  "labour",
+  "labourer",
+  "labourers",
+  "programme",
+  "programmes",
+  "practise",
+  "maximisation",
+  "maximising",
+  "maximised",
+  "minimisation",
+  "minimising",
+  "minimised",
+  "monopolist",
+  "monopolists",
+  "monopolistic",
+  "subsidise",
+  "subsidised",
+  "subsidising",
+  "subsidize",
+  "subsidized",
+  "subsidizing",
+  "privatise",
+  "privatised",
+  "privatising",
+  "privatize",
+  "privatized",
+  "privatizing",
+  "nationalise",
+  "nationalised",
+  "nationalising",
+  "nationalize",
+  "nationalized",
+  "nationalizing",
+  "diseconomy",
+  "elasticities",
+  "inelasticities",
+  "advalorem",
+  "inelasticity",
+  "equilibrium",
+  "disequilibrium",
+  "disincentive",
+  "disincentives",
+  "monopsonist",
+  "monopsonistic",
+  "external",
+  "spillover",
+  "spillovers",
 ];
 
 for (const t of EXTRA_TERMS) {
@@ -125,6 +189,7 @@ const LEGITIMATE_REPEATS = new Set(["that", "had"]);
 /**
  * Runs Layer A local synchronous checks on a single segment.
  * Returns IssueV2[] with exact document offsets [from, to].
+ * STRICT RULE: Only evaluate completed sentences. Never interrupt in-progress typing mid-sentence.
  */
 export function runLocalChecksOnSegment(segment: {
   id: string;
@@ -133,6 +198,11 @@ export function runLocalChecksOnSegment(segment: {
   text: string;
   isComplete?: boolean;
 }): IssueV2[] {
+  // Only evaluate completed sentences — let the person write without mid-sentence flags
+  if (segment.isComplete === false) {
+    return [];
+  }
+
   const issues: IssueV2[] = [];
   const text = segment.text;
 
@@ -158,10 +228,7 @@ export function runLocalChecksOnSegment(segment: {
     // Skip if all caps (likely acronym like OPEC, WTO, LRAS)
     if (word === word.toUpperCase() && word.length > 1) continue;
 
-    // Never flag half-words currently being typed:
-    // 1. If the word ends at the document or segment boundary without trailing space or punctuation,
-    //    the user is currently in the middle of typing this word.
-    // 2. If the segment is incomplete (no terminal . ! ? or newline) and this is the trailing word.
+    // Never flag half-words currently being typed
     const isAtEnd = match.index + word.length >= text.length;
     const isTrailingIncomplete =
       segment.isComplete === false &&
@@ -194,6 +261,11 @@ export function runLocalChecksOnSegment(segment: {
       const suggestions = speller.suggest(word);
       const topSuggestion = suggestions && suggestions.length > 0 ? suggestions[0] : undefined;
 
+      // Discard invalid or blank suggestions where suggestion matches original
+      if (!topSuggestion || topSuggestion.toLowerCase().trim() === word.toLowerCase().trim()) {
+        continue;
+      }
+
       const from = segment.from + match.index;
       const to = from + word.length;
 
@@ -206,9 +278,7 @@ export function runLocalChecksOnSegment(segment: {
         severity: "medium",
         original: word,
         suggestion: topSuggestion,
-        explanation: topSuggestion
-          ? `Possible spelling error. Did you mean "${topSuggestion}"?`
-          : `Possible spelling error in "${word}".`,
+        explanation: `Possible spelling error. Did you mean "${topSuggestion}"?`,
         status: "active",
       });
     }

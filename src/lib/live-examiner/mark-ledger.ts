@@ -156,8 +156,21 @@ export function buildMarkLedger(params: {
     primaryAO: "AO1" | "AO2" | "AO3" | "NO_CREDIT";
   }): EconomicArgument {
     const combinedText = group.texts.join(" ");
-    const hasApplication = /\b(uk|us|singapore|china|firm|consumer|market|nhs|tax rate|industry)\b/i.test(combinedText);
-    const transmissionChain = combinedText.split(/\b(?:because|therefore|leads to|results in|consequently)\b/i).filter(Boolean);
+    const hasApplication = /\b(uk|us|singapore|china|firm|consumer|market|nhs|tax rate|industry|cigarettes|sugar|tobacco|alcohol|petrol|fuel|monopoly|airline|steel|cars?)\b/i.test(combinedText);
+    const transmissionChain = combinedText.split(/\b(?:because|therefore|leads to|results in|consequently|shifts?|causes?|increases?|decreases?)\b/i).filter(Boolean);
+
+    let evalDepth: "unsupported" | "partial" | "sustained" | "justified_judgement" = "unsupported";
+    if (group.primaryAO === "AO3") {
+      const hasEvalCriteria = /\b(elasticity|inelastic|ped|short[- ]run|long[- ]run|magnitude|depends on|opportunity cost|unintended consequences|regressive|efficiency)\b/i.test(combinedText);
+      const hasJudgement = /\b(on balance|in conclusion|overall|weighing|ultimately|decisive|most effective|greater impact)\b/i.test(combinedText);
+      if (hasJudgement && hasEvalCriteria) {
+        evalDepth = "justified_judgement";
+      } else if (hasEvalCriteria) {
+        evalDepth = "sustained";
+      } else {
+        evalDepth = "partial";
+      }
+    }
 
     return {
       argumentId: `arg::${group.sentenceIds[0]}`,
@@ -167,7 +180,7 @@ export function buildMarkLedger(params: {
       transmissionChain: transmissionChain.map((s) => s.trim()).filter((s) => s.length > 5),
       isCompleteChain: transmissionChain.length >= 2,
       hasContextualApplication: hasApplication,
-      evaluativeDepth: group.primaryAO === "AO3" ? "sustained" : undefined,
+      evaluativeDepth: evalDepth,
     };
   }
 
@@ -226,10 +239,13 @@ export function buildMarkLedger(params: {
             : "Accurate specification definition credited toward syllabus knowledge.",
       });
     } else if (arg.primaryAO === "AO2") {
+      const isCompleteAndApplied = arg.isCompleteChain && arg.hasContextualApplication;
       if (isDuplicate) {
         missingDevelopment.push("Repeated analytical mechanism without new intermediate causal steps.");
       } else if (ao2MarksAwarded < split.ao2_marks) {
-        credit = arg.isCompleteChain ? 2 : 1;
+        // Strict Cambridge 9708: 2 marks requires complete transmission chain + authentic application.
+        // Incomplete assertions or unapplied links earn 1 mark (or 0 if prior analysis already exists).
+        credit = isCompleteAndApplied ? 2 : arg.isCompleteChain ? 1 : (ao2MarksAwarded === 0 ? 1 : 0);
         if (!arg.isCompleteChain) {
           missingDevelopment.push("Incomplete causal chain: explain intermediate market/cost adjustments before final outcome.");
         }
@@ -248,15 +264,21 @@ export function buildMarkLedger(params: {
         awardedCredit: credit,
         missingDevelopment,
         status: isAiVerified ? "verified" : "provisional",
-        reasoning: arg.isCompleteChain
-          ? "Multi-step cause-and-effect transmission chain demonstrated."
-          : "Analytical statement with room for intermediate mechanism development.",
+        reasoning: isCompleteAndApplied
+          ? "Multi-step cause-and-effect transmission chain with contextual application demonstrated."
+          : arg.isCompleteChain
+            ? "Analytical transmission demonstrated without specific context."
+            : "Analytical statement with room for intermediate mechanism development.",
       });
     } else if (arg.primaryAO === "AO3") {
       if (isDuplicate) {
         missingDevelopment.push("Repeated evaluative point without new criteria or trade-off weighing.");
       } else if (ao3MarksAwarded < split.ao3_marks) {
-        credit = arg.evaluativeDepth === "justified_judgement" ? 2 : 1;
+        // Strict Cambridge 9708: 2 marks for justified judgement; 1 mark for sustained economic criteria; 0 for superficial contrast
+        credit = arg.evaluativeDepth === "justified_judgement" ? 2 : (arg.evaluativeDepth === "sustained" ? 1 : 0);
+        if (arg.evaluativeDepth === "partial" || arg.evaluativeDepth === "unsupported") {
+          missingDevelopment.push("Superficial evaluation: justify your evaluation using economic criteria (e.g. elasticity, time lags, or opportunity cost).");
+        }
         credit = Math.min(credit, split.ao3_marks - ao3MarksAwarded);
         ao3MarksAwarded += credit;
       }
@@ -269,7 +291,11 @@ export function buildMarkLedger(params: {
         awardedCredit: credit,
         missingDevelopment,
         status: isAiVerified ? "verified" : "provisional",
-        reasoning: "Critical consideration of economic limitations, conditions, or trade-offs.",
+        reasoning: arg.evaluativeDepth === "justified_judgement"
+          ? "Supported final judgement weighing competing arguments using economic criteria."
+          : arg.evaluativeDepth === "sustained"
+            ? "Critical consideration of economic limitations, conditions, or trade-offs."
+            : "Superficial evaluation lacking economic justification.",
       });
     }
   }

@@ -586,13 +586,15 @@ export function sanitisePredictedMark(
       if (ao2Count === 0) {
         analysis.awarded = 0;
       } else {
-        const maxReasonableAo2 = ao2Count === 1 ? 2 : ao2Count === 2 ? 4 : analysis.out_of;
+        // Strict Cambridge 9708: 1 analysis sentence = max 1 mark; 2 sentences = max 3 marks
+        const maxReasonableAo2 = ao2Count === 1 ? 1 : ao2Count === 2 ? 3 : ao2Count === 3 ? 4 : analysis.out_of;
         analysis.awarded = Math.min(analysis.out_of, analysis.awarded, maxReasonableAo2);
       }
       if (ao3Count === 0) {
         evaluation.awarded = 0;
       } else {
-        const maxReasonableAo3 = ao3Count === 1 ? 2 : evaluation.out_of;
+        // Strict Cambridge 9708: 1 evaluation sentence = max 1 mark; 2 sentences = max 2 marks
+        const maxReasonableAo3 = ao3Count === 1 ? 1 : ao3Count === 2 ? 2 : evaluation.out_of;
         evaluation.awarded = Math.min(evaluation.out_of, evaluation.awarded, maxReasonableAo3);
       }
 

@@ -38,6 +38,38 @@ const TYPING_PAUSE_MS = 650;
 const SENTENCE_COMPLETE_PAUSE_MS = 250;
 const MIN_TEXT_LENGTH = 3;
 
+/**
+ * Ensures suggestions are genuine, actionable, and substantive.
+ * Discards blank suggestions, redundant edits, or hollow fragments.
+ */
+function isGenuineSuggestion(iss: {
+  original?: string;
+  suggestion?: string;
+  explanation?: string;
+  category?: string;
+}): boolean {
+  if (!iss.original || !iss.original.trim()) return false;
+  if (!iss.explanation || !iss.explanation.trim()) return false;
+
+  const orig = iss.original.trim().toLowerCase();
+  const sugg = (iss.suggestion || "").trim().toLowerCase();
+  const expl = iss.explanation.trim();
+
+  // If suggestion is provided and matches original, discard
+  if (sugg && orig === sugg) return false;
+
+  // For spelling/grammar, suggestion must be distinct and non-empty
+  if (iss.category === "spelling" || iss.category === "grammar") {
+    if (!sugg || orig === sugg) return false;
+    if (sugg.length <= 1 && orig.length > 1) return false;
+  }
+
+  // Explanation must be substantive (more than 8 characters)
+  if (expl.length < 8) return false;
+
+  return true;
+}
+
 export function useLiveExaminer(params: {
   text: string;
   question: string;
@@ -83,6 +115,13 @@ export function useLiveExaminer(params: {
 
   const lastCheckedTextRef = useRef<string>("");
   const lastVerifiedResultRef = useRef<any>(null);
+  const lastVerifiedWordsRef = useRef<number>(0);
+  const maxVerifiedScoreRef = useRef<number>(0);
+
+  // Lifetime session-level dismissals and seen suggestions (hard-capped at 18)
+  const dismissedKeysRef = useRef<Set<string>>(new Set());
+  const sessionSeenSuggestionsRef = useRef<Set<string>>(new Set());
+  const MAX_SESSION_SUGGESTIONS = 18;
 
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const issuesRef = useRef<ActiveIssue[]>([]);
@@ -127,18 +166,22 @@ export function useLiveExaminer(params: {
     }
   }, [text]);
 
-  // Record history helper
+  // Record history helper (strictly capped at 18 lifetime suggestions, deduplicated by category + token)
   const recordHistory = useCallback((fresh: LiveExaminerIssue[]) => {
     setHistory((prev) => {
       const byId = new Map(prev.map((e) => [e.id, e]));
       const now = Date.now();
       for (const iss of fresh) {
-        const id = `${iss.category}::${iss.context.trim().toLowerCase()}::${iss.original.trim().toLowerCase()}`;
-        if (!byId.has(id)) {
-          byId.set(id, { ...iss, id, status: "active", firstSeenAt: now, resolvedAt: null });
+        const stableKey = `${iss.category}::${(iss.original || "").trim().toLowerCase()}`;
+        if (
+          !sessionSeenSuggestionsRef.current.has(stableKey) &&
+          sessionSeenSuggestionsRef.current.size < MAX_SESSION_SUGGESTIONS
+        ) {
+          sessionSeenSuggestionsRef.current.add(stableKey);
+          byId.set(iss.id, { ...iss, status: "active", firstSeenAt: now, resolvedAt: null });
         }
       }
-      return Array.from(byId.values());
+      return Array.from(byId.values()).slice(0, MAX_SESSION_SUGGESTIONS);
     });
   }, []);
 
@@ -216,9 +259,14 @@ export function useLiveExaminer(params: {
         (activeVerified?.predictedMark && activeVerified.predictedMark.total_mark === 0) ||
         (localLedgerResult.totalMark === 0 && localWords >= 20 && localLedgerResult.arguments.length === 0);
 
+      // User requirement: Wait till person finishes 2-3 sentences before giving suggestions
+      const completedSentenceCount = segments.filter((s) => s.isComplete).length;
+      const allowSuggestions = completedSentenceCount >= 2 && localWords >= 25;
+
       for (const seg of segments) {
         const cached = cacheRef.current.get(seg.hash);
-        const localIssues = runLocalChecksOnSegment(seg);
+        // STRICT RULE: Only evaluate suggestions on completed sentences!
+        const localIssues = seg.isComplete ? runLocalChecksOnSegment(seg) : [];
         const sentenceIssues: IssueV2[] = [...localIssues];
 
         let aoTag: "ao1" | "ao2" | "ao3" | "no_credit" = "no_credit";
@@ -236,9 +284,11 @@ export function useLiveExaminer(params: {
               ? "Cambridge examiner evaluated: off-topic / zero marks for this prompt."
               : "Cambridge examiner evaluated: not creditworthy for this question.";
           }
-          for (const aiIss of cached.issues) {
-            if (!cacheRef.current.isDismissed(seg.hash, aiIss.category, aiIss.original)) {
-              sentenceIssues.push(aiIss);
+          if (allowSuggestions && seg.isComplete) {
+            for (const aiIss of cached.issues) {
+              if (!cacheRef.current.isDismissed(seg.hash, aiIss.category, aiIss.original)) {
+                sentenceIssues.push(aiIss);
+              }
             }
           }
         } else if (!isZeroMarkDraft && semantic && semantic.primaryAO !== "NO_CREDIT" && semantic.primaryAO !== "UNCERTAIN") {
@@ -246,8 +296,8 @@ export function useLiveExaminer(params: {
           aoReason = semantic.economicFunction || `${semantic.primaryAO} conceptual foundation.`;
         }
 
-        // Always incorporate issues discovered by semantic intelligence (misconceptions, off-topic, superficial application)
-        if (semantic?.issues && semantic.issues.length > 0) {
+        // Always incorporate issues discovered by semantic intelligence if sentence is complete and suggestions allowed
+        if (allowSuggestions && seg.isComplete && semantic?.issues && semantic.issues.length > 0) {
           for (const sIss of semantic.issues) {
             if (!cacheRef.current.isDismissed(seg.hash, sIss.category, sIss.original)) {
               if (!sentenceIssues.some((si) => si.id === sIss.id || (si.category === sIss.category && si.original === sIss.original))) {
@@ -266,9 +316,26 @@ export function useLiveExaminer(params: {
           aoTag = "no_credit";
         }
 
-        for (const iss of sentenceIssues) {
-          const id = `${iss.category}::${seg.text.toLowerCase()}::${iss.original.toLowerCase()}`;
-          if (!cacheRef.current.isDismissed(seg.hash, iss.category, iss.original)) {
+        // Only evaluate suggestions for completed sentences and after 2+ complete sentences
+        if (allowSuggestions && seg.isComplete) {
+          for (const iss of sentenceIssues) {
+            const origNorm = (iss.original || "").trim().toLowerCase();
+            const catNorm = (iss.category || "").trim().toLowerCase();
+            const id = `${catNorm}::${origNorm}`;
+
+            if (
+              dismissedKeysRef.current.has(id) ||
+              dismissedKeysRef.current.has(`${catNorm}::${origNorm}`) ||
+              (origNorm && dismissedKeysRef.current.has(origNorm)) ||
+              cacheRef.current.isDismissed(seg.hash, iss.category, iss.original)
+            ) {
+              continue;
+            }
+
+            if (!isGenuineSuggestion(iss)) {
+              continue;
+            }
+
             const origIdx = iss.original ? seg.text.toLowerCase().indexOf(iss.original.toLowerCase()) : -1;
             const from = origIdx !== -1 ? seg.from + origIdx : (typeof iss.from === "number" && iss.from >= seg.from && iss.from <= seg.to ? iss.from : seg.from);
             const to = origIdx !== -1 ? from + iss.original.length : (typeof iss.to === "number" && iss.to >= from && iss.to <= seg.to ? iss.to : seg.to);
@@ -365,15 +432,31 @@ export function useLiveExaminer(params: {
 
       if (activeVerified?.predictedMark) {
         const pm = activeVerified.predictedMark;
+        const currentWords = currentText.trim().split(/\s+/).filter(Boolean).length;
+        const previousWords = lastVerifiedWordsRef.current || 0;
+
+        let totalMark = pm.total_mark;
+        if (!isZeroMarkDraft && currentWords >= previousWords && maxVerifiedScoreRef.current > 0) {
+          totalMark = Math.max(maxVerifiedScoreRef.current, totalMark);
+        }
+        if (!isZeroMarkDraft && totalMark > maxVerifiedScoreRef.current) {
+          maxVerifiedScoreRef.current = totalMark;
+          lastVerifiedWordsRef.current = currentWords;
+        }
+        if (currentWords < previousWords * 0.75) {
+          maxVerifiedScoreRef.current = totalMark;
+          lastVerifiedWordsRef.current = currentWords;
+        }
+
         const score: ScoreEstimate = {
-          total: pm.total_mark,
+          total: totalMark,
           maxMark: validTariff,
           band: pm.headline,
           confidence: pm.confidence,
           aoBreakdown: {
-            ao1: pm.ao_breakdown.knowledge.awarded,
-            ao2: pm.ao_breakdown.analysis.awarded,
-            ao3: pm.ao_breakdown.evaluation.awarded,
+            ao1: Math.min(split.ao1_marks, pm.ao_breakdown.knowledge.awarded),
+            ao2: Math.min(split.ao2_marks, pm.ao_breakdown.analysis.awarded),
+            ao3: Math.min(split.ao3_marks, pm.ao_breakdown.evaluation.awarded),
           },
           nextMoves: (activeVerified.opportunities && activeVerified.opportunities.length > 0)
             ? activeVerified.opportunities.map((o: any) => ({
@@ -541,11 +624,21 @@ export function useLiveExaminer(params: {
         }
 
         if (result?.predictedMark) {
+          const currentWords = currentText.trim().split(/\s+/).filter(Boolean).length;
+          let total = result.predictedMark.total_mark;
+          if (!isAiOffTopic && currentWords >= lastVerifiedWordsRef.current && maxVerifiedScoreRef.current > 0) {
+            total = Math.max(maxVerifiedScoreRef.current, total);
+          }
+          if (!isAiOffTopic && total > maxVerifiedScoreRef.current) {
+            maxVerifiedScoreRef.current = total;
+            lastVerifiedWordsRef.current = currentWords;
+          }
+          result.predictedMark.total_mark = total;
           setPredictedMark(result.predictedMark);
           setAssessmentStatus("verified");
           setMarkRange(result.markRange || [
-            Math.max(0, result.predictedMark.total_mark - (result.predictedMark.total_mark === 0 ? 0 : 1)),
-            Math.min(maxMark, result.predictedMark.total_mark + (result.predictedMark.total_mark === 0 ? 0 : 1)),
+            Math.max(0, total - (total === 0 ? 0 : 1)),
+            Math.min(maxMark, total + (total === 0 ? 0 : 1)),
           ]);
         }
 
@@ -637,7 +730,12 @@ export function useLiveExaminer(params: {
     setIssues((prev) => {
       const hit = prev.find((i) => i.id === id);
       if (hit) {
-        cacheRef.current.dismiss("", hit.category, hit.original);
+        const normOrig = (hit.original || "").trim().toLowerCase();
+        const cat = (hit.category || "").trim().toLowerCase();
+        dismissedKeysRef.current.add(id);
+        dismissedKeysRef.current.add(`${cat}::${normOrig}`);
+        if (normOrig) dismissedKeysRef.current.add(normOrig);
+        cacheRef.current.dismiss(hit.sentenceId || "", cat, normOrig);
       }
       return prev.filter((i) => i.id !== id);
     });

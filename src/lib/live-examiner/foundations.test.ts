@@ -258,6 +258,31 @@ describe("Live Examiner v2 - Foundations", () => {
       const retrieved = cache.get("h1");
       expect(retrieved).toBeDefined();
       expect(retrieved!.issues).toEqual([]);
+
+      // Global dismissal: even if sentenceHash changes to h2, dismissing "word" stays active
+      expect(cache.isDismissed("h2", "spelling", "word")).toBe(true);
+    });
+
+    it("does NOT flag demerit or demerits as spelling errors", () => {
+      const seg1 = {
+        id: "s_demerit",
+        from: 0,
+        to: 35,
+        text: "Demerit goods cause market failure.",
+        isComplete: true,
+      };
+      const issues = runLocalChecksOnSegment(seg1);
+      expect(issues.some((i) => i.original.toLowerCase() === "demerit")).toBe(false);
+
+      const seg2 = {
+        id: "s_demerits",
+        from: 0,
+        to: 45,
+        text: "The consumption of demerits leads to negative externalities.",
+        isComplete: true,
+      };
+      const issues2 = runLocalChecksOnSegment(seg2);
+      expect(issues2.some((i) => i.original.toLowerCase().includes("demerit"))).toBe(false);
     });
   });
 });
