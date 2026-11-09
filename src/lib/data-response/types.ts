@@ -9,7 +9,9 @@ export type QuestionCategory =
   | "definition"
   | "calculation"
   | "short_answer"
+  | "short_explain"
   | "data_interpretation"
+  | "analytical_diagram"
   | "essay_evaluative"; // 6+ marks questions requiring Level-based rubric evaluation
 
 export type RubricLevelSpec = {
@@ -27,10 +29,10 @@ export type DataResponseQuestion = {
   maxMark: number;
   category: QuestionCategory;
   tariff: {
-    ao1: number; // Knowledge & Understanding
-    ao2: number; // Application (Context to extract)
-    ao3: number; // Analysis
-    ao4?: number; // Evaluation (where syllabus/rubric breaks out evaluation)
+    ao1: number; // AO1: Knowledge & Understanding
+    ao2: number; // AO2: Analysis (incorporating Application to case study/data)
+    ao3: number; // AO3: Evaluation (for evaluative questions, 0 for non-evaluative)
+    ao4?: number; // Deprecated legacy field
   };
   rubricLevels?: RubricLevelSpec[];
   indicativePoints?: string[];
@@ -39,16 +41,18 @@ export type DataResponseQuestion = {
     correctAnswer?: string;
     ofrApplies?: boolean;
     markingSteps?: string[];
+    steps?: string[];
   };
   hasDiagramRequirement: boolean;
   diagramSpec?: DiagramSpec; // Authentic SVG Cambridge Economics Diagram specification
+  diagramSpecRef?: string;
   diagramGuidance?: {
-    diagramName: string;
-    axes: string[];
-    curves: string[];
-    shiftDescription: string;
-    equilibriumDescription: string;
-    marksAllocated: number;
+    diagramName?: string;
+    axes?: string[];
+    curves?: string[];
+    shiftDescription?: string;
+    equilibriumDescription?: string;
+    marksAllocated?: number;
   };
   markingGuide: string; // Full official MS text
   extractLinkageExpected: boolean; // Must directly use facts, figures, or context from extract
@@ -132,9 +136,9 @@ export type QuestionEvaluationResult = {
   };
   aoBreakdown: {
     knowledge: { awarded: number; outOf: number; comment?: string };
-    application: { awarded: number; outOf: number; comment?: string };
     analysis: { awarded: number; outOf: number; comment?: string };
     evaluation?: { awarded: number; outOf: number; comment?: string };
+    application?: { awarded: number; outOf: number; comment?: string }; // Legacy support (application comes under AO2 analysis)
   };
   rubricLevelAwarded?: {
     level: number;

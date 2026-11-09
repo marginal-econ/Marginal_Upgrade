@@ -438,7 +438,7 @@ export function DataResponseStudio() {
               </Badge>
             </div>
             <CardDescription className="text-xs text-muted-foreground">
-              Follow this 4-step framework to maximize your AO1, AO2, AO3, and AO4 marks on Cambridge 9708 Section A papers.
+              Follow this 4-step framework to maximize your AO1, AO2, and AO3 marks on Cambridge 9708 Section A papers.
             </CardDescription>
           </CardHeader>
 
@@ -493,7 +493,7 @@ export function DataResponseStudio() {
                 </div>
                 <h4 className="font-bold text-xs text-foreground">Strict Cambridge Marking</h4>
                 <p className="text-[11px] text-muted-foreground leading-relaxed">
-                  Submit to get line-by-line mark scheme matching, AO1-AO4 mark breakdowns, Level 3 evaluation checks, and verified Cambridge model answers.
+                  Submit to get line-by-line mark scheme matching, AO1-AO3 mark breakdowns, Level 3 evaluation checks, and verified Cambridge model answers.
                 </p>
               </div>
             </div>
@@ -889,7 +889,7 @@ export function DataResponseStudio() {
                           </Badge>
                           {currentQuestion.maxMark >= 6 ? (
                             <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30 text-[10px] uppercase font-bold">
-                              Levels-Based Rubric (AO3/AO4 Evaluation)
+                              Levels-Based Rubric (AO3 Evaluation)
                             </Badge>
                           ) : (
                             <Badge variant="outline" className="text-[10px] text-muted-foreground uppercase font-mono">
@@ -900,8 +900,8 @@ export function DataResponseStudio() {
 
                         <div className="text-xs text-muted-foreground flex items-center gap-2">
                           <span className="font-mono text-[11px]">
-                            AO1: {currentQuestion.tariff.ao1} · AO2: {currentQuestion.tariff.ao2} · AO3: {currentQuestion.tariff.ao3}
-                            {currentQuestion.tariff.ao4 ? ` · AO4: ${currentQuestion.tariff.ao4}` : ""}
+                            AO1: {currentQuestion.tariff.ao1} · AO2: {currentQuestion.tariff.ao2}
+                            {currentQuestion.tariff.ao3 ? ` · AO3: ${currentQuestion.tariff.ao3}` : ""}
                           </span>
                         </div>
                       </div>
@@ -1432,14 +1432,11 @@ export function DataResponseStudio() {
                       <strong>AO1 (Knowledge):</strong> {result.aoBreakdown.knowledge.awarded}/{result.aoBreakdown.knowledge.outOf}
                     </span>
                     <span className="font-mono">
-                      <strong>AO2 (Application):</strong> {result.aoBreakdown.application.awarded}/{result.aoBreakdown.application.outOf}
+                      <strong>AO2 (Analysis):</strong> {result.aoBreakdown.analysis?.awarded ?? (result.aoBreakdown as any).application?.awarded ?? 0}/{result.aoBreakdown.analysis?.outOf ?? (result.aoBreakdown as any).application?.outOf ?? 0}
                     </span>
-                    <span className="font-mono">
-                      <strong>AO3 (Analysis):</strong> {result.aoBreakdown.analysis.awarded}/{result.aoBreakdown.analysis.outOf}
-                    </span>
-                    {result.aoBreakdown.evaluation && (
+                    {result.aoBreakdown.evaluation && result.aoBreakdown.evaluation.outOf > 0 && (
                       <span className="font-mono text-primary font-bold">
-                        <strong>AO4 (Evaluation):</strong> {result.aoBreakdown.evaluation.awarded}/{result.aoBreakdown.evaluation.outOf}
+                        <strong>AO3 (Evaluation):</strong> {result.aoBreakdown.evaluation.awarded}/{result.aoBreakdown.evaluation.outOf}
                       </span>
                     )}
                   </div>

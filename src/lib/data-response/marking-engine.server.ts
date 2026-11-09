@@ -26,9 +26,9 @@ Your objective is to evaluate candidate scripts strictly, objectively, and accur
 
 3. POINT-BASED VS LEVEL-BASED BOUNDARIES:
 - For short-answer questions (1–5 marks): award marks strictly on the presence of mark-scheme points and logical reasoning. Do not demand extract quotes, data citations ($ figures), or externalities unless the mark scheme explicitly requires them.
-- For 6-mark, 7-mark, 8-mark, and 9-mark evaluative questions (AO3 Analysis + AO4 Evaluation): match the candidate's arguments directly against the advantages/disadvantages and indicative points listed on the mark scheme before assigning the rubric level (Level 2 or Level 3/4).
+- For 6-mark, 7-mark, 8-mark, and 9-mark evaluative questions (AO2 Analysis + AO3 Evaluation): match the candidate's arguments directly against the advantages/disadvantages and indicative points listed on the mark scheme before assigning the rubric level (Level 2 or Level 3/4).
   - Check for balanced analysis: at least one clear argument on each side of the debate.
-  - Check for a reasoned conclusion/judgment to access top-level evaluation marks (AO4 / Level 3).
+  - Check for a reasoned conclusion/judgment to access top-level evaluation marks (AO3 / Level 3).
   - Credit sound, syllabus-aligned alternative economic mechanisms (e.g., substitution effects, price elasticity of demand, derived demand, indirect tax incidence, opportunity costs, multiplier effects) even if phrased differently from mark scheme exemplars, provided the logic is economically valid and directly answers the question.
 
 4. STRICT ADHERENCE TO THE OFFICIAL MARK SCHEME (SOURCE OF TRUTH):
@@ -37,8 +37,8 @@ Your objective is to evaluate candidate scripts strictly, objectively, and accur
 - Honor all official guidance ranges, acceptable values, and alternative classifications (e.g., if the MS allows a range [0.7 to 0.8] or says "allow normal good, necessity, OR inelastic YED", credit ANY of those valid options in full).
 - For calculation questions, apply the Own Figure Rule (OFR) if allowed by the mark scheme.
 
-5. CONTEXT & EXTRACT APPLICATION:
-- Reward extract linkage when the question requires it (AO2), but DO NOT fabricate non-existent data requirements.
+5. CONTEXT & EXTRACT APPLICATION (AO2):
+- Reward extract linkage and application when the question requires it as part of AO2 (Analysis & Application), but DO NOT fabricate non-existent data requirements.
 - Distinguish between questions that explicitly require data extraction (e.g., "Using the information in paragraph 2...") and general theory/application questions where standard examples (such as mandatory calorie counts or menu reformulations) are valid.
 - When the mark scheme lists illustrative points (e.g., "healthy options", "calorific content"), treat them as acceptable answers rather than penalizing candidates for not quoting unmentioned data.
 
@@ -49,8 +49,9 @@ In your assessment report, provide:
 - Constructive Feedback: Only flag omissions if a required criterion on the official mark scheme was genuinely missed. Never penalize a student based on criteria outside the syllabus or official rubric.
 
 7. MATHEMATICAL AO RECONCILIATION & INTEGRITY (STRICT RULE):
+- Cambridge 9708 Economics has 3 Assessment Objectives: AO1 (Knowledge & Understanding), AO2 (Analysis & Application), and AO3 (Evaluation). There is NO AO4 in Cambridge 9708; application falls under AO2 Analysis.
 - The total awardedMark MUST strictly and exactly equal the sum of the awarded marks in aoBreakdown:
-  awardedMark = knowledge.awarded + application.awarded + analysis.awarded + (evaluation.awarded if present).
+  awardedMark = knowledge.awarded + analysis.awarded + (evaluation.awarded if present).
 - Each AO awarded score must never exceed its outOf maximum.
 - For 6-mark evaluative questions scoring 5 or 6 marks (Level 3), evaluation.awarded MUST NEVER be 0 (award 1/2 or 2/2 for evaluation).
 
@@ -67,10 +68,9 @@ OUTPUT FORMAT (JSON ONLY, NO MARKDOWN FENCES, NO EXTRA TEXT):
     "feedback": "<clean unstarred text evaluating extract application>"
   },
   "aoBreakdown": {
-    "knowledge": { "awarded": <int>, "outOf": <int>, "comment": "<clean unstarred note>" },
-    "application": { "awarded": <int>, "outOf": <int>, "comment": "<clean unstarred note>" },
-    "analysis": { "awarded": <int>, "outOf": <int>, "comment": "<clean unstarred note>" },
-    "evaluation": { "awarded": <int>, "outOf": <int>, "comment": "<clean unstarred note>" }
+    "knowledge": { "awarded": <int>, "outOf": <int>, "comment": "<clean unstarred note on definitions, theory, and understanding>" },
+    "analysis": { "awarded": <int>, "outOf": <int>, "comment": "<clean unstarred note on economic analysis and application to context/data>" },
+    "evaluation": { "awarded": <int>, "outOf": <int>, "comment": "<clean unstarred note on balanced evaluation and justified judgment (0/0 if non-evaluative)>" }
   },
   "rubricLevelAwarded": {
     "level": <integer 1, 2, or 3, or null if point-based>,
@@ -105,9 +105,9 @@ OUTPUT FORMAT (JSON ONLY, NO MARKDOWN FENCES, NO EXTRA TEXT):
 
 export interface ReconciledAoBreakdown {
   knowledge: { awarded: number; outOf: number; comment?: string };
-  application: { awarded: number; outOf: number; comment?: string };
   analysis: { awarded: number; outOf: number; comment?: string };
   evaluation?: { awarded: number; outOf: number; comment?: string };
+  application?: { awarded: number; outOf: number; comment?: string }; // Legacy support
 }
 
 export function reconcileAoBreakdown(params: {
@@ -125,83 +125,101 @@ export function reconcileAoBreakdown(params: {
   let awarded = Math.min(maxMark, Math.max(0, Math.round(Number(params.awardedMark ?? 0))));
   if (isNaN(awarded)) awarded = 0;
 
-  const hasAo4 = tariff.ao4 !== undefined || maxMark >= 6;
-  let ao1Max = Math.max(0, Number(tariff.ao1 ?? 0));
-  let ao2Max = Math.max(0, Number(tariff.ao2 ?? 0));
-  let ao3Max = Math.max(0, Number(tariff.ao3 ?? 0));
-  let ao4Max = tariff.ao4 !== undefined ? Math.max(0, Number(tariff.ao4)) : (hasAo4 ? 2 : 0);
+  let ao1Max = Math.max(0, Number(tariff?.ao1 ?? 0));
+  let ao2Max = Math.max(0, Number(tariff?.ao2 ?? 0));
+  let ao3Max = Math.max(0, Number(tariff?.ao3 ?? 0));
 
-  if (hasAo4) {
-    if (tariff.ao4 !== undefined) {
-      ao4Max = tariff.ao4;
-    } else {
-      ao4Max = 2;
-      const remaining = Math.max(0, maxMark - ao4Max);
-      if (ao1Max + ao2Max + ao3Max !== remaining) {
-        if (maxMark === 6) {
-          ao1Max = 2;
-          ao2Max = 1;
-          ao3Max = 1;
+  // If legacy tariff passed ao4 as evaluation and ao2 as application, map them properly:
+  if (tariff?.ao4 !== undefined) {
+    ao2Max = ao2Max + ao3Max;
+    ao3Max = Number(tariff.ao4);
+  }
+
+  const hasEvaluation = ao3Max > 0 || maxMark >= 6;
+  if (hasEvaluation && ao3Max === 0) {
+    ao3Max = 2;
+  }
+
+  if (hasEvaluation) {
+    const nonEval = Math.max(0, maxMark - ao3Max);
+    if (ao1Max + ao2Max !== nonEval) {
+      if (maxMark === 6) {
+        ao1Max = 2;
+        ao2Max = 2;
+        ao3Max = 2;
+      } else {
+        const currentNonEval = ao1Max + ao2Max;
+        if (currentNonEval === 0) {
+          ao1Max = Math.ceil(nonEval / 2);
+          ao2Max = nonEval - ao1Max;
         } else {
-          ao1Max = Math.min(ao1Max, remaining);
-          const rem2 = remaining - ao1Max;
-          ao2Max = Math.min(ao2Max, rem2);
-          ao3Max = Math.max(0, remaining - ao1Max - ao2Max);
+          const factor = nonEval / currentNonEval;
+          ao1Max = Math.round(ao1Max * factor);
+          ao2Max = Math.max(0, nonEval - ao1Max);
         }
       }
     }
   } else {
-    const tariffSum = ao1Max + ao2Max + ao3Max;
-    if (tariffSum !== maxMark) {
-      if (tariffSum === 0) {
-        ao1Max = maxMark;
+    ao3Max = 0;
+    const currentSum = ao1Max + ao2Max;
+    if (currentSum !== maxMark) {
+      if (currentSum === 0) {
+        ao1Max = Math.ceil(maxMark / 2);
+        ao2Max = maxMark - ao1Max;
       } else {
-        const factor = maxMark / tariffSum;
+        const factor = maxMark / currentSum;
         ao1Max = Math.round(ao1Max * factor);
-        ao2Max = Math.round(ao2Max * factor);
-        ao3Max = Math.max(0, maxMark - ao1Max - ao2Max);
+        ao2Max = Math.max(0, maxMark - ao1Max);
       }
     }
   }
 
   // Parse raw awarded values clamped to their respective max
   let a1 = Math.min(ao1Max, Math.max(0, Math.round(Number(rawAo?.knowledge?.awarded ?? 0))));
-  let a2 = Math.min(ao2Max, Math.max(0, Math.round(Number(rawAo?.application?.awarded ?? 0))));
-  let a3 = Math.min(ao3Max, Math.max(0, Math.round(Number(rawAo?.analysis?.awarded ?? 0))));
-  let a4 = hasAo4 ? Math.min(ao4Max, Math.max(0, Math.round(Number(rawAo?.evaluation?.awarded ?? 0)))) : 0;
+
+  // Application comes under Analysis (AO2): combine raw analysis + application
+  let rawA2 = 0;
+  if (rawAo?.analysis?.awarded !== undefined && rawAo?.application?.awarded !== undefined) {
+    rawA2 = Number(rawAo.analysis.awarded) + Number(rawAo.application.awarded);
+  } else if (rawAo?.analysis?.awarded !== undefined) {
+    rawA2 = Number(rawAo.analysis.awarded);
+  } else if (rawAo?.application?.awarded !== undefined) {
+    rawA2 = Number(rawAo.application.awarded);
+  }
+  let a2 = Math.min(ao2Max, Math.max(0, Math.round(rawA2)));
+
+  let a3 = hasEvaluation ? Math.min(ao3Max, Math.max(0, Math.round(Number(rawAo?.evaluation?.awarded ?? 0)))) : 0;
 
   if (isNaN(a1)) a1 = 0;
   if (isNaN(a2)) a2 = 0;
   if (isNaN(a3)) a3 = 0;
-  if (isNaN(a4)) a4 = 0;
 
   if (awarded === 0) {
     a1 = 0;
     a2 = 0;
     a3 = 0;
-    a4 = 0;
   } else {
-    // Cambridge 9708 Level 3 evaluative rule: 5 or 6 marks on a 6-mark question requires AO4 evaluation
-    if (hasAo4 && maxMark === 6) {
-      if (awarded === 6 && a4 < 2) a4 = 2;
-      else if (awarded === 5 && a4 < 1) a4 = 1;
+    // Cambridge 9708 Level 3 evaluative rule: 5 or 6 marks on a 6-mark question requires AO3 evaluation
+    if (hasEvaluation && maxMark === 6) {
+      if (awarded === 6 && a3 < 2) a3 = 2;
+      else if (awarded === 5 && a3 < 1) a3 = 1;
     }
 
-    let currentSum = a1 + a2 + a3 + (hasAo4 ? a4 : 0);
+    let currentSum = a1 + a2 + (hasEvaluation ? a3 : 0);
 
     // If deficit, distribute points up to individual maxes
     if (currentSum < awarded) {
       let deficit = awarded - currentSum;
 
-      // 1. If evaluative question and a4 has room, top up a4 if high scoring
-      if (hasAo4 && awarded >= 5 && a4 < ao4Max && deficit > 0) {
-        const add = Math.min(deficit, ao4Max - a4);
-        a4 += add;
+      // 1. If evaluative question and a3 has room, top up a3 if high scoring
+      if (hasEvaluation && awarded >= 5 && a3 < ao3Max && deficit > 0) {
+        const add = Math.min(deficit, ao3Max - a3);
+        a3 += add;
         deficit -= add;
       }
 
-      // 2. Distribute to a1, a2, a3, then a4
-      const order = hasAo4 ? [1, 2, 3, 4] : [1, 2, 3];
+      // 2. Distribute to a1, a2, then a3
+      const order = hasEvaluation ? [1, 2, 3] : [1, 2];
       for (const aoIdx of order) {
         if (deficit <= 0) break;
         if (aoIdx === 1 && a1 < ao1Max) {
@@ -212,30 +230,22 @@ export function reconcileAoBreakdown(params: {
           const add = Math.min(deficit, ao2Max - a2);
           a2 += add;
           deficit -= add;
-        } else if (aoIdx === 3 && a3 < ao3Max) {
+        } else if (aoIdx === 3 && hasEvaluation && a3 < ao3Max) {
           const add = Math.min(deficit, ao3Max - a3);
           a3 += add;
-          deficit -= add;
-        } else if (aoIdx === 4 && hasAo4 && a4 < ao4Max) {
-          const add = Math.min(deficit, ao4Max - a4);
-          a4 += add;
           deficit -= add;
         }
       }
     } else if (currentSum > awarded) {
       // If excess, deduct points
       let excess = currentSum - awarded;
-      const minA4 = (hasAo4 && maxMark === 6 && awarded >= 5) ? (awarded === 6 ? 2 : 1) : 0;
+      const minA3 = (hasEvaluation && maxMark === 6 && awarded >= 5) ? (awarded === 6 ? 2 : 1) : 0;
 
-      // Deduct from a3, a2, a1, and finally a4 (respecting minA4)
-      const deductOrder = hasAo4 ? [3, 2, 1, 4] : [3, 2, 1];
+      // Deduct from a2, a1, and finally a3 (respecting minA3)
+      const deductOrder = hasEvaluation ? [2, 1, 3] : [2, 1];
       for (const aoIdx of deductOrder) {
         if (excess <= 0) break;
-        if (aoIdx === 3 && a3 > 0) {
-          const sub = Math.min(excess, a3);
-          a3 -= sub;
-          excess -= sub;
-        } else if (aoIdx === 2 && a2 > 0) {
+        if (aoIdx === 2 && a2 > 0) {
           const sub = Math.min(excess, a2);
           a2 -= sub;
           excess -= sub;
@@ -243,16 +253,16 @@ export function reconcileAoBreakdown(params: {
           const sub = Math.min(excess, a1);
           a1 -= sub;
           excess -= sub;
-        } else if (aoIdx === 4 && hasAo4 && a4 > minA4) {
-          const sub = Math.min(excess, a4 - minA4);
-          a4 -= sub;
+        } else if (aoIdx === 3 && hasEvaluation && a3 > minA3) {
+          const sub = Math.min(excess, a3 - minA3);
+          a3 -= sub;
           excess -= sub;
         }
       }
     }
 
     // Strict mathematical reconciliation: sum of components MUST equal awarded mark
-    const finalSum = a1 + a2 + a3 + (hasAo4 ? a4 : 0);
+    const finalSum = a1 + a2 + (hasEvaluation ? a3 : 0);
     if (finalSum !== awarded) {
       awarded = finalSum;
     }
@@ -264,21 +274,20 @@ export function reconcileAoBreakdown(params: {
       outOf: ao1Max,
       comment: rawAo?.knowledge?.comment ? stripStars(rawAo.knowledge.comment) : undefined,
     },
-    application: {
+    analysis: {
       awarded: a2,
       outOf: ao2Max,
-      comment: rawAo?.application?.comment ? stripStars(rawAo.application.comment) : undefined,
+      comment: rawAo?.analysis?.comment
+        ? stripStars(rawAo.analysis.comment)
+        : rawAo?.application?.comment
+        ? stripStars(rawAo.application.comment)
+        : undefined,
     },
-    analysis: {
-      awarded: a3,
-      outOf: ao3Max,
-      comment: rawAo?.analysis?.comment ? stripStars(rawAo.analysis.comment) : undefined,
-    },
-    ...(hasAo4
+    ...(hasEvaluation && ao3Max > 0
       ? {
           evaluation: {
-            awarded: a4,
-            outOf: ao4Max,
+            awarded: a3,
+            outOf: ao3Max,
             comment: rawAo?.evaluation?.comment ? stripStars(rawAo.evaluation.comment) : undefined,
           },
         }
@@ -350,7 +359,7 @@ Question Number: ${question.number}
 Question Text: ${question.title}
 Max Marks: ${question.maxMark}
 Category: ${question.category}
-Tariff: AO1 (Knowledge): ${question.tariff.ao1}, AO2 (Application): ${question.tariff.ao2}, AO3 (Analysis): ${question.tariff.ao3}${question.tariff.ao4 ? `, AO4 (Evaluation): ${question.tariff.ao4}` : (question.maxMark >= 6 ? `, AO4 (Evaluation): 2` : "")} (Note: Sum of AO awarded marks MUST strictly and exactly equal awardedMark).
+Tariff: AO1 (Knowledge & Understanding): ${question.tariff.ao1}, AO2 (Analysis & Application): ${question.tariff.ao2}${question.tariff.ao3 || question.maxMark >= 6 ? `, AO3 (Evaluation): ${question.tariff.ao3 || (question.maxMark >= 6 ? 2 : 0)}` : ""} (Note: Cambridge 9708 Section A has 3 AOs: AO1, AO2, AO3. Application is under AO2 Analysis. Sum of AO awarded marks MUST strictly and exactly equal awardedMark).
 Diagram Expected: ${question.hasDiagramRequirement ? `YES (Diagram required or credited: ${question.diagramGuidance?.diagramName || "Standard Diagram"})` : "No"}
 ${question.diagramGuidance ? `Diagram Guidance:\n${JSON.stringify(question.diagramGuidance, null, 2)}` : ""}
 Extract Linkage Expected: ${question.extractLinkageExpected ? "YES - Answer MUST relate directly to the extract" : "General / Theory"}

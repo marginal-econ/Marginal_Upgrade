@@ -29,7 +29,7 @@ Extract the following structure cleanly as JSON:
    - title: complete question stem including mark allocation transcribed VERBATIM without modification or generalization (e.g. "Assess whether decreasing the consumption of fast food will increase unemployment in the US. [6]"). NEVER substitute microeconomic case-study questions into generic macroeconomic essays.
    - maxMark: integer
    - category: "definition" | "calculation" | "short_answer" | "data_interpretation" | "essay_evaluative" (use essay_evaluative for any question worth 6 marks or more)
-   - tariff: { "ao1": int, "ao2": int, "ao3": int, "ao4": int (optional) }
+   - tariff: { "ao1": int, "ao2": int, "ao3": int } where ao1 is Knowledge & Understanding, ao2 is Analysis (incorporating Application to case study context), and ao3 is Evaluation (for 6+ mark evaluative questions, typically 2 marks; 0 for non-evaluative questions). Cambridge 9708 has no AO4.
    - hasDiagramRequirement: true if question stem mentions "diagram", "AD/AS", "demand and supply", "curve", or "J-curve"
    - extractLinkageExpected: true if question refers to "the extract", "the table", "paragraph 2", or specific case data
    - markingGuide: EXACT section of the Mark Scheme text that gives the answers, indicative content, or marking rubric for this specific question!
@@ -86,10 +86,15 @@ Parse Section A Economics 9708 Data Response Case Study, its tables, sub-questio
           maxMark: Number(q.maxMark || 4),
           category: q.category || (Number(q.maxMark || 4) >= 6 ? "essay_evaluative" : "short_answer"),
           tariff: {
-            ao1: Number(q.tariff?.ao1 ?? Math.ceil((q.maxMark || 4) * 0.3)),
-            ao2: Number(q.tariff?.ao2 ?? Math.floor((q.maxMark || 4) * 0.3)),
-            ao3: Number(q.tariff?.ao3 ?? Math.floor((q.maxMark || 4) * 0.4)),
-            ao4: q.tariff?.ao4 ? Number(q.tariff.ao4) : undefined,
+            ao1: Number(
+              q.tariff?.ao1 ??
+                (Number(q.maxMark || 4) >= 6 ? 2 : Math.ceil((q.maxMark || 4) * 0.5)),
+            ),
+            ao2: Number(
+              q.tariff?.ao2 ??
+                (Number(q.maxMark || 4) >= 6 ? 2 : Math.floor((q.maxMark || 4) * 0.5)),
+            ),
+            ao3: Number(q.tariff?.ao3 ?? (Number(q.maxMark || 4) >= 6 ? 2 : 0)),
           },
           hasDiagramRequirement: Boolean(
             q.hasDiagramRequirement ??
@@ -197,7 +202,7 @@ function buildFallbackDataResponsePaper(
         title: "Assess whether the government policy discussed will always benefit the economy. [10]",
         maxMark: 10,
         category: "essay_evaluative",
-        tariff: { ao1: 2, ao2: 2, ao3: 3, ao4: 3 },
+        tariff: { ao1: 3, ao2: 4, ao3: 3 },
         hasDiagramRequirement: false,
         markingGuide: msText.slice(1000, 1800) || "Requires two-sided analysis and contextual evaluation.",
         extractLinkageExpected: true,

@@ -169,8 +169,7 @@ describe("Cambridge Economics (9708) Data Response Papers & Preloaded Suite", ()
         const tariffSum =
           (q.tariff.ao1 || 0) +
           (q.tariff.ao2 || 0) +
-          (q.tariff.ao3 || 0) +
-          (q.tariff.ao4 || 0);
+          (q.tariff.ao3 || 0);
         expect(tariffSum).toBe(q.maxMark);
       }
     }
@@ -185,7 +184,7 @@ describe("Cambridge Economics (9708) Data Response Papers & Preloaded Suite", ()
         rawAo: { knowledge: { awarded: 1 } },
       });
       expect(res.awardedMark).toBe(2);
-      const sum = res.aoBreakdown.knowledge.awarded + res.aoBreakdown.application.awarded + res.aoBreakdown.analysis.awarded;
+      const sum = res.aoBreakdown.knowledge.awarded + res.aoBreakdown.analysis.awarded;
       expect(sum).toBe(2);
       expect(res.aoBreakdown.knowledge.outOf).toBe(2);
     });
@@ -195,12 +194,26 @@ describe("Cambridge Economics (9708) Data Response Papers & Preloaded Suite", ()
         awardedMark: 3,
         maxMark: 4,
         tariff: { ao1: 2, ao2: 2, ao3: 0 },
-        rawAo: { knowledge: { awarded: 1 }, application: { awarded: 1 } },
+        rawAo: { knowledge: { awarded: 1 }, analysis: { awarded: 1 } },
       });
       expect(res.awardedMark).toBe(3);
-      const sum = res.aoBreakdown.knowledge.awarded + res.aoBreakdown.application.awarded + res.aoBreakdown.analysis.awarded;
+      const sum = res.aoBreakdown.knowledge.awarded + res.aoBreakdown.analysis.awarded;
       expect(sum).toBe(3);
-      expect(res.aoBreakdown.knowledge.outOf + res.aoBreakdown.application.outOf + res.aoBreakdown.analysis.outOf).toBe(4);
+      expect(res.aoBreakdown.knowledge.outOf + res.aoBreakdown.analysis.outOf).toBe(4);
+    });
+
+    it("places application marks under analysis (AO2) and eliminates AO4", () => {
+      const res = reconcileAoBreakdown({
+        awardedMark: 4,
+        maxMark: 4,
+        tariff: { ao1: 2, ao2: 2, ao3: 0 },
+        rawAo: { knowledge: { awarded: 2 }, application: { awarded: 2 } },
+      });
+      expect(res.awardedMark).toBe(4);
+      expect(res.aoBreakdown.knowledge.awarded).toBe(2);
+      expect(res.aoBreakdown.analysis.awarded).toBe(2);
+      expect((res.aoBreakdown as any).ao4).toBeUndefined();
+      expect(res.aoBreakdown.evaluation).toBeUndefined();
     });
 
     it("guarantees 6-mark evaluative questions reconcile outOf sum to 6 and awarded sum to awardedMark", () => {
@@ -209,14 +222,14 @@ describe("Cambridge Economics (9708) Data Response Papers & Preloaded Suite", ()
         awardedMark: 6,
         maxMark: 6,
         tariff: { ao1: 2, ao2: 2, ao3: 2 },
-        rawAo: { knowledge: { awarded: 2 }, application: { awarded: 2 }, analysis: { awarded: 2 }, evaluation: { awarded: 0 } },
+        rawAo: { knowledge: { awarded: 2 }, analysis: { awarded: 2 }, evaluation: { awarded: 2 } },
       });
       expect(res6.awardedMark).toBe(6);
       expect(res6.aoBreakdown.evaluation).toBeDefined();
       expect(res6.aoBreakdown.evaluation?.awarded).toBe(2); // Top evaluative level credited
-      const outOfSum = res6.aoBreakdown.knowledge.outOf + res6.aoBreakdown.application.outOf + res6.aoBreakdown.analysis.outOf + (res6.aoBreakdown.evaluation?.outOf ?? 0);
+      const outOfSum = res6.aoBreakdown.knowledge.outOf + res6.aoBreakdown.analysis.outOf + (res6.aoBreakdown.evaluation?.outOf ?? 0);
       expect(outOfSum).toBe(6);
-      const awardedSum = res6.aoBreakdown.knowledge.awarded + res6.aoBreakdown.application.awarded + res6.aoBreakdown.analysis.awarded + (res6.aoBreakdown.evaluation?.awarded ?? 0);
+      const awardedSum = res6.aoBreakdown.knowledge.awarded + res6.aoBreakdown.analysis.awarded + (res6.aoBreakdown.evaluation?.awarded ?? 0);
       expect(awardedSum).toBe(6);
 
       // Level 3 Pass: 5/6 (evaluation must never be 0)
@@ -224,11 +237,11 @@ describe("Cambridge Economics (9708) Data Response Papers & Preloaded Suite", ()
         awardedMark: 5,
         maxMark: 6,
         tariff: { ao1: 2, ao2: 2, ao3: 2 },
-        rawAo: { knowledge: { awarded: 2 }, application: { awarded: 2 }, analysis: { awarded: 1 }, evaluation: { awarded: 0 } },
+        rawAo: { knowledge: { awarded: 2 }, analysis: { awarded: 2 }, evaluation: { awarded: 1 } },
       });
       expect(res5.awardedMark).toBe(5);
       expect(res5.aoBreakdown.evaluation?.awarded).toBeGreaterThanOrEqual(1);
-      const awardedSum5 = res5.aoBreakdown.knowledge.awarded + res5.aoBreakdown.application.awarded + res5.aoBreakdown.analysis.awarded + (res5.aoBreakdown.evaluation?.awarded ?? 0);
+      const awardedSum5 = res5.aoBreakdown.knowledge.awarded + res5.aoBreakdown.analysis.awarded + (res5.aoBreakdown.evaluation?.awarded ?? 0);
       expect(awardedSum5).toBe(5);
 
       // Level 2: 4/6 (evaluation can be 0)
@@ -236,10 +249,10 @@ describe("Cambridge Economics (9708) Data Response Papers & Preloaded Suite", ()
         awardedMark: 4,
         maxMark: 6,
         tariff: { ao1: 2, ao2: 2, ao3: 2 },
-        rawAo: { knowledge: { awarded: 2 }, application: { awarded: 1 }, analysis: { awarded: 1 } },
+        rawAo: { knowledge: { awarded: 2 }, analysis: { awarded: 2 } },
       });
       expect(res4.awardedMark).toBe(4);
-      const awardedSum4 = res4.aoBreakdown.knowledge.awarded + res4.aoBreakdown.application.awarded + res4.aoBreakdown.analysis.awarded + (res4.aoBreakdown.evaluation?.awarded ?? 0);
+      const awardedSum4 = res4.aoBreakdown.knowledge.awarded + res4.aoBreakdown.analysis.awarded + (res4.aoBreakdown.evaluation?.awarded ?? 0);
       expect(awardedSum4).toBe(4);
     });
 
@@ -251,7 +264,6 @@ describe("Cambridge Economics (9708) Data Response Papers & Preloaded Suite", ()
       });
       expect(res0.awardedMark).toBe(0);
       expect(res0.aoBreakdown.knowledge.awarded).toBe(0);
-      expect(res0.aoBreakdown.application.awarded).toBe(0);
       expect(res0.aoBreakdown.analysis.awarded).toBe(0);
       expect(res0.aoBreakdown.evaluation?.awarded).toBe(0);
     });
@@ -268,14 +280,12 @@ describe("Cambridge Economics (9708) Data Response Papers & Preloaded Suite", ()
             expect(result.awardedMark).toBe(score);
             const sumAwarded =
               result.aoBreakdown.knowledge.awarded +
-              result.aoBreakdown.application.awarded +
               result.aoBreakdown.analysis.awarded +
               (result.aoBreakdown.evaluation?.awarded ?? 0);
             expect(sumAwarded).toBe(score);
 
             const sumOutOf =
               result.aoBreakdown.knowledge.outOf +
-              result.aoBreakdown.application.outOf +
               result.aoBreakdown.analysis.outOf +
               (result.aoBreakdown.evaluation?.outOf ?? 0);
             expect(sumOutOf).toBe(q.maxMark);
