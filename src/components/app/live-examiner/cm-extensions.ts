@@ -58,80 +58,44 @@ export const essayEditorTheme = EditorView.theme(
 
     // AO Tints & Left Border Markers
     ".cm-ao-ao1": {
-      backgroundColor: "oklch(0.575 0.125 228 / 10%)",
-      borderBottom: "2px solid oklch(0.575 0.125 228 / 45%)",
+      backgroundColor: "oklch(0.575 0.125 228 / 12%)",
+      borderBottom: "2px solid oklch(0.575 0.125 228 / 55%)",
       borderRadius: "2px",
       padding: "1px 0",
       transition: "background-color 150ms ease",
     },
     ".cm-ao-ao2": {
-      backgroundColor: "oklch(0.53 0.115 168 / 10%)",
-      borderBottom: "2px solid oklch(0.53 0.115 168 / 40%)",
+      backgroundColor: "oklch(0.53 0.115 168 / 12%)",
+      borderBottom: "2px solid oklch(0.53 0.115 168 / 50%)",
       borderRadius: "2px",
       padding: "1px 0",
       transition: "background-color 150ms ease",
     },
     ".cm-ao-ao3": {
-      backgroundColor: "oklch(0.63 0.145 58 / 12%)",
-      borderBottom: "2px solid oklch(0.63 0.145 58 / 55%)",
+      backgroundColor: "oklch(0.63 0.145 58 / 14%)",
+      borderBottom: "2px solid oklch(0.63 0.145 58 / 65%)",
       borderRadius: "2px",
       padding: "1px 0",
       transition: "background-color 150ms ease",
     },
     ".cm-ao-no-credit": {
-      backgroundColor: "oklch(0.5 0.02 295 / 8%)",
-      borderBottom: "1.5px dotted oklch(0.5 0.02 295 / 40%)",
-      borderRadius: "2px",
-      padding: "1px 0",
-      transition: "background-color 150ms ease",
+      backgroundColor: "transparent",
+      borderBottom: "none",
     },
     ".cm-ao-provisional": {
-      opacity: "0.75",
+      opacity: "0.85",
     },
 
-    // Issue Underlines (render on top of AO backgrounds)
-    ".cm-issue-spelling": {
+    // Unified Issue Underline for all errors (Spelling, Grammar, Accuracy, Clarity)
+    ".cm-issue": {
       textDecoration: "underline wavy oklch(0.55 0.22 25 / 95%)",
       textUnderlineOffset: "4px",
       textDecorationThickness: "1.75px",
       cursor: "pointer",
     },
-    ".cm-issue-grammar": {
-      textDecoration: "underline wavy oklch(0.55 0.18 295 / 95%)",
-      textUnderlineOffset: "4px",
-      textDecorationThickness: "1.75px",
-      cursor: "pointer",
-    },
-    ".cm-issue-punctuation": {
-      textDecoration: "underline dotted oklch(0.55 0.18 295 / 90%)",
-      textUnderlineOffset: "4px",
-      textDecorationThickness: "2px",
-      cursor: "pointer",
-    },
-    ".cm-issue-clarity": {
-      textDecoration: "underline dashed oklch(0.6 0.15 295 / 90%)",
-      textUnderlineOffset: "4px",
-      textDecorationThickness: "1.75px",
-      cursor: "pointer",
-    },
-    ".cm-issue-accuracy": {
-      textDecoration: "underline wavy oklch(0.52 0.22 27 / 95%)",
-      textUnderlineOffset: "4px",
-      textDecorationThickness: "2px",
-      backgroundColor: "oklch(0.52 0.22 27 / 12%)",
-      cursor: "pointer",
-    },
-    ".cm-issue-ao2": {
-      textDecoration: "underline wavy oklch(0.6 0.15 168 / 95%)",
-      textUnderlineOffset: "4px",
-      textDecorationThickness: "2px",
-      cursor: "pointer",
-    },
-    ".cm-issue-ao3": {
-      textDecoration: "underline wavy oklch(0.65 0.16 58 / 95%)",
-      textUnderlineOffset: "4px",
-      textDecorationThickness: "2px",
-      cursor: "pointer",
+    ".cm-issue:hover": {
+      backgroundColor: "oklch(0.55 0.22 25 / 10%)",
+      borderRadius: "2px",
     },
     ".cm-issue-stale": {
       opacity: "0.5",
@@ -188,38 +152,12 @@ export const annotationsField = StateField.define<DecorationSet>({
           }
         }
 
-        // Add Issue underlines if enabled
+        // Add Issue underlines if enabled (Unified single error styling)
         if (showIssues) {
           for (const iss of issues) {
             if (iss.from >= iss.to || iss.to > docLength || iss.status !== "active") continue;
 
-            let issueClass = "cm-issue-clarity";
-            if (iss.category === "spelling") issueClass = "cm-issue-spelling";
-            else if (iss.category === "grammar") issueClass = "cm-issue-grammar";
-            else if (iss.category === "punctuation") issueClass = "cm-issue-punctuation";
-            else if (
-              iss.category === "economics_accuracy" ||
-              iss.category === "misconception" ||
-              iss.category === "missing_definition"
-            ) {
-              issueClass = "cm-issue-accuracy";
-            } else if (
-              iss.category === "broken_chain" ||
-              iss.category === "unsupported_assertion" ||
-              iss.category === "no_application" ||
-              iss.category === "analysis" ||
-              iss.category === "application"
-            ) {
-              issueClass = "cm-issue-ao2";
-            } else if (
-              iss.category === "one_sided" ||
-              iss.category === "evaluation_without_reason" ||
-              iss.category === "no_judgement" ||
-              iss.category === "evaluation"
-            ) {
-              issueClass = "cm-issue-ao3";
-            }
-
+            let issueClass = "cm-issue";
             if (iss.isStale) {
               issueClass += " cm-issue-stale";
             }
@@ -270,21 +208,11 @@ export function createInteractionPlugin(
         if (!target) return;
 
         const issueEl = target.closest("[data-issue-id]") as HTMLElement | null;
-        const sentenceEl = target.closest("[data-sentence-id]") as HTMLElement | null;
-
         if (issueEl) {
           const issueId = issueEl.getAttribute("data-issue-id") || undefined;
           const rect = issueEl.getBoundingClientRect();
           onHoverTarget({
             issueId,
-            sentenceId: sentenceEl?.getAttribute("data-sentence-id") || undefined,
-            rect,
-          });
-        } else if (sentenceEl) {
-          const sentenceId = sentenceEl.getAttribute("data-sentence-id") || undefined;
-          const rect = sentenceEl.getBoundingClientRect();
-          onHoverTarget({
-            sentenceId,
             rect,
           });
         } else {

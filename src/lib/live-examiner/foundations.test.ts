@@ -131,6 +131,62 @@ describe("Live Examiner v2 - Foundations", () => {
       expect(issues.some((i) => i.category === "spelling" && i.original.toLowerCase() === "alot")).toBe(true);
     });
 
+    it("does NOT flag trailing in-progress half-words as spelling errors while typing", () => {
+      // Half-words directly at the end of the unpunctuated text (actively being typed)
+      const inProgressCases = [
+        "The demand is inelas",
+        "The government imposes dem",
+        "Merit goods are underpr",
+        "Indirect taxes shift the suppl",
+      ];
+
+      for (const text of inProgressCases) {
+        const seg = {
+          id: "s_prog",
+          from: 0,
+          to: text.length,
+          text,
+          isComplete: false,
+        };
+        const issues = runLocalChecksOnSegment(seg);
+        const spellingIssues = issues.filter((i) => i.category === "spelling");
+        expect(spellingIssues).toEqual([]);
+      }
+
+      // But once the misspelled word is followed by a space or punctuation, it IS flagged
+      const completedTypo = {
+        id: "s_done",
+        from: 0,
+        to: 35,
+        text: "The demand is inelasitc for goods.",
+        isComplete: true,
+      };
+      const issues = runLocalChecksOnSegment(completedTypo);
+      expect(issues.some((i) => i.original === "inelasitc")).toBe(true);
+    });
+
+    it("does NOT flag unmatched parentheses on in-progress incomplete sentences", () => {
+      const inProgress = {
+        id: "s_paren_prog",
+        from: 0,
+        to: 30,
+        text: "An indirect tax (e.g. sugar tax",
+        isComplete: false,
+      };
+      const issuesProg = runLocalChecksOnSegment(inProgress);
+      expect(issuesProg.some((i) => i.id.startsWith("unmatched_paren"))).toBe(false);
+
+      const completed = {
+        id: "s_paren_done",
+        from: 0,
+        to: 35,
+        text: "An indirect tax (e.g. sugar tax.",
+        isComplete: true,
+      };
+      const issuesDone = runLocalChecksOnSegment(completed);
+      expect(issuesDone.some((i) => i.id.startsWith("unmatched_paren"))).toBe(true);
+    });
+
     it("produces ZERO false positives on legitimate Cambridge technical economics prose", () => {
       const correctEconomicsCorpus = [
         "Ceteris paribus, an ad valorem tax causes the supply curve to shift inwards.",

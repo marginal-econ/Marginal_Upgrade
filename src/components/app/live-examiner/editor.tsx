@@ -263,7 +263,7 @@ export const LiveExaminerEditor = forwardRef<LiveExaminerEditorHandle, LiveExami
     }, [normalizedSentences, normalizedIssues, showAo, showIssues]);
 
     return (
-      <div className={cn("relative min-h-[400px] w-full rounded-xl border border-border bg-card shadow-sm", className)}>
+      <div className={cn("relative min-h-[400px] w-full bg-transparent", className)}>
         {/* Placeholder if empty */}
         {value.length === 0 ? (
           <div className="pointer-events-none absolute left-5 top-4 font-serif text-[17px] leading-[1.7] text-muted-foreground/50">
@@ -274,8 +274,8 @@ export const LiveExaminerEditor = forwardRef<LiveExaminerEditorHandle, LiveExami
         {/* CodeMirror 6 Editor Host */}
         <div ref={editorHostRef} className="h-full min-h-[500px] w-full cursor-text" />
 
-        {/* Grammarly-Style Floating Card Portal */}
-        {hoverTarget && (activeIssue || activeSentence) ? (
+        {/* Grammarly-Style Floating Card Portal for Active Issues */}
+        {hoverTarget && activeIssue ? (
           <IssueCard
             issue={activeIssue}
             sentence={activeSentence}

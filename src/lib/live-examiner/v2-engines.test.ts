@@ -180,6 +180,56 @@ describe("Live Examiner 2.0 Engines", () => {
       expect(ledgerResult.totalMark).toBeLessThanOrEqual(12);
     });
 
+    it("does NOT award marks for incomplete in-progress sentences, preventing score fluctuations", () => {
+      const rubric = buildQuestionRubric({
+        question: "Discuss whether indirect taxes are effective in reducing consumption of demerit goods.",
+        level: "as",
+        maxMark: 12,
+      });
+
+      // s1 is complete (awarded 1 AO1 mark)
+      // s2 is in-progress (half-typed, isComplete: false)
+      const sentences = [
+        {
+          id: "s1",
+          text: "Demerit goods are goods that are more harmful to consumers than they realize due to information failure.",
+          paragraphIndex: 0,
+          isComplete: true,
+        },
+        {
+          id: "s2",
+          text: "An indirect tax raises production costs which shifts the supply",
+          paragraphIndex: 1,
+          isComplete: false,
+        },
+      ];
+
+      const classifications = sentences.map((s, idx) =>
+        evaluateSentenceSemantics({
+          sentence: {
+            id: s.id,
+            text: s.text,
+            paragraphText: s.text,
+            paragraphIndex: s.paragraphIndex,
+            sentenceIndex: idx,
+          },
+          docVersion: 1,
+          rubric,
+        }),
+      );
+
+      const ledgerResult = buildMarkLedger({
+        sentences,
+        classifications,
+        rubric,
+      });
+
+      // Only the completed sentence s1 should be counted; incomplete s2 should not fluctuate marks
+      expect(ledgerResult.aoBreakdown.ao1.awarded).toBe(1);
+      expect(ledgerResult.aoBreakdown.ao2.awarded).toBe(0); // Incomplete causal chain not credited yet
+      expect(ledgerResult.totalMark).toBe(1);
+    });
+
     it("returns uncertain state and 0 marks for young answers under 10 words", () => {
       const rubric = buildQuestionRubric({
         question: "Discuss whether free trade is desirable.",

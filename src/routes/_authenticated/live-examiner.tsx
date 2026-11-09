@@ -979,12 +979,12 @@ function LiveExaminerPage() {
             </div>
             <p className="text-sm font-medium">{question}</p>
 
-            <div className="overflow-hidden rounded-xl border-2 border-foreground bg-card shadow-[4px_4px_0_0_var(--foreground)]">
-              <div className="flex items-center justify-between bg-primary px-4 py-2.5 text-primary-foreground">
+            <div className="overflow-hidden rounded-2xl border border-border/80 bg-card/70 shadow-lg backdrop-blur-md transition-all">
+              <div className="flex items-center justify-between border-b border-border/70 bg-gradient-to-r from-primary/15 via-primary/10 to-transparent px-4 py-3">
                 <span className="flex items-center gap-2 text-sm font-semibold">
-                  <span className="size-2.5 rounded-full bg-white/90" /> Live Examiner
+                  <span className="size-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" /> Live Examiner Studio
                 </span>
-                <span className="font-mono text-xs opacity-75">
+                <span className="font-mono text-xs font-medium text-muted-foreground">
                   {level === "a2" ? "A Level" : "AS Level"} · {maxMark} marks
                 </span>
               </div>
@@ -1020,7 +1020,7 @@ function LiveExaminerPage() {
                 maxMark={maxMark}
                 checking={checking}
                 placeholder="Start writing your answer here — whole sentences highlight automatically as AO1 Knowledge, AO2 Analysis, or AO3 Evaluation…"
-                className="min-h-[60vh] p-4 text-sm leading-relaxed"
+                className="min-h-[60vh] border-0 bg-transparent shadow-none"
               />
             </div>
 
@@ -1073,20 +1073,6 @@ function LiveExaminerPage() {
               markRange={markRange}
             />
 
-            <NextMarks
-              nextMoves={scoreEstimate?.nextMoves || []}
-              opportunities={opportunities}
-              strengths={strengths}
-              areasForImprovement={areasForImprovement}
-              onSelectMove={(move) => {
-                toast.info(`Next mark tip: ${move.title}`, {
-                  description: move.detail,
-                });
-              }}
-              onOpenMaximizer={handleOpenScoreMaximizer}
-              maximizerLoading={maxOutMutation.isPending}
-            />
-
             <LiveExaminerPanel
               issues={issues}
               history={history}
@@ -1106,6 +1092,20 @@ function LiveExaminerPage() {
               onFocusIssue={(id) => {
                 setFocusedIssueId(null);
                 setTimeout(() => setFocusedIssueId(id), 10);
+              }}
+              onOpenMaximizer={handleOpenScoreMaximizer}
+              maximizerLoading={maxOutMutation.isPending}
+            />
+
+            <NextMarks
+              nextMoves={scoreEstimate?.nextMoves || []}
+              opportunities={opportunities}
+              strengths={strengths}
+              areasForImprovement={areasForImprovement}
+              onSelectMove={(move) => {
+                toast.info(`Next mark tip: ${move.title}`, {
+                  description: move.detail,
+                });
               }}
               onOpenMaximizer={handleOpenScoreMaximizer}
               maximizerLoading={maxOutMutation.isPending}

@@ -131,6 +131,7 @@ export function runLocalChecksOnSegment(segment: {
   from: number;
   to: number;
   text: string;
+  isComplete?: boolean;
 }): IssueV2[] {
   const issues: IssueV2[] = [];
   const text = segment.text;
@@ -156,6 +157,20 @@ export function runLocalChecksOnSegment(segment: {
 
     // Skip if all caps (likely acronym like OPEC, WTO, LRAS)
     if (word === word.toUpperCase() && word.length > 1) continue;
+
+    // Never flag half-words currently being typed:
+    // 1. If the word ends at the document or segment boundary without trailing space or punctuation,
+    //    the user is currently in the middle of typing this word.
+    // 2. If the segment is incomplete (no terminal . ! ? or newline) and this is the trailing word.
+    const isAtEnd = match.index + word.length >= text.length;
+    const isTrailingIncomplete =
+      segment.isComplete === false &&
+      match.index + word.length >= text.trimEnd().length &&
+      !/[.!?]['"’”\)\]]*$/.test(text);
+
+    if (isAtEnd || isTrailingIncomplete) {
+      continue;
+    }
 
     // If hyphenated (e.g. non-price, short-run, profit-maximizing), verify parts
     let isCorrect = speller.correct(word);
@@ -248,8 +263,9 @@ export function runLocalChecksOnSegment(segment: {
     const firstChar = trimmed[0]!;
     const from = segment.from + leadingSpaces;
     const to = from + 1;
-    // Don't flag e.g. or i.e.
-    if (!trimmed.startsWith("e.g.") && !trimmed.startsWith("i.e.")) {
+    // Don't flag e.g. or i.e., and don't flag during the very first word while typing
+    const hasMultipleWordsOrComplete = segment.isComplete !== false || trimmed.includes(" ");
+    if (hasMultipleWordsOrComplete && !trimmed.startsWith("e.g.") && !trimmed.startsWith("i.e.")) {
       issues.push({
         id: `cap_${segment.id}_0`,
         from,
@@ -265,21 +281,23 @@ export function runLocalChecksOnSegment(segment: {
     }
   }
 
-  // 5. Unmatched brackets or parentheses inside sentence
-  const openParens = (text.match(/\(/g) || []).length;
-  const closeParens = (text.match(/\)/g) || []).length;
-  if (openParens !== closeParens) {
-    issues.push({
-      id: `unmatched_paren_${segment.id}`,
-      from: segment.from,
-      to: segment.to,
-      sentenceId: segment.id,
-      category: "punctuation",
-      severity: "low",
-      original: text,
-      explanation: "Unmatched parentheses found in this sentence.",
-      status: "active",
-    });
+  // 5. Unmatched brackets or parentheses inside sentence (only flag when sentence is complete)
+  if (segment.isComplete !== false) {
+    const openParens = (text.match(/\(/g) || []).length;
+    const closeParens = (text.match(/\)/g) || []).length;
+    if (openParens !== closeParens) {
+      issues.push({
+        id: `unmatched_paren_${segment.id}`,
+        from: segment.from,
+        to: segment.to,
+        sentenceId: segment.id,
+        category: "punctuation",
+        severity: "low",
+        original: text,
+        explanation: "Unmatched parentheses found in this sentence.",
+        status: "active",
+      });
+    }
   }
 
   return issues;

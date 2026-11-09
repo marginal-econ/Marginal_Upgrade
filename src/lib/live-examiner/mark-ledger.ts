@@ -118,6 +118,9 @@ export function buildMarkLedger(params: {
   } | null = null;
 
   for (const s of sentences) {
+    // Incomplete sentences are actively being typed and must not award marks or cause score fluctuations
+    if (s.isComplete === false) continue;
+
     const classification = classMap.get(s.id);
     const ao = classification && classification.primaryAO !== "UNCERTAIN" ? classification.primaryAO : "NO_CREDIT";
 
