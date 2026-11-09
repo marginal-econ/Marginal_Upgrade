@@ -477,5 +477,101 @@ describe("Live Examiner 2.0 Engines", () => {
       expect(targets).toContain("ao1");
       expect(targets).toContain("ao2");
     });
+
+    it("recommends developing additional mechanisms rather than insisting on empirical real-world examples", () => {
+      const rubric = buildQuestionRubric({
+        question: "Assess whether the over-consumption of a demerit good should be reduced through the use of a tax or reduced through the use of a public information campaign.",
+        level: "as",
+        maxMark: 12,
+      });
+
+      const feedback = generateFeedbackAndOpportunities({
+        ledger: [
+          {
+            argumentId: "arg1",
+            sentenceIds: ["s1"],
+            assessmentObjective: "AO1",
+            rubricCriterion: "Definitions",
+            evidence: "Demerit goods are goods that...",
+            awardedCredit: 2,
+            missingDevelopment: [],
+            status: "verified",
+            reasoning: "Accurate definition",
+          },
+          {
+            argumentId: "arg2",
+            sentenceIds: ["s2"],
+            assessmentObjective: "AO2",
+            rubricCriterion: "Analysis",
+            evidence: "An indirect tax raises production costs, which shifts the supply curve upwards...",
+            awardedCredit: 2,
+            missingDevelopment: [],
+            status: "verified",
+            reasoning: "Complete theoretical transmission chain",
+          },
+        ],
+        rubric,
+        aoBreakdown: {
+          ao1: { awarded: 2, max: 2 },
+          ao2: { awarded: 2, max: 6 },
+          ao3: { awarded: 0, max: 4 },
+        },
+        totalWords: 80,
+      });
+
+      const ao2Opportunity = feedback.opportunities.find((o) => o.aoTarget === "ao2");
+      expect(ao2Opportunity).toBeDefined();
+      expect(ao2Opportunity?.title).toBe("Develop Additional Analytical Mechanism");
+      expect(ao2Opportunity?.whyItMatters).toContain("Written economics alone can score full marks without empirical case studies");
+    });
+
+    it("awards full AO2 marks for sound theoretical causal analysis without requiring real-world country examples", () => {
+      const rubric = buildQuestionRubric({
+        question: "Assess whether the over-consumption of a demerit good should be reduced through the use of a tax or reduced through the use of a public information campaign.",
+        level: "as",
+        maxMark: 12,
+      });
+
+      const sentences = [
+        {
+          id: "s1",
+          text: "Demerit goods are goods that generate negative externalities in consumption and are overconsumed due to information failure.",
+          paragraphIndex: 0,
+          isComplete: true,
+        },
+        {
+          id: "s2",
+          text: "An indirect tax raises production costs for firms, which shifts the supply curve upwards by the tax amount, causing equilibrium price to rise and quantity demanded to contract.",
+          paragraphIndex: 1,
+          isComplete: true,
+        },
+      ];
+
+      const classifications = sentences.map((s, idx) =>
+        evaluateSentenceSemantics({
+          sentence: {
+            id: s.id,
+            text: s.text,
+            paragraphText: s.text,
+            paragraphIndex: s.paragraphIndex,
+            sentenceIndex: idx,
+          },
+          docVersion: 1,
+          rubric,
+        }),
+      );
+
+      const ledgerResult = buildMarkLedger({
+        sentences,
+        classifications,
+        rubric,
+      });
+
+      // s2 is a pure theoretical causal transmission chain. Under Cambridge 9708, it earns full 2 marks.
+      expect(ledgerResult.aoBreakdown.ao2.awarded).toBe(2);
+      const ao2Ledger = ledgerResult.ledger.find((l) => l.assessmentObjective === "AO2");
+      expect(ao2Ledger?.awardedCredit).toBe(2);
+      expect(ao2Ledger?.missingDevelopment).toEqual([]);
+    });
   });
 });

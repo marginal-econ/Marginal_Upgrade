@@ -312,10 +312,11 @@ QUESTION (${level === "a2" ? "A Level" : "AS Level"}, ${maxMark} marks): ${quest
 ${contextBlock || "No syllabus material was retrieved for this question — be conservative about flagging economics content. Grammar/clarity/terminology issues are still fine to flag."}
 
 CRITICAL RULES:
-0. STRICT QUESTION RELEVANCE (CAMBRIDGE 9708 MANDATE):
+0. STRICT QUESTION RELEVANCE & POSITIVE MARKING (CAMBRIDGE 9708 MANDATE):
    - You are evaluating an answer specifically to the prompt: "${question}".
-   - Under Cambridge 9708 mark schemes, material that does not directly answer the set question EARNS ZERO MARKS (knowledge: 0, analysis: 0, evaluation: 0, total_mark: 0).
-   - If the student's answer (or sentences) is off-topic, random gibberish, personal anecdotes, non-economic prose, or defines concepts completely unrelated to the question (e.g. defining public goods or merit goods when asked about a demerit good tax vs public campaign):
+   - Cambridge examiners practice POSITIVE MARKING: reward what the candidate knows, understands, and analyzes.
+   - DO NOT FALSELY ZERO AN ESSAY: Laying theoretical groundwork (e.g. defining market failure, externalities, or information failure before discussing policy interventions) and comparing the primary policy against alternative policies are legitimate Cambridge economics and must be marked on their merits.
+   - Only award zero marks if the candidate's text has literally ZERO economic relation to the question prompt (e.g. non-economic prose, personal anecdotes, random gibberish, or defining public goods when asked about demerit goods):
      * "predicted_mark" MUST HAVE total_mark: 0, confidence: 0.95, headline: "Off-topic answer — 0 marks", and ao_breakdown: { knowledge: { awarded: 0, out_of: ${split.ao1_marks} }, analysis: { awarded: 0, out_of: ${split.ao2_marks} }, evaluation: { awarded: 0, out_of: ${split.ao3_marks} } }.
      * "classifications": DO NOT classify any off-topic or non-economic sentence into "classifications". Keep "classifications" empty [] for off-topic or irrelevant sentences!
      * "issues": FLAG an "application" or "economics_accuracy" issue on the off-topic phrase or sentence:
@@ -343,6 +344,11 @@ CRITICAL RULES:
    - Policies do not guarantee or completely solve market outcomes without proof.
    - Contradictions (calling a policy weakness a reason it is very effective) must be flagged.
    Explain in plain economics with ZERO rule codes or asterisks.
+7. CAMBRIDGE MARKING PRINCIPLES — THEORETICAL ANALYSIS & REAL-WORLD EXAMPLES:
+   - Written economics alone can score FULL MARKS (including full marks in AO2 and overall).
+   - Do NOT penalise an essay simply because it lacks real-world empirical statistics or historical dates. Sound theoretical reasoning through economic concepts earns full marks.
+   - Theoretical application (applying theory to consumers, producers, market mechanisms, or types of goods) and diagrammatic explanations are fully valid Cambridge application alongside real-world examples.
+   - Guiding theoretical examples earn credit under AO2 if integrated into the causal reasoning.
 
 Categories you may flag, and ONLY these:
 - "grammar": genuine spelling, grammar, punctuation, or tense errors. (Not an AO — pure writing mechanics.)
@@ -357,7 +363,7 @@ Categories you may flag, and ONLY these:
 WHOLE SENTENCE CLASSIFICATION & STRICT RUNNING MARK CALIBRATION:
 Classify every creditworthy economic sentence into assessment objectives:
 - AO1: Knowledge, definitions, concepts, formulas, diagrams, facts, or identifying what a term means. IMPORTANT: A sentence that states "X can lead to Y where Y means..." (e.g. "Free trade can lead to specialisation where countries can focus on producing a limited range of products") is AO1 Knowledge (defining specialisation), NEVER AO2 Analysis!
-- AO2: ONLY sentences that explain a multi-step causal economic mechanism with directional market/macro outcomes (e.g. how comparative advantage and economies of scale lower average costs, reduce consumer prices, and increase real GDP).
+- AO2: ONLY sentences that explain a multi-step causal economic mechanism with directional market/macro outcomes (e.g. how a tax raises average costs, shifts supply leftwards, raises market price, and contracts quantity demanded). A complete causal chain earns full AO2 credit via theoretical transmission, diagrammatic analysis, or authentic market context.
 - AO3: Evaluation, balance, weighing significance, limitations, elasticity/time-lag conditions, and justified judgement.
 For "original" in classifications, return the FULL sentence text from "SENTENCES TO CHECK", so the whole sentence is cleanly highlighted.
 When estimating "predicted_mark":

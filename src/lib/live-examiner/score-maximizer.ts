@@ -81,9 +81,11 @@ export function generateFeedbackAndOpportunities(params: {
     });
   }
 
-  // B. AO2 Priority: If causal chains or application are incomplete
+  // B. AO2 Priority: If causal chains or analytical coverage are incomplete
   if (remainingAo2 > 0) {
-    const incompleteChainEntry = ledger.find((e) => e.assessmentObjective === "AO2" && e.missingDevelopment.some((m) => m.includes("causal")));
+    const incompleteChainEntry = ledger.find(
+      (e) => e.assessmentObjective === "AO2" && e.missingDevelopment.some((m) => m.includes("causal") || m.includes("Developing")),
+    );
 
     if (incompleteChainEntry) {
       opportunities.push({
@@ -100,15 +102,16 @@ export function generateFeedbackAndOpportunities(params: {
       });
     } else {
       opportunities.push({
-        id: "max_ao2_application",
+        id: "max_ao2_mechanism",
         priority: "high",
         aoTarget: "ao2",
         sentenceIds: [],
-        title: "Integrate Real-World Context",
-        whyItMatters: "Top-band Cambridge analysis strictly demands authentic context (naming specific industries, policies, or economies).",
-        suggestedAction: "Ground your argument in a specific economic scenario (e.g. UK sugar tax or Singapore's exchange rate policy).",
-        potentialGain: 1,
-        confidence: 0.85,
+        title: "Develop Additional Analytical Mechanism",
+        whyItMatters: "Cambridge mark schemes award up to 6 marks for analysis across multiple mechanisms, diagrammatic explanations, or policy channels. Written economics alone can score full marks without empirical case studies.",
+        suggestedAction: "Analyse an alternative mechanism (e.g. how information campaigns shift demand, or how price elasticity affects quantity), describe the diagrammatic curve shifts, or illustrate in context.",
+        illustrativeExpansion: "Explain the transmission: policy intervention -> shift in supply/demand curve -> price adjustment -> contraction in quantity -> correction of market failure.",
+        potentialGain: Math.min(2, remainingAo2),
+        confidence: 0.88,
       });
     }
   }
@@ -121,9 +124,9 @@ export function generateFeedbackAndOpportunities(params: {
       aoTarget: "ao3",
       sentenceIds: [],
       title: "Add Supported Contextual Judgement",
-      whyItMatters: `Questions with command word '${rubric.commandWord}' require weighing counter-arguments and short vs long run time lags.`,
-      suggestedAction: "Introduce a 'depends upon' criteria (e.g. PED elasticity or scale of intervention) and state which constraint is most decisive.",
-      illustrativeExpansion: "State: 'However, in the short run the policy may be constrained by time lags; its ultimate effectiveness depends crucially on PED.'",
+      whyItMatters: `Cambridge evaluative essays award AO3 marks for weighing counter-arguments, price elasticity (PED), short vs long run time lags, or alternative policies.`,
+      suggestedAction: "Introduce economic evaluation criteria (e.g. PED elasticity, time horizons, or stakeholder trade-offs) and state which factor is most decisive.",
+      illustrativeExpansion: "State: 'However, in the short run demand is price-inelastic so consumption falls little; over the long run, combined information campaigns shift preferences and reduce deadweight loss.'",
       potentialGain: Math.min(2, remainingAo3),
       confidence: 0.9,
     });

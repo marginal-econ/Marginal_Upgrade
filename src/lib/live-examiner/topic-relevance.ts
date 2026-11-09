@@ -156,19 +156,27 @@ export function detectOffTopicConcept(
     );
 
   if (isDefinitionPattern) {
-    const topicTokens = extractQuestionTopicTokens(question);
-    if (topicTokens.length >= 2) {
-      const mentionsAnyTopic = topicTokens.some((t) => sLower.includes(t));
-      if (!mentionsAnyTopic) {
-        // Find what was defined (first 1-4 words before definition trigger)
-        const match = sLower.match(/^(?:a|an|the)?\s*([a-z\s]{3,30}?)\s+(?:is defined as|refers to|means that|is a good that|are goods that)\b/i);
-        const definedTerm = match ? match[1].trim() : "This definition";
-        return {
-          isOffTopic: true,
-          offTopicConcept: definedTerm,
-          relevantConcept: topicTokens[0],
-          reason: `Off-topic definition: Defining "${definedTerm}" does not address the set question prompt. Off-topic definitions earn 0 marks under Cambridge 9708.`,
-        };
+    // Cambridge 9708 Essay Grader: Laying theoretical groundwork (e.g. market failure, externalities,
+    // information failure, deadweight loss) before discussing interventions is legitimate economics.
+    const isGroundwork =
+      /\b(market failures?|externalit(?:y|ies)|negative externalit(?:y|ies)|information failures?|allocative (?:in)?efficiency|social optimum|deadweight (?:welfare )?loss|marginal social (?:cost|benefit)|marginal private (?:cost|benefit)|opportunity costs?|ceteris paribus|price elasticity)\b/i.test(
+        sLower,
+      );
+    if (!isGroundwork) {
+      const topicTokens = extractQuestionTopicTokens(question);
+      if (topicTokens.length >= 2) {
+        const mentionsAnyTopic = topicTokens.some((t) => sLower.includes(t));
+        if (!mentionsAnyTopic) {
+          // Find what was defined (first 1-4 words before definition trigger)
+          const match = sLower.match(/^(?:a|an|the)?\s*([a-z\s]{3,30}?)\s+(?:is defined as|refers to|means that|is a good that|are goods that)\b/i);
+          const definedTerm = match ? match[1].trim() : "This definition";
+          return {
+            isOffTopic: true,
+            offTopicConcept: definedTerm,
+            relevantConcept: topicTokens[0],
+            reason: `Off-topic definition: Defining "${definedTerm}" does not address the set question prompt. Off-topic definitions earn 0 marks under Cambridge 9708.`,
+          };
+        }
       }
     }
   }

@@ -303,7 +303,7 @@ export function buildQuestionRubric(params: {
       applicable: split.ao2_marks > 0,
       criteria: [
         `Multi-step causal transmission: cause -> intermediate market adjustments -> equilibrium outcome (${split.ao2_marks} marks max).`,
-        "Contextual application to specific economies, industries, or real-world data.",
+        "Application to economic context: market mechanisms, elasticity, diagrammatic curve shifts, or relevant case studies.",
         "Unbroken economic logic: diagrams and formulas correctly integrated into reasoning.",
       ],
     },

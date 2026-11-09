@@ -258,7 +258,7 @@ export function assessApplicationQuality(sentence: string): {
       hasApplication: true,
       isSuperficial: true,
       contextFound,
-      feedback: `Superficial reference to "${contextFound}". Integrate the specific economic condition, tax rate, or data to earn top-band AO2 credit.`,
+      feedback: `Superficial reference to "${contextFound}". Integrate how the economic mechanism applies to this example to demonstrate application.`,
     };
   }
 

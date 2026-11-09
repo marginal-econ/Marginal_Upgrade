@@ -156,13 +156,20 @@ export function buildMarkLedger(params: {
     primaryAO: "AO1" | "AO2" | "AO3" | "NO_CREDIT";
   }): EconomicArgument {
     const combinedText = group.texts.join(" ");
-    const hasApplication = /\b(uk|us|singapore|china|firm|consumer|market|nhs|tax rate|industry|cigarettes|sugar|tobacco|alcohol|petrol|fuel|monopoly|airline|steel|cars?)\b/i.test(combinedText);
-    const transmissionChain = combinedText.split(/\b(?:because|therefore|leads to|results in|consequently|shifts?|causes?|increases?|decreases?)\b/i).filter(Boolean);
+
+    // Cambridge 9708 application includes theoretical market mechanisms, diagrammatic curve shifts,
+    // and empirical real-world context. Written economics alone can earn full marks without named case studies.
+    const hasEmpirical = /\b(uk|us|singapore|china|india|japan|germany|france|eu|nhs|cigarettes|sugar tax|tobacco|alcohol|petrol|fuel|monopoly|airline|steel|cars?)\b/i.test(combinedText);
+    const hasTheoreticalApp = /\b(consumers?|producers?|firms?|market|supply|demand|price mechanism|costs? of production|average cost|marginal (?:private|social) (?:cost|benefit)|mpc|msc|msb|mpb|elasticity|ped|pes|deadweight (?:welfare )?loss|welfare loss|externalit(?:y|ies)|revenue|tax incidence|shortage|surplus|demerit|merit)\b/i.test(combinedText);
+    const hasDiagrammaticApp = /\b(shifts? (?:vertically|upwards?|downwards?|left|right|outward|inward)|curves?|diagram|contraction along|extension along|equilibrium price|equilibrium quantity)\b/i.test(combinedText);
+    const hasApplication = hasEmpirical || hasTheoreticalApp || hasDiagrammaticApp;
+
+    const transmissionChain = combinedText.split(/\b(?:because|therefore|leads to|results in|consequently|shifts?|causes?|increases?|decreases?|contracts|expands|raises?|lowers?|reduces?)\b/i).filter(Boolean);
 
     let evalDepth: "unsupported" | "partial" | "sustained" | "justified_judgement" = "unsupported";
     if (group.primaryAO === "AO3") {
-      const hasEvalCriteria = /\b(elasticity|inelastic|ped|short[- ]run|long[- ]run|magnitude|depends on|opportunity cost|unintended consequences|regressive|efficiency)\b/i.test(combinedText);
-      const hasJudgement = /\b(on balance|in conclusion|overall|weighing|ultimately|decisive|most effective|greater impact)\b/i.test(combinedText);
+      const hasEvalCriteria = /\b(elasticity|inelastic|elastic|ped|pes|short[- ]run|long[- ]run|over time|time lag|magnitude|size of (?:the )?(?:tax|intervention|subsidy)|depends on|depends upon|contingent on|opportunity cost|unintended consequences|regressive|black market|smuggling|equity|administrative cost|government failure|compared to|alternative policy|more effective than|whereas a campaign|while a tax)\b/i.test(combinedText);
+      const hasJudgement = /\b(on balance|in conclusion|overall|weighing|ultimately|decisive|most effective|greater impact|crucially depends|to a large extent|recommend)\b/i.test(combinedText);
       if (hasJudgement && hasEvalCriteria) {
         evalDepth = "justified_judgement";
       } else if (hasEvalCriteria) {
@@ -239,18 +246,14 @@ export function buildMarkLedger(params: {
             : "Accurate specification definition credited toward syllabus knowledge.",
       });
     } else if (arg.primaryAO === "AO2") {
-      const isCompleteAndApplied = arg.isCompleteChain && arg.hasContextualApplication;
       if (isDuplicate) {
         missingDevelopment.push("Repeated analytical mechanism without new intermediate causal steps.");
       } else if (ao2MarksAwarded < split.ao2_marks) {
-        // Strict Cambridge 9708: 2 marks requires complete transmission chain + authentic application.
-        // Incomplete assertions or unapplied links earn 1 mark (or 0 if prior analysis already exists).
-        credit = isCompleteAndApplied ? 2 : arg.isCompleteChain ? 1 : (ao2MarksAwarded === 0 ? 1 : 0);
+        // Cambridge 9708: Complete causal chain earns full 2 marks through sound theoretical transmission,
+        // diagrammatic explanation, or empirical examples. Incomplete/developing assertions earn 1 mark.
+        credit = arg.isCompleteChain ? 2 : (ao2MarksAwarded === 0 ? 1 : 0);
         if (!arg.isCompleteChain) {
-          missingDevelopment.push("Incomplete causal chain: explain intermediate market/cost adjustments before final outcome.");
-        }
-        if (!arg.hasContextualApplication) {
-          missingDevelopment.push("Lacks contextual application to specific market or economy.");
+          missingDevelopment.push("Developing causal chain: explain intermediate market/cost adjustments (e.g. how costs shift supply, adjusting equilibrium price and quantity).");
         }
         credit = Math.min(credit, split.ao2_marks - ao2MarksAwarded);
         ao2MarksAwarded += credit;
@@ -264,20 +267,22 @@ export function buildMarkLedger(params: {
         awardedCredit: credit,
         missingDevelopment,
         status: isAiVerified ? "verified" : "provisional",
-        reasoning: isCompleteAndApplied
-          ? "Multi-step cause-and-effect transmission chain with contextual application demonstrated."
-          : arg.isCompleteChain
-            ? "Analytical transmission demonstrated without specific context."
-            : "Analytical statement with room for intermediate mechanism development.",
+        reasoning: arg.isCompleteChain
+          ? "Complete multi-step causal transmission chain explaining intermediate economic adjustments."
+          : "Developing analytical assertion with room for intermediate mechanism development.",
       });
     } else if (arg.primaryAO === "AO3") {
       if (isDuplicate) {
         missingDevelopment.push("Repeated evaluative point without new criteria or trade-off weighing.");
       } else if (ao3MarksAwarded < split.ao3_marks) {
-        // Strict Cambridge 9708: 2 marks for justified judgement; 1 mark for sustained economic criteria; 0 for superficial contrast
-        credit = arg.evaluativeDepth === "justified_judgement" ? 2 : (arg.evaluativeDepth === "sustained" ? 1 : 0);
+        // Cambridge 9708: 2 marks for justified judgement or sustained comparative/criteria evaluation; 1 mark for developing evaluation
+        credit = arg.evaluativeDepth === "justified_judgement"
+          ? 2
+          : arg.evaluativeDepth === "sustained"
+            ? (ao3MarksAwarded === 0 ? 2 : 1)
+            : 1;
         if (arg.evaluativeDepth === "partial" || arg.evaluativeDepth === "unsupported") {
-          missingDevelopment.push("Superficial evaluation: justify your evaluation using economic criteria (e.g. elasticity, time lags, or opportunity cost).");
+          missingDevelopment.push("Developing evaluation: justify your evaluation using economic criteria (e.g. elasticity, short vs long run time lags, or comparative policy effectiveness).");
         }
         credit = Math.min(credit, split.ao3_marks - ao3MarksAwarded);
         ao3MarksAwarded += credit;
@@ -295,7 +300,7 @@ export function buildMarkLedger(params: {
           ? "Supported final judgement weighing competing arguments using economic criteria."
           : arg.evaluativeDepth === "sustained"
             ? "Critical consideration of economic limitations, conditions, or trade-offs."
-            : "Superficial evaluation lacking economic justification.",
+            : "Developing evaluative point with room for economic justification.",
       });
     }
   }
