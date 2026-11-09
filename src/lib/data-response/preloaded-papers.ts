@@ -26,7 +26,7 @@ export const PRELOADED_DATA_RESPONSE_PAPERS: DataResponsePaper[] = [
     "totalMarks": 20,
     "durationMinutes": 45,
     "isOfficial": true,
-    "pdfUrl": "https://papers.gceguide.com/A%20Levels/Economics%20(9708)/2024/9708_m24_qp_22.pdf",
+    "pdfUrl": "https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/9708_m24_qp_22.pdf",
     "extract": {
       "title": "1 Artificial Intelligence",
       "paragraphs": [
@@ -64,7 +64,7 @@ export const PRELOADED_DATA_RESPONSE_PAPERS: DataResponsePaper[] = [
         }
       ],
       "sources": "Adapted from: Financial Times and IMF World Economic Outlook 2024.",
-      "pdfUrl": "https://papers.gceguide.com/A%20Levels/Economics%20(9708)/2024/9708_m24_qp_22.pdf"
+      "pdfUrl": "https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/9708_m24_qp_22.pdf"
     },
     "sampleAnswers": {
       "1(a)": "Between 2022 and 2025, Japan's projected real GDP growth slows down from 1.0% in 2022 (after peaking at 1.4% in 2023) to 0.6% by 2025, an overall reduction of 0.4 percentage points. In comparison, projected real GDP growth in the United States falls from 3.2% in 2022 to 1.7% in 2025, a larger decline of 1.5 percentage points. Throughout the entire period, the US growth rate remains consistently higher than Japan's growth rate.",
@@ -460,7 +460,7 @@ export const PRELOADED_DATA_RESPONSE_PAPERS: DataResponsePaper[] = [
     "totalMarks": 20,
     "durationMinutes": 45,
     "isOfficial": true,
-    "pdfUrl": "https://papers.gceguide.com/A%20Levels/Economics%20(9708)/2024/9708_s24_qp_22.pdf",
+    "pdfUrl": "https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/9708_s24_qp_22.pdf",
     "extract": {
       "title": "1 Dilemma for the European Central Bank (ECB)",
       "paragraphs": [
@@ -507,7 +507,7 @@ export const PRELOADED_DATA_RESPONSE_PAPERS: DataResponsePaper[] = [
         }
       ],
       "sources": "Adapted from: European Central Bank Economic Bulletin and Eurostat 2024.",
-      "pdfUrl": "https://papers.gceguide.com/A%20Levels/Economics%20(9708)/2024/9708_s24_qp_22.pdf"
+      "pdfUrl": "https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/9708_s24_qp_22.pdf"
     },
     "sampleAnswers": {
       "1(a)": "Monetary policy refers to the use by a central bank (such as the European Central Bank) of interest rates, money supply, and credit conditions to influence aggregate demand and achieve macroeconomic stability, notably price stability defined as a 2.0% inflation target.",
@@ -840,7 +840,7 @@ export const PRELOADED_DATA_RESPONSE_PAPERS: DataResponsePaper[] = [
     "totalMarks": 20,
     "durationMinutes": 45,
     "isOfficial": true,
-    "pdfUrl": "https://papers.gceguide.com/A%20Levels/Economics%20(9708)/2023/9708_w23_qp_22.pdf",
+    "pdfUrl": "https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/9708_w23_qp_22.pdf",
     "extract": {
       "title": "1 Electric cars create challenges for oil producers",
       "paragraphs": [
@@ -897,7 +897,7 @@ export const PRELOADED_DATA_RESPONSE_PAPERS: DataResponsePaper[] = [
         }
       ],
       "sources": "Adapted from: Macrotrends.net, World Economic Forum, and Financial Times 2023.",
-      "pdfUrl": "https://papers.gceguide.com/A%20Levels/Economics%20(9708)/2023/9708_w23_qp_22.pdf"
+      "pdfUrl": "https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/9708_w23_qp_22.pdf"
     },
     "sampleAnswers": {
       "1(a)": "Using Table 1.1, the average real global price of oil fell from US$93.2 per barrel in 2014 to US$39.7 per barrel in 2020. Percentage change = ((39.7 - 93.2) / 93.2) x 100 = (-53.5 / 93.2) x 100 = -57.403% (or a fall of 57.4%).",
@@ -1208,7 +1208,7 @@ export const PRELOADED_DATA_RESPONSE_PAPERS: DataResponsePaper[] = [
     "totalMarks": 20,
     "durationMinutes": 45,
     "isOfficial": true,
-    "pdfUrl": "https://papers.gceguide.com/A%20Levels/Economics%20(9708)/2023/9708_s23_qp_22.pdf",
+    "pdfUrl": "https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/9708_s23_qp_22.pdf",
     "extract": {
       "title": "1 Nigeria’s economic dependence on oil and gas",
       "paragraphs": [
@@ -1273,7 +1273,7 @@ export const PRELOADED_DATA_RESPONSE_PAPERS: DataResponsePaper[] = [
         }
       ],
       "sources": "Adapted from: World Bank Nigeria Economic Report and Central Bank of Nigeria 2023.",
-      "pdfUrl": "https://papers.gceguide.com/A%20Levels/Economics%20(9708)/2023/9708_s23_qp_22.pdf"
+      "pdfUrl": "https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/9708_s23_qp_22.pdf"
     },
     "sampleAnswers": {
       "1(a)": "According to Table 1.1, the government budget balance in Nigeria was a deficit in both years: -3.9% of GDP in 2016 and -5.2% of GDP in 2020. The budget deficit widened by 1.3 percentage points over this five-year period, representing an increase in the fiscal shortfall.",
@@ -1559,7 +1559,7 @@ export const PRELOADED_DATA_RESPONSE_PAPERS: DataResponsePaper[] = [
     "totalMarks": 20,
     "durationMinutes": 45,
     "isOfficial": true,
-    "pdfUrl": "https://papers.gceguide.com/A%20Levels/Economics%20(9708)/2023/9708_s23_qp_23.pdf",
+    "pdfUrl": "https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/9708_s23_qp_23.pdf",
     "extract": {
       "title": "1 Are doughnuts demerit goods?",
       "paragraphs": [
@@ -1616,7 +1616,7 @@ export const PRELOADED_DATA_RESPONSE_PAPERS: DataResponsePaper[] = [
         }
       ],
       "sources": "Adapted from: Public Health England and US Food Retail Reports 2023.",
-      "pdfUrl": "https://papers.gceguide.com/A%20Levels/Economics%20(9708)/2023/9708_s23_qp_23.pdf"
+      "pdfUrl": "https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/9708_s23_qp_23.pdf"
     },
     "sampleAnswers": {
       "1(a)": "Using Table 1.1, the value of sales of doughnuts in the US rose from US$5,500 million in 2011 to US$7,550 million in 2019. Percentage change = ((7550 - 5500) / 5500) x 100 = (2050 / 5500) x 100 = +37.27% (allow +37.3%).",
@@ -1948,7 +1948,7 @@ export const PRELOADED_DATA_RESPONSE_PAPERS: DataResponsePaper[] = [
     "totalMarks": 20,
     "durationMinutes": 45,
     "isOfficial": true,
-    "pdfUrl": "https://papers.gceguide.com/A%20Levels/Economics%20(9708)/2023/9708_w23_qp_21.pdf",
+    "pdfUrl": "https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/9708_w23_qp_21.pdf",
     "extract": {
       "title": "1 Economic growth in Taiwan",
       "paragraphs": [
@@ -2000,7 +2000,7 @@ export const PRELOADED_DATA_RESPONSE_PAPERS: DataResponsePaper[] = [
         }
       ],
       "sources": "Adapted from: DGBAS Taiwan Economic Reports and Central Bank of the Republic of China (Taiwan) 2023.",
-      "pdfUrl": "https://papers.gceguide.com/A%20Levels/Economics%20(9708)/2023/9708_w23_qp_21.pdf"
+      "pdfUrl": "https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/9708_w23_qp_21.pdf"
     },
     "sampleAnswers": {
       "1(a)": "Using Table 1.1, the expected growth in Taiwan's real GDP in 2021 is 5.9%. Compared to the 3.4% growth achieved in 2020, the expected increase in the real GDP growth rate is 5.9% - 3.4% = +2.5 percentage points.",
@@ -2181,7 +2181,7 @@ export const PRELOADED_DATA_RESPONSE_PAPERS: DataResponsePaper[] = [
     "totalMarks": 20,
     "durationMinutes": 45,
     "isOfficial": true,
-    "pdfUrl": "https://papers.gceguide.com/A%20Levels/Economics%20(9708)/2023/9708_s23_qp_21.pdf",
+    "pdfUrl": "https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/9708_s23_qp_21.pdf",
     "extract": {
       "title": "1 Unemployment in India",
       "paragraphs": [
@@ -2234,7 +2234,7 @@ export const PRELOADED_DATA_RESPONSE_PAPERS: DataResponsePaper[] = [
         }
       ],
       "sources": "Adapted from: Centre for Monitoring Indian Economy (CMIE) and Ministry of Statistics India 2023.",
-      "pdfUrl": "https://papers.gceguide.com/A%20Levels/Economics%20(9708)/2023/9708_s23_qp_21.pdf"
+      "pdfUrl": "https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/9708_s23_qp_21.pdf"
     },
     "sampleAnswers": {
       "1(a)": "Using Table 1.1, India's unemployment rate was 7.4% in July 2020 and rose to 11.9% in May 2021. The absolute change was an increase of 11.9% - 7.4% = +4.5 percentage points. Alternatively, the percentage change was ((11.9 - 7.4) / 7.4) x 100 = (4.5 / 7.4) x 100 = +60.81% (or approximately +60.8%).",
@@ -2417,7 +2417,7 @@ export const PRELOADED_DATA_RESPONSE_PAPERS: DataResponsePaper[] = [
     "totalMarks": 20,
     "durationMinutes": 45,
     "isOfficial": true,
-    "pdfUrl": "https://papers.gceguide.com/A%20Levels/Economics%20(9708)/2023/9708_m23_qp_22.pdf",
+    "pdfUrl": "https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/9708_m23_qp_22.pdf",
     "extract": {
       "title": "1 Rising inflation rate in the US",
       "paragraphs": [
@@ -2474,7 +2474,7 @@ export const PRELOADED_DATA_RESPONSE_PAPERS: DataResponsePaper[] = [
         }
       ],
       "sources": "Adapted from: US Bureau of Labor Statistics and Federal Reserve Economic Data 2023.",
-      "pdfUrl": "https://papers.gceguide.com/A%20Levels/Economics%20(9708)/2023/9708_m23_qp_22.pdf"
+      "pdfUrl": "https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/9708_m23_qp_22.pdf"
     },
     "sampleAnswers": {
       "1(a)": "Between July and December 2020, the US inflation rate was low and relatively stable, fluctuating in a narrow band between 1.0% and 1.4%. In contrast, between January and June 2021, the inflation rate accelerated rapidly from 1.7% in February to 5.4% in June, displaying a sharp upward trajectory.",
@@ -2789,7 +2789,7 @@ export const PRELOADED_DATA_RESPONSE_PAPERS: DataResponsePaper[] = [
     "totalMarks": 20,
     "durationMinutes": 45,
     "isOfficial": true,
-    "pdfUrl": "https://papers.gceguide.com/A%20Levels/Economics%20(9708)/2022/9708_s22_qp_22.pdf",
+    "pdfUrl": "https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/9708_s22_qp_22.pdf",
     "extract": {
       "title": "1 Aspects of Russia's economic performance",
       "paragraphs": [
@@ -2830,7 +2830,7 @@ export const PRELOADED_DATA_RESPONSE_PAPERS: DataResponsePaper[] = [
         }
       ],
       "sources": "Adapted from: Ministry of Finance of the Russian Federation and World Bank Reports 2022.",
-      "pdfUrl": "https://papers.gceguide.com/A%20Levels/Economics%20(9708)/2022/9708_s22_qp_22.pdf"
+      "pdfUrl": "https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/9708_s22_qp_22.pdf"
     },
     "sampleAnswers": {
       "1(a)(i)": "In March 2015, Russia's annual inflation rate was very high at approximately 16.9%, whereas in March 2020 it had fallen significantly to approximately 2.5%, representing a substantial disinflation of over 14 percentage points.",
@@ -3179,7 +3179,7 @@ export const PRELOADED_DATA_RESPONSE_PAPERS: DataResponsePaper[] = [
     "totalMarks": 20,
     "durationMinutes": 45,
     "isOfficial": true,
-    "pdfUrl": "https://papers.gceguide.com/A%20Levels/Economics%20(9708)/2022/9708_m22_qp_22.pdf",
+    "pdfUrl": "https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/9708_m22_qp_22.pdf",
     "extract": {
       "title": "1 Aspects of Turkey's macroeconomic performance and monetary policy",
       "paragraphs": [
@@ -3226,7 +3226,7 @@ export const PRELOADED_DATA_RESPONSE_PAPERS: DataResponsePaper[] = [
         }
       ],
       "sources": "Adapted from: Central Bank of the Republic of Turkey and OECD Economic Surveys 2022.",
-      "pdfUrl": "https://papers.gceguide.com/A%20Levels/Economics%20(9708)/2022/9708_m22_qp_22.pdf"
+      "pdfUrl": "https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/9708_m22_qp_22.pdf"
     },
     "sampleAnswers": {
       "1(a)": "Using Table 1.1, between August 2019 and April 2020, Turkey's current account balance deteriorated continuously from a surplus of +US$2,600 million to a large deficit of -US$5,400 million. Over the exact same period, Turkey's terms of trade index also experienced a downward trend, deteriorating from 102.5 in August 2019 to 98.1 in April 2020.",
@@ -3559,7 +3559,7 @@ export const PRELOADED_DATA_RESPONSE_PAPERS: DataResponsePaper[] = [
     "totalMarks": 20,
     "durationMinutes": 45,
     "isOfficial": true,
-    "pdfUrl": "https://papers.gceguide.com/A%20Levels/Economics%20(9708)/2021/9708_s21_qp_22.pdf",
+    "pdfUrl": "https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/9708_s21_qp_22.pdf",
     "extract": {
       "title": "1 Rice farmers in Cambodia and Myanmar under pressure",
       "paragraphs": [
@@ -3594,7 +3594,7 @@ export const PRELOADED_DATA_RESPONSE_PAPERS: DataResponsePaper[] = [
         }
       ],
       "sources": "Adapted from: European Commission Trade Directorate and Asian Development Bank 2021.",
-      "pdfUrl": "https://papers.gceguide.com/A%20Levels/Economics%20(9708)/2021/9708_s21_qp_22.pdf"
+      "pdfUrl": "https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/9708_s21_qp_22.pdf"
     },
     "sampleAnswers": {
       "1(a)": "Between 2016 and 2018, consumer price inflation in Myanmar remained high and accelerated slightly from 6.8% to 7.1%, representing an increase in the rate of inflation. In contrast, in Cambodia, inflation was much lower and slowed down from 3.0% in 2016 to 2.5% in 2018. Over the entire period, Myanmar experienced a significantly faster rate of price level increase than Cambodia.",
@@ -3780,7 +3780,7 @@ export const PRELOADED_DATA_RESPONSE_PAPERS: DataResponsePaper[] = [
     "totalMarks": 20,
     "durationMinutes": 45,
     "isOfficial": true,
-    "pdfUrl": "https://papers.gceguide.com/A%20Levels/Economics%20(9708)/2021/9708_w21_qp_22.pdf",
+    "pdfUrl": "https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/9708_w21_qp_22.pdf",
     "extract": {
       "title": "1 India no longer the world's fastest-growing economy",
       "paragraphs": [
@@ -3822,7 +3822,7 @@ export const PRELOADED_DATA_RESPONSE_PAPERS: DataResponsePaper[] = [
         }
       ],
       "sources": "Adapted from: MOSPI National Accounts and Reserve Bank of India Bulletins 2021.",
-      "pdfUrl": "https://papers.gceguide.com/A%20Levels/Economics%20(9708)/2021/9708_w21_qp_22.pdf"
+      "pdfUrl": "https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/9708_w21_qp_22.pdf"
     },
     "sampleAnswers": {
       "1(a)": "Using Table 1.1, the combined share of consumption and investment was 59.1% + 32.4% = 91.5% in Q4 2018. In Q1 2019, the combined share fell to 56.9% + 30.7% = 87.6%. The change was a decrease of 91.5% - 87.6% = -3.9 percentage points.",
@@ -4150,7 +4150,7 @@ export const PRELOADED_DATA_RESPONSE_PAPERS: DataResponsePaper[] = [
     "totalMarks": 20,
     "durationMinutes": 45,
     "isOfficial": true,
-    "pdfUrl": "https://papers.gceguide.com/A%20Levels/Economics%20(9708)/2022/9708_w22_qp_21.pdf",
+    "pdfUrl": "https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/9708_w22_qp_21.pdf",
     "extract": {
       "title": "1 Coffee production and global market dynamics",
       "paragraphs": [
@@ -4203,7 +4203,7 @@ export const PRELOADED_DATA_RESPONSE_PAPERS: DataResponsePaper[] = [
         }
       ],
       "sources": "Adapted from: International Coffee Organization (ICO) and World Bank Commodity Markets 2022.",
-      "pdfUrl": "https://papers.gceguide.com/A%20Levels/Economics%20(9708)/2022/9708_w22_qp_21.pdf"
+      "pdfUrl": "https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/9708_w22_qp_21.pdf"
     },
     "sampleAnswers": {
       "1(a)": "Using Table 1.1, the wholesale arabica coffee price was 132.5 cents/lb in 2017 and rose to 205.0 cents/lb in 2021. Percentage change = ((205.0 - 132.5) / 132.5) x 100 = (72.5 / 132.5) x 100 = +54.717% (allow +54.7%).",
@@ -4511,7 +4511,7 @@ export const PRELOADED_DATA_RESPONSE_PAPERS: DataResponsePaper[] = [
     "totalMarks": 20,
     "durationMinutes": 45,
     "isOfficial": true,
-    "pdfUrl": "https://papers.gceguide.com/A%20Levels/Economics%20(9708)/2022/9708_s22_qp_23.pdf",
+    "pdfUrl": "https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/9708_s22_qp_23.pdf",
     "extract": {
       "title": "1 Minimum wage adjustments and youth labour markets",
       "paragraphs": [
@@ -4558,7 +4558,7 @@ export const PRELOADED_DATA_RESPONSE_PAPERS: DataResponsePaper[] = [
         }
       ],
       "sources": "Adapted from: OECD Employment Outlook and National Bureau of Economic Research 2022.",
-      "pdfUrl": "https://papers.gceguide.com/A%20Levels/Economics%20(9708)/2022/9708_s22_qp_23.pdf"
+      "pdfUrl": "https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/9708_s22_qp_23.pdf"
     },
     "sampleAnswers": {
       "1(a)": "Using Table 1.1, the statutory minimum wage rose from $9.50 per hour in 2018 to $12.00 per hour in 2021. Percentage increase = (($12.00 - $9.50) / $9.50) x 100 = ($2.50 / $9.50) x 100 = +26.315% (allow +26.3%).",
@@ -4876,7 +4876,7 @@ export const PRELOADED_DATA_RESPONSE_PAPERS: DataResponsePaper[] = [
     "totalMarks": 20,
     "durationMinutes": 45,
     "isOfficial": true,
-    "pdfUrl": "https://papers.gceguide.com/A%20Levels/Economics%20(9708)/2021/9708_w21_qp_21.pdf",
+    "pdfUrl": "https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/9708_w21_qp_21.pdf",
     "extract": {
       "title": "1 Global container shipping bottlenecks and world trade",
       "paragraphs": [
@@ -4917,7 +4917,7 @@ export const PRELOADED_DATA_RESPONSE_PAPERS: DataResponsePaper[] = [
         }
       ],
       "sources": "Adapted from: UNCTAD Review of Maritime Transport and Drewry Shipping Consultants 2021.",
-      "pdfUrl": "https://papers.gceguide.com/A%20Levels/Economics%20(9708)/2021/9708_w21_qp_21.pdf"
+      "pdfUrl": "https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/9708_w21_qp_21.pdf"
     },
     "sampleAnswers": {
       "1(a)": "Using Table 1.1, the spot freight rate between Shanghai and Los Angeles was US$1,650 in 2019 and rose to US$9,500 in 2021. Percentage increase = ((9500 - 1650) / 1650) x 100 = (7850 / 1650) x 100 = +475.76% (allow +475.8% or +476%).",
@@ -5245,7 +5245,7 @@ export const PRELOADED_DATA_RESPONSE_PAPERS: DataResponsePaper[] = [
     "totalMarks": 20,
     "durationMinutes": 45,
     "isOfficial": true,
-    "pdfUrl": "https://papers.gceguide.com/A%20Levels/Economics%20(9708)/2023/9708_s23_qp_42.pdf",
+    "pdfUrl": "https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/9708_s23_qp_42.pdf",
     "extract": {
       "title": "1 Pakistan and the Belt and Road Initiative (BRI)",
       "paragraphs": [
@@ -5304,7 +5304,7 @@ export const PRELOADED_DATA_RESPONSE_PAPERS: DataResponsePaper[] = [
         }
       ],
       "sources": "Adapted from: World Bank, Asian Development Bank, and CPEC Authority Reports 2023.",
-      "pdfUrl": "https://papers.gceguide.com/A%20Levels/Economics%20(9708)/2023/9708_s23_qp_42.pdf"
+      "pdfUrl": "https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/9708_s23_qp_42.pdf"
     },
     "sampleAnswers": {
       "1(a)": "Purchasing power parity (PPP) is an economic theory and exchange rate adjustment that equalises the purchasing power of different currencies by accounting for differences in national price levels and cost of living. It measures the amount of a given currency needed to purchase an identical representative basket of consumer goods and services in each country.",
@@ -5593,7 +5593,7 @@ export const PRELOADED_DATA_RESPONSE_PAPERS: DataResponsePaper[] = [
     "totalMarks": 20,
     "durationMinutes": 45,
     "isOfficial": true,
-    "pdfUrl": "https://papers.gceguide.com/A%20Levels/Economics%20(9708)/2023/9708_w23_qp_42.pdf",
+    "pdfUrl": "https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/9708_w23_qp_42.pdf",
     "extract": {
       "title": "1 Traffic Control",
       "paragraphs": [
@@ -5628,7 +5628,7 @@ export const PRELOADED_DATA_RESPONSE_PAPERS: DataResponsePaper[] = [
         }
       ],
       "sources": "Adapted from: Daily Trust Nigeria and The Daily Telegraph Transport Reports 2023.",
-      "pdfUrl": "https://papers.gceguide.com/A%20Levels/Economics%20(9708)/2023/9708_w23_qp_42.pdf"
+      "pdfUrl": "https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/9708_w23_qp_42.pdf"
     },
     "sampleAnswers": {
       "1(a)": "Equity refers to fairness in the distribution of economic resources, opportunities, and welfare. The ban on motorcycle taxis and tricycles in Lagos severely worsens horizontal and vertical equity for low-income commuters. Wealthier citizens who own private air-conditioned cars continue to access road infrastructure unimpeded, while poorer commuters who depend on affordable okadas are deprived of transit, forced into exhausting walking journeys or expensive informal buses, and operators lose their primary livelihood.",
@@ -5907,7 +5907,7 @@ export const PRELOADED_DATA_RESPONSE_PAPERS: DataResponsePaper[] = [
     "totalMarks": 20,
     "durationMinutes": 45,
     "isOfficial": true,
-    "pdfUrl": "https://papers.gceguide.com/A%20Levels/Economics%20(9708)/2023/9708_m23_qp_42.pdf",
+    "pdfUrl": "https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/9708_m23_qp_42.pdf",
     "extract": {
       "title": "1 UK public sector debt and net borrowing",
       "paragraphs": [
@@ -5960,7 +5960,7 @@ export const PRELOADED_DATA_RESPONSE_PAPERS: DataResponsePaper[] = [
         }
       ],
       "sources": "Adapted from: Office for National Statistics (ONS) and Bank of England Bulletins 2023.",
-      "pdfUrl": "https://papers.gceguide.com/A%20Levels/Economics%20(9708)/2023/9708_m23_qp_42.pdf"
+      "pdfUrl": "https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/9708_m23_qp_42.pdf"
     },
     "sampleAnswers": {
       "1(a)": "A recession is defined as a period of temporary economic decline during which trade and industrial activity are reduced, officially identified by a fall in real gross domestic product (GDP) in two successive quarters.",
@@ -6115,7 +6115,7 @@ export const PRELOADED_DATA_RESPONSE_PAPERS: DataResponsePaper[] = [
     "totalMarks": 20,
     "durationMinutes": 45,
     "isOfficial": true,
-    "pdfUrl": "https://papers.gceguide.com/A%20Levels/Economics%20(9708)/2022/9708_s22_qp_42.pdf",
+    "pdfUrl": "https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/9708_s22_qp_42.pdf",
     "extract": {
       "title": "1 Recent changes in the world oil market",
       "paragraphs": [
@@ -6156,7 +6156,7 @@ export const PRELOADED_DATA_RESPONSE_PAPERS: DataResponsePaper[] = [
         }
       ],
       "sources": "Adapted from: International Energy Agency (IEA) and Financial Times Commodity Reports 2022.",
-      "pdfUrl": "https://papers.gceguide.com/A%20Levels/Economics%20(9708)/2022/9708_s22_qp_42.pdf"
+      "pdfUrl": "https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/9708_s22_qp_42.pdf"
     },
     "sampleAnswers": {
       "1(a)": "A cartel is a formal agreement or explicit collusion among independent producers or firms within an oligopolistic industry to coordinate actions, restrict output, allocate market shares, and fix prices to maximize joint collective profits and restrict competition.",
@@ -6459,7 +6459,7 @@ export const PRELOADED_DATA_RESPONSE_PAPERS: DataResponsePaper[] = [
     "totalMarks": 20,
     "durationMinutes": 45,
     "isOfficial": true,
-    "pdfUrl": "https://papers.gceguide.com/A%20Levels/Economics%20(9708)/2021/9708_s21_qp_42.pdf",
+    "pdfUrl": "https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/9708_s21_qp_42.pdf",
     "extract": {
       "title": "1 Competition in passenger aircraft manufacturing",
       "paragraphs": [
@@ -6511,7 +6511,7 @@ export const PRELOADED_DATA_RESPONSE_PAPERS: DataResponsePaper[] = [
         }
       ],
       "sources": "Adapted from: Annual Corporate Filings and Aviation Week & Space Technology 2021.",
-      "pdfUrl": "https://papers.gceguide.com/A%20Levels/Economics%20(9708)/2021/9708_s21_qp_42.pdf"
+      "pdfUrl": "https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/9708_s21_qp_42.pdf"
     },
     "sampleAnswers": {
       "1(a)": "The commercial passenger aircraft manufacturing market is classified as a duopoly because it is an extreme form of oligopoly where exactly two dominant firms (Airbus and Boeing) control virtually the entire market, collectively accounting for approximately 90% of global aircraft deliveries.",
@@ -6796,7 +6796,7 @@ export const PRELOADED_DATA_RESPONSE_PAPERS: DataResponsePaper[] = [
     "totalMarks": 20,
     "durationMinutes": 45,
     "isOfficial": true,
-    "pdfUrl": "https://papers.gceguide.com/A%20Levels/Economics%20(9708)/2021/9708_w21_qp_42.pdf",
+    "pdfUrl": "https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/9708_w21_qp_42.pdf",
     "extract": {
       "title": "1 Competition in the skies over Europe",
       "paragraphs": [
@@ -6831,7 +6831,7 @@ export const PRELOADED_DATA_RESPONSE_PAPERS: DataResponsePaper[] = [
         }
       ],
       "sources": "Adapted from: CAPA Centre for Aviation and EU Directorate-General for Competition 2021.",
-      "pdfUrl": "https://papers.gceguide.com/A%20Levels/Economics%20(9708)/2021/9708_w21_qp_42.pdf"
+      "pdfUrl": "https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/9708_w21_qp_42.pdf"
     },
     "sampleAnswers": {
       "1(a)": "Between 2017 and 2020, the market share of low-cost carriers rose from 41.5% to 48.2%, representing an increase of 6.7 percentage points. Over the same period, legacy full-service carriers saw their market share decline from 58.5% to 51.8%, an identical decrease of 6.7 percentage points.",
@@ -7003,7 +7003,7 @@ export const PRELOADED_DATA_RESPONSE_PAPERS: DataResponsePaper[] = [
     "totalMarks": 20,
     "durationMinutes": 45,
     "isOfficial": true,
-    "pdfUrl": "https://papers.gceguide.com/A%20Levels/Economics%20(9708)/2024/9708_m24_qp_42.pdf",
+    "pdfUrl": "https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/9708_m24_qp_42.pdf",
     "extract": {
       "title": "1 Sovereign wealth funds and structural economic transformation",
       "paragraphs": [
@@ -7038,7 +7038,7 @@ export const PRELOADED_DATA_RESPONSE_PAPERS: DataResponsePaper[] = [
         }
       ],
       "sources": "Adapted from: Sovereign Wealth Fund Institute and IMF Fiscal Monitor 2024.",
-      "pdfUrl": "https://papers.gceguide.com/A%20Levels/Economics%20(9708)/2024/9708_m24_qp_42.pdf"
+      "pdfUrl": "https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/9708_m24_qp_42.pdf"
     },
     "sampleAnswers": {
       "1(a)": "Between 2019 and 2022, Economy A's sovereign wealth fund assets expanded by 120 billion USD (from 320 to 440 billion USD, a 37.5% increase), while Economy B's assets expanded by only 15 billion USD (from 180 to 195 billion USD, an 8.3% increase). Concurrently, Economy A achieved a substantially higher average non-resource GDP growth rate of 4.8% compared to Economy B's 1.6%.",
@@ -7211,7 +7211,7 @@ export const PRELOADED_DATA_RESPONSE_PAPERS: DataResponsePaper[] = [
     "totalMarks": 20,
     "durationMinutes": 45,
     "isOfficial": true,
-    "pdfUrl": "https://papers.gceguide.com/A%20Levels/Economics%20(9708)/2023/9708_s23_qp_41.pdf",
+    "pdfUrl": "https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/9708_s23_qp_41.pdf",
     "extract": {
       "title": "1 Digital platform monopolies and market contestability",
       "paragraphs": [
@@ -7252,7 +7252,7 @@ export const PRELOADED_DATA_RESPONSE_PAPERS: DataResponsePaper[] = [
         }
       ],
       "sources": "Adapted from: European Commission Directorate-General for Competition and US House Antitrust Subcommittee Reports 2023.",
-      "pdfUrl": "https://papers.gceguide.com/A%20Levels/Economics%20(9708)/2023/9708_s23_qp_41.pdf"
+      "pdfUrl": "https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/9708_s23_qp_41.pdf"
     },
     "sampleAnswers": {
       "1(a)": "Between 2018 and 2022, Platform Alpha expanded its global mobile operating system market share from 22.5% to 28.4%, an increase of 5.9 percentage points. Over the same period, Platform Beta's market share contracted from 75.1% to 71.0%, a decrease of 4.1 percentage points. Despite these shifts, both major platforms continued to charge an identical standard developer commission rate of 30.0%, demonstrating an effective duopoly with rigid parallel pricing.",
@@ -7523,7 +7523,7 @@ export const PRELOADED_DATA_RESPONSE_PAPERS: DataResponsePaper[] = [
     "totalMarks": 20,
     "durationMinutes": 45,
     "isOfficial": true,
-    "pdfUrl": "https://papers.gceguide.com/A%20Levels/Economics%20(9708)/2023/9708_s23_qp_43.pdf",
+    "pdfUrl": "https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/9708_s23_qp_43.pdf",
     "extract": {
       "title": "1 Labour monopsony and wage determination in parcel delivery",
       "paragraphs": [
@@ -7570,7 +7570,7 @@ export const PRELOADED_DATA_RESPONSE_PAPERS: DataResponsePaper[] = [
         }
       ],
       "sources": "Adapted from: NBER Labour Studies and US Department of Labor Wage & Hour Division 2023.",
-      "pdfUrl": "https://papers.gceguide.com/A%20Levels/Economics%20(9708)/2023/9708_s23_qp_43.pdf"
+      "pdfUrl": "https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/9708_s23_qp_43.pdf"
     },
     "sampleAnswers": {
       "1(a)": "Between 2019 and 2022, the wage premium of average real courier pay over the statutory minimum wage narrowed substantially from 2.20 USD per hour in 2019 (14.20 minus 12.00) to just 0.60 USD per hour in 2022 (14.60 minus 14.00), a contraction of 1.60 USD per hour. Over the same timeframe, annual warehouse labour turnover increased dramatically from 88.0% to 125.0%, representing a rise of 37.0 percentage points.",
@@ -7865,7 +7865,7 @@ export const PRELOADED_DATA_RESPONSE_PAPERS: DataResponsePaper[] = [
     "totalMarks": 20,
     "durationMinutes": 45,
     "isOfficial": true,
-    "pdfUrl": "https://papers.gceguide.com/A%20Levels/Economics%20(9708)/2023/9708_w23_qp_41.pdf",
+    "pdfUrl": "https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/9708_w23_qp_41.pdf",
     "extract": {
       "title": "1 Quantitative tightening and commercial bank lending",
       "paragraphs": [
@@ -7900,7 +7900,7 @@ export const PRELOADED_DATA_RESPONSE_PAPERS: DataResponsePaper[] = [
         }
       ],
       "sources": "Adapted from: Federal Reserve Board, Bank of England, and Financial Times Macroeconomics 2023.",
-      "pdfUrl": "https://papers.gceguide.com/A%20Levels/Economics%20(9708)/2023/9708_w23_qp_41.pdf"
+      "pdfUrl": "https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/9708_w23_qp_41.pdf"
     },
     "sampleAnswers": {
       "1(a)": "Between end 2021 and mid 2023, the Federal Reserve's total assets decreased from 8.75 trillion USD to 7.70 trillion USD, a contraction of 1.05 trillion USD (a 12.0% reduction). Over the same period, the Bank of England's total assets fell from 1.25 trillion USD to 1.05 trillion USD, a contraction of 0.20 trillion USD (a 16.0% reduction). Consequently, the UK experienced negative commercial bank lending growth (-0.4%) in 2023, compared to positive but muted lending growth in the US (1.8%).",
@@ -8185,7 +8185,7 @@ export const PRELOADED_DATA_RESPONSE_PAPERS: DataResponsePaper[] = [
     "totalMarks": 20,
     "durationMinutes": 45,
     "isOfficial": true,
-    "pdfUrl": "https://papers.gceguide.com/A%20Levels/Economics%20(9708)/2022/9708_m22_qp_42.pdf",
+    "pdfUrl": "https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/9708_m22_qp_42.pdf",
     "extract": {
       "title": "1 Dutch disease and natural resource exports in Chile",
       "paragraphs": [
@@ -8238,7 +8238,7 @@ export const PRELOADED_DATA_RESPONSE_PAPERS: DataResponsePaper[] = [
         }
       ],
       "sources": "Adapted from: Central Bank of Chile and Cochilco Copper Commission Reports 2022.",
-      "pdfUrl": "https://papers.gceguide.com/A%20Levels/Economics%20(9708)/2022/9708_m22_qp_42.pdf"
+      "pdfUrl": "https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/9708_m22_qp_42.pdf"
     },
     "sampleAnswers": {
       "1(a)": "Between 2017 and 2021, the world copper price rose by 3,150 USD per ton (from 6,165 to 9,315 USD per ton, an increase of 51.1%). In response, copper's share of total Chilean exports expanded by 8.0 percentage points from 49.5% to 57.5%, while the agricultural export share contracted by 2.3 percentage points from 11.2% to 8.9%.",
@@ -8536,7 +8536,7 @@ export const PRELOADED_DATA_RESPONSE_PAPERS: DataResponsePaper[] = [
     "totalMarks": 20,
     "durationMinutes": 45,
     "isOfficial": true,
-    "pdfUrl": "https://papers.gceguide.com/A%20Levels/Economics%20(9708)/2022/9708_w22_qp_41.pdf",
+    "pdfUrl": "https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/9708_w22_qp_41.pdf",
     "extract": {
       "title": "1 Wage-price spirals and labour market bargaining power",
       "paragraphs": [
@@ -8574,7 +8574,7 @@ export const PRELOADED_DATA_RESPONSE_PAPERS: DataResponsePaper[] = [
         }
       ],
       "sources": "Adapted from: OECD Employment Outlook and Bank for International Settlements (BIS) Annual Economic Report 2022.",
-      "pdfUrl": "https://papers.gceguide.com/A%20Levels/Economics%20(9708)/2022/9708_w22_qp_41.pdf"
+      "pdfUrl": "https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/9708_w22_qp_41.pdf"
     },
     "sampleAnswers": {
       "1(a)": "In 2022, Country X had a high trade union density of 65.2% and achieved nominal wage growth of 7.4%, which largely insulated real wages, resulting in a mild real wage contraction of -0.8%. In contrast, Country Y had a low trade union density of only 10.5% and recorded nominal wage growth of 4.1%, failing to keep pace with 9.1% inflation, resulting in a severe real wage contraction of -5.0%.",
@@ -8880,7 +8880,7 @@ export const PRELOADED_DATA_RESPONSE_PAPERS: DataResponsePaper[] = [
     "totalMarks": 20,
     "durationMinutes": 45,
     "isOfficial": true,
-    "pdfUrl": "https://papers.gceguide.com/A%20Levels/Economics%20(9708)/2022/9708_s22_qp_43.pdf",
+    "pdfUrl": "https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/9708_s22_qp_43.pdf",
     "extract": {
       "title": "1 Carbon border adjustment mechanisms and industrial competitiveness",
       "paragraphs": [
@@ -8915,7 +8915,7 @@ export const PRELOADED_DATA_RESPONSE_PAPERS: DataResponsePaper[] = [
         }
       ],
       "sources": "Adapted from: European Commission Taxation & Customs Union and UNCTAD Trade and Environment Review 2022.",
-      "pdfUrl": "https://papers.gceguide.com/A%20Levels/Economics%20(9708)/2022/9708_s22_qp_43.pdf"
+      "pdfUrl": "https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/9708_s22_qp_43.pdf"
     },
     "sampleAnswers": {
       "1(a)": "Under the projected CBAM tariff, Producer A faces a tariff of 180.00 EUR per ton of steel due to high carbon intensity (2.4 tons of CO2 per ton of steel), resulting in a 24.5% export price increase. In contrast, Producer B generates only 0.8 tons of CO2 per ton and faces a much lower tariff of 60.00 EUR per ton, causing a modest 7.8% price increase. Consequently, Producer A's tariff is three times higher, penalizing coal-based production.",
@@ -9179,7 +9179,7 @@ export const PRELOADED_DATA_RESPONSE_PAPERS: DataResponsePaper[] = [
     "totalMarks": 20,
     "durationMinutes": 45,
     "isOfficial": true,
-    "pdfUrl": "https://papers.gceguide.com/A%20Levels/Economics%20(9708)/2021/9708_w21_qp_41.pdf",
+    "pdfUrl": "https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/9708_w21_qp_41.pdf",
     "extract": {
       "title": "1 Global container shipping alliances and freight rate volatility",
       "paragraphs": [
@@ -9214,7 +9214,7 @@ export const PRELOADED_DATA_RESPONSE_PAPERS: DataResponsePaper[] = [
         }
       ],
       "sources": "Adapted from: UNCTAD Maritime Transport Review and Federal Maritime Commission (FMC) 2021.",
-      "pdfUrl": "https://papers.gceguide.com/A%20Levels/Economics%20(9708)/2021/9708_w21_qp_41.pdf"
+      "pdfUrl": "https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/9708_w21_qp_41.pdf"
     },
     "sampleAnswers": {
       "1(a)": "Between 2019 and 2021, the combined fleet capacity share of the top three global shipping alliances expanded from 82.4% to 85.6%, an increase of 3.2 percentage points. Concurrently, the average spot freight rate per 40-foot container on the Shanghai-Rotterdam route escalated dramatically from 1,450 USD to 13,800 USD, representing an absolute increase of 12,350 USD (an 851.7% surge).",
@@ -9506,7 +9506,7 @@ export const PRELOADED_DATA_RESPONSE_PAPERS: DataResponsePaper[] = [
     "totalMarks": 20,
     "durationMinutes": 45,
     "isOfficial": true,
-    "pdfUrl": "https://papers.gceguide.com/A%20Levels/Economics%20(9708)/2020/9708_s20_qp_42.pdf",
+    "pdfUrl": "https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/9708_s20_qp_42.pdf",
     "extract": {
       "title": "1 Macroeconomic stabilization, fiscal multipliers, and public debt",
       "paragraphs": [
@@ -9544,7 +9544,7 @@ export const PRELOADED_DATA_RESPONSE_PAPERS: DataResponsePaper[] = [
         }
       ],
       "sources": "Adapted from: IMF Fiscal Monitor and OECD Working Papers on Fiscal Multipliers 2020.",
-      "pdfUrl": "https://papers.gceguide.com/A%20Levels/Economics%20(9708)/2020/9708_s20_qp_42.pdf"
+      "pdfUrl": "https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/9708_s20_qp_42.pdf"
     },
     "sampleAnswers": {
       "1(a)": "Between 2019 and 2020, Economy X's public debt-to-GDP ratio increased by 15.7 percentage points (from 38.5% to 54.2%), whereas Economy Y's ratio increased by 26.4 percentage points (from 132.0% to 158.4%). Furthermore, Economy X boasts substantially higher fiscal multipliers across both capital infrastructure (1.65 vs 0.85) and cash transfers (0.75 vs 0.35) than high-debt Economy Y.",

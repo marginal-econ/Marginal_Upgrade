@@ -107,6 +107,7 @@ export function DataResponseStudio() {
   // Extract View Mode: "text" | "pdf" (Past Paper PDF / Insert)
   const [extractViewMode, setExtractViewMode] = useState<"text" | "pdf">("text");
   const [pdfModalOpen, setPdfModalOpen] = useState<boolean>(false);
+  const [pdfViewerEngine, setPdfViewerEngine] = useState<"google" | "direct">("google");
 
   // Answering State (questionId/number -> text)
   const [answers, setAnswers] = useState<Record<string, string>>({});
@@ -205,6 +206,15 @@ export function DataResponseStudio() {
     if (!currentPaper || !currentPaper.questions || currentPaper.questions.length === 0) return null;
     return currentPaper.questions[activeQuestionIdx] || currentPaper.questions[0];
   }, [currentPaper, activeQuestionIdx]);
+
+  // Resilient PDF viewer URL (Google Docs HTML5 Viewer fallback avoids cross-origin iframe security blocks)
+  const pdfIframeUrl = useMemo(() => {
+    if (!currentPaper?.pdfUrl) return "";
+    if (pdfViewerEngine === "google") {
+      return `https://docs.google.com/viewer?url=${encodeURIComponent(currentPaper.pdfUrl)}&embedded=true`;
+    }
+    return currentPaper.pdfUrl;
+  }, [currentPaper?.pdfUrl, pdfViewerEngine]);
 
   // Mutation: Grade paper
   const gradeMutation = useMutation({
@@ -928,9 +938,40 @@ export function DataResponseStudio() {
                             </p>
                           </div>
 
-                          <div className="flex items-center gap-1.5 shrink-0">
+                          <div className="flex flex-wrap items-center gap-1.5 shrink-0">
                             {currentPaper.pdfUrl && (
                               <>
+                                <div className="flex items-center gap-1 bg-background/90 p-0.5 rounded-lg border border-border/60">
+                                  <Button
+                                    type="button"
+                                    variant={pdfViewerEngine === "google" ? "secondary" : "ghost"}
+                                    size="sm"
+                                    onClick={() => setPdfViewerEngine("google")}
+                                    className={cn(
+                                      "h-6 text-[10px] px-2 font-semibold transition-all",
+                                      pdfViewerEngine === "google"
+                                        ? "bg-muted text-primary font-bold shadow-xs"
+                                        : "text-muted-foreground hover:text-foreground"
+                                    )}
+                                  >
+                                    HTML5 Viewer
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    variant={pdfViewerEngine === "direct" ? "secondary" : "ghost"}
+                                    size="sm"
+                                    onClick={() => setPdfViewerEngine("direct")}
+                                    className={cn(
+                                      "h-6 text-[10px] px-2 font-semibold transition-all",
+                                      pdfViewerEngine === "direct"
+                                        ? "bg-muted text-primary font-bold shadow-xs"
+                                        : "text-muted-foreground hover:text-foreground"
+                                    )}
+                                  >
+                                    Direct PDF
+                                  </Button>
+                                </div>
+
                                 <Button
                                   variant="outline"
                                   size="sm"
@@ -970,23 +1011,24 @@ export function DataResponseStudio() {
                           <div className="space-y-2">
                             <div className="relative rounded-xl border border-border/80 overflow-hidden bg-muted/40 shadow-inner">
                               <iframe
-                                src={currentPaper.pdfUrl}
+                                src={pdfIframeUrl}
+                                referrerPolicy="no-referrer"
                                 className="w-full h-[540px] bg-white dark:bg-zinc-950"
                                 title={`${currentPaper.title} - Official Past Paper PDF`}
                               />
                             </div>
-                            <div className="p-2.5 rounded-lg bg-muted/30 border border-border/60 text-[11px] text-muted-foreground flex items-center justify-between gap-2">
+                            <div className="p-2.5 rounded-lg bg-muted/30 border border-border/60 text-[11px] text-muted-foreground flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                               <span>
-                                Having trouble previewing in this frame?
+                                Switch between <strong>HTML5 Viewer</strong> and <strong>Direct PDF</strong> above if your browser restricts iframe plugins.
                               </span>
                               <Button
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => window.open(currentPaper.pdfUrl, "_blank")}
-                                className="h-6 text-[11px] text-primary hover:underline p-0 font-semibold gap-1"
+                                className="h-6 text-[11px] text-primary hover:underline p-0 font-semibold gap-1 shrink-0"
                               >
                                 <ExternalLink className="h-3 w-3" />
-                                Open authentic Cambridge PDF →
+                                Open authentic Cambridge PDF in New Tab →
                               </Button>
                             </div>
                           </div>
@@ -2075,6 +2117,36 @@ export function DataResponseStudio() {
             </div>
             {currentPaper?.pdfUrl && (
               <div className="flex items-center gap-2 mr-6">
+                <div className="flex items-center gap-1 bg-muted p-0.5 rounded-lg border border-border/60">
+                  <Button
+                    type="button"
+                    variant={pdfViewerEngine === "google" ? "secondary" : "ghost"}
+                    size="sm"
+                    onClick={() => setPdfViewerEngine("google")}
+                    className={cn(
+                      "h-6 text-[10px] px-2 font-semibold transition-all",
+                      pdfViewerEngine === "google"
+                        ? "bg-background text-primary font-bold shadow-xs"
+                        : "text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    HTML5 Viewer
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={pdfViewerEngine === "direct" ? "secondary" : "ghost"}
+                    size="sm"
+                    onClick={() => setPdfViewerEngine("direct")}
+                    className={cn(
+                      "h-6 text-[10px] px-2 font-semibold transition-all",
+                      pdfViewerEngine === "direct"
+                        ? "bg-background text-primary font-bold shadow-xs"
+                        : "text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    Direct PDF
+                  </Button>
+                </div>
                 <Button
                   variant="outline"
                   size="sm"
@@ -2100,7 +2172,8 @@ export function DataResponseStudio() {
           <div className="flex-1 w-full h-full min-h-0 pt-2">
             {currentPaper?.pdfUrl ? (
               <iframe
-                src={currentPaper.pdfUrl}
+                src={pdfIframeUrl}
+                referrerPolicy="no-referrer"
                 className="w-full h-full rounded-lg border border-border/80 bg-white dark:bg-zinc-950"
                 title={`${currentPaper.title} - Full Screen PDF`}
               />
