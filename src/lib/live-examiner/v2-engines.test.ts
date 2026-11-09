@@ -348,6 +348,46 @@ describe("Live Examiner 2.0 Engines", () => {
       expect(ledgerResult.aoBreakdown.ao2.awarded).toBe(0);
       expect(ledgerResult.aoBreakdown.ao3.awarded).toBe(0);
     });
+
+    it("accurately marks AO breakdown: 1 definition sentence earns 1 AO1 mark", () => {
+      const q = "Assess whether the over-consumption of a demerit good should be reduced through the use of a tax or reduced through the use of a public information campaign.";
+      const rubric = buildQuestionRubric({ question: q, level: "as", maxMark: 12 });
+
+      const singleDef = [
+        {
+          id: "s1",
+          text: "A demerit good is defined as a product that causes negative externalities in consumption and is overconsumed due to information failure.",
+          paragraphIndex: 0,
+          isComplete: true,
+        },
+      ];
+
+      const c = singleDef.map((s, idx) =>
+        evaluateSentenceSemantics({
+          sentence: {
+            id: s.id,
+            text: s.text,
+            paragraphText: s.text,
+            paragraphIndex: s.paragraphIndex,
+            sentenceIndex: idx,
+          },
+          docVersion: 1,
+          rubric,
+        }),
+      );
+
+      const ledgerResult = buildMarkLedger({
+        sentences: singleDef,
+        classifications: c,
+        rubric,
+      });
+
+      expect(c[0].primaryAO).toBe("AO1");
+      expect(ledgerResult.aoBreakdown.ao1.awarded).toBe(1);
+      expect(ledgerResult.aoBreakdown.ao2.awarded).toBe(0);
+      expect(ledgerResult.aoBreakdown.ao3.awarded).toBe(0);
+      expect(ledgerResult.totalMark).toBe(1);
+    });
   });
 
   describe("Score Maximizer Engine", () => {

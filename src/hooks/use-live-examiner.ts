@@ -319,10 +319,47 @@ export function useLiveExaminer(params: {
         });
       }
 
+      // Cap and deduplicate active issues to maximum 5 non-repeating items
+      const MAX_ACTIVE_ISSUES = 5;
+      const seenOriginals = new Set<string>();
+      const seenSuggestions = new Set<string>();
+      const seenExplanations = new Set<string>();
+      const dedupedActiveIssues: ActiveIssue[] = [];
+
+      const severityRank: Record<string, number> = { high: 0, medium: 1, low: 2 };
+      const sortedCandidates = [...activeIssues].sort(
+        (a, b) => (severityRank[a.severity] ?? 1) - (severityRank[b.severity] ?? 1),
+      );
+
+      for (const iss of sortedCandidates) {
+        const origNorm = (iss.original || "").trim().toLowerCase();
+        const suggNorm = (iss.suggestion || "").trim().toLowerCase();
+        const explNorm = (iss.explanation || "").trim().toLowerCase().slice(0, 50);
+
+        if (origNorm && seenOriginals.has(`${iss.category}::${origNorm}`)) continue;
+        if (suggNorm && seenSuggestions.has(`${iss.category}::${suggNorm}`)) continue;
+        if (explNorm && seenExplanations.has(explNorm)) continue;
+
+        // Prevent overlapping underlines in the same sentence
+        const overlaps = dedupedActiveIssues.some(
+          (existing) =>
+            existing.sentenceId === iss.sentenceId &&
+            Math.max(existing.from, iss.from) < Math.min(existing.to, iss.to),
+        );
+        if (overlaps) continue;
+
+        if (origNorm) seenOriginals.add(`${iss.category}::${origNorm}`);
+        if (suggNorm) seenSuggestions.add(`${iss.category}::${suggNorm}`);
+        if (explNorm) seenExplanations.add(explNorm);
+
+        dedupedActiveIssues.push(iss);
+        if (dedupedActiveIssues.length >= MAX_ACTIVE_ISSUES) break;
+      }
+
       setSentences(spans);
-      setIssues(activeIssues);
+      setIssues(dedupedActiveIssues);
       setClassifications(activeClassifications);
-      recordHistory(activeIssues);
+      recordHistory(dedupedActiveIssues);
 
       const split = TARIFF_SPLITS[validTariff] || defaultSplitForMaxMark(validTariff);
 

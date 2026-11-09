@@ -66,7 +66,7 @@ async function assertLiveExaminerSessionAllowed(
  * Stage-2 verifier is the real quality gate, this is just "how much to
  * show in one go".
  */
-const MAX_VISIBLE_ISSUES = 8;
+const MAX_VISIBLE_ISSUES = 5;
 
 /** At most this many BRAND NEW issues are introduced in a single check —
  *  even if a big paste triggers many candidates, they surface a batch at
@@ -565,10 +565,23 @@ export function sanitisePredictedMark(
       const sentences = splitSentences(essayText)
         .map((s) => s.trim())
         .filter((s) => s.length >= 5 && !/\[DIAGRAM:[^\]]*\]/i.test(s));
-      const classified = sentences.map((s) => classifySentence(s));
-      const ao1Count = classified.filter((c) => c.ao === "AO1" && c.strength > 0).length;
-      const ao2Count = classified.filter((c) => c.ao === "AO2").length;
-      const ao3Count = classified.filter((c) => c.ao === "AO3").length;
+      const validClassified = sentences.map((s) => {
+        const offTopic = detectOffTopicConcept(s, question);
+        if (offTopic.isOffTopic) return { ao: "AO1" as const, strength: 0 as const, confidence: 0 };
+        return classifySentence(s);
+      });
+      const ao1Count = validClassified.filter((c) => c.ao === "AO1" && c.strength > 0).length;
+      const ao2Count = validClassified.filter((c) => c.ao === "AO2" && c.strength > 0).length;
+      const ao3Count = validClassified.filter((c) => c.ao === "AO3" && c.strength > 0).length;
+
+      // AO1 Knowledge calibration: 1 definition sentence = 1 mark; 2+ definitions = up to split.ao1_marks
+      if (ao1Count === 0) {
+        knowledge.awarded = 0;
+      } else if (ao1Count === 1) {
+        knowledge.awarded = Math.min(1, knowledge.awarded, knowledge.out_of);
+      } else {
+        knowledge.awarded = Math.min(knowledge.out_of, knowledge.awarded);
+      }
 
       if (ao2Count === 0) {
         analysis.awarded = 0;
@@ -581,11 +594,6 @@ export function sanitisePredictedMark(
       } else {
         const maxReasonableAo3 = ao3Count === 1 ? 2 : evaluation.out_of;
         evaluation.awarded = Math.min(evaluation.out_of, evaluation.awarded, maxReasonableAo3);
-      }
-      if (ao1Count === 0) {
-        knowledge.awarded = 0;
-      } else {
-        knowledge.awarded = Math.min(knowledge.out_of, knowledge.awarded);
       }
 
       // Question topic relevance guard
@@ -626,14 +634,32 @@ function issueKey(issue: Pick<LiveExaminerIssue, "context" | "original" | "categ
 }
 
 function dedupeAndCap(issues: LiveExaminerIssue[]): LiveExaminerIssue[] {
-  const seen = new Set<string>();
+  const seenOriginals = new Set<string>();
+  const seenSuggestions = new Set<string>();
+  const seenExplanations = new Set<string>();
   const deduped: LiveExaminerIssue[] = [];
+
   for (const issue of issues) {
-    const key = issueKey(issue);
-    if (seen.has(key)) continue;
-    seen.add(key);
+    const origNorm = (issue.original || "").trim().toLowerCase();
+    const suggNorm = (issue.suggestion || "").trim().toLowerCase();
+    const explNorm = (issue.explanation || "").trim().toLowerCase().slice(0, 50);
+
+    // Suppress repeating feedback on the same phrase
+    if (origNorm && seenOriginals.has(`${issue.category}::${origNorm}`)) continue;
+
+    // Suppress repeating suggestion advice across the essay
+    if (suggNorm && seenSuggestions.has(`${issue.category}::${suggNorm}`)) continue;
+
+    // Suppress repeating explanatory advice (e.g. duplicate off-topic or superficial application tips)
+    if (explNorm && seenExplanations.has(explNorm)) continue;
+
+    if (origNorm) seenOriginals.add(`${issue.category}::${origNorm}`);
+    if (suggNorm) seenSuggestions.add(`${issue.category}::${suggNorm}`);
+    if (explNorm) seenExplanations.add(explNorm);
+
     deduped.push(issue);
   }
+
   const order: Record<(typeof SEVERITIES)[number], number> = { high: 0, medium: 1, low: 2 };
   return deduped.sort((a, b) => order[a.severity] - order[b.severity]).slice(0, MAX_VISIBLE_ISSUES);
 }

@@ -70,7 +70,7 @@ const DEFINITION =
 const DEFINITION_START =
   /^(?:a|an|the)?\s*[\w\s\-()/]{0,60}?\s(?:is|are)\s+(?:the|a|an|when|where|defined|goods|services)\b/i;
 const ECON_TERM =
-  /\b(demand|supply|price|elastic\w*|inelastic|ped|yed|pes|xed|equilibrium|externalit\w+|market failure|merit|demerit|public good|subsid\w+|tax\w*|tariff\w*|quota\w*|free trade|protectionism|speciali[sz]ation|comparative advantage|absolute advantage|inflation|deflation|gdp|monopol\w+|oligopol\w+|competition|efficien\w+|surplus|opportunity cost|fiscal|monetary|interest rate|exchange rate|unemployment|aggregate|multiplier|welfare|incidence|margin\w*|utility|revenue|profit|output|firms?|consumers?|producers?|government)\b/i;
+  /\b(demand|supply|price|elastic\w*|inelastic|ped|yed|pes|xed|equilibrium|externalit\w+|market failure|merit|demerit|public goods?|subsid\w+|tax\w*|tariff\w*|quota\w*|free trade|protectionism|speciali[sz]ation|comparative advantage|absolute advantage|inflation|deflation|gdp|cpi|monopol\w+|oligopol\w+|competition|efficien\w+|surplus|opportunity cost|fiscal|monetary|interest rates?|exchange rates?|unemployment|aggregate|multiplier|welfare|deadweight|incidence|margin\w*|utility|revenue|profit|output|firms?|consumers?|producers?|government|consumption|investment|borrowing costs?|trade|trades?|shortages?)\b/i;
 const CONTEXT_APP =
   /\b(for example|for instance|in the case of|e\.g\.|toyota|apple|tesla|india|china|uk|us|usa|europe|opec|nhs|covid)\b/i;
 
@@ -135,11 +135,12 @@ export function classifySentence(sentence: string): SentenceClass {
     evalWeak &&
     (/\b(but|yet)\b/i.test(lower) || /^(?:while|whilst)\b/i.test(lower)) &&
     hasEcon &&
-    (causal >= 1 || words >= 8)
+    (/(?:depends|elasticity|time lags?|short-run|long-run|magnitude|trade-offs?|unintended|ineffective|shortage|failure|limitation|drawback|distort|costly)/i.test(lower) ||
+      (causal >= 1 && words >= 10))
   ) {
     return {
       ao: "AO3",
-      confidence: 0.78,
+      confidence: 0.82,
       strength: words >= 14 && causal >= 1 ? 2 : 1,
       explanation:
         "AO3 Evaluation: Critical capacity condition, dependency, limitation, or evaluative judgement.",
@@ -160,19 +161,19 @@ export function classifySentence(sentence: string): SentenceClass {
         "AO2 Analysis: Causal transmission mechanism linking cause, market reaction, and economic outcome.",
     };
   }
-  if (applied && hasEcon && !isDef) {
+  if (applied && hasEcon && !isDef && (direction || causal >= 1 || words >= 10)) {
     return {
       ao: "AO2",
-      confidence: 0.72,
+      confidence: 0.78,
       strength: 1,
       explanation:
         "AO2 Application: Economic theory applied to a specific example or context.",
     };
   }
-  if ((causal >= 2 || (direction && hasEcon && words >= 10)) && !isDef) {
+  if (causal >= 1 && hasEcon && words >= 8 && !isDef) {
     return {
       ao: "AO2",
-      confidence: 0.65,
+      confidence: 0.70,
       strength: 1,
       explanation:
         "AO2 Analysis: Causal transmission mechanism linking cause, market reaction, and economic outcome.",
