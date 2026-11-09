@@ -123,10 +123,9 @@ export function useLiveExaminer(params: {
   const lastVerifiedWordsRef = useRef<number>(0);
   const maxVerifiedScoreRef = useRef<number>(0);
 
-  // Lifetime session-level dismissals and seen suggestions (hard-capped at 18)
+  // Lifetime session-level dismissals and seen suggestions (hard-capped at 10)
   const dismissedKeysRef = useRef<Set<string>>(new Set());
   const sessionSeenSuggestionsRef = useRef<Set<string>>(new Set());
-  const MAX_SESSION_SUGGESTIONS = 18;
 
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const issuesRef = useRef<ActiveIssue[]>([]);
@@ -466,8 +465,12 @@ export function useLiveExaminer(params: {
         const previousWords = lastVerifiedWordsRef.current || 0;
 
         let totalMark = pm.total_mark;
+        // Tether running mark to Cambridge Essay Grader quality and development ceiling
+        const maxAllowableByLedger = localLedgerResult.totalMark + 1;
+        totalMark = Math.min(totalMark, maxAllowableByLedger);
+
         if (!isZeroMarkDraft && currentWords >= previousWords && maxVerifiedScoreRef.current > 0) {
-          totalMark = Math.max(maxVerifiedScoreRef.current, totalMark);
+          totalMark = Math.min(maxAllowableByLedger, Math.max(maxVerifiedScoreRef.current, totalMark));
         }
         if (!isZeroMarkDraft && totalMark > maxVerifiedScoreRef.current) {
           maxVerifiedScoreRef.current = totalMark;

@@ -53,6 +53,19 @@ export type DataResponseQuestion = {
   markingGuide: string; // Full official MS text
   extractLinkageExpected: boolean; // Must directly use facts, figures, or context from extract
   syllabusTopic?: string;
+  referencedFigureId?: string; // e.g. "Fig. 1.1" or "Table 1.1"
+  pdfPageNumber?: number;
+};
+
+export type DataResponseFigure = {
+  id: string; // e.g. "Fig. 1.1"
+  title: string;
+  type: "chart" | "diagram" | "table" | "image";
+  caption?: string;
+  dataPoints?: Array<{ label: string; value: number | string }>;
+  svgMarkup?: string;
+  imageUrl?: string;
+  notes?: string;
 };
 
 export type DataResponseExtract = {
@@ -65,6 +78,9 @@ export type DataResponseExtract = {
     rows: (string | number)[][];
     notes?: string;
   }>;
+  figures?: DataResponseFigure[];
+  pdfUrl?: string; // Direct link or data reference to authentic Cambridge past paper insert PDF
+  pdfInsertUrl?: string;
 };
 
 export type DataResponsePaper = {
@@ -74,13 +90,15 @@ export type DataResponsePaper = {
   subjectTitle: string;
   qualificationLevel: "as" | "a2";
   paperNumber: string; // "22", "42", "21", "41"
-  examSeries: string; // "2026_feb_march", "2024_may_june", etc.
-  seriesLabel: string; // "February/March 2026"
+  examSeries: string; // "2023_may_june", "2023_oct_nov", etc.
+  seriesLabel: string; // "May/June 2023"
   totalMarks: number;
   durationMinutes: number;
   extract: DataResponseExtract;
   questions: DataResponseQuestion[];
   isOfficial: boolean;
+  originalExamCode?: string; // e.g. "9708/22/M/J/23"
+  pdfUrl?: string;
   createdAt?: string;
   sampleAnswers?: Record<string, string>; // Sub-question number -> exemplar answer for testing
 };

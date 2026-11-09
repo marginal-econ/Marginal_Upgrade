@@ -607,3 +607,59 @@ export const forexAppreciationDiagram: DiagramSpec = {
     { at: 64, label: "ER₂" },
   ],
 };
+
+// 13. Production Possibility Curve (PPC) Outward Shift (Growth / Capital / AI Investment)
+export const ppcOutwardShiftDiagram: DiagramSpec = {
+  xLabel: "Manufactured Goods / Output (X)",
+  yLabel: "Services / Other Goods (Y)",
+  curves: [
+    {
+      points: [
+        [15, 85],
+        [45, 75],
+        [75, 45],
+        [85, 15],
+      ],
+      label: "PPC₁",
+      tone: "neutral",
+      labelAt: [87, 15],
+    },
+    {
+      points: [
+        [22, 95],
+        [60, 85],
+        [88, 55],
+        [95, 22],
+      ],
+      label: "PPC₂",
+      tone: "supply",
+      dashed: true,
+      labelAt: [97, 22],
+    },
+  ],
+  arrows: [{ from: [50, 65], to: [66, 76], label: "Productive Capacity Expansion" }],
+};
+
+// 14. Production Possibility Curve (PPC) with Inward Point (Unemployment / Underutilization)
+export const ppcUnemploymentPointDiagram: DiagramSpec = {
+  xLabel: "Industrial Output (X)",
+  yLabel: "Agricultural Goods (Y)",
+  curves: [
+    {
+      points: [
+        [15, 85],
+        [45, 75],
+        [75, 45],
+        [85, 15],
+      ],
+      label: "PPC Boundary",
+      tone: "neutral",
+      labelAt: [87, 15],
+    },
+  ],
+  markers: [
+    { at: [52, 65], label: "A (Full Capacity)", guides: "both" },
+    { at: [34, 38], label: "B (Unemployment / Inefficient)", guides: "both" },
+  ],
+  arrows: [{ from: [52, 65], to: [34, 38], label: "Rising Unemployment Gap" }],
+};

@@ -219,17 +219,6 @@ export function evaluateCambridgeAnswer(
     }
   }
 
-  // Writing quality and depth caps for 20-mark extended essays (target 800-1200 words)
-  if (maxMark >= 20) {
-    if (wordCount < 350) {
-      ao2Awarded = Math.min(ao2Awarded, 4);
-      ao3Awarded = Math.min(ao3Awarded, 1);
-    } else if (wordCount < 550) {
-      ao2Awarded = Math.min(ao2Awarded, 8);
-      ao3Awarded = Math.min(ao3Awarded, 3);
-    }
-  }
-
   // Question relevance guard: if completely devoid of economic terms and >15 words, award 0
   if (wordCount >= 15 && matchedTerms.size === 0 && ao2Count === 0 && ao3Count === 0 && question.length > 0) {
     const qTokens = question

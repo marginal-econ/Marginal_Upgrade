@@ -5,6 +5,7 @@ import type {
   SemanticClassification,
 } from "./types";
 import { TARIFF_SPLITS, defaultSplitForMaxMark } from "../examiner/config";
+import { analyzeEssayQuality } from "../examiner/writing-quality";
 import { stripStars } from "./clean-suggestion";
 import { extractQuestionTopicTokens, detectOffTopicConcept } from "./topic-relevance";
 
@@ -305,12 +306,14 @@ export function buildMarkLedger(params: {
     }
   }
 
-  // 4. Strict Tariff Reconciliation
+  // 4. Strict Tariff Reconciliation with Cambridge Essay Grader Writing Quality & Length Guardrails
+  const quality = analyzeEssayQuality(fullEssayText, maxMark, split);
   ao1MarksAwarded = Math.min(split.ao1_marks, Math.max(0, ao1MarksAwarded));
   ao2MarksAwarded = Math.min(split.ao2_marks, Math.max(0, ao2MarksAwarded));
   ao3MarksAwarded = Math.min(split.ao3_marks, Math.max(0, ao3MarksAwarded));
 
-  const totalMark = ao1MarksAwarded + ao2MarksAwarded + ao3MarksAwarded;
+  const rawSum = ao1MarksAwarded + ao2MarksAwarded + ao3MarksAwarded;
+  const totalMark = Math.min(quality.maxAllowableTotalMark, rawSum);
   const status: "provisional" | "verified" | "uncertain" | "complete" =
     totalWords < 40 ? "uncertain" : isAiVerified ? "verified" : "provisional";
 

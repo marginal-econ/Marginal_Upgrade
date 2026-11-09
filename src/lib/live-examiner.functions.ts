@@ -13,6 +13,7 @@ import { deterministicTerminologyIssues } from "@/lib/live-examiner/economics-gl
 import { analyzeGrammarAndMechanics } from "@/lib/live-examiner/grammar-engine";
 import { diffSentences, splitSentences } from "@/lib/writing-check/sentence-diff";
 import { AO_DEFINITIONS, defaultSplitForMaxMark } from "@/lib/examiner/config";
+import { analyzeEssayQuality } from "@/lib/examiner/writing-quality";
 import { isMarginalAdmin } from "@/lib/auth-admin";
 import { normalizeIssueSpan } from "@/lib/live-examiner/normalize-issue-span";
 import { classifySentence } from "@/lib/live-examiner/sentence-engine";
@@ -367,7 +368,17 @@ Classify every creditworthy economic sentence into assessment objectives:
 - AO3: Evaluation, balance, weighing significance, limitations, elasticity/time-lag conditions, and justified judgement.
 For "original" in classifications, return the FULL sentence text from "SENTENCES TO CHECK", so the whole sentence is cleanly highlighted.
 When estimating "predicted_mark":
-- 1 AO1 definition sentence earns 1 AO1 mark; 2+ AO1 sentences earn ${split.ao1_marks}/${split.ao1_marks} AO1 marks.
+- Temperature is 0.0: Grade with strict, accurate Cambridge 9708 examination standards.
+- DO NOT INFLATE MARKS: A high-scoring Cambridge essay requires sustained, comprehensive development across distinct paragraphs:
+  * For a 12-mark essay (target 500–750 words):
+    - Under 120 words: extreme fragment — total mark CANNOT exceed 3/12 (AO1: max 2, AO2: max 1, AO3: 0).
+    - Under 220 words: severely undersized — total mark CANNOT exceed 5/12 (AO1: max 2, AO2: max 2, AO3: max 1).
+    - Under 350 words: compressed outline — total mark CANNOT exceed 7/12 (AO1: max 2, AO2: max 3, AO3: max 2).
+    - Under 450 words: developing essay — total mark CANNOT exceed 9/12 (AO1: max 2, AO2: max 5, AO3: max 3).
+    - Top Band (10–12/12) is STRICTLY RESERVED for full, extensive, multi-paragraph essays of 450+ words with sustained step-by-step causal mechanisms and decisive comparative evaluation. Under NO circumstances award 10-12/12 to an underdeveloped or outline draft!
+  * For an 8-mark essay: under 120 words max 3/8; under 200 words max 5/8.
+  * For a 20-mark essay: under 350 words max 7/20; under 550 words max 12/20.
+- 1 AO1 definition sentence earns 1 AO1 mark; 2+ AO1 sentences earn up to ${split.ao1_marks}/${split.ao1_marks} AO1 marks.
 - If there are 0 genuine AO2 causal mechanism sentences, analysis.awarded MUST be 0 (never award 4/12 for two AO1 sentences!).
 - If there are 0 genuine AO3 evaluation sentences, evaluation.awarded MUST be 0.
 ${maxMark >= 20 ? `- For 20-mark questions (${maxMark} marks: AO1: ${split.ao1_marks}, AO2: ${split.ao2_marks}, AO3: ${split.ao3_marks}): AO2 analysis must be thorough with complete causal chains and powerful use of real-life examples (naming countries, markets, policy cases). Top band (${split.ao2_marks - 2}-${split.ao2_marks}/${split.ao2_marks}) requires extensive, multi-perspective causal reasoning with integrated examples. Evaluation requires rigorous synoptic weighing and decisive prioritization (+3-5% strictness). Do NOT award high marks for compressed notes or passing one-liner mentions.` : ""}
@@ -604,6 +615,11 @@ export function sanitisePredictedMark(
         evaluation.awarded = Math.min(evaluation.out_of, evaluation.awarded, maxReasonableAo3);
       }
 
+      // Apply official Cambridge Essay Grader Writing Quality, Length & Depth Guardrail
+      const quality = analyzeEssayQuality(essayText, maxMark, split);
+      analysis.awarded = Math.min(analysis.awarded, quality.maxAllowableAo2);
+      evaluation.awarded = Math.min(evaluation.awarded, quality.maxAllowableAo3);
+
       // Question topic relevance guard
       const topicTokens = extractQuestionTopicTokens(question);
       const fullTextLower = essayText.toLowerCase();
@@ -618,7 +634,13 @@ export function sanitisePredictedMark(
     }
   }
 
-  const totalCalculated = knowledge.awarded + analysis.awarded + evaluation.awarded;
+  const quality = essayText ? analyzeEssayQuality(essayText, maxMark, split) : null;
+  const maxAllowable = quality ? quality.maxAllowableTotalMark : maxMark;
+
+  const totalCalculated = Math.min(
+    maxAllowable,
+    knowledge.awarded + analysis.awarded + evaluation.awarded,
+  );
   let totalMark =
     rawObj.total_mark !== undefined && (!essayText || !question)
       ? typeof rawObj.total_mark === "number"
