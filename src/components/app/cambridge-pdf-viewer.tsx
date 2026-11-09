@@ -13,6 +13,9 @@ import {
   Columns,
   Maximize2,
   FileCheck2,
+  List,
+  Layers,
+  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -34,12 +37,124 @@ interface CambridgePdfViewerProps {
 // In-memory cache for downloaded paper base64 data to avoid redundant network requests
 const pdfBase64Cache = new Map<string, { base64: string; filename: string }>();
 
+/**
+ * High-DPI, Distortion-Free PDF Page Canvas Renderer
+ * Locks strict aspect ratio so no horizontal/vertical stretching ever occurs.
+ */
+function PdfPageCanvas({
+  pdfDoc,
+  pageNumber,
+  zoomScale,
+  containerWidth,
+}: {
+  pdfDoc: any;
+  pageNumber: number;
+  zoomScale: number;
+  containerWidth: number;
+}) {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const renderTaskRef = useRef<any>(null);
+  const [aspectRatio, setAspectRatio] = useState<number>(1.414);
+  const [isRendered, setIsRendered] = useState<boolean>(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const render = async () => {
+      try {
+        if (renderTaskRef.current) {
+          try {
+            renderTaskRef.current.cancel();
+          } catch {}
+        }
+
+        const page = await pdfDoc.getPage(pageNumber);
+        if (cancelled || !canvasRef.current) return;
+
+        const baseViewport = page.getViewport({ scale: 1 });
+        const ratio = baseViewport.height / baseViewport.width;
+        setAspectRatio(ratio);
+
+        // Calculate fit-to-width scale relative to available container space
+        const availableWidth = Math.max(280, (containerWidth || 540) - 24);
+        const fitScale = (availableWidth / baseViewport.width) * zoomScale;
+        const pixelRatio = Math.min(window.devicePixelRatio || 1, 2.5);
+
+        const viewport = page.getViewport({ scale: fitScale * pixelRatio });
+        const canvas = canvasRef.current;
+
+        canvas.width = Math.round(viewport.width);
+        canvas.height = Math.round(viewport.height);
+
+        const displayWidth = Math.round(viewport.width / pixelRatio);
+        const displayHeight = Math.round(viewport.height / pixelRatio);
+
+        // Strict aspect ratio locking to completely eliminate distortion
+        canvas.style.width = "100%";
+        canvas.style.maxWidth = `${displayWidth}px`;
+        canvas.style.height = "auto";
+        canvas.style.aspectRatio = `${baseViewport.width} / ${baseViewport.height}`;
+        canvas.style.display = "block";
+
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return;
+
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        const renderTask = page.render({
+          canvasContext: ctx,
+          viewport: viewport,
+        });
+        renderTaskRef.current = renderTask;
+        await renderTask.promise;
+
+        if (!cancelled) {
+          setIsRendered(true);
+        }
+      } catch (err: any) {
+        if (err?.name !== "RenderingCancelledException") {
+          console.error(`Page ${pageNumber} render error:`, err);
+        }
+      }
+    };
+
+    render();
+
+    return () => {
+      cancelled = true;
+      if (renderTaskRef.current) {
+        try {
+          renderTaskRef.current.cancel();
+        } catch {}
+      }
+    };
+  }, [pdfDoc, pageNumber, zoomScale, containerWidth]);
+
+  return (
+    <div
+      id={`cambridge-page-${pageNumber}`}
+      className="relative my-3 bg-white text-zinc-900 rounded shadow-md border border-zinc-200 dark:border-zinc-800 transition-all overflow-hidden mx-auto"
+      style={{
+        width: "100%",
+        maxWidth: containerWidth ? `${containerWidth - 24}px` : "640px",
+        aspectRatio: `${1} / ${aspectRatio}`,
+      }}
+    >
+      <canvas ref={canvasRef} className="block mx-auto" />
+      <div className="absolute bottom-1 right-2 bg-black/60 text-white text-[9px] font-mono px-1.5 py-0.5 rounded opacity-75 pointer-events-none select-none">
+        Page {pageNumber}
+      </div>
+    </div>
+  );
+}
+
 export function CambridgePdfViewer({
   paperId,
   pdfUrl,
   paperTitle,
   examCode,
-  height = "620px",
+  height = "700px",
   className,
   onFullScreenToggle,
 }: CambridgePdfViewerProps) {
@@ -48,13 +163,31 @@ export function CambridgePdfViewer({
   const [pdfDoc, setPdfDoc] = useState<any>(null);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [numPages, setNumPages] = useState<number>(1);
-  const [zoomLevel, setZoomLevel] = useState<number>(1.25);
+  const [zoomScale, setZoomScale] = useState<number>(1.0); // 1.0 = Fit to width
+  const [scrollMode, setScrollMode] = useState<"continuous" | "single">("continuous");
   const [viewMode, setViewMode] = useState<"canvas" | "native">("canvas");
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
   const [pdfFilename, setPdfFilename] = useState<string>(`${examCode || paperId}.pdf`);
 
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const renderTaskRef = useRef<any>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [containerWidth, setContainerWidth] = useState<number>(560);
+
+  // Measure container width for responsive fit-to-width rendering
+  useEffect(() => {
+    if (!containerRef.current) return;
+
+    const updateWidth = () => {
+      if (containerRef.current) {
+        setContainerWidth(containerRef.current.clientWidth);
+      }
+    };
+
+    updateWidth();
+    const observer = new ResizeObserver(updateWidth);
+    observer.observe(containerRef.current);
+
+    return () => observer.disconnect();
+  }, []);
 
   // Convert Base64 to Uint8Array and Blob URL
   const processBase64Data = useCallback(
@@ -140,65 +273,6 @@ export function CambridgePdfViewer({
     };
   }, [paperId]);
 
-  // Render current page to canvas
-  useEffect(() => {
-    if (!pdfDoc || viewMode !== "canvas" || !canvasRef.current) return;
-
-    let isCancelled = false;
-
-    const renderPage = async () => {
-      try {
-        if (renderTaskRef.current) {
-          try {
-            renderTaskRef.current.cancel();
-          } catch {}
-        }
-
-        const page = await pdfDoc.getPage(currentPage);
-        if (isCancelled || !canvasRef.current) return;
-
-        const canvas = canvasRef.current;
-        const pixelRatio = Math.min(window.devicePixelRatio || 1, 2.5);
-        const viewport = page.getViewport({ scale: zoomLevel * pixelRatio });
-
-        canvas.width = Math.round(viewport.width);
-        canvas.height = Math.round(viewport.height);
-        canvas.style.width = `${Math.round(viewport.width / pixelRatio)}px`;
-        canvas.style.height = `${Math.round(viewport.height / pixelRatio)}px`;
-
-        const ctx = canvas.getContext("2d");
-        if (!ctx) return;
-
-        ctx.fillStyle = "#ffffff";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-        const renderContext = {
-          canvasContext: ctx,
-          viewport: viewport,
-        };
-
-        const renderTask = page.render(renderContext);
-        renderTaskRef.current = renderTask;
-        await renderTask.promise;
-      } catch (err: any) {
-        if (err?.name !== "RenderingCancelledException") {
-          console.error("Page render failed:", err);
-        }
-      }
-    };
-
-    renderPage();
-
-    return () => {
-      isCancelled = true;
-      if (renderTaskRef.current) {
-        try {
-          renderTaskRef.current.cancel();
-        } catch {}
-      }
-    };
-  }, [pdfDoc, currentPage, zoomLevel, viewMode]);
-
   const handleDownload = () => {
     if (blobUrl) {
       const a = document.createElement("a");
@@ -221,68 +295,120 @@ export function CambridgePdfViewer({
     }
   };
 
+  const handleScrollToPage = (pageNum: number) => {
+    setCurrentPage(pageNum);
+    if (scrollMode === "continuous") {
+      const el = document.getElementById(`cambridge-page-${pageNum}`);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    }
+  };
+
   return (
-    <div className={cn("flex flex-col rounded-xl border border-border/80 bg-card overflow-hidden shadow-sm", className)}>
+    <div
+      ref={containerRef}
+      className={cn(
+        "flex flex-col rounded-xl border border-border/80 bg-card overflow-hidden shadow-sm",
+        className
+      )}
+    >
       {/* TOOLBAR */}
-      <div className="flex flex-wrap items-center justify-between gap-2 p-3 bg-muted/40 border-b border-border/60">
-        {/* Left: Paper info & Page Controls */}
+      <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 bg-muted/40 border-b border-border/60">
+        {/* Left: Paper Tag & Mode Toggles */}
         <div className="flex items-center gap-2">
           {examCode && (
-            <Badge variant="outline" className="text-[11px] font-mono font-bold border-rose-500/40 text-rose-600 dark:text-rose-400 bg-rose-500/5">
+            <Badge
+              variant="outline"
+              className="text-[11px] font-mono font-bold border-rose-500/40 text-rose-600 dark:text-rose-400 bg-rose-500/5"
+            >
               {examCode}
             </Badge>
           )}
 
           {pdfDoc && viewMode === "canvas" && (
-            <div className="flex items-center gap-1 bg-background/80 px-1 py-0.5 rounded-lg border border-border/60 text-xs">
+            <div className="flex items-center gap-0.5 bg-background/80 p-0.5 rounded-lg border border-border/60 text-xs">
               <Button
-                variant="ghost"
+                variant={scrollMode === "continuous" ? "secondary" : "ghost"}
                 size="sm"
-                disabled={currentPage <= 1}
-                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                className="h-6 w-6 p-0"
-                title="Previous Page"
+                onClick={() => setScrollMode("continuous")}
+                className={cn(
+                  "h-6 text-[10px] px-2 font-semibold transition-all",
+                  scrollMode === "continuous"
+                    ? "bg-muted text-primary font-bold shadow-xs"
+                    : "text-muted-foreground"
+                )}
+                title="Continuous Scroll: View full past paper sequentially"
               >
-                <ChevronLeft className="h-3.5 w-3.5" />
+                Full Paper ({numPages}p)
               </Button>
-              <span className="font-mono text-[11px] px-1 font-semibold text-foreground">
-                Page {currentPage} of {numPages}
-              </span>
               <Button
-                variant="ghost"
+                variant={scrollMode === "single" ? "secondary" : "ghost"}
                 size="sm"
-                disabled={currentPage >= numPages}
-                onClick={() => setCurrentPage((p) => Math.min(numPages, p + 1))}
-                className="h-6 w-6 p-0"
-                title="Next Page"
+                onClick={() => setScrollMode("single")}
+                className={cn(
+                  "h-6 text-[10px] px-2 font-semibold transition-all",
+                  scrollMode === "single"
+                    ? "bg-muted text-primary font-bold shadow-xs"
+                    : "text-muted-foreground"
+                )}
+                title="Single Page view"
               >
-                <ChevronRight className="h-3.5 w-3.5" />
+                Page by Page
               </Button>
+            </div>
+          )}
+
+          {/* Quick Page Jump Pills */}
+          {pdfDoc && viewMode === "canvas" && (
+            <div className="hidden sm:flex items-center gap-1 text-[11px]">
+              <span className="text-muted-foreground text-[10px] font-medium mr-0.5">Jump:</span>
+              {Array.from({ length: Math.min(numPages, 5) }).map((_, idx) => {
+                const p = idx + 1;
+                const isSectionA = p === 2; // In CAIE 9708, Page 2 is typically Section A Extract
+                return (
+                  <Button
+                    key={p}
+                    variant={currentPage === p ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => handleScrollToPage(p)}
+                    className={cn(
+                      "h-5 px-1.5 text-[10px] font-mono",
+                      isSectionA && currentPage !== p
+                        ? "border-emerald-500/50 text-emerald-600 dark:text-emerald-400 font-bold"
+                        : ""
+                    )}
+                    title={isSectionA ? "Page 2: Section A Data Response Extract" : `Page ${p}`}
+                  >
+                    P{p}{isSectionA ? "*" : ""}
+                  </Button>
+                );
+              })}
             </div>
           )}
         </div>
 
-        {/* Center: Zoom controls (Canvas mode) */}
+        {/* Center: Zoom Controls */}
         {pdfDoc && viewMode === "canvas" && (
           <div className="flex items-center gap-1 bg-background/80 px-1 py-0.5 rounded-lg border border-border/60">
             <Button
               variant="ghost"
               size="sm"
-              disabled={zoomLevel <= 0.75}
-              onClick={() => setZoomLevel((z) => Math.max(0.75, +(z - 0.25).toFixed(2)))}
+              disabled={zoomScale <= 0.6}
+              onClick={() => setZoomScale((z) => Math.max(0.6, +(z - 0.15).toFixed(2)))}
               className="h-6 w-6 p-0"
               title="Zoom Out"
             >
               <ZoomOut className="h-3.5 w-3.5" />
             </Button>
-            <span className="font-mono text-[11px] px-1 text-muted-foreground w-12 text-center">
-              {Math.round(zoomLevel * 100)}%
+            <span className="font-mono text-[10px] px-1 text-muted-foreground w-11 text-center font-semibold">
+              {Math.round(zoomScale * 100)}%
             </span>
             <Button
               variant="ghost"
               size="sm"
-              disabled={zoomLevel >= 2.5}
-              onClick={() => setZoomLevel((z) => Math.min(2.5, +(z + 0.25).toFixed(2)))}
+              disabled={zoomScale >= 2.0}
+              onClick={() => setZoomScale((z) => Math.min(2.0, +(z + 0.15).toFixed(2)))}
               className="h-6 w-6 p-0"
               title="Zoom In"
             >
@@ -291,30 +417,32 @@ export function CambridgePdfViewer({
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => setZoomLevel(1.25)}
+              onClick={() => setZoomScale(1.0)}
               className="h-6 px-1.5 text-[10px] text-muted-foreground hover:text-foreground font-medium"
-              title="Fit standard zoom"
+              title="Fit to Width"
             >
-              Reset
+              Fit
             </Button>
           </div>
         )}
 
-        {/* Right: Mode toggle & Action buttons */}
-        <div className="flex items-center gap-1.5 ml-auto">
+        {/* Right: Actions */}
+        <div className="flex items-center gap-1 ml-auto">
           {blobUrl && (
-            <div className="flex items-center gap-0.5 bg-background/90 p-0.5 rounded-lg border border-border/60">
+            <div className="hidden md:flex items-center gap-0.5 bg-background/90 p-0.5 rounded-lg border border-border/60">
               <Button
                 variant={viewMode === "canvas" ? "secondary" : "ghost"}
                 size="sm"
                 onClick={() => setViewMode("canvas")}
                 className={cn(
                   "h-6 text-[10px] px-2 font-semibold transition-all",
-                  viewMode === "canvas" ? "bg-muted text-primary font-bold shadow-xs" : "text-muted-foreground"
+                  viewMode === "canvas"
+                    ? "bg-muted text-primary font-bold shadow-xs"
+                    : "text-muted-foreground"
                 )}
-                title="Render crisp pages directly on HTML5 Canvas (100% resilient)"
+                title="Canvas Renderer: 100% resilient vector view"
               >
-                Canvas Reader
+                Canvas
               </Button>
               <Button
                 variant={viewMode === "native" ? "secondary" : "ghost"}
@@ -322,11 +450,13 @@ export function CambridgePdfViewer({
                 onClick={() => setViewMode("native")}
                 className={cn(
                   "h-6 text-[10px] px-2 font-semibold transition-all",
-                  viewMode === "native" ? "bg-muted text-primary font-bold shadow-xs" : "text-muted-foreground"
+                  viewMode === "native"
+                    ? "bg-muted text-primary font-bold shadow-xs"
+                    : "text-muted-foreground"
                 )}
-                title="Use browser built-in PDF viewer via same-origin blob"
+                title="Native Browser Frame"
               >
-                Native Frame
+                Browser Frame
               </Button>
             </div>
           )}
@@ -379,7 +509,7 @@ export function CambridgePdfViewer({
                 Loading authentic Cambridge examination paper…
               </p>
               <p className="text-xs text-muted-foreground">
-                Rendering vector pages and data tables
+                Rendering full paper vector pages with locked aspect ratio
               </p>
             </div>
           </div>
@@ -422,21 +552,70 @@ export function CambridgePdfViewer({
           </div>
         )}
 
-        {!loading && !error && viewMode === "canvas" && (
+        {/* FULL MULTI-PAGE CONTINUOUS CANVAS VIEW */}
+        {!loading && !error && viewMode === "canvas" && pdfDoc && (
           <ScrollArea className="w-full h-full">
-            <div className="flex flex-col items-center justify-center p-4 min-h-full">
-              <div className="bg-white text-zinc-900 rounded-sm shadow-xl border border-zinc-300 dark:border-zinc-800 transition-all overflow-hidden">
-                <canvas ref={canvasRef} className="block mx-auto" />
-              </div>
-              <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
-                <span>Page {currentPage} of {numPages}</span>
+            <div className="flex flex-col items-center justify-start p-3 sm:p-4 min-h-full">
+              {scrollMode === "continuous" ? (
+                // Full Paper Mode: Render all pages sequentially
+                Array.from({ length: numPages }).map((_, idx) => (
+                  <PdfPageCanvas
+                    key={idx + 1}
+                    pdfDoc={pdfDoc}
+                    pageNumber={idx + 1}
+                    zoomScale={zoomScale}
+                    containerWidth={containerWidth}
+                  />
+                ))
+              ) : (
+                // Single Page Mode: Render active page only
+                <div className="w-full">
+                  <div className="flex items-center justify-center gap-2 mb-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={currentPage <= 1}
+                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                      className="h-7 text-xs"
+                    >
+                      <ChevronLeft className="h-3.5 w-3.5 mr-1" />
+                      Prev Page
+                    </Button>
+                    <span className="font-mono text-xs font-semibold px-2">
+                      Page {currentPage} of {numPages}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={currentPage >= numPages}
+                      onClick={() => setCurrentPage((p) => Math.min(numPages, p + 1))}
+                      className="h-7 text-xs"
+                    >
+                      Next Page
+                      <ChevronRight className="h-3.5 w-3.5 ml-1" />
+                    </Button>
+                  </div>
+                  <PdfPageCanvas
+                    pdfDoc={pdfDoc}
+                    pageNumber={currentPage}
+                    zoomScale={zoomScale}
+                    containerWidth={containerWidth}
+                  />
+                </div>
+              )}
+
+              <div className="my-4 text-center text-xs text-muted-foreground flex items-center gap-2 justify-center">
+                <span>{numPages} Pages</span>
                 <span>•</span>
                 <span>Cambridge Assessment International Education 9708</span>
+                <span>•</span>
+                <span className="text-emerald-600 dark:text-emerald-400 font-medium">Authentic Past Paper</span>
               </div>
             </div>
           </ScrollArea>
         )}
 
+        {/* NATIVE BROWSER PDF FRAME */}
         {!loading && !error && viewMode === "native" && blobUrl && (
           <iframe
             src={blobUrl}

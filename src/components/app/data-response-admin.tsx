@@ -106,8 +106,8 @@ export function DataResponseStudio() {
   // Selected Paper State (default to authentic 2024 AS paper)
   const [selectedPaperId, setSelectedPaperId] = useState<string>("9708_22_2024_fm");
 
-  // Extract View Mode: "text" | "pdf" (Past Paper PDF / Insert)
-  const [extractViewMode, setExtractViewMode] = useState<"text" | "pdf">("text");
+  // Extract View Mode: "pdf" (Past Paper PDF / Insert) | "text" (Transcript reference)
+  const [extractViewMode, setExtractViewMode] = useState<"pdf" | "text">("pdf");
   const [pdfModalOpen, setPdfModalOpen] = useState<boolean>(false);
 
   // Answering State (questionId/number -> text)
@@ -758,21 +758,6 @@ export function DataResponseStudio() {
                   <div className="flex items-center gap-1 bg-muted/80 p-0.5 rounded-lg border border-border/60">
                     <Button
                       type="button"
-                      variant={extractViewMode === "text" ? "secondary" : "ghost"}
-                      size="sm"
-                      onClick={() => setExtractViewMode("text")}
-                      className={cn(
-                        "h-7 text-xs font-semibold px-2.5 gap-1.5 transition-all",
-                        extractViewMode === "text"
-                          ? "bg-background shadow-xs text-foreground font-bold"
-                          : "text-muted-foreground hover:text-foreground"
-                      )}
-                    >
-                      <BookOpen className="h-3.5 w-3.5 text-primary" />
-                      Exam Insert (HTML)
-                    </Button>
-                    <Button
-                      type="button"
                       variant={extractViewMode === "pdf" ? "secondary" : "ghost"}
                       size="sm"
                       onClick={() => setExtractViewMode("pdf")}
@@ -784,10 +769,25 @@ export function DataResponseStudio() {
                       )}
                     >
                       <FileText className="h-3.5 w-3.5 text-rose-500" />
-                      Past Paper PDF
+                      Official Past Paper PDF
                       {currentPaper.pdfUrl && (
                         <span className="flex h-1.5 w-1.5 rounded-full bg-rose-500 animate-pulse" />
                       )}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={extractViewMode === "text" ? "secondary" : "ghost"}
+                      size="sm"
+                      onClick={() => setExtractViewMode("text")}
+                      className={cn(
+                        "h-7 text-xs font-semibold px-2.5 gap-1.5 transition-all",
+                        extractViewMode === "text"
+                          ? "bg-background shadow-xs text-foreground font-bold"
+                          : "text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      <BookOpen className="h-3.5 w-3.5 text-primary" />
+                      Text Transcript
                     </Button>
                   </div>
 
@@ -828,7 +828,7 @@ export function DataResponseStudio() {
                     pdfUrl={currentPaper.pdfUrl}
                     paperTitle={currentPaper.title}
                     examCode={currentPaper.originalExamCode}
-                    height="660px"
+                    height="720px"
                     onFullScreenToggle={() => setPdfModalOpen(true)}
                   />
                 )}
