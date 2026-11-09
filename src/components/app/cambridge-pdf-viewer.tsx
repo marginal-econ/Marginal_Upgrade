@@ -14,8 +14,7 @@ import {
   RefreshCw,
   AlertCircle,
   Maximize2,
-  MousePointer,
-  HelpCircle,
+  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -54,6 +53,7 @@ function PdfPageCanvas({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const renderTaskRef = useRef<any>(null);
   const [aspectRatio, setAspectRatio] = useState<number>(1.414);
+  const [rendered, setRendered] = useState<boolean>(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -74,7 +74,7 @@ function PdfPageCanvas({
         setAspectRatio(ratio);
 
         // Calculate fit-to-width scale relative to available container space
-        const availableWidth = Math.max(280, (containerWidth || 540) - 24);
+        const availableWidth = Math.max(280, (containerWidth || 540) - 32);
         const fitScale = (availableWidth / baseViewport.width) * zoomScale;
         const pixelRatio = Math.min(window.devicePixelRatio || 1, 2.5);
 
@@ -105,6 +105,10 @@ function PdfPageCanvas({
         });
         renderTaskRef.current = renderTask;
         await renderTask.promise;
+
+        if (!cancelled) {
+          setRendered(true);
+        }
       } catch (err: any) {
         if (err?.name !== "RenderingCancelledException") {
           console.error(`Page ${pageNumber} render error:`, err);
@@ -126,16 +130,15 @@ function PdfPageCanvas({
 
   return (
     <div
-      id={`cambridge-page-${pageNumber}`}
-      className="relative my-3 bg-white text-zinc-900 rounded shadow-md border border-zinc-200 dark:border-zinc-800 transition-all overflow-hidden mx-auto"
+      className="relative bg-white text-zinc-900 rounded shadow-md border border-zinc-200 dark:border-zinc-800 transition-all overflow-hidden mx-auto"
       style={{
         width: "100%",
-        maxWidth: containerWidth ? `${containerWidth - 24}px` : "640px",
+        maxWidth: containerWidth ? `${containerWidth - 32}px` : "640px",
         aspectRatio: `${1} / ${aspectRatio}`,
       }}
     >
       <canvas ref={canvasRef} className="block mx-auto" />
-      <div className="absolute bottom-1 right-2 bg-black/60 text-white text-[9px] font-mono px-1.5 py-0.5 rounded opacity-75 pointer-events-none select-none">
+      <div className="absolute bottom-1 right-2 bg-black/70 text-white text-[10px] font-mono px-2 py-0.5 rounded opacity-80 pointer-events-none select-none">
         Page {pageNumber}
       </div>
     </div>
@@ -157,7 +160,6 @@ export function CambridgePdfViewer({
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [numPages, setNumPages] = useState<number>(1);
   const [zoomScale, setZoomScale] = useState<number>(1.0); // 1.0 = Fit to width
-  const [scrollMode, setScrollMode] = useState<"continuous" | "single">("continuous");
   const [viewMode, setViewMode] = useState<"canvas" | "native">("canvas");
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
   const [pdfFilename, setPdfFilename] = useState<string>(`${examCode || paperId}.pdf`);
@@ -165,6 +167,7 @@ export function CambridgePdfViewer({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const [containerWidth, setContainerWidth] = useState<number>(560);
+  const lastWheelTime = useRef<number>(0);
 
   // Measure container width for responsive fit-to-width rendering
   useEffect(() => {
@@ -289,70 +292,68 @@ export function CambridgePdfViewer({
     }
   };
 
-  // Scroll Actions: Smooth Up / Down arrow scroll
-  const handleScrollBy = (deltaY: number) => {
-    if (scrollContainerRef.current) {
-      scrollContainerRef.current.scrollBy({
-        top: deltaY,
-        behavior: "smooth",
-      });
-    }
+  // Direct Page Switchers: Only the requested page is shown
+  const goToNextPage = () => {
+    setCurrentPage((prev) => {
+      const next = Math.min(numPages, prev + 1);
+      if (next !== prev && scrollContainerRef.current) {
+        scrollContainerRef.current.scrollTo({ top: 0, behavior: "smooth" });
+      }
+      return next;
+    });
   };
 
-  const handleScrollToTop = () => {
+  const goToPrevPage = () => {
+    setCurrentPage((prev) => {
+      const next = Math.max(1, prev - 1);
+      if (next !== prev && scrollContainerRef.current) {
+        scrollContainerRef.current.scrollTo({ top: 0, behavior: "smooth" });
+      }
+      return next;
+    });
+  };
+
+  const goToPage = (pageNumber: number) => {
+    const target = Math.max(1, Math.min(numPages, pageNumber));
+    setCurrentPage(target);
     if (scrollContainerRef.current) {
       scrollContainerRef.current.scrollTo({ top: 0, behavior: "smooth" });
-      setCurrentPage(1);
     }
   };
 
-  const handleScrollToBottom = () => {
-    if (scrollContainerRef.current) {
-      scrollContainerRef.current.scrollTo({
-        top: scrollContainerRef.current.scrollHeight,
-        behavior: "smooth",
-      });
-      setCurrentPage(numPages);
-    }
-  };
-
-  const handleScrollToPage = (pageNum: number) => {
-    setCurrentPage(pageNum);
-    if (scrollMode === "continuous") {
-      const el = document.getElementById(`cambridge-page-${pageNum}`);
-      if (el) {
-        el.scrollIntoView({ behavior: "smooth", block: "start" });
-      }
-    }
-  };
-
-  // Keyboard navigation support: Arrow Up / Arrow Down / PageUp / PageDown
+  // Keyboard navigation support: Arrow keys / PageUp / PageDown
   const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
-    if (e.key === "ArrowDown") {
+    if (e.key === "ArrowRight" || e.key === "ArrowDown" || e.key === "PageDown") {
       e.preventDefault();
-      handleScrollBy(150);
-    } else if (e.key === "ArrowUp") {
+      goToNextPage();
+    } else if (e.key === "ArrowLeft" || e.key === "ArrowUp" || e.key === "PageUp") {
       e.preventDefault();
-      handleScrollBy(-150);
-    } else if (e.key === "PageDown") {
-      e.preventDefault();
-      handleScrollBy(450);
-    } else if (e.key === "PageUp") {
-      e.preventDefault();
-      handleScrollBy(-450);
+      goToPrevPage();
     } else if (e.key === "Home") {
       e.preventDefault();
-      handleScrollToTop();
+      goToPage(1);
     } else if (e.key === "End") {
       e.preventDefault();
-      handleScrollToBottom();
+      goToPage(numPages);
     }
   };
 
-  // Dedicated mouse wheel handler: stops outer window scrolling while hovering PDF
+  // Scroll wheel advances pages: wheel down -> next page; wheel up -> prev page
   const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
-    // Stop propagation so the outer main browser window never scrolls while hovering over the PDF
+    // Prevent outer webpage from scrolling while hovering the PDF
     e.stopPropagation();
+
+    const now = Date.now();
+    // 320ms debounce prevents one fast wheel flick from skipping multiple pages
+    if (now - lastWheelTime.current < 320) return;
+
+    if (e.deltaY > 25) {
+      lastWheelTime.current = now;
+      goToNextPage();
+    } else if (e.deltaY < -25) {
+      lastWheelTime.current = now;
+      goToPrevPage();
+    }
   };
 
   return (
@@ -365,7 +366,7 @@ export function CambridgePdfViewer({
     >
       {/* TOOLBAR */}
       <div className="flex flex-wrap items-center justify-between gap-2 p-2 bg-muted/40 border-b border-border/60">
-        {/* Left: Paper Tag & Mode Toggles */}
+        {/* Left: Paper Tag & Next / Prev Page Buttons */}
         <div className="flex items-center gap-1.5 flex-wrap">
           {examCode && (
             <Badge
@@ -377,86 +378,69 @@ export function CambridgePdfViewer({
           )}
 
           {pdfDoc && viewMode === "canvas" && (
-            <div className="flex items-center gap-0.5 bg-background/80 p-0.5 rounded-lg border border-border/60 text-xs">
+            <div className="flex items-center gap-1 bg-background/90 p-0.5 rounded-lg border border-border/70 shadow-xs">
               <Button
-                variant={scrollMode === "continuous" ? "secondary" : "ghost"}
+                type="button"
+                variant="outline"
                 size="sm"
-                onClick={() => setScrollMode("continuous")}
-                className={cn(
-                  "h-6 text-[10px] px-2 font-semibold transition-all",
-                  scrollMode === "continuous"
-                    ? "bg-muted text-primary font-bold shadow-xs"
-                    : "text-muted-foreground"
-                )}
-                title="Continuous Scroll: View full past paper sequentially with scroll wheel"
+                disabled={currentPage <= 1}
+                onClick={goToPrevPage}
+                className="h-7 px-2.5 text-xs font-semibold gap-1 hover:bg-muted"
+                title="Go to Previous Page (Arrow Left or Up)"
               >
-                Full Paper ({numPages}p)
+                <ChevronLeft className="h-3.5 w-3.5" />
+                <span>Prev</span>
               </Button>
+
+              <span className="font-mono text-xs font-bold px-2 py-0.5 bg-muted rounded text-foreground">
+                Page {currentPage} of {numPages}
+              </span>
+
               <Button
-                variant={scrollMode === "single" ? "secondary" : "ghost"}
+                type="button"
+                variant="default"
                 size="sm"
-                onClick={() => setScrollMode("single")}
+                disabled={currentPage >= numPages}
+                onClick={goToNextPage}
                 className={cn(
-                  "h-6 text-[10px] px-2 font-semibold transition-all",
-                  scrollMode === "single"
-                    ? "bg-muted text-primary font-bold shadow-xs"
-                    : "text-muted-foreground"
+                  "h-7 px-2.5 text-xs font-bold gap-1 transition-all",
+                  currentPage < numPages
+                    ? "bg-rose-600 hover:bg-rose-700 text-white shadow-xs"
+                    : "opacity-50"
                 )}
-                title="Single Page view"
+                title="Go to Next Page (Arrow Right or Down)"
               >
-                Page by Page
+                <span>Next Page</span>
+                <ChevronRight className="h-3.5 w-3.5" />
               </Button>
             </div>
           )}
 
-          {/* ARROW MARKS: Direct Scroll Up / Down Buttons in Toolbar */}
-          {pdfDoc && viewMode === "canvas" && (
-            <div className="flex items-center gap-0.5 bg-background/80 p-0.5 rounded-lg border border-border/60 text-xs">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => handleScrollBy(-320)}
-                className="h-6 px-1.5 gap-0.5 text-[10px] text-foreground font-semibold hover:bg-muted"
-                title="Scroll Up (Arrow Up or Mouse Wheel Up)"
-              >
-                <ArrowUp className="h-3 w-3 text-primary" />
-                <span className="hidden sm:inline">Up</span>
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => handleScrollBy(320)}
-                className="h-6 px-1.5 gap-0.5 text-[10px] text-foreground font-semibold hover:bg-muted"
-                title="Scroll Down (Arrow Down or Mouse Wheel Down)"
-              >
-                <ArrowDown className="h-3 w-3 text-primary" />
-                <span className="hidden sm:inline">Down</span>
-              </Button>
-            </div>
-          )}
-
-          {/* Quick Page Jump Pills */}
+          {/* Direct Page Jump Buttons (P1, P2 Extract, P3...) */}
           {pdfDoc && viewMode === "canvas" && (
             <div className="hidden sm:flex items-center gap-1 text-[11px]">
-              <span className="text-muted-foreground text-[10px] font-medium mr-0.5">Jump:</span>
-              {Array.from({ length: Math.min(numPages, 4) }).map((_, idx) => {
+              {Array.from({ length: Math.min(numPages, 5) }).map((_, idx) => {
                 const p = idx + 1;
-                const isSectionA = p === 2; // In CAIE 9708, Page 2 is typically Section A Extract
+                const isSectionA = p === 2; // In Cambridge 9708, Page 2 is typically Section A Data Response Extract
+                const isActive = currentPage === p;
                 return (
                   <Button
                     key={p}
-                    variant={currentPage === p ? "default" : "outline"}
+                    type="button"
+                    variant={isActive ? "default" : "outline"}
                     size="sm"
-                    onClick={() => handleScrollToPage(p)}
+                    onClick={() => goToPage(p)}
                     className={cn(
-                      "h-5 px-1.5 text-[10px] font-mono",
-                      isSectionA && currentPage !== p
-                        ? "border-emerald-500/50 text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-500/5"
-                        : ""
+                      "h-6 px-2 text-[11px] font-mono transition-all",
+                      isActive
+                        ? "bg-foreground text-background font-bold shadow-xs"
+                        : isSectionA
+                        ? "border-emerald-500/50 text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-500/5 hover:bg-emerald-500/10"
+                        : "hover:bg-muted"
                     )}
-                    title={isSectionA ? "Page 2: Section A Data Response Extract" : `Page ${p}`}
+                    title={isSectionA ? "Page 2: Section A Data Response Case Study & Table 1.1" : `Page ${p}`}
                   >
-                    P{p}{isSectionA ? " Extract" : ""}
+                    P{p}{isSectionA ? " (Extract)" : ""}
                   </Button>
                 );
               })}
@@ -468,6 +452,7 @@ export function CambridgePdfViewer({
         {pdfDoc && viewMode === "canvas" && (
           <div className="flex items-center gap-1 bg-background/80 px-1 py-0.5 rounded-lg border border-border/60">
             <Button
+              type="button"
               variant="ghost"
               size="sm"
               disabled={zoomScale <= 0.6}
@@ -481,6 +466,7 @@ export function CambridgePdfViewer({
               {Math.round(zoomScale * 100)}%
             </span>
             <Button
+              type="button"
               variant="ghost"
               size="sm"
               disabled={zoomScale >= 2.0}
@@ -491,6 +477,7 @@ export function CambridgePdfViewer({
               <ZoomIn className="h-3.5 w-3.5" />
             </Button>
             <Button
+              type="button"
               variant="ghost"
               size="sm"
               onClick={() => setZoomScale(1.0)}
@@ -507,6 +494,7 @@ export function CambridgePdfViewer({
           {blobUrl && (
             <div className="hidden lg:flex items-center gap-0.5 bg-background/90 p-0.5 rounded-lg border border-border/60">
               <Button
+                type="button"
                 variant={viewMode === "canvas" ? "secondary" : "ghost"}
                 size="sm"
                 onClick={() => setViewMode("canvas")}
@@ -516,11 +504,12 @@ export function CambridgePdfViewer({
                     ? "bg-muted text-primary font-bold shadow-xs"
                     : "text-muted-foreground"
                 )}
-                title="Canvas Renderer: 100% resilient vector view with scroll wheel"
+                title="Single Page Canvas Reader"
               >
                 Canvas
               </Button>
               <Button
+                type="button"
                 variant={viewMode === "native" ? "secondary" : "ghost"}
                 size="sm"
                 onClick={() => setViewMode("native")}
@@ -539,6 +528,7 @@ export function CambridgePdfViewer({
 
           {onFullScreenToggle && (
             <Button
+              type="button"
               variant="outline"
               size="sm"
               onClick={onFullScreenToggle}
@@ -550,6 +540,7 @@ export function CambridgePdfViewer({
           )}
 
           <Button
+            type="button"
             variant="outline"
             size="sm"
             onClick={handleOpenNewTab}
@@ -561,6 +552,7 @@ export function CambridgePdfViewer({
           </Button>
 
           <Button
+            type="button"
             variant="outline"
             size="sm"
             onClick={handleDownload}
@@ -572,9 +564,9 @@ export function CambridgePdfViewer({
         </div>
       </div>
 
-      {/* VIEWER BODY WITH DEDICATED SCROLL CONTAINER & ARROW HUD */}
+      {/* VIEWER BODY: RENDERS ONLY THE CURRENT PAGE */}
       <div
-        className="relative flex-1 bg-zinc-100 dark:bg-zinc-950/80 overflow-hidden"
+        className="relative flex-1 bg-zinc-100 dark:bg-zinc-950/80 overflow-hidden flex flex-col justify-between"
         style={{ height }}
       >
         {loading && (
@@ -585,7 +577,7 @@ export function CambridgePdfViewer({
                 Loading authentic Cambridge examination paper…
               </p>
               <p className="text-xs text-muted-foreground">
-                Rendering full paper with scroll wheel & arrow mark controls
+                Preparing page-by-page vector display
               </p>
             </div>
           </div>
@@ -628,124 +620,100 @@ export function CambridgePdfViewer({
           </div>
         )}
 
-        {/* NATIVE SCROLL WHEEL CONTAINER */}
+        {/* SINGLE PAGE CANVAS VIEW CONTAINER */}
         {!loading && !error && viewMode === "canvas" && pdfDoc && (
           <div
             ref={scrollContainerRef}
             tabIndex={0}
             onWheel={handleWheel}
             onKeyDown={handleKeyDown}
-            className="w-full h-full overflow-y-auto overflow-x-hidden focus:outline-none focus:ring-1 focus:ring-primary/20 scrollbar-thin scrollbar-thumb-muted-foreground/30 hover:scrollbar-thumb-muted-foreground/50 transition-colors"
+            className="relative flex-1 w-full overflow-y-auto overflow-x-hidden p-3 sm:p-4 focus:outline-none scrollbar-thin scrollbar-thumb-muted-foreground/30 hover:scrollbar-thumb-muted-foreground/50 transition-colors flex items-center justify-center"
             style={{
-              overscrollBehavior: "contain", // CRUCIAL: Keeps mouse wheel inside this container, never scrolling the outer browser page!
-              scrollBehavior: "smooth",
+              overscrollBehavior: "contain", // Crucial: Mouse wheel turns pages, never scrolling outer page
             }}
           >
-            <div className="flex flex-col items-center justify-start p-3 sm:p-4 min-h-full">
-              {scrollMode === "continuous" ? (
-                // Full Paper Mode: Render all pages sequentially
-                Array.from({ length: numPages }).map((_, idx) => (
-                  <PdfPageCanvas
-                    key={idx + 1}
-                    pdfDoc={pdfDoc}
-                    pageNumber={idx + 1}
-                    zoomScale={zoomScale}
-                    containerWidth={containerWidth}
-                  />
-                ))
-              ) : (
-                // Single Page Mode: Render active page only
-                <div className="w-full">
-                  <div className="flex items-center justify-center gap-2 mb-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={currentPage <= 1}
-                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                      className="h-7 text-xs"
-                    >
-                      <ChevronLeft className="h-3.5 w-3.5 mr-1" />
-                      Prev Page
-                    </Button>
-                    <span className="font-mono text-xs font-semibold px-2">
-                      Page {currentPage} of {numPages}
-                    </span>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={currentPage >= numPages}
-                      onClick={() => setCurrentPage((p) => Math.min(numPages, p + 1))}
-                      className="h-7 text-xs"
-                    >
-                      Next Page
-                      <ChevronRight className="h-3.5 w-3.5 ml-1" />
-                    </Button>
-                  </div>
-                  <PdfPageCanvas
-                    pdfDoc={pdfDoc}
-                    pageNumber={currentPage}
-                    zoomScale={zoomScale}
-                    containerWidth={containerWidth}
-                  />
-                </div>
-              )}
+            {/* FLOATING PREV PAGE BUTTON (LEFT SIDE) */}
+            {currentPage > 1 && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={goToPrevPage}
+                className="absolute left-3 top-1/2 -translate-y-1/2 z-10 h-10 w-10 rounded-full p-0 bg-background/80 hover:bg-background shadow-md border-border/80 backdrop-blur-sm hidden sm:flex items-center justify-center text-foreground hover:scale-105 transition-all"
+                title={`Previous Page (Page ${currentPage - 1})`}
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </Button>
+            )}
 
-              <div className="my-4 text-center text-xs text-muted-foreground flex items-center gap-2 justify-center">
-                <span>{numPages} Pages</span>
-                <span>•</span>
-                <span>Scroll with Mouse Wheel or Arrow Marks</span>
-                <span>•</span>
-                <span className="text-emerald-600 dark:text-emerald-400 font-medium">Cambridge 9708</span>
-              </div>
-            </div>
+            {/* ONLY THE ACTIVE PAGE IS RENDERED */}
+            <PdfPageCanvas
+              key={`page-${paperId}-${currentPage}`}
+              pdfDoc={pdfDoc}
+              pageNumber={currentPage}
+              zoomScale={zoomScale}
+              containerWidth={containerWidth}
+            />
+
+            {/* FLOATING NEXT PAGE BUTTON (RIGHT SIDE) */}
+            {currentPage < numPages && (
+              <Button
+                type="button"
+                variant="default"
+                size="sm"
+                onClick={goToNextPage}
+                className="absolute right-3 top-1/2 -translate-y-1/2 z-10 h-10 w-10 rounded-full p-0 bg-rose-600 hover:bg-rose-700 text-white shadow-md border-rose-500 backdrop-blur-sm hidden sm:flex items-center justify-center hover:scale-105 transition-all"
+                title={`Next Page (Page ${currentPage + 1})`}
+              >
+                <ChevronRight className="h-5 w-5" />
+              </Button>
+            )}
           </div>
         )}
 
-        {/* FLOATING ARROW MARKS NAVIGATION HUD */}
+        {/* BOTTOM NAVIGATION BAR: PROMINENT PAGE CONTROLS */}
         {!loading && !error && viewMode === "canvas" && pdfDoc && (
-          <div className="absolute right-3 bottom-4 flex flex-col items-center gap-1.5 z-10 bg-background/90 backdrop-blur-md p-1.5 rounded-full border border-border/80 shadow-lg transition-all hover:bg-background">
+          <div className="bg-background/95 backdrop-blur-sm border-t border-border/70 p-2 flex items-center justify-between gap-2 shrink-0">
             <Button
               type="button"
               variant="outline"
               size="sm"
-              onClick={handleScrollToTop}
-              className="h-7 w-7 rounded-full p-0 shadow-xs hover:bg-primary/10 hover:text-primary"
-              title="Jump to Top (Page 1) [Home key]"
+              disabled={currentPage <= 1}
+              onClick={goToPrevPage}
+              className="h-8 px-3 text-xs font-semibold gap-1.5"
             >
-              <ChevronsUp className="h-3.5 w-3.5" />
+              <ChevronLeft className="h-4 w-4" />
+              <span>Previous Page</span>
             </Button>
-            <Button
-              type="button"
-              variant="default"
-              size="sm"
-              onClick={() => handleScrollBy(-350)}
-              className="h-8 w-8 rounded-full p-0 shadow-xs bg-primary text-primary-foreground hover:bg-primary/90"
-              title="Scroll Up [Arrow Up or Scroll Wheel]"
-            >
-              <ArrowUp className="h-4 w-4" />
-            </Button>
-            <div className="text-[9px] font-mono font-bold text-muted-foreground py-0.5 select-none text-center">
-              P{currentPage}
+
+            <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+              <span className="font-mono font-bold text-foreground">
+                Page {currentPage} of {numPages}
+              </span>
+              <span className="hidden md:inline">•</span>
+              <span className="hidden md:inline text-[11px]">
+                {currentPage === 1 && "Cover & Instructions"}
+                {currentPage === 2 && "Section A: Data Response Extract & Table 1.1"}
+                {currentPage === 3 && "Section A Questions & Figures"}
+                {currentPage > 3 && "Examination Questions"}
+              </span>
             </div>
+
             <Button
               type="button"
               variant="default"
               size="sm"
-              onClick={() => handleScrollBy(350)}
-              className="h-8 w-8 rounded-full p-0 shadow-xs bg-primary text-primary-foreground hover:bg-primary/90"
-              title="Scroll Down [Arrow Down or Scroll Wheel]"
+              disabled={currentPage >= numPages}
+              onClick={goToNextPage}
+              className={cn(
+                "h-8 px-3 text-xs font-bold gap-1.5 transition-all",
+                currentPage < numPages
+                  ? "bg-rose-600 hover:bg-rose-700 text-white shadow-xs"
+                  : "opacity-50"
+              )}
             >
-              <ArrowDown className="h-4 w-4" />
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={handleScrollToBottom}
-              className="h-7 w-7 rounded-full p-0 shadow-xs hover:bg-primary/10 hover:text-primary"
-              title="Jump to Bottom [End key]"
-            >
-              <ChevronsDown className="h-3.5 w-3.5" />
+              <span>Next Page</span>
+              <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
         )}
