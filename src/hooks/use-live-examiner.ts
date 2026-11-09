@@ -31,6 +31,11 @@ import type {
 import type { IssueV2, SentenceSpan, ScoreEstimate } from "@/lib/live-examiner/types";
 import { defaultSplitForMaxMark, TARIFF_SPLITS } from "@/lib/examiner/config";
 import { cleanSuggestion, stripStars } from "@/lib/live-examiner/clean-suggestion";
+import {
+  getCumulativeSuggestionBudget,
+  getMaxActiveIssues,
+  MAX_SESSION_SUGGESTIONS,
+} from "@/lib/live-examiner/suggestion-pacing";
 
 export type { PredictedMark };
 
@@ -166,24 +171,27 @@ export function useLiveExaminer(params: {
     }
   }, [text]);
 
-  // Record history helper (strictly capped at 18 lifetime suggestions, deduplicated by category + token)
-  const recordHistory = useCallback((fresh: LiveExaminerIssue[]) => {
-    setHistory((prev) => {
-      const byId = new Map(prev.map((e) => [e.id, e]));
-      const now = Date.now();
-      for (const iss of fresh) {
-        const stableKey = `${iss.category}::${(iss.original || "").trim().toLowerCase()}`;
-        if (
-          !sessionSeenSuggestionsRef.current.has(stableKey) &&
-          sessionSeenSuggestionsRef.current.size < MAX_SESSION_SUGGESTIONS
-        ) {
-          sessionSeenSuggestionsRef.current.add(stableKey);
-          byId.set(iss.id, { ...iss, status: "active", firstSeenAt: now, resolvedAt: null });
+  // Record history helper (strictly capped at progressive lifetime budget up to 18 suggestions)
+  const recordHistory = useCallback(
+    (fresh: LiveExaminerIssue[], maxAllowedBudget: number = MAX_SESSION_SUGGESTIONS) => {
+      setHistory((prev) => {
+        const byId = new Map(prev.map((e) => [e.id, e]));
+        const now = Date.now();
+        for (const iss of fresh) {
+          const stableKey = `${iss.category}::${(iss.original || "").trim().toLowerCase()}`;
+          if (
+            !sessionSeenSuggestionsRef.current.has(stableKey) &&
+            sessionSeenSuggestionsRef.current.size < maxAllowedBudget
+          ) {
+            sessionSeenSuggestionsRef.current.add(stableKey);
+            byId.set(iss.id, { ...iss, status: "active", firstSeenAt: now, resolvedAt: null });
+          }
         }
-      }
-      return Array.from(byId.values()).slice(0, MAX_SESSION_SUGGESTIONS);
-    });
-  }, []);
+        return Array.from(byId.values()).slice(0, MAX_SESSION_SUGGESTIONS);
+      });
+    },
+    [],
+  );
 
   // ---------------------------------------------------------------------------
   // Layer A: Local, synchronous, no network (< 50ms)
@@ -386,11 +394,20 @@ export function useLiveExaminer(params: {
         });
       }
 
-      // Cap and deduplicate active issues to maximum 5 non-repeating items
-      const MAX_ACTIVE_ISSUES = 5;
+      // Progressive cumulative suggestion budget and max on-screen active issues
+      // Spreads the 18 suggestions across the entire essay so they don't run out in the first three lines:
+      // - <= 3 sentences or < 75 words (first 3 lines): max 3 lifetime budget, max 2 on-screen
+      // - <= 6 sentences or < 150 words: max 6 lifetime budget, max 3 on-screen
+      // - <= 9 sentences or < 250 words: max 10 lifetime budget, max 5 on-screen
+      // - <= 13 sentences or < 380 words: max 14 lifetime budget, max 5 on-screen
+      // - 14+ sentences or 380+ words: max 18 lifetime budget, max 5 on-screen
+      const progressBudget = getCumulativeSuggestionBudget(localWords, completedSentenceCount);
+      const maxActiveIssues = getMaxActiveIssues(localWords, completedSentenceCount);
+
       const seenOriginals = new Set<string>();
       const seenSuggestions = new Set<string>();
       const seenExplanations = new Set<string>();
+      const sentenceIssueCount = new Map<string, number>();
       const dedupedActiveIssues: ActiveIssue[] = [];
 
       const severityRank: Record<string, number> = { high: 0, medium: 1, low: 2 };
@@ -402,10 +419,22 @@ export function useLiveExaminer(params: {
         const origNorm = (iss.original || "").trim().toLowerCase();
         const suggNorm = (iss.suggestion || "").trim().toLowerCase();
         const explNorm = (iss.explanation || "").trim().toLowerCase().slice(0, 50);
+        const stableKey = `${iss.category}::${origNorm}`;
 
-        if (origNorm && seenOriginals.has(`${iss.category}::${origNorm}`)) continue;
+        // Respect progressive lifetime budget: if this is a brand new suggestion,
+        // only introduce it if sessionSeenSuggestions hasn't reached current progressBudget
+        const isAlreadySeenInSession = sessionSeenSuggestionsRef.current.has(stableKey);
+        if (!isAlreadySeenInSession && sessionSeenSuggestionsRef.current.size >= progressBudget) {
+          continue;
+        }
+
+        if (origNorm && seenOriginals.has(stableKey)) continue;
         if (suggNorm && seenSuggestions.has(`${iss.category}::${suggNorm}`)) continue;
         if (explNorm && seenExplanations.has(explNorm)) continue;
+
+        // Spread suggestions: max 1 active suggestion per sentence to avoid clustering
+        const currentInSentence = sentenceIssueCount.get(iss.sentenceId) || 0;
+        if (currentInSentence >= 1) continue;
 
         // Prevent overlapping underlines in the same sentence
         const overlaps = dedupedActiveIssues.some(
@@ -415,18 +444,19 @@ export function useLiveExaminer(params: {
         );
         if (overlaps) continue;
 
-        if (origNorm) seenOriginals.add(`${iss.category}::${origNorm}`);
+        if (origNorm) seenOriginals.add(stableKey);
         if (suggNorm) seenSuggestions.add(`${iss.category}::${suggNorm}`);
         if (explNorm) seenExplanations.add(explNorm);
+        sentenceIssueCount.set(iss.sentenceId, currentInSentence + 1);
 
         dedupedActiveIssues.push(iss);
-        if (dedupedActiveIssues.length >= MAX_ACTIVE_ISSUES) break;
+        if (dedupedActiveIssues.length >= maxActiveIssues) break;
       }
 
       setSentences(spans);
       setIssues(dedupedActiveIssues);
       setClassifications(activeClassifications);
-      recordHistory(dedupedActiveIssues);
+      recordHistory(dedupedActiveIssues, progressBudget);
 
       const split = TARIFF_SPLITS[validTariff] || defaultSplitForMaxMark(validTariff);
 
