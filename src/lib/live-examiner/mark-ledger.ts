@@ -70,11 +70,28 @@ export function buildMarkLedger(params: {
     };
   }
 
-  // 1b. Question Topic Relevance Guard
+  // 1b. Question Topic Relevance Guard & Authentic Paragraph Reconstruction
   const topicTokens = extractQuestionTopicTokens(rubric.questionText || "");
-  const fullEssayText = sentences.map((s) => s.text).join(" ").toLowerCase();
+  const paragraphs: string[] = [];
+  let currentP: string[] = [];
+  let lastPIdx = -1;
+
+  for (const s of sentences) {
+    if (s.paragraphIndex !== undefined && s.paragraphIndex !== lastPIdx && currentP.length > 0) {
+      paragraphs.push(currentP.join(" "));
+      currentP = [];
+    }
+    currentP.push(s.text);
+    lastPIdx = s.paragraphIndex ?? 0;
+  }
+  if (currentP.length > 0) {
+    paragraphs.push(currentP.join(" "));
+  }
+  const fullEssayText = paragraphs.join("\n\n");
+  const fullEssayTextLower = fullEssayText.toLowerCase();
+
   const hasTopicRelevance =
-    topicTokens.length === 0 || topicTokens.some((t) => fullEssayText.includes(t));
+    topicTokens.length === 0 || topicTokens.some((t) => fullEssayTextLower.includes(t));
 
   if (!hasTopicRelevance && totalWords >= 20) {
     return {

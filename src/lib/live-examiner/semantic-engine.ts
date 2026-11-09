@@ -2,7 +2,7 @@ import type { SemanticClassification, IssueV2, QuestionRubric } from "./types";
 import { classifySentence } from "./sentence-engine";
 import { checkEconomicMisconceptions, analyzeCausalChain, evaluateEvaluativeDepth, assessApplicationQuality } from "./reasoning-engine";
 import { stripStars } from "./clean-suggestion";
-import { detectOffTopicConcept } from "./topic-relevance";
+import { detectOffTopicConcept, extractQuestionTopicTokens } from "./topic-relevance";
 
 export type SentenceContextInput = {
   id: string;
@@ -111,8 +111,13 @@ export function evaluateSentenceSemantics(params: {
   let economicFunction = "General descriptive statement";
   let confidence = 0.85;
 
+  const qTopicTokens = extractQuestionTopicTokens(rubric.questionText || "");
+  const lowerText = text.toLowerCase();
+  const hasQuestionTopicMatch = qTopicTokens.some((token) => lowerText.includes(token));
+
   const hasEconKeywords =
-    /\b(demand|supply|price|elastic\w*|inelastic|ped|yed|pes|xed|equilibrium|externalit\w+|market failure|merit|demerit|public goods?|subsid\w+|tax\w*|tariff\w*|quota\w*|free trade|protectionism|speciali[sz]ation|comparative advantage|absolute advantage|inflation|deflation|gdp|monopol\w+|oligopol\w+|competition|efficien\w+|surplus|opportunity cost|fiscal|monetary|interest rate|exchange rate|unemployment|aggregate|multiplier|welfare|incidence|margin\w*|utility|revenue|profit|output|firms?|consumers?|producers?|government)\b/i.test(
+    hasQuestionTopicMatch ||
+    /\b(demand|supply|price|elastic\w*|inelastic|ped|yed|pes|xed|equilibrium|externalit\w+|market failure|merit|demerit|public goods?|subsid\w+|tax\w*|tariff\w*|quota\w*|free trade|protectionism|speciali[sz]ation|comparative advantage|absolute advantage|inflation|deflation|gdp|cpi|rpi|monopol\w+|oligopol\w+|competition|efficien\w+|surplus|opportunity cost|fiscal|monetary|interest rates?|exchange rates?|unemployment|claimant count|labour force survey|lfs|claimants?|benefits?|labor|labour|workforce|employment|sampling error\w*|sample\w*|survey\w*|underemployment|inactivity|discouraged workers?|living standards|standard of living|national income|purchasing power parity|ppp|hdi|gini|lorenz|balance of payments|current account|trade deficit|trade surplus|budget deficit|national debt|administrative (?:data|records?)|reliability|central bank|liquidity|productivity|productive capacity|recession|boom|growth|wealth|poverty|distribution of income|aggregate|multiplier|welfare|deadweight|incidence|margin\w*|utility|revenue|profit|output|firms?|consumers?|producers?|government|consumption|investment|economic growth)\b/i.test(
       text,
     );
 

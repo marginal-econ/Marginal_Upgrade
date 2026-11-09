@@ -114,19 +114,21 @@ export function analyzeEssayQuality(
       qualityIssues.push(
         `Severely undersized (${words} words). Lacks the sustained analytical chains and evaluative breadth required for a 12-mark essay.`,
       );
-    } else if (words < 350) {
+    } else if (words < 300) {
       isUndersized = true;
-      // In Cambridge 9708, a 275-word script is an outline/synopsis: intermediate links are compressed into single clauses.
+      // In Cambridge 9708, a 220-299 word script is an outline/synopsis: intermediate links are compressed into single clauses.
       maxAllowableTotalMark = hasAiArtifacts || paragraphCount <= 1 ? 6 : 7;
       maxAllowableAo2 = hasAiArtifacts || paragraphCount <= 1 ? 3 : 4;
       maxAllowableAo3 = 2;
       qualityIssues.push(
         `Compressed outline response (${words} words vs 500–750 expected). Transmission mechanisms are compressed into short assertions rather than fully explained step-by-step.`,
       );
-    } else if (words < 450) {
-      maxAllowableTotalMark = 9;
-      maxAllowableAo2 = 5;
-      maxAllowableAo3 = 3;
+    } else if (words < 420) {
+      // 300–419 words: structured concise or developing essay.
+      // If well-paragraphed (>= 4 paragraphs) without AI artifacts, can reach distinction marks (10-11/12).
+      maxAllowableTotalMark = hasAiArtifacts || paragraphCount <= 1 ? 7 : (paragraphCount >= 4 ? 11 : 9);
+      maxAllowableAo2 = hasAiArtifacts || paragraphCount <= 1 ? 3 : (paragraphCount >= 4 ? 6 : 5);
+      maxAllowableAo3 = hasAiArtifacts || paragraphCount <= 1 ? 2 : (paragraphCount >= 4 ? 4 : 3);
     }
   } else if (maxMark === 8) {
     targetRangeText = split.ao3_marks === 0 ? "250–400 words" : "300–450 words";
