@@ -103,25 +103,25 @@ describe("Cambridge Economics (9708) Data Response Papers & Preloaded Suite", ()
     }
   });
 
-  it("verifies zero-hallucination verbatim microeconomic question stem and mark scheme exemplars for 9708_22_2026_fm", () => {
-    const fmPaper = PRELOADED_DATA_RESPONSE_PAPERS.find((p) => p.id === "9708_22_2026_fm");
+  it("verifies zero-hallucination verbatim question stem and mark scheme exemplars for official paper 9708_22_2024_fm", () => {
+    const fmPaper = PRELOADED_DATA_RESPONSE_PAPERS.find((p) => p.id === "9708_22_2024_fm");
     expect(fmPaper).toBeDefined();
 
     const q1d = fmPaper?.questions.find((q) => q.number === "1(d)");
     expect(q1d).toBeDefined();
-    // Verbatim microeconomic case study focus, NOT a generalized macro essay
-    expect(q1d?.title).toContain("decreasing the consumption of fast food will increase unemployment in the US");
+    // Verbatim Cambridge 9708/22/F/M/24 question stem
+    expect(q1d?.title).toContain("Assess the possible impact on unemployment in Japan as a result of the increased investment in AI");
     expect(q1d?.category).toBe("essay_evaluative");
     expect(q1d?.maxMark).toBe(6);
 
-    // Question 1(b) contains official Cambridge notes honoring exemplars without unfair penalties
+    // Question 1(b) contains official Cambridge diagram requirements and marking guide
     const q1b = fmPaper?.questions.find((q) => q.number === "1(b)");
     expect(q1b).toBeDefined();
-    expect(q1b?.markingGuide).toContain("Never penalize for omitting third-party effects");
+    expect(q1b?.markingGuide).toContain("1 mark for correct PPC diagram with outward shift");
 
     // Sample answers are provided and unstarred
     expect(fmPaper?.sampleAnswers).toBeDefined();
-    expect(fmPaper?.sampleAnswers?.["1(d)"]).toContain("derived demand for labour");
+    expect(fmPaper?.sampleAnswers?.["1(d)"]).toContain("structural unemployment");
     expect(fmPaper?.sampleAnswers?.["1(d)"]).not.toMatch(/\*+/);
   });
 

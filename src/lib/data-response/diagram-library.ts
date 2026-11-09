@@ -652,9 +652,21 @@ export const ppcUnemploymentPointDiagram: DiagramSpec = {
         [75, 45],
         [85, 15],
       ],
-      label: "PPC Boundary",
+      label: "PPC Frontier (Potential Capacity)",
       tone: "neutral",
       labelAt: [87, 15],
+    },
+    {
+      points: [
+        [12, 65],
+        [34, 55],
+        [55, 34],
+        [65, 12],
+      ],
+      label: "Inner Locus (Underutilization)",
+      tone: "demand",
+      dashed: true,
+      labelAt: [67, 12],
     },
   ],
   markers: [
