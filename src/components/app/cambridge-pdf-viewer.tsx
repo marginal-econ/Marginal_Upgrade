@@ -7,19 +7,18 @@ import {
   ZoomOut,
   ChevronLeft,
   ChevronRight,
+  ArrowUp,
+  ArrowDown,
+  ChevronsUp,
+  ChevronsDown,
   RefreshCw,
   AlertCircle,
-  Eye,
-  Columns,
   Maximize2,
-  FileCheck2,
-  List,
-  Layers,
-  Sparkles,
+  MousePointer,
+  HelpCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { getPaperPdfBase64 } from "@/lib/data-response/data-response.functions";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -55,7 +54,6 @@ function PdfPageCanvas({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const renderTaskRef = useRef<any>(null);
   const [aspectRatio, setAspectRatio] = useState<number>(1.414);
-  const [isRendered, setIsRendered] = useState<boolean>(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -87,7 +85,6 @@ function PdfPageCanvas({
         canvas.height = Math.round(viewport.height);
 
         const displayWidth = Math.round(viewport.width / pixelRatio);
-        const displayHeight = Math.round(viewport.height / pixelRatio);
 
         // Strict aspect ratio locking to completely eliminate distortion
         canvas.style.width = "100%";
@@ -108,10 +105,6 @@ function PdfPageCanvas({
         });
         renderTaskRef.current = renderTask;
         await renderTask.promise;
-
-        if (!cancelled) {
-          setIsRendered(true);
-        }
       } catch (err: any) {
         if (err?.name !== "RenderingCancelledException") {
           console.error(`Page ${pageNumber} render error:`, err);
@@ -154,7 +147,7 @@ export function CambridgePdfViewer({
   pdfUrl,
   paperTitle,
   examCode,
-  height = "700px",
+  height = "720px",
   className,
   onFullScreenToggle,
 }: CambridgePdfViewerProps) {
@@ -170,6 +163,7 @@ export function CambridgePdfViewer({
   const [pdfFilename, setPdfFilename] = useState<string>(`${examCode || paperId}.pdf`);
 
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const [containerWidth, setContainerWidth] = useState<number>(560);
 
   // Measure container width for responsive fit-to-width rendering
@@ -295,6 +289,33 @@ export function CambridgePdfViewer({
     }
   };
 
+  // Scroll Actions: Smooth Up / Down arrow scroll
+  const handleScrollBy = (deltaY: number) => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollBy({
+        top: deltaY,
+        behavior: "smooth",
+      });
+    }
+  };
+
+  const handleScrollToTop = () => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTo({ top: 0, behavior: "smooth" });
+      setCurrentPage(1);
+    }
+  };
+
+  const handleScrollToBottom = () => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTo({
+        top: scrollContainerRef.current.scrollHeight,
+        behavior: "smooth",
+      });
+      setCurrentPage(numPages);
+    }
+  };
+
   const handleScrollToPage = (pageNum: number) => {
     setCurrentPage(pageNum);
     if (scrollMode === "continuous") {
@@ -303,6 +324,35 @@ export function CambridgePdfViewer({
         el.scrollIntoView({ behavior: "smooth", block: "start" });
       }
     }
+  };
+
+  // Keyboard navigation support: Arrow Up / Arrow Down / PageUp / PageDown
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      handleScrollBy(150);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      handleScrollBy(-150);
+    } else if (e.key === "PageDown") {
+      e.preventDefault();
+      handleScrollBy(450);
+    } else if (e.key === "PageUp") {
+      e.preventDefault();
+      handleScrollBy(-450);
+    } else if (e.key === "Home") {
+      e.preventDefault();
+      handleScrollToTop();
+    } else if (e.key === "End") {
+      e.preventDefault();
+      handleScrollToBottom();
+    }
+  };
+
+  // Dedicated mouse wheel handler: stops outer window scrolling while hovering PDF
+  const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
+    // Stop propagation so the outer main browser window never scrolls while hovering over the PDF
+    e.stopPropagation();
   };
 
   return (
@@ -314,9 +364,9 @@ export function CambridgePdfViewer({
       )}
     >
       {/* TOOLBAR */}
-      <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 bg-muted/40 border-b border-border/60">
+      <div className="flex flex-wrap items-center justify-between gap-2 p-2 bg-muted/40 border-b border-border/60">
         {/* Left: Paper Tag & Mode Toggles */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 flex-wrap">
           {examCode && (
             <Badge
               variant="outline"
@@ -338,7 +388,7 @@ export function CambridgePdfViewer({
                     ? "bg-muted text-primary font-bold shadow-xs"
                     : "text-muted-foreground"
                 )}
-                title="Continuous Scroll: View full past paper sequentially"
+                title="Continuous Scroll: View full past paper sequentially with scroll wheel"
               >
                 Full Paper ({numPages}p)
               </Button>
@@ -359,11 +409,37 @@ export function CambridgePdfViewer({
             </div>
           )}
 
+          {/* ARROW MARKS: Direct Scroll Up / Down Buttons in Toolbar */}
+          {pdfDoc && viewMode === "canvas" && (
+            <div className="flex items-center gap-0.5 bg-background/80 p-0.5 rounded-lg border border-border/60 text-xs">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => handleScrollBy(-320)}
+                className="h-6 px-1.5 gap-0.5 text-[10px] text-foreground font-semibold hover:bg-muted"
+                title="Scroll Up (Arrow Up or Mouse Wheel Up)"
+              >
+                <ArrowUp className="h-3 w-3 text-primary" />
+                <span className="hidden sm:inline">Up</span>
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => handleScrollBy(320)}
+                className="h-6 px-1.5 gap-0.5 text-[10px] text-foreground font-semibold hover:bg-muted"
+                title="Scroll Down (Arrow Down or Mouse Wheel Down)"
+              >
+                <ArrowDown className="h-3 w-3 text-primary" />
+                <span className="hidden sm:inline">Down</span>
+              </Button>
+            </div>
+          )}
+
           {/* Quick Page Jump Pills */}
           {pdfDoc && viewMode === "canvas" && (
             <div className="hidden sm:flex items-center gap-1 text-[11px]">
               <span className="text-muted-foreground text-[10px] font-medium mr-0.5">Jump:</span>
-              {Array.from({ length: Math.min(numPages, 5) }).map((_, idx) => {
+              {Array.from({ length: Math.min(numPages, 4) }).map((_, idx) => {
                 const p = idx + 1;
                 const isSectionA = p === 2; // In CAIE 9708, Page 2 is typically Section A Extract
                 return (
@@ -375,12 +451,12 @@ export function CambridgePdfViewer({
                     className={cn(
                       "h-5 px-1.5 text-[10px] font-mono",
                       isSectionA && currentPage !== p
-                        ? "border-emerald-500/50 text-emerald-600 dark:text-emerald-400 font-bold"
+                        ? "border-emerald-500/50 text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-500/5"
                         : ""
                     )}
                     title={isSectionA ? "Page 2: Section A Data Response Extract" : `Page ${p}`}
                   >
-                    P{p}{isSectionA ? "*" : ""}
+                    P{p}{isSectionA ? " Extract" : ""}
                   </Button>
                 );
               })}
@@ -429,7 +505,7 @@ export function CambridgePdfViewer({
         {/* Right: Actions */}
         <div className="flex items-center gap-1 ml-auto">
           {blobUrl && (
-            <div className="hidden md:flex items-center gap-0.5 bg-background/90 p-0.5 rounded-lg border border-border/60">
+            <div className="hidden lg:flex items-center gap-0.5 bg-background/90 p-0.5 rounded-lg border border-border/60">
               <Button
                 variant={viewMode === "canvas" ? "secondary" : "ghost"}
                 size="sm"
@@ -440,7 +516,7 @@ export function CambridgePdfViewer({
                     ? "bg-muted text-primary font-bold shadow-xs"
                     : "text-muted-foreground"
                 )}
-                title="Canvas Renderer: 100% resilient vector view"
+                title="Canvas Renderer: 100% resilient vector view with scroll wheel"
               >
                 Canvas
               </Button>
@@ -496,27 +572,27 @@ export function CambridgePdfViewer({
         </div>
       </div>
 
-      {/* VIEWER BODY */}
+      {/* VIEWER BODY WITH DEDICATED SCROLL CONTAINER & ARROW HUD */}
       <div
-        className="relative flex-1 bg-zinc-100 dark:bg-zinc-950/80 flex items-center justify-center overflow-hidden"
+        className="relative flex-1 bg-zinc-100 dark:bg-zinc-950/80 overflow-hidden"
         style={{ height }}
       >
         {loading && (
-          <div className="flex flex-col items-center justify-center p-8 space-y-3 text-center">
+          <div className="flex flex-col items-center justify-center p-8 space-y-3 text-center h-full">
             <RefreshCw className="h-8 w-8 text-primary animate-spin" />
             <div className="space-y-1">
               <p className="text-sm font-semibold text-foreground">
                 Loading authentic Cambridge examination paper…
               </p>
               <p className="text-xs text-muted-foreground">
-                Rendering full paper vector pages with locked aspect ratio
+                Rendering full paper with scroll wheel & arrow mark controls
               </p>
             </div>
           </div>
         )}
 
         {error && !loading && (
-          <div className="flex flex-col items-center justify-center p-8 space-y-4 text-center max-w-md mx-auto">
+          <div className="flex flex-col items-center justify-center p-8 space-y-4 text-center max-w-md mx-auto h-full">
             <div className="p-3 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400">
               <AlertCircle className="h-8 w-8" />
             </div>
@@ -552,9 +628,19 @@ export function CambridgePdfViewer({
           </div>
         )}
 
-        {/* FULL MULTI-PAGE CONTINUOUS CANVAS VIEW */}
+        {/* NATIVE SCROLL WHEEL CONTAINER */}
         {!loading && !error && viewMode === "canvas" && pdfDoc && (
-          <ScrollArea className="w-full h-full">
+          <div
+            ref={scrollContainerRef}
+            tabIndex={0}
+            onWheel={handleWheel}
+            onKeyDown={handleKeyDown}
+            className="w-full h-full overflow-y-auto overflow-x-hidden focus:outline-none focus:ring-1 focus:ring-primary/20 scrollbar-thin scrollbar-thumb-muted-foreground/30 hover:scrollbar-thumb-muted-foreground/50 transition-colors"
+            style={{
+              overscrollBehavior: "contain", // CRUCIAL: Keeps mouse wheel inside this container, never scrolling the outer browser page!
+              scrollBehavior: "smooth",
+            }}
+          >
             <div className="flex flex-col items-center justify-start p-3 sm:p-4 min-h-full">
               {scrollMode === "continuous" ? (
                 // Full Paper Mode: Render all pages sequentially
@@ -607,12 +693,61 @@ export function CambridgePdfViewer({
               <div className="my-4 text-center text-xs text-muted-foreground flex items-center gap-2 justify-center">
                 <span>{numPages} Pages</span>
                 <span>•</span>
-                <span>Cambridge Assessment International Education 9708</span>
+                <span>Scroll with Mouse Wheel or Arrow Marks</span>
                 <span>•</span>
-                <span className="text-emerald-600 dark:text-emerald-400 font-medium">Authentic Past Paper</span>
+                <span className="text-emerald-600 dark:text-emerald-400 font-medium">Cambridge 9708</span>
               </div>
             </div>
-          </ScrollArea>
+          </div>
+        )}
+
+        {/* FLOATING ARROW MARKS NAVIGATION HUD */}
+        {!loading && !error && viewMode === "canvas" && pdfDoc && (
+          <div className="absolute right-3 bottom-4 flex flex-col items-center gap-1.5 z-10 bg-background/90 backdrop-blur-md p-1.5 rounded-full border border-border/80 shadow-lg transition-all hover:bg-background">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleScrollToTop}
+              className="h-7 w-7 rounded-full p-0 shadow-xs hover:bg-primary/10 hover:text-primary"
+              title="Jump to Top (Page 1) [Home key]"
+            >
+              <ChevronsUp className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              type="button"
+              variant="default"
+              size="sm"
+              onClick={() => handleScrollBy(-350)}
+              className="h-8 w-8 rounded-full p-0 shadow-xs bg-primary text-primary-foreground hover:bg-primary/90"
+              title="Scroll Up [Arrow Up or Scroll Wheel]"
+            >
+              <ArrowUp className="h-4 w-4" />
+            </Button>
+            <div className="text-[9px] font-mono font-bold text-muted-foreground py-0.5 select-none text-center">
+              P{currentPage}
+            </div>
+            <Button
+              type="button"
+              variant="default"
+              size="sm"
+              onClick={() => handleScrollBy(350)}
+              className="h-8 w-8 rounded-full p-0 shadow-xs bg-primary text-primary-foreground hover:bg-primary/90"
+              title="Scroll Down [Arrow Down or Scroll Wheel]"
+            >
+              <ArrowDown className="h-4 w-4" />
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleScrollToBottom}
+              className="h-7 w-7 rounded-full p-0 shadow-xs hover:bg-primary/10 hover:text-primary"
+              title="Jump to Bottom [End key]"
+            >
+              <ChevronsDown className="h-3.5 w-3.5" />
+            </Button>
+          </div>
         )}
 
         {/* NATIVE BROWSER PDF FRAME */}

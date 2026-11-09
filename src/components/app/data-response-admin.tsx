@@ -100,8 +100,8 @@ export function DataResponseStudio() {
   const [levelFilter, setLevelFilter] = useState<"all" | "as" | "a2">("all");
   const [paperSearchQuery, setPaperSearchQuery] = useState<string>("");
 
-  // Instruction Guide toggle
-  const [showInstructions, setShowInstructions] = useState<boolean>(true);
+  // Instruction Guide toggle (collapsed by default to keep PDF immediately in view)
+  const [showInstructions, setShowInstructions] = useState<boolean>(false);
 
   // Selected Paper State (default to authentic 2024 AS paper)
   const [selectedPaperId, setSelectedPaperId] = useState<string>("9708_22_2024_fm");
@@ -751,8 +751,8 @@ export function DataResponseStudio() {
 
           {currentPaper ? (
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-              {/* LEFT COLUMN: CASE STUDY / EXTRACT VIEWER (5 COLS) */}
-              <div className="lg:col-span-5 space-y-3 flex flex-col">
+              {/* LEFT COLUMN: CASE STUDY / EXTRACT VIEWER (5 COLS, STICKY ON DESKTOP) */}
+              <div className="lg:col-span-5 space-y-3 flex flex-col lg:sticky lg:top-4 lg:self-start">
                 {/* View Mode Toggle Bar */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2 rounded-xl bg-card border border-border/80 shadow-xs">
                   <div className="flex items-center gap-1 bg-muted/80 p-0.5 rounded-lg border border-border/60">
@@ -828,7 +828,8 @@ export function DataResponseStudio() {
                     pdfUrl={currentPaper.pdfUrl}
                     paperTitle={currentPaper.title}
                     examCode={currentPaper.originalExamCode}
-                    height="720px"
+                    height="calc(100vh - 175px)"
+                    className="min-h-[560px] max-h-[860px]"
                     onFullScreenToggle={() => setPdfModalOpen(true)}
                   />
                 )}

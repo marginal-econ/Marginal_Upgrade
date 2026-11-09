@@ -11,7 +11,6 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { EconomicsDiagram } from "@/components/diagrams/economics-diagram";
 import type { DataResponsePaper, DataResponseQuestion } from "@/lib/data-response/types";
 import { cn } from "@/lib/utils";
@@ -106,7 +105,11 @@ export function CambridgeExamInsert({
       </div>
 
       {/* DOCUMENT BODY: TYPESET CAMBRIDGE CASE STUDY */}
-      <ScrollArea className="flex-1 max-h-[660px]">
+      <div
+        className="flex-1 overflow-y-auto max-h-[700px] overscroll-contain focus:outline-none scrollbar-thin scrollbar-thumb-muted-foreground/30 hover:scrollbar-thumb-muted-foreground/50 transition-colors"
+        style={{ overscrollBehavior: "contain" }}
+        onWheel={(e) => e.stopPropagation()}
+      >
         <div className="p-5 sm:p-6 space-y-6 max-w-3xl mx-auto font-serif">
           {/* CASE STUDY TITLE */}
           <div className="text-center space-y-1.5 pb-3 border-b-2 border-foreground/80">
@@ -260,7 +263,7 @@ export function CambridgeExamInsert({
             </p>
           </div>
         </div>
-      </ScrollArea>
+      </div>
     </div>
   );
 }
