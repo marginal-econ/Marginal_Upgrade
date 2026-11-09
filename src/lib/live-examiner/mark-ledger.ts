@@ -68,6 +68,53 @@ export function buildMarkLedger(params: {
     };
   }
 
+  // 1b. Question Topic Relevance Guard
+  const topicTokens = (rubric.questionText || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .split(/\s+/)
+    .filter(
+      (w) =>
+        w.length > 3 &&
+        !/^(assess|evaluate|discuss|explain|whether|extent|consider|analyse|analyze|impact|effects?|should|would|could|using|through|with|from|what|which|more|than|between|their|there|other|about|good|goods|public|mean|means|meaning)$/.test(
+          w,
+        ),
+    );
+
+  const fullEssayText = sentences.map((s) => s.text).join(" ").toLowerCase();
+  const hasTopicRelevance =
+    topicTokens.length === 0 || topicTokens.some((t) => fullEssayText.includes(t));
+
+  if (!hasTopicRelevance && totalWords >= 20) {
+    return {
+      arguments: [],
+      ledger: [
+        {
+          argumentId: "arg_off_topic",
+          sentenceIds: sentences.map((s) => s.id),
+          assessmentObjective: "AO1",
+          rubricCriterion: "Question Relevance",
+          evidence: sentences[0]?.text?.slice(0, 100) || "",
+          awardedCredit: 0,
+          missingDevelopment: [
+            `The answer does not address the core question prompt (${topicTokens.slice(0, 3).join(", ")}). Cambridge 9708 mark schemes award zero marks for off-topic material.`,
+          ],
+          status: isAiVerified ? "verified" : "provisional",
+          reasoning: "Material is not relevant to the prompt set.",
+        },
+      ],
+      totalMark: 0,
+      maxMark,
+      status: isAiVerified ? "verified" : "uncertain",
+      markRange: [0, 0],
+      aoBreakdown: {
+        ao1: { awarded: 0, max: split.ao1_marks, coveragePct: 0 },
+        ao2: { awarded: 0, max: split.ao2_marks, coveragePct: 0 },
+        ao3: { awarded: 0, max: split.ao3_marks, coveragePct: 0 },
+      },
+    };
+  }
+
   // Map classification by sentenceId
   const classMap = new Map(classifications.map((c) => [c.sentenceId, c]));
 
@@ -151,8 +198,22 @@ export function buildMarkLedger(params: {
     let credit = 0;
 
     if (arg.primaryAO === "AO1") {
+      const claimLower = arg.claim.toLowerCase();
+      const qLower = (rubric.questionText || "").toLowerCase();
+
+      // Check for common off-topic syllabus concept substitutions (e.g. defining merit/public goods on demerit goods questions)
+      const isOffTopicDefinition =
+        (/\b(merit goods?|public goods?)\b/i.test(claimLower) && /\bdemerit\b/i.test(qLower)) ||
+        (/\b(demerit goods?|public goods?)\b/i.test(claimLower) && /\bmerit goods?\b/i.test(qLower) && !/\bdemerit\b/i.test(qLower));
+
+      const relatesToTopic =
+        !isOffTopicDefinition &&
+        (topicTokens.length === 0 || topicTokens.some((t) => t.length > 4 && claimLower.includes(t)));
+
       if (isDuplicate) {
         missingDevelopment.push("Repeated concept definition; duplicate credit prevented under Cambridge mark scheme.");
+      } else if (!relatesToTopic) {
+        missingDevelopment.push("Defined an economic concept not required by the question prompt. Off-topic definitions earn 0 marks.");
       } else if (ao1MarksAwarded < split.ao1_marks) {
         credit = 1;
         ao1MarksAwarded += 1;
@@ -168,7 +229,9 @@ export function buildMarkLedger(params: {
         status: isAiVerified ? "verified" : "provisional",
         reasoning: isDuplicate
           ? "Duplicate definition of previously established economic concept."
-          : "Accurate specification definition credited toward syllabus knowledge.",
+          : !relatesToTopic
+            ? "Concept definition is not relevant to the question topic."
+            : "Accurate specification definition credited toward syllabus knowledge.",
       });
     } else if (arg.primaryAO === "AO2") {
       if (isDuplicate) {

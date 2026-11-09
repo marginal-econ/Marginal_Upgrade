@@ -117,7 +117,7 @@ export function classifySentence(sentence: string): SentenceClass {
   }
 
   // 2. Evaluation — whole-sentence evaluative weighing, conditions, limitations, or judgements
-  if (evalStrong >= 1 && (hasEcon || words >= 8)) {
+  if (evalStrong >= 1 && hasEcon) {
     const confident =
       evalStrong >= 2 ||
       /however|on balance|in conclusion|to conclude|depends|dependent|contingent|extent|although|even though|whereas|whilst|on the other hand|in contrast|by contrast|nevertheless|nonetheless|unintended consequence|government failure|limitations?|trade-?offs?|in the (?:short|long)[- ]run|time lags?|most (?:important|effective)|more effective than/i.test(
@@ -134,8 +134,8 @@ export function classifySentence(sentence: string): SentenceClass {
   if (
     evalWeak &&
     (/\b(but|yet)\b/i.test(lower) || /^(?:while|whilst)\b/i.test(lower)) &&
-    (causal >= 1 || hasEcon) &&
-    words >= 8
+    hasEcon &&
+    (causal >= 1 || words >= 8)
   ) {
     return {
       ao: "AO3",
@@ -180,12 +180,22 @@ export function classifySentence(sentence: string): SentenceClass {
   }
 
   // 4. Knowledge / foundation (including single-step concept identification without a mechanism)
+  if (hasEcon || isDef) {
+    return {
+      ao: "AO1",
+      confidence: 0.82,
+      strength: words < 5 ? 0 : 1,
+      explanation:
+        "AO1 Knowledge: Foundational economic statement, terminology, or theoretical premise.",
+    };
+  }
+
+  // Non-economic sentence earns ZERO credit and ZERO confidence
   return {
     ao: "AO1",
-    confidence: hasEcon ? 0.82 : 0.5,
-    strength: words < 5 ? 0 : hasEcon ? 1 : 0,
-    explanation:
-      "AO1 Knowledge: Foundational economic statement, terminology, or theoretical premise.",
+    confidence: 0,
+    strength: 0,
+    explanation: "General statement — contains no economic terminology, theory, or syllabus concepts.",
   };
 }
 

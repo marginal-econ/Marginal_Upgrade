@@ -81,11 +81,54 @@ export function computeHeuristicScore(params: {
     };
   }
 
+  // Question Topic Relevance Guard: off-topic writing earns zero marks
+  const topicTokens = (question || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .split(/\s+/)
+    .filter(
+      (w) =>
+        w.length > 3 &&
+        !/^(assess|evaluate|discuss|explain|whether|extent|consider|analyse|analyze|impact|effects?|should|would|could|using|through|with|from|what|which|more|than|between|their|there|other|about|good|goods|public|mean|means|meaning)$/.test(
+          w,
+        ),
+    );
+
+  const fullEssayText = sentences.map((s) => s.text).join(" ").toLowerCase();
+  const matchedTopicTokens = topicTokens.filter((token) => fullEssayText.includes(token));
+
+  if (totalWords >= 20 && topicTokens.length > 0 && matchedTopicTokens.length === 0) {
+    return {
+      total: 0,
+      maxMark,
+      band: "Off-topic response",
+      confidence: 0.9,
+      aoBreakdown: { ao1: 0, ao2: 0, ao3: 0 },
+      nextMoves: [
+        {
+          id: "realign_question",
+          aoTarget: "ao1",
+          title: "Address the specific question prompt",
+          detail: `Your response does not yet address the core terms in the prompt (${topicTokens.slice(0, 3).join(", ")}). Cambridge mark schemes award marks strictly for relevant analysis.`,
+          potentialGain: split.ao1_marks,
+        },
+      ],
+      isProvisional: true,
+      timestamp: Date.now(),
+    };
+  }
+
+  const ECON_TERM_CHECK =
+    /\b(demand|supply|price|elastic\w*|inelastic|ped|yed|pes|xed|equilibrium|externalit\w+|market failure|merit|demerit|public goods?|subsid\w+|tax\w*|tariff\w*|quota\w*|free trade|protectionism|speciali[sz]ation|comparative advantage|absolute advantage|inflation|deflation|gdp|monopol\w+|oligopol\w+|competition|efficien\w+|surplus|opportunity cost|fiscal|monetary|interest rate|exchange rate|unemployment|aggregate|multiplier|welfare|incidence|margin\w*|utility|revenue|profit|output|firms?|consumers?|producers?|government)\b/i;
+
   const paragraphs = new Set(sentences.map((s) => s.paragraphIndex));
   const maxParagraph = Math.max(...Array.from(paragraphs), 0);
 
   for (const s of sentences) {
     const text = s.text;
+    const hasEcon = ECON_TERM_CHECK.test(text);
+    if (!hasEcon) continue; // Non-economic prose earns no score features
+
     if (DEFINITION_PATTERN.test(text)) defCount++;
     if (CAUSAL_CONNECTIVES.test(text)) causalLinks += (text.match(CAUSAL_CONNECTIVES) || []).length;
     if (CONTEXT_PATTERNS.test(text)) contextLinks += (text.match(CONTEXT_PATTERNS) || []).length;
@@ -105,8 +148,8 @@ export function computeHeuristicScore(params: {
   // Calculate provisional AO marks
   // AO1: Knowledge & Understanding (Cap = split.ao1_marks, which is 2)
   let rawAo1 = 0;
-  if (defCount > 0) rawAo1 += 1;
-  if (totalWords >= 40 && (defCount >= 1 || causalLinks >= 1)) rawAo1 += 1;
+  if (defCount > 0 && (matchedTopicTokens.length >= 1 || topicTokens.length === 0)) rawAo1 += 1;
+  if (totalWords >= 40 && defCount >= 1 && (matchedTopicTokens.length >= 1 || topicTokens.length === 0)) rawAo1 += 1;
   const ao1 = Math.min(split.ao1_marks, rawAo1);
 
   // AO2: Analysis & Application (Cap = split.ao2_marks)

@@ -72,11 +72,34 @@ export function evaluateSentenceSemantics(params: {
   let economicFunction = "General descriptive statement";
   let confidence = 0.85;
 
-  // 4. Contextual Decision Matrix
-  const isDefinitionPattern =
-    /\b(is defined as|refers to|means that|is when|are when|formula for|is a good that|is an expenditure tax|is a subsidy)\b/i.test(text);
+  const hasEconKeywords =
+    /\b(demand|supply|price|elastic\w*|inelastic|ped|yed|pes|xed|equilibrium|externalit\w+|market failure|merit|demerit|public goods?|subsid\w+|tax\w*|tariff\w*|quota\w*|free trade|protectionism|speciali[sz]ation|comparative advantage|absolute advantage|inflation|deflation|gdp|monopol\w+|oligopol\w+|competition|efficien\w+|surplus|opportunity cost|fiscal|monetary|interest rate|exchange rate|unemployment|aggregate|multiplier|welfare|incidence|margin\w*|utility|revenue|profit|output|firms?|consumers?|producers?|government)\b/i.test(
+      text,
+    );
 
-  if (isDefinitionPattern || (baseline && baseline.ao === "AO1")) {
+  // If the sentence has zero economic terminology and zero baseline confidence, it earns NO_CREDIT
+  if (!hasEconKeywords && (!baseline || baseline.confidence === 0)) {
+    return {
+      sentenceId: sentence.id,
+      documentVersion: docVersion,
+      primaryAO: "NO_CREDIT",
+      secondaryAOs: [],
+      confidence: 0.95,
+      economicFunction: "Non-economic statement",
+      evidence: "",
+      issues: combinedIssues,
+      requiresReview: false,
+    };
+  }
+
+  // 4. Contextual Decision Matrix (Requires legitimate economic grounding)
+  const isDefinitionPattern =
+    hasEconKeywords &&
+    /\b(is defined as|refers to|means that|is when|are when|formula for|is a good that|is an expenditure tax|is a subsidy)\b/i.test(
+      text,
+    );
+
+  if (isDefinitionPattern || (baseline && baseline.ao === "AO1" && baseline.confidence > 0 && baseline.strength > 0)) {
     primaryAO = "AO1";
     economicFunction = "Knowledge & concept definition";
     confidence = Math.max(confidence, baseline ? baseline.confidence : 0.88);
@@ -85,7 +108,7 @@ export function evaluateSentenceSemantics(params: {
     if (causalResult.steps.length > 0) {
       secondaryAOs.push("AO2");
     }
-  } else if (evalResult.depth !== "none" || (baseline && baseline.ao === "AO3")) {
+  } else if ((evalResult.depth !== "none" && hasEconKeywords) || (baseline && baseline.ao === "AO3" && baseline.confidence > 0)) {
     // If the question command word doesn't reward evaluation (e.g. "Explain"), treat as AO2 or note restriction
     if (!rubric.commandWord || rubric.commandWord.toLowerCase() === "explain") {
       primaryAO = "AO2";
@@ -105,7 +128,10 @@ export function evaluateSentenceSemantics(params: {
         secondaryAOs.push("AO2");
       }
     }
-  } else if (causalResult.steps.length > 0 || (baseline && baseline.ao === "AO2")) {
+  } else if (
+    (causalResult.steps.length >= 2 || (causalResult.steps.length > 0 && hasEconKeywords)) ||
+    (baseline && baseline.ao === "AO2" && baseline.confidence > 0)
+  ) {
     primaryAO = "AO2";
     economicFunction = causalResult.isComplete
       ? "Developed multi-step causal transmission chain"
@@ -115,7 +141,7 @@ export function evaluateSentenceSemantics(params: {
     if (isDefinitionPattern) {
       secondaryAOs.push("AO1");
     }
-  } else if (wordCount >= 10 && /\b(price|cost|firm|market|demand|supply|inflation|tax|gdp|consumer|trade)\b/i.test(text)) {
+  } else if (wordCount >= 10 && hasEconKeywords) {
     // Economically relevant context without strong chain
     primaryAO = "AO1";
     economicFunction = "Factual economic context or background";

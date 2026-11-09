@@ -311,6 +311,17 @@ QUESTION (${level === "a2" ? "A Level" : "AS Level"}, ${maxMark} marks): ${quest
 ${contextBlock || "No syllabus material was retrieved for this question — be conservative about flagging economics content. Grammar/clarity/terminology issues are still fine to flag."}
 
 CRITICAL RULES:
+0. STRICT QUESTION RELEVANCE (CAMBRIDGE 9708 MANDATE):
+   - You are evaluating an answer specifically to the prompt: "${question}".
+   - Under Cambridge 9708 mark schemes, material that does not directly answer the set question EARNS ZERO MARKS (knowledge: 0, analysis: 0, evaluation: 0, total_mark: 0).
+   - If the student's answer (or sentences) is off-topic, random gibberish, personal anecdotes, non-economic prose, or defines concepts completely unrelated to the question (e.g. defining public goods or merit goods when asked about a demerit good tax vs public campaign):
+     * "predicted_mark" MUST HAVE total_mark: 0, confidence: 0.95, headline: "Off-topic answer — 0 marks", and ao_breakdown: { knowledge: { awarded: 0, out_of: ${split.ao1_marks} }, analysis: { awarded: 0, out_of: ${split.ao2_marks} }, evaluation: { awarded: 0, out_of: ${split.ao3_marks} } }.
+     * "classifications": DO NOT classify any off-topic or non-economic sentence into "classifications". Keep "classifications" empty [] for off-topic or irrelevant sentences!
+     * "issues": FLAG an "application" or "economics_accuracy" issue on the off-topic phrase or sentence:
+       - original: <the off-topic phrase, e.g. "Public goods are non-rival">
+       - suggestion: <the correct relevant concept from the prompt, e.g. "Demerit goods are goods with negative externalities in consumption">
+       - category: "application"
+       - explanation: "Off-topic content: The question specifically asks about this prompt. Writing about unrelated concepts earns zero marks under Cambridge 9708 mark schemes."
 1. NO SYNONYMS: NEVER suggest mere synonyms (e.g. replacing 'leads to' with 'results in', or 'causes' with 'brings about'). If the student's phrasing is valid English and developed economics, DO NOT FLAG IT for style.
 2. FLAG SHALLOW / UNDEVELOPED CLAIMS FOR "analysis": If a sentence states an undeveloped economic assertion or stops at defining a concept without explaining the step-by-step causal mechanism (e.g. "Free trade can lead to specialisation where countries focus on producing a limited range of products" without explaining comparative advantage, lower opportunity cost, economies of scale, and lower consumer prices), flag the trailing phrase as "analysis" and suggest extending the causal chain.
 3. NO ASTERISKS OR MARKDOWN (MISTRAL MANDATE): Output strictly clean plain English text. NEVER include asterisks (** or *), bolding, backticks, or markdown formatting anywhere in "original", "suggestion", "explanation", "evidence", or "headline". Keep all wording clean, professional, and unformatted.
@@ -569,9 +580,33 @@ export function sanitisePredictedMark(
         const maxReasonableAo3 = ao3Count === 1 ? 2 : evaluation.out_of;
         evaluation.awarded = Math.min(evaluation.out_of, evaluation.awarded, maxReasonableAo3);
       }
-      const detAo1Awarded =
-        ao1Count >= 2 ? knowledge.out_of : ao1Count >= 1 ? Math.max(1, Math.floor(knowledge.out_of * 0.5)) : 0;
-      knowledge.awarded = Math.min(knowledge.out_of, Math.max(knowledge.awarded, detAo1Awarded));
+      if (ao1Count === 0) {
+        knowledge.awarded = 0;
+      } else {
+        knowledge.awarded = Math.min(knowledge.out_of, knowledge.awarded);
+      }
+
+      // Question topic relevance guard
+      const topicTokens = question
+        .toLowerCase()
+        .replace(/[^a-z0-9\s]/g, " ")
+        .split(/\s+/)
+        .filter(
+          (w) =>
+            w.length > 3 &&
+            !/^(assess|evaluate|discuss|explain|whether|extent|consider|analyse|analyze|impact|effects?|should|would|could|using|through|with|from|what|which|more|than|between|their|there|other|about)$/.test(
+              w,
+            ),
+        );
+      const fullTextLower = essayText.toLowerCase();
+      const hasTopicRelevance =
+        topicTokens.length === 0 || topicTokens.some((t) => fullTextLower.includes(t));
+
+      if (!hasTopicRelevance && wc >= 20) {
+        knowledge.awarded = 0;
+        analysis.awarded = 0;
+        evaluation.awarded = 0;
+      }
     }
   }
 
@@ -993,13 +1028,16 @@ export const checkEssayWriting = createServerFn({ method: "POST" })
         totalWords: wordCount,
       });
 
-      if (predictedMark && ledgerResult.totalMark > 0) {
-        predictedMark.total_mark = Math.min(data.maxMark, ledgerResult.totalMark);
-        predictedMark.ao_breakdown = {
-          knowledge: { awarded: ledgerResult.aoBreakdown.ao1.awarded, out_of: ledgerResult.aoBreakdown.ao1.max },
-          analysis: { awarded: ledgerResult.aoBreakdown.ao2.awarded, out_of: ledgerResult.aoBreakdown.ao2.max },
-          evaluation: { awarded: ledgerResult.aoBreakdown.ao3.awarded, out_of: ledgerResult.aoBreakdown.ao3.max },
-        };
+      if (predictedMark) {
+        ledgerResult.totalMark = predictedMark.total_mark;
+        ledgerResult.aoBreakdown.ao1.awarded = predictedMark.ao_breakdown.knowledge.awarded;
+        ledgerResult.aoBreakdown.ao2.awarded = predictedMark.ao_breakdown.analysis.awarded;
+        ledgerResult.aoBreakdown.ao3.awarded = predictedMark.ao_breakdown.evaluation.awarded;
+        ledgerResult.status = "verified";
+        ledgerResult.markRange = [
+          Math.max(0, predictedMark.total_mark - (predictedMark.total_mark === 0 ? 0 : 1)),
+          Math.min(data.maxMark, predictedMark.total_mark + (predictedMark.total_mark === 0 ? 0 : 1)),
+        ];
       }
 
       return cleanStars({

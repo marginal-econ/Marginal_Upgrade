@@ -215,6 +215,110 @@ describe("Live Examiner 2.0 Engines", () => {
       });
       expect(c1.primaryAO).toBe("AO1");
     });
+
+    it("strictly awards 0 marks and NO_CREDIT for off-topic or non-economic motivational gibberish", () => {
+      const q =
+        "Assess whether the over-consumption of a demerit good should be reduced through the use of a tax or reduced through the use of a public information campaign.";
+      const rubric = buildQuestionRubric({ question: q, level: "as", maxMark: 12 });
+
+      const sentences = [
+        {
+          id: "s0",
+          text: "Public goods are non-rival and non-excludable in nature.",
+          paragraphIndex: 0,
+          isComplete: true,
+        },
+        {
+          id: "s1",
+          text: "Merit goods are goods with significant positive externality, but are undervalued and underconsumed due to information failure.",
+          paragraphIndex: 0,
+          isComplete: true,
+        },
+        {
+          id: "s2",
+          text: "People often believe that significant changes require extraordinary actions.",
+          paragraphIndex: 1,
+          isComplete: true,
+        },
+        {
+          id: "s3",
+          text: "However, history and everyday experience suggest something different.",
+          paragraphIndex: 1,
+          isComplete: true,
+        },
+        {
+          id: "s4",
+          text: "Studying for an additional twenty minutes might seem unimportant when compared with the hundreds of hours required to complete an entire syllabus.",
+          paragraphIndex: 2,
+          isComplete: true,
+        },
+      ];
+
+      // Non-economic sentences must be classified as NO_CREDIT
+      const c2 = evaluateSentenceSemantics({
+        sentence: {
+          id: "s2",
+          text: sentences[2].text,
+          paragraphText: sentences[2].text,
+          paragraphIndex: 1,
+          sentenceIndex: 0,
+        },
+        docVersion: 1,
+        rubric,
+      });
+      expect(c2.primaryAO).toBe("NO_CREDIT");
+
+      const c3 = evaluateSentenceSemantics({
+        sentence: {
+          id: "s3",
+          text: sentences[3].text,
+          paragraphText: sentences[3].text,
+          paragraphIndex: 1,
+          sentenceIndex: 1,
+        },
+        docVersion: 1,
+        rubric,
+      });
+      expect(c3.primaryAO).toBe("NO_CREDIT");
+
+      const c4 = evaluateSentenceSemantics({
+        sentence: {
+          id: "s4",
+          text: sentences[4].text,
+          paragraphText: sentences[4].text,
+          paragraphIndex: 2,
+          sentenceIndex: 0,
+        },
+        docVersion: 1,
+        rubric,
+      });
+      expect(c4.primaryAO).toBe("NO_CREDIT");
+
+      const classifications = sentences.map((s, idx) =>
+        evaluateSentenceSemantics({
+          sentence: {
+            id: s.id,
+            text: s.text,
+            paragraphText: s.text,
+            paragraphIndex: s.paragraphIndex,
+            sentenceIndex: idx,
+          },
+          docVersion: 1,
+          rubric,
+        }),
+      );
+
+      // Ledger must award 0 marks
+      const ledgerResult = buildMarkLedger({
+        sentences,
+        classifications,
+        rubric,
+      });
+      expect(ledgerResult.totalMark).toBe(0);
+      expect(ledgerResult.aoBreakdown.ao1.awarded).toBe(0);
+      expect(ledgerResult.aoBreakdown.ao2.awarded).toBe(0);
+      expect(ledgerResult.aoBreakdown.ao3.awarded).toBe(0);
+    });
   });
 
   describe("Score Maximizer Engine", () => {

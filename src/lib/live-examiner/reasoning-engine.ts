@@ -31,7 +31,7 @@ export function analyzeCausalChain(sentence: string): CausalAnalysisResult {
   const hasOutputShift = OUTPUT_EMPLOYMENT_SHIFTS.test(sentence);
   const hasMacroShift = MACRO_SHIFTS.test(sentence);
 
-  if (hasConnector) {
+  if (hasConnector && (hasMicroShift || hasOutputShift || hasMacroShift)) {
     steps.push({ text: "Cause / policy trigger", stage: "cause" });
   }
 
@@ -92,7 +92,12 @@ export function evaluateEvaluativeDepth(text: string): {
     depth = "justified_judgement";
   } else if (criteriaDetected.length >= 2) {
     depth = "sustained";
-  } else if (criteriaDetected.length === 1 || /\bhowever|on the other hand\b/i.test(norm)) {
+  } else if (criteriaDetected.length === 1) {
+    depth = "superficial";
+  } else if (
+    /\b(however|on the other hand|nevertheless|conversely)\b/i.test(norm) &&
+    /\b(price|cost|demand|supply|market|tax|subsidy|firm|consumer|inflation|gdp|elastic|ped|goods?|revenue|output|welfare)\b/i.test(norm)
+  ) {
     depth = "superficial";
   }
 

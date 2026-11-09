@@ -81,6 +81,9 @@ export function useLiveExaminer(params: {
   const [assessmentStatus, setAssessmentStatus] = useState<"provisional" | "verified" | "uncertain" | "complete">("uncertain");
   const [markRange, setMarkRange] = useState<[number, number] | undefined>(undefined);
 
+  const lastCheckedTextRef = useRef<string>("");
+  const lastVerifiedResultRef = useRef<any>(null);
+
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const issuesRef = useRef<ActiveIssue[]>([]);
   issuesRef.current = issues;
@@ -143,7 +146,7 @@ export function useLiveExaminer(params: {
   // Layer A: Local, synchronous, no network (< 50ms)
   // ---------------------------------------------------------------------------
   const runLayerA = useCallback(
-    (currentText: string) => {
+    (currentText: string, verifiedResult?: any) => {
       if (!currentText || currentText.trim().length < MIN_TEXT_LENGTH) {
         setSentences([]);
         setIssues([]);
@@ -218,9 +221,14 @@ export function useLiveExaminer(params: {
 
         const semantic = semanticClassifications.find((sc) => sc.sentenceId === seg.id);
 
-        if (cached?.ao) {
-          aoTag = cached.ao.tag;
-          aoReason = cached.ao.reason;
+        if (cached !== undefined) {
+          if (cached.ao) {
+            aoTag = cached.ao.tag;
+            aoReason = cached.ao.reason;
+          } else {
+            aoTag = "no_credit";
+            aoReason = "Cambridge examiner evaluated: not creditworthy for this question.";
+          }
           for (const aiIss of cached.issues) {
             if (!cacheRef.current.isDismissed(seg.hash, aiIss.category, aiIss.original)) {
               sentenceIssues.push(aiIss);
@@ -294,47 +302,85 @@ export function useLiveExaminer(params: {
       setClassifications(activeClassifications);
       recordHistory(activeIssues);
 
-      // 3. Instant provisional score from heuristic signals + TARIFF_SPLITS
-      const heuristic = computeHeuristicScore({
-        sentences: segments.map((s) => ({
-          text: s.text,
-          paragraphIndex: s.paragraphIndex,
-        })),
-        question,
-        maxMark: validTariff,
-      });
-      heuristic.total = localLedgerResult.totalMark;
-      heuristic.aoBreakdown = {
-        ao1: localLedgerResult.aoBreakdown.ao1.awarded,
-        ao2: localLedgerResult.aoBreakdown.ao2.awarded,
-        ao3: localLedgerResult.aoBreakdown.ao3.awarded,
-      };
-      if (localFeedback.opportunities.length > 0) {
-        heuristic.nextMoves = localFeedback.opportunities.map((o) => ({
-          id: o.id,
-          aoTarget: o.aoTarget,
-          title: o.title,
-          detail: o.whyItMatters + " " + o.suggestedAction,
-          potentialGain: o.potentialGain,
-        }));
-      }
-      setScoreEstimate(heuristic);
-
+      const activeVerified = verifiedResult || lastVerifiedResultRef.current;
       const split = TARIFF_SPLITS[validTariff] || defaultSplitForMaxMark(validTariff);
-      setPredictedMark((prev) => {
-        const newTotal = heuristic.total;
-        if (prev && prev.total_mark === newTotal) return prev;
-        return {
-          total_mark: newTotal,
-          confidence: heuristic.confidence,
-          headline: heuristic.band,
-          ao_breakdown: {
-            knowledge: { awarded: heuristic.aoBreakdown.ao1, out_of: split.ao1_marks },
-            analysis: { awarded: heuristic.aoBreakdown.ao2, out_of: split.ao2_marks },
-            evaluation: { awarded: heuristic.aoBreakdown.ao3, out_of: split.ao3_marks },
+
+      if (activeVerified?.predictedMark) {
+        const pm = activeVerified.predictedMark;
+        const score: ScoreEstimate = {
+          total: pm.total_mark,
+          maxMark: validTariff,
+          band: pm.headline,
+          confidence: pm.confidence,
+          aoBreakdown: {
+            ao1: pm.ao_breakdown.knowledge.awarded,
+            ao2: pm.ao_breakdown.analysis.awarded,
+            ao3: pm.ao_breakdown.evaluation.awarded,
           },
+          nextMoves: (activeVerified.opportunities && activeVerified.opportunities.length > 0)
+            ? activeVerified.opportunities.map((o: any) => ({
+                id: o.id,
+                aoTarget: o.aoTarget,
+                title: o.title,
+                detail: (o.whyItMatters ? o.whyItMatters + " " : "") + (o.suggestedAction || ""),
+                potentialGain: o.potentialGain || 1,
+              }))
+            : localFeedback.opportunities.map((o) => ({
+                id: o.id,
+                aoTarget: o.aoTarget,
+                title: o.title,
+                detail: o.whyItMatters + " " + o.suggestedAction,
+                potentialGain: o.potentialGain,
+              })),
+          isProvisional: false,
+          timestamp: Date.now(),
         };
-      });
+        setScoreEstimate(score);
+        setPredictedMark(pm);
+        setAssessmentStatus("verified");
+        if (activeVerified.markRange) setMarkRange(activeVerified.markRange);
+      } else {
+        // 3. Instant provisional score from heuristic signals + TARIFF_SPLITS
+        const heuristic = computeHeuristicScore({
+          sentences: segments.map((s) => ({
+            text: s.text,
+            paragraphIndex: s.paragraphIndex,
+          })),
+          question,
+          maxMark: validTariff,
+        });
+        heuristic.total = localLedgerResult.totalMark;
+        heuristic.aoBreakdown = {
+          ao1: localLedgerResult.aoBreakdown.ao1.awarded,
+          ao2: localLedgerResult.aoBreakdown.ao2.awarded,
+          ao3: localLedgerResult.aoBreakdown.ao3.awarded,
+        };
+        if (localFeedback.opportunities.length > 0) {
+          heuristic.nextMoves = localFeedback.opportunities.map((o) => ({
+            id: o.id,
+            aoTarget: o.aoTarget,
+            title: o.title,
+            detail: o.whyItMatters + " " + o.suggestedAction,
+            potentialGain: o.potentialGain,
+          }));
+        }
+        setScoreEstimate(heuristic);
+
+        setPredictedMark((prev) => {
+          const newTotal = heuristic.total;
+          if (prev && prev.total_mark === newTotal) return prev;
+          return {
+            total_mark: newTotal,
+            confidence: heuristic.confidence,
+            headline: heuristic.band,
+            ao_breakdown: {
+              knowledge: { awarded: heuristic.aoBreakdown.ao1, out_of: split.ao1_marks },
+              analysis: { awarded: heuristic.aoBreakdown.ao2, out_of: split.ao2_marks },
+              evaluation: { awarded: heuristic.aoBreakdown.ao3, out_of: split.ao3_marks },
+            },
+          };
+        });
+      }
     },
     [level, maxMark, question, contextBlock, recordHistory],
   );
@@ -346,23 +392,13 @@ export function useLiveExaminer(params: {
     async (currentText: string) => {
       if (!enabled || !currentText || currentText.trim().length < MIN_TEXT_LENGTH) return;
 
-      const segments = segmentEssay(currentText);
-      const dirtySegments = segments.filter((s) => s.isComplete && !cacheRef.current.has(s.hash));
-
-      if (dirtySegments.length === 0) return;
+      const trimmed = currentText.trim();
+      if (trimmed === lastCheckedTextRef.current.trim()) return;
 
       setChecking(true);
       setError(null);
 
       try {
-        const sentencesToSend = dirtySegments.slice(0, 6).map((s) => ({
-          id: s.id,
-          text: s.text,
-          start: s.from,
-          end: s.to,
-          hash: s.hash,
-        }));
-
         const result = await checkFn({
           data: {
             essayText: currentText,
@@ -373,8 +409,13 @@ export function useLiveExaminer(params: {
           },
         });
 
+        lastCheckedTextRef.current = trimmed;
+        lastVerifiedResultRef.current = result;
+
+        const segments = segmentEssay(currentText);
+
         // Store classifications and issues into cache for each sentence
-        for (const seg of dirtySegments) {
+        for (const seg of segments) {
           const segTextClean = seg.text.trim().toLowerCase();
           const matchedAo = (result.classifications || []).find((c: any) => {
             const orig = (c.original || "").trim().toLowerCase();
@@ -387,7 +428,11 @@ export function useLiveExaminer(params: {
             );
           });
           const matchedIssues = (result.issues || [])
-            .filter((i: any) => i.context?.trim().toLowerCase() === seg.text.trim().toLowerCase())
+            .filter((i: any) => {
+              const ctx = (i.context || "").trim().toLowerCase();
+              const orig = (i.original || "").trim().toLowerCase();
+              return ctx === segTextClean || orig === segTextClean || segTextClean.includes(orig) || ctx.includes(segTextClean);
+            })
             .map((i: any) => ({
               id: `${i.category}::${seg.hash}::${stripStars(i.original)}`,
               from: seg.from,
@@ -427,8 +472,17 @@ export function useLiveExaminer(params: {
           if (res.status) setAssessmentStatus(res.status);
         }
 
+        if (result?.predictedMark) {
+          setPredictedMark(result.predictedMark);
+          setAssessmentStatus("verified");
+          setMarkRange(result.markRange || [
+            Math.max(0, result.predictedMark.total_mark - (result.predictedMark.total_mark === 0 ? 0 : 1)),
+            Math.min(maxMark, result.predictedMark.total_mark + (result.predictedMark.total_mark === 0 ? 0 : 1)),
+          ]);
+        }
+
         // Re-run Layer A with fresh cache populated
-        runLayerA(currentText);
+        runLayerA(currentText, result);
         setLastUpdatedAt(Date.now());
       } catch (err: any) {
         if (isDailyLimitError(err)) {
