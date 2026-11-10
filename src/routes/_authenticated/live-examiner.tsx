@@ -7,6 +7,7 @@ import {
   CheckCircle2,
   ChevronRight,
   ClipboardPaste,
+  Construction,
   Copy,
   GraduationCap,
   ImagePlus,
@@ -686,6 +687,16 @@ function LiveExaminerPage() {
         title="Live Examiner"
         description="Write your answer and get instant, syllabus-grounded feedback as you go — grammar, clarity, economics accuracy, analysis, application, evaluation and terminology."
       />
+
+      <div className="mx-auto max-w-5xl px-5 pt-3">
+        <div className="flex items-center gap-2.5 rounded-xl border border-amber-500/35 bg-amber-500/10 px-4 py-2.5 text-xs text-amber-700 dark:text-amber-300 shadow-2xs">
+          <Construction className="size-4 shrink-0 text-amber-600 dark:text-amber-400 animate-pulse" />
+          <div className="leading-relaxed">
+            <span className="font-bold tracking-tight">Feature Under Construction / Preview Beta:</span>{" "}
+            We are actively fine-tuning real-time Cambridge 9708 causal chain diagnostics and live scoring models. Feel free to test the interactive evaluator below!
+          </div>
+        </div>
+      </div>
 
       {!started ? (
         <div className="mx-auto max-w-5xl p-5 md:p-8">

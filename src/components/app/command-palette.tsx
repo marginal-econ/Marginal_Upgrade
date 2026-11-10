@@ -238,7 +238,7 @@ export function CommandPalette({
         icon: Sparkles,
         iconBg: "bg-amber-500/10",
         iconColor: "text-amber-500",
-        badge: "Beta",
+        badge: "Under Dev",
         badgeTone: "border-amber-500/35 text-amber-600 dark:text-amber-400 bg-amber-500/10",
         keywords: ["live", "examiner", "realtime", "socratic", "editor", "coaching", "writing"],
         onSelect: () => {

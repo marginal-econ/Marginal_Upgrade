@@ -536,7 +536,12 @@ function Index() {
 
             <Reveal delay={60}>
               <h1 className="mt-5 text-[2.35rem] leading-[1.08] font-extrabold text-balance min-[380px]:text-4xl md:text-[3.25rem] lg:text-[3.5rem] xl:text-[3.85rem] tracking-tight">
-                AI-Powered Cambridge Economics (9708) Mastery
+                Marginal AI —{" "}
+                <span className="relative inline-block mt-1 sm:mt-1.5 px-3 py-1 rounded-xl bg-purple-950/60 dark:bg-purple-950/70 border border-purple-500/40 text-amber-300 shadow-[0_0_20px_rgba(168,85,247,0.25)] backdrop-blur-md">
+                  <span className="bg-gradient-to-r from-amber-300 via-yellow-200 to-amber-400 bg-clip-text text-transparent font-black tracking-tight">
+                    The Cambridge Economics Platform
+                  </span>
+                </span>
               </h1>
               <h2 className="mt-3 text-lg font-semibold text-primary sm:text-xl md:text-2xl">
                 Master AS & A Level Economics (9708) with AI Grading
@@ -1061,7 +1066,7 @@ function Index() {
                       <span>Live Examiner</span>
                       <span className="inline-flex items-center gap-1 rounded-full bg-amber-400/20 px-2 py-0.5 text-[10px] font-bold text-amber-300 border border-amber-400/35 tracking-wider uppercase">
                         <span className="size-1.5 rounded-full bg-amber-400 animate-pulse" />
-                        In Beta
+                        Under Dev
                       </span>
                     </Link>
                   </Button>
