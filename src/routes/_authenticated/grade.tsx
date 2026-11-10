@@ -697,14 +697,14 @@ function GradePage() {
             </div>
           </div>
 
-          <div className="grid gap-4 sm:gap-6 px-3.5 py-3 sm:py-5 sm:px-6 md:px-8 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
+          <div className="max-w-7xl 2xl:max-w-[1600px] mx-auto grid gap-4 sm:gap-6 px-3.5 py-3 sm:py-5 sm:px-6 md:px-8 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
             <div className="panel space-y-3.5 sm:space-y-4 p-3.5 sm:p-5">
               <div className="space-y-1.5">
-                <div className="flex items-center justify-between gap-2">
+                <div className="flex flex-wrap items-center justify-between gap-1.5 sm:gap-2">
                   <Label htmlFor="question" className="text-xs sm:text-sm font-semibold text-foreground">
                     Exam question
                   </Label>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
                     <Link
                       to="/response-structure"
                       className="text-[11px] text-muted-foreground hover:text-foreground underline underline-offset-2 transition-colors shrink-0 flex items-center gap-1"
@@ -712,7 +712,7 @@ function GradePage() {
                       <GraduationCap className="size-3" />
                       How to write an essay
                     </Link>
-                    <span className="text-muted-foreground/40">·</span>
+                    <span className="text-muted-foreground/40 hidden xs:inline">·</span>
                     <Link
                       to="/essay-generator"
                       className="text-[11px] text-purple-600 dark:text-purple-400 hover:underline transition-colors shrink-0 flex items-center gap-1"

@@ -2341,3 +2341,13 @@ html.theme-shifting * {
   scrollbar-width: none !important;
 }
 
+/* Mobile phone viewport ergonomics: prevent iOS Safari auto-zoom on input focus */
+@media (max-width: 639px) {
+  input:not([type="checkbox"]):not([type="radio"]),
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}
+
+

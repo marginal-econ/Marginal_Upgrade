@@ -1475,6 +1475,11 @@ export function AppShell({
 
           <div className="flex items-center gap-2">
             <TopTutorialButton size="sm" />
+            <LayoutSwitcherButton
+              navLayout={navLayout}
+              onChange={handleLayoutChange}
+              className="hidden sm:flex"
+            />
             {isUserAdmin ? (
               <Link
                 to="/admin"
@@ -1847,8 +1852,75 @@ export function AppShell({
           </header>
         )}
 
-        <main className="flex-1 min-w-0 overflow-x-hidden">{children}</main>
+        <main className="flex-1 min-w-0 overflow-x-hidden pb-16 sm:pb-0">{children}</main>
       </div>
+
+      {/* ── Mobile Phone Bottom Navigation Bar (sm:hidden) ── */}
+      <nav
+        aria-label="Mobile Navigation"
+        className="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-background/95 backdrop-blur-md border-t border-border px-1.5 py-1.5 flex items-center justify-around shadow-lg pb-[calc(env(safe-area-inset-bottom,0px)+0.375rem)]"
+      >
+        <Link
+          to="/dashboard"
+          className={cn(
+            "flex flex-col items-center justify-center gap-0.5 px-2 py-1 rounded-lg text-[10px] font-medium transition-all active:scale-95",
+            pathname === "/dashboard"
+              ? "text-primary font-bold"
+              : "text-muted-foreground hover:text-foreground",
+          )}
+        >
+          <LayoutDashboard className="size-5" />
+          <span>Dashboard</span>
+        </Link>
+
+        <Link
+          to="/grade"
+          className={cn(
+            "flex flex-col items-center justify-center gap-0.5 px-2 py-1 rounded-lg text-[10px] font-medium transition-all active:scale-95",
+            pathname === "/grade" || pathname.startsWith("/essay")
+              ? "text-primary font-bold"
+              : "text-muted-foreground hover:text-foreground",
+          )}
+        >
+          <PenLine className="size-5" />
+          <span>Grade</span>
+        </Link>
+
+        <Link
+          to="/mcq-live"
+          className={cn(
+            "flex flex-col items-center justify-center gap-0.5 px-2 py-1 rounded-lg text-[10px] font-medium transition-all active:scale-95",
+            pathname.startsWith("/mcq")
+              ? "text-primary font-bold"
+              : "text-muted-foreground hover:text-foreground",
+          )}
+        >
+          <ListChecks className="size-5" />
+          <span>MCQ</span>
+        </Link>
+
+        <Link
+          to="/data-response"
+          className={cn(
+            "flex flex-col items-center justify-center gap-0.5 px-2 py-1 rounded-lg text-[10px] font-medium transition-all active:scale-95",
+            pathname.startsWith("/data-response")
+              ? "text-primary font-bold"
+              : "text-muted-foreground hover:text-foreground",
+          )}
+        >
+          <FileSpreadsheet className="size-5" />
+          <span>Data Resp</span>
+        </Link>
+
+        <button
+          type="button"
+          onClick={() => setMobileDrawerOpen(true)}
+          className="flex flex-col items-center justify-center gap-0.5 px-2 py-1 rounded-lg text-[10px] font-medium text-muted-foreground hover:text-foreground active:scale-95 transition-all cursor-pointer"
+        >
+          <Menu className="size-5" />
+          <span>All Tools</span>
+        </button>
+      </nav>
 
       <LockedFeatureModal
         open={lockedModalType !== null}
@@ -1867,14 +1939,16 @@ export function PageHeader({
   title,
   description,
   action,
+  maxWidthClassName = "max-w-7xl 2xl:max-w-[1600px]",
 }: {
   title: string;
   description?: string;
   action?: ReactNode;
+  maxWidthClassName?: string;
 }) {
   return (
     <div className="border-b border-border bg-card/60 px-4 py-3.5 sm:px-6 sm:py-5 md:px-8">
-      <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
+      <div className={cn("mx-auto flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between", maxWidthClassName)}>
         <div className="min-w-0">
           <h1 className="text-lg font-bold tracking-tight text-foreground sm:text-2xl">{title}</h1>
           {description ? (

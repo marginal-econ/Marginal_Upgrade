@@ -328,7 +328,7 @@ export function DashboardPage() {
         }
       />
 
-      <div className="space-y-5 px-4 py-5 sm:px-6 md:px-8">
+      <div className="max-w-7xl 2xl:max-w-[1600px] mx-auto space-y-5 px-4 py-5 sm:px-6 md:px-8">
         {/* Compact Candidate Status Strip */}
         <section className="rounded-xl border border-border/80 bg-card p-3.5 sm:p-5 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 sm:gap-4">
           <div className="space-y-1">
@@ -420,7 +420,7 @@ export function DashboardPage() {
         )}
 
         {/* 4 Clean Stat Cards */}
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
           <InteractiveStat
             label="Essays marked"
             value={String(versions.length)}
@@ -1111,30 +1111,30 @@ function InteractiveStat({
   icon: typeof PenLine;
 }) {
   return (
-    <div className="rounded-xl border border-border/80 bg-card p-3.5 sm:p-4 shadow-xs transition-all duration-200 hover:border-primary/40 hover:shadow-sm flex flex-col justify-between">
-      <div className="flex items-center justify-between">
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+    <div className="rounded-xl border border-border/80 bg-card p-3 sm:p-4 shadow-xs transition-all duration-200 hover:border-primary/40 hover:shadow-sm flex flex-col justify-between">
+      <div className="flex items-center justify-between gap-1">
+        <p className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-muted-foreground truncate">
           {label}
         </p>
-        <div className="flex size-6 items-center justify-center rounded-md bg-primary/10 text-primary">
-          <Icon className="size-3.5" />
+        <div className="flex size-5 sm:size-6 items-center justify-center rounded-md bg-primary/10 text-primary shrink-0">
+          <Icon className="size-3 sm:size-3.5" />
         </div>
       </div>
 
-      <div className="mt-2.5 flex items-baseline justify-between gap-2">
+      <div className="mt-2 sm:mt-2.5 flex items-baseline justify-between gap-1.5 sm:gap-2">
         {loading ? (
-          <Skeleton className="h-7 w-16" />
+          <Skeleton className="h-6 sm:h-7 w-12 sm:w-16" />
         ) : (
-          <p className="text-xl sm:text-2xl font-bold tracking-tight text-foreground tabular-nums">
+          <p className="text-lg sm:text-2xl font-bold tracking-tight text-foreground tabular-nums">
             {value}
           </p>
         )}
-        <Badge variant="secondary" className="text-[10px] font-medium px-1.5 py-0.2">
+        <Badge variant="secondary" className="text-[9px] sm:text-[10px] font-medium px-1 sm:px-1.5 py-0 truncate">
           {badge}
         </Badge>
       </div>
 
-      <p className="mt-1 text-[11px] text-muted-foreground truncate">{hint}</p>
+      <p className="mt-1 text-[10px] sm:text-[11px] text-muted-foreground truncate">{hint}</p>
     </div>
   );
 }
