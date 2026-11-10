@@ -72,6 +72,7 @@ import { cn } from "@/lib/utils";
 import { TopTutorialButton } from "@/components/tutorials/feature-tutorial-dialog";
 import { matchTutorialByPath } from "@/lib/tutorials-data";
 import { useFeatureTutorial } from "@/components/tutorials/tutorial-context";
+import { CommandPalette } from "@/components/app/command-palette";
 
 export type NavItem = {
   to: string;
@@ -444,6 +445,26 @@ export function AppShell({
   const [lockedModalType, setLockedModalType] = useState<LockedFeatureType>(null);
   const [navLayout, setNavLayout] = useState<NavigationLayout>(() => getPlatformNavLayout());
   const [activeDockCategory, setActiveDockCategory] = useState<string>("grading");
+  const [commandOpen, setCommandOpen] = useState(false);
+
+  // Global ⌘K / Ctrl+K and / command palette trigger
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setCommandOpen((prev) => !prev);
+      } else if (
+        e.key === "/" &&
+        !["INPUT", "TEXTAREA", "SELECT"].includes((e.target as HTMLElement)?.tagName) &&
+        !(e.target as HTMLElement)?.isContentEditable
+      ) {
+        e.preventDefault();
+        setCommandOpen(true);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   useEffect(() => {
     const onLayoutChange = (e: Event) => {
@@ -856,6 +877,27 @@ export function AppShell({
             ) : null}
           </div>
 
+          {/* Global Search / Command Palette Trigger */}
+          <button
+            type="button"
+            onClick={() => setCommandOpen(true)}
+            className={cn(
+              "mb-2.5 flex items-center rounded-xl border border-sidebar-border bg-sidebar-accent/50 py-1.5 text-xs font-medium text-muted-foreground hover:bg-sidebar-accent hover:text-foreground transition-all cursor-pointer shrink-0 group",
+              sidebarCollapsed ? "justify-center px-1" : "justify-between px-2.5",
+            )}
+            title="Search pages, 7000+ definitions, diagrams (⌘K)"
+          >
+            <div className="flex items-center gap-2 min-w-0">
+              <SearchIcon className="size-3.5 text-primary shrink-0 group-hover:scale-110 transition-transform" />
+              {!sidebarCollapsed && <span className="truncate">Search or jump...</span>}
+            </div>
+            {!sidebarCollapsed && (
+              <kbd className="pointer-events-none inline-flex h-4 select-none items-center rounded border border-sidebar-border bg-background/60 px-1 font-mono text-[9px] text-muted-foreground">
+                ⌘K
+              </kbd>
+            )}
+          </button>
+
           {sidebarCollapsed ? (
             <div className="flex flex-col items-center gap-2 mb-2 shrink-0">
               <Button
@@ -1147,6 +1189,17 @@ export function AppShell({
                   className="size-7 object-contain"
                 />
               </Link>
+
+              <button
+                type="button"
+                onClick={() => setCommandOpen(true)}
+                className="size-10 rounded-xl flex flex-col items-center justify-center text-muted-foreground hover:bg-sidebar-accent hover:text-foreground transition-all cursor-pointer group"
+                title="Search Cambridge 9708 (⌘K)"
+              >
+                <SearchIcon className="size-4.5 text-primary group-hover:scale-110 transition-transform" />
+                <span className="text-[8.5px] font-bold text-muted-foreground/80 mt-0.5">Search</span>
+              </button>
+
               <div className="w-8 h-px bg-sidebar-border/70 my-1" />
 
               {/* Category Icons */}
@@ -1474,6 +1527,15 @@ export function AppShell({
           </div>
 
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setCommandOpen(true)}
+              className="flex items-center justify-center size-8 rounded-full border border-border/80 hover:bg-muted transition-colors text-muted-foreground hover:text-foreground cursor-pointer"
+              title="Search Cambridge 9708 (⌘K)"
+              aria-label="Search or jump"
+            >
+              <SearchIcon className="size-3.5" />
+            </button>
             <TopTutorialButton size="sm" />
             <LayoutSwitcherButton
               navLayout={navLayout}
@@ -1708,6 +1770,19 @@ export function AppShell({
 
             {/* Right: Utilities, Switcher, Tutorials, User Menu */}
             <div className="flex items-center gap-2.5 shrink-0">
+              <button
+                type="button"
+                onClick={() => setCommandOpen(true)}
+                className="flex items-center gap-2 rounded-xl border border-border/80 bg-muted/40 px-3 py-1.5 text-xs text-muted-foreground hover:border-primary/40 hover:bg-muted/70 hover:text-foreground transition-all cursor-pointer shadow-2xs group"
+                title="Search Cambridge 9708 definitions, diagrams & tools (⌘K)"
+              >
+                <SearchIcon className="size-3.5 text-primary group-hover:scale-110 transition-transform" />
+                <span className="hidden xl:inline text-muted-foreground/90 font-medium">Search or jump...</span>
+                <kbd className="pointer-events-none hidden sm:inline-flex h-4.5 select-none items-center gap-0.5 rounded border border-border bg-background px-1.5 font-mono text-[9.5px] font-medium text-muted-foreground">
+                  ⌘K
+                </kbd>
+              </button>
+
               <TopTutorialButton />
 
               <LayoutSwitcherButton
@@ -1824,6 +1899,19 @@ export function AppShell({
             </div>
 
             <div className="flex items-center gap-2.5 shrink-0">
+              <button
+                type="button"
+                onClick={() => setCommandOpen(true)}
+                className="flex items-center gap-2 rounded-xl border border-border/80 bg-muted/40 px-3 py-1.5 text-xs text-muted-foreground hover:border-primary/40 hover:bg-muted/70 hover:text-foreground transition-all cursor-pointer shadow-2xs group"
+                title="Search Cambridge 9708 definitions, diagrams & tools (⌘K)"
+              >
+                <SearchIcon className="size-3.5 text-primary group-hover:scale-110 transition-transform" />
+                <span className="hidden xl:inline text-muted-foreground/90 font-medium">Search or jump...</span>
+                <kbd className="pointer-events-none hidden sm:inline-flex h-4.5 select-none items-center gap-0.5 rounded border border-border bg-background px-1.5 font-mono text-[9.5px] font-medium text-muted-foreground">
+                  ⌘K
+                </kbd>
+              </button>
+
               <TopTutorialButton />
 
               <LayoutSwitcherButton
@@ -1921,6 +2009,15 @@ export function AppShell({
           <span>All Tools</span>
         </button>
       </nav>
+
+      <CommandPalette
+        open={commandOpen}
+        onOpenChange={setCommandOpen}
+        role={role}
+        isAdmin={isUserAdmin}
+        onLayoutChange={handleLayoutChange}
+        onSignOut={signOut}
+      />
 
       <LockedFeatureModal
         open={lockedModalType !== null}

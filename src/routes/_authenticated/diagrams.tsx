@@ -17,6 +17,10 @@ import type { DiagramEntry, DiagramSection } from "@/lib/diagrams/types";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/diagrams")({
+  validateSearch: (search: Record<string, unknown>) => ({
+    id: typeof search.id === "string" ? search.id : undefined,
+    q: typeof search.q === "string" ? search.q : undefined,
+  }),
   head: () => ({
     meta: [
       { title: "Diagram library — Cambridge 9708 Economics" },
@@ -39,9 +43,21 @@ export const Route = createFileRoute("/_authenticated/diagrams")({
 });
 
 function DiagramLibraryPage() {
+  const routeSearch = Route.useSearch();
   const [section, setSection] = useState<DiagramSection>("Microeconomics");
-  const [query, setQuery] = useState("");
-  const [selectedId, setSelectedId] = useState<string>(BUILT_IN[0]?.id ?? "");
+  const [query, setQuery] = useState(() => routeSearch.q ?? "");
+  const [selectedId, setSelectedId] = useState<string>(() => routeSearch.id ?? BUILT_IN[0]?.id ?? "");
+
+  useEffect(() => {
+    if (routeSearch.id) {
+      setSelectedId(routeSearch.id);
+      const found = BUILT_IN.find((d) => d.id === routeSearch.id);
+      if (found) setSection(found.section);
+    }
+    if (typeof routeSearch.q === "string") {
+      setQuery(routeSearch.q);
+    }
+  }, [routeSearch.id, routeSearch.q]);
 
   const fetchMe = useServerFn(getMe);
   const me = useQuery({ queryKey: ["me"], queryFn: () => fetchMe() });
