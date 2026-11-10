@@ -528,7 +528,8 @@ function Index() {
                 </span>
                 <span className="rounded-full bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-0.5 text-[10.5px] font-mono font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5 shadow-2xs">
                   <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  RAG Grounded · May/June 2026 Series
+                  <Users className="size-3 text-emerald-500" />
+                  ~1,200+ Active Users
                 </span>
               </div>
             </Reveal>
