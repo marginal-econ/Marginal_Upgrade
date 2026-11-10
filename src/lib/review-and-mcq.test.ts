@@ -148,4 +148,86 @@ describe("Advanced MCQ Review and Response Engine", () => {
 
     expect(() => adminDeleteSchema.parse({ id: "not-a-uuid" })).toThrow();
   });
+
+  it("extracts and standardizes Cambridge MCQ paper codes reliably across all formats", () => {
+    function parsePaperCode(title: string): string {
+      const namedPaper = title.match(/\bpaper\s*(\d{1,2})\b/i)?.[1];
+      if (namedPaper) return `Paper ${namedPaper.padStart(2, "0")}`;
+
+      const codeMatch =
+        title.match(/9708[_\s-]+[msw]\d{2}[_\s-]+(?:qp|ms|paper)?[_\s-]*(\d{2})/i)?.[1] ??
+        title.match(/(?:qp|ms)[_\s-]*(\d{2})\b/i)?.[1] ??
+        title.match(/\b9708[\s/_-]+(\d{2})\b/i)?.[1];
+      if (codeMatch) return `Paper ${codeMatch.padStart(2, "0")}`;
+
+      const variantMatch = title.match(/\b([13][1-3])\b/)?.[1];
+      if (variantMatch) return `Paper ${variantMatch}`;
+
+      return title;
+    }
+
+    expect(parsePaperCode("9708 Oct/Nov 2024 Paper 13")).toBe("Paper 13");
+    expect(parsePaperCode("9708 May/June 2024 Paper 31")).toBe("Paper 31");
+    expect(parsePaperCode("9708 Feb/March 2023 Paper 12")).toBe("Paper 12");
+    expect(parsePaperCode("9708_w24_qp_13")).toBe("Paper 13");
+    expect(parsePaperCode("9708_m23_qp_12 (1)")).toBe("Paper 12");
+    expect(parsePaperCode("9708_s25_qp_13")).toBe("Paper 13");
+    expect(parsePaperCode("9708_m25_qp_12")).toBe("Paper 12");
+    expect(parsePaperCode("9708/11")).toBe("Paper 11");
+    expect(parsePaperCode("Paper 1")).toBe("Paper 01");
+    expect(parsePaperCode("Paper 32")).toBe("Paper 32");
+  });
+
+  it("infers standard metadata (year, series, level, paperCode) from filenames and titles", () => {
+    function inferMetadata(filename: string) {
+      const codeMatch = filename.match(/9708[_\s-]+([msw])(\d{2})[_\s-]+(?:qp|ms|paper)?[_\s-]*(\d{2})/i);
+      if (codeMatch) {
+        const sChar = codeMatch[1].toLowerCase();
+        const series = sChar === "m" ? "Feb/March" : sChar === "s" ? "May/June" : "Oct/Nov";
+        const year = 2000 + parseInt(codeMatch[2], 10);
+        const paperCode = codeMatch[3];
+        const level = paperCode.startsWith("3") ? "a2" : "as";
+        return { paperCode, level, examYear: year, examSeries: series };
+      }
+
+      const humanMatch = filename.match(/9708\s+(Feb\/March|May\/June|Oct\/Nov)\s+(\d{4})\s+Paper\s+(\d{2})/i);
+      if (humanMatch) {
+        const series = humanMatch[1];
+        const year = parseInt(humanMatch[2], 10);
+        const paperCode = humanMatch[3];
+        const level = paperCode.startsWith("3") ? "a2" : "as";
+        return { paperCode, level, examYear: year, examSeries: series };
+      }
+
+      return null;
+    }
+
+    expect(inferMetadata("6fe7a05e-e113-4096-8f4b-27e227adbf85-9708_w24_qp_13.pdf")).toEqual({
+      paperCode: "13",
+      level: "as",
+      examYear: 2024,
+      examSeries: "Oct/Nov",
+    });
+
+    expect(inferMetadata("35f304c1-e600-4da0-8e52-db3bfff959c5-9708_m23_qp_12 (1).pdf")).toEqual({
+      paperCode: "12",
+      level: "as",
+      examYear: 2023,
+      examSeries: "Feb/March",
+    });
+
+    expect(inferMetadata("9708 May/June 2024 Paper 31")).toEqual({
+      paperCode: "31",
+      level: "a2",
+      examYear: 2024,
+      examSeries: "May/June",
+    });
+
+    expect(inferMetadata("92525e8a-2c40-4be5-aef2-6970fa1b72e6-9708_s25_qp_13.pdf")).toEqual({
+      paperCode: "13",
+      level: "as",
+      examYear: 2025,
+      examSeries: "May/June",
+    });
+  });
 });

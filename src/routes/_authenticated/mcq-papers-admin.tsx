@@ -76,13 +76,55 @@ function stem(filename: string) {
     .trim();
 }
 
-function inferPaperCode(filename: string, level: Level): string {
-  return (
-    filename.match(/\b9708[\s/_-]*(?:s|w|m)?\d{2}[\s/_-]*(\d{2})\b/i)?.[1] ??
-    filename.match(/\b(?:s|w|m)\d{2}[\s/_-]*(\d{2})\b/i)?.[1] ??
+function inferMetadataFromFilename(filename: string): {
+  paperCode: string;
+  level: Level;
+  examYear: number;
+  examSeries: ExamSeries;
+} {
+  // 1. Standard Cambridge code e.g. 9708_w24_qp_13 or 9708-m23-12
+  const codeMatch = filename.match(/9708[_\s-]+([msw])(\d{2})[_\s-]+(?:qp|ms|paper)?[_\s-]*(\d{2})/i);
+  if (codeMatch) {
+    const sChar = codeMatch[1].toLowerCase();
+    const series: ExamSeries = sChar === "m" ? "Feb/March" : sChar === "s" ? "May/June" : "Oct/Nov";
+    const year = 2000 + parseInt(codeMatch[2], 10);
+    const paperCode = codeMatch[3];
+    const level: Level = paperCode.startsWith("3") ? "a2" : "as";
+    return { paperCode, level, examYear: year, examSeries: series };
+  }
+
+  // 2. Human title e.g. 9708 Oct/Nov 2024 Paper 13
+  const humanMatch = filename.match(/9708\s+(Feb\/March|May\/June|Oct\/Nov)\s+(\d{4})\s+Paper\s+(\d{2})/i);
+  if (humanMatch) {
+    const series = humanMatch[1] as ExamSeries;
+    const year = parseInt(humanMatch[2], 10);
+    const paperCode = humanMatch[3];
+    const level: Level = paperCode.startsWith("3") ? "a2" : "as";
+    return { paperCode, level, examYear: year, examSeries: series };
+  }
+
+  // 3. Fallback components
+  const yearMatch = filename.match(/\b(20\d{2})\b/);
+  const year = yearMatch ? parseInt(yearMatch[1], 10) : CURRENT_YEAR;
+
+  let series: ExamSeries = "May/June";
+  if (/\b(?:oct|nov|winter|w\d{2})\b/i.test(filename)) series = "Oct/Nov";
+  else if (/\b(?:feb|march|mar|m\d{2})\b/i.test(filename)) series = "Feb/March";
+  else if (/\b(?:may|june|jun|summer|s\d{2})\b/i.test(filename)) series = "May/June";
+
+  const codeVariant =
+    filename.match(/(?:qp|ms)[_\s-]*(\d{2})\b/i)?.[1] ??
     filename.match(/\bpaper[\s/_-]*(\d{2})\b/i)?.[1] ??
-    (level === "as" ? "11" : "31")
-  );
+    filename.match(/\b([13][1-3])\b/)?.[1] ??
+    "11";
+
+  const level: Level = codeVariant.startsWith("3") ? "a2" : "as";
+
+  return { paperCode: codeVariant, level, examYear: year, examSeries: series };
+}
+
+function inferPaperCode(filename: string, level: Level): string {
+  return inferMetadataFromFilename(filename).paperCode;
 }
 
 function paperCodeOptions(level: Level) {
@@ -131,13 +173,14 @@ function McqPapersAdminPage() {
   async function handleQpFiles(files: FileList) {
     const newDrafts: DraftRow[] = [];
     for (const file of Array.from(files)) {
+      const inferred = inferMetadataFromFilename(file.name);
       newDrafts.push({
         key: crypto.randomUUID(),
         title: stem(file.name) || file.name,
-        paperCode: inferPaperCode(file.name, "as"),
-        level: "as",
-        examYear: CURRENT_YEAR,
-        examSeries: "May/June",
+        paperCode: inferred.paperCode,
+        level: inferred.level,
+        examYear: inferred.examYear,
+        examSeries: inferred.examSeries,
         qpFile: file,
         msFile: null,
         answerKey: {},

@@ -2595,11 +2595,22 @@ type McqPaperSummary = Awaited<ReturnType<typeof listMcqPapers>>["papers"][numbe
 const SERIES_DISPLAY_ORDER = ["Oct/Nov", "May/June", "Feb/March"] as const;
 
 function paperCode(paper: McqPaperSummary): string {
-  const syllabusVariant = paper.title.match(/\b9708[\s/_-]*(?:s|w|m)?[\s/_-]*(\d{2})\b/i)?.[1];
+  // 1. Look for explicit "Paper XX"
   const namedPaper = paper.title.match(/\bpaper\s*(\d{1,2})\b/i)?.[1];
-  const compactVariant = paper.title.match(/\b(?:s|w|m)\d{2}[\s/_-]*(\d{2})\b/i)?.[1];
-  const code = syllabusVariant ?? namedPaper ?? compactVariant;
-  return code ? `Paper ${code.padStart(2, "0")}` : paper.title;
+  if (namedPaper) return `Paper ${namedPaper.padStart(2, "0")}`;
+
+  // 2. Look for Cambridge code e.g. 9708_w24_qp_13 or 9708-m23-12
+  const codeMatch =
+    paper.title.match(/9708[_\s-]+[msw]\d{2}[_\s-]+(?:qp|ms|paper)?[_\s-]*(\d{2})/i)?.[1] ??
+    paper.title.match(/(?:qp|ms)[_\s-]*(\d{2})\b/i)?.[1] ??
+    paper.title.match(/\b9708[\s/_-]+(\d{2})\b/i)?.[1];
+  if (codeMatch) return `Paper ${codeMatch.padStart(2, "0")}`;
+
+  // 3. Fallback: match any two-digit paper code like 11, 12, 13, 31, 32, 33
+  const variantMatch = paper.title.match(/\b([13][1-3])\b/)?.[1];
+  if (variantMatch) return `Paper ${variantMatch}`;
+
+  return paper.title;
 }
 
 function hasCompleteAnswerKey(paper: McqPaperSummary): boolean {
@@ -2612,8 +2623,6 @@ function hasCompleteAnswerKey(paper: McqPaperSummary): boolean {
 function uniqueSorted<T>(values: T[], compare: (a: T, b: T) => number): T[] {
   return Array.from(new Set(values)).sort(compare);
 }
-
-
 
 function PastPaperSelector({
   papers,
@@ -2630,99 +2639,146 @@ function PastPaperSelector({
   activeDraftPaperId?: string | null;
   activeDraftAnswersCount?: number;
 }) {
-  const years = uniqueSorted(
-    papers.map((paper) => (paper.examYear ? String(paper.examYear) : "Unsorted")),
-    (a, b) => {
-      if (a === "Unsorted") return 1;
-      if (b === "Unsorted") return -1;
-      return Number(b) - Number(a);
-    },
-  );
-  const [year, setYear] = useState(years[0]);
+  const years = useMemo(() => {
+    return uniqueSorted(
+      papers.map((paper) => (paper.examYear ? String(paper.examYear) : "Unsorted")),
+      (a, b) => {
+        if (a === "Unsorted") return 1;
+        if (b === "Unsorted") return -1;
+        return Number(b) - Number(a);
+      },
+    );
+  }, [papers]);
 
-  useEffect(() => {
-    if (years.length > 0 && !years.includes(year)) {
-      setYear(years[0]);
-    }
-  }, [years, year]);
+  const [selectedYear, setSelectedYear] = useState<string>("");
+  const activeYear = years.includes(selectedYear) ? selectedYear : (years[0] ?? "");
 
-  const yearPapers = papers.filter(
-    (paper) => (paper.examYear ? String(paper.examYear) : "Unsorted") === year,
-  );
-  const seriesOptions = uniqueSorted(
-    yearPapers.map((paper) => paper.examSeries ?? "Unsorted"),
-    (a, b) => {
-      if (a === "Unsorted") return 1;
-      if (b === "Unsorted") return -1;
-      const ai = SERIES_DISPLAY_ORDER.indexOf(a as (typeof SERIES_DISPLAY_ORDER)[number]);
-      const bi = SERIES_DISPLAY_ORDER.indexOf(b as (typeof SERIES_DISPLAY_ORDER)[number]);
-      return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
-    },
-  );
-  const [series, setSeries] = useState(seriesOptions[0]);
+  const yearPapers = useMemo(() => {
+    return papers.filter(
+      (paper) => (paper.examYear ? String(paper.examYear) : "Unsorted") === activeYear,
+    );
+  }, [papers, activeYear]);
 
-  useEffect(() => {
-    if (seriesOptions.length > 0 && !seriesOptions.includes(series)) {
-      setSeries(seriesOptions[0]);
-    }
-  }, [seriesOptions, series]);
-  const seriesPapers = yearPapers.filter((paper) => (paper.examSeries ?? "Unsorted") === series);
-  const levels = uniqueSorted(
-    seriesPapers.map((paper) => paper.level),
-    (a, b) => a.localeCompare(b),
-  );
-  const [selectedLevel, setSelectedLevel] = useState<Level>(() => {
+  const seriesOptions = useMemo(() => {
+    return uniqueSorted(
+      yearPapers.map((paper) => paper.examSeries ?? "Unsorted"),
+      (a, b) => {
+        if (a === "Unsorted") return 1;
+        if (b === "Unsorted") return -1;
+        const ai = SERIES_DISPLAY_ORDER.indexOf(a as (typeof SERIES_DISPLAY_ORDER)[number]);
+        const bi = SERIES_DISPLAY_ORDER.indexOf(b as (typeof SERIES_DISPLAY_ORDER)[number]);
+        return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+      },
+    );
+  }, [yearPapers]);
+
+  const [selectedSeries, setSelectedSeries] = useState<string>("");
+  const activeSeries = seriesOptions.includes(selectedSeries)
+    ? selectedSeries
+    : (seriesOptions[0] ?? "");
+
+  const seriesPapers = useMemo(() => {
+    return yearPapers.filter((paper) => (paper.examSeries ?? "Unsorted") === activeSeries);
+  }, [yearPapers, activeSeries]);
+
+  const levels = useMemo(() => {
+    return uniqueSorted(
+      seriesPapers.map((paper) => paper.level),
+      (a, b) => a.localeCompare(b),
+    );
+  }, [seriesPapers]);
+
+  const [preferredLevel, setPreferredLevel] = useState<Level>(() => {
     try {
       const saved = window.localStorage.getItem("marginal_candidate_prefs");
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (parsed.targetLevel === "a2_level" && levels.includes("a2")) return "a2";
-        if (parsed.targetLevel === "as_level" && levels.includes("as")) return "as";
+        if (parsed.targetLevel === "a2_level") return "a2";
+        if (parsed.targetLevel === "as_level") return "as";
       }
     } catch {
       // fallback
     }
-    return levels[0] ?? "as";
+    return "as";
   });
-  const matchingPapers = seriesPapers.filter((paper) => paper.level === selectedLevel);
-  const [paperId, setPaperId] = useState(matchingPapers[0]?.id ?? "");
 
-  const selectedPaper =
-    matchingPapers.find((paper) => paper.id === paperId) ?? matchingPapers[0] ?? null;
+  const activeLevel = levels.includes(preferredLevel) ? preferredLevel : (levels[0] ?? "as");
+
+  const matchingPapers = useMemo(() => {
+    return seriesPapers
+      .filter((paper) => paper.level === activeLevel)
+      .sort((a, b) => paperCode(a).localeCompare(paperCode(b)));
+  }, [seriesPapers, activeLevel]);
+
+  const [selectedPaperId, setSelectedPaperId] = useState<string>("");
+  const selectedPaper = useMemo(() => {
+    return matchingPapers.find((paper) => paper.id === selectedPaperId) ?? matchingPapers[0] ?? null;
+  }, [matchingPapers, selectedPaperId]);
 
   function chooseYear(nextYear: string) {
+    setSelectedYear(nextYear);
     const nextYearPapers = papers.filter(
       (paper) => (paper.examYear ? String(paper.examYear) : "Unsorted") === nextYear,
     );
-    const nextSeries = uniqueSorted(
+    const nextSeriesOptions = uniqueSorted(
       nextYearPapers.map((paper) => paper.examSeries ?? "Unsorted"),
-      (a, b) =>
-        SERIES_DISPLAY_ORDER.indexOf(a as (typeof SERIES_DISPLAY_ORDER)[number]) -
-        SERIES_DISPLAY_ORDER.indexOf(b as (typeof SERIES_DISPLAY_ORDER)[number]),
-    )[0];
-    const nextPapers = nextYearPapers.filter(
+      (a, b) => {
+        if (a === "Unsorted") return 1;
+        if (b === "Unsorted") return -1;
+        const ai = SERIES_DISPLAY_ORDER.indexOf(a as (typeof SERIES_DISPLAY_ORDER)[number]);
+        const bi = SERIES_DISPLAY_ORDER.indexOf(b as (typeof SERIES_DISPLAY_ORDER)[number]);
+        return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+      },
+    );
+    const nextSeries = nextSeriesOptions.includes(activeSeries)
+      ? activeSeries
+      : (nextSeriesOptions[0] ?? "");
+    setSelectedSeries(nextSeries);
+
+    const nextSeriesPapers = nextYearPapers.filter(
       (paper) => (paper.examSeries ?? "Unsorted") === nextSeries,
     );
-    const nextLevel = nextPapers[0]?.level ?? "as";
-    setYear(nextYear);
-    setSeries(nextSeries);
-    setSelectedLevel(nextLevel);
-    setPaperId(nextPapers.find((paper) => paper.level === nextLevel)?.id ?? "");
+    const nextLevels = uniqueSorted(
+      nextSeriesPapers.map((paper) => paper.level),
+      (a, b) => a.localeCompare(b),
+    );
+    const nextLevel = nextLevels.includes(activeLevel) ? activeLevel : (nextLevels[0] ?? "as");
+    setPreferredLevel(nextLevel);
+
+    const nextMatching = nextSeriesPapers
+      .filter((paper) => paper.level === nextLevel)
+      .sort((a, b) => paperCode(a).localeCompare(paperCode(b)));
+    setSelectedPaperId(nextMatching[0]?.id ?? "");
   }
 
   function chooseSeries(nextSeries: string) {
-    const nextPapers = yearPapers.filter(
+    setSelectedSeries(nextSeries);
+    const nextSeriesPapers = yearPapers.filter(
       (paper) => (paper.examSeries ?? "Unsorted") === nextSeries,
     );
-    const nextLevel = nextPapers[0]?.level ?? "as";
-    setSeries(nextSeries);
-    setSelectedLevel(nextLevel);
-    setPaperId(nextPapers.find((paper) => paper.level === nextLevel)?.id ?? "");
+    const nextLevels = uniqueSorted(
+      nextSeriesPapers.map((paper) => paper.level),
+      (a, b) => a.localeCompare(b),
+    );
+    const nextLevel = nextLevels.includes(activeLevel) ? activeLevel : (nextLevels[0] ?? "as");
+    setPreferredLevel(nextLevel);
+
+    const nextMatching = nextSeriesPapers
+      .filter((paper) => paper.level === nextLevel)
+      .sort((a, b) => paperCode(a).localeCompare(paperCode(b)));
+    setSelectedPaperId(nextMatching[0]?.id ?? "");
   }
 
   function chooseLevel(nextLevel: Level) {
-    setSelectedLevel(nextLevel);
-    setPaperId(seriesPapers.find((paper) => paper.level === nextLevel)?.id ?? "");
+    setPreferredLevel(nextLevel);
+    const nextMatching = seriesPapers
+      .filter((paper) => paper.level === nextLevel)
+      .sort((a, b) => paperCode(a).localeCompare(paperCode(b)));
+    setSelectedPaperId(nextMatching[0]?.id ?? "");
+  }
+
+  function choosePaperId(nextId: string) {
+    setSelectedPaperId(nextId);
   }
 
   return (
@@ -2741,16 +2797,16 @@ function PastPaperSelector({
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">
-          <PaperSelect label="Year" value={year} options={years} onChange={chooseYear} />
+          <PaperSelect label="Year" value={activeYear} options={years} onChange={chooseYear} />
           <PaperSelect
             label="Exam session"
-            value={series}
+            value={activeSeries}
             options={seriesOptions}
             onChange={chooseSeries}
           />
           <PaperSelect
             label="Level"
-            value={selectedLevel}
+            value={activeLevel}
             options={levels}
             format={(value) => (value === "as" ? "AS Level" : "A Level")}
             onChange={(value) => chooseLevel(value as Level)}
@@ -2763,7 +2819,7 @@ function PastPaperSelector({
               const paper = matchingPapers.find((entry) => entry.id === id);
               return paper ? paperCode(paper) : "Select a paper";
             }}
-            onChange={setPaperId}
+            onChange={choosePaperId}
           />
         </div>
 
