@@ -249,12 +249,20 @@ const NAV_GROUPS: NavGroup[] = [
     collapsible: true,
     items: [
       { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-      { to: "/grade", label: "Grade Essays", icon: PenLine },
-      { to: "/mcq-live", label: "MCQ Past Papers", icon: ListChecks },
+      { to: "/grade", label: "Grade Essays", icon: PenLine, badge: "AI Grader" },
+      { to: "/mcq-live", label: "MCQ Past Papers", icon: ListChecks, badge: "P1 & P3" },
       {
         to: "/data-response",
-        label: "Data Response",
+        label: "Data Response Papers",
         icon: FileSpreadsheet,
+        badge: "P2 & P4",
+      },
+      { to: "/essay-generator", label: "Sample Essay Generator", icon: Wand2, badge: "AI Models" },
+      {
+        to: "/response-structure",
+        label: "Essay Structure Guide",
+        icon: GraduationCap,
+        badge: "Guide",
       },
     ],
   },
@@ -267,12 +275,6 @@ const NAV_GROUPS: NavGroup[] = [
       { to: "/diagrams", label: "Diagram Library", icon: LineChart },
       { to: "/question-bank", label: "Question Bank", icon: BookMarked },
       { to: "/paper-matrix", label: "Paper Predictor", icon: Flame },
-      {
-        to: "/response-structure",
-        label: "Essay Structure Guide",
-        icon: GraduationCap,
-      },
-      { to: "/essay-generator", label: "Sample Essay Generator", icon: Wand2 },
       { to: "/command-words", label: "Command Words", icon: Target },
       { to: "/showcase", label: "Exemplars Showcase", icon: Trophy },
     ],
@@ -294,6 +296,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { to: "/admin", label: "Admin Console", icon: ShieldCheck, badge: "Root" },
       { to: "/live-examiner", label: "Live Examiner Studio", icon: Sparkles, badge: "Lab", adminOnly: true },
+      { to: "/calibration", label: "Anchor Calibration", icon: ShieldCheck, adminOnly: true },
     ],
   },
 ];
@@ -305,12 +308,20 @@ const TEACHER_NAV_GROUPS: NavGroup[] = [
     collapsible: true,
     items: [
       { to: "/dashboard", label: "Educator Dashboard", icon: LayoutDashboard },
-      { to: "/grade", label: "Grade Essays", icon: PenLine },
-      { to: "/mcq-live", label: "MCQ Past Papers", icon: ListChecks },
+      { to: "/grade", label: "Grade Essays", icon: PenLine, badge: "AI Grader" },
+      { to: "/mcq-live", label: "MCQ Past Papers", icon: ListChecks, badge: "P1 & P3" },
       {
         to: "/data-response",
-        label: "Data Response",
+        label: "Data Response Papers",
         icon: FileSpreadsheet,
+        badge: "P2 & P4",
+      },
+      { to: "/essay-generator", label: "Sample Essay Generator", icon: Wand2, badge: "AI Models" },
+      {
+        to: "/response-structure",
+        label: "Essay Structure Guide",
+        icon: GraduationCap,
+        badge: "Guide",
       },
     ],
   },
@@ -320,26 +331,30 @@ const TEACHER_NAV_GROUPS: NavGroup[] = [
     collapsible: true,
     items: [
       { to: "/classes", label: "My Classrooms", icon: UsersRound },
-      { to: "/review", label: "Diagnostics & Review", icon: ClipboardCheck },    ],
+      { to: "/review", label: "Diagnostics & Review", icon: ClipboardCheck },
+    ],
   },
   {
     id: "syllabus",
-    label: "Syllabus & Knowledge",
+    label: "Syllabus Hub",
     collapsible: true,
     items: [
       { to: "/definitions", label: "Definitions Hub", icon: BookText },
       { to: "/diagrams", label: "Diagram Library", icon: LineChart },
       { to: "/question-bank", label: "Question Bank", icon: BookMarked },
       { to: "/paper-matrix", label: "Paper Predictor", icon: Flame },
-      {
-        to: "/response-structure",
-        label: "Essay Structure Guide",
-        icon: GraduationCap,
-      },
-      { to: "/essay-generator", label: "Sample Essay Generator", icon: Wand2 },
-      { to: "/knowledge", label: "Knowledge Base", icon: BookOpen },
-      { to: "/showcase", label: "Exemplars Showcase", icon: Trophy },
       { to: "/command-words", label: "Command Words", icon: Target },
+      { to: "/showcase", label: "Exemplars Showcase", icon: Trophy },
+    ],
+  },
+  {
+    id: "admin",
+    label: "Administration",
+    adminOnly: true,
+    collapsible: true,
+    items: [
+      { to: "/admin", label: "Admin Console", icon: ShieldCheck, badge: "Root" },
+      { to: "/live-examiner", label: "Live Examiner Studio", icon: Sparkles, badge: "Lab", adminOnly: true },
       { to: "/calibration", label: "Anchor Calibration", icon: ShieldCheck, adminOnly: true },
     ],
   },
@@ -375,12 +390,22 @@ const GROUP_META: Record<string, { dot: string; text: string; bg: string }> = {
     text: "text-indigo-600 dark:text-indigo-400",
     bg: "hover:bg-indigo-500/10",
   },
+  grading: {
+    dot: "bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.6)]",
+    text: "text-indigo-600 dark:text-indigo-400",
+    bg: "hover:bg-indigo-500/10",
+  },
   syllabus: {
     dot: "bg-sky-500 shadow-[0_0_8px_rgba(14,165,233,0.6)]",
     text: "text-sky-600 dark:text-sky-400",
     bg: "hover:bg-sky-500/10",
   },
   classroom: {
+    dot: "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]",
+    text: "text-emerald-600 dark:text-emerald-400",
+    bg: "hover:bg-emerald-500/10",
+  },
+  dashboard_analytics: {
     dot: "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]",
     text: "text-emerald-600 dark:text-emerald-400",
     bg: "hover:bg-emerald-500/10",
@@ -426,7 +451,7 @@ export function AppShell({
   const [commandOpen, setCommandOpen] = useState(false);
   const [lockedModalType, setLockedModalType] = useState<LockedFeatureType>(null);
   const [navLayout, setNavLayout] = useState<NavigationLayout>(() => getPlatformNavLayout());
-  const [activeDockCategory, setActiveDockCategory] = useState<string>("grading");
+  const [activeDockCategory, setActiveDockCategory] = useState<string>("core");
 
   // Global ⌘K / Ctrl+K and / command palette trigger
   useEffect(() => {
@@ -464,18 +489,6 @@ export function AppShell({
     setNavLayout(layout);
     setPlatformNavLayout(layout);
   };
-
-  // Global Ctrl+K / Cmd+K listener for quick navigation
-  useEffect(() => {
-    const down = (e: KeyboardEvent) => {
-      if ((e.key === "k" || e.key === "K") && (e.metaKey || e.ctrlKey)) {
-        e.preventDefault();
-        setCommandOpen((open) => !open);
-      }
-    };
-    document.addEventListener("keydown", down);
-    return () => document.removeEventListener("keydown", down);
-  }, []);
 
   useEffect(() => {
     try {
@@ -733,11 +746,15 @@ export function AppShell({
   }, [name]);
 
   const practiceGroup = useMemo(
-    () => visibleGroups.find((g) => g.id === "grading"),
+    () => visibleGroups.find((g) => g.id === "core" || g.id === "grading"),
     [visibleGroups],
   );
   const syllabusGroup = useMemo(
     () => visibleGroups.find((g) => g.id === "syllabus"),
+    [visibleGroups],
+  );
+  const classroomGroup = useMemo(
+    () => visibleGroups.find((g) => g.id === "classroom" || g.id === "dashboard_analytics"),
     [visibleGroups],
   );
   const adminGroup = useMemo(
@@ -752,11 +769,22 @@ export function AppShell({
     () => Boolean(syllabusGroup?.items.some((item) => isItemActive(item.to))),
     [syllabusGroup, pathname],
   );
+  const isClassroomActive = useMemo(
+    () =>
+      Boolean(
+        classroomGroup?.items.some((item) => isItemActive(item.to)) ||
+          pathname.startsWith("/classes") ||
+          pathname.startsWith("/review"),
+      ),
+    [classroomGroup, pathname],
+  );
   const isAdminActive = useMemo(
     () =>
       Boolean(
         adminGroup?.items.some((item) => isItemActive(item.to)) ||
-          pathname.startsWith("/admin"),
+          pathname.startsWith("/admin") ||
+          pathname.startsWith("/live-examiner") ||
+          pathname.startsWith("/calibration"),
       ),
     [adminGroup, pathname],
   );
@@ -1042,14 +1070,17 @@ export function AppShell({
 
               {/* Category Icons */}
               {visibleGroups.map((group) => {
-                const isSelected = activeDockCategory === group.id;
+                const effectiveCategory = visibleGroups.some((g) => g.id === activeDockCategory)
+                  ? activeDockCategory
+                  : (visibleGroups[0]?.id ?? "core");
+                const isSelected = effectiveCategory === group.id;
                 const Icon =
-                  group.id === "dashboard_analytics"
-                    ? LayoutDashboard
-                    : group.id === "grading"
-                      ? PenLine
-                      : group.id === "syllabus"
-                        ? BookOpen
+                  group.id === "core" || group.id === "grading"
+                    ? PenLine
+                    : group.id === "syllabus"
+                      ? BookOpen
+                      : group.id === "classroom" || group.id === "dashboard_analytics"
+                        ? UsersRound
                         : ShieldCheck;
 
                 return (
@@ -1067,12 +1098,12 @@ export function AppShell({
                   >
                     <Icon className="size-5" />
                     <span className="text-[9px] font-bold mt-0.5 truncate max-w-[48px]">
-                      {group.id === "dashboard_analytics"
-                        ? "Hub"
-                        : group.id === "grading"
-                          ? "Practice"
-                          : group.id === "syllabus"
-                            ? "Syllabus"
+                      {group.id === "core" || group.id === "grading"
+                        ? "Practice"
+                        : group.id === "syllabus"
+                          ? "Syllabus"
+                          : group.id === "classroom" || group.id === "dashboard_analytics"
+                            ? "Classes"
                             : "Admin"}
                     </span>
                     {isSelected && (
@@ -1109,7 +1140,12 @@ export function AppShell({
           {/* Adjacent Compact Sub-Panel: Scroll-Free 4–6 tools */}
           <div className="w-56 h-full flex flex-col py-3 px-2.5 border-r border-sidebar-border/60 bg-card/60 backdrop-blur-md shrink-0">
             {visibleGroups
-              .filter((g) => g.id === activeDockCategory)
+              .filter(
+                (g) =>
+                  g.id === activeDockCategory ||
+                  (!visibleGroups.some((vg) => vg.id === activeDockCategory) &&
+                    g.id === (visibleGroups[0]?.id ?? "core")),
+              )
               .map((group) => (
                 <div key={group.id} className="flex flex-col h-full">
                   <div className="pb-2.5 mb-2 border-b border-border/60">
@@ -1433,7 +1469,9 @@ export function AppShell({
                       <DropdownMenuLabel className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground px-2 py-1">
                         Cambridge 9708 Practice
                       </DropdownMenuLabel>
-                      {practiceGroup.items.map((item) => (
+                      {practiceGroup.items
+                        .filter((item) => item.to !== "/dashboard")
+                        .map((item) => (
                         <DropdownMenuItem key={item.to} asChild>
                           <Link
                             to={item.to}
@@ -1516,18 +1554,52 @@ export function AppShell({
                   </DropdownMenu>
                 )}
 
-                {/* Classes & Progress Link */}
-                <Link
-                  to="/classes"
-                  className={cn(
-                    "px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer",
-                    pathname.startsWith("/classes")
-                      ? "bg-primary/10 text-primary font-bold shadow-2xs"
-                      : "text-muted-foreground hover:text-foreground hover:bg-muted/80",
-                  )}
-                >
-                  {classroomLabel}
-                </Link>
+                {/* Classes & Progress Dropdown */}
+                {classroomGroup && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        type="button"
+                        className={cn(
+                          "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer",
+                          isClassroomActive
+                            ? "bg-primary/10 text-primary font-bold shadow-2xs"
+                            : "text-muted-foreground hover:text-foreground hover:bg-muted/80",
+                        )}
+                      >
+                        <UsersRound className="size-3.5 text-emerald-500" />
+                        <span>{classroomLabel}</span>
+                        <ChevronDown className="size-3 opacity-60" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="w-56 p-1.5 z-50 bg-popover">
+                      <DropdownMenuLabel className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground px-2 py-1">
+                        Classroom &amp; Progress
+                      </DropdownMenuLabel>
+                      {classroomGroup.items.map((item) => (
+                        <DropdownMenuItem key={item.to} asChild>
+                          <Link
+                            to={item.to}
+                            className={cn(
+                              "flex items-center justify-between gap-2.5 px-2.5 py-2 text-xs rounded-md cursor-pointer",
+                              isItemActive(item.to) && "bg-primary/10 text-primary font-bold",
+                            )}
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              <item.icon className="size-4 shrink-0 text-muted-foreground" />
+                              <span className="truncate">{item.label}</span>
+                            </div>
+                            {item.badge && (
+                              <Badge variant="outline" className="text-[9px] px-1.5 py-0 shrink-0">
+                                {item.badge}
+                              </Badge>
+                            )}
+                          </Link>
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
 
                 {/* Admin Console Dropdown (if admin) */}
                 {isUserAdmin && adminGroup && (
@@ -1571,6 +1643,20 @@ export function AppShell({
                           </div>
                           <Badge variant="outline" className="text-[9px] border-amber-500/35 text-amber-600">
                             Beta
+                          </Badge>
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link
+                          to="/calibration"
+                          className="flex items-center justify-between gap-2 px-2.5 py-2 text-xs cursor-pointer"
+                        >
+                          <div className="flex items-center gap-2">
+                            <ShieldCheck className="size-4 text-purple-600" />
+                            <span>Anchor Calibration</span>
+                          </div>
+                          <Badge variant="outline" className="text-[9px] border-purple-500/35 text-purple-600">
+                            System
                           </Badge>
                         </Link>
                       </DropdownMenuItem>
