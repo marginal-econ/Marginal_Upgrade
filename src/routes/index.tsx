@@ -275,15 +275,6 @@ const TOOLS = [
     href: "/essay-generator",
   },
   {
-    icon: GraduationCap,
-    tile: "bg-indigo-600",
-    badge: "Structure Guide",
-    title: "How to Write an Essay",
-    lead: "Class-taught response structures for 8, 12 & 20 marks",
-    body: "Master the exact step-by-step layout rewarded by Cambridge examiners: knowledge setup, multi-step analysis chains, and balanced evaluation.",
-    href: "/response-structure",
-  },
-  {
     icon: BookOpen,
     tile: "bg-ao3",
     badge: "Revision Vault",
@@ -749,35 +740,42 @@ function Index() {
           <Reveal>
             <SectionHeading
               eyebrow="Cambridge 9708 Tools"
-              title="Master 9708 Paper 1 & Paper 3 MCQs"
+              title="Ten specialized tools, one Cambridge syllabus"
               lead="Everything in Marginal is engineered exclusively for Cambridge AS & A Level Economics (9708). No generic chatbots, no vague study widgets. Hover or tap a card to see what it does."
             />
           </Reveal>
 
           <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-            {TOOLS.map((tool, index) => (
-              <Reveal key={tool.title} variant="pop" delay={index * 35}>
-                <Link
-                  to={isAuthenticated ? tool.href : "/auth"}
-                  search={isAuthenticated ? undefined : ({ redirect: tool.href } as any)}
-                  className="pop pop-press group flex h-full flex-col justify-between p-5 sm:p-6 transition-all duration-300 hover:-translate-y-1 hover:border-primary/60 hover:shadow-xl bg-card border-2 cursor-pointer no-underline block"
+            {TOOLS.map((tool, index) => {
+              const isCenteredStart = TOOLS.length % 4 === 2 && index === TOOLS.length - 2;
+              return (
+                <Reveal
+                  key={tool.title}
+                  variant="pop"
+                  delay={index * 35}
+                  className={cn(isCenteredStart && "lg:col-start-2")}
                 >
-                  <div>
-                    <div className="flex items-center justify-between gap-2">
-                      <span
-                        className={`pop-sm flex size-10 items-center justify-center rounded-xl text-primary-foreground transition-transform duration-300 group-hover:scale-110 ${tool.tile}`}
-                      >
-                        <tool.icon className="size-5" />
-                      </span>
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono text-[9.5px] uppercase tracking-wider font-bold text-muted-foreground bg-muted/80 px-2 py-0.5 rounded-full border border-border/60">
-                          {tool.badge}
+                  <Link
+                    to={isAuthenticated ? tool.href : "/auth"}
+                    search={isAuthenticated ? undefined : ({ redirect: tool.href } as any)}
+                    className="pop pop-press group flex h-full flex-col justify-between p-5 sm:p-6 transition-all duration-300 hover:-translate-y-1 hover:border-primary/60 hover:shadow-xl bg-card border-2 cursor-pointer no-underline block"
+                  >
+                    <div>
+                      <div className="flex items-center justify-between gap-2">
+                        <span
+                          className={`pop-sm flex size-10 items-center justify-center rounded-xl text-primary-foreground transition-transform duration-300 group-hover:scale-110 ${tool.tile}`}
+                        >
+                          <tool.icon className="size-5" />
                         </span>
-                        <span className="font-mono text-[10px] text-muted-foreground font-semibold">
-                          {String(index + 1).padStart(2, "0")} / 08
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-[9.5px] uppercase tracking-wider font-bold text-muted-foreground bg-muted/80 px-2 py-0.5 rounded-full border border-border/60">
+                            {tool.badge}
+                          </span>
+                          <span className="font-mono text-[10px] text-muted-foreground font-semibold">
+                            {String(index + 1).padStart(2, "0")} / {String(TOOLS.length).padStart(2, "0")}
+                          </span>
+                        </div>
                       </div>
-                    </div>
 
                     <h3 className="mt-4 text-base font-bold text-foreground group-hover:text-primary transition-colors">
                       {tool.title}
@@ -801,7 +799,8 @@ function Index() {
                   </div>
                 </Link>
               </Reveal>
-            ))}
+            );
+          })}
           </div>
         </div>
       </section>
