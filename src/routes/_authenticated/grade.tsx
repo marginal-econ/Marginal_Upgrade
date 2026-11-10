@@ -697,7 +697,7 @@ function GradePage() {
             </div>
           </div>
 
-          <div className="grid gap-4 sm:gap-6 px-3.5 py-3 sm:py-5 sm:px-6 md:px-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
+          <div className="grid gap-4 sm:gap-6 px-3.5 py-3 sm:py-5 sm:px-6 md:px-8 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
             <div className="panel space-y-3.5 sm:space-y-4 p-3.5 sm:p-5">
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between gap-2">

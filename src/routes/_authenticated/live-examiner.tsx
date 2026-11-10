@@ -697,7 +697,7 @@ function LiveExaminerPage() {
               {limitNotice}
             </div>
           ) : null}
-          <div className="grid gap-8 lg:grid-cols-[minmax(0,440px)_minmax(0,1fr)]">
+          <div className="grid gap-8 xl:grid-cols-[minmax(0,440px)_minmax(0,1fr)]">
             <div className="space-y-5">
               <div className="space-y-2">
                 <Label>Level</Label>
@@ -853,7 +853,7 @@ function LiveExaminerPage() {
           </div>
         </div>
       ) : (
-        <div className="grid gap-0 lg:grid-cols-[1fr_320px]">
+        <div className="grid gap-0 lg:grid-cols-[1fr_290px] xl:grid-cols-[1fr_340px]">
           <section className="min-w-0 space-y-3 border-border p-5 lg:border-r md:p-6">
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant="secondary">{level === "a2" ? "A Level" : "AS Level"}</Badge>

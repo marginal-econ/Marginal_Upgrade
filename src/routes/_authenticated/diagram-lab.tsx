@@ -236,9 +236,9 @@ function DiagramLabPage() {
         )}
 
         {/* MAIN WORKSPACE GRID */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
           {/* LEFT: CANVAS VIEW */}
-          <div className="lg:col-span-7 space-y-4">
+          <div className="xl:col-span-7 space-y-4 min-w-0">
             <Card className="border-border shadow-xs overflow-hidden">
               <CardHeader className="py-3 px-4 border-b border-border/60 flex flex-row items-center justify-between bg-muted/20">
                 <div>
@@ -312,7 +312,7 @@ function DiagramLabPage() {
           </div>
 
           {/* RIGHT: INTERACTIVE SLIDERS & PARAMETER CONTROLS */}
-          <div className="lg:col-span-5 space-y-4">
+          <div className="xl:col-span-5 space-y-4 min-w-0">
             <Card className="border-border shadow-xs">
               <CardHeader className="pb-3 border-b border-border/60">
                 <CardTitle className="text-sm font-semibold flex items-center gap-2">

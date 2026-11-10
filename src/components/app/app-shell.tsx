@@ -465,8 +465,13 @@ export function AppShell({
 
   useEffect(() => {
     try {
-      const isCollapsed = window.localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY) === "true";
-      setSidebarCollapsed(isCollapsed);
+      const stored = window.localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY);
+      if (stored !== null) {
+        setSidebarCollapsed(stored === "true");
+      } else if (typeof window !== "undefined" && window.innerWidth < 1280) {
+        // Auto-collapse on standard laptop displays (< 1280px) so workspace editors have full breathing room
+        setSidebarCollapsed(true);
+      }
 
       const savedCollapsedGroups = window.localStorage.getItem(COLLAPSED_GROUPS_STORAGE_KEY);
       if (savedCollapsedGroups) {
@@ -804,7 +809,7 @@ export function AppShell({
         <aside
           className={cn(
             "sticky top-0 h-screen h-[100dvh] max-h-[100dvh] shrink-0 flex-col border-r border-sidebar-border bg-sidebar py-3 transition-[width,padding] duration-300 ease-out hidden lg:flex z-30 select-none",
-            sidebarCollapsed ? "w-[4.5rem] px-2" : "w-64 px-3",
+            sidebarCollapsed ? "w-[4.5rem] px-2" : "w-60 xl:w-64 px-2.5 xl:px-3",
           )}
         >
           {/* Brand Header */}
