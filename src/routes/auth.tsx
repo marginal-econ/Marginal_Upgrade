@@ -151,7 +151,7 @@ function AuthPage() {
     try {
       const me = await fetchMe();
       if (me?.isAdmin) {
-        navigate({ to: "/admin", replace: true });
+        navigate({ to: "/admin", search: {}, replace: true });
         return;
       }
       if (me?.role === "teacher") {
@@ -226,7 +226,7 @@ function AuthPage() {
 
       const statusRes = await checkTeacherStatusFn();
 
-      if (statusRes.isStaff || statusRes.isAdmin || statusRes.status === "approved") {
+      if (statusRes.status === "approved" || statusRes.isStaff || statusRes.isAdmin) {
         toast.success("Welcome, Educator! Staff privileges verified.");
         navigate({ to: "/classes", replace: true });
       } else if (statusRes.status === "pending") {

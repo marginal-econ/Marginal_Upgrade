@@ -198,7 +198,7 @@ export function TeacherAuthPage() {
       // Check teacher verification status
       const statusRes = await checkTeacherStatusFn();
 
-      if (statusRes.isStaff || statusRes.isAdmin || statusRes.status === "approved") {
+      if (statusRes.status === "approved" || statusRes.isStaff || statusRes.isAdmin) {
         toast.success("Welcome, Educator! Staff privileges verified.");
         navigate({ to: "/classes", replace: true });
       } else if (statusRes.status === "pending") {
@@ -303,7 +303,7 @@ export function TeacherAuthPage() {
       }
       toast.success("Educator password successfully updated!");
       const statusRes = await checkTeacherStatusFn();
-      if (statusRes.isStaff || statusRes.isAdmin || statusRes.status === "approved") {
+      if (statusRes.status === "approved" || statusRes.isStaff || statusRes.isAdmin) {
         navigate({ to: "/classes", replace: true });
       } else if (statusRes.status === "pending") {
         await supabase.auth.signOut();

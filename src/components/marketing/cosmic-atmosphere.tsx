@@ -144,7 +144,7 @@ const STAR_CONFIGS = [
   { top: "36%", left: "92%", size: 11, delay: "2.1s", duration: "3.5s", color: "text-cyan-500/75 dark:text-cyan-400/80" },
   { top: "44%", left: "5%", size: 13, delay: "1.3s", duration: "3.9s", color: "text-primary/75 dark:text-primary/85" },
   { top: "52%", left: "48%", size: 10, delay: "3.0s", duration: "3.1s", color: "text-emerald-500/70 dark:text-emerald-300/75" },
-  { top: "58%", left: "28%", size: 14, delay: "0.7s", duration: "4.2s", color: "text-violet-500/75 dark:text-violet-300/85" },
+  { top: "62%", left: "6%", size: 12, delay: "0.7s", duration: "4.2s", color: "text-violet-500/75 dark:text-violet-300/85" },
   { top: "65%", left: "88%", size: 12, delay: "2.5s", duration: "3.8s", color: "text-amber-500/75 dark:text-amber-400/80" },
   { top: "74%", left: "12%", size: 15, delay: "1.1s", duration: "4.5s", color: "text-primary/80 dark:text-primary/90" },
   { top: "78%", left: "62%", size: 10, delay: "2.8s", duration: "3.0s", color: "text-cyan-500/70 dark:text-cyan-300/75" },

@@ -152,7 +152,7 @@ function getBandTheme(band: string, totalMark?: number, maxMark?: number) {
   };
 }
 
-export function MarkBreakdown({ grading }: { grading: Grading }) {
+export function MarkBreakdown({ grading, question }: { grading: Grading; question?: string }) {
   const percent = grading.max_mark > 0 ? (grading.total_mark / grading.max_mark) * 100 : 0;
   const isUnanchored =
     grading.grounding_status === "unanchored" ||

@@ -66,7 +66,7 @@ export async function assertKnowledgeStaff(context: KnowledgeAuthContext) {
   // 4. Check approved teacher profile
   if (db) {
     try {
-      const { data: tp } = await db
+      const { data: tp } = await (db as any)
         .from("teacher_profiles")
         .select("status")
         .eq("user_id", context.userId)
@@ -354,6 +354,7 @@ export const deleteDocument = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await assertKnowledgeStaff(context);
     const docId = data.documentId || data.id;
+    if (!docId) throw new Error("Document ID is required");
     const { supabaseAdmin } = await import("@/integrations/backend/client.server");
     const db = supabaseAdmin ?? context.supabase;
     const { error } = await db.from("knowledge_documents").delete().eq("id", docId);

@@ -7,6 +7,7 @@ import {
   ExternalLink,
   GraduationCap,
   Loader2,
+  PenLine,
   Quote,
   ShieldCheck,
   Sparkles,

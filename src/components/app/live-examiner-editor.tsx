@@ -15,8 +15,10 @@ import { splitSentences } from "@/lib/writing-check/sentence-diff";
 import { AO_DEFINITIONS } from "@/lib/examiner/config";
 import { cn } from "@/lib/utils";
 
-const CATEGORY_AO: Record<IssueCategory, string | null> = {
+const CATEGORY_AO: Partial<Record<IssueCategory, string | null>> = {
   grammar: null,
+  spelling: null,
+  punctuation: null,
   clarity: null,
   economics_accuracy: AO_DEFINITIONS.ao1.code,
   terminology: AO_DEFINITIONS.ao1.code,
@@ -37,7 +39,7 @@ export type UnderlineStyleMeta = {
   backgroundColor: string;
 };
 
-const CATEGORY_META: Record<IssueCategory, UnderlineStyleMeta> = {
+const CATEGORY_META: Partial<Record<IssueCategory, UnderlineStyleMeta>> = {
   grammar: {
     label: "Grammar",
     dot: "bg-rose-500 dark:bg-rose-400",

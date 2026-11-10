@@ -124,7 +124,7 @@ export const getMe = createServerFn({ method: "GET" })
 
       if (!isTeacherUser) {
         try {
-          const { data: tp } = await db
+          const { data: tp } = await (db as any)
             .from("teacher_profiles")
             .select("status")
             .eq("user_id", userId)
@@ -348,6 +348,8 @@ export const updateProfile = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+export type NavigationLayout = "topbar" | "sidebar" | "dock";
+
 export type UserAcademicPreferences = {
   examSeries: CambridgeSeriesId;
   targetLevel: "as_level" | "a2_level" | "full_a_level";
@@ -356,6 +358,7 @@ export type UserAcademicPreferences = {
   feedbackDepth?: string;
   timedModeDefault?: boolean;
   showDiagramLabels?: boolean;
+  navigationLayout?: NavigationLayout;
 };
 
 export const getUserAcademicPreferences = createServerFn({ method: "GET" })
@@ -383,6 +386,7 @@ export const getUserAcademicPreferences = createServerFn({ method: "GET" })
           feedbackDepth: parsed.feedbackDepth || "detailed",
           timedModeDefault: parsed.timedModeDefault ?? true,
           showDiagramLabels: parsed.showDiagramLabels ?? true,
+          navigationLayout: (parsed.navigationLayout as NavigationLayout) || "topbar",
         };
       }
     } catch {
@@ -397,6 +401,7 @@ export const getUserAcademicPreferences = createServerFn({ method: "GET" })
       feedbackDepth: "detailed",
       timedModeDefault: true,
       showDiagramLabels: true,
+      navigationLayout: "topbar",
     };
   });
 
@@ -412,6 +417,7 @@ export const saveUserAcademicPreferences = createServerFn({ method: "POST" })
         feedbackDepth: z.string().optional(),
         timedModeDefault: z.boolean().optional(),
         showDiagramLabels: z.boolean().optional(),
+        navigationLayout: z.enum(["topbar", "sidebar", "dock"]).optional(),
       })
       .parse(input),
   )
@@ -429,6 +435,7 @@ export const saveUserAcademicPreferences = createServerFn({ method: "POST" })
       feedbackDepth: data.feedbackDepth || "detailed",
       timedModeDefault: data.timedModeDefault ?? true,
       showDiagramLabels: data.showDiagramLabels ?? true,
+      navigationLayout: data.navigationLayout || "topbar",
     };
 
     // Upsert into definitions

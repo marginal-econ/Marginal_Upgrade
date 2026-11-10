@@ -206,7 +206,7 @@ function AdminErrorComponent({ error, reset }: { error: unknown; reset: () => vo
 }
 
 export const Route = createFileRoute("/_authenticated/admin")({
-  validateSearch: (search: Record<string, unknown>) => ({
+  validateSearch: (search: Record<string, unknown>): { tab?: string } => ({
     tab: typeof search.tab === "string" ? search.tab : undefined,
   }),
   beforeLoad: async ({ context }) => {

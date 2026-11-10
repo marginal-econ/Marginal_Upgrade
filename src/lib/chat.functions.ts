@@ -56,19 +56,6 @@ export const sendGroundedChatMessage = createServerFn({ method: "POST" })
       claims: (context as any).claims,
     });
 
-    let role = "student";
-    let tier = "free";
-
-    try {
-      const { data: userProfile } = await supabase
-        .from("profiles")
-        .select("role, subscription_tier")
-        .eq("id", userId)
-        .maybeSingle();
-      if (userProfile?.role) role = userProfile.role;
-      if (userProfile?.subscription_tier) tier = userProfile.subscription_tier;
-    } catch {}
-
     const { getUserSubscriptionDetails } = await import("./subscription.server");
     const sub = await getUserSubscriptionDetails(
       supabase,
@@ -77,10 +64,8 @@ export const sendGroundedChatMessage = createServerFn({ method: "POST" })
       (context as any).claims
     );
 
-    const isAdmin = isMarginal || role === "admin" || role === "teacher" || Boolean(sub.isAdmin);
-    const isHigherTier =
-      ["mastery", "elite"].includes(tier) ||
-      ["mastery", "elite"].includes(sub.tier as string);
+    const isAdmin = isMarginal || sub.isAdmin || sub.isTeacher;
+    const isHigherTier = ["mastery", "elite"].includes(sub.tier as string);
     const hasAccess = isAdmin || isHigherTier;
 
     if (!hasAccess) {

@@ -7,7 +7,6 @@ import {
   BookOpen,
   Check,
   Copy,
-  Cpu,
   ExternalLink,
   Flame,
   Gift,
@@ -66,7 +65,6 @@ import { SiteNavLinks, SiteNavMobile } from "@/components/marketing/site-nav";
 import { Magnetic, TiltCard } from "@/components/marketing/three-d";
 import { AiComparisonSection } from "@/components/marketing/ai-comparison-section";
 import { RealEssayShowcase } from "@/components/marketing/real-essay-showcase";
-import { RagEngineSection } from "@/components/marketing/rag-engine-section";
 import { TeachersSection } from "@/components/marketing/teachers-section";
 import { CosmicAtmosphere } from "@/components/marketing/cosmic-atmosphere";
 import { captureReferralCode } from "@/lib/waitlist-client";
@@ -265,15 +263,6 @@ const TOOLS = [
     lead: "Examiner-standard model essays with SVG diagrams",
     body: "Generate full-mark Cambridge 9708 model answers tailored to any 8m, 12m, or 20m question, featuring verified diagrams, AO mark allocations, and justified evaluative conclusions.",
     href: "/essay-generator",
-  },
-  {
-    icon: GraduationCap,
-    tile: "bg-indigo-600",
-    badge: "Structure Guide",
-    title: "How to Write an Essay",
-    lead: "Class-taught response structures for 8, 12 & 20 marks",
-    body: "Master the exact step-by-step layout rewarded by Cambridge examiners: knowledge setup, multi-step analysis chains, and balanced evaluation.",
-    href: "/response-structure",
   },
   {
     icon: BookOpen,
@@ -518,14 +507,20 @@ function Index() {
                 </span>
                 <span className="rounded-full bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-0.5 text-[10.5px] font-mono font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5 shadow-2xs">
                   <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  RAG Grounded · May/June 2026 Series
+                  <Users className="size-3 text-emerald-500" />
+                  ~50+ Active Users
                 </span>
               </div>
             </Reveal>
 
             <Reveal delay={60}>
               <h1 className="mt-5 text-[2.35rem] leading-[1.08] font-extrabold text-balance min-[380px]:text-4xl md:text-[3.25rem] lg:text-[3.5rem] xl:text-[3.85rem] tracking-tight">
-                AI-Powered Cambridge Economics (9708) Mastery
+                Marginal AI —{" "}
+                <span className="relative inline-block mt-1 sm:mt-1.5 px-3 py-1 rounded-xl bg-purple-950/60 dark:bg-purple-950/70 border border-purple-500/40 text-amber-300 shadow-[0_0_20px_rgba(168,85,247,0.25)] backdrop-blur-md">
+                  <span className="bg-gradient-to-r from-amber-300 via-yellow-200 to-amber-400 bg-clip-text text-transparent font-black tracking-tight">
+                    The Cambridge Economics Platform
+                  </span>
+                </span>
               </h1>
               <h2 className="mt-3 text-lg font-semibold text-primary sm:text-xl md:text-2xl">
                 Master AS & A Level Economics (9708) with AI Grading
@@ -620,12 +615,6 @@ function Index() {
                   <Target className="size-3.5 text-primary shrink-0" /> Papers 1, 2, 3 &amp; 4
                 </span>
                 <a
-                  href="#rag-engine"
-                  className="inline-flex items-center gap-1.5 font-bold text-foreground bg-primary/10 hover:bg-primary/20 transition-colors px-3 py-1.5 rounded-lg border border-primary/30 shadow-2xs"
-                >
-                  <Cpu className="size-3.5 text-primary animate-pulse shrink-0" /> Cambridge RAG Engine ↓
-                </a>
-                <a
                   href="#graded-exemplar"
                   className="inline-flex items-center gap-1.5 font-bold text-primary bg-primary/10 hover:bg-primary/20 transition-colors px-3 py-1.5 rounded-lg border border-primary/30 shadow-2xs"
                 >
@@ -672,9 +661,6 @@ function Index() {
 
       {/* ── Why Marginal Beats Raw AI (Real 12-Mark Stress Test) ─────────── */}
       <AiComparisonSection />
-
-      {/* ── Cambridge Syllabus Coverage & RAG Knowledge Engine ────────────── */}
-      <RagEngineSection />
 
       {/* ── Cambridge Teachers & Department Workspace ──────────────────────── */}
       <TeachersSection />
@@ -744,35 +730,42 @@ function Index() {
           <Reveal>
             <SectionHeading
               eyebrow="Cambridge 9708 Tools"
-              title="Master 9708 Paper 1 & Paper 3 MCQs"
+              title="Ten specialized tools, one Cambridge syllabus"
               lead="Everything in Marginal is engineered exclusively for Cambridge AS & A Level Economics (9708). No generic chatbots, no vague study widgets. Hover or tap a card to see what it does."
             />
           </Reveal>
 
           <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-            {TOOLS.map((tool, index) => (
-              <Reveal key={tool.title} variant="pop" delay={index * 35}>
-                <Link
-                  to={isAuthenticated ? tool.href : "/auth"}
-                  search={isAuthenticated ? undefined : ({ redirect: tool.href } as any)}
-                  className="pop pop-press group flex h-full flex-col justify-between p-5 sm:p-6 transition-all duration-300 hover:-translate-y-1 hover:border-primary/60 hover:shadow-xl bg-card border-2 cursor-pointer no-underline block"
+            {TOOLS.map((tool, index) => {
+              const isCenteredStart = TOOLS.length % 4 === 2 && index === TOOLS.length - 2;
+              return (
+                <Reveal
+                  key={tool.title}
+                  variant="pop"
+                  delay={index * 35}
+                  className={cn(isCenteredStart && "lg:col-start-2")}
                 >
-                  <div>
-                    <div className="flex items-center justify-between gap-2">
-                      <span
-                        className={`pop-sm flex size-10 items-center justify-center rounded-xl text-primary-foreground transition-transform duration-300 group-hover:scale-110 ${tool.tile}`}
-                      >
-                        <tool.icon className="size-5" />
-                      </span>
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono text-[9.5px] uppercase tracking-wider font-bold text-muted-foreground bg-muted/80 px-2 py-0.5 rounded-full border border-border/60">
-                          {tool.badge}
+                  <Link
+                    to={isAuthenticated ? tool.href : "/auth"}
+                    search={isAuthenticated ? undefined : ({ redirect: tool.href } as any)}
+                    className="pop pop-press group flex h-full flex-col justify-between p-5 sm:p-6 transition-all duration-300 hover:-translate-y-1 hover:border-primary/60 hover:shadow-xl bg-card border-2 cursor-pointer no-underline block"
+                  >
+                    <div>
+                      <div className="flex items-center justify-between gap-2">
+                        <span
+                          className={`pop-sm flex size-10 items-center justify-center rounded-xl text-primary-foreground transition-transform duration-300 group-hover:scale-110 ${tool.tile}`}
+                        >
+                          <tool.icon className="size-5" />
                         </span>
-                        <span className="font-mono text-[10px] text-muted-foreground font-semibold">
-                          {String(index + 1).padStart(2, "0")} / 08
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-[9.5px] uppercase tracking-wider font-bold text-muted-foreground bg-muted/80 px-2 py-0.5 rounded-full border border-border/60">
+                            {tool.badge}
+                          </span>
+                          <span className="font-mono text-[10px] text-muted-foreground font-semibold">
+                            {String(index + 1).padStart(2, "0")} / {String(TOOLS.length).padStart(2, "0")}
+                          </span>
+                        </div>
                       </div>
-                    </div>
 
                     <h3 className="mt-4 text-base font-bold text-foreground group-hover:text-primary transition-colors">
                       {tool.title}
@@ -796,7 +789,8 @@ function Index() {
                   </div>
                 </Link>
               </Reveal>
-            ))}
+            );
+          })}
           </div>
         </div>
       </section>
@@ -984,7 +978,7 @@ function Index() {
                   Every candidate gets unlimited Cambridge essay gradings, the real-time Live Examiner, and authentic past paper MCQ drills with auto-save resume completely free.
                 </p>
 
-                <div className="mt-7 flex flex-wrap items-center justify-center md:justify-start gap-3">
+                <div className="mt-7 flex flex-wrap items-center justify-center md:justify-start gap-3 relative z-20">
                   <Button
                     asChild
                     size="lg"
@@ -1006,7 +1000,7 @@ function Index() {
                       <span>Grade Essays Free</span>
                     </Link>
                   </Button>
-                  
+
                 </div>
 
                 <p className="mt-5 text-xs text-plum-foreground/70">

@@ -31,11 +31,17 @@ import {
   UserCheck,
   X,
   Zap,
+  PanelsTopBottom,
+  PanelLeft,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
-import { PageHeader } from "@/components/app/app-shell";
+import {
+  PageHeader,
+  getPlatformNavLayout,
+  setPlatformNavLayout,
+} from "@/components/app/app-shell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -57,6 +63,7 @@ import {
   updateProfile,
   getUserAcademicPreferences,
   saveUserAcademicPreferences,
+  type NavigationLayout,
 } from "@/lib/account.functions";
 import { AVAILABLE_CAMBRIDGE_SERIES } from "@/lib/cambridge-thresholds";
 import { supabase } from "@/integrations/backend/client";
@@ -120,6 +127,9 @@ export function SettingsPage() {
   const [feedbackDepth, setFeedbackDepth] = useState("detailed");
   const [timedModeDefault, setTimedModeDefault] = useState(true);
   const [showDiagramLabels, setShowDiagramLabels] = useState(true);
+  const [navigationLayout, setNavigationLayout] = useState<NavigationLayout>(() =>
+    getPlatformNavLayout(),
+  );
 
   const {
     openTutorial,
@@ -146,6 +156,9 @@ export function SettingsPage() {
       setFeedbackDepth(academicPrefsQuery.data.feedbackDepth || "detailed");
       setTimedModeDefault(academicPrefsQuery.data.timedModeDefault ?? true);
       setShowDiagramLabels(academicPrefsQuery.data.showDiagramLabels ?? true);
+      if (academicPrefsQuery.data.navigationLayout) {
+        setNavigationLayout(academicPrefsQuery.data.navigationLayout);
+      }
       setPrefsSeeded(true);
       return;
     }
@@ -163,6 +176,7 @@ export function SettingsPage() {
           setTimedModeDefault(parsed.timedModeDefault);
         if (typeof parsed.showDiagramLabels === "boolean")
           setShowDiagramLabels(parsed.showDiagramLabels);
+        if (parsed.navigationLayout) setNavigationLayout(parsed.navigationLayout);
       }
     } catch {
       /* ignore */
@@ -217,6 +231,7 @@ export function SettingsPage() {
       feedbackDepth?: string;
       timedModeDefault?: boolean;
       showDiagramLabels?: boolean;
+      navigationLayout?: NavigationLayout;
     }) => {
       const payload = {
         examSeries: overrides?.examSeries ?? examSeries,
@@ -227,6 +242,7 @@ export function SettingsPage() {
         feedbackDepth: overrides?.feedbackDepth ?? feedbackDepth,
         timedModeDefault: overrides?.timedModeDefault ?? timedModeDefault,
         showDiagramLabels: overrides?.showDiagramLabels ?? showDiagramLabels,
+        navigationLayout: overrides?.navigationLayout ?? navigationLayout,
       };
       try {
         localStorage.setItem("marginal_candidate_prefs", JSON.stringify(payload));
@@ -977,47 +993,195 @@ export function SettingsPage() {
                     <Sliders className="size-4 text-primary" /> Exam Workspace Controls
                   </h2>
                   <p className="text-xs text-muted-foreground">
-                    Tweak practice exam timer behaviors and interactive vector diagram rendering.
+                    Customize navigation layouts, practice exam timer behaviors, and interactive vector diagram rendering.
                   </p>
                 </div>
 
-                <div className="space-y-3.5 divide-y divide-border/60">
-                  <div className="flex items-center justify-between pt-2">
-                    <div className="space-y-0.5 max-w-[80%]">
-                      <Label className="text-xs font-semibold">
-                        Automatic Exam Timer by Default
+                <div className="space-y-4">
+                  {/* Navigation Architecture Selector */}
+                  <div className="space-y-2.5 pb-2">
+                    <div className="space-y-1">
+                      <Label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                        <PanelsTopBottom className="size-3.5 text-primary" /> Workspace Navigation Architecture
                       </Label>
                       <p className="text-[11px] text-muted-foreground">
-                        Automatically start official Cambridge clock (e.g. 1 hour for Paper 1) when
-                        opening MCQ papers.
+                        Select your preferred platform navigation layout. You can also toggle layouts on the fly using the quick switcher pill in the header.
                       </p>
                     </div>
-                    <Switch
-                      checked={timedModeDefault}
-                      onCheckedChange={(val) => {
-                        setTimedModeDefault(val);
-                        handleSaveAcademicPrefs({ timedModeDefault: val });
-                      }}
-                    />
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
+                      {/* Option 1: Topbar */}
+                      <div
+                        onClick={() => {
+                          setNavigationLayout("topbar");
+                          setPlatformNavLayout("topbar");
+                          handleSaveAcademicPrefs({ navigationLayout: "topbar" });
+                          toast.success("Navigation set to Horizontal Topbar (Scroll-Free)");
+                        }}
+                        className={cn(
+                          "rounded-xl border p-3.5 cursor-pointer transition-all flex flex-col justify-between gap-3 text-left relative",
+                          navigationLayout === "topbar"
+                            ? "border-primary bg-primary/10 shadow-xs ring-1 ring-primary"
+                            : "border-border/80 bg-card hover:border-primary/40 hover:bg-muted/40",
+                        )}
+                      >
+                        <div className="space-y-1.5">
+                          <div className="flex items-center justify-between">
+                            <div className="size-8 rounded-lg bg-primary/15 text-primary flex items-center justify-center">
+                              <PanelsTopBottom className="size-4" />
+                            </div>
+                            <Badge
+                              variant="outline"
+                              className="text-[9px] font-bold border-emerald-500/30 text-emerald-600 bg-emerald-500/10"
+                            >
+                              Recommended
+                            </Badge>
+                          </div>
+                          <p className="text-xs font-bold text-foreground">Horizontal Topbar</p>
+                          <p className="text-[11px] text-muted-foreground leading-snug">
+                            100% scroll-free sticky top bar. Maximizes full screen width for essay writing and past papers with zero vertical scrolling.
+                          </p>
+                        </div>
+                        <div className="flex items-center justify-between pt-2 border-t border-border/50 text-[10.5px]">
+                          <span className="font-mono text-muted-foreground">Header Menus</span>
+                          {navigationLayout === "topbar" ? (
+                            <span className="font-bold text-primary flex items-center gap-1">
+                              <Check className="size-3" /> Active
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground">Select</span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Option 2: Compact Category Dock */}
+                      <div
+                        onClick={() => {
+                          setNavigationLayout("dock");
+                          setPlatformNavLayout("dock");
+                          handleSaveAcademicPrefs({ navigationLayout: "dock" });
+                          toast.success("Navigation set to Compact Category Hub");
+                        }}
+                        className={cn(
+                          "rounded-xl border p-3.5 cursor-pointer transition-all flex flex-col justify-between gap-3 text-left relative",
+                          navigationLayout === "dock"
+                            ? "border-primary bg-primary/10 shadow-xs ring-1 ring-primary"
+                            : "border-border/80 bg-card hover:border-primary/40 hover:bg-muted/40",
+                        )}
+                      >
+                        <div className="space-y-1.5">
+                          <div className="flex items-center justify-between">
+                            <div className="size-8 rounded-lg bg-indigo-500/15 text-indigo-500 flex items-center justify-center">
+                              <Layers className="size-4" />
+                            </div>
+                            <Badge
+                              variant="outline"
+                              className="text-[9px] font-bold border-indigo-500/30 text-indigo-600 bg-indigo-500/10"
+                            >
+                              Scroll-Free
+                            </Badge>
+                          </div>
+                          <p className="text-xs font-bold text-foreground">Compact Category Hub</p>
+                          <p className="text-[11px] text-muted-foreground leading-snug">
+                            Slim 68px icon rail that expands only the active category (4–6 tools max). Perfectly fits on any laptop screen without scrolling.
+                          </p>
+                        </div>
+                        <div className="flex items-center justify-between pt-2 border-t border-border/50 text-[10.5px]">
+                          <span className="font-mono text-muted-foreground">Dock + Pop-out</span>
+                          {navigationLayout === "dock" ? (
+                            <span className="font-bold text-primary flex items-center gap-1">
+                              <Check className="size-3" /> Active
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground">Select</span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Option 3: Classic Vertical Sidebar */}
+                      <div
+                        onClick={() => {
+                          setNavigationLayout("sidebar");
+                          setPlatformNavLayout("sidebar");
+                          handleSaveAcademicPrefs({ navigationLayout: "sidebar" });
+                          toast.success("Navigation set to Classic Vertical Sidebar");
+                        }}
+                        className={cn(
+                          "rounded-xl border p-3.5 cursor-pointer transition-all flex flex-col justify-between gap-3 text-left relative",
+                          navigationLayout === "sidebar"
+                            ? "border-primary bg-primary/10 shadow-xs ring-1 ring-primary"
+                            : "border-border/80 bg-card hover:border-primary/40 hover:bg-muted/40",
+                        )}
+                      >
+                        <div className="space-y-1.5">
+                          <div className="flex items-center justify-between">
+                            <div className="size-8 rounded-lg bg-muted text-muted-foreground flex items-center justify-center">
+                              <PanelLeft className="size-4" />
+                            </div>
+                            <Badge
+                              variant="outline"
+                              className="text-[9px] font-bold border-border/80 text-muted-foreground"
+                            >
+                              Classic
+                            </Badge>
+                          </div>
+                          <p className="text-xs font-bold text-foreground">Classic Vertical Sidebar</p>
+                          <p className="text-[11px] text-muted-foreground leading-snug">
+                            Traditional multi-section vertical sidebar displaying all tools and categories simultaneously.
+                          </p>
+                        </div>
+                        <div className="flex items-center justify-between pt-2 border-t border-border/50 text-[10.5px]">
+                          <span className="font-mono text-muted-foreground">Full Column</span>
+                          {navigationLayout === "sidebar" ? (
+                            <span className="font-bold text-primary flex items-center gap-1">
+                              <Check className="size-3" /> Active
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground">Select</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
                   </div>
 
-                  <div className="flex items-center justify-between pt-3">
-                    <div className="space-y-0.5 max-w-[80%]">
-                      <Label className="text-xs font-semibold">
-                        Show Diagram Equilibrium Annotations
-                      </Label>
-                      <p className="text-[11px] text-muted-foreground">
-                        Highlight equilibrium shift lines (P1 to P2, Q1 to Q2) directly on vector
-                        diagram canvases.
-                      </p>
+                  <div className="pt-3 border-t border-border/60 divide-y divide-border/60">
+                    <div className="flex items-center justify-between pt-2">
+                      <div className="space-y-0.5 max-w-[80%]">
+                        <Label className="text-xs font-semibold">
+                          Automatic Exam Timer by Default
+                        </Label>
+                        <p className="text-[11px] text-muted-foreground">
+                          Automatically start official Cambridge clock (e.g. 1 hour for Paper 1) when
+                          opening MCQ papers.
+                        </p>
+                      </div>
+                      <Switch
+                        checked={timedModeDefault}
+                        onCheckedChange={(val) => {
+                          setTimedModeDefault(val);
+                          handleSaveAcademicPrefs({ timedModeDefault: val });
+                        }}
+                      />
                     </div>
-                    <Switch
-                      checked={showDiagramLabels}
-                      onCheckedChange={(val) => {
-                        setShowDiagramLabels(val);
-                        handleSaveAcademicPrefs({ showDiagramLabels: val });
-                      }}
-                    />
+
+                    <div className="flex items-center justify-between pt-3">
+                      <div className="space-y-0.5 max-w-[80%]">
+                        <Label className="text-xs font-semibold">
+                          Show Diagram Equilibrium Annotations
+                        </Label>
+                        <p className="text-[11px] text-muted-foreground">
+                          Highlight equilibrium shift lines (P1 to P2, Q1 to Q2) directly on vector
+                          diagram canvases.
+                        </p>
+                      </div>
+                      <Switch
+                        checked={showDiagramLabels}
+                        onCheckedChange={(val) => {
+                          setShowDiagramLabels(val);
+                          handleSaveAcademicPrefs({ showDiagramLabels: val });
+                        }}
+                      />
+                    </div>
                   </div>
                 </div>
               </div>

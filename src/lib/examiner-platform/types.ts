@@ -150,8 +150,8 @@ export type ExaminerAuditLog = {
   script_id: string | null;
   user_id: string;
   action: string;
-  previous_data: Record<string, unknown> | null;
-  new_data: Record<string, unknown> | null;
+  previous_data: Record<string, any> | null;
+  new_data: Record<string, any> | null;
   rationale: string | null;
   created_at: string;
   user_email?: string;

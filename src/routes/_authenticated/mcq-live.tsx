@@ -833,7 +833,7 @@ function fillMissingQuestionPages(
         canvas.height = viewport.height;
         const ctx = canvas.getContext("2d");
         if (!ctx) continue;
-        await page.render({ canvasContext: ctx, viewport }).promise;
+        await (page.render({ canvasContext: ctx, viewport } as any) as any).promise;
         built.push({ pageNumber: p, canvas });
 
         try {
@@ -1447,7 +1447,7 @@ function fillMissingQuestionPages(
                   <Button
                     size="sm"
                     variant={timerEnabled ? "default" : "outline"}
-                    onClick={() => setTimerEnabled((v) => !v)}
+                    onClick={() => setTimerEnabled((v: boolean) => !v)}
                     className="h-8 px-2 text-xs gap-1 hidden sm:inline-flex"
                     title={
                       timerEnabled

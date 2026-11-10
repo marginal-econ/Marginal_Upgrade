@@ -22,7 +22,7 @@
 
 @theme inline {
   --font-sans: "Inter Tight", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-  --font-display: "Outfit", "Inter Tight", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-display: "Inter Tight", "Outfit", ui-sans-serif, system-ui, -apple-system, sans-serif;
   --font-serif: "Newsreader", "Iowan Old Style", Georgia, "Times New Roman", serif;
   --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
   --radius-sm: calc(var(--radius) - 4px);
@@ -483,14 +483,14 @@
   h2,
   h3 {
     font-family: var(--font-display);
-    font-weight: 600;
-    letter-spacing: -0.021em;
+    font-weight: 700;
+    letter-spacing: -0.025em;
   }
 
   /* Big display type wants to be tighter still — matches the reference's
      confident, closely-set headlines. */
   h1 {
-    letter-spacing: -0.032em;
+    letter-spacing: -0.035em;
   }
 
   ::selection {
@@ -2383,3 +2383,15 @@ html.theme-shifting * {
   width: 0 !important;
   height: 0 !important;
 }
+
+/* Mobile phone viewport ergonomics: prevent iOS Safari auto-zoom on input focus */
+@media (max-width: 639px) {
+  input:not([type="checkbox"]):not([type="radio"]),
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}
+
+
+

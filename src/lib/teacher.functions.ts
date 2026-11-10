@@ -55,7 +55,7 @@ export const registerTeacher = createServerFn({ method: "POST" })
     });
 
     // 3. Mark role as teacher_pending
-    await supabaseAdmin.from("user_roles").upsert({
+    await (supabaseAdmin.from("user_roles") as any).upsert({
       user_id: userId,
       role: "teacher_pending",
     }, { onConflict: "user_id,role" });
@@ -157,7 +157,7 @@ export const getTeacherProfileStatus = createServerFn({ method: "GET" })
     }
 
     try {
-      const { data: tp } = await db
+      const { data: tp } = await (db as any)
         .from("teacher_profiles")
         .select("status")
         .eq("user_id", userId)
@@ -263,8 +263,7 @@ export const approveTeacherApplication = createServerFn({ method: "POST" })
     const { readEnv } = await import("@/server/env");
 
     // 1. Remove teacher_pending
-    await supabaseAdmin
-      .from("user_roles")
+    await (supabaseAdmin.from("user_roles") as any)
       .delete()
       .eq("user_id", data.userId)
       .eq("role", "teacher_pending");
@@ -357,7 +356,7 @@ export const rejectTeacherApplication = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/backend/client.server");
 
     // Remove teacher role if exists
-    await supabaseAdmin.from("user_roles").delete().eq("user_id", data.userId).in("role", ["teacher", "teacher_pending"]);
+    await (supabaseAdmin.from("user_roles") as any).delete().eq("user_id", data.userId).in("role", ["teacher", "teacher_pending"]);
 
     // Update metadata
     const { data: userData } = await supabaseAdmin.auth.admin.getUserById(data.userId);

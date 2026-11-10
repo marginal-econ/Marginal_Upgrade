@@ -36,23 +36,17 @@ import {
   ArrowRight,
   FileSpreadsheet,
   Wand2,
+  PanelsTopBottom,
+  PanelLeft,
+  Layers,
+  Check,
+  Search as SearchIcon,
 } from "lucide-react";
 import * as React from "react";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState, useRef } from "react";
 import { toast } from "sonner";
 
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import {
-  CommandDialog,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-  CommandSeparator,
-} from "@/components/ui/command";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -61,6 +55,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import type { NavigationLayout } from "@/lib/account.functions";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { LockedFeatureModal, type LockedFeatureType } from "@/components/app/locked-feature-modal";
 import { FeedbackDialog, FloatingFeedbackPill } from "@/components/feedback/feedback-dialog";
@@ -77,6 +75,7 @@ import { cn } from "@/lib/utils";
 import { TopTutorialButton } from "@/components/tutorials/feature-tutorial-dialog";
 import { matchTutorialByPath } from "@/lib/tutorials-data";
 import { useFeatureTutorial } from "@/components/tutorials/tutorial-context";
+import { CommandPalette } from "@/components/app/command-palette";
 
 export type NavItem = {
   to: string;
@@ -101,6 +100,139 @@ export type NavGroup = {
 
 const SIDEBAR_COLLAPSED_STORAGE_KEY = "marginal.sidebarCollapsed";
 const COLLAPSED_GROUPS_STORAGE_KEY = "marginal.collapsedNavGroups";
+export const NAVIGATION_LAYOUT_STORAGE_KEY = "marginal.navigationLayout";
+
+export function getPlatformNavLayout(): NavigationLayout {
+  if (typeof window === "undefined") return "topbar";
+  try {
+    const saved = window.localStorage.getItem(NAVIGATION_LAYOUT_STORAGE_KEY);
+    if (saved === "sidebar" || saved === "dock" || saved === "topbar") {
+      return saved;
+    }
+  } catch {
+    /* ignore */
+  }
+  return "topbar";
+}
+
+export function setPlatformNavLayout(layout: NavigationLayout) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(NAVIGATION_LAYOUT_STORAGE_KEY, layout);
+  } catch {
+    /* ignore */
+  }
+  window.dispatchEvent(new CustomEvent("marginal-layout-change", { detail: layout }));
+}
+
+export function LayoutSwitcherButton({
+  navLayout,
+  onChange,
+  className,
+}: {
+  navLayout: NavigationLayout;
+  onChange: (layout: NavigationLayout) => void;
+  className?: string;
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          className={cn(
+            "flex items-center gap-1.5 rounded-lg border border-border/80 bg-card px-2.5 py-1 text-xs font-semibold text-foreground hover:bg-muted transition-all cursor-pointer shadow-2xs",
+            className,
+          )}
+          title="Switch Navigation & Workspace Layout"
+        >
+          {navLayout === "topbar" ? (
+            <PanelsTopBottom className="size-3.5 text-primary" />
+          ) : navLayout === "dock" ? (
+            <Layers className="size-3.5 text-primary" />
+          ) : (
+            <PanelLeft className="size-3.5 text-primary" />
+          )}
+          <span className="hidden sm:inline capitalize">
+            {navLayout === "topbar" ? "Topbar" : navLayout === "dock" ? "Category Hub" : "Sidebar"}
+          </span>
+          <ChevronDown className="size-3 opacity-60" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-56 p-1.5 z-50 bg-popover">
+        <DropdownMenuLabel className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground px-2 py-1">
+          Workspace Navigation
+        </DropdownMenuLabel>
+        <DropdownMenuItem
+          onClick={() => onChange("topbar")}
+          className={cn(
+            "flex items-center justify-between gap-2 px-2.5 py-2 text-xs rounded-md cursor-pointer",
+            navLayout === "topbar" && "bg-primary/10 font-bold text-primary",
+          )}
+        >
+          <div className="flex items-center gap-2">
+            <PanelsTopBottom className="size-4 text-primary" />
+            <div>
+              <p className="font-semibold leading-tight">Horizontal Topbar</p>
+              <p className="text-[10px] text-muted-foreground font-normal">100% Scroll-free header</p>
+            </div>
+          </div>
+          {navLayout === "topbar" ? (
+            <Check className="size-3.5 text-primary" />
+          ) : (
+            <Badge variant="outline" className="text-[9px] px-1 py-0 text-emerald-600 border-emerald-500/30">
+              Rec
+            </Badge>
+          )}
+        </DropdownMenuItem>
+
+        <DropdownMenuItem
+          onClick={() => onChange("dock")}
+          className={cn(
+            "flex items-center justify-between gap-2 px-2.5 py-2 text-xs rounded-md cursor-pointer",
+            navLayout === "dock" && "bg-primary/10 font-bold text-primary",
+          )}
+        >
+          <div className="flex items-center gap-2">
+            <Layers className="size-4 text-indigo-500" />
+            <div>
+              <p className="font-semibold leading-tight">Compact Category Hub</p>
+              <p className="text-[10px] text-muted-foreground font-normal">Scroll-free icon rail</p>
+            </div>
+          </div>
+          {navLayout === "dock" && <Check className="size-3.5 text-primary" />}
+        </DropdownMenuItem>
+
+        <DropdownMenuItem
+          onClick={() => onChange("sidebar")}
+          className={cn(
+            "flex items-center justify-between gap-2 px-2.5 py-2 text-xs rounded-md cursor-pointer",
+            navLayout === "sidebar" && "bg-primary/10 font-bold text-primary",
+          )}
+        >
+          <div className="flex items-center gap-2">
+            <PanelLeft className="size-4 text-muted-foreground" />
+            <div>
+              <p className="font-semibold leading-tight">Classic Sidebar</p>
+              <p className="text-[10px] text-muted-foreground font-normal">Traditional column</p>
+            </div>
+          </div>
+          {navLayout === "sidebar" && <Check className="size-3.5 text-primary" />}
+        </DropdownMenuItem>
+
+        <DropdownMenuSeparator className="my-1" />
+        <DropdownMenuItem asChild>
+          <Link
+            to="/settings"
+            className="flex items-center gap-2 text-xs px-2.5 py-1.5 text-muted-foreground hover:text-foreground cursor-pointer"
+          >
+            <Settings className="size-3.5" />
+            <span>Customize in Settings...</span>
+          </Link>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
 
 /**
  * Intuitive, Cambridge 9708 organized navigation:
@@ -188,8 +320,7 @@ const TEACHER_NAV_GROUPS: NavGroup[] = [
     collapsible: true,
     items: [
       { to: "/classes", label: "My Classrooms", icon: UsersRound },
-      { to: "/review", label: "Diagnostics & Review", icon: ClipboardCheck },
-    ],
+      { to: "/review", label: "Diagnostics & Review", icon: ClipboardCheck },    ],
   },
   {
     id: "syllabus",
@@ -294,6 +425,45 @@ export function AppShell({
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const [commandOpen, setCommandOpen] = useState(false);
   const [lockedModalType, setLockedModalType] = useState<LockedFeatureType>(null);
+  const [navLayout, setNavLayout] = useState<NavigationLayout>(() => getPlatformNavLayout());
+  const [activeDockCategory, setActiveDockCategory] = useState<string>("grading");
+
+  // Global ⌘K / Ctrl+K and / command palette trigger
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setCommandOpen((prev) => !prev);
+      } else if (
+        e.key === "/" &&
+        !["INPUT", "TEXTAREA", "SELECT"].includes((e.target as HTMLElement)?.tagName) &&
+        !(e.target as HTMLElement)?.isContentEditable
+      ) {
+        e.preventDefault();
+        setCommandOpen(true);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
+  useEffect(() => {
+    const onLayoutChange = (e: Event) => {
+      const customEvent = e as CustomEvent<NavigationLayout>;
+      if (customEvent.detail) {
+        setNavLayout(customEvent.detail);
+      } else {
+        setNavLayout(getPlatformNavLayout());
+      }
+    };
+    window.addEventListener("marginal-layout-change", onLayoutChange);
+    return () => window.removeEventListener("marginal-layout-change", onLayoutChange);
+  }, []);
+
+  const handleLayoutChange = (layout: NavigationLayout) => {
+    setNavLayout(layout);
+    setPlatformNavLayout(layout);
+  };
 
   // Global Ctrl+K / Cmd+K listener for quick navigation
   useEffect(() => {
@@ -309,8 +479,13 @@ export function AppShell({
 
   useEffect(() => {
     try {
-      const isCollapsed = window.localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY) === "true";
-      setSidebarCollapsed(isCollapsed);
+      const stored = window.localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY);
+      if (stored !== null) {
+        setSidebarCollapsed(stored === "true");
+      } else if (typeof window !== "undefined" && window.innerWidth < 1280) {
+        // Auto-collapse on standard laptop displays (< 1280px) so workspace editors have full breathing room
+        setSidebarCollapsed(true);
+      }
 
       const savedCollapsedGroups = window.localStorage.getItem(COLLAPSED_GROUPS_STORAGE_KEY);
       if (savedCollapsedGroups) {
@@ -504,7 +679,7 @@ export function AppShell({
                         ? "bg-gradient-to-r from-primary/20 via-primary/10 to-transparent text-sidebar-accent-foreground font-semibold shadow-xs border border-primary/25"
                         : "text-sidebar-foreground/80 hover:bg-sidebar-accent/70 hover:text-sidebar-accent-foreground hover:translate-x-1",
                     )}
-                    title={label}
+                    title={sidebarCollapsed && !isMobile ? label : undefined}
                   >
                     {active && (!sidebarCollapsed || isMobile) ? (
                       <span className="absolute left-0.5 top-1.5 bottom-1.5 w-1 rounded-full bg-gradient-to-b from-primary via-indigo-500 to-purple-500 shadow-[0_0_10px_rgba(99,102,241,0.8)]" />
@@ -557,255 +732,450 @@ export function AppShell({
     return (name[0] ?? "E").toUpperCase();
   }, [name]);
 
+  const practiceGroup = useMemo(
+    () => visibleGroups.find((g) => g.id === "grading"),
+    [visibleGroups],
+  );
+  const syllabusGroup = useMemo(
+    () => visibleGroups.find((g) => g.id === "syllabus"),
+    [visibleGroups],
+  );
+  const adminGroup = useMemo(
+    () => visibleGroups.find((g) => g.id === "admin"),
+    [visibleGroups],
+  );
+  const isPracticeActive = useMemo(
+    () => Boolean(practiceGroup?.items.some((item) => isItemActive(item.to))),
+    [practiceGroup, pathname],
+  );
+  const isSyllabusActive = useMemo(
+    () => Boolean(syllabusGroup?.items.some((item) => isItemActive(item.to))),
+    [syllabusGroup, pathname],
+  );
+  const isAdminActive = useMemo(
+    () =>
+      Boolean(
+        adminGroup?.items.some((item) => isItemActive(item.to)) ||
+          pathname.startsWith("/admin"),
+      ),
+    [adminGroup, pathname],
+  );
+
   return (
     <div className="flex min-h-screen bg-background">
-      {/* ── Desktop Sidebar: Fixed, locked to viewport, perfectly pinned with ambient glow ── */}
-      <aside
-        className={cn(
-          "fixed inset-y-0 left-0 h-screen h-[100dvh] max-h-[100dvh] shrink-0 flex-col border-r border-sidebar-border/80 bg-sidebar/95 backdrop-blur-xl py-3 transition-[width,padding] duration-300 ease-out hidden lg:flex z-30 select-none overflow-hidden",
-          sidebarCollapsed ? "w-[4.5rem] px-2" : "w-64 px-3",
-        )}
-      >
-        {/* Subtle Ambient Background Orbs */}
-        <div className="pointer-events-none absolute -top-12 -left-12 size-36 rounded-full bg-gradient-to-br from-primary/15 via-purple-500/10 to-transparent blur-3xl opacity-75" />
-        <div className="pointer-events-none absolute -bottom-16 -right-12 size-40 rounded-full bg-gradient-to-tr from-sky-500/10 via-primary/10 to-transparent blur-3xl opacity-75" />
-
-        {/* Brand Header */}
-        <div
+      {/* ── 1. Desktop Sidebar: Fixed, locked to viewport, perfectly pinned with ambient glow ── */}
+      {navLayout === "sidebar" && (
+        <aside
           className={cn(
-            "mb-2.5 flex items-center pb-2.5 border-b border-sidebar-border/60 shrink-0 relative z-10",
-            sidebarCollapsed ? "justify-center" : "gap-2 px-1.5",
+            "fixed inset-y-0 left-0 h-screen h-[100dvh] max-h-[100dvh] shrink-0 flex-col border-r border-sidebar-border/80 bg-sidebar/95 backdrop-blur-xl py-3 transition-[width,padding] duration-300 ease-out hidden lg:flex z-30 select-none overflow-hidden",
+            sidebarCollapsed ? "w-[4.5rem] px-2" : "w-64 px-3",
           )}
         >
-          <Link
-            to="/dashboard"
-            className="flex min-w-0 items-center gap-2.5 group"
-            title="Marginal Economics Dashboard"
+          {/* Subtle Ambient Background Orbs */}
+          <div className="pointer-events-none absolute -top-12 -left-12 size-36 rounded-full bg-gradient-to-br from-primary/15 via-purple-500/10 to-transparent blur-3xl opacity-75" />
+          <div className="pointer-events-none absolute -bottom-16 -right-12 size-40 rounded-full bg-gradient-to-tr from-sky-500/10 via-primary/10 to-transparent blur-3xl opacity-75" />
+
+          {/* Brand Header */}
+          <div
+            className={cn(
+              "mb-2.5 flex items-center pb-2.5 border-b border-sidebar-border/60 shrink-0 relative z-10",
+              sidebarCollapsed ? "justify-center" : "gap-2 px-1.5",
+            )}
           >
-            <div className="relative group/logo shrink-0">
-              <div className="absolute -inset-1 rounded-xl bg-gradient-to-r from-primary/30 to-purple-600/30 blur-xs opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-              <img
-                src="/marginal-m-icon-clean.png"
-                alt=""
-                aria-hidden="true"
-                className="relative size-7 object-contain transition-transform duration-300 group-hover:scale-110"
-              />
-            </div>
-            <span
-              className={cn(
-                "text-sm leading-tight font-bold tracking-tight text-foreground transition-colors group-hover:text-primary",
-                sidebarCollapsed && "hidden",
-              )}
-            >
-              Marginal
-              <span className="flex items-center gap-1.5 text-[10px] font-normal text-muted-foreground mt-0.5">
-                <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                Cambridge 9708
-              </span>
-            </span>
-          </Link>
-          {!sidebarCollapsed ? (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="ml-auto size-7 shrink-0 text-muted-foreground hover:text-foreground hover:bg-sidebar-accent transition-colors"
-              onClick={toggleSidebar}
-              title="Collapse sidebar"
-              aria-label="Collapse sidebar"
-            >
-              <PanelLeftClose className="size-3.5" />
-            </Button>
-          ) : null}
-        </div>
-
-        {sidebarCollapsed ? (
-          <div className="flex flex-col items-center gap-2 mb-2 shrink-0 relative z-10">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="size-8 text-muted-foreground hover:text-foreground hover:bg-sidebar-accent transition-all duration-200"
-              onClick={toggleSidebar}
-              title="Expand sidebar"
-              aria-label="Expand sidebar"
-            >
-              <PanelLeftOpen className="size-3.5" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="size-8 text-muted-foreground hover:text-primary hover:bg-primary/10 hover:border hover:border-primary/30 transition-all duration-200 group/btn"
-              onClick={() => setCommandOpen(true)}
-              title="Quick Jump (Ctrl+K)"
-              aria-label="Quick Jump"
-            >
-              <Search className="size-3.5 transition-transform duration-200 group-hover/btn:scale-110" />
-            </Button>
-          </div>
-        ) : (
-          <button
-            type="button"
-            onClick={() => setCommandOpen(true)}
-            className="relative mb-2.5 flex w-full items-center justify-between rounded-xl border border-sidebar-border/80 bg-gradient-to-r from-sidebar-accent/50 via-sidebar-accent/30 to-sidebar-accent/20 px-2.5 py-1.5 text-xs text-muted-foreground transition-all duration-300 hover:border-primary/40 hover:bg-sidebar-accent/80 hover:shadow-[0_0_15px_rgba(99,102,241,0.12)] cursor-pointer group shrink-0 z-10"
-            title="Quick Search or Jump (Ctrl+K)"
-          >
-            <span className="flex items-center gap-2 min-w-0">
-              <Search className="size-3.5 shrink-0 text-muted-foreground/70 group-hover:text-primary transition-colors duration-200" />
-              <span className="truncate text-[11.5px] font-medium group-hover:text-foreground transition-colors">Search or jump...</span>
-            </span>
-            <kbd className="pointer-events-none inline-flex h-4 select-none items-center gap-0.5 rounded border border-border/80 bg-background/90 px-1 font-mono text-[9px] font-semibold text-muted-foreground shadow-2xs group-hover:border-primary/40 group-hover:text-primary transition-colors">
-              <span className="text-[10px]">⌘</span>K
-            </kbd>
-          </button>
-        )}
-
-        {/* Scrollable Navigation Groups */}
-        <div
-          className={cn(
-            "min-h-0 flex-1 overflow-y-auto space-y-2",
-            sidebarCollapsed ? "no-scrollbar px-0" : "custom-scrollbar pr-1",
-          )}
-        >
-          {visibleGroups.map((group) => renderNavGroup(group))}
-        </div>
-
-        {/* ── User Footer: Sleek, compact bottom bar with Direct Messages & Account Menu ── */}
-        <div className="shrink-0 pt-2 border-t border-sidebar-border/70 mt-auto space-y-1">
-          {isUserAdmin ? (
             <Link
-              to="/admin"
-              search={{ tab: "messages" }}
-              className={cn(
-                "relative flex items-center rounded-lg py-1.5 text-xs font-medium text-sidebar-foreground/80 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground w-full text-left cursor-pointer",
-                sidebarCollapsed ? "justify-center px-1" : "gap-2.5 px-2.5",
-              )}
-              title="Direct In-App User Texting Portal"
+              to="/dashboard"
+              className="flex min-w-0 items-center gap-2.5 group"
+              title="Marginal Economics Dashboard"
             >
-              <Send className="size-4 shrink-0 text-primary" />
-              <span className={cn("truncate", sidebarCollapsed && "sr-only")}>Direct Messages</span>
-              {unreadMsgCount > 0 && (
-                <span className="absolute top-1.5 right-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white shadow-xs">
-                  {unreadMsgCount}
+              <div className="relative group/logo shrink-0">
+                <div className="absolute -inset-1 rounded-xl bg-gradient-to-r from-primary/30 to-purple-600/30 blur-xs opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                <img
+                  src="/marginal-m-icon-clean.png"
+                  alt=""
+                  aria-hidden="true"
+                  className="relative size-7 object-contain transition-transform duration-300 group-hover:scale-110"
+                />
+              </div>
+              <span
+                className={cn(
+                  "text-sm leading-tight font-bold tracking-tight text-foreground transition-colors group-hover:text-primary",
+                  sidebarCollapsed && "hidden",
+                )}
+              >
+                Marginal
+                <span className="flex items-center gap-1.5 text-[10px] font-normal text-muted-foreground mt-0.5">
+                  <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  Cambridge 9708
                 </span>
-              )}
+              </span>
             </Link>
+            {!sidebarCollapsed ? (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="ml-auto size-7 shrink-0 text-muted-foreground hover:text-foreground hover:bg-sidebar-accent transition-colors"
+                onClick={toggleSidebar}
+                title="Collapse sidebar"
+                aria-label="Collapse sidebar"
+              >
+                <PanelLeftClose className="size-3.5" />
+              </Button>
+            ) : null}
+          </div>
+
+          {sidebarCollapsed ? (
+            <div className="flex flex-col items-center gap-2 mb-2 shrink-0 relative z-10">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-8 text-muted-foreground hover:text-foreground hover:bg-sidebar-accent transition-all duration-200"
+                onClick={toggleSidebar}
+                title="Expand sidebar"
+                aria-label="Expand sidebar"
+              >
+                <PanelLeftOpen className="size-3.5" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-8 text-muted-foreground hover:text-primary hover:bg-primary/10 hover:border hover:border-primary/30 transition-all duration-200 group/btn"
+                onClick={() => setCommandOpen(true)}
+                title="Quick Jump (Ctrl+K)"
+                aria-label="Quick Jump"
+              >
+                <Search className="size-3.5 transition-transform duration-200 group-hover/btn:scale-110" />
+              </Button>
+            </div>
           ) : (
-            <StudentMessagesDialog
+            <button
+              type="button"
+              onClick={() => setCommandOpen(true)}
+              className="relative mb-2.5 flex w-full items-center justify-between rounded-xl border border-sidebar-border/80 bg-gradient-to-r from-sidebar-accent/50 via-sidebar-accent/30 to-sidebar-accent/20 px-2.5 py-1.5 text-xs text-muted-foreground transition-all duration-300 hover:border-primary/40 hover:bg-sidebar-accent/80 hover:shadow-[0_0_15px_rgba(99,102,241,0.12)] cursor-pointer group shrink-0 z-10"
+              title="Quick Search or Jump (Ctrl+K)"
+            >
+              <span className="flex items-center gap-2 min-w-0">
+                <Search className="size-3.5 shrink-0 text-muted-foreground/70 group-hover:text-primary transition-colors duration-200" />
+                <span className="truncate text-[11.5px] font-medium group-hover:text-foreground transition-colors">Search or jump...</span>
+              </span>
+              <kbd className="pointer-events-none inline-flex h-4 select-none items-center gap-0.5 rounded border border-border/80 bg-background/90 px-1 font-mono text-[9px] font-semibold text-muted-foreground shadow-2xs group-hover:border-primary/40 group-hover:text-primary transition-colors">
+                <span className="text-[10px]">⌘</span>K
+              </kbd>
+            </button>
+          )}
+
+          {/* Scrollable Navigation Groups */}
+          <div
+            className={cn(
+              "min-h-0 flex-1 overflow-y-auto space-y-2",
+              sidebarCollapsed ? "no-scrollbar px-0" : "custom-scrollbar pr-1",
+            )}
+          >
+            {visibleGroups.map((group) => renderNavGroup(group))}
+          </div>
+
+          {/* ── User Footer: Sleek, compact bottom bar with Direct Messages & Account Menu ── */}
+          <div className="shrink-0 pt-2 border-t border-sidebar-border/70 mt-auto space-y-1">
+            {isUserAdmin ? (
+              <Link
+                to="/admin"
+                search={{ tab: "messages" }}
+                className={cn(
+                  "flex items-center rounded-xl p-2 text-xs font-medium text-sidebar-foreground transition-all duration-200 border border-purple-500/30 bg-purple-500/10 hover:bg-purple-500/20 hover:border-purple-500/50 hover:shadow-[0_0_12px_rgba(168,85,247,0.15)]",
+                  sidebarCollapsed ? "justify-center" : "gap-2 justify-between",
+                )}
+                title="Direct Messages & Broadcasts"
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <Send className="size-4 shrink-0 text-purple-400 animate-pulse" />
+                  <span className={cn("truncate font-semibold", sidebarCollapsed && "sr-only")}>
+                    Admin Messages
+                  </span>
+                </div>
+                {unreadMsgCount > 0 ? (
+                  <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white shadow-xs">
+                    {unreadMsgCount}
+                  </span>
+                ) : null}
+              </Link>
+            ) : null}
+
+            {/* Quick Feedback pill for student */}
+            <FeedbackDialog
               trigger={
                 <button
                   type="button"
                   className={cn(
-                    "flex items-center rounded-lg py-1.5 text-xs font-medium text-sidebar-foreground/80 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground w-full text-left cursor-pointer",
-                    sidebarCollapsed ? "justify-center px-1" : "gap-2.5 px-2.5",
+                    "flex items-center rounded-xl p-2 text-xs font-medium text-sidebar-foreground/75 transition-all duration-200 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground w-full text-left cursor-pointer",
+                    sidebarCollapsed ? "justify-center" : "gap-2.5",
                   )}
-                  title="Direct messages from Marginal team"
+                  title="Share feedback or report an issue"
                 >
-                  <Send className="size-4 shrink-0 text-primary" />
+                  <MessageSquare className="size-4 shrink-0 text-primary" />
                   <span className={cn("truncate", sidebarCollapsed && "sr-only")}>
-                    Direct Messages
+                    Message Us / Feedback
                   </span>
                 </button>
               }
             />
-          )}
 
-          {/* Unified Profile & Settings Dropdown */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
+            {/* Unified Profile & Settings Dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className={cn(
+                    "flex items-center rounded-xl p-1.5 text-xs transition-all duration-300 w-full text-left cursor-pointer outline-none group border border-sidebar-border/60 bg-gradient-to-r from-sidebar-accent/30 to-card/40 hover:border-primary/40 hover:bg-sidebar-accent/70 hover:shadow-[0_0_15px_rgba(99,102,241,0.12)]",
+                    sidebarCollapsed ? "justify-center" : "gap-2 justify-between",
+                  )}
+                  title={`${name ?? "Candidate"} — Profile & Menu`}
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <UserAvatar
+                      avatarUrl={avatarUrl}
+                      name={name}
+                      fallbackInitials={candidateInitials}
+                      showStatusDot={true}
+                      className="size-7 shrink-0 transition-transform group-hover:scale-105"
+                    />
+                    {!sidebarCollapsed && (
+                      <div className="min-w-0 flex-1 text-left">
+                        <p className="text-xs font-semibold truncate text-foreground leading-tight">
+                          {name ?? "Candidate"}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground truncate leading-tight capitalize">
+                          {role === "admin" || subscription?.isAdmin
+                            ? "Root Admin"
+                            : role === "teacher" || subscription?.isTeacher
+                              ? "Educator"
+                              : school || "Candidate"}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                  {!sidebarCollapsed && (
+                    <ChevronsUpDown className="size-3.5 shrink-0 text-muted-foreground/60 group-hover:text-foreground transition-colors" />
+                  )}
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                side={sidebarCollapsed ? "right" : "top"}
+                align={sidebarCollapsed ? "end" : "start"}
+                className="w-56 p-1.5 shadow-xl border-border/80"
+              >
+                <DropdownMenuLabel className="p-2 font-normal">
+                  <div className="flex flex-col space-y-1">
+                    <p className="text-xs font-bold leading-none text-foreground truncate">{name ?? "Candidate"}</p>
+                    <p className="text-[10px] leading-none text-muted-foreground truncate">
+                      {role === "admin" || subscription?.isAdmin
+                        ? "Administrator Access"
+                        : role === "teacher" || subscription?.isTeacher
+                          ? (school ?? "Educator")
+                          : "Cambridge 9708 Candidate"}
+                    </p>
+                  </div>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem asChild>
+                  <Link to="/settings" className="flex items-center gap-2 cursor-pointer text-xs">
+                    <Settings className="size-3.5 text-muted-foreground" />
+                    <span>Profile & Settings</span>
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => openTutorial()}
+                  className="flex items-center gap-2 cursor-pointer text-xs"
+                >
+                  <GraduationCap className="size-3.5 text-purple-500" />
+                  <span>Feature Tutorials</span>
+                </DropdownMenuItem>
+                <FeedbackDialog
+                  trigger={
+                    <div className="relative flex cursor-pointer select-none items-center gap-2 rounded-sm px-2 py-1.5 text-xs outline-none transition-colors hover:bg-accent hover:text-accent-foreground w-full">
+                      <MessageSquare className="size-3.5 text-primary" />
+                      <span>Send Feedback / Message</span>
+                    </div>
+                  }
+                />
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={signOut}
+                  className="flex items-center gap-2 cursor-pointer text-xs text-destructive focus:text-destructive focus:bg-destructive/10"
+                >
+                  <LogOut className="size-3.5" />
+                  <span>Sign out</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </aside>
+      )}
+
+      {/* ── 2. Compact Category Hub Dock Layout ── */}
+      {navLayout === "dock" && (
+        <aside className="sticky top-0 h-screen h-[100dvh] max-h-[100dvh] shrink-0 hidden lg:flex z-30 select-none">
+          {/* Slim 68px Icon Rail */}
+          <div className="w-[4.25rem] h-full flex flex-col items-center justify-between py-3 border-r border-sidebar-border bg-sidebar shrink-0">
+            <div className="flex flex-col items-center gap-3 w-full">
+              <Link
+                to="/dashboard"
+                className="p-1 hover:scale-105 transition-transform"
+                title="Dashboard"
+              >
+                <img
+                  src="/marginal-m-icon-clean.png"
+                  alt=""
+                  className="size-7 object-contain"
+                />
+              </Link>
+
               <button
                 type="button"
-                className={cn(
-                  "flex items-center rounded-xl p-1.5 text-xs transition-all duration-300 w-full text-left cursor-pointer outline-none group border border-sidebar-border/60 bg-gradient-to-r from-sidebar-accent/30 to-card/40 hover:border-primary/40 hover:bg-sidebar-accent/70 hover:shadow-[0_0_15px_rgba(99,102,241,0.12)]",
-                  sidebarCollapsed ? "justify-center" : "gap-2 justify-between",
-                )}
-                title={`${name ?? "Candidate"} — Profile & Menu`}
+                onClick={() => setCommandOpen(true)}
+                className="size-10 rounded-xl flex flex-col items-center justify-center text-muted-foreground hover:bg-sidebar-accent hover:text-foreground transition-all cursor-pointer group"
+                title="Search Cambridge 9708 (⌘K)"
               >
-                <div className="flex items-center gap-2 min-w-0">
-                  <UserAvatar
-                    avatarUrl={avatarUrl}
-                    name={name}
-                    fallbackInitials={candidateInitials}
-                    showStatusDot={true}
-                    className="size-7 shrink-0 transition-transform group-hover:scale-105"
-                  />
-                  {!sidebarCollapsed && (
-                    <div className="min-w-0 flex-1 text-left">
-                      <p className="text-xs font-semibold truncate text-foreground leading-tight">
-                        {name ?? "Candidate"}
-                      </p>
-                      <p className="text-[10px] text-muted-foreground truncate leading-tight capitalize">
-                        {role === "admin" || subscription?.isAdmin
-                          ? "Root Admin"
-                          : role === "teacher" || subscription?.isTeacher
-                            ? "Educator"
-                            : school || "Candidate"}
-                      </p>
-                    </div>
-                  )}
-                </div>
-                {!sidebarCollapsed && (
-                  <ChevronsUpDown className="size-3.5 shrink-0 text-muted-foreground/60 group-hover:text-foreground transition-colors" />
-                )}
+                <SearchIcon className="size-4.5 text-primary group-hover:scale-110 transition-transform" />
+                <span className="text-[8.5px] font-bold text-muted-foreground/80 mt-0.5">Search</span>
               </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent
-              side={sidebarCollapsed ? "right" : "top"}
-              align={sidebarCollapsed ? "end" : "start"}
-              className="w-56 p-1.5 shadow-xl border-border/80"
-            >
-              <DropdownMenuLabel className="p-2 font-normal">
-                <div className="flex flex-col space-y-1">
-                  <p className="text-xs font-bold leading-none text-foreground truncate">{name ?? "Candidate"}</p>
-                  <p className="text-[10px] leading-none text-muted-foreground truncate">
-                    {role === "admin" || subscription?.isAdmin
-                      ? "Administrator Access"
-                      : role === "teacher" || subscription?.isTeacher
-                        ? (school ?? "Educator")
-                        : "Cambridge 9708 Candidate"}
-                  </p>
-                </div>
-              </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem asChild>
-                <Link to="/settings" className="flex items-center gap-2 cursor-pointer text-xs">
-                  <Settings className="size-3.5 text-muted-foreground" />
-                  <span>Profile & Settings</span>
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => openTutorial()}
-                className="flex items-center gap-2 cursor-pointer text-xs"
-              >
-                <GraduationCap className="size-3.5 text-purple-500" />
-                <span>Feature Tutorials</span>
-              </DropdownMenuItem>
-              <FeedbackDialog
-                trigger={
-                  <div className="relative flex cursor-pointer select-none items-center gap-2 rounded-sm px-2 py-1.5 text-xs outline-none transition-colors hover:bg-accent hover:text-accent-foreground w-full">
-                    <MessageSquare className="size-3.5 text-primary" />
-                    <span>Send Feedback / Message</span>
-                  </div>
-                }
+
+              <div className="w-8 h-px bg-sidebar-border/70 my-1" />
+
+              {/* Category Icons */}
+              {visibleGroups.map((group) => {
+                const isSelected = activeDockCategory === group.id;
+                const Icon =
+                  group.id === "dashboard_analytics"
+                    ? LayoutDashboard
+                    : group.id === "grading"
+                      ? PenLine
+                      : group.id === "syllabus"
+                        ? BookOpen
+                        : ShieldCheck;
+
+                return (
+                  <button
+                    key={group.id}
+                    type="button"
+                    onClick={() => setActiveDockCategory(group.id)}
+                    className={cn(
+                      "group relative flex flex-col items-center justify-center size-11 rounded-xl transition-all cursor-pointer",
+                      isSelected
+                        ? "bg-primary text-primary-foreground shadow-xs font-bold"
+                        : "text-muted-foreground hover:bg-sidebar-accent/80 hover:text-foreground",
+                    )}
+                    title={group.label}
+                  >
+                    <Icon className="size-5" />
+                    <span className="text-[9px] font-bold mt-0.5 truncate max-w-[48px]">
+                      {group.id === "dashboard_analytics"
+                        ? "Hub"
+                        : group.id === "grading"
+                          ? "Practice"
+                          : group.id === "syllabus"
+                            ? "Syllabus"
+                            : "Admin"}
+                    </span>
+                    {isSelected && (
+                      <span className="absolute -left-1 top-2.5 bottom-2.5 w-1 rounded-r-full bg-primary" />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Bottom Dock Utilities */}
+            <div className="flex flex-col items-center gap-2 w-full pt-2 border-t border-sidebar-border/70">
+              <LayoutSwitcherButton
+                navLayout={navLayout}
+                onChange={handleLayoutChange}
+                className="size-8 justify-center p-0 rounded-xl"
               />
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={signOut}
-                className="flex items-center gap-2 cursor-pointer text-xs text-destructive focus:text-destructive focus:bg-destructive/10"
+              <Link
+                to="/settings"
+                className="p-0.5 rounded-xl hover:ring-2 hover:ring-primary/40 transition-all"
+                title="Settings"
               >
-                <LogOut className="size-3.5" />
-                <span>Sign out</span>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </aside>
+                <UserAvatar
+                  avatarUrl={avatarUrl}
+                  name={name}
+                  fallbackInitials={candidateInitials}
+                  showStatusDot={true}
+                  className="size-8"
+                />
+              </Link>
+            </div>
+          </div>
+
+          {/* Adjacent Compact Sub-Panel: Scroll-Free 4–6 tools */}
+          <div className="w-56 h-full flex flex-col py-3 px-2.5 border-r border-sidebar-border/60 bg-card/60 backdrop-blur-md shrink-0">
+            {visibleGroups
+              .filter((g) => g.id === activeDockCategory)
+              .map((group) => (
+                <div key={group.id} className="flex flex-col h-full">
+                  <div className="pb-2.5 mb-2 border-b border-border/60">
+                    <p className="text-xs font-bold text-foreground truncate">
+                      {group.label}
+                    </p>
+                    <p className="text-[10.5px] text-muted-foreground">
+                      Quick Cambridge Navigation
+                    </p>
+                  </div>
+                  <nav className="flex flex-col gap-1 flex-1">
+                    {group.items.map((item) => {
+                      const active = isItemActive(item.to);
+                      const label =
+                        item.to === "/classes" ? classroomLabel : item.label;
+                      return (
+                        <Link
+                          key={item.to}
+                          to={item.to}
+                          className={cn(
+                            "group relative flex items-center justify-between rounded-xl px-2.5 py-2 text-xs font-medium transition-all duration-150",
+                            active
+                              ? "bg-primary/10 text-primary font-bold shadow-2xs"
+                              : "text-muted-foreground hover:bg-muted/80 hover:text-foreground",
+                          )}
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <item.icon className="size-4 shrink-0 text-muted-foreground group-hover:text-foreground" />
+                            <span className="truncate">{label}</span>
+                          </div>
+                          {item.badge && (
+                            <Badge
+                              variant="outline"
+                              className={cn(
+                                "text-[9px] px-1.5 py-0 shrink-0",
+                                item.badge === "Beta" ||
+                                  item.badge === "Under Building"
+                                  ? "border-amber-500/35 bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                                  : "border-primary/30 text-primary bg-primary/10",
+                              )}
+                            >
+                              {item.badge}
+                            </Badge>
+                          )}
+                        </Link>
+                      );
+                    })}
+                  </nav>
+                </div>
+              ))}
+          </div>
+        </aside>
+      )}
 
       {/* ── Main Content & Mobile Header ── */}
       <div
         className={cn(
           "flex min-w-0 flex-1 flex-col overflow-x-hidden transition-[padding] duration-300 ease-out",
-          sidebarCollapsed ? "lg:pl-[4.5rem]" : "lg:pl-64",
+          navLayout === "sidebar"
+            ? sidebarCollapsed
+              ? "lg:pl-[4.5rem]"
+              : "lg:pl-64"
+            : "",
         )}
       >
+        {/* Mobile Header (all layouts) */}
         <header className="flex items-center justify-between border-b border-border bg-card/80 px-4 py-2.5 backdrop-blur-sm lg:hidden sticky top-0 z-40 w-full max-w-full">
           <div className="flex items-center gap-2.5">
             <Sheet open={mobileDrawerOpen} onOpenChange={setMobileDrawerOpen}>
@@ -849,6 +1219,15 @@ export function AppShell({
                 </div>
 
                 <div className="mt-auto shrink-0 pt-3 border-t border-border space-y-1">
+                  <LayoutSwitcherButton
+                    navLayout={navLayout}
+                    onChange={(l) => {
+                      setMobileDrawerOpen(false);
+                      handleLayoutChange(l);
+                    }}
+                    className="w-full justify-start"
+                  />
+
                   {isUserAdmin ? (
                     <Link
                       to="/admin"
@@ -960,7 +1339,21 @@ export function AppShell({
           </div>
 
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setCommandOpen(true)}
+              className="flex items-center justify-center size-8 rounded-full border border-border/80 hover:bg-muted transition-colors text-muted-foreground hover:text-foreground cursor-pointer"
+              title="Search Cambridge 9708 (⌘K)"
+              aria-label="Search or jump"
+            >
+              <SearchIcon className="size-3.5" />
+            </button>
             <TopTutorialButton size="sm" />
+            <LayoutSwitcherButton
+              navLayout={navLayout}
+              onChange={handleLayoutChange}
+              className="hidden sm:flex"
+            />
             {isUserAdmin ? (
               <Link
                 to="/admin"
@@ -981,60 +1374,462 @@ export function AppShell({
           </div>
         </header>
 
-        {/* ── Desktop Top Header Bar: Clean, sleek utility bar pinned on top ── */}
-        <header className="hidden lg:flex items-center justify-between border-b border-border/70 bg-card/70 px-6 py-2.5 backdrop-blur-md sticky top-0 z-30 w-full shrink-0">
-          <div className="flex items-center gap-2.5 min-w-0">
-            {currentTutorial ? (
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div className="size-7 rounded-lg bg-purple-500/10 border border-purple-500/20 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
-                  <currentTutorial.icon className="size-4" />
-                </div>
-                <div className="flex items-center gap-2 min-w-0">
-                  <span className="text-xs font-bold text-foreground truncate">
-                    {currentTutorial.title}
-                  </span>
-                  {currentTutorial.paperTag && (
-                    <Badge
-                      variant="outline"
-                      className="text-[10px] text-muted-foreground border-border/80 py-0 hidden lg:inline-flex"
-                    >
-                      {currentTutorial.paperTag}
-                    </Badge>
+        {/* ── Desktop Horizontal Topbar Navigation (navLayout === 'topbar') ── */}
+        {navLayout === "topbar" && (
+          <header className="hidden lg:flex items-center justify-between border-b border-border/80 bg-background/95 backdrop-blur-md px-6 py-2.5 sticky top-0 z-40 w-full shrink-0 shadow-2xs">
+            {/* Left: Brand + Navigation Dropdowns */}
+            <div className="flex items-center gap-6 min-w-0">
+              <Link to="/dashboard" className="flex items-center gap-2.5 shrink-0 group">
+                <img
+                  src="/marginal-m-icon-clean.png"
+                  alt=""
+                  aria-hidden="true"
+                  className="size-7 object-contain transition-transform group-hover:scale-105"
+                />
+                <span className="text-sm font-bold tracking-tight text-foreground flex items-center gap-1.5">
+                  Marginal
+                  <Badge
+                    variant="outline"
+                    className="text-[9.5px] font-mono px-1.5 py-0 border-primary/30 text-primary"
+                  >
+                    9708
+                  </Badge>
+                </span>
+              </Link>
+
+              {/* Top Navigation Menus */}
+              <nav className="flex items-center gap-1">
+                <Link
+                  to="/dashboard"
+                  className={cn(
+                    "px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer",
+                    pathname === "/dashboard"
+                      ? "bg-primary/10 text-primary font-bold shadow-2xs"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted/80",
                   )}
-                </div>
-              </div>
-            ) : (
-              <span className="text-xs font-semibold text-muted-foreground">
-                Cambridge International Economics 9708
-              </span>
-            )}
-          </div>
+                >
+                  Dashboard
+                </Link>
 
-          <div className="flex items-center gap-2.5 shrink-0">
-            <TopTutorialButton />
-
-            {isUserAdmin ? (
-              <Link
-                to="/admin"
-                search={{ tab: "messages" }}
-                className="relative flex items-center justify-center size-8 rounded-full border border-border/80 hover:bg-muted transition-colors"
-                title="Direct Messages Portal"
-              >
-                <Send className="size-3.5 text-primary" />
-                {unreadMsgCount > 0 && (
-                  <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white shadow-xs">
-                    {unreadMsgCount}
-                  </span>
+                {/* Exam Practice Dropdown */}
+                {practiceGroup && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        type="button"
+                        className={cn(
+                          "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer",
+                          isPracticeActive
+                            ? "bg-primary/10 text-primary font-bold shadow-2xs"
+                            : "text-muted-foreground hover:text-foreground hover:bg-muted/80",
+                        )}
+                      >
+                        <PenLine className="size-3.5 text-primary" />
+                        <span>Exam Practice</span>
+                        <ChevronDown className="size-3 opacity-60" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="w-64 p-1.5 z-50 bg-popover">
+                      <DropdownMenuLabel className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground px-2 py-1">
+                        Cambridge 9708 Practice
+                      </DropdownMenuLabel>
+                      {practiceGroup.items.map((item) => (
+                        <DropdownMenuItem key={item.to} asChild>
+                          <Link
+                            to={item.to}
+                            className={cn(
+                              "flex items-center justify-between gap-2.5 px-2.5 py-2 text-xs rounded-md cursor-pointer",
+                              isItemActive(item.to) && "bg-primary/10 text-primary font-bold",
+                            )}
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              <item.icon className="size-4 shrink-0 text-muted-foreground" />
+                              <span className="truncate">{item.label}</span>
+                            </div>
+                            {item.badge && (
+                              <Badge
+                                variant="outline"
+                                className={cn(
+                                  "text-[9px] px-1.5 py-0 shrink-0",
+                                  item.badge === "Under Building" || item.badge === "Beta"
+                                    ? "border-amber-500/35 bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                                    : "border-primary/30 text-primary bg-primary/10",
+                                )}
+                              >
+                                {item.badge}
+                              </Badge>
+                            )}
+                          </Link>
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 )}
-              </Link>
-            ) : (
-              <StudentMessagesDialog />
-            )}
-          </div>
-        </header>
 
-        <main className="flex-1 min-w-0 overflow-x-hidden">{children}</main>
+                {/* Syllabus Hub Dropdown */}
+                {syllabusGroup && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        type="button"
+                        className={cn(
+                          "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer",
+                          isSyllabusActive
+                            ? "bg-primary/10 text-primary font-bold shadow-2xs"
+                            : "text-muted-foreground hover:text-foreground hover:bg-muted/80",
+                        )}
+                      >
+                        <BookOpen className="size-3.5 text-sky-500" />
+                        <span>Syllabus Resources</span>
+                        <ChevronDown className="size-3 opacity-60" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="w-64 p-1.5 z-50 bg-popover">
+                      <DropdownMenuLabel className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground px-2 py-1">
+                        Syllabus Hub & Citations
+                      </DropdownMenuLabel>
+                      {syllabusGroup.items.map((item) => (
+                        <DropdownMenuItem key={item.to} asChild>
+                          <Link
+                            to={item.to}
+                            className={cn(
+                              "flex items-center justify-between gap-2.5 px-2.5 py-2 text-xs rounded-md cursor-pointer",
+                              isItemActive(item.to) && "bg-primary/10 text-primary font-bold",
+                            )}
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              <item.icon className="size-4 shrink-0 text-muted-foreground" />
+                              <span className="truncate">{item.label}</span>
+                            </div>
+                            {item.badge && (
+                              <Badge
+                                variant="outline"
+                                className="text-[9px] px-1.5 py-0 shrink-0 border-border/80"
+                              >
+                                {item.badge}
+                              </Badge>
+                            )}
+                          </Link>
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+
+                {/* Classes & Progress Link */}
+                <Link
+                  to="/classes"
+                  className={cn(
+                    "px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer",
+                    pathname.startsWith("/classes")
+                      ? "bg-primary/10 text-primary font-bold shadow-2xs"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted/80",
+                  )}
+                >
+                  {classroomLabel}
+                </Link>
+
+                {/* Admin Console Dropdown (if admin) */}
+                {isUserAdmin && adminGroup && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        type="button"
+                        className={cn(
+                          "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer",
+                          pathname.startsWith("/admin")
+                            ? "bg-purple-500/15 text-purple-600 dark:text-purple-400 font-bold border border-purple-500/30"
+                            : "text-muted-foreground hover:text-foreground hover:bg-muted/80",
+                        )}
+                      >
+                        <ShieldCheck className="size-3.5 text-purple-500" />
+                        <span>Administration</span>
+                        <Badge className="text-[9px] bg-purple-500/20 text-purple-600 border-purple-500/30 py-0 px-1">
+                          Root
+                        </Badge>
+                        <ChevronDown className="size-3 opacity-60" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="w-56 p-1.5 z-50 bg-popover">
+                      <DropdownMenuItem asChild>
+                        <Link
+                          to="/admin"
+                          className="flex items-center gap-2 px-2.5 py-2 text-xs cursor-pointer"
+                        >
+                          <ShieldCheck className="size-4 text-purple-600" />
+                          <span className="font-semibold">Admin Console</span>
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link
+                          to="/live-examiner"
+                          className="flex items-center justify-between gap-2 px-2.5 py-2 text-xs cursor-pointer"
+                        >
+                          <div className="flex items-center gap-2">
+                            <Sparkles className="size-4 text-amber-500" />
+                            <span>Live Examiner Studio</span>
+                          </div>
+                          <Badge variant="outline" className="text-[9px] border-amber-500/35 text-amber-600">
+                            Beta
+                          </Badge>
+                        </Link>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+              </nav>
+            </div>
+
+            {/* Right: Utilities, Switcher, Tutorials, User Menu */}
+            <div className="flex items-center gap-2.5 shrink-0">
+              <button
+                type="button"
+                onClick={() => setCommandOpen(true)}
+                className="flex items-center gap-2 rounded-xl border border-border/80 bg-muted/40 px-3 py-1.5 text-xs text-muted-foreground hover:border-primary/40 hover:bg-muted/70 hover:text-foreground transition-all cursor-pointer shadow-2xs group"
+                title="Search Cambridge 9708 definitions, diagrams & tools (⌘K)"
+              >
+                <SearchIcon className="size-3.5 text-primary group-hover:scale-110 transition-transform" />
+                <span className="hidden xl:inline text-muted-foreground/90 font-medium">Search or jump...</span>
+                <kbd className="pointer-events-none hidden sm:inline-flex h-4.5 select-none items-center gap-0.5 rounded border border-border bg-background px-1.5 font-mono text-[9.5px] font-medium text-muted-foreground">
+                  ⌘K
+                </kbd>
+              </button>
+
+              <TopTutorialButton />
+
+              <LayoutSwitcherButton
+                navLayout={navLayout}
+                onChange={handleLayoutChange}
+              />
+
+              {isUserAdmin ? (
+                <Link
+                  to="/admin"
+                  search={{ tab: "messages" }}
+                  className="relative flex items-center justify-center size-8 rounded-lg border border-border/80 hover:bg-muted transition-colors cursor-pointer"
+                  title="Direct Messages Portal"
+                >
+                  <Send className="size-3.5 text-primary" />
+                  {unreadMsgCount > 0 && (
+                    <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white shadow-xs">
+                      {unreadMsgCount}
+                    </span>
+                  )}
+                </Link>
+              ) : (
+                <StudentMessagesDialog />
+              )}
+
+              <FeedbackDialog />
+
+              {/* User Avatar Dropdown */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    className="flex items-center gap-2 rounded-full p-0.5 hover:ring-2 hover:ring-primary/40 transition-all cursor-pointer"
+                  >
+                    <UserAvatar
+                      avatarUrl={avatarUrl}
+                      name={name}
+                      fallbackInitials={candidateInitials}
+                      showStatusDot={true}
+                      className="size-8"
+                    />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56 p-2 z-50 bg-popover">
+                  <div className="px-2 py-1.5 border-b border-border/60 pb-2 mb-1">
+                    <p className="text-xs font-bold text-foreground truncate">
+                      {name ?? "Candidate"}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground truncate">
+                      {school ||
+                        (isTeacherUser ? "Educator" : "Cambridge 9708 Candidate")}
+                    </p>
+                  </div>
+                  <DropdownMenuItem asChild>
+                    <Link
+                      to="/dashboard"
+                      className="flex items-center gap-2 text-xs cursor-pointer"
+                    >
+                      <LayoutDashboard className="size-3.5 text-muted-foreground" />
+                      <span>Dashboard</span>
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link
+                      to="/settings"
+                      className="flex items-center gap-2 text-xs cursor-pointer"
+                    >
+                      <Settings className="size-3.5 text-muted-foreground" />
+                      <span>Profile &amp; Settings</span>
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator className="my-1" />
+                  <DropdownMenuItem
+                    onClick={signOut}
+                    className="flex items-center gap-2 text-xs text-destructive hover:bg-destructive/10 cursor-pointer"
+                  >
+                    <LogOut className="size-3.5" />
+                    <span>Sign out</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </header>
+        )}
+
+        {/* ── Desktop Secondary Header Bar for Dock & Sidebar Layouts ── */}
+        {navLayout !== "topbar" && (
+          <header className="hidden lg:flex items-center justify-between border-b border-border/70 bg-card/70 px-6 py-2.5 backdrop-blur-md sticky top-0 z-30 w-full shrink-0">
+            <div className="flex items-center gap-2.5 min-w-0">
+              {currentTutorial ? (
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="size-7 rounded-lg bg-purple-500/10 border border-purple-500/20 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
+                    <currentTutorial.icon className="size-4" />
+                  </div>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-xs font-bold text-foreground truncate">
+                      {currentTutorial.title}
+                    </span>
+                    {currentTutorial.paperTag && (
+                      <Badge
+                        variant="outline"
+                        className="text-[10px] text-muted-foreground border-border/80 py-0 hidden lg:inline-flex"
+                      >
+                        {currentTutorial.paperTag}
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <span className="text-xs font-semibold text-muted-foreground">
+                  Cambridge International Economics 9708
+                </span>
+              )}
+            </div>
+
+            <div className="flex items-center gap-2.5 shrink-0">
+              <button
+                type="button"
+                onClick={() => setCommandOpen(true)}
+                className="flex items-center gap-2 rounded-xl border border-border/80 bg-muted/40 px-3 py-1.5 text-xs text-muted-foreground hover:border-primary/40 hover:bg-muted/70 hover:text-foreground transition-all cursor-pointer shadow-2xs group"
+                title="Search Cambridge 9708 definitions, diagrams & tools (⌘K)"
+              >
+                <SearchIcon className="size-3.5 text-primary group-hover:scale-110 transition-transform" />
+                <span className="hidden xl:inline text-muted-foreground/90 font-medium">Search or jump...</span>
+                <kbd className="pointer-events-none hidden sm:inline-flex h-4.5 select-none items-center gap-0.5 rounded border border-border bg-background px-1.5 font-mono text-[9.5px] font-medium text-muted-foreground">
+                  ⌘K
+                </kbd>
+              </button>
+
+              <TopTutorialButton />
+
+              <LayoutSwitcherButton
+                navLayout={navLayout}
+                onChange={handleLayoutChange}
+              />
+
+              {isUserAdmin ? (
+                <Link
+                  to="/admin"
+                  search={{ tab: "messages" }}
+                  className="relative flex items-center justify-center size-8 rounded-full border border-border/80 hover:bg-muted transition-colors"
+                  title="Direct Messages Portal"
+                >
+                  <Send className="size-3.5 text-primary" />
+                  {unreadMsgCount > 0 && (
+                    <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white shadow-xs">
+                      {unreadMsgCount}
+                    </span>
+                  )}
+                </Link>
+              ) : (
+                <StudentMessagesDialog />
+              )}
+            </div>
+          </header>
+        )}
+
+        <main className="flex-1 min-w-0 overflow-x-hidden pb-16 sm:pb-0">{children}</main>
       </div>
+
+      {/* ── Mobile Phone Bottom Navigation Bar (sm:hidden) ── */}
+      <nav
+        aria-label="Mobile Navigation"
+        className="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-background/95 backdrop-blur-md border-t border-border px-1.5 py-1.5 flex items-center justify-around shadow-lg pb-[calc(env(safe-area-inset-bottom,0px)+0.375rem)]"
+      >
+        <Link
+          to="/dashboard"
+          className={cn(
+            "flex flex-col items-center justify-center gap-0.5 px-2 py-1 rounded-lg text-[10px] font-medium transition-all active:scale-95",
+            pathname === "/dashboard"
+              ? "text-primary font-bold"
+              : "text-muted-foreground hover:text-foreground",
+          )}
+        >
+          <LayoutDashboard className="size-5" />
+          <span>Dashboard</span>
+        </Link>
+
+        <Link
+          to="/grade"
+          className={cn(
+            "flex flex-col items-center justify-center gap-0.5 px-2 py-1 rounded-lg text-[10px] font-medium transition-all active:scale-95",
+            pathname === "/grade" || pathname.startsWith("/essay")
+              ? "text-primary font-bold"
+              : "text-muted-foreground hover:text-foreground",
+          )}
+        >
+          <PenLine className="size-5" />
+          <span>Grade</span>
+        </Link>
+
+        <Link
+          to="/mcq-live"
+          className={cn(
+            "flex flex-col items-center justify-center gap-0.5 px-2 py-1 rounded-lg text-[10px] font-medium transition-all active:scale-95",
+            pathname.startsWith("/mcq")
+              ? "text-primary font-bold"
+              : "text-muted-foreground hover:text-foreground",
+          )}
+        >
+          <ListChecks className="size-5" />
+          <span>MCQ</span>
+        </Link>
+
+        <Link
+          to="/data-response"
+          className={cn(
+            "flex flex-col items-center justify-center gap-0.5 px-2 py-1 rounded-lg text-[10px] font-medium transition-all active:scale-95",
+            pathname.startsWith("/data-response")
+              ? "text-primary font-bold"
+              : "text-muted-foreground hover:text-foreground",
+          )}
+        >
+          <FileSpreadsheet className="size-5" />
+          <span>Data Resp</span>
+        </Link>
+
+        <button
+          type="button"
+          onClick={() => setMobileDrawerOpen(true)}
+          className="flex flex-col items-center justify-center gap-0.5 px-2 py-1 rounded-lg text-[10px] font-medium text-muted-foreground hover:text-foreground active:scale-95 transition-all cursor-pointer"
+        >
+          <Menu className="size-5" />
+          <span>All Tools</span>
+        </button>
+      </nav>
+
+      <CommandPalette
+        open={commandOpen}
+        onOpenChange={setCommandOpen}
+        role={role}
+        isAdmin={isUserAdmin}
+        onLayoutChange={handleLayoutChange}
+        onSignOut={signOut}
+      />
 
       <LockedFeatureModal
         open={lockedModalType !== null}
@@ -1046,251 +1841,7 @@ export function AppShell({
 
       {!pathname.startsWith("/mcq") && <FloatingFeedbackPill />}
 
-      {/* Global Quick Command & Jump Palette */}
-      <CommandDialog open={commandOpen} onOpenChange={setCommandOpen}>
-        <CommandInput placeholder="Search pages, tools, syllabus, admin..." />
-        <CommandList className="custom-scrollbar max-h-80">
-          <CommandEmpty>No matching destination found.</CommandEmpty>
 
-          <CommandGroup heading="Core Practice">
-            <CommandItem
-              onSelect={() => {
-                setCommandOpen(false);
-                navigate({ to: "/dashboard" });
-              }}
-              className="cursor-pointer"
-            >
-              <LayoutDashboard className="mr-2 size-4 text-indigo-500" />
-              <span>Dashboard</span>
-            </CommandItem>
-            <CommandItem
-              onSelect={() => {
-                setCommandOpen(false);
-                navigate({ to: "/grade" });
-              }}
-              className="cursor-pointer"
-            >
-              <PenLine className="mr-2 size-4 text-indigo-500" />
-              <span>Grade Essays (AI Evaluator)</span>
-            </CommandItem>
-            {isUserAdmin && (
-            <CommandItem
-              onSelect={() => {
-                setCommandOpen(false);
-                navigate({ to: "/live-examiner" });
-              }}
-              className="cursor-pointer"
-            >
-              <Sparkles className="mr-2 size-4 text-emerald-500" />
-              <span>Live Examiner Studio (Admin)</span>
-            </CommandItem>
-          )}
-            <CommandItem
-              onSelect={() => {
-                setCommandOpen(false);
-                navigate({ to: "/mcq-live" });
-              }}
-              className="cursor-pointer"
-            >
-              <ListChecks className="mr-2 size-4 text-indigo-500" />
-              <span>MCQ Past Papers</span>
-            </CommandItem>
-            <CommandItem
-              onSelect={() => {
-                setCommandOpen(false);
-                navigate({ to: "/data-response" });
-              }}
-              className="cursor-pointer"
-            >
-              <FileSpreadsheet className="mr-2 size-4 text-indigo-500" />
-              <span>Data Response</span>
-            </CommandItem>
-          </CommandGroup>
-
-          <CommandSeparator />
-
-          <CommandGroup heading="Syllabus & Knowledge">
-            <CommandItem
-              onSelect={() => {
-                setCommandOpen(false);
-                navigate({ to: "/definitions" });
-              }}
-              className="cursor-pointer"
-            >
-              <BookText className="mr-2 size-4 text-sky-500" />
-              <span>Definitions Hub</span>
-            </CommandItem>
-            <CommandItem
-              onSelect={() => {
-                setCommandOpen(false);
-                navigate({ to: "/diagrams" });
-              }}
-              className="cursor-pointer"
-            >
-              <LineChart className="mr-2 size-4 text-sky-500" />
-              <span>Diagram Library</span>
-            </CommandItem>
-            <CommandItem
-              onSelect={() => {
-                setCommandOpen(false);
-                navigate({ to: "/question-bank" });
-              }}
-              className="cursor-pointer"
-            >
-              <BookMarked className="mr-2 size-4 text-sky-500" />
-              <span>Question Bank</span>
-            </CommandItem>
-            <CommandItem
-              onSelect={() => {
-                setCommandOpen(false);
-                navigate({ to: "/paper-matrix" });
-              }}
-              className="cursor-pointer"
-            >
-              <Flame className="mr-2 size-4 text-sky-500" />
-              <span>Paper Predictor</span>
-            </CommandItem>
-            <CommandItem
-              onSelect={() => {
-                setCommandOpen(false);
-                navigate({ to: "/response-structure" });
-              }}
-              className="cursor-pointer"
-            >
-              <GraduationCap className="mr-2 size-4 text-sky-500" />
-              <span>Essay Structure Guide</span>
-            </CommandItem>
-            <CommandItem
-              onSelect={() => {
-                setCommandOpen(false);
-                navigate({ to: "/essay-generator" });
-              }}
-              className="cursor-pointer"
-            >
-              <Wand2 className="mr-2 size-4 text-sky-500" />
-              <span>Sample Essay Generator</span>
-            </CommandItem>
-            <CommandItem
-              onSelect={() => {
-                setCommandOpen(false);
-                navigate({ to: "/command-words" });
-              }}
-              className="cursor-pointer"
-            >
-              <Target className="mr-2 size-4 text-sky-500" />
-              <span>Command Words</span>
-            </CommandItem>
-            <CommandItem
-              onSelect={() => {
-                setCommandOpen(false);
-                navigate({ to: "/showcase" });
-              }}
-              className="cursor-pointer"
-            >
-              <Trophy className="mr-2 size-4 text-sky-500" />
-              <span>Exemplars Showcase</span>
-            </CommandItem>
-          </CommandGroup>
-
-          <CommandSeparator />
-
-          <CommandGroup heading="Classroom & Progress">
-            <CommandItem
-              onSelect={() => {
-                setCommandOpen(false);
-                navigate({ to: "/classes" });
-              }}
-              className="cursor-pointer"
-            >
-              <UsersRound className="mr-2 size-4 text-emerald-500" />
-              <span>{role === "student" ? "Classroom" : "Classes"}</span>
-            </CommandItem>
-            <CommandItem
-              onSelect={() => {
-                setCommandOpen(false);
-                navigate({ to: "/review" });
-              }}
-              className="cursor-pointer"
-            >
-              <ClipboardCheck className="mr-2 size-4 text-emerald-500" />
-              <span>Diagnostics & Review</span>
-            </CommandItem>
-          </CommandGroup>
-
-          {isUserAdmin && (
-            <>
-              <CommandSeparator />
-              <CommandGroup heading="Administration">
-                <CommandItem
-                  onSelect={() => {
-                    setCommandOpen(false);
-                    navigate({ to: "/admin" });
-                  }}
-                  className="cursor-pointer"
-                >
-                  <ShieldCheck className="mr-2 size-4 text-purple-500" />
-                  <span>Admin Console</span>
-                </CommandItem>
-                <CommandItem
-                  onSelect={() => {
-                    setCommandOpen(false);
-                    navigate({ to: "/admin", search: { tab: "messages" } });
-                  }}
-                  className="cursor-pointer"
-                >
-                  <Send className="mr-2 size-4 text-purple-500" />
-                  <span>Direct Messages Portal</span>
-                </CommandItem>
-                <CommandItem
-                  onSelect={() => {
-                    setCommandOpen(false);
-                    navigate({ to: "/admin", search: { tab: "overview" } });
-                  }}
-                  className="cursor-pointer"
-                >
-                  <Zap className="mr-2 size-4 text-purple-500" />
-                  <span>User Activeness & Economics</span>
-                </CommandItem>
-                <CommandItem
-                  onSelect={() => {
-                    setCommandOpen(false);
-                    navigate({ to: "/admin", search: { tab: "users" } });
-                  }}
-                  className="cursor-pointer"
-                >
-                  <UsersRound className="mr-2 size-4 text-purple-500" />
-                  <span>User Management & Access</span>
-                </CommandItem>
-              </CommandGroup>
-            </>
-          )}
-
-          <CommandSeparator />
-
-          <CommandGroup heading="Account">
-            <CommandItem
-              onSelect={() => {
-                setCommandOpen(false);
-                navigate({ to: "/settings" });
-              }}
-              className="cursor-pointer"
-            >
-              <Settings className="mr-2 size-4 text-muted-foreground" />
-              <span>Profile & Settings</span>
-            </CommandItem>
-            <CommandItem
-              onSelect={() => {
-                setCommandOpen(false);
-                openTutorial();
-              }}
-              className="cursor-pointer"
-            >
-              <GraduationCap className="mr-2 size-4 text-purple-500" />
-              <span>Feature Tutorials</span>
-            </CommandItem>
-          </CommandGroup>
-        </CommandList>
-      </CommandDialog>
     </div>
   );
 }
@@ -1298,24 +1849,35 @@ export function AppShell({
 export function PageHeader({
   title,
   description,
+  subtitle,
+  badge,
   action,
+  backTo,
+  maxWidthClassName = "max-w-7xl 2xl:max-w-[1600px]",
 }: {
   title: string;
   description?: string;
+  subtitle?: string;
+  badge?: ReactNode;
   action?: ReactNode;
+  backTo?: string;
+  maxWidthClassName?: string;
 }) {
+  const effectiveDescription = description ?? subtitle;
+  const effectiveAction = action ?? badge;
+
   return (
     <div className="border-b border-border bg-card/60 px-4 py-3.5 sm:px-6 sm:py-5 md:px-8">
-      <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
+      <div className={cn("mx-auto flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between", maxWidthClassName)}>
         <div className="min-w-0">
           <h1 className="text-lg font-bold tracking-tight text-foreground sm:text-2xl">{title}</h1>
-          {description ? (
+          {effectiveDescription ? (
             <p className="mt-0.5 text-xs text-muted-foreground sm:mt-1 sm:text-sm leading-relaxed">
-              {description}
+              {effectiveDescription}
             </p>
           ) : null}
         </div>
-        {action ? <div className="shrink-0 pt-0.5 sm:pt-0">{action}</div> : null}
+        {effectiveAction ? <div className="shrink-0 pt-0.5 sm:pt-0">{effectiveAction}</div> : null}
       </div>
     </div>
   );

@@ -46,6 +46,8 @@ export function NextMarks({
   strengths = [],
   areasForImprovement = [],
   onSelectMove,
+  onOpenMaximizer,
+  maximizerLoading,
   className,
 }: NextMarksProps) {
   // Use rich opportunities if provided, else fall back to nextMoves

@@ -356,36 +356,36 @@ export function DataResponseStudio() {
       {/* ==================================================================== */}
       {/* TOP HEADER & STUDIO IDENTITY BANNER                                  */}
       {/* ==================================================================== */}
-      <div className="relative overflow-hidden rounded-2xl border border-border/80 bg-gradient-to-br from-card via-card/95 to-muted/40 p-6 shadow-sm backdrop-blur-sm">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-          <div className="space-y-2">
+      <div className="relative overflow-hidden rounded-2xl border border-border/80 bg-gradient-to-br from-card via-card/95 to-muted/40 p-5 sm:p-6 shadow-sm backdrop-blur-sm">
+        <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-5">
+          <div className="space-y-2 min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="flex h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse" />
-              <div className="flex items-center gap-2">
-                <FileCheck2 className="h-6 w-6 text-emerald-500" />
-                <h2 className="text-2xl font-extrabold tracking-tight text-foreground">
+              <span className="flex h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+              <div className="flex items-center gap-2 min-w-0">
+                <FileCheck2 className="h-6 w-6 text-emerald-500 shrink-0" />
+                <h2 className="text-xl sm:text-2xl font-extrabold tracking-tight text-foreground truncate">
                   Cambridge Data Response Studio
                 </h2>
               </div>
-              <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 text-xs font-bold uppercase tracking-wider">
+              <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 text-xs font-bold uppercase tracking-wider shrink-0">
                 Section A Mastery
               </Badge>
-              <Badge variant="outline" className="text-xs font-semibold text-muted-foreground">
+              <Badge variant="outline" className="text-xs font-semibold text-muted-foreground shrink-0">
                 9708 Syllabus
               </Badge>
             </div>
-            <p className="text-sm text-muted-foreground max-w-2xl leading-relaxed">
+            <p className="text-xs sm:text-sm text-muted-foreground max-w-2xl leading-relaxed">
               Real examination case studies for Cambridge International AS Level (Paper 2) and A Level (Paper 4). Practice Table 1.1 interpretation, Own Figure Rule (OFR) calculations, curve shift diagrams, and extended essays graded strictly against official Cambridge mark scheme rubrics.
             </p>
           </div>
 
           {/* Quick Header Actions & Tab Navigation */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2.5 shrink-0">
             <Button
               variant="outline"
               size="sm"
               onClick={() => setShowInstructions(!showInstructions)}
-              className="text-xs gap-1.5 h-9 font-medium border-border/80 hover:bg-muted/60"
+              className="text-xs gap-1.5 h-9 font-medium border-border/80 hover:bg-muted/60 shrink-0"
             >
               <HelpCircle className="h-4 w-4 text-primary" />
               {showInstructions ? "Hide Instructions" : "How to Use & Exam Rules"}
@@ -393,7 +393,7 @@ export function DataResponseStudio() {
             </Button>
 
             <Tabs value={activeTab} onValueChange={(v: any) => setActiveTab(v)}>
-              <TabsList className="bg-muted/80 p-1 h-9">
+              <TabsList className="bg-muted/80 p-1 h-9 flex-wrap sm:flex-nowrap">
                 <TabsTrigger value="practice" className="gap-1.5 text-xs font-semibold">
                   <PenTool className="h-3.5 w-3.5" />
                   Practice Studio
@@ -616,9 +616,9 @@ export function DataResponseStudio() {
               </div>
 
               {/* Row 2: Selected Paper Dropdown & Active Exam Status Badges */}
-              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pt-3 border-t border-border/50">
-                <div className="flex flex-1 items-center gap-3">
-                  <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground whitespace-nowrap">
+              <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3 pt-3 border-t border-border/50">
+                <div className="flex flex-1 items-center gap-2.5 min-w-0 flex-wrap sm:flex-nowrap">
+                  <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground whitespace-nowrap shrink-0">
                     Active Paper:
                   </Label>
                   <Select
@@ -628,7 +628,7 @@ export function DataResponseStudio() {
                       setActiveQuestionIdx(0);
                     }}
                   >
-                    <SelectTrigger className="w-full lg:w-[540px] bg-background font-medium text-xs h-9">
+                    <SelectTrigger className="w-full xl:max-w-md 2xl:max-w-xl bg-background font-medium text-xs h-9 min-w-0">
                       <SelectValue placeholder="Select Data Response Paper..." />
                     </SelectTrigger>
                     <SelectContent className="max-h-[380px]">
@@ -658,13 +658,13 @@ export function DataResponseStudio() {
                 </div>
 
                 {/* Test Controls & Submission Trigger */}
-                <div className="flex items-center gap-2 shrink-0">
+                <div className="flex flex-wrap items-center gap-2 shrink-0 pt-1 xl:pt-0">
                   {currentPaper?.sampleAnswers && (
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={handleLoadSampleAnswers}
-                      className="text-xs text-primary border-primary/30 hover:bg-primary/10 h-9 font-semibold gap-1.5"
+                      className="text-xs text-primary border-primary/30 hover:bg-primary/10 h-9 font-semibold gap-1.5 whitespace-nowrap"
                       title="Load Cambridge benchmark answers into all sub-questions"
                     >
                       <Sparkles className="h-3.5 w-3.5 text-primary" />
@@ -681,7 +681,7 @@ export function DataResponseStudio() {
                       } catch {}
                       toast.info("Cleared all question answers.");
                     }}
-                    className="text-xs text-muted-foreground hover:text-destructive h-9"
+                    className="text-xs text-muted-foreground hover:text-destructive h-9 whitespace-nowrap"
                   >
                     Clear All
                   </Button>
@@ -689,7 +689,7 @@ export function DataResponseStudio() {
                     size="sm"
                     onClick={() => gradeMutation.mutate()}
                     disabled={gradeMutation.isPending || !currentPaper}
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold gap-1.5 h-9 shadow-xs"
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold gap-1.5 h-9 shadow-xs whitespace-nowrap shrink-0"
                   >
                     {gradeMutation.isPending ? (
                       <>
@@ -750,9 +750,9 @@ export function DataResponseStudio() {
           </Card>
 
           {currentPaper ? (
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
               {/* LEFT COLUMN: CASE STUDY / EXTRACT VIEWER (5 COLS, STICKY ON DESKTOP) */}
-              <div className="lg:col-span-5 space-y-3 flex flex-col lg:sticky lg:top-4 lg:self-start">
+              <div className="xl:col-span-5 space-y-3 flex flex-col xl:sticky xl:top-4 xl:self-start min-w-0">
                 {/* View Mode Toggle Bar */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2 rounded-xl bg-card border border-border/80 shadow-xs">
                   <div className="flex items-center gap-1 bg-muted/80 p-0.5 rounded-lg border border-border/60">
@@ -836,10 +836,10 @@ export function DataResponseStudio() {
               </div>
 
               {/* RIGHT COLUMN: QUESTIONS & ANSWERING CANVAS (7 COLS) */}
-              <div className="lg:col-span-7 space-y-4">
+              <div className="xl:col-span-7 space-y-4 min-w-0">
                 {/* Question Navigation Tabs with Progress Tally */}
                 <div className="flex items-center justify-between gap-2 border-b border-border/60 pb-2">
-                  <div className="flex items-center gap-1.5 overflow-x-auto">
+                  <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 min-w-0">
                     {currentPaper.questions.map((q, idx) => {
                       const ans = answers[q.number] || answers[q.id] || "";
                       const hasAnswer = ans.trim().length > 0;
@@ -880,7 +880,7 @@ export function DataResponseStudio() {
                   <Card className="border border-border/80 shadow-sm">
                     <CardHeader className="p-4 border-b bg-card pb-3">
                       <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-1.5 min-w-0">
                           <Badge variant="outline" className="text-xs font-bold font-mono px-2 py-0.5 border-primary/40 text-primary bg-primary/5">
                             Question {currentQuestion.number}
                           </Badge>
@@ -985,8 +985,8 @@ export function DataResponseStudio() {
                             </div>
                           </div>
 
-                          <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
-                            <div className="md:col-span-7 bg-background rounded-lg border border-border/80 p-2 shadow-xs flex items-center justify-center">
+                          <div className="grid grid-cols-1 2xl:grid-cols-12 gap-4 items-start">
+                            <div className="2xl:col-span-7 bg-background rounded-lg border border-border/80 p-2 shadow-xs flex items-center justify-center min-w-0 overflow-hidden">
                               <div className="w-full max-w-[380px]">
                                 <EconomicsDiagram
                                   spec={currentQuestion.diagramSpec}
@@ -994,13 +994,13 @@ export function DataResponseStudio() {
                                 />
                               </div>
                             </div>
-                            <div className="md:col-span-5 text-xs space-y-2">
+                            <div className="2xl:col-span-5 text-xs space-y-2 min-w-0">
                               <div className="p-2 rounded bg-muted/40 border border-border/50 space-y-1">
                                 <span className="font-semibold text-[11px] text-muted-foreground uppercase tracking-wider block">
                                   Mark Scheme Diagram Criteria:
                                 </span>
                                 <p className="text-[11px] text-foreground/90">
-                                  <strong>Axes:</strong> {currentQuestion.diagramGuidance?.axes.join(" & ") || `${currentQuestion.diagramSpec.yLabel} vs ${currentQuestion.diagramSpec.xLabel}`}
+                                  <strong>Axes:</strong> {currentQuestion.diagramGuidance?.axes?.join(" & ") || `${currentQuestion.diagramSpec.yLabel} vs ${currentQuestion.diagramSpec.xLabel}`}
                                 </p>
                                 <p className="text-[11px] text-foreground/90">
                                   <strong>Shift:</strong> {currentQuestion.diagramGuidance?.shiftDescription}

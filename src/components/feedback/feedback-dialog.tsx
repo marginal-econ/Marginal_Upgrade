@@ -246,8 +246,16 @@ export function FloatingFeedbackPill() {
   });
   const [dismissed, setDismissed] = useState(false);
 
-  // Never render on MCQ practice or test pages to prevent interference with answers and questions
-  if (dismissed || pathname.startsWith("/mcq")) {
+  // Never render on exam/practice/marking workspaces so it never covers answers, candidate text, or action buttons
+  const isWorkspace =
+    pathname.startsWith("/mcq") ||
+    pathname.startsWith("/data-response") ||
+    pathname.startsWith("/live-examiner") ||
+    pathname.startsWith("/grade") ||
+    pathname.startsWith("/examiner") ||
+    pathname.startsWith("/practice");
+
+  if (dismissed || isWorkspace) {
     return null;
   }
 
