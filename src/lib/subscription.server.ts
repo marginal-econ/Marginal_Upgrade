@@ -222,7 +222,7 @@ export async function getUserSubscriptionDetails(
   // Live examiner is strictly for paid accounts with remaining credits (both teachers and students must pay)
   const canUseLiveExaminer = limits.liveExaminerEnabled && remainingCredits > 0;
 
-  let mcqFreeDaysRemaining = limits.mcqFreeDays;
+  let mcqFreeDaysRemaining: number = limits.mcqFreeDays;
   let canUseMCQ = true;
 
   if (activeTier === "free") {

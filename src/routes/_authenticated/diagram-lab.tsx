@@ -121,7 +121,7 @@ function DiagramLabPage() {
       <PageHeader
         title="Diagram CAD & Geometry Lab"
         description="Interactive vector economics sandbox for Cambridge 9708. Adjust curve slopes, simulate taxes & tariffs, and evaluate consumer surplus and deadweight loss with mathematical precision."
-        badge={
+        action={
           <Badge variant="outline" className="border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
             100% Deterministic · Zero AI Cost
           </Badge>

@@ -278,11 +278,13 @@ export function useLiveExaminer(params: {
         }));
 
         const result = await checkFn({
-          essayText: currentText,
-          question,
-          level,
-          maxMark,
-          contextBlock,
+          data: {
+            essayText: currentText,
+            question,
+            level,
+            maxMark,
+            contextBlock,
+          },
         });
 
         // Store classifications and issues into cache for each sentence

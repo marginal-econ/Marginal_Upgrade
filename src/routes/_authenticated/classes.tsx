@@ -4213,7 +4213,7 @@ function StudentLifetimePortfolioModal({
                                     <span className="font-bold text-muted-foreground uppercase text-[10px]">
                                       Student Submission Text
                                     </span>
-                                    {e.submissionType === "document" ? (
+                                    {(e as any).submissionType === "document" ? (
                                       <Badge
                                         variant="outline"
                                         className="border-blue-500/40 bg-blue-500/10 text-blue-300 text-[10px]"
@@ -4221,7 +4221,7 @@ function StudentLifetimePortfolioModal({
                                         <FileText className="h-3 w-3 mr-1 text-blue-400" />
                                         Word / PDF
                                       </Badge>
-                                    ) : e.submissionType === "handwritten" ? (
+                                    ) : (e as any).submissionType === "handwritten" ? (
                                       <Badge
                                         variant="outline"
                                         className="border-purple-500/40 bg-purple-500/10 text-purple-300 text-[10px]"

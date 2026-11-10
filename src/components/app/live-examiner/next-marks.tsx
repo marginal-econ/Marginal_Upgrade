@@ -32,7 +32,13 @@ const AO_THEME = {
   },
 };
 
-export function NextMarks({ nextMoves, onSelectMove, className }: NextMarksProps) {
+export function NextMarks({
+  nextMoves,
+  onSelectMove,
+  onOpenMaximizer,
+  maximizerLoading,
+  className,
+}: NextMarksProps) {
   if (nextMoves.length === 0) return null;
 
   return (

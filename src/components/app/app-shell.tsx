@@ -34,12 +34,26 @@ import {
   ArrowRight,
   FileSpreadsheet,
   Wand2,
+  PanelsTopBottom,
+  PanelLeft,
+  Layers,
+  Check,
+  Search as SearchIcon,
 } from "lucide-react";
 import * as React from "react";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState, useRef } from "react";
 import { toast } from "sonner";
 
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import type { NavigationLayout } from "@/lib/account.functions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
@@ -82,6 +96,139 @@ export type NavGroup = {
 
 const SIDEBAR_COLLAPSED_STORAGE_KEY = "marginal.sidebarCollapsed";
 const COLLAPSED_GROUPS_STORAGE_KEY = "marginal.collapsedNavGroups";
+export const NAVIGATION_LAYOUT_STORAGE_KEY = "marginal.navigationLayout";
+
+export function getPlatformNavLayout(): NavigationLayout {
+  if (typeof window === "undefined") return "topbar";
+  try {
+    const saved = window.localStorage.getItem(NAVIGATION_LAYOUT_STORAGE_KEY);
+    if (saved === "sidebar" || saved === "dock" || saved === "topbar") {
+      return saved;
+    }
+  } catch {
+    /* ignore */
+  }
+  return "topbar";
+}
+
+export function setPlatformNavLayout(layout: NavigationLayout) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(NAVIGATION_LAYOUT_STORAGE_KEY, layout);
+  } catch {
+    /* ignore */
+  }
+  window.dispatchEvent(new CustomEvent("marginal-layout-change", { detail: layout }));
+}
+
+export function LayoutSwitcherButton({
+  navLayout,
+  onChange,
+  className,
+}: {
+  navLayout: NavigationLayout;
+  onChange: (layout: NavigationLayout) => void;
+  className?: string;
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          className={cn(
+            "flex items-center gap-1.5 rounded-lg border border-border/80 bg-card px-2.5 py-1 text-xs font-semibold text-foreground hover:bg-muted transition-all cursor-pointer shadow-2xs",
+            className,
+          )}
+          title="Switch Navigation & Workspace Layout"
+        >
+          {navLayout === "topbar" ? (
+            <PanelsTopBottom className="size-3.5 text-primary" />
+          ) : navLayout === "dock" ? (
+            <Layers className="size-3.5 text-primary" />
+          ) : (
+            <PanelLeft className="size-3.5 text-primary" />
+          )}
+          <span className="hidden sm:inline capitalize">
+            {navLayout === "topbar" ? "Topbar" : navLayout === "dock" ? "Category Hub" : "Sidebar"}
+          </span>
+          <ChevronDown className="size-3 opacity-60" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-56 p-1.5 z-50 bg-popover">
+        <DropdownMenuLabel className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground px-2 py-1">
+          Workspace Navigation
+        </DropdownMenuLabel>
+        <DropdownMenuItem
+          onClick={() => onChange("topbar")}
+          className={cn(
+            "flex items-center justify-between gap-2 px-2.5 py-2 text-xs rounded-md cursor-pointer",
+            navLayout === "topbar" && "bg-primary/10 font-bold text-primary",
+          )}
+        >
+          <div className="flex items-center gap-2">
+            <PanelsTopBottom className="size-4 text-primary" />
+            <div>
+              <p className="font-semibold leading-tight">Horizontal Topbar</p>
+              <p className="text-[10px] text-muted-foreground font-normal">100% Scroll-free header</p>
+            </div>
+          </div>
+          {navLayout === "topbar" ? (
+            <Check className="size-3.5 text-primary" />
+          ) : (
+            <Badge variant="outline" className="text-[9px] px-1 py-0 text-emerald-600 border-emerald-500/30">
+              Rec
+            </Badge>
+          )}
+        </DropdownMenuItem>
+
+        <DropdownMenuItem
+          onClick={() => onChange("dock")}
+          className={cn(
+            "flex items-center justify-between gap-2 px-2.5 py-2 text-xs rounded-md cursor-pointer",
+            navLayout === "dock" && "bg-primary/10 font-bold text-primary",
+          )}
+        >
+          <div className="flex items-center gap-2">
+            <Layers className="size-4 text-indigo-500" />
+            <div>
+              <p className="font-semibold leading-tight">Compact Category Hub</p>
+              <p className="text-[10px] text-muted-foreground font-normal">Scroll-free icon rail</p>
+            </div>
+          </div>
+          {navLayout === "dock" && <Check className="size-3.5 text-primary" />}
+        </DropdownMenuItem>
+
+        <DropdownMenuItem
+          onClick={() => onChange("sidebar")}
+          className={cn(
+            "flex items-center justify-between gap-2 px-2.5 py-2 text-xs rounded-md cursor-pointer",
+            navLayout === "sidebar" && "bg-primary/10 font-bold text-primary",
+          )}
+        >
+          <div className="flex items-center gap-2">
+            <PanelLeft className="size-4 text-muted-foreground" />
+            <div>
+              <p className="font-semibold leading-tight">Classic Sidebar</p>
+              <p className="text-[10px] text-muted-foreground font-normal">Traditional column</p>
+            </div>
+          </div>
+          {navLayout === "sidebar" && <Check className="size-3.5 text-primary" />}
+        </DropdownMenuItem>
+
+        <DropdownMenuSeparator className="my-1" />
+        <DropdownMenuItem asChild>
+          <Link
+            to="/settings"
+            className="flex items-center gap-2 text-xs px-2.5 py-1.5 text-muted-foreground hover:text-foreground cursor-pointer"
+          >
+            <Settings className="size-3.5" />
+            <span>Customize in Settings...</span>
+          </Link>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
 
 /**
  * Intuitive, Cambridge 9708 organized navigation:
@@ -295,6 +442,26 @@ export function AppShell({
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => new Set());
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const [lockedModalType, setLockedModalType] = useState<LockedFeatureType>(null);
+  const [navLayout, setNavLayout] = useState<NavigationLayout>(() => getPlatformNavLayout());
+  const [activeDockCategory, setActiveDockCategory] = useState<string>("grading");
+
+  useEffect(() => {
+    const onLayoutChange = (e: Event) => {
+      const customEvent = e as CustomEvent<NavigationLayout>;
+      if (customEvent.detail) {
+        setNavLayout(customEvent.detail);
+      } else {
+        setNavLayout(getPlatformNavLayout());
+      }
+    };
+    window.addEventListener("marginal-layout-change", onLayoutChange);
+    return () => window.removeEventListener("marginal-layout-change", onLayoutChange);
+  }, []);
+
+  const handleLayoutChange = (layout: NavigationLayout) => {
+    setNavLayout(layout);
+    setPlatformNavLayout(layout);
+  };
 
   useEffect(() => {
     try {
@@ -551,7 +718,7 @@ export function AppShell({
                         ? "bg-sidebar-accent text-sidebar-accent-foreground font-semibold shadow-2xs"
                         : "text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground hover:translate-x-1",
                     )}
-                    title={label}
+                    title={sidebarCollapsed && !isMobile ? label : undefined}
                   >
                     {active && (!sidebarCollapsed || isMobile) ? (
                       <span className="absolute left-0.5 top-2 bottom-2 w-1 rounded-full bg-primary shadow-[0_0_8px_rgba(var(--primary),0.6)]" />
@@ -601,238 +768,298 @@ export function AppShell({
     return (name[0] ?? "E").toUpperCase();
   }, [name]);
 
+  const practiceGroup = useMemo(
+    () => visibleGroups.find((g) => g.id === "grading"),
+    [visibleGroups],
+  );
+  const syllabusGroup = useMemo(
+    () => visibleGroups.find((g) => g.id === "syllabus"),
+    [visibleGroups],
+  );
+  const adminGroup = useMemo(
+    () => visibleGroups.find((g) => g.id === "admin"),
+    [visibleGroups],
+  );
+  const isPracticeActive = useMemo(
+    () => Boolean(practiceGroup?.items.some((item) => isItemActive(item.to))),
+    [practiceGroup, pathname],
+  );
+  const isSyllabusActive = useMemo(
+    () => Boolean(syllabusGroup?.items.some((item) => isItemActive(item.to))),
+    [syllabusGroup, pathname],
+  );
+  const isAdminActive = useMemo(
+    () =>
+      Boolean(
+        adminGroup?.items.some((item) => isItemActive(item.to)) ||
+          pathname.startsWith("/admin"),
+      ),
+    [adminGroup, pathname],
+  );
+
   return (
     <div className="flex min-h-screen bg-background">
-      {/* ── Desktop Sidebar: Sticky, fixed-height, perfectly pinned ── */}
-      <aside
-        className={cn(
-          "sticky top-0 h-screen h-[100dvh] max-h-[100dvh] shrink-0 flex-col border-r border-sidebar-border bg-sidebar py-3 transition-[width,padding] duration-300 ease-out hidden lg:flex z-30 select-none",
-          sidebarCollapsed ? "w-[4.5rem] px-2" : "w-64 px-3",
-        )}
-      >
-        {/* Brand Header */}
-        <div
+      {/* ── 1. Classic Sidebar Layout ── */}
+      {navLayout === "sidebar" && (
+        <aside
           className={cn(
-            "mb-2.5 flex items-center pb-2.5 border-b border-sidebar-border/60 shrink-0",
-            sidebarCollapsed ? "justify-center" : "gap-2 px-1.5",
+            "sticky top-0 h-screen h-[100dvh] max-h-[100dvh] shrink-0 flex-col border-r border-sidebar-border bg-sidebar py-3 transition-[width,padding] duration-300 ease-out hidden lg:flex z-30 select-none",
+            sidebarCollapsed ? "w-[4.5rem] px-2" : "w-64 px-3",
           )}
         >
-          <Link
-            to="/dashboard"
-            className="flex min-w-0 items-center gap-2.5 group"
-            title="Marginal Economics Dashboard"
-          >
-            <img
-              src="/marginal-m-icon-clean.png"
-              alt=""
-              aria-hidden="true"
-              className="size-7 shrink-0 object-contain transition-transform group-hover:scale-105"
-            />
-            <span
-              className={cn(
-                "text-sm leading-tight font-bold tracking-tight text-foreground",
-                sidebarCollapsed && "hidden",
-              )}
-            >
-              Marginal
-              <span className="block text-[10px] font-normal text-muted-foreground">
-                Cambridge 9708
-              </span>
-            </span>
-          </Link>
-          {!sidebarCollapsed ? (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="ml-auto size-7 shrink-0 text-muted-foreground hover:text-foreground"
-              onClick={toggleSidebar}
-              title="Collapse sidebar"
-              aria-label="Collapse sidebar"
-            >
-              <PanelLeftClose className="size-3.5" />
-            </Button>
-          ) : null}
-        </div>
-
-        {sidebarCollapsed ? (
-          <div className="flex flex-col items-center gap-2 mb-2 shrink-0">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="size-8 text-muted-foreground hover:text-foreground"
-              onClick={toggleSidebar}
-              title="Expand sidebar"
-              aria-label="Expand sidebar"
-            >
-              <PanelLeftOpen className="size-3.5" />
-            </Button>
-            <Link
-              to="/settings"
-              className="group relative flex items-center justify-center p-0.5 rounded-xl hover:ring-2 hover:ring-primary/40 transition-all"
-              title={`${name ?? "Candidate"} — Profile & Settings`}
-            >
-              <UserAvatar
-                avatarUrl={avatarUrl}
-                name={name}
-                fallbackInitials={candidateInitials}
-                showStatusDot={true}
-                className="size-8 transition-transform group-hover:scale-105"
-              />
-            </Link>
-          </div>
-        ) : null}
-
-        {/* User Status Widget */}
-        {!sidebarCollapsed && subscription ? (
-          <div className="mb-3 shrink-0">
-            {role === "admin" || subscription.isAdmin ? (
-              <div className="rounded-2xl border border-amber-500/30 bg-gradient-to-br from-amber-500/15 via-card to-amber-500/5 p-3 shadow-sm relative overflow-hidden group">
-                <div className="absolute -right-6 -top-6 size-20 bg-amber-500/15 rounded-full blur-xl pointer-events-none group-hover:scale-125 transition-transform duration-500" />
-                <div className="flex items-center justify-between gap-2 relative z-10">
-                  <Link
-                    to="/settings"
-                    className="flex items-center gap-2.5 min-w-0 group/profile flex-1"
-                    title="Open Administrator Profile Settings"
-                  >
-                    <UserAvatar
-                      avatarUrl={avatarUrl}
-                      name={name}
-                      fallbackInitials={candidateInitials}
-                      showStatusDot={true}
-                      className="size-9 shrink-0 transition-transform group-hover/profile:scale-105"
-                    />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-xs font-bold truncate text-foreground leading-tight group-hover/profile:text-primary transition-colors">
-                        {name ?? "Marginal Admin"}
-                      </p>
-                      <p className="text-[10.5px] text-amber-600 dark:text-amber-400 font-bold leading-tight flex items-center gap-1 mt-0.5">
-                        <ShieldCheck className="size-3 shrink-0" /> Administrator
-                      </p>
-                    </div>
-                  </Link>
-                  <div className="flex items-center gap-1 shrink-0">
-                    <Badge className="bg-amber-500/25 text-amber-600 dark:text-amber-400 border-amber-500/40 text-[9px] font-extrabold uppercase shadow-2xs">
-                      Root
-                    </Badge>
-                    <Link
-                      to="/settings"
-                      className="size-6 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-background/80 transition-colors"
-                      title="Settings"
-                    >
-                      <Settings className="size-3" />
-                    </Link>
-                  </div>
-                </div>
-              </div>
-            ) : role === "teacher" || subscription.isTeacher ? (
-              <div className="rounded-2xl border border-purple-500/30 bg-gradient-to-br from-purple-500/15 via-card to-purple-500/5 p-3 shadow-sm relative overflow-hidden group">
-                <div className="absolute -right-6 -top-6 size-20 bg-purple-500/15 rounded-full blur-xl pointer-events-none group-hover:scale-125 transition-transform duration-500" />
-                <div className="flex items-center justify-between gap-2 relative z-10">
-                  <Link
-                    to="/settings"
-                    className="flex items-center gap-2.5 min-w-0 group/profile flex-1"
-                    title="Open Educator Profile Settings"
-                  >
-                    <UserAvatar
-                      avatarUrl={avatarUrl}
-                      name={name}
-                      fallbackInitials={candidateInitials}
-                      showStatusDot={true}
-                      className="size-9 shrink-0 transition-transform group-hover/profile:scale-105"
-                    />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-xs font-bold truncate text-foreground leading-tight group-hover/profile:text-primary transition-colors">
-                        {name ?? "Educator"}
-                      </p>
-                      <p className="text-[10px] text-purple-600 dark:text-purple-400 font-bold leading-tight flex items-center gap-1 mt-0.5 truncate">
-                        <GraduationCap className="size-3 shrink-0" /> {school || "CS Academy"}
-                      </p>
-                    </div>
-                  </Link>
-                  <div className="flex items-center gap-1 shrink-0">
-                    <Badge
-                      variant="outline"
-                      className="bg-purple-500/20 text-purple-600 dark:text-purple-400 border-purple-500/35 text-[9.5px] font-bold uppercase shadow-2xs"
-                    >
-                      Educator
-                    </Badge>
-                    <Link
-                      to="/settings"
-                      className="size-6 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-background/80 transition-colors"
-                      title="Settings"
-                    >
-                      <Settings className="size-3" />
-                    </Link>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="rounded-2xl border border-border/80 bg-gradient-to-br from-card via-card to-primary/[0.04] p-3 shadow-sm relative overflow-hidden group">
-                <div className="absolute -right-6 -top-6 size-20 bg-primary/10 rounded-full blur-xl pointer-events-none group-hover:scale-125 transition-transform duration-500" />
-                <div className="flex items-center justify-between gap-2 relative z-10">
-                  <Link
-                    to="/settings"
-                    className="flex items-center gap-2.5 min-w-0 group/profile flex-1"
-                    title="Open Student Profile Settings"
-                  >
-                    <UserAvatar
-                      avatarUrl={avatarUrl}
-                      name={name}
-                      fallbackInitials={candidateInitials}
-                      showStatusDot={true}
-                      className="size-9 shrink-0 transition-transform group-hover/profile:scale-105"
-                    />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-xs font-bold truncate text-foreground leading-tight group-hover/profile:text-primary transition-colors">
-                        {name ?? "Candidate"}
-                      </p>
-                      <p className="text-[10px] text-muted-foreground leading-tight mt-0.5 truncate font-medium">
-                        {school || "Cambridge 9708 Candidate"}
-                      </p>
-                    </div>
-                  </Link>
-                  <div className="flex items-center gap-1 shrink-0">
-                    <Link
-                      to="/settings"
-                      className="size-6 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-background/80 transition-colors"
-                      title="Settings"
-                    >
-                      <Settings className="size-3" />
-                    </Link>
-                  </div>
-                </div>
-              </div>
+          {/* Brand Header */}
+          <div
+            className={cn(
+              "mb-2.5 flex items-center pb-2.5 border-b border-sidebar-border/60 shrink-0",
+              sidebarCollapsed ? "justify-center" : "gap-2 px-1.5",
             )}
-          </div>
-        ) : null}
-
-        {/* Scrollable Navigation Groups */}
-        <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden space-y-2 pr-0.5">
-          {visibleGroups.map((group) => renderNavGroup(group))}
-        </div>
-
-        {/* ── User Footer: Cleanly pinned at the bottom, perfectly spaced ── */}
-        <div className="shrink-0 pt-2.5 border-t border-sidebar-border/70 mt-auto space-y-1">
-          {isUserAdmin ? (
+          >
             <Link
-              to="/admin"
-              search={{ tab: "messages" }}
-              className={cn(
-                "relative flex items-center rounded-lg py-1.5 text-xs font-medium text-sidebar-foreground/80 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground w-full text-left cursor-pointer",
-                sidebarCollapsed ? "justify-center px-1" : "gap-2.5 px-2.5",
-              )}
-              title="Direct In-App User Texting Portal"
+              to="/dashboard"
+              className="flex min-w-0 items-center gap-2.5 group"
+              title="Marginal Economics Dashboard"
             >
-              <Send className="size-4 shrink-0 text-primary" />
-              <span className={cn("truncate", sidebarCollapsed && "sr-only")}>Direct Messages</span>
-              {unreadMsgCount > 0 && (
-                <span className="absolute top-1.5 right-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white shadow-xs">
-                  {unreadMsgCount}
+              <img
+                src="/marginal-m-icon-clean.png"
+                alt=""
+                aria-hidden="true"
+                className="size-7 shrink-0 object-contain transition-transform group-hover:scale-105"
+              />
+              <span
+                className={cn(
+                  "text-sm leading-tight font-bold tracking-tight text-foreground",
+                  sidebarCollapsed && "hidden",
+                )}
+              >
+                Marginal
+                <span className="block text-[10px] font-normal text-muted-foreground">
+                  Cambridge 9708
                 </span>
-              )}
+              </span>
             </Link>
-          ) : (
-            <StudentMessagesDialog
+            {!sidebarCollapsed ? (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="ml-auto size-7 shrink-0 text-muted-foreground hover:text-foreground"
+                onClick={toggleSidebar}
+                title="Collapse sidebar"
+                aria-label="Collapse sidebar"
+              >
+                <PanelLeftClose className="size-3.5" />
+              </Button>
+            ) : null}
+          </div>
+
+          {sidebarCollapsed ? (
+            <div className="flex flex-col items-center gap-2 mb-2 shrink-0">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-8 text-muted-foreground hover:text-foreground"
+                onClick={toggleSidebar}
+                title="Expand sidebar"
+                aria-label="Expand sidebar"
+              >
+                <PanelLeftOpen className="size-3.5" />
+              </Button>
+              <Link
+                to="/settings"
+                className="group relative flex items-center justify-center p-0.5 rounded-xl hover:ring-2 hover:ring-primary/40 transition-all"
+                title={`${name ?? "Candidate"} — Profile & Settings`}
+              >
+                <UserAvatar
+                  avatarUrl={avatarUrl}
+                  name={name}
+                  fallbackInitials={candidateInitials}
+                  showStatusDot={true}
+                  className="size-8 transition-transform group-hover:scale-105"
+                />
+              </Link>
+            </div>
+          ) : null}
+
+          {/* User Status Widget */}
+          {!sidebarCollapsed && subscription ? (
+            <div className="mb-3 shrink-0">
+              {role === "admin" || subscription.isAdmin ? (
+                <div className="rounded-2xl border border-amber-500/30 bg-gradient-to-br from-amber-500/15 via-card to-amber-500/5 p-3 shadow-sm relative overflow-hidden group">
+                  <div className="absolute -right-6 -top-6 size-20 bg-amber-500/15 rounded-full blur-xl pointer-events-none group-hover:scale-125 transition-transform duration-500" />
+                  <div className="flex items-center justify-between gap-2 relative z-10">
+                    <Link
+                      to="/settings"
+                      className="flex items-center gap-2.5 min-w-0 group/profile flex-1"
+                      title="Open Administrator Profile Settings"
+                    >
+                      <UserAvatar
+                        avatarUrl={avatarUrl}
+                        name={name}
+                        fallbackInitials={candidateInitials}
+                        showStatusDot={true}
+                        className="size-9 shrink-0 transition-transform group-hover/profile:scale-105"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-bold truncate text-foreground leading-tight group-hover/profile:text-primary transition-colors">
+                          {name ?? "Marginal Admin"}
+                        </p>
+                        <p className="text-[10.5px] text-amber-600 dark:text-amber-400 font-bold leading-tight flex items-center gap-1 mt-0.5">
+                          <ShieldCheck className="size-3 shrink-0" /> Administrator
+                        </p>
+                      </div>
+                    </Link>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <Badge className="bg-amber-500/25 text-amber-600 dark:text-amber-400 border-amber-500/40 text-[9px] font-extrabold uppercase shadow-2xs">
+                        Root
+                      </Badge>
+                      <Link
+                        to="/settings"
+                        className="size-6 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-background/80 transition-colors"
+                        title="Settings"
+                      >
+                        <Settings className="size-3" />
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              ) : role === "teacher" || subscription.isTeacher ? (
+                <div className="rounded-2xl border border-purple-500/30 bg-gradient-to-br from-purple-500/15 via-card to-purple-500/5 p-3 shadow-sm relative overflow-hidden group">
+                  <div className="absolute -right-6 -top-6 size-20 bg-purple-500/15 rounded-full blur-xl pointer-events-none group-hover:scale-125 transition-transform duration-500" />
+                  <div className="flex items-center justify-between gap-2 relative z-10">
+                    <Link
+                      to="/settings"
+                      className="flex items-center gap-2.5 min-w-0 group/profile flex-1"
+                      title="Open Educator Profile Settings"
+                    >
+                      <UserAvatar
+                        avatarUrl={avatarUrl}
+                        name={name}
+                        fallbackInitials={candidateInitials}
+                        showStatusDot={true}
+                        className="size-9 shrink-0 transition-transform group-hover/profile:scale-105"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-bold truncate text-foreground leading-tight group-hover/profile:text-primary transition-colors">
+                          {name ?? "Educator"}
+                        </p>
+                        <p className="text-[10px] text-purple-600 dark:text-purple-400 font-bold leading-tight flex items-center gap-1 mt-0.5 truncate">
+                          <GraduationCap className="size-3 shrink-0" /> {school || "CS Academy"}
+                        </p>
+                      </div>
+                    </Link>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <Badge
+                        variant="outline"
+                        className="bg-purple-500/20 text-purple-600 dark:text-purple-400 border-purple-500/35 text-[9.5px] font-bold uppercase shadow-2xs"
+                      >
+                        Educator
+                      </Badge>
+                      <Link
+                        to="/settings"
+                        className="size-6 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-background/80 transition-colors"
+                        title="Settings"
+                      >
+                        <Settings className="size-3" />
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-border/80 bg-gradient-to-br from-card via-card to-primary/[0.04] p-3 shadow-sm relative overflow-hidden group">
+                  <div className="absolute -right-6 -top-6 size-20 bg-primary/10 rounded-full blur-xl pointer-events-none group-hover:scale-125 transition-transform duration-500" />
+                  <div className="flex items-center justify-between gap-2 relative z-10">
+                    <Link
+                      to="/settings"
+                      className="flex items-center gap-2.5 min-w-0 group/profile flex-1"
+                      title="Open Student Profile Settings"
+                    >
+                      <UserAvatar
+                        avatarUrl={avatarUrl}
+                        name={name}
+                        fallbackInitials={candidateInitials}
+                        showStatusDot={true}
+                        className="size-9 shrink-0 transition-transform group-hover/profile:scale-105"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-bold truncate text-foreground leading-tight group-hover/profile:text-primary transition-colors">
+                          {name ?? "Candidate"}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground leading-tight mt-0.5 truncate font-medium">
+                          {school || "Cambridge 9708 Candidate"}
+                        </p>
+                      </div>
+                    </Link>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <Link
+                        to="/settings"
+                        className="size-6 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-background/80 transition-colors"
+                        title="Settings"
+                      >
+                        <Settings className="size-3" />
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : null}
+
+          {/* Scrollable Navigation Groups */}
+          <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden space-y-2 pr-0.5">
+            {visibleGroups.map((group) => renderNavGroup(group))}
+          </div>
+
+          {/* ── User Footer: Cleanly pinned at the bottom, perfectly spaced ── */}
+          <div className="shrink-0 pt-2.5 border-t border-sidebar-border/70 mt-auto space-y-1">
+            <LayoutSwitcherButton
+              navLayout={navLayout}
+              onChange={handleLayoutChange}
+              className={cn(
+                "w-full justify-start",
+                sidebarCollapsed && "justify-center p-1.5",
+              )}
+            />
+
+            {isUserAdmin ? (
+              <Link
+                to="/admin"
+                search={{ tab: "messages" }}
+                className={cn(
+                  "relative flex items-center rounded-lg py-1.5 text-xs font-medium text-sidebar-foreground/80 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground w-full text-left cursor-pointer",
+                  sidebarCollapsed ? "justify-center px-1" : "gap-2.5 px-2.5",
+                )}
+                title="Direct In-App User Texting Portal"
+              >
+                <Send className="size-4 shrink-0 text-primary" />
+                <span className={cn("truncate", sidebarCollapsed && "sr-only")}>
+                  Direct Messages
+                </span>
+                {unreadMsgCount > 0 && (
+                  <span className="absolute top-1.5 right-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white shadow-xs">
+                    {unreadMsgCount}
+                  </span>
+                )}
+              </Link>
+            ) : (
+              <StudentMessagesDialog
+                trigger={
+                  <button
+                    type="button"
+                    className={cn(
+                      "flex items-center rounded-lg py-1.5 text-xs font-medium text-sidebar-foreground/80 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground w-full text-left cursor-pointer",
+                      sidebarCollapsed ? "justify-center px-1" : "gap-2.5 px-2.5",
+                    )}
+                    title="Direct messages from Marginal team"
+                  >
+                    <Send className="size-4 shrink-0 text-primary" />
+                    <span className={cn("truncate", sidebarCollapsed && "sr-only")}>
+                      Direct Messages
+                    </span>
+                  </button>
+                }
+              />
+            )}
+
+            <FeedbackDialog
               trigger={
                 <button
                   type="button"
@@ -840,80 +1067,210 @@ export function AppShell({
                     "flex items-center rounded-lg py-1.5 text-xs font-medium text-sidebar-foreground/80 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground w-full text-left cursor-pointer",
                     sidebarCollapsed ? "justify-center px-1" : "gap-2.5 px-2.5",
                   )}
-                  title="Direct messages from Marginal team"
+                  title="Send direct feedback or message to Marginal team"
                 >
-                  <Send className="size-4 shrink-0 text-primary" />
+                  <MessageSquare className="size-4 shrink-0 text-primary" />
                   <span className={cn("truncate", sidebarCollapsed && "sr-only")}>
-                    Direct Messages
+                    Message Us / Feedback
                   </span>
                 </button>
               }
             />
-          )}
 
-          <FeedbackDialog
-            trigger={
-              <button
-                type="button"
-                className={cn(
-                  "flex items-center rounded-lg py-1.5 text-xs font-medium text-sidebar-foreground/80 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground w-full text-left cursor-pointer",
-                  sidebarCollapsed ? "justify-center px-1" : "gap-2.5 px-2.5",
-                )}
-                title="Send direct feedback or message to Marginal team"
+            <button
+              type="button"
+              onClick={() => openTutorial()}
+              className={cn(
+                "flex items-center rounded-lg py-1.5 text-xs font-medium text-sidebar-foreground/80 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground w-full text-left cursor-pointer",
+                sidebarCollapsed ? "justify-center px-1" : "gap-2.5 px-2.5",
+              )}
+              title="Feature Tutorials & Syllabus Guides"
+            >
+              <GraduationCap className="size-4 shrink-0 text-purple-500" />
+              <span className={cn("truncate", sidebarCollapsed && "sr-only")}>
+                Tutorials
+              </span>
+            </button>
+
+            <Link
+              to="/settings"
+              className={cn(
+                "flex items-center rounded-lg py-1.5 text-xs font-medium text-sidebar-foreground/80 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                sidebarCollapsed ? "justify-center px-1" : "gap-2.5 px-2.5",
+                pathname.startsWith("/settings") &&
+                  "bg-sidebar-accent text-sidebar-accent-foreground font-semibold",
+              )}
+              title="Account settings"
+            >
+              <Settings className="size-4 shrink-0 text-muted-foreground/80" />
+              <span className={cn("truncate", sidebarCollapsed && "sr-only")}>
+                Settings
+              </span>
+            </Link>
+
+            <Button
+              variant="ghost"
+              size="sm"
+              className={cn(
+                "h-8 w-full text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors",
+                sidebarCollapsed ? "justify-center p-0" : "justify-start px-2.5 gap-2.5",
+              )}
+              onClick={signOut}
+              title="Sign out of account"
+            >
+              <LogOut className="size-4 shrink-0" />
+              <span className={cn(sidebarCollapsed && "sr-only")}>Sign out</span>
+            </Button>
+          </div>
+        </aside>
+      )}
+
+      {/* ── 2. Compact Category Hub Dock Layout ── */}
+      {navLayout === "dock" && (
+        <aside className="sticky top-0 h-screen h-[100dvh] max-h-[100dvh] shrink-0 hidden lg:flex z-30 select-none">
+          {/* Slim 68px Icon Rail */}
+          <div className="w-[4.25rem] h-full flex flex-col items-center justify-between py-3 border-r border-sidebar-border bg-sidebar shrink-0">
+            <div className="flex flex-col items-center gap-3 w-full">
+              <Link
+                to="/dashboard"
+                className="p-1 hover:scale-105 transition-transform"
+                title="Dashboard"
               >
-                <MessageSquare className="size-4 shrink-0 text-primary" />
-                <span className={cn("truncate", sidebarCollapsed && "sr-only")}>
-                  Message Us / Feedback
-                </span>
-              </button>
-            }
-          />
+                <img
+                  src="/marginal-m-icon-clean.png"
+                  alt=""
+                  className="size-7 object-contain"
+                />
+              </Link>
+              <div className="w-8 h-px bg-sidebar-border/70 my-1" />
 
-          <button
-            type="button"
-            onClick={() => openTutorial()}
-            className={cn(
-              "flex items-center rounded-lg py-1.5 text-xs font-medium text-sidebar-foreground/80 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground w-full text-left cursor-pointer",
-              sidebarCollapsed ? "justify-center px-1" : "gap-2.5 px-2.5",
-            )}
-            title="Feature Tutorials & Syllabus Guides"
-          >
-            <GraduationCap className="size-4 shrink-0 text-purple-500" />
-            <span className={cn("truncate", sidebarCollapsed && "sr-only")}>Tutorials</span>
-          </button>
+              {/* Category Icons */}
+              {visibleGroups.map((group) => {
+                const isSelected = activeDockCategory === group.id;
+                const Icon =
+                  group.id === "dashboard_analytics"
+                    ? LayoutDashboard
+                    : group.id === "grading"
+                      ? PenLine
+                      : group.id === "syllabus"
+                        ? BookOpen
+                        : ShieldCheck;
 
-          <Link
-            to="/settings"
-            className={cn(
-              "flex items-center rounded-lg py-1.5 text-xs font-medium text-sidebar-foreground/80 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-              sidebarCollapsed ? "justify-center px-1" : "gap-2.5 px-2.5",
-              pathname.startsWith("/settings") &&
-                "bg-sidebar-accent text-sidebar-accent-foreground font-semibold",
-            )}
-            title="Account settings"
-          >
-            <Settings className="size-4 shrink-0 text-muted-foreground/80" />
-            <span className={cn("truncate", sidebarCollapsed && "sr-only")}>Settings</span>
-          </Link>
+                return (
+                  <button
+                    key={group.id}
+                    type="button"
+                    onClick={() => setActiveDockCategory(group.id)}
+                    className={cn(
+                      "group relative flex flex-col items-center justify-center size-11 rounded-xl transition-all cursor-pointer",
+                      isSelected
+                        ? "bg-primary text-primary-foreground shadow-xs font-bold"
+                        : "text-muted-foreground hover:bg-sidebar-accent/80 hover:text-foreground",
+                    )}
+                    title={group.label}
+                  >
+                    <Icon className="size-5" />
+                    <span className="text-[9px] font-bold mt-0.5 truncate max-w-[48px]">
+                      {group.id === "dashboard_analytics"
+                        ? "Hub"
+                        : group.id === "grading"
+                          ? "Practice"
+                          : group.id === "syllabus"
+                            ? "Syllabus"
+                            : "Admin"}
+                    </span>
+                    {isSelected && (
+                      <span className="absolute -left-1 top-2.5 bottom-2.5 w-1 rounded-r-full bg-primary" />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
 
-          <Button
-            variant="ghost"
-            size="sm"
-            className={cn(
-              "h-8 w-full text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors",
-              sidebarCollapsed ? "justify-center p-0" : "justify-start px-2.5 gap-2.5",
-            )}
-            onClick={signOut}
-            title="Sign out of account"
-          >
-            <LogOut className="size-4 shrink-0" />
-            <span className={cn(sidebarCollapsed && "sr-only")}>Sign out</span>
-          </Button>
-        </div>
-      </aside>
+            {/* Bottom Dock Utilities */}
+            <div className="flex flex-col items-center gap-2 w-full pt-2 border-t border-sidebar-border/70">
+              <LayoutSwitcherButton
+                navLayout={navLayout}
+                onChange={handleLayoutChange}
+                className="size-8 justify-center p-0 rounded-xl"
+              />
+              <Link
+                to="/settings"
+                className="p-0.5 rounded-xl hover:ring-2 hover:ring-primary/40 transition-all"
+                title="Settings"
+              >
+                <UserAvatar
+                  avatarUrl={avatarUrl}
+                  name={name}
+                  fallbackInitials={candidateInitials}
+                  showStatusDot={true}
+                  className="size-8"
+                />
+              </Link>
+            </div>
+          </div>
+
+          {/* Adjacent Compact Sub-Panel: Scroll-Free 4–6 tools */}
+          <div className="w-56 h-full flex flex-col py-3 px-2.5 border-r border-sidebar-border/60 bg-card/60 backdrop-blur-md shrink-0">
+            {visibleGroups
+              .filter((g) => g.id === activeDockCategory)
+              .map((group) => (
+                <div key={group.id} className="flex flex-col h-full">
+                  <div className="pb-2.5 mb-2 border-b border-border/60">
+                    <p className="text-xs font-bold text-foreground truncate">
+                      {group.label}
+                    </p>
+                    <p className="text-[10.5px] text-muted-foreground">
+                      Quick Cambridge Navigation
+                    </p>
+                  </div>
+                  <nav className="flex flex-col gap-1 flex-1">
+                    {group.items.map((item) => {
+                      const active = isItemActive(item.to);
+                      const label =
+                        item.to === "/classes" ? classroomLabel : item.label;
+                      return (
+                        <Link
+                          key={item.to}
+                          to={item.to}
+                          className={cn(
+                            "group relative flex items-center justify-between rounded-xl px-2.5 py-2 text-xs font-medium transition-all duration-150",
+                            active
+                              ? "bg-primary/10 text-primary font-bold shadow-2xs"
+                              : "text-muted-foreground hover:bg-muted/80 hover:text-foreground",
+                          )}
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <item.icon className="size-4 shrink-0 text-muted-foreground group-hover:text-foreground" />
+                            <span className="truncate">{label}</span>
+                          </div>
+                          {item.badge && (
+                            <Badge
+                              variant="outline"
+                              className={cn(
+                                "text-[9px] px-1.5 py-0 shrink-0",
+                                item.badge === "Beta" ||
+                                  item.badge === "Under Building"
+                                  ? "border-amber-500/35 bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                                  : "border-primary/30 text-primary bg-primary/10",
+                              )}
+                            >
+                              {item.badge}
+                            </Badge>
+                          )}
+                        </Link>
+                      );
+                    })}
+                  </nav>
+                </div>
+              ))}
+          </div>
+        </aside>
+      )}
 
       {/* ── Main Content & Mobile Header ── */}
       <div className="flex min-w-0 flex-1 flex-col overflow-x-hidden">
+        {/* Mobile Header (all layouts) */}
         <header className="flex items-center justify-between border-b border-border bg-card/80 px-4 py-2.5 backdrop-blur-sm lg:hidden sticky top-0 z-40 w-full max-w-full">
           <div className="flex items-center gap-2.5">
             <Sheet open={mobileDrawerOpen} onOpenChange={setMobileDrawerOpen}>
@@ -1024,6 +1381,15 @@ export function AppShell({
                 </div>
 
                 <div className="mt-auto shrink-0 pt-3 border-t border-border space-y-1">
+                  <LayoutSwitcherButton
+                    navLayout={navLayout}
+                    onChange={(l) => {
+                      setMobileDrawerOpen(false);
+                      handleLayoutChange(l);
+                    }}
+                    className="w-full justify-start"
+                  />
+
                   {isUserAdmin ? (
                     <Link
                       to="/admin"
@@ -1124,57 +1490,357 @@ export function AppShell({
           </div>
         </header>
 
-        {/* ── Desktop Top Header Bar: Clean, sleek utility bar pinned on top ── */}
-        <header className="hidden lg:flex items-center justify-between border-b border-border/70 bg-card/70 px-6 py-2.5 backdrop-blur-md sticky top-0 z-30 w-full shrink-0">
-          <div className="flex items-center gap-2.5 min-w-0">
-            {currentTutorial ? (
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div className="size-7 rounded-lg bg-purple-500/10 border border-purple-500/20 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
-                  <currentTutorial.icon className="size-4" />
-                </div>
-                <div className="flex items-center gap-2 min-w-0">
-                  <span className="text-xs font-bold text-foreground truncate">
-                    {currentTutorial.title}
-                  </span>
-                  {currentTutorial.paperTag && (
-                    <Badge
-                      variant="outline"
-                      className="text-[10px] text-muted-foreground border-border/80 py-0 hidden lg:inline-flex"
-                    >
-                      {currentTutorial.paperTag}
-                    </Badge>
-                  )}
-                </div>
-              </div>
-            ) : (
-              <span className="text-xs font-semibold text-muted-foreground">
-                Cambridge International Economics 9708
-              </span>
-            )}
-          </div>
-
-          <div className="flex items-center gap-2.5 shrink-0">
-            <TopTutorialButton />
-
-            {isUserAdmin ? (
-              <Link
-                to="/admin"
-                search={{ tab: "messages" }}
-                className="relative flex items-center justify-center size-8 rounded-full border border-border/80 hover:bg-muted transition-colors"
-                title="Direct Messages Portal"
-              >
-                <Send className="size-3.5 text-primary" />
-                {unreadMsgCount > 0 && (
-                  <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white shadow-xs">
-                    {unreadMsgCount}
-                  </span>
-                )}
+        {/* ── Desktop Horizontal Topbar Navigation (navLayout === 'topbar') ── */}
+        {navLayout === "topbar" && (
+          <header className="hidden lg:flex items-center justify-between border-b border-border/80 bg-background/95 backdrop-blur-md px-6 py-2.5 sticky top-0 z-40 w-full shrink-0 shadow-2xs">
+            {/* Left: Brand + Navigation Dropdowns */}
+            <div className="flex items-center gap-6 min-w-0">
+              <Link to="/dashboard" className="flex items-center gap-2.5 shrink-0 group">
+                <img
+                  src="/marginal-m-icon-clean.png"
+                  alt=""
+                  aria-hidden="true"
+                  className="size-7 object-contain transition-transform group-hover:scale-105"
+                />
+                <span className="text-sm font-bold tracking-tight text-foreground flex items-center gap-1.5">
+                  Marginal
+                  <Badge
+                    variant="outline"
+                    className="text-[9.5px] font-mono px-1.5 py-0 border-primary/30 text-primary"
+                  >
+                    9708
+                  </Badge>
+                </span>
               </Link>
-            ) : (
-              <StudentMessagesDialog />
-            )}
-          </div>
-        </header>
+
+              {/* Top Navigation Menus */}
+              <nav className="flex items-center gap-1">
+                <Link
+                  to="/dashboard"
+                  className={cn(
+                    "px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer",
+                    pathname === "/dashboard"
+                      ? "bg-primary/10 text-primary font-bold shadow-2xs"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted/80",
+                  )}
+                >
+                  Dashboard
+                </Link>
+
+                {/* Exam Practice Dropdown */}
+                {practiceGroup && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        type="button"
+                        className={cn(
+                          "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer",
+                          isPracticeActive
+                            ? "bg-primary/10 text-primary font-bold shadow-2xs"
+                            : "text-muted-foreground hover:text-foreground hover:bg-muted/80",
+                        )}
+                      >
+                        <PenLine className="size-3.5 text-primary" />
+                        <span>Exam Practice</span>
+                        <ChevronDown className="size-3 opacity-60" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="w-64 p-1.5 z-50 bg-popover">
+                      <DropdownMenuLabel className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground px-2 py-1">
+                        Cambridge 9708 Practice
+                      </DropdownMenuLabel>
+                      {practiceGroup.items.map((item) => (
+                        <DropdownMenuItem key={item.to} asChild>
+                          <Link
+                            to={item.to}
+                            className={cn(
+                              "flex items-center justify-between gap-2.5 px-2.5 py-2 text-xs rounded-md cursor-pointer",
+                              isItemActive(item.to) && "bg-primary/10 text-primary font-bold",
+                            )}
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              <item.icon className="size-4 shrink-0 text-muted-foreground" />
+                              <span className="truncate">{item.label}</span>
+                            </div>
+                            {item.badge && (
+                              <Badge
+                                variant="outline"
+                                className={cn(
+                                  "text-[9px] px-1.5 py-0 shrink-0",
+                                  item.badge === "Under Building" || item.badge === "Beta"
+                                    ? "border-amber-500/35 bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                                    : "border-primary/30 text-primary bg-primary/10",
+                                )}
+                              >
+                                {item.badge}
+                              </Badge>
+                            )}
+                          </Link>
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+
+                {/* Syllabus Hub Dropdown */}
+                {syllabusGroup && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        type="button"
+                        className={cn(
+                          "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer",
+                          isSyllabusActive
+                            ? "bg-primary/10 text-primary font-bold shadow-2xs"
+                            : "text-muted-foreground hover:text-foreground hover:bg-muted/80",
+                        )}
+                      >
+                        <BookOpen className="size-3.5 text-sky-500" />
+                        <span>Syllabus Resources</span>
+                        <ChevronDown className="size-3 opacity-60" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="w-64 p-1.5 z-50 bg-popover">
+                      <DropdownMenuLabel className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground px-2 py-1">
+                        Syllabus Hub & Citations
+                      </DropdownMenuLabel>
+                      {syllabusGroup.items.map((item) => (
+                        <DropdownMenuItem key={item.to} asChild>
+                          <Link
+                            to={item.to}
+                            className={cn(
+                              "flex items-center justify-between gap-2.5 px-2.5 py-2 text-xs rounded-md cursor-pointer",
+                              isItemActive(item.to) && "bg-primary/10 text-primary font-bold",
+                            )}
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              <item.icon className="size-4 shrink-0 text-muted-foreground" />
+                              <span className="truncate">{item.label}</span>
+                            </div>
+                            {item.badge && (
+                              <Badge
+                                variant="outline"
+                                className="text-[9px] px-1.5 py-0 shrink-0 border-border/80"
+                              >
+                                {item.badge}
+                              </Badge>
+                            )}
+                          </Link>
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+
+                {/* Classes & Progress Link */}
+                <Link
+                  to="/classes"
+                  className={cn(
+                    "px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer",
+                    pathname.startsWith("/classes")
+                      ? "bg-primary/10 text-primary font-bold shadow-2xs"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted/80",
+                  )}
+                >
+                  {classroomLabel}
+                </Link>
+
+                {/* Admin Console Dropdown (if admin) */}
+                {isUserAdmin && adminGroup && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        type="button"
+                        className={cn(
+                          "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer",
+                          pathname.startsWith("/admin")
+                            ? "bg-purple-500/15 text-purple-600 dark:text-purple-400 font-bold border border-purple-500/30"
+                            : "text-muted-foreground hover:text-foreground hover:bg-muted/80",
+                        )}
+                      >
+                        <ShieldCheck className="size-3.5 text-purple-500" />
+                        <span>Administration</span>
+                        <Badge className="text-[9px] bg-purple-500/20 text-purple-600 border-purple-500/30 py-0 px-1">
+                          Root
+                        </Badge>
+                        <ChevronDown className="size-3 opacity-60" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="w-56 p-1.5 z-50 bg-popover">
+                      <DropdownMenuItem asChild>
+                        <Link
+                          to="/admin"
+                          className="flex items-center gap-2 px-2.5 py-2 text-xs cursor-pointer"
+                        >
+                          <ShieldCheck className="size-4 text-purple-600" />
+                          <span className="font-semibold">Admin Console</span>
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link
+                          to="/live-examiner"
+                          className="flex items-center justify-between gap-2 px-2.5 py-2 text-xs cursor-pointer"
+                        >
+                          <div className="flex items-center gap-2">
+                            <Sparkles className="size-4 text-amber-500" />
+                            <span>Live Examiner Studio</span>
+                          </div>
+                          <Badge variant="outline" className="text-[9px] border-amber-500/35 text-amber-600">
+                            Beta
+                          </Badge>
+                        </Link>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+              </nav>
+            </div>
+
+            {/* Right: Utilities, Switcher, Tutorials, User Menu */}
+            <div className="flex items-center gap-2.5 shrink-0">
+              <TopTutorialButton />
+
+              <LayoutSwitcherButton
+                navLayout={navLayout}
+                onChange={handleLayoutChange}
+              />
+
+              {isUserAdmin ? (
+                <Link
+                  to="/admin"
+                  search={{ tab: "messages" }}
+                  className="relative flex items-center justify-center size-8 rounded-lg border border-border/80 hover:bg-muted transition-colors cursor-pointer"
+                  title="Direct Messages Portal"
+                >
+                  <Send className="size-3.5 text-primary" />
+                  {unreadMsgCount > 0 && (
+                    <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white shadow-xs">
+                      {unreadMsgCount}
+                    </span>
+                  )}
+                </Link>
+              ) : (
+                <StudentMessagesDialog />
+              )}
+
+              <FeedbackDialog />
+
+              {/* User Avatar Dropdown */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    className="flex items-center gap-2 rounded-full p-0.5 hover:ring-2 hover:ring-primary/40 transition-all cursor-pointer"
+                  >
+                    <UserAvatar
+                      avatarUrl={avatarUrl}
+                      name={name}
+                      fallbackInitials={candidateInitials}
+                      showStatusDot={true}
+                      className="size-8"
+                    />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56 p-2 z-50 bg-popover">
+                  <div className="px-2 py-1.5 border-b border-border/60 pb-2 mb-1">
+                    <p className="text-xs font-bold text-foreground truncate">
+                      {name ?? "Candidate"}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground truncate">
+                      {school ||
+                        (isTeacherUser ? "Educator" : "Cambridge 9708 Candidate")}
+                    </p>
+                  </div>
+                  <DropdownMenuItem asChild>
+                    <Link
+                      to="/dashboard"
+                      className="flex items-center gap-2 text-xs cursor-pointer"
+                    >
+                      <LayoutDashboard className="size-3.5 text-muted-foreground" />
+                      <span>Dashboard</span>
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link
+                      to="/settings"
+                      className="flex items-center gap-2 text-xs cursor-pointer"
+                    >
+                      <Settings className="size-3.5 text-muted-foreground" />
+                      <span>Profile &amp; Settings</span>
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator className="my-1" />
+                  <DropdownMenuItem
+                    onClick={signOut}
+                    className="flex items-center gap-2 text-xs text-destructive hover:bg-destructive/10 cursor-pointer"
+                  >
+                    <LogOut className="size-3.5" />
+                    <span>Sign out</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </header>
+        )}
+
+        {/* ── Desktop Secondary Header Bar for Dock & Sidebar Layouts ── */}
+        {navLayout !== "topbar" && (
+          <header className="hidden lg:flex items-center justify-between border-b border-border/70 bg-card/70 px-6 py-2.5 backdrop-blur-md sticky top-0 z-30 w-full shrink-0">
+            <div className="flex items-center gap-2.5 min-w-0">
+              {currentTutorial ? (
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="size-7 rounded-lg bg-purple-500/10 border border-purple-500/20 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
+                    <currentTutorial.icon className="size-4" />
+                  </div>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-xs font-bold text-foreground truncate">
+                      {currentTutorial.title}
+                    </span>
+                    {currentTutorial.paperTag && (
+                      <Badge
+                        variant="outline"
+                        className="text-[10px] text-muted-foreground border-border/80 py-0 hidden lg:inline-flex"
+                      >
+                        {currentTutorial.paperTag}
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <span className="text-xs font-semibold text-muted-foreground">
+                  Cambridge International Economics 9708
+                </span>
+              )}
+            </div>
+
+            <div className="flex items-center gap-2.5 shrink-0">
+              <TopTutorialButton />
+
+              <LayoutSwitcherButton
+                navLayout={navLayout}
+                onChange={handleLayoutChange}
+              />
+
+              {isUserAdmin ? (
+                <Link
+                  to="/admin"
+                  search={{ tab: "messages" }}
+                  className="relative flex items-center justify-center size-8 rounded-full border border-border/80 hover:bg-muted transition-colors"
+                  title="Direct Messages Portal"
+                >
+                  <Send className="size-3.5 text-primary" />
+                  {unreadMsgCount > 0 && (
+                    <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white shadow-xs">
+                      {unreadMsgCount}
+                    </span>
+                  )}
+                </Link>
+              ) : (
+                <StudentMessagesDialog />
+              )}
+            </div>
+          </header>
+        )}
 
         <main className="flex-1 min-w-0 overflow-x-hidden">{children}</main>
       </div>

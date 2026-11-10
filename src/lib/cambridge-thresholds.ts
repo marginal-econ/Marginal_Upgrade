@@ -333,47 +333,81 @@ export function calculatePredictedGradeFromThresholds(
   const normId = normalizeSeriesId(seriesId);
   const def = CAMBRIDGE_SERIES_THRESHOLDS[normId] || CAMBRIDGE_SERIES_THRESHOLDS.all_average;
   const isAsOnly = level === "as" || level === "as_level";
-
   const cutoffs = isAsOnly ? def.asLevel : def.aLevel;
 
   let projectedGrade: "A*" | "A" | "B" | "C" | "D" | "E" | "U";
   let targetGrade: "A*" | "A" | "B";
   let marksToNextGrade = "";
 
-  if (!isAsOnly && "aStar" in cutoffs && percentage >= cutoffs.aStar) {
-    projectedGrade = "A*";
-    targetGrade = "A*";
-    marksToNextGrade = "Solid Cambridge A* benchmark maintained";
-  } else if (percentage >= cutoffs.a) {
-    projectedGrade = "A";
-    targetGrade = !isAsOnly ? "A*" : "A";
-    const gap = (!isAsOnly && "aStar" in cutoffs) ? Math.max(1, cutoffs.aStar - percentage) : 0;
-    marksToNextGrade = gap > 0 ? `+${Math.ceil((gap / 100) * 12)} marks on 12-mark essay to reach A*` : "Target achieved";
-  } else if (percentage >= cutoffs.b) {
-    projectedGrade = "B";
-    targetGrade = "A";
-    const gap = Math.max(1, cutoffs.a - percentage);
-    marksToNextGrade = `+${Math.ceil((gap / 100) * 12)} marks on evaluation or +2 MCQs to reach A`;
-  } else if (percentage >= cutoffs.c) {
-    projectedGrade = "C";
-    targetGrade = "B";
-    const gap = Math.max(1, cutoffs.b - percentage);
-    marksToNextGrade = `+${Math.ceil((gap / 100) * 12)} marks on causal analysis to reach B`;
-  } else if (percentage >= cutoffs.d) {
-    projectedGrade = "D";
-    targetGrade = "B";
-    const gap = Math.max(1, cutoffs.c - percentage);
-    marksToNextGrade = `+${Math.ceil((gap / 100) * 12)} marks on definitions & analysis to reach C`;
-  } else if (percentage >= cutoffs.e) {
-    projectedGrade = "E";
-    targetGrade = "B";
-    const gap = Math.max(1, cutoffs.d - percentage);
-    marksToNextGrade = `+${Math.ceil((gap / 100) * 12)} marks to reach grade D pass threshold`;
+  if (!isAsOnly) {
+    const cutoffs = def.aLevel;
+    if (percentage >= cutoffs.aStar) {
+      projectedGrade = "A*";
+      targetGrade = "A*";
+      marksToNextGrade = "Solid Cambridge A* benchmark maintained";
+    } else if (percentage >= cutoffs.a) {
+      projectedGrade = "A";
+      targetGrade = "A*";
+      const gap = Math.max(1, cutoffs.aStar - percentage);
+      marksToNextGrade = `+${Math.ceil((gap / 100) * 12)} marks on 12-mark essay to reach A*`;
+    } else if (percentage >= cutoffs.b) {
+      projectedGrade = "B";
+      targetGrade = "A";
+      const gap = Math.max(1, cutoffs.a - percentage);
+      marksToNextGrade = `+${Math.ceil((gap / 100) * 12)} marks on evaluation or +2 MCQs to reach A`;
+    } else if (percentage >= cutoffs.c) {
+      projectedGrade = "C";
+      targetGrade = "B";
+      const gap = Math.max(1, cutoffs.b - percentage);
+      marksToNextGrade = `+${Math.ceil((gap / 100) * 12)} marks on causal analysis to reach B`;
+    } else if (percentage >= cutoffs.d) {
+      projectedGrade = "D";
+      targetGrade = "B";
+      const gap = Math.max(1, cutoffs.c - percentage);
+      marksToNextGrade = `+${Math.ceil((gap / 100) * 12)} marks on definitions & analysis to reach C`;
+    } else if (percentage >= cutoffs.e) {
+      projectedGrade = "E";
+      targetGrade = "B";
+      const gap = Math.max(1, cutoffs.d - percentage);
+      marksToNextGrade = `+${Math.ceil((gap / 100) * 12)} marks to reach grade D pass threshold`;
+    } else {
+      projectedGrade = "U";
+      targetGrade = "B";
+      const gap = Math.max(1, cutoffs.e - percentage);
+      marksToNextGrade = `+${Math.ceil((gap / 100) * 12)} marks required to reach minimum passing grade E`;
+    }
   } else {
-    projectedGrade = "U";
-    targetGrade = "B";
-    const gap = Math.max(1, cutoffs.e - percentage);
-    marksToNextGrade = `+${Math.ceil((gap / 100) * 12)} marks required to reach minimum passing grade E`;
+    const cutoffs = def.asLevel;
+    if (percentage >= cutoffs.a) {
+      projectedGrade = "A";
+      targetGrade = "A";
+      marksToNextGrade = "Top AS Level benchmark maintained (Grade A)";
+    } else if (percentage >= cutoffs.b) {
+      projectedGrade = "B";
+      targetGrade = "A";
+      const gap = Math.max(1, cutoffs.a - percentage);
+      marksToNextGrade = `+${Math.ceil((gap / 100) * 12)} marks on evaluation or +2 MCQs to reach A`;
+    } else if (percentage >= cutoffs.c) {
+      projectedGrade = "C";
+      targetGrade = "B";
+      const gap = Math.max(1, cutoffs.b - percentage);
+      marksToNextGrade = `+${Math.ceil((gap / 100) * 12)} marks on causal analysis to reach B`;
+    } else if (percentage >= cutoffs.d) {
+      projectedGrade = "D";
+      targetGrade = "B";
+      const gap = Math.max(1, cutoffs.c - percentage);
+      marksToNextGrade = `+${Math.ceil((gap / 100) * 12)} marks on definitions & analysis to reach C`;
+    } else if (percentage >= cutoffs.e) {
+      projectedGrade = "E";
+      targetGrade = "B";
+      const gap = Math.max(1, cutoffs.d - percentage);
+      marksToNextGrade = `+${Math.ceil((gap / 100) * 12)} marks to reach grade D pass threshold`;
+    } else {
+      projectedGrade = "U";
+      targetGrade = "B";
+      const gap = Math.max(1, cutoffs.e - percentage);
+      marksToNextGrade = `+${Math.ceil((gap / 100) * 12)} marks required to reach minimum passing grade E`;
+    }
   }
 
   return {

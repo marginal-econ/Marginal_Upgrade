@@ -158,7 +158,8 @@ export function KnowledgePage() {
       let extracted = "";
       if (isPdfFile(file)) {
         setUploadProgress({ step: "Extracting text / OCR...", percent: 50 });
-        extracted = await ocrPdf(file);
+        const ocrOutcome = await ocrPdf(file);
+        extracted = ocrOutcome.text;
       } else {
         extracted = await extractTextFromFile(file);
       }

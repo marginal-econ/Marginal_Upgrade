@@ -1159,7 +1159,7 @@ function PaymentPortalPage() {
                     const priceShow =
                       cycle === "annual" ? format(tPricing.annualMonthlyEq) : format(tPricing.monthly);
 
-                    let tierTitle = tLimits.name;
+                    let tierTitle: string = tLimits.name;
                     let tierSubtitle = tPricing.tagline;
                     let tierBadge: string | null = null;
 
@@ -1363,13 +1363,13 @@ function PaymentPortalPage() {
                           <Tag className="size-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
                           <div className="min-w-0">
                             <p className="font-bold text-xs flex items-center gap-1.5">
-                              <span className="font-mono tracking-wider">{appliedCoupon.code}</span>
+                              <span className="font-mono tracking-wider">{appliedCoupon?.code}</span>
                               <Badge className="bg-emerald-600/20 text-emerald-700 dark:text-emerald-300 border-none text-[9px] px-1.5 py-0 font-bold">
-                                {appliedCoupon.type === "percentage" ? `${appliedCoupon.value}% OFF` : `${meta.symbol}${appliedCoupon.value} OFF`}
+                                {appliedCoupon?.type === "percentage" ? `${appliedCoupon?.value}% OFF` : `${meta.symbol}${appliedCoupon?.value} OFF`}
                               </Badge>
                             </p>
                             <p className="text-[10px] text-muted-foreground truncate">
-                              {appliedCoupon.description || "Discount coupon applied"}
+                              {appliedCoupon?.description || "Discount coupon applied"}
                             </p>
                           </div>
                         </div>
@@ -1447,7 +1447,7 @@ function PaymentPortalPage() {
                       <div className="flex items-center gap-2 text-muted-foreground">
                         <PenLine className="size-3.5 text-primary shrink-0" />
                         <span>
-                          {limits.maxEssaysPerMonth === 9999
+                          {limits.maxEssaysPerMonth > 1000
                             ? "Unlimited"
                             : `${limits.maxEssaysPerMonth} Graded Essays / month`}
                         </span>

@@ -446,7 +446,7 @@ export function synthesizeDualPasses(
 
   const confidence = computeObjectiveConfidence(pass1, pass2, false);
 
-  return {
+  const result: Grading = {
     total_mark: total,
     max_mark: maxMark,
     band: bandFor(total, maxMark),

@@ -1061,8 +1061,8 @@ function LiveExaminerPage() {
                     description: move.detail,
                   });
                 }}
-                onOpenMaximizer={() => setMaximizerOpen(true)}
-                maximizerLoading={maximizerLoading}
+                onOpenMaximizer={() => setScoreMaximizerOpen(true)}
+                maximizerLoading={maxOutMutation.isPending}
               />
             ) : null}
 

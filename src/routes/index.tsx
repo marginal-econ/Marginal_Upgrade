@@ -1027,7 +1027,7 @@ function Index() {
                   Every candidate gets unlimited Cambridge essay gradings, the real-time Live Examiner, and authentic past paper MCQ drills with auto-save resume completely free.
                 </p>
 
-                <div className="mt-7 flex flex-wrap items-center justify-center md:justify-start gap-3">
+                <div className="mt-7 flex flex-wrap items-center justify-center md:justify-start gap-3 relative z-20">
                   <Button
                     asChild
                     size="lg"

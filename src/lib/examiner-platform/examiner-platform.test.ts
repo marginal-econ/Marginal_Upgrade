@@ -285,6 +285,7 @@ describe("Marking Engine", () => {
     };
 
     const response = await markQuestionResponse({
+      candidateCode: "CAND-001",
       question: qSpec,
       studentAnswerText: "A merit good is a good that is underconsumed in the free market because consumers have imperfect information regarding its private benefits.",
     });
@@ -312,6 +313,7 @@ describe("Marking Engine", () => {
     };
 
     const response = await markQuestionResponse({
+      candidateCode: "CAND-001",
       question: qSpec,
       studentAnswerText: "",
     });

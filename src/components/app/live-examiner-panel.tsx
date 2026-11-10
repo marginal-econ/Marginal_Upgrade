@@ -38,8 +38,10 @@ function cleanStars(str: string | undefined | null): string {
     .trim();
 }
 
-const CATEGORY_AO: Record<IssueCategory, string | null> = {
+const CATEGORY_AO: Partial<Record<IssueCategory, string | null>> = {
   grammar: null,
+  spelling: null,
+  punctuation: null,
   clarity: null,
   economics_accuracy: AO_DEFINITIONS.ao1.code,
   misconception: AO_DEFINITIONS.ao1.code,
@@ -50,8 +52,10 @@ const CATEGORY_AO: Record<IssueCategory, string | null> = {
   evaluation: AO_DEFINITIONS.ao3.code,
 };
 
-const CATEGORY_LABEL: Record<IssueCategory, string> = {
+const CATEGORY_LABEL: Partial<Record<IssueCategory, string>> = {
   grammar: "Grammar",
+  spelling: "Spelling",
+  punctuation: "Punctuation",
   clarity: "Clarity",
   economics_accuracy: "Economics accuracy",
   misconception: "Economic misconception",

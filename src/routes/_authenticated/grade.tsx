@@ -206,7 +206,9 @@ function GradePage() {
   });
   const sub = meQuery.data?.subscription;
   const isAdmin = meQuery.data?.isAdmin ?? false;
-  const isTeacher = meQuery.data?.role === "teacher" || Boolean(sub?.isTeacher);
+  const isTeacher = meQuery.data?.role === "teacher" || Boolean((sub as any)?.isTeacher);
+  const isTeacherUnpaid = isTeacher && !sub?.isPaid && !isAdmin;
+  const isLimitReached = false;
 
   const DRAFT_STORAGE_KEY = "marginal_essay_draft_v1";
 
@@ -322,7 +324,7 @@ function GradePage() {
     if (!search.assignmentId || !search.studentId || !search.classroomId || !result) return;
     setIsReturningGrade(true);
     try {
-      const feedback = result.grading.overall_comment || "";
+      const feedback = (result.grading as any).overall_comment || result.grading.examiner_summary || "";
       await gradeSubmissionFn({
         data: {
           assignmentId: search.assignmentId,
@@ -335,8 +337,7 @@ function GradePage() {
       });
       toast.success(`Grade returned to ${search.studentName || "student"} in Classroom!`);
       navigate({
-        to: "/classes/$classroomId",
-        params: { classroomId: search.classroomId },
+        to: "/classes",
       });
     } catch (err: any) {
       toast.error(err?.message || "Failed to return grade to student.");
@@ -436,7 +437,7 @@ function GradePage() {
     try {
       const text = await navigator.clipboard.readText();
       if (text) {
-        setEssayText((current) => (current.trim() ? `${current.trim()}\n\n${text}` : text));
+        setEssayText((current: string) => (current.trim() ? `${current.trim()}\n\n${text}` : text));
         setWritingCheck(null);
         toast.success("Pasted clipboard text into essay.");
       }
@@ -674,8 +675,7 @@ function GradePage() {
                     size="sm"
                     onClick={() =>
                       navigate({
-                        to: "/classes/$classroomId",
-                        params: { classroomId: search.classroomId! },
+                        to: "/classes",
                       })
                     }
                     className="border-purple-700/60 text-purple-200 hover:text-white hover:bg-purple-900/40 text-xs"
@@ -983,7 +983,7 @@ function GradePage() {
               <HandwritingUpload
                 hint={question}
                 onText={(text) => {
-                  setEssayText((current) => (current.trim() ? `${current.trim()}\n\n${text}` : text));
+                  setEssayText((current: string) => (current.trim() ? `${current.trim()}\n\n${text}` : text));
                   setWritingCheck(null);
                 }}
               />
@@ -1477,9 +1477,9 @@ function GradePage() {
                   <CheckCircle2 className="size-4 text-emerald-500 shrink-0" />
                   <span>Cambridge 9708 Standard Assessment Complete</span>
                 </div>
-                {(result.latencyMs || result.grading?.latencyMs) ? (
+                {((result as any).latencyMs || result.grading?.latencyMs) ? (
                   <Badge variant="outline" className="gap-1 border-primary/40 bg-primary/10 text-primary font-mono text-[11px] font-semibold">
-                    <Clock className="size-3.5" /> Graded in {Math.round((result.latencyMs || result.grading?.latencyMs || 0) / 1000)}s
+                    <Clock className="size-3.5" /> Graded in {Math.round(((result as any).latencyMs || result.grading?.latencyMs || 0) / 1000)}s
                   </Badge>
                 ) : null}
               </div>
@@ -1524,8 +1524,7 @@ function GradePage() {
                       size="sm"
                       onClick={() =>
                         navigate({
-                          to: "/classes/$classroomId",
-                          params: { classroomId: search.classroomId! },
+                          to: "/classes",
                         })
                       }
                       className="border-border text-xs text-muted-foreground hover:text-white"

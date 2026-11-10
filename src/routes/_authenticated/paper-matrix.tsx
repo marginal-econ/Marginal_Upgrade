@@ -161,7 +161,7 @@ function PaperMatrixPage() {
       to: "/grade",
       search: {
         q: text,
-        marks: marks,
+        marks: marks as 8 | 12 | 20 | undefined,
       },
     });
   };
@@ -171,7 +171,7 @@ function PaperMatrixPage() {
       <PageHeader
         title="15-Year Past Paper Cycle Matrix & Topic Predictor"
         description="Statistical intelligence engine analyzing Cambridge Assessment 9708 past papers (2010–2025). Discovers overdue exam topics, rotation probability indices, and real question stems without AI token cost."
-        badge={
+        action={
           <Badge variant="outline" className="border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400">
             Historical Statistical Engine · 0 AI Tokens
           </Badge>
