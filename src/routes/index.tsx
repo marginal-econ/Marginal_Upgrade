@@ -7,7 +7,6 @@ import {
   BookOpen,
   Check,
   Copy,
-  Cpu,
   ExternalLink,
   Flame,
   Gift,
@@ -67,7 +66,6 @@ import { SiteNavLinks, SiteNavMobile } from "@/components/marketing/site-nav";
 import { Magnetic, TiltCard } from "@/components/marketing/three-d";
 import { AiComparisonSection } from "@/components/marketing/ai-comparison-section";
 import { RealEssayShowcase } from "@/components/marketing/real-essay-showcase";
-import { RagEngineSection } from "@/components/marketing/rag-engine-section";
 import { TeachersSection } from "@/components/marketing/teachers-section";
 import { CosmicAtmosphere } from "@/components/marketing/cosmic-atmosphere";
 import { captureReferralCode } from "@/lib/waitlist-client";
@@ -636,12 +634,6 @@ function Index() {
                   <Target className="size-3.5 text-primary shrink-0" /> Papers 1, 2, 3 &amp; 4
                 </span>
                 <a
-                  href="#rag-engine"
-                  className="inline-flex items-center gap-1.5 font-bold text-foreground bg-primary/10 hover:bg-primary/20 transition-colors px-3 py-1.5 rounded-lg border border-primary/30 shadow-2xs"
-                >
-                  <Cpu className="size-3.5 text-primary animate-pulse shrink-0" /> Cambridge RAG Engine ↓
-                </a>
-                <a
                   href="#graded-exemplar"
                   className="inline-flex items-center gap-1.5 font-bold text-primary bg-primary/10 hover:bg-primary/20 transition-colors px-3 py-1.5 rounded-lg border border-primary/30 shadow-2xs"
                 >
@@ -688,9 +680,6 @@ function Index() {
 
       {/* ── Why Marginal Beats Raw AI (Real 12-Mark Stress Test) ─────────── */}
       <AiComparisonSection />
-
-      {/* ── Cambridge Syllabus Coverage & RAG Knowledge Engine ────────────── */}
-      <RagEngineSection />
 
       {/* ── Cambridge Teachers & Department Workspace ──────────────────────── */}
       <TeachersSection />

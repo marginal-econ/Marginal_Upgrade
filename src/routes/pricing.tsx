@@ -74,9 +74,6 @@ function PricingPage() {
             <a href="/#tools" className="hover:text-foreground transition-colors">
               Features
             </a>
-            <a href="/#rag-engine" className="hover:text-foreground transition-colors">
-              Syllabus &amp; RAG
-            </a>
             <Link
               to="/teacher-auth"
               search={{ tab: "signin" }}
