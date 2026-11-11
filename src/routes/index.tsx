@@ -309,6 +309,15 @@ const TOOLS = [
     body: "Executive performance dashboard tracking your projected grade, essay averages, MCQ topic mastery, and syllabus balance across Micro, Macro, Trade, and Market Failure.",
     href: "/review",
   },
+  {
+    icon: Sparkles,
+    tile: "bg-purple-600",
+    badge: "AI Coaching",
+    title: "Live Examiner Studio",
+    lead: "Real-time AI examiner coaching as you type",
+    body: "Write Cambridge 9708 essays with live Socratic feedback, line-by-line misconception detection, and instant assessment objective tracking.",
+    href: "/live-examiner",
+  },
 ];
 
 const STEPS = [
@@ -449,11 +458,13 @@ function Index() {
             <SiteNavMobile />
             <Link
               to="/teacher-auth"
-              search={{ tab: "signin" }}
-              className="hidden lg:inline-flex items-center gap-1.5 rounded-lg border border-purple-500/30 bg-purple-500/10 px-2.5 py-1.5 text-xs font-semibold text-purple-700 dark:text-purple-300 hover:bg-purple-500/20 transition-all shadow-2xs whitespace-nowrap"
+              search={{ tab: "signup" }}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-purple-500/40 bg-purple-500/15 px-2.5 sm:px-3 py-1.5 text-xs font-bold text-purple-800 dark:text-purple-200 hover:bg-purple-500/25 hover:border-purple-500/60 transition-all shadow-2xs whitespace-nowrap"
+              title="Official Cambridge 9708 Teacher & Department Registration"
             >
-              <School className="size-3.5 text-purple-600 dark:text-purple-400" />
-              <span>Teacher Portal</span>
+              <School className="size-3.5 text-purple-600 dark:text-purple-400 shrink-0" />
+              <span className="hidden min-[480px]:inline">Teacher:</span>
+              <span>Sign Up Separately</span>
             </Link>
             <Link
               to="/auth"

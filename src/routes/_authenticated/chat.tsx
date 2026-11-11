@@ -1158,7 +1158,10 @@ export function GroundedChatPage() {
 
       {/* FULL AI VOICEOVER STUDIO (CONVERSATIONAL TALK-OVER & ESSAY DRAFTING) */}
       <Dialog open={voiceModeOpen} onOpenChange={setVoiceModeOpen}>
-        <DialogContent className="sm:max-w-lg p-0 overflow-hidden border border-border/80 bg-gradient-to-b from-card via-card/95 to-background shadow-2xl rounded-3xl">
+        <DialogContent
+          hideCloseButton
+          className="sm:max-w-lg p-0 overflow-hidden border border-border/80 bg-gradient-to-b from-card via-card/95 to-background shadow-2xl rounded-3xl"
+        >
           <div className="relative p-6 sm:p-8 flex flex-col items-center justify-between min-h-[480px] text-center">
             {/* Top Bar inside Voiceover Studio Modal */}
             <div className="w-full flex items-center justify-between pb-3 border-b border-border/40">
@@ -1447,7 +1450,7 @@ export function GroundedChatPage() {
       {/* CAMBRIDGE ESSAY STUDIO MODAL */}
       <Dialog open={draftModalOpen} onOpenChange={setDraftModalOpen}>
         <DialogContent className="sm:max-w-2xl max-h-[85vh] flex flex-col p-0 overflow-hidden border border-border/80 shadow-2xl rounded-3xl">
-          <DialogHeader className="p-5 border-b border-border/60 bg-muted/20 shrink-0">
+          <DialogHeader className="p-5 border-b border-border/60 bg-muted/20 shrink-0 pr-12">
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 <div className="size-8 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">

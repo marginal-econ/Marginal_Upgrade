@@ -125,17 +125,17 @@ export function IssueCard({
     >
       {/* Header */}
       <div className="flex items-center justify-between gap-2 border-b border-border/50 pb-2.5">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 min-w-0">
           {aoMeta ? (
-            <Badge variant="outline" className={cn("text-[10px] font-bold px-2 py-0.5", aoMeta.tone)}>
+            <Badge variant="outline" className={cn("text-[10px] font-bold px-2 py-0.5 shrink-0", aoMeta.tone)}>
               {aoMeta.code}
             </Badge>
           ) : null}
           {issue ? (
-            <span className="flex items-center gap-1.5 text-xs font-semibold capitalize text-foreground">
+            <span className="flex items-center gap-1.5 text-xs font-semibold capitalize text-foreground truncate">
               <span
                 className={cn(
-                  "size-2 rounded-full",
+                  "size-2 rounded-full shrink-0",
                   issue.severity === "high"
                     ? "bg-rose-500"
                     : issue.severity === "medium"
@@ -143,14 +143,14 @@ export function IssueCard({
                       : "bg-blue-500",
                 )}
               />
-              {issue.category.replace(/_/g, " ")}
+              <span className="truncate">{issue.category.replace(/_/g, " ")}</span>
             </span>
           ) : sentence?.ao ? (
-            <span className="text-xs font-medium text-muted-foreground">{aoMeta?.label}</span>
+            <span className="text-xs font-medium text-muted-foreground truncate">{aoMeta?.label}</span>
           ) : null}
         </div>
 
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 shrink-0">
           {onPrev ? (
             <Button
               type="button"

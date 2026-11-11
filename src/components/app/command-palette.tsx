@@ -788,6 +788,7 @@ export function CommandPalette({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
+        hideCloseButton
         className="p-0 max-w-2xl w-[92vw] overflow-hidden rounded-2xl border border-border/80 bg-card/95 backdrop-blur-xl shadow-2xl gap-0"
         onKeyDown={handleKeyDown}
       >
@@ -797,7 +798,7 @@ export function CommandPalette({
         </DialogDescription>
 
         {/* ── Search Input Header ── */}
-        <div className="flex items-center gap-3 border-b border-border/70 px-4 py-3 sm:px-5 sm:py-3.5 bg-muted/20">
+        <div className="flex items-center gap-2 sm:gap-3 border-b border-border/70 px-4 py-3 sm:px-5 sm:py-3.5 bg-muted/20">
           <Search className="size-5 text-primary shrink-0 transition-transform duration-200" />
           <input
             ref={inputRef}
@@ -805,25 +806,36 @@ export function CommandPalette({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search pages, 7000+ definitions, curve diagrams, past papers, admin..."
-            className="flex-1 bg-transparent text-sm sm:text-base text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:ring-0 font-medium"
+            className="flex-1 min-w-0 bg-transparent text-sm sm:text-base text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:ring-0 font-medium"
           />
-          {query ? (
+          {query && (
             <button
               type="button"
               onClick={() => {
                 setQuery("");
                 inputRef.current?.focus();
               }}
-              className="size-6 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
+              className="size-6 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer shrink-0"
               title="Clear search"
+              aria-label="Clear search"
             >
               <X className="size-3.5" />
             </button>
-          ) : (
+          )}
+          <div className="flex items-center gap-1.5 shrink-0 pl-1.5 border-l border-border/60">
             <kbd className="hidden sm:inline-flex items-center gap-1 rounded border border-border bg-background px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground font-semibold">
               ESC
             </kbd>
-          )}
+            <button
+              type="button"
+              onClick={() => onOpenChange(false)}
+              className="size-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
+              title="Close command palette (Esc)"
+              aria-label="Close command palette"
+            >
+              <X className="size-4" />
+            </button>
+          </div>
         </div>
 
         {/* ── Filter Category Chips ── */}
@@ -997,19 +1009,19 @@ export function CommandPalette({
         </div>
 
         {/* ── Footer Navigation Tips ── */}
-        <div className="flex items-center justify-between border-t border-border/70 px-4 py-2 text-[11px] text-muted-foreground bg-muted/30">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/70 px-4 py-2 text-[11px] text-muted-foreground bg-muted/30">
           <div className="flex items-center gap-3">
             <span className="flex items-center gap-1 font-mono text-[10px]">
-              <kbd className="rounded border border-border/80 bg-background px-1 py-0.2">↑</kbd>
-              <kbd className="rounded border border-border/80 bg-background px-1 py-0.2">↓</kbd>
+              <kbd className="rounded border border-border/80 bg-background px-1 py-0.5">↑</kbd>
+              <kbd className="rounded border border-border/80 bg-background px-1 py-0.5">↓</kbd>
               <span className="ml-0.5">Navigate</span>
             </span>
             <span className="flex items-center gap-1 font-mono text-[10px]">
-              <kbd className="rounded border border-border/80 bg-background px-1.5 py-0.2">↵</kbd>
+              <kbd className="rounded border border-border/80 bg-background px-1.5 py-0.5">↵</kbd>
               <span className="ml-0.5">Select</span>
             </span>
             <span className="flex items-center gap-1 font-mono text-[10px]">
-              <kbd className="rounded border border-border/80 bg-background px-1.5 py-0.2">ESC</kbd>
+              <kbd className="rounded border border-border/80 bg-background px-1.5 py-0.5">ESC</kbd>
               <span className="ml-0.5">Close</span>
             </span>
           </div>

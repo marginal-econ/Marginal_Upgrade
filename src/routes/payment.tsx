@@ -1043,7 +1043,7 @@ function PaymentPortalPage() {
                     )}
                   >
                     <span>Annual</span>
-                    <span className="rounded-full bg-emerald-500/15 border border-emerald-500/30 px-1.5 py-0.2 text-[9px] font-bold text-emerald-600 dark:text-emerald-400">
+                    <span className="rounded-full bg-emerald-500/15 border border-emerald-500/30 px-1.5 py-0.5 text-[9px] font-bold text-emerald-600 dark:text-emerald-400">
                       Save 17%
                     </span>
                   </button>

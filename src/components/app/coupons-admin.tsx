@@ -694,7 +694,10 @@ export function CouponsAdminPanel() {
           }
         }}
       >
-        <DialogContent className="w-[96vw] max-w-5xl xl:max-w-6xl h-[92vh] max-h-[92vh] flex flex-col p-0 overflow-hidden shadow-2xl border border-border/80 rounded-2xl bg-background">
+        <DialogContent
+          hideCloseButton
+          className="w-[96vw] max-w-5xl xl:max-w-6xl h-[92vh] max-h-[92vh] flex flex-col p-0 overflow-hidden shadow-2xl border border-border/80 rounded-2xl bg-background"
+        >
           {/* Sticky Header with 1-Click Save */}
           <div className="px-6 py-3.5 border-b border-border/70 shrink-0 bg-background/95 backdrop-blur-md flex items-center justify-between gap-4">
             <div className="flex items-center gap-3 min-w-0">
