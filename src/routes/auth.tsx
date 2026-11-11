@@ -73,6 +73,7 @@ export const Route = createFileRoute("/auth")({
         content:
           "Sign in or register for Marginal AI to mark Cambridge 9708 Economics essays, practice MCQs, and prepare with the AI Live Examiner.",
       },
+      { name: "robots", content: "noindex, follow" },
       { property: "og:site_name", content: "Marginal AI" },
       { property: "og:title", content: "Sign In & Register — Marginal AI" },
       {

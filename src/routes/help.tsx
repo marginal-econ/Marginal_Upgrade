@@ -39,8 +39,10 @@ export const Route = createFileRoute("/help")({
         content:
           "Contact Marginal AI about technical support, Cambridge 9708 Economics questions, partnerships, or accounts.",
       },
+      { name: "robots", content: "index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" },
       { property: "og:site_name", content: "Marginal AI" },
       { property: "og:title", content: "Help & Support — Marginal AI" },
+      { property: "og:url", content: "https://marginal-econ.com/help" },
     ],
     links: [{ rel: "canonical", href: "https://marginal-econ.com/help" }],
   }),

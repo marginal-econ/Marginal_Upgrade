@@ -36,9 +36,11 @@ export const Route = createFileRoute("/teacher-auth")({
         content:
           "Official Teacher Portal for Marginal AI and Cambridge 9708 Economics educators. Ingest mark schemes, manage cohorts, and moderate student scripts.",
       },
+      { name: "robots", content: "noindex, follow" },
       { property: "og:site_name", content: "Marginal AI" },
       { property: "og:title", content: "Teacher & Department Portal — Marginal AI" },
     ],
+    links: [{ rel: "canonical", href: "https://marginal-econ.com/teacher-auth" }],
   }),
   component: TeacherAuthPage,
 });

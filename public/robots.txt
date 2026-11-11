@@ -1,9 +1,41 @@
+# Robots.txt for Marginal AI (https://marginal-econ.com)
+# Cambridge AS & A Level Economics (9708) Mastery Platform
+
 User-agent: *
 Allow: /
+Allow: /pricing
+Allow: /about
+Allow: /help
+Allow: /assets/
+
+# Disallow utility, authentication, and private application paths
+Disallow: /auth
+Disallow: /teacher-auth
 Disallow: /admin
 Disallow: /dashboard
+Disallow: /grade
+Disallow: /mcq-live
+Disallow: /data-response
+Disallow: /live-examiner
+Disallow: /paper-matrix
+Disallow: /essay-generator
+Disallow: /diagram-lab
+Disallow: /definitions
+Disallow: /diagrams
+Disallow: /command-words
+Disallow: /showcase
+Disallow: /classes
+Disallow: /review
+Disallow: /settings
+Disallow: /calibration
+Disallow: /content-admin
+Disallow: /payment
 Disallow: /essay/
 Disallow: /api/
+Disallow: /_authenticated/
 
-Host: https://marginal-econ.com
+# Disallow query parameters from being crawled as duplicate pages
+Disallow: /*?*
+
+# Production XML Sitemap
 Sitemap: https://marginal-econ.com/sitemap.xml

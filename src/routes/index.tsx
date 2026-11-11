@@ -136,7 +136,7 @@ export const Route = createFileRoute("/")({
     links: [
       {
         rel: "canonical",
-        href: "https://marginal-econ.com",
+        href: "https://marginal-econ.com/",
       },
     ],
     scripts: [
@@ -418,7 +418,7 @@ function Index() {
   const [copiedLink, setCopiedLink] = useState(false);
   const [copiedMessage, setCopiedMessage] = useState(false);
 
-  const shareOrigin = typeof window !== "undefined" ? window.location.origin : "https://app.marginal-econ.workers.dev";
+  const shareOrigin = typeof window !== "undefined" ? window.location.origin : "https://marginal-econ.com";
   const shareUrl = `${shareOrigin}${invitedBy ? `?ref=${encodeURIComponent(invitedBy)}` : ""}`;
   const shareMessage = `Hey! I'm using Marginal for Cambridge AS & A Level Economics (9708). It gives real-time Live Examiner coaching, breaks down essays into AO1/AO2/AO3 marks grounded in official Cambridge mark schemes, and offers full MCQ past paper practice with resume. Grade unlimited essays free:\n${shareUrl}`;
 

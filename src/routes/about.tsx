@@ -22,6 +22,7 @@ export const Route = createFileRoute("/about")({
         content:
           "Meet the team building Marginal AI, the Cambridge International AS and A Level Economics (9708) AI platform featuring automated essay grading and Live Examiner coaching.",
       },
+      { name: "robots", content: "index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" },
       { property: "og:site_name", content: "Marginal AI" },
       { property: "og:title", content: "About Us — Marginal AI | Cambridge Economics (9708)" },
       {
@@ -29,6 +30,7 @@ export const Route = createFileRoute("/about")({
         content:
           "Meet the team building Marginal AI, the Cambridge International AS and A Level Economics (9708) AI platform.",
       },
+      { property: "og:url", content: "https://marginal-econ.com/about" },
     ],
     links: [{ rel: "canonical", href: "https://marginal-econ.com/about" }],
   }),

@@ -14,6 +14,9 @@ import { TIER_LIMITS, type PlanTier } from "@/lib/usage-limits";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
+  head: () => ({
+    meta: [{ name: "robots", content: "noindex, nofollow" }],
+  }),
   beforeLoad: async ({ location }) => {
     try {
       // Fast-path: read cached session from localStorage in 0ms without blocking route entry on a network call

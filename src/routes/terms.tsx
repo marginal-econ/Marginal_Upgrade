@@ -11,6 +11,7 @@ export const Route = createFileRoute("/terms")({
         content:
           "The terms of use for Marginal AI, the Cambridge International AS and A Level Economics (9708) platform.",
       },
+      { name: "robots", content: "noindex, follow" },
       { property: "og:site_name", content: "Marginal AI" },
       { property: "og:title", content: "Terms & Conditions — Marginal AI" },
     ],

@@ -11,6 +11,7 @@ export const Route = createFileRoute("/privacy")({
         content:
           "Privacy policy for Marginal AI. Understand how your submitted essays and account details are protected.",
       },
+      { name: "robots", content: "noindex, follow" },
       { property: "og:site_name", content: "Marginal AI" },
       { property: "og:title", content: "Privacy Policy — Marginal AI" },
     ],
