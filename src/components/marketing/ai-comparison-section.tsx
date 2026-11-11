@@ -52,8 +52,8 @@ export function AiComparisonSection({ className }: { className?: string }) {
             Why raw Gemini &amp; ChatGPT fail Cambridge Economics
           </h2>
 
-          <p className="mx-auto mt-4 max-w-2xl text-sm leading-relaxed text-muted-foreground sm:text-base">
-            Raw AI gives polite chat bubbles and hallucinates mark schemes. Marginal delivers deterministic, syllabus-calibrated Cambridge examiner marking, diagram integration, and teacher cohort analytics.
+          <p className="mx-auto mt-3 max-w-2xl text-sm leading-relaxed text-muted-foreground sm:text-base">
+            Generalist AI hallucinates mark schemes and ignores diagrams. Marginal delivers deterministic, syllabus-calibrated Cambridge examiner grading.
           </p>
 
           {/* View Switcher Toggle */}
@@ -132,47 +132,42 @@ export function AiComparisonSection({ className }: { className?: string }) {
                     </Badge>
                   </div>
 
-                  <div className="mt-5 space-y-4 text-xs">
-                    <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-3.5 space-y-2">
+                  <div className="mt-5 space-y-3 text-xs">
+                    <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-3.5 space-y-1">
                       <div className="flex items-center gap-1.5 font-bold text-destructive">
                         <AlertTriangle className="size-4 shrink-0" />
-                        <span>Invented A Hallucinated Mark Scheme</span>
+                        <span>Invented Mark Allocation</span>
                       </div>
                       <p className="text-muted-foreground leading-relaxed">
-                        Gemini broke down the 12 marks as: <code className="font-mono text-foreground font-bold">AO1: 3/3, AO2: 4/4, AO3: 2-3/5</code>. 
-                        <strong> That weighting does not exist in Cambridge!</strong> Official CAIE 12-mark essays are strictly <strong className="text-foreground">AO1: 2, AO2: 6, AO3: 4</strong>. Candidates preparing this way study the wrong syllabus skills.
+                        Invented an arbitrary <code className="font-mono text-foreground font-bold">AO3: 5/5</code> split that does not exist in CAIE 9708 specifications (strictly <strong className="text-foreground">AO1: 2, AO2: 6, AO3: 4</strong>).
                       </p>
                     </div>
 
-                    <div className="rounded-xl border border-border/80 bg-card/60 p-3.5 space-y-2">
+                    <div className="rounded-xl border border-border/80 bg-card/60 p-3.5 space-y-1">
                       <div className="flex items-center gap-1.5 font-bold text-foreground">
                         <X className="size-4 text-destructive shrink-0" />
-                        <span>Completely Blind to Diagrams</span>
+                        <span>Blind to Diagrams</span>
                       </div>
                       <p className="text-muted-foreground leading-relaxed">
-                        The candidate included an explicit subsidy shift diagram (<code className="font-mono text-[11px]">S → S1, P → P1, Q → Q1</code>). Gemini <strong className="text-foreground">did not even evaluate the diagram</strong>, treating critical Level 3 economic graphical reasoning as plain text.
+                        Ignored the candidate's subsidy shift diagram (<code className="font-mono text-[11px]">S → S1</code>), treating essential Level 3 graphical reasoning as plain text.
                       </p>
                     </div>
 
-                    <div className="rounded-xl border border-border/80 bg-card/60 p-3.5 space-y-2">
+                    <div className="rounded-xl border border-border/80 bg-card/60 p-3.5 space-y-1">
                       <div className="flex items-center gap-1.5 font-bold text-foreground">
                         <ShieldAlert className="size-4 text-amber-500 shrink-0" />
-                        <span>ChatGPT's Real Disclaimer</span>
+                        <span>Ungrounded Score</span>
                       </div>
-                      <blockquote className="border-l-2 border-amber-500/60 pl-2.5 italic text-muted-foreground">
-                        “This is my estimated breakdown, not an official Cambridge mark allocation. One important caveat: you haven't included the exact question.”
-                      </blockquote>
-                      <p className="text-[11px] text-muted-foreground">
-                        ChatGPT admitted it did not know the official CAIE bands or the exact question context.
+                      <p className="text-muted-foreground leading-relaxed">
+                        Admitted in disclaimer that the score was an unverified estimate without Cambridge mark-scheme band alignment.
                       </p>
                     </div>
 
-                    <div className="rounded-xl border border-border/80 bg-card/60 p-3.5 space-y-1.5">
-                      <p className="font-bold text-foreground">The Result for the Student:</p>
-                      <ul className="space-y-1 text-muted-foreground list-disc list-inside">
-                        <li>Lost in a chat sidebar with 50 other random queries.</li>
-                        <li>No syllabus chapter cross-referencing.</li>
-                        <li>No school or teacher visibility.</li>
+                    <div className="rounded-xl border border-border/80 bg-card/60 p-3.5 space-y-1">
+                      <p className="font-bold text-foreground">Key Student Drawbacks:</p>
+                      <ul className="space-y-0.5 text-muted-foreground list-disc list-inside">
+                        <li>No syllabus chapter cross-referencing</li>
+                        <li>No school or teacher cohort visibility</li>
                       </ul>
                     </div>
                   </div>
@@ -234,39 +229,39 @@ export function AiComparisonSection({ className }: { className?: string }) {
                       </div>
                     </div>
 
-                    <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3.5 space-y-1.5">
+                    <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3.5 space-y-1">
                       <div className="flex items-center gap-1.5 font-bold text-emerald-700 dark:text-emerald-300">
                         <CheckCircle2 className="size-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
-                        <span>Diagram Synthesised &amp; Validated</span>
+                        <span>Diagram Validated &amp; Credited</span>
                       </div>
                       <p className="text-muted-foreground leading-relaxed">
-                        Marginal actively parsed the candidate's subsidy diagram: <code className="font-mono text-foreground font-semibold">Axes: P/Q, Shifts: S → S1, Incidence on PED</code>. Verified against CAIE textbook standards and credited into Level 3 analysis.
+                        Parsed subsidy shift (<code className="font-mono text-foreground font-semibold">S → S1, P → P1</code>) against CAIE standards and credited into Level 3 analysis.
                       </p>
                     </div>
 
-                    {/* 4 Actionable Diagnostic Boxes */}
+                    {/* 2 Diagnostic Boxes */}
                     <div className="grid grid-cols-2 gap-2">
                       <div className="p-2.5 rounded-xl border border-emerald-500/30 bg-card/60">
-                        <p className="font-bold text-emerald-600 dark:text-emerald-400 text-[11px] mb-1">What Worked</p>
+                        <p className="font-bold text-emerald-600 dark:text-emerald-400 text-[11px] mb-0.5">What Worked</p>
                         <p className="text-[10.5px] text-muted-foreground leading-tight">
-                          Consistent focus on command word "always", valid public choice theory counter-argument.
+                          Consistent command word focus and valid public choice theory counter-argument.
                         </p>
                       </div>
                       <div className="p-2.5 rounded-xl border border-destructive/30 bg-card/60">
-                        <p className="font-bold text-destructive text-[11px] mb-1">What Cost Marks</p>
+                        <p className="font-bold text-destructive text-[11px] mb-0.5">What Cost Marks</p>
                         <p className="text-[10.5px] text-muted-foreground leading-tight">
-                          Confused MSB &gt; MPB with producer viability rather than consumer underconsumption.
+                          Confused MSB &gt; MPB with producer viability instead of consumer underconsumption.
                         </p>
                       </div>
                     </div>
 
-                    <div className="rounded-xl border border-border/80 bg-card/60 p-3 space-y-1.5">
+                    <div className="rounded-xl border border-border/80 bg-card/60 p-3 space-y-1">
                       <div className="flex items-center gap-1.5 font-semibold text-foreground text-[11px]">
                         <PenLine className="size-3.5 text-primary" />
-                        <span>Actionable Next Step Provided:</span>
+                        <span>Actionable Next Step:</span>
                       </div>
                       <p className="text-[11px] text-muted-foreground leading-relaxed">
-                        “Refine the explanation of positive externalities: explain that consumers only consider MPB, meaning market equilibrium output is below socially optimal output where MSB = MSC.”
+                        Anchor positive externalities to market output falling below socially optimal equilibrium where MSB = MSC.
                       </p>
                     </div>
                   </div>

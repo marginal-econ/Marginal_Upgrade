@@ -108,8 +108,7 @@ export function RealEssayShowcase() {
             Real Student Script. <span className="aurora-text">Real Cambridge 9708 Marking.</span>
           </h2>
           <p className="text-sm text-muted-foreground leading-relaxed">
-            Look below at how an authentic student Paper 2 essay was evaluated by Marginal's Cambridge examiner engine.
-            Every sentence is classified by Assessment Objective, checked against official mark scheme descriptors, and assigned an actionable rewrite path.
+            Inspect an authentic student Paper 2 essay evaluated sentence-by-sentence against official Cambridge 9708 mark schemes.
           </p>
         </div>
 

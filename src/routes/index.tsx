@@ -26,6 +26,7 @@ import {
   TrendingUp,
   Users,
   FileSpreadsheet,
+  FileText,
   Wand2,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -226,15 +227,14 @@ const OBJECTIVES = [
   { code: "AO3", name: "Evaluation", dot: "bg-ao3", share: 45 },
 ];
 
-// All eight specialized features engineered for Cambridge 9708 Economics.
+// All ten specialized features engineered for Cambridge 9708 Economics.
 const TOOLS = [
   {
     icon: PenLine,
     tile: "bg-ao2",
     badge: "Full Audit",
     title: "Dual-Pass Essay Grader",
-    lead: "Unlimited Cambridge 9708 essay evaluations",
-    body: "Grounded in official 9708 mark schemes and coursebooks. Two independent evaluation passes correct AI central-tendency bias, providing line-by-line mark scheme matching and rewrite plans.",
+    body: "Line-by-line mark scheme matching across AO1, AO2, and AO3 with dual-pass bias correction and rewrite plans.",
     href: "/grade",
   },
   {
@@ -242,8 +242,7 @@ const TOOLS = [
     tile: "bg-ao1",
     badge: "Exam Simulation",
     title: "MCQ Live Past Papers & Resume",
-    lead: "Authentic timed Paper 1 & 3 exams with 12h resume",
-    body: "Real Cambridge past papers with official mark schemes. Features interactive question flagging, jump matrix, distractor reasoning, and automatic 12-hour draft save & resume.",
+    body: "Timed Paper 1 & 3 exams with distractor reasoning, question flagging, and 12-hour auto-resume.",
     href: "/mcq-live",
   },
   {
@@ -251,8 +250,7 @@ const TOOLS = [
     tile: "bg-emerald-600",
     badge: "Section A Studio",
     title: "Data Response & Case Studies",
-    lead: "Authentic Cambridge Papers 2 & 4 Section A practice",
-    body: "Interactive Table 1.1 data interpretation, Own Figure Rule (OFR) calculations, and SVG curve shift diagrams graded strictly against official 9708 mark schemes.",
+    body: "Paper 2 & 4 Section A practice with Table 1.1 data interpretation, OFR calculations, and curve shift analysis.",
     href: "/data-response",
   },
   {
@@ -260,8 +258,7 @@ const TOOLS = [
     tile: "bg-purple-600",
     badge: "AI Models",
     title: "Sample Essay Generator",
-    lead: "Examiner-standard model essays with SVG diagrams",
-    body: "Generate full-mark Cambridge 9708 model answers tailored to any 8m, 12m, or 20m question, featuring verified diagrams, AO mark allocations, and justified evaluative conclusions.",
+    body: "Full-mark Cambridge 9708 model answers tailored to any 8m, 12m, or 20m question with verified diagrams.",
     href: "/essay-generator",
   },
   {
@@ -269,8 +266,7 @@ const TOOLS = [
     tile: "bg-ao3",
     badge: "Revision Vault",
     title: "Cambridge Definition Hub",
-    lead: "Over 120 verified textbook definitions",
-    body: "Precise definitions for every 9708 economic concept with essential syllabus keywords, topic tags, and copyable flashcards so you never surrender easy AO1 knowledge marks.",
+    body: "Over 120 verified syllabus definitions with essential AO1 keywords, topic tags, and flashcards.",
     href: "/definitions",
   },
   {
@@ -278,8 +274,7 @@ const TOOLS = [
     tile: "bg-primary",
     badge: "Visual Studio",
     title: "Economics Diagram Studio",
-    lead: "Every 9708 diagram with dynamic curve shifts",
-    body: "Interactive micro and macro diagrams with real-time shifts, equilibrium price/quantity tracking, and examiner labelling standards for tariffs, externalities, and market structures.",
+    body: "Dynamic micro and macro diagrams with interactive curve shifts, equilibrium tracking, and examiner labels.",
     href: "/diagrams",
   },
   {
@@ -287,8 +282,7 @@ const TOOLS = [
     tile: "bg-amber-600",
     badge: "15-Yr Intelligence",
     title: "Past Paper Topic Predictor",
-    lead: "Statistical cycle intelligence across 15 years",
-    body: "Analyzes 15 years of Cambridge 9708 past papers (2010–2025) to model rotation probability, detect cyclically overdue topics, and practice verified past questions.",
+    body: "Statistical rotation modeling across 15 years of Cambridge 9708 exam papers (2010–2025).",
     href: "/paper-matrix",
   },
   {
@@ -296,8 +290,7 @@ const TOOLS = [
     tile: "bg-ao1",
     badge: "Vision AI",
     title: "Handwriting Vision OCR",
-    lead: "Upload photos of handwritten mock exams",
-    body: "Specialized vision engine lifts student handwriting off paper, detects hand-drawn diagrams, verifies economic terminology, and sends it directly for examiner grading.",
+    body: "Extracts handwritten mock exam scripts and hand-drawn diagrams for instant examiner grading.",
     href: "/grade",
   },
   {
@@ -305,8 +298,7 @@ const TOOLS = [
     tile: "bg-ao3",
     badge: "Intelligence",
     title: "Review & Analytics Hub",
-    lead: "Projected Cambridge grades & domain radar",
-    body: "Executive performance dashboard tracking your projected grade, essay averages, MCQ topic mastery, and syllabus balance across Micro, Macro, Trade, and Market Failure.",
+    body: "Performance radar tracking projected Cambridge grades, MCQ topic mastery, and syllabus balance.",
     href: "/review",
   },
   {
@@ -314,8 +306,7 @@ const TOOLS = [
     tile: "bg-purple-600",
     badge: "AI Coaching",
     title: "Live Examiner Studio",
-    lead: "Real-time AI examiner coaching as you type",
-    body: "Write Cambridge 9708 essays with live Socratic feedback, line-by-line misconception detection, and instant assessment objective tracking.",
+    body: "Real-time AI examiner coaching as you type, with live Socratic hints and misconception alerts.",
     href: "/live-examiner",
   },
 ];
@@ -323,63 +314,59 @@ const TOOLS = [
 const STEPS = [
   {
     n: "01",
-    title: "Paste the question",
-    body: "A real past-paper question, or one from the question bank. Marginal reads the command word and the mark allocation before it reads a single word of your answer.",
+    title: "Pick or paste your question",
+    body: "Choose from our Cambridge question bank or paste any past-paper question across Papers 2 & 4.",
   },
   {
     n: "02",
-    title: "Add your answer",
-    body: "Type it, paste it, or photograph a handwritten script and let the OCR lift it off the page. Diagrams are read as diagrams, not ignored.",
+    title: "Add your answer or photo",
+    body: "Type your essay or upload a photo of handwritten exam paper. OCR lifts your writing and diagrams seamlessly.",
   },
   {
     n: "03",
-    title: "Get marked, then get a plan",
-    body: "A mark with an AO1/AO2/AO3 split, the exact points the mark scheme wanted, and an ordered rewrite plan for the next attempt.",
+    title: "Get your mark and rewrite plan",
+    body: "Receive an instant AO1/AO2/AO3 breakdown, mark-scheme citations, and an ordered plan for your next draft.",
   },
 ];
 
 const TRUST = [
   {
     icon: BookOpen,
-    title: "Your materials, not a generic model",
-    body: "Your coursebook, the 9708 syllabus, mark schemes and examiner reports go in. Every mark is retrieved from those documents and cited back to them, so you can check the working.",
+    title: "Grounded in Cambridge 9708",
+    body: "Every mark and citation is retrieved directly from official Cambridge mark schemes, examiner reports, and syllabus standards.",
   },
   {
     icon: Target,
-    title: "Calibrated against real marks",
-    body: "Anchor essays with confirmed marks are verified by a separate authorised team with special access rights, then shown to the examiner as exemplars. The standard stays where the syllabus sets it, not where a model guesses it should be.",
+    title: "Calibrated to Real Grade Boundaries",
+    body: "Calibrated against hundreds of verified student scripts to ensure standards match real Cambridge examiner grading.",
   },
   {
     icon: ShieldCheck,
-    title: "Marked twice, independently",
-    body: "A second pass re-marks the script without seeing the first. That corrects the central-tendency bias that makes AI quietly cluster every essay in the middle bands.",
+    title: "Independent Dual-Pass Audit",
+    body: "Two independent passes correct central-tendency bias so top-band and low-band scripts are scored with precision.",
   },
 ];
 
 const FAQS = [
   {
-    q: "When does it actually open?",
-    a: "The first cohort opens for AS and A Level Economics (9708) students. Everyone on the waitlist gets one email when it does — in queue order, so an earlier place is a real advantage rather than a badge.",
+    q: "How does Marginal grade Cambridge 9708 essays?",
+    a: "Marginal evaluates your essay against official Cambridge mark schemes and examiner reports, breaking your score into AO1 (Knowledge), AO2 (Analysis), and AO3 (Evaluation) assessment objectives with sentence-by-sentence feedback.",
   },
   {
-    q: "Is this the same as a real Cambridge mark?",
-    a: "No, and we won't pretend otherwise. It's a second opinion that shows its reasoning and cites the mark scheme it used, so you can check it and argue with it. Your teacher's mark is still the one that counts.",
+    q: "Is Marginal free for students?",
+    a: "Yes. Students get free instant access to essay grading, live examiner feedback, and timed Paper 1 & 3 past paper MCQ drills.",
   },
   {
-    q: "Can it read my handwriting?",
-    a: "Usually. Photograph the script, and the OCR lifts the text off the page; you get a chance to correct anything it misread before it's marked. Diagrams are cropped and read separately.",
+    q: "Can Marginal read handwritten essays and diagrams?",
+    a: "Yes. Take a photo of your handwritten mock exam or notebook. Our vision OCR extracts the text, isolates diagrams, and evaluates them directly against syllabus standards.",
   },
   {
-    q: "What if it marks something wrong?",
-    a: "Then argue with it — that's what the citations are for. Marginal runs on AI, and AI makes mistakes: a mark can land too high or too low, a mark-scheme point can be missed, a word of handwriting can be misread. Every mark comes with the reasoning and the mark-scheme line behind it, so a wrong one is visible instead of hidden. Anything that matters, check with your teacher.",
+    q: "How does the Live Examiner work?",
+    a: "As you write in the Live Examiner studio, it provides real-time Socratic feedback, alerts you to logical gaps in your causal chain, and tracks your AO mark accumulation live.",
   },
   {
-    q: "Who decides what a good answer looks like?",
-    a: "The syllabus and the mark schemes — held in place by a separate authorised team with special access rights, who verify the anchor essays the marking is measured against. Teachers don't calibrate it and neither do students, so the standard stays in one place rather than drifting school by school.",
-  },
-  {
-    q: "What do you do with my email?",
-    a: "It sits in one table and is used for exactly one thing: telling you when your place comes up. No newsletter, no partners, no reselling. There's an unsubscribe in the only email we'll send.",
+    q: "Can teachers and schools use Marginal?",
+    a: "Yes. Teachers can register for dedicated cohorts to set essay assignments, track class submissions in real time, and audit cohort diagnostic heatmaps.",
   },
 ];
 
@@ -555,14 +542,8 @@ function Index() {
               </p>
             </Reveal>
 
-            <Reveal delay={160}>
-              <p className="mt-3 max-w-2xl text-sm sm:text-base leading-relaxed text-pretty text-muted-foreground dark:text-foreground/80">
-                {settings.heroNotice}
-              </p>
-            </Reveal>
-
             {/* Live Cambridge Metric Highlights */}
-            <Reveal delay={180}>
+            <Reveal delay={150}>
               <div className="mt-5 grid grid-cols-3 gap-2.5 sm:gap-3 max-w-xl">
                 <div className="rounded-xl border border-primary/25 bg-card/70 p-3 text-center backdrop-blur-md shadow-xs hover:border-primary/50 transition-colors">
                   <span className="text-xl sm:text-2xl font-black text-foreground tracking-tight block">1,400+</span>
@@ -580,7 +561,7 @@ function Index() {
             </Reveal>
 
             {/* Direct candidate conversion actions */}
-            <Reveal delay={210}>
+            <Reveal delay={180}>
               <div className="mt-6 flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-3">
                 <Button
                   asChild
@@ -588,75 +569,59 @@ function Index() {
                   className="h-12 px-6 text-sm font-extrabold shadow-lg shadow-primary/25 bg-primary hover:bg-primary/90 text-primary-foreground transition-all hover:scale-[1.02] cursor-pointer w-full sm:w-auto inline-flex items-center justify-center gap-2"
                 >
                   <Link to="/auth">
-                    <span>Grade Essays Free (Unlimited)</span>
+                    <span>Grade Essays Free</span>
                     <ArrowRight className="size-4 shrink-0" />
                   </Link>
                 </Button>
                 <Button
-                  type="button"
+                  asChild
                   variant="outline"
                   size="lg"
-                  onClick={() => setShareOpen(true)}
-                  className="h-12 px-5 text-sm font-semibold border-2 hover:bg-muted gap-2 shadow-xs group cursor-pointer w-full sm:w-auto inline-flex items-center justify-center"
+                  className="h-12 px-5 text-sm font-semibold border-2 hover:bg-muted gap-2 shadow-xs cursor-pointer w-full sm:w-auto inline-flex items-center justify-center"
                 >
-                  <Share2 className="size-4 text-primary shrink-0 transition-transform group-hover:scale-110" />
-                  <span>Share with Classmates</span>
+                  <a href="#graded-exemplar">
+                    <FileText className="size-4 text-primary shrink-0" />
+                    <span>See Graded Sample</span>
+                  </a>
                 </Button>
               </div>
-              <p className="mt-2 text-xs text-muted-foreground">
-                No credit card required &bull; Unlimited essays graded free &bull; Full MCQ past paper practice
-              </p>
+              <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                <span className="inline-flex items-center gap-1.5 font-medium text-foreground">
+                  <ShieldCheck className="size-3.5 text-emerald-500 shrink-0" /> No credit card required
+                </span>
+                <span>•</span>
+                <span>Free instant access</span>
+                <span>•</span>
+                <span>Grounded in Cambridge 9708</span>
+                <span>•</span>
+                <button
+                  type="button"
+                  onClick={() => setShareOpen(true)}
+                  className="inline-flex items-center gap-1 font-semibold text-primary hover:underline cursor-pointer"
+                >
+                  <Share2 className="size-3 shrink-0" /> Share
+                </button>
+              </div>
             </Reveal>
 
             {invitedBy ? (
-              <Reveal delay={240}>
-                <p className="mt-3.5 inline-flex items-center gap-2 text-xs text-muted-foreground">
+              <Reveal delay={210}>
+                <p className="mt-3 inline-flex items-center gap-2 text-xs text-muted-foreground">
                   <Gift className="size-3.5 text-primary shrink-0" aria-hidden="true" />
                   Invited with code <span className="font-semibold text-foreground">{invitedBy.toLowerCase()}</span> — unlimited essay grading unlocked.
                 </p>
               </Reveal>
             ) : null}
-
-            <Reveal delay={260}>
-              <div className="mt-5 flex flex-wrap items-center gap-2.5 text-xs text-muted-foreground dark:text-foreground/70">
-                <span className="inline-flex items-center gap-1.5 font-medium text-foreground bg-card/80 backdrop-blur-md px-3 py-1.5 rounded-lg border border-border/80 shadow-2xs">
-                  <ShieldCheck className="size-3.5 text-emerald-500 shrink-0" /> Grounded in 9708 mark schemes
-                </span>
-                <span className="inline-flex items-center gap-1.5 font-medium text-foreground bg-card/80 backdrop-blur-md px-3 py-1.5 rounded-lg border border-border/80 shadow-2xs">
-                  <Target className="size-3.5 text-primary shrink-0" /> Papers 1, 2, 3 &amp; 4
-                </span>
-                <a
-                  href="#graded-exemplar"
-                  className="inline-flex items-center gap-1.5 font-bold text-primary bg-primary/10 hover:bg-primary/20 transition-colors px-3 py-1.5 rounded-lg border border-primary/30 shadow-2xs"
-                >
-                  Inspect real graded essay below ↓
-                </a>
-              </div>
-            </Reveal>
           </div>
 
-          {/* Centered Cambridge Specimen Showcase & Founder Statement */}
-          <Reveal variant="pop" delay={120} className="relative w-full space-y-3 sm:space-y-3.5">
+          {/* Centered Cambridge Specimen Showcase */}
+          <Reveal variant="pop" delay={120} className="relative w-full">
             <div className="relative w-full">
               {/* Ambient Stage Halo Glow */}
               <div className="absolute -inset-2 rounded-3xl bg-gradient-to-r from-primary/30 via-violet-500/20 to-amber-500/20 blur-xl opacity-75 -z-10 animate-pulse" />
               <TiltCard max={6} lift={12} className="relative mx-auto w-full max-w-xl xl:max-w-2xl 2xl:max-w-[680px] min-w-0 shadow-2xl rounded-2xl overflow-visible backdrop-blur-xl">
                 <SpecimenCard />
               </TiltCard>
-            </div>
-
-            {/* Founder Mission & Inspiration — Unboxed Normal Text, Highly Visible and Bold */}
-            <div className="mx-auto w-full max-w-xl xl:max-w-2xl 2xl:max-w-[680px] px-1 pt-1 space-y-1.5">
-              <p className="text-xs sm:text-sm md:text-[14px] font-bold leading-relaxed text-foreground">
-                “I personally lost critical marks in IGCSE Economics on structured answers despite knowing the theory. I refused to let that happen again in AS &amp; A Level. That is why I created Marginal — to give myself and all economics students the exact line-by-line mark scheme diagnosis and examiner structuring needed to master the top band.”
-              </p>
-              <p className="text-xs sm:text-[12.5px] font-extrabold text-foreground tracking-wide flex flex-wrap items-center gap-2">
-                <span className="text-primary font-black">— Saikrish</span>
-                <span className="text-muted-foreground/60 font-normal">|</span>
-                <span className="font-bold text-foreground">CS Academy</span>
-                <span className="text-muted-foreground/60 font-normal">|</span>
-                <span className="text-muted-foreground font-semibold">Founder, Marginal</span>
-              </p>
             </div>
           </Reveal>
         </div>
@@ -676,61 +641,6 @@ function Index() {
       {/* ── Cambridge Teachers & Department Workspace ──────────────────────── */}
       <TeachersSection />
 
-      {/* ── What you get back ────────────────────────────────────────────── */}
-      <section id="result" className="relative border-b-[1.5px] border-ink scroll-mt-20 overflow-hidden">
-        <CosmicAtmosphere variant="amber" sparkles={true} density="medium" />
-        <Drift speed={-0.08} className="top-24 right-[3%] hidden xl:block">
-          <CircleScribble className="w-24 text-primary/35" />
-        </Drift>
-        <div className="relative z-10 mx-auto grid max-w-7xl 2xl:max-w-[1440px] items-center gap-12 px-4 sm:px-6 md:px-10 lg:px-12 xl:px-16 py-16 md:py-20 lg:grid-cols-2">
-          <div>
-            <Reveal>
-              <p className="eyebrow eyebrow-accent">What you get back</p>
-              <h2 className="mt-2.5 text-2xl font-bold text-balance md:text-4xl">
-                Instant AI Essay Grading for 9708 Paper 2 & Paper 4
-              </h2>
-              <p className="mt-4 max-w-md text-sm leading-relaxed text-pretty text-muted-foreground md:text-base">
-                Every mark comes apart into the three assessment objectives, so you can see which
-                one is actually costing you the grade — and read the specific sentence where the
-                argument stopped short.
-              </p>
-            </Reveal>
-
-            <dl className="mt-8 space-y-4">
-              {OBJECTIVES.map((objective, index) => (
-                <Reveal key={objective.code} delay={140 + index * 90}>
-                  <div className="group flex gap-3">
-                    <span
-                      className={`mt-1.5 size-3 shrink-0 rounded-full transition-transform duration-300 group-hover:scale-150 ${objective.dot}`}
-                      aria-hidden="true"
-                    />
-                    <div>
-                      <dt className="text-sm font-semibold">
-                        {objective.code} · {objective.name}
-                      </dt>
-                      <dd className="text-sm text-muted-foreground">
-                        {objective.code === "AO1"
-                          ? "Definitions, theory, the right diagram — the marks you lose by being vague."
-                          : objective.code === "AO2"
-                            ? "Chains of cause and effect that actually reach a conclusion."
-                            : "Judgement: which effect dominates, under what conditions, and why."}
-                      </dd>
-                    </div>
-                  </div>
-                </Reveal>
-              ))}
-            </dl>
-          </div>
-
-          <Reveal variant="pop" delay={80} className="relative">
-            <DottedArrow className="absolute -top-16 -left-20 hidden w-24 -rotate-[8deg] text-plum/45 lg:block dark:text-primary/55" />
-            <TiltCard max={8} lift={18}>
-              <SpecimenCard />
-            </TiltCard>
-          </Reveal>
-        </div>
-      </section>
-
       {/* ── What's inside ────────────────────────────────────────────────── */}
       <section
         id="tools"
@@ -742,7 +652,7 @@ function Index() {
             <SectionHeading
               eyebrow="Cambridge 9708 Tools"
               title="Ten specialized tools, one Cambridge syllabus"
-              lead="Everything in Marginal is engineered exclusively for Cambridge AS & A Level Economics (9708). No generic chatbots, no vague study widgets. Hover or tap a card to see what it does."
+              lead="Ten specialized features engineered exclusively for Cambridge AS & A Level Economics (9708)."
             />
           </Reveal>
 
@@ -781,9 +691,6 @@ function Index() {
                     <h3 className="mt-4 text-base font-bold text-foreground group-hover:text-primary transition-colors">
                       {tool.title}
                     </h3>
-                    <p className="mt-1 text-xs font-semibold text-primary/90 leading-snug">
-                      {tool.lead}
-                    </p>
                     <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
                       {tool.body}
                     </p>
@@ -794,7 +701,7 @@ function Index() {
                       Cambridge 9708 Engine
                     </span>
                     <span className="inline-flex items-center gap-1 text-primary text-[11px] font-bold group-hover:translate-x-1 transition-transform">
-                      <span>View engine</span>
+                      <span>View tool</span>
                       <span aria-hidden="true">→</span>
                     </span>
                   </div>
@@ -856,17 +763,15 @@ function Index() {
         <div className="starfield" aria-hidden="true" />
         <div className="relative z-10 mx-auto grid max-w-7xl 2xl:max-w-[1440px] items-center gap-12 px-4 sm:px-6 md:px-10 lg:px-12 xl:px-16 py-16 md:py-20 lg:grid-cols-[0.85fr_1.15fr]">
           <Reveal>
-            <p className="eyebrow eyebrow-accent">Two minutes, four words</p>
+            <p className="eyebrow eyebrow-accent">Command Word Mastery</p>
             <h2 className="mt-2.5 text-2xl font-bold text-balance md:text-4xl">
               The command word decides <span className="aurora-text">where the marks are</span>
             </h2>
-            <p className="mt-4 max-w-md text-sm leading-relaxed text-pretty text-muted-foreground md:text-base">
-              “Explain” and “assess” are not two ways of saying the same thing — they are two
-              different objectives, worth different marks, answered in different shapes. Most lost
-              marks start here, before a single point of theory.
+            <p className="mt-3.5 max-w-md text-sm leading-relaxed text-pretty text-muted-foreground md:text-base">
+              “Explain” and “assess” test completely different assessment objectives and mark allocations. Learn the difference in seconds.
             </p>
-            <p className="mt-4 max-w-md text-sm leading-relaxed text-pretty text-muted-foreground md:text-base">
-              Have a go. No account, no waitlist, no score kept.
+            <p className="mt-3 text-xs font-semibold text-muted-foreground">
+              Interactive 2-minute drill · No account required
             </p>
           </Reveal>
 
@@ -884,7 +789,7 @@ function Index() {
             <SectionHeading
               eyebrow="Trusted by Cambridge Students"
               title="Why Cambridge A Level Economics Students Choose Marginal"
-              lead="So all three of these are mechanisms, not promises. You'll be able to go and look at each one."
+              lead="Calibrated mechanisms designed to evaluate economics answers with examiner precision."
             />
           </Reveal>
 
@@ -906,26 +811,19 @@ function Index() {
             ))}
           </div>
 
-          <Reveal delay={100} className="mt-8">
-            <div className="mx-auto max-w-3xl px-3 py-2 text-center sm:text-left space-y-2">
-              <p className="text-sm sm:text-base font-bold leading-relaxed text-foreground">
-                “I personally lost critical marks in IGCSE Economics on structured answers despite knowing the theory inside out. I refused to let that repeat in AS &amp; A Level. That is why I built Marginal — to give myself and every economics student the exact line-by-line mark scheme diagnosis, causal structuring, and live exam calibration needed to master the top band.”
+          <Reveal delay={100} className="mt-12">
+            <div className="mx-auto max-w-2xl rounded-2xl border border-border/80 bg-card/60 p-6 md:p-8 backdrop-blur-xs shadow-xs text-center sm:text-left space-y-3">
+              <p className="text-sm sm:text-base font-semibold leading-relaxed text-foreground italic">
+                “I personally lost critical marks in IGCSE Economics on structured answers despite knowing the theory inside out. I refused to let that repeat in AS &amp; A Level. That is why I built Marginal — to give economics students the exact line-by-line mark scheme diagnosis and examiner structuring needed to master the top band.”
               </p>
-              <p className="text-xs sm:text-[13px] font-extrabold text-foreground tracking-wide flex flex-wrap items-center justify-center sm:justify-start gap-2">
-                <span className="text-primary font-black">— Saikrish</span>
+              <div className="text-xs sm:text-[13px] font-bold text-foreground flex flex-wrap items-center justify-center sm:justify-start gap-2 pt-1">
+                <span className="text-primary font-black">Saikrish</span>
                 <span className="text-muted-foreground/60 font-normal">|</span>
-                <span className="font-bold text-foreground">CS Academy</span>
+                <span className="font-semibold text-foreground">CS Academy</span>
                 <span className="text-muted-foreground/60 font-normal">|</span>
-                <span className="text-muted-foreground font-semibold">Founder, Marginal</span>
-              </p>
+                <span className="text-muted-foreground">Founder, Marginal</span>
+              </div>
             </div>
-          </Reveal>
-
-          <Reveal delay={120}>
-            <p className="mx-auto mt-8 max-w-2xl text-center text-sm leading-relaxed text-pretty text-muted-foreground">
-              It still isn't a Cambridge examiner. Treat the mark as a second opinion that shows its
-              reasoning — then argue with it. That argument is where most of the learning happens.
-            </p>
           </Reveal>
         </div>
       </section>
