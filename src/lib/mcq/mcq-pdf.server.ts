@@ -76,7 +76,9 @@ export function groupPdfAttemptsByPaper(rows: PdfAttemptRow[]): PaperHistoryEntr
 
   const byKey = new Map<string, PdfAttemptRow[]>();
   for (const row of completed) {
-    const key = row.paper_id ?? `solo:${row.id}`;
+    const key =
+      row.paper_id ??
+      (row.title.startsWith("Topical Past Paper:") ? `topical:${row.title}` : `solo:${row.id}`);
     const list = byKey.get(key);
     if (list) list.push(row);
     else byKey.set(key, [row]);
@@ -87,7 +89,7 @@ export function groupPdfAttemptsByPaper(rows: PdfAttemptRow[]): PaperHistoryEntr
     const first = attempts[0];
     const latest = attempts[attempts.length - 1];
     entries.push({
-      paperId: key.startsWith("solo:") ? null : key,
+      paperId: key.startsWith("solo:") || key.startsWith("topical:") ? null : key,
       title: latest.title,
       level: latest.level,
       attemptsCount: attempts.length,

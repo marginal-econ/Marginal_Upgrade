@@ -12,6 +12,7 @@ import {
   Eraser,
   Flag,
   History,
+  Layers,
   LayoutGrid,
   Loader2,
   Pencil,
@@ -89,6 +90,13 @@ import {
   aggregateMcqDomainsFromTopicStats,
   type DomainStat,
 } from "@/lib/mcq-domain";
+import {
+  TOPICAL_MCQ_PAPERS,
+  getTopicalPaperById,
+  renderTopicalPaperPages,
+  toMcqPaperSummaryFromTopical,
+  type TopicalMcqPaper,
+} from "@/lib/topical-mcq-papers";
 import { cn } from "@/lib/utils";
 
 /** Fixed render scale for the plain page image — no positions are computed
@@ -702,8 +710,12 @@ function McqLivePage() {
   }, [effectiveUserId]);
 
   const activeDraftSummary = useMemo(() => {
-    if (stage !== "library" || !papersQuery.data?.papers) return null;
-    return getActiveDraftSummary(effectiveUserId, papersQuery.data.papers);
+    if (stage !== "library") return null;
+    const allPapers = [
+      ...TOPICAL_MCQ_PAPERS.map(toMcqPaperSummaryFromTopical),
+      ...(papersQuery.data?.papers ?? []),
+    ];
+    return getActiveDraftSummary(effectiveUserId, allPapers);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stage, effectiveUserId, papersQuery.data?.papers, draftRefreshKey]);
 
@@ -990,12 +1002,16 @@ function fillMissingQuestionPages(
 
     // Reset the clock and scratch marks for this fresh attempt — real
     // Cambridge 9708 timings: Paper 1 (AS) is 1 hour, Paper 3 (A Level) is
-    // 1 hour 15.
+    // 1 hour 15, and Topical Papers use their configured duration (2 min/question).
+    const matchedTopical = getTopicalPaperById(paper.id);
+    const fullDurationSeconds = matchedTopical
+      ? matchedTopical.durationSeconds
+      : PAPER_DURATION_SECONDS[paper.level];
     const initialTimeLeft = completedAttempt
       ? null
       : draft?.timeLeft == null
-        ? PAPER_DURATION_SECONDS[paper.level]
-        : Math.min(draft.timeLeft, PAPER_DURATION_SECONDS[paper.level]);
+        ? fullDurationSeconds
+        : Math.min(draft.timeLeft, fullDurationSeconds);
     setTimeLeft(initialTimeLeft);
     timeLeftRef.current = initialTimeLeft;
     setTimeUp(false);
@@ -1003,94 +1019,110 @@ function fillMissingQuestionPages(
     setAnnotateMode(false);
     annotationCanvases.current.clear();
 
-    setBusyLabel("Fetching the paper…");
-    try {
-      const pdfjs = await loadPdfjs();
-      let buf: ArrayBuffer;
+    const downloadPdfBuffer = async (targetUrl: string): Promise<ArrayBuffer> => {
       try {
-        const res = await fetch(paper.qpUrl);
+        const res = await fetch(targetUrl);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        buf = await res.arrayBuffer();
-      } catch (directErr) {
-        // Fallback to server-side proxy download (handles CORS, ISP/network blocks, missing headers)
+        return await res.arrayBuffer();
+      } catch {
         try {
-          const { base64 } = await fetchPaperPdfFn({ data: { qpUrl: paper.qpUrl } });
-          buf = base64ToArrayBuffer(base64);
-        } catch (proxyErr) {
+          const { base64 } = await fetchPaperPdfFn({ data: { qpUrl: targetUrl } });
+          return base64ToArrayBuffer(base64);
+        } catch {
           throw new Error("Could not download the question paper file.");
         }
       }
+    };
 
-      const doc = await pdfjs.getDocument({
-        data: new Uint8Array(buf),
-      }).promise;
+    setBusyLabel(
+      matchedTopical ? "Slicing real Cambridge exam diagrams & tables…" : "Fetching the paper…",
+    );
+    try {
+      if (matchedTopical) {
+        const topicalBuilt = await renderTopicalPaperPages({
+          topicalPaper: matchedTopical,
+          scale: RENDER_SCALE,
+          fetchPdfBuffer: downloadPdfBuffer,
+          onProgress: (label) => setBusyLabel(label),
+        });
+        setQuestionPages(topicalBuilt.questionPages);
+        setPages(topicalBuilt.pages);
+        setStemBlobs(topicalBuilt.stems);
+      } else {
+        const pdfjs = await loadPdfjs();
+        const buf = await downloadPdfBuffer(paper.qpUrl);
 
-      const built: PageImage[] = [];
-      const stems: StemBlob[] = [];
-      const candidatePageMap: Record<number, number[]> = {};
-      for (let p = 1; p <= doc.numPages; p++) {
-        const page = await doc.getPage(p);
-        const viewport = page.getViewport({ scale: RENDER_SCALE });
+        const doc = await pdfjs.getDocument({
+          data: new Uint8Array(buf),
+        }).promise;
 
-        const canvas = document.createElement("canvas");
-        canvas.width = viewport.width;
-        canvas.height = viewport.height;
-        const ctx = canvas.getContext("2d");
-        if (!ctx) continue;
-        await (page.render({ canvasContext: ctx, viewport } as any) as any).promise;
-        built.push({ pageNumber: p, canvas });
+        const built: PageImage[] = [];
+        const stems: StemBlob[] = [];
+        const candidatePageMap: Record<number, number[]> = {};
+        for (let p = 1; p <= doc.numPages; p++) {
+          const page = await doc.getPage(p);
+          const viewport = page.getViewport({ scale: RENDER_SCALE });
 
-        try {
-          const content = await page.getTextContent();
-          const pageStems = extractQuestionStems(content.items as PdfTextItem[]);
-          stems.push(...pageStems);
-          for (const s of pageStems) {
-            if (s.number >= 1 && s.number <= paper.questionCount) {
-              if (!candidatePageMap[s.number]) {
-                candidatePageMap[s.number] = [];
+          const canvas = document.createElement("canvas");
+          canvas.width = viewport.width;
+          canvas.height = viewport.height;
+          const ctx = canvas.getContext("2d");
+          if (!ctx) continue;
+          await (page.render({ canvasContext: ctx, viewport } as any) as any).promise;
+          built.push({ pageNumber: p, canvas });
+
+          try {
+            const content = await page.getTextContent();
+            const pageStems = extractQuestionStems(content.items as PdfTextItem[]);
+            stems.push(...pageStems);
+            for (const s of pageStems) {
+              if (s.number >= 1 && s.number <= paper.questionCount) {
+                if (!candidatePageMap[s.number]) {
+                  candidatePageMap[s.number] = [];
+                }
+                candidatePageMap[s.number].push(p);
               }
-              candidatePageMap[s.number].push(p);
+            }
+          } catch (textErr) {
+            console.warn(`Text extraction skipped for page ${p}:`, textErr);
+          }
+        }
+
+        // Resolve candidate sightings into a strictly monotonic question -> page map.
+        // An exam paper is always sequentially ordered: page(q) >= page(q - 1).
+        const rawPageMap: Record<number, number> = {};
+        let lastPage = 1;
+        for (let q = 1; q <= paper.questionCount; q++) {
+          const sightings = candidatePageMap[q];
+          if (!sightings || sightings.length === 0) continue;
+
+          // Discard page 1 if total pages > 1 and q > 1 (multi-page exam cover page false positive)
+          const validSightings = sightings.filter((p) => doc.numPages <= 1 || q === 1 || p > 1);
+          if (validSightings.length === 0) continue;
+
+          // Pick candidate page that respects monotonicity (p >= lastPage)
+          const monotonicMatch = validSightings.find((p) => p >= lastPage);
+          if (monotonicMatch !== undefined) {
+            rawPageMap[q] = monotonicMatch;
+            lastPage = monotonicMatch;
+          } else {
+            const highest = validSightings[validSightings.length - 1];
+            if (highest >= lastPage) {
+              rawPageMap[q] = highest;
+              lastPage = highest;
             }
           }
-        } catch (textErr) {
-          console.warn(`Text extraction skipped for page ${p}:`, textErr);
         }
+
+        const completedPageMap = fillMissingQuestionPages(
+          rawPageMap,
+          paper.questionCount,
+          doc.numPages,
+        );
+        setQuestionPages(completedPageMap);
+        setPages(built);
+        setStemBlobs(stems);
       }
-
-      // Resolve candidate sightings into a strictly monotonic question -> page map.
-      // An exam paper is always sequentially ordered: page(q) >= page(q - 1).
-      const rawPageMap: Record<number, number> = {};
-      let lastPage = 1;
-      for (let q = 1; q <= paper.questionCount; q++) {
-        const sightings = candidatePageMap[q];
-        if (!sightings || sightings.length === 0) continue;
-
-        // Discard page 1 if total pages > 1 and q > 1 (multi-page exam cover page false positive)
-        const validSightings = sightings.filter((p) => doc.numPages <= 1 || q === 1 || p > 1);
-        if (validSightings.length === 0) continue;
-
-        // Pick candidate page that respects monotonicity (p >= lastPage)
-        const monotonicMatch = validSightings.find((p) => p >= lastPage);
-        if (monotonicMatch !== undefined) {
-          rawPageMap[q] = monotonicMatch;
-          lastPage = monotonicMatch;
-        } else {
-          const highest = validSightings[validSightings.length - 1];
-          if (highest >= lastPage) {
-            rawPageMap[q] = highest;
-            lastPage = highest;
-          }
-        }
-      }
-
-      const completedPageMap = fillMissingQuestionPages(
-        rawPageMap,
-        paper.questionCount,
-        doc.numPages,
-      );
-      setQuestionPages(completedPageMap);
-      setPages(built);
-      setStemBlobs(stems);
       setActiveQuestion(1);
       setStage("practice");
       if (!completedAttempt) {
@@ -1129,6 +1161,12 @@ function fillMissingQuestionPages(
     if (autoStartedRef.current) return;
     if (stage !== "library") return;
     if (!search.paperId) return; // Only auto-start on explicit link search parameter
+    const matchedTopical = getTopicalPaperById(search.paperId);
+    if (matchedTopical) {
+      autoStartedRef.current = true;
+      beginPractice(toMcqPaperSummaryFromTopical(matchedTopical));
+      return;
+    }
     const paper = papersQuery.data?.papers.find((p) => p.id === search.paperId);
     if (!paper) return;
     autoStartedRef.current = true;
@@ -1323,7 +1361,15 @@ function fillMissingQuestionPages(
     try {
       let tags: Record<number, { topic: string; skill: "knowledge" | "application" | "analysis" }> =
         {};
-      if (stemBlobs.length > 0) {
+      const matchedTopical = getTopicalPaperById(selectedPaperId);
+      if (matchedTopical) {
+        tags = Object.fromEntries(
+          matchedTopical.questions.map((q) => [
+            q.number,
+            { topic: q.subtopic, skill: q.skill },
+          ]),
+        );
+      } else if (stemBlobs.length > 0) {
         try {
           const { tags: rows } = await classifyTopicsFn({ data: { level, items: stemBlobs } });
           tags = Object.fromEntries(
@@ -1463,7 +1509,13 @@ function fillMissingQuestionPages(
   async function openFullPastPaper() {
     const attempt = historyAttempt.data;
     if (!attempt) return;
-    const paper = papersQuery.data?.papers.find((entry) => entry.id === attempt.paperId);
+    const matchedTopical =
+      getTopicalPaperById(attempt.paperId) ??
+      TOPICAL_MCQ_PAPERS.find((t) => t.title === attempt.title) ??
+      null;
+    const paper = matchedTopical
+      ? toMcqPaperSummaryFromTopical(matchedTopical)
+      : papersQuery.data?.papers.find((entry) => entry.id === attempt.paperId);
     if (!paper) {
       toast.error("That paper is no longer available in the library.");
       return;
@@ -1600,6 +1652,19 @@ function fillMissingQuestionPages(
                 <McqReviewPanel topics={topicPerformance.data.topics} />
               </div>
             ) : null}
+
+            <div className="mb-6">
+              <TopicalPaperShowcase
+                topicalPapers={TOPICAL_MCQ_PAPERS}
+                busy={!!busyLabel}
+                busyPaperId={selectedPaperId}
+                onStart={(topical) => beginPractice(toMcqPaperSummaryFromTopical(topical))}
+                activeDraftPaperId={activeDraftSummary?.paper.id}
+                activeDraftAnswersCount={
+                  activeDraftSummary ? Object.keys(activeDraftSummary.draft.answers).length : 0
+                }
+              />
+            </div>
 
             {papersQuery.isLoading ? (
               <p className="text-sm text-muted-foreground">Loading the library…</p>
@@ -3239,4 +3304,123 @@ function parseAnswerKeyFromText(text: string): Record<number, Letter> {
     }
   }
   return out;
+}
+
+function TopicalPaperShowcase({
+  topicalPapers,
+  busy,
+  busyPaperId,
+  onStart,
+  activeDraftPaperId,
+  activeDraftAnswersCount = 0,
+}: {
+  topicalPapers: TopicalMcqPaper[];
+  busy: boolean;
+  busyPaperId: string | null;
+  onStart: (paper: TopicalMcqPaper) => void;
+  activeDraftPaperId?: string | null;
+  activeDraftAnswersCount?: number;
+}) {
+  if (topicalPapers.length === 0) return null;
+
+  return (
+    <div className="space-y-4">
+      {topicalPapers.map((topical) => {
+        const isBusyThis = busy && busyPaperId === topical.id;
+        const isDraftThis = activeDraftPaperId === topical.id;
+        const uniqueSourcePapers = Array.from(
+          new Set(topical.questions.map((q) => q.sourcePaperCode)),
+        );
+
+        return (
+          <Card
+            key={topical.id}
+            className="overflow-hidden border-2 border-primary/70 bg-gradient-to-br from-primary/[0.06] via-background to-background shadow-[6px_6px_0_hsl(var(--primary)/0.25)]"
+          >
+            <CardContent className="space-y-4 p-5 sm:p-6">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-primary px-2.5 py-0.5 text-[10px] font-bold tracking-wider uppercase text-primary-foreground">
+                    <Layers className="h-3 w-3" />
+                    Topical Past Paper · Real Exam Slices
+                  </span>
+                  <UiBadge variant="outline" className="text-[10px] font-semibold uppercase">
+                    Cambridge {topical.syllabusCode} · {topical.level.toUpperCase()} Level
+                  </UiBadge>
+                  <UiBadge
+                    variant="secondary"
+                    className="text-[10px] font-semibold text-primary border-primary/30"
+                  >
+                    {topical.visualSummaryLabel}
+                  </UiBadge>
+                </div>
+                <span className="font-mono text-[11px] font-semibold text-muted-foreground">
+                  {topical.sourceYearsLabel}
+                </span>
+              </div>
+
+              <div className="space-y-1.5">
+                <p className="text-xs font-bold uppercase tracking-wider text-primary">
+                  {topical.topicNumber} · Official Printed Diagrams & Tables
+                </p>
+                <h3 className="text-base sm:text-lg font-bold tracking-tight text-foreground">
+                  {topical.shortTitle}
+                </h3>
+                <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
+                  {topical.subtitle}
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                <span className="text-[11px] font-medium text-muted-foreground mr-1">
+                  Compiled from:
+                </span>
+                {uniqueSourcePapers.map((code) => (
+                  <span
+                    key={code}
+                    className="rounded-md border border-border/80 bg-muted/50 px-2 py-0.5 font-mono text-[11px] font-medium text-foreground"
+                  >
+                    {code}
+                  </span>
+                ))}
+                <span className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
+                  {topical.questionCount} Questions · {Math.round(topical.durationSeconds / 60)} min
+                </span>
+              </div>
+
+              <div className="flex flex-col gap-3 border-t border-border/60 pt-4 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-xs text-muted-foreground">
+                  Every graph, table, and option is sliced directly from the original Cambridge PDF
+                  with official mark-scheme grading.
+                </p>
+                <Button
+                  size="lg"
+                  disabled={busy}
+                  onClick={() => onStart(topical)}
+                  className="min-w-48 shrink-0 font-semibold shadow-sm"
+                >
+                  {isBusyThis ? (
+                    <>
+                      <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                      Building slices…
+                    </>
+                  ) : isDraftThis ? (
+                    <>
+                      <Play className="mr-1.5 h-4 w-4 fill-current" />
+                      Resume Topical Paper ({activeDraftAnswersCount}/{topical.questionCount})
+                    </>
+                  ) : (
+                    <>
+                      <Play className="mr-1.5 h-4 w-4 fill-current" />
+                      Start Topical Paper
+                    </>
+                  )}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        );
+      })}
+    </div>
+  );
 }

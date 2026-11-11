@@ -71,23 +71,44 @@ export const submitPdfMcqAttempt = createServerFn({ method: "POST" })
         title: z.string().trim().max(200).default("Past paper practice"),
         filename: z.string().trim().max(200).optional(),
         level: LevelSchema,
-        paperId: z.string().uuid(),
+        paperId: z.string().min(1).max(160),
         questions: z.array(SubmittedQuestion).max(80),
       })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    const { data: paper, error: paperError } = await supabase
-      .from("mcq_pdf_papers")
-      .select("id,title,level,question_count,answer_key")
-      .eq("id", data.paperId)
-      .single();
-    if (paperError || !paper) throw new Error("That published paper could not be found.");
-    if (paper.level !== data.level) throw new Error("The paper level does not match this attempt.");
+    const { getTopicalPaperById } = await import("./topical-mcq-papers");
+    const topicalPaper = getTopicalPaperById(data.paperId);
 
-    const answerKey = (paper.answer_key ?? {}) as Record<string, "A" | "B" | "C" | "D">;
-    const questionCount = Number(paper.question_count);
+    let resolvedTitle = data.title;
+    let resolvedDbPaperId: string | null = null;
+    let answerKey: Record<string, "A" | "B" | "C" | "D"> = {};
+    let questionCount = 0;
+
+    if (topicalPaper) {
+      if (topicalPaper.level !== data.level) {
+        throw new Error("The paper level does not match this attempt.");
+      }
+      resolvedTitle = topicalPaper.title;
+      resolvedDbPaperId = null;
+      answerKey = topicalPaper.answerKey;
+      questionCount = topicalPaper.questionCount;
+    } else {
+      const { data: paper, error: paperError } = await supabase
+        .from("mcq_pdf_papers")
+        .select("id,title,level,question_count,answer_key")
+        .eq("id", data.paperId)
+        .single();
+      if (paperError || !paper) throw new Error("That published paper could not be found.");
+      if (paper.level !== data.level) throw new Error("The paper level does not match this attempt.");
+
+      resolvedTitle = paper.title;
+      resolvedDbPaperId = paper.id;
+      answerKey = (paper.answer_key ?? {}) as Record<string, "A" | "B" | "C" | "D">;
+      questionCount = Number(paper.question_count);
+    }
+
     for (let number = 1; number <= questionCount; number += 1) {
       if (!answerKey[String(number)]) {
         throw new Error(
@@ -102,12 +123,16 @@ export const submitPdfMcqAttempt = createServerFn({ method: "POST" })
     const graded = Array.from({ length: questionCount }, (_, index) => {
       const number = index + 1;
       const submitted = submittedByNumber.get(number);
+      const topicalQuestion = topicalPaper?.questions.find((q) => q.number === number);
       const correctAnswer = answerKey[String(number)];
       const userAnswer = submitted?.user_answer ?? null;
       return {
         number,
-        topic: submitted?.topic ?? "Untagged",
-        skill: submitted?.skill ?? "knowledge",
+        topic:
+          submitted?.topic && submitted.topic !== "Untagged"
+            ? submitted.topic
+            : (topicalQuestion?.subtopic ?? "Untagged"),
+        skill: submitted?.skill ?? topicalQuestion?.skill ?? "knowledge",
         correct_answer: correctAnswer,
         user_answer: userAnswer,
         correct: userAnswer === correctAnswer,
@@ -119,10 +144,10 @@ export const submitPdfMcqAttempt = createServerFn({ method: "POST" })
       .from("mcq_pdf_attempts")
       .insert({
         user_id: userId,
-        title: paper.title,
-        filename: data.filename ?? null,
+        title: resolvedTitle,
+        filename: topicalPaper ? topicalPaper.id : (data.filename ?? null),
         level: data.level,
-        paper_id: paper.id,
+        paper_id: resolvedDbPaperId,
         questions: graded,
         score,
         total: questionCount,
