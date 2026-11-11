@@ -329,63 +329,173 @@ export function DashboardPage() {
       />
 
       <div className="max-w-7xl 2xl:max-w-[1600px] mx-auto space-y-5 px-4 py-5 sm:px-6 md:px-8">
-        {/* Compact Candidate Status Strip */}
-        <section className="rounded-xl border border-border/80 bg-card p-3.5 sm:p-5 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 sm:gap-4">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="size-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
-              <h2 className="text-base sm:text-lg font-bold text-foreground">
-                {greeting}, {userDisplayName.split(" ")[0]}!
-              </h2>
-              {isTeacherUser ? (
-                <Badge className="bg-purple-500/20 text-purple-600 dark:text-purple-400 border-purple-500/30 text-[10px] font-bold">
-                  Authorized Educator
-                </Badge>
-              ) : (
+        {/* Top Bento Grid: Hero Command Center (2 cols) + Cambridge Examiner Daily Intel (1 col) */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          {/* Left 2 Cols: Hero Exam Readiness Deck */}
+          <section className="lg:col-span-2 relative overflow-hidden rounded-2xl border border-border/80 bg-gradient-to-br from-purple-500/[0.08] via-card to-card p-5 sm:p-6 shadow-xs flex flex-col justify-between">
+            {/* Background Ambient Glow */}
+            <div className="pointer-events-none absolute -right-12 -top-12 size-48 rounded-full bg-primary/10 blur-3xl" />
+
+            <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-5">
+              <div className="space-y-2 max-w-xl">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="size-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+                  <h2 className="text-xl sm:text-2xl font-black tracking-tight text-foreground">
+                    {greeting},{" "}
+                    <span className="bg-gradient-to-r from-primary via-purple-500 to-indigo-500 bg-clip-text text-transparent">
+                      {userDisplayName.split(" ")[0]}
+                    </span>
+                    !
+                  </h2>
+                  {isTeacherUser ? (
+                    <Badge className="bg-purple-500/20 text-purple-600 dark:text-purple-400 border-purple-500/30 text-[10px] font-bold">
+                      Authorized Educator
+                    </Badge>
+                  ) : (
+                    <Badge
+                      variant="outline"
+                      className="border-primary/30 bg-primary/10 text-primary text-[10px] font-mono font-semibold"
+                    >
+                      9708 Candidate
+                    </Badge>
+                  )}
+                  <Badge
+                    variant="outline"
+                    className="border-border/80 bg-muted/40 text-muted-foreground text-[10px] font-mono"
+                  >
+                    May/June 2026 Series
+                  </Badge>
+                </div>
+
+                <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
+                  {versions.length > 0 || (mcqSummary.data?.totalAttempts ?? 0) > 0 ? (
+                    <>
+                      <strong className="text-foreground font-semibold">{versions.length} essay attempt{versions.length === 1 ? "" : "s"}</strong> evaluated across syllabus tariffs ·{" "}
+                      <strong className="text-foreground font-semibold">{mcqSummary.data?.totalAttempts ?? 0} MCQ paper{(mcqSummary.data?.totalAttempts ?? 0) === 1 ? "" : "s"}</strong> completed
+                      {mcqSummary.data?.accuracyPct !== null && mcqSummary.data?.accuracyPct !== undefined && (
+                        <> with <strong className="text-emerald-600 dark:text-emerald-400 font-bold">{mcqSummary.data.accuracyPct}% accuracy</strong></>
+                      )}.
+                    </>
+                  ) : (
+                    "Welcome to Marginal. Submit your first Cambridge 9708 essay or practice MCQ papers to calibrate your baseline."
+                  )}
+                </p>
+
+                {/* Quick Action Badges */}
+                <div className="pt-2 flex flex-wrap items-center gap-2">
+                  <Button asChild size="sm" className="h-8 text-xs font-semibold shadow-xs">
+                    <Link to="/grade">
+                      <PenLine className="size-3.5 mr-1" /> Mark New Essay
+                    </Link>
+                  </Button>
+                  <Button asChild variant="outline" size="sm" className="h-8 text-xs font-semibold bg-background/80 hover:bg-muted">
+                    <Link to="/mcq-live">
+                      <ListChecks className="size-3.5 mr-1 text-primary" /> Past Paper MCQs
+                    </Link>
+                  </Button>
+                  <Button asChild variant="ghost" size="sm" className="h-8 text-xs text-muted-foreground hover:text-foreground">
+                    <Link to="/paper-matrix">
+                      <Flame className="size-3.5 mr-1 text-amber-500" /> Topic Predictor →
+                    </Link>
+                  </Button>
+                </div>
+              </div>
+
+              {/* Radial Readiness Indicator Gauge */}
+              <div className="relative z-10 flex sm:flex-col items-center justify-between sm:justify-center gap-3 shrink-0 p-3 sm:p-4 rounded-2xl bg-card/80 border border-border/80 shadow-2xs backdrop-blur-sm self-start sm:self-center">
+                <div className="relative size-20 sm:size-24 shrink-0 flex items-center justify-center">
+                  <svg className="size-full -rotate-90" viewBox="0 0 100 100">
+                    <circle
+                      cx="50"
+                      cy="50"
+                      r="42"
+                      fill="transparent"
+                      stroke="currentColor"
+                      strokeWidth="9"
+                      className="text-muted/40"
+                    />
+                    <circle
+                      cx="50"
+                      cy="50"
+                      r="42"
+                      fill="transparent"
+                      stroke="currentColor"
+                      strokeWidth="9"
+                      strokeDasharray={264}
+                      strokeDashoffset={264 - (264 * Math.min(100, Math.max(0, progressIndex))) / 100}
+                      strokeLinecap="round"
+                      className="text-primary transition-all duration-1000 ease-out"
+                    />
+                  </svg>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+                    <span className="text-xl sm:text-2xl font-black font-mono tracking-tight text-foreground tabular-nums">
+                      {progressIndex}%
+                    </span>
+                    <span className="text-[8.5px] font-bold uppercase tracking-wider text-muted-foreground -mt-0.5">
+                      Readiness
+                    </span>
+                  </div>
+                </div>
+
                 <Badge
                   variant="outline"
-                  className="border-primary/30 bg-primary/10 text-primary text-[10px] font-semibold"
+                  className={cn("text-[10px] font-semibold px-2 py-0.5 text-center shadow-2xs", progressBadge.color)}
                 >
-                  9708 Candidate
+                  {progressBadge.label}
                 </Badge>
-              )}
+              </div>
             </div>
-            <p className="text-xs text-muted-foreground">
-              {versions.length > 0 || (mcqSummary.data?.totalAttempts ?? 0) > 0
-                ? `${versions.length} essay attempt${versions.length === 1 ? "" : "s"} evaluated · ${mcqSummary.data?.totalAttempts ?? 0} MCQ paper${(mcqSummary.data?.totalAttempts ?? 0) === 1 ? "" : "s"} completed${mcqSummary.data?.accuracyPct !== null && mcqSummary.data?.accuracyPct !== undefined ? ` (${mcqSummary.data.accuracyPct}% accuracy)` : ""}.`
-                : "Welcome to Marginal. Submit your first essay or practice Cambridge MCQ to calibrate your baseline."}
-            </p>
-          </div>
+          </section>
 
-          <div className="flex items-center gap-3 self-start sm:self-center shrink-0">
-            <Badge
-              variant="outline"
-              className={cn("px-2.5 py-1 text-xs font-semibold", progressBadge.color)}
-            >
-              {progressBadge.label}
-            </Badge>
-            <div className="flex items-center gap-2 border-l border-border/80 pl-3">
-              <div className="text-right">
-                <span className="text-sm font-bold tabular-nums text-foreground">
-                  {progressIndex}%
-                </span>
-                <p className="text-[9px] uppercase font-bold text-muted-foreground">
-                  Readiness
+          {/* Right 1 Col: Cambridge Examiner Daily Intel Card */}
+          <section className="lg:col-span-1 rounded-2xl border border-purple-500/25 bg-gradient-to-br from-purple-500/[0.06] via-card to-card p-5 shadow-xs flex flex-col justify-between">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between gap-2 border-b border-border/50 pb-2.5">
+                <div className="flex items-center gap-2">
+                  <div className="size-6 rounded-md bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-600 dark:text-purple-400 shrink-0">
+                    <Sparkles className="size-3.5" />
+                  </div>
+                  <span className="text-xs font-bold tracking-tight text-foreground">
+                    Examiner Intel
+                  </span>
+                </div>
+                <Badge
+                  variant="outline"
+                  className="text-[9.5px] font-mono font-bold border-purple-500/30 bg-purple-500/10 text-purple-700 dark:text-purple-300 px-1.5 py-0"
+                >
+                  {currentTip.ao} Focus
+                </Badge>
+              </div>
+
+              <div>
+                <p className="font-bold text-sm text-foreground flex items-center gap-1.5">
+                  <ShieldCheck className="size-3.5 text-primary shrink-0" />
+                  {currentTip.title}
+                </p>
+                <p className="mt-1.5 text-xs text-muted-foreground leading-relaxed">
+                  "{currentTip.tip}"
                 </p>
               </div>
-              <div className="h-2 w-16 overflow-hidden rounded-full bg-muted">
-                <div
-                  className="h-full rounded-full bg-primary transition-all duration-700 ease-out"
-                  style={{ width: `${Math.min(100, Math.max(0, progressIndex))}%` }}
-                />
-              </div>
             </div>
-          </div>
-        </section>
+
+            <div className="mt-4 pt-3 border-t border-border/50 flex items-center justify-between">
+              <span className="text-[10px] font-mono text-muted-foreground">
+                Tip {(tipIndex % CAMBRIDGE_TIPS.length) + 1} of {CAMBRIDGE_TIPS.length}
+              </span>
+              <button
+                type="button"
+                onClick={() => setTipIndex((prev) => prev + 1)}
+                className="text-xs font-semibold text-primary hover:text-primary/80 inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-primary/20 hover:bg-primary/10 transition-colors cursor-pointer shadow-2xs"
+              >
+                <RefreshCw className="size-3" /> Next Tip
+              </button>
+            </div>
+          </section>
+        </div>
 
         {/* Educator Workspace Quick Banner */}
         {isTeacherUser && (
-          <div className="rounded-xl border border-purple-500/30 bg-purple-500/[0.06] p-4 text-xs shadow-xs">
+          <div className="rounded-2xl border border-purple-500/30 bg-purple-500/[0.06] p-4 text-xs shadow-xs">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div className="flex items-center gap-2.5">
                 <div className="size-9 rounded-lg bg-purple-500/15 border border-purple-500/30 flex items-center justify-center text-purple-600 dark:text-purple-400 shrink-0">
@@ -419,8 +529,8 @@ export function DashboardPage() {
           </div>
         )}
 
-        {/* 4 Clean Stat Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
+        {/* 4 Elevated Stat Cards with Vibrant Micro-Accents */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           <InteractiveStat
             label="Essays marked"
             value={String(versions.length)}
@@ -428,6 +538,7 @@ export function DashboardPage() {
             hint="Total Cambridge submissions"
             loading={progress.isLoading}
             icon={PenLine}
+            theme="purple"
           />
           <InteractiveStat
             label="Average mark"
@@ -440,6 +551,7 @@ export function DashboardPage() {
             }
             loading={progress.isLoading}
             icon={TrendingUp}
+            theme="blue"
           />
           <InteractiveStat
             label="MCQ Accuracy"
@@ -460,6 +572,7 @@ export function DashboardPage() {
             }
             loading={mcqSummary.isLoading}
             icon={ListChecks}
+            theme="emerald"
           />
           <InteractiveStat
             label="Personal best"
@@ -468,49 +581,36 @@ export function DashboardPage() {
             hint="Highest single awarded mark"
             loading={progress.isLoading}
             icon={Trophy}
+            theme="amber"
           />
         </div>
 
-        {/* Sleek Cambridge Examiner Tip */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-4 rounded-xl border border-primary/20 bg-primary/[0.04] px-3.5 py-2.5 sm:px-4 text-xs leading-relaxed">
-          <div className="flex flex-wrap items-baseline gap-1.5 min-w-0 flex-1">
-            <span className="font-bold text-primary inline-flex items-center gap-1.5 shrink-0">
-              <ShieldCheck className="size-3.5 shrink-0" /> Cambridge 9708 Tip:
-            </span>
-            <span className="font-semibold text-foreground shrink-0">{currentTip.title} —</span>
-            <span className="text-muted-foreground text-pretty">{currentTip.tip}</span>
-          </div>
-          <button
-            type="button"
-            onClick={() => setTipIndex((prev) => prev + 1)}
-            className="self-end sm:self-center shrink-0 text-muted-foreground hover:text-foreground text-[11px] font-semibold inline-flex items-center gap-1 px-2.5 py-1 rounded-md border border-border/60 hover:bg-muted/60 transition-colors cursor-pointer"
-          >
-            <RefreshCw className="size-3" /> Next
-          </button>
-        </div>
-
         {/* Assessment Objective Mastery Console */}
-        <div className="rounded-2xl border border-border/80 bg-card p-3.5 sm:p-5 md:p-6 shadow-xs">
-          <div className="flex flex-wrap items-center justify-between gap-3 sm:gap-4 border-b border-border/80 pb-3 sm:pb-4">
+        <div className="rounded-2xl border border-border/80 bg-card p-4 sm:p-6 shadow-xs">
+          <div className="flex flex-wrap items-center justify-between gap-3 sm:gap-4 border-b border-border/70 pb-4">
             <div className="space-y-1">
-              <h2 className="flex items-center gap-2 text-base font-semibold tracking-tight">
-                <Award className="size-4 text-primary" /> Cambridge Assessment Objective (AO)
-                Mastery
+              <h2 className="flex items-center gap-2 text-base font-bold tracking-tight">
+                <div className="size-6 rounded-md bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shrink-0">
+                  <Award className="size-3.5" />
+                </div>
+                Cambridge Assessment Objective (AO) Mastery
               </h2>
               <p className="text-xs text-muted-foreground">
-                Authoritative weightings for Cambridge 9708 evaluative essays (Knowledge 2 :
-                Analysis 6 : Evaluation 4).
+                Authoritative weightings for Cambridge 9708 evaluative essays:{" "}
+                <span className="font-semibold text-foreground">AO1 Knowledge (2m)</span> ·{" "}
+                <span className="font-semibold text-foreground">AO2 Analysis (6m)</span> ·{" "}
+                <span className="font-semibold text-foreground">AO3 Evaluation (4m)</span>
               </p>
             </div>
 
-            <div className="flex items-center gap-1 sm:gap-1.5 rounded-lg border border-border bg-muted/40 p-1 text-xs overflow-x-auto max-w-full">
+            <div className="flex items-center gap-1 sm:gap-1.5 rounded-xl border border-border/80 bg-muted/40 p-1 text-xs overflow-x-auto max-w-full shadow-2xs">
               <button
                 type="button"
                 onClick={() => setActiveTariff("all")}
                 className={cn(
-                  "rounded-md px-2 sm:px-2.5 py-1 font-medium transition-colors whitespace-nowrap",
+                  "rounded-lg px-2.5 sm:px-3 py-1 font-semibold transition-all whitespace-nowrap cursor-pointer text-xs",
                   activeTariff === "all"
-                    ? "bg-background text-foreground shadow-sm"
+                    ? "bg-background text-foreground shadow-xs border border-border/60"
                     : "text-muted-foreground hover:text-foreground",
                 )}
               >
@@ -520,9 +620,9 @@ export function DashboardPage() {
                 type="button"
                 onClick={() => setActiveTariff(12)}
                 className={cn(
-                  "rounded-md px-2 sm:px-2.5 py-1 font-medium transition-colors whitespace-nowrap",
+                  "rounded-lg px-2.5 sm:px-3 py-1 font-semibold transition-all whitespace-nowrap cursor-pointer text-xs",
                   activeTariff === 12
-                    ? "bg-background text-foreground shadow-sm"
+                    ? "bg-background text-foreground shadow-xs border border-border/60"
                     : "text-muted-foreground hover:text-foreground",
                 )}
               >
@@ -532,9 +632,9 @@ export function DashboardPage() {
                 type="button"
                 onClick={() => setActiveTariff(8)}
                 className={cn(
-                  "rounded-md px-2 sm:px-2.5 py-1 font-medium transition-colors whitespace-nowrap",
+                  "rounded-lg px-2.5 sm:px-3 py-1 font-semibold transition-all whitespace-nowrap cursor-pointer text-xs",
                   activeTariff === 8
-                    ? "bg-background text-foreground shadow-sm"
+                    ? "bg-background text-foreground shadow-xs border border-border/60"
                     : "text-muted-foreground hover:text-foreground",
                 )}
               >
@@ -544,9 +644,9 @@ export function DashboardPage() {
                 type="button"
                 onClick={() => setActiveTariff(20)}
                 className={cn(
-                  "rounded-md px-2 sm:px-2.5 py-1 font-medium transition-colors whitespace-nowrap",
+                  "rounded-lg px-2.5 sm:px-3 py-1 font-semibold transition-all whitespace-nowrap cursor-pointer text-xs",
                   activeTariff === 20
-                    ? "bg-background text-foreground shadow-sm"
+                    ? "bg-background text-foreground shadow-xs border border-border/60"
                     : "text-muted-foreground hover:text-foreground",
                 )}
               >
@@ -561,8 +661,8 @@ export function DashboardPage() {
               subtitle="Definitions, concepts & theory"
               score={aoAverage("ao1_awarded")}
               maxScore={2}
-              tone="bg-ao1"
-              badgeClass="bg-ao1/10 text-ao1 border-ao1/30"
+              tone="bg-sky-500"
+              badgeClass="bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/30"
               insight="Accurate definitions and diagrams set the baseline for high marks."
               targetRatio={0.85}
               aoKey="ao1"
@@ -572,8 +672,8 @@ export function DashboardPage() {
               subtitle="Explicit chains of economic reasoning"
               score={aoAverage("ao2_awarded")}
               maxScore={6}
-              tone="bg-ao2"
-              badgeClass="bg-ao2/10 text-ao2 border-ao2/30"
+              tone="bg-indigo-500"
+              badgeClass="bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/30"
               insight="Largest mark share. Build step-by-step causal mechanisms without skipping steps."
               targetRatio={0.75}
               aoKey="ao2"
@@ -583,23 +683,23 @@ export function DashboardPage() {
               subtitle="Weighing up, conditions & justified judgement"
               score={aoAverage("ao3_awarded")}
               maxScore={4}
-              tone="bg-ao3"
-              badgeClass="bg-ao3/10 text-ao3 border-ao3/30"
+              tone="bg-amber-500"
+              badgeClass="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30"
               insight="Decisive differentiator for Band 1. Must be justified with magnitude or elasticity."
               targetRatio={0.65}
               aoKey="ao3"
             />
           </div>
 
-          <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/80 bg-muted/30 p-3.5 text-xs">
+          <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary/20 bg-primary/[0.04] p-3.5 sm:p-4 text-xs">
             <span className="text-muted-foreground">
               💡 <strong className="text-foreground">Examiner insight:</strong> Evaluation (AO3) is
               where over 70% of Cambridge students lose top-band marks. Strengthen judgements with
               context.
             </span>
-            <Button asChild variant="outline" size="sm" className="h-7 text-xs">
+            <Button asChild variant="outline" size="sm" className="h-8 text-xs font-semibold bg-background shadow-2xs hover:bg-muted">
               <Link to="/practice">
-                <Dumbbell className="size-3" /> Train AO Skills
+                <Dumbbell className="size-3.5 mr-1 text-primary" /> Train AO Skills
               </Link>
             </Button>
           </div>
@@ -1102,6 +1202,7 @@ function InteractiveStat({
   hint,
   loading,
   icon: Icon,
+  theme = "purple",
 }: {
   label: string;
   value: string;
@@ -1109,32 +1210,79 @@ function InteractiveStat({
   hint: string;
   loading: boolean;
   icon: typeof PenLine;
+  theme?: "purple" | "blue" | "emerald" | "amber";
 }) {
+  const themeStyles = {
+    purple: {
+      border: "border-purple-500/20 hover:border-purple-500/40",
+      bg: "bg-gradient-to-br from-purple-500/[0.06] via-card to-card",
+      iconBg: "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20",
+      badge: "border-purple-500/30 bg-purple-500/10 text-purple-700 dark:text-purple-300",
+    },
+    blue: {
+      border: "border-sky-500/20 hover:border-sky-500/40",
+      bg: "bg-gradient-to-br from-sky-500/[0.06] via-card to-card",
+      iconBg: "bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/20",
+      badge: "border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-300",
+    },
+    emerald: {
+      border: "border-emerald-500/20 hover:border-emerald-500/40",
+      bg: "bg-gradient-to-br from-emerald-500/[0.06] via-card to-card",
+      iconBg: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20",
+      badge: "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
+    },
+    amber: {
+      border: "border-amber-500/20 hover:border-amber-500/40",
+      bg: "bg-gradient-to-br from-amber-500/[0.06] via-card to-card",
+      iconBg: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20",
+      badge: "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300",
+    },
+  }[theme];
+
   return (
-    <div className="rounded-xl border border-border/80 bg-card p-3 sm:p-4 shadow-xs transition-all duration-200 hover:border-primary/40 hover:shadow-sm flex flex-col justify-between">
-      <div className="flex items-center justify-between gap-1">
-        <p className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-muted-foreground truncate">
+    <div
+      className={cn(
+        "rounded-2xl border p-4 sm:p-5 shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md flex flex-col justify-between group",
+        themeStyles.border,
+        themeStyles.bg,
+      )}
+    >
+      <div className="flex items-center justify-between gap-1.5">
+        <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground truncate">
           {label}
         </p>
-        <div className="flex size-5 sm:size-6 items-center justify-center rounded-md bg-primary/10 text-primary shrink-0">
-          <Icon className="size-3 sm:size-3.5" />
+        <div
+          className={cn(
+            "flex size-7 items-center justify-center rounded-lg border shadow-2xs shrink-0 transition-transform group-hover:scale-105",
+            themeStyles.iconBg,
+          )}
+        >
+          <Icon className="size-3.5" />
         </div>
       </div>
 
-      <div className="mt-2 sm:mt-2.5 flex items-baseline justify-between gap-1.5 sm:gap-2">
+      <div className="mt-3 flex items-baseline justify-between gap-2">
         {loading ? (
-          <Skeleton className="h-6 sm:h-7 w-12 sm:w-16" />
+          <Skeleton className="h-8 w-20" />
         ) : (
-          <p className="text-lg sm:text-2xl font-bold tracking-tight text-foreground tabular-nums">
+          <p className="text-2xl sm:text-3xl font-black tracking-tight text-foreground tabular-nums font-mono">
             {value}
           </p>
         )}
-        <Badge variant="secondary" className="text-[9px] sm:text-[10px] font-medium px-1 sm:px-1.5 py-0 truncate">
+        <Badge
+          variant="outline"
+          className={cn(
+            "text-[10px] font-mono font-semibold px-2 py-0.5 truncate shrink-0",
+            themeStyles.badge,
+          )}
+        >
           {badge}
         </Badge>
       </div>
 
-      <p className="mt-1 text-[10px] sm:text-[11px] text-muted-foreground truncate">{hint}</p>
+      <div className="mt-2.5 pt-2 border-t border-border/50 flex items-center justify-between text-[11px] text-muted-foreground">
+        <span className="truncate">{hint}</span>
+      </div>
     </div>
   );
 }
@@ -1148,6 +1296,7 @@ function AoCard({
   badgeClass,
   insight,
   targetRatio,
+  aoKey,
 }: {
   label: string;
   subtitle: string;
@@ -1162,40 +1311,82 @@ function AoCard({
   const percent = maxScore > 0 ? Math.min(100, Math.round((score / maxScore) * 100)) : 0;
   const targetMark = maxScore * targetRatio;
 
+  const aoMeta = {
+    ao1: {
+      targetBadge: "2 Marks Max",
+      pillBg: "bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/20",
+      accentBorder: "border-sky-500/25 hover:border-sky-500/45",
+      accentBg: "bg-gradient-to-br from-sky-500/[0.04] via-card to-card",
+      barColor: "bg-sky-500",
+      actionText: "Practise AO1 Knowledge →",
+    },
+    ao2: {
+      targetBadge: "50% Mark Share (6m)",
+      pillBg: "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20",
+      accentBorder: "border-indigo-500/25 hover:border-indigo-500/45",
+      accentBg: "bg-gradient-to-br from-indigo-500/[0.04] via-card to-card",
+      barColor: "bg-indigo-500",
+      actionText: "Practise AO2 Analysis →",
+    },
+    ao3: {
+      targetBadge: "Band 1 Decider (4m)",
+      pillBg: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20",
+      accentBorder: "border-amber-500/25 hover:border-amber-500/45",
+      accentBg: "bg-gradient-to-br from-amber-500/[0.04] via-card to-card",
+      barColor: "bg-amber-500",
+      actionText: "Practise AO3 Evaluation →",
+    },
+  }[aoKey];
+
   return (
-    <div className="rounded-xl border border-border/80 bg-card p-4 sm:p-5 shadow-xs transition-all duration-200 hover:border-primary/40 hover:shadow-sm flex flex-col justify-between">
-      <div className="space-y-3">
+    <div
+      className={cn(
+        "rounded-2xl border p-5 shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md flex flex-col justify-between",
+        aoMeta.accentBorder,
+        aoMeta.accentBg,
+      )}
+    >
+      <div className="space-y-3.5">
         <div className="flex items-start justify-between gap-2">
           <div>
-            <h3 className="text-sm font-semibold text-foreground">{label}</h3>
-            <p className="text-[11px] text-muted-foreground">{subtitle}</p>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <h3 className="text-sm font-bold text-foreground">{label}</h3>
+              <Badge
+                variant="outline"
+                className={cn("text-[9px] font-mono font-bold px-1.5 py-0", aoMeta.pillBg)}
+              >
+                {aoMeta.targetBadge}
+              </Badge>
+            </div>
+            <p className="text-[11px] text-muted-foreground mt-0.5">{subtitle}</p>
           </div>
           <Badge
             variant="outline"
-            className={cn("text-[10px] px-2 py-0.5 font-semibold shrink-0", badgeClass)}
+            className={cn("text-[10.5px] font-mono px-2 py-0.5 font-bold shrink-0 shadow-2xs", badgeClass)}
           >
             {score.toFixed(1)} / {maxScore} marks
           </Badge>
         </div>
 
-        <div className="space-y-1.5 pt-1">
-          <div className="flex items-center justify-between text-[11px]">
-            <span className="text-muted-foreground">Mastery level</span>
-            <span className="font-semibold text-foreground tabular-nums">{percent}%</span>
+        {/* Visual Progress Gauge */}
+        <div className="space-y-2 pt-1">
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-muted-foreground font-medium">Cambridge Mastery</span>
+            <span className="font-bold text-foreground font-mono tabular-nums">{percent}%</span>
           </div>
-          <div className="relative h-2 w-full overflow-hidden rounded-full bg-muted">
+          <div className="relative h-2.5 w-full overflow-hidden rounded-full bg-muted/60 p-0.5">
             <div
-              className={cn("h-full rounded-full transition-all duration-500 ease-out", tone)}
+              className={cn("h-full rounded-full transition-all duration-700 ease-out", aoMeta.barColor)}
               style={{ width: `${percent}%` }}
             />
           </div>
-          <div className="flex items-center justify-between text-[10px] text-muted-foreground">
-            <span>Level 1 (Basic)</span>
-            <span className="font-medium text-primary">Band 1 Target: {targetMark.toFixed(1)}</span>
+          <div className="flex items-center justify-between text-[10px] text-muted-foreground font-medium">
+            <span>Level 1 Baseline</span>
+            <span className="text-primary font-semibold">Band 1 Target: {targetMark.toFixed(1)}m</span>
           </div>
         </div>
 
-        <p className="text-xs leading-relaxed text-muted-foreground border-t border-border/60 pt-3">
+        <p className="text-xs leading-relaxed text-muted-foreground border-t border-border/50 pt-3">
           {insight}
         </p>
       </div>
@@ -1204,9 +1395,9 @@ function AoCard({
         asChild
         variant="ghost"
         size="sm"
-        className="w-full text-xs h-8 mt-3 text-primary hover:text-primary hover:bg-primary/10"
+        className="w-full text-xs font-semibold h-8 mt-3.5 text-primary hover:text-primary hover:bg-primary/10 border border-primary/20 rounded-xl"
       >
-        <Link to="/practice">Practise {label.split(" ")[0]} →</Link>
+        <Link to="/practice">{aoMeta.actionText}</Link>
       </Button>
     </div>
   );
