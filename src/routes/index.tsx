@@ -1111,7 +1111,7 @@ function Index() {
       </Dialog>
 
       {/* Floating Mode Switcher */}
-      <div className="fixed bottom-5 right-5 z-40">
+      <div className="fixed bottom-4 left-4 sm:bottom-5 sm:left-5 z-40">
         <button
           type="button"
           onClick={() => toggleMinimalist(true)}
@@ -1545,7 +1545,7 @@ function MinimalistHome({
       </main>
 
       {/* Floating Mode Switcher */}
-      <div className="fixed bottom-5 right-5 z-40">
+      <div className="fixed bottom-4 left-4 sm:bottom-5 sm:left-5 z-40">
         <button
           type="button"
           onClick={onToggleFull}
