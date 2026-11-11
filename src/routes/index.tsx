@@ -15,6 +15,7 @@ import {
   ListChecks,
   Mail,
   MessageCircle,
+  Minimize2,
   PenLine,
   Scan,
   School,
@@ -427,6 +428,33 @@ function Index() {
     }
   };
 
+  const [isMinimalist, setIsMinimalist] = useState(false);
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setIsMinimalist(localStorage.getItem("marginal_minimalist_mode") === "true");
+    }
+  }, []);
+
+  const toggleMinimalist = (value?: boolean) => {
+    setIsMinimalist((prev) => {
+      const next = typeof value === "boolean" ? value : !prev;
+      if (typeof window !== "undefined") {
+        localStorage.setItem("marginal_minimalist_mode", String(next));
+      }
+      return next;
+    });
+  };
+
+  if (isMinimalist) {
+    return (
+      <MinimalistHome
+        onToggleFull={() => toggleMinimalist(false)}
+        isAuthenticated={isAuthenticated}
+        settings={settings}
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen overflow-x-hidden bg-background">
       <CustomCursor />
@@ -443,6 +471,18 @@ function Index() {
 
           <div className="flex items-center gap-2">
             <SiteNavMobile />
+
+            {/* Minimalist Mode Toggle */}
+            <button
+              type="button"
+              onClick={() => toggleMinimalist(true)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border/80 bg-muted/60 px-2.5 sm:px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
+              title="Switch to Minimalist View (Zero animations, clean screen)"
+            >
+              <Minimize2 className="size-3.5 text-primary shrink-0" />
+              <span className="hidden sm:inline">Minimalist</span>
+            </button>
+
             <Link
               to="/teacher-auth"
               search={{ tab: "signup" }}
@@ -1070,6 +1110,19 @@ function Index() {
         </DialogContent>
       </Dialog>
 
+      {/* Floating Mode Switcher */}
+      <div className="fixed bottom-5 right-5 z-40">
+        <button
+          type="button"
+          onClick={() => toggleMinimalist(true)}
+          className="pop-sm flex items-center gap-2 rounded-full border-2 border-border/80 bg-background/95 px-3.5 py-2 text-xs font-bold text-foreground shadow-xl backdrop-blur-md hover:border-primary hover:text-primary transition-all cursor-pointer"
+          title="Switch to Minimalist View (Zero animations, clean screen)"
+        >
+          <Minimize2 className="size-3.5 text-primary" />
+          <span>Minimalist View</span>
+        </button>
+      </div>
+
       <SiteFooter />
     </div>
   );
@@ -1255,5 +1308,254 @@ function Wordmark({ muted = false }: { muted?: boolean }) {
         </span>
       </span>
     </span>
+  );
+}
+
+/**
+ * Clean, distraction-free minimalist homepage view.
+ * Zero animations, no WebGL/canvas, concise copy, direct tool directory.
+ */
+function MinimalistHome({
+  onToggleFull,
+  isAuthenticated,
+  settings,
+}: {
+  onToggleFull: () => void;
+  isAuthenticated: boolean | null;
+  settings: PublicSettings;
+}) {
+  return (
+    <div className="min-h-screen bg-background text-foreground antialiased selection:bg-primary/20">
+      {/* ── Minimal Header ────────────────────────────────────────────── */}
+      <header className="sticky top-0 z-40 border-b border-border bg-background/95 backdrop-blur-xs">
+        <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
+          <Link to="/" className="flex items-center gap-2 font-bold text-base text-foreground no-underline">
+            <img src="/marginal-m-icon-clean.png" alt="Marginal" className="size-7 object-contain" />
+            <span>Marginal AI</span>
+            <span className="text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+              9708
+            </span>
+          </Link>
+
+          <div className="flex items-center gap-2 sm:gap-3">
+            {/* View Mode Switcher Pill */}
+            <div className="inline-flex items-center rounded-lg border border-border bg-muted/40 p-0.5 text-xs">
+              <button
+                type="button"
+                onClick={onToggleFull}
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                title="Switch to Full Experience (Animations & Visuals)"
+              >
+                <Sparkles className="size-3 text-amber-500" />
+                <span className="hidden sm:inline">Full Experience</span>
+              </button>
+              <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-background text-foreground font-bold shadow-2xs">
+                <Minimize2 className="size-3 text-primary" />
+                <span>Minimalist</span>
+              </span>
+            </div>
+
+            <Link
+              to="/teacher-auth"
+              className="hidden sm:inline-flex items-center gap-1 rounded-lg border border-purple-500/30 bg-purple-500/10 px-2.5 py-1.5 text-xs font-semibold text-purple-700 dark:text-purple-300 hover:bg-purple-500/20"
+            >
+              <School className="size-3.5" />
+              <span>Teachers</span>
+            </Link>
+
+            <Link
+              to="/auth"
+              className="rounded-lg px-2.5 py-1.5 text-xs sm:text-sm font-semibold text-muted-foreground hover:text-foreground"
+            >
+              Sign in
+            </Link>
+
+            <Link
+              to="/auth"
+              className="rounded-lg bg-primary px-3 py-1.5 text-xs sm:text-sm font-semibold text-primary-foreground hover:bg-primary/90"
+            >
+              Get Started
+            </Link>
+          </div>
+        </div>
+      </header>
+
+      {/* ── Main Minimalist Content ───────────────────────────────────── */}
+      <main className="mx-auto max-w-5xl px-4 py-10 sm:px-6 sm:py-14 space-y-12">
+        {/* Minimal Hero */}
+        <section className="border-b border-border pb-10 space-y-4">
+          <div className="inline-flex items-center gap-2 text-xs font-mono font-bold uppercase tracking-wider text-primary">
+            <span>Cambridge International AS &amp; A Level Economics</span>
+            <span>·</span>
+            <span className="text-muted-foreground">Code 9708</span>
+          </div>
+
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight text-foreground">
+            Master Cambridge 9708 Economics.
+          </h1>
+
+          <p className="max-w-2xl text-base sm:text-lg text-muted-foreground leading-relaxed">
+            {settings.heroDescription ||
+              "Marginal AI is the complete Cambridge 9708 Economics mastery platform with AI Essay Grading, Live Examiner, and Paper 1 & 3 MCQ practice."}
+          </p>
+
+          <div className="pt-2 flex flex-wrap items-center gap-3">
+            <Link
+              to={isAuthenticated ? "/grade" : "/auth"}
+              search={isAuthenticated ? undefined : ({ redirect: "/grade" } as any)}
+              className="rounded-lg bg-primary px-5 py-2.5 text-sm font-bold text-primary-foreground hover:bg-primary/90 inline-flex items-center gap-2"
+            >
+              <span>Grade an Essay Free</span>
+              <ArrowRight className="size-4" />
+            </Link>
+            <Link
+              to={isAuthenticated ? "/mcq-live" : "/auth"}
+              search={isAuthenticated ? undefined : ({ redirect: "/mcq-live" } as any)}
+              className="rounded-lg border border-border bg-card px-4 py-2.5 text-sm font-semibold text-foreground hover:bg-muted inline-flex items-center gap-2"
+            >
+              <ListChecks className="size-4 text-primary" />
+              <span>MCQ Past Papers</span>
+            </Link>
+            <Link
+              to={isAuthenticated ? "/live-examiner" : "/auth"}
+              search={isAuthenticated ? undefined : ({ redirect: "/live-examiner" } as any)}
+              className="rounded-lg border border-border bg-card px-4 py-2.5 text-sm font-semibold text-foreground hover:bg-muted inline-flex items-center gap-2"
+            >
+              <Sparkles className="size-4 text-purple-600" />
+              <span>Live Examiner</span>
+            </Link>
+            <Link
+              to={isAuthenticated ? "/definitions" : "/auth"}
+              search={isAuthenticated ? undefined : ({ redirect: "/definitions" } as any)}
+              className="rounded-lg border border-border bg-card px-4 py-2.5 text-sm font-semibold text-foreground hover:bg-muted inline-flex items-center gap-2"
+            >
+              <BookOpen className="size-4 text-emerald-600" />
+              <span>Definition Hub</span>
+            </Link>
+          </div>
+
+          <p className="text-xs text-muted-foreground pt-1">
+            ✓ No credit card required &nbsp;•&nbsp; ✓ Free instant access &nbsp;•&nbsp; ✓ Grounded in official 9708 mark schemes
+          </p>
+        </section>
+
+        {/* ── Core Tools Directory ────────────────────────────────────── */}
+        <section className="space-y-4 border-b border-border pb-12">
+          <div className="flex items-baseline justify-between">
+            <h2 className="text-xl font-bold tracking-tight text-foreground">
+              Cambridge 9708 Examination Suite
+            </h2>
+            <span className="text-xs text-muted-foreground font-mono">10 Specialized Tools</span>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            {TOOLS.map((tool) => (
+              <Link
+                key={tool.title}
+                to={isAuthenticated ? tool.href : "/auth"}
+                search={isAuthenticated ? undefined : ({ redirect: tool.href } as any)}
+                className="group flex items-start gap-3 rounded-xl border border-border bg-card p-4 hover:border-primary hover:bg-muted/30 transition-colors"
+              >
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-foreground">
+                  <tool.icon className="size-4 text-primary" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-sm font-bold text-foreground group-hover:text-primary transition-colors">
+                      {tool.title}
+                    </span>
+                    <span className="text-[10px] font-mono uppercase text-muted-foreground px-1.5 py-0.5 rounded bg-muted border border-border/60">
+                      {tool.badge}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
+                    {tool.body}
+                  </p>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </section>
+
+        {/* ── Assessment Objectives Reference ─────────────────────────── */}
+        <section className="space-y-4 border-b border-border pb-12">
+          <h2 className="text-xl font-bold tracking-tight text-foreground">
+            Assessment Objectives (AO) Reference
+          </h2>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div className="rounded-xl border border-border bg-card p-4 space-y-1.5">
+              <span className="text-xs font-mono font-bold text-ao1">AO1 · Knowledge &amp; Understanding</span>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Precise definitions, correct economic equations, and accurate diagrams. Secures foundational marks without ambiguity.
+              </p>
+            </div>
+            <div className="rounded-xl border border-border bg-card p-4 space-y-1.5">
+              <span className="text-xs font-mono font-bold text-ao2">AO2 · Analysis &amp; Application</span>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Multi-stage causal chains linking policy changes to transmission mechanisms, elasticities, and output effects.
+              </p>
+            </div>
+            <div className="rounded-xl border border-border bg-card p-4 space-y-1.5">
+              <span className="text-xs font-mono font-bold text-ao3">AO3 · Evaluation &amp; Synthesis</span>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Supported judgements: weighing short-run vs long-run tradeoffs, policy efficacy under elasticity assumptions, and prioritized conclusions.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        {/* ── Frequently Asked Questions ────────────────────────────────── */}
+        <section className="space-y-4 border-b border-border pb-12">
+          <h2 className="text-xl font-bold tracking-tight text-foreground">
+            Frequently Asked Questions
+          </h2>
+          <div className="space-y-3">
+            {FAQS.map((faq) => (
+              <div key={faq.q} className="rounded-xl border border-border bg-card p-4 space-y-1">
+                <h3 className="text-sm font-bold text-foreground">{faq.q}</h3>
+                <p className="text-xs text-muted-foreground leading-relaxed">{faq.a}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* ── Minimal Footer ────────────────────────────────────────────── */}
+        <footer className="pt-4 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-muted-foreground">
+          <div className="flex items-center gap-4">
+            <span>&copy; {new Date().getFullYear()} Marginal AI</span>
+            <Link to="/terms" className="hover:text-foreground underline-offset-4 hover:underline">
+              Terms
+            </Link>
+            <Link to="/privacy" className="hover:text-foreground underline-offset-4 hover:underline">
+              Privacy
+            </Link>
+            <Link to="/help" className="hover:text-foreground underline-offset-4 hover:underline">
+              Help
+            </Link>
+          </div>
+          <button
+            type="button"
+            onClick={onToggleFull}
+            className="inline-flex items-center gap-1.5 font-bold text-primary hover:underline cursor-pointer"
+          >
+            <Sparkles className="size-3.5 text-amber-500" />
+            <span>Switch to Full Experience (Animations &amp; Visuals)</span>
+          </button>
+        </footer>
+      </main>
+
+      {/* Floating Mode Switcher */}
+      <div className="fixed bottom-5 right-5 z-40">
+        <button
+          type="button"
+          onClick={onToggleFull}
+          className="flex items-center gap-2 rounded-full border-2 border-border bg-background px-3.5 py-2 text-xs font-bold text-foreground shadow-lg hover:border-primary hover:text-primary transition-all cursor-pointer"
+          title="Switch to Full Experience (Animations &amp; Visuals)"
+        >
+          <Sparkles className="size-3.5 text-amber-500" />
+          <span>Full Experience</span>
+        </button>
+      </div>
+    </div>
   );
 }
