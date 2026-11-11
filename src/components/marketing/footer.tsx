@@ -8,6 +8,7 @@
  */
 
 import { Link } from "@tanstack/react-router";
+import { Minimize2 } from "lucide-react";
 import { useRef, type CSSProperties, type PointerEvent as ReactPointerEvent } from "react";
 
 const PRODUCT_LINKS = [
@@ -133,7 +134,7 @@ function FooterWordmark() {
   );
 }
 
-export function SiteFooter() {
+export function SiteFooter({ onToggleMinimalist }: { onToggleMinimalist?: () => void } = {}) {
   return (
     <footer className="relative overflow-hidden border-t border-border bg-background text-foreground">
       <div
@@ -266,6 +267,17 @@ export function SiteFooter() {
             <Link to="/privacy" className="transition-colors hover:text-foreground">
               Privacy
             </Link>
+            {onToggleMinimalist ? (
+              <button
+                type="button"
+                onClick={onToggleMinimalist}
+                className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                title="Switch to Minimalist View (Zero animations, clean screen)"
+              >
+                <Minimize2 className="size-3 text-primary" />
+                <span>Minimalist View</span>
+              </button>
+            ) : null}
             <span className="ml-auto">Built for one syllabus, and nothing else.</span>
           </div>
         </div>

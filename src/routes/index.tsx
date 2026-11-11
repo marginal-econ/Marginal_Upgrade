@@ -472,17 +472,6 @@ function Index() {
           <div className="flex items-center gap-2">
             <SiteNavMobile />
 
-            {/* Minimalist Mode Toggle */}
-            <button
-              type="button"
-              onClick={() => toggleMinimalist(true)}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-border/80 bg-muted/60 px-2.5 sm:px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
-              title="Switch to Minimalist View (Zero animations, clean screen)"
-            >
-              <Minimize2 className="size-3.5 text-primary shrink-0" />
-              <span className="hidden sm:inline">Minimalist</span>
-            </button>
-
             <Link
               to="/teacher-auth"
               search={{ tab: "signup" }}
@@ -521,26 +510,26 @@ function Index() {
         <div className="paper-grid pointer-events-none absolute inset-0" aria-hidden="true" />
 
         <Drift speed={0.1} className="top-52 left-[1%] hidden xl:block">
-          <Curl className="w-16 text-orange-500/40 dark:text-primary/30" />
+          <Curl className="w-16 text-primary/30" />
         </Drift>
         <Drift speed={-0.06} className="top-40 right-[2%] hidden xl:block">
-          <Waves className="w-20 text-amber-500/60 dark:text-ao3/60" />
+          <Waves className="w-20 text-ao3/60" />
         </Drift>
         <Drift speed={0.14} className="bottom-36 left-[40%] hidden lg:block">
-          <Star className="doodle size-6 text-orange-500/35 dark:text-primary/25" />
+          <Star className="doodle size-6 text-primary/25" />
         </Drift>
-        <Star className="doodle absolute top-32 left-[46%] hidden size-4 text-amber-500/40 dark:text-ao3/30 md:block" />
+        <Star className="doodle absolute top-32 left-[46%] hidden size-4 text-ao3/30 md:block" />
 
         <div className="relative z-10 mx-auto grid max-w-7xl 2xl:max-w-[1440px] items-center gap-8 lg:gap-10 xl:gap-14 px-4 py-8 sm:px-6 sm:py-10 md:px-10 md:py-12 lg:grid-cols-[1.1fr_1fr] xl:grid-cols-[1.15fr_1fr]">
           <div>
             <Reveal>
               <div className="flex flex-wrap items-center gap-2">
-                <span className="chip-soft shadow-xs flex items-center gap-1.5 border border-orange-500/35 bg-orange-500/10 text-orange-700 dark:border-primary/30 dark:bg-primary/10 dark:text-primary font-semibold">
+                <span className="chip-soft shadow-xs flex items-center gap-1.5 border border-primary/30 bg-primary/10 text-primary font-semibold">
                   <span className="relative flex size-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-500 dark:bg-primary opacity-75"></span>
-                    <span className="relative inline-flex rounded-full size-2 bg-orange-500 dark:bg-primary"></span>
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                    <span className="relative inline-flex rounded-full size-2 bg-primary"></span>
                   </span>
-                  <Sparkles className="size-3.5 text-orange-500 dark:text-primary animate-pulse" />
+                  <Sparkles className="size-3.5 text-primary animate-pulse" />
                   Cambridge 9708 Examiner Calibration
                 </span>
                 <span className="rounded-full bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-0.5 text-[10.5px] font-mono font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5 shadow-2xs">
@@ -554,13 +543,13 @@ function Index() {
             <Reveal delay={60}>
               <h1 className="mt-5 text-[2.35rem] leading-[1.08] font-extrabold text-balance min-[380px]:text-4xl md:text-[3.25rem] lg:text-[3.5rem] xl:text-[3.85rem] tracking-tight">
                 Marginal AI —{" "}
-                <span className="relative inline-block mt-1 sm:mt-1.5 px-3 py-1 rounded-xl bg-gradient-to-r from-orange-950/85 via-amber-950/85 to-stone-900/85 border border-orange-500/40 text-amber-300 shadow-[0_0_24px_rgba(249,115,22,0.3)] backdrop-blur-md">
+                <span className="relative inline-block mt-1 sm:mt-1.5 px-3 py-1 rounded-xl bg-purple-950/60 dark:bg-purple-950/70 border border-purple-500/40 text-amber-300 shadow-[0_0_20px_rgba(168,85,247,0.25)] backdrop-blur-md">
                   <span className="bg-gradient-to-r from-amber-300 via-yellow-200 to-amber-400 bg-clip-text text-transparent font-black tracking-tight">
                     The Cambridge Economics Platform
                   </span>
                 </span>
               </h1>
-              <h2 className="mt-3 text-lg font-semibold bg-gradient-to-r from-orange-600 via-amber-600 to-orange-700 dark:from-primary dark:via-primary dark:to-primary bg-clip-text text-transparent sm:text-xl md:text-2xl">
+              <h2 className="mt-3 text-lg font-semibold text-primary sm:text-xl md:text-2xl">
                 Master AS & A Level Economics (9708) with AI Grading
               </h2>
             </Reveal>
@@ -658,7 +647,7 @@ function Index() {
           <Reveal variant="pop" delay={120} className="relative w-full">
             <div className="relative w-full">
               {/* Ambient Stage Halo Glow */}
-              <div className="absolute -inset-2 rounded-3xl bg-gradient-to-r from-orange-500/35 via-amber-500/30 to-rose-500/25 dark:from-primary/30 dark:via-violet-500/20 dark:to-amber-500/20 blur-xl opacity-75 -z-10 animate-pulse" />
+              <div className="absolute -inset-2 rounded-3xl bg-gradient-to-r from-primary/30 via-violet-500/20 to-amber-500/20 blur-xl opacity-75 -z-10 animate-pulse" />
               <TiltCard max={6} lift={12} className="relative mx-auto w-full max-w-xl xl:max-w-2xl 2xl:max-w-[680px] min-w-0 shadow-2xl rounded-2xl overflow-visible backdrop-blur-xl">
                 <SpecimenCard />
               </TiltCard>
@@ -1110,20 +1099,7 @@ function Index() {
         </DialogContent>
       </Dialog>
 
-      {/* Floating Mode Switcher */}
-      <div className="fixed bottom-4 left-4 sm:bottom-5 sm:left-5 z-40">
-        <button
-          type="button"
-          onClick={() => toggleMinimalist(true)}
-          className="pop-sm flex items-center gap-2 rounded-full border-2 border-border/80 bg-background/95 px-3.5 py-2 text-xs font-bold text-foreground shadow-xl backdrop-blur-md hover:border-primary hover:text-primary transition-all cursor-pointer"
-          title="Switch to Minimalist View (Zero animations, clean screen)"
-        >
-          <Minimize2 className="size-3.5 text-primary" />
-          <span>Minimalist View</span>
-        </button>
-      </div>
-
-      <SiteFooter />
+      <SiteFooter onToggleMinimalist={() => toggleMinimalist(true)} />
     </div>
   );
 }
@@ -1543,19 +1519,6 @@ function MinimalistHome({
           </button>
         </footer>
       </main>
-
-      {/* Floating Mode Switcher */}
-      <div className="fixed bottom-4 left-4 sm:bottom-5 sm:left-5 z-40">
-        <button
-          type="button"
-          onClick={onToggleFull}
-          className="flex items-center gap-2 rounded-full border-2 border-border bg-background px-3.5 py-2 text-xs font-bold text-foreground shadow-lg hover:border-primary hover:text-primary transition-all cursor-pointer"
-          title="Switch to Full Experience (Animations &amp; Visuals)"
-        >
-          <Sparkles className="size-3.5 text-amber-500" />
-          <span>Full Experience</span>
-        </button>
-      </div>
     </div>
   );
 }
