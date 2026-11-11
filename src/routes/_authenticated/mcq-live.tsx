@@ -32,14 +32,15 @@ import { PageHeader } from "@/components/app/app-shell";
 import { ChainedChamber } from "@/components/app/chained-chamber";
 import { McqCalculator } from "@/components/app/mcq-calculator";
 import {
-  SatLockdownPromptDialog,
-  SatViolationOverlay,
-  SatToolbarControl,
-  SatIntegrityReport,
+  ExamLockdownPromptDialog,
+  ExamViolationOverlay,
+  ExamToolbarControl,
+  ExamIntegrityReport,
   requestExamFullscreen,
   exitExamFullscreen,
   isExamFullscreenActive,
-  type SatViolation,
+  type ExamViolation,
+  type ExamViolationType,
 } from "@/components/app/mcq-sat-lockdown";
 import { getMe } from "@/lib/account.functions";
 import {
@@ -393,80 +394,83 @@ function McqLivePage() {
   const [graded, setGraded] = useState(false);
   const [calcOpen, setCalcOpen] = useState(false);
 
-  // ---- SAT-Style Fullscreen Lockdown Mode (College Board Bluebook simulation) ----
-  const [satModeActive, setSatModeActive] = useState<boolean>(false);
-  const [satPromptOpen, setSatPromptOpen] = useState<boolean>(false);
-  const [satViolations, setSatViolations] = useState<SatViolation[]>([]);
-  const [activeViolation, setActiveViolation] = useState<SatViolation | null>(null);
-  const [startInSatMode, setStartInSatMode] = useState<boolean>(false);
-  const isLeavingSatModeRef = useRef<boolean>(false);
-  const hadSatModeRef = useRef<boolean>(false);
+  // ---- Full Screen Proctored Test Mode (Window & Tab Lockdown) ----
+  const [examModeActive, setExamModeActive] = useState<boolean>(false);
+  const [examPromptOpen, setExamPromptOpen] = useState<boolean>(false);
+  const [examViolations, setExamViolations] = useState<ExamViolation[]>([]);
+  const [activeViolation, setActiveViolation] = useState<ExamViolation | null>(null);
+  const [startInExamMode, setStartInExamMode] = useState<boolean>(false);
+  const isLeavingExamModeRef = useRef<boolean>(false);
+  const hadExamModeRef = useRef<boolean>(false);
 
-  const handleEnableSatMode = useCallback(async () => {
-    isLeavingSatModeRef.current = true;
+  const handleEnableExamMode = useCallback(async () => {
+    isLeavingExamModeRef.current = true;
     const res = await requestExamFullscreen();
     if (res.success) {
-      setSatModeActive(true);
-      hadSatModeRef.current = true;
-      setSatPromptOpen(false);
+      setExamModeActive(true);
+      hadExamModeRef.current = true;
+      setExamPromptOpen(false);
       setActiveViolation(null);
-      toast.success("SAT Lockdown Mode active. Fullscreen locked and window focus monitored.");
+      toast.success("Full Screen Proctored Test Mode active. Fullscreen locked and window focus monitored.");
     } else {
       toast.error(res.error || "Could not enter full-screen mode. Please allow permissions in browser settings.");
     }
     setTimeout(() => {
-      isLeavingSatModeRef.current = false;
+      isLeavingExamModeRef.current = false;
     }, 500);
   }, []);
 
-  const handleDisableSatMode = useCallback(async () => {
-    isLeavingSatModeRef.current = true;
-    setSatModeActive(false);
+  const handleDisableExamMode = useCallback(async () => {
+    isLeavingExamModeRef.current = true;
+    setExamModeActive(false);
     setActiveViolation(null);
     await exitExamFullscreen();
-    toast.info("SAT Lockdown Mode turned off. Returned to standard view.");
+    toast.info("Full Screen Test Mode turned off. Returned to standard view.");
     setTimeout(() => {
-      isLeavingSatModeRef.current = false;
+      isLeavingExamModeRef.current = false;
     }, 500);
   }, []);
 
   const handleResumeFullscreen = useCallback(async () => {
-    isLeavingSatModeRef.current = true;
+    isLeavingExamModeRef.current = true;
     const res = await requestExamFullscreen();
     if (res.success) {
       setActiveViolation(null);
-      toast.success("Returned to SAT Fullscreen Mode.");
+      toast.success("Returned to Full Screen Test Mode.");
     } else {
       toast.error(res.error || "Please grant full-screen permission to resume.");
     }
     setTimeout(() => {
-      isLeavingSatModeRef.current = false;
+      isLeavingExamModeRef.current = false;
     }, 500);
   }, []);
 
   // Strict anti-cheat monitoring: fullscreen exits, tab switches, blur, contextmenu, clipboard
   useEffect(() => {
-    if (!satModeActive || stage !== "practice" || graded) return;
+    if (!examModeActive || stage !== "practice" || graded) return;
 
     const triggerViolation = (
-      type: "fullscreen_exit" | "tab_switch" | "window_blur",
+      type: ExamViolationType,
       title: string,
       description: string,
     ) => {
-      if (isLeavingSatModeRef.current) return;
-      const newViolation: SatViolation = {
-        id: `${type}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-        type,
-        timestamp: Date.now(),
-        title,
-        description,
-      };
-      setSatViolations((prev) => [...prev, newViolation]);
-      setActiveViolation(newViolation);
+      if (isLeavingExamModeRef.current) return;
+      setActiveViolation((current) => {
+        if (current) return current;
+        const newViolation: ExamViolation = {
+          id: `${type}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          type,
+          timestamp: Date.now(),
+          title,
+          description,
+        };
+        setExamViolations((prev) => [...prev, newViolation]);
+        return newViolation;
+      });
     };
 
     const handleFullscreenChange = () => {
-      if (!isExamFullscreenActive() && !isLeavingSatModeRef.current) {
+      if (!isExamFullscreenActive() && !isLeavingExamModeRef.current) {
         triggerViolation(
           "fullscreen_exit",
           "Exited full-screen view",
@@ -476,7 +480,7 @@ function McqLivePage() {
     };
 
     const handleVisibilityChange = () => {
-      if (document.visibilityState === "hidden" && !isLeavingSatModeRef.current) {
+      if (document.visibilityState === "hidden" && !isLeavingExamModeRef.current) {
         triggerViolation(
           "tab_switch",
           "Switched browser tabs or minimized window",
@@ -486,30 +490,54 @@ function McqLivePage() {
     };
 
     const handleWindowBlur = () => {
-      if (!document.hidden && !isLeavingSatModeRef.current) {
+      if (!isLeavingExamModeRef.current) {
         triggerViolation(
           "window_blur",
-          "Window lost focus",
-          "You switched applications or clicked outside the exam window.",
+          "Window minimized or lost focus",
+          "You minimized the window, switched applications, or clicked outside the exam window.",
         );
       }
     };
 
+    // Watchdog interval (100ms) for instantaneous minimize/blur/fullscreen-loss detection
+    const watchdogInterval = window.setInterval(() => {
+      if (isLeavingExamModeRef.current) return;
+      if (!isExamFullscreenActive()) {
+        triggerViolation(
+          "fullscreen_exit",
+          "Exited full-screen view",
+          "You exited full-screen mode. Please return to full screen to resume your exam.",
+        );
+      } else if (document.hidden || document.visibilityState === "hidden") {
+        triggerViolation(
+          "tab_switch",
+          "Window minimized or tab switched",
+          "You minimized or navigated away from the exam tab. Please resume full screen.",
+        );
+      } else if (typeof document.hasFocus === "function" && !document.hasFocus()) {
+        triggerViolation(
+          "window_blur",
+          "Window minimized or lost focus",
+          "You switched applications, minimized the browser, or clicked outside the exam window.",
+        );
+      }
+    }, 100);
+
     const handleContextMenu = (e: MouseEvent) => {
       e.preventDefault();
-      toast.error("Right-click is disabled in SAT Exam Mode to prevent cheating.");
+      toast.error("Right-click is disabled in Proctored Exam Mode to maintain integrity.");
     };
 
     const handleClipboard = (e: ClipboardEvent) => {
       e.preventDefault();
-      toast.error("Copy and paste are disabled in SAT Exam Mode.");
+      toast.error("Copy and paste are disabled in Proctored Exam Mode.");
     };
 
     const handleKeyDown = (e: KeyboardEvent) => {
       const isModifier = e.ctrlKey || e.metaKey;
       if (isModifier && ["c", "v", "x", "u", "C", "V", "X", "U"].includes(e.key)) {
         e.preventDefault();
-        toast.error("Keyboard shortcuts are restricted in SAT Exam Mode.");
+        toast.error("Keyboard shortcuts are restricted in Proctored Exam Mode.");
       }
       if (e.key === "F12") {
         e.preventDefault();
@@ -527,6 +555,7 @@ function McqLivePage() {
     window.addEventListener("keydown", handleKeyDown, true);
 
     return () => {
+      window.clearInterval(watchdogInterval);
       document.removeEventListener("fullscreenchange", handleFullscreenChange);
       document.removeEventListener("webkitfullscreenchange", handleFullscreenChange);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
@@ -537,9 +566,9 @@ function McqLivePage() {
       document.removeEventListener("paste", handleClipboard);
       window.removeEventListener("keydown", handleKeyDown, true);
     };
-  }, [satModeActive, stage, graded]);
+  }, [examModeActive, stage, graded]);
 
-  // Clean up full screen if component unmounts while in SAT mode
+  // Clean up full screen if component unmounts while in exam mode
   useEffect(() => {
     return () => {
       if (isExamFullscreenActive()) {
@@ -561,7 +590,7 @@ function McqLivePage() {
   }, []);
   const [result, setResult] = useState<{ score: number; total: number } | null>(null);
   const [attemptTopics, setAttemptTopics] = useState<TopicStat[]>([]);
-  // SAT-"Reading vs Writing" style micro/macro split for this one paper,
+  // Sectional micro/macro domain split for this paper,
   // computed alongside attemptTopics from the same graded questions.
   const [attemptDomains, setAttemptDomains] = useState<DomainStat[]>([]);
   // Full per-question breakdown for the click-to-review list — populated
@@ -891,13 +920,13 @@ function fillMissingQuestionPages(
       questions: GradedQuestion[];
     },
   ) {
-    if (startInSatMode && !completedAttempt) {
-      void handleEnableSatMode();
+    if (startInExamMode && !completedAttempt) {
+      void handleEnableExamMode();
     }
-    setSatViolations([]);
+    setExamViolations([]);
     setActiveViolation(null);
-    if (!completedAttempt && !startInSatMode) {
-      hadSatModeRef.current = false;
+    if (!completedAttempt && !startInExamMode) {
+      hadExamModeRef.current = false;
     }
     setSelectedPaperId(paper.id);
     selectedPaperIdRef.current = paper.id;
@@ -1410,13 +1439,13 @@ function fillMissingQuestionPages(
   );
 
   function leavePractice() {
-    if (isExamFullscreenActive() || satModeActive) {
-      isLeavingSatModeRef.current = true;
-      setSatModeActive(false);
+    if (isExamFullscreenActive() || examModeActive) {
+      isLeavingExamModeRef.current = true;
+      setExamModeActive(false);
       setActiveViolation(null);
       void exitExamFullscreen();
       setTimeout(() => {
-        isLeavingSatModeRef.current = false;
+        isLeavingExamModeRef.current = false;
       }, 500);
     }
     setStage("library");
@@ -1591,8 +1620,8 @@ function fillMissingQuestionPages(
                   activeDraftAnswersCount={
                     activeDraftSummary ? Object.keys(activeDraftSummary.draft.answers).length : 0
                   }
-                  startInSatMode={startInSatMode}
-                  onToggleSatMode={setStartInSatMode}
+                  startInExamMode={startInExamMode}
+                  onToggleExamMode={setStartInExamMode}
                 />
               </div>
             )}
@@ -1616,7 +1645,7 @@ function fillMissingQuestionPages(
         <div
           className={cn(
             "flex flex-col h-[calc(100dvh-3.5rem)] lg:h-[100dvh] overflow-hidden bg-background",
-            satModeActive && "fixed inset-0 z-[100] h-screen w-screen",
+            examModeActive && "fixed inset-0 z-[100] h-screen w-screen",
           )}
         >
           <div className="shrink-0 z-30 flex items-center justify-between gap-2 border-b border-border bg-background/95 px-3 py-2.5 backdrop-blur md:px-6">
@@ -1696,10 +1725,10 @@ function fillMissingQuestionPages(
                 <span className="hidden sm:inline">Calculator</span>
               </Button>
 
-              <SatToolbarControl
-                isActive={satModeActive}
-                onOpenPrompt={() => setSatPromptOpen(true)}
-                onExitSatMode={handleDisableSatMode}
+              <ExamToolbarControl
+                isActive={examModeActive}
+                onOpenPrompt={() => setExamPromptOpen(true)}
+                onExitExamMode={handleDisableExamMode}
               />
 
               <div className="hidden md:flex items-center gap-2 min-w-[7rem]">
@@ -1814,16 +1843,21 @@ function fillMissingQuestionPages(
                     </span>
                     <span className="text-base font-semibold">{tier.label}</span>
                     <span className="text-sm opacity-80">{pct}% correct</span>
-                    <SatIntegrityReport
-                      wasSatModeActive={hadSatModeRef.current || satModeActive}
-                      violations={satViolations}
+                    <ExamIntegrityReport
+                      wasExamModeActive={hadExamModeRef.current || examModeActive}
+                      violations={examViolations}
                     />
                   </div>
                 );
               })()
             : null}
 
-          <div className="flex-1 min-h-0 flex flex-col lg:flex-row overflow-hidden relative">
+          <div
+            className={cn(
+              "flex-1 min-h-0 flex flex-col lg:flex-row overflow-hidden relative transition-all duration-150",
+              activeViolation && "blur-xl opacity-0 pointer-events-none select-none",
+            )}
+          >
             {/* Paper Column: Independently scrollable, only the paper scrolls */}
             <div
               ref={scrollRef}
@@ -2115,17 +2149,17 @@ function fillMissingQuestionPages(
       />
       <McqCalculator isOpen={calcOpen} onClose={() => setCalcOpen(false)} />
 
-      <SatLockdownPromptDialog
-        open={satPromptOpen}
-        onOpenChange={setSatPromptOpen}
-        onConfirm={handleEnableSatMode}
+      <ExamLockdownPromptDialog
+        open={examPromptOpen}
+        onOpenChange={setExamPromptOpen}
+        onConfirm={handleEnableExamMode}
       />
 
-      <SatViolationOverlay
+      <ExamViolationOverlay
         violation={activeViolation}
-        totalViolations={satViolations}
+        totalViolations={examViolations}
         onResume={handleResumeFullscreen}
-        onDisableSatMode={handleDisableSatMode}
+        onDisableExamMode={handleDisableExamMode}
       />
     </div>
   );
@@ -2845,8 +2879,8 @@ function PastPaperSelector({
   onStart,
   activeDraftPaperId,
   activeDraftAnswersCount = 0,
-  startInSatMode = false,
-  onToggleSatMode,
+  startInExamMode = false,
+  onToggleExamMode,
 }: {
   papers: McqPaperSummary[];
   busy: boolean;
@@ -2854,8 +2888,8 @@ function PastPaperSelector({
   onStart: (paper: McqPaperSummary) => void;
   activeDraftPaperId?: string | null;
   activeDraftAnswersCount?: number;
-  startInSatMode?: boolean;
-  onToggleSatMode?: (enabled: boolean) => void;
+  startInExamMode?: boolean;
+  onToggleExamMode?: (enabled: boolean) => void;
 }) {
   const years = useMemo(() => {
     return uniqueSorted(
@@ -3043,21 +3077,21 @@ function PastPaperSelector({
 
         {selectedPaper ? (
           <div className="space-y-4 border-t pt-5">
-            {onToggleSatMode ? (
+            {onToggleExamMode ? (
               <div className="flex items-center justify-between gap-3 rounded-xl border border-primary/20 bg-primary/[0.03] p-3 text-xs">
                 <div className="flex items-start gap-2.5">
                   <Shield className="h-4 w-4 text-primary shrink-0 mt-0.5" />
                   <div>
-                    <p className="font-semibold text-foreground">SAT-Style Fullscreen Lockdown</p>
+                    <p className="font-semibold text-foreground">Full Screen Proctored Test Mode</p>
                     <p className="text-[11px] text-muted-foreground leading-relaxed">
-                      Launches in full-screen exam mode and monitors window/tab switching to prevent cheating.
+                      Launches in full-screen exam mode with instant window minimize and tab switch detection.
                     </p>
                   </div>
                 </div>
                 <Switch
-                  checked={startInSatMode}
-                  onCheckedChange={onToggleSatMode}
-                  aria-label="Toggle SAT Lockdown on start"
+                  checked={startInExamMode}
+                  onCheckedChange={onToggleExamMode}
+                  aria-label="Toggle Full Screen Proctored Test Mode on start"
                 />
               </div>
             ) : null}
