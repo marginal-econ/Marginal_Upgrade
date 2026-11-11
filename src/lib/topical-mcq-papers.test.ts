@@ -7,12 +7,16 @@ import {
 } from "./topical-mcq-papers";
 
 describe("topical-mcq-papers", () => {
-  it("defines valid topical past papers with complete answer keys and PDF slice coordinates", () => {
-    expect(TOPICAL_MCQ_PAPERS.length).toBeGreaterThan(0);
+  it("defines a complete 16-paper topical past paper series (8 AS + 8 A2) with valid PDF slice coordinates", () => {
+    expect(TOPICAL_MCQ_PAPERS.length).toBe(16);
+    expect(TOPICAL_MCQ_PAPERS.filter((p) => p.level === "as").length).toBe(8);
+    expect(TOPICAL_MCQ_PAPERS.filter((p) => p.level === "a2").length).toBe(8);
 
     for (const paper of TOPICAL_MCQ_PAPERS) {
       expect(paper.questions.length).toBe(paper.questionCount);
+      expect(paper.questionCount).toBeGreaterThanOrEqual(12);
       expect(Object.keys(paper.answerKey).length).toBe(paper.questionCount);
+      expect(["micro", "macro"]).toContain(paper.domain);
 
       paper.questions.forEach((q, idx) => {
         expect(q.number).toBe(idx + 1);

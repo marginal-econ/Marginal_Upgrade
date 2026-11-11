@@ -375,6 +375,8 @@ function McqLivePage() {
   const me = useQuery({ queryKey: ["me"], queryFn: () => fetchMe() });
   const effectiveUserId = routeContext?.user?.id || me.data?.userId || "guest";
   const [stage, setStage] = useState<"library" | "practice">("library");
+  const [libraryTab, setLibraryTab] = useState<"past_papers" | "topical" | "analytics">("past_papers");
+  const [showAttemptDiagnostics, setShowAttemptDiagnostics] = useState(false);
   const [selectedPaperId, setSelectedPaperId] = useState<string | null>(null);
   const [level, setLevel] = useState<Level>("as");
   const [qCount, setQCount] = useState(30);
@@ -1575,164 +1577,241 @@ function fillMissingQuestionPages(
       ) : null}
 
       {stage === "library" ? (
-        <div className="mx-auto grid max-w-5xl gap-8 px-5 py-10 md:px-8 lg:grid-cols-[1fr_20rem]">
-          <div className="min-w-0 max-w-2xl">
-            {activeDraftSummary ? (
-              <div className="mb-6 rounded-2xl border-2 border-primary/30 bg-card p-5 shadow-sm transition-all hover:border-primary/50">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="space-y-1.5 min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="flex h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse" />
-                      <span className="text-xs font-bold tracking-wider uppercase text-primary">
-                        In-Progress Exam Draft
-                      </span>
-                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2.5 py-0.5 text-xs font-semibold text-amber-500">
-                        <Clock className="h-3.5 w-3.5" />
-                        Expires in {formatRemainingTime(activeDraftSummary.remainingMs)}
-                      </span>
-                    </div>
-                    <h3 className="text-base font-bold text-foreground truncate">
-                      {activeDraftSummary.paper.title}
-                    </h3>
-                    <p className="text-xs text-muted-foreground">
-                      <strong className="text-foreground">
-                        {Object.keys(activeDraftSummary.draft.answers).length}
-                      </strong>{" "}
-                      of {activeDraftSummary.paper.questionCount} questions answered
-                      {activeDraftSummary.draft.timeLeft !== null && (
-                        <>
-                          {" "}
-                          ·{" "}
-                          <strong className="text-foreground">
-                            {formatTime(activeDraftSummary.draft.timeLeft)}
-                          </strong>{" "}
-                          remaining
-                        </>
-                      )}
-                      {" · "}Auto-purged after 12h without resuming.
-                    </p>
+        <div className="mx-auto max-w-5xl px-5 py-6 md:px-8">
+          {/* Top-level Mode Switcher: separates Full Past Papers, Topical Past Papers, and Analytics */}
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-3 border-b border-border pb-4">
+            <div className="inline-flex items-center gap-1 rounded-xl border border-border/80 bg-muted/40 p-1">
+              <button
+                type="button"
+                onClick={() => setLibraryTab("past_papers")}
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-xs sm:text-sm font-semibold transition-all",
+                  libraryTab === "past_papers"
+                    ? "bg-background text-foreground shadow-xs"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                <BookOpen className="h-3.5 w-3.5" />
+                <span>Full Past Papers</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setLibraryTab("topical")}
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-xs sm:text-sm font-semibold transition-all",
+                  libraryTab === "topical"
+                    ? "bg-primary text-primary-foreground shadow-xs"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                <Layers className="h-3.5 w-3.5" />
+                <span>Topical Past Papers</span>
+                <span
+                  className={cn(
+                    "rounded-full px-1.5 py-0.2 text-[10px] font-mono font-bold",
+                    libraryTab === "topical"
+                      ? "bg-primary-foreground/20 text-primary-foreground"
+                      : "bg-primary/15 text-primary",
+                  )}
+                >
+                  {TOPICAL_MCQ_PAPERS.length}
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setLibraryTab("analytics")}
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-xs sm:text-sm font-semibold transition-all",
+                  libraryTab === "analytics"
+                    ? "bg-background text-foreground shadow-xs"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                <TrendingUp className="h-3.5 w-3.5" />
+                <span>Topic Feedback &amp; History</span>
+              </button>
+            </div>
+
+            <a
+              href="/mcq-papers-admin"
+              className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2"
+            >
+              Admin? Manage library
+            </a>
+          </div>
+
+          {/* Active Draft Banner (shown compactly at top if an exam is in progress) */}
+          {activeDraftSummary ? (
+            <div className="mb-6 rounded-xl border border-primary/40 bg-primary/[0.04] px-4 py-3.5 shadow-2xs">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="space-y-0.5 min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                    <span className="text-[11px] font-bold tracking-wider uppercase text-primary">
+                      In-Progress Exam
+                    </span>
+                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold text-amber-600 dark:text-amber-400">
+                      <Clock className="h-3 w-3" />
+                      Expires in {formatRemainingTime(activeDraftSummary.remainingMs)}
+                    </span>
                   </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="text-muted-foreground hover:text-destructive hover:border-destructive/40"
-                      onClick={() => {
-                        if (
-                          window.confirm(
-                            "Are you sure you want to discard your in-progress exam? All unsaved answers will be deleted.",
-                          )
-                        ) {
-                          window.localStorage.removeItem(
-                            mcqDraftKey(effectiveUserId, activeDraftSummary.paper.id),
-                          );
-                          window.localStorage.removeItem(mcqActiveKey(effectiveUserId));
-                          window.localStorage.removeItem(
-                            mcqDraftKey("guest", activeDraftSummary.paper.id),
-                          );
-                          window.localStorage.removeItem(mcqActiveKey("guest"));
-                          setDraftRefreshKey((k) => k + 1);
-                          toast.success("Exam draft discarded.");
-                        }
-                      }}
-                    >
-                      <Trash2 className="mr-1.5 h-3.5 w-3.5" />
-                      Discard
-                    </Button>
-                    <Button
-                      size="sm"
-                      className="bg-primary text-primary-foreground font-semibold shadow hover:bg-primary/90"
-                      onClick={() => beginPractice(activeDraftSummary.paper)}
-                    >
-                      <Play className="mr-1.5 h-3.5 w-3.5 fill-current" />
-                      Resume Exam
-                    </Button>
-                  </div>
+                  <h3 className="text-sm font-bold text-foreground truncate">
+                    {activeDraftSummary.paper.title}
+                  </h3>
+                  <p className="text-xs text-muted-foreground">
+                    <strong className="text-foreground">
+                      {Object.keys(activeDraftSummary.draft.answers).length}
+                    </strong>{" "}
+                    of {activeDraftSummary.paper.questionCount} answered
+                    {activeDraftSummary.draft.timeLeft !== null ? (
+                      <>
+                        {" "}
+                        ·{" "}
+                        <strong className="text-foreground">
+                          {formatTime(activeDraftSummary.draft.timeLeft)}
+                        </strong>{" "}
+                        left
+                      </>
+                    ) : null}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 text-xs text-muted-foreground hover:text-destructive hover:border-destructive/40"
+                    onClick={() => {
+                      if (
+                        window.confirm(
+                          "Discard your in-progress exam? All unsaved answers will be deleted.",
+                        )
+                      ) {
+                        window.localStorage.removeItem(
+                          mcqDraftKey(effectiveUserId, activeDraftSummary.paper.id),
+                        );
+                        window.localStorage.removeItem(mcqActiveKey(effectiveUserId));
+                        window.localStorage.removeItem(
+                          mcqDraftKey("guest", activeDraftSummary.paper.id),
+                        );
+                        window.localStorage.removeItem(mcqActiveKey("guest"));
+                        setDraftRefreshKey((k) => k + 1);
+                        toast.success("Exam draft discarded.");
+                      }
+                    }}
+                  >
+                    <Trash2 className="mr-1 h-3.5 w-3.5" />
+                    Discard
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="h-8 text-xs font-semibold"
+                    onClick={() => beginPractice(activeDraftSummary.paper)}
+                  >
+                    <Play className="mr-1 h-3.5 w-3.5 fill-current" />
+                    Resume
+                  </Button>
                 </div>
               </div>
-            ) : null}
-
-            <div className="mb-5 flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <BookOpen className="h-4 w-4 text-muted-foreground" />
-                <p className="text-sm font-medium">Pick a paper to practice</p>
-              </div>
-              <a
-                href="/mcq-papers-admin"
-                className="text-xs text-muted-foreground underline underline-offset-2"
-              >
-                Admin? Manage the library
-              </a>
             </div>
+          ) : null}
 
-            {topicPerformance.data && topicPerformance.data.topics.length > 0 ? (
-              <div className="mb-6 space-y-4">
-                <McqDomainBreakdown
-                  domains={aggregateMcqDomainsFromTopicStats(
-                    topicPerformance.data.topics.map((t) => ({
-                      topic: t.topic,
-                      attempted: t.attempted,
-                      correct: t.correct,
-                    })),
-                  )}
-                  title="Overall Performance: micro vs macro"
-                />
-                <McqReviewPanel topics={topicPerformance.data.topics} />
+          {/* TAB 1: FULL PAST PAPERS */}
+          {libraryTab === "past_papers" ? (
+            <div className="grid gap-6 lg:grid-cols-[1fr_19rem]">
+              <div className="min-w-0">
+                {papersQuery.isLoading ? (
+                  <p className="text-sm text-muted-foreground">Loading the library…</p>
+                ) : (papersQuery.data?.papers.length ?? 0) === 0 ? (
+                  <Card>
+                    <CardContent className="py-8 text-center text-sm text-muted-foreground">
+                      No papers are published in the library yet.
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <PastPaperSelector
+                    papers={papersQuery.data!.papers}
+                    busy={!!busyLabel}
+                    busyPaperId={selectedPaperId}
+                    onStart={beginPractice}
+                    activeDraftPaperId={activeDraftSummary?.paper.id}
+                    activeDraftAnswersCount={
+                      activeDraftSummary ? Object.keys(activeDraftSummary.draft.answers).length : 0
+                    }
+                    startInExamMode={startInExamMode}
+                    onToggleExamMode={setStartInExamMode}
+                  />
+                )}
               </div>
-            ) : null}
 
-            <div className="mb-6">
-              <TopicalPaperShowcase
-                topicalPapers={TOPICAL_MCQ_PAPERS}
-                busy={!!busyLabel}
-                busyPaperId={selectedPaperId}
-                onStart={(topical) => beginPractice(toMcqPaperSummaryFromTopical(topical))}
-                activeDraftPaperId={activeDraftSummary?.paper.id}
-                activeDraftAnswersCount={
-                  activeDraftSummary ? Object.keys(activeDraftSummary.draft.answers).length : 0
-                }
-              />
-            </div>
-
-            {papersQuery.isLoading ? (
-              <p className="text-sm text-muted-foreground">Loading the library…</p>
-            ) : (papersQuery.data?.papers.length ?? 0) === 0 ? (
-              <Card>
-                <CardContent className="py-8 text-center text-sm text-muted-foreground">
-                  No papers are published in the library yet.
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="space-y-4">
-                <PastPaperSelector
-                  papers={papersQuery.data!.papers}
-                  busy={!!busyLabel}
-                  busyPaperId={selectedPaperId}
-                  onStart={beginPractice}
-                  activeDraftPaperId={activeDraftSummary?.paper.id}
-                  activeDraftAnswersCount={
-                    activeDraftSummary ? Object.keys(activeDraftSummary.draft.answers).length : 0
-                  }
-                  startInExamMode={startInExamMode}
-                  onToggleExamMode={setStartInExamMode}
+              <div className="lg:sticky lg:top-6 lg:self-start">
+                <PaperHistorySidebar
+                  entries={paperHistory.data?.papers ?? []}
+                  isLoading={paperHistory.isLoading}
+                  onReview={(attemptId) => setHistoryAttemptId(attemptId)}
                 />
               </div>
-            )}
+            </div>
+          ) : null}
 
-            <p className="mt-5 flex items-start gap-1.5 text-xs text-muted-foreground">
-              <Sparkles className="mt-0.5 h-3 w-3 shrink-0" />
-              Read each question off the real paper, then answer from the button panel next to it —
-              nothing is placed on a guess, and AI never writes, changes, or places any question.
-            </p>
-          </div>
-
-          <div className="lg:sticky lg:top-10 lg:self-start">
-            <PaperHistorySidebar
-              entries={paperHistory.data?.papers ?? []}
-              isLoading={paperHistory.isLoading}
-              onReview={(attemptId) => setHistoryAttemptId(attemptId)}
+          {/* TAB 2: TOPICAL PAST PAPERS (ALL 16 SYLLABUS TOPICS) */}
+          {libraryTab === "topical" ? (
+            <TopicalPaperShowcase
+              topicalPapers={TOPICAL_MCQ_PAPERS}
+              busy={!!busyLabel}
+              busyPaperId={selectedPaperId}
+              onStart={(topical) => beginPractice(toMcqPaperSummaryFromTopical(topical))}
+              activeDraftPaperId={activeDraftSummary?.paper.id}
+              activeDraftAnswersCount={
+                activeDraftSummary ? Object.keys(activeDraftSummary.draft.answers).length : 0
+              }
+              startInExamMode={startInExamMode}
+              onToggleExamMode={setStartInExamMode}
             />
-          </div>
+          ) : null}
+
+          {/* TAB 3: PERFORMANCE & ANALYTICS */}
+          {libraryTab === "analytics" ? (
+            <div className="grid gap-6 lg:grid-cols-[1fr_19rem]">
+              <div className="min-w-0 space-y-4">
+                {topicPerformance.data && topicPerformance.data.topics.length > 0 ? (
+                  <>
+                    <McqDomainBreakdown
+                      domains={aggregateMcqDomainsFromTopicStats(
+                        topicPerformance.data.topics.map((t) => ({
+                          topic: t.topic,
+                          attempted: t.attempted,
+                          correct: t.correct,
+                        })),
+                      )}
+                      title="Overall Performance: Microeconomics vs Macroeconomics"
+                    />
+                    <McqReviewPanel topics={topicPerformance.data.topics} />
+                  </>
+                ) : (
+                  <Card className="border-border/80">
+                    <CardContent className="py-10 text-center space-y-2">
+                      <TrendingUp className="h-7 w-7 text-muted-foreground mx-auto" />
+                      <p className="text-sm font-semibold text-foreground">
+                        No completed MCQ analytics yet
+                      </p>
+                      <p className="text-xs text-muted-foreground max-w-md mx-auto">
+                        Complete a Full Past Paper or Topical Past Paper to unlock your
+                        Microeconomics vs Macroeconomics split and topic-by-topic diagnostic report.
+                      </p>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+
+              <div className="lg:sticky lg:top-6 lg:self-start">
+                <PaperHistorySidebar
+                  entries={paperHistory.data?.papers ?? []}
+                  isLoading={paperHistory.isLoading}
+                  onReview={(attemptId) => setHistoryAttemptId(attemptId)}
+                />
+              </div>
+            </div>
+          ) : null}
         </div>
       ) : (
         <div
@@ -1925,21 +2004,41 @@ function fillMissingQuestionPages(
                 const tier = resultTier(pct);
                 return (
                   <div
-                    className={[
-                      "shrink-0 animate-in fade-in slide-in-from-top-2 zoom-in-95 flex flex-col items-center justify-center gap-1.5 border-b px-5 py-5 text-center duration-300",
+                    className={cn(
+                      "shrink-0 flex flex-wrap items-center justify-between gap-3 border-b px-4 py-2.5 md:px-6",
                       tier.className,
-                    ].join(" ")}
+                    )}
                   >
-                    <tier.Icon className="h-8 w-8" />
-                    <span className="text-3xl font-bold tracking-tight">
-                      {result.score} / {result.total}
-                    </span>
-                    <span className="text-base font-semibold">{tier.label}</span>
-                    <span className="text-sm opacity-80">{pct}% correct</span>
-                    <ExamIntegrityReport
-                      wasExamModeActive={hadExamModeRef.current || examModeActive}
-                      violations={examViolations}
-                    />
+                    <div className="flex flex-wrap items-center gap-2.5">
+                      <tier.Icon className="h-5 w-5 shrink-0" />
+                      <span className="text-lg font-extrabold tracking-tight tabular-nums">
+                        {result.score} / {result.total}
+                      </span>
+                      <span className="rounded-full border border-current/25 bg-background/50 px-2 py-0.5 font-mono text-xs font-bold">
+                        {pct}%
+                      </span>
+                      <span className="text-xs sm:text-sm font-semibold">{tier.label}</span>
+                      <ExamIntegrityReport
+                        wasExamModeActive={hadExamModeRef.current || examModeActive}
+                        violations={examViolations}
+                      />
+                    </div>
+
+                    {attemptTopics.length > 0 ? (
+                      <Button
+                        size="sm"
+                        variant={showAttemptDiagnostics ? "default" : "outline"}
+                        onClick={() => setShowAttemptDiagnostics((v) => !v)}
+                        className="h-7 gap-1.5 px-2.5 text-xs font-semibold bg-background/90 text-foreground hover:bg-background"
+                      >
+                        <TrendingUp className="h-3.5 w-3.5 text-primary" />
+                        <span>
+                          {showAttemptDiagnostics
+                            ? "Hide Topic Breakdown"
+                            : "View Topic Breakdown"}
+                        </span>
+                      </Button>
+                    ) : null}
                   </div>
                 );
               })()
@@ -1957,14 +2056,17 @@ function fillMissingQuestionPages(
               className="flex-1 min-w-0 h-full overflow-y-auto px-2 sm:px-4 py-4 scroll-smooth"
             >
               <div className="w-full max-w-[820px] mx-auto flex flex-col items-center gap-8 pb-36 lg:pb-16">
-                {graded && attemptTopics.length > 0 ? (
-                  <div className="w-full max-w-2xl space-y-4 pt-2 pb-6 border-b border-border/80">
-                    <McqDomainBreakdown domains={attemptDomains} title="This paper: Microeconomics vs Macroeconomics" />
+                {graded && showAttemptDiagnostics && attemptTopics.length > 0 ? (
+                  <div className="w-full max-w-2xl space-y-3 pt-1 pb-4 border-b border-border/80 animate-in fade-in slide-in-from-top-2 duration-200">
+                    <McqDomainBreakdown
+                      domains={attemptDomains}
+                      title="This Paper: Microeconomics vs Macroeconomics"
+                    />
                     <McqReviewPanel
                       topics={attemptTopics}
                       questions={reviewQuestions}
                       onSelectQuestion={goToQuestion}
-                      title="Topic-Wise Diagnostic & Lagging Areas (This Paper)"
+                      title="Topic Diagnostic (This Paper)"
                       emptyLabel="No topics tagged."
                     />
                   </div>
@@ -3385,6 +3487,8 @@ function TopicalPaperShowcase({
   onStart,
   activeDraftPaperId,
   activeDraftAnswersCount = 0,
+  startInExamMode = false,
+  onToggleExamMode,
 }: {
   topicalPapers: TopicalMcqPaper[];
   busy: boolean;
@@ -3392,107 +3496,258 @@ function TopicalPaperShowcase({
   onStart: (paper: TopicalMcqPaper) => void;
   activeDraftPaperId?: string | null;
   activeDraftAnswersCount?: number;
+  startInExamMode?: boolean;
+  onToggleExamMode?: (enabled: boolean) => void;
 }) {
-  if (topicalPapers.length === 0) return null;
+  const [selectedLevel, setSelectedLevel] = useState<"as" | "a2">("as");
+  const [selectedDomain, setSelectedDomain] = useState<"all" | "micro" | "macro">("all");
+  const [selectedId, setSelectedId] = useState<string>(
+    topicalPapers[0]?.id ?? "topical-9708-as-price-system-micro",
+  );
+
+  const filteredPapers = useMemo(() => {
+    return topicalPapers.filter((p) => {
+      if (p.level !== selectedLevel) return false;
+      if (selectedDomain !== "all" && p.domain !== selectedDomain) return false;
+      return true;
+    });
+  }, [topicalPapers, selectedLevel, selectedDomain]);
+
+  const activeTopic = useMemo(() => {
+    return (
+      filteredPapers.find((p) => p.id === selectedId) ??
+      filteredPapers[0] ??
+      topicalPapers[0] ??
+      null
+    );
+  }, [filteredPapers, selectedId, topicalPapers]);
+
+  if (topicalPapers.length === 0 || !activeTopic) return null;
+
+  const isBusyActive = busy && busyPaperId === activeTopic.id;
+  const isDraftActive = activeDraftPaperId === activeTopic.id;
+  const uniqueSourcePapers = Array.from(
+    new Set(activeTopic.questions.map((q) => q.sourcePaperCode)),
+  );
 
   return (
-    <div className="space-y-4">
-      {topicalPapers.map((topical) => {
-        const isBusyThis = busy && busyPaperId === topical.id;
-        const isDraftThis = activeDraftPaperId === topical.id;
-        const uniqueSourcePapers = Array.from(
-          new Set(topical.questions.map((q) => q.sourcePaperCode)),
-        );
-
-        return (
-          <Card
-            key={topical.id}
-            className="overflow-hidden border-2 border-primary/70 bg-gradient-to-br from-primary/[0.06] via-background to-background shadow-[6px_6px_0_hsl(var(--primary)/0.25)]"
+    <div className="space-y-5">
+      {/* Top Filter Bar: AS vs A2 Level + Micro vs Macro */}
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/80 bg-card p-3 shadow-2xs">
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => {
+              setSelectedLevel("as");
+              const firstAs = topicalPapers.find(
+                (p) =>
+                  p.level === "as" && (selectedDomain === "all" || p.domain === selectedDomain),
+              );
+              if (firstAs) setSelectedId(firstAs.id);
+            }}
+            className={cn(
+              "rounded-lg px-3 py-1.5 text-xs font-bold transition-all",
+              selectedLevel === "as"
+                ? "bg-primary text-primary-foreground shadow-2xs"
+                : "bg-muted/60 text-muted-foreground hover:text-foreground",
+            )}
           >
-            <CardContent className="space-y-4 p-5 sm:p-6">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-primary px-2.5 py-0.5 text-[10px] font-bold tracking-wider uppercase text-primary-foreground">
-                    <Layers className="h-3 w-3" />
-                    Topical Past Paper · Real Exam Slices
-                  </span>
-                  <UiBadge variant="outline" className="text-[10px] font-semibold uppercase">
-                    Cambridge {topical.syllabusCode} · {topical.level.toUpperCase()} Level
-                  </UiBadge>
-                  <UiBadge
-                    variant="secondary"
-                    className="text-[10px] font-semibold text-primary border-primary/30"
-                  >
-                    {topical.visualSummaryLabel}
-                  </UiBadge>
+            AS Level (Units 1–6 · 8 Topics)
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setSelectedLevel("a2");
+              const firstA2 = topicalPapers.find(
+                (p) =>
+                  p.level === "a2" && (selectedDomain === "all" || p.domain === selectedDomain),
+              );
+              if (firstA2) setSelectedId(firstA2.id);
+            }}
+            className={cn(
+              "rounded-lg px-3 py-1.5 text-xs font-bold transition-all",
+              selectedLevel === "a2"
+                ? "bg-primary text-primary-foreground shadow-2xs"
+                : "bg-muted/60 text-muted-foreground hover:text-foreground",
+            )}
+          >
+            A Level / A2 (Units 7–11 · 8 Topics)
+          </button>
+        </div>
+
+        <div className="flex items-center gap-1 rounded-lg border border-border/70 bg-muted/30 p-0.5 text-xs">
+          {(
+            [
+              { id: "all", label: "All Units" },
+              { id: "micro", label: "Microeconomics" },
+              { id: "macro", label: "Macroeconomics" },
+            ] as const
+          ).map((d) => (
+            <button
+              key={d.id}
+              type="button"
+              onClick={() => setSelectedDomain(d.id)}
+              className={cn(
+                "rounded-md px-2.5 py-1 font-medium transition-colors",
+                selectedDomain === d.id
+                  ? "bg-background text-foreground shadow-2xs"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {d.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Main 2-Column Workspace: Topic Grid on Left, Selected Topic Details & Launch Card on Right */}
+      <div className="grid gap-6 lg:grid-cols-[1fr_22rem]">
+        {/* Left: Compact Scannable Topic Selector Grid */}
+        <div className="grid gap-2.5 sm:grid-cols-2 content-start">
+          {filteredPapers.map((paper) => {
+            const isSelected = paper.id === activeTopic.id;
+            const isDraft = activeDraftPaperId === paper.id;
+            return (
+              <button
+                key={paper.id}
+                type="button"
+                onClick={() => setSelectedId(paper.id)}
+                className={cn(
+                  "group relative flex flex-col justify-between gap-2 rounded-xl border p-3.5 text-left transition-all",
+                  isSelected
+                    ? "border-2 border-primary bg-primary/[0.05] shadow-xs"
+                    : "border-border/80 bg-card hover:border-primary/40 hover:bg-muted/20",
+                )}
+              >
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between gap-1.5">
+                    <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-primary">
+                      {paper.topicNumber} · {paper.domain === "micro" ? "Micro" : "Macro"}
+                    </span>
+                    <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] font-semibold text-muted-foreground">
+                      {paper.questionCount} Qs
+                    </span>
+                  </div>
+                  <p className="text-xs sm:text-sm font-bold text-foreground leading-snug line-clamp-2">
+                    {paper.shortTitle}
+                  </p>
                 </div>
-                <span className="font-mono text-[11px] font-semibold text-muted-foreground">
-                  {topical.sourceYearsLabel}
+
+                <div className="flex flex-wrap items-center justify-between gap-1.5 pt-1 border-t border-border/50 text-[10px] text-muted-foreground">
+                  <span className="font-medium text-foreground/80">{paper.visualSummaryLabel}</span>
+                  {isDraft ? (
+                    <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                      In Progress ({activeDraftAnswersCount}/{paper.questionCount})
+                    </span>
+                  ) : (
+                    <span>{Math.round(paper.durationSeconds / 60)} min</span>
+                  )}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Right: Sticky Selected Topic Launch Card */}
+        <div className="lg:sticky lg:top-6 lg:self-start">
+          <Card className="overflow-hidden border-2 border-foreground/80 shadow-[5px_5px_0_hsl(var(--foreground))]">
+            <CardContent className="space-y-4 p-5">
+              <div className="flex flex-wrap items-center justify-between gap-1.5">
+                <span className="inline-flex items-center gap-1 rounded-full bg-primary px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary-foreground">
+                  <Layers className="h-3 w-3" />
+                  {activeTopic.topicNumber}
                 </span>
+                <UiBadge variant="outline" className="text-[10px] font-semibold uppercase">
+                  {activeTopic.level === "as" ? "AS Level (Paper 1)" : "A Level (Paper 3)"}
+                </UiBadge>
               </div>
 
               <div className="space-y-1.5">
-                <p className="text-xs font-bold uppercase tracking-wider text-primary">
-                  {topical.topicNumber} · Official Printed Diagrams & Tables
-                </p>
-                <h3 className="text-base sm:text-lg font-bold tracking-tight text-foreground">
-                  {topical.shortTitle}
+                <h3 className="text-base font-bold leading-snug text-foreground">
+                  {activeTopic.shortTitle}
                 </h3>
-                <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
-                  {topical.subtitle}
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  {activeTopic.subtitle}
                 </p>
               </div>
 
-              <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
-                <span className="text-[11px] font-medium text-muted-foreground mr-1">
-                  Compiled from:
-                </span>
-                {uniqueSourcePapers.map((code) => (
-                  <span
-                    key={code}
-                    className="rounded-md border border-border/80 bg-muted/50 px-2 py-0.5 font-mono text-[11px] font-medium text-foreground"
-                  >
-                    {code}
+              <div className="grid grid-cols-2 gap-2 rounded-lg border border-border/70 bg-muted/25 p-2.5 text-xs">
+                <div>
+                  <span className="text-[10px] text-muted-foreground uppercase font-semibold">
+                    Questions &amp; Time
                   </span>
-                ))}
-                <span className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
-                  {topical.questionCount} Questions · {Math.round(topical.durationSeconds / 60)} min
-                </span>
+                  <p className="font-bold text-foreground">
+                    {activeTopic.questionCount} Qs · {Math.round(activeTopic.durationSeconds / 60)}{" "}
+                    min
+                  </p>
+                </div>
+                <div>
+                  <span className="text-[10px] text-muted-foreground uppercase font-semibold">
+                    Real Visuals
+                  </span>
+                  <p className="font-bold text-primary">{activeTopic.visualSummaryLabel}</p>
+                </div>
               </div>
 
-              <div className="flex flex-col gap-3 border-t border-border/60 pt-4 sm:flex-row sm:items-center sm:justify-between">
-                <p className="text-xs text-muted-foreground">
-                  Every graph, table, and option is sliced directly from the original Cambridge PDF
-                  with official mark-scheme grading.
-                </p>
-                <Button
-                  size="lg"
-                  disabled={busy}
-                  onClick={() => onStart(topical)}
-                  className="min-w-48 shrink-0 font-semibold shadow-sm"
-                >
-                  {isBusyThis ? (
-                    <>
-                      <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-                      Building slices…
-                    </>
-                  ) : isDraftThis ? (
-                    <>
-                      <Play className="mr-1.5 h-4 w-4 fill-current" />
-                      Resume Topical Paper ({activeDraftAnswersCount}/{topical.questionCount})
-                    </>
-                  ) : (
-                    <>
-                      <Play className="mr-1.5 h-4 w-4 fill-current" />
-                      Start Topical Paper
-                    </>
-                  )}
-                </Button>
+              <div className="space-y-1.5">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  Sliced From Official Papers
+                </span>
+                <div className="flex flex-wrap gap-1">
+                  {uniqueSourcePapers.map((code) => (
+                    <span
+                      key={code}
+                      className="rounded border border-border/80 bg-muted/50 px-1.5 py-0.5 font-mono text-[10px] font-medium text-foreground"
+                    >
+                      {code}
+                    </span>
+                  ))}
+                </div>
               </div>
+
+              {onToggleExamMode ? (
+                <div className="flex items-center justify-between gap-2 rounded-lg border border-primary/20 bg-primary/[0.03] px-3 py-2 text-xs">
+                  <div className="flex items-center gap-2">
+                    <Shield className="h-3.5 w-3.5 text-primary shrink-0" />
+                    <span className="font-semibold text-foreground text-[11px]">
+                      Full Screen Proctored Mode
+                    </span>
+                  </div>
+                  <Switch
+                    checked={startInExamMode}
+                    onCheckedChange={onToggleExamMode}
+                    aria-label="Toggle Full Screen Proctored Test Mode"
+                  />
+                </div>
+              ) : null}
+
+              <Button
+                size="lg"
+                disabled={busy}
+                onClick={() => onStart(activeTopic)}
+                className="w-full font-semibold shadow-sm"
+              >
+                {isBusyActive ? (
+                  <>
+                    <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                    Building exam slices…
+                  </>
+                ) : isDraftActive ? (
+                  <>
+                    <Play className="mr-1.5 h-4 w-4 fill-current" />
+                    Resume Topic ({activeDraftAnswersCount}/{activeTopic.questionCount})
+                  </>
+                ) : (
+                  <>
+                    <Play className="mr-1.5 h-4 w-4 fill-current" />
+                    Start Topical Paper
+                  </>
+                )}
+              </Button>
             </CardContent>
           </Card>
-        );
-      })}
+        </div>
+      </div>
     </div>
   );
 }
