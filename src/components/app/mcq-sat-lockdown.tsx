@@ -9,7 +9,6 @@ import {
   Shield,
   ShieldAlert,
   ShieldCheck,
-  Smartphone,
   XCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -28,15 +27,19 @@ import { cn } from "@/lib/utils";
 /* Fullscreen & Device Permission Utilities                              */
 /* -------------------------------------------------------------------- */
 
-export type SatViolationType = "fullscreen_exit" | "tab_switch" | "window_blur";
+export type ExamViolationType = "fullscreen_exit" | "tab_switch" | "window_blur";
 
-export interface SatViolation {
+export interface ExamViolation {
   id: string;
-  type: SatViolationType;
+  type: ExamViolationType;
   timestamp: number;
   title: string;
   description: string;
 }
+
+// Backwards-compatible aliases
+export type SatViolation = ExamViolation;
+export type SatViolationType = ExamViolationType;
 
 /**
  * Check whether the current device/browser supports the Fullscreen API.
@@ -58,7 +61,7 @@ export function checkDeviceFullscreenSupport(): { supported: boolean; reason?: s
     return {
       supported: false,
       reason:
-        "Fullscreen API is disabled or not supported by this browser engine or device OS (e.g., iPhone Safari).",
+        "Fullscreen API is restricted by this browser engine or operating system.",
     };
   }
 
@@ -81,7 +84,7 @@ export function isExamFullscreenActive(): boolean {
 
 /**
  * Request full-screen display on documentElement with cross-browser fallback
- * and optional Keyboard Lock (Chromium).
+ * and Keyboard Lock (Chromium).
  */
 export async function requestExamFullscreen(
   targetElement: HTMLElement = document.documentElement,
@@ -107,7 +110,7 @@ export async function requestExamFullscreen(
       };
     }
 
-    // Attempt Keyboard Lock for Chromium-based browsers (Digital SAT / Bluebook behaviour)
+    // Attempt Keyboard Lock for Chromium-based browsers
     // Prevents accidental single-press Escape exits without user confirmation.
     if ("keyboard" in navigator && typeof (navigator as any).keyboard?.lock === "function") {
       try {
@@ -159,22 +162,22 @@ export async function exitExamFullscreen(): Promise<void> {
 }
 
 /* -------------------------------------------------------------------- */
-/* Component: SAT Mode Activation Pre-Flight Dialog                      */
+/* Component: Full Screen Exam Mode Activation Pre-Flight Dialog        */
 /* -------------------------------------------------------------------- */
 
-interface SatLockdownPromptDialogProps {
+interface ExamLockdownPromptDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onConfirm: () => void;
   isStarting?: boolean;
 }
 
-export function SatLockdownPromptDialog({
+export function ExamLockdownPromptDialog({
   open,
   onOpenChange,
   onConfirm,
   isStarting = false,
-}: SatLockdownPromptDialogProps) {
+}: ExamLockdownPromptDialogProps) {
   const support = checkDeviceFullscreenSupport();
 
   return (
@@ -187,10 +190,10 @@ export function SatLockdownPromptDialog({
             </div>
             <div>
               <DialogTitle className="text-lg font-bold text-foreground">
-                SAT-Style Fullscreen Lockdown Mode
+                Full Screen Proctored Test Mode
               </DialogTitle>
               <DialogDescription className="text-xs text-muted-foreground">
-                Simulate official proctored exam conditions and prevent window switching
+                Authentic proctored exam conditions with instant window and tab lock
               </DialogDescription>
             </div>
           </div>
@@ -201,9 +204,9 @@ export function SatLockdownPromptDialog({
             <div className="flex items-start gap-2.5">
               <Maximize2 className="h-4 w-4 text-primary shrink-0 mt-0.5" />
               <div>
-                <p className="font-semibold text-foreground">Full-Screen Display</p>
+                <p className="font-semibold text-foreground">Dedicated Full-Screen Display</p>
                 <p className="text-muted-foreground leading-relaxed mt-0.5">
-                  Replicates the College Board Bluebook SAT app by taking over the full display, hiding browser tabs, URL bars, and system docks.
+                  Takes over the full monitor, hiding browser tabs, URL bars, and system docks for zero distractions.
                 </p>
               </div>
             </div>
@@ -211,9 +214,9 @@ export function SatLockdownPromptDialog({
             <div className="flex items-start gap-2.5">
               <Lock className="h-4 w-4 text-primary shrink-0 mt-0.5" />
               <div>
-                <p className="font-semibold text-foreground">Window & Tab Switch Monitoring</p>
+                <p className="font-semibold text-foreground">Instant Window & Tab Switch Lock</p>
                 <p className="text-muted-foreground leading-relaxed mt-0.5">
-                  Tabbing out, opening other apps, or exiting full screen triggers an immediate focus loss warning and obscures questions to prevent cheating.
+                  Minimizing the window, tabbing out, or clicking outside immediately triggers an exam room warning and conceals questions to prevent cheating.
                 </p>
               </div>
             </div>
@@ -221,7 +224,7 @@ export function SatLockdownPromptDialog({
             <div className="flex items-start gap-2.5">
               <ShieldCheck className="h-4 w-4 text-primary shrink-0 mt-0.5" />
               <div>
-                <p className="font-semibold text-foreground">Anti-Cheat Protection</p>
+                <p className="font-semibold text-foreground">Anti-Cheat Security</p>
                 <p className="text-muted-foreground leading-relaxed mt-0.5">
                   Right-click inspection, copy-paste shortcuts, and developer shortcuts are intercepted and locked.
                 </p>
@@ -235,11 +238,11 @@ export function SatLockdownPromptDialog({
               <span>Device & Browser Permissions:</span>
             </div>
             <p className="text-muted-foreground leading-relaxed">
-              When you click <strong className="text-foreground">Enable SAT Lockdown</strong>, your browser will prompt for full-screen permission. You can enable or disable this mode at any time using the toolbar button or the Exit SAT toggle.
+              When you click <strong className="text-foreground">Enable Full Screen Mode</strong>, your browser will prompt for full-screen permission. You can enable or disable this mode at any time using the toolbar button or the Exit toggle.
             </p>
             {!support.supported && (
               <p className="text-amber-600 dark:text-amber-400 font-medium pt-1">
-                Note: {support.reason} On this device, SAT Mode will operate in enhanced full-viewport lockdown.
+                Note: {support.reason} On this device, proctored mode will operate in enhanced full-viewport lockdown.
               </p>
             )}
           </div>
@@ -260,7 +263,7 @@ export function SatLockdownPromptDialog({
             className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold text-xs gap-1.5 shadow-sm"
           >
             <ShieldCheck className="h-4 w-4" />
-            <span>{isStarting ? "Start in SAT Lockdown" : "Enable SAT Lockdown"}</span>
+            <span>{isStarting ? "Start in Full Screen Mode" : "Enable Full Screen Mode"}</span>
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -268,31 +271,34 @@ export function SatLockdownPromptDialog({
   );
 }
 
+// Backwards-compatible export
+export const SatLockdownPromptDialog = ExamLockdownPromptDialog;
+
 /* -------------------------------------------------------------------- */
 /* Component: Violation Warning Overlay                                 */
 /* -------------------------------------------------------------------- */
 
-interface SatViolationOverlayProps {
-  violation: SatViolation | null;
-  totalViolations: SatViolation[];
+interface ExamViolationOverlayProps {
+  violation: ExamViolation | null;
+  totalViolations: ExamViolation[];
   onResume: () => void;
-  onDisableSatMode: () => void;
+  onDisableExamMode: () => void;
 }
 
-export function SatViolationOverlay({
+export function ExamViolationOverlay({
   violation,
   totalViolations,
   onResume,
-  onDisableSatMode,
-}: SatViolationOverlayProps) {
+  onDisableExamMode,
+}: ExamViolationOverlayProps) {
   if (!violation) return null;
 
   return (
     <div
       role="alertdialog"
       aria-modal="true"
-      aria-label="SAT Exam Lockdown Warning"
-      className="fixed inset-0 z-[250] flex items-center justify-center bg-background/95 backdrop-blur-md p-4 animate-in fade-in zoom-in-95 duration-200"
+      aria-label="Full Screen Test Mode Warning"
+      className="fixed inset-0 z-[250] flex items-center justify-center bg-background/95 backdrop-blur-md p-4 animate-in fade-in zoom-in-95 duration-150"
     >
       <div className="w-full max-w-lg rounded-2xl border-2 border-destructive/50 bg-card p-6 shadow-2xl space-y-5 text-center">
         {/* Warning Icon Banner */}
@@ -306,21 +312,21 @@ export function SatViolationOverlay({
               variant="outline"
               className="border-destructive/40 bg-destructive/10 text-destructive font-mono text-xs font-bold uppercase tracking-wider px-2.5 py-0.5"
             >
-              Strike {totalViolations.length} of 3
+              Warning {totalViolations.length} of 3
             </Badge>
             <span className="text-xs text-muted-foreground font-medium">
-              Official SAT Lockdown Monitor
+              Official Exam Room Monitor
             </span>
           </div>
 
           <h3 className="text-xl font-bold tracking-tight text-foreground">
-            Focus Loss Detected!
+            Focus Loss / Minimize Detected!
           </h3>
           <p className="text-sm font-semibold text-destructive">
             {violation.title}
           </p>
           <p className="text-xs text-muted-foreground leading-relaxed max-w-md mx-auto">
-            {violation.description} To ensure exam authenticity and prevent cheating, all exam content is obscured until you return to full-screen mode.
+            {violation.description} To ensure exam room authenticity and prevent cheating, all exam content is hidden until you return to full-screen mode.
           </p>
         </div>
 
@@ -328,7 +334,7 @@ export function SatViolationOverlay({
         {totalViolations.length > 0 && (
           <div className="rounded-xl border border-border/80 bg-muted/30 p-3 text-left space-y-2 max-h-36 overflow-y-auto">
             <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
-              Logged Event History ({totalViolations.length})
+              Logged Events ({totalViolations.length})
             </span>
             <div className="space-y-1 text-xs">
               {totalViolations.map((v, i) => (
@@ -366,10 +372,10 @@ export function SatViolationOverlay({
           <Button
             variant="outline"
             size="default"
-            onClick={onDisableSatMode}
+            onClick={onDisableExamMode}
             className="w-full sm:w-auto text-xs text-muted-foreground hover:text-foreground"
           >
-            Turn Off SAT Mode
+            Turn Off Full Screen Mode
           </Button>
         </div>
       </div>
@@ -377,21 +383,38 @@ export function SatViolationOverlay({
   );
 }
 
-/* -------------------------------------------------------------------- */
-/* Component: Practice Top Bar SAT Control                              */
-/* -------------------------------------------------------------------- */
-
-interface SatToolbarControlProps {
-  isActive: boolean;
-  onOpenPrompt: () => void;
-  onExitSatMode: () => void;
+// Backwards-compatible export
+export function SatViolationOverlay(props: {
+  violation: ExamViolation | null;
+  totalViolations: ExamViolation[];
+  onResume: () => void;
+  onDisableSatMode: () => void;
+}) {
+  return (
+    <ExamViolationOverlay
+      violation={props.violation}
+      totalViolations={props.totalViolations}
+      onResume={props.onResume}
+      onDisableExamMode={props.onDisableSatMode}
+    />
+  );
 }
 
-export function SatToolbarControl({
+/* -------------------------------------------------------------------- */
+/* Component: Practice Top Bar Exam Control                             */
+/* -------------------------------------------------------------------- */
+
+interface ExamToolbarControlProps {
+  isActive: boolean;
+  onOpenPrompt: () => void;
+  onExitExamMode: () => void;
+}
+
+export function ExamToolbarControl({
   isActive,
   onOpenPrompt,
-  onExitSatMode,
-}: SatToolbarControlProps) {
+  onExitExamMode,
+}: ExamToolbarControlProps) {
   if (!isActive) {
     return (
       <Button
@@ -399,10 +422,10 @@ export function SatToolbarControl({
         variant="outline"
         onClick={onOpenPrompt}
         className="h-8 px-2.5 text-xs gap-1.5 border-primary/30 hover:border-primary/60 hover:bg-primary/5 text-foreground font-medium transition-all shadow-2xs"
-        title="Enable SAT-Style Fullscreen Lockdown Mode (locks screen & detects window changes)"
+        title="Enable Full Screen Proctored Test Mode (locks window and monitors minimize/tab switches)"
       >
         <Shield className="h-3.5 w-3.5 text-primary" />
-        <span className="hidden sm:inline">SAT Mode</span>
+        <span className="hidden sm:inline">Full Screen Mode</span>
       </Button>
     );
   }
@@ -411,7 +434,7 @@ export function SatToolbarControl({
     <div className="flex items-center gap-1.5">
       <div
         className="flex items-center gap-1.5 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400 select-none shadow-xs"
-        title="SAT Lockdown Active: Window and tab switches are monitored."
+        title="Full Screen Test Mode Active: Window minimizing and tab switches are strictly monitored."
       >
         <span className="relative flex h-2 w-2">
           <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
@@ -419,16 +442,16 @@ export function SatToolbarControl({
         </span>
         <ShieldCheck className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
         <span className="hidden sm:inline font-mono text-[10.5px] font-bold tracking-tight">
-          SAT LOCKDOWN
+          PROCTORED FULL SCREEN
         </span>
       </div>
 
       <Button
         size="sm"
         variant="ghost"
-        onClick={onExitSatMode}
+        onClick={onExitExamMode}
         className="h-8 px-2 text-xs gap-1 text-muted-foreground hover:text-foreground hover:bg-muted"
-        title="Exit SAT Fullscreen Lockdown Mode"
+        title="Exit Full Screen Test Mode"
       >
         <Minimize2 className="h-3.5 w-3.5" />
         <span className="hidden md:inline">Exit</span>
@@ -437,20 +460,35 @@ export function SatToolbarControl({
   );
 }
 
+// Backwards-compatible export
+export function SatToolbarControl(props: {
+  isActive: boolean;
+  onOpenPrompt: () => void;
+  onExitSatMode: () => void;
+}) {
+  return (
+    <ExamToolbarControl
+      isActive={props.isActive}
+      onOpenPrompt={props.onOpenPrompt}
+      onExitExamMode={props.onExitSatMode}
+    />
+  );
+}
+
 /* -------------------------------------------------------------------- */
 /* Component: Post-Exam Proctoring Integrity Report                     */
 /* -------------------------------------------------------------------- */
 
-interface SatIntegrityReportProps {
-  wasSatModeActive: boolean;
-  violations: SatViolation[];
+interface ExamIntegrityReportProps {
+  wasExamModeActive: boolean;
+  violations: ExamViolation[];
 }
 
-export function SatIntegrityReport({
-  wasSatModeActive,
+export function ExamIntegrityReport({
+  wasExamModeActive,
   violations,
-}: SatIntegrityReportProps) {
-  if (!wasSatModeActive) return null;
+}: ExamIntegrityReportProps) {
+  if (!wasExamModeActive) return null;
 
   const count = violations.length;
 
@@ -458,7 +496,7 @@ export function SatIntegrityReport({
     return (
       <div className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-3 py-1 font-mono text-xs font-semibold text-emerald-600 dark:text-emerald-400 shadow-2xs">
         <ShieldCheck className="h-3.5 w-3.5" />
-        <span>SAT Proctoring: 100% Verified (0 window switches)</span>
+        <span>Full Screen Proctored: 100% Verified (0 window switches)</span>
       </div>
     );
   }
@@ -467,8 +505,21 @@ export function SatIntegrityReport({
     <div className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/40 bg-amber-500/10 px-3 py-1 font-mono text-xs font-semibold text-amber-600 dark:text-amber-400 shadow-2xs">
       <ShieldAlert className="h-3.5 w-3.5" />
       <span>
-        SAT Proctoring: {count} focus warning{count === 1 ? "" : "s"} logged
+        Full Screen Proctored: {count} focus warning{count === 1 ? "" : "s"} logged
       </span>
     </div>
+  );
+}
+
+// Backwards-compatible export
+export function SatIntegrityReport(props: {
+  wasSatModeActive: boolean;
+  violations: ExamViolation[];
+}) {
+  return (
+    <ExamIntegrityReport
+      wasExamModeActive={props.wasSatModeActive}
+      violations={props.violations}
+    />
   );
 }
