@@ -802,7 +802,7 @@ html.motion-ready .reveal-pop:not([data-revealed="true"]) {
 @utility marquee-track {
   display: flex;
   width: max-content;
-  animation: marquee-slide var(--marquee-duration, 26s) linear infinite;
+  animation: marquee-slide var(--marquee-duration, 54s) linear infinite;
 }
 
 @keyframes bob {

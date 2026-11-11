@@ -182,7 +182,15 @@ function getConfig(item: string): RibbonChipConfig {
   return CHIP_MAP[item] ?? DEFAULT_CONFIG;
 }
 
-export function Ribbon({ items, className }: { items: string[]; className?: string }) {
+export function Ribbon({
+  items,
+  className,
+  duration = "54s",
+}: {
+  items: string[];
+  className?: string;
+  duration?: string;
+}) {
   const doubled = [...items, ...items];
 
   return (
@@ -205,7 +213,7 @@ export function Ribbon({ items, className }: { items: string[]; className?: stri
       <div className="marquee-mask w-full overflow-hidden">
         <div
           className="marquee-track flex items-center gap-3 sm:gap-4 py-0.5"
-          style={{ "--marquee-duration": "38s" } as React.CSSProperties}
+          style={{ "--marquee-duration": duration } as React.CSSProperties}
         >
           {doubled.map((item, index) => {
             const config = getConfig(item);
