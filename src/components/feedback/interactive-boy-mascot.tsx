@@ -218,7 +218,7 @@ export function InteractiveBoyMascot({
       {/* ── Glowing Lightbulb (when category === 'feature_request') ─────── */}
       {isFeatureCategory && (
         <div
-          className="absolute -top-10 left-12 z-20 flex flex-col items-center"
+          className="absolute -top-10 right-8 z-20 flex flex-col items-center"
           style={{ animation: "floatBulb 3s ease-in-out infinite" }}
         >
           <div
@@ -255,134 +255,302 @@ export function InteractiveBoyMascot({
               <stop offset="0%" stopColor="var(--mascot-skin, #fcd34d)" />
               <stop offset="100%" stopColor="var(--mascot-skin-shade, #fbbf24)" />
             </linearGradient>
+            <linearGradient id="jogger-grad" x1="0" y1="0" x2="0.5" y2="1">
+              <stop offset="0%" stopColor="#242057" />
+              <stop offset="100%" stopColor="#18153b" />
+            </linearGradient>
           </defs>
 
           {/* Ground Shadow */}
           <ellipse
             cx="120"
-            cy="288"
-            rx="56"
-            ry="10"
+            cy="286"
+            rx="66"
+            ry="8.5"
             fill="var(--mascot-line, #1e1b4b)"
-            opacity="0.22"
+            opacity="0.2"
           />
 
           {/* ── Body & Clothing ────────────────────────────────────────── */}
           <g id="boy-body">
-            {/* Legs & Shoes */}
+            {/* Slim Athletic Joggers (Athletic Stance) */}
+            {/* Left Jogger Leg */}
             <path
-              d="M96 220v48h16v-48z M128 220v48h16v-48z"
-              fill="#1e1b4b"
+              d="M93 211c-2 16-5 34-7 51h15c2-17 4-34 6-51z"
+              fill="url(#jogger-grad)"
               stroke="var(--mascot-line, #1e1b4b)"
-              strokeWidth="5"
+              strokeWidth="3.5"
               strokeLinejoin="round"
             />
-            {/* Sneakers */}
-            <path
-              d="M86 268h30c2 5-2 10-10 10h-24c-4 0-6-5 4-10z M124 268h30c2 5-2 10-10 10h-24c-4 0-6-5 4-10z"
-              fill="#fff"
-              stroke="var(--mascot-line, #1e1b4b)"
-              strokeWidth="4"
-              strokeLinejoin="round"
-            />
+            {/* Left Knee crease detail */}
+            <path d="M89 238q4-2 7 0" fill="none" stroke="#3730a3" strokeWidth="2" strokeLinecap="round" />
+            {/* Left Jogger Ankle Cuff */}
+            <rect x="85" y="260" width="17" height="4.5" rx="2" fill="#312e81" stroke="var(--mascot-line, #1e1b4b)" strokeWidth="2.5" />
 
-            {/* Neck */}
+            {/* Right Jogger Leg */}
+            <path
+              d="M126 211c2 17 4 34 6 51h15c-2-17-5-35-7-51z"
+              fill="url(#jogger-grad)"
+              stroke="var(--mascot-line, #1e1b4b)"
+              strokeWidth="3.5"
+              strokeLinejoin="round"
+            />
+            {/* Right Knee crease detail */}
+            <path d="M136 238q4-2 7 0" fill="none" stroke="#3730a3" strokeWidth="2" strokeLinecap="round" />
+            {/* Right Jogger Ankle Cuff */}
+            <rect x="138" y="260" width="17" height="4.5" rx="2" fill="#312e81" stroke="var(--mascot-line, #1e1b4b)" strokeWidth="2.5" />
+
+            {/* Athletic Streetwear Sneakers */}
+            {/* Left Sneaker */}
+            <g id="shoe-left">
+              <ellipse cx="91" cy="283" rx="16" ry="3" fill="var(--mascot-line, #1e1b4b)" opacity="0.22" />
+              <path d="M75 280h32c2 0 3.5-1.5 3.5-3v-1H74v1c0 1.5 1.5 3 3.5 3z" fill="var(--mascot-line, #1e1b4b)" />
+              <path
+                d="M74 276.5h34c2 0 3.5-1.5 3.5-3.5 0-1-1-2-2.5-2H77c-2 0-3 1-3 3.5v2z"
+                fill="#ffffff"
+                stroke="var(--mascot-line, #1e1b4b)"
+                strokeWidth="2.6"
+                strokeLinejoin="round"
+              />
+              <rect x="77" y="274.5" width="28" height="2" fill="var(--mascot-sweater, #0d9488)" rx="0.5" />
+              <path
+                d="M80 271c0-4 3-7 8-7.5h10c3.5 0 6.5 2.5 7.5 6l1 2H79z"
+                fill="#ffffff"
+                stroke="var(--mascot-line, #1e1b4b)"
+                strokeWidth="2.6"
+                strokeLinejoin="round"
+              />
+              <path d="M85 270c3-1.5 6-1 10 1" fill="none" stroke="var(--mascot-cap, #7c3aed)" strokeWidth="2" strokeLinecap="round" />
+              <circle cx="89" cy="266" r="0.9" fill="var(--mascot-line, #1e1b4b)" />
+              <circle cx="93" cy="267" r="0.9" fill="var(--mascot-line, #1e1b4b)" />
+            </g>
+
+            {/* Right Sneaker */}
+            <g id="shoe-right">
+              <ellipse cx="149" cy="283" rx="16" ry="3" fill="var(--mascot-line, #1e1b4b)" opacity="0.22" />
+              <path d="M133 280h32c2 0 3.5-1.5 3.5-3v-1h-34v1c0 1.5 1.5 3 3.5 3z" fill="var(--mascot-line, #1e1b4b)" />
+              <path
+                d="M132.5 276.5h34c2 0 3.5-1.5 3.5-3.5 0-1-1-2-2.5-2h-31.5c-2 0-3 1-3 3.5v2z"
+                fill="#ffffff"
+                stroke="var(--mascot-line, #1e1b4b)"
+                strokeWidth="2.6"
+                strokeLinejoin="round"
+              />
+              <rect x="135" y="274.5" width="28" height="2" fill="var(--mascot-sweater, #0d9488)" rx="0.5" />
+              <path
+                d="M134.5 271c0-4 3-7 8-7.5h10c3.5 0 6.5 2.5 7.5 6l1 2h-27z"
+                fill="#ffffff"
+                stroke="var(--mascot-line, #1e1b4b)"
+                strokeWidth="2.6"
+                strokeLinejoin="round"
+              />
+              <path d="M141 270c3-1.5 6-1 10 1" fill="none" stroke="var(--mascot-cap, #7c3aed)" strokeWidth="2" strokeLinecap="round" />
+              <circle cx="145" cy="266" r="0.9" fill="var(--mascot-line, #1e1b4b)" />
+              <circle cx="149" cy="267" r="0.9" fill="var(--mascot-line, #1e1b4b)" />
+            </g>
+
+            {/* Trim, Fit Neck */}
             <rect
-              x="106"
-              y="136"
-              width="28"
-              height="28"
+              x="110"
+              y="137"
+              width="20"
+              height="20"
               rx="4"
               fill="var(--mascot-skin-shade, #f59e0b)"
               stroke="var(--mascot-line, #1e1b4b)"
-              strokeWidth="4.5"
+              strokeWidth="4"
             />
+            <path d="M110 141q10 4 20 0v-4h-20z" fill="#d97706" opacity="0.45" />
 
-            {/* Marginal Cambridge Jumper */}
+            {/* ── Athletic Slim Hoodie (V-Taper) ── */}
+            {/* Broad shoulders (72 to 168) tapering to slim waist (89 to 151) */}
             <path
-              d="M62 164c6-20 28-26 58-26s52 6 58 26l14 48c1 6-4 12-10 12h-124c-6 0-11-6-10-12z"
+              d="M72 156c4-12 22-16 48-16s44 4 48 16l-9 47c-1 5-4 7-9 7H90c-5 0-8-2-9-7z"
               fill="url(#boy-sweater-grad)"
               stroke="var(--mascot-line, #1e1b4b)"
-              strokeWidth="5"
+              strokeWidth="4.5"
               strokeLinejoin="round"
             />
 
-            {/* Jumper Collar */}
+            {/* Athletic Raglan Shoulder Seams */}
+            <path d="M84 148l16 16" fill="none" stroke="var(--mascot-sweater-2, #0f766e)" strokeWidth="2.5" strokeLinecap="round" />
+            <path d="M156 148l-16 16" fill="none" stroke="var(--mascot-sweater-2, #0f766e)" strokeWidth="2.5" strokeLinecap="round" />
+
+            {/* Curved Athletic Waistband */}
             <path
-              d="M98 144c10 12 34 12 44 0"
+              d="M81 204q39 5 78 0v7q-39 5-78 0z"
+              fill="var(--mascot-sweater-2, #0f766e)"
+              stroke="var(--mascot-line, #1e1b4b)"
+              strokeWidth="3.5"
+              strokeLinejoin="round"
+            />
+
+            {/* Kangaroo Pouch Pocket */}
+            <path
+              d="M94 186q26 3 52 0l-5 16q-21 2-42 0z"
+              fill="var(--mascot-sweater-2, #0f766e)"
+              stroke="var(--mascot-line, #1e1b4b)"
+              strokeWidth="2.8"
+              strokeLinejoin="round"
+              opacity="0.95"
+            />
+            {/* Pocket entry slits */}
+            <path d="M96 189l-4 10" fill="none" stroke="#134e4a" strokeWidth="2" strokeLinecap="round" />
+            <path d="M144 189l4 10" fill="none" stroke="#134e4a" strokeWidth="2" strokeLinecap="round" />
+
+            {/* Sporty Hoodie Neckline Collar */}
+            <path
+              d="M102 143c10 10 26 10 36 0"
               fill="none"
               stroke="var(--mascot-collar, #6d28d9)"
-              strokeWidth="7"
+              strokeWidth="6.5"
               strokeLinecap="round"
             />
 
-            {/* Marginal Emblem 'm' on chest */}
-            <text
-              x="120"
-              y="184"
-              textAnchor="middle"
-              fontSize="16"
-              fontWeight="900"
-              fontFamily="sans-serif"
-              fill="rgba(255,255,255,0.85)"
-            >
-              m
-            </text>
+            {/* Sporty White Drawstrings */}
+            <path d="M113 147v15 M127 147v15" fill="none" stroke="#ffffff" strokeWidth="2.2" strokeLinecap="round" opacity="0.85" />
+            <circle cx="113" cy="163" r="1.5" fill="var(--mascot-cap, #7c3aed)" />
+            <circle cx="127" cy="163" r="1.5" fill="var(--mascot-cap, #7c3aed)" />
 
-            {/* Arms & Hands */}
+            {/* Marginal Modern Athletic Crest 'm' */}
+            <g transform="translate(120, 172)">
+              <circle cx="0" cy="0" r="10" fill="rgba(255,255,255,0.18)" />
+              <circle cx="0" cy="0" r="9.5" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="1" />
+              <text
+                x="0"
+                y="4.5"
+                textAnchor="middle"
+                fontSize="12.5"
+                fontWeight="900"
+                fontFamily="sans-serif"
+                fill="#ffffff"
+              >
+                m
+              </text>
+            </g>
+
+            {/* ── Arms & Hands (Volumetric Streetwear Sleeves & Fit Poses) ── */}
             {isBugCategory ? (
-              // Bug reaction: Hands thrown up in surprise!
+              // Bug reaction: Athletic dodge / swat ready to catch
               <g id="arms-surprised">
+                {/* Left arm dodging up */}
                 <path
-                  d="M64 168c-14-16-24-32-24-42 M176 168c14-16 24-32 24-42"
+                  d="M72 156c-12-8-22-20-24-34l-4-8"
                   fill="none"
                   stroke="var(--mascot-line, #1e1b4b)"
+                  strokeWidth="10"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <path
+                  d="M72 156c-12-8-22-20-24-34l-4-8"
+                  fill="none"
+                  stroke="var(--mascot-sweater, #0d9488)"
                   strokeWidth="6"
                   strokeLinecap="round"
+                  strokeLinejoin="round"
                 />
-                <circle cx="40" cy="124" r="8" fill="var(--mascot-skin, #fcd34d)" stroke="var(--mascot-line, #1e1b4b)" strokeWidth="4" />
-                <circle cx="200" cy="124" r="8" fill="var(--mascot-skin, #fcd34d)" stroke="var(--mascot-line, #1e1b4b)" strokeWidth="4" />
+                <circle cx="42" cy="112" r="7.5" fill="var(--mascot-skin, #fcd34d)" stroke="var(--mascot-line, #1e1b4b)" strokeWidth="3" />
+                <path d="M40 106l-3-4 M43 105l0-5 M47 107l3-3" stroke="var(--mascot-line, #1e1b4b)" strokeWidth="2" strokeLinecap="round" />
+
+                {/* Right arm raised to swat/catch */}
+                <path
+                  d="M168 156c12-8 22-20 24-34l4-8"
+                  fill="none"
+                  stroke="var(--mascot-line, #1e1b4b)"
+                  strokeWidth="10"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <path
+                  d="M168 156c12-8 22-20 24-34l4-8"
+                  fill="none"
+                  stroke="var(--mascot-sweater, #0d9488)"
+                  strokeWidth="6"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <circle cx="198" cy="112" r="7.5" fill="var(--mascot-skin, #fcd34d)" stroke="var(--mascot-line, #1e1b4b)" strokeWidth="3" />
+                <path d="M194 107l-3-3 M198 105l0-5 M202 106l3-4" stroke="var(--mascot-line, #1e1b4b)" strokeWidth="2" strokeLinecap="round" />
               </g>
             ) : isFeatureCategory ? (
-              // Feature Request: Pointing up towards lightbulb!
+              // Feature Request: Left hand on hip, right arm pointing up dynamically to lightbulb!
               <g id="arms-pointing">
+                {/* Left arm on hip */}
                 <path
-                  d="M66 172c-12 12-16 28-14 38"
+                  d="M73 158c-6 12-10 24-8 32l14 8"
                   fill="none"
                   stroke="var(--mascot-line, #1e1b4b)"
+                  strokeWidth="10"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <path
+                  d="M73 158c-6 12-10 24-8 32l14 8"
+                  fill="none"
+                  stroke="var(--mascot-sweater, #0d9488)"
                   strokeWidth="6"
                   strokeLinecap="round"
+                  strokeLinejoin="round"
                 />
-                <circle cx="52" cy="214" r="7" fill="var(--mascot-skin, #fcd34d)" stroke="var(--mascot-line, #1e1b4b)" strokeWidth="4" />
+                <rect x="73" y="196" width="7" height="4.5" rx="1.5" fill="var(--mascot-sweater-2, #0f766e)" stroke="var(--mascot-line, #1e1b4b)" strokeWidth="2" />
+                <circle cx="82" cy="203" r="6" fill="var(--mascot-skin, #fcd34d)" stroke="var(--mascot-line, #1e1b4b)" strokeWidth="3" />
+
+                {/* Right arm pointing up to lightbulb */}
                 <path
-                  d="M174 170c14-14 18-36 14-52"
+                  d="M168 156c12-10 18-24 16-38l6-14"
                   fill="none"
                   stroke="var(--mascot-line, #1e1b4b)"
+                  strokeWidth="10"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <path
+                  d="M168 156c12-10 18-24 16-38l6-14"
+                  fill="none"
+                  stroke="var(--mascot-sweater, #0d9488)"
                   strokeWidth="6"
                   strokeLinecap="round"
+                  strokeLinejoin="round"
                 />
-                {/* Pointing index finger */}
-                <circle cx="188" cy="116" r="6.5" fill="var(--mascot-skin, #fcd34d)" stroke="var(--mascot-line, #1e1b4b)" strokeWidth="4" />
+                <circle cx="191" cy="104" r="6.5" fill="var(--mascot-skin, #fcd34d)" stroke="var(--mascot-line, #1e1b4b)" strokeWidth="3" />
+                {/* Index finger pointing */}
+                <path d="M191 100v-8" fill="none" stroke="var(--mascot-line, #1e1b4b)" strokeWidth="3.5" strokeLinecap="round" />
+                <path d="M191 100v-8" fill="none" stroke="var(--mascot-skin, #fcd34d)" strokeWidth="1.8" strokeLinecap="round" />
               </g>
             ) : (
-              // Default: Casual pose holding notebook / thumbs up
+              // Default: Athletic sleeve contour with hand on waist and confident thumbs-up!
               <g id="arms-default">
+                {/* Left Arm: Athletic sleeve contour with hand resting on waist/pocket */}
                 <path
-                  d="M66 172c-12 16-16 32-12 42"
-                  fill="none"
+                  d="M72 157c-8 10-14 26-10 36 2 5 6 9 12 11l4-6c-4-2-7-5-8-8-2-7 2-20 8-28z"
+                  fill="url(#boy-sweater-grad)"
                   stroke="var(--mascot-line, #1e1b4b)"
-                  strokeWidth="6"
+                  strokeWidth="3.5"
+                  strokeLinejoin="round"
+                />
+                <rect x="73" y="196" width="7" height="4.5" rx="1.5" fill="var(--mascot-sweater-2, #0f766e)" stroke="var(--mascot-line, #1e1b4b)" strokeWidth="2" />
+                <circle cx="82" cy="203" r="6" fill="var(--mascot-skin, #fcd34d)" stroke="var(--mascot-line, #1e1b4b)" strokeWidth="3" />
+                <path d="M80 202q2 2 4 2" fill="none" stroke="#d97706" strokeWidth="1.8" strokeLinecap="round" />
+
+                {/* Right Arm: Athletic sleeve with confident thumbs up */}
+                <path
+                  d="M168 157c8 10 14 26 10 36-2 5-6 9-12 11l-4-6c4-2 7-5 8-8 2-7-2-20-8-28z"
+                  fill="url(#boy-sweater-grad)"
+                  stroke="var(--mascot-line, #1e1b4b)"
+                  strokeWidth="3.5"
+                  strokeLinejoin="round"
+                />
+                <rect x="160" y="196" width="7" height="4.5" rx="1.5" fill="var(--mascot-sweater-2, #0f766e)" stroke="var(--mascot-line, #1e1b4b)" strokeWidth="2" />
+                <circle cx="158" cy="203" r="6" fill="var(--mascot-skin, #fcd34d)" stroke="var(--mascot-line, #1e1b4b)" strokeWidth="3" />
+                {/* Thumb up */}
+                <path
+                  d="M157 199c0-3 1.5-6 3.5-6s2.5 2 2.5 5"
+                  fill="var(--mascot-skin, #fcd34d)"
+                  stroke="var(--mascot-line, #1e1b4b)"
+                  strokeWidth="2.6"
                   strokeLinecap="round"
                 />
-                <circle cx="54" cy="216" r="7" fill="var(--mascot-skin, #fcd34d)" stroke="var(--mascot-line, #1e1b4b)" strokeWidth="4" />
-                <path
-                  d="M174 172c10 16 12 32 8 42"
-                  fill="none"
-                  stroke="var(--mascot-line, #1e1b4b)"
-                  strokeWidth="6"
-                  strokeLinecap="round"
-                />
-                <circle cx="182" cy="216" r="7" fill="var(--mascot-skin, #fcd34d)" stroke="var(--mascot-line, #1e1b4b)" strokeWidth="4" />
               </g>
             )}
           </g>
@@ -439,6 +607,9 @@ export function InteractiveBoyMascot({
               strokeLinejoin="round"
             />
 
+            {/* Trendy hair tuft peeking under cap */}
+            <path d="M84 76q8 6 12 1" fill="none" stroke="var(--mascot-hair, #2e1065)" strokeWidth="3.5" strokeLinecap="round" />
+
             {/* Ears */}
             <ellipse
               cx="78"
@@ -449,6 +620,7 @@ export function InteractiveBoyMascot({
               stroke="var(--mascot-line, #1e1b4b)"
               strokeWidth="4"
             />
+            <path d="M78 107q-2 3 0 6" fill="none" stroke="#d97706" strokeWidth="2" strokeLinecap="round" />
             <ellipse
               cx="164"
               cy="110"
@@ -458,6 +630,7 @@ export function InteractiveBoyMascot({
               stroke="var(--mascot-line, #1e1b4b)"
               strokeWidth="4"
             />
+            <path d="M164 107q2 3 0 6" fill="none" stroke="#d97706" strokeWidth="2" strokeLinecap="round" />
 
             {/* Eyebrows */}
             {isBugCategory ? (
@@ -491,6 +664,7 @@ export function InteractiveBoyMascot({
                 stroke="var(--mascot-frame, #4c1d95)"
                 strokeWidth="4.5"
               />
+              <path d="M92 98a12 12 0 0 1 10-5" fill="none" stroke="#ffffff" strokeWidth="2.5" strokeLinecap="round" opacity="0.8" />
               <circle
                 cx="142"
                 cy="105"
@@ -499,6 +673,7 @@ export function InteractiveBoyMascot({
                 stroke="var(--mascot-frame, #4c1d95)"
                 strokeWidth="4.5"
               />
+              <path d="M134 98a12 12 0 0 1 10-5" fill="none" stroke="#ffffff" strokeWidth="2.5" strokeLinecap="round" opacity="0.8" />
             </g>
 
             {/* Eyes (Pupils track cursor!) */}
