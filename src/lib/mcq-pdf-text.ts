@@ -83,30 +83,59 @@ export function extractQuestionStems(items: PdfTextItem[]): StemBlob[] {
       continue;
     }
 
-    // A valid question number anchor MUST be at the start of the line (e.g. "12 Which...")
-    // Tokens preceded by words like "Paper" or "9708/" are not question starts.
+    // A valid question number anchor MUST be at the left margin start of the line (e.g. "12 Which...")
+    // Exclude "0" (graph origin labels) and tokens inside diagrams/tables (x > 95).
     const firstWord = line[0];
-    if (firstWord && /^\d{1,2}$/.test(firstWord.s)) {
-      numTok.push({ s: firstWord.s, x: firstWord.x, y: lineKey });
+    if (firstWord && firstWord.x <= 95) {
+      const match =
+        /^\d{1,2}$/.exec(firstWord.s) ?? /^(\d{1,2})\s+[A-Z]/.exec(firstWord.s);
+      if (match) {
+        const rawNum = match[1] ?? match[0];
+        const parsed = parseInt(rawNum, 10);
+        if (parsed >= 1 && parsed <= 40) {
+          numTok.push({ s: String(parsed), x: firstWord.x, y: lineKey });
+        }
+      }
     }
   }
 
   const numberColumnX = pickLeftCluster(numTok.map((t) => t.x));
-  const COLUMN_TOLERANCE = 10;
-  const numberAnchors = numTok
-    .filter((t) => numberColumnX !== null && Math.abs(t.x - numberColumnX) < COLUMN_TOLERANCE)
+  const COLUMN_TOLERANCE = 12;
+  const rawAnchors = numTok
+    .filter((t) => numberColumnX !== null && Math.abs(t.x - numberColumnX) <= COLUMN_TOLERANCE)
     .map((t) => ({ num: parseInt(t.s, 10), y: t.y }))
     .sort((a, b) => b.y - a.y);
 
+  const seenNums = new Set<number>();
+  const numberAnchors = rawAnchors.filter((na) => {
+    if (seenNums.has(na.num)) return false;
+    seenNums.add(na.num);
+    return true;
+  });
+
   const sortedLines = [...wordsByLine.entries()].sort((a, b) => b[0] - a[0]);
 
-  return numberAnchors.map((na) => {
-    const startIdx = sortedLines.findIndex(([y]) => Math.abs(y - Math.round(na.y)) < 3);
-    const slice = startIdx >= 0 ? sortedLines.slice(startIdx, startIdx + 6) : [];
+  return numberAnchors.map((na, idx) => {
+    const startIdx = sortedLines.findIndex(([y]) => Math.abs(y - Math.round(na.y)) < 4);
+    const nextAnchor = numberAnchors[idx + 1];
+    const nextStartIdx = nextAnchor
+      ? sortedLines.findIndex(([y]) => Math.abs(y - Math.round(nextAnchor.y)) < 4)
+      : -1;
+    const endIdx = nextStartIdx > startIdx ? nextStartIdx : sortedLines.length;
+    const slice = startIdx >= 0 ? sortedLines.slice(startIdx, endIdx) : [];
     const text = slice
       .map(([, words]) => words.map((w) => w.s).join(" "))
+      .filter((lineText) => {
+        const upper = lineText.toUpperCase();
+        return (
+          !upper.includes("UCLES") &&
+          !upper.includes("TURN OVER") &&
+          !upper.includes("BLANK PAGE") &&
+          !upper.includes("9708/")
+        );
+      })
       .join(" ")
-      .slice(0, 700);
+      .slice(0, 1400);
     return { number: na.num, text };
   });
 }
@@ -115,13 +144,14 @@ export function extractQuestionStems(items: PdfTextItem[]): StemBlob[] {
 function pickLeftCluster(xs: number[]): number | null {
   if (xs.length === 0) return null;
   const sorted = [...xs].sort((a, b) => a - b);
+  if (sorted.length === 1) return sorted[0];
   const buckets = new Map<number, number>();
   for (const x of sorted) {
     const key = Math.round(x / 6) * 6;
     buckets.set(key, (buckets.get(key) ?? 0) + 1);
   }
   const supported = [...buckets.entries()]
-    .filter(([, count]) => count >= Math.max(2, xs.length * 0.15))
+    .filter(([, count]) => count >= Math.max(1, Math.floor(xs.length * 0.15)))
     .sort((a, b) => a[0] - b[0]);
   return supported.length > 0 ? supported[0][0] : sorted[0];
 }

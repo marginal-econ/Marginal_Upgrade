@@ -19,7 +19,12 @@ import { chat } from "./ai.server";
 import { MODEL_ANALYSIS } from "./examiner/config";
 import { extractFirstJsonObject } from "./examiner/json";
 import type { Grading } from "./examiner/types";
-import { aggregateMcqDomains, MCQ_DOMAIN_LABEL, type DomainStat } from "./mcq-domain";
+import {
+  aggregateMcqDomains,
+  classifyMcqQuestion,
+  MCQ_DOMAIN_LABEL,
+  type DomainStat,
+} from "./mcq-domain";
 import {
   type CambridgeSeriesId,
   calculatePredictedGradeFromThresholds,
@@ -404,6 +409,8 @@ export const getReviewPanel = createServerFn({ method: "POST" })
     type StoredPdfQuestion = {
       number: number;
       topic: string;
+      subtopic?: string;
+      stem_text?: string;
       correct_answer: "A" | "B" | "C" | "D" | null;
       user_answer: "A" | "B" | "C" | "D" | null;
       correct: boolean | null;
@@ -412,14 +419,22 @@ export const getReviewPanel = createServerFn({ method: "POST" })
     const mcqTopicStats = new Map<string, { correct: number; total: number }>();
     const gradedMcqQuestions: { topic: string; correct: boolean }[] = [];
     for (const attempt of mcqRows ?? []) {
+      const levelUpper = attempt.level === "a2" ? "A2" : "AS";
       const questions = (attempt.questions ?? []) as StoredPdfQuestion[];
       for (const question of questions) {
         if (question.correct === null) continue;
-        const entry = mcqTopicStats.get(question.topic) ?? { correct: 0, total: 0 };
+        const classified = classifyMcqQuestion({
+          level: levelUpper,
+          number: question.number,
+          text: question.stem_text,
+          existingTopic: question.topic,
+          existingSubtopic: question.subtopic,
+        });
+        const entry = mcqTopicStats.get(classified.topic) ?? { correct: 0, total: 0 };
         entry.total += 1;
         if (question.correct) entry.correct += 1;
-        mcqTopicStats.set(question.topic, entry);
-        gradedMcqQuestions.push({ topic: question.topic, correct: question.correct });
+        mcqTopicStats.set(classified.topic, entry);
+        gradedMcqQuestions.push({ topic: classified.topic, correct: question.correct });
       }
     }
     const weakTopicsFromData = [...mcqTopicStats.entries()]

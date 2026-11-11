@@ -20,8 +20,8 @@
 import { chat } from "../ai.server";
 import { MODEL_EXAMINER } from "../examiner/config";
 import { extractFirstJsonObject } from "../examiner/json";
+import { classifyMcqQuestion } from "../mcq-domain";
 import { cleanStars } from "../utils";
-import { AS_SECTIONS, A2_SECTIONS } from "./mcq.server";
 
 export type PdfMcqLevel = "as" | "a2";
 
@@ -110,66 +110,41 @@ export function groupPdfAttemptsByPaper(rows: PdfAttemptRow[]): PaperHistoryEntr
 export type TopicTag = {
   number: number;
   topic: string;
+  subtopic: string;
+  unit: string;
+  domain: "micro" | "macro";
   skill: "knowledge" | "application" | "analysis";
 };
 
-/** Tags each question against the real syllabus sections — classification, not generation. */
+/**
+ * Tags each question against the canonical Cambridge 9708 syllabus topics.
+ * Uses the fast deterministic syllabus classifier so grading & tagging
+ * complete in < 1ms with zero network latency and zero "Untagged" failures.
+ */
 export async function classifyPdfMcqTopics(options: {
   level: PdfMcqLevel;
   items: { number: number; text: string }[];
 }): Promise<TopicTag[]> {
   if (options.items.length === 0) return [];
-  const sections = options.level === "a2" ? A2_SECTIONS : AS_SECTIONS;
+  const levelUpper = options.level === "a2" ? "A2" : "AS";
 
-  const systemPrompt = [
-    "You are tagging real Cambridge International AS & A Level Economics (9708) exam",
-    "questions against the syllabus, for a student's topic-level feedback report.",
-    "Do not answer, rewrite, or invent any question content — only classify what is given.",
-    "",
-    "Syllabus sections to choose from (use the closest match; do not invent new ones):",
-    sections.map((s, i) => `${i + 1}. ${s}`).join("\n"),
-  ].join("\n");
-
-  const userMessage = [
-    "Question text was extracted from a real PDF, so it may include the option list run",
-    "together with the stem, stray line breaks, or minor OCR noise — classify from what's legible.",
-    "",
-    "Questions:",
-    options.items.map((it) => `#${it.number}: ${it.text.slice(0, 600)}`).join("\n\n"),
-    "",
-    'Return ONLY one JSON object: { "tags": [ { "number": number, "topic": string, "skill": "knowledge" | "application" | "analysis" } ] }',
-    "topic must be a short syllabus topic name drawn from the sections above (not the full sentence).",
-  ].join("\n");
-
-  const result = await chat({
-    model: MODEL_EXAMINER,
-    temperature: 0,
-    json: true,
-    reasoningEffort: "low",
-    messages: [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: userMessage },
-    ],
-  });
-
-  const parsed = extractFirstJsonObject(result.text);
-  const tags = Array.isArray(parsed.tags) ? (parsed.tags as unknown[]) : [];
-
-  return tags
-    .map((t) => {
-      if (!t || typeof t !== "object") return null;
-      const row = t as Record<string, unknown>;
-      const number = Number(row.number);
-      if (!Number.isFinite(number)) return null;
-      const skill =
-        row.skill === "application" || row.skill === "analysis" ? row.skill : "knowledge";
+  return options.items
+    .filter((it) => Number.isFinite(it.number) && it.number >= 1)
+    .map((it) => {
+      const c = classifyMcqQuestion({
+        level: levelUpper,
+        number: it.number,
+        text: it.text,
+      });
       return {
-        number,
-        topic: typeof row.topic === "string" && row.topic.trim() ? row.topic.trim() : "Untagged",
-        skill,
+        number: it.number,
+        topic: c.topic,
+        subtopic: c.subtopic,
+        unit: c.unit,
+        domain: c.domain,
+        skill: c.skill,
       } satisfies TopicTag;
-    })
-    .filter((t): t is TopicTag => t !== null);
+    });
 }
 
 export type McqDiagnostic = {
@@ -197,8 +172,17 @@ export async function explainPdfMcqAnswer(options: {
   stemText: string;
   correctAnswer: "A" | "B" | "C" | "D";
   userAnswer: "A" | "B" | "C" | "D" | null;
+  topic?: string;
+  subtopic?: string;
 }): Promise<McqExplanationResult> {
-  const { level, number, stemText, correctAnswer, userAnswer } = options;
+  const { level, number, stemText, correctAnswer, userAnswer, topic, subtopic } = options;
+  const inferred = classifyMcqQuestion({
+    level: level === "a2" ? "A2" : "AS",
+    number,
+    text: stemText,
+    existingTopic: topic,
+    existingSubtopic: subtopic,
+  });
 
   const systemPrompt = [
     "You are a Principal Examiner for Cambridge International AS & A Level Economics (9708)",
@@ -208,7 +192,7 @@ export async function explainPdfMcqAnswer(options: {
     "NO ASTERISKS: Never use asterisks (* or **) anywhere in any JSON string. Do not use markdown bold, italics, or asterisk bullets. Return plain text only with zero asterisks.",
     "",
     "Return ONLY a single valid JSON object with these exact keys:",
-    '- "concept": short syllabus unit & topic reference (e.g. "AS Unit 2: Cross Elasticity of Demand (XED)")',
+    `- "concept": short syllabus unit & topic reference (e.g. "${inferred.unit}: ${inferred.subtopic}")`,
     '- "keyRule": the core economic principle, equation, or golden rule governing this question',
     '- "correctReasoning": clear step-by-step worked derivation of why the correct option is uniquely true',
     '- "distractorTrap": detailed diagnosis of why the student\'s choice was wrong or the common distractor trap Cambridge sets for this item',
@@ -217,9 +201,9 @@ export async function explainPdfMcqAnswer(options: {
   ].join("\n");
 
   const userMessage = [
-    `Question ${number}:`,
-    stemText.slice(0, 1400) ||
-      "(question text unavailable — explain generally from the answer key)",
+    `Question ${number} (${inferred.unit} — ${inferred.topic} / ${inferred.subtopic}):`,
+    stemText.trim().slice(0, 1400) ||
+      `(Full diagram/stem text not captured — explain based on Cambridge 9708 Question ${number} in ${inferred.unit}: ${inferred.topic} / ${inferred.subtopic} and why Option ${correctAnswer} is the mark scheme answer)`,
     "",
     `Correct mark scheme answer: Option ${correctAnswer}`,
     userAnswer

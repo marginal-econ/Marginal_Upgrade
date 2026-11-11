@@ -48,6 +48,7 @@ import {
   McqReviewPanel,
   McqQuestionReviewList,
   McqDomainBreakdown,
+  buildTopicStatsFromQuestions,
   type ExplanationState,
   type TopicStat,
   type GradedQuestion,
@@ -88,6 +89,7 @@ import {
 import {
   aggregateMcqDomains,
   aggregateMcqDomainsFromTopicStats,
+  classifyMcqQuestion,
   type DomainStat,
 } from "@/lib/mcq-domain";
 import {
@@ -748,7 +750,10 @@ function McqLivePage() {
       return;
     }
     try {
-      const stem = stemBlobs.find((s) => s.number === number)?.text ?? "";
+      const stem =
+        stemBlobs.find((s) => s.number === number)?.text ??
+        q?.stem_text ??
+        "";
       const { explanation } = await explainFn({
         data: {
           level,
@@ -756,6 +761,8 @@ function McqLivePage() {
           stemText: stem,
           correctAnswer,
           userAnswer: q?.user_answer ?? null,
+          topic: q?.topic,
+          subtopic: q?.subtopic,
         },
       });
       setExplanations((prev) => ({
@@ -823,9 +830,11 @@ function McqLivePage() {
         data: {
           level: historyAttempt.data.level,
           number,
-          stemText: "",
+          stemText: q?.stem_text ?? "",
           correctAnswer,
           userAnswer: q?.user_answer ?? null,
+          topic: q?.topic,
+          subtopic: q?.subtopic,
         },
       });
       setHistoryExplanations((prev) => ({
@@ -969,32 +978,40 @@ function fillMissingQuestionPages(
         ? { score: completedAttempt.score, total: completedAttempt.total }
         : null,
     );
-    setReviewQuestions(completedAttempt?.questions ?? []);
     if (completedAttempt) {
-      const byTopic = new Map<string, { attempted: number; correct: number }>();
-      for (const question of completedAttempt.questions) {
-        const entry = byTopic.get(question.topic) ?? { attempted: 0, correct: 0 };
-        entry.attempted += 1;
-        if (question.correct) entry.correct += 1;
-        byTopic.set(question.topic, entry);
-      }
-      setAttemptTopics(
-        [...byTopic.entries()].map(([savedTopic, value]) => ({
-          topic: savedTopic,
-          attempted: value.attempted,
-          correct: value.correct,
-          accuracyPct: Math.round((value.correct / value.attempted) * 100),
-        })),
-      );
+      const levelUpper = paper.level === "a2" ? "A2" : "AS";
+      const normalizedCompleted = completedAttempt.questions.map((question) => {
+        const c = classifyMcqQuestion({
+          level: levelUpper,
+          number: question.number,
+          text: question.stem_text,
+          existingTopic: question.topic,
+          existingSubtopic: question.subtopic,
+          existingSkill: question.skill,
+        });
+        return {
+          ...question,
+          topic: c.topic,
+          subtopic: question.subtopic || c.subtopic,
+          unit: c.unit,
+          domain: c.domain,
+          skill: c.skill,
+        };
+      });
+      setReviewQuestions(normalizedCompleted);
+      setAttemptTopics(buildTopicStatsFromQuestions(normalizedCompleted, levelUpper));
       setAttemptDomains(
         aggregateMcqDomains(
-          completedAttempt.questions.map((question) => ({
+          normalizedCompleted.map((question) => ({
             topic: question.topic,
             correct: !!question.correct,
+            number: question.number,
+            level: levelUpper,
           })),
         ),
       );
     } else {
+      setReviewQuestions([]);
       setAttemptTopics([]);
       setAttemptDomains([]);
     }
@@ -1119,9 +1136,23 @@ function fillMissingQuestionPages(
           paper.questionCount,
           doc.numPages,
         );
+        // Deduplicate stems by question number (1..questionCount), preferring the longest extracted stem
+        const bestStemByNum = new Map<number, string>();
+        for (const s of stems) {
+          if (s.number >= 1 && s.number <= paper.questionCount) {
+            const prev = bestStemByNum.get(s.number) ?? "";
+            if (s.text.length >= prev.length) {
+              bestStemByNum.set(s.number, s.text);
+            }
+          }
+        }
+        const dedupedStems: StemBlob[] = [...bestStemByNum.entries()]
+          .sort((a, b) => a[0] - b[0])
+          .map(([number, text]) => ({ number, text }));
+
         setQuestionPages(completedPageMap);
         setPages(built);
-        setStemBlobs(stems);
+        setStemBlobs(dedupedStems);
       }
       setActiveQuestion(1);
       setStage("practice");
@@ -1359,40 +1390,44 @@ function fillMissingQuestionPages(
     }
     setBusyLabel("Marking…");
     try {
-      let tags: Record<number, { topic: string; skill: "knowledge" | "application" | "analysis" }> =
-        {};
       const matchedTopical = getTopicalPaperById(selectedPaperId);
-      if (matchedTopical) {
-        tags = Object.fromEntries(
-          matchedTopical.questions.map((q) => [
-            q.number,
-            { topic: q.subtopic, skill: q.skill },
-          ]),
-        );
-      } else if (stemBlobs.length > 0) {
-        try {
-          const { tags: rows } = await classifyTopicsFn({ data: { level, items: stemBlobs } });
-          tags = Object.fromEntries(
-            rows.map((t) => [t.number, { topic: t.topic, skill: t.skill }]),
-          );
-        } catch {
-          // Grading still works without topic tags — feedback just won't be broken down.
-        }
-      }
+      const stemByNumber = new Map<number, string>(
+        stemBlobs.map((s) => [s.number, s.text]),
+      );
+      const levelUpper = level === "a2" ? "A2" : "AS";
 
       const allNumbers = new Set<number>([
         ...Object.keys(answerKey).map(Number),
         ...Object.keys(answers).map(Number),
       ]);
       const graded_ = [...allNumbers]
+        .filter((n) => n >= 1)
         .sort((a, b) => a - b)
         .map((number) => {
           const correctAnswer = answerKey[number] ?? null;
           const userAnswer = answers[number] ?? null;
+          const topicalQ = matchedTopical?.questions.find((q) => q.number === number);
+          const stemText =
+            stemByNumber.get(number) ??
+            (topicalQ
+              ? `${topicalQ.stem} A ${topicalQ.options.A} B ${topicalQ.options.B} C ${topicalQ.options.C} D ${topicalQ.options.D}`
+              : "");
+          const classified = classifyMcqQuestion({
+            level: levelUpper,
+            number,
+            text: stemText,
+            existingTopic: matchedTopical?.topic,
+            existingSubtopic: topicalQ?.subtopic,
+            existingSkill: topicalQ?.skill,
+          });
           return {
             number,
-            topic: tags[number]?.topic ?? "Untagged",
-            skill: tags[number]?.skill ?? "knowledge",
+            topic: classified.topic,
+            subtopic: topicalQ?.subtopic || classified.subtopic,
+            unit: classified.unit,
+            domain: classified.domain,
+            skill: classified.skill,
+            stem_text: stemText ? stemText.slice(0, 1400) : undefined,
             correct_answer: correctAnswer,
             user_answer: userAnswer,
             correct: correctAnswer ? correctAnswer === userAnswer : null,
@@ -1403,33 +1438,17 @@ function fillMissingQuestionPages(
       const score = scored.filter((q) => q.correct).length;
       setResult({ score, total: scored.length });
       setGraded(true);
-      setReviewQuestions(
-        graded_.map((q) => ({
-          number: q.number,
-          topic: q.topic,
-          correct_answer: q.correct_answer,
-          user_answer: q.user_answer,
-          correct: q.correct,
-        })),
-      );
-
-      const byTopic = new Map<string, { attempted: number; correct: number }>();
-      for (const q of scored) {
-        const entry = byTopic.get(q.topic) ?? { attempted: 0, correct: 0 };
-        entry.attempted += 1;
-        if (q.correct) entry.correct += 1;
-        byTopic.set(q.topic, entry);
-      }
-      setAttemptTopics(
-        [...byTopic.entries()].map(([topic, v]) => ({
-          topic,
-          attempted: v.attempted,
-          correct: v.correct,
-          accuracyPct: Math.round((v.correct / v.attempted) * 100),
-        })),
-      );
+      setReviewQuestions(graded_);
+      setAttemptTopics(buildTopicStatsFromQuestions(scored, levelUpper));
       setAttemptDomains(
-        aggregateMcqDomains(scored.map((q) => ({ topic: q.topic, correct: !!q.correct }))),
+        aggregateMcqDomains(
+          scored.map((q) => ({
+            topic: q.topic,
+            correct: !!q.correct,
+            number: q.number,
+            level: levelUpper,
+          })),
+        ),
       );
 
       await submitAttemptFn({
@@ -1438,7 +1457,16 @@ function fillMissingQuestionPages(
           filename: paperTitle,
           level,
           paperId: selectedPaperId!,
-          questions: graded_,
+          questions: graded_.map((q) => ({
+            number: q.number,
+            topic: q.topic,
+            subtopic: q.subtopic,
+            stem_text: q.stem_text,
+            skill: q.skill,
+            correct_answer: q.correct_answer,
+            user_answer: q.user_answer,
+            correct: q.correct,
+          })),
         },
       });
       if (selectedPaperId) {
@@ -1931,10 +1959,12 @@ function fillMissingQuestionPages(
               <div className="w-full max-w-[820px] mx-auto flex flex-col items-center gap-8 pb-36 lg:pb-16">
                 {graded && attemptTopics.length > 0 ? (
                   <div className="w-full max-w-2xl space-y-4 pt-2 pb-6 border-b border-border/80">
-                    <McqDomainBreakdown domains={attemptDomains} title="This paper: micro vs macro" />
+                    <McqDomainBreakdown domains={attemptDomains} title="This paper: Microeconomics vs Macroeconomics" />
                     <McqReviewPanel
                       topics={attemptTopics}
-                      title="This paper, in short"
+                      questions={reviewQuestions}
+                      onSelectQuestion={goToQuestion}
+                      title="Topic-Wise Diagnostic & Lagging Areas (This Paper)"
                       emptyLabel="No topics tagged."
                     />
                   </div>
@@ -2188,8 +2218,16 @@ function fillMissingQuestionPages(
                 />
                 {attemptTopics.length > 0 ? (
                   <div className="space-y-4 pt-4 border-t">
-                    <McqDomainBreakdown domains={attemptDomains} title="Micro vs Macro" />
-                    <McqReviewPanel topics={attemptTopics} title="Topic Breakdown" />
+                    <McqDomainBreakdown domains={attemptDomains} title="Microeconomics vs Macroeconomics" />
+                    <McqReviewPanel
+                      topics={attemptTopics}
+                      questions={reviewQuestions}
+                      onSelectQuestion={(q) => {
+                        goToQuestion(q);
+                        setMobileReviewOpen(false);
+                      }}
+                      title="Topic-Wise Diagnostic & Lagging Areas"
+                    />
                   </div>
                 ) : null}
               </div>
@@ -2349,6 +2387,7 @@ function PastAttemptSheet({
   attemptId: string | null;
   attempt: {
     title: string;
+    level?: "as" | "a2";
     paperId: string;
     score: number | null;
     total: number;
@@ -2362,10 +2401,29 @@ function PastAttemptSheet({
 }) {
   const pct = attempt ? scorePct(attempt.score, attempt.total) : null;
   const tier = pct !== null ? resultTier(pct) : null;
+  const levelUpper = attempt?.level === "a2" ? "A2" : "AS";
+  const sheetTopics = useMemo(
+    () => (attempt ? buildTopicStatsFromQuestions(attempt.questions, levelUpper) : []),
+    [attempt, levelUpper],
+  );
+  const sheetDomains = useMemo(
+    () =>
+      attempt
+        ? aggregateMcqDomains(
+            attempt.questions.map((q) => ({
+              topic: q.topic,
+              correct: !!q.correct,
+              number: q.number,
+              level: levelUpper,
+            })),
+          )
+        : [],
+    [attempt, levelUpper],
+  );
 
   return (
     <Sheet open={!!attemptId} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-md">
+      <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-xl">
         <SheetHeader>
           <SheetTitle>{attempt?.title ?? "Past attempt"}</SheetTitle>
         </SheetHeader>
@@ -2396,12 +2454,26 @@ function PastAttemptSheet({
                 <BookOpen className="size-4" /> Open full paper and questions
               </Button>
 
+              {sheetTopics.length > 0 ? (
+                <>
+                  <McqDomainBreakdown
+                    domains={sheetDomains}
+                    title="Microeconomics vs Macroeconomics"
+                  />
+                  <McqReviewPanel
+                    topics={sheetTopics}
+                    questions={attempt.questions}
+                    title="Topic-Wise Diagnostic & Lagging Areas"
+                  />
+                </>
+              ) : null}
+
               <McqQuestionReviewList
                 questions={attempt.questions}
                 onSelect={() => {}}
                 onExplain={onExplain}
                 explanations={explanations}
-                title="Review & explain"
+                title="Question-by-Question Review & Explanations"
               />
             </>
           )}

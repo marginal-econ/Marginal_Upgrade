@@ -10,6 +10,12 @@ import {
   calculatePredictedGradeFromThresholds,
   getCambridgeGradeStandard,
 } from "./cambridge-thresholds";
+import {
+  aggregateMcqDomains,
+  classifyMcqQuestion,
+  normalizeMcqTopic,
+} from "./mcq-domain";
+import { buildTopicStatsFromQuestions } from "@/components/app/mcq-review-panel";
 import type { McqDiagnostic, McqExplanationResult } from "./mcq/mcq-pdf.server";
 
 describe("Review Panel & Holistic Diagnostics", () => {
@@ -229,5 +235,94 @@ describe("Advanced MCQ Review and Response Engine", () => {
       examYear: 2025,
       examSeries: "May/June",
     });
+  });
+
+  it("instantly classifies AS and A2 questions into canonical Cambridge 9708 syllabus topics without ever returning Untagged", () => {
+    const q1 = classifyMcqQuestion({
+      level: "AS",
+      number: 2,
+      text: "2 A country moves from a point inside its production possibility curve to a point on the curve. What is the opportunity cost?",
+    });
+    expect(q1.topic).toBe("Basic Economic Ideas & Resource Allocation");
+    expect(q1.unit).toBe("AS Unit 1");
+    expect(q1.domain).toBe("micro");
+    expect(q1.revisionTip).toBeTruthy();
+
+    const q9 = classifyMcqQuestion({
+      level: "AS",
+      number: 9,
+      text: "9 The cross elasticity of demand between good X and good Y is -1.5. What can be concluded?",
+    });
+    expect(q9.topic).toBe("Elasticities (PED, PES, YED & XED)");
+    expect(q9.unit).toBe("AS Unit 2");
+    expect(q9.domain).toBe("micro");
+
+    const q28 = classifyMcqQuestion({
+      level: "AS",
+      number: 28,
+      text: "28 Which transaction is recorded in the primary income section of the current account of the balance of payments?",
+    });
+    expect(q28.topic).toBe("International Trade, Protectionism & Balance of Payments");
+    expect(q28.unit).toBe("AS Unit 6");
+    expect(q28.domain).toBe("macro");
+
+    const a2Q = classifyMcqQuestion({
+      level: "A2",
+      number: 12,
+      text: "12 In an oligopoly, a firm faces a kinked demand curve and uses game theory to avoid price wars.",
+    });
+    expect(a2Q.topic).toBe("Market Structures, Contestability & Pricing");
+    expect(a2Q.unit).toBe("A2 Unit 7");
+    expect(a2Q.domain).toBe("micro");
+
+    // Legacy "Untagged" with empty stem text still resolves deterministically via syllabus sequence
+    const fallback = normalizeMcqTopic("Untagged", "AS", 25, "");
+    expect(fallback.topic).not.toBe("Untagged");
+    expect(fallback.domain).toBe("macro");
+  });
+
+  it("identifies lagging topics and missed question numbers accurately", () => {
+    const stats = buildTopicStatsFromQuestions([
+      {
+        number: 1,
+        topic: "Basic Economic Ideas & Resource Allocation",
+        correct_answer: "A",
+        user_answer: "A",
+        correct: true,
+      },
+      {
+        number: 8,
+        topic: "Elasticities (PED, PES, YED & XED)",
+        correct_answer: "B",
+        user_answer: "C",
+        correct: false,
+      },
+      {
+        number: 10,
+        topic: "Elasticities (PED, PES, YED & XED)",
+        correct_answer: "D",
+        user_answer: "A",
+        correct: false,
+      },
+      {
+        number: 27,
+        topic: "International Trade, Protectionism & Balance of Payments",
+        correct_answer: "C",
+        user_answer: "C",
+        correct: true,
+      },
+    ]);
+
+    expect(stats[0].topic).toBe("Elasticities (PED, PES, YED & XED)");
+    expect(stats[0].accuracyPct).toBe(0);
+    expect(stats[0].wrongNumbers).toEqual([8, 10]);
+
+    const domains = aggregateMcqDomains([
+      { topic: "Basic Economic Ideas & Resource Allocation", correct: true, number: 1 },
+      { topic: "Elasticities (PED, PES, YED & XED)", correct: false, number: 8 },
+      { topic: "International Trade, Protectionism & Balance of Payments", correct: true, number: 27 },
+    ]);
+    expect(domains.find((d) => d.domain === "micro")?.accuracyPct).toBe(50);
+    expect(domains.find((d) => d.domain === "macro")?.accuracyPct).toBe(100);
   });
 });

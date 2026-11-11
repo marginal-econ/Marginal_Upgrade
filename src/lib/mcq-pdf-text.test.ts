@@ -51,4 +51,31 @@ describe("MCQ PDF Text Extraction & Page Mapping", () => {
     expect(questionNumbers).toContain(11);
     expect(questionNumbers).toContain(12);
   });
+
+  it("never mistakes diagram origin '0' tokens for a question number on single-question diagram pages", () => {
+    const diagramPageItems: PdfTextItem[] = [
+      { str: "16", transform: [1, 0, 0, 1, 50, 720] },
+      {
+        str: "The diagrams show four government price controls in a competitive market.",
+        transform: [1, 0, 0, 1, 75, 720],
+      },
+      // Four 2x2 diagrams with ten '0' origin tokens at x=131 and x=310
+      { str: "0", transform: [1, 0, 0, 1, 131, 600] },
+      { str: "0", transform: [1, 0, 0, 1, 131, 580] },
+      { str: "0", transform: [1, 0, 0, 1, 131, 450] },
+      { str: "0", transform: [1, 0, 0, 1, 131, 430] },
+      { str: "0", transform: [1, 0, 0, 1, 310, 600] },
+      // Question prompt below the diagram (> 6 lines below the top)
+      {
+        str: "Which diagram shows an effective maximum price (price ceiling)?",
+        transform: [1, 0, 0, 1, 75, 320],
+      },
+      { str: "A diagram W   B diagram X   C diagram Y   D diagram Z", transform: [1, 0, 0, 1, 75, 280] },
+    ];
+
+    const stems = extractQuestionStems(diagramPageItems);
+    expect(stems).toHaveLength(1);
+    expect(stems[0].number).toBe(16);
+    expect(stems[0].text).toContain("effective maximum price");
+  });
 });

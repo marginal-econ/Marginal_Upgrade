@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
 import { requireSupabaseAuth } from "@/integrations/backend/auth-middleware";
+import { classifyMcqQuestion } from "./mcq-domain";
 
 export type { PaperHistoryEntry, McqDiagnostic, McqExplanationResult } from "./mcq/mcq-pdf.server";
 
@@ -14,7 +15,7 @@ export const classifyMcqTopics = createServerFn({ method: "POST" })
     z
       .object({
         level: LevelSchema,
-        items: z.array(z.object({ number: z.number().int().positive(), text: z.string() })).max(80),
+        items: z.array(z.object({ number: z.number().int().min(0), text: z.string() })).max(120),
       })
       .parse(input),
   )
@@ -44,6 +45,8 @@ export const explainMcqAnswer = createServerFn({ method: "POST" })
         stemText: z.string().max(4000).default(""),
         correctAnswer: z.enum(["A", "B", "C", "D"]),
         userAnswer: z.enum(["A", "B", "C", "D"]).nullable(),
+        topic: z.string().max(300).optional(),
+        subtopic: z.string().max(300).optional(),
       })
       .parse(input),
   )
@@ -56,6 +59,8 @@ export const explainMcqAnswer = createServerFn({ method: "POST" })
 const SubmittedQuestion = z.object({
   number: z.number().int().positive(),
   topic: z.string().default("Untagged"),
+  subtopic: z.string().optional(),
+  stem_text: z.string().max(2000).optional(),
   skill: z.enum(["knowledge", "application", "analysis"]).default("knowledge"),
   correct_answer: z.enum(["A", "B", "C", "D"]).nullable(),
   user_answer: z.enum(["A", "B", "C", "D"]).nullable(),
@@ -120,19 +125,37 @@ export const submitPdfMcqAttempt = createServerFn({ method: "POST" })
     const submittedByNumber = new Map(
       data.questions.map((question) => [question.number, question]),
     );
+    const levelUpper = data.level === "a2" ? "A2" : "AS";
     const graded = Array.from({ length: questionCount }, (_, index) => {
       const number = index + 1;
       const submitted = submittedByNumber.get(number);
       const topicalQuestion = topicalPaper?.questions.find((q) => q.number === number);
+      const stemText =
+        submitted?.stem_text?.trim() ||
+        (topicalQuestion
+          ? `${topicalQuestion.stem} A ${topicalQuestion.options.A} B ${topicalQuestion.options.B} C ${topicalQuestion.options.C} D ${topicalQuestion.options.D}`
+          : "");
+      const classified = classifyMcqQuestion({
+        level: levelUpper,
+        number,
+        text: stemText,
+        existingTopic:
+          submitted?.topic && submitted.topic !== "Untagged"
+            ? submitted.topic
+            : topicalPaper?.topic,
+        existingSubtopic: submitted?.subtopic || topicalQuestion?.subtopic,
+        existingSkill: submitted?.skill || topicalQuestion?.skill,
+      });
       const correctAnswer = answerKey[String(number)];
       const userAnswer = submitted?.user_answer ?? null;
       return {
         number,
-        topic:
-          submitted?.topic && submitted.topic !== "Untagged"
-            ? submitted.topic
-            : (topicalQuestion?.subtopic ?? "Untagged"),
-        skill: submitted?.skill ?? topicalQuestion?.skill ?? "knowledge",
+        topic: classified.topic,
+        subtopic: topicalQuestion?.subtopic || classified.subtopic,
+        unit: classified.unit,
+        domain: classified.domain,
+        skill: classified.skill,
+        stem_text: stemText ? stemText.slice(0, 1400) : undefined,
         correct_answer: correctAnswer,
         user_answer: userAnswer,
         correct: userAnswer === correctAnswer,
@@ -160,26 +183,140 @@ export const submitPdfMcqAttempt = createServerFn({ method: "POST" })
     return { attemptId: row.id, score: row.score, total: row.total };
   });
 
-/** Weakest-first topic breakdown, combined across generated papers and past-paper practice. */
+/**
+ * Weakest-first canonical Cambridge 9708 topic breakdown across past-paper
+ * and practice attempts. Automatically normalizes any legacy/freeform or
+ * "Untagged" rows into canonical syllabus topics so the student always gets
+ * accurate, actionable topic-wise diagnostics.
+ */
 export const getMcqTopicPerformance = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { supabase, userId } = context;
-    const { data, error } = await supabase
-      .from("mcq_topic_performance")
-      .select("topic, attempted, correct_count, accuracy_pct")
-      .eq("user_id", userId)
-      .order("accuracy_pct", { ascending: true });
+    const [pdfRes, genRes] = await Promise.all([
+      supabase
+        .from("mcq_pdf_attempts")
+        .select("id, paper_id, title, level, questions, completed_at")
+        .eq("user_id", userId)
+        .not("completed_at", "is", null)
+        .order("completed_at", { ascending: false }),
+      supabase
+        .from("mcq_attempts")
+        .select("id, level, questions, answers, completed_at")
+        .eq("user_id", userId)
+        .not("completed_at", "is", null)
+        .order("completed_at", { ascending: false }),
+    ]);
 
-    if (error) throw new Error(error.message);
-    return {
-      topics: (data ?? []).map((t) => ({
-        topic: t.topic as string,
-        attempted: t.attempted as number,
-        correct: t.correct_count as number,
-        accuracyPct: t.accuracy_pct as number | null,
-      })),
-    };
+    if (pdfRes.error) throw new Error(pdfRes.error.message);
+
+    const buckets = new Map<
+      string,
+      {
+        topic: string;
+        unit: string;
+        domain: "micro" | "macro";
+        revisionTip: string;
+        attempted: number;
+        correct: number;
+      }
+    >();
+
+    // Deduplicate by paper key using the latest completed attempt per paper
+    // so retaking a paper reflects current mastery without double-counting.
+    const seenPaperKeys = new Set<string>();
+    for (const row of pdfRes.data ?? []) {
+      const key =
+        row.paper_id ??
+        (typeof row.title === "string" && row.title.startsWith("Topical Past Paper:")
+          ? `topical:${row.title}`
+          : `solo:${row.id}`);
+      if (seenPaperKeys.has(key)) continue;
+      seenPaperKeys.add(key);
+
+      const levelUpper = row.level === "a2" ? "A2" : "AS";
+      const questions = Array.isArray(row.questions) ? row.questions : [];
+      for (const rawQ of questions) {
+        if (!rawQ || typeof rawQ !== "object") continue;
+        const q = rawQ as Record<string, unknown>;
+        const num = typeof q.number === "number" ? q.number : 1;
+        const classified = classifyMcqQuestion({
+          level: levelUpper,
+          number: num,
+          text: typeof q.stem_text === "string" ? q.stem_text : undefined,
+          existingTopic: typeof q.topic === "string" ? q.topic : undefined,
+          existingSubtopic: typeof q.subtopic === "string" ? q.subtopic : undefined,
+        });
+        const isCorrect = q.correct === true;
+        const entry = buckets.get(classified.topic) ?? {
+          topic: classified.topic,
+          unit: classified.unit,
+          domain: classified.domain,
+          revisionTip: classified.revisionTip,
+          attempted: 0,
+          correct: 0,
+        };
+        entry.attempted += 1;
+        if (isCorrect) entry.correct += 1;
+        buckets.set(classified.topic, entry);
+      }
+    }
+
+    for (const row of genRes.data ?? []) {
+      const levelUpper =
+        typeof row.level === "string" && row.level.toUpperCase() === "A2" ? "A2" : "AS";
+      const questions = Array.isArray(row.questions) ? row.questions : [];
+      const answers =
+        row.answers && typeof row.answers === "object"
+          ? (row.answers as Record<string, unknown>)
+          : {};
+      questions.forEach((rawQ, idx) => {
+        if (!rawQ || typeof rawQ !== "object") return;
+        const q = rawQ as Record<string, unknown>;
+        const num = typeof q.number === "number" ? q.number : idx + 1;
+        const classified = classifyMcqQuestion({
+          level: levelUpper,
+          number: num,
+          text: typeof q.stem === "string" ? q.stem : undefined,
+          existingTopic: typeof q.topic === "string" ? q.topic : undefined,
+        });
+        const ansObj = answers[String(idx)] as Record<string, unknown> | undefined;
+        const isCorrect = ansObj?.correct === true;
+        const entry = buckets.get(classified.topic) ?? {
+          topic: classified.topic,
+          unit: classified.unit,
+          domain: classified.domain,
+          revisionTip: classified.revisionTip,
+          attempted: 0,
+          correct: 0,
+        };
+        entry.attempted += 1;
+        if (isCorrect) entry.correct += 1;
+        buckets.set(classified.topic, entry);
+      });
+    }
+
+    const topics = [...buckets.values()]
+      .filter((t) => t.attempted > 0)
+      .map((t) => {
+        const accuracyPct = Math.round((t.correct / t.attempted) * 1000) / 10;
+        return {
+          topic: t.topic,
+          unit: t.unit,
+          domain: t.domain,
+          revisionTip: t.revisionTip,
+          attempted: t.attempted,
+          correct: t.correct,
+          marksLost: t.attempted - t.correct,
+          accuracyPct,
+        };
+      })
+      .sort((a, b) => {
+        if (a.accuracyPct !== b.accuracyPct) return a.accuracyPct - b.accuracyPct;
+        return b.marksLost - a.marksLost;
+      });
+
+    return { topics };
   });
 
 /**
@@ -346,6 +483,34 @@ export const getPdfMcqAttempt = createServerFn({ method: "GET" })
     if (error) throw new Error(error.message);
     if (!row) throw new Error("That attempt wasn't found.");
 
+    const levelUpper = row.level === "a2" ? "A2" : "AS";
+    const rawQuestions = Array.isArray(row.questions) ? row.questions : [];
+    const normalizedQuestions = rawQuestions.map((rawQ, idx) => {
+      const q = (rawQ && typeof rawQ === "object" ? rawQ : {}) as Record<string, unknown>;
+      const number = typeof q.number === "number" ? q.number : idx + 1;
+      const stemText = typeof q.stem_text === "string" ? q.stem_text : "";
+      const classified = classifyMcqQuestion({
+        level: levelUpper,
+        number,
+        text: stemText,
+        existingTopic: typeof q.topic === "string" ? q.topic : undefined,
+        existingSubtopic: typeof q.subtopic === "string" ? q.subtopic : undefined,
+        existingSkill: typeof q.skill === "string" ? q.skill : undefined,
+      });
+      return {
+        number,
+        topic: classified.topic,
+        subtopic: classified.subtopic,
+        unit: classified.unit,
+        domain: classified.domain,
+        skill: classified.skill,
+        stem_text: stemText,
+        correct_answer: (q.correct_answer ?? null) as "A" | "B" | "C" | "D" | null,
+        user_answer: (q.user_answer ?? null) as "A" | "B" | "C" | "D" | null,
+        correct: (q.correct ?? null) as boolean | null,
+      };
+    });
+
     return {
       id: row.id as string,
       title: row.title as string,
@@ -354,13 +519,7 @@ export const getPdfMcqAttempt = createServerFn({ method: "GET" })
       score: row.score as number | null,
       total: row.total as number,
       completedAt: row.completed_at as string | null,
-      questions: (row.questions ?? []) as Array<{
-        number: number;
-        topic: string;
-        correct_answer: "A" | "B" | "C" | "D" | null;
-        user_answer: "A" | "B" | "C" | "D" | null;
-        correct: boolean | null;
-      }>,
+      questions: normalizedQuestions,
     };
   });
 
