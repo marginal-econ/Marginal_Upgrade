@@ -118,6 +118,7 @@ interface UserAvatarProps {
   fallbackInitials?: string;
   className?: string;
   showStatusDot?: boolean;
+  shape?: "circle" | "rounded";
 }
 
 export function UserAvatar({
@@ -126,7 +127,11 @@ export function UserAvatar({
   fallbackInitials,
   className,
   showStatusDot = false,
+  shape = "rounded",
 }: UserAvatarProps) {
+  const isCircle = shape === "circle";
+  const roundedCls = isCircle ? "rounded-full" : "rounded-xl";
+
   const initials =
     fallbackInitials ||
     (name
@@ -139,13 +144,19 @@ export function UserAvatar({
       : "CA");
 
   const preset = getPresetById(avatarUrl);
+  const isMarginal =
+    avatarUrl === "/marginal-m-icon-clean.png" ||
+    avatarUrl === "marginal" ||
+    (typeof avatarUrl === "string" && avatarUrl.includes("marginal-m-icon")) ||
+    (!avatarUrl && (name?.trim().toLowerCase() === "marginal" || initials === "M"));
 
   return (
     <div className={cn("relative inline-flex shrink-0", className)}>
       {preset ? (
         <div
           className={cn(
-            "flex size-full items-center justify-center rounded-xl border shadow-xs transition-transform",
+            "flex size-full items-center justify-center border shadow-xs transition-transform",
+            roundedCls,
             preset.bg,
             preset.border,
             preset.text,
@@ -154,15 +165,34 @@ export function UserAvatar({
         >
           <preset.icon className="size-1/2 shrink-0" />
         </div>
-      ) : avatarUrl && (avatarUrl.startsWith("http") || avatarUrl.startsWith("data:")) ? (
-        <Avatar className="size-full rounded-xl border border-border/80 shadow-xs">
+      ) : isMarginal ? (
+        <div
+          className={cn(
+            "flex size-full items-center justify-center border border-primary/25 bg-gradient-to-br from-primary/15 via-primary/8 to-transparent shadow-xs overflow-hidden p-1 transition-transform group-hover:scale-105",
+            roundedCls,
+          )}
+          title="Marginal Economics"
+        >
+          <img
+            src="/marginal-m-icon-clean.png"
+            alt="Marginal"
+            className="size-full object-contain drop-shadow-xs"
+          />
+        </div>
+      ) : avatarUrl && (avatarUrl.startsWith("http") || avatarUrl.startsWith("data:") || avatarUrl.startsWith("/")) ? (
+        <Avatar className={cn("size-full border border-border/80 shadow-xs", roundedCls)}>
           <AvatarImage src={avatarUrl} alt={name || "User avatar"} className="object-cover" />
-          <AvatarFallback className="rounded-xl bg-primary/10 text-primary font-bold text-xs">
+          <AvatarFallback className={cn("bg-primary/10 text-primary font-bold text-xs", roundedCls)}>
             {initials}
           </AvatarFallback>
         </Avatar>
       ) : (
-        <div className="flex size-full items-center justify-center rounded-xl border border-primary/20 bg-gradient-to-br from-primary/20 to-primary/5 text-primary font-bold shadow-xs">
+        <div
+          className={cn(
+            "flex size-full items-center justify-center border border-primary/20 bg-gradient-to-br from-primary/20 to-primary/5 text-primary font-bold shadow-xs",
+            roundedCls,
+          )}
+        >
           {initials || <User className="size-1/2" />}
         </div>
       )}

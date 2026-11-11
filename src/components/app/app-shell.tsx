@@ -823,17 +823,19 @@ export function AppShell({
               title="Marginal Economics Dashboard"
             >
               <div className="relative group/logo shrink-0">
-                <div className="absolute -inset-1 rounded-xl bg-gradient-to-r from-primary/30 to-purple-600/30 blur-xs opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                <img
-                  src="/marginal-m-icon-clean.png"
-                  alt=""
-                  aria-hidden="true"
-                  className="relative size-7 object-contain transition-transform duration-300 group-hover:scale-110"
-                />
+                <div className="absolute -inset-1 rounded-2xl bg-gradient-to-r from-primary/30 to-purple-600/30 blur-xs opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                <div className="relative size-9.5 shrink-0 rounded-xl bg-gradient-to-br from-primary/15 via-primary/8 to-transparent border border-primary/25 flex items-center justify-center overflow-hidden transition-all duration-200 group-hover:border-primary/50 group-hover:shadow-[0_0_16px_rgba(168,85,247,0.35)] shadow-xs">
+                  <img
+                    src="/marginal-m-icon-clean.png"
+                    alt=""
+                    aria-hidden="true"
+                    className="size-7 object-contain transition-transform duration-300 group-hover:scale-110 drop-shadow-xs"
+                  />
+                </div>
               </div>
               <span
                 className={cn(
-                  "text-sm leading-tight font-bold tracking-tight text-foreground transition-colors group-hover:text-primary",
+                  "text-base leading-tight font-extrabold tracking-tight text-foreground transition-colors group-hover:text-primary",
                   sidebarCollapsed && "hidden",
                 )}
               >
@@ -1053,14 +1055,17 @@ export function AppShell({
             <div className="flex flex-col items-center gap-3 w-full">
               <Link
                 to="/dashboard"
-                className="p-1 hover:scale-105 transition-transform"
+                className="relative group/logo shrink-0 p-1"
                 title="Dashboard"
               >
-                <img
-                  src="/marginal-m-icon-clean.png"
-                  alt=""
-                  className="size-7 object-contain"
-                />
+                <div className="absolute -inset-1 rounded-xl bg-gradient-to-r from-primary/30 to-purple-600/30 blur-xs opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                <div className="relative size-9 shrink-0 rounded-xl bg-gradient-to-br from-primary/15 via-primary/8 to-transparent border border-primary/25 flex items-center justify-center overflow-hidden transition-all duration-200 group-hover:border-primary/50 group-hover:shadow-[0_0_16px_rgba(168,85,247,0.35)] shadow-xs">
+                  <img
+                    src="/marginal-m-icon-clean.png"
+                    alt="Marginal"
+                    className="size-6.5 object-contain transition-transform duration-300 group-hover:scale-110 drop-shadow-xs"
+                  />
+                </div>
               </Link>
 
               <button
@@ -1230,14 +1235,16 @@ export function AppShell({
               </SheetTrigger>
               <SheetContent side="left" className="w-72 p-4 flex flex-col h-full">
                 <SheetHeader className="mb-3 text-left shrink-0">
-                  <SheetTitle className="flex items-center gap-2">
-                    <img
-                      src="/marginal-m-icon-clean.png"
-                      alt=""
-                      aria-hidden="true"
-                      className="size-7 object-contain"
-                    />
-                    <span className="font-bold">Marginal 9708</span>
+                  <SheetTitle className="flex items-center gap-2.5">
+                    <div className="relative size-8.5 shrink-0 rounded-xl bg-gradient-to-br from-primary/15 via-primary/8 to-transparent border border-primary/25 flex items-center justify-center overflow-hidden shadow-xs">
+                      <img
+                        src="/marginal-m-icon-clean.png"
+                        alt="Marginal"
+                        aria-hidden="true"
+                        className="size-6 object-contain drop-shadow-xs"
+                      />
+                    </div>
+                    <span className="font-extrabold tracking-tight">Marginal 9708</span>
                   </SheetTitle>
                 </SheetHeader>
 
@@ -1370,14 +1377,16 @@ export function AppShell({
               </SheetContent>
             </Sheet>
 
-            <Link to="/dashboard" className="flex items-center gap-2">
-              <img
-                src="/marginal-m-icon-clean.png"
-                alt=""
-                aria-hidden="true"
-                className="size-6 object-contain"
-              />
-              <span className="text-sm font-bold">Marginal</span>
+            <Link to="/dashboard" className="flex items-center gap-2.5 group">
+              <div className="relative size-8 shrink-0 rounded-xl bg-gradient-to-br from-primary/15 via-primary/8 to-transparent border border-primary/25 flex items-center justify-center overflow-hidden shadow-2xs">
+                <img
+                  src="/marginal-m-icon-clean.png"
+                  alt="Marginal"
+                  aria-hidden="true"
+                  className="size-6 object-contain"
+                />
+              </div>
+              <span className="text-sm font-extrabold tracking-tight">Marginal</span>
             </Link>
           </div>
 
@@ -1432,20 +1441,23 @@ export function AppShell({
           <header className="hidden lg:flex items-center justify-between h-14 border-b border-border/60 bg-background/80 backdrop-blur-xl px-4 sm:px-6 sticky top-0 z-40 w-full shrink-0 select-none shadow-[0_1px_3px_0_rgba(0,0,0,0.03)] dark:shadow-[0_1px_3px_0_rgba(0,0,0,0.2)]">
             {/* Left: Brand + Navigation Dropdowns */}
             <div className="flex items-center gap-3 xl:gap-4 min-w-0 shrink-0">
-              <Link to="/dashboard" className="flex items-center gap-2.5 shrink-0 group pr-1">
-                <div className="relative size-7 shrink-0 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center overflow-hidden transition-all duration-200 group-hover:border-primary/40 group-hover:shadow-[0_0_12px_rgba(168,85,247,0.25)]">
-                  <img
-                    src="/marginal-m-icon-clean.png"
-                    alt=""
-                    aria-hidden="true"
-                    className="size-5 object-contain transition-transform group-hover:scale-110"
-                  />
+              <Link to="/dashboard" className="flex items-center gap-2.5 shrink-0 group pr-1.5" title="Marginal Economics Dashboard">
+                <div className="relative group/logo shrink-0">
+                  <div className="absolute -inset-1 rounded-xl bg-gradient-to-r from-primary/30 to-purple-600/30 blur-xs opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                  <div className="relative size-9.5 shrink-0 rounded-xl bg-gradient-to-br from-primary/15 via-primary/8 to-transparent border border-primary/25 flex items-center justify-center overflow-hidden transition-all duration-200 group-hover:border-primary/50 group-hover:shadow-[0_0_16px_rgba(168,85,247,0.35)] shadow-xs">
+                    <img
+                      src="/marginal-m-icon-clean.png"
+                      alt="Marginal"
+                      aria-hidden="true"
+                      className="size-7 object-contain transition-transform duration-300 group-hover:scale-110 drop-shadow-xs"
+                    />
+                  </div>
                 </div>
-                <span className="text-sm font-bold tracking-tight text-foreground flex items-center gap-1.5">
+                <span className="text-base font-extrabold tracking-tight text-foreground transition-colors group-hover:text-primary flex items-center gap-2">
                   Marginal
                   <Badge
                     variant="outline"
-                    className="text-[9.5px] font-mono px-1.5 py-0 border-primary/30 text-primary bg-primary/5 font-semibold"
+                    className="text-[10px] font-mono px-2 py-0.5 border-primary/30 text-primary bg-primary/10 font-bold tracking-wide shadow-2xs"
                   >
                     9708
                   </Badge>
@@ -1818,7 +1830,7 @@ export function AppShell({
                 <DropdownMenuTrigger asChild>
                   <button
                     type="button"
-                    className="flex items-center gap-1.5 rounded-full p-0.5 ring-1 ring-border/80 hover:ring-2 hover:ring-primary/50 transition-all cursor-pointer shrink-0"
+                    className="flex items-center gap-1.5 rounded-full p-1 ring-2 ring-primary/30 hover:ring-primary/70 hover:bg-primary/5 transition-all cursor-pointer shrink-0 shadow-2xs hover:shadow-[0_0_16px_rgba(168,85,247,0.35)] hover:scale-105 active:scale-95 duration-200"
                     title="User Account & Settings"
                   >
                     <UserAvatar
@@ -1826,7 +1838,8 @@ export function AppShell({
                       name={name}
                       fallbackInitials={candidateInitials}
                       showStatusDot={true}
-                      className="size-7.5"
+                      shape="circle"
+                      className="size-9"
                     />
                   </button>
                 </DropdownMenuTrigger>
