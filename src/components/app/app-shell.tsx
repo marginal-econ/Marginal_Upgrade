@@ -31,6 +31,7 @@ import {
   Lock,
   LineChart,
   MessageSquare,
+  MessageSquarePlus,
   Send,
   Trophy,
   ArrowRight,
@@ -140,46 +141,48 @@ export function LayoutSwitcherButton({
         <button
           type="button"
           className={cn(
-            "flex items-center gap-1.5 rounded-lg border border-border/80 bg-card px-2.5 py-1 text-xs font-semibold text-foreground hover:bg-muted transition-all cursor-pointer shadow-2xs",
+            "flex items-center gap-1.5 rounded-lg border border-border/70 bg-card/60 px-2.5 py-1 text-xs font-semibold text-foreground hover:bg-muted/80 transition-all cursor-pointer shadow-2xs whitespace-nowrap shrink-0",
             className,
           )}
           title="Switch Navigation & Workspace Layout"
         >
           {navLayout === "topbar" ? (
-            <PanelsTopBottom className="size-3.5 text-primary" />
+            <PanelsTopBottom className="size-3.5 text-primary shrink-0" />
           ) : navLayout === "dock" ? (
-            <Layers className="size-3.5 text-primary" />
+            <Layers className="size-3.5 text-primary shrink-0" />
           ) : (
-            <PanelLeft className="size-3.5 text-primary" />
+            <PanelLeft className="size-3.5 text-primary shrink-0" />
           )}
-          <span className="hidden sm:inline capitalize">
+          <span className="hidden sm:inline capitalize font-medium">
             {navLayout === "topbar" ? "Topbar" : navLayout === "dock" ? "Category Hub" : "Sidebar"}
           </span>
-          <ChevronDown className="size-3 opacity-60" />
+          <ChevronDown className="size-3 opacity-60 shrink-0" />
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-56 p-1.5 z-50 bg-popover">
+      <DropdownMenuContent align="end" className="w-64 p-1.5 z-50 bg-popover/95 backdrop-blur-xl border border-border/80 shadow-xl rounded-xl">
         <DropdownMenuLabel className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground px-2 py-1">
           Workspace Navigation
         </DropdownMenuLabel>
         <DropdownMenuItem
           onClick={() => onChange("topbar")}
           className={cn(
-            "flex items-center justify-between gap-2 px-2.5 py-2 text-xs rounded-md cursor-pointer",
-            navLayout === "topbar" && "bg-primary/10 font-bold text-primary",
+            "flex items-center justify-between gap-2 px-2.5 py-2 text-xs rounded-lg cursor-pointer transition-colors mb-0.5",
+            navLayout === "topbar" ? "bg-primary/10 font-bold text-primary" : "hover:bg-muted/70",
           )}
         >
-          <div className="flex items-center gap-2">
-            <PanelsTopBottom className="size-4 text-primary" />
+          <div className="flex items-center gap-2.5">
+            <div className="size-6 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
+              <PanelsTopBottom className="size-3.5 text-primary" />
+            </div>
             <div>
               <p className="font-semibold leading-tight">Horizontal Topbar</p>
               <p className="text-[10px] text-muted-foreground font-normal">100% Scroll-free header</p>
             </div>
           </div>
           {navLayout === "topbar" ? (
-            <Check className="size-3.5 text-primary" />
+            <Check className="size-3.5 text-primary shrink-0" />
           ) : (
-            <Badge variant="outline" className="text-[9px] px-1 py-0 text-emerald-600 border-emerald-500/30">
+            <Badge variant="outline" className="text-[9px] px-1 py-0 text-emerald-600 border-emerald-500/30 font-mono">
               Rec
             </Badge>
           )}
@@ -188,42 +191,46 @@ export function LayoutSwitcherButton({
         <DropdownMenuItem
           onClick={() => onChange("dock")}
           className={cn(
-            "flex items-center justify-between gap-2 px-2.5 py-2 text-xs rounded-md cursor-pointer",
-            navLayout === "dock" && "bg-primary/10 font-bold text-primary",
+            "flex items-center justify-between gap-2 px-2.5 py-2 text-xs rounded-lg cursor-pointer transition-colors mb-0.5",
+            navLayout === "dock" ? "bg-primary/10 font-bold text-primary" : "hover:bg-muted/70",
           )}
         >
-          <div className="flex items-center gap-2">
-            <Layers className="size-4 text-indigo-500" />
+          <div className="flex items-center gap-2.5">
+            <div className="size-6 rounded-md bg-indigo-500/10 flex items-center justify-center shrink-0">
+              <Layers className="size-3.5 text-indigo-500" />
+            </div>
             <div>
               <p className="font-semibold leading-tight">Compact Category Hub</p>
               <p className="text-[10px] text-muted-foreground font-normal">Scroll-free icon rail</p>
             </div>
           </div>
-          {navLayout === "dock" && <Check className="size-3.5 text-primary" />}
+          {navLayout === "dock" && <Check className="size-3.5 text-primary shrink-0" />}
         </DropdownMenuItem>
 
         <DropdownMenuItem
           onClick={() => onChange("sidebar")}
           className={cn(
-            "flex items-center justify-between gap-2 px-2.5 py-2 text-xs rounded-md cursor-pointer",
-            navLayout === "sidebar" && "bg-primary/10 font-bold text-primary",
+            "flex items-center justify-between gap-2 px-2.5 py-2 text-xs rounded-lg cursor-pointer transition-colors",
+            navLayout === "sidebar" ? "bg-primary/10 font-bold text-primary" : "hover:bg-muted/70",
           )}
         >
-          <div className="flex items-center gap-2">
-            <PanelLeft className="size-4 text-muted-foreground" />
+          <div className="flex items-center gap-2.5">
+            <div className="size-6 rounded-md bg-muted flex items-center justify-center shrink-0">
+              <PanelLeft className="size-3.5 text-muted-foreground" />
+            </div>
             <div>
               <p className="font-semibold leading-tight">Classic Sidebar</p>
               <p className="text-[10px] text-muted-foreground font-normal">Traditional column</p>
             </div>
           </div>
-          {navLayout === "sidebar" && <Check className="size-3.5 text-primary" />}
+          {navLayout === "sidebar" && <Check className="size-3.5 text-primary shrink-0" />}
         </DropdownMenuItem>
 
-        <DropdownMenuSeparator className="my-1" />
+        <DropdownMenuSeparator className="my-1 border-border/60" />
         <DropdownMenuItem asChild>
           <Link
             to="/settings"
-            className="flex items-center gap-2 text-xs px-2.5 py-1.5 text-muted-foreground hover:text-foreground cursor-pointer"
+            className="flex items-center gap-2 text-xs px-2.5 py-1.5 text-muted-foreground hover:text-foreground cursor-pointer rounded-lg"
           >
             <Settings className="size-3.5" />
             <span>Customize in Settings...</span>
@@ -1374,15 +1381,15 @@ export function AppShell({
             </Link>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2">
             <button
               type="button"
               onClick={() => setCommandOpen(true)}
-              className="flex items-center justify-center size-8 rounded-full border border-border/80 hover:bg-muted transition-colors text-muted-foreground hover:text-foreground cursor-pointer"
+              className="flex items-center justify-center size-8 rounded-lg border border-border/70 bg-card/60 hover:bg-muted/80 transition-colors text-muted-foreground hover:text-foreground cursor-pointer shadow-2xs"
               title="Search Cambridge 9708 (⌘K)"
               aria-label="Search or jump"
             >
-              <SearchIcon className="size-3.5" />
+              <SearchIcon className="size-3.5 text-primary" />
             </button>
             <TopTutorialButton size="sm" />
             <LayoutSwitcherButton
@@ -1394,57 +1401,73 @@ export function AppShell({
               <Link
                 to="/admin"
                 search={{ tab: "messages" }}
-                className="relative flex items-center justify-center size-8 rounded-full border border-border/80 hover:bg-muted transition-colors"
+                className="relative flex items-center justify-center size-8 rounded-lg border border-border/70 bg-card/60 hover:bg-muted/80 text-foreground transition-all cursor-pointer shadow-2xs"
                 title="Direct Messages Portal"
               >
                 <Send className="size-3.5 text-primary" />
                 {unreadMsgCount > 0 && (
-                  <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white shadow-xs">
+                  <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[9.5px] font-bold text-white shadow-xs ring-2 ring-background">
                     {unreadMsgCount}
                   </span>
                 )}
               </Link>
             ) : (
-              <StudentMessagesDialog />
+              <StudentMessagesDialog
+                trigger={
+                  <button
+                    type="button"
+                    className="relative flex items-center justify-center size-8 rounded-lg border border-border/70 bg-card/60 hover:bg-muted/80 text-foreground transition-all cursor-pointer shadow-2xs"
+                    title="Direct Messages from Examiners"
+                  >
+                    <Send className="size-3.5 text-primary" />
+                  </button>
+                }
+              />
             )}
           </div>
         </header>
 
         {/* ── Desktop Horizontal Topbar Navigation (navLayout === 'topbar') ── */}
         {navLayout === "topbar" && (
-          <header className="hidden lg:flex items-center justify-between border-b border-border/80 bg-background/95 backdrop-blur-md px-6 py-2.5 sticky top-0 z-40 w-full shrink-0 shadow-2xs">
+          <header className="hidden lg:flex items-center justify-between h-14 border-b border-border/60 bg-background/80 backdrop-blur-xl px-4 sm:px-6 sticky top-0 z-40 w-full shrink-0 select-none shadow-[0_1px_3px_0_rgba(0,0,0,0.03)] dark:shadow-[0_1px_3px_0_rgba(0,0,0,0.2)]">
             {/* Left: Brand + Navigation Dropdowns */}
-            <div className="flex items-center gap-6 min-w-0">
-              <Link to="/dashboard" className="flex items-center gap-2.5 shrink-0 group">
-                <img
-                  src="/marginal-m-icon-clean.png"
-                  alt=""
-                  aria-hidden="true"
-                  className="size-7 object-contain transition-transform group-hover:scale-105"
-                />
+            <div className="flex items-center gap-3 xl:gap-4 min-w-0 shrink-0">
+              <Link to="/dashboard" className="flex items-center gap-2.5 shrink-0 group pr-1">
+                <div className="relative size-7 shrink-0 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center overflow-hidden transition-all duration-200 group-hover:border-primary/40 group-hover:shadow-[0_0_12px_rgba(168,85,247,0.25)]">
+                  <img
+                    src="/marginal-m-icon-clean.png"
+                    alt=""
+                    aria-hidden="true"
+                    className="size-5 object-contain transition-transform group-hover:scale-110"
+                  />
+                </div>
                 <span className="text-sm font-bold tracking-tight text-foreground flex items-center gap-1.5">
                   Marginal
                   <Badge
                     variant="outline"
-                    className="text-[9.5px] font-mono px-1.5 py-0 border-primary/30 text-primary"
+                    className="text-[9.5px] font-mono px-1.5 py-0 border-primary/30 text-primary bg-primary/5 font-semibold"
                   >
                     9708
                   </Badge>
                 </span>
               </Link>
 
+              {/* Subtle Vertical Hairline Separator */}
+              <div className="hidden xl:block h-4 w-px bg-border/60 shrink-0" />
+
               {/* Top Navigation Menus */}
-              <nav className="flex items-center gap-1">
+              <nav className="flex items-center gap-1 shrink-0">
                 <Link
                   to="/dashboard"
                   className={cn(
-                    "px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer",
+                    "flex items-center gap-1.5 h-8 px-2.5 xl:px-3 rounded-lg text-xs font-medium whitespace-nowrap shrink-0 transition-all cursor-pointer",
                     pathname === "/dashboard"
-                      ? "bg-primary/10 text-primary font-bold shadow-2xs"
-                      : "text-muted-foreground hover:text-foreground hover:bg-muted/80",
+                      ? "bg-primary/10 text-primary font-semibold border border-primary/25 shadow-2xs"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted/70",
                   )}
                 >
-                  Dashboard
+                  <LayoutDashboard className="size-3.5 shrink-0 text-primary" />
+                  <span>Dashboard</span>
                 </Link>
 
                 {/* Exam Practice Dropdown */}
@@ -1454,42 +1477,49 @@ export function AppShell({
                       <button
                         type="button"
                         className={cn(
-                          "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer",
+                          "group flex items-center gap-1.5 h-8 px-2.5 xl:px-3 rounded-lg text-xs font-medium whitespace-nowrap shrink-0 transition-all cursor-pointer",
                           isPracticeActive
-                            ? "bg-primary/10 text-primary font-bold shadow-2xs"
-                            : "text-muted-foreground hover:text-foreground hover:bg-muted/80",
+                            ? "bg-primary/10 text-primary font-semibold border border-primary/25 shadow-2xs"
+                            : "text-muted-foreground hover:text-foreground hover:bg-muted/70",
                         )}
                       >
-                        <PenLine className="size-3.5 text-primary" />
+                        <PenLine className="size-3.5 shrink-0 text-primary" />
                         <span>Exam Practice</span>
-                        <ChevronDown className="size-3 opacity-60" />
+                        <ChevronDown className="size-3 opacity-50 group-data-[state=open]:rotate-180 transition-transform duration-200 shrink-0" />
                       </button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start" className="w-64 p-1.5 z-50 bg-popover">
-                      <DropdownMenuLabel className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground px-2 py-1">
-                        Cambridge 9708 Practice
-                      </DropdownMenuLabel>
+                    <DropdownMenuContent align="start" className="w-72 p-1.5 z-50 bg-popover/95 backdrop-blur-xl border border-border/80 shadow-xl rounded-xl animate-in fade-in-0 zoom-in-95">
+                      <div className="px-2.5 py-1.5 mb-1 border-b border-border/50 flex items-center justify-between">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                          Cambridge 9708 Practice
+                        </span>
+                        <span className="text-[9px] font-mono text-muted-foreground/80">AS & A2 Level</span>
+                      </div>
                       {practiceGroup.items
                         .filter((item) => item.to !== "/dashboard")
                         .map((item) => (
-                        <DropdownMenuItem key={item.to} asChild>
+                        <DropdownMenuItem key={item.to} asChild className="p-0 mb-0.5">
                           <Link
                             to={item.to}
                             className={cn(
-                              "flex items-center justify-between gap-2.5 px-2.5 py-2 text-xs rounded-md cursor-pointer",
-                              isItemActive(item.to) && "bg-primary/10 text-primary font-bold",
+                              "flex items-center justify-between gap-2.5 px-2.5 py-2 text-xs rounded-lg cursor-pointer transition-all group",
+                              isItemActive(item.to)
+                                ? "bg-primary/10 text-primary font-semibold"
+                                : "hover:bg-muted/70 text-foreground",
                             )}
                           >
-                            <div className="flex items-center gap-2 min-w-0">
-                              <item.icon className="size-4 shrink-0 text-muted-foreground" />
-                              <span className="truncate">{item.label}</span>
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <div className="size-6 rounded-md bg-muted/60 flex items-center justify-center shrink-0 group-hover:bg-primary/10 transition-colors">
+                                <item.icon className="size-3.5 text-muted-foreground group-hover:text-primary transition-colors shrink-0" />
+                              </div>
+                              <span className="truncate font-medium">{item.label}</span>
                             </div>
                             {item.badge && (
                               <Badge
                                 variant="outline"
                                 className={cn(
-                                  "text-[9px] px-1.5 py-0 shrink-0",
-                                  item.badge === "Under Building" || item.badge === "Beta"
+                                  "text-[9px] px-1.5 py-0 shrink-0 font-mono",
+                                  item.badge === "Under Building" || item.badge === "Beta" || item.badge === "In Dev"
                                     ? "border-amber-500/35 bg-amber-500/10 text-amber-600 dark:text-amber-400"
                                     : "border-primary/30 text-primary bg-primary/10",
                                 )}
@@ -1511,38 +1541,45 @@ export function AppShell({
                       <button
                         type="button"
                         className={cn(
-                          "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer",
+                          "group flex items-center gap-1.5 h-8 px-2.5 xl:px-3 rounded-lg text-xs font-medium whitespace-nowrap shrink-0 transition-all cursor-pointer",
                           isSyllabusActive
-                            ? "bg-primary/10 text-primary font-bold shadow-2xs"
-                            : "text-muted-foreground hover:text-foreground hover:bg-muted/80",
+                            ? "bg-primary/10 text-primary font-semibold border border-primary/25 shadow-2xs"
+                            : "text-muted-foreground hover:text-foreground hover:bg-muted/70",
                         )}
                       >
-                        <BookOpen className="size-3.5 text-sky-500" />
+                        <BookOpen className="size-3.5 shrink-0 text-sky-500" />
                         <span>Syllabus Resources</span>
-                        <ChevronDown className="size-3 opacity-60" />
+                        <ChevronDown className="size-3 opacity-50 group-data-[state=open]:rotate-180 transition-transform duration-200 shrink-0" />
                       </button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start" className="w-64 p-1.5 z-50 bg-popover">
-                      <DropdownMenuLabel className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground px-2 py-1">
-                        Syllabus Hub & Citations
-                      </DropdownMenuLabel>
+                    <DropdownMenuContent align="start" className="w-72 p-1.5 z-50 bg-popover/95 backdrop-blur-xl border border-border/80 shadow-xl rounded-xl animate-in fade-in-0 zoom-in-95">
+                      <div className="px-2.5 py-1.5 mb-1 border-b border-border/50 flex items-center justify-between">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                          Syllabus Hub & Knowledge
+                        </span>
+                        <span className="text-[9px] font-mono text-muted-foreground/80">9708 Papers</span>
+                      </div>
                       {syllabusGroup.items.map((item) => (
-                        <DropdownMenuItem key={item.to} asChild>
+                        <DropdownMenuItem key={item.to} asChild className="p-0 mb-0.5">
                           <Link
                             to={item.to}
                             className={cn(
-                              "flex items-center justify-between gap-2.5 px-2.5 py-2 text-xs rounded-md cursor-pointer",
-                              isItemActive(item.to) && "bg-primary/10 text-primary font-bold",
+                              "flex items-center justify-between gap-2.5 px-2.5 py-2 text-xs rounded-lg cursor-pointer transition-all group",
+                              isItemActive(item.to)
+                                ? "bg-primary/10 text-primary font-semibold"
+                                : "hover:bg-muted/70 text-foreground",
                             )}
                           >
-                            <div className="flex items-center gap-2 min-w-0">
-                              <item.icon className="size-4 shrink-0 text-muted-foreground" />
-                              <span className="truncate">{item.label}</span>
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <div className="size-6 rounded-md bg-muted/60 flex items-center justify-center shrink-0 group-hover:bg-primary/10 transition-colors">
+                                <item.icon className="size-3.5 text-muted-foreground group-hover:text-primary transition-colors shrink-0" />
+                              </div>
+                              <span className="truncate font-medium">{item.label}</span>
                             </div>
                             {item.badge && (
                               <Badge
                                 variant="outline"
-                                className="text-[9px] px-1.5 py-0 shrink-0 border-border/80"
+                                className="text-[9px] px-1.5 py-0 shrink-0 border-border/80 font-mono text-muted-foreground"
                               >
                                 {item.badge}
                               </Badge>
@@ -1554,43 +1591,51 @@ export function AppShell({
                   </DropdownMenu>
                 )}
 
-                {/* Classes & Progress Dropdown */}
-                {classroomGroup && (
+                {/* Classes & Progress */}
+                {classroomGroup && classroomGroup.items.length > 1 ? (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <button
                         type="button"
                         className={cn(
-                          "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer",
+                          "group flex items-center gap-1.5 h-8 px-2.5 xl:px-3 rounded-lg text-xs font-medium whitespace-nowrap shrink-0 transition-all cursor-pointer",
                           isClassroomActive
-                            ? "bg-primary/10 text-primary font-bold shadow-2xs"
-                            : "text-muted-foreground hover:text-foreground hover:bg-muted/80",
+                            ? "bg-primary/10 text-primary font-semibold border border-primary/25 shadow-2xs"
+                            : "text-muted-foreground hover:text-foreground hover:bg-muted/70",
                         )}
                       >
-                        <UsersRound className="size-3.5 text-emerald-500" />
+                        <UsersRound className="size-3.5 shrink-0 text-emerald-500" />
                         <span>{classroomLabel}</span>
-                        <ChevronDown className="size-3 opacity-60" />
+                        <ChevronDown className="size-3 opacity-50 group-data-[state=open]:rotate-180 transition-transform duration-200 shrink-0" />
                       </button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start" className="w-56 p-1.5 z-50 bg-popover">
-                      <DropdownMenuLabel className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground px-2 py-1">
-                        Classroom &amp; Progress
-                      </DropdownMenuLabel>
-                      {classroomGroup.items.map((item) => (
-                        <DropdownMenuItem key={item.to} asChild>
+                    <DropdownMenuContent align="start" className="w-64 p-1.5 z-50 bg-popover/95 backdrop-blur-xl border border-border/80 shadow-xl rounded-xl animate-in fade-in-0 zoom-in-95">
+                      <div className="px-2.5 py-1.5 mb-1 border-b border-border/50">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                          Classroom &amp; Progress
+                        </span>
+                      </div>
+                      {classroomGroup.items
+                        .filter((item) => item.to !== "/dashboard")
+                        .map((item) => (
+                        <DropdownMenuItem key={item.to} asChild className="p-0 mb-0.5">
                           <Link
                             to={item.to}
                             className={cn(
-                              "flex items-center justify-between gap-2.5 px-2.5 py-2 text-xs rounded-md cursor-pointer",
-                              isItemActive(item.to) && "bg-primary/10 text-primary font-bold",
+                              "flex items-center justify-between gap-2.5 px-2.5 py-2 text-xs rounded-lg cursor-pointer transition-all group",
+                              isItemActive(item.to)
+                                ? "bg-primary/10 text-primary font-semibold"
+                                : "hover:bg-muted/70 text-foreground",
                             )}
                           >
-                            <div className="flex items-center gap-2 min-w-0">
-                              <item.icon className="size-4 shrink-0 text-muted-foreground" />
-                              <span className="truncate">{item.label}</span>
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <div className="size-6 rounded-md bg-emerald-500/10 flex items-center justify-center shrink-0">
+                                <item.icon className="size-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                              </div>
+                              <span className="truncate font-medium">{item.label}</span>
                             </div>
                             {item.badge && (
-                              <Badge variant="outline" className="text-[9px] px-1.5 py-0 shrink-0">
+                              <Badge variant="outline" className="text-[9px] px-1.5 py-0 shrink-0 font-mono">
                                 {item.badge}
                               </Badge>
                             )}
@@ -1599,6 +1644,19 @@ export function AppShell({
                       ))}
                     </DropdownMenuContent>
                   </DropdownMenu>
+                ) : (
+                  <Link
+                    to="/classes"
+                    className={cn(
+                      "flex items-center gap-1.5 h-8 px-2.5 xl:px-3 rounded-lg text-xs font-medium whitespace-nowrap shrink-0 transition-all cursor-pointer",
+                      pathname.startsWith("/classes")
+                        ? "bg-primary/10 text-primary font-semibold border border-primary/25 shadow-2xs"
+                        : "text-muted-foreground hover:text-foreground hover:bg-muted/70",
+                    )}
+                  >
+                    <UsersRound className="size-3.5 shrink-0 text-emerald-500" />
+                    <span>{classroomLabel}</span>
+                  </Link>
                 )}
 
                 {/* Admin Console Dropdown (if admin) */}
@@ -1608,40 +1666,55 @@ export function AppShell({
                       <button
                         type="button"
                         className={cn(
-                          "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer",
+                          "group flex items-center gap-1.5 h-8 px-2.5 rounded-lg text-xs font-semibold whitespace-nowrap shrink-0 transition-all cursor-pointer border shadow-2xs",
                           pathname.startsWith("/admin")
-                            ? "bg-purple-500/15 text-purple-600 dark:text-purple-400 font-bold border border-purple-500/30"
-                            : "text-muted-foreground hover:text-foreground hover:bg-muted/80",
+                            ? "border-purple-500/40 bg-purple-500/20 text-purple-700 dark:text-purple-300"
+                            : "border-purple-500/25 bg-purple-500/10 text-purple-700 dark:text-purple-300 hover:bg-purple-500/15",
                         )}
                       >
-                        <ShieldCheck className="size-3.5 text-purple-500" />
+                        <ShieldCheck className="size-3.5 text-purple-600 dark:text-purple-400 shrink-0" />
                         <span>Administration</span>
-                        <Badge className="text-[9px] bg-purple-500/20 text-purple-600 border-purple-500/30 py-0 px-1">
+                        <span className="text-[9px] font-mono font-bold px-1 py-0 rounded bg-purple-500/20 text-purple-700 dark:text-purple-300">
                           Root
-                        </Badge>
-                        <ChevronDown className="size-3 opacity-60" />
+                        </span>
+                        <ChevronDown className="size-3 opacity-60 group-data-[state=open]:rotate-180 transition-transform duration-200 shrink-0" />
                       </button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start" className="w-56 p-1.5 z-50 bg-popover">
-                      <DropdownMenuItem asChild>
+                    <DropdownMenuContent align="start" className="w-60 p-1.5 z-50 bg-popover/95 backdrop-blur-xl border border-border/80 shadow-xl rounded-xl animate-in fade-in-0 zoom-in-95">
+                      <div className="px-2.5 py-1.5 mb-1 border-b border-border/50">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-purple-600 dark:text-purple-400">
+                          Root Admin Studio
+                        </span>
+                      </div>
+                      <DropdownMenuItem asChild className="p-0 mb-0.5">
                         <Link
                           to="/admin"
-                          className="flex items-center gap-2 px-2.5 py-2 text-xs cursor-pointer"
+                          className="flex items-center gap-2.5 px-2.5 py-2 text-xs rounded-lg cursor-pointer hover:bg-muted/70 text-foreground"
                         >
-                          <ShieldCheck className="size-4 text-purple-600" />
-                          <span className="font-semibold">Admin Console</span>
+                          <div className="size-6 rounded-md bg-purple-500/10 flex items-center justify-center shrink-0">
+                            <ShieldCheck className="size-3.5 text-purple-600" />
+                          </div>
+                          <div>
+                            <p className="font-semibold leading-tight">Admin Console</p>
+                            <p className="text-[10px] text-muted-foreground font-normal">System metrics, users & logs</p>
+                          </div>
                         </Link>
                       </DropdownMenuItem>
-                      <DropdownMenuItem asChild>
+                      <DropdownMenuItem asChild className="p-0">
                         <Link
                           to="/live-examiner"
-                          className="flex items-center justify-between gap-2 px-2.5 py-2 text-xs cursor-pointer"
+                          className="flex items-center justify-between gap-2.5 px-2.5 py-2 text-xs rounded-lg cursor-pointer hover:bg-muted/70 text-foreground"
                         >
-                          <div className="flex items-center gap-2">
-                            <Sparkles className="size-4 text-amber-500" />
-                            <span>Live Examiner Studio</span>
+                          <div className="flex items-center gap-2.5">
+                            <div className="size-6 rounded-md bg-amber-500/10 flex items-center justify-center shrink-0">
+                              <Sparkles className="size-3.5 text-amber-500" />
+                            </div>
+                            <div>
+                              <p className="font-semibold leading-tight">Live Examiner Studio</p>
+                              <p className="text-[10px] text-muted-foreground font-normal">Active grading telemetry</p>
+                            </div>
                           </div>
-                          <Badge variant="outline" className="text-[9px] border-amber-500/35 text-amber-600">
+                          <Badge variant="outline" className="text-[9px] font-mono border-amber-500/35 text-amber-600">
                             Beta
                           </Badge>
                         </Link>
@@ -1666,96 +1739,140 @@ export function AppShell({
               </nav>
             </div>
 
-            {/* Right: Utilities, Switcher, Tutorials, User Menu */}
-            <div className="flex items-center gap-2.5 shrink-0">
+            {/* Right: Symmetrical Action Toolbar */}
+            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+              {/* Search / Command Trigger */}
               <button
                 type="button"
                 onClick={() => setCommandOpen(true)}
-                className="flex items-center gap-2 rounded-xl border border-border/80 bg-muted/40 px-3 py-1.5 text-xs text-muted-foreground hover:border-primary/40 hover:bg-muted/70 hover:text-foreground transition-all cursor-pointer shadow-2xs group"
+                className="flex items-center gap-2 h-8 rounded-lg border border-border/70 bg-muted/30 hover:bg-muted/60 hover:border-primary/40 px-2.5 text-xs text-muted-foreground hover:text-foreground transition-all cursor-pointer shadow-2xs group min-w-[120px] lg:w-44 xl:w-52 shrink-0"
                 title="Search Cambridge 9708 definitions, diagrams & tools (⌘K)"
               >
-                <SearchIcon className="size-3.5 text-primary group-hover:scale-110 transition-transform" />
-                <span className="hidden xl:inline text-muted-foreground/90 font-medium">Search or jump...</span>
-                <kbd className="pointer-events-none hidden sm:inline-flex h-4.5 select-none items-center gap-0.5 rounded border border-border bg-background px-1.5 font-mono text-[9.5px] font-medium text-muted-foreground">
+                <SearchIcon className="size-3.5 text-primary group-hover:scale-110 transition-transform shrink-0" />
+                <span className="truncate text-muted-foreground/90 font-medium">Search or jump...</span>
+                <kbd className="pointer-events-none hidden sm:inline-flex h-4.5 select-none items-center gap-0.5 rounded border border-border/80 bg-background/90 px-1 font-mono text-[9px] font-medium text-muted-foreground ml-auto shadow-2xs">
                   ⌘K
                 </kbd>
               </button>
 
-              <TopTutorialButton />
+              {/* Tutorials Quick Trigger */}
+              <TopTutorialButton
+                className="h-8 gap-1.5 px-2.5 rounded-lg border-purple-500/25 bg-purple-500/8 text-purple-700 dark:text-purple-300 hover:bg-purple-500/15 text-xs font-semibold shadow-2xs transition-all shrink-0 cursor-pointer"
+              />
 
+              {/* Layout Switcher */}
               <LayoutSwitcherButton
                 navLayout={navLayout}
                 onChange={handleLayoutChange}
+                className="h-8 px-2.5 rounded-lg border-border/70 bg-card/60 hover:bg-muted/80 text-xs font-medium shrink-0"
               />
 
+              {/* Direct Messaging Portal */}
               {isUserAdmin ? (
                 <Link
                   to="/admin"
                   search={{ tab: "messages" }}
-                  className="relative flex items-center justify-center size-8 rounded-lg border border-border/80 hover:bg-muted transition-colors cursor-pointer"
+                  className="relative flex items-center justify-center size-8 rounded-lg border border-border/70 bg-card/60 hover:bg-muted/80 text-foreground transition-all cursor-pointer shadow-2xs group shrink-0"
                   title="Direct Messages Portal"
                 >
-                  <Send className="size-3.5 text-primary" />
+                  <Send className="size-3.5 text-primary group-hover:scale-105 transition-transform" />
                   {unreadMsgCount > 0 && (
-                    <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white shadow-xs">
+                    <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[9.5px] font-bold text-white shadow-xs ring-2 ring-background">
                       {unreadMsgCount}
                     </span>
                   )}
                 </Link>
               ) : (
-                <StudentMessagesDialog />
+                <StudentMessagesDialog
+                  trigger={
+                    <button
+                      type="button"
+                      className="relative flex items-center justify-center size-8 rounded-lg border border-border/70 bg-card/60 hover:bg-muted/80 text-foreground transition-all cursor-pointer shadow-2xs group shrink-0"
+                      title="Direct Messages from Examiners"
+                    >
+                      <Send className="size-3.5 text-primary group-hover:scale-105 transition-transform" />
+                    </button>
+                  }
+                />
               )}
 
-              <FeedbackDialog />
+              {/* Send Feedback Dialog */}
+              <FeedbackDialog
+                trigger={
+                  <button
+                    type="button"
+                    className="flex items-center gap-1.5 h-8 px-2.5 rounded-lg border border-border/70 bg-card/60 hover:bg-muted/80 text-xs font-medium text-foreground transition-all shadow-2xs cursor-pointer group shrink-0"
+                    title="Send feedback or report an issue"
+                  >
+                    <MessageSquarePlus className="size-3.5 text-primary group-hover:scale-105 transition-transform shrink-0" />
+                    <span className="hidden xl:inline">Feedback</span>
+                  </button>
+                }
+              />
 
-              {/* User Avatar Dropdown */}
+              {/* Vertical Hairline Divider */}
+              <div className="h-4 w-px bg-border/60 mx-0.5 shrink-0" />
+
+              {/* User Profile Avatar Popover */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button
                     type="button"
-                    className="flex items-center gap-2 rounded-full p-0.5 hover:ring-2 hover:ring-primary/40 transition-all cursor-pointer"
+                    className="flex items-center gap-1.5 rounded-full p-0.5 ring-1 ring-border/80 hover:ring-2 hover:ring-primary/50 transition-all cursor-pointer shrink-0"
+                    title="User Account & Settings"
                   >
                     <UserAvatar
                       avatarUrl={avatarUrl}
                       name={name}
                       fallbackInitials={candidateInitials}
                       showStatusDot={true}
-                      className="size-8"
+                      className="size-7.5"
                     />
                   </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56 p-2 z-50 bg-popover">
-                  <div className="px-2 py-1.5 border-b border-border/60 pb-2 mb-1">
-                    <p className="text-xs font-bold text-foreground truncate">
-                      {name ?? "Candidate"}
-                    </p>
-                    <p className="text-[10px] text-muted-foreground truncate">
-                      {school ||
-                        (isTeacherUser ? "Educator" : "Cambridge 9708 Candidate")}
-                    </p>
+                <DropdownMenuContent align="end" className="w-64 p-2 z-50 bg-popover/95 backdrop-blur-xl border border-border/80 shadow-2xl rounded-2xl animate-in fade-in-0 zoom-in-95">
+                  <div className="flex items-center gap-2.5 p-2 rounded-xl bg-muted/40 mb-1 border border-border/40">
+                    <UserAvatar
+                      avatarUrl={avatarUrl}
+                      name={name}
+                      fallbackInitials={candidateInitials}
+                      showStatusDot={false}
+                      className="size-9"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-bold text-foreground truncate">
+                        {name ?? "Candidate"}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground truncate">
+                        {school || (isTeacherUser ? "Educator" : "Cambridge 9708 Candidate")}
+                      </p>
+                      <span className="inline-block mt-0.5 text-[9px] font-mono px-1 py-0 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                        May/June 2026 Series
+                      </span>
+                    </div>
                   </div>
-                  <DropdownMenuItem asChild>
+                  <DropdownMenuItem asChild className="p-0 mb-0.5">
                     <Link
                       to="/dashboard"
-                      className="flex items-center gap-2 text-xs cursor-pointer"
+                      className="flex items-center gap-2.5 px-2.5 py-2 text-xs rounded-lg cursor-pointer hover:bg-muted/70 text-foreground"
                     >
                       <LayoutDashboard className="size-3.5 text-muted-foreground" />
                       <span>Dashboard</span>
                     </Link>
                   </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
+                  <DropdownMenuItem asChild className="p-0 mb-0.5">
                     <Link
                       to="/settings"
-                      className="flex items-center gap-2 text-xs cursor-pointer"
+                      className="flex items-center gap-2.5 px-2.5 py-2 text-xs rounded-lg cursor-pointer hover:bg-muted/70 text-foreground"
                     >
                       <Settings className="size-3.5 text-muted-foreground" />
                       <span>Profile &amp; Settings</span>
                     </Link>
                   </DropdownMenuItem>
-                  <DropdownMenuSeparator className="my-1" />
+                  <DropdownMenuSeparator className="my-1 border-border/60" />
                   <DropdownMenuItem
                     onClick={signOut}
-                    className="flex items-center gap-2 text-xs text-destructive hover:bg-destructive/10 cursor-pointer"
+                    className="flex items-center gap-2.5 px-2.5 py-2 text-xs rounded-lg text-destructive hover:bg-destructive/10 cursor-pointer font-medium"
                   >
                     <LogOut className="size-3.5" />
                     <span>Sign out</span>
@@ -1796,44 +1913,70 @@ export function AppShell({
               )}
             </div>
 
-            <div className="flex items-center gap-2.5 shrink-0">
+            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
               <button
                 type="button"
                 onClick={() => setCommandOpen(true)}
-                className="flex items-center gap-2 rounded-xl border border-border/80 bg-muted/40 px-3 py-1.5 text-xs text-muted-foreground hover:border-primary/40 hover:bg-muted/70 hover:text-foreground transition-all cursor-pointer shadow-2xs group"
+                className="flex items-center gap-2 h-8 rounded-lg border border-border/70 bg-muted/30 hover:bg-muted/60 hover:border-primary/40 px-2.5 text-xs text-muted-foreground hover:text-foreground transition-all cursor-pointer shadow-2xs group min-w-[120px] lg:w-44 xl:w-52 shrink-0"
                 title="Search Cambridge 9708 definitions, diagrams & tools (⌘K)"
               >
-                <SearchIcon className="size-3.5 text-primary group-hover:scale-110 transition-transform" />
-                <span className="hidden xl:inline text-muted-foreground/90 font-medium">Search or jump...</span>
-                <kbd className="pointer-events-none hidden sm:inline-flex h-4.5 select-none items-center gap-0.5 rounded border border-border bg-background px-1.5 font-mono text-[9.5px] font-medium text-muted-foreground">
+                <SearchIcon className="size-3.5 text-primary group-hover:scale-110 transition-transform shrink-0" />
+                <span className="truncate text-muted-foreground/90 font-medium">Search or jump...</span>
+                <kbd className="pointer-events-none hidden sm:inline-flex h-4.5 select-none items-center gap-0.5 rounded border border-border/80 bg-background/90 px-1 font-mono text-[9px] font-medium text-muted-foreground ml-auto shadow-2xs">
                   ⌘K
                 </kbd>
               </button>
 
-              <TopTutorialButton />
+              <TopTutorialButton
+                className="h-8 gap-1.5 px-2.5 rounded-lg border-purple-500/25 bg-purple-500/8 text-purple-700 dark:text-purple-300 hover:bg-purple-500/15 text-xs font-semibold shadow-2xs transition-all shrink-0 cursor-pointer"
+              />
 
               <LayoutSwitcherButton
                 navLayout={navLayout}
                 onChange={handleLayoutChange}
+                className="h-8 px-2.5 rounded-lg border-border/70 bg-card/60 hover:bg-muted/80 text-xs font-medium shrink-0"
               />
 
               {isUserAdmin ? (
                 <Link
                   to="/admin"
                   search={{ tab: "messages" }}
-                  className="relative flex items-center justify-center size-8 rounded-full border border-border/80 hover:bg-muted transition-colors"
+                  className="relative flex items-center justify-center size-8 rounded-lg border border-border/70 bg-card/60 hover:bg-muted/80 text-foreground transition-all cursor-pointer shadow-2xs group shrink-0"
                   title="Direct Messages Portal"
                 >
-                  <Send className="size-3.5 text-primary" />
+                  <Send className="size-3.5 text-primary group-hover:scale-105 transition-transform" />
                   {unreadMsgCount > 0 && (
-                    <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white shadow-xs">
+                    <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[9.5px] font-bold text-white shadow-xs ring-2 ring-background">
                       {unreadMsgCount}
                     </span>
                   )}
                 </Link>
               ) : (
-                <StudentMessagesDialog />
+                <StudentMessagesDialog
+                  trigger={
+                    <button
+                      type="button"
+                      className="relative flex items-center justify-center size-8 rounded-lg border border-border/70 bg-card/60 hover:bg-muted/80 text-foreground transition-all cursor-pointer shadow-2xs group shrink-0"
+                      title="Direct Messages from Examiners"
+                    >
+                      <Send className="size-3.5 text-primary group-hover:scale-105 transition-transform" />
+                    </button>
+                  }
+                />
               )}
+
+              <FeedbackDialog
+                trigger={
+                  <button
+                    type="button"
+                    className="flex items-center gap-1.5 h-8 px-2.5 rounded-lg border border-border/70 bg-card/60 hover:bg-muted/80 text-xs font-medium text-foreground transition-all shadow-2xs cursor-pointer group shrink-0"
+                    title="Send feedback or report an issue"
+                  >
+                    <MessageSquarePlus className="size-3.5 text-primary group-hover:scale-105 transition-transform shrink-0" />
+                    <span className="hidden xl:inline">Feedback</span>
+                  </button>
+                }
+              />
             </div>
           </header>
         )}

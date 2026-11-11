@@ -102,7 +102,7 @@ export function FeedbackDialog({
           <Button
             variant="outline"
             size="sm"
-            className={className || "gap-2 rounded-full shadow-sm bg-card/80 backdrop-blur border-border/80 text-xs font-semibold hover:border-primary/50"}
+            className={className || "h-8 gap-1.5 rounded-lg border border-border/70 bg-card/60 hover:bg-muted/80 text-xs font-semibold text-foreground transition-all shadow-2xs hover:border-primary/50 whitespace-nowrap shrink-0"}
           >
             <MessageSquarePlus className="size-3.5 text-primary" />
             <span>Send Feedback</span>

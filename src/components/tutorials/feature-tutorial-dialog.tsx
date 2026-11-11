@@ -615,7 +615,7 @@ export function TopTutorialButton({
       size={size}
       onClick={() => openTutorial()}
       className={cn(
-        "h-8 gap-1.5 rounded-full border-purple-500/30 bg-purple-500/10 text-purple-700 dark:text-purple-300 hover:bg-purple-500/20 text-xs font-semibold shadow-xs transition-all cursor-pointer",
+        "h-8 gap-1.5 rounded-lg border-purple-500/25 bg-purple-500/8 text-purple-700 dark:text-purple-300 hover:bg-purple-500/15 text-xs font-semibold shadow-2xs transition-all cursor-pointer whitespace-nowrap shrink-0",
         className,
       )}
       title="Open tutorial for this feature"
