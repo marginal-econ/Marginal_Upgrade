@@ -91,25 +91,26 @@ void main() {
   float r2 = ribbon(q, 0.50, -0.11, 0.16, t + 21.0);
   float r3 = ribbon(q, 0.32, 0.08, 0.13, t + 47.0);
 
-  vec3 violet = mix(vec3(0.55, 0.40, 0.92), vec3(0.64, 0.29, 0.99), uDark);
-  vec3 cyan   = mix(vec3(0.42, 0.62, 0.95), vec3(0.24, 0.71, 0.99), uDark);
-  vec3 mint   = mix(vec3(0.40, 0.85, 0.75), vec3(0.30, 0.95, 0.73), uDark);
+  vec3 ribbon1 = mix(vec3(1.0, 0.44, 0.12), vec3(0.64, 0.29, 0.99), uDark);
+  vec3 ribbon2 = mix(vec3(0.98, 0.26, 0.38), vec3(0.24, 0.71, 0.99), uDark);
+  vec3 ribbon3 = mix(vec3(1.0, 0.72, 0.18), vec3(0.30, 0.95, 0.73), uDark);
 
-  vec3 col = violet * r1 + cyan * r2 + mint * r3;
+  vec3 col = ribbon1 * r1 + ribbon2 * r2 + ribbon3 * r3;
   float a = (r1 + r2 + r3);
 
-  /* Stars, night only: a sparse lattice of points, each on its own phase. */
+  /* Stars: Night mode has bright cosmic stars; Light mode has shimmering golden sunset motes */
   vec2 cell = floor(uv * vec2(240.0 * aspect, 240.0));
   float star = hash(cell);
   float twinkle = 0.5 + 0.5 * sin(t * 1.6 + star * 44.0);
   float pt = step(0.9975, star) * twinkle;
-  col += vec3(1.0) * pt * uDark;
-  a += pt * uDark;
+  vec3 moteColor = mix(vec3(1.0, 0.78, 0.30), vec3(1.0, 1.0, 1.0), uDark);
+  col += moteColor * pt;
+  a += pt * mix(0.65, 1.0, uDark);
 
   /* Fade out toward the bottom so the artwork never fights the headline
      sitting on top of it. */
   float falloff = smoothstep(0.0, 0.55, uv.y);
-  a *= falloff * mix(0.20, 0.62, uDark);
+  a *= falloff * mix(0.55, 0.62, uDark);
 
   gl_FragColor = vec4(col, clamp(a, 0.0, 1.0));
 }
