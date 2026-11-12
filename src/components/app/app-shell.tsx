@@ -74,6 +74,7 @@ import { supabase } from "@/integrations/backend/client";
 import type { UserSubscriptionDetails } from "@/lib/usage-limits";
 import { cn } from "@/lib/utils";
 import { TopTutorialButton } from "@/components/tutorials/feature-tutorial-dialog";
+import { ThemeToggle } from "@/components/marketing/theme-toggle";
 import { matchTutorialByPath } from "@/lib/tutorials-data";
 import { useFeatureTutorial } from "@/components/tutorials/tutorial-context";
 import { CommandPalette } from "@/components/app/command-palette";
@@ -1292,6 +1293,11 @@ export function AppShell({
                     className="w-full justify-start"
                   />
 
+                  <ThemeToggle
+                    variant="menu-item"
+                    className="w-full justify-between"
+                  />
+
                   {isUserAdmin ? (
                     <Link
                       to="/admin"
@@ -1448,6 +1454,9 @@ export function AppShell({
               />
             )}
 
+            {/* Night / Day Theme Toggle */}
+            <ThemeToggle className="size-8" />
+
             {/* Mobile User Profile Avatar Trigger */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -1501,6 +1510,10 @@ export function AppShell({
                     <span>Profile &amp; Settings</span>
                   </Link>
                 </DropdownMenuItem>
+                <DropdownMenuSeparator className="my-1 border-border/60" />
+                <div className="px-1 py-0.5">
+                  <ThemeToggle variant="menu-item" />
+                </div>
                 <DropdownMenuSeparator className="my-1 border-border/60" />
                 <DropdownMenuItem
                   onClick={signOut}
@@ -1900,6 +1913,9 @@ export function AppShell({
                 }
               />
 
+              {/* Night / Day Theme Toggle */}
+              <ThemeToggle className="size-8" />
+
               {/* Vertical Hairline Divider */}
               <div className="h-4 w-px bg-border/60 mx-0.5 shrink-0" />
 
@@ -1960,6 +1976,10 @@ export function AppShell({
                       <span>Profile &amp; Settings</span>
                     </Link>
                   </DropdownMenuItem>
+                  <DropdownMenuSeparator className="my-1 border-border/60" />
+                  <div className="px-1 py-0.5">
+                    <ThemeToggle variant="menu-item" />
+                  </div>
                   <DropdownMenuSeparator className="my-1 border-border/60" />
                   <DropdownMenuItem
                     onClick={signOut}
@@ -2068,6 +2088,9 @@ export function AppShell({
                   </button>
                 }
               />
+
+              {/* Night / Day Theme Toggle */}
+              <ThemeToggle className="size-8" />
             </div>
           </header>
         )}

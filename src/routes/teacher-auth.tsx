@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
 
 import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/marketing/theme-toggle";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -345,13 +346,16 @@ export function TeacherAuthPage() {
             </div>
           </Link>
 
-          <Link
-            to="/"
-            className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-          >
-            <ArrowLeft className="size-3.5" />
-            Back to site
-          </Link>
+          <div className="flex items-center gap-2">
+            <ThemeToggle className="size-8" />
+            <Link
+              to="/"
+              className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+            >
+              <ArrowLeft className="size-3.5" />
+              Back to site
+            </Link>
+          </div>
         </div>
 
         {/* Auth Card */}

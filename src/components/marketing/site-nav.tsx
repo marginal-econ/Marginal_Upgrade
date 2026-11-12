@@ -7,6 +7,7 @@ import { Link } from "@tanstack/react-router";
 import { GraduationCap, Menu, School, X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { ThemeToggle } from "@/components/marketing/theme-toggle";
 
 const NAV_SECTIONS: ReadonlyArray<{ id: string; label: string; to?: string }> = [
   { id: "graded-exemplar", label: "Graded Essays" },
@@ -246,6 +247,10 @@ export function SiteNavMobile() {
                 <GraduationCap className="size-3.5 text-white" />
                 Teacher Sign Up
               </Link>
+            </div>
+
+            <div className="pt-2 border-t border-border/80">
+              <ThemeToggle variant="menu-item" />
             </div>
           </div>
         </nav>

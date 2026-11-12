@@ -64,6 +64,7 @@ import { MarkingHand } from "@/components/marketing/mascot";
 import { CountUp, Reveal } from "@/components/marketing/reveal";
 import { Ribbon } from "@/components/marketing/ribbon";
 import { SiteNavLinks, SiteNavMobile } from "@/components/marketing/site-nav";
+import { ThemeToggle } from "@/components/marketing/theme-toggle";
 import { Magnetic, TiltCard } from "@/components/marketing/three-d";
 import { AiComparisonSection } from "@/components/marketing/ai-comparison-section";
 import { RealEssayShowcase } from "@/components/marketing/real-essay-showcase";
@@ -471,6 +472,7 @@ function Index() {
 
           <div className="flex items-center gap-2">
             <SiteNavMobile />
+            <ThemeToggle className="size-8 sm:size-9" />
 
             <Link
               to="/teacher-auth"
@@ -1339,6 +1341,8 @@ function MinimalistHome({
               <School className="size-3.5" />
               <span>Teachers</span>
             </Link>
+
+            <ThemeToggle className="size-8" />
 
             <Link
               to="/auth"

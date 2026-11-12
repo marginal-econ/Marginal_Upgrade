@@ -16,6 +16,7 @@ import { supabase } from "@/integrations/backend/client";
 import { getMe } from "@/lib/account.functions";
 import { registerTeacher, getTeacherProfileStatus } from "@/lib/teacher.functions";
 import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
+import { ThemeToggle } from "@/components/marketing/theme-toggle";
 
 /**
  * A progress bar for waits with no real percentage to report (a single
@@ -551,14 +552,17 @@ function AuthPage() {
             />
             <span className="text-base font-semibold sm:text-lg">Marginal</span>
           </Link>
-          <Link
-            to="/"
-            className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-          >
-            <ArrowLeft className="size-3.5" />
-            <span className="hidden min-[360px]:inline">Back to website</span>
-            <span className="min-[360px]:hidden">Back</span>
-          </Link>
+          <div className="flex items-center gap-2">
+            <ThemeToggle className="size-8" />
+            <Link
+              to="/"
+              className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              <ArrowLeft className="size-3.5" />
+              <span className="hidden min-[360px]:inline">Back to website</span>
+              <span className="min-[360px]:hidden">Back</span>
+            </Link>
+          </div>
         </div>
 
         <div className="panel animate-in fade-in slide-in-from-bottom-2 overflow-hidden p-4 duration-500 sm:p-6 md:p-8">

@@ -36,6 +36,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ThemeToggle } from "@/components/marketing/theme-toggle";
 import { fireConfetti } from "@/lib/confetti";
 import { validateCouponCode } from "@/lib/coupon.functions";
 import {
@@ -785,6 +786,7 @@ function PaymentPortalPage() {
           </Link>
 
           <div className="flex items-center gap-2 sm:gap-3">
+            <ThemeToggle className="size-8" />
             <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
               <Lock className="size-3.5 text-emerald-500 shrink-0" />
               <span className="hidden sm:inline">256-bit SSL Secured</span>

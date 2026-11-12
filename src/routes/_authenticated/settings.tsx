@@ -55,6 +55,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { ThemeToggle } from "@/components/marketing/theme-toggle";
 import { useFeatureTutorial } from "@/components/tutorials/tutorial-context";
 import { FEATURE_TUTORIALS } from "@/lib/tutorials-data";
 import { UserAvatar, ACADEMIC_AVATAR_PRESETS, getPresetById } from "@/components/app/user-avatar";
@@ -1145,6 +1146,16 @@ export function SettingsPage() {
                   </div>
 
                   <div className="pt-3 border-t border-border/60 divide-y divide-border/60">
+                    <div className="flex items-center justify-between pb-3">
+                      <div className="space-y-0.5 max-w-[80%]">
+                        <Label className="text-xs font-semibold">Appearance &amp; Color Theme</Label>
+                        <p className="text-[11px] text-muted-foreground">
+                          Switch between Day (clean paper surface) and Night (high-contrast dark mode) themes.
+                        </p>
+                      </div>
+                      <ThemeToggle variant="pill" />
+                    </div>
+
                     <div className="flex items-center justify-between pt-2">
                       <div className="space-y-0.5 max-w-[80%]">
                         <Label className="text-xs font-semibold">

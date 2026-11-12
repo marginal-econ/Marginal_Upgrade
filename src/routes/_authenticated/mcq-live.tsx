@@ -54,6 +54,7 @@ import {
   type GradedQuestion,
 } from "@/components/app/mcq-review-panel";
 import { Badge as UiBadge } from "@/components/ui/badge";
+import { ThemeToggle } from "@/components/marketing/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -1916,6 +1917,8 @@ function fillMissingQuestionPages(
                 onOpenPrompt={() => setExamPromptOpen(true)}
                 onExitExamMode={handleDisableExamMode}
               />
+
+              <ThemeToggle className="size-8" />
 
               <div className="hidden md:flex items-center gap-2 min-w-[7rem]">
                 <Progress value={(answeredCount / Math.max(qCount, 1)) * 100} className="h-2" />

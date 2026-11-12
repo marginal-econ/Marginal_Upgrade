@@ -480,7 +480,7 @@ export function FloatingFeedbackPill() {
       className="fixed z-50 hidden sm:flex items-center gap-1"
       style={{
         bottom: "clamp(1rem, 2.5vw, 1.5rem)",
-        right: "calc(clamp(1rem, 2.5vw, 1.5rem) + 52px)",
+        right: "clamp(1rem, 2.5vw, 1.5rem)",
         height: "44px",
       }}
     >

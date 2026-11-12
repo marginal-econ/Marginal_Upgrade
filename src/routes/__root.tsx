@@ -10,7 +10,6 @@ import {
 } from "@tanstack/react-router";
 import { useEffect, useState, type ReactNode } from "react";
 
-import { ThemeToggle } from "../components/marketing/theme-toggle";
 import { Toaster } from "../components/ui/sonner";
 import appCss from "../styles.css?url";
 import waitlistCss from "../waitlist.css?url";
@@ -271,7 +270,6 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <Outlet />
-      <ThemeToggle />
       <Toaster />
     </QueryClientProvider>
   );

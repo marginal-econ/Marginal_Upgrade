@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 
 import { AiComparisonSection } from "@/components/marketing/ai-comparison-section";
 import { SiteFooter } from "@/components/marketing/footer";
+import { ThemeToggle } from "@/components/marketing/theme-toggle";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -88,6 +89,7 @@ function PricingPage() {
 
           {/* Right Action Buttons */}
           <div className="flex items-center gap-2.5">
+            <ThemeToggle className="size-8" />
             {isAuthenticated ? (
               <Button asChild size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-semibold h-8 px-3.5 shadow-xs">
                 <Link to="/dashboard">

@@ -13,6 +13,7 @@ import { ArrowLeft } from "lucide-react";
 
 import { SiteFooter } from "@/components/marketing/footer";
 import { Reveal } from "@/components/marketing/reveal";
+import { ThemeToggle } from "@/components/marketing/theme-toggle";
 
 export type LegalSection = {
   id: string;
@@ -46,13 +47,16 @@ export function LegalPage({
             <span className="font-semibold">Marginal</span>
           </Link>
 
-          <Link
-            to="/"
-            className="pop-sm pop-press inline-flex items-center gap-1.5 bg-surface px-3 py-2 text-sm font-semibold"
-          >
-            <ArrowLeft className="size-4" />
-            Back to site
-          </Link>
+          <div className="flex items-center gap-2">
+            <ThemeToggle className="size-8" />
+            <Link
+              to="/"
+              className="pop-sm pop-press inline-flex items-center gap-1.5 bg-surface px-3 py-2 text-sm font-semibold"
+            >
+              <ArrowLeft className="size-4" />
+              Back to site
+            </Link>
+          </div>
         </div>
       </header>
 
