@@ -164,4 +164,148 @@ describe("Cambridge 9708 Writing Quality & Structural Calibration Engine", () =>
       expect(directive).toContain("AO2 Analysis");
     });
   });
+  describe("8-Mark Evaluative Essay 7/8 Strict Failsafe", () => {
+    const split8 = { ao1_marks: 2, ao2_marks: 4, ao3_marks: 2 };
+    const mockHealthyQuality = {
+      wordCount: 380,
+      paragraphCount: 4,
+      boldingCount: 0,
+      latexCount: 0,
+      hasMarkdownBullets: false,
+      hasAiArtifacts: false,
+      isUndersized: false,
+      isSeverelyUndersized: false,
+      isMonolithicBlock: false,
+      targetRangeText: "300–450 words",
+      maxAllowableTotalMark: 8,
+      maxAllowableAo2: 4,
+      maxAllowableAo3: 2,
+      qualityIssues: [],
+    };
+
+    it("clamps an 8/8 essay to 7/8 when conclusion is not satisfied or evaluation criteria unmet", () => {
+      const overgenerous8: Grading = {
+        total_mark: 8,
+        max_mark: 8,
+        band: "Top Band",
+        ao_breakdown: {
+          knowledge: { awarded: 2, out_of: 2, comment: "Precise definitions." },
+          analysis: { awarded: 4, out_of: 4, comment: "Thorough causal mechanisms." },
+          evaluation: { awarded: 2, out_of: 2, comment: "Good points, but concluding judgement is not fully satisfied." },
+        },
+        examiner_summary: "Well argued response.",
+        strengths: ["Strong definitions", "Detailed analysis"],
+        weaknesses: ["Conclusion is partially incomplete and unsupported"],
+        missing_elements: {
+          definitions: [],
+          analysis: [],
+          evaluation: ["More decisive evaluation criterion needed"],
+          examples: [],
+          diagrams: [],
+        },
+        actionable_feedback: ["Strengthen the concluding judgement"],
+        suggested_resources: ["Topic 1.4"],
+        suggested_practice: ["Practice 8-mark evaluation"],
+        confidence: 0.95,
+      };
+
+      const clamped = applyWritingQualityGuardrail(overgenerous8, mockHealthyQuality, 8, split8);
+      expect(clamped.total_mark).toBe(7);
+      expect(clamped.ao_breakdown.evaluation.awarded).toBe(1);
+      expect(clamped.ao_breakdown.evaluation.comment).toContain("keeping the essay at 7 instead of 8");
+    });
+
+    it("allows a truly flawless 8-mark essay with fully satisfied conclusion to score 8/8", () => {
+      const perfect8: Grading = {
+        total_mark: 8,
+        max_mark: 8,
+        band: "Top Band",
+        ao_breakdown: {
+          knowledge: { awarded: 2, out_of: 2, comment: "Precise definitions." },
+          analysis: { awarded: 4, out_of: 4, comment: "Complete causal chains." },
+          evaluation: { awarded: 2, out_of: 2, comment: "Balanced perspectives with a fully justified, decisive concluding verdict answering the prompt." },
+        },
+        examiner_summary: "Flawless Cambridge 8-mark essay.",
+        strengths: ["Exemplary knowledge", "Clear causal links", "Decisive justified conclusion"],
+        weaknesses: [],
+        missing_elements: {
+          definitions: [],
+          analysis: [],
+          evaluation: [],
+          examples: [],
+          diagrams: [],
+        },
+        actionable_feedback: [],
+        suggested_resources: [],
+        suggested_practice: [],
+        confidence: 0.98,
+      };
+
+      const result = applyWritingQualityGuardrail(perfect8, mockHealthyQuality, 8, split8);
+      expect(result.total_mark).toBe(8);
+      expect(result.ao_breakdown.evaluation.awarded).toBe(2);
+    });
+  });
+
+  describe("Chapter 5 PPC Misconception Failsafe", () => {
+    const split8 = { ao1_marks: 2, ao2_marks: 4, ao3_marks: 2 };
+    const mockHealthyQuality = {
+      wordCount: 380,
+      paragraphCount: 4,
+      boldingCount: 0,
+      latexCount: 0,
+      hasMarkdownBullets: false,
+      hasAiArtifacts: false,
+      isUndersized: false,
+      isSeverelyUndersized: false,
+      isMonolithicBlock: false,
+      targetRangeText: "300–450 words",
+      maxAllowableTotalMark: 8,
+      maxAllowableAo2: 4,
+      maxAllowableAo3: 2,
+      qualityIssues: [],
+    };
+
+    it("strips false praise linking point inside PPC to allocative inefficiency and deducts AO2", () => {
+      const flawedGrading: Grading = {
+        total_mark: 8,
+        max_mark: 8,
+        band: "Top Band",
+        ao_breakdown: {
+          knowledge: { awarded: 2, out_of: 2, comment: "Good PPC definition." },
+          analysis: { awarded: 4, out_of: 4, comment: "Analysis discusses points on and inside curve." },
+          evaluation: { awarded: 2, out_of: 2, comment: "Reasoned conclusion." },
+        },
+        examiner_summary: "Good essay.",
+        strengths: [
+          "Accurately defines the PPC",
+          "Excellent analysis linking a point inside the PPC to allocative inefficiency and Pareto efficiency",
+        ],
+        weaknesses: [],
+        missing_elements: {
+          definitions: [],
+          analysis: [],
+          evaluation: [],
+          examples: [],
+          diagrams: [],
+        },
+        actionable_feedback: [],
+        suggested_resources: [],
+        suggested_practice: [],
+        confidence: 0.9,
+      };
+
+      const fixed = applyWritingQualityGuardrail(flawedGrading, mockHealthyQuality, 8, split8);
+
+      // False praise stripped from strengths
+      expect(fixed.strengths.some((s) => s.toLowerCase().includes("allocative") && s.toLowerCase().includes("ppc"))).toBe(false);
+
+      // Weakness added calling out the misconception
+      expect(fixed.weaknesses.some((w) => w.includes("Economic misconception on PPC and efficiency"))).toBe(true);
+
+      // AO2 reduced by 1 for the minor analytical error (4/4 -> 3/4)
+      expect(fixed.ao_breakdown.analysis.awarded).toBe(3);
+      expect(fixed.total_mark).toBeLessThanOrEqual(7);
+    });
+  });
 });

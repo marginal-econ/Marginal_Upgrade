@@ -231,6 +231,18 @@ export async function gradeEssay(
   const anchorBlock = buildAnchorBlock(anchors, question, maxMark);
   if (anchorBlock) baseSystemPrompt = `${baseSystemPrompt}\n\n${anchorBlock}`;
 
+  // Authoritative Chapter 5 (PPC & Efficiency) Knowledge Base Rubric:
+  const touchesPpcOrEfficiency = /ppc|production possibility|productive eff|allocative eff|pareto/i.test(
+    `${question} ${essayText}`,
+  );
+  if (touchesPpcOrEfficiency) {
+    baseSystemPrompt = `${baseSystemPrompt}\n\n` +
+      `AUTHORITATIVE CHAPTER 5 (PPC & EFFICIENCY) KNOWLEDGE BASE RUBRIC:\n` +
+      `- Point inside PPC = Productive inefficiency / unemployment or underutilisation of resources (idle factors, X-inefficiency). A PPC diagram shows maximum combinations of two goods given current factors; it contains NO information on consumer preferences, marginal utility, or social welfare. It does NOT represent allocative inefficiency or Pareto inefficiency.\n` +
+      `- Point on PPC = Productive efficiency (maximum possible output achievable from given resources at lowest cost). However, a point on the PPC may still be allocatively inefficient if the output combination does not match consumer preferences (where P != MC).\n` +
+      `- MANDATORY ANALYTICAL ERROR AUDIT: Flag any confusion between productive and allocative inefficiency on a PPC diagram as a minor analytical error (deduct 1 mark from AO2 Analysis, e.g. 2/3 instead of 3/3, or 3/4 instead of 4/4). Examiners MUST NEVER praise or credit a student for linking a point inside the PPC to allocative inefficiency or Pareto efficiency. Call it out as a misconception in weaknesses.`;
+  }
+
   baseSystemPrompt = `${baseSystemPrompt}\n\n${RESPONSE_CONTRACT}`;
 
   const markSchemeImages = options.markSchemeImageDataUrls?.slice(0, 4) ?? [];
@@ -266,7 +278,10 @@ export async function gradeEssay(
       ? `[QUESTION SPECIFICATION: ${maxMark} Marks · EVALUATIVE ESSAY (AO1: ${ao1_marks}, AO2: ${ao2_marks}, AO3: ${ao3_marks})]\n` +
         `EVALUATION IS MANDATORY. The prompt contains an evaluative requirement (e.g. 'consider', 'discuss', 'assess', 'whether', 'should', 'to what extent').\n` +
         `Even if the question begins with 'Explain', any evaluative clause requires critical evaluation and a concluding judgement.\n` +
-        `You MUST evaluate AO3 out of exactly ${ao3_marks} marks. NEVER state that evaluation is not required.`
+        `You MUST evaluate AO3 out of exactly ${ao3_marks} marks. NEVER state that evaluation is not required.` +
+        (maxMark === 8 && split.ao3_marks === 2
+          ? `\nCRITICAL 8-MARK EVALUATION RULE: Only a truly perfect essay can receive 8/8. When evaluation criteria are not fully met or the concluding judgement is not satisfied, award Level 1 (1 of 2 marks) for AO3, keeping the essay at 7 instead of 8 (maximum 7/8).`
+          : "")
       : `[QUESTION SPECIFICATION: ${maxMark} Marks · NON-EVALUATIVE LEGACY ESSAY (AO1: ${ao1_marks}, AO2: ${ao2_marks}, AO3: 0)]\n` +
         `Pure explanatory / analytical question. Evaluation is NOT required; set AO3 awarded: 0, out_of: 0, with zero penalty.`;
 

@@ -554,7 +554,7 @@ export const CAMBRIDGE_CORE_DEFINITIONS: CambridgeDefinition[] = [
     id: "def_0035",
     term: "Point inside the PPC",
     definition_text:
-      "represents unemployment or underutilisation of resources (productive inefficiency).",
+      "represents unemployment or underutilisation of resources (productive inefficiency / idle factors / X-inefficiency). Note: it does NOT represent allocative inefficiency or Pareto inefficiency, as a PPC diagram illustrates productive capacity rather than consumer preferences or marginal utility.",
     category: "Basic economic ideas and resource allocation",
     source_label: "Cambridge 9708 Master Catalogue",
     topic_id: null,
@@ -569,7 +569,8 @@ export const CAMBRIDGE_CORE_DEFINITIONS: CambridgeDefinition[] = [
   {
     id: "def_0036",
     term: "Point on the PPC",
-    definition_text: "represents full and efficient use of resources.",
+    definition_text:
+      "represents full and efficient use of resources (productive efficiency, achieving maximum output from given resources at lowest cost). Note: while every point on the PPC is productively efficient, it may still be allocatively inefficient if the output combination does not match consumer preferences (where P != MC).",
     category: "Basic economic ideas and resource allocation",
     source_label: "Cambridge 9708 Master Catalogue",
     topic_id: null,
@@ -3365,7 +3366,7 @@ export const CAMBRIDGE_CORE_DEFINITIONS: CambridgeDefinition[] = [
     id: "def_0216",
     term: "Productive efficiency",
     definition_text:
-      "occurs when output is produced at the lowest possible cost (on the production possibility curve / at the minimum point of the average cost curve).",
+      "occurs when output is produced at the lowest possible cost (on the production possibility curve / at the minimum point of the average cost curve). On a PPC diagram, any point on the boundary is productively efficient, whereas any point inside represents productive inefficiency.",
     category: "Consumer choice, efficiency and market failure",
     source_label: "Cambridge 9708 Master Catalogue",
     topic_id: null,
@@ -3381,7 +3382,7 @@ export const CAMBRIDGE_CORE_DEFINITIONS: CambridgeDefinition[] = [
     id: "def_0217",
     term: "Allocative efficiency",
     definition_text:
-      "occurs when resources are allocated so that price equals marginal cost (P = MC), reflecting consumer preferences.",
+      "occurs when resources are allocated so that price equals marginal cost (P = MC) or MSB = MSC, reflecting consumer preferences and maximizing social welfare. Note: A PPC diagram alone cannot demonstrate allocative efficiency without knowledge of consumer demand and social preferences.",
     category: "Consumer choice, efficiency and market failure",
     source_label: "Cambridge 9708 Master Catalogue",
     topic_id: null,

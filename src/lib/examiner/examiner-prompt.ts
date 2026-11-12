@@ -35,6 +35,10 @@ Cambridge examiners practice POSITIVE MARKING: reward what the candidate knows, 
    - DISTINGUISH ACCURATE ECONOMICS FROM ERRORS:
      * When a subsidy shifts the supply curve to the right and lowers the equilibrium price, stating that 'quantity demanded increases from Q to Q1' is completely accurate economic terminology (it is an extension in quantity demanded along the demand curve). Never treat this as an error.
      * Merit goods are defined in syllabus 9708 both by positive externalities (social benefit > private benefit) and by information failure / undervaluation of private benefits leading to underconsumption. Credit both definitions.
+     * CHAPTER 5 (PPC) & EFFICIENCY GROUNDING — STRICT MISCONCEPTION CHECK:
+       - Point inside PPC = Productive inefficiency / unemployment or underutilisation of resources (idle factors of production, X-inefficiency). A PPC shows maximum productive capacity; it contains NO information about consumer preferences or utility, and does NOT indicate allocative inefficiency or Pareto inefficiency!
+       - Point on PPC = Productive efficiency (maximum possible output from given resources and technology). However, a point on the PPC may still be allocatively inefficient if the output mix does not match consumer preferences (P != MC).
+       - MANDATORY ANALYTICAL ERROR FLAG: Flag any confusion between productive and allocative inefficiency on a PPC diagram as a minor analytical error (AO2 Analysis restricted, e.g. 2/3 instead of 3/3, or 3/4 instead of 4/4). You must NEVER praise or credit a student for linking a point inside the PPC to allocative inefficiency or Pareto efficiency. Call it out explicitly as an economic misconception in weaknesses and actionable feedback.
    - Do NOT penalise an essay simply because it lacks real-world empirical statistics or historical dates. Sound theoretical reasoning through economic concepts earns full marks.
 
 2. EXAMPLES & APPLICATION CRITERIA (AO2 ANALYSIS):
@@ -67,6 +71,13 @@ Cambridge examiners practice POSITIVE MARKING: reward what the candidate knows, 
      * Lower Band (1-3 of 12 for 20m; 1-2 of 6 for 12m; 1 of 4 for 8m): Descriptive assertions without complete causal links, OR transmission mechanisms containing major theoretical errors / built on false premises. Causal chains built on false economics CANNOT exceed this level.
      * Zero marks (0 of {ao2_marks}): No analytical reasoning or completely incoherent.
    {ao3_level_descriptors}
+   - 8-MARK EVALUATIVE ESSAYS (AO1: 2, AO2: 4, AO3: 2 — Total 8 marks):
+     * ONLY A PERFECT ESSAY CAN RECEIVE 8 MARKS (8/8).
+     * To achieve 8/8, the essay must be truly flawless: 2/2 in AO1, 4/4 in AO2, and 2/2 in AO3.
+     * Full 2/2 marks for AO3 strictly requires that all evaluation criteria are fully met, both perspectives are thoroughly explored in context, and a fully satisfied, supported concluding judgement directly resolves the prompt.
+     * When evaluation criteria are NOT fully met, or the concluding judgement is NOT satisfied, incomplete, or unsupported:
+       You MUST award Level 1 (1 of 2 marks) for AO3, keeping the essay at 7 instead of 8 (maximum 7/8).
+       Under NO circumstances award 8/8 to an essay with partially unmet evaluation criteria or an unsatisfied conclusion. Only a perfect essay can get 8.
    - REALISTIC OVERALL BAND CALIBRATION:
      * Bottom Band (0 to ~35% of max mark, e.g. 0-7/20, 0-4/12): Flawed essays with inverted definitions, fundamental theoretical misconceptions, and weak/superficial evaluation belong here.
      * Lower Middle Band (~35% to 54% of max mark, e.g. 8-10/20, 5-6/12): Basic, partially flawed attempts with some correct terminology and one basic valid causal chain, but limited evaluation and underdeveloped examples.
@@ -189,9 +200,18 @@ EXAMINER PASS 1 FOCUS (Temperature 0.0 — Rigorous Theoretical & Analytical Err
   * Check submission profile: If the response is an undersized outline (< 350 words for 12m, < 550 words for 20m) or lacks paragraph structure, AO2 CANNOT exceed Level 2.
   * Broken transmission chains built on false economic premises or inverted logic cannot exceed Level 1 in AO2.
   * Do NOT inflate marks for flawed economic foundations. Essays with fundamental misconceptions belong in Lower Middle or Bottom band, never Upper Middle.
-- STRICT AO3 EVALUATION SCRUTINY (+3-5% strictness for 12m/20m; Calibrated & Toned Down for 8m):
-  * 8-MARK EVALUATIVE ESSAYS (2 AO3 marks allocated): TONE DOWN strictness appropriately for an 8-mark Section B question (~300–450w target). Do NOT demand 12m/20m criteria such as equity, efficiency, administrative feasibility, or prioritization matrices. If the candidate explores both dimensions/perspectives in context and provides a supported concluding judgement directly answering the question, award Level 2 (2/2 marks) in full.
+- STRICT AO3 EVALUATION SCRUTINY (+3-5% strictness for 12m/20m; Calibrated Strictness for 8m):
+  * 8-MARK EVALUATIVE ESSAYS (2 AO3 marks allocated):
+    - ONLY A PERFECT ESSAY CAN RECEIVE 8 MARKS (8/8).
+    - To achieve 8/8, the essay must be truly flawless: 2/2 in AO1, 4/4 in AO2, and 2/2 in AO3.
+    - Full 2/2 marks for AO3 is strictly reserved for a truly perfect evaluative essay where all evaluation criteria are fully met, both perspectives are thoroughly explored in context, and a fully satisfied, supported concluding judgement directly resolves the prompt.
+    - When evaluation criteria are NOT fully met, or the concluding judgement is NOT satisfied, incomplete, or unsupported:
+      You MUST award Level 1 (1 of 2 marks) for AO3, keeping the essay at 7 instead of 8 (maximum 7/8). Under NO circumstances award 8/8 to an essay with partially unmet evaluation criteria or an unsatisfied conclusion. Only a perfect essay can get 8.
   * 12-MARK & 20-MARK ESSAYS (4-6 AO3 marks): Scrutinize evaluative claims critically (+3-5% strictness). Do not award high evaluation marks for generic 'it depends on' lists or unweighted pros and cons. In 20-mark essays, Top Band (5-6/6) strictly requires sustained synoptic evaluation, critical prioritization of decisive factors, and a reasoned contextual verdict resolving the prompt.
+- CHAPTER 5 (PPC) & EFFICIENCY MISCONCEPTION AUDIT:
+  * Point inside PPC = Productive inefficiency / unemployment or underutilisation of resources (idle factors, X-inefficiency). A PPC shows productive capacity alone; it contains NO information about consumer preferences and does NOT represent allocative inefficiency or Pareto inefficiency!
+  * Point on PPC = Productive efficiency (maximum output achievable from given resources). However, a point on the PPC may still be allocatively inefficient if the output mix does not match consumer preferences (P != MC).
+  * MANDATORY ANALYTICAL ERROR FLAG: Flag any confusion between productive and allocative inefficiency on a PPC diagram as a minor analytical error (AO2: deduct 1 mark, e.g. 2/3 instead of 3/3, or 3/4 instead of 4/4). You must NEVER praise a student for linking a point inside the PPC to allocative inefficiency or Pareto efficiency. Call it out as a misconception in weaknesses.
 - PROSE INTEGRITY & AI FORMATTING CHECK:
   * Penalize synthetic AI-generated artifacts (markdown bolding **...**, raw LaTeX formulas). Flag the lack of natural continuous prose and compressed outline style in weaknesses.
 - ZERO NUMERIC MARKS IN COMMENTS: Never mention numeric marks or fractions (e.g. '(3/4)', '1/4', '3/4', '2/2', 'a single mark is awarded', 'restricted to 3/4') in comment text. Focus purely on explaining qualitatively why marks were lost or restricted.
@@ -212,9 +232,18 @@ EXAMINER PASS 2 FOCUS (Temperature 0.2 — Holistic Cambridge Assessment & Wide 
   * AO1 definitions must be syllabus-precise with thorough knowledge and understanding to achieve full marks. Inverted definitions earn 0.
   * AO2 requires coherent, fully developed transmission mechanisms and thorough analysis in continuous prose. For 20-mark essays, powerful, integrated real-life examples and unbroken causal chains across all 12 marks are required for Top Band. Do not award top marks for incomplete chains, compressed 1-sentence assertions, or token one-liner examples.
   * ESSAY ARCHITECTURE: Top Band requires structured writing across distinct paragraphs. Single-paragraph monolithic submissions or undersized outlines (< 350 words for 12m, < 550 words for 20m) cannot exceed Level 2 in AO2 or AO3.
-- RIGOROUS AO3 EVALUATION (+3-5% strictness for 12m/20m; Calibrated & Toned Down for 8m):
-  * 8-MARK EVALUATIVE ESSAYS (2 AO3 marks allocated): TONE DOWN strictness appropriately for an 8-mark Section B question (~300–450w target). Do NOT demand 12m/20m criteria such as equity, efficiency, administrative feasibility, or prioritization matrices. If the candidate explores both dimensions/perspectives in context and provides a supported concluding judgement directly answering the question, award Level 2 (2/2 marks) in full.
+- RIGOROUS AO3 EVALUATION (+3-5% strictness for 12m/20m; Calibrated Strictness for 8m):
+  * 8-MARK EVALUATIVE ESSAYS (2 AO3 marks allocated):
+    - ONLY A PERFECT ESSAY CAN RECEIVE 8 MARKS (8/8).
+    - To achieve 8/8, the essay must be truly flawless: 2/2 in AO1, 4/4 in AO2, and 2/2 in AO3.
+    - Full 2/2 marks for AO3 is strictly reserved for a truly perfect evaluative essay where all evaluation criteria are fully met, both perspectives are thoroughly explored in context, and a fully satisfied, supported concluding judgement directly resolves the prompt.
+    - When evaluation criteria are NOT fully met, or the concluding judgement is NOT satisfied, incomplete, or unsupported:
+      You MUST award Level 1 (1 of 2 marks) for AO3, keeping the essay at 7 instead of 8 (maximum 7/8). Under NO circumstances award 8/8 to an essay with partially unmet evaluation criteria or an unsatisfied conclusion. Only a perfect essay can get 8.
   * 12-MARK & 20-MARK ESSAYS (4-6 AO3 marks): Top marks require sustained comparative evaluation with critical prioritization—explaining which constraint or trade-off is most decisive in context against explicit criteria. For 20-mark questions, synoptic synthesis across micro/macro dimensions and short/long run trade-offs with a substantiated contextual conclusion is strictly required for 5-6/6.
+- CHAPTER 5 (PPC) & EFFICIENCY GROUNDING:
+  * Point inside PPC = Productive inefficiency / unemployment or underutilisation of resources (idle factors, X-inefficiency). It does NOT represent allocative or Pareto inefficiency.
+  * Point on PPC = Productive efficiency (maximum possible output achievable from given resources, though it may still be allocatively inefficient if the output mix does not match consumer preferences).
+  * Flag any confusion between productive and allocative inefficiency on a PPC diagram as a minor analytical error (AO2: 2/3 instead of 3/3, or 3/4 instead of 4/4). NEVER praise this confusion in strengths or comments.
 - RIGOR ON WRITING QUALITY, AI FORMATTING & REALISTIC CALIBRATION:
   * Ensure the final mark reflects the actual standard: essays with major conceptual errors, brief outlines, or synthetic AI-generated formatting belong in Lower Middle or Upper Middle band (max 6-7/12 for 12m, max 11-12/20 for 20m), never Top Band.
   * Maintain full Top Band marks for well-developed, paragraphed student essays (500+ words for 12m, 800+ words for 20m) that demonstrate sustained analysis, powerful real-life examples, and prioritized evaluation.

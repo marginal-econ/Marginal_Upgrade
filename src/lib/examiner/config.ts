@@ -219,10 +219,13 @@ export function buildAoEvaluationDirective(maxMark: number, split: AoSplit): str
 - THIS IS AN 8-MARK SECTION B EVALUATIVE ESSAY (${maxMark} marks total: AO1: ${split.ao1_marks}, AO2: ${split.ao2_marks}, AO3: ${split.ao3_marks}).
 - REALISTIC, TONED-DOWN EVALUATION STRICTNESS FOR 8-MARK QUESTIONS (~300–450 words target):
   * AO3 is allocated ONLY 2 MARKS TOTAL. This is a concise Section B essay, NOT a 12-mark or 20-mark extended essay.
-  * DO NOT demand 12/20-mark evaluation expectations such as multi-criteria prioritization frameworks, complex trade-off matrices, extensive alternative policy comparisons, or administrative feasibility / equity criteria. Demanding those on a 2-mark tariff is an examiner error.
-  * AWARD FULL 2/2 MARKS (Level 2) when the candidate addresses both dimensions/aspects in context (e.g. recognizing healthcare has both private/merit good characteristics like clinical treatment and public good characteristics like disease prevention) AND provides a supported conclusion or judgement answering the question prompt (e.g. concluding whether it is primarily a merit good with economic justification).
-  * Award 1/2 marks (Level 1) ONLY if the candidate makes a bare token assertion with zero reasoning or only considers one side with no conclusion.
-  * If the candidate considers both aspects and reaches a reasoned conclusion, AWARD 2/2 MARKS IN FULL.
+  * DO NOT demand 12/20-mark evaluation expectations such as multi-criteria prioritization frameworks, complex trade-off matrices, extensive alternative policy comparisons, or administrative feasibility / equity criteria.
+  * AWARD FULL 2/2 MARKS (Level 2) ONLY WHEN THE ESSAY IS TRULY PERFECT: Both dimensions/perspectives are thoroughly explored in context AND a fully satisfied, supported concluding judgement answering the prompt directly is provided.
+  * CRITICAL 8-MARK EVALUATION & CONCLUSION RULE:
+    When evaluation criteria are NOT fully met, or the conclusion is NOT satisfied, incomplete, or unsupported:
+    KEEP THE ESSAY AT 7 INSTEAD OF 8 (maximum 7/8). Award Level 1 (1 of 2 marks) for AO3.
+    Under NO circumstances award 8/8 to an essay where evaluation criteria are partially unmet or the conclusion is not satisfied. ONLY a perfect essay can get 8.
+  * Award Level 0 (0 of 2 marks) only if purely descriptive/one-sided with no evaluative weighing and no conclusion.
 - NEVER state that evaluation is not required, and do not withhold the 2nd mark for missing disproportionate 12m/20m criteria.`;
   }
 
@@ -258,11 +261,11 @@ export function renderAo3Descriptors(maxMark: number, ao3Marks: number): string 
     return `- AO3 Evaluation (0 marks): Evaluation is NOT required for this question. Candidates must not be penalised for omitting evaluation, weighing, or conclusions.`;
   }
   if (ao3Marks === 2) {
-    return `- AO3 Evaluation & Concluding Judgement (2 marks total) — 8-MARK EVALUATIVE ESSAY (CALIBRATED REALISTIC STANDARD):
-      * Level 2 (2 of 2): Reasoned evaluative conclusion based on the analysis. The candidate considers both perspectives or classifications in context (e.g. acknowledging healthcare has both merit good and public good characteristics) and provides a supported final judgement answering the prompt. AWARD 2/2 IN FULL. Do NOT penalize for omitting 12m/20m criteria such as equity, efficiency, administrative feasibility, or formal prioritization matrices.
-      * Level 1 (1 of 2): Basic evaluative points without a conclusion, OR a bare unsupported assertion/conclusion without reasoning.
+    return `- AO3 Evaluation & Concluding Judgement (2 marks total) — 8-MARK EVALUATIVE ESSAY:
+      * Level 2 (2 of 2): STRICTLY RESERVED FOR A PERFECT ESSAY. The candidate considers both perspectives or classifications in context and provides a fully satisfied, supported concluding judgement answering the prompt. Results in full 8/8 marks (when AO1=2 and AO2=4).
+      * Level 1 (1 of 2): When evaluation criteria are not fully met, when counter-arguments are partially developed, OR when the concluding judgement is not fully satisfied, incomplete, or omitted. THIS MANDATES KEEPING THE ESSAY AT 7 INSTEAD OF 8 (maximum 7/8). Only a perfect essay can get 8.
       * Level 0 (0 of 2): Purely descriptive or one-sided analysis with no evaluative weighing and no concluding judgement.
-      * CRITICAL RULE: If the candidate evaluates or provides an evaluative conclusion (e.g. classifying healthcare and explaining why), AWARD CREDIT (1 or 2 marks). NEVER claim evaluation is not required when AO3 is allocated 2 marks.`;
+      * CRITICAL 8-MARK RULE: If evaluation criteria are not fully met or conclusion is not satisfied, award 1/2 marks, keeping the essay at 7/8 instead of 8.`;
   }
   if (ao3Marks === 4) {
     return `- AO3 Evaluation & Question Focus (4 marks total) — 12-MARK AS ESSAY:

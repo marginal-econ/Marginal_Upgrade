@@ -166,7 +166,11 @@ AUTHORITATIVE PRINCIPAL EXAMINER PRINCIPLES:
    - EVALUATIVE VS NON-EVALUATIVE TARIFF DIRECTIVE:
      * If {ao3_marks} is 0 marks: Evaluation is strictly NOT required (legacy Cambridge 8-mark 'Explain' questions). Set awarded: 0, out_of: 0, and comment: "Evaluation is not required for this question. No marks are lost for its omission." Keep missing_elements.evaluation empty [].
      * If {ao3_marks} > 0 marks: Evaluation IS MANDATORY. You MUST grade AO3 out of {ao3_marks} marks. NEVER state that evaluation is not required, even if the question starts with 'Explain'.
-     * For 8-mark evaluative questions ({ao3_marks} = 2 marks): Tone down evaluation strictness appropriately for an 8-mark Section B question (~300–450 words). Do NOT demand multi-criteria frameworks, equity/efficiency/administrative feasibility trade-offs, or extensive alternative policy comparisons. Award 2/2 marks in full if the candidate discusses both aspects in context and reaches a supported concluding judgement answering the prompt.
+      * For 8-mark evaluative questions ({ao3_marks} = 2 marks):
+        - ONLY A PERFECT ESSAY CAN RECEIVE 8 MARKS (8/8).
+        - Full 2/2 marks for AO3 is strictly reserved for a truly perfect evaluative essay where all evaluation criteria are fully met, both perspectives are thoroughly explored in context, and a fully satisfied, supported concluding judgement directly resolves the prompt.
+        - When evaluation criteria are NOT fully met, or the concluding judgement is NOT satisfied, incomplete, or unsupported:
+          You MUST award Level 1 (1 of 2 marks) for AO3, keeping the essay at 7 instead of 8 (maximum 7/8). Under NO circumstances award 8/8 to an essay with partially unmet evaluation criteria or an unsatisfied conclusion. Only a perfect essay can get 8.
      * For 20-mark extended essays ({ao3_marks} = 6 marks): Scrutinize synoptic evaluation rigorously with +3-5% strictness. Require candidates to synthesize micro and macro impacts, evaluate short-run vs long-run trade-offs, test elasticity conditions, and provide a reasoned, decisive contextual verdict answering the question prompt directly. Top Band (5-6/6) strictly demands critical prioritization of decisive factors.
    - Apply calibrated strictness (+3-5%) to AO3 Evaluation:
    - Demand critical prioritization: top band evaluation requires the candidate to explicitly justify which factor or criterion is most decisive (e.g. why inelastic demand limits short-run effectiveness vs long-run substitution).
@@ -175,7 +179,11 @@ AUTHORITATIVE PRINCIPAL EXAMINER PRINCIPLES:
    - Be strict on superficial evaluation: a single token sentence or generic conclusion ('a mix of both is best') without justified weighing criteria must not reach top band.
    - NO ARTIFICIAL NUMERIC CAPS: Do NOT apply rigid programmatic caps or formulaic ceiling rules (such as 'caps AO3' or 'Table B capped'). Evaluate the candidate's evaluative depth and breadth holistically on its economic merit.
 6. ACCURATE ECONOMICS VS ERRORS & REALISTIC CALIBRATION:
-   - Distinguish correct economics from genuine errors:
+    - CHAPTER 5 (PPC) & EFFICIENCY GROUNDING — STRICT MISCONCEPTION CHECK:
+      * Point inside PPC = Productive inefficiency / unemployment or underutilisation of resources (idle factors, X-inefficiency). A PPC shows productive capacity alone; it contains NO information about consumer preferences and does NOT represent allocative inefficiency or Pareto inefficiency!
+      * Point on PPC = Productive efficiency (maximum possible output from given resources). However, a point on the PPC may still be allocatively inefficient if the output mix does not match consumer preferences (P != MC).
+      * MANDATORY ANALYTICAL ERROR FLAG: Flag any confusion between productive and allocative inefficiency on a PPC diagram as a minor analytical error (AO2 Analysis restricted, e.g. 2/3 instead of 3/3, or 3/4 instead of 4/4). You must NEVER praise a student for linking a point inside the PPC to allocative inefficiency or Pareto efficiency. Overturn any pass that praised this confusion and record it as an analytical weakness.
+    - Distinguish correct economics from genuine errors:
      * When a subsidy lowers market price, quantity demanded extends/increases along the curve (from Q to Q1). That is accurate economic terminology, not an error.
      * Merit goods are defined both by positive externalities and by information failure / undervaluation of private benefits. Both are syllabus-correct.
    - ACCOUNTABILITY ON MAJOR THEORETICAL ERRORS:
@@ -329,28 +337,59 @@ export function synthesizeDualPasses(
     split.ao2_marks,
     Math.floor((pass1.ao_breakdown.analysis.awarded + pass2.ao_breakdown.analysis.awarded) / 2 + 0.45),
   );
-  // Evaluation (AO3) calibrated with strictness: take conservative round if passes differ
-  let eMark = Math.min(
-    split.ao3_marks,
-    split.ao3_marks === 2
-      ? Math.round((pass1.ao_breakdown.evaluation.awarded + pass2.ao_breakdown.evaluation.awarded) / 2)
-      : Math.floor((pass1.ao_breakdown.evaluation.awarded + pass2.ao_breakdown.evaluation.awarded) / 2 + 0.45),
-  );
+  // For 8-mark evaluative essays (AO3 = 2 marks):
+  // 8/8 is strictly reserved for a truly perfect essay.
+  // When evaluation criteria are not fully met or conclusion is not satisfied, award 1/2 marks, keeping the essay at 7.
+  const isEightMark = maxMark === 8 && split.ao3_marks === 2;
+  const pass1EvalAwarded = pass1.ao_breakdown.evaluation.awarded;
+  const pass2EvalAwarded = pass2.ao_breakdown.evaluation.awarded;
+  const allWeaknessesText = [...pass1.weaknesses, ...pass2.weaknesses].join(" ").toLowerCase();
+  const allEvalCommentsText = `${pass1.ao_breakdown.evaluation.comment || ""} ${pass2.ao_breakdown.evaluation.comment || ""}`.toLowerCase();
+
+  const hasUnmetEvaluationOrConclusion =
+    pass1EvalAwarded < 2 ||
+    pass2EvalAwarded < 2 ||
+    pass1.total_mark < 8 ||
+    pass2.total_mark < 8 ||
+    (pass1.missing_elements.evaluation && pass1.missing_elements.evaluation.length > 0) ||
+    (pass2.missing_elements.evaluation && pass2.missing_elements.evaluation.length > 0) ||
+    /unmet|incomplete|unsatisfied|missing|unsupported|partially|fail(ed|s)? to|superficial|weak|not fully|room for|could be further/i.test(allEvalCommentsText) ||
+    /conclusion.*(missing|weak|unsupported|lacking|incomplete|unsatisfied)|evaluation.*(not fully|partially|lacking|unmet|incomplete)/i.test(allWeaknessesText);
+
+  let eMark = 0;
+  if (split.ao3_marks === 0) {
+    eMark = 0;
+  } else if (isEightMark) {
+    // Only a truly perfect essay gets 2/2 and 8/8.
+    // If evaluation criteria are not fully met or conclusion is not satisfied, award 1/2, keeping total <= 7.
+    eMark = (!hasUnmetEvaluationOrConclusion && pass1EvalAwarded === 2 && pass2EvalAwarded === 2) ? 2 : 1;
+  } else {
+    eMark = Math.min(
+      split.ao3_marks,
+      Math.floor((pass1EvalAwarded + pass2EvalAwarded) / 2 + 0.45),
+    );
+  }
 
   let total = kMark + aMark + eMark;
-  // If rounding drifted from target total mark, adjust analysis or evaluation
-  if (total !== preferred.total_mark) {
+  if (isEightMark && hasUnmetEvaluationOrConclusion) {
+    // Keep the essay at 7 instead of 8: maximum 7/8
+    total = Math.min(7, total);
+    if (eMark > 1) eMark = 1;
+  } else if (total !== preferred.total_mark) {
     const diff = preferred.total_mark - total;
     if (diff > 0 && aMark < split.ao2_marks) {
       aMark += 1;
     } else if (diff < 0 && aMark > 0) {
       aMark -= 1;
-    } else if (diff > 0 && eMark < split.ao3_marks) {
+    } else if (diff > 0 && eMark < split.ao3_marks && !(isEightMark && hasUnmetEvaluationOrConclusion)) {
       eMark += 1;
     } else if (diff < 0 && eMark > 0) {
       eMark -= 1;
     }
     total = kMark + aMark + eMark;
+    if (isEightMark && hasUnmetEvaluationOrConclusion) {
+      total = Math.min(7, total);
+    }
   }
 
   // Combine unique strengths (max 4)
@@ -425,13 +464,10 @@ export function synthesizeDualPasses(
     if (hasEvalMention) {
       eMark = 1;
     }
-  } else if (maxMark === 8 && split.ao3_marks === 2 && eMark === 1 && kMark === 2 && aMark === 4) {
-    const hasSubstantiatedConclusion = /conclusion|judgement|judgment|classif/i.test(
-      (pass1.ao_breakdown.evaluation.comment || "") + " " + (pass2.ao_breakdown.evaluation.comment || "")
-    );
-    if (hasSubstantiatedConclusion) {
-      eMark = 2;
-    }
+  }
+  if (isEightMark && hasUnmetEvaluationOrConclusion) {
+    eMark = Math.min(1, eMark);
+    total = Math.min(7, kMark + aMark + eMark);
   }
 
   // Diagrams missing elements must always be empty unless specifically required
@@ -444,6 +480,28 @@ export function synthesizeDualPasses(
     examples: Array.from(new Set([...(pass1.missing_elements.examples || []), ...(pass2.missing_elements.examples || [])])).slice(0, 3),
     diagrams: [],
   };
+
+  // Chapter 5 PPC misconception filter for strengths:
+  // Strip any false praise claiming point inside PPC is allocatively inefficient or Pareto efficient
+  const ppcMisconceptionRegex = /(?=.*(ppc|production possibility))(?=.*(allocative|pareto))/i;
+  const filteredStrengths = strengths.filter(s => !ppcMisconceptionRegex.test(s));
+
+  // Check if either pass or feedback exhibited PPC & efficiency confusion
+  const flaggedPpcMisconception =
+    ppcMisconceptionRegex.test([...pass1.strengths, ...pass2.strengths].join(" ")) ||
+    /point\s+inside\s+(the\s+)?ppc.*allocative/i.test([...pass1.weaknesses, ...pass2.weaknesses].join(" "));
+
+  if (flaggedPpcMisconception) {
+    const ppcWeakness = "Economic misconception on PPC and efficiency: A point inside the PPC represents productive inefficiency (unemployment, underutilization of resources, or idle factors), not allocative inefficiency. Points on the PPC represent productive efficiency, though they may still be allocatively inefficient if the output mix does not match consumer preferences. Confusing productive and allocative inefficiency is an analytical error.";
+    if (!weaknesses.some(w => w.toLowerCase().includes("point inside the ppc") || w.toLowerCase().includes("misconception on ppc"))) {
+      weaknesses.unshift(ppcWeakness);
+    }
+    // Deduct AO2 Analysis if full marks were awarded (minor analytical error)
+    if (aMark === split.ao2_marks && aMark > 0) {
+      aMark -= 1;
+      total = kMark + aMark + eMark;
+    }
+  }
 
   const confidence = computeObjectiveConfidence(pass1, pass2, false);
 
@@ -469,7 +527,7 @@ export function synthesizeDualPasses(
       },
     },
     examiner_summary: stripScoreFractionsFromText(preferred.examiner_summary.replace(/[*_]/g, "").trim()),
-    strengths: strengths.map((s) => stripScoreFractionsFromText(s)),
+    strengths: filteredStrengths.map((s) => stripScoreFractionsFromText(s)),
     weaknesses: weaknesses.map((w) => stripScoreFractionsFromText(w)),
     missing_elements: missingElements,
     actionable_feedback: actionableFeedback.map((f) => stripScoreFractionsFromText(f)),

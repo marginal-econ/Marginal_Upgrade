@@ -297,17 +297,143 @@ export function buildQualityPromptDirective(
  * and enriches examiner summary and weaknesses so students receive clear,
  * educational feedback on essay length, paragraph structure, and AI formatting.
  */
-export function applyWritingQualityGuardrail(
+/**
+ * Chapter 5 (PPC & Efficiency) Grounding Failsafe:
+ * Ensures examiners NEVER praise a student for linking a point inside the PPC to allocative
+ * or Pareto inefficiency, flags confusion between productive and allocative inefficiency as
+ * a minor analytical error, and deducts 1 mark from AO2 Analysis if full marks were awarded.
+ */
+export function applyPpcMisconceptionGuardrail(
+  grading: Grading,
+  split: AoSplit,
+): Grading {
+  const ppcConfusionRegex = /(?=.*(ppc|production possibility))(?=.*(allocative|pareto))/i;
+  const allStrengths = grading.strengths || [];
+  const hadFalsePraise = allStrengths.some((s) => ppcConfusionRegex.test(s));
+  const filteredStrengths = allStrengths.filter((s) => !ppcConfusionRegex.test(s));
+
+  const allWeaknesses = grading.weaknesses || [];
+  const allComments = `${grading.ao_breakdown.analysis?.comment || ""} ${grading.ao_breakdown.evaluation?.comment || ""}`;
+  const hadPpcMention =
+    hadFalsePraise ||
+    ppcConfusionRegex.test(allComments) ||
+    /point\s+inside\s+(the\s+)?ppc.*allocative/i.test(allWeaknesses.join(" "));
+
+  if (!hadFalsePraise && !hadPpcMention) {
+    return grading;
+  }
+
+  const ppcWeakness =
+    "Economic misconception on PPC and efficiency: A point inside the PPC represents productive inefficiency (unemployment, underutilization of resources, or idle factors), not allocative inefficiency. Points on the PPC represent productive efficiency, though they may still be allocatively inefficient if the output mix does not match consumer preferences. Confusing productive and allocative inefficiency is an analytical error.";
+
+  const updatedWeaknesses = [...allWeaknesses];
+  if (!updatedWeaknesses.some((w) => w.toLowerCase().includes("point inside the ppc") || w.toLowerCase().includes("misconception on ppc"))) {
+    updatedWeaknesses.unshift(ppcWeakness);
+  }
+
+  let ao2 = grading.ao_breakdown.analysis.awarded;
+  let comment = grading.ao_breakdown.analysis.comment;
+  // If AO2 was awarded full marks, restrict it by 1 mark for the analytical error
+  if (ao2 === split.ao2_marks && ao2 > 0) {
+    ao2 -= 1;
+    comment = `${comment} (Analysis reflects a minor analytical deduction for confusing productive and allocative inefficiency on the PPC).`.trim();
+  }
+
+  const ao1 = grading.ao_breakdown.knowledge.awarded;
+  const ao3 = grading.ao_breakdown.evaluation.awarded;
+  const total = ao1 + ao2 + ao3;
+
+  return {
+    ...grading,
+    total_mark: total,
+    band: bandFor(total, grading.max_mark),
+    ao_breakdown: {
+      ...grading.ao_breakdown,
+      analysis: {
+        ...grading.ao_breakdown.analysis,
+        awarded: ao2,
+        comment: stripScoreFractionsFromText(comment),
+      },
+    },
+    strengths: filteredStrengths.map((s) => stripScoreFractionsFromText(s)),
+    weaknesses: updatedWeaknesses.slice(0, 4).map((w) => stripScoreFractionsFromText(w)),
+  };
+}
+
+/**
+ * 8-Mark Evaluative Essay Failsafe (AO1: 2, AO2: 4, AO3: 2 — Total: 8 marks):
+ * ONLY a truly perfect essay can receive 8/8.
+ * When evaluation criteria are not fully met or the concluding judgement is not satisfied,
+ * the essay MUST be kept at 7 instead of 8 (AO3 awarded 1/2 marks, maximum 7/8 total).
+ */
+export function applyEightMarkEvaluationGuardrail(
+  grading: Grading,
+  maxMark: number,
+  split: AoSplit,
+): Grading {
+  if (maxMark !== 8 || split.ao3_marks !== 2) {
+    return grading;
+  }
+
+  const ao1 = grading.ao_breakdown.knowledge.awarded;
+  const ao2 = grading.ao_breakdown.analysis.awarded;
+  let ao3 = grading.ao_breakdown.evaluation.awarded;
+
+  const evalComment = grading.ao_breakdown.evaluation.comment || "";
+  const weaknessesText = (grading.weaknesses || []).join(" ").toLowerCase();
+  const missingEval = grading.missing_elements?.evaluation || [];
+
+  const hasEvaluationShortfall =
+    missingEval.length > 0 ||
+    /unmet|incomplete|unsatisfied|missing|unsupported|partially|fail(ed|s)? to|superficial|weak|not fully|room for|could be further/i.test(evalComment) ||
+    /conclusion.*(missing|weak|unsupported|lacking|incomplete|unsatisfied)|evaluation.*(not fully|partially|lacking|unmet|incomplete)/i.test(weaknessesText);
+
+  // If evaluation shortfall detected, clamp AO3 to 1 and total to 7
+  if (hasEvaluationShortfall) {
+    if (ao3 > 1) {
+      ao3 = 1;
+    }
+    const newTotal = Math.min(7, ao1 + ao2 + ao3);
+    const updatedComment = /keeping the essay at 7/i.test(evalComment)
+      ? evalComment
+      : `${evalComment} Awarded Level 1 (1 of 2 marks). Evaluation criteria are not fully met or the concluding judgement is not satisfied, keeping the essay at 7 instead of 8 (8/8 is strictly reserved for a perfect essay).`.trim();
+
+    return {
+      ...grading,
+      total_mark: newTotal,
+      band: bandFor(newTotal, maxMark),
+      ao_breakdown: {
+        ...grading.ao_breakdown,
+        evaluation: {
+          ...grading.ao_breakdown.evaluation,
+          awarded: ao3,
+          comment: stripScoreFractionsFromText(updatedComment),
+        },
+      },
+    };
+  }
+
+  // If total is 8, ensure it really is 2/2 in AO1, 4/4 in AO2, and 2/2 in AO3
+  if (grading.total_mark === 8) {
+    if (ao1 < 2 || ao2 < 4 || ao3 < 2) {
+      const fixedTotal = Math.min(7, ao1 + ao2 + ao3);
+      return {
+        ...grading,
+        total_mark: fixedTotal,
+        band: bandFor(fixedTotal, maxMark),
+      };
+    }
+  }
+
+  return grading;
+}
+
+function applyStructuralCeilings(
   grading: Grading,
   quality: EssayQualityAnalysis,
   maxMark: number,
   split: AoSplit,
 ): Grading {
-  // If the essay is healthy (full length, paragraphed, clean prose), do not restrict marks!
-  if (!quality.isUndersized && !quality.isMonolithicBlock && !quality.hasAiArtifacts) {
-    return grading;
-  }
-
   let ao1 = grading.ao_breakdown.knowledge.awarded;
   let ao2 = grading.ao_breakdown.analysis.awarded;
   let ao3 = grading.ao_breakdown.evaluation.awarded;
@@ -434,4 +560,30 @@ export function applyWritingQualityGuardrail(
     weaknesses: cleanWeaknesses.slice(0, 4),
     actionable_feedback: cleanActions.slice(0, 4),
   };
+}
+
+/**
+ * Deterministic calibration failsafe: enforces Cambridge quality ceilings,
+ * Chapter 5 PPC misconception checks, and 8-mark evaluation 7/8 limits.
+ */
+export function applyWritingQualityGuardrail(
+  grading: Grading,
+  quality: EssayQualityAnalysis,
+  maxMark: number,
+  split: AoSplit,
+): Grading {
+  let result = grading;
+
+  // 1. Structural writing quality checks (undersized, monolithic, AI artifacts)
+  if (quality.isUndersized || quality.isMonolithicBlock || quality.hasAiArtifacts) {
+    result = applyStructuralCeilings(result, quality, maxMark, split);
+  }
+
+  // 2. Authoritative Chapter 5 PPC misconception check
+  result = applyPpcMisconceptionGuardrail(result, split);
+
+  // 3. Authoritative 8-mark evaluative essay failsafe (keeps at 7 if evaluation criteria unmet or conclusion unsatisfied)
+  result = applyEightMarkEvaluationGuardrail(result, maxMark, split);
+
+  return result;
 }
