@@ -23,20 +23,35 @@ export function InteractiveBoyMascot({
   onBugClick,
 }: InteractiveBoyMascotProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const bugRef = useRef<HTMLDivElement>(null);
+  const pointerPosRef = useRef({ x: 0, y: 0, active: false });
+
   const [normPos, setNormPos] = useState({ x: 0, y: 0 });
   const [isBlinking, setIsBlinking] = useState(false);
   const [bugSquashed, setBugSquashed] = useState(false);
+  const [bugCaption, setBugCaption] = useState("~bzz!~");
+  const [isBugEvading, setIsBugEvading] = useState(false);
+  const [trailParticles, setTrailParticles] = useState<Array<{ id: number; x: number; y: number }>>([]);
 
-  // Track cursor relative to the mascot
+  // Track cursor relative to the mascot container
   useEffect(() => {
     const handlePointerMove = (e: PointerEvent) => {
       if (!containerRef.current) return;
       const rect = containerRef.current.getBoundingClientRect();
-      const centerX = rect.left + rect.width / 2;
-      const centerY = rect.top + rect.height / 3; // Focus on the boy's head
+      const localX = e.clientX - rect.left;
+      const localY = e.clientY - rect.top;
 
-      const rawDx = (e.clientX - centerX) / (window.innerWidth / 2);
-      const rawDy = (e.clientY - centerY) / (window.innerHeight / 2);
+      pointerPosRef.current = {
+        x: localX,
+        y: localY,
+        active: true,
+      };
+
+      const centerX = rect.width / 2;
+      const centerY = rect.height / 3; // Focus on the boy's head
+
+      const rawDx = (localX - centerX) / (window.innerWidth / 2);
+      const rawDy = (localY - centerY) / (window.innerHeight / 2);
 
       // Clamp to -1 .. 1
       const clampedX = Math.max(-1, Math.min(1, rawDx));
@@ -45,9 +60,184 @@ export function InteractiveBoyMascot({
       setNormPos({ x: clampedX, y: clampedY });
     };
 
+    const handlePointerLeave = () => {
+      pointerPosRef.current.active = false;
+    };
+
     window.addEventListener("pointermove", handlePointerMove, { passive: true });
-    return () => window.removeEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerleave", handlePointerLeave);
+    return () => {
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerleave", handlePointerLeave);
+    };
   }, []);
+
+  // ── Procedural Random Flight Physics Loop ─────────────────────────────
+  useEffect(() => {
+    if (category !== "bug" || bugSquashed) {
+      return;
+    }
+
+    let animId: number;
+    let posX = 20;
+    let posY = -25;
+    let vx = 0.5;
+    let vy = -0.3;
+    let currentAngle = 15;
+
+    // Boundary flight limits inside the mascot stage
+    const minX = -30;
+    const maxX = 175;
+    const minY = -55;
+    const maxY = 95;
+
+    let targetX = 60 + (Math.random() - 0.5) * 80;
+    let targetY = -20 + (Math.random() - 0.5) * 60;
+    let mode: "cruising" | "hovering" | "darting" | "evading" = "cruising";
+    let modeTimer = 0;
+    let lastTime = performance.now();
+    let nextSparkleTime = 0;
+    let lastCaptionTime = 0;
+
+    const pickNewWaypoint = (forceDart = false) => {
+      targetX = minX + Math.random() * (maxX - minX);
+      targetY = minY + Math.random() * (maxY - minY);
+
+      if (forceDart || Math.random() < 0.22) {
+        mode = "darting";
+        modeTimer = 450 + Math.random() * 400; // brief burst
+        setBugCaption(Math.random() < 0.5 ? "~zoom!~" : "!zip!");
+      } else {
+        mode = "cruising";
+        modeTimer = 1600 + Math.random() * 1400;
+        setBugCaption("~bzz!~");
+      }
+      setIsBugEvading(false);
+    };
+
+    const flightLoop = (currentTime: number) => {
+      const dt = Math.min(48, currentTime - lastTime);
+      lastTime = currentTime;
+      modeTimer -= dt;
+
+      // 1. Check distance to user cursor (Interactive Evasion / Dodge)
+      if (pointerPosRef.current.active) {
+        // Bug's visual center in container coordinates (wrapper is offset by -24px, -32px)
+        const bugCenterX = posX - 4;
+        const bugCenterY = posY - 12;
+        const distToCursor = Math.hypot(
+          pointerPosRef.current.x - bugCenterX,
+          pointerPosRef.current.y - bugCenterY,
+        );
+
+        if (distToCursor < 68) {
+          // Cursor is dangerously close! Evasive reflex dart away
+          const awayX = bugCenterX - pointerPosRef.current.x;
+          const awayY = bugCenterY - pointerPosRef.current.y;
+          const len = Math.hypot(awayX, awayY) || 1;
+
+          targetX = Math.max(minX, Math.min(maxX, posX + (awayX / len) * 110 + (Math.random() - 0.5) * 40));
+          targetY = Math.max(minY, Math.min(maxY, posY + (awayY / len) * 95 + (Math.random() - 0.5) * 40));
+
+          vx += (awayX / len) * 6.5;
+          vy += (awayY / len) * 6.5;
+
+          mode = "evading";
+          modeTimer = 650;
+          setIsBugEvading(true);
+          if (currentTime - lastCaptionTime > 500) {
+            setBugCaption(Math.random() < 0.5 ? "!eep!" : "~WHOOSH!~");
+            lastCaptionTime = currentTime;
+          }
+        }
+      }
+
+      // 2. State Machine: Cruising / Hovering / Darting / Evading
+      if (mode === "evading") {
+        if (modeTimer <= 0) {
+          pickNewWaypoint();
+        }
+      } else if (mode === "hovering") {
+        // Gentle organic micro-hover buzz (figure-8 Lissajous wobble)
+        const hoverWobbleX = Math.sin(currentTime * 0.009) * 3.2;
+        const hoverWobbleY = Math.cos(currentTime * 0.014) * 2.4;
+        posX += hoverWobbleX * 0.12;
+        posY += hoverWobbleY * 0.12;
+        currentAngle += (0 - currentAngle) * 0.1;
+
+        if (modeTimer <= 0) {
+          pickNewWaypoint();
+        }
+      } else {
+        // Cruising or Darting
+        const distToTarget = Math.hypot(targetX - posX, targetY - posY);
+
+        if (distToTarget < 20 || modeTimer <= 0) {
+          // Reached waypoint: 35% chance to pause & hover, otherwise pick new waypoint
+          if (Math.random() < 0.35) {
+            mode = "hovering";
+            modeTimer = 1200 + Math.random() * 1200;
+            vx *= 0.2;
+            vy *= 0.2;
+            setBugCaption(Math.random() < 0.5 ? "~bzz!~" : "~flutter~");
+            setIsBugEvading(false);
+          } else {
+            pickNewWaypoint();
+          }
+        } else {
+          // Smooth steering towards waypoint
+          const speedFactor = mode === "darting" ? 0.085 : 0.042;
+          const maxSpeed = mode === "darting" ? 5.8 : 2.5;
+
+          vx += (targetX - posX) * speedFactor;
+          vy += (targetY - posY) * speedFactor;
+
+          const speed = Math.hypot(vx, vy);
+          if (speed > maxSpeed) {
+            vx = (vx / speed) * maxSpeed;
+            vy = (vy / speed) * maxSpeed;
+          }
+
+          posX += vx;
+          posY += vy;
+          vx *= 0.91;
+          vy *= 0.91;
+
+          // Heading banking angle
+          const targetAngle = Math.atan2(vy, vx) * (180 / Math.PI) + 90;
+          let diff = targetAngle - currentAngle;
+          while (diff < -180) diff += 360;
+          while (diff > 180) diff -= 360;
+          currentAngle += diff * 0.14;
+        }
+      }
+
+      // 3. Keep strictly in bounds
+      if (posX < minX) { posX = minX; vx = Math.abs(vx) * 0.8; }
+      if (posX > maxX) { posX = maxX; vx = -Math.abs(vx) * 0.8; }
+      if (posY < minY) { posY = minY; vy = Math.abs(vy) * 0.8; }
+      if (posY > maxY) { posY = maxY; vy = -Math.abs(vy) * 0.8; }
+
+      // 4. Update DOM transform directly for butter-smooth 60fps performance
+      if (bugRef.current) {
+        bugRef.current.style.transform = `translate3d(${posX}px, ${posY}px, 0) rotate(${currentAngle}deg)`;
+      }
+
+      // 5. Emit subtle fairy sparkles along the flight trail
+      if (currentTime > nextSparkleTime && (mode === "darting" || mode === "evading" || Math.random() < 0.35)) {
+        nextSparkleTime = currentTime + 160;
+        setTrailParticles((prev) => [
+          ...prev.slice(-3),
+          { id: currentTime, x: posX + 16, y: posY + 20 },
+        ]);
+      }
+
+      animId = requestAnimationFrame(flightLoop);
+    };
+
+    animId = requestAnimationFrame(flightLoop);
+    return () => cancelAnimationFrame(animId);
+  }, [category, bugSquashed]);
 
   // Natural blinking every ~3.6s
   useEffect(() => {
@@ -64,6 +254,17 @@ export function InteractiveBoyMascot({
       setBugSquashed(false);
     }
   }, [category]);
+
+  // Auto-revive bug after 4.5 seconds so user can catch it again!
+  useEffect(() => {
+    if (bugSquashed) {
+      const timer = setTimeout(() => {
+        setBugSquashed(false);
+        setBugCaption("~bzz!~");
+      }, 4500);
+      return () => clearTimeout(timer);
+    }
+  }, [bugSquashed]);
 
   // Dynamic reaction line based on context
   const getReactionText = () => {
@@ -117,33 +318,29 @@ export function InteractiveBoyMascot({
       )}
     >
       <style>{`
-        @keyframes flutterLeft {
-          0%, 100% { transform: rotate(-25deg); }
-          50% { transform: rotate(35deg); }
+        @keyframes beetleWingLeft {
+          0%, 100% { transform: rotate(-25deg) scaleY(1); }
+          50% { transform: rotate(45deg) scaleY(0.7); }
         }
-        @keyframes flutterRight {
-          0%, 100% { transform: rotate(25deg); }
-          50% { transform: rotate(-35deg); }
+        @keyframes beetleWingRight {
+          0%, 100% { transform: rotate(25deg) scaleY(1); }
+          50% { transform: rotate(-45deg) scaleY(0.7); }
         }
-        @keyframes erraticFlight {
-          0% {
-            transform: translate(0px, 0px) rotate(0deg);
-          }
-          20% {
-            transform: translate(140px, -60px) rotate(25deg);
-          }
-          40% {
-            transform: translate(260px, 30px) rotate(-15deg);
-          }
-          60% {
-            transform: translate(180px, 120px) rotate(40deg);
-          }
-          80% {
-            transform: translate(40px, 40px) rotate(-20deg);
-          }
-          100% {
-            transform: translate(0px, 0px) rotate(0deg);
-          }
+        @keyframes beetleWingHindLeft {
+          0%, 100% { transform: rotate(-15deg) scale(0.9); }
+          50% { transform: rotate(35deg) scale(0.65); }
+        }
+        @keyframes beetleWingHindRight {
+          0%, 100% { transform: rotate(15deg) scale(0.9); }
+          50% { transform: rotate(-35deg) scale(0.65); }
+        }
+        @keyframes fireflyLantern {
+          0%, 100% { opacity: 0.95; filter: drop-shadow(0 0 5px rgba(250, 204, 21, 0.8)); }
+          50% { opacity: 0.45; filter: drop-shadow(0 0 1px rgba(250, 204, 21, 0.2)); }
+        }
+        @keyframes dazedStars {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
         }
         @keyframes floatBulb {
           0%, 100% { transform: translateY(0) scale(1); }
@@ -170,46 +367,239 @@ export function InteractiveBoyMascot({
         </div>
       </div>
 
-      {/* ── Flying Bug (when category === 'bug') ────────────────────────── */}
+      {/* ── Glowing Flight Sparkles Trail ────────────────────────────── */}
+      {isBugCategory && !bugSquashed && (
+        <div className="pointer-events-none absolute inset-0 z-25 overflow-visible">
+          {trailParticles.map((p) => (
+            <div
+              key={p.id}
+              className="absolute size-1.5 rounded-full bg-emerald-400/80 shadow-[0_0_6px_rgba(52,211,153,0.9)] animate-ping duration-700"
+              style={{ left: p.x, top: p.y }}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* ── Procedural Flying Bug (when category === 'bug') ─────────────── */}
       {isBugCategory && (
         <div
-          className="pointer-events-auto absolute -top-8 -left-6 z-30 cursor-pointer"
-          style={{ animation: "erraticFlight 9s infinite ease-in-out" }}
-          onClick={() => {
-            setBugSquashed(true);
-            onBugClick?.();
+          ref={bugRef}
+          className="pointer-events-auto absolute -top-8 -left-6 z-30 cursor-pointer will-change-transform select-none"
+          style={{
+            transform: "translate3d(20px, -25px, 0px) rotate(15deg)",
+            transition: bugSquashed ? "transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)" : undefined,
           }}
-          title="Click to squash the bug!"
+          onClick={() => {
+            if (bugSquashed) {
+              setBugSquashed(false);
+              setBugCaption("~bzz!~");
+            } else {
+              setBugSquashed(true);
+              onBugClick?.();
+            }
+          }}
+          title={bugSquashed ? "Click to release bug!" : "Click to catch the bug!"}
         >
-          <div className="group relative flex items-center justify-center p-2 transition-transform hover:scale-125 active:scale-95">
-            {/* Wing Left */}
-            <div
-              className="absolute -top-1 left-1.5 h-3.5 w-2 rounded-full border border-sky-400/40 bg-sky-200/80 shadow-xs origin-bottom"
-              style={{ animation: "flutterLeft 0.08s infinite ease-in-out" }}
-            />
-            {/* Wing Right */}
-            <div
-              className="absolute -top-1 right-1.5 h-3.5 w-2 rounded-full border border-sky-400/40 bg-sky-200/80 shadow-xs origin-bottom"
-              style={{ animation: "flutterRight 0.08s infinite ease-in-out" }}
-            />
-            {/* Beetle Body */}
-            <div
+          <div className="group relative flex flex-col items-center justify-center p-1.5 transition-transform hover:scale-125 active:scale-95">
+            {/* Jewel Beetle SVG Vector */}
+            <svg
+              viewBox="0 0 44 48"
+              className="size-11 overflow-visible drop-shadow-md select-none pointer-events-none"
+              aria-hidden="true"
+            >
+              <defs>
+                <linearGradient id="beetle-carapace" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0%" stopColor="#34d399" />
+                  <stop offset="45%" stopColor="#10b981" />
+                  <stop offset="100%" stopColor="#047857" />
+                </linearGradient>
+                <linearGradient id="beetle-wing-fore" x1="0" y1="0" x2="0.8" y2="1">
+                  <stop offset="0%" stopColor="rgba(224, 242, 254, 0.9)" />
+                  <stop offset="100%" stopColor="rgba(56, 189, 248, 0.4)" />
+                </linearGradient>
+                <linearGradient id="beetle-wing-hind" x1="0" y1="0" x2="0.8" y2="1">
+                  <stop offset="0%" stopColor="rgba(186, 230, 253, 0.75)" />
+                  <stop offset="100%" stopColor="rgba(14, 165, 233, 0.35)" />
+                </linearGradient>
+                <radialGradient id="beetle-lantern" cx="50%" cy="50%" r="50%">
+                  <stop offset="0%" stopColor="#fef08a" />
+                  <stop offset="60%" stopColor="#facc15" />
+                  <stop offset="100%" stopColor="#d97706" />
+                </radialGradient>
+              </defs>
+
+              {/* Soft ambient glow behind firefly */}
+              <circle cx="22" cy="28" r="14" fill="#34d399" opacity="0.25" filter="blur(4px)" />
+
+              {/* Jointed Insect Legs */}
+              <g stroke="#064e3b" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" fill="none">
+                <path d="M16 20 L10 17 L5 21" />
+                <path d="M16 24 L9 25 L4 29" />
+                <path d="M17 28 L10 32 L6 37" />
+                <path d="M28 20 L34 17 L39 21" />
+                <path d="M28 24 L35 25 L40 29" />
+                <path d="M27 28 L34 32 L38 37" />
+              </g>
+
+              {/* Glowing Abdomen Lantern */}
+              <g style={{ animation: "fireflyLantern 1.4s infinite ease-in-out" }}>
+                <ellipse cx="22" cy="30" rx="7.5" ry="8.5" fill="url(#beetle-lantern)" />
+                <ellipse cx="22" cy="30" rx="4.5" ry="5.5" fill="#fef9c3" opacity="0.8" />
+              </g>
+
+              {/* 4 Translucent Flying Wings */}
+              {!bugSquashed && (
+                <g id="beetle-wings">
+                  {/* Hindwings */}
+                  <path
+                    d="M20 23 C13 18 8 20 11 29 C13 32 18 29 20 25 Z"
+                    fill="url(#beetle-wing-hind)"
+                    stroke="#0284c7"
+                    strokeWidth="0.8"
+                    style={{
+                      transformOrigin: "20px 23px",
+                      animation: isBugEvading
+                        ? "beetleWingHindLeft 0.035s infinite alternate ease-in-out"
+                        : "beetleWingHindLeft 0.05s infinite alternate ease-in-out",
+                    }}
+                  />
+                  <path
+                    d="M24 23 C31 18 36 20 33 29 C31 32 26 29 24 25 Z"
+                    fill="url(#beetle-wing-hind)"
+                    stroke="#0284c7"
+                    strokeWidth="0.8"
+                    style={{
+                      transformOrigin: "24px 23px",
+                      animation: isBugEvading
+                        ? "beetleWingHindRight 0.035s infinite alternate ease-in-out"
+                        : "beetleWingHindRight 0.05s infinite alternate ease-in-out",
+                    }}
+                  />
+
+                  {/* Forewings */}
+                  <g
+                    style={{
+                      transformOrigin: "19px 20px",
+                      animation: isBugEvading
+                        ? "beetleWingLeft 0.04s infinite alternate ease-in-out"
+                        : "beetleWingLeft 0.06s infinite alternate ease-in-out",
+                    }}
+                  >
+                    <path
+                      d="M19 20 C11 5 3 4 5 19 C6 26 14 26 19 21 Z"
+                      fill="url(#beetle-wing-fore)"
+                      stroke="#0284c7"
+                      strokeWidth="1.2"
+                    />
+                    <path d="M18 20 C13 11 7 8 6 18" stroke="#38bdf8" strokeWidth="0.7" fill="none" opacity="0.8" />
+                    <path d="M12 14 Q9 17 7 21" stroke="#38bdf8" strokeWidth="0.5" fill="none" opacity="0.6" />
+                  </g>
+                  <g
+                    style={{
+                      transformOrigin: "25px 20px",
+                      animation: isBugEvading
+                        ? "beetleWingRight 0.04s infinite alternate ease-in-out"
+                        : "beetleWingRight 0.06s infinite alternate ease-in-out",
+                    }}
+                  >
+                    <path
+                      d="M25 20 C33 5 41 4 39 19 C38 26 30 26 25 21 Z"
+                      fill="url(#beetle-wing-fore)"
+                      stroke="#0284c7"
+                      strokeWidth="1.2"
+                    />
+                    <path d="M26 20 C31 11 37 8 38 18" stroke="#38bdf8" strokeWidth="0.7" fill="none" opacity="0.8" />
+                    <path d="M32 14 Q35 17 37 21" stroke="#38bdf8" strokeWidth="0.5" fill="none" opacity="0.6" />
+                  </g>
+                </g>
+              )}
+
+              {/* Metallic Split Carapace (Wing Covers / Elytra) */}
+              <g id="beetle-carapace-shell">
+                <path
+                  d="M21.5 17 C16 17 13 22 13 29 C13 33 17 35.5 21 34.5 Z"
+                  fill="url(#beetle-carapace)"
+                  stroke="#064e3b"
+                  strokeWidth="1.5"
+                  strokeLinejoin="round"
+                />
+                <path d="M15 21 C14.5 25 15 31 19 33" stroke="#6ee7b7" strokeWidth="1" strokeLinecap="round" fill="none" opacity="0.8" />
+                <circle cx="18" cy="24" r="0.9" fill="#fef08a" />
+                <circle cx="17" cy="28" r="0.7" fill="#fef08a" />
+
+                <path
+                  d="M22.5 17 C28 17 31 22 31 29 C31 33 27 35.5 23 34.5 Z"
+                  fill="url(#beetle-carapace)"
+                  stroke="#064e3b"
+                  strokeWidth="1.5"
+                  strokeLinejoin="round"
+                />
+                <path d="M29 21 C29.5 25 29 31 25 33" stroke="#6ee7b7" strokeWidth="1" strokeLinecap="round" fill="none" opacity="0.8" />
+                <circle cx="26" cy="24" r="0.9" fill="#fef08a" />
+                <circle cx="27" cy="28" r="0.7" fill="#fef08a" />
+              </g>
+
+              {/* Thorax */}
+              <rect
+                x="17"
+                y="13"
+                width="10"
+                height="6"
+                rx="3"
+                fill="#1e1b4b"
+                stroke="#064e3b"
+                strokeWidth="1.4"
+              />
+
+              {/* Head */}
+              <circle cx="22" cy="10" r="5.5" fill="#1e1b4b" stroke="#064e3b" strokeWidth="1.4" />
+
+              {/* Antennae with glowing neon sensor tips */}
+              <path d="M19 7 Q15 1 10 3" stroke="#1e1b4b" strokeWidth="1.5" strokeLinecap="round" fill="none" />
+              <circle cx="10" cy="3" r="1.5" fill="#38bdf8" stroke="#0284c7" strokeWidth="0.8" />
+              <path d="M25 7 Q29 1 34 3" stroke="#1e1b4b" strokeWidth="1.5" strokeLinecap="round" fill="none" />
+              <circle cx="34" cy="3" r="1.5" fill="#38bdf8" stroke="#0284c7" strokeWidth="0.8" />
+
+              {/* Cute Eyes (Responsive to state) */}
+              {bugSquashed ? (
+                <g stroke="#f59e0b" strokeWidth="1.4" strokeLinecap="round" fill="none">
+                  <path d="M18 9 Q19 11 20 9.5 Q20.5 8 19 8" />
+                  <path d="M24 9 Q25 11 26 9.5 Q26.5 8 25 8" />
+                </g>
+              ) : (
+                <g>
+                  <ellipse cx="19" cy="9.5" rx="2.2" ry="2" fill="#ffffff" stroke="#1e1b4b" strokeWidth="0.8" />
+                  <circle cx={isBugEvading ? 18.5 : 19} cy="9.5" r={isBugEvading ? 1.6 : 1.3} fill="#0f172a" />
+                  <circle cx="18.3" cy="8.8" r="0.6" fill="#ffffff" />
+
+                  <ellipse cx="25" cy="9.5" rx="2.2" ry="2" fill="#ffffff" stroke="#1e1b4b" strokeWidth="0.8" />
+                  <circle cx={isBugEvading ? 25.5 : 25} cy="9.5" r={isBugEvading ? 1.6 : 1.3} fill="#0f172a" />
+                  <circle cx="24.3" cy="8.8" r="0.6" fill="#ffffff" />
+                </g>
+              )}
+
+              {/* Squashed Stars Halo */}
+              {bugSquashed && (
+                <g style={{ transformOrigin: "22px 5px", animation: "dazedStars 2.5s infinite linear" }}>
+                  <text x="12" y="2" fontSize="7" fill="#facc15">⭐</text>
+                  <text x="26" y="2" fontSize="6" fill="#38bdf8">✨</text>
+                  <text x="19" y="-2" fontSize="5" fill="#f43f5e">⭐</text>
+                </g>
+              )}
+            </svg>
+
+            {/* Interactive Dynamic Badge (Maintains "bzz!" in static render for tests) */}
+            <span
               className={cn(
-                "relative flex h-5 w-4 items-center justify-center rounded-full border-2 border-border shadow-md transition-colors",
+                "mt-0.5 text-[9.5px] font-mono font-bold px-2 py-0.5 rounded-full border shadow-xs transition-all duration-200 select-none",
                 bugSquashed
-                  ? "bg-amber-500 border-amber-600 rotate-45"
-                  : "bg-emerald-600 border-emerald-950",
+                  ? "bg-amber-500/15 border-amber-500/40 text-amber-600 dark:text-amber-400 font-extrabold"
+                  : isBugEvading
+                  ? "bg-rose-500/15 border-rose-500/40 text-rose-600 dark:text-rose-400 scale-105"
+                  : "bg-emerald-500/15 border-emerald-500/30 text-emerald-600 dark:text-emerald-400",
               )}
             >
-              <div className="size-1 rounded-full bg-yellow-300 animate-ping opacity-75" />
-            </div>
-            {/* Antennae */}
-            <div className="absolute -top-2 flex gap-1">
-              <div className="h-2 w-0.5 -rotate-25 rounded-full bg-emerald-900" />
-              <div className="h-2 w-0.5 rotate-25 rounded-full bg-emerald-900" />
-            </div>
-            <span className="absolute -bottom-3 text-[9px] font-mono font-bold text-emerald-600 dark:text-emerald-400 whitespace-nowrap opacity-80">
-              {bugSquashed ? "SQUASHED!" : "~bzz!~"}
+              {bugSquashed ? "🎯 SQUASHED!" : bugCaption}
             </span>
           </div>
         </div>
