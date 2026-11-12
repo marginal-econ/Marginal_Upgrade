@@ -402,7 +402,7 @@ export function DashboardPage() {
               </div>
 
               {/* Radial Readiness Indicator Gauge */}
-              <div className="relative z-10 flex sm:flex-col items-center justify-between sm:justify-center gap-3 shrink-0 p-3 sm:p-4 rounded-2xl bg-card/80 border border-border/80 shadow-2xs backdrop-blur-sm self-start sm:self-center">
+              <div className="relative z-10 flex sm:flex-col items-center justify-between sm:justify-center gap-3 shrink-0 p-3 sm:p-4 rounded-2xl bg-card/80 border border-border/80 shadow-2xs backdrop-blur-sm w-full sm:w-auto self-stretch sm:self-center">
                 <div className="relative size-20 sm:size-24 shrink-0 flex items-center justify-center">
                   <svg className="size-full -rotate-90" viewBox="0 0 100 100">
                     <circle

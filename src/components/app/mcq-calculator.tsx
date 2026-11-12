@@ -662,7 +662,30 @@ export function McqCalculator({ isOpen, onClose, className }: McqCalculatorProps
     });
   };
 
-  // Drag listeners
+  // Reposition within safe viewport boundaries on screen resize or orientation change
+  useEffect(() => {
+    const handleViewportChange = () => {
+      setPosition((prev) => {
+        if (!prev) return prev;
+        const cardWidth = cardRef.current?.offsetWidth || 340;
+        const cardHeight = cardRef.current?.offsetHeight || 420;
+        const maxX = Math.max(8, window.innerWidth - cardWidth - 8);
+        const maxY = Math.max(8, window.innerHeight - cardHeight - 8);
+        return {
+          x: Math.min(Math.max(8, prev.x), maxX),
+          y: Math.min(Math.max(8, prev.y), maxY),
+        };
+      });
+    };
+    window.addEventListener("resize", handleViewportChange);
+    window.addEventListener("orientationchange", handleViewportChange);
+    return () => {
+      window.removeEventListener("resize", handleViewportChange);
+      window.removeEventListener("orientationchange", handleViewportChange);
+    };
+  }, []);
+
+  // Drag listeners for mouse
   const startDrag = (e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest("button, input, select, [role='tab']")) return;
     const card = cardRef.current;
@@ -679,8 +702,9 @@ export function McqCalculator({ isOpen, onClose, className }: McqCalculatorProps
       if (!dragRef.current) return;
       const dx = moveEvent.clientX - dragRef.current.startX;
       const dy = moveEvent.clientY - dragRef.current.startY;
-      const newX = Math.max(10, Math.min(window.innerWidth - 380, dragRef.current.posX + dx));
-      const newY = Math.max(10, Math.min(window.innerHeight - 500, dragRef.current.posY + dy));
+      const cardW = cardRef.current?.offsetWidth || 340;
+      const newX = Math.max(8, Math.min(window.innerWidth - cardW - 8, dragRef.current.posX + dx));
+      const newY = Math.max(8, Math.min(window.innerHeight - 100, dragRef.current.posY + dy));
       setPosition({ x: newX, y: newY });
     };
 
@@ -694,13 +718,50 @@ export function McqCalculator({ isOpen, onClose, className }: McqCalculatorProps
     window.addEventListener("mouseup", handleMouseUp);
   };
 
+  // Touch drag listener for mobile & tablet touchscreens
+  const startTouchDrag = (e: React.TouchEvent) => {
+    if ((e.target as HTMLElement).closest("button, input, select, [role='tab']")) return;
+    const touch = e.touches[0];
+    if (!touch) return;
+    const card = cardRef.current;
+    if (!card) return;
+    const rect = card.getBoundingClientRect();
+    dragRef.current = {
+      startX: touch.clientX,
+      startY: touch.clientY,
+      posX: position ? position.x : rect.left,
+      posY: position ? position.y : rect.top,
+    };
+
+    const handleTouchMove = (moveEvent: TouchEvent) => {
+      if (!dragRef.current) return;
+      const t = moveEvent.touches[0];
+      if (!t) return;
+      const dx = t.clientX - dragRef.current.startX;
+      const dy = t.clientY - dragRef.current.startY;
+      const cardW = cardRef.current?.offsetWidth || 340;
+      const newX = Math.max(8, Math.min(window.innerWidth - cardW - 8, dragRef.current.posX + dx));
+      const newY = Math.max(8, Math.min(window.innerHeight - 100, dragRef.current.posY + dy));
+      setPosition({ x: newX, y: newY });
+    };
+
+    const handleTouchEnd = () => {
+      dragRef.current = null;
+      window.removeEventListener("touchmove", handleTouchMove);
+      window.removeEventListener("touchend", handleTouchEnd);
+    };
+
+    window.addEventListener("touchmove", handleTouchMove, { passive: true });
+    window.addEventListener("touchend", handleTouchEnd);
+  };
+
   if (!isOpen) return null;
 
-  // Minimized floating pill
+  // Minimized floating pill (positioned safely above mobile docks)
   if (isMinimized) {
     return (
       <div
-        className="fixed bottom-5 right-5 z-50 animate-in fade-in zoom-in-95 cursor-pointer"
+        className="fixed bottom-24 right-4 sm:bottom-6 sm:right-6 z-50 animate-in fade-in zoom-in-95 cursor-pointer select-none"
         onClick={() => setIsMinimized(false)}
       >
         <div className="flex items-center gap-2.5 px-4 py-2.5 rounded-full bg-card/95 border border-primary/30 text-foreground shadow-2xl backdrop-blur-xl hover:border-primary transition-all group">
@@ -730,14 +791,15 @@ export function McqCalculator({ isOpen, onClose, className }: McqCalculatorProps
           : undefined
       }
       className={cn(
-        "z-50 w-[350px] sm:w-[380px] max-w-[calc(100vw-1.5rem)] bg-card/95 text-foreground border border-border/80 rounded-3xl shadow-2xl backdrop-blur-2xl flex flex-col overflow-hidden transition-shadow duration-200 select-none animate-in fade-in slide-in-from-bottom-3",
-        !position && "fixed bottom-6 right-4 sm:right-6",
+        "z-50 w-[calc(100vw-1.5rem)] sm:w-[380px] max-w-sm bg-card/95 text-foreground border border-border/80 rounded-3xl shadow-2xl backdrop-blur-2xl flex flex-col overflow-hidden transition-shadow duration-200 select-none animate-in fade-in slide-in-from-bottom-3",
+        !position && "fixed bottom-20 left-3 right-3 sm:left-auto sm:right-6 sm:bottom-6 mx-auto sm:mx-0",
         className
       )}
     >
-      {/* Draggable Header */}
+      {/* Draggable Header with Touch + Mouse support */}
       <div
         onMouseDown={startDrag}
+        onTouchStart={startTouchDrag}
         className="flex items-center justify-between p-3.5 px-4 bg-muted/40 border-b border-border/70 cursor-grab active:cursor-grabbing"
       >
         <div className="flex items-center gap-2">

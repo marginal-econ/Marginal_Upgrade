@@ -496,9 +496,9 @@ function DefinitionCard({
 
 function HubStat({ value, label }: { value: number; label: string }) {
   return (
-    <div className="rounded-xl border bg-background/75 px-3 py-3 text-center shadow-sm backdrop-blur-sm">
-      <p className="text-xl font-bold tabular-nums sm:text-2xl">{value}</p>
-      <p className="mt-0.5 text-[10px] font-semibold tracking-wide text-muted-foreground uppercase sm:text-xs">
+    <div className="rounded-xl border bg-background/75 px-2 py-2 sm:px-3 sm:py-3 text-center shadow-sm backdrop-blur-sm">
+      <p className="text-base min-[380px]:text-xl font-bold tabular-nums sm:text-2xl">{value}</p>
+      <p className="mt-0.5 text-[9px] font-semibold tracking-wide text-muted-foreground uppercase sm:text-xs">
         {label}
       </p>
     </div>

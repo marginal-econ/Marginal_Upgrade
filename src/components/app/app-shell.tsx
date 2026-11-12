@@ -459,6 +459,20 @@ export function AppShell({
   const [lockedModalType, setLockedModalType] = useState<LockedFeatureType>(null);
   const [navLayout, setNavLayout] = useState<NavigationLayout>(() => getPlatformNavLayout());
   const [activeDockCategory, setActiveDockCategory] = useState<string>("core");
+  const [inExamSession, setInExamSession] = useState(false);
+
+  useEffect(() => {
+    const syncExamState = () => {
+      setInExamSession(
+        typeof document !== "undefined" &&
+          (document.body.dataset.inExamSession === "true" ||
+            document.body.hasAttribute("data-in-exam-session")),
+      );
+    };
+    syncExamState();
+    window.addEventListener("marginal-exam-state", syncExamState);
+    return () => window.removeEventListener("marginal-exam-state", syncExamState);
+  }, [pathname]);
 
   // Global ⌘K / Ctrl+K and / command palette trigger
   useEffect(() => {
@@ -1224,16 +1238,16 @@ export function AppShell({
         )}
       >
         {/* Mobile Header (all layouts) */}
-        <header className="flex items-center justify-between border-b border-border bg-card/80 px-4 py-2.5 backdrop-blur-sm lg:hidden sticky top-0 z-40 w-full max-w-full">
-          <div className="flex items-center gap-2.5">
+        <header className="flex items-center justify-between border-b border-border bg-card/80 px-3 sm:px-4 py-2 sm:py-2.5 backdrop-blur-sm lg:hidden sticky top-0 z-40 w-full max-w-full">
+          <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
             <Sheet open={mobileDrawerOpen} onOpenChange={setMobileDrawerOpen}>
               <SheetTrigger asChild>
-                <Button variant="ghost" size="icon" className="size-8">
+                <Button variant="ghost" size="icon" className="size-8 shrink-0">
                   <Menu className="size-4" />
                   <span className="sr-only">Open navigation menu</span>
                 </Button>
               </SheetTrigger>
-              <SheetContent side="left" className="w-72 p-4 flex flex-col h-full">
+              <SheetContent side="left" className="w-[85vw] sm:w-72 max-w-[320px] p-4 flex flex-col h-full">
                 <SheetHeader className="mb-3 text-left shrink-0">
                   <SheetTitle className="flex items-center gap-2.5">
                     <div className="relative size-8.5 shrink-0 rounded-xl bg-gradient-to-br from-primary/15 via-primary/8 to-transparent border border-primary/25 flex items-center justify-center overflow-hidden shadow-xs">
@@ -1377,7 +1391,7 @@ export function AppShell({
               </SheetContent>
             </Sheet>
 
-            <Link to="/dashboard" className="flex items-center gap-2.5 group">
+            <Link to="/dashboard" className="flex items-center gap-2 shrink-0 group">
               <div className="relative size-8 shrink-0 rounded-xl bg-gradient-to-br from-primary/15 via-primary/8 to-transparent border border-primary/25 flex items-center justify-center overflow-hidden shadow-2xs">
                 <img
                   src="/marginal-m-icon-clean.png"
@@ -1386,21 +1400,21 @@ export function AppShell({
                   className="size-6 object-contain"
                 />
               </div>
-              <span className="text-sm font-extrabold tracking-tight">Marginal</span>
+              <span className="text-sm font-extrabold tracking-tight truncate hidden min-[360px]:inline">Marginal</span>
             </Link>
           </div>
 
-          <div className="flex items-center gap-1.5 sm:gap-2">
+          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
             <button
               type="button"
               onClick={() => setCommandOpen(true)}
-              className="flex items-center justify-center size-8 rounded-lg border border-border/70 bg-card/60 hover:bg-muted/80 transition-colors text-muted-foreground hover:text-foreground cursor-pointer shadow-2xs"
+              className="flex items-center justify-center size-8 rounded-lg border border-border/70 bg-card/60 hover:bg-muted/80 transition-colors text-muted-foreground hover:text-foreground cursor-pointer shadow-2xs shrink-0"
               title="Search Cambridge 9708 (⌘K)"
               aria-label="Search or jump"
             >
               <SearchIcon className="size-3.5 text-primary" />
             </button>
-            <TopTutorialButton size="sm" />
+            <TopTutorialButton size="sm" showLabel={false} className="size-8 p-0 justify-center shrink-0" />
             <LayoutSwitcherButton
               navLayout={navLayout}
               onChange={handleLayoutChange}
@@ -1410,7 +1424,7 @@ export function AppShell({
               <Link
                 to="/admin"
                 search={{ tab: "messages" }}
-                className="relative flex items-center justify-center size-8 rounded-lg border border-border/70 bg-card/60 hover:bg-muted/80 text-foreground transition-all cursor-pointer shadow-2xs"
+                className="relative flex items-center justify-center size-8 rounded-lg border border-border/70 bg-card/60 hover:bg-muted/80 text-foreground transition-all cursor-pointer shadow-2xs shrink-0"
                 title="Direct Messages Portal"
               >
                 <Send className="size-3.5 text-primary" />
@@ -1425,7 +1439,7 @@ export function AppShell({
                 trigger={
                   <button
                     type="button"
-                    className="relative flex items-center justify-center size-8 rounded-lg border border-border/70 bg-card/60 hover:bg-muted/80 text-foreground transition-all cursor-pointer shadow-2xs"
+                    className="relative flex items-center justify-center size-8 rounded-lg border border-border/70 bg-card/60 hover:bg-muted/80 text-foreground transition-all cursor-pointer shadow-2xs shrink-0"
                     title="Direct Messages from Examiners"
                   >
                     <Send className="size-3.5 text-primary" />
@@ -1433,6 +1447,70 @@ export function AppShell({
                 }
               />
             )}
+
+            {/* Mobile User Profile Avatar Trigger */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className="flex items-center rounded-full p-0.5 ring-1.5 ring-primary/30 hover:ring-primary/70 transition-all cursor-pointer shrink-0"
+                  title="User Account"
+                >
+                  <UserAvatar
+                    avatarUrl={avatarUrl}
+                    name={name}
+                    fallbackInitials={candidateInitials}
+                    showStatusDot={true}
+                    className="size-7"
+                  />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-60 p-2 z-50 bg-popover/95 backdrop-blur-xl border border-border/80 shadow-2xl rounded-2xl">
+                <div className="flex items-center gap-2.5 p-2 rounded-xl bg-muted/40 mb-1 border border-border/40">
+                  <UserAvatar
+                    avatarUrl={avatarUrl}
+                    name={name}
+                    fallbackInitials={candidateInitials}
+                    showStatusDot={false}
+                    className="size-8"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-bold text-foreground truncate">
+                      {name ?? "Candidate"}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground truncate">
+                      {school || (isTeacherUser ? "Educator" : "Cambridge 9708 Candidate")}
+                    </p>
+                  </div>
+                </div>
+                <DropdownMenuItem asChild className="p-0 mb-0.5">
+                  <Link
+                    to="/dashboard"
+                    className="flex items-center gap-2.5 px-2.5 py-2 text-xs rounded-lg cursor-pointer hover:bg-muted/70 text-foreground"
+                  >
+                    <LayoutDashboard className="size-3.5 text-muted-foreground" />
+                    <span>Dashboard</span>
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild className="p-0 mb-0.5">
+                  <Link
+                    to="/settings"
+                    className="flex items-center gap-2.5 px-2.5 py-2 text-xs rounded-lg cursor-pointer hover:bg-muted/70 text-foreground"
+                  >
+                    <Settings className="size-3.5 text-muted-foreground" />
+                    <span>Profile &amp; Settings</span>
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator className="my-1 border-border/60" />
+                <DropdownMenuItem
+                  onClick={signOut}
+                  className="flex items-center gap-2.5 px-2.5 py-2 text-xs rounded-lg text-destructive hover:bg-destructive/10 cursor-pointer font-medium"
+                >
+                  <LogOut className="size-3.5" />
+                  <span>Sign out</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </header>
 
@@ -1994,75 +2072,77 @@ export function AppShell({
           </header>
         )}
 
-        <main className="flex-1 min-w-0 overflow-x-hidden pb-16 sm:pb-0">{children}</main>
+        <main className={cn("flex-1 min-w-0 overflow-x-hidden", inExamSession ? "pb-0" : "pb-16 lg:pb-0")}>{children}</main>
       </div>
 
-      {/* ── Mobile Phone Bottom Navigation Bar (sm:hidden) ── */}
-      <nav
-        aria-label="Mobile Navigation"
-        className="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-background/95 backdrop-blur-md border-t border-border px-1.5 py-1.5 flex items-center justify-around shadow-lg pb-[calc(env(safe-area-inset-bottom,0px)+0.375rem)]"
-      >
-        <Link
-          to="/dashboard"
-          className={cn(
-            "flex flex-col items-center justify-center gap-0.5 px-2 py-1 rounded-lg text-[10px] font-medium transition-all active:scale-95",
-            pathname === "/dashboard"
-              ? "text-primary font-bold"
-              : "text-muted-foreground hover:text-foreground",
-          )}
+      {/* ── Mobile Phone & Tablet Bottom Navigation Bar (lg:hidden) ── */}
+      {!inExamSession && (
+        <nav
+          aria-label="Mobile Navigation"
+          className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-background/95 backdrop-blur-md border-t border-border px-1.5 py-1.5 flex items-center justify-around shadow-lg pb-[calc(env(safe-area-inset-bottom,0px)+0.375rem)]"
         >
-          <LayoutDashboard className="size-5" />
-          <span>Dashboard</span>
-        </Link>
+          <Link
+            to="/dashboard"
+            className={cn(
+              "flex flex-col items-center justify-center gap-0.5 px-2 py-1 rounded-lg text-[10px] font-medium transition-all active:scale-95",
+              pathname === "/dashboard"
+                ? "text-primary font-bold"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            <LayoutDashboard className="size-5" />
+            <span>Dashboard</span>
+          </Link>
 
-        <Link
-          to="/grade"
-          className={cn(
-            "flex flex-col items-center justify-center gap-0.5 px-2 py-1 rounded-lg text-[10px] font-medium transition-all active:scale-95",
-            pathname === "/grade" || pathname.startsWith("/essay")
-              ? "text-primary font-bold"
-              : "text-muted-foreground hover:text-foreground",
-          )}
-        >
-          <PenLine className="size-5" />
-          <span>Grade</span>
-        </Link>
+          <Link
+            to="/grade"
+            className={cn(
+              "flex flex-col items-center justify-center gap-0.5 px-2 py-1 rounded-lg text-[10px] font-medium transition-all active:scale-95",
+              pathname === "/grade" || pathname.startsWith("/essay")
+                ? "text-primary font-bold"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            <PenLine className="size-5" />
+            <span>Grade</span>
+          </Link>
 
-        <Link
-          to="/mcq-live"
-          className={cn(
-            "flex flex-col items-center justify-center gap-0.5 px-2 py-1 rounded-lg text-[10px] font-medium transition-all active:scale-95",
-            pathname.startsWith("/mcq")
-              ? "text-primary font-bold"
-              : "text-muted-foreground hover:text-foreground",
-          )}
-        >
-          <ListChecks className="size-5" />
-          <span>MCQ</span>
-        </Link>
+          <Link
+            to="/mcq-live"
+            className={cn(
+              "flex flex-col items-center justify-center gap-0.5 px-2 py-1 rounded-lg text-[10px] font-medium transition-all active:scale-95",
+              pathname.startsWith("/mcq")
+                ? "text-primary font-bold"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            <ListChecks className="size-5" />
+            <span>MCQ</span>
+          </Link>
 
-        <Link
-          to="/data-response"
-          className={cn(
-            "flex flex-col items-center justify-center gap-0.5 px-2 py-1 rounded-lg text-[10px] font-medium transition-all active:scale-95",
-            pathname.startsWith("/data-response")
-              ? "text-primary font-bold"
-              : "text-muted-foreground hover:text-foreground",
-          )}
-        >
-          <FileSpreadsheet className="size-5" />
-          <span>Data Resp</span>
-        </Link>
+          <Link
+            to="/data-response"
+            className={cn(
+              "flex flex-col items-center justify-center gap-0.5 px-2 py-1 rounded-lg text-[10px] font-medium transition-all active:scale-95",
+              pathname.startsWith("/data-response")
+                ? "text-primary font-bold"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            <FileSpreadsheet className="size-5" />
+            <span>Data Resp</span>
+          </Link>
 
-        <button
-          type="button"
-          onClick={() => setMobileDrawerOpen(true)}
-          className="flex flex-col items-center justify-center gap-0.5 px-2 py-1 rounded-lg text-[10px] font-medium text-muted-foreground hover:text-foreground active:scale-95 transition-all cursor-pointer"
-        >
-          <Menu className="size-5" />
-          <span>All Tools</span>
-        </button>
-      </nav>
+          <button
+            type="button"
+            onClick={() => setMobileDrawerOpen(true)}
+            className="flex flex-col items-center justify-center gap-0.5 px-2 py-1 rounded-lg text-[10px] font-medium text-muted-foreground hover:text-foreground active:scale-95 transition-all cursor-pointer"
+          >
+            <Menu className="size-5" />
+            <span>All Tools</span>
+          </button>
+        </nav>
+      )}
 
       <CommandPalette
         open={commandOpen}

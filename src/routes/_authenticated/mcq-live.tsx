@@ -375,6 +375,20 @@ function McqLivePage() {
   const me = useQuery({ queryKey: ["me"], queryFn: () => fetchMe() });
   const effectiveUserId = routeContext?.user?.id || me.data?.userId || "guest";
   const [stage, setStage] = useState<"library" | "practice">("library");
+
+  // Sync exam session state to AppShell and CSS to hide conflicting bottom navs
+  useEffect(() => {
+    if (stage === "practice") {
+      document.body.dataset.inExamSession = "true";
+    } else {
+      delete document.body.dataset.inExamSession;
+    }
+    window.dispatchEvent(new Event("marginal-exam-state"));
+    return () => {
+      delete document.body.dataset.inExamSession;
+      window.dispatchEvent(new Event("marginal-exam-state"));
+    };
+  }, [stage]);
   const [libraryTab, setLibraryTab] = useState<"past_papers" | "topical" | "analytics">("past_papers");
   const [showAttemptDiagnostics, setShowAttemptDiagnostics] = useState(false);
   const [selectedPaperId, setSelectedPaperId] = useState<string | null>(null);
@@ -1827,13 +1841,13 @@ function fillMissingQuestionPages(
                 <span className="hidden sm:inline">Papers</span>
               </Button>
               <div className="min-w-0">
-                <h2 className="text-xs sm:text-sm font-semibold truncate text-foreground max-w-[130px] sm:max-w-xs md:max-w-md" title={paperTitle}>
+                <h2 className="text-xs sm:text-sm font-semibold truncate text-foreground max-w-[100px] min-[380px]:max-w-[140px] sm:max-w-xs md:max-w-md" title={paperTitle}>
                   {paperTitle}
                 </h2>
               </div>
             </div>
 
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex items-center gap-1 sm:gap-2 shrink-0">
               {timeLeft !== null ? (
                 <div className="flex items-center gap-1.5">
                   <Button

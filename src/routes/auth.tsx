@@ -577,7 +577,8 @@ function AuthPage() {
                   )}
                 >
                   <GraduationCap className={cn("size-3.5", accountType === "student" ? "text-primary" : "text-muted-foreground")} />
-                  <span>Student Workspace</span>
+                  <span className="hidden min-[380px]:inline">Student Workspace</span>
+                  <span className="min-[380px]:hidden">Student</span>
                 </button>
                 <button
                   type="button"
@@ -590,7 +591,8 @@ function AuthPage() {
                   )}
                 >
                   <School className={cn("size-3.5", accountType === "teacher" ? "text-purple-600 dark:text-purple-400" : "text-muted-foreground")} />
-                  <span>Teacher &amp; School</span>
+                  <span className="hidden min-[380px]:inline">Teacher &amp; School</span>
+                  <span className="min-[380px]:hidden">Teacher</span>
                 </button>
               </div>
 

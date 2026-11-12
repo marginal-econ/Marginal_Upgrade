@@ -319,13 +319,13 @@ ${actionableFeedback.map((f, i) => `${i + 1}. ${stripStars(f)}`).join("\n")}`;
           </div>
 
           {/* Quick Copy Button */}
-          <div className="self-end sm:self-center">
+          <div className="self-stretch sm:self-center flex sm:block justify-end">
             <Button
               type="button"
               variant="outline"
               size="sm"
               onClick={handleCopySummary}
-              className="h-8 gap-1.5 text-xs bg-background/60 hover:bg-background border-border/80 shadow-2xs"
+              className="w-full sm:w-auto h-8 gap-1.5 text-xs bg-background/60 hover:bg-background border-border/80 shadow-2xs"
             >
               {copied ? <Check className="size-3.5 text-emerald-500" /> : <Copy className="size-3.5 text-muted-foreground" />}
               {copied ? "Copied" : "Copy Grade"}

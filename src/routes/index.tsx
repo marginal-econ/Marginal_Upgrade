@@ -475,12 +475,12 @@ function Index() {
             <Link
               to="/teacher-auth"
               search={{ tab: "signup" }}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-purple-500/40 bg-purple-500/15 px-2.5 sm:px-3 py-1.5 text-xs font-bold text-purple-800 dark:text-purple-200 hover:bg-purple-500/25 hover:border-purple-500/60 transition-all shadow-2xs whitespace-nowrap"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-purple-500/40 bg-purple-500/15 px-2 sm:px-3 py-1.5 text-xs font-bold text-purple-800 dark:text-purple-200 hover:bg-purple-500/25 hover:border-purple-500/60 transition-all shadow-2xs whitespace-nowrap"
               title="Official Cambridge 9708 Teacher & Department Registration"
             >
               <School className="size-3.5 text-purple-600 dark:text-purple-400 shrink-0" />
-              <span className="hidden min-[480px]:inline">Teacher:</span>
-              <span>Sign Up Separately</span>
+              <span className="hidden sm:inline">Teacher: Sign Up</span>
+              <span className="sm:hidden">Teachers</span>
             </Link>
             <Link
               to="/auth"
@@ -491,9 +491,10 @@ function Index() {
             <Magnetic strength={8}>
               <Link
                 to="/auth"
-                className="pop-sm pop-press shine inline-flex min-h-8 sm:min-h-9 items-center justify-center gap-1.5 whitespace-nowrap bg-primary px-3 sm:px-3.5 py-1.5 text-xs font-semibold text-primary-foreground sm:text-sm rounded-lg"
+                className="pop-sm pop-press shine inline-flex min-h-8 sm:min-h-9 items-center justify-center gap-1.5 whitespace-nowrap bg-primary px-2.5 sm:px-3.5 py-1.5 text-xs font-semibold text-primary-foreground sm:text-sm rounded-lg"
               >
-                <span>Get Started Free</span>
+                <span className="hidden min-[380px]:inline">Get Started Free</span>
+                <span className="min-[380px]:hidden">Get Started</span>
               </Link>
             </Magnetic>
           </div>
@@ -541,15 +542,15 @@ function Index() {
             </Reveal>
 
             <Reveal delay={60}>
-              <h1 className="mt-5 text-[2.35rem] leading-[1.08] font-extrabold text-balance min-[380px]:text-4xl md:text-[3.25rem] lg:text-[3.5rem] xl:text-[3.85rem] tracking-tight">
+              <h1 className="mt-5 text-2xl min-[380px]:text-3xl sm:text-4xl md:text-[3.25rem] lg:text-[3.5rem] xl:text-[3.85rem] leading-[1.1] font-extrabold tracking-tight break-words">
                 Marginal AI —{" "}
-                <span className="relative inline-block mt-1 sm:mt-1.5 px-3 py-1 rounded-xl bg-purple-950/60 dark:bg-purple-950/70 border border-purple-500/40 text-amber-300 shadow-[0_0_20px_rgba(168,85,247,0.25)] backdrop-blur-md">
-                  <span className="bg-gradient-to-r from-amber-300 via-yellow-200 to-amber-400 bg-clip-text text-transparent font-black tracking-tight">
+                <span className="relative inline-block mt-1 sm:mt-1.5 px-2.5 sm:px-3 py-1 rounded-xl bg-purple-950/60 dark:bg-purple-950/70 border border-purple-500/40 text-amber-300 shadow-[0_0_20px_rgba(168,85,247,0.25)] backdrop-blur-md max-w-full">
+                  <span className="bg-gradient-to-r from-amber-300 via-yellow-200 to-amber-400 bg-clip-text text-transparent font-black tracking-tight break-words">
                     The Cambridge Economics Platform
                   </span>
                 </span>
               </h1>
-              <h2 className="mt-3 text-lg font-semibold text-primary sm:text-xl md:text-2xl">
+              <h2 className="mt-3 text-base sm:text-xl md:text-2xl font-semibold text-primary">
                 Master AS & A Level Economics (9708) with AI Grading
               </h2>
             </Reveal>
@@ -573,18 +574,18 @@ function Index() {
 
             {/* Live Cambridge Metric Highlights */}
             <Reveal delay={150}>
-              <div className="mt-5 grid grid-cols-3 gap-2.5 sm:gap-3 max-w-xl">
-                <div className="rounded-xl border border-primary/25 bg-card/70 p-3 text-center backdrop-blur-md shadow-xs hover:border-primary/50 transition-colors">
-                  <span className="text-xl sm:text-2xl font-black text-foreground tracking-tight block">1,400+</span>
-                  <span className="text-[10px] sm:text-[11px] text-muted-foreground font-semibold leading-tight block mt-0.5">Mark Schemes</span>
+              <div className="mt-5 grid grid-cols-3 gap-2 sm:gap-3 max-w-xl">
+                <div className="rounded-xl border border-primary/25 bg-card/70 p-2 sm:p-3 text-center backdrop-blur-md shadow-xs hover:border-primary/50 transition-colors">
+                  <span className="text-base min-[380px]:text-xl sm:text-2xl font-black text-foreground tracking-tight block">1,400+</span>
+                  <span className="text-[9.5px] sm:text-[11px] text-muted-foreground font-semibold leading-tight block mt-0.5">Mark Schemes</span>
                 </div>
-                <div className="rounded-xl border border-emerald-500/25 bg-card/70 p-3 text-center backdrop-blur-md shadow-xs hover:border-emerald-500/50 transition-colors">
-                  <span className="text-xl sm:text-2xl font-black text-foreground tracking-tight block">AO1/2/3</span>
-                  <span className="text-[10px] sm:text-[11px] text-muted-foreground font-semibold leading-tight block mt-0.5">Clause Auditing</span>
+                <div className="rounded-xl border border-emerald-500/25 bg-card/70 p-2 sm:p-3 text-center backdrop-blur-md shadow-xs hover:border-emerald-500/50 transition-colors">
+                  <span className="text-base min-[380px]:text-xl sm:text-2xl font-black text-foreground tracking-tight block">AO1/2/3</span>
+                  <span className="text-[9.5px] sm:text-[11px] text-muted-foreground font-semibold leading-tight block mt-0.5">Clause Auditing</span>
                 </div>
-                <div className="rounded-xl border border-amber-500/25 bg-card/70 p-3 text-center backdrop-blur-md shadow-xs hover:border-amber-500/50 transition-colors">
-                  <span className="text-xl sm:text-2xl font-black text-foreground tracking-tight block">Unlimited</span>
-                  <span className="text-[10px] sm:text-[11px] text-muted-foreground font-semibold leading-tight block mt-0.5">Essay Gradings</span>
+                <div className="rounded-xl border border-amber-500/25 bg-card/70 p-2 sm:p-3 text-center backdrop-blur-md shadow-xs hover:border-amber-500/50 transition-colors">
+                  <span className="text-base min-[380px]:text-xl sm:text-2xl font-black text-foreground tracking-tight block">Unlimited</span>
+                  <span className="text-[9.5px] sm:text-[11px] text-muted-foreground font-semibold leading-tight block mt-0.5">Essay Gradings</span>
                 </div>
               </div>
             </Reveal>

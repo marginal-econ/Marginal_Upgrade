@@ -157,7 +157,7 @@ function QuestionBankPage() {
                 </TabsList>
               </Tabs>
               <Select value={topic} onValueChange={handleTopicChange}>
-                <SelectTrigger className="w-56 h-8 text-xs">
+                <SelectTrigger className="w-full sm:w-56 h-8 text-xs">
                   <SelectValue placeholder="All topics" />
                 </SelectTrigger>
                 <SelectContent>
@@ -193,7 +193,7 @@ function QuestionBankPage() {
               )}
             </div>
 
-            <div className="flex items-center gap-1 rounded-md border border-border bg-muted/40 p-0.5 text-xs shrink-0 overflow-x-auto">
+            <div className="flex items-center gap-1 rounded-md border border-border bg-muted/40 p-0.5 text-xs shrink-0 max-w-full overflow-x-auto">
               <button
                 type="button"
                 onClick={() => handleTariffChange("all")}

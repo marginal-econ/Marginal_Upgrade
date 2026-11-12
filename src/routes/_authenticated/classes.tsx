@@ -3200,16 +3200,16 @@ function TeacherSubmissionsModal({
   });
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in">
-      <div className="w-full max-w-5xl h-[85vh] bg-card border border-border rounded-3xl shadow-2xl flex flex-col overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md animate-in fade-in">
+      <div className="w-full max-w-5xl h-[92vh] sm:h-[85vh] bg-card border border-border rounded-2xl sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between p-5 px-6 border-b border-border bg-background/60">
+        <div className="flex items-center justify-between p-4 sm:p-5 px-5 sm:px-6 border-b border-border bg-background/60">
           <div>
-            <h3 className="text-base font-bold text-foreground tracking-tight flex items-center gap-2">
-              <FileCheck2 className="h-5 w-5 text-purple-400" />
+            <h3 className="text-sm sm:text-base font-bold text-foreground tracking-tight flex items-center gap-2">
+              <FileCheck2 className="h-4 sm:h-5 w-4 sm:w-5 text-purple-400" />
               {assignment?.title || "Assignment Submissions"}
             </h3>
-            <p className="text-xs text-muted-foreground mt-0.5">
+            <p className="text-[11px] sm:text-xs text-muted-foreground mt-0.5">
               Review Cambridge essay answers, inspect AI grading, and return teacher marks.
             </p>
           </div>
@@ -3220,9 +3220,9 @@ function TeacherSubmissionsModal({
         </div>
 
         {/* 2-Column Review Body */}
-        <div className="flex-1 grid grid-cols-1 md:grid-cols-3 overflow-hidden">
+        <div className="flex-1 flex flex-col md:grid md:grid-cols-3 overflow-hidden">
           {/* Left Student List */}
-          <div className="border-r border-border overflow-y-auto p-4 space-y-2 bg-background/40">
+          <div className="border-r border-border max-h-48 md:max-h-none overflow-y-auto p-3 sm:p-4 space-y-2 bg-background/40 shrink-0">
             <div className="text-xs font-bold uppercase text-muted-foreground tracking-wider mb-2">
               Students ({students.length})
             </div>

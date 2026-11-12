@@ -309,14 +309,14 @@ function CommandWordsPage() {
                 </div>
               ) : null}
 
-              <div className="mt-6 flex justify-end">
+              <div className="mt-6 flex flex-col sm:flex-row sm:justify-end gap-2">
                 {checked ? (
-                  <Button onClick={nextQuestion}>
+                  <Button onClick={nextQuestion} className="w-full sm:w-auto">
                     {current + 1 === total ? "See result" : "Next question"}
                     <ArrowRight className="size-4" />
                   </Button>
                 ) : (
-                  <Button onClick={checkAnswer} disabled={!selected}>
+                  <Button onClick={checkAnswer} disabled={!selected} className="w-full sm:w-auto">
                     Check answer
                   </Button>
                 )}

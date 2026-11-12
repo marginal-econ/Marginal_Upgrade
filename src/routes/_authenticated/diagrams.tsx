@@ -9,6 +9,15 @@ import { Button } from "@/components/ui/button";
 import { EconomicsDiagram } from "@/components/diagrams/economics-diagram";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { DIAGRAMS as BUILT_IN, SECTIONS } from "@/lib/diagrams/catalog";
 import { toDiagramEntry } from "@/lib/diagrams/custom";
 import { listCustomDiagrams } from "@/lib/diagrams.functions";
@@ -121,8 +130,52 @@ function DiagramLibraryPage() {
         }
       />
 
+      {/* Mobile Diagram Selector (< lg screens) */}
+      <div className="lg:hidden p-3.5 border-b border-border bg-card/60 space-y-2.5">
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+            <BookMarked className="size-3.5 text-primary" /> Diagram ({DIAGRAMS.length})
+          </span>
+          <div className="flex gap-1 rounded-md bg-muted p-0.5">
+            {SECTIONS.map((item) => (
+              <button
+                key={item}
+                type="button"
+                onClick={() => {
+                  setSection(item);
+                  setQuery("");
+                }}
+                className={cn(
+                  "rounded px-2.5 py-1 text-[11px] font-medium text-muted-foreground transition-colors",
+                  section === item && !query.trim() && "bg-background text-foreground font-semibold shadow-2xs",
+                )}
+              >
+                {item === "Microeconomics" ? "Micro" : "Macro"}
+              </button>
+            ))}
+          </div>
+        </div>
+        <Select value={selected?.id} onValueChange={(val) => setSelectedId(val)}>
+          <SelectTrigger className="w-full bg-background text-xs font-semibold h-9">
+            <SelectValue placeholder="Choose a diagram..." />
+          </SelectTrigger>
+          <SelectContent className="max-h-80">
+            {groups.map((group) => (
+              <SelectGroup key={group.topic}>
+                <SelectLabel className="text-[10px] font-bold text-muted-foreground uppercase">{group.topic}</SelectLabel>
+                {group.items.map((entry) => (
+                  <SelectItem key={entry.id} value={entry.id} className="text-xs">
+                    {entry.title}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
       <div className="grid min-h-0 flex-1 gap-0 lg:grid-cols-[300px_1fr]">
-        <aside className="border-border lg:border-r lg:sticky lg:top-12 lg:self-start lg:max-h-[calc(100dvh-3rem)] lg:overflow-y-auto custom-scrollbar">
+        <aside className="hidden lg:block border-border lg:border-r lg:sticky lg:top-12 lg:self-start lg:max-h-[calc(100dvh-3rem)] lg:overflow-y-auto custom-scrollbar">
           <div className="space-y-3 border-b border-border p-4">
             <div className="flex gap-1 rounded-lg bg-muted p-1">
               {SECTIONS.map((item) => (

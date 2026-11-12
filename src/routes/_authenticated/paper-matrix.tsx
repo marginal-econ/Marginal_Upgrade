@@ -181,17 +181,17 @@ function PaperMatrixPage() {
       <div className="mx-auto max-w-7xl space-y-6 p-4 md:p-8">
         {/* PRIMARY ARCHIVE & PREDICTOR TAB SWITCHER */}
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 border-b border-border/80 pb-4">
-          <div className="inline-flex rounded-lg bg-muted p-1">
+          <div className="flex flex-wrap sm:inline-flex max-w-full overflow-x-auto rounded-lg bg-muted p-1 gap-1">
             <button
               type="button"
               onClick={() => setMainTab("matrix")}
-              className={`flex items-center gap-2 rounded-md px-3.5 py-1.5 text-xs font-semibold transition-all ${
+              className={`flex flex-1 sm:flex-initial items-center justify-center gap-2 rounded-md px-3 sm:px-3.5 py-1.5 text-xs font-semibold whitespace-nowrap transition-all ${
                 mainTab === "matrix"
                   ? "bg-background text-foreground shadow-xs"
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
-              <Flame className="size-3.5 text-amber-500" />
+              <Flame className="size-3.5 text-amber-500 shrink-0" />
               <span>Topic Cycle Predictor</span>
               <Badge variant="secondary" className="text-[10px] py-0 px-1.5 bg-amber-500/10 text-amber-700 dark:text-amber-400">
                 15-Yr Model
@@ -200,13 +200,13 @@ function PaperMatrixPage() {
             <button
               type="button"
               onClick={() => setMainTab("archive")}
-              className={`flex items-center gap-2 rounded-md px-3.5 py-1.5 text-xs font-semibold transition-all ${
+              className={`flex flex-1 sm:flex-initial items-center justify-center gap-2 rounded-md px-3 sm:px-3.5 py-1.5 text-xs font-semibold whitespace-nowrap transition-all ${
                 mainTab === "archive"
                   ? "bg-background text-foreground shadow-xs"
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
-              <BookOpen className="size-3.5 text-primary" />
+              <BookOpen className="size-3.5 text-primary shrink-0" />
               <span>All Past Papers Archive</span>
               <Badge variant="secondary" className="text-[10px] py-0 px-1.5 bg-primary/10 text-primary">
                 {archiveQuery.data ? `${archiveQuery.data.totalMcq} Papers · ${archiveQuery.data.totalEssays} Essays` : "2016–2025"}

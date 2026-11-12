@@ -621,7 +621,7 @@ export function TopTutorialButton({
       title="Open tutorial for this feature"
     >
       <GraduationCap className="size-3.5 text-purple-600 dark:text-purple-400 shrink-0" />
-      {showLabel && <span>Tutorial</span>}
+      {showLabel && <span className="hidden sm:inline">Tutorial</span>}
     </Button>
   );
 }
