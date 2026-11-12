@@ -64,6 +64,7 @@ import { ocrPdf } from "@/lib/pdf-ocr";
 import { EconomicsDiagram } from "@/components/diagrams/economics-diagram";
 import { CambridgePdfViewer } from "./cambridge-pdf-viewer";
 import { CambridgeExamInsert } from "./cambridge-exam-insert";
+import { CompactProgressBar, type ProgressStage } from "./grading-progress";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -74,8 +75,21 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Progress } from "@/components/ui/progress";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+
+const DATA_RESPONSE_GRADING_STAGES: ProgressStage[] = [
+  { label: "Checking extract evidence, figures & units", weight: 3 },
+  { label: "Applying Cambridge 9708 mark scheme & OFR rules", weight: 5 },
+  { label: "Assessing diagrams, shifts & analytical chains", weight: 4 },
+  { label: "Compiling sub-question marks & diagnostic feedback", weight: 3 },
+];
+
+const DATA_RESPONSE_EXTRACTION_STAGES: ProgressStage[] = [
+  { label: "Reading question paper & mark scheme PDFs", weight: 3 },
+  { label: "Extracting extract tables, figures & charts", weight: 4 },
+  { label: "Mapping Section A sub-questions & mark allocations", weight: 5 },
+  { label: "Building interactive Data Response schema", weight: 3 },
+];
 import {
   Dialog,
   DialogContent,
@@ -749,6 +763,16 @@ export function DataResponseStudio() {
             </CardContent>
           </Card>
 
+          <CompactProgressBar
+            active={gradeMutation.isPending}
+            stages={DATA_RESPONSE_GRADING_STAGES}
+            totalMs={36_000}
+            title="Marking Data Response paper against Cambridge mark scheme…"
+            estimatedTimeLabel="Est: ~25–45s"
+            statusBadge="Marking Active"
+            showStages
+          />
+
           {currentPaper ? (
             <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
               {/* LEFT COLUMN: CASE STUDY / EXTRACT VIEWER (5 COLS, STICKY ON DESKTOP) */}
@@ -1171,6 +1195,16 @@ export function DataResponseStudio() {
                     </CardFooter>
                   </Card>
                 )}
+
+                <CompactProgressBar
+                  active={gradeMutation.isPending}
+                  stages={DATA_RESPONSE_GRADING_STAGES}
+                  totalMs={36_000}
+                  title="Marking Data Response paper against Cambridge mark scheme…"
+                  estimatedTimeLabel="Est: ~25–45s"
+                  statusBadge="Marking Active"
+                  showStages
+                />
               </div>
             </div>
           ) : (
@@ -1683,10 +1717,16 @@ export function DataResponseStudio() {
                 </Button>
 
                 {isOcrProcessing && (
-                  <div className="mt-3 space-y-1.5">
-                    <Progress value={65} className="h-1.5" />
-                    <p className="text-xs text-muted-foreground animate-pulse font-mono">{ocrStatusMessage}</p>
-                  </div>
+                  <CompactProgressBar
+                    active={isOcrProcessing}
+                    stages={DATA_RESPONSE_EXTRACTION_STAGES}
+                    totalMs={28_000}
+                    title={ocrStatusMessage || "Running OCR & AI parsing…"}
+                    estimatedTimeLabel="Est: ~20–35s"
+                    statusBadge="Extracting"
+                    showStages
+                    className="mt-3"
+                  />
                 )}
               </div>
 

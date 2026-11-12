@@ -306,3 +306,127 @@ export function GradingProgress({
     </div>
   );
 }
+
+/**
+ * Reusable responsive staged progress bar for async AI, OCR, parsing, and
+ * grading waits across the application. Backed by `useStagedProgress` so every
+ * screen eases smoothly toward completion without getting stuck at 100%.
+ */
+export function CompactProgressBar({
+  active,
+  stages,
+  totalMs = 20_000,
+  title,
+  subtitle,
+  estimatedTimeLabel,
+  statusBadge,
+  showStages = false,
+  className,
+}: {
+  active: boolean;
+  stages: ProgressStage[];
+  totalMs?: number;
+  title?: string;
+  subtitle?: string;
+  estimatedTimeLabel?: string;
+  statusBadge?: string;
+  showStages?: boolean;
+  className?: string;
+}) {
+  const { percent, stageIndex, elapsedSeconds } = useStagedProgress(stages, active, totalMs);
+
+  if (!active || stages.length === 0) return null;
+
+  const currentStage = stages[stageIndex] ?? stages[stages.length - 1];
+  const roundedPercent = Math.round(percent);
+
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      className={cn(
+        "rounded-xl border border-primary/25 bg-card/95 p-3.5 sm:p-4 shadow-sm space-y-2.5 animate-in fade-in duration-200",
+        className,
+      )}
+    >
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0 flex-1">
+          <Loader2 className="size-4 shrink-0 animate-spin text-primary" />
+          <span className="text-xs sm:text-sm font-semibold text-foreground truncate">
+            {title ?? currentStage?.label ?? "Working…"}
+          </span>
+          {statusBadge ? (
+            <span className="hidden xs:inline-flex shrink-0 items-center rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
+              {statusBadge}
+            </span>
+          ) : null}
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0 text-[11px] font-mono">
+          {estimatedTimeLabel ? (
+            <span className="hidden sm:inline text-muted-foreground">{estimatedTimeLabel}</span>
+          ) : null}
+          <span className="text-muted-foreground tabular-nums">{elapsedSeconds}s</span>
+          <span className="rounded-md bg-primary/10 px-1.5 py-0.5 font-bold text-primary tabular-nums">
+            {roundedPercent}%
+          </span>
+        </div>
+      </div>
+
+      <div
+        role="progressbar"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={roundedPercent}
+        className="h-2 w-full overflow-hidden rounded-full bg-primary/15"
+      >
+        <div
+          className="h-full rounded-full bg-primary transition-[width] duration-300 ease-out"
+          style={{ width: `${Math.max(4, Math.min(100, percent))}%` }}
+        />
+      </div>
+
+      <div className="flex flex-wrap items-center justify-between gap-1.5 text-[11px] text-muted-foreground">
+        <span className="min-w-0 flex-1 leading-snug">
+          {subtitle ?? (title ? currentStage?.label : `Step ${stageIndex + 1} of ${stages.length}`)}
+        </span>
+        {stages.length > 1 ? (
+          <span className="shrink-0 font-mono text-[10px]">
+            Stage {stageIndex + 1}/{stages.length}
+          </span>
+        ) : null}
+      </div>
+
+      {showStages && stages.length > 1 ? (
+        <div className="grid gap-1.5 sm:grid-cols-2 pt-1">
+          {stages.map((stage, index) => {
+            const isDone = index < stageIndex;
+            const isCurrent = index === stageIndex;
+            return (
+              <div
+                key={stage.label}
+                className={cn(
+                  "flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-[11px] transition-colors",
+                  isDone
+                    ? "border-emerald-500/30 bg-emerald-500/5 text-foreground"
+                    : isCurrent
+                      ? "border-primary/40 bg-primary/5 text-foreground font-medium"
+                      : "border-border/60 bg-muted/20 text-muted-foreground opacity-75",
+                )}
+              >
+                {isDone ? (
+                  <CheckCircle2 className="size-3.5 shrink-0 text-emerald-500" />
+                ) : isCurrent ? (
+                  <Loader2 className="size-3.5 shrink-0 animate-spin text-primary" />
+                ) : (
+                  <span className="size-3.5 shrink-0 rounded-full border border-border/80" />
+                )}
+                <span className="truncate">{stage.label}</span>
+              </div>
+            );
+          })}
+        </div>
+      ) : null}
+    </div>
+  );
+}

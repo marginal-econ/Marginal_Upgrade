@@ -41,7 +41,7 @@ import {
   MarkSchemeScreenshots,
   type MarkSchemeImage,
 } from "@/components/app/mark-scheme-screenshot";
-import { GradingProgress } from "@/components/app/grading-progress";
+import { CompactProgressBar, GradingProgress, type ProgressStage } from "@/components/app/grading-progress";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -779,23 +779,34 @@ function LiveExaminerPage() {
               </div>
 
               {questionSource === "ai" ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full"
-                  disabled={aiQuestionMutation.isPending}
-                  onClick={() => aiQuestionMutation.mutate()}
-                >
-                  {aiQuestionMutation.isPending ? (
-                    <>
-                      <Loader2 className="size-4 animate-spin" /> Writing a unique question…
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="size-4" /> Generate a unique question on this topic
-                    </>
-                  )}
-                </Button>
+                <div className="space-y-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full"
+                    disabled={aiQuestionMutation.isPending}
+                    onClick={() => aiQuestionMutation.mutate()}
+                  >
+                    {aiQuestionMutation.isPending ? (
+                      <>
+                        <Loader2 className="size-4 animate-spin" /> Writing a unique question…
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="size-4" /> Generate a unique question on this topic
+                      </>
+                    )}
+                  </Button>
+                  <CompactProgressBar
+                    active={aiQuestionMutation.isPending}
+                    stages={[
+                      { label: "Checking Cambridge 9708 syllabus scope", weight: 2 },
+                      { label: "Drafting authentic command-word question", weight: 4 },
+                    ] satisfies ProgressStage[]}
+                    totalMs={10_000}
+                    title="Generating Cambridge-style question…"
+                  />
+                </div>
               ) : null}
 
               {questionSource === "bank" ? (
@@ -1208,6 +1219,15 @@ function LiveExaminerPage() {
                   </>
                 )}
               </Button>
+              <CompactProgressBar
+                active={describeDiagramMutation.isPending}
+                stages={[
+                  { label: "Inspecting diagram photo", weight: 2 },
+                  { label: "Reading axes, curves, shifts & equilibria", weight: 4 },
+                ] satisfies ProgressStage[]}
+                totalMs={10_000}
+                title="Reading your diagram…"
+              />
             </div>
 
             <div className="space-y-1.5">

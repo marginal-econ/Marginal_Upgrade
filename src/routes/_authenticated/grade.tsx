@@ -39,7 +39,7 @@ import { z } from "zod";
 
 import { PageHeader } from "@/components/app/app-shell";
 import { ChainedChamber } from "@/components/app/chained-chamber";
-import { GradingProgress } from "@/components/app/grading-progress";
+import { CompactProgressBar, GradingProgress, type ProgressStage } from "@/components/app/grading-progress";
 import { HandwritingUpload } from "@/components/app/handwriting-upload";
 import { MarkBreakdown } from "@/components/app/mark-breakdown";
 import {
@@ -1188,24 +1188,35 @@ function GradePage() {
             ) : null}
 
             {diagramMode === "url" ? (
-              <div className="flex gap-2">
-                <Input
-                  placeholder="https://example.com/my-diagram.png"
-                  value={diagramUrl}
-                  onChange={(event) => setDiagramUrl(event.target.value)}
+              <div className="space-y-2">
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="https://example.com/my-diagram.png"
+                    value={diagramUrl}
+                    onChange={(event) => setDiagramUrl(event.target.value)}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={!diagramUrl.trim() || describeDiagramUrlMutation.isPending}
+                    onClick={() => describeDiagramUrlMutation.mutate(diagramUrl.trim())}
+                  >
+                    {describeDiagramUrlMutation.isPending ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : (
+                      "Read diagram"
+                    )}
+                  </Button>
+                </div>
+                <CompactProgressBar
+                  active={describeDiagramUrlMutation.isPending}
+                  stages={[
+                    { label: "Fetching diagram image", weight: 2 },
+                    { label: "Reading axes, curves, shifts & labels", weight: 4 },
+                  ] satisfies ProgressStage[]}
+                  totalMs={10_000}
+                  title="Analyzing your diagram image…"
                 />
-                <Button
-                  type="button"
-                  variant="outline"
-                  disabled={!diagramUrl.trim() || describeDiagramUrlMutation.isPending}
-                  onClick={() => describeDiagramUrlMutation.mutate(diagramUrl.trim())}
-                >
-                  {describeDiagramUrlMutation.isPending ? (
-                    <Loader2 className="size-4 animate-spin" />
-                  ) : (
-                    "Read diagram"
-                  )}
-                </Button>
               </div>
             ) : null}
               </div>
@@ -1455,6 +1466,15 @@ function GradePage() {
               </div>
             )}
           </Button>
+          <CompactProgressBar
+            active={checkMutation.isPending}
+            stages={[
+              { label: "Scanning spelling, grammar & economics terminology", weight: 3 },
+              { label: "Preparing clean corrected draft", weight: 3 },
+            ] satisfies ProgressStage[]}
+            totalMs={10_000}
+            title="Checking spelling & grammar with AI…"
+          />
         </div>
 
         <div ref={resultRef}>

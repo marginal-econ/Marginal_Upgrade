@@ -31,6 +31,7 @@ import { z } from "zod";
 
 import { PageHeader } from "@/components/app/app-shell";
 import { ChainedChamber } from "@/components/app/chained-chamber";
+import { CompactProgressBar, type ProgressStage } from "@/components/app/grading-progress";
 import { McqCalculator } from "@/components/app/mcq-calculator";
 import {
   ExamLockdownPromptDialog,
@@ -1655,6 +1656,18 @@ function fillMissingQuestionPages(
             </a>
           </div>
 
+          <CompactProgressBar
+            active={!!busyLabel}
+            stages={[
+              { label: "Loading past-paper document & pages", weight: 3 },
+              { label: "Preparing interactive MCQ answer workspace", weight: 4 },
+            ] satisfies ProgressStage[]}
+            totalMs={12_000}
+            title={busyLabel || "Loading MCQ paper…"}
+            statusBadge="Preparing"
+            className="mb-6"
+          />
+
           {/* Active Draft Banner (shown compactly at top if an exam is in progress) */}
           {activeDraftSummary ? (
             <div className="mb-6 rounded-xl border border-primary/40 bg-primary/[0.04] px-4 py-3.5 shadow-2xs">
@@ -1967,6 +1980,21 @@ function fillMissingQuestionPages(
               </Button>
             </div>
           </div>
+
+          {busyLabel ? (
+            <div className="shrink-0 border-b border-border bg-muted/20 px-4 py-2.5 md:px-6">
+              <CompactProgressBar
+                active={!!busyLabel}
+                stages={[
+                  { label: "Checking all selected answers against mark scheme", weight: 3 },
+                  { label: "Saving score & updating topic diagnostics", weight: 3 },
+                ] satisfies ProgressStage[]}
+                totalMs={8_000}
+                title={busyLabel}
+                statusBadge="MCQ Engine"
+              />
+            </div>
+          ) : null}
 
           {annotateMode ? (
             <div className="shrink-0 z-20 flex flex-wrap items-center gap-3 border-b border-border bg-card/95 px-3 py-2 backdrop-blur md:px-6">

@@ -6,6 +6,7 @@ import { useState, useEffect } from "react";
 import { toast } from "sonner";
 
 import { PageHeader } from "@/components/app/app-shell";
+import { CompactProgressBar, type ProgressStage } from "@/components/app/grading-progress";
 import { HandwritingUpload } from "@/components/app/handwriting-upload";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -278,10 +279,19 @@ function PracticePage() {
           ) : null}
 
           {mutation.isPending ? (
-            <div className="panel flex items-center gap-2 p-5 text-sm text-muted-foreground">
-              <Loader2 className="size-4 animate-spin" /> Marking this point against the{" "}
-              {active.short} criteria…
-            </div>
+            <CompactProgressBar
+              active={mutation.isPending}
+              stages={[
+                { label: `Reviewing your ${active.short} argument structure`, weight: 3 },
+                { label: "Checking Cambridge 9708 syllabus & causal precision", weight: 4 },
+                { label: "Drafting targeted improvements & exam rewrite", weight: 4 },
+              ] satisfies ProgressStage[]}
+              totalMs={15_000}
+              title={`Coaching your ${active.short} point…`}
+              estimatedTimeLabel="Est: ~8–15s"
+              statusBadge={active.short}
+              showStages
+            />
           ) : null}
 
           {feedback ? (

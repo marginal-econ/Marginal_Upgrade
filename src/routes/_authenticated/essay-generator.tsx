@@ -17,6 +17,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { PageHeader } from "@/components/app/app-shell";
+import { CompactProgressBar, type ProgressStage } from "@/components/app/grading-progress";
 import { getMe } from "@/lib/account.functions";
 import { EconomicsDiagram } from "@/components/diagrams/economics-diagram";
 import { Badge } from "@/components/ui/badge";
@@ -266,23 +267,36 @@ function EssayGeneratorPage() {
           </div>
 
           {questionSource === "ai" ? (
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full"
-              disabled={aiQuestionMutation.isPending}
-              onClick={() => aiQuestionMutation.mutate()}
-            >
-              {aiQuestionMutation.isPending ? (
-                <>
-                  <Loader2 className="size-4 animate-spin" /> Writing a unique question…
-                </>
-              ) : (
-                <>
-                  <Sparkles className="size-4" /> Generate a unique question on this topic
-                </>
-              )}
-            </Button>
+            <div className="space-y-2.5">
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                disabled={aiQuestionMutation.isPending}
+                onClick={() => aiQuestionMutation.mutate()}
+              >
+                {aiQuestionMutation.isPending ? (
+                  <>
+                    <Loader2 className="size-4 animate-spin" /> Writing a unique question…
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="size-4" /> Generate a unique question on this topic
+                  </>
+                )}
+              </Button>
+              <CompactProgressBar
+                active={aiQuestionMutation.isPending}
+                stages={[
+                  { label: "Checking Cambridge 9708 syllabus scope", weight: 2 },
+                  { label: "Drafting authentic command-word question", weight: 4 },
+                  { label: "Verifying mark tariff suitability", weight: 2 },
+                ] satisfies ProgressStage[]}
+                totalMs={10_000}
+                title="Generating Cambridge-style question…"
+                estimatedTimeLabel="Est: ~5–10s"
+              />
+            </div>
           ) : null}
 
           {questionSource === "bank" ? (
@@ -389,8 +403,25 @@ function EssayGeneratorPage() {
           </p>
         </section>
 
-        <section className="min-w-0 p-5 md:p-8">
-          {!essay ? (
+        <section className="min-w-0 p-5 md:p-8 space-y-5">
+          {mutation.isPending ? (
+            <CompactProgressBar
+              active={mutation.isPending}
+              stages={[
+                { label: "Grounding response in Cambridge 9708 syllabus notes", weight: 3 },
+                { label: "Selecting appropriate diagram & curve mechanics", weight: 3 },
+                { label: "Structuring AO1/AO2 analytical chains & examples", weight: 5 },
+                { label: "Writing evaluative conclusion within word limit", weight: 4 },
+              ] satisfies ProgressStage[]}
+              totalMs={28_000}
+              title="Writing principal-examiner model essay…"
+              estimatedTimeLabel="Est: ~20–30s"
+              statusBadge="Generating"
+              showStages
+            />
+          ) : null}
+
+          {!essay && !mutation.isPending ? (
             <div className="flex h-full min-h-64 flex-col items-center justify-center gap-3 text-center">
               <span className="flex size-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
                 <GraduationCap className="size-5" />

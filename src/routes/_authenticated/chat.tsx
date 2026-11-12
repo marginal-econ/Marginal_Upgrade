@@ -35,6 +35,7 @@ import { toast } from "sonner";
 import { z } from "zod";
 
 import { ChainedChamber } from "@/components/app/chained-chamber";
+import { CompactProgressBar, type ProgressStage } from "@/components/app/grading-progress";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -1055,15 +1056,29 @@ export function GroundedChatPage() {
           );
         })}
 
-        {/* Loading Spinner Indicator */}
+        {/* Loading Progress Indicator */}
         {isSending && (
           <div className="flex items-start gap-3 pl-1">
-            <div className="size-8 rounded-xl bg-card border border-border/80 flex items-center justify-center text-primary shadow-xs shrink-0">
+            <div className="size-8 rounded-xl bg-card border border-border/80 flex items-center justify-center text-primary shadow-xs shrink-0 mt-0.5">
               <BookOpen className="size-4 text-primary animate-pulse" />
             </div>
-            <div className="rounded-2xl border border-border/60 bg-card/40 px-4 py-3 text-xs text-muted-foreground flex items-center gap-2">
-              <span className="size-2 rounded-full bg-primary animate-ping" />
-              <span>Verifying Cambridge 9708 syllabus mark schemes & definitions...</span>
+            <div className="flex-1 max-w-md min-w-0">
+              <CompactProgressBar
+                active={isSending}
+                stages={(aiMode
+                  ? [
+                      { label: "Searching Cambridge 9708 syllabus & past mark schemes", weight: 3 },
+                      { label: "Analyzing diagrams, chains of reasoning & definitions", weight: 4 },
+                      { label: "Composing grounded examiner explanation", weight: 4 },
+                    ]
+                  : [
+                      { label: "Querying verified Cambridge 9708 textbook index", weight: 3 },
+                      { label: "Matching definitions & mark-scheme concepts", weight: 3 },
+                    ]) satisfies ProgressStage[]}
+                totalMs={aiMode ? 12_000 : 4_000}
+                title={aiMode ? "Deep AI Tutor researching…" : "Searching Cambridge knowledge base…"}
+                statusBadge={aiMode ? "Deep AI" : "Fast RAG"}
+              />
             </div>
           </div>
         )}
