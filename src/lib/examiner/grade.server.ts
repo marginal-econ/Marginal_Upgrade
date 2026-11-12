@@ -231,16 +231,27 @@ export async function gradeEssay(
   const anchorBlock = buildAnchorBlock(anchors, question, maxMark);
   if (anchorBlock) baseSystemPrompt = `${baseSystemPrompt}\n\n${anchorBlock}`;
 
+  // Critical Paper Scope & Feedback Rules for Paper 2 (8-mark and 12-mark essays)
+  if (maxMark <= 12) {
+    baseSystemPrompt = `${baseSystemPrompt}\n\n` +
+      `CRITICAL PAPER SCOPE DIRECTIVE — STRICT CAMBRIDGE 9708 PAPER 2 (AS LEVEL):\n` +
+      `This ${maxMark}-mark question is strictly Cambridge 9708 Paper 2 (AS Level).\n` +
+      `1. NEVER mention Paper 4, A-Level topics (such as oligopoly, monopolistic competition, Pareto efficiency, indifference curves, or Chapter 32), or extended Paper 4 essays.\n` +
+      `2. Grade and feedback must align 100% with AS Level Paper 2 syllabus topics, content, and knowledge base.\n` +
+      `3. ZERO NUMERIC MARKS IN PROSE: Do NOT write numerical scores, mark breakdowns, or phrases like "held at 7", "instead of 8", or "cost you marks" anywhere inside written feedback, Examiner Summary, AO explanations, or improvement bullets. Let the UI score badges display the numbers separately.\n` +
+      `4. FOCUS STRICTLY ON STRENGTHS & IMPROVEMENTS: In all written feedback sections, focus purely on (a) what the candidate did well economically, and (b) specific, syllabus-accurate improvements to elevate their analysis and evaluation (such as distinguishing movements onto the PPC from outward shifts, and using short-run vs. long-run criteria in the conclusion).`;
+  }
+
   // Authoritative Chapter 5 (PPC & Efficiency) Knowledge Base Rubric:
-  const touchesPpcOrEfficiency = /ppc|production possibility|productive eff|allocative eff|pareto/i.test(
+  const touchesPpcOrEfficiency = /ppc|production possibility|productive eff|allocative eff/i.test(
     `${question} ${essayText}`,
   );
   if (touchesPpcOrEfficiency) {
     baseSystemPrompt = `${baseSystemPrompt}\n\n` +
-      `AUTHORITATIVE CHAPTER 5 (PPC & EFFICIENCY) KNOWLEDGE BASE RUBRIC:\n` +
-      `- Point inside PPC = Productive inefficiency / unemployment or underutilisation of resources (idle factors, X-inefficiency). A PPC diagram shows maximum combinations of two goods given current factors; it contains NO information on consumer preferences, marginal utility, or social welfare. It does NOT represent allocative inefficiency or Pareto inefficiency.\n` +
+      `AUTHORITATIVE CHAPTER 5 (PPC & EFFICIENCY) KNOWLEDGE BASE RUBRIC (PAPER 2 AS LEVEL):\n` +
+      `- Point inside PPC = Productive inefficiency / unemployment or underutilisation of resources (idle factors, X-inefficiency). A PPC diagram shows maximum combinations of two goods given current resources; it contains NO information on consumer preferences. It does NOT represent allocative inefficiency.\n` +
       `- Point on PPC = Productive efficiency (maximum possible output achievable from given resources at lowest cost). However, a point on the PPC may still be allocatively inefficient if the output combination does not match consumer preferences (where P != MC).\n` +
-      `- MANDATORY ANALYTICAL ERROR AUDIT: Flag any confusion between productive and allocative inefficiency on a PPC diagram as a minor analytical error (deduct 1 mark from AO2 Analysis, e.g. 2/3 instead of 3/3, or 3/4 instead of 4/4). Examiners MUST NEVER praise or credit a student for linking a point inside the PPC to allocative inefficiency or Pareto efficiency. Call it out as a misconception in weaknesses.`;
+      `- MANDATORY ANALYTICAL ERROR AUDIT: Flag any confusion between productive and allocative inefficiency on a PPC diagram as an analytical error (deduct AO2 credit). Examiners MUST NEVER praise a student for linking a point inside the PPC to allocative inefficiency. Focus feedback constructively on distinguishing movements onto the PPC from outward shifts and productive from allocative efficiency.`;
   }
 
   baseSystemPrompt = `${baseSystemPrompt}\n\n${RESPONSE_CONTRACT}`;
@@ -280,7 +291,7 @@ export async function gradeEssay(
         `Even if the question begins with 'Explain', any evaluative clause requires critical evaluation and a concluding judgement.\n` +
         `You MUST evaluate AO3 out of exactly ${ao3_marks} marks. NEVER state that evaluation is not required.` +
         (maxMark === 8 && split.ao3_marks === 2
-          ? `\nCRITICAL 8-MARK EVALUATION RULE: Only a truly perfect essay can receive 8/8. When evaluation criteria are not fully met or the concluding judgement is not satisfied, award Level 1 (1 of 2 marks) for AO3, keeping the essay at 7 instead of 8 (maximum 7/8).`
+          ? `\nCRITICAL 8-MARK EVALUATION RULE: Only a truly perfect essay receives full AO3 credit. When evaluation criteria are not fully met or the concluding judgement is not satisfied, award Level 1 for AO3 (caps score at 7). In prose feedback, never mention scores or phrases like "held at 7" or "instead of 8"; focus strictly on strengths and constructive AS Level improvements.`
           : "")
       : `[QUESTION SPECIFICATION: ${maxMark} Marks · NON-EVALUATIVE LEGACY ESSAY (AO1: ${ao1_marks}, AO2: ${ao2_marks}, AO3: 0)]\n` +
         `Pure explanatory / analytical question. Evaluation is NOT required; set AO3 awarded: 0, out_of: 0, with zero penalty.`;

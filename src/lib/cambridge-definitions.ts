@@ -554,7 +554,7 @@ export const CAMBRIDGE_CORE_DEFINITIONS: CambridgeDefinition[] = [
     id: "def_0035",
     term: "Point inside the PPC",
     definition_text:
-      "represents unemployment or underutilisation of resources (productive inefficiency / idle factors / X-inefficiency). Note: it does NOT represent allocative inefficiency or Pareto inefficiency, as a PPC diagram illustrates productive capacity rather than consumer preferences or marginal utility.",
+      "represents unemployment or underutilisation of resources (productive inefficiency / idle factors / X-inefficiency). Note: it does NOT represent allocative inefficiency, as a PPC diagram illustrates productive capacity rather than consumer preferences or marginal utility.",
     category: "Basic economic ideas and resource allocation",
     source_label: "Cambridge 9708 Master Catalogue",
     topic_id: null,

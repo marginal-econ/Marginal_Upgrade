@@ -156,7 +156,7 @@ describe("Principal Examiner Arbitration & Confidence Engine", () => {
       // Praise stripped
       expect(reconciled.strengths.some((s) => s.toLowerCase().includes("allocative"))).toBe(false);
       // Weakness added
-      expect(reconciled.weaknesses.some((w) => w.includes("Economic misconception on PPC and efficiency"))).toBe(true);
+      expect(reconciled.weaknesses.some((w) => w.includes("Clarify the distinction between productive and allocative efficiency on the PPC"))).toBe(true);
       // AO2 deducted for the analytical error
       expect(reconciled.ao_breakdown.analysis.awarded).toBe(3);
       expect(reconciled.total_mark).toBeLessThanOrEqual(7);

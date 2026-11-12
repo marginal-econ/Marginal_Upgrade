@@ -216,17 +216,18 @@ export function buildAoEvaluationDirective(maxMark: number, split: AoSplit): str
 
   if (maxMark === 8 && split.ao3_marks === 2) {
     return `SPECIAL DIRECTIVE FOR 8-MARK EVALUATIVE ESSAYS (2 AO3 Evaluation Marks Allocated):
-- THIS IS AN 8-MARK SECTION B EVALUATIVE ESSAY (${maxMark} marks total: AO1: ${split.ao1_marks}, AO2: ${split.ao2_marks}, AO3: ${split.ao3_marks}).
+- THIS IS AN 8-MARK SECTION B EVALUATIVE ESSAY — STRICTLY CAMBRIDGE 9708 PAPER 2 (AS LEVEL) (${maxMark} marks total: AO1: ${split.ao1_marks}, AO2: ${split.ao2_marks}, AO3: ${split.ao3_marks}).
+- NEVER mention Paper 4, A-Level topics (such as oligopoly, monopolistic competition, Pareto efficiency, or Chapter 32), or extended Paper 4 essays. Focus 100% on AS Level Paper 2 content and knowledge base.
 - REALISTIC, TONED-DOWN EVALUATION STRICTNESS FOR 8-MARK QUESTIONS (~300–450 words target):
-  * AO3 is allocated ONLY 2 MARKS TOTAL. This is a concise Section B essay, NOT a 12-mark or 20-mark extended essay.
-  * DO NOT demand 12/20-mark evaluation expectations such as multi-criteria prioritization frameworks, complex trade-off matrices, extensive alternative policy comparisons, or administrative feasibility / equity criteria.
+  * AO3 is allocated ONLY 2 MARKS TOTAL. This is a concise AS Level Section B essay.
+  * DO NOT demand A-Level criteria or complex multi-criteria trade-off matrices.
   * AWARD FULL 2/2 MARKS (Level 2) ONLY WHEN THE ESSAY IS TRULY PERFECT: Both dimensions/perspectives are thoroughly explored in context AND a fully satisfied, supported concluding judgement answering the prompt directly is provided.
   * CRITICAL 8-MARK EVALUATION & CONCLUSION RULE:
     When evaluation criteria are NOT fully met, or the conclusion is NOT satisfied, incomplete, or unsupported:
-    KEEP THE ESSAY AT 7 INSTEAD OF 8 (maximum 7/8). Award Level 1 (1 of 2 marks) for AO3.
-    Under NO circumstances award 8/8 to an essay where evaluation criteria are partially unmet or the conclusion is not satisfied. ONLY a perfect essay can get 8.
-  * Award Level 0 (0 of 2 marks) only if purely descriptive/one-sided with no evaluative weighing and no conclusion.
-- NEVER state that evaluation is not required, and do not withhold the 2nd mark for missing disproportionate 12m/20m criteria.`;
+    Award Level 1 (1 of 2 marks) for AO3, capping the total score at 7. Only a perfect essay can receive 8.
+  * ZERO NUMERIC MARKS IN PROSE: Do NOT write numerical scores, mark breakdowns, or phrases like "held at 7", "instead of 8", or "cost you marks" anywhere inside the written feedback, Examiner Summary, AO explanations, or improvement bullets. Let the UI score badges display the numbers separately.
+  * FOCUS STRICTLY ON STRENGTHS & IMPROVEMENTS: Focus purely on (a) what the candidate did well economically, and (b) specific, syllabus-accurate improvements to elevate their analysis and evaluation (such as distinguishing movements onto the PPC from outward shifts, and using short-run vs. long-run criteria in the conclusion).
+- NEVER state that evaluation is not required.`;
   }
 
   if (maxMark === 20 || split.ao3_marks >= 6) {
@@ -246,11 +247,12 @@ export function buildAoEvaluationDirective(maxMark: number, split: AoSplit): str
   * Reject superficial 'it depends on' lists or unweighted pros/cons. Top Band (${Math.max(5, split.ao3_marks - 1)}-${split.ao3_marks}/${split.ao3_marks}) strictly requires sustained comparative weighing and a substantiated contextual overall judgement directly resolving the question prompt.`;
   }
 
-  return `SPECIAL DIRECTIVE FOR EVALUATIVE ESSAYS (${split.ao3_marks} AO3 Evaluation Marks Allocated):
-- THIS IS AN EVALUATIVE ESSAY (${maxMark} marks total: AO1: ${split.ao1_marks}, AO2: ${split.ao2_marks}, AO3: ${split.ao3_marks}).
-- EVALUATION IS MANDATORY. The question requires critical evaluation, weighing of arguments, and a substantiated conclusion.
-- In "ao_breakdown.evaluation", you MUST evaluate the candidate's evaluation out of exactly ${split.ao3_marks} marks.
-- NEVER claim that evaluation is not required! Evaluation IS REQUIRED for this essay.`;
+  return `SPECIAL DIRECTIVE FOR 12-MARK EVALUATIVE ESSAYS (${split.ao3_marks} AO3 Evaluation Marks Allocated):
+- PAPER SCOPE: THIS IS STRICTLY A CAMBRIDGE 9708 PAPER 2 (AS LEVEL) SECTION B ESSAY (${maxMark} marks total: AO1: ${split.ao1_marks}, AO2: ${split.ao2_marks}, AO3: ${split.ao3_marks}).
+- NEVER mention Paper 4, A-Level topics (such as oligopoly, monopolistic competition, Pareto efficiency, or Chapter 32), or extended Paper 4 essays. Focus 100% on AS Level Paper 2 content and knowledge base.
+- EVALUATION IS MANDATORY. In "ao_breakdown.evaluation", evaluate the candidate's evaluation out of exactly ${split.ao3_marks} marks.
+- ZERO NUMERIC MARKS IN PROSE: Do NOT write numerical scores, mark breakdowns, or phrases like "cost you marks" anywhere inside the written feedback, Examiner Summary, AO explanations, or improvement bullets.
+- FOCUS STRICTLY ON STRENGTHS & IMPROVEMENTS: Focus purely on what the candidate did well economically and specific, syllabus-accurate improvements to elevate their analysis and evaluation.`;
 }
 
 /**
@@ -261,11 +263,10 @@ export function renderAo3Descriptors(maxMark: number, ao3Marks: number): string 
     return `- AO3 Evaluation (0 marks): Evaluation is NOT required for this question. Candidates must not be penalised for omitting evaluation, weighing, or conclusions.`;
   }
   if (ao3Marks === 2) {
-    return `- AO3 Evaluation & Concluding Judgement (2 marks total) — 8-MARK EVALUATIVE ESSAY:
-      * Level 2 (2 of 2): STRICTLY RESERVED FOR A PERFECT ESSAY. The candidate considers both perspectives or classifications in context and provides a fully satisfied, supported concluding judgement answering the prompt. Results in full 8/8 marks (when AO1=2 and AO2=4).
-      * Level 1 (1 of 2): When evaluation criteria are not fully met, when counter-arguments are partially developed, OR when the concluding judgement is not fully satisfied, incomplete, or omitted. THIS MANDATES KEEPING THE ESSAY AT 7 INSTEAD OF 8 (maximum 7/8). Only a perfect essay can get 8.
-      * Level 0 (0 of 2): Purely descriptive or one-sided analysis with no evaluative weighing and no concluding judgement.
-      * CRITICAL 8-MARK RULE: If evaluation criteria are not fully met or conclusion is not satisfied, award 1/2 marks, keeping the essay at 7/8 instead of 8.`;
+    return `- AO3 Evaluation & Concluding Judgement (2 marks total) — 8-MARK PAPER 2 (AS LEVEL) EVALUATIVE ESSAY:
+      * Level 2 (2 of 2): Strictly reserved for a perfect essay where both perspectives are thoroughly evaluated in context with a fully satisfied, supported concluding judgement answering the prompt.
+      * Level 1 (1 of 2): Awarded when evaluation criteria are not fully met or the concluding judgement is not fully satisfied (caps total score at 7). In written prose, do NOT mention numeric scores or phrases like "held at 7" or "instead of 8"; provide constructive AS Level improvements.
+      * Level 0 (0 of 2): Purely descriptive or one-sided analysis with no evaluative weighing and no concluding judgement.`;
   }
   if (ao3Marks === 4) {
     return `- AO3 Evaluation & Question Focus (4 marks total) — 12-MARK AS ESSAY:
@@ -318,7 +319,7 @@ export const STRUCTURE_GUIDANCE: Record<number, StructureGuidance> = {
     tariff: 8,
     label: "8-mark question",
     questionType:
-      "A normal 8-mark question (not a data-response sub-question) — a short, tightly-focused essay.",
+      "A Cambridge 9708 Paper 2 (AS Level) Section B 8-mark essay — a short, tightly-focused AS essay.",
     aoSummary: "AO1 Knowledge: 2 marks · AO2 Analysis: 4 marks · AO3 Evaluation: 2 marks",
     steps: [
       {
@@ -347,7 +348,7 @@ export const STRUCTURE_GUIDANCE: Record<number, StructureGuidance> = {
   12: {
     tariff: 12,
     label: "12-mark question",
-    questionType: 'A standard 12-mark evaluative essay ("discuss"/"assess"/"to what extent").',
+    questionType: 'A Cambridge 9708 Paper 2 (AS Level) Section B 12-mark evaluative essay ("discuss"/"assess"/"to what extent").',
     aoSummary: "AO1 Knowledge: 2 marks · AO2 Analysis: 6 marks · AO3 Evaluation: 4 marks",
     steps: [
       {

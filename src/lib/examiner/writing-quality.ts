@@ -324,10 +324,10 @@ export function applyPpcMisconceptionGuardrail(
   }
 
   const ppcWeakness =
-    "Economic misconception on PPC and efficiency: A point inside the PPC represents productive inefficiency (unemployment, underutilization of resources, or idle factors), not allocative inefficiency. Points on the PPC represent productive efficiency, though they may still be allocatively inefficient if the output mix does not match consumer preferences. Confusing productive and allocative inefficiency is an analytical error.";
+    "Clarify the distinction between productive and allocative efficiency on the PPC: a point inside the PPC indicates productive inefficiency (unemployed or underutilized resources), whereas points on the curve represent productive efficiency. Allocative efficiency depends on whether the output mix reflects consumer preferences.";
 
   const updatedWeaknesses = [...allWeaknesses];
-  if (!updatedWeaknesses.some((w) => w.toLowerCase().includes("point inside the ppc") || w.toLowerCase().includes("misconception on ppc"))) {
+  if (!updatedWeaknesses.some((w) => w.toLowerCase().includes("point inside the ppc") || w.toLowerCase().includes("distinction between productive and allocative"))) {
     updatedWeaknesses.unshift(ppcWeakness);
   }
 
@@ -336,7 +336,7 @@ export function applyPpcMisconceptionGuardrail(
   // If AO2 was awarded full marks, restrict it by 1 mark for the analytical error
   if (ao2 === split.ao2_marks && ao2 > 0) {
     ao2 -= 1;
-    comment = `${comment} (Analysis reflects a minor analytical deduction for confusing productive and allocative inefficiency on the PPC).`.trim();
+    comment = `${comment} Distinguish productive inefficiency inside the PPC from allocative efficiency to strengthen the analysis.`.trim();
   }
 
   const ao1 = grading.ao_breakdown.knowledge.awarded;
@@ -394,9 +394,10 @@ export function applyEightMarkEvaluationGuardrail(
       ao3 = 1;
     }
     const newTotal = Math.min(7, ao1 + ao2 + ao3);
-    const updatedComment = /keeping the essay at 7/i.test(evalComment)
+    const improvementNotice = "To elevate the evaluation, provide a more decisive concluding judgement that explicitly weighs the trade-offs in context (such as short-run versus long-run impacts).";
+    const updatedComment = evalComment.includes("decisive concluding judgement")
       ? evalComment
-      : `${evalComment} Awarded Level 1 (1 of 2 marks). Evaluation criteria are not fully met or the concluding judgement is not satisfied, keeping the essay at 7 instead of 8 (8/8 is strictly reserved for a perfect essay).`.trim();
+      : `${evalComment} ${improvementNotice}`.trim();
 
     return {
       ...grading,
@@ -477,7 +478,7 @@ function applyStructuralCeilings(
 
   // Specific weakness 1: Length and compression
   if (quality.isUndersized) {
-    const lengthWeakness = `At only ${quality.wordCount} words, the response is significantly below the Cambridge expectation of ${quality.targetRangeText} for a ${maxMark}-mark essay. Analytical transmission mechanisms are compressed into brief compound assertions rather than developed step-by-step through full sentences, restricting AO2 Analysis to Level 2.`;
+    const lengthWeakness = `At ${quality.wordCount} words, the response is concise relative to the typical ${quality.targetRangeText} depth. Expanding each analytical transmission mechanism step-by-step in continuous prose will significantly elevate the depth of argument.`;
     if (!weaknesses.some((w) => w.toLowerCase().includes("word") || w.toLowerCase().includes("underdeveloped") || w.toLowerCase().includes("compressed"))) {
       weaknesses.unshift(lengthWeakness);
     }
@@ -510,9 +511,9 @@ function applyStructuralCeilings(
   let examinerSummary = grading.examiner_summary;
   if (modified) {
     if (split.ao3_marks === 0) {
-      examinerSummary = `This response achieves ${total}/${maxMark} marks (${updatedBand}). While core economic definitions and theoretical concepts are accurate for AO1, the submission is an undersized, compressed outline of ${quality.wordCount} words written without proper paragraph structure. In Cambridge 9708, condensed compound assertions of concepts cannot earn Level 3 Analysis. To attain Top Band, arguments must be developed in continuous prose across distinct paragraphs with step-by-step causal explanations.`;
+      examinerSummary = `While core economic definitions and theoretical concepts are accurate, the submission is a concise outline of ${quality.wordCount} words written without full paragraph structure. Developing each causal mechanism step-by-step across distinct paragraphs in continuous prose will elevate the analytical depth.`;
     } else {
-      examinerSummary = `This response achieves ${total}/${maxMark} marks (${updatedBand}). While core economic definitions and theoretical concepts are accurate for AO1, the submission is an undersized, compressed outline of ${quality.wordCount} words written without proper paragraph structure. In Cambridge 9708, condensed compound assertions of concepts cannot earn Level 3 Analysis or top-band Evaluation. To attain Top Band, arguments must be developed in continuous prose across distinct paragraphs with step-by-step causal explanations.`;
+      examinerSummary = `While core economic definitions and theoretical concepts are accurate, the submission is a concise outline of ${quality.wordCount} words written without full paragraph structure. Developing each causal mechanism step-by-step across distinct paragraphs alongside contextual evaluation will significantly strengthen the essay.`;
     }
   }
 
@@ -541,7 +542,7 @@ function applyStructuralCeilings(
         awarded: ao2,
         comment:
           quality.isUndersized || quality.isMonolithicBlock
-            ? `Analysis demonstrates sound theoretical understanding but mechanisms are compressed into short assertions without step-by-step sentence-level development (Level 2).`
+            ? `Analysis demonstrates sound theoretical understanding; expanding compressed assertions into step-by-step causal links will significantly elevate analytical depth.`
             : stripScoreFractionsFromText(grading.ao_breakdown.analysis.comment),
       },
       evaluation: {

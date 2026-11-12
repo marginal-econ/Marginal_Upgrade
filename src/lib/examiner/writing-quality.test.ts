@@ -212,7 +212,9 @@ describe("Cambridge 9708 Writing Quality & Structural Calibration Engine", () =>
       const clamped = applyWritingQualityGuardrail(overgenerous8, mockHealthyQuality, 8, split8);
       expect(clamped.total_mark).toBe(7);
       expect(clamped.ao_breakdown.evaluation.awarded).toBe(1);
-      expect(clamped.ao_breakdown.evaluation.comment).toContain("keeping the essay at 7 instead of 8");
+      expect(clamped.ao_breakdown.evaluation.comment).toContain("decisive concluding judgement");
+      // Strictly zero score mentions in prose feedback
+      expect(clamped.ao_breakdown.evaluation.comment).not.toMatch(/held at 7|instead of 8|cost you marks|7\/8|8\/8/i);
     });
 
     it("allows a truly flawless 8-mark essay with fully satisfied conclusion to score 8/8", () => {
@@ -301,7 +303,7 @@ describe("Cambridge 9708 Writing Quality & Structural Calibration Engine", () =>
       expect(fixed.strengths.some((s) => s.toLowerCase().includes("allocative") && s.toLowerCase().includes("ppc"))).toBe(false);
 
       // Weakness added calling out the misconception
-      expect(fixed.weaknesses.some((w) => w.includes("Economic misconception on PPC and efficiency"))).toBe(true);
+      expect(fixed.weaknesses.some((w) => w.includes("Clarify the distinction between productive and allocative efficiency on the PPC"))).toBe(true);
 
       // AO2 reduced by 1 for the minor analytical error (4/4 -> 3/4)
       expect(fixed.ao_breakdown.analysis.awarded).toBe(3);

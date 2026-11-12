@@ -166,11 +166,12 @@ AUTHORITATIVE PRINCIPAL EXAMINER PRINCIPLES:
    - EVALUATIVE VS NON-EVALUATIVE TARIFF DIRECTIVE:
      * If {ao3_marks} is 0 marks: Evaluation is strictly NOT required (legacy Cambridge 8-mark 'Explain' questions). Set awarded: 0, out_of: 0, and comment: "Evaluation is not required for this question. No marks are lost for its omission." Keep missing_elements.evaluation empty [].
      * If {ao3_marks} > 0 marks: Evaluation IS MANDATORY. You MUST grade AO3 out of {ao3_marks} marks. NEVER state that evaluation is not required, even if the question starts with 'Explain'.
-      * For 8-mark evaluative questions ({ao3_marks} = 2 marks):
+      * PAPER SCOPE FOR 8-MARK & 12-MARK ESSAYS: Strictly Cambridge 9708 Paper 2 (AS Level). NEVER mention Paper 4, A-Level topics (oligopoly, monopolistic competition, Pareto efficiency, Chapter 32), or extended Paper 4 essays.
+     * For 8-mark evaluative questions ({ao3_marks} = 2 marks):
         - ONLY A PERFECT ESSAY CAN RECEIVE 8 MARKS (8/8).
-        - Full 2/2 marks for AO3 is strictly reserved for a truly perfect evaluative essay where all evaluation criteria are fully met, both perspectives are thoroughly explored in context, and a fully satisfied, supported concluding judgement directly resolves the prompt.
-        - When evaluation criteria are NOT fully met, or the concluding judgement is NOT satisfied, incomplete, or unsupported:
-          You MUST award Level 1 (1 of 2 marks) for AO3, keeping the essay at 7 instead of 8 (maximum 7/8). Under NO circumstances award 8/8 to an essay with partially unmet evaluation criteria or an unsatisfied conclusion. Only a perfect essay can get 8.
+        - Full 2/2 marks for AO3 is strictly reserved for a truly perfect evaluative essay where all evaluation criteria are fully met and a supported concluding judgement resolves the prompt.
+        - When evaluation criteria are NOT fully met, or the concluding judgement is NOT satisfied, award Level 1 (1 of 2 marks) for AO3 (caps total score at 7).
+        - ZERO NUMERIC MARKS IN PROSE: Do NOT write numerical scores, mark breakdowns, or phrases like "held at 7", "instead of 8", or "cost you marks" anywhere inside written feedback or comments. Focus strictly on strengths and AS syllabus-accurate improvements.
      * For 20-mark extended essays ({ao3_marks} = 6 marks): Scrutinize synoptic evaluation rigorously with +3-5% strictness. Require candidates to synthesize micro and macro impacts, evaluate short-run vs long-run trade-offs, test elasticity conditions, and provide a reasoned, decisive contextual verdict answering the question prompt directly. Top Band (5-6/6) strictly demands critical prioritization of decisive factors.
    - Apply calibrated strictness (+3-5%) to AO3 Evaluation:
    - Demand critical prioritization: top band evaluation requires the candidate to explicitly justify which factor or criterion is most decisive (e.g. why inelastic demand limits short-run effectiveness vs long-run substitution).
@@ -179,10 +180,10 @@ AUTHORITATIVE PRINCIPAL EXAMINER PRINCIPLES:
    - Be strict on superficial evaluation: a single token sentence or generic conclusion ('a mix of both is best') without justified weighing criteria must not reach top band.
    - NO ARTIFICIAL NUMERIC CAPS: Do NOT apply rigid programmatic caps or formulaic ceiling rules (such as 'caps AO3' or 'Table B capped'). Evaluate the candidate's evaluative depth and breadth holistically on its economic merit.
 6. ACCURATE ECONOMICS VS ERRORS & REALISTIC CALIBRATION:
-    - CHAPTER 5 (PPC) & EFFICIENCY GROUNDING — STRICT MISCONCEPTION CHECK:
-      * Point inside PPC = Productive inefficiency / unemployment or underutilisation of resources (idle factors, X-inefficiency). A PPC shows productive capacity alone; it contains NO information about consumer preferences and does NOT represent allocative inefficiency or Pareto inefficiency!
-      * Point on PPC = Productive efficiency (maximum possible output from given resources). However, a point on the PPC may still be allocatively inefficient if the output mix does not match consumer preferences (P != MC).
-      * MANDATORY ANALYTICAL ERROR FLAG: Flag any confusion between productive and allocative inefficiency on a PPC diagram as a minor analytical error (AO2 Analysis restricted, e.g. 2/3 instead of 3/3, or 3/4 instead of 4/4). You must NEVER praise a student for linking a point inside the PPC to allocative inefficiency or Pareto efficiency. Overturn any pass that praised this confusion and record it as an analytical weakness.
+    - CHAPTER 5 (PPC) & EFFICIENCY GROUNDING — STRICT AS LEVEL MISCONCEPTION CHECK:
+      * Point inside PPC = Productive inefficiency / unemployment or underutilisation of resources (idle factors, X-inefficiency). A PPC shows productive capacity alone; it contains NO information about consumer preferences and does NOT represent allocative inefficiency!
+      * Point on PPC = Productive efficiency (maximum possible output from given resources), though it may still be allocatively inefficient if the output mix does not match consumer preferences (P != MC).
+      * MANDATORY ANALYTICAL ERROR FLAG: Flag any confusion between productive and allocative inefficiency on a PPC diagram as an analytical error (deduct 1 mark in AO2). You must NEVER praise this confusion. Overturn any pass that praised it and advise constructively on distinguishing productive inefficiency from allocative efficiency.
     - Distinguish correct economics from genuine errors:
      * When a subsidy lowers market price, quantity demanded extends/increases along the curve (from Q to Q1). That is accurate economic terminology, not an error.
      * Merit goods are defined both by positive externalities and by information failure / undervaluation of private benefits. Both are syllabus-correct.
@@ -492,8 +493,8 @@ export function synthesizeDualPasses(
     /point\s+inside\s+(the\s+)?ppc.*allocative/i.test([...pass1.weaknesses, ...pass2.weaknesses].join(" "));
 
   if (flaggedPpcMisconception) {
-    const ppcWeakness = "Economic misconception on PPC and efficiency: A point inside the PPC represents productive inefficiency (unemployment, underutilization of resources, or idle factors), not allocative inefficiency. Points on the PPC represent productive efficiency, though they may still be allocatively inefficient if the output mix does not match consumer preferences. Confusing productive and allocative inefficiency is an analytical error.";
-    if (!weaknesses.some(w => w.toLowerCase().includes("point inside the ppc") || w.toLowerCase().includes("misconception on ppc"))) {
+    const ppcWeakness = "Clarify the distinction between productive and allocative efficiency on the PPC: a point inside the PPC indicates productive inefficiency (unemployed or underutilized resources), whereas points on the curve represent productive efficiency. Allocative efficiency depends on whether the output mix reflects consumer preferences.";
+    if (!weaknesses.some(w => w.toLowerCase().includes("point inside the ppc") || w.toLowerCase().includes("distinction between productive and allocative"))) {
       weaknesses.unshift(ppcWeakness);
     }
     // Deduct AO2 Analysis if full marks were awarded (minor analytical error)

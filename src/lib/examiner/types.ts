@@ -72,17 +72,31 @@ export function stripScoreFractionsFromText(value: unknown): string {
   if (typeof value !== "string" || !value) return "";
   let s = value;
 
-  // Level X (Y/Z) or Level X (Y of Z) or Level X (Y-Z/W) or Level X (anything with marks/numbers) -> Level X
+  // Level X (Y/Z) or Level X (Y of Z) or Level X (anything with marks/numbers) -> Level X
   s = s.replace(/\bLevel\s*(\d+)\s*\([^)]*\)/gi, "Level $1");
 
-  // Parenthesized score fractions like (3/4), (1/4), (0/2), (2/2), (4/4), (1 of 2), (3 of 4)
+  // Parenthesized score fractions like (3/4), (1/4), (0/2), (2/2), (4/4), (7/8), (8/8), (1 of 2), (3 of 4)
   s = s.replace(/\s*\(\s*\d+(?:\s*-\s*\d+)?\s*(?:\/|\s*of\s*)\s*\d+\s*(?:marks?|pts?)?\s*\)/gi, "");
 
   // Parenthesized marks like (1-2 marks), (3 marks), (0 marks)
   s = s.replace(/\s*\(\s*\d+(?:\s*-\s*\d+)?\s*(?:marks?|pts?)\s*\)/gi, "");
 
+  // Numerical score phrases forbidden by Cambridge examiner feedback rules:
+  // "held at 7", "held at 7 instead of 8", "kept at 7", "capped at 7", "instead of 8"
+  s = s.replace(/\b(?:held|kept|capped|restricted)\s+at\s+\d+(?:\s*(?:\/|out\s+of)\s*\d+)?(?:\s+instead\s+of\s+\d+)?/gi, "");
+  s = s.replace(/\binstead\s+of\s+\d+(?:\s*(?:\/|out\s+of)\s*\d+)?/gi, "");
+  s = s.replace(/\bkeeping\s+the\s+(?:essay|mark|score)\s+at\s+\d+(?:\s*(?:\/|out\s+of)\s*\d+)?(?:\s+instead\s+of\s+\d+)?/gi, "");
+  s = s.replace(/\bmaximum\s+\d+\s*\/\s*\d+\b/gi, "");
+  s = s.replace(/\bmaximum\s+\d+\s+marks?\b/gi, "");
+
+  // Punitive marks phrases: "cost you marks", "cost the student marks", "lost marks"
+  s = s.replace(/\b(?:costs?|costing)\s+(?:you|the\s+candidate|the\s+student)?\s*marks?\b/gi, "limits the evaluation");
+  s = s.replace(/\b(?:lose|loses|losing|lost)\s+marks?\b/gi, "limits credit");
+  s = s.replace(/\bmarks?\s+(?:were|was|are|is)\s+lost\b/gi, "credit was restricted");
+
   // Standalone phrases like "restricted to 3/4" or "restrict the mark to 3/4" -> "restricted to this level"
   s = s.replace(/\b(?:restricts?|restricted|restricting)\s+(?:the\s+mark\s+)?to\s+\d+\s*\/\s*\d+\b/gi, "restricted to this level");
+  s = s.replace(/\bachieves?\s+\d+\s*\/\s*\d+\s*marks?\b/gi, "demonstrates sound understanding");
 
   // Standalone fractions followed by marks: "3/4 marks", "1/4 marks"
   s = s.replace(/\b\d+\s*\/\s*\d+\s*marks?\b/gi, "credit");
@@ -96,7 +110,7 @@ export function stripScoreFractionsFromText(value: unknown): string {
   s = s.replace(/\bmarks?\s+are\s+awarded\b/gi, "credit is awarded");
   s = s.replace(/\b\d+\s+marks?\s+for\s+AO(\d)\b/gi, "credit for AO$1");
 
-  // Standalone score fractions like "3/4" or "1/4" when between 0 and 30
+  // Standalone score fractions like "3/4" or "1/4" or "7/8" when between 0 and 30
   s = s.replace(/\b(\d+)\s*\/\s*(\d+)\b/g, (match, p1, p2) => {
     const n1 = Number(p1);
     const n2 = Number(p2);
@@ -106,11 +120,20 @@ export function stripScoreFractionsFromText(value: unknown): string {
     return match;
   });
 
+  // Paper 4 references in general prose
+  s = s.replace(/\b(?:In\s+extended\s+)?Paper\s+4\s+essays?\b/gi, "In extended essays");
+
   // Clean up punctuation artifacts from removals
   s = s.replace(/\s+,/g, ",");
   s = s.replace(/\s+\./g, ".");
+  s = s.replace(/,\s*,+/g, ",");
+  s = s.replace(/\.\s*\.+/g, ".");
+  s = s.replace(/,\s*\./g, ".");
   s = s.replace(/\(\s*\)/g, "");
+  s = s.replace(/\(\s*,\s*\)/g, "");
+  s = s.replace(/\(\s*\.\s*\)/g, "");
   s = s.replace(/\s{2,}/g, " ");
+  s = s.replace(/^\s*[,.\-]\s*/, "");
   return s.trim();
 }
 
@@ -292,7 +315,7 @@ export function normaliseGrading(
         .replace(/requires deeper evaluative reasoning to reach Top Band standards\.?/gi, "fully achieves Top Band Cambridge standards.");
       if (weaknesses.length === 0) {
         weaknesses = [
-          "Minor polish: In extended Paper 4 essays, you can further elaborate on long-run elasticity differences and funding trade-offs."
+          "Minor polish: In extended essays, you can further elaborate on long-run elasticity differences and funding trade-offs."
         ];
       }
     }
