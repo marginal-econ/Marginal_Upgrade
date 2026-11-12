@@ -3,20 +3,12 @@ import {
   Calculator as CalcIcon,
   X,
   Minus,
-  Plus,
-  Divide,
   Percent,
-  RotateCcw,
   Copy,
   Check,
   History,
   TrendingUp,
   Sparkles,
-  Equal,
-  ChevronDown,
-  ChevronUp,
-  HelpCircle,
-  ArrowRight,
   BookOpen,
   Maximize2,
 } from "lucide-react";
@@ -41,15 +33,218 @@ interface McqCalculatorProps {
   className?: string;
 }
 
+/**
+ * Robust mathematical expression evaluator.
+ * Supports +, -, *, /, ^, %, unary minus, parentheses, and clean decimal rounding.
+ * Never throws an uncaught error; handles division by zero safely.
+ */
+function safeEvaluate(rawExpr: string): string {
+  if (!rawExpr || typeof rawExpr !== "string") return "0";
+
+  // Normalize operators
+  let expr = rawExpr
+    .replace(/×/g, "*")
+    .replace(/÷/g, "/")
+    .replace(/−/g, "-")
+    .replace(/,/g, ".")
+    .trim();
+
+  // If expression contains '=', take the rightmost non-empty clause or the clause before '='
+  if (expr.includes("=")) {
+    const parts = expr.split("=");
+    const lastPart = parts[parts.length - 1].trim();
+    expr = lastPart || parts[0].trim();
+  }
+
+  // Strip trailing dangling operators (e.g. "10 +" or "10 /")
+  expr = expr.replace(/[+\-*/^]+$/, "").trim();
+  if (!expr) return "0";
+
+  // Balance unclosed parentheses
+  let openCount = 0;
+  for (const ch of expr) {
+    if (ch === "(") openCount++;
+    if (ch === ")") openCount--;
+  }
+  while (openCount > 0) {
+    expr += ")";
+    openCount--;
+  }
+
+  // Tokenize
+  const tokens: Array<
+    | { type: "number"; value: number }
+    | { type: "operator"; value: string }
+    | { type: "unary"; value: "-" }
+    | { type: "paren"; value: string }
+    | { type: "percent" }
+  > = [];
+
+  let i = 0;
+  while (i < expr.length) {
+    const ch = expr[i];
+    if (/\s/.test(ch)) {
+      i++;
+      continue;
+    }
+    if (/[0-9.]/.test(ch)) {
+      let numStr = "";
+      let hasDot = false;
+      while (i < expr.length && /[0-9.]/.test(expr[i])) {
+        if (expr[i] === ".") {
+          if (hasDot) {
+            i++;
+            continue;
+          }
+          hasDot = true;
+        }
+        numStr += expr[i];
+        i++;
+      }
+      const parsed = parseFloat(numStr);
+      tokens.push({ type: "number", value: isNaN(parsed) ? 0 : parsed });
+      continue;
+    }
+    if (ch === "%") {
+      tokens.push({ type: "percent" });
+      i++;
+      continue;
+    }
+    if ("+-*/^()".includes(ch)) {
+      if (ch === "-") {
+        const prev = tokens[tokens.length - 1];
+        if (!prev || prev.type === "operator" || (prev.type === "paren" && prev.value === "(")) {
+          tokens.push({ type: "unary", value: "-" });
+          i++;
+          continue;
+        }
+      }
+      if (ch === "(") {
+        // Implicit multiplication: e.g. 2(3) -> 2 * (3)
+        if (tokens.length > 0) {
+          const prev = tokens[tokens.length - 1];
+          if (prev.type === "number" || (prev.type === "paren" && prev.value === ")")) {
+            tokens.push({ type: "operator", value: "*" });
+          }
+        }
+        tokens.push({ type: "paren", value: ch });
+      } else if (ch === ")") {
+        tokens.push({ type: "paren", value: ch });
+      } else {
+        tokens.push({ type: "operator", value: ch });
+      }
+      i++;
+      continue;
+    }
+    return "Error";
+  }
+
+  // Shunting-yard algorithm
+  const precedence: Record<string, number> = { "+": 1, "-": 1, "*": 2, "/": 2, "^": 3, "u-": 4 };
+  const associativity: Record<string, "L" | "R"> = {
+    "+": "L",
+    "-": "L",
+    "*": "L",
+    "/": "L",
+    "^": "R",
+    "u-": "R",
+  };
+  const outputQueue: typeof tokens = [];
+  const operatorStack: typeof tokens = [];
+
+  for (let idx = 0; idx < tokens.length; idx++) {
+    const token = tokens[idx];
+    if (token.type === "number") {
+      outputQueue.push(token);
+    } else if (token.type === "percent") {
+      outputQueue.push({ type: "operator", value: "%" });
+    } else if (token.type === "unary") {
+      operatorStack.push({ type: "operator", value: "u-" });
+    } else if (token.type === "operator") {
+      while (operatorStack.length > 0) {
+        const top = operatorStack[operatorStack.length - 1];
+        if (top.type === "operator") {
+          const p1 = precedence[token.value];
+          const p2 = precedence[top.value];
+          const assoc = associativity[token.value];
+          if ((assoc === "L" && p1 <= p2) || (assoc === "R" && p1 < p2)) {
+            outputQueue.push(operatorStack.pop()!);
+            continue;
+          }
+        }
+        break;
+      }
+      operatorStack.push(token);
+    } else if (token.type === "paren" && token.value === "(") {
+      operatorStack.push(token);
+    } else if (token.type === "paren" && token.value === ")") {
+      let foundOpen = false;
+      while (operatorStack.length > 0) {
+        const top = operatorStack.pop()!;
+        if (top.type === "paren" && top.value === "(") {
+          foundOpen = true;
+          break;
+        }
+        outputQueue.push(top);
+      }
+      if (!foundOpen) return "Error";
+    }
+  }
+
+  while (operatorStack.length > 0) {
+    const top = operatorStack.pop()!;
+    if (top.type === "paren") return "Error";
+    outputQueue.push(top);
+  }
+
+  // Evaluate RPN
+  const evalStack: number[] = [];
+  for (const token of outputQueue) {
+    if (token.type === "number") {
+      evalStack.push(token.value);
+    } else if (token.type === "operator") {
+      if (token.value === "%") {
+        if (evalStack.length < 1) return "Error";
+        evalStack.push(evalStack.pop()! / 100);
+      } else if (token.value === "u-") {
+        if (evalStack.length < 1) return "Error";
+        evalStack.push(-evalStack.pop()!);
+      } else {
+        if (evalStack.length < 2) return "Error";
+        const b = evalStack.pop()!;
+        const a = evalStack.pop()!;
+        let res = 0;
+        if (token.value === "+") res = a + b;
+        else if (token.value === "-") res = a - b;
+        else if (token.value === "*") res = a * b;
+        else if (token.value === "/") {
+          if (Math.abs(b) < 1e-12) return "Cannot divide by 0";
+          res = a / b;
+        } else if (token.value === "^") res = Math.pow(a, b);
+        evalStack.push(res);
+      }
+    }
+  }
+
+  if (evalStack.length !== 1) return "Error";
+  const finalNum = evalStack[0];
+  if (!Number.isFinite(finalNum)) return "Error";
+
+  // Limit float inaccuracies up to 10 decimal digits
+  const rounded = Number(finalNum.toFixed(10));
+  return String(rounded);
+}
+
 export function McqCalculator({ isOpen, onClose, className }: McqCalculatorProps) {
   const [activeTab, setActiveTab] = useState<"standard" | "formulas" | "history">("standard");
   const [display, setDisplay] = useState<string>("0");
   const [expression, setExpression] = useState<string>("");
+  const [waitingForOperand, setWaitingForOperand] = useState<boolean>(false);
+  const [justCalculated, setJustCalculated] = useState<boolean>(false);
   const [memory, setMemory] = useState<number | null>(null);
   const [history, setHistory] = useState<CalculationHistoryItem[]>([]);
   const [copied, setCopied] = useState<boolean>(false);
   const [isMinimized, setIsMinimized] = useState<boolean>(false);
-  const [justCalculated, setJustCalculated] = useState<boolean>(false);
 
   // Quick Economics Formula States
   // 1. Percentage Change
@@ -81,74 +276,113 @@ export function McqCalculator({ isOpen, onClose, className }: McqCalculatorProps
   const dragRef = useRef<{ startX: number; startY: number; posX: number; posY: number } | null>(null);
   const cardRef = useRef<HTMLDivElement>(null);
 
-  // Safe arithmetic evaluator
-  const evaluateExpression = useCallback((exprStr: string): string => {
-    try {
-      // Replace display operators with JS operators
-      let sanitized = exprStr
-        .replace(/×/g, "*")
-        .replace(/÷/g, "/")
-        .replace(/−/g, "-")
-        .replace(/\^/g, "**");
+  const isErrorDisplay = display === "Error" || display === "Cannot divide by 0";
 
-      // Validate allowed characters: numbers, operators, parentheses, decimals, spaces
-      if (!/^[0-9+\-*/().\s**]+$/.test(sanitized)) {
-        return "Error";
-      }
-
-      // Safe evaluation using Function with no globals
-      // eslint-disable-next-line no-new-func
-      const result = Function(`"use strict"; return (${sanitized});`)();
-
-      if (typeof result !== "number" || !Number.isFinite(result)) {
-        return "Error";
-      }
-
-      // Format clean decimal (limit float precision issues)
-      const formatted = Math.abs(result) < 1e-9 ? "0" : Number(result.toFixed(8)).toString();
-      return formatted;
-    } catch {
-      return "Error";
-    }
-  }, []);
-
+  // Digit handler
   const handleDigit = useCallback(
     (digit: string) => {
-      setDisplay((prev) => {
-        if (justCalculated) {
-          setJustCalculated(false);
-          setExpression("");
-          return digit;
-        }
-        if (prev === "0" && digit !== ".") return digit;
-        if (digit === "." && prev.includes(".")) return prev;
-        if (prev.length > 16) return prev;
-        return prev + digit;
-      });
-    },
-    [justCalculated]
-  );
-
-  const handleOperator = useCallback(
-    (op: string) => {
-      setJustCalculated(false);
-      if (display === "Error") {
-        setDisplay("0");
+      if (isErrorDisplay || justCalculated) {
+        setJustCalculated(false);
+        setWaitingForOperand(false);
         setExpression("");
+        setDisplay(digit === "." ? "0." : digit);
         return;
       }
-      setExpression((prev) => `${prev} ${display} ${op}`.trim());
-      setDisplay("0");
+
+      if (waitingForOperand) {
+        setWaitingForOperand(false);
+        setDisplay(digit === "." ? "0." : digit);
+        return;
+      }
+
+      if (digit === ".") {
+        if (display.includes(".")) return;
+        setDisplay((prev) => prev + ".");
+        return;
+      }
+
+      if (display === "0") {
+        setDisplay(digit);
+        return;
+      }
+
+      if (display.length >= 16) return;
+      setDisplay((prev) => prev + digit);
     },
-    [display]
+    [display, isErrorDisplay, justCalculated, waitingForOperand]
   );
 
-  const handleEquals = useCallback(() => {
-    if (display === "Error") return;
-    const fullExpr = expression ? `${expression} ${display}` : display;
-    const res = evaluateExpression(fullExpr);
+  // Operator handler (+, −, ×, ÷, ^)
+  const handleOperator = useCallback(
+    (op: string) => {
+      if (isErrorDisplay) {
+        setDisplay("0");
+        setExpression(`0 ${op}`);
+        setWaitingForOperand(true);
+        setJustCalculated(false);
+        return;
+      }
 
-    if (res !== "Error") {
+      if (justCalculated) {
+        // Continue calculation from previous answer
+        setJustCalculated(false);
+        setExpression(`${display} ${op}`);
+        setWaitingForOperand(true);
+        return;
+      }
+
+      if (waitingForOperand) {
+        // User changed operator (e.g. clicked + then ÷); replace the operator without inserting 0!
+        setExpression((prev) => {
+          const trimmed = prev.trim();
+          const replaced = trimmed.replace(/[+\−×÷\-\*\/^]$/, op);
+          return `${replaced} `;
+        });
+        return;
+      }
+
+      // Normal operator transition: evaluate running subtotal if expression exists
+      if (expression) {
+        const intermediate = safeEvaluate(`${expression} ${display}`);
+        if (intermediate !== "Error" && intermediate !== "Cannot divide by 0") {
+          setDisplay(intermediate);
+        }
+        setExpression(`${expression} ${display} ${op}`);
+      } else {
+        setExpression(`${display} ${op}`);
+      }
+
+      setWaitingForOperand(true);
+    },
+    [display, expression, isErrorDisplay, justCalculated, waitingForOperand]
+  );
+
+  // Equals handler
+  const handleEquals = useCallback(() => {
+    if (justCalculated) return;
+    if (isErrorDisplay) return;
+
+    let fullExpr = "";
+    if (expression) {
+      if (waitingForOperand) {
+        // e.g. "10 ÷" and user presses = -> evaluate with current display
+        fullExpr = `${expression} ${display}`.trim();
+      } else {
+        fullExpr = `${expression} ${display}`.trim();
+      }
+    } else {
+      fullExpr = display;
+    }
+
+    const res = safeEvaluate(fullExpr);
+
+    if (res === "Cannot divide by 0") {
+      setDisplay("Cannot divide by 0");
+      setExpression(`${fullExpr} =`);
+      setJustCalculated(true);
+      setWaitingForOperand(false);
+      toast.error("Cannot divide by zero");
+    } else if (res !== "Error") {
       setHistory((prev) => [
         {
           id: Math.random().toString(36).slice(2, 9),
@@ -161,62 +395,109 @@ export function McqCalculator({ isOpen, onClose, className }: McqCalculatorProps
       setExpression(`${fullExpr} =`);
       setDisplay(res);
       setJustCalculated(true);
+      setWaitingForOperand(false);
     } else {
       setDisplay("Error");
+      setJustCalculated(true);
+      setWaitingForOperand(false);
     }
-  }, [display, expression, evaluateExpression]);
+  }, [display, expression, isErrorDisplay, justCalculated, waitingForOperand]);
 
+  // Clear handler (AC)
   const handleClear = useCallback(() => {
     setDisplay("0");
     setExpression("");
+    setWaitingForOperand(false);
     setJustCalculated(false);
   }, []);
 
+  // Backspace handler
   const handleBackspace = useCallback(() => {
-    if (justCalculated) {
+    if (justCalculated || isErrorDisplay) {
       handleClear();
       return;
     }
+    if (waitingForOperand) {
+      setExpression((prev) => prev.replace(/[+\−×÷\-\*\/^]\s*$/, "").trim());
+      setWaitingForOperand(false);
+      return;
+    }
     setDisplay((prev) => {
-      if (prev.length <= 1 || prev === "Error") return "0";
+      if (prev.length <= 1 || prev === "-") return "0";
       return prev.slice(0, -1);
     });
-  }, [justCalculated, handleClear]);
+  }, [justCalculated, isErrorDisplay, waitingForOperand, handleClear]);
 
+  // Sign toggle (±)
   const handleToggleSign = useCallback(() => {
+    if (isErrorDisplay || display === "0") return;
     setDisplay((prev) => {
-      if (prev === "0" || prev === "Error") return prev;
       if (prev.startsWith("-")) return prev.slice(1);
       return `-${prev}`;
     });
-  }, []);
+    if (justCalculated) {
+      setExpression("");
+      setJustCalculated(false);
+    }
+  }, [display, isErrorDisplay, justCalculated]);
 
+  // Percentage handler (%)
   const handlePercentage = useCallback(() => {
-    setDisplay((prev) => {
-      const num = parseFloat(prev);
-      if (isNaN(num)) return "0";
-      return (num / 100).toString();
-    });
-  }, []);
+    if (isErrorDisplay) return;
+    const num = parseFloat(display);
+    if (isNaN(num)) return;
+    const res = Number((num / 100).toFixed(10));
+    setDisplay(String(res));
+  }, [display, isErrorDisplay]);
 
-  const handleSqrt = useCallback(() => {
-    setDisplay((prev) => {
-      const num = parseFloat(prev);
-      if (isNaN(num) || num < 0) return "Error";
-      return Math.sqrt(num).toString();
+  // Parentheses handlers
+  const handleOpenParen = useCallback(() => {
+    if (justCalculated || isErrorDisplay) {
+      setExpression("(");
+      setDisplay("0");
+      setWaitingForOperand(true);
+      setJustCalculated(false);
+      return;
+    }
+
+    setExpression((prev) => {
+      if (!prev || prev.endsWith("(") || /[+\−×÷\-\*\/^]\s*$/.test(prev)) {
+        return `${prev}(`;
+      }
+      return `${prev} × (`;
     });
-  }, []);
+    setWaitingForOperand(true);
+  }, [justCalculated, isErrorDisplay]);
+
+  const handleCloseParen = useCallback(() => {
+    const openCount = (expression.match(/\(/g) || []).length;
+    const closeCount = (expression.match(/\)/g) || []).length;
+    if (openCount <= closeCount) return;
+
+    if (waitingForOperand && /[+\−×÷\-\*\/^]\s*$/.test(expression)) {
+      return;
+    }
+
+    const nextExpr = waitingForOperand ? `${expression})` : `${expression} ${display})`;
+    setExpression(nextExpr);
+
+    const inner = safeEvaluate(nextExpr);
+    if (inner !== "Error" && inner !== "Cannot divide by 0") {
+      setDisplay(inner);
+    }
+    setWaitingForOperand(false);
+  }, [expression, display, waitingForOperand]);
 
   // Keyboard navigation & global shortcuts
   useEffect(() => {
     if (!isOpen || isMinimized) return;
 
     const onKeyDown = (e: KeyboardEvent) => {
-      // Don't intercept if student is typing in an input inside formulas tab or page
-      const target = e.target as HTMLElement;
-      if (target.tagName === "INPUT" || target.tagName === "TEXTAREA") {
-        if (target.dataset.calcInput) {
-          // let formula inputs take keys
+      // Do not intercept if student is typing in an input or textarea
+      const target = e.target as HTMLElement | null;
+      if (target) {
+        const tagName = target.tagName;
+        if (tagName === "INPUT" || tagName === "TEXTAREA" || target.isContentEditable) {
           return;
         }
       }
@@ -224,7 +505,7 @@ export function McqCalculator({ isOpen, onClose, className }: McqCalculatorProps
       if (e.key >= "0" && e.key <= "9") {
         e.preventDefault();
         handleDigit(e.key);
-      } else if (e.key === ".") {
+      } else if (e.key === "." || e.key === ",") {
         e.preventDefault();
         handleDigit(".");
       } else if (e.key === "+") {
@@ -233,12 +514,24 @@ export function McqCalculator({ isOpen, onClose, className }: McqCalculatorProps
       } else if (e.key === "-") {
         e.preventDefault();
         handleOperator("−");
-      } else if (e.key === "*") {
+      } else if (e.key === "*" || e.key === "x" || e.key === "X") {
         e.preventDefault();
         handleOperator("×");
-      } else if (e.key === "/") {
+      } else if (e.key === "/" || e.code === "NumpadDivide") {
         e.preventDefault();
         handleOperator("÷");
+      } else if (e.key === "^") {
+        e.preventDefault();
+        handleOperator("^");
+      } else if (e.key === "(") {
+        e.preventDefault();
+        handleOpenParen();
+      } else if (e.key === ")") {
+        e.preventDefault();
+        handleCloseParen();
+      } else if (e.key === "%") {
+        e.preventDefault();
+        handlePercentage();
       } else if (e.key === "Enter" || e.key === "=") {
         e.preventDefault();
         handleEquals();
@@ -248,29 +541,46 @@ export function McqCalculator({ isOpen, onClose, className }: McqCalculatorProps
       } else if (e.key === "Escape") {
         e.preventDefault();
         onClose();
+      } else if (e.key === "c" || e.key === "C" || e.key === "Delete") {
+        e.preventDefault();
+        handleClear();
       }
     };
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [isOpen, isMinimized, handleDigit, handleOperator, handleEquals, handleBackspace, onClose]);
+  }, [
+    isOpen,
+    isMinimized,
+    handleDigit,
+    handleOperator,
+    handleEquals,
+    handleBackspace,
+    handleClear,
+    handleOpenParen,
+    handleCloseParen,
+    handlePercentage,
+    onClose,
+  ]);
 
   // Copy current display
   const copyDisplay = () => {
-    if (display === "Error") return;
+    if (isErrorDisplay) return;
     navigator.clipboard.writeText(display);
     setCopied(true);
     toast.success(`Copied: ${display}`);
     setTimeout(() => setCopied(false), 1800);
   };
 
-  // Push result to display
-  const sendToDisplay = (val: number | string) => {
+  // Push result to display from Formulas or History
+  const sendToDisplay = useCallback((val: number | string) => {
     setDisplay(val.toString());
     setExpression("");
+    setWaitingForOperand(false);
+    setJustCalculated(true);
     setActiveTab("standard");
     toast.info(`Inserted ${val} into desk calculator.`);
-  };
+  }, []);
 
   // Formula Solvers
   const computePctChange = () => {
@@ -297,27 +607,28 @@ export function McqCalculator({ isOpen, onClose, className }: McqCalculatorProps
     }
     const ped = dq / dp;
     const mag = Math.abs(ped);
+    const roundedMag = Number(mag.toFixed(3));
 
     let type: "elastic" | "inelastic" | "unit" | "perfectly_inelastic" | "perfectly_elastic" = "inelastic";
     let commentary = "";
 
-    if (mag > 1) {
-      type = "elastic";
-      commentary = "Price Elastic (|PED| > 1). Demand is responsive. Lowering price increases Total Revenue.";
-    } else if (mag < 1 && mag > 0) {
-      type = "inelastic";
-      commentary = "Price Inelastic (|PED| < 1). Demand is unresponsive. Raising price increases Total Revenue.";
-    } else if (mag === 1) {
-      type = "unit";
-      commentary = "Unit Elastic (|PED| = 1). %ΔQ equals %ΔP. Total revenue is maximized.";
-    } else if (mag === 0) {
+    if (roundedMag === 0) {
       type = "perfectly_inelastic";
       commentary = "Perfectly Inelastic (|PED| = 0). Demand curve is vertical.";
+    } else if (roundedMag === 1) {
+      type = "unit";
+      commentary = "Unit Elastic (|PED| = 1). %ΔQ equals %ΔP. Total revenue is maximized.";
+    } else if (roundedMag > 1) {
+      type = "elastic";
+      commentary = "Price Elastic (|PED| > 1). Demand is responsive. Lowering price increases Total Revenue.";
+    } else {
+      type = "inelastic";
+      commentary = "Price Inelastic (|PED| < 1). Demand is unresponsive. Raising price increases Total Revenue.";
     }
 
     setPedResult({
       value: Number(ped.toFixed(3)),
-      magnitude: Number(mag.toFixed(3)),
+      magnitude: roundedMag,
       type,
       commentary,
     });
@@ -339,8 +650,8 @@ export function McqCalculator({ isOpen, onClose, className }: McqCalculatorProps
   const computeRealGdp = () => {
     const nom = parseFloat(nomVal);
     const idx = parseFloat(priceIndex);
-    if (isNaN(nom) || isNaN(idx) || idx === 0) {
-      toast.error("Enter valid nominal output and price index (> 0).");
+    if (isNaN(nom) || isNaN(idx) || idx <= 0) {
+      toast.error("Enter valid nominal output and positive price index (> 0).");
       return;
     }
     const real = (nom / idx) * 100;
@@ -401,7 +712,7 @@ export function McqCalculator({ isOpen, onClose, className }: McqCalculatorProps
               Cambridge Calculator
             </span>
             <span className="font-mono text-xs font-bold text-foreground">
-              {display !== "0" && display !== "Error" ? display : "Ready"}
+              {display !== "0" && !isErrorDisplay ? display : "Ready"}
             </span>
           </div>
           <Maximize2 className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary transition-colors ml-1" />
@@ -419,7 +730,7 @@ export function McqCalculator({ isOpen, onClose, className }: McqCalculatorProps
           : undefined
       }
       className={cn(
-        "z-50 w-[350px] sm:w-[380px] bg-card/95 text-foreground border border-border/80 rounded-3xl shadow-2xl backdrop-blur-2xl flex flex-col overflow-hidden transition-shadow duration-200 select-none animate-in fade-in slide-in-from-bottom-3",
+        "z-50 w-[350px] sm:w-[380px] max-w-[calc(100vw-1.5rem)] bg-card/95 text-foreground border border-border/80 rounded-3xl shadow-2xl backdrop-blur-2xl flex flex-col overflow-hidden transition-shadow duration-200 select-none animate-in fade-in slide-in-from-bottom-3",
         !position && "fixed bottom-6 right-4 sm:right-6",
         className
       )}
@@ -531,8 +842,9 @@ export function McqCalculator({ isOpen, onClose, className }: McqCalculatorProps
 
               <div
                 className={cn(
-                  "font-mono font-bold tracking-tight truncate text-foreground",
-                  display.length > 12 ? "text-xl" : display.length > 8 ? "text-2xl" : "text-3xl"
+                  "font-mono font-bold tracking-tight truncate",
+                  isErrorDisplay ? "text-rose-500 text-lg" : "text-foreground",
+                  !isErrorDisplay && (display.length > 16 ? "text-lg" : display.length > 12 ? "text-xl" : display.length > 8 ? "text-2xl" : "text-3xl")
                 )}
               >
                 {display}
@@ -558,7 +870,11 @@ export function McqCalculator({ isOpen, onClose, className }: McqCalculatorProps
               variant="outline"
               size="sm"
               onClick={() => {
-                if (memory !== null) setDisplay(memory.toString());
+                if (memory !== null) {
+                  setDisplay(memory.toString());
+                  setWaitingForOperand(false);
+                  setJustCalculated(true);
+                }
               }}
               className="h-9 text-[11px] font-bold bg-muted/40 hover:bg-muted text-muted-foreground"
             >
@@ -583,15 +899,16 @@ export function McqCalculator({ isOpen, onClose, className }: McqCalculatorProps
               size="sm"
               onClick={handleClear}
               className="h-9 text-[11px] font-bold text-rose-500 hover:text-rose-600 bg-rose-500/10 hover:bg-rose-500/20 border-rose-500/30"
+              title="Clear all (AC)"
             >
               AC
             </Button>
 
-            {/* Row 2: Secondary Functions */}
+            {/* Row 2: Parentheses, %, Division */}
             <Button
               variant="outline"
               size="sm"
-              onClick={() => handleOperator("(")}
+              onClick={handleOpenParen}
               className="h-9 font-mono bg-card hover:bg-muted"
             >
               (
@@ -599,7 +916,7 @@ export function McqCalculator({ isOpen, onClose, className }: McqCalculatorProps
             <Button
               variant="outline"
               size="sm"
-              onClick={() => handleOperator(")")}
+              onClick={handleCloseParen}
               className="h-9 font-mono bg-card hover:bg-muted"
             >
               )
@@ -616,7 +933,10 @@ export function McqCalculator({ isOpen, onClose, className }: McqCalculatorProps
               variant="outline"
               size="sm"
               onClick={() => handleOperator("÷")}
-              className="h-9 font-mono text-primary font-bold bg-primary/10 hover:bg-primary/20 border-primary/20"
+              className={cn(
+                "h-9 font-mono text-primary font-bold bg-primary/10 hover:bg-primary/20 border-primary/20 transition-all",
+                waitingForOperand && expression.trim().endsWith("÷") && "bg-primary text-primary-foreground border-primary"
+              )}
             >
               ÷
             </Button>
@@ -650,12 +970,15 @@ export function McqCalculator({ isOpen, onClose, className }: McqCalculatorProps
               variant="outline"
               size="sm"
               onClick={() => handleOperator("×")}
-              className="h-10 font-mono text-primary font-bold bg-primary/10 hover:bg-primary/20 border-primary/20"
+              className={cn(
+                "h-10 font-mono text-primary font-bold bg-primary/10 hover:bg-primary/20 border-primary/20 transition-all",
+                waitingForOperand && expression.trim().endsWith("×") && "bg-primary text-primary-foreground border-primary"
+              )}
             >
               ×
             </Button>
 
-            {/* Row 4: 4, 5, 6, - */}
+            {/* Row 4: 4, 5, 6, − */}
             <Button
               variant="outline"
               size="sm"
@@ -684,7 +1007,10 @@ export function McqCalculator({ isOpen, onClose, className }: McqCalculatorProps
               variant="outline"
               size="sm"
               onClick={() => handleOperator("−")}
-              className="h-10 font-mono text-primary font-bold bg-primary/10 hover:bg-primary/20 border-primary/20"
+              className={cn(
+                "h-10 font-mono text-primary font-bold bg-primary/10 hover:bg-primary/20 border-primary/20 transition-all",
+                waitingForOperand && expression.trim().endsWith("−") && "bg-primary text-primary-foreground border-primary"
+              )}
             >
               −
             </Button>
@@ -718,7 +1044,10 @@ export function McqCalculator({ isOpen, onClose, className }: McqCalculatorProps
               variant="outline"
               size="sm"
               onClick={() => handleOperator("+")}
-              className="h-10 font-mono text-primary font-bold bg-primary/10 hover:bg-primary/20 border-primary/20"
+              className={cn(
+                "h-10 font-mono text-primary font-bold bg-primary/10 hover:bg-primary/20 border-primary/20 transition-all",
+                waitingForOperand && expression.trim().endsWith("+") && "bg-primary text-primary-foreground border-primary"
+              )}
             >
               +
             </Button>
@@ -779,7 +1108,7 @@ export function McqCalculator({ isOpen, onClose, className }: McqCalculatorProps
                 <Percent className="h-3.5 w-3.5 text-primary" />
                 Percentage Change
               </span>
-              <span className="text-[10px] font-mono text-muted-foreground">((New - Old)/Old) × 100</span>
+              <span className="text-[10px] font-mono text-muted-foreground">((New - Old)/|Old|) × 100</span>
             </div>
 
             <div className="grid grid-cols-2 gap-2">
