@@ -119,6 +119,7 @@ export const getMe = createServerFn({ method: "GET" })
       const roleList = (roles ?? []).map((row: any) => row.role);
       let isTeacherUser =
         roleList.includes("teacher") ||
+        roleList.includes("teacher_pending") ||
         (context as any).claims?.user_metadata?.role === "teacher" ||
         (context as any).claims?.app_metadata?.role === "teacher";
 
@@ -129,12 +130,21 @@ export const getMe = createServerFn({ method: "GET" })
             .select("status")
             .eq("user_id", userId)
             .maybeSingle();
-          if (tp?.status === "approved") {
+          if (tp?.status === "approved" || tp?.status === "pending") {
             isTeacherUser = true;
           }
         } catch {
           /* fallback */
         }
+      }
+
+      if (isTeacherUser && !roleList.includes("teacher")) {
+        try {
+          await db.from("user_roles").upsert(
+            { user_id: userId, role: "teacher" },
+            { onConflict: "user_id,role" },
+          );
+        } catch {}
       }
 
       let role: AppRole = "student";

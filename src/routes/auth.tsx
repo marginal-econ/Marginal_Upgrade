@@ -226,20 +226,11 @@ function AuthPage() {
         return;
       }
 
-      const statusRes = await checkTeacherStatusFn();
+      // Auto-activates teacher access
+      await checkTeacherStatusFn();
 
-      if (statusRes.status === "approved" || statusRes.isStaff || statusRes.isAdmin) {
-        toast.success("Welcome, Educator! Staff privileges verified.");
-        navigate({ to: "/classes", replace: true });
-      } else if (statusRes.status === "pending") {
-        await supabase.auth.signOut();
-        setTeacherPendingWarning(
-          "Your teacher registration for this school is currently pending administrative verification. For exam security, access is granted once your institutional email is verified by our team.",
-        );
-      } else {
-        await supabase.auth.signOut();
-        toast.error("This account does not have teacher staff privileges. Please use the student sign-in portal.");
-      }
+      toast.success("Welcome, Educator! Staff privileges active.");
+      navigate({ to: "/classes", replace: true });
     } catch (err: any) {
       toast.error(err?.message || "Sign in failed.");
     } finally {
@@ -250,11 +241,11 @@ function AuthPage() {
   const handleTeacherSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!teacherSchoolName.trim()) {
-      toast.error("Official School Name is compulsory for teacher verification.");
+      toast.error("Official School Name is required.");
       return;
     }
     if (!teacherSignUpEmail.trim() || !teacherSignUpEmail.includes("@")) {
-      toast.error("A valid school/institutional email address is compulsory.");
+      toast.error("A valid school or institutional email address is required.");
       return;
     }
     if (teacherSignUpPassword.length < 6) {
@@ -274,8 +265,20 @@ function AuthPage() {
       });
 
       if (res.success) {
-        setTeacherSubmittedSuccess(true);
-        toast.success("Teacher registration submitted for administrative verification!");
+        toast.success("Teacher account created! Signing you in…");
+        const { error: signInErr } = await supabase.auth.signInWithPassword({
+          email: teacherSignUpEmail.trim(),
+          password: teacherSignUpPassword,
+        });
+
+        if (signInErr) {
+          setTeacherEmail(teacherSignUpEmail.trim());
+          setTeacherTab("signin");
+          toast.info("Please enter your password to sign in.");
+        } else {
+          toast.success("Welcome, Educator! Full staff privileges active.");
+          navigate({ to: "/classes", replace: true });
+        }
       }
     } catch (err: any) {
       toast.error(err?.message || "Registration failed.");
@@ -807,7 +810,7 @@ function AuthPage() {
                               onChange={(e) => setTeacherSignUpEmail(e.target.value)}
                             />
                             <p className="text-[11px] text-muted-foreground">
-                              Personal emails (@gmail, @yahoo) require secondary manual verification.
+                              School, institutional, or educator email. Instant teacher access enabled.
                             </p>
                           </div>
 

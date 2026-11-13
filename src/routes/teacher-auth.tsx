@@ -198,23 +198,11 @@ export function TeacherAuthPage() {
         return;
       }
 
-      // Check teacher verification status
-      const statusRes = await checkTeacherStatusFn();
+      // Check teacher verification status (auto-activates teacher access)
+      await checkTeacherStatusFn();
 
-      if (statusRes.status === "approved" || statusRes.isStaff || statusRes.isAdmin) {
-        toast.success("Welcome, Educator! Staff privileges verified.");
-        navigate({ to: "/classes", replace: true });
-      } else if (statusRes.status === "pending") {
-        // Teacher registered but admin hasn't approved yet
-        await supabase.auth.signOut();
-        setPendingAccountWarning(
-          "Your teacher registration for this school is currently pending administrative verification. For exam security, access is granted once your institutional email is verified by our team.",
-        );
-      } else {
-        // Normal student account trying to sign in through teacher portal
-        await supabase.auth.signOut();
-        toast.error("This account does not have teacher staff privileges. Please use the student sign-in portal.");
-      }
+      toast.success("Welcome, Educator! Staff privileges active.");
+      navigate({ to: "/classes", replace: true });
     } catch (err: any) {
       toast.error(err?.message || "Sign in failed.");
     } finally {
@@ -249,8 +237,20 @@ export function TeacherAuthPage() {
       });
 
       if (res.success) {
-        setSubmittedSuccess(true);
-        toast.success("Teacher registration submitted for administrative verification!");
+        toast.success("Teacher account created! Signing you in…");
+        const { error: signInErr } = await supabase.auth.signInWithPassword({
+          email: schoolEmail.trim(),
+          password: signUpPassword,
+        });
+
+        if (signInErr) {
+          setSignInEmail(schoolEmail.trim());
+          setActiveTab("signin");
+          toast.info("Please enter your password to sign in.");
+        } else {
+          toast.success("Welcome, Educator! Full staff privileges active.");
+          navigate({ to: "/classes", replace: true });
+        }
       }
     } catch (err: any) {
       toast.error(err?.message || "Registration failed.");
@@ -305,18 +305,8 @@ export function TeacherAuthPage() {
         return;
       }
       toast.success("Educator password successfully updated!");
-      const statusRes = await checkTeacherStatusFn();
-      if (statusRes.status === "approved" || statusRes.isStaff || statusRes.isAdmin) {
-        navigate({ to: "/classes", replace: true });
-      } else if (statusRes.status === "pending") {
-        await supabase.auth.signOut();
-        setView("credentials");
-        setPendingAccountWarning(
-          "Your password was updated, but your teacher account is still pending administrative verification before full workspace access is granted.",
-        );
-      } else {
-        navigate({ to: "/classes", replace: true });
-      }
+      await checkTeacherStatusFn();
+      navigate({ to: "/classes", replace: true });
     } catch (err: any) {
       toast.error(err?.message || "Failed to update password.");
     } finally {
@@ -754,19 +744,19 @@ export function TeacherAuthPage() {
                     <div className="rounded-lg border border-purple-500/20 bg-purple-500/5 p-3 text-xs text-muted-foreground space-y-1">
                       <div className="flex items-center gap-1.5 font-semibold text-foreground">
                         <School className="size-3.5 text-purple-600" />
-                        Staff Verification Safeguard
+                        Instant Educator Access
                       </div>
                       <p>
-                        Teacher accounts receive authority to ingest custom syllabus mark schemes, calibrate exam anchors, and manage student grades. All accounts require administrator verification before activation.
+                        Teacher accounts receive authority to create Cambridge cohorts, assign essays, ingest mark schemes, and track diagnostics. Open access is active.
                       </p>
                     </div>
 
                     <Button type="submit" className="w-full bg-purple-600 hover:bg-purple-700 text-white" disabled={signUpBusy}>
-                      {signUpBusy ? "Submitting Application…" : "Submit Teacher Registration →"}
+                      {signUpBusy ? "Creating Teacher Account…" : "Create Teacher Account & Enter Workspace →"}
                     </Button>
 
                     <div className="pt-1 text-center text-xs text-muted-foreground">
-                      Already verified? Switch to the <strong>Teacher Sign In</strong> tab above.
+                      Already have an account? Switch to the <strong>Teacher Sign In</strong> tab above.
                     </div>
                   </form>
                 </TabsContent>

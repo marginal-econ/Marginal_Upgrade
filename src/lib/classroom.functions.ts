@@ -312,9 +312,24 @@ export const listClassrooms = createServerFn({ method: "GET" })
       email: (context as any).email,
       claims: (context as any).claims,
     });
+    const hasTeacherRole =
+      roleList.includes("teacher") ||
+      roleList.includes("teacher_pending") ||
+      (context as any).claims?.user_metadata?.role === "teacher" ||
+      (context as any).claims?.app_metadata?.role === "teacher";
+
+    if (hasTeacherRole && !roleList.includes("teacher")) {
+      try {
+        await admin.from("user_roles").upsert(
+          { user_id: context.userId, role: "teacher" },
+          { onConflict: "user_id,role" },
+        );
+      } catch {}
+    }
+
     const activeRole = isMarginal
       ? ("admin" as const)
-      : roleList.includes("teacher")
+      : hasTeacherRole
         ? ("teacher" as const)
         : ("student" as const);
 

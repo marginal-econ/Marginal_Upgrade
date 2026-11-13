@@ -34,7 +34,7 @@ export const registerTeacher = createServerFn({ method: "POST" })
         school: schoolName,
         school_email: email,
         role: "teacher",
-        teacher_status: "pending_verification",
+        teacher_status: "approved",
       },
     });
 
@@ -54,13 +54,21 @@ export const registerTeacher = createServerFn({ method: "POST" })
       school: schoolName,
     });
 
-    // 3. Mark role as teacher_pending
+    // 3. Mark role directly as teacher (immediate access, no manual verification delay)
     await (supabaseAdmin.from("user_roles") as any).upsert({
       user_id: userId,
-      role: "teacher_pending",
+      role: "teacher",
     }, { onConflict: "user_id,role" });
 
-    // 4. Send acknowledgment email to teacher via Mailjet
+    // Clean up any pending role flag if it exists
+    try {
+      await (supabaseAdmin.from("user_roles") as any)
+        .delete()
+        .eq("user_id", userId)
+        .eq("role", "teacher_pending");
+    } catch {}
+
+    // 4. Send welcome confirmation email to teacher via Mailjet
     try {
       const apiKey = readEnv("MAILJET_API_KEY");
       const secretKey = readEnv("MAILJET_SECRET_KEY");
@@ -79,35 +87,38 @@ export const registerTeacher = createServerFn({ method: "POST" })
               {
                 From: { Email: sender, Name: "Marginal Academic Staff" },
                 To: [{ Email: email, Name: fullName }],
-                Subject: "Teacher Registration Received · Marginal Cambridge Economics",
+                Subject: "Welcome to Marginal · Teacher Account Activated",
                 HTMLPart: `
                   <div style="font-family:sans-serif;background:#f7f4ff;padding:32px 14px;color:#181323">
                     <div style="max-width:560px;margin:0 auto;background:#fff;border:2px solid #21172d;border-radius:20px;padding:32px;box-shadow:6px 6px 0 #21172d">
-                      <h2 style="color:#7c4edb;margin-top:0">Teacher Application Received</h2>
+                      <h2 style="color:#7c4edb;margin-top:0">Teacher Account Activated!</h2>
                       <p>Dear ${fullName},</p>
-                      <p>Thank you for registering your school (<strong>${schoolName}</strong>) for teacher access on Marginal.</p>
-                      <p>For Cambridge 9708 examination security and confidential mark-scheme protection, teacher accounts undergo verification by our academic team before access is unlocked.</p>
-                      <p style="background:#f0edff;padding:14px;border-radius:10px;font-size:14px;color:#5a3ea0">
-                        <strong>Current Status:</strong> Pending Administrative Verification.<br>
-                        You will receive an email confirmation as soon as your institutional account is verified.
-                      </p>
+                      <p>Welcome to Marginal! Your educator account for <strong>${schoolName}</strong> is activated with full teacher privileges.</p>
+                      <ul style="line-height:1.7;">
+                        <li><strong>Classrooms:</strong> Create Cambridge 9708 cohorts and invite your students.</li>
+                        <li><strong>Assignments:</strong> Set essay homework and review automated AI markings.</li>
+                        <li><strong>Mark Schemes:</strong> Ingest custom syllabuses and calibrate standards.</li>
+                      </ul>
+                      <div style="margin:24px 0;">
+                        <a href="https://marginal-econ.com/teacher-auth" style="background:#7c4edb;color:#fff;padding:12px 20px;border-radius:10px;text-decoration:none;font-weight:bold;display:inline-block">Open Teacher Portal →</a>
+                      </div>
                       <p style="font-size:12px;color:#777;margin-top:28px">Marginal · Dedicated Cambridge 9708 Economics Evaluation Platform</p>
                     </div>
                   </div>
                 `,
               },
-              // Admin alert notification
+              // Admin notification
               {
                 From: { Email: sender, Name: "Marginal Notifications" },
                 To: [{ Email: sender, Name: "Marginal Administrator" }],
-                Subject: `[Action Required] New Teacher Application: ${fullName} (${schoolName})`,
+                Subject: `[New Teacher Joined] ${fullName} (${schoolName})`,
                 HTMLPart: `
                   <div style="font-family:sans-serif;padding:20px;">
-                    <h3>New Cambridge Economics Teacher Registration</h3>
+                    <h3>New Cambridge Economics Teacher Joined</h3>
                     <p><strong>Name:</strong> ${fullName}</p>
                     <p><strong>School:</strong> ${schoolName}</p>
                     <p><strong>Email:</strong> ${email}</p>
-                    <p>Log in to the <a href="https://app.marginal-econ.workers.dev/admin">Admin Console</a> to verify and grant staff privileges.</p>
+                    <p>Account status: <strong>Active (Auto-verified)</strong>.</p>
                   </div>
                 `,
               },
@@ -121,7 +132,7 @@ export const registerTeacher = createServerFn({ method: "POST" })
 
     return {
       success: true,
-      message: "Teacher account registered. Pending administrative verification.",
+      message: "Teacher account created and approved. Full educator access granted.",
     };
   });
 
@@ -153,6 +164,29 @@ export const getTeacherProfileStatus = createServerFn({ method: "GET" })
       (context as any).claims?.user_metadata?.role === "teacher" ||
       (context as any).claims?.app_metadata?.role === "teacher"
     ) {
+      if (!roleList.includes("teacher")) {
+        try {
+          await db.from("user_roles").upsert(
+            { user_id: userId, role: "teacher" },
+            { onConflict: "user_id,role" }
+          );
+        } catch {}
+      }
+      return { status: "approved" as const, isStaff: true, isAdmin: false };
+    }
+
+    // Auto-approve pending teachers during open teacher access
+    if (roleList.includes("teacher_pending")) {
+      try {
+        await db.from("user_roles").upsert(
+          { user_id: userId, role: "teacher" },
+          { onConflict: "user_id,role" }
+        );
+        await (db.from("user_roles") as any)
+          .delete()
+          .eq("user_id", userId)
+          .eq("role", "teacher_pending");
+      } catch {}
       return { status: "approved" as const, isStaff: true, isAdmin: false };
     }
 
@@ -163,17 +197,28 @@ export const getTeacherProfileStatus = createServerFn({ method: "GET" })
         .eq("user_id", userId)
         .maybeSingle();
 
-      if (tp?.status === "approved") {
+      if (tp?.status === "approved" || tp?.status === "pending") {
+        try {
+          await db.from("user_roles").upsert(
+            { user_id: userId, role: "teacher" },
+            { onConflict: "user_id,role" }
+          );
+        } catch {}
         return { status: "approved" as const, isStaff: true, isAdmin: false };
-      }
-      if (tp?.status === "pending" || roleList.includes("teacher_pending")) {
-        return { status: "pending" as const, isStaff: false, isAdmin: false };
       }
     } catch {
       /* ignore */
     }
 
-    return { status: "none" as const, isStaff: false, isAdmin: false };
+    // Open teacher access: when checked in teacher context, auto-grant teacher role
+    try {
+      await db.from("user_roles").upsert(
+        { user_id: userId, role: "teacher" },
+        { onConflict: "user_id,role" }
+      );
+    } catch {}
+
+    return { status: "approved" as const, isStaff: true, isAdmin: false };
   });
 
 /**
