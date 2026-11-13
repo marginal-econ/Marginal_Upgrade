@@ -60,6 +60,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 import { AdminGodmodeDashboard, EssaysVaultTab, GodmodeErrorBoundary } from "@/components/app/admin-godmode";
+import { AdminDiagnosticsPanel } from "@/components/app/admin-diagnostics";
 import { CouponsAdminPanel } from "@/components/app/coupons-admin";
 import { FeedbackAdminPanel } from "@/components/app/feedback-admin";
 import { MessagesAdminPanel } from "@/components/app/messages-admin";
@@ -261,6 +262,16 @@ const ADMIN_SECTIONS: Record<string, AdminSectionMeta> = {
     subtitle: "Real-time user sessions, grading throughput, AI token spend, database health, and error telemetry.",
     icon: Activity,
   },
+  diagnostics: {
+    id: "diagnostics",
+    category: "Platform & Intelligence",
+    title: "Platform Diagnostics & Institutional Telemetry",
+    sidebarLabel: "Full Diagnostics & Stats",
+    subtitle: "Complete institutional audit: school directory, repeat usage retention, academic marks distribution, and Cambridge maturity scorecard.",
+    icon: LineChart,
+    badge: "Full Report",
+    badgeColor: "bg-purple-500/20 text-purple-600 dark:text-purple-400",
+  },
   godmode: {
     id: "godmode",
     category: "Platform & Intelligence",
@@ -410,7 +421,7 @@ const ADMIN_SECTIONS: Record<string, AdminSectionMeta> = {
 const ADMIN_CATEGORIES = [
   {
     title: "Platform & Intelligence",
-    items: [ADMIN_SECTIONS.overview, ADMIN_SECTIONS.godmode, ADMIN_SECTIONS.essays],
+    items: [ADMIN_SECTIONS.overview, ADMIN_SECTIONS.diagnostics, ADMIN_SECTIONS.godmode, ADMIN_SECTIONS.essays],
     externalLinks: [
       { label: "Live Examiner Studio", to: "/live-examiner", icon: Sparkles, desc: "Real-time AI Essay Examiner (Admin Lab)" },
     ],
@@ -804,6 +815,7 @@ function AdminPage() {
           <div className="space-y-6">
             {activeTab === "overview" && (
               <OverviewPanel
+                onOpenDiagnostics={() => setActiveTab("diagnostics")}
                 onOpenGodmode={() => setActiveTab("godmode")}
                 onOpenEssays={() => setActiveTab("essays")}
                 onOpenUsers={() => setActiveTab("users")}
@@ -813,6 +825,7 @@ function AdminPage() {
                 }}
               />
             )}
+            {activeTab === "diagnostics" && <AdminDiagnosticsPanel />}
             {activeTab === "messages" && (
               <MessagesAdminPanel initialUserId={textTargetUserId} />
             )}
@@ -3816,11 +3829,13 @@ type AdminMetrics = {
 };
 
 function OverviewPanel({
+  onOpenDiagnostics,
   onOpenGodmode,
   onOpenEssays,
   onOpenUsers,
   onTextUser,
 }: {
+  onOpenDiagnostics?: () => void;
   onOpenGodmode?: () => void;
   onOpenEssays?: () => void;
   onOpenUsers?: () => void;
@@ -3939,17 +3954,30 @@ function OverviewPanel({
             placeholder="Search everything — user name, email, feature, model, or status…"
             className="max-w-xl flex-1"
           />
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            onClick={() => overview.refetch()}
-            disabled={overview.isFetching}
-            className="gap-2 shrink-0 h-9 text-xs cursor-pointer"
-          >
-            <RefreshCw className={cn("size-3.5", overview.isFetching && "animate-spin")} />
-            <span>Refresh metrics</span>
-          </Button>
+          <div className="flex items-center gap-2 shrink-0">
+            {onOpenDiagnostics && (
+              <Button
+                type="button"
+                size="sm"
+                onClick={onOpenDiagnostics}
+                className="gap-1.5 shrink-0 h-9 text-xs bg-purple-600 hover:bg-purple-700 text-white font-medium shadow-xs"
+              >
+                <LineChart className="size-3.5" />
+                <span>Full Diagnostics &amp; Report →</span>
+              </Button>
+            )}
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => overview.refetch()}
+              disabled={overview.isFetching}
+              className="gap-2 shrink-0 h-9 text-xs cursor-pointer"
+            >
+              <RefreshCw className={cn("size-3.5", overview.isFetching && "animate-spin")} />
+              <span>Refresh metrics</span>
+            </Button>
+          </div>
         </div>
 
         {/* 3 Executive Tabs: Activeness / AI Spend / Platform Vault */}
