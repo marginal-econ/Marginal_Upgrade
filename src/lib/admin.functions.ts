@@ -2911,11 +2911,11 @@ export const adminGetPlatformDiagnostics = createServerFn({ method: "GET" })
       listAcceptedAuthUsers(),
       supabaseAdmin.from("profiles").select("*"),
       supabaseAdmin.from("user_roles").select("*"),
-      supabaseAdmin.from("essays").select("id, user_id, score, latest_mark, max_mark, created_at, question"),
+      supabaseAdmin.from("essays").select("id, user_id, latest_mark, max_mark, created_at, question"),
       supabaseAdmin.from("classrooms").select("*"),
       supabaseAdmin.from("classroom_members").select("*"),
       supabaseAdmin.from("mcq_attempts").select("id, user_id, score, total, created_at"),
-      supabaseAdmin.from("mcq_pdf_attempts").select("id, user_id, score, total, created_at"),
+      supabaseAdmin.from("mcq_pdf_attempts").select("id, user_id, title, score, total, created_at, completed_at"),
       supabaseAdmin.from("live_examiner_sessions").select("id, user_id, level, topic, created_at"),
       supabaseAdmin
         .from("ai_usage_log")
@@ -2936,6 +2936,11 @@ export const adminGetPlatformDiagnostics = createServerFn({ method: "GET" })
     const mcqPdfAttempts = mcqPdfRes.data ?? [];
     const liveSessions = liveRes.data ?? [];
     const aiLogs = aiLogsRes.data ?? [];
+
+    const allMcqs = [
+      ...mcqAttempts.map((m: any) => ({ ...m, kind: "generated" })),
+      ...mcqPdfAttempts.map((m: any) => ({ ...m, kind: "past_paper" })),
+    ];
 
     const profileMap = new Map(profiles.map((p: any) => [p.id, p]));
     const roleMap = new Map<string, string[]>();
@@ -2982,7 +2987,7 @@ export const adminGetPlatformDiagnostics = createServerFn({ method: "GET" })
       }
     }
 
-    // ── 2. Essays & Repeated Usage Analysis ──
+    // ── 2. Practice Mapping: Essays, MCQs, Live Examiner & Combined ──
     const userEssayMap = new Map<string, any[]>();
     for (const e of essays) {
       const list = userEssayMap.get(e.user_id) || [];
@@ -2990,51 +2995,121 @@ export const adminGetPlatformDiagnostics = createServerFn({ method: "GET" })
       userEssayMap.set(e.user_id, list);
     }
 
-    const totalWriters = userEssayMap.size;
-    let repeatWriters = 0;
-    let powerUsersCount = 0;
-    let extremePowerUsersCount = 0;
-
-    let count1Essay = 0;
-    let count2to4 = 0;
-    let count5to9 = 0;
-    let count10to24 = 0;
-    let count25Plus = 0;
-
-    for (const [, userEssays] of userEssayMap) {
-      const c = userEssays.length;
-      if (c >= 2) repeatWriters++;
-      if (c >= 5) powerUsersCount++;
-      if (c >= 20) extremePowerUsersCount++;
-
-      if (c === 1) count1Essay++;
-      else if (c >= 2 && c <= 4) count2to4++;
-      else if (c >= 5 && c <= 9) count5to9++;
-      else if (c >= 10 && c <= 24) count10to24++;
-      else if (c >= 25) count25Plus++;
+    const userMcqMap = new Map<string, any[]>();
+    for (const m of allMcqs) {
+      const list = userMcqMap.get(m.user_id) || [];
+      list.push(m);
+      userMcqMap.set(m.user_id, list);
     }
 
-    const retentionRate = totalWriters > 0 ? Math.round((repeatWriters / totalWriters) * 100) : 0;
+    const userLiveMap = new Map<string, any[]>();
+    for (const l of liveSessions) {
+      const list = userLiveMap.get(l.user_id) || [];
+      list.push(l);
+      userLiveMap.set(l.user_id, list);
+    }
 
-    const frequencyBuckets = [
-      { label: "1 Submission (Single-use)", count: count1Essay, percentage: totalWriters > 0 ? Math.round((count1Essay / totalWriters) * 100) : 0 },
-      { label: "2–4 Submissions (Returning / Habit Forming)", count: count2to4, percentage: totalWriters > 0 ? Math.round((count2to4 / totalWriters) * 100) : 0 },
-      { label: "5–9 Submissions (Regular Practice)", count: count5to9, percentage: totalWriters > 0 ? Math.round((count5to9 / totalWriters) * 100) : 0 },
-      { label: "10–24 Submissions (Dedicated Candidate)", count: count10to24, percentage: totalWriters > 0 ? Math.round((count10to24 / totalWriters) * 100) : 0 },
-      { label: "25+ Submissions (Mastery Cohort)", count: count25Plus, percentage: totalWriters > 0 ? Math.round((count25Plus / totalWriters) * 100) : 0 },
+    // Combined unique active practitioners
+    const allActiveUserIds = new Set<string>([
+      ...userEssayMap.keys(),
+      ...userMcqMap.keys(),
+      ...userLiveMap.keys(),
+    ]);
+
+    // ── A. Essay Retention Metrics ──
+    const totalEssayWriters = userEssayMap.size;
+    let repeatEssayWriters = 0;
+    let essayPowerUsersCount = 0;
+    let essayExtremeCount = 0;
+
+    let e1 = 0, e2to4 = 0, e5to9 = 0, e10to24 = 0, e25Plus = 0;
+    for (const [, userEssays] of userEssayMap) {
+      const c = userEssays.length;
+      if (c >= 2) repeatEssayWriters++;
+      if (c >= 5) essayPowerUsersCount++;
+      if (c >= 20) essayExtremeCount++;
+
+      if (c === 1) e1++;
+      else if (c >= 2 && c <= 4) e2to4++;
+      else if (c >= 5 && c <= 9) e5to9++;
+      else if (c >= 10 && c <= 24) e10to24++;
+      else if (c >= 25) e25Plus++;
+    }
+
+    const essayRetentionRate = totalEssayWriters > 0 ? Math.round((repeatEssayWriters / totalEssayWriters) * 100) : 0;
+    const essayFrequencyBuckets = [
+      { label: "1 Essay (Single submission)", count: e1, percentage: totalEssayWriters > 0 ? Math.round((e1 / totalEssayWriters) * 100) : 0 },
+      { label: "2–4 Essays (Habit Forming)", count: e2to4, percentage: totalEssayWriters > 0 ? Math.round((e2to4 / totalEssayWriters) * 100) : 0 },
+      { label: "5–9 Essays (Regular Practice)", count: e5to9, percentage: totalEssayWriters > 0 ? Math.round((e5to9 / totalEssayWriters) * 100) : 0 },
+      { label: "10–24 Essays (Dedicated Candidate)", count: e10to24, percentage: totalEssayWriters > 0 ? Math.round((e10to24 / totalEssayWriters) * 100) : 0 },
+      { label: "25+ Essays (Mastery Champion)", count: e25Plus, percentage: totalEssayWriters > 0 ? Math.round((e25Plus / totalEssayWriters) * 100) : 0 },
     ];
 
-    // Top Users Leaderboard
-    const topUsers = Array.from(userEssayMap.entries())
+    // ── B. MCQ Retention Metrics ──
+    const totalMcqCandidates = userMcqMap.size;
+    let repeatMcqCandidates = 0;
+    let mcqPowerUsersCount = 0;
+
+    let m1 = 0, m2to3 = 0, m4to7 = 0, m8Plus = 0;
+    for (const [, userMcqs] of userMcqMap) {
+      const c = userMcqs.length;
+      if (c >= 2) repeatMcqCandidates++;
+      if (c >= 4) mcqPowerUsersCount++;
+
+      if (c === 1) m1++;
+      else if (c >= 2 && c <= 3) m2to3++;
+      else if (c >= 4 && c <= 7) m4to7++;
+      else if (c >= 8) m8Plus++;
+    }
+
+    const mcqRetentionRate = totalMcqCandidates > 0 ? Math.round((repeatMcqCandidates / totalMcqCandidates) * 100) : 0;
+    const mcqFrequencyBuckets = [
+      { label: "1 MCQ Paper Attempt", count: m1, percentage: totalMcqCandidates > 0 ? Math.round((m1 / totalMcqCandidates) * 100) : 0 },
+      { label: "2–3 Papers Attempted", count: m2to3, percentage: totalMcqCandidates > 0 ? Math.round((m2to3 / totalMcqCandidates) * 100) : 0 },
+      { label: "4–7 Papers Attempted", count: m4to7, percentage: totalMcqCandidates > 0 ? Math.round((m4to7 / totalMcqCandidates) * 100) : 0 },
+      { label: "8+ Papers (Dedicated MCQ Drill)", count: m8Plus, percentage: totalMcqCandidates > 0 ? Math.round((m8Plus / totalMcqCandidates) * 100) : 0 },
+    ];
+
+    // ── C. Overall Combined Practice Retention ──
+    let repeatOverallCount = 0;
+    let o1 = 0, o2to4 = 0, o5to9 = 0, o10to24 = 0, o25Plus = 0;
+
+    for (const uid of allActiveUserIds) {
+      const countEssays = (userEssayMap.get(uid) || []).length;
+      const countMcqs = (userMcqMap.get(uid) || []).length;
+      const countLive = (userLiveMap.get(uid) || []).length;
+      const totalActivities = countEssays + countMcqs + countLive;
+
+      if (totalActivities >= 2) repeatOverallCount++;
+
+      if (totalActivities === 1) o1++;
+      else if (totalActivities >= 2 && totalActivities <= 4) o2to4++;
+      else if (totalActivities >= 5 && totalActivities <= 9) o5to9++;
+      else if (totalActivities >= 10 && totalActivities <= 24) o10to24++;
+      else if (totalActivities >= 25) o25Plus++;
+    }
+
+    const totalActivePractitioners = allActiveUserIds.size;
+    const overallRetentionRate = totalActivePractitioners > 0 ? Math.round((repeatOverallCount / totalActivePractitioners) * 100) : 0;
+
+    const overallFrequencyBuckets = [
+      { label: "1 Activity (Single submission)", count: o1, percentage: totalActivePractitioners > 0 ? Math.round((o1 / totalActivePractitioners) * 100) : 0 },
+      { label: "2–4 Activities (Returning Candidate)", count: o2to4, percentage: totalActivePractitioners > 0 ? Math.round((o2to4 / totalActivePractitioners) * 100) : 0 },
+      { label: "5–9 Activities (Regular Practice)", count: o5to9, percentage: totalActivePractitioners > 0 ? Math.round((o5to9 / totalActivePractitioners) * 100) : 0 },
+      { label: "10–24 Activities (Dedicated Habit)", count: o10to24, percentage: totalActivePractitioners > 0 ? Math.round((o10to24 / totalActivePractitioners) * 100) : 0 },
+      { label: "25+ Activities (Super-User Cohort)", count: o25Plus, percentage: totalActivePractitioners > 0 ? Math.round((o25Plus / totalActivePractitioners) * 100) : 0 },
+    ];
+
+    // Top Essay Champions Leaderboard
+    const topEssayUsers = Array.from(userEssayMap.entries())
       .map(([uid, uEssays]) => {
         const u = users.find((user) => user.id === uid);
         const p = profileMap.get(uid);
-        const scored = uEssays.filter((e) => (e.latest_mark !== null && e.max_mark > 0) || (e.score !== null && e.max_mark > 0));
+        const scored = uEssays.filter((e) => e.latest_mark !== null && e.max_mark > 0);
         const avgScorePct =
           scored.length > 0
             ? Math.round(
-                scored.reduce((acc, curr) => acc + ((curr.latest_mark ?? curr.score ?? 0) / curr.max_mark) * 100, 0) /
-                  scored.length,
+                scored.reduce((acc, curr) => acc + (curr.latest_mark / curr.max_mark) * 100, 0) / scored.length,
               )
             : null;
 
@@ -3052,7 +3127,7 @@ export const adminGetPlatformDiagnostics = createServerFn({ method: "GET" })
 
         return {
           userId: uid,
-          displayName: p?.full_name || u?.user_metadata?.full_name || email.split("@")[0] || "Educator / Student",
+          displayName: p?.full_name || u?.user_metadata?.full_name || email.split("@")[0] || "Student",
           email,
           school: normalizeSchoolTitle(detectedSchool),
           essayCount: uEssays.length,
@@ -3063,6 +3138,70 @@ export const adminGetPlatformDiagnostics = createServerFn({ method: "GET" })
       .sort((a, b) => b.essayCount - a.essayCount)
       .slice(0, 15);
 
+    // Top MCQ Champions Leaderboard
+    const topMcqUsers = Array.from(userMcqMap.entries())
+      .map(([uid, uMcqs]) => {
+        const u = users.find((user) => user.id === uid);
+        const p = profileMap.get(uid);
+        const scored = uMcqs.filter((m) => m.score !== null && m.total > 0);
+        const totalQ = scored.reduce((sum, m) => sum + (m.total || 0), 0);
+        const totalCorrect = scored.reduce((sum, m) => sum + (m.score || 0), 0);
+        const accuracyPct = totalQ > 0 ? Math.round((totalCorrect / totalQ) * 100) : null;
+
+        const email = u?.email || "student@marginal-econ.com";
+        const emailDomain = email.split("@")[1]?.toLowerCase() || "";
+        const detectedSchool =
+          p?.school ||
+          u?.user_metadata?.school ||
+          KNOWN_DOMAINS_MAP[emailDomain]?.name ||
+          "Independent Candidate";
+
+        return {
+          userId: uid,
+          displayName: p?.full_name || u?.user_metadata?.full_name || email.split("@")[0] || "Student",
+          email,
+          school: normalizeSchoolTitle(detectedSchool),
+          paperCount: uMcqs.length,
+          totalQuestions: totalQ,
+          accuracyPct,
+        };
+      })
+      .sort((a, b) => b.paperCount - a.paperCount)
+      .slice(0, 15);
+
+    // Combined Platform Super-Users Leaderboard
+    const topOverallUsers = Array.from(allActiveUserIds)
+      .map((uid) => {
+        const u = users.find((user) => user.id === uid);
+        const p = profileMap.get(uid);
+        const countEssays = (userEssayMap.get(uid) || []).length;
+        const countMcqs = (userMcqMap.get(uid) || []).length;
+        const countLive = (userLiveMap.get(uid) || []).length;
+        const totalActivities = countEssays + countMcqs + countLive;
+
+        const email = u?.email || "student@marginal-econ.com";
+        const emailDomain = email.split("@")[1]?.toLowerCase() || "";
+        const detectedSchool =
+          p?.school ||
+          u?.user_metadata?.school ||
+          KNOWN_DOMAINS_MAP[emailDomain]?.name ||
+          "Independent Candidate";
+
+        return {
+          userId: uid,
+          displayName: p?.full_name || u?.user_metadata?.full_name || email.split("@")[0] || "Student",
+          email,
+          school: normalizeSchoolTitle(detectedSchool),
+          essayCount: countEssays,
+          mcqCount: countMcqs,
+          liveCount: countLive,
+          totalActivities,
+          lastActive: u?.last_sign_in_at || u?.created_at || null,
+        };
+      })
+      .sort((a, b) => b.totalActivities - a.totalActivities)
+      .slice(0, 15);
+
     // ── 3. Schools & Institutional Reach ──
     type SchoolAccumulator = {
       schoolName: string;
@@ -3070,6 +3209,9 @@ export const adminGetPlatformDiagnostics = createServerFn({ method: "GET" })
       studentCount: number;
       teacherCount: number;
       essayCount: number;
+      mcqCount: number;
+      liveCount: number;
+      totalPracticeCount: number;
       domains: Set<string>;
       isStated: boolean;
       isInternational: boolean;
@@ -3112,6 +3254,8 @@ export const adminGetPlatformDiagnostics = createServerFn({ method: "GET" })
       const uRoles = roleMap.get(u.id) || [];
       const isTeacher = uRoles.includes("teacher") || uRoles.includes("teacher_pending") || u.user_metadata?.role === "teacher";
       const uEssays = userEssayMap.get(u.id) || [];
+      const uMcqs = userMcqMap.get(u.id) || [];
+      const uLive = userLiveMap.get(u.id) || [];
       const userLastActive = u.last_sign_in_at ? new Date(u.last_sign_in_at).getTime() : new Date(u.created_at).getTime();
 
       const existing = schoolMap.get(schoolName) || {
@@ -3120,6 +3264,9 @@ export const adminGetPlatformDiagnostics = createServerFn({ method: "GET" })
         studentCount: 0,
         teacherCount: 0,
         essayCount: 0,
+        mcqCount: 0,
+        liveCount: 0,
+        totalPracticeCount: 0,
         domains: new Set<string>(),
         isStated: Boolean(rawSchool),
         isInternational,
@@ -3129,7 +3276,12 @@ export const adminGetPlatformDiagnostics = createServerFn({ method: "GET" })
       existing.userCount++;
       if (isTeacher) existing.teacherCount++;
       else existing.studentCount++;
+
       existing.essayCount += uEssays.length;
+      existing.mcqCount += uMcqs.length;
+      existing.liveCount += uLive.length;
+      existing.totalPracticeCount += uEssays.length + uMcqs.length + uLive.length;
+
       if (domain && isInstDomain) existing.domains.add(`@${domain}`);
       if (userLastActive > existing.lastActiveTimestamp) existing.lastActiveTimestamp = userLastActive;
 
@@ -3143,13 +3295,15 @@ export const adminGetPlatformDiagnostics = createServerFn({ method: "GET" })
         studentCount: s.studentCount,
         teacherCount: s.teacherCount,
         essayCount: s.essayCount,
+        mcqCount: s.mcqCount,
+        liveCount: s.liveCount,
+        totalPracticeCount: s.totalPracticeCount,
         domains: Array.from(s.domains),
         isStated: s.isStated,
         isInternational: s.isInternational,
         lastActive: s.lastActiveTimestamp > 0 ? new Date(s.lastActiveTimestamp).toISOString() : null,
       }))
       .sort((a, b) => {
-        // Keep Independent at the end, sort others by user count
         if (a.schoolName === "Independent Candidates") return 1;
         if (b.schoolName === "Independent Candidates") return -1;
         return b.userCount - a.userCount;
@@ -3167,7 +3321,7 @@ export const adminGetPlatformDiagnostics = createServerFn({ method: "GET" })
       .sort((a, b) => b.count - a.count);
 
     // ── 4. Academic Performance & Grade Distribution ──
-    const scoredEssays = essays.filter((e: any) => (e.latest_mark !== null && e.max_mark > 0) || (e.score !== null && e.max_mark > 0));
+    const scoredEssays = essays.filter((e: any) => e.latest_mark !== null && e.max_mark > 0);
     let totalScorePct = 0;
     let highestScorePct = 0;
 
@@ -3178,7 +3332,7 @@ export const adminGetPlatformDiagnostics = createServerFn({ method: "GET" })
     let bandLevel1 = 0; // < 40% (E/U)
 
     for (const e of scoredEssays) {
-      const mark = e.latest_mark ?? e.score ?? 0;
+      const mark = e.latest_mark || 0;
       const pct = Math.round((mark / e.max_mark) * 100);
       totalScorePct += pct;
       if (pct > highestScorePct) highestScorePct = pct;
@@ -3248,9 +3402,9 @@ export const adminGetPlatformDiagnostics = createServerFn({ method: "GET" })
         },
         {
           category: "Retention & Habit Formation",
-          item: "Repeat Usage Rate",
+          item: "Repeat Practice & Retention",
           status: "optimal" as const,
-          description: `${retentionRate}% of all essay writers return for multiple submissions, with dedicated candidate cohorts submitting up to 99 essays.`,
+          description: `${overallRetentionRate}% overall repeat retention across all practice activities. ${essayRetentionRate}% repeat essay writer rate with candidate cohorts submitting up to 99 essays.`,
         },
         {
           category: "Infrastructure Resiliency",
@@ -3263,6 +3417,8 @@ export const adminGetPlatformDiagnostics = createServerFn({ method: "GET" })
 
     // ── 7. Generate Full Markdown Diagnostic Report ──
     const reportDate = now.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" });
+    const totalPracticeSubmissions = essays.length + allMcqs.length + liveSessions.length;
+
     const reportMarkdown = `# MARGINAL AI — PLATFORM TELEMETRY & DIAGNOSTIC REPORT
 *Generated on: ${reportDate} (UTC) · Environment: Production (Cloudflare Edge / Supabase)*
 *Report Classification: Confidential Administrative Intelligence*
@@ -3278,11 +3434,13 @@ export const adminGetPlatformDiagnostics = createServerFn({ method: "GET" })
 | **Educator / Teacher Accounts** | **${totalTeachers}** Cambridge Teachers | &mdash; | 🟢 Verified & Open |
 | **Identified Institutions** | **${recognizedSchoolsCount}** Recognized Schools | Multi-School Reach | 🟢 International |
 | **Total Essays Evaluated** | **${essays.length}** Essays | &mdash; | 🟢 High Throughput |
-| **Estimated Words Graded** | **${estimatedWordsGraded.toLocaleString()}** Words | 100,000 Milestone | 🟢 Approaching 100k |
+| **MCQ Past Papers Attempted** | **${allMcqs.length}** Full Papers | &mdash; | 🟢 Active Practice |
 | **Live Examiner Sessions** | **${liveSessions.length}** Interactive Sessions | &mdash; | 🟢 Operational |
-| **Classrooms & Cohorts** | **${classrooms.length}** Active Classrooms | &mdash; | 🟢 Active |
-| **Repeat Essay Retention Rate** | **${retentionRate}%** (${repeatWriters} / ${totalWriters} writers) | > 50% Benchmark | 🟢 Outstanding Retention |
-| **Power Users (≥5 Essays)** | **${powerUsersCount}** Students | &mdash; | 🟢 Strong Habit |
+| **Total Practice Submissions** | **${totalPracticeSubmissions}** Total Evaluated Work | &mdash; | 🟢 High Engagement |
+| **Estimated Words Graded** | **${estimatedWordsGraded.toLocaleString()}** Words | 100,000 Milestone | 🟢 Approaching 100k |
+| **Overall Retention Rate (All Practice)** | **${overallRetentionRate}%** (${repeatOverallCount} / ${totalActivePractitioners} active students) | > 50% Benchmark | 🟢 Outstanding Retention |
+| **Essay Repeat Retention Rate** | **${essayRetentionRate}%** (${repeatEssayWriters} / ${totalEssayWriters} writers) | > 50% Benchmark | 🟢 High Stickiness |
+| **MCQ Repeat Rate** | **${mcqRetentionRate}%** (${repeatMcqCandidates} / ${totalMcqCandidates} candidates) | &mdash; | 🟢 Habitual Drills |
 | **AI Evaluation Success Rate** | **${aiSuccessRate}%** | > 95% Benchmark | 🟢 Stable |
 | **Average Response Latency** | **${avgLatencyMs ? `${(avgLatencyMs / 1000).toFixed(1)}s` : "4.2s"}** | < 6.0s Benchmark | 🟢 Real-time |
 
@@ -3290,12 +3448,12 @@ export const adminGetPlatformDiagnostics = createServerFn({ method: "GET" })
 
 ## 2. INSTITUTIONAL REACH & SCHOOLS DIRECTORY (${recognizedSchoolsCount} Recognized Institutions)
 
-| Institution / School Name | Registered Users | Students | Teachers | Essays Evaluated | Verified Institutional Domain | Region |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| Institution / School Name | Total Users | Role Split | Essays Graded | MCQ Papers | Total Practice | Verified Domain | Region |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
 ${schoolsBreakdown
   .map(
     (s) =>
-      `| **${s.schoolName}** | ${s.userCount} | ${s.studentCount} | ${s.teacherCount} | ${s.essayCount} | \`${s.domains.join(", ") || "Self-Reported"}\` | ${s.isInternational ? "International 🌐" : "National 🇮🇳"} |`,
+      `| **${s.schoolName}** | ${s.userCount} | ${s.studentCount} st / ${s.teacherCount} tch | ${s.essayCount} | ${s.mcqCount} | **${s.totalPracticeCount}** | \`${s.domains.join(", ") || "Self-Reported"}\` | ${s.isInternational ? "International 🌐" : "National 🇮🇳"} |`,
   )
   .join("\n")}
 
@@ -3303,27 +3461,45 @@ ${schoolsBreakdown
 
 ## 3. USER RETENTION & REPEATED USAGE COHORTS
 
-*Of the **${totalWriters}** unique students who drafted or submitted an essay, **${repeatWriters} (${retentionRate}%)** have written repeatedly.*
+### Overall Practice Retention (Essays + MCQs + Live Examiner):
+* **${overallRetentionRate}%** of all active students (**${repeatOverallCount} of ${totalActivePractitioners}**) engage in multiple practice activities.
 
-| Usage Tier | Description | User Count | Share of Active Writers |
-| :--- | :--- | :--- | :--- |
-${frequencyBuckets.map((b) => `| **${b.label}** | &mdash; | ${b.count} Users | ${b.percentage}% |`).join("\n")}
+| Combined Usage Tier | User Count | Share of Active Students |
+| :--- | :--- | :--- |
+${overallFrequencyBuckets.map((b) => `| **${b.label}** | ${b.count} Users | ${b.percentage}% |`).join("\n")}
 
-### Top Active Candidate Champions:
-| Rank | Candidate / Name | Stated Institution | Essays Graded | Average Mark | Last Evaluated |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-${topUsers
+### Essay Writing Retention:
+* **${essayRetentionRate}%** of essay writers (**${repeatEssayWriters} of ${totalEssayWriters}**) returned to write multiple essays.
+
+| Essay Frequency Tier | Writer Count | Share of Writers |
+| :--- | :--- | :--- |
+${essayFrequencyBuckets.map((b) => `| **${b.label}** | ${b.count} Users | ${b.percentage}% |`).join("\n")}
+
+### MCQ Past Paper Practice Retention:
+* **${mcqRetentionRate}%** of MCQ students (**${repeatMcqCandidates} of ${totalMcqCandidates}**) completed multiple full papers.
+
+| MCQ Frequency Tier | Candidate Count | Share of Candidates |
+| :--- | :--- | :--- |
+${mcqFrequencyBuckets.map((b) => `| **${b.label}** | ${b.count} Users | ${b.percentage}% |`).join("\n")}
+
+---
+
+## 4. TOP CANDIDATE CHAMPIONS (COMBINED PRACTICE LEADERBOARD)
+
+| Rank | Candidate / Name | Institution | Essays | MCQs | Live | Total Practice | Last Active |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+${topOverallUsers
   .map(
     (u, idx) =>
-      `| #${idx + 1} | **${u.displayName}** | ${u.school} | **${u.essayCount} Essays** | ${u.avgScorePct !== null ? `${u.avgScorePct}%` : "Pending"} | ${u.lastActive ? new Date(u.lastActive).toLocaleDateString() : "Active"} |`,
+      `| #${idx + 1} | **${u.displayName}** | ${u.school} | ${u.essayCount} | ${u.mcqCount} | ${u.liveCount} | **${u.totalActivities} submissions** | ${u.lastActive ? new Date(u.lastActive).toLocaleDateString() : "Active"} |`,
   )
   .join("\n")}
 
 ---
 
-## 4. CAMBRIDGE 9708 ACADEMIC PERFORMANCE & MARKS DISTRIBUTION
+## 5. CAMBRIDGE 9708 ACADEMIC PERFORMANCE & MARKS DISTRIBUTION
 
-*Overall Average Score: **${avgScorePct}%** | Highest Evaluated Score: **${highestScorePct}%** | Scored Submissions: **${scoredCount}***
+*Overall Average Score: **${avgScorePct}%** | Highest Evaluated Score: **${highestScorePct}%** | Scored Essays: **${scoredCount}***
 
 | Cambridge Grade Band | Tariff Range | Scripts Graded | Cohort Distribution |
 | :--- | :--- | :--- | :--- |
@@ -3331,7 +3507,7 @@ ${scoreBands.map((b) => `| **${b.band}** | ${b.gradeEquivalent} | ${b.count} Scr
 
 ---
 
-## 5. WHERE MARGINAL CURRENTLY STANDS (PLATFORM MATURITY SCORECARD: 98/100)
+## 6. WHERE MARGINAL CURRENTLY STANDS (PLATFORM MATURITY SCORECARD: 98/100)
 
 * **Cambridge Syllabus Completeness:** 100% full coverage across AS 9708 (Papers 1 & 2) and A2 9708 (Papers 3 & 4).
 * **AI Examiner Precision:** Grounded in official mark schemes, AS scope strictness clamped, zero-mark feedback rules enforced, and Chapter 5 PPC misconception radar operational.
@@ -3347,9 +3523,10 @@ ${scoreBands.map((b) => `| **${b.band}** | ${b.gradeEquivalent} | ${b.count} Scr
         totalAdmins,
         recognizedSchoolsCount,
         totalEssays: essays.length,
-        estimatedWordsGraded,
-        totalMcqAttempts: mcqAttempts.length + mcqPdfAttempts.length,
+        totalMcqs: allMcqs.length,
         totalLiveSessions: liveSessions.length,
+        totalPracticeSubmissions,
+        estimatedWordsGraded,
         totalClassrooms: classrooms.length,
         totalEnrollments: classMembers.length,
         totalAiCalls,
@@ -3361,18 +3538,31 @@ ${scoreBands.map((b) => `| **${b.band}** | ${b.gradeEquivalent} | ${b.count} Scr
         activeUsers24h,
         activeUsers7d,
         activeUsers30d,
-        retentionRate,
+        overallRetentionRate,
+        essayRetentionRate,
+        mcqRetentionRate,
       },
       schoolsBreakdown,
       domainBreakdown,
       retentionStats: {
-        totalWriters,
-        repeatWriters,
-        retentionRate,
-        powerUsersCount,
-        extremePowerUsersCount,
-        frequencyBuckets,
-        topUsers,
+        totalActivePractitioners,
+        repeatOverallCount,
+        overallRetentionRate,
+        overallFrequencyBuckets,
+        topOverallUsers,
+        totalEssayWriters,
+        repeatEssayWriters,
+        essayRetentionRate,
+        essayPowerUsersCount,
+        essayExtremeCount,
+        essayFrequencyBuckets,
+        topEssayUsers,
+        totalMcqCandidates,
+        repeatMcqCandidates,
+        mcqRetentionRate,
+        mcqPowerUsersCount,
+        mcqFrequencyBuckets,
+        topMcqUsers,
       },
       academicQuality: {
         totalScored: scoredCount,
