@@ -125,10 +125,10 @@ export function analyzeEssayQuality(
       );
     } else if (words < 420) {
       // 300–419 words: structured concise or developing essay.
-      // If well-paragraphed (>= 4 paragraphs) without AI artifacts, can reach distinction marks (10-11/12).
-      maxAllowableTotalMark = hasAiArtifacts || paragraphCount <= 1 ? 7 : (paragraphCount >= 4 ? 11 : 9);
-      maxAllowableAo2 = hasAiArtifacts || paragraphCount <= 1 ? 3 : (paragraphCount >= 4 ? 6 : 5);
-      maxAllowableAo3 = hasAiArtifacts || paragraphCount <= 1 ? 2 : (paragraphCount >= 4 ? 4 : 3);
+      // If well-paragraphed (>= 3 paragraphs) without AI artifacts, can reach distinction marks (10-11/12).
+      maxAllowableTotalMark = hasAiArtifacts || paragraphCount <= 1 ? 7 : (paragraphCount >= 3 ? 11 : 9);
+      maxAllowableAo2 = hasAiArtifacts || paragraphCount <= 1 ? 3 : (paragraphCount >= 3 ? 6 : 5);
+      maxAllowableAo3 = hasAiArtifacts || paragraphCount <= 1 ? 2 : (paragraphCount >= 3 ? 4 : 3);
     }
   } else if (maxMark === 8) {
     targetRangeText = split.ao3_marks === 0 ? "250–400 words" : "300–450 words";
@@ -161,9 +161,9 @@ export function analyzeEssayQuality(
       );
     } else if (words < 550) {
       isUndersized = true;
-      maxAllowableTotalMark = 12;
-      maxAllowableAo2 = 8;
-      maxAllowableAo3 = 3;
+      maxAllowableTotalMark = paragraphCount >= 3 && words >= 450 ? 15 : 12;
+      maxAllowableAo2 = paragraphCount >= 3 && words >= 450 ? 10 : 8;
+      maxAllowableAo3 = paragraphCount >= 3 && words >= 450 ? 4 : 3;
       qualityIssues.push(
         `Underdeveloped (${words} words vs 800–1200 expected). Fails to provide extended analysis of multiple perspectives.`,
       );

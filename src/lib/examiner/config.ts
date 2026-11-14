@@ -235,25 +235,40 @@ export function buildAoEvaluationDirective(maxMark: number, split: AoSplit): str
   if (maxMark === 20 || split.ao3_marks >= 6) {
     return `SPECIAL DIRECTIVE FOR 20-MARK A LEVEL EXTENDED ESSAYS (AO1: ${split.ao1_marks}, AO2: ${split.ao2_marks}, AO3: ${split.ao3_marks}):
 - THIS IS A 20-MARK PAPER 4 A LEVEL EXTENDED EVALUATIVE ESSAY (${maxMark} marks total: AO1: ${split.ao1_marks}, AO2: ${split.ao2_marks}, AO3: ${split.ao3_marks}).
-- RIGOROUS AO1 KNOWLEDGE & THOROUGH UNDERSTANDING (+3-5% STRICTNESS):
-  * Strictly demand syllabus-precise definitions and thorough conceptual grounding across all relevant economic principles.
-  * Sound, precise terminology must be sustained across both microeconomic and macroeconomic dimensions. Inverted or false definitions earn 0 marks.
-- THOROUGH AO2 ANALYSIS & POWERFUL REAL-WORLD APPLICATION (${split.ao2_marks} MARKS TOTAL, +3-5% STRICTNESS):
+- 40–45 MINUTE TIMED EXAM CALIBRATION:
+  * The standard for a 20-mark Paper 4 essay is the highest in the exam, but ensure it is realistic and NOT an impossible academic standard.
+  * Candidates write under timed exam conditions (~550–800+ words), not a university dissertation.
+  * Do NOT expect encyclopedic coverage or penalise for omitting secondary theoretical edge cases when the core question is addressed.
+  * Whatever is written should be accurate, coherent, and well-developed.
+- RIGOROUS AO1 KNOWLEDGE & THOROUGH UNDERSTANDING:
+  * Demand syllabus-precise definitions and thorough conceptual grounding across relevant economic principles.
+  * Precise terminology must be sustained across both microeconomic and macroeconomic dimensions. Inverted or false definitions earn 0 marks.
+- THOROUGH AO2 ANALYSIS & POWERFUL REAL-WORLD APPLICATION (${split.ao2_marks} MARKS TOTAL):
   * Analysis must be extensive, thorough, and structured across multiple perspectives (e.g. opposing mechanisms, market structures, or micro/macro impacts).
-  * Enforce complete, unbroken causal transmission chains with step-by-step explanatory depth (cause -> intermediate market adjustment -> outcome on prices, output, efficiency, or welfare). Candidates MUST NOT skip intermediate steps or use compressed bullet-like assertions.
-  * POWERFUL USE OF REAL-LIFE EXAMPLES: Candidates must actively integrate genuine, specific real-world examples (naming countries, specific markets, historical or contemporary policy interventions such as QE programs, specific carbon tax regimes, minimum wage legislation, or tariff disputes) directly into their causal mechanisms. Passing one-liner mentions ('e.g. healthcare' or 'like the UK') do NOT qualify for Top Band (${Math.max(10, split.ao2_marks - 2)}-${split.ao2_marks}/${split.ao2_marks}).
-- STRICT AO3 SYNOPTIC EVALUATION & DECISIVE PRIORITIZATION (${split.ao3_marks} MARKS TOTAL, +3-5% STRICTNESS):
+  * Build complete, unbroken causal transmission chains explaining step-by-step mechanisms.
+  * POWERFUL USE OF REAL-LIFE EXAMPLES: Candidates must actively integrate genuine, specific real-world examples (naming countries, specific markets, historical or contemporary policy interventions such as QE programs, carbon tax regimes, minimum wage legislation, or tariff disputes) directly into their causal mechanisms. Passing one-liner mentions ('e.g. healthcare') do NOT qualify for Top Band (${Math.max(10, split.ao2_marks - 2)}-${split.ao2_marks}/${split.ao2_marks}).
+- STRICT AO3 SYNOPTIC EVALUATION & DECISIVE PRIORITIZATION (${split.ao3_marks} MARKS TOTAL):
   * Evaluation is strictly mandatory out of exactly ${split.ao3_marks} marks. NEVER claim evaluation is not required.
-  * Scrutinize evaluative claims with high academic rigor (+3-5% strictness).
-  * Demand critical prioritization: the candidate must explicitly weigh competing considerations and justify *which* factor, constraint, time-horizon (short-run vs long-run), or elasticity condition is most decisive in context against explicit criteria.
-  * Reject superficial 'it depends on' lists or unweighted pros/cons. Top Band (${Math.max(5, split.ao3_marks - 1)}-${split.ao3_marks}/${split.ao3_marks}) strictly requires sustained comparative weighing and a substantiated contextual overall judgement directly resolving the question prompt.`;
+  * Demand critical prioritization: the candidate should weigh competing considerations (e.g. short-run vs long-run, differing stakeholders, or elasticity conditions) and justify which factor or constraint is most decisive in context against explicit criteria.
+  * Reject superficial 'it depends on' lists. A substantiated contextual overall judgement resolving the prompt directly earns Top Band (${Math.max(5, split.ao3_marks - 1)}-${split.ao3_marks}/${split.ao3_marks}).
+- ZERO INTERNAL CONTRADICTIONS: Never praise an example, definition, or argument in 'strengths' and simultaneously criticize or demand it in 'weaknesses' or 'missing_elements'. If an example is credited, do NOT claim examples are missing.
+- DEFINITION FAIRNESS: Standard definitions must be credited positively; never penalize accurate syllabus concepts with pedantic or hallucinated criticisms.
+- ZERO NUMERIC MARKS IN PROSE: Do NOT write numerical scores, mark breakdowns, or phrases like 'cost you marks' anywhere inside the written feedback.`;
   }
 
   return `SPECIAL DIRECTIVE FOR 12-MARK EVALUATIVE ESSAYS (${split.ao3_marks} AO3 Evaluation Marks Allocated):
 - PAPER SCOPE: THIS IS STRICTLY A CAMBRIDGE 9708 PAPER 2 (AS LEVEL) SECTION B ESSAY (${maxMark} marks total: AO1: ${split.ao1_marks}, AO2: ${split.ao2_marks}, AO3: ${split.ao3_marks}).
-- NEVER mention Paper 4 or A-Level topics (NO marginal utility/utility theory, NO diminishing returns, NO indifference curves, NO monopoly/oligopoly, NO dynamic/X/Pareto efficiency, NO MRPL, NO A2 macro). Grade and advise strictly on AS Level Paper 2 content and knowledge base.
+- 25–30 MINUTE TIMED EXAM CALIBRATION:
+  * The standard for a 12-mark essay is a bit higher than an 8-mark essay, but grading MUST NOT be overly strict.
+  * A student cannot write so much in a timed exam. Do NOT expect everything or demand encyclopedic coverage of every syllabus permutation, alternative policy, or peripheral market impact.
+  * Do NOT penalise for omitting secondary aspects when the primary mechanisms are well addressed.
+  * What is written should be accurate, coherent, and well-explained. Reward what the candidate has written on its economic merits.
+  * If the candidate provides 2-3 well-explained causal analysis points with real-world application, balanced evaluation (e.g. opposing perspective, condition such as elasticity or timeframe), and a reasoned overall concluding judgement answering the prompt, award Top Band (10-12/12, with 3-4/4 in AO3).
+- ABSOLUTE PROHIBITION OF A-LEVEL (PAPER 4) CONCEPTS:
+  * NEVER mention or demand Paper 4 or A-Level topics (NO marginal utility/utility theory, NO diminishing returns, NO indifference curves, NO monopoly/oligopoly, NO dynamic/X/Pareto efficiency, NO MRPL, NO A2 macro). Grade and advise strictly on AS Level Paper 2 content and knowledge base.
 - DEFINITION FAIRNESS: Scarcity is finite or limited resources versus unlimited wants. "Finite" and "limited" are standard Cambridge synonyms; never label a basic definition of scarcity incorrect or a tautology. Do not require opportunity cost in the definition of scarcity itself.
-- EVALUATION IS MANDATORY. In "ao_breakdown.evaluation", evaluate the candidate's evaluation out of exactly ${split.ao3_marks} marks.
+- ZERO INTERNAL CONTRADICTIONS: Never praise an example, definition, or argument in 'strengths' and simultaneously criticize or demand it in 'weaknesses' or 'missing_elements'. If an example is credited, do NOT claim examples are missing.
+- EVALUATION IS MANDATORY: In "ao_breakdown.evaluation", evaluate the candidate's evaluation out of exactly ${split.ao3_marks} marks.
 - ZERO NUMERIC MARKS IN PROSE: Do NOT write numerical scores, mark breakdowns, or phrases like "cost you marks" anywhere inside the written feedback, Examiner Summary, AO explanations, or improvement bullets.
 - FOCUS STRICTLY ON STRENGTHS & IMPROVEMENTS: Focus purely on what the candidate did well economically and specific, syllabus-accurate improvements to elevate their analysis and evaluation.`;
 }
@@ -272,16 +287,16 @@ export function renderAo3Descriptors(maxMark: number, ao3Marks: number): string 
       * Level 0 (0 of 2): Purely descriptive or one-sided analysis with no evaluative weighing and no concluding judgement.`;
   }
   if (ao3Marks === 4) {
-    return `- AO3 Evaluation & Question Focus (4 marks total) — 12-MARK AS ESSAY:
-      * Top Band (3-4 of 4): Highly rigorous standard. Requires genuine critical evaluation and prioritization, directly answering the prompt. Compares policies against explicit economic criteria and explicitly prioritizes the decisive consideration.
-      * Middle Band (2 of 4): Evaluative points present on both sides with some judgement, but comparison with alternatives is limited, criteria are listed rather than prioritized, or conclusion is a mechanical summary.
+    return `- AO3 Evaluation & Question Focus (4 marks total) — 12-MARK AS ESSAY (CALIBRATED TIMED STANDARD):
+      * Top Band (3-4 of 4): Balanced critical evaluation directly answering the prompt. Weighs perspectives against economic criteria (e.g. elasticity, time horizon, magnitude, or stakeholder impact) and reaches a reasoned, supported concluding judgement. Do not demand university-level synthesis.
+      * Middle Band (2 of 4): Evaluative points present on both sides with some judgement, but criteria are listed rather than prioritized, or conclusion is a mechanical summary.
       * Lower Band (0-1 of 4): Purely one-sided assertion, token closing sentence without comparative analysis.`;
   }
   if (ao3Marks >= 6) {
-    return `- AO3 Evaluation & Synoptic Synthesis (${ao3Marks} marks total) — 20-MARK A LEVEL ESSAY (+3-5% STRICTNESS):
-      * Top Band (5-6 of ${ao3Marks}): Sustained, rigorous synoptic evaluation (+3-5% strictness). Evaluates critical trade-offs with explicit prioritization—explaining which constraint, assumption, or stakeholder impact is most decisive in context. Grounded in powerful real-world application and thorough understanding of micro/macro interactions, leading to a substantiated contextual overall verdict directly resolving the prompt.
-      * Middle Band (3-4 of ${ao3Marks}): Clear balanced evaluation across multiple perspectives with sound economic criteria, but prioritization of decisive factors is less sustained, real-world contextualization is limited, or the concluding judgement is partially formulaic.
-      * Lower Band (1-2 of ${ao3Marks}): Basic, limited evaluative comments without structured weighing, or generic unevidenced 'it depends on' lists without contextual application.
+    return `- AO3 Evaluation & Synoptic Synthesis (${ao3Marks} marks total) — 20-MARK A LEVEL ESSAY (CALIBRATED TIMED STANDARD):
+      * Top Band (5-6 of ${ao3Marks}): Sustained synoptic evaluation calibrated for a 40-45 minute timed exam. Evaluates trade-offs with clear prioritization (e.g. explaining which constraint, time-horizon, or stakeholder impact is most decisive in context). Grounded in real-world application and leading to a substantiated contextual overall verdict directly resolving the prompt.
+      * Middle Band (3-4 of ${ao3Marks}): Clear balanced evaluation across multiple perspectives with sound economic criteria, but prioritization of decisive factors is less sustained, or the concluding judgement is partially formulaic.
+      * Lower Band (1-2 of ${ao3Marks}): Basic, limited evaluative comments without structured weighing, or generic unevidenced 'it depends on' lists.
       * Zero (0 of ${ao3Marks}): No evaluative reasoning or conclusions.`;
   }
   return `- AO3 Evaluation (${ao3Marks} marks total): Evaluate the candidate's evaluative reasoning, weighing of perspectives, and concluding judgement out of ${ao3Marks} marks.`;

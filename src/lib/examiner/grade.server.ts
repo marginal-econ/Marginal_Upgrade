@@ -258,6 +258,18 @@ export async function gradeEssay(
       `4. FOCUS STRICTLY ON STRENGTHS & IMPROVEMENTS: In all written feedback sections, focus purely on (a) what the candidate did well economically, and (b) specific, syllabus-accurate improvements to elevate their analysis and evaluation (such as distinguishing movements onto the PPC from outward shifts, and using short-run vs. long-run criteria in the conclusion).`;
   }
 
+  if (maxMark >= 20) {
+    baseSystemPrompt = `${baseSystemPrompt}\n\n` +
+      `CRITICAL PAPER SCOPE DIRECTIVE — CAMBRIDGE 9708 PAPER 4 (A LEVEL EXTENDED ESSAYS):\n` +
+      `This 20-mark question is Cambridge 9708 Paper 4 (A Level).\n` +
+      `1. TIMED EXAM CALIBRATION (~40-45 MINUTES): Standard is highest on Paper 4, but ensure it is realistic and NOT an impossible academic standard. High school exam essay, not an academic journal. Do NOT expect exhaustive coverage of every edge case. Reward thorough multi-perspective causal analysis, real-world examples, and prioritized evaluation.\n` +
+      `2. DEFINITION FAIRNESS & ANTI-HALLUCINATION DIRECTIVE:\n` +
+      `   * Standard Cambridge definitions must be credited positively; never penalize accurate syllabus concepts with pedantic or hallucinated criticisms.\n` +
+      `   * Candidates write timed examination essays; NEVER demand citations or [S#] snippet codes, and NEVER fabricate claims about what snippets require.\n` +
+      `3. ZERO NUMERIC MARKS IN PROSE: Do NOT write numerical scores, mark breakdowns, or phrases like "cost you marks" anywhere inside written feedback, Examiner Summary, AO explanations, or improvement bullets.\n` +
+      `4. FOCUS STRICTLY ON STRENGTHS & IMPROVEMENTS: Focus purely on (a) what the candidate did well economically, and (b) specific, syllabus-accurate improvements.`;
+  }
+
   // Authoritative Chapter 1 (Scarcity & The Basic Economic Problem) Rubric:
   const touchesScarcity = /\bscarcit(y|ies)|basic economic problem|unlimited wants|finite resources\b/i.test(
     `${question} ${essayText}`,
@@ -323,7 +335,11 @@ export async function gradeEssay(
         `You MUST evaluate AO3 out of exactly ${ao3_marks} marks. NEVER state that evaluation is not required.` +
         (maxMark === 8 && split.ao3_marks === 2
           ? `\n8-MARK EVALUATION CALIBRATION (~15 minutes): If the candidate presents a counter-argument and a reasoned conclusion directly addressing the prompt, award Level 2 evaluation (full 2 marks). Do NOT penalise for omitting secondary topics; credit 1-2 developed mechanisms and examples positively.`
-          : "")
+          : maxMark === 12 && split.ao3_marks === 4
+            ? `\n12-MARK EVALUATION CALIBRATION (~25-30 minutes, AS Level): Standard is higher than 8-mark, but NOT overly strict. A student writes under timed conditions and cannot cover everything. Do NOT penalise for omitting peripheral aspects when the core mechanisms are well addressed. If the candidate provides 2-3 clear causal analysis points with an example and balanced evaluation with a reasoned conclusion, award Top Band (10-12/12, with 3-4/4 in AO3). Focus on the quality of what is written.`
+            : maxMark >= 20
+              ? `\n20-MARK EVALUATION CALIBRATION (~40-45 minutes, A Level): Standard is the highest on Paper 4, but ensure it is realistic and NOT an impossible academic standard. It is a timed school exam essay, not a published thesis. Do NOT expect exhaustive coverage of every edge case. If the candidate demonstrates thorough multi-perspective causal chains with real-world application, weighs trade-offs (e.g. short-run vs long-run or prioritized factors), and provides a substantiated overall verdict, award Top Band (16-20/20, with 5-6/6 in AO3).`
+              : "")
       : `[QUESTION SPECIFICATION: ${maxMark} Marks · NON-EVALUATIVE LEGACY ESSAY (AO1: ${ao1_marks}, AO2: ${ao2_marks}, AO3: 0)]\n` +
         `Pure explanatory / analytical question. Evaluation is NOT required; set AO3 awarded: 0, out_of: 0, with zero penalty.`;
 

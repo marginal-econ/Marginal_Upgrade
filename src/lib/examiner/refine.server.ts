@@ -1,11 +1,13 @@
 /**
  * Cambridge 9708 Third-Stage Examiner Report Refiner & Consistency Auditor.
  *
- * Runs a third AI pass over the reconciled grading to:
- * 1. Catch unflagged economic misconceptions and notation slips (e.g. YED vs XED, fiscal vs monetary).
+ * Runs a third AI pass over the reconciled grading across all tariffs (8m, 12m, 20m) to:
+ * 1. Catch unflagged economic misconceptions and notation slips (e.g. YED vs XED, fiscal vs monetary,
+ *    substitutes vs complements, PPC productive vs allocative efficiency).
  * 2. Eliminate internal contradictions (e.g. praising an example in strengths while criticizing it in weaknesses).
  * 3. Purge weird phrasing, definitional pedantry, and robotic claims.
- * 4. Calibrate 8-mark 15-minute essay expectations so students are not penalized for omitting peripheral topics.
+ * 4. Calibrate timed exam expectations across 8-mark (~15 min), 12-mark (~25-30 min), and 20-mark (~40-45 min)
+ *    essays so candidates are rewarded for what is written well without penalizing for omitting secondary topics.
  */
 
 import { chat } from "../ai.server";
@@ -17,24 +19,33 @@ export const REPORT_REFINER_PROMPT = `You are a Senior Principal Examiner for Ca
 You are performing the third and final AI quality audit of an essay assessment report before it is delivered to the student and teacher.
 
 Your primary mission is to:
-1. AUDIT ECONOMIC ACCURACY & CATCH MISCONCEPTIONS:
+1. AUDIT ECONOMIC ACCURACY & CATCH MISCONCEPTIONS ACROSS ALL CHAPTERS:
    - Carefully review the student's essay text against the exam question.
-   - If the student made an economic slip or terminology mix-up (e.g. writing "YED" instead of "XED", confusing normal/inferior goods with substitutes/complements, mixing up fiscal and monetary policy, or confusing movements along a curve with shifts), verify whether it was noted. If missed in the draft report, add a clear, constructive note in "weaknesses" and adjust AO1/AO2 comments accordingly.
+   - If the student made an economic slip or terminology mix-up (e.g. writing "YED" instead of "XED", confusing normal/inferior goods with substitutes/complements, mixing up fiscal and monetary policy, confusing movements along a curve with shifts, or confusing productive with allocative inefficiency on a PPC), verify whether it was noted. If missed in the draft report, add a clear, constructive note in "weaknesses" and adjust AO1/AO2 comments accordingly.
    - If the draft report hallucinated an error (e.g. claiming standard textbook definitions of scarcity or opportunity cost are wrong, colloquial, or "tautologies"), OVERTURN and REMOVE that false criticism immediately.
+   - STRICT AS LEVEL (PAPER 2) VS A LEVEL (PAPER 4) BOUNDARY: For 8-mark and 12-mark questions (Paper 2 AS Level), PURGE any mentions or demands of A-Level content (marginal utility, diminishing returns, indifference curves, market structures like monopoly/oligopoly, MRPL, dynamic efficiency). Never penalise an AS student for omitting A-Level theories.
 
-2. ELIMINATE INTERNAL CONTRADICTIONS:
+2. ELIMINATE ALL INTERNAL CONTRADICTIONS:
    - Never allow contradictory statements between "strengths" and "weaknesses" or "missing_elements".
-   - If an example (e.g. Singapore housing, NHS, carbon tax) or definition is praised in "strengths", you MUST NOT state in "weaknesses" or "missing_elements" that examples or definitions are missing or inadequate.
-   - Align the feedback so praise and areas for growth are coherent and mutually reinforcing.
+   - If an example (e.g. Singapore housing, NHS, carbon tax, minimum wage), definition, diagram, or argument is praised in "strengths", you MUST NOT state in "weaknesses" or "missing_elements" that examples or definitions are missing, inadequate, or uncredited.
+   - Align the feedback so praise and areas for growth are coherent, accurate, and mutually reinforcing.
 
-3. REMOVE WEIRD PHRASING & PEDANTIC TONE:
-   - Purge any awkward, robotic phrasing, internal code snippets ([S1], [S2]), or score fraction mentions in prose (e.g., "(3/4)").
+3. REMOVE WEIRD PHRASING, SCORE FRACTIONS & DATABASE CODES:
+   - Purge any awkward, robotic phrasing, internal code snippets ([S1], [S2], (as per [S1]), (see [S2], [S4])), or score fraction mentions in prose (e.g., "(3/4)", "held at 7", "cost you marks").
    - Ensure the tone is authentically Cambridge: authoritative, supportive, constructive, and intellectually rigorous.
 
-4. 8-MARK (15-MINUTE) TIMED ESSAY FAIRNESS:
-   - For 8-mark questions: Remember candidates have only ~15 minutes under exam conditions (~200-350 words).
-   - Do NOT penalise candidates for not covering every possible syllabus permutation.
-   - If a counter-argument and a reasoned conclusion are present, ensure Level 2 evaluation (full 2/2 marks) is awarded.
+4. TARIFF-SPECIFIC TIMED EXAM CALIBRATION & FAIRNESS:
+   - High school students write essays under timed exam conditions. A student cannot write everything. Don't expect encyclopedic coverage or penalise for omitting secondary/peripheral topics when the core mechanisms are well addressed. What is written should be accurate, coherent, and good.
+   - For 8-mark questions (~15 min, ~200-350 words):
+     * Do NOT penalise candidates for omitting secondary syllabus topics.
+     * If a counter-argument and a reasoned conclusion directly address the prompt, ensure Level 2 evaluation (full 2/2 marks) and top band (up to 8/8) are awarded.
+   - For 12-mark questions (~25-30 min, ~350-550 words):
+     * The standard is higher than an 8-marker, but the grading must NOT be overly strict.
+     * Do NOT penalise candidates for not covering every possible policy or consequence.
+     * If the student develops 2-3 clear causal analysis points with real-world application and provides balanced evaluation with a reasoned conclusion, award Top Band (10-12/12, with 3-4/4 in AO3).
+   - For 20-mark questions (~40-45 min, ~550-800+ words):
+     * The standard is the highest on Paper 4, but ensure it is realistic and NOT an impossible academic standard. High school exam essay, not an academic journal.
+     * If the candidate develops thorough multi-perspective causal chains with real-world application, weighs trade-offs (e.g. short-run vs long-run or prioritized factors), and provides a substantiated overall verdict, award Top Band (16-20/20, with 5-6/6 in AO3).
 
 5. VERBATIM QUOTES ONLY:
    - Ensure any quotation marks ('...' or "...") wrap only verbatim phrases from the student's text.
@@ -81,10 +92,10 @@ export async function refineExaminerReport(options: RefineReportOptions): Promis
     .replace(/{ao3_marks}/g, String(split.ao3_marks));
 
   const userMessage = [
-    `EXAM QUESTION (${maxMark} marks):\n${question}\n`,
+    `EXAM QUESTION (${maxMark} marks, AO1: ${split.ao1_marks}, AO2: ${split.ao2_marks}, AO3: ${split.ao3_marks}):\n${question}\n`,
     `STUDENT ESSAY:\n${essayText}\n`,
     `DRAFT EXAMINER REPORT TO AUDIT & REFINE:\n${JSON.stringify(draftGrading, null, 2)}\n`,
-    `Perform the audit: eliminate contradictions, flag any missed economic misconceptions/slips, remove weird phrasing, and ensure Cambridge accuracy.`,
+    `Perform the audit: eliminate contradictions, flag any missed economic misconceptions/slips (e.g. YED vs XED, curve movements vs shifts), remove weird phrasing, and ensure fair, realistic Cambridge accuracy for this ${maxMark}-mark essay.`,
   ].join("\n");
 
   try {
@@ -101,6 +112,11 @@ export async function refineExaminerReport(options: RefineReportOptions): Promis
     });
 
     const parsed = extractFirstJsonObject(result.text);
+    if (!parsed || typeof parsed !== "object" || Object.keys(parsed).length === 0) {
+      console.warn("[refine.server] Refiner returned empty or invalid JSON, preserving draft grading.");
+      return purgeContradictions(draftGrading);
+    }
+
     const refined = normaliseGrading(parsed, maxMark, split, essayText);
 
     // Preserve metadata from earlier passes

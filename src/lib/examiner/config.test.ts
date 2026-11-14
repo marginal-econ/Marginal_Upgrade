@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { REPORT_REFINER_PROMPT } from "./refine.server";
 import {
   AO_DEFINITIONS,
   defaultSplitForMaxMark,
@@ -121,7 +122,34 @@ describe("Examiner Configuration & Gemini Model Allocation", () => {
     expect(legacyAo3Descriptors).toContain("AO3 Evaluation (0 marks): Evaluation is NOT required");
   });
 
-  it("builds exact evaluation directives and level descriptors matching 20m tariffs (+3-5% strictness, thorough analysis, powerful real-life examples)", async () => {
+  it("builds exact evaluation directives and level descriptors matching 12m tariffs (calibrated timed standard, AS Level Paper 2)", async () => {
+    const { buildAoEvaluationDirective, renderAo3Descriptors, defaultSplitForMaxMark } = await import("./config");
+
+    const split12 = defaultSplitForMaxMark(12);
+    expect(split12).toEqual({ ao1_marks: 2, ao2_marks: 6, ao3_marks: 4 });
+
+    const directive12 = buildAoEvaluationDirective(12, split12);
+    expect(directive12).toContain("SPECIAL DIRECTIVE FOR 12-MARK EVALUATIVE ESSAYS");
+    expect(directive12).toContain("25–30 MINUTE TIMED EXAM CALIBRATION");
+    expect(directive12).toContain("ABSOLUTE PROHIBITION OF A-LEVEL (PAPER 4) CONCEPTS");
+    expect(directive12).toContain("ZERO INTERNAL CONTRADICTIONS");
+
+    const descriptors12 = renderAo3Descriptors(12, 4);
+    expect(descriptors12).toContain("12-MARK AS ESSAY (CALIBRATED TIMED STANDARD)");
+    expect(descriptors12).toContain("Top Band (3-4 of 4)");
+    expect(descriptors12).toContain("Middle Band (2 of 4)");
+  });
+
+  it("verifies the third AI refiner prompt covers 8m, 12m, and 20m timed exam calibrations and misconception audits", () => {
+    expect(REPORT_REFINER_PROMPT).toContain("AUDIT ECONOMIC ACCURACY & CATCH MISCONCEPTIONS ACROSS ALL CHAPTERS");
+    expect(REPORT_REFINER_PROMPT).toContain("ELIMINATE ALL INTERNAL CONTRADICTIONS");
+    expect(REPORT_REFINER_PROMPT).toContain("For 8-mark questions");
+    expect(REPORT_REFINER_PROMPT).toContain("For 12-mark questions");
+    expect(REPORT_REFINER_PROMPT).toContain("For 20-mark questions");
+    expect(REPORT_REFINER_PROMPT).toContain("STRICT AS LEVEL (PAPER 2) VS A LEVEL (PAPER 4) BOUNDARY");
+  });
+
+  it("builds exact evaluation directives and level descriptors matching 20m tariffs (calibrated timed standard, thorough analysis, powerful real-life examples)", async () => {
     const { buildAoEvaluationDirective, renderAo3Descriptors, defaultSplitForMaxMark } = await import("./config");
 
     const split20 = defaultSplitForMaxMark(20);
@@ -135,9 +163,9 @@ describe("Examiner Configuration & Gemini Model Allocation", () => {
     expect(directive20).toContain("STRICT AO3 SYNOPTIC EVALUATION & DECISIVE PRIORITIZATION");
 
     const descriptors20 = renderAo3Descriptors(20, 6);
-    expect(descriptors20).toContain("20-MARK A LEVEL ESSAY (+3-5% STRICTNESS)");
+    expect(descriptors20).toContain("20-MARK A LEVEL ESSAY (CALIBRATED TIMED STANDARD)");
     expect(descriptors20).toContain("Top Band (5-6 of 6)");
-    expect(descriptors20).toContain("Sustained, rigorous synoptic evaluation (+3-5% strictness)");
+    expect(descriptors20).toContain("Sustained synoptic evaluation calibrated for a 40-45 minute timed exam");
     expect(descriptors20).toContain("Middle Band (3-4 of 6)");
     expect(descriptors20).toContain("Lower Band (1-2 of 6)");
   });

@@ -162,7 +162,7 @@ AUTHORITATIVE PRINCIPAL EXAMINER PRINCIPLES:
      * Approaching the prompt with differing analytical emphasis or partial focus.
      All of these MUST be marked positively on their economic merits.
    - Only award 0 marks across all AOs if you have double-checked that the essay has ZERO economic relation to the question prompt (no economic overlap whatsoever). No grace marks for genuinely off-topic material.
-3. KNOWLEDGE & ANALYSIS CRITERIA (+3-5% STRICTNESS):
+3. KNOWLEDGE & ANALYSIS CRITERIA (TIMED EXAM CALIBRATION):
    - AO1 Knowledge: Demand syllabus-precise definitions and thorough economic knowledge and understanding across all key concepts. Vague or ambiguous terms earn 1 mark; inverted/false definitions receive 0.
    - AO2 Analysis: Demand complete, unbroken causal transmission chains and thorough analysis. Omitted causal steps restrict analysis from Top Band. For 20-mark extended essays, analysis across all 12 marks must be thorough and multi-perspective.
    - Examples & Application: If an example is related to the question and demonstrates genuine real-world application, reward that mark under AO2. For 20-mark essays, powerful and relevant use of real-life examples (naming specific countries, markets, or policy programs) integrated into the analytical mechanism is strictly required for Top Band. If theoretical, it must provide a clear demonstration of the mechanism. REJECT weak one-liner examples (e.g. passing mentions like "e.g. healthcare" without explanation).
@@ -171,19 +171,19 @@ AUTHORITATIVE PRINCIPAL EXAMINER PRINCIPLES:
    - Written economics alone can achieve full marks (including full marks in AO2 and overall).
    - NEVER penalise or deduct marks for the absence of a diagram. If either pass deducted marks for lack of a diagram, OVERTURN that deduction.
    - If an accurate diagram is described or drawn, ensure it is POSITIVELY REWARDED under AO2.
-5. EVALUATION DIRECTIVE (STRONG, WIDE, AND RIGOROUS +3-5% STRICTNESS):
+5. EVALUATION DIRECTIVE (STRONG, WIDE, AND RIGOROUS TIMED STANDARDS):
    - EVALUATIVE VS NON-EVALUATIVE TARIFF DIRECTIVE:
      * If {ao3_marks} is 0 marks: Evaluation is strictly NOT required (legacy Cambridge 8-mark 'Explain' questions). Set awarded: 0, out_of: 0, and comment: "Evaluation is not required for this question. No marks are lost for its omission." Keep missing_elements.evaluation empty [].
      * If {ao3_marks} > 0 marks: Evaluation IS MANDATORY. You MUST grade AO3 out of {ao3_marks} marks. NEVER state that evaluation is not required, even if the question starts with 'Explain'.
       * PAPER SCOPE FOR 8-MARK & 12-MARK ESSAYS (STRICT AS LEVEL PAPER 2 ONLY):
         Strictly Cambridge 9708 Paper 2 (AS Level). NEVER mention Paper 4, A-Level topics (NO marginal utility/utility theory, NO diminishing returns, NO indifference curves, NO monopoly/oligopoly, NO dynamic/X/Pareto efficiency, NO MRPL, NO A2 macro), or extended Paper 4 essays. Grade and advise strictly on AS Level Paper 2 content.
-     * For 8-mark evaluative questions ({ao3_marks} = 2 marks):
-        - 15-MINUTE TIMED EXAM CALIBRATION: An 8-mark response written in ~15 minutes (~200-350 words) cannot cover all syllabus topics. Do NOT penalise candidates for omitting secondary topics. Focus on the quality of the 1-2 core mechanisms and examples provided.
-        - CALIBRATED EVALUATION LENIENCY: If the candidate provides a counter-argument / opposing perspective and a reasoned concluding judgement directly addressing the prompt, award Level 2 evaluation (full 2 of 2 marks). A sound essay with a good conclusion can achieve 8/8.
-        - ZERO NUMERIC MARKS IN PROSE: Do NOT write numerical scores, mark breakdowns, or phrases like "held at 7", "instead of 8", or "cost you marks" anywhere inside written feedback or comments. Focus strictly on strengths and AS syllabus-accurate improvements.
+     * TARIFF-SPECIFIC TIMED EXAM CALIBRATION & FAIRNESS:
+        - 8-mark evaluative questions ({ao3_marks} = 2 marks, ~15 min): Cannot cover all syllabus topics. Do NOT penalise candidates for omitting secondary topics. If the candidate provides a counter-argument and a reasoned conclusion directly addressing the prompt, award Level 2 evaluation (full 2 of 2 marks). A sound essay with a good conclusion can achieve 8/8.
+        - 12-mark evaluative questions ({ao3_marks} = 4 marks, ~25-30 min): Standard is higher than 8m, but NOT overly strict. A student cannot write everything under timed conditions; do NOT penalise for omitting peripheral aspects when core mechanisms are well addressed. If the candidate provides 2-3 well-explained causal analysis points with real-world application, balanced evaluation, and a reasoned conclusion, award Top Band (10-12/12, with 3-4/4 in AO3).
+        - 20-mark extended essays ({ao3_marks} = 6 marks, ~40-45 min): Highest standard on Paper 4, but realistic for timed conditions. Thorough multi-perspective causal chains with real-world application, weighing trade-offs (e.g. short-run vs long-run or prioritized factors), and providing a substantiated overall verdict earns Top Band (16-20/20, with 5-6/6 in AO3).
+        - ZERO NUMERIC MARKS IN PROSE: Do NOT write numerical scores, mark breakdowns, or phrases like "held at 7", "instead of 8", or "cost you marks" anywhere inside written feedback or comments. Focus strictly on strengths and syllabus-accurate improvements.
         - ZERO INTERNAL CONTRADICTIONS: Never praise an example or concept in strengths while criticizing or demanding it in weaknesses or missing elements.
-     * For 20-mark extended essays ({ao3_marks} = 6 marks): Scrutinize synoptic evaluation rigorously with +3-5% strictness. Require candidates to synthesize micro and macro impacts, evaluate short-run vs long-run trade-offs, test elasticity conditions, and provide a reasoned, decisive contextual verdict answering the question prompt directly. Top Band (5-6/6) strictly demands critical prioritization of decisive factors.
-   - Apply calibrated strictness (+3-5%) to AO3 Evaluation:
+   - Maintain rigorous, fair evaluation moderation without artificial numeric caps or impossible expectations:
    - Demand critical prioritization: top band evaluation requires the candidate to explicitly justify which factor or criterion is most decisive (e.g. why inelastic demand limits short-run effectiveness vs long-run substitution).
    - Reject unprioritized textbook lists: merely reciting 'it depends on PED, time, and government budget' without contextual weighing belongs in middle band.
    - For questions assessing whether a policy is the 'best way' or 'most effective' intervention, candidates must directly compare against alternative policies (e.g. permits, regulation, subsidies) against explicit criteria (PED pass-through, equity/regressive impacts, administrative feasibility, government failure in tax calibration). Superficial or missing comparative weighing cannot exceed Level 1 in AO3.
@@ -343,55 +343,57 @@ export function synthesizeDualPasses(
   // When delta is 1, prefer the rigorous Error-Audit pass (pass1) to maintain calibrated evaluative strictness.
   const preferred = pass1.total_mark <= pass2.total_mark ? pass1 : pass2;
 
-  // Reconcile individual AO awarded marks ensuring sum equals total with calibrated strictness (+3-5% on AO1/AO2/AO3)
+  // Reconcile individual AO awarded marks ensuring sum equals total under calibrated Cambridge standards
   let kMark = Math.min(
     split.ao1_marks,
-    Math.floor((pass1.ao_breakdown.knowledge.awarded + pass2.ao_breakdown.knowledge.awarded) / 2 + 0.45),
+    Math.round((pass1.ao_breakdown.knowledge.awarded + pass2.ao_breakdown.knowledge.awarded) / 2),
   );
   let aMark = Math.min(
     split.ao2_marks,
-    Math.floor((pass1.ao_breakdown.analysis.awarded + pass2.ao_breakdown.analysis.awarded) / 2 + 0.45),
+    Math.round((pass1.ao_breakdown.analysis.awarded + pass2.ao_breakdown.analysis.awarded) / 2),
   );
-  // For 8-mark evaluative essays (AO3 = 2 marks):
-  // 8/8 is strictly reserved for a truly perfect essay.
-  // When evaluation criteria are not fully met or conclusion is not satisfied, award 1/2 marks, keeping the essay at 7.
+
   const isEightMark = maxMark === 8 && split.ao3_marks === 2;
+  const isTwelveMark = maxMark === 12 && split.ao3_marks === 4;
+  const isTwentyMark = maxMark >= 20 && split.ao3_marks >= 6;
   const pass1EvalAwarded = pass1.ao_breakdown.evaluation.awarded;
   const pass2EvalAwarded = pass2.ao_breakdown.evaluation.awarded;
-  const allWeaknessesText = [...pass1.weaknesses, ...pass2.weaknesses].join(" ").toLowerCase();
-  const allEvalCommentsText = `${pass1.ao_breakdown.evaluation.comment || ""} ${pass2.ao_breakdown.evaluation.comment || ""}`.toLowerCase();
-
-  const hasUnmetEvaluationOrConclusion =
-    pass1EvalAwarded < 2 ||
-    pass2EvalAwarded < 2 ||
-    pass1.total_mark < 8 ||
-    pass2.total_mark < 8 ||
-    (pass1.missing_elements.evaluation && pass1.missing_elements.evaluation.length > 0) ||
-    (pass2.missing_elements.evaluation && pass2.missing_elements.evaluation.length > 0) ||
-    /unmet|incomplete|unsatisfied|missing|unsupported|partially|fail(ed|s)? to|superficial|weak|not fully|room for|could be further/i.test(allEvalCommentsText) ||
-    /conclusion.*(missing|weak|unsupported|lacking|incomplete|unsatisfied)|evaluation.*(not fully|partially|lacking|unmet|incomplete)/i.test(allWeaknessesText);
 
   let eMark = 0;
   if (split.ao3_marks === 0) {
     eMark = 0;
   } else if (isEightMark) {
     // Calibrated 8-mark evaluation leniency for ~15-minute essays:
-    // If either pass awarded full marks or both passes recognized a counter-argument / conclusion, award 2/2.
     if (pass1EvalAwarded === 2 || pass2EvalAwarded === 2) {
       eMark = 2;
     } else {
-      eMark = Math.min(split.ao3_marks, Math.floor((pass1EvalAwarded + pass2EvalAwarded) / 2 + 0.5));
+      eMark = Math.min(split.ao3_marks, Math.round((pass1EvalAwarded + pass2EvalAwarded) / 2));
+    }
+  } else if (isTwelveMark) {
+    // Calibrated 12-mark evaluation for ~25-30 minute essays:
+    if (pass1EvalAwarded >= 3 && pass2EvalAwarded >= 3) {
+      eMark = Math.max(pass1EvalAwarded, pass2EvalAwarded);
+    } else {
+      eMark = Math.min(split.ao3_marks, Math.round((pass1EvalAwarded + pass2EvalAwarded) / 2));
+    }
+  } else if (isTwentyMark) {
+    // Calibrated 20-mark evaluation for ~40-45 minute essays:
+    if (pass1EvalAwarded >= 5 && pass2EvalAwarded >= 5) {
+      eMark = Math.max(pass1EvalAwarded, pass2EvalAwarded);
+    } else {
+      eMark = Math.min(split.ao3_marks, Math.round((pass1EvalAwarded + pass2EvalAwarded) / 2));
     }
   } else {
     eMark = Math.min(
       split.ao3_marks,
-      Math.floor((pass1EvalAwarded + pass2EvalAwarded) / 2 + 0.45),
+      Math.round((pass1EvalAwarded + pass2EvalAwarded) / 2),
     );
   }
 
   let total = kMark + aMark + eMark;
-  if (!isEightMark && total !== preferred.total_mark) {
-    const diff = preferred.total_mark - total;
+  const targetTotal = Math.round((pass1.total_mark + pass2.total_mark) / 2);
+  if (total !== targetTotal) {
+    const diff = targetTotal - total;
     if (diff > 0 && aMark < split.ao2_marks) {
       aMark += 1;
     } else if (diff < 0 && aMark > 0) {
