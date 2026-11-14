@@ -452,4 +452,83 @@ The candidate scored well on AO1.
     // Practice must stay strictly on elasticity/pricing
     expect(result.suggested_practice.some((p) => /elasticity|pricing|substitute|xed/i.test(p))).toBe(true);
   });
+
+  it("clamps AO2 to Level 1 and AO1 to 1 mark when inverted AD shift and policy conflation occur", async () => {
+    const { normaliseGrading } = await import("./types");
+    const split = { ao1_marks: 2, ao2_marks: 6, ao3_marks: 4 };
+
+    const flawedRaw: any = {
+      total_mark: 6,
+      ao_breakdown: {
+        knowledge: {
+          awarded: 2,
+          out_of: 2,
+          comment: "The definition is partially accurate, though the introduction conflates monetary policy with fiscal policy."
+        },
+        analysis: {
+          awarded: 4,
+          out_of: 6,
+          comment: "The transmission mechanism is flawed: the candidate claims AD shifts right, increasing inflation, rather than left, reducing it."
+        },
+        evaluation: {
+          awarded: 0,
+          out_of: 4,
+          comment: "No evaluation provided. Lacks an evaluative conclusion."
+        },
+      },
+      examiner_summary: "The candidate demonstrates sound economic understanding across AO1 Knowledge, AO2 Analysis, and AO3 Evaluation.",
+      strengths: [
+        "Presents balanced perspectives addressing multiple dimensions of the prompt.",
+        "Accurate economic terminology."
+      ],
+      weaknesses: [
+        "The direction of the AD shift is reversed."
+      ],
+    };
+
+    const result = normaliseGrading(flawedRaw, 12, split, "Essay text on interest rates...");
+
+    // AO1 must be clamped to 1 due to policy conflation
+    expect(result.ao_breakdown.knowledge.awarded).toBeLessThanOrEqual(1);
+
+    // AO2 must be clamped to Level 1 (max 2 marks) due to inverted AD shift
+    expect(result.ao_breakdown.analysis.awarded).toBeLessThanOrEqual(2);
+
+    // AO3 must remain 0
+    expect(result.ao_breakdown.evaluation.awarded).toBe(0);
+
+    // Total mark must be in Bottom Band (<= 3/12), not 6/12
+    expect(result.total_mark).toBeLessThanOrEqual(3);
+    expect(result.band).toBe("Bottom Band");
+
+    // Examiner summary must NOT claim sound AO3 Evaluation when AO3 is 0
+    expect(result.examiner_summary).not.toContain("AO1 Knowledge, AO2 Analysis, and AO3 Evaluation");
+
+    // Strengths must NOT praise balanced perspectives when AO3 is 0
+    expect(result.strengths.some((s) => s.includes("balanced perspectives"))).toBe(false);
+  });
+
+  it("does not clamp or affect high mark top band essays", async () => {
+    const { normaliseGrading } = await import("./types");
+    const split = { ao1_marks: 2, ao2_marks: 6, ao3_marks: 4 };
+
+    const topRaw: any = {
+      total_mark: 12,
+      ao_breakdown: {
+        knowledge: { awarded: 2, out_of: 2, comment: "Precise definitions." },
+        analysis: { awarded: 6, out_of: 6, comment: "Exemplary multi-step causal chains." },
+        evaluation: { awarded: 4, out_of: 4, comment: "Substantiated contextual weighing." },
+      },
+      examiner_summary: "Outstanding Cambridge performance demonstrating deep understanding.",
+      strengths: ["Flawless analysis.", "Balanced evaluation."],
+      weaknesses: ["Minor polish."],
+    };
+
+    const result = normaliseGrading(topRaw, 12, split, "High quality essay text...");
+    expect(result.total_mark).toBe(12);
+    expect(result.band).toBe("Top Band");
+    expect(result.ao_breakdown.knowledge.awarded).toBe(2);
+    expect(result.ao_breakdown.analysis.awarded).toBe(6);
+    expect(result.ao_breakdown.evaluation.awarded).toBe(4);
+  });
 });

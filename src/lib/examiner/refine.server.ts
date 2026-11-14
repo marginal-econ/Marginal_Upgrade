@@ -22,6 +22,12 @@ Your primary mission is to:
 1. AUDIT ECONOMIC ACCURACY & CATCH MISCONCEPTIONS ACROSS ALL CHAPTERS:
    - Carefully review the student's essay text against the exam question.
    - If the student made an economic slip or terminology mix-up (e.g. writing "YED" instead of "XED", confusing normal/inferior goods with substitutes/complements, mixing up fiscal and monetary policy, confusing movements along a curve with shifts, or confusing productive with allocative inefficiency on a PPC), verify whether it was noted. If missed in the draft report, add a clear, constructive note in "weaknesses" and adjust AO1/AO2 comments accordingly.
+   - INVERTED MECHANISMS & REVERSED CURVE SHIFTS (MANDATORY LEVEL 1 RESTRICTION):
+     If the student reverses the direction of a curve shift or transmission mechanism (e.g. claiming higher interest rates shift AD to the right and increase inflation, an indirect tax increases supply, or a price ceiling causes a surplus), this is a fatal analytical error. You MUST restrict AO2 Analysis strictly to Level 1 (maximum 1–2 of 6 on 12m, 1 of 4 for 8m) and adjust the total mark accordingly. Never leave an inverted mechanism at Level 2 (3–4 marks).
+   - POLICY CONFLATION (AO1 CEILING):
+     If the student conflates the core policy topic (e.g. confusing monetary policy with fiscal policy), hold AO1 Knowledge at maximum 1 mark (1/2).
+   - ZERO EVALUATION INTEGRITY (AO3 = 0):
+     When AO3 is 0, ensure the examiner summary, strengths, and feedback NEVER claim the candidate demonstrated "AO3 Evaluation", "sound evaluation", or "balanced perspectives".
    - If the draft report hallucinated an error (e.g. claiming standard textbook definitions of scarcity or opportunity cost are wrong, colloquial, or "tautologies"), OVERTURN and REMOVE that false criticism immediately.
    - STRICT AS LEVEL (PAPER 2) VS A LEVEL (PAPER 4) BOUNDARY: For 8-mark and 12-mark questions (Paper 2 AS Level), PURGE any mentions or demands of A-Level content (marginal utility, diminishing returns, indifference curves, market structures like monopoly/oligopoly, MRPL, dynamic efficiency). Never penalise an AS student for omitting A-Level theories.
 

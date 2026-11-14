@@ -460,10 +460,36 @@ export function normaliseGrading(
       // but the candidate made an evaluative attempt or provided a conclusion / classification:
       if (
         evaluation.awarded === 0 &&
-        /conclusion|judgement|judgment|classif|weigh|perspective|counter/i.test(evaluation.comment)
+        /conclusion|judgement|judgment|classif|weigh|perspective|counter/i.test(evaluation.comment) &&
+        !/no conclusion|unsupported|absent|lacks? (an? )?evaluation|not provided|wholly absent|no evaluative|superficial|fails? to|omission/i.test(evaluation.comment)
       ) {
         evaluation.awarded = 1;
       }
+    }
+
+    const rawWeaknesses = toStringArray(raw.weaknesses);
+    // Inverted transmission mechanisms or reversed curve shifts (e.g. higher interest rates shifting AD right):
+    // Under Cambridge 9708 regulations, an inverted mechanism CANNOT exceed Level 1 Analysis.
+    const allCommentsAndWeaknesses = `${analysis.comment} ${knowledge.comment} ${rawWeaknesses.join(" ")}`.toLowerCase();
+    const isInvertedMechanism =
+      /direction of (the )?(ad|as|curve|shift) is reversed|claims ad shifts right.*increasing inflation|inverted transmission|reversed curve shift|shifts supply the wrong way/i.test(
+        allCommentsAndWeaknesses,
+      );
+    if (isInvertedMechanism) {
+      const maxLevel1Ao2 = maxMark === 12 ? 2 : maxMark === 8 ? 1 : Math.round(split.ao2_marks * 0.35);
+      if (analysis.awarded > maxLevel1Ao2) {
+        analysis.awarded = maxLevel1Ao2;
+      }
+    }
+
+    // Policy instrument conflation (e.g. monetary vs fiscal policy):
+    // Conflating the core policy instrument limits AO1 Knowledge to maximum 1 mark.
+    const isPolicyConflated =
+      /conflates? (it with|monetary with|fiscal with|monetary policy with fiscal)/i.test(
+        allCommentsAndWeaknesses,
+      );
+    if (isPolicyConflated && knowledge.awarded > 1) {
+      knowledge.awarded = 1;
     }
 
     // For 8-mark evaluative essays, calibrate evaluation strictness to realistic Cambridge Section B standards:
@@ -511,11 +537,22 @@ export function normaliseGrading(
 
   // Ensure full-fledged feedback is ALWAYS provided to the student
   if (!examinerSummary || examinerSummary.length < 25) {
-    if (split.ao3_marks === 0) {
-      examinerSummary = `This submission achieves a ${band} standard. The candidate demonstrates sound economic understanding across AO1 Knowledge and AO2 Analysis. Evaluation is not required for this question. Arguments are structured and address the prompt, with opportunities to deepen causal transmission mechanisms in subsequent rewrites.`;
+    if (split.ao3_marks === 0 || evaluation.awarded === 0) {
+      examinerSummary = `This submission achieves a ${band} standard. The candidate demonstrates understanding across AO1 Knowledge and AO2 Analysis${evaluation.awarded === 0 && split.ao3_marks > 0 ? ", while evaluative reasoning is absent or uncredited (0 marks awarded for AO3)" : ""}. Arguments are structured, with opportunities to deepen causal transmission mechanisms in subsequent rewrites.`;
     } else {
       examinerSummary = `This submission achieves a ${band} standard. The candidate demonstrates sound economic understanding across AO1 Knowledge, AO2 Analysis, and AO3 Evaluation. Arguments are structured and address the prompt, with opportunities to deepen transmission mechanisms and comparative evaluation in subsequent rewrites.`;
     }
+  }
+
+  // Purge contradictory claims of "sound AO3 evaluation" when AO3 was awarded 0 marks
+  if (evaluation.awarded === 0 && split.ao3_marks > 0) {
+    examinerSummary = examinerSummary
+      .replace(/AO1 Knowledge, AO2 Analysis, and AO3 Evaluation/gi, "AO1 Knowledge and AO2 Analysis, with evaluation absent")
+      .replace(/across AO1, AO2, and AO3/gi, "across AO1 and AO2")
+      .replace(/sound economic understanding across AO1 Knowledge, AO2 Analysis, and AO3 Evaluation/gi, "economic understanding across AO1 Knowledge and AO2 Analysis");
+    strengths = strengths.filter(
+      (s) => !/\b(balanced perspectives|sound evaluation|strong evaluat|evaluative breadth)\b/i.test(s)
+    );
   }
 
   if (split.ao3_marks === 0) {
@@ -560,12 +597,19 @@ export function normaliseGrading(
   }
 
   if (strengths.length === 0) {
-    strengths = [
-      `Accurate and appropriate use of economic terminology contextually applied.`,
-      `Clear analytical reasoning establishing cause-and-effect links for core mechanisms.`,
-    ];
-    if (split.ao3_marks > 0) {
-      strengths.push(`Presents balanced perspectives addressing multiple dimensions of the prompt.`);
+    if (total <= Math.round(maxMark * 0.35)) {
+      // Bottom Band: honest, calibrated feedback without false praise
+      strengths = [
+        "Attempts the question prompt and references relevant economic terminology.",
+      ];
+    } else {
+      strengths = [
+        `Accurate and appropriate use of economic terminology contextually applied.`,
+        `Clear analytical reasoning establishing cause-and-effect links for core mechanisms.`,
+      ];
+      if (split.ao3_marks > 0 && evaluation.awarded > 0) {
+        strengths.push(`Presents balanced perspectives addressing multiple dimensions of the prompt.`);
+      }
     }
   }
 
