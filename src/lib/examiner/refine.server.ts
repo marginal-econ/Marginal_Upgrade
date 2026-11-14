@@ -14,6 +14,7 @@ import { chat } from "../ai.server";
 import { MODEL_EXAMINER, type AoSplit } from "./config";
 import { extractFirstJsonObject } from "./json";
 import { normaliseGrading, purgeContradictions, type Grading } from "./types";
+import { analyzeEssayQuality, applyWritingQualityGuardrail } from "./writing-quality.server";
 
 export const REPORT_REFINER_PROMPT = `You are a Senior Principal Examiner for Cambridge International AS/A Level Economics (syllabus 9708).
 You are performing the third and final AI quality audit of an essay assessment report before it is delivered to the student and teacher.
@@ -26,6 +27,8 @@ Your primary mission is to:
      If the student reverses the direction of a curve shift or transmission mechanism (e.g. claiming higher interest rates shift AD to the right and increase inflation, an indirect tax increases supply, or a price ceiling causes a surplus), this is a fatal analytical error. You MUST restrict AO2 Analysis strictly to Level 1 (maximum 1–2 of 6 on 12m, 1 of 4 for 8m) and adjust the total mark accordingly. Never leave an inverted mechanism at Level 2 (3–4 marks).
    - POLICY CONFLATION (AO1 CEILING):
      If the student conflates the core policy topic (e.g. confusing monetary policy with fiscal policy), hold AO1 Knowledge at maximum 1 mark (1/2).
+   - COMMENT-TO-SCORE LEVEL CONSISTENCY:
+     Verify that awarded marks strictly match qualitative comments. If a comment states that AO3 is restricted to Level 1 (or evaluation is superficial/unreasoned), AO3 marks MUST be Level 1 (maximum 1–2 of 4 for 12m, 1 of 2 for 8m). Never permit Level 2 marks (3–4/4) alongside a comment stating the evaluation is superficial or restricted to Level 1.
    - ZERO EVALUATION INTEGRITY (AO3 = 0):
      When AO3 is 0, ensure the examiner summary, strengths, and feedback NEVER claim the candidate demonstrated "AO3 Evaluation", "sound evaluation", or "balanced perspectives".
    - If the draft report hallucinated an error (e.g. claiming standard textbook definitions of scarcity or opportunity cost are wrong, colloquial, or "tautologies"), OVERTURN and REMOVE that false criticism immediately.
@@ -129,7 +132,11 @@ export async function refineExaminerReport(options: RefineReportOptions): Promis
       return purgeContradictions(draftGrading);
     }
 
-    const refined = normaliseGrading(parsed, maxMark, split, essayText);
+    let refined = normaliseGrading(parsed, maxMark, split, essayText);
+
+    // Apply writing quality & economic mechanics guardrail directly to the refined report
+    const quality = analyzeEssayQuality(essayText, maxMark, split);
+    refined = applyWritingQualityGuardrail(refined, quality, maxMark, split, essayText);
 
     // Preserve metadata from earlier passes
     refined.sources = draftGrading.sources;

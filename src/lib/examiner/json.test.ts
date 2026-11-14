@@ -531,4 +531,120 @@ The candidate scored well on AO1.
     expect(result.ao_breakdown.analysis.awarded).toBe(6);
     expect(result.ao_breakdown.evaluation.awarded).toBe(4);
   });
+
+  it("strictly clamps the user's exact 7/12 flawed essay down to <= 4/12 (never Upper Middle Band / Grade B)", async () => {
+    const { normaliseGrading } = await import("./types");
+    const { applyWritingQualityGuardrail, analyzeEssayQuality } = await import("./writing-quality.server");
+    const split = { ao1_marks: 2, ao2_marks: 6, ao3_marks: 4 };
+
+    // This is the EXACT flawed output the LLM generated in turn 10:
+    const flawedUserRun: any = {
+      total_mark: 7,
+      band: "Upper Middle Band",
+      ao_breakdown: {
+        knowledge: {
+          awarded: 1,
+          out_of: 2,
+          comment: "The candidate demonstrates a basic understanding of demand-pull inflation and monetary policy but contains critical inaccuracies. The definition of demand-pull inflation is incorrect—it attributes inflation to rising production costs (a feature of cost-push inflation) rather than excess aggregate demand. Additionally, the candidate conflates monetary policy with fiscal policy by describing it as involving 'changes in direct taxation and public sector spending.' These errors restrict AO1 to a single mark."
+        },
+        analysis: {
+          awarded: 3,
+          out_of: 6,
+          comment: "The candidate’s analysis contains fundamental errors that invert the transmission mechanism of monetary policy. The claim that 'higher interest rates make borrowing cheaper' and shift AD to the right is incorrect; in reality, higher interest rates increase borrowing costs, reducing consumption and investment, which shifts AD leftward. The exchange rate mechanism is partially correct but lacks depth. The analysis is held at Level 2 due to these errors, though the candidate attempts to address the question’s focus on monetary policy."
+        },
+        evaluation: {
+          awarded: 3,
+          out_of: 4,
+          comment: "The candidate acknowledges alternative policies (fiscal and supply-side) but provides a superficial evaluation. The conclusion is vague and lacks a reasoned, supported judgment. While the candidate considers trade-offs, the evaluation does not prioritize criteria (e.g., time lags, elasticity) or weigh perspectives effectively. This restricts AO3 to Level 1."
+        }
+      },
+      examiner_summary: "This submission contains significant inaccuracies in economic theory, particularly in defining demand-pull inflation and explaining the transmission mechanism of monetary policy. The candidate incorrectly attributes demand-pull inflation to rising production costs (cost-push inflation) and conflates monetary policy with fiscal policy. The analysis inverts the effect of interest rates on aggregate demand, claiming higher rates shift AD rightward and reduce inflation—a fatal error. While the candidate attempts to evaluate monetary policy, the evaluation lacks depth, specific criteria, and a substantiated conclusion. The submission demonstrates basic awareness of the topic but is undermined by fundamental errors and superficial analysis.",
+      strengths: [
+        "The candidate structures the essay with an introduction, body paragraphs, and a conclusion, demonstrating awareness of essay architecture.",
+        "The candidate acknowledges the existence of alternative policies (fiscal and supply-side) and briefly considers their potential effectiveness, showing some evaluative awareness.",
+        "The candidate attempts to explain the exchange rate mechanism as a secondary effect of monetary policy."
+      ],
+      weaknesses: [
+        "The definition of demand-pull inflation is incorrect. Demand-pull inflation arises from excess aggregate demand when the economy operates near full capacity, not rising production costs.",
+        "The transmission mechanism of monetary policy is inverted. Raising interest rates increases borrowing costs, reducing consumption and investment, which shifts the aggregate demand curve leftward—not rightward—and reduces inflation. The candidate’s claim that higher interest rates 'make borrowing cheaper' and increase consumption is factually incorrect.",
+        "The candidate conflates monetary policy (interest rates, money supply) with fiscal policy (taxation, government spending), a critical misconception that limits AO1 to a single mark.",
+        "The evaluation is superficial and lacks depth. The candidate mentions alternative policies but does not provide specific criteria (e.g., time lags, elasticity) or a reasoned judgment on which policy is most effective."
+      ]
+    };
+
+    const essayText = `Inflation is the sustained increase in the general price level in an economy. In this essay I will discuss monetary policy, which is when the government changes government spending and taxation to manage the economy, such as changing interest rates.
+When the central bank increases interest rates, the cost of borrowing becomes more expensive for households and firms. However, this causes aggregate demand to shift to the right, which increases the price level and increases inflation even further because firms have to pay higher interest costs on their existing debt.
+Also, higher interest rates cause the exchange rate to depreciate because foreign investors move money away.
+Therefore, higher interest rates will always reduce inflation because central banks use interest rates to control money.`;
+
+    const normalized = normaliseGrading(flawedUserRun, 12, split, essayText);
+    const quality = analyzeEssayQuality(essayText, 12, split);
+    const finalResult = applyWritingQualityGuardrail(normalized, quality, 12, split, essayText);
+
+    // 1. AO1 must be 1/2
+    expect(finalResult.ao_breakdown.knowledge.awarded).toBe(1);
+
+    // 2. AO2 must be clamped to Level 1 (max 2/6) due to inverted mechanism
+    expect(finalResult.ao_breakdown.analysis.awarded).toBeLessThanOrEqual(2);
+    // Comment must not say held at Level 2
+    expect(finalResult.ao_breakdown.analysis.comment).not.toContain("held at Level 2");
+    expect(finalResult.ao_breakdown.analysis.comment).toContain("held at Level 1");
+
+    // 3. AO3 must be clamped to Level 1 (max 1/4 when analysis is inverted, and <= 2/4 from comment restriction)
+    expect(finalResult.ao_breakdown.evaluation.awarded).toBeLessThanOrEqual(1);
+
+    // 4. Total mark MUST NOT be 7/12 (Grade B); it must be <= 4/12 (Grade E or U)
+    expect(finalResult.total_mark).toBeLessThanOrEqual(4);
+    expect(finalResult.band).toMatch(/Bottom Band|Lower Middle Band/);
+    expect(finalResult.band).not.toContain("Upper Middle Band");
+  });
+
+  it("does not clamp or affect legitimate middle-performing essays (e.g. 6/8 and 8/12)", async () => {
+    const { normaliseGrading } = await import("./types");
+    const { applyWritingQualityGuardrail, analyzeEssayQuality } = await import("./writing-quality.server");
+
+    // 1. Middle-performing 8m essay (6/8)
+    const split8 = { ao1_marks: 2, ao2_marks: 4, ao3_marks: 2 };
+    const mid8Raw: any = {
+      total_mark: 6,
+      band: "Upper Middle Band",
+      ao_breakdown: {
+        knowledge: { awarded: 2, out_of: 2, comment: "Accurate definitions of exchange rate depreciation." },
+        analysis: { awarded: 3, out_of: 4, comment: "Sound analysis of export price changes and current account adjustments." },
+        evaluation: { awarded: 1, out_of: 2, comment: "Evaluates short-run inelasticity and time lags." },
+      },
+      examiner_summary: "Sound Upper Middle Band essay.",
+      strengths: ["Clear analysis of depreciation.", "Sound knowledge."],
+      weaknesses: ["Deepen discussion of long-run Marshall-Lerner conditions."],
+    };
+    const essay8 = "An exchange rate is the price of one currency in terms of another currency. When currency depreciates, exports become cheaper and imports more expensive. However, in the short run demand may be price inelastic so current account worsens before improving. In conclusion, depreciation usually improves the current account depending on elasticities.";
+    const norm8 = normaliseGrading(mid8Raw, 8, split8, essay8);
+    const qual8 = analyzeEssayQuality(essay8, 8, split8);
+    const res8 = applyWritingQualityGuardrail(norm8, qual8, 8, split8, essay8);
+
+    expect(res8.total_mark).toBe(6);
+    expect(res8.band).toBe("Upper Middle Band");
+
+    // 2. Middle-performing 12m essay (8/12)
+    const split12 = { ao1_marks: 2, ao2_marks: 6, ao3_marks: 4 };
+    const mid12Raw: any = {
+      total_mark: 8,
+      band: "Upper Middle Band",
+      ao_breakdown: {
+        knowledge: { awarded: 2, out_of: 2, comment: "Accurate definitions of infrastructure and economic growth." },
+        analysis: { awarded: 4, out_of: 6, comment: "Sound causal transmission from capital spending to AD and LRAS." },
+        evaluation: { awarded: 2, out_of: 4, comment: "Evaluates time lags and opportunity costs of government debt." },
+      },
+      examiner_summary: "Competent Upper Middle Band response.",
+      strengths: ["Sound transmission mechanisms.", "Relevant policy comparison."],
+      weaknesses: ["Further prioritize criteria in the conclusion."],
+    };
+    const essay12 = "Government spending on infrastructure shifts aggregate demand to the right in the short run and shifts LRAS to the right in the long run. However, large capital projects suffer from implementation lags and debt crowding out. In conclusion, infrastructure is best for long run growth while monetary cuts work faster in a slump.";
+    const norm12 = normaliseGrading(mid12Raw, 12, split12, essay12);
+    const qual12 = analyzeEssayQuality(essay12, 12, split12);
+    const res12 = applyWritingQualityGuardrail(norm12, qual12, 12, split12, essay12);
+
+    expect(res12.total_mark).toBe(8);
+    expect(res12.band).toBe("Upper Middle Band");
+  });
 });

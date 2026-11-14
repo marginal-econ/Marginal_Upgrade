@@ -468,28 +468,75 @@ export function normaliseGrading(
     }
 
     const rawWeaknesses = toStringArray(raw.weaknesses);
-    // Inverted transmission mechanisms or reversed curve shifts (e.g. higher interest rates shifting AD right):
+    const rawStrengths = toStringArray(raw.strengths);
+    const rawActionable = toStringArray(raw.actionable_feedback);
+    const allCommentsAndWeaknesses = `${analysis.comment} ${knowledge.comment} ${evaluation.comment} ${rawWeaknesses.join(" ")} ${rawActionable.join(" ")}`.toLowerCase();
+
+    // 1. Inverted transmission mechanisms or reversed curve shifts (e.g. higher interest rates shifting AD right):
     // Under Cambridge 9708 regulations, an inverted mechanism CANNOT exceed Level 1 Analysis.
-    const allCommentsAndWeaknesses = `${analysis.comment} ${knowledge.comment} ${rawWeaknesses.join(" ")}`.toLowerCase();
     const isInvertedMechanism =
-      /direction of (the )?(ad|as|curve|shift) is reversed|claims ad shifts right.*increasing inflation|inverted transmission|reversed curve shift|shifts supply the wrong way/i.test(
+      /(transmission|mechanism).*(is |was )?inverted|invert(s|ed|ing)? (the )?(transmission|mechanism|effect of)|(ad|as|curve|shift) (is )?reversed|direction of (the )?.*(ad|as|curve|shift).*is reversed|reversed (the )?direction|reversed curve shift|shifts? supply the wrong way|(ad|aggregate demand|as|aggregate supply|supply|demand) shifts? (to the )?(right|left|wrong)|shifts? (ad|as|aggregate demand|aggregate supply|supply|demand) (to the )?(right|left|wrong direction|incorrect direction|opposite direction)|higher interest rates (make borrowing cheaper|increase (consumption|ad|borrowing)|shift ad)|borrowing cheaper|inverts the effect of interest rates|claims (that )?higher interest rates/i.test(
+        allCommentsAndWeaknesses,
+      ) ||
+      (/\b(higher interest rates|increase in interest rates|raising interest rates)\b/i.test(essayText || "") &&
+       /\b(shift(s|ed)? aggregate demand to the right|shift(s|ed)? ad to the right|make borrowing cheaper|borrowing becomes cheaper|increases? ad\b)/i.test(essayText || ""));
+
+    if (isInvertedMechanism) {
+      const maxLevel1Ao2 = maxMark === 12 ? 2 : maxMark === 8 ? 1 : Math.round(split.ao2_marks * 0.35);
+      if (analysis.awarded > maxLevel1Ao2) {
+        analysis.awarded = maxLevel1Ao2;
+      }
+      if (split.ao3_marks > 0) {
+        const maxAo3OnInverted = maxMark === 12 ? 1 : maxMark === 8 ? 0 : 2;
+        if (evaluation.awarded > maxAo3OnInverted) {
+          evaluation.awarded = maxAo3OnInverted;
+        }
+      }
+      analysis.comment = analysis.comment
+        .replace(/held at Level 2/gi, "held at Level 1")
+        .replace(/restricted to Level 2/gi, "restricted to Level 1")
+        .replace(/Level 2 \(Sound Mechanism\)/gi, "Level 1 (Basic / Inverted Mechanism)");
+    }
+
+    // 2. Policy instrument conflation (e.g. monetary vs fiscal policy):
+    // Conflating the core policy instrument limits AO1 Knowledge to maximum 1 mark.
+    const isPolicyConflated =
+      /conflates? (it with|monetary with|fiscal with|monetary policy with fiscal|the policy tools)/i.test(
         allCommentsAndWeaknesses,
       );
-    if (isInvertedMechanism) {
+    if (isPolicyConflated && knowledge.awarded > 1) {
+      knowledge.awarded = 1;
+    }
+
+    // 3. Comment-stated Level Restrictions (ensuring score matches examiner prose):
+    if (/restricts? (ao1|knowledge) to (level 1|a single mark)|held at level 1|limited to (level 1|1 mark|a single mark)/i.test(knowledge.comment)) {
+      if (knowledge.awarded > 1) {
+        knowledge.awarded = maxMark >= 20 ? 2 : 1;
+      }
+    }
+
+    if (/restricts? (ao2|analysis) to level 1|held at level 1|limited to level 1/i.test(analysis.comment)) {
       const maxLevel1Ao2 = maxMark === 12 ? 2 : maxMark === 8 ? 1 : Math.round(split.ao2_marks * 0.35);
       if (analysis.awarded > maxLevel1Ao2) {
         analysis.awarded = maxLevel1Ao2;
       }
     }
 
-    // Policy instrument conflation (e.g. monetary vs fiscal policy):
-    // Conflating the core policy instrument limits AO1 Knowledge to maximum 1 mark.
-    const isPolicyConflated =
-      /conflates? (it with|monetary with|fiscal with|monetary policy with fiscal)/i.test(
-        allCommentsAndWeaknesses,
-      );
-    if (isPolicyConflated && knowledge.awarded > 1) {
-      knowledge.awarded = 1;
+    if (split.ao3_marks > 0) {
+      if (/restricts? (ao3|evaluation) to level 1|held at level 1|limited to level 1|superficial evaluation.*restricts? ao3/i.test(evaluation.comment)) {
+        const maxLevel1Ao3 = maxMark === 12 ? 2 : maxMark === 8 ? 1 : maxMark >= 20 ? 2 : Math.max(1, Math.round(split.ao3_marks * 0.35));
+        if (evaluation.awarded > maxLevel1Ao3) {
+          evaluation.awarded = maxLevel1Ao3;
+        }
+      }
+      if (
+        /no evaluation|evaluation is (wholly )?absent|fails? to provide (an? )?evaluation|no evaluative (reasoning|judgement|judgment)/i.test(
+          evaluation.comment,
+        ) &&
+        !/sound evaluation|evaluative breadth|substantiated/i.test(evaluation.comment)
+      ) {
+        evaluation.awarded = 0;
+      }
     }
 
     // For 8-mark evaluative essays, calibrate evaluation strictness to realistic Cambridge Section B standards:
@@ -518,10 +565,9 @@ export function normaliseGrading(
   }
 
   const aoTotal = knowledge.awarded + analysis.awarded + evaluation.awarded;
-  const declaredTotal = Math.round(toNumber(raw.total_mark, aoTotal));
   // The AO marks are the source of truth; a stated total that disagrees is a
   // model arithmetic slip, not a separate judgement.
-  const total = Math.max(0, Math.min(maxMark, aoTotal || declaredTotal));
+  const total = Math.max(0, Math.min(maxMark, aoTotal));
   // The awarded mark is the source of truth for the Cambridge grade band:
   // A score of 10-12/12 is strictly Top Band (Level 4), never Upper Middle or Lower.
   const band = bandFor(total, maxMark);
