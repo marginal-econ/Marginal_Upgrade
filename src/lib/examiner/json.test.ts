@@ -617,7 +617,13 @@ Therefore, higher interest rates will always reduce inflation because central ba
       strengths: ["Clear analysis of depreciation.", "Sound knowledge."],
       weaknesses: ["Deepen discussion of long-run Marshall-Lerner conditions."],
     };
-    const essay8 = "An exchange rate is the price of one currency in terms of another currency. When currency depreciates, exports become cheaper and imports more expensive. However, in the short run demand may be price inelastic so current account worsens before improving. In conclusion, depreciation usually improves the current account depending on elasticities.";
+    const essay8 = `An exchange rate is the price of one currency in terms of another currency. A depreciation occurs when the value of a currency falls under a floating exchange rate system due to market forces of demand and supply. The current account of the balance of payments records trade in goods, trade in services, primary income, and secondary transfers.
+
+When a currency depreciates, domestic exports become cheaper when converted into foreign currencies, which leads to an expansion in foreign demand for exports and increases total export revenue, assuming demand is price elastic. Simultaneously, foreign imports become more expensive in terms of the domestic currency, which encourages domestic households and firms to switch expenditure away from foreign imports towards locally produced import substitutes. Consequently, the volume of imports contracts, reducing total import spending and improving the trade balance.
+
+However, a currency depreciation might not always improve the current account balance. In the short run, the Marshall-Lerner condition may not be satisfied if the sum of price elasticities of demand for exports and imports is less than one (|PEDx + PEDm| < 1). This is especially true for countries that depend on imports of essential raw materials, crude oil, and specialized capital equipment, where demand is price inelastic. In such cases, total import expenditure will initially rise before consumers and firms can adjust, causing the current account deficit to deteriorate before it improves—a phenomenon known as the J-curve effect.
+
+In conclusion, while a depreciating exchange rate usually improves the current account balance in the long run, its success is not guaranteed because it depends crucially on trade price elasticities, the absence of retaliatory foreign tariffs, and domestic spare capacity.`;
     const norm8 = normaliseGrading(mid8Raw, 8, split8, essay8);
     const qual8 = analyzeEssayQuality(essay8, 8, split8);
     const res8 = applyWritingQualityGuardrail(norm8, qual8, 8, split8, essay8);
@@ -639,7 +645,15 @@ Therefore, higher interest rates will always reduce inflation because central ba
       strengths: ["Sound transmission mechanisms.", "Relevant policy comparison."],
       weaknesses: ["Further prioritize criteria in the conclusion."],
     };
-    const essay12 = "Government spending on infrastructure shifts aggregate demand to the right in the short run and shifts LRAS to the right in the long run. However, large capital projects suffer from implementation lags and debt crowding out. In conclusion, infrastructure is best for long run growth while monetary cuts work faster in a slump.";
+    const essay12 = `Government spending (G) is a major autonomous component of aggregate demand (AD), which consists of C + I + G + (X - M). Economic growth refers to an increase in a country's productive potential and real gross domestic product (GDP) over time, which can be categorized into short-run actual growth and long-run potential growth.
+
+Infrastructure spending by the government on major capital projects—such as high-speed rail networks, modern container ports, telecommunications, and highway expansion—can stimulate economic growth through both demand-side and supply-side channels. In the short run, the initial capital expenditure acts as an injection into the circular flow of income, directly increasing aggregate demand from AD1 to AD2. Through the Keynesian multiplier effect, this initial expenditure creates employment for construction workers, engineers, and suppliers, who subsequently spend their wages in the wider economy, generating secondary rounds of consumption and driving actual real output growth.
+
+In the long run, completed infrastructure projects enhance the productive capacity and efficiency of the entire economy. Modern transport networks reduce freight times, lower business logistics costs, and improve geographical labour mobility. These supply-side improvements lower average costs of production across industrial sectors, shifting the Long-Run Aggregate Supply (LRAS) curve outward to the right. This allows the economy to achieve higher sustainable real GDP growth without triggering demand-pull inflationary pressures.
+
+However, infrastructure expenditure may not be the most effective way to stimulate growth under all macroeconomic conditions. Firstly, infrastructure projects suffer from substantial implementation time lags; planning approvals, environmental assessments, and construction often take years, meaning they cannot quickly alleviate a short-term recession. Secondly, financing large-scale capital projects requires substantial government borrowing, which can expand the fiscal deficit and cause financial crowding out of private sector investment.
+
+In conclusion, while infrastructure expenditure is exceptionally effective in driving long-run supply-side productive capacity and potential growth, it is not the most effective tool for counteracting short-term cyclical downturns due to protracted time lags.`;
     const norm12 = normaliseGrading(mid12Raw, 12, split12, essay12);
     const qual12 = analyzeEssayQuality(essay12, 12, split12);
     const res12 = applyWritingQualityGuardrail(norm12, qual12, 12, split12, essay12);

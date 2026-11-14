@@ -475,11 +475,12 @@ export function normaliseGrading(
     // 1. Inverted transmission mechanisms or reversed curve shifts (e.g. higher interest rates shifting AD right):
     // Under Cambridge 9708 regulations, an inverted mechanism CANNOT exceed Level 1 Analysis.
     const isInvertedMechanism =
-      /(transmission|mechanism).*(is |was )?inverted|invert(s|ed|ing)? (the )?(transmission|mechanism|effect of)|(ad|as|curve|shift) (is )?reversed|direction of (the )?.*(ad|as|curve|shift).*is reversed|reversed (the )?direction|reversed curve shift|shifts? supply the wrong way|(ad|aggregate demand|as|aggregate supply|supply|demand) shifts? (to the )?(right|left|wrong)|shifts? (ad|as|aggregate demand|aggregate supply|supply|demand) (to the )?(right|left|wrong direction|incorrect direction|opposite direction)|higher interest rates (make borrowing cheaper|increase (consumption|ad|borrowing)|shift ad)|borrowing cheaper|inverts the effect of interest rates|claims (that )?higher interest rates/i.test(
+      /(transmission|mechanism).*(is |was )?inverted|invert(s|ed|ing)? (the )?(transmission|mechanism|effect of)|(direction of (the )?.*(ad|as|curve|shift).*is reversed)|reversed (the )?direction|(ad|as|curve|shift) (is )?reversed|reversed curve shift|shifts? (supply|demand|ad|as) the wrong (way|direction)|(shift(s|ed)? (ad|as|supply|demand) (in the |to the )?incorrect direction)|higher interest rates (make borrowing cheaper|increase (consumption|ad|borrowing)|shift ad)|borrowing cheaper|inverts the effect of|fatal (analytical )?error.*shift|claims (that )?ad shifts right|ad shifts right.*rather than left/i.test(
         allCommentsAndWeaknesses,
       ) ||
-      (/\b(higher interest rates|increase in interest rates|raising interest rates)\b/i.test(essayText || "") &&
-       /\b(shift(s|ed)? aggregate demand to the right|shift(s|ed)? ad to the right|make borrowing cheaper|borrowing becomes cheaper|increases? ad\b)/i.test(essayText || ""));
+      (/(\b(higher interest rates|increase in interest rates|raising interest rates)\b[\s\S]{0,120}\b(shift(s|ed)? (aggregate demand|ad) to the right|make borrowing cheaper|borrowing becomes cheaper)\b)/i.test(
+        essayText || "",
+      ));
 
     if (isInvertedMechanism) {
       const maxLevel1Ao2 = maxMark === 12 ? 2 : maxMark === 8 ? 1 : Math.round(split.ao2_marks * 0.35);
