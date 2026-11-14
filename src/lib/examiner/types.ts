@@ -138,6 +138,139 @@ export function stripScoreFractionsFromText(value: unknown): string {
 }
 
 /**
+ * Strips internal knowledge-base retrieval chunk markers like [S1], [S2], (as per [S1]),
+ * (see [S2], [S4]), (S1, S3), (S6) from student-facing feedback so internal pipeline
+ * database markers never leak into student or teacher reports.
+ */
+export function stripInternalSnippetCitations(value: unknown): string {
+  if (typeof value !== "string" || !value) return "";
+  let s = value;
+
+  // 1. Any parenthesis whose content contains S-chunk markers:
+  // e.g. (as per [S1] and [S6]), (see [S2], [S4]), (S1, S3), (S6), ([S1], [S3], [S6]), (as required by [S3] and [S6])
+  s = s.replace(/\s*\([^)]*?\bS\d+\b[^)]*?\)/gi, "");
+
+  // 2. Prose snippet references: "as per [S1] and [S6]", "as required by [S3]", "see [S2]"
+  s = s.replace(/\b(?:as\s+per|as\s+required\s+by|see)\s+\[?S\d+\]?(?:\s*(?:and|or|,)\s*\[?S\d+\]?)*/gi, "");
+
+  // 3. Multiple or single bracketed citations: [S1] and [S6], [S1, S2], [S1]-[S6], [S1]
+  s = s.replace(/\s*\[S\d+\](?:\s*(?:and|or|,)\s*\[S\d+\])*/gi, "");
+  s = s.replace(/\s*\[S\d+(?:[\s,\-–and]+S\d+)*\]/gi, "");
+
+  // 4. Standalone snippet tokens: S1, S2 if preceded by "snippet" or "chunk"
+  s = s.replace(/\b(?:snippet|chunk)\s+S\d+\b/gi, "");
+
+  // 5. Clean punctuation artifacts
+  s = s.replace(/\s+([.,;:])/g, "$1");
+  s = s.replace(/,\s*,+/g, ",");
+  s = s.replace(/\.\s*\.+/g, ".");
+  s = s.replace(/,\s*\./g, ".");
+  s = s.replace(/\(\s*\)/g, "");
+  s = s.replace(/\s{2,}/g, " ");
+  s = s.replace(/^\s*[,.\-]\s*/, "");
+  return s.trim();
+}
+
+// Generic stop words for Jaccard semantic deduplication of feedback points
+const FEEDBACK_STOP_WORDS = new Set([
+  "the", "and", "that", "this", "with", "from", "for", "are", "was", "were",
+  "been", "being", "have", "has", "had", "does", "did", "doing", "would",
+  "should", "could", "ought", "their", "they", "them", "which", "what",
+  "when", "where", "also", "into", "onto", "then", "than", "more", "most",
+  "some", "such", "only", "even", "student", "candidate", "essay", "response",
+]);
+
+/**
+ * Deduplicates strings based on content word overlap (Jaccard similarity >= 0.35),
+ * preventing repetitive or near-duplicate feedback points.
+ */
+export function deduplicateFeedbackPoints(points: string[], maxCount = 4): string[] {
+  const result: string[] = [];
+
+  const extractContentWords = (text: string): Set<string> => {
+    return new Set(
+      text
+        .toLowerCase()
+        .replace(/[^\w\s]/g, " ")
+        .split(/\s+/)
+        .filter((w) => w.length > 3 && !FEEDBACK_STOP_WORDS.has(w)),
+    );
+  };
+
+  const isSemanticDuplicate = (aWords: Set<string>, bWords: Set<string>): boolean => {
+    if (aWords.size === 0 || bWords.size === 0) return false;
+    let intersection = 0;
+    for (const w of aWords) {
+      if (bWords.has(w)) intersection++;
+    }
+    const union = new Set([...aWords, ...bWords]).size;
+    const similarity = intersection / union;
+    return similarity >= 0.35;
+  };
+
+  for (const point of points) {
+    const trimmed = point.trim();
+    if (!trimmed) continue;
+    const words = extractContentWords(trimmed);
+    const exists = result.some((existing) => isSemanticDuplicate(extractContentWords(existing), words));
+    if (!exists) {
+      result.push(trimmed);
+      if (result.length >= maxCount) break;
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Verifies that text in quotes ('...' or "...") in examiner feedback actually exists in the student's essay.
+ * If the quote does not exist in the essay (hallucinated quote), unwraps the quotes so the examiner
+ * does not falsely attribute fabricated text as a verbatim student quote.
+ */
+export function verifyVerbatimQuotes(feedbackText: string, essayText?: string): string {
+  if (!feedbackText || !essayText || typeof feedbackText !== "string" || typeof essayText !== "string") {
+    return feedbackText;
+  }
+
+  const normEssay = essayText
+    .toLowerCase()
+    .replace(/[^\w\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!normEssay) return feedbackText;
+
+  // Match quoted text with at least 8 characters / 2 words
+  return feedbackText.replace(/['"]([^'"\n\r]{8,})['"]/g, (match, quotedContent: string) => {
+    const normQuoted = quotedContent
+      .toLowerCase()
+      .replace(/[^\w\s]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+
+    // If exact or normalized content is found in the essay, keep the quote
+    if (normQuoted && normEssay.includes(normQuoted)) {
+      return match;
+    }
+
+    // Check if the majority of significant words (>3 letters) appear in the essay
+    const words = normQuoted.split(" ").filter((w) => w.length > 3);
+    if (words.length >= 3) {
+      let matchedCount = 0;
+      for (const w of words) {
+        if (normEssay.includes(w)) matchedCount++;
+      }
+      if (matchedCount / words.length >= 0.75) {
+        return match;
+      }
+    }
+
+    // Phantom quote: unwrap quotes so fabricated text is not presented as a direct student quotation
+    return quotedContent;
+  });
+}
+
+/**
  * Programmatically sanitizes A-Level (A2) syllabus concepts and hallucinated definitional pedantry
  * out of AS Level (Paper 2, maxMark <= 12) examiner feedback.
  */
@@ -169,19 +302,19 @@ export function sanitizeAsLevelText(value: unknown): string {
 
   // 2. Definitional hallucination & pedantry sanitization (Scarcity & Tautology claims)
   s = s.replace(
-    /The phrase ['"]limited resources['"] is vague and does not explicitly reference the fundamental economic problem of finite resources(?:\s*\(as per [^)]+\))?\.?\s*/gi,
-    "The candidate defines scarcity as limited resources versus unlimited wants. ",
+    /(?:The\s+definition\s+lacks\s+precision\s+and\s+syllabus\s+accuracy\.\s*)?The phrase ['"]limited resources['"] is (?:vague|imprecise)(?:\s+and\s+does\s+not\s+explicitly\s+reference[^\.\n\r]*)?\.?\s*/gi,
+    "The definition identifies limited resources and unlimited wants; grounding this explicitly in finite factors of production will enhance syllabus precision. ",
   );
   s = s.replace(
-    /The student (?:also )?incorrectly states ['"]Scarcity takes place when the resources are limited but the wants are unlimited['"](?:—|--)this is a tautology and does not fully capture the economic concept of opportunity cost(?:\s*\([^)]*\))?\.?\s*/gi,
+    /The student (?:also )?incorrectly states ['"]Scarcity takes place when (?:the )?resources are limited but (?:the )?wants are unlimited['"](?:[—–\-,:]|\s*--\s*)this is a tautology and does not fully capture the economic concept of opportunity cost(?:\s*\([^)]*\))?\.?\s*/gi,
     "The candidate defines scarcity as limited resources versus unlimited wants; connecting choices directly to opportunity cost will deepen the response. ",
   );
   s = s.replace(
-    /(?:The|This) definition of scarcity is vague and colloquial \(['"]resources are limited but wants are unlimited['"]\) and does not explicitly reference opportunity cost or the fundamental economic problem(?:\s*\(as required by [^)]+\))?\.?\s*/gi,
+    /(?:The|This) definition of scarcity is (?:vague|imprecise)(?:\s+and\s+colloquial)? \(['"]resources are limited but wants are unlimited['"]\) and does not explicitly reference opportunity cost or the fundamental economic problem(?:\s*\(as required by [^)]+\))?\.?\s*/gi,
     "The definition of scarcity accurately identifies limited resources and unlimited wants; developing the link to opportunity cost will enhance syllabus precision. ",
   );
   s = s.replace(
-    /(?:The|This) definition of scarcity is vague and lacks syllabus precision\. The student does not explicitly reference the fundamental economic problem(?:\s*\([^)]+\))? or opportunity cost(?:\s*\([^)]+\))?,? which are core to answering the question\.?\s*/gi,
+    /(?:The|This) definition of scarcity is (?:vague|imprecise) and lacks syllabus precision\. The student does not explicitly reference the fundamental economic problem(?:\s*\([^)]+\))? or opportunity cost(?:\s*\([^)]+\))?,? which are core to answering the question\.?\s*/gi,
     "The definition of scarcity correctly identifies finite resources and unlimited wants; deepening the explanation with opportunity cost will enhance syllabus precision. ",
   );
   s = s.replace(
@@ -194,6 +327,8 @@ export function sanitizeAsLevelText(value: unknown): string {
   );
   s = s.replace(/\bthis is a tautology\b/gi, "this is a foundational definition");
   s = s.replace(/\b(?:is\s+a\s+tautology)\b/gi, "is a foundational definition");
+  s = s.replace(/\bis colloquial and does not align with syllabus terminology\b/gi, "can be expressed using formal syllabus terminology");
+  s = s.replace(/\bdoes not align with syllabus terminology\b/gi, "can be developed using precise syllabus terminology");
 
   // 3. General A-Level (A2) concepts removal / replacement for AS Level
   s = s.replace(/\b(?:the\s+)?(?:law\s+of\s+)?diminishing\s+marginal\s+utility\b/gi, "consumer choice theory");
@@ -216,6 +351,14 @@ export function sanitizeAsLevelText(value: unknown): string {
   s = s.replace(/\bmrpl\b/gi, "labour productivity");
   s = s.replace(/\bgini\s+coefficient\b/gi, "income inequality");
   s = s.replace(/\blorenz\s+curve\b/gi, "income distribution");
+  s = s.replace(/\b(?:multiplier\s+formula|k\s*=\s*1\s*\/\s*(?:mpw|1\s*-\s*mpc))\b/gi, "the multiplier effect");
+  s = s.replace(/\bexpectations[- ]augmented\s+phillips\s+curve\b/gi, "inflation-unemployment relationship");
+  s = s.replace(/\bshort[- ]run\s+and\s+long[- ]run\s+phillips\s+curves?\b/gi, "Phillips curve analysis");
+  s = s.replace(/\baccelerator\s+(?:principle|theory)\b/gi, "investment dynamics");
+  s = s.replace(/\bquantity\s+theory\s+of\s+money|fisher\s+equation|mv\s*=\s*pt\b/gi, "monetary factors");
+  s = s.replace(/\b(?:harrod[- ]domar|kuznets\s+curve|lewis\s+(?:dual[- ]sector\s+)?model)\b/gi, "economic development theory");
+  s = s.replace(/\bmarshall[- ]lerner(?:\s+condition)?\b/gi, "elasticity of demand for exports and imports");
+  s = s.replace(/\bj[- ]curve\b/gi, "balance of payments time lags");
 
   // 4. Clean grammatical artifacts
   s = s.replace(/\b(?:like|such as)\s+,\s*/gi, "like ");
@@ -234,6 +377,7 @@ export function cleanMarkdownText(value: unknown): string {
   if (typeof value !== "string") return "";
   let text = stripStars(value);
   text = stripScoreFractionsFromText(text);
+  text = stripInternalSnippetCitations(text);
   // Repair trailing truncated fragments like "assertion (" or dangling colons/commas
   text = text.replace(/\s*\([^)]*$/, "");
   text = text.replace(/[,;:\-\s]+$/, "");
@@ -278,6 +422,7 @@ export function normaliseGrading(
   raw: Record<string, unknown>,
   maxMark: number,
   split: { ao1_marks: number; ao2_marks: number; ao3_marks: number },
+  essayText?: string,
 ): Grading {
   const rawAo = (raw.ao_breakdown ?? {}) as Record<string, unknown>;
 
@@ -468,6 +613,22 @@ export function normaliseGrading(
     ];
   }
 
+  // Deduplicate near-duplicate feedback points across passes and models
+  strengths = deduplicateFeedbackPoints(strengths, 4);
+  weaknesses = deduplicateFeedbackPoints(weaknesses, 4);
+  actionableFeedback = deduplicateFeedbackPoints(actionableFeedback, 4);
+
+  // Verbatim quote verification: prevents examiner feedback from enclosing phantom phrases in quotes
+  if (essayText) {
+    knowledge.comment = verifyVerbatimQuotes(knowledge.comment, essayText);
+    analysis.comment = verifyVerbatimQuotes(analysis.comment, essayText);
+    evaluation.comment = verifyVerbatimQuotes(evaluation.comment, essayText);
+    examinerSummary = verifyVerbatimQuotes(examinerSummary, essayText);
+    strengths = strengths.map((s) => verifyVerbatimQuotes(s, essayText));
+    weaknesses = weaknesses.map((w) => verifyVerbatimQuotes(w, essayText));
+    actionableFeedback = actionableFeedback.map((f) => verifyVerbatimQuotes(f, essayText));
+  }
+
   // Programmatic AS Level (Paper 2, maxMark <= 12) Sanitization:
   // Purges any hallucinated A-Level topics (marginal utility, diminishing returns, etc.)
   // and definitional pedantry/tautology claims from student-facing feedback.
@@ -476,11 +637,11 @@ export function normaliseGrading(
     analysis.comment = sanitizeAsLevelText(analysis.comment);
     evaluation.comment = sanitizeAsLevelText(evaluation.comment);
     examinerSummary = sanitizeAsLevelText(examinerSummary);
-    strengths = strengths.map(sanitizeAsLevelText).filter((s) => s.length > 0);
-    weaknesses = weaknesses.map(sanitizeAsLevelText).filter((w) => w.length > 0);
-    actionableFeedback = actionableFeedback.map(sanitizeAsLevelText).filter((f) => f.length > 0);
-    suggestedResources = suggestedResources.map(sanitizeAsLevelText).filter((r) => r.length > 0);
-    suggestedPractice = suggestedPractice.map(sanitizeAsLevelText).filter((p) => p.length > 0);
+    strengths = deduplicateFeedbackPoints(strengths.map(sanitizeAsLevelText).filter((s) => s.length > 0), 4);
+    weaknesses = deduplicateFeedbackPoints(weaknesses.map(sanitizeAsLevelText).filter((w) => w.length > 0), 4);
+    actionableFeedback = deduplicateFeedbackPoints(actionableFeedback.map(sanitizeAsLevelText).filter((f) => f.length > 0), 4);
+    suggestedResources = Array.from(new Set(suggestedResources.map(sanitizeAsLevelText).filter((r) => r.length > 0))).slice(0, 3);
+    suggestedPractice = Array.from(new Set(suggestedPractice.map(sanitizeAsLevelText).filter((p) => p.length > 0))).slice(0, 3);
   }
 
   const rawDefs = toStringArray(rawMissing.definitions);
@@ -489,11 +650,18 @@ export function normaliseGrading(
   const rawEx = toStringArray(rawMissing.examples);
   const rawDiag = toStringArray(rawMissing.diagrams);
 
-  const missingDefinitions = maxMark <= 12 ? rawDefs.map(sanitizeAsLevelText).filter((d) => d.length > 0) : rawDefs;
-  const missingAnalysis = maxMark <= 12 ? rawAna.map(sanitizeAsLevelText).filter((a) => a.length > 0) : rawAna;
-  const missingEvaluation = maxMark <= 12 ? rawEval.map(sanitizeAsLevelText).filter((e) => e.length > 0) : rawEval;
-  const missingExamples = maxMark <= 12 ? rawEx.map(sanitizeAsLevelText).filter((ex) => ex.length > 0) : rawEx;
-  const missingDiagrams = maxMark <= 12 ? rawDiag.map(sanitizeAsLevelText).filter((di) => di.length > 0) : rawDiag;
+  let missingDefinitions = maxMark <= 12 ? rawDefs.map(sanitizeAsLevelText).filter((d) => d.length > 0) : rawDefs;
+  let missingAnalysis = maxMark <= 12 ? rawAna.map(sanitizeAsLevelText).filter((a) => a.length > 0) : rawAna;
+  let missingEvaluation = maxMark <= 12 ? rawEval.map(sanitizeAsLevelText).filter((e) => e.length > 0) : rawEval;
+  let missingExamples = maxMark <= 12 ? rawEx.map(sanitizeAsLevelText).filter((ex) => ex.length > 0) : rawEx;
+  let missingDiagrams = maxMark <= 12 ? rawDiag.map(sanitizeAsLevelText).filter((di) => di.length > 0) : rawDiag;
+
+  if (essayText) {
+    missingDefinitions = missingDefinitions.map((d) => verifyVerbatimQuotes(d, essayText));
+    missingAnalysis = missingAnalysis.map((a) => verifyVerbatimQuotes(a, essayText));
+    missingEvaluation = missingEvaluation.map((e) => verifyVerbatimQuotes(e, essayText));
+    missingExamples = missingExamples.map((ex) => verifyVerbatimQuotes(ex, essayText));
+  }
 
   return cleanStars({
     total_mark: total,

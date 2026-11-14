@@ -15,7 +15,15 @@
 import { chat } from "../ai.server";
 import { formatStructureNote, getStructureGuidance, MODEL_EXAMINER, TEMPERATURE_EXAMINER, type AoSplit } from "./config";
 import { extractFirstJsonObject } from "./json";
-import { bandFor, normaliseGrading, sanitizeAsLevelText, stripScoreFractionsFromText, type Grading } from "./types";
+import {
+  bandFor,
+  deduplicateFeedbackPoints,
+  normaliseGrading,
+  sanitizeAsLevelText,
+  stripScoreFractionsFromText,
+  verifyVerbatimQuotes,
+  type Grading,
+} from "./types";
 import {
   analyzeEssayQuality,
   applyWritingQualityGuardrail,
@@ -193,8 +201,10 @@ AUTHORITATIVE PRINCIPAL EXAMINER PRINCIPLES:
      * Inverted definitions (e.g. defining negative externality as a benefit to firms paid by government, claiming carbon tax is a direct tax on income) earn 0 marks on AO1.
      * Flawed causal mechanisms built on false economic premises cannot exceed Level 1 in AO2.
      * Realistic calibration: essays with fundamental conceptual errors and weak comparative evaluation belong in Lower Middle or Bottom band, never Upper Middle or Top Band.
-7. HUMAN, CONSTRUCTIVE TONE:
-   - Write feedback that feels genuinely human, encouraging, and supportive. Quote verbatim phrases from the student's text.
+7. ZERO-HALLUCINATION & HUMAN CONSTRUCTIVE TONE:
+   - Write feedback that feels genuinely human, encouraging, and supportive. Quote ONLY verbatim phrases that actually exist in the student's text.
+   - ZERO INTERNAL CODES: NEVER write [S1], [S2], (as per [S1]), or any [S#] tags in student-facing prose.
+   - NO REPETITIVE FEEDBACK: Ensure strengths and weaknesses address distinct points without duplicating topics.
    - Zero asterisks (* or **): return clean plain text only.
 
 8. CAMBRIDGE WRITING QUALITY, DEPTH & PARAGRAPH STRUCTURE:
@@ -283,7 +293,7 @@ export async function arbitrateGrading(options: ArbitrateOptions): Promise<Gradi
   });
 
   const parsedRaw = extractFirstJsonObject(result.text);
-  const reconciled = normaliseGrading(parsedRaw, maxMark, split);
+  const reconciled = normaliseGrading(parsedRaw, maxMark, split, essayText);
 
   reconciled.audited = true;
   reconciled.arbitrated = true;
@@ -307,6 +317,7 @@ export function synthesizeDualPasses(
   maxMark: number,
   split: AoSplit,
   quality?: EssayQualityAnalysis,
+  essayText?: string,
 ): Grading {
   // If BOTH passes independently determined the essay was completely off-topic / unrelated (both awarded 0),
   // uphold the strict Cambridge zero-marks rule:
@@ -395,41 +406,23 @@ export function synthesizeDualPasses(
     }
   }
 
-  // Combine unique strengths (max 4)
-  const strengthsSet = new Set<string>();
-  const strengths: string[] = [];
-  for (const s of [...pass2.strengths, ...pass1.strengths]) {
-    const clean = s.replace(/[*_]/g, "").trim();
-    if (clean && !strengthsSet.has(clean.toLowerCase())) {
-      strengthsSet.add(clean.toLowerCase());
-      strengths.push(clean);
-      if (strengths.length >= 4) break;
-    }
-  }
+  // Combine unique strengths (max 4) using semantic deduplication
+  const rawStrengths = [...pass2.strengths, ...pass1.strengths]
+    .map((s) => stripScoreFractionsFromText(s.replace(/[*_]/g, "").trim()))
+    .filter(Boolean);
+  const strengths = deduplicateFeedbackPoints(rawStrengths, 4);
 
   // Combine unique weaknesses (max 4), prioritizing specific errors caught by Pass 1
-  const weaknessesSet = new Set<string>();
-  const weaknesses: string[] = [];
-  for (const w of [...pass1.weaknesses, ...pass2.weaknesses]) {
-    const clean = w.replace(/[*_]/g, "").trim();
-    if (clean && !weaknessesSet.has(clean.toLowerCase())) {
-      weaknessesSet.add(clean.toLowerCase());
-      weaknesses.push(clean);
-      if (weaknesses.length >= 4) break;
-    }
-  }
+  const rawWeaknesses = [...pass1.weaknesses, ...pass2.weaknesses]
+    .map((w) => stripScoreFractionsFromText(w.replace(/[*_]/g, "").trim()))
+    .filter(Boolean);
+  const weaknesses = deduplicateFeedbackPoints(rawWeaknesses, 4);
 
   // Deduplicate actionable feedback
-  const feedbackSet = new Set<string>();
-  const actionableFeedback: string[] = [];
-  for (const f of [...pass2.actionable_feedback, ...pass1.actionable_feedback]) {
-    const clean = f.replace(/[*_]/g, "").trim();
-    if (clean && !feedbackSet.has(clean.toLowerCase())) {
-      feedbackSet.add(clean.toLowerCase());
-      actionableFeedback.push(clean);
-      if (actionableFeedback.length >= 4) break;
-    }
-  }
+  const rawFeedback = [...pass2.actionable_feedback, ...pass1.actionable_feedback]
+    .map((f) => stripScoreFractionsFromText(f.replace(/[*_]/g, "").trim()))
+    .filter(Boolean);
+  const actionableFeedback = deduplicateFeedbackPoints(rawFeedback, 4);
 
   // Pick the best comment for each AO and strip any numeric fractions
   const rawKComment = pass2.ao_breakdown.knowledge.comment.length > pass1.ao_breakdown.knowledge.comment.length
@@ -541,16 +534,30 @@ export function synthesizeDualPasses(
     arbitrated: false,
   };
 
+  if (essayText) {
+    result.ao_breakdown.knowledge.comment = verifyVerbatimQuotes(result.ao_breakdown.knowledge.comment, essayText);
+    result.ao_breakdown.analysis.comment = verifyVerbatimQuotes(result.ao_breakdown.analysis.comment, essayText);
+    result.ao_breakdown.evaluation.comment = verifyVerbatimQuotes(result.ao_breakdown.evaluation.comment, essayText);
+    result.examiner_summary = verifyVerbatimQuotes(result.examiner_summary, essayText);
+    result.strengths = result.strengths.map((s) => verifyVerbatimQuotes(s, essayText));
+    result.weaknesses = result.weaknesses.map((w) => verifyVerbatimQuotes(w, essayText));
+    result.actionable_feedback = result.actionable_feedback.map((f) => verifyVerbatimQuotes(f, essayText));
+    result.missing_elements.definitions = result.missing_elements.definitions.map((d) => verifyVerbatimQuotes(d, essayText));
+    result.missing_elements.analysis = result.missing_elements.analysis.map((a) => verifyVerbatimQuotes(a, essayText));
+    result.missing_elements.evaluation = result.missing_elements.evaluation.map((e) => verifyVerbatimQuotes(e, essayText));
+    result.missing_elements.examples = result.missing_elements.examples.map((ex) => verifyVerbatimQuotes(ex, essayText));
+  }
+
   if (maxMark <= 12) {
     result.ao_breakdown.knowledge.comment = sanitizeAsLevelText(result.ao_breakdown.knowledge.comment);
     result.ao_breakdown.analysis.comment = sanitizeAsLevelText(result.ao_breakdown.analysis.comment);
     result.ao_breakdown.evaluation.comment = sanitizeAsLevelText(result.ao_breakdown.evaluation.comment);
     result.examiner_summary = sanitizeAsLevelText(result.examiner_summary);
-    result.strengths = result.strengths.map(sanitizeAsLevelText).filter((s) => s.length > 0);
-    result.weaknesses = result.weaknesses.map(sanitizeAsLevelText).filter((w) => w.length > 0);
-    result.actionable_feedback = result.actionable_feedback.map(sanitizeAsLevelText).filter((f) => f.length > 0);
-    result.suggested_resources = result.suggested_resources.map(sanitizeAsLevelText).filter((r) => r.length > 0);
-    result.suggested_practice = result.suggested_practice.map(sanitizeAsLevelText).filter((p) => p.length > 0);
+    result.strengths = deduplicateFeedbackPoints(result.strengths.map(sanitizeAsLevelText).filter((s) => s.length > 0), 4);
+    result.weaknesses = deduplicateFeedbackPoints(result.weaknesses.map(sanitizeAsLevelText).filter((w) => w.length > 0), 4);
+    result.actionable_feedback = deduplicateFeedbackPoints(result.actionable_feedback.map(sanitizeAsLevelText).filter((f) => f.length > 0), 4);
+    result.suggested_resources = Array.from(new Set(result.suggested_resources.map(sanitizeAsLevelText).filter((r) => r.length > 0))).slice(0, 3);
+    result.suggested_practice = Array.from(new Set(result.suggested_practice.map(sanitizeAsLevelText).filter((p) => p.length > 0))).slice(0, 3);
     result.missing_elements.definitions = result.missing_elements.definitions.map(sanitizeAsLevelText).filter((d) => d.length > 0);
     result.missing_elements.analysis = result.missing_elements.analysis.map(sanitizeAsLevelText).filter((a) => a.length > 0);
     result.missing_elements.evaluation = result.missing_elements.evaluation.map(sanitizeAsLevelText).filter((e) => e.length > 0);

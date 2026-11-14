@@ -374,7 +374,7 @@ export async function gradeEssay(
           ],
         });
 
-    finalGrading = normaliseGrading(extractFirstJsonObject(res.text), maxMark, split);
+    finalGrading = normaliseGrading(extractFirstJsonObject(res.text), maxMark, split, essayText);
     finalGrading = applyWritingQualityGuardrail(finalGrading, qualityAnalysis, maxMark, split);
     if (finalGrading.off_syllabus) {
       throw new OffSyllabusError(
@@ -444,9 +444,9 @@ export async function gradeEssay(
           }),
     ]);
 
-    let grading1 = normaliseGrading(extractFirstJsonObject(first.text), maxMark, split);
+    let grading1 = normaliseGrading(extractFirstJsonObject(first.text), maxMark, split, essayText);
     grading1 = applyWritingQualityGuardrail(grading1, qualityAnalysis, maxMark, split);
-    let grading2 = normaliseGrading(extractFirstJsonObject(second.text), maxMark, split);
+    let grading2 = normaliseGrading(extractFirstJsonObject(second.text), maxMark, split, essayText);
     grading2 = applyWritingQualityGuardrail(grading2, qualityAnalysis, maxMark, split);
 
     if (grading1.off_syllabus || grading2.off_syllabus) {
@@ -486,12 +486,12 @@ export async function gradeEssay(
         finalGrading = arbitratedGrading;
       } catch (arbitrationErr) {
         console.warn("[grade.server] Arbitration failed, synthesizing dual passes directly:", arbitrationErr);
-        finalGrading = synthesizeDualPasses(grading1, grading2, maxMark, split, qualityAnalysis);
+        finalGrading = synthesizeDualPasses(grading1, grading2, maxMark, split, qualityAnalysis, essayText);
       }
     } else {
       // Passes converged within tolerance (delta <= 1 and matching band):
       // Synthesize both passes, embedding Pass 1's error precision with Pass 2's holistic judgment
-      finalGrading = synthesizeDualPasses(grading1, grading2, maxMark, split, qualityAnalysis);
+      finalGrading = synthesizeDualPasses(grading1, grading2, maxMark, split, qualityAnalysis, essayText);
     }
   }
 

@@ -269,4 +269,89 @@ The candidate scored well on AO1.
     expect(result20.examiner_summary).toContain("oligopoly");
     expect(result20.ao_breakdown.analysis.comment).toContain("diminishing returns");
   });
+
+  it("strips all internal knowledge base chunk markers [S#] and (S#) from student feedback", async () => {
+    const { stripInternalSnippetCitations } = await import("./types");
+
+    expect(
+      stripInternalSnippetCitations(
+        "explicitly reference the fundamental economic problem of finite resources (as per [S1] and [S6]).",
+      ),
+    ).toBe("explicitly reference the fundamental economic problem of finite resources.");
+
+    expect(
+      stripInternalSnippetCitations(
+        "structured paragraphing, which is a core requirement for Cambridge essays (see [S2], [S4]).",
+      ),
+    ).toBe("structured paragraphing, which is a core requirement for Cambridge essays.");
+
+    expect(
+      stripInternalSnippetCitations(
+        "foundational economic concept (S1, S3).",
+      ),
+    ).toBe("foundational economic concept.");
+
+    expect(
+      stripInternalSnippetCitations(
+        "opportunity cost (S6), which are core to answering the question.",
+      ),
+    ).toBe("opportunity cost, which are core to answering the question.");
+
+    expect(
+      stripInternalSnippetCitations(
+        "Chapter 1: Scarcity, Choice, and Opportunity Cost ([S1], [S3], [S6]) — Focus on syllabus definitions.",
+      ),
+    ).toBe("Chapter 1: Scarcity, Choice, and Opportunity Cost — Focus on syllabus definitions.");
+
+    expect(
+      stripInternalSnippetCitations(
+        "Chapter 5: Production Possibility Curves ([S7], [S8]) — Use PPC diagrams to illustrate.",
+      ),
+    ).toBe("Chapter 5: Production Possibility Curves — Use PPC diagrams to illustrate.");
+  });
+
+  it("deduplicates semantically repetitive feedback points using Jaccard similarity", async () => {
+    const { deduplicateFeedbackPoints } = await import("./types");
+
+    const repetitiveWeaknesses = [
+      "The definition of scarcity is vague and lacks syllabus precision. The student does not explicitly reference the fundamental economic problem or opportunity cost, which are core to answering the question.",
+      "The analysis is descriptive rather than analytical. The student does not explain how or why high income leads to persistent scarcity, missing critical economic mechanisms like resource allocation trade-offs.",
+      "The essay lacks structured paragraphing and coherent prose, which is a requirement for Cambridge essays. The response reads more like a list of observations than a developed economic argument.",
+      "The definition of scarcity is vague and colloquial ('resources are limited but wants are unlimited') and does not explicitly reference opportunity cost or the fundamental economic problem.",
+    ];
+
+    const deduped = deduplicateFeedbackPoints(repetitiveWeaknesses, 4);
+    // Point 4 is semantically identical to point 1 and must be pruned
+    expect(deduped.length).toBe(3);
+    expect(deduped[0]).toContain("The definition of scarcity is vague and lacks syllabus precision");
+    expect(deduped[1]).toContain("The analysis is descriptive rather than analytical");
+    expect(deduped[2]).toContain("The essay lacks structured paragraphing");
+
+    const repetitiveStrengths = [
+      "The student correctly identifies the core idea of scarcity as the mismatch between unlimited wants and limited resources, which is the foundational concept for the question.",
+      "The essay acknowledges that income levels and cultural factors influence wants, which is a relevant observation.",
+      "The student attempts to link high income to unlimited wants, which is a starting point for discussing why scarcity persists.",
+      "The student correctly identifies that scarcity arises from the gap between limited resources and unlimited wants, which is a foundational economic concept.",
+    ];
+
+    const dedupedStrengths = deduplicateFeedbackPoints(repetitiveStrengths, 4);
+    expect(dedupedStrengths.length).toBe(3);
+  });
+
+  it("verifies quotes against student essay and unwraps hallucinated/phantom quotations", async () => {
+    const { verifyVerbatimQuotes } = await import("./types");
+
+    const essay =
+      "ScArcity tAkes plAce when The resources Are limited But The wAnts Are unlimited. Rich countries usuAlly HAve high Income per An IndividuAl or household. When There is A high Income Level The wAnts of A person Are expensive or unlimited. This forces The government to produce goods rigorously With The use of resources And oTher fActors of production.";
+
+    // Genuine quote: exists verbatim in the student essay
+    const realQuote = "The candidate correctly states 'The resources Are limited But The wAnts Are unlimited' in their opening.";
+    expect(verifyVerbatimQuotes(realQuote, essay)).toBe(realQuote);
+
+    // Phantom quote: AI fabricated words and wrapped in quotes that do not exist in the essay
+    const phantomQuote = "The candidate's phrasing ('high income level leads to unlimited wants') is colloquial.";
+    const unwrapped = verifyVerbatimQuotes(phantomQuote, essay);
+    expect(unwrapped).not.toContain("'high income level leads to unlimited wants'");
+    expect(unwrapped).toContain("high income level leads to unlimited wants");
+  });
 });

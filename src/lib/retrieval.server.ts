@@ -456,7 +456,8 @@ export function renderContext(sources: GroundingSource[]): string {
   return [
     "RETRIEVED CAMBRIDGE 9708 SYLLABUS & MARK SCHEME GROUNDING MATERIAL:",
     "Use this authoritative material as official guidance for marking standards, syllabus terminology, and model answers alongside core Cambridge 9708 Economics theory.",
-    "Cite the sources you use with their [S#] markers where relevant.",
+    "Ground your marking strictly in these Cambridge 9708 syllabus, mark scheme, and coursebook standards.",
+    "Do NOT output raw internal citation tags like [S1], [S2], or (as per [S6]) anywhere in student-facing prose (examiner summary, strengths, weaknesses, feedback); speak in standard, professional Cambridge examiner voice without citing snippet numbers.",
     "Do NOT penalise candidates for valid economic concepts, mechanisms, or alternative examples that are accurate under syllabus 9708 simply because they are not quoted verbatim in these specific snippets.",
     "",
     blocks.join("\n\n"),
