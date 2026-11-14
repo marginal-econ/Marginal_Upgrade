@@ -176,7 +176,7 @@ Respond ONLY with a valid JSON object in this format:
       temperature: 0,
       json: true,
       messages: [{ role: "user", content: prompt }],
-      maxCompletionTokens: 150,
+      maxCompletionTokens: 400,
     });
 
     const parsed = JSON.parse(res.text.trim()) as {
