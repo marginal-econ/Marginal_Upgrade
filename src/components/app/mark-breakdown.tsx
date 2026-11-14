@@ -154,6 +154,7 @@ function getBandTheme(band: string, totalMark?: number, maxMark?: number) {
 
 export function MarkBreakdown({ grading, question }: { grading: Grading; question?: string }) {
   const percent = grading.max_mark > 0 ? (grading.total_mark / grading.max_mark) * 100 : 0;
+  const isFullMarks = grading.max_mark > 0 && grading.total_mark >= grading.max_mark;
   const isUnanchored =
     grading.grounding_status === "unanchored" ||
     (grading.sources.length === 0 && grading.grounding_status !== "mark_scheme_image");
@@ -408,20 +409,24 @@ ${actionableFeedback.map((f, i) => `${i + 1}. ${stripStars(f)}`).join("\n")}`;
         </p>
       </div>
 
-      {/* Strengths & Weaknesses (What worked & What cost marks) */}
+      {/* Strengths & Weaknesses (What worked & What cost marks / Optional Refinements) */}
       <div className="grid gap-3 md:grid-cols-2">
         <PointList title="What worked well" items={strengths} tone="good" />
-        <PointList title="What cost you marks" items={weaknesses} tone="bad" />
+        <PointList
+          title={isFullMarks ? "Optional Refinements" : "What cost you marks"}
+          items={weaknesses}
+          tone={isFullMarks ? "neutral" : "bad"}
+        />
       </div>
 
       {/* Missing Elements Checklist */}
       <MissingElements grading={grading} />
 
-      {/* Actionable Feedback (How to improve) */}
+      {/* Actionable Feedback (How to improve / Optional Refinements) */}
       <div className="panel p-4 sm:p-5 rounded-xl border-border/80 shadow-xs space-y-3">
         <div className="flex items-center justify-between">
           <h3 className="text-xs sm:text-sm font-semibold text-foreground flex items-center gap-2">
-            <Sparkles className="size-4 text-primary" /> How to elevate this answer to the next band
+            <Sparkles className="size-4 text-primary" /> {isFullMarks ? "Optional Refinements" : "How to elevate this answer to the next band"}
           </h3>
           <span className="text-[11px] text-muted-foreground font-medium">Cambridge 9708 Target Steps</span>
         </div>
@@ -538,25 +543,45 @@ function PointList({
 }: {
   title: string;
   items: string[];
-  tone: "good" | "bad";
+  tone: "good" | "bad" | "neutral";
 }) {
   if (items.length === 0) return null;
   const isGood = tone === "good";
-  const Icon = isGood ? Check : X;
+  const isNeutral = tone === "neutral";
+  const Icon = isGood ? Check : isNeutral ? Sparkles : X;
 
   return (
     <div
       className={cn(
         "panel p-3.5 sm:p-5 rounded-xl border space-y-3",
-        isGood ? "border-emerald-500/30 bg-emerald-500/[0.02]" : "border-rose-500/30 bg-rose-500/[0.02]"
+        isGood
+          ? "border-emerald-500/30 bg-emerald-500/[0.02]"
+          : isNeutral
+            ? "border-primary/30 bg-primary/[0.02]"
+            : "border-rose-500/30 bg-rose-500/[0.02]"
       )}
     >
       <div className="flex items-center justify-between">
         <h3 className="text-xs sm:text-sm font-semibold text-foreground flex items-center gap-1.5">
-          <Icon className={cn("size-3.5", isGood ? "text-emerald-400" : "text-rose-400")} />
+          <Icon
+            className={cn(
+              "size-3.5",
+              isGood ? "text-emerald-400" : isNeutral ? "text-primary" : "text-rose-400"
+            )}
+          />
           {title}
         </h3>
-        <Badge variant="outline" className={cn("text-[10px] font-mono", isGood ? "border-emerald-500/30 text-emerald-400" : "border-rose-500/30 text-rose-400")}>
+        <Badge
+          variant="outline"
+          className={cn(
+            "text-[10px] font-mono",
+            isGood
+              ? "border-emerald-500/30 text-emerald-400"
+              : isNeutral
+                ? "border-primary/30 text-primary"
+                : "border-rose-500/30 text-rose-400"
+          )}
+        >
           {items.length} {items.length === 1 ? "point" : "points"}
         </Badge>
       </div>
@@ -566,7 +591,7 @@ function PointList({
             <span
               className={cn(
                 "mt-1 size-1.5 rounded-full shrink-0",
-                isGood ? "bg-emerald-500" : "bg-rose-500"
+                isGood ? "bg-emerald-500" : isNeutral ? "bg-primary" : "bg-rose-500"
               )}
             />
             <span>{stripStars(item)}</span>
@@ -578,6 +603,7 @@ function PointList({
 }
 
 function MissingElements({ grading }: { grading: Grading }) {
+  const isFullMarks = grading.max_mark > 0 && grading.total_mark >= grading.max_mark;
   const groups = [
     { label: "Definitions", items: grading.missing_elements.definitions },
     { label: "Analysis Chains", items: grading.missing_elements.analysis },
@@ -595,7 +621,7 @@ function MissingElements({ grading }: { grading: Grading }) {
     <div className="panel p-3.5 sm:p-5 rounded-xl border-border/80 shadow-xs space-y-3">
       <div className="flex items-center justify-between">
         <h3 className="text-xs sm:text-sm font-semibold text-foreground flex items-center gap-1.5">
-          <AlertTriangle className="size-3.5 text-amber-400" /> Elements to add for top band
+          <AlertTriangle className="size-3.5 text-amber-400" /> {isFullMarks ? "Optional Refinements" : "Elements to add for top band"}
         </h3>
         <Badge variant="outline" className="text-[10px] border-amber-500/30 text-amber-400">
           Checklist

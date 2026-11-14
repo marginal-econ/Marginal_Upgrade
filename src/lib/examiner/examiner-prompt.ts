@@ -130,6 +130,9 @@ Cambridge examiners practice POSITIVE MARKING: reward what the candidate knows, 
      * Never demand evaluation or counter-arguments on non-evaluative questions.
      * Never demand policy solutions when the prompt only asks to explain causes or effects.
    - NO REPETITIVE FEEDBACK: Ensure every strength and weakness addresses a distinct economic issue. Do not repeat the same point with minor wording variations.
+   - SPECIFIC SYLLABUS CHAPTERS & TOPIC-ALIGNED PRACTICE:
+     * "suggested_resources": Specifically cite the exact relevant Cambridge 9708 chapter title (e.g. 'Cambridge 9708 Chapter 8: Price elasticity of demand and supply', 'Cambridge 9708 Chapter 1: Scarcity, choice and opportunity cost'). NEVER output generic placeholders like 'Relevant Chapter on Core Theory & Policy Instruments'.
+     * "suggested_practice": Every suggested practice task MUST stay strictly on the question's specific economic topic (e.g. if the question is on XED/PED, practice must focus strictly on elasticity, pricing strategies, or substitutes/complements; DO NOT drift into unrelated policy implementation, government intervention, or consumer/producer surplus unless the question directly asked about policy).
    - NO ASTERISKS: Never use asterisks (* or **) anywhere in any JSON string. Return clean plain text only.
 
 9. CAMBRIDGE ESSAY WRITING QUALITY, DEPTH & COHERENCE STANDARDS:

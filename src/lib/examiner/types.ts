@@ -599,18 +599,111 @@ export function normaliseGrading(
     }
   }
 
-  if (suggestedResources.length === 0) {
-    suggestedResources = [
-      "Cambridge 9708 Economics Coursebook — Relevant Chapter on Core Theory & Policy Instruments",
-      "Official Cambridge 9708 Examiner Reports & Mark Schemes for Evaluative Essays",
-    ];
+  // Dynamic topic-accurate syllabus chapter detection (eliminates generic placeholders)
+  const fullFeedbackText = `${examinerSummary} ${essayText || ""}`.toLowerCase();
+  const isElasticity = /\b(elasticit|xed|ped|yed|pes|substitute|complement|cross\s+elasticity)\b/i.test(fullFeedbackText);
+  const isScarcity = /\b(scarcit|finite resource|unlimited want|opportunity cost|production possibilit|ppc)\b/i.test(fullFeedbackText);
+  const isMarketFailure = /\b(market failure|externalit|public good|merit good|demerit good|asymmetric information)\b/i.test(fullFeedbackText);
+  const isPriceControls = /\b(maximum price|minimum price|indirect tax|subsidy|price ceiling|price floor)\b/i.test(fullFeedbackText);
+  const isTradeExchange = /\b(exchange rate|current account|balance of payments|depreciation|appreciation|tariff|protectionism)\b/i.test(fullFeedbackText);
+  const isInflation = /\b(inflation|deflation|cpi|cost-push|demand-pull|price stability)\b/i.test(fullFeedbackText);
+  const isMacroAdAs = /\b(aggregate demand|aggregate supply|macroeconomic|fiscal policy|monetary policy)\b/i.test(fullFeedbackText);
+  const isMarketStructure = /\b(monopol|oligopol|contestabl|perfect competition|collusion|barrier to entry)\b/i.test(fullFeedbackText);
+
+  // If suggestedResources is empty or contains generic placeholders, populate topic-specific chapters
+  if (
+    suggestedResources.length === 0 ||
+    suggestedResources.some((r) => /relevant chapter|core theory & policy/i.test(r))
+  ) {
+    suggestedResources = suggestedResources.filter(
+      (r) => !/relevant chapter|core theory & policy/i.test(r),
+    );
+    if (suggestedResources.length === 0) {
+      if (isElasticity) {
+        suggestedResources = [
+          "Cambridge 9708 Chapter 8: Price elasticity of demand and supply",
+          "Cambridge 9708 Chapter 9: Income and cross elasticities of demand",
+        ];
+      } else if (isScarcity) {
+        suggestedResources = [
+          "Cambridge 9708 Chapter 1: Scarcity, choice and opportunity cost",
+          "Cambridge 9708 Chapter 2: Production Possibility Curves (PPC)",
+        ];
+      } else if (isTradeExchange) {
+        suggestedResources = [
+          "Cambridge 9708 Chapter 14: Exchange rates and the balance of payments",
+          "Cambridge 9708 Chapter 15: International trade and protectionism",
+        ];
+      } else if (isMarketFailure) {
+        suggestedResources = [
+          "Cambridge 9708 Chapter 6: Market failure, public goods and externalities",
+          "Cambridge 9708 Chapter 7: Government microeconomic intervention",
+        ];
+      } else if (isPriceControls) {
+        suggestedResources = [
+          "Cambridge 9708 Chapter 7: Maximum and minimum prices, taxes and subsidies",
+          "Cambridge 9708 Chapter 5: Price determination and market equilibrium",
+        ];
+      } else if (isInflation) {
+        suggestedResources = [
+          "Cambridge 9708 Chapter 12: Inflation and price stability",
+          "Cambridge 9708 Chapter 11: Macroeconomic indicators",
+        ];
+      } else if (isMacroAdAs) {
+        suggestedResources = [
+          "Cambridge 9708 Chapter 11: Aggregate demand and aggregate supply analysis",
+          "Cambridge 9708 Chapter 12: Fiscal and monetary policy management",
+        ];
+      } else if (isMarketStructure) {
+        suggestedResources = [
+          "Cambridge 9708 Chapter 17: Market structures and competitive behaviour",
+          "Cambridge 9708 Chapter 18: Contestability and monopoly power",
+        ];
+      } else {
+        suggestedResources = [
+          "Cambridge 9708 Economics Coursebook — Core Principles and Microeconomic Foundations",
+          "Official Cambridge 9708 Examiner Guidance for Essay Questions",
+        ];
+      }
+    }
   }
 
-  if (suggestedPractice.length === 0) {
-    suggestedPractice = [
-      "Write a focused 4-mark evaluative paragraph directly comparing the relative significance of short-run versus long-run impacts for this prompt.",
-      "Construct a step-by-step transmission mechanism connecting policy implementation to consumer and producer surplus changes.",
-    ];
+  // Purge hallucinated policy intervention prompts in suggested_practice when question is on elasticity/markets
+  suggestedPractice = suggestedPractice.filter(
+    (p) => !/connecting policy implementation to consumer and producer surplus/i.test(p),
+  );
+
+  // If suggestedPractice is empty or needs topic-aligned exercises:
+  if (suggestedPractice.length < 2) {
+    if (isElasticity) {
+      if (!suggestedPractice.some((p) => /elasticity|pricing|substitute|xed/i.test(p))) {
+        suggestedPractice.push(
+          "Evaluate how a firm uses knowledge of high positive XED between its product and a competitor's substitute to respond to an aggressive rival price cut.",
+          "Write a 4-mark evaluative paragraph considering how non-price determinants (such as brand loyalty and advertising) limit the practical usefulness of XED estimates.",
+        );
+      }
+    } else if (isScarcity) {
+      if (!suggestedPractice.some((p) => /scarcity|opportunity cost|ppc/i.test(p))) {
+        suggestedPractice.push(
+          "Explain why high national income levels in developed economies do not eliminate the fundamental economic problem of scarcity.",
+          "Construct a concise evaluative paragraph analyzing the opportunity cost faced by governments when allocating finite resources.",
+        );
+      }
+    } else if (isTradeExchange) {
+      if (!suggestedPractice.some((p) => /exchange rate|current account|j-curve/i.test(p))) {
+        suggestedPractice.push(
+          "Explain how the Marshall-Lerner condition and the J-curve effect determine whether currency depreciation successfully improves the current account.",
+          "Evaluate the trade-off between improving export competitiveness through depreciation and the risk of imported cost-push inflation.",
+        );
+      }
+    } else {
+      if (suggestedPractice.length === 0) {
+        suggestedPractice = [
+          "Write a focused evaluative paragraph directly comparing the relative significance of short-run versus long-run impacts for this prompt.",
+          "Construct a step-by-step transmission mechanism connecting the initial economic change to final equilibrium and stakeholder outcomes.",
+        ];
+      }
+    }
   }
 
   // Deduplicate near-duplicate feedback points across passes and models

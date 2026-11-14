@@ -50,6 +50,10 @@ Your primary mission is to:
 5. VERBATIM QUOTES ONLY:
    - Ensure any quotation marks ('...' or "...") wrap only verbatim phrases from the student's text.
 
+6. SYLLABUS RESOURCES & TOPIC-ALIGNED PRACTICE:
+   - "suggested_resources": Cite the exact relevant Cambridge 9708 chapter (e.g. "Cambridge 9708 Chapter 8: Price elasticity of demand and supply", "Cambridge 9708 Chapter 1: Scarcity, choice and opportunity cost"). NEVER use generic placeholders like "Relevant Chapter on Core Theory & Policy Instruments".
+   - "suggested_practice": Every practice bullet MUST stay strictly on the question's specific economic topic (e.g. for an XED/PED question, focus strictly on elasticity or pricing; NEVER drift into unrelated policy intervention, government failure, or consumer/producer surplus unless the question was specifically about policy).
+
 Respond ONLY with a single valid JSON object, no markdown fences, matching the schema:
 {
   "total_mark": <integer, sum of awarded marks below>,
@@ -70,7 +74,9 @@ Respond ONLY with a single valid JSON object, no markdown fences, matching the s
     "examples": ["<string>"],
     "diagrams": []
   },
-  "actionable_feedback": ["<string>", ...]
+  "actionable_feedback": ["<string>", ...],
+  "suggested_resources": ["<string>", ...],
+  "suggested_practice": ["<string>", ...]
 }`;
 
 export type RefineReportOptions = {
@@ -126,6 +132,29 @@ export async function refineExaminerReport(options: RefineReportOptions): Promis
     refined.confidence = Math.max(draftGrading.confidence, refined.confidence || 0.95);
     refined.audited = true;
     refined.arbitrated = draftGrading.arbitrated;
+
+    // Preserve topic-specific suggested_resources and practice from draftGrading if refiner omitted them or returned generic
+    if (
+      (!refined.suggested_resources ||
+        refined.suggested_resources.length === 0 ||
+        refined.suggested_resources.some((r) => /relevant chapter|core theory & policy/i.test(r))) &&
+      draftGrading.suggested_resources &&
+      draftGrading.suggested_resources.length > 0 &&
+      !draftGrading.suggested_resources.some((r) => /relevant chapter|core theory & policy/i.test(r))
+    ) {
+      refined.suggested_resources = draftGrading.suggested_resources;
+    }
+
+    if (
+      (!refined.suggested_practice ||
+        refined.suggested_practice.length === 0 ||
+        refined.suggested_practice.some((p) => /policy implementation to consumer and producer surplus/i.test(p))) &&
+      draftGrading.suggested_practice &&
+      draftGrading.suggested_practice.length > 0 &&
+      !draftGrading.suggested_practice.some((p) => /policy implementation to consumer and producer surplus/i.test(p))
+    ) {
+      refined.suggested_practice = draftGrading.suggested_practice;
+    }
 
     return purgeContradictions(refined);
   } catch (err) {

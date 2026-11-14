@@ -60,6 +60,9 @@ CAMBRIDGE MODERATION PRINCIPLES — POSITIVE, FAIR, ACCURATE MARKING:
    - Speak constructively and encouragingly. Quote ONLY verbatim phrases that actually exist in the student's text.
    - ZERO INTERNAL CODES: NEVER write [S1], [S2], (as per [S1]), or any [S#] tags in student-facing prose.
    - NO REPETITIVE FEEDBACK: Ensure strengths and weaknesses address distinct points without duplicating topics.
+   - SPECIFIC SYLLABUS CHAPTERS & TOPIC-ALIGNED PRACTICE:
+     * "suggested_resources": Cite the exact relevant Cambridge 9708 chapter (e.g. 'Cambridge 9708 Chapter 8: Price elasticity of demand and supply'). NEVER output generic placeholders like 'Relevant Chapter on Core Theory & Policy Instruments'.
+     * "suggested_practice": Every suggested practice bullet MUST stay strictly on the question's specific economic topic (e.g. for an XED/PED question, focus strictly on elasticity or pricing; NEVER drift into government intervention, policy implementation, or consumer/producer surplus unless the question was specifically about policy).
    - Zero asterisks: never use * or ** in any JSON string.
 
 8. CAMBRIDGE WRITING QUALITY, DEPTH & PARAGRAPH STRUCTURE:

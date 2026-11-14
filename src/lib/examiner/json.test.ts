@@ -416,4 +416,40 @@ The candidate scored well on AO1.
     expect(selected.length).toBeGreaterThanOrEqual(1);
     expect(selected.length).not.toBe(18);
   });
+
+  it("normaliseGrading generates topic-specific Cambridge chapters instead of generic placeholders", async () => {
+    const { normaliseGrading } = await import("./types");
+    const split = { ao1_marks: 2, ao2_marks: 6, ao3_marks: 4 };
+
+    // Case 1: Elasticity essay with empty or generic resources
+    const elasticityRaw: any = {
+      total_mark: 10,
+      ao_breakdown: {
+        knowledge: { awarded: 2, out_of: 2, comment: "Accurate XED definition" },
+        analysis: { awarded: 5, out_of: 6, comment: "Sound substitutes and complements analysis" },
+        evaluation: { awarded: 3, out_of: 4, comment: "Evaluates pricing decisions" },
+      },
+      examiner_summary: "The candidate provides a detailed discussion of cross elasticity of demand (XED) and pricing strategy.",
+      strengths: ["Clear calculation of XED."],
+      weaknesses: ["Minor slip in discussion."],
+      suggested_resources: [
+        "Cambridge 9708 Economics Coursebook — Relevant Chapter on Core Theory & Policy Instruments"
+      ],
+      suggested_practice: [
+        "Construct a step-by-step transmission mechanism connecting policy implementation to consumer and producer surplus changes."
+      ],
+    };
+
+    const result = normaliseGrading(elasticityRaw, 12, split, "Cross elasticity of demand XED explains close substitutes and complementary goods.");
+
+    // Must NOT contain generic placeholder
+    expect(result.suggested_resources.some((r) => r.includes("Relevant Chapter"))).toBe(false);
+    // Must contain specific Chapter 8 or 9 for elasticity
+    expect(result.suggested_resources.some((r) => r.includes("Price elasticity") || r.includes("cross elasticities"))).toBe(true);
+
+    // Practice must NOT contain policy surplus drift
+    expect(result.suggested_practice.some((p) => p.includes("consumer and producer surplus"))).toBe(false);
+    // Practice must stay strictly on elasticity/pricing
+    expect(result.suggested_practice.some((p) => /elasticity|pricing|substitute|xed/i.test(p))).toBe(true);
+  });
 });
