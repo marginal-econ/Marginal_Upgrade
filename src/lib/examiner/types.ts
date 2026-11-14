@@ -137,6 +137,99 @@ export function stripScoreFractionsFromText(value: unknown): string {
   return s.trim();
 }
 
+/**
+ * Programmatically sanitizes A-Level (A2) syllabus concepts and hallucinated definitional pedantry
+ * out of AS Level (Paper 2, maxMark <= 12) examiner feedback.
+ */
+export function sanitizeAsLevelText(value: unknown): string {
+  if (typeof value !== "string" || !value) return "";
+  let s = value;
+
+  // 1. Specific multi-word patterns from examiner reports (Scarcity & A-Level concepts)
+  s = s.replace(
+    /Explanation of how unlimited wants are economically defined \((?:e\.g\.,?\s*)?through marginal utility theory or diminishing returns\)\.?/gi,
+    "Explanation of how unlimited wants persist despite high income as consumer desires expand to non-essential goods and services while resources remain finite.",
+  );
+  s = s.replace(
+    /\((?:e\.g\.,?\s*)?through increased marginal wants, diminishing returns, or resource allocation trade-offs\)/gi,
+    "(e.g., through increased consumer wants, finite factors of production, and opportunity cost trade-offs)",
+  );
+  s = s.replace(
+    /(?:missing critical economic mechanisms like|missing key economic mechanisms such as)\s*(?:opportunity cost,\s*)?marginal utility,\s*diminishing returns,?\s*(?:or|and)?\s*resource allocation trade-offs/gi,
+    "missing key economic mechanisms such as opportunity cost and resource allocation trade-offs",
+  );
+  s = s.replace(
+    /(?:missing critical economic mechanisms like|missing key economic mechanisms such as)\s*marginal utility,\s*diminishing returns/gi,
+    "missing key economic mechanisms like resource allocation trade-offs and opportunity cost",
+  );
+  s = s.replace(
+    /(?:like|such as)\s*marginal utility,\s*diminishing returns,?\s*(?:or|and)?\s*/gi,
+    "like opportunity cost, resource allocation trade-offs, or ",
+  );
+
+  // 2. Definitional hallucination & pedantry sanitization (Scarcity & Tautology claims)
+  s = s.replace(
+    /The phrase ['"]limited resources['"] is vague and does not explicitly reference the fundamental economic problem of finite resources(?:\s*\(as per [^)]+\))?\.?\s*/gi,
+    "The candidate defines scarcity as limited resources versus unlimited wants. ",
+  );
+  s = s.replace(
+    /The student (?:also )?incorrectly states ['"]Scarcity takes place when the resources are limited but the wants are unlimited['"](?:—|--)this is a tautology and does not fully capture the economic concept of opportunity cost(?:\s*\([^)]*\))?\.?\s*/gi,
+    "The candidate defines scarcity as limited resources versus unlimited wants; connecting choices directly to opportunity cost will deepen the response. ",
+  );
+  s = s.replace(
+    /(?:The|This) definition of scarcity is vague and colloquial \(['"]resources are limited but wants are unlimited['"]\) and does not explicitly reference opportunity cost or the fundamental economic problem(?:\s*\(as required by [^)]+\))?\.?\s*/gi,
+    "The definition of scarcity accurately identifies limited resources and unlimited wants; developing the link to opportunity cost will enhance syllabus precision. ",
+  );
+  s = s.replace(
+    /(?:The|This) definition of scarcity is vague and lacks syllabus precision\. The student does not explicitly reference the fundamental economic problem(?:\s*\([^)]+\))? or opportunity cost(?:\s*\([^)]+\))?,? which are core to answering the question\.?\s*/gi,
+    "The definition of scarcity correctly identifies finite resources and unlimited wants; deepening the explanation with opportunity cost will enhance syllabus precision. ",
+  );
+  s = s.replace(
+    /does not explicitly reference the fundamental economic problem of finite resources(?:\s*\(as per [^)]+\))?/gi,
+    "can be further linked to finite factors of production and opportunity cost",
+  );
+  s = s.replace(
+    /this is a tautology and does not fully capture the economic concept of opportunity cost/gi,
+    "this foundational definition can be further enriched by linking choices to opportunity cost",
+  );
+  s = s.replace(/\bthis is a tautology\b/gi, "this is a foundational definition");
+  s = s.replace(/\b(?:is\s+a\s+tautology)\b/gi, "is a foundational definition");
+
+  // 3. General A-Level (A2) concepts removal / replacement for AS Level
+  s = s.replace(/\b(?:the\s+)?(?:law\s+of\s+)?diminishing\s+marginal\s+utility\b/gi, "consumer choice theory");
+  s = s.replace(/\bmarginal\s+utility(?:\s+theory)?\b/gi, "consumer choice theory");
+  s = s.replace(/\bequi[- ]marginal\s+(?:principle|utility)\b/gi, "consumer choice");
+  s = s.replace(/\b(?:the\s+)?(?:law\s+of\s+)?diminishing\s+(?:marginal\s+)?returns\b/gi, "resource constraints and opportunity cost");
+  s = s.replace(/\bdiminishing\s+returns\b/gi, "resource constraints");
+  s = s.replace(/\bindifference\s+curves?(?:\s+and\s+budget\s+lines?)?\b/gi, "consumer demand analysis");
+  s = s.replace(/\bbudget\s+lines?\b/gi, "income constraints");
+  s = s.replace(/\boligopol(?:y|ies)\b/gi, "imperfect markets");
+  s = s.replace(/\bmonopolistic\s+competition\b/gi, "imperfect competition");
+  s = s.replace(/\bcontestabl(?:e|ity)\s+markets?\b/gi, "competitive markets");
+  s = s.replace(/\bkinked\s+demand(?:\s+curve)?\b/gi, "price rigidity");
+  s = s.replace(/\bgame\s+theory\b/gi, "strategic pricing");
+  s = s.replace(/\bprice\s+discrimination\b/gi, "pricing policy");
+  s = s.replace(/\bdynamic\s+efficienc(?:y|ies)\b/gi, "productive efficiency");
+  s = s.replace(/\bx[- ]efficienc(?:y|ies)\b/gi, "productive efficiency");
+  s = s.replace(/\bpareto\s+efficienc(?:y|ies)|pareto\s+optimal(?:ity)?\b/gi, "allocative efficiency");
+  s = s.replace(/\bmarginal\s+revenue\s+product(?:ivity)?(?:\s+of\s+labou?r)?\b/gi, "labour productivity");
+  s = s.replace(/\bmrpl\b/gi, "labour productivity");
+  s = s.replace(/\bgini\s+coefficient\b/gi, "income inequality");
+  s = s.replace(/\blorenz\s+curve\b/gi, "income distribution");
+
+  // 4. Clean grammatical artifacts
+  s = s.replace(/\b(?:like|such as)\s+,\s*/gi, "like ");
+  s = s.replace(/,\s*,+/g, ",");
+  s = s.replace(/\.\s*\.+/g, ".");
+  s = s.replace(/,\s*\./g, ".");
+  s = s.replace(/\(\s*\)/g, "");
+  s = s.replace(/\(\s*,\s*\)/g, "");
+  s = s.replace(/\(\s*\.\s*\)/g, "");
+  s = s.replace(/\s{2,}/g, " ");
+  s = s.replace(/^\s*[,.\-]\s*/, "");
+  return s.trim();
+}
+
 export function cleanMarkdownText(value: unknown): string {
   if (typeof value !== "string") return "";
   let text = stripStars(value);
@@ -375,6 +468,33 @@ export function normaliseGrading(
     ];
   }
 
+  // Programmatic AS Level (Paper 2, maxMark <= 12) Sanitization:
+  // Purges any hallucinated A-Level topics (marginal utility, diminishing returns, etc.)
+  // and definitional pedantry/tautology claims from student-facing feedback.
+  if (maxMark <= 12) {
+    knowledge.comment = sanitizeAsLevelText(knowledge.comment);
+    analysis.comment = sanitizeAsLevelText(analysis.comment);
+    evaluation.comment = sanitizeAsLevelText(evaluation.comment);
+    examinerSummary = sanitizeAsLevelText(examinerSummary);
+    strengths = strengths.map(sanitizeAsLevelText).filter((s) => s.length > 0);
+    weaknesses = weaknesses.map(sanitizeAsLevelText).filter((w) => w.length > 0);
+    actionableFeedback = actionableFeedback.map(sanitizeAsLevelText).filter((f) => f.length > 0);
+    suggestedResources = suggestedResources.map(sanitizeAsLevelText).filter((r) => r.length > 0);
+    suggestedPractice = suggestedPractice.map(sanitizeAsLevelText).filter((p) => p.length > 0);
+  }
+
+  const rawDefs = toStringArray(rawMissing.definitions);
+  const rawAna = toStringArray(rawMissing.analysis);
+  const rawEval = split.ao3_marks === 0 ? [] : toStringArray(rawMissing.evaluation);
+  const rawEx = toStringArray(rawMissing.examples);
+  const rawDiag = toStringArray(rawMissing.diagrams);
+
+  const missingDefinitions = maxMark <= 12 ? rawDefs.map(sanitizeAsLevelText).filter((d) => d.length > 0) : rawDefs;
+  const missingAnalysis = maxMark <= 12 ? rawAna.map(sanitizeAsLevelText).filter((a) => a.length > 0) : rawAna;
+  const missingEvaluation = maxMark <= 12 ? rawEval.map(sanitizeAsLevelText).filter((e) => e.length > 0) : rawEval;
+  const missingExamples = maxMark <= 12 ? rawEx.map(sanitizeAsLevelText).filter((ex) => ex.length > 0) : rawEx;
+  const missingDiagrams = maxMark <= 12 ? rawDiag.map(sanitizeAsLevelText).filter((di) => di.length > 0) : rawDiag;
+
   return cleanStars({
     total_mark: total,
     max_mark: maxMark,
@@ -385,11 +505,11 @@ export function normaliseGrading(
     weaknesses,
     missing_elements: {
       ...EMPTY_MISSING,
-      definitions: toStringArray(rawMissing.definitions),
-      analysis: toStringArray(rawMissing.analysis),
-      evaluation: split.ao3_marks === 0 ? [] : toStringArray(rawMissing.evaluation),
-      examples: toStringArray(rawMissing.examples),
-      diagrams: toStringArray(rawMissing.diagrams),
+      definitions: missingDefinitions,
+      analysis: missingAnalysis,
+      evaluation: missingEvaluation,
+      examples: missingExamples,
+      diagrams: missingDiagrams,
     },
     actionable_feedback: actionableFeedback,
     suggested_resources: suggestedResources,

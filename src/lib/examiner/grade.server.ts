@@ -234,12 +234,40 @@ export async function gradeEssay(
   // Critical Paper Scope & Feedback Rules for Paper 2 (8-mark and 12-mark essays)
   if (maxMark <= 12) {
     baseSystemPrompt = `${baseSystemPrompt}\n\n` +
-      `CRITICAL PAPER SCOPE DIRECTIVE — STRICT CAMBRIDGE 9708 PAPER 2 (AS LEVEL):\n` +
+      `CRITICAL PAPER SCOPE DIRECTIVE — STRICT CAMBRIDGE 9708 PAPER 2 (AS LEVEL ONLY):\n` +
       `This ${maxMark}-mark question is strictly Cambridge 9708 Paper 2 (AS Level).\n` +
-      `1. NEVER mention Paper 4, A-Level topics (such as oligopoly, monopolistic competition, Pareto efficiency, indifference curves, or Chapter 32), or extended Paper 4 essays.\n` +
-      `2. Grade and feedback must align 100% with AS Level Paper 2 syllabus topics, content, and knowledge base.\n` +
+      `1. ABSOLUTE PROHIBITION OF A-LEVEL (A2 / PAPER 4) CONCEPTS:\n` +
+      `   You are STRICTLY FORBIDDEN from mentioning, demanding, or suggesting ANY A-Level topics anywhere in your assessment (examiner_summary, weaknesses, missing_elements, actionable_feedback, suggested_resources, suggested_practice, AO comments):\n` +
+      `   * NO marginal utility, diminishing marginal utility, equi-marginal principle, or utility theory.\n` +
+      `   * NO diminishing returns, law of diminishing returns, or diminishing marginal returns (these are A-Level / cost theory).\n` +
+      `   * NO indifference curves, budget lines, or income and substitution effect breakdown.\n` +
+      `   * NO market structures (monopoly, oligopoly, monopolistic competition, contestability, game theory, price discrimination).\n` +
+      `   * NO dynamic efficiency, X-inefficiency, or Pareto efficiency.\n` +
+      `   * NO labour market wage theory (MRPL).\n` +
+      `   * NO A2 macro (expectations Phillips curve, multiplier formulas k=1/MPW, Gini/Lorenz).\n` +
+      `   Grade and advise strictly on AS Level Paper 2 content and knowledge base.\n` +
+      `2. DEFINITION FAIRNESS & ANTI-HALLUCINATION DIRECTIVE:\n` +
+      `   * Scarcity = finite or limited resources cannot satisfy unlimited human wants. "Finite resources" and "limited resources" are standard, synonymous Cambridge terms. NEVER call "limited resources" vague, colloquial, or inaccurate.\n` +
+      `   * Stating "scarcity takes place when resources are limited but wants are unlimited" is accurate syllabus economics. NEVER label it a tautology or incorrect.\n` +
+      `   * Do NOT require opportunity cost within the definition of scarcity itself. Opportunity cost is a consequence of choice, not a clause of the definition of scarcity.\n` +
+      `   * Candidates write timed examination essays; NEVER demand citations or [S#] snippet codes, and NEVER fabricate claims about what snippets require.\n` +
       `3. ZERO NUMERIC MARKS IN PROSE: Do NOT write numerical scores, mark breakdowns, or phrases like "held at 7", "instead of 8", or "cost you marks" anywhere inside written feedback, Examiner Summary, AO explanations, or improvement bullets. Let the UI score badges display the numbers separately.\n` +
       `4. FOCUS STRICTLY ON STRENGTHS & IMPROVEMENTS: In all written feedback sections, focus purely on (a) what the candidate did well economically, and (b) specific, syllabus-accurate improvements to elevate their analysis and evaluation (such as distinguishing movements onto the PPC from outward shifts, and using short-run vs. long-run criteria in the conclusion).`;
+  }
+
+  // Authoritative Chapter 1 (Scarcity & The Basic Economic Problem) Rubric:
+  const touchesScarcity = /\bscarcit(y|ies)|basic economic problem|unlimited wants|finite resources\b/i.test(
+    `${question} ${essayText}`,
+  );
+  if (touchesScarcity) {
+    baseSystemPrompt = `${baseSystemPrompt}\n\n` +
+      `AUTHORITATIVE CHAPTER 1 (SCARCITY & THE BASIC ECONOMIC PROBLEM) RUBRIC (PAPER 2 AS LEVEL):\n` +
+      `- Scarcity is defined as finite / limited resources being insufficient to satisfy infinite / unlimited human wants.\n` +
+      `- "Finite resources" and "limited resources" are standard, synonymous Cambridge terms. Do NOT claim "limited resources" is vague or incorrect.\n` +
+      `- Stating "scarcity takes place when resources are limited but wants are unlimited" is accurate syllabus economics. NEVER label this a tautology, colloquial, or an error.\n` +
+      `- Scarcity necessitates choice, and every choice incurs an opportunity cost (the benefit of the next best alternative forgone). Opportunity cost is the result of choice, not a mandatory clause of the definition of scarcity itself.\n` +
+      `- Rich countries experience persistent scarcity because human wants expand (e.g. higher-quality healthcare, luxury goods, cleaner environment, advanced technology), while resources (land, skilled labour, capital) remain finite.\n` +
+      `- FORBIDDEN A-LEVEL THEORIES: Do NOT mention or expect marginal utility, diminishing marginal utility, or diminishing returns to explain scarcity in rich countries. Explain scarcity strictly via expanding consumer wants, finite factors of production, and opportunity cost trade-offs.`;
   }
 
   // Authoritative Chapter 5 (PPC & Efficiency) Knowledge Base Rubric:

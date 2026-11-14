@@ -15,7 +15,7 @@
 import { chat } from "../ai.server";
 import { formatStructureNote, getStructureGuidance, MODEL_EXAMINER, TEMPERATURE_EXAMINER, type AoSplit } from "./config";
 import { extractFirstJsonObject } from "./json";
-import { bandFor, normaliseGrading, stripScoreFractionsFromText, type Grading } from "./types";
+import { bandFor, normaliseGrading, sanitizeAsLevelText, stripScoreFractionsFromText, type Grading } from "./types";
 import {
   analyzeEssayQuality,
   applyWritingQualityGuardrail,
@@ -166,7 +166,8 @@ AUTHORITATIVE PRINCIPAL EXAMINER PRINCIPLES:
    - EVALUATIVE VS NON-EVALUATIVE TARIFF DIRECTIVE:
      * If {ao3_marks} is 0 marks: Evaluation is strictly NOT required (legacy Cambridge 8-mark 'Explain' questions). Set awarded: 0, out_of: 0, and comment: "Evaluation is not required for this question. No marks are lost for its omission." Keep missing_elements.evaluation empty [].
      * If {ao3_marks} > 0 marks: Evaluation IS MANDATORY. You MUST grade AO3 out of {ao3_marks} marks. NEVER state that evaluation is not required, even if the question starts with 'Explain'.
-      * PAPER SCOPE FOR 8-MARK & 12-MARK ESSAYS: Strictly Cambridge 9708 Paper 2 (AS Level). NEVER mention Paper 4, A-Level topics (oligopoly, monopolistic competition, Pareto efficiency, Chapter 32), or extended Paper 4 essays.
+      * PAPER SCOPE FOR 8-MARK & 12-MARK ESSAYS (STRICT AS LEVEL PAPER 2 ONLY):
+        Strictly Cambridge 9708 Paper 2 (AS Level). NEVER mention Paper 4, A-Level topics (NO marginal utility/utility theory, NO diminishing returns, NO indifference curves, NO monopoly/oligopoly, NO dynamic/X/Pareto efficiency, NO MRPL, NO A2 macro), or extended Paper 4 essays. Grade and advise strictly on AS Level Paper 2 content.
      * For 8-mark evaluative questions ({ao3_marks} = 2 marks):
         - ONLY A PERFECT ESSAY CAN RECEIVE 8 MARKS (8/8).
         - Full 2/2 marks for AO3 is strictly reserved for a truly perfect evaluative essay where all evaluation criteria are fully met and a supported concluding judgement resolves the prompt.
@@ -187,6 +188,7 @@ AUTHORITATIVE PRINCIPAL EXAMINER PRINCIPLES:
     - Distinguish correct economics from genuine errors:
      * When a subsidy lowers market price, quantity demanded extends/increases along the curve (from Q to Q1). That is accurate economic terminology, not an error.
      * Merit goods are defined both by positive externalities and by information failure / undervaluation of private benefits. Both are syllabus-correct.
+     * DEFINITION FAIRNESS & ANTI-HALLUCINATION: Scarcity is finite or limited resources versus unlimited wants. "Finite" and "limited" are standard Cambridge synonyms. Stating "scarcity takes place when resources are limited but wants are unlimited" is accurate syllabus economics; NEVER label it a tautology or incorrect. Do NOT require opportunity cost within the definition of scarcity itself. Never demand citations or snippets like [S#].
    - ACCOUNTABILITY ON MAJOR THEORETICAL ERRORS:
      * Inverted definitions (e.g. defining negative externality as a benefit to firms paid by government, claiming carbon tax is a direct tax on income) earn 0 marks on AO1.
      * Flawed causal mechanisms built on false economic premises cannot exceed Level 1 in AO2.
@@ -538,6 +540,23 @@ export function synthesizeDualPasses(
     audited: true,
     arbitrated: false,
   };
+
+  if (maxMark <= 12) {
+    result.ao_breakdown.knowledge.comment = sanitizeAsLevelText(result.ao_breakdown.knowledge.comment);
+    result.ao_breakdown.analysis.comment = sanitizeAsLevelText(result.ao_breakdown.analysis.comment);
+    result.ao_breakdown.evaluation.comment = sanitizeAsLevelText(result.ao_breakdown.evaluation.comment);
+    result.examiner_summary = sanitizeAsLevelText(result.examiner_summary);
+    result.strengths = result.strengths.map(sanitizeAsLevelText).filter((s) => s.length > 0);
+    result.weaknesses = result.weaknesses.map(sanitizeAsLevelText).filter((w) => w.length > 0);
+    result.actionable_feedback = result.actionable_feedback.map(sanitizeAsLevelText).filter((f) => f.length > 0);
+    result.suggested_resources = result.suggested_resources.map(sanitizeAsLevelText).filter((r) => r.length > 0);
+    result.suggested_practice = result.suggested_practice.map(sanitizeAsLevelText).filter((p) => p.length > 0);
+    result.missing_elements.definitions = result.missing_elements.definitions.map(sanitizeAsLevelText).filter((d) => d.length > 0);
+    result.missing_elements.analysis = result.missing_elements.analysis.map(sanitizeAsLevelText).filter((a) => a.length > 0);
+    result.missing_elements.evaluation = result.missing_elements.evaluation.map(sanitizeAsLevelText).filter((e) => e.length > 0);
+    result.missing_elements.examples = result.missing_elements.examples.map(sanitizeAsLevelText).filter((ex) => ex.length > 0);
+    result.missing_elements.diagrams = result.missing_elements.diagrams.map(sanitizeAsLevelText).filter((di) => di.length > 0);
+  }
 
   return quality ? applyWritingQualityGuardrail(result, quality, maxMark, split) : result;
 }

@@ -217,7 +217,8 @@ export function buildAoEvaluationDirective(maxMark: number, split: AoSplit): str
   if (maxMark === 8 && split.ao3_marks === 2) {
     return `SPECIAL DIRECTIVE FOR 8-MARK EVALUATIVE ESSAYS (2 AO3 Evaluation Marks Allocated):
 - THIS IS AN 8-MARK SECTION B EVALUATIVE ESSAY — STRICTLY CAMBRIDGE 9708 PAPER 2 (AS LEVEL) (${maxMark} marks total: AO1: ${split.ao1_marks}, AO2: ${split.ao2_marks}, AO3: ${split.ao3_marks}).
-- NEVER mention Paper 4, A-Level topics (such as oligopoly, monopolistic competition, Pareto efficiency, or Chapter 32), or extended Paper 4 essays. Focus 100% on AS Level Paper 2 content and knowledge base.
+- NEVER mention Paper 4 or A-Level topics (NO marginal utility/utility theory, NO diminishing returns, NO indifference curves, NO monopoly/oligopoly, NO dynamic/X/Pareto efficiency, NO MRPL, NO A2 macro). Grade and advise strictly on AS Level Paper 2 content and knowledge base.
+- DEFINITION FAIRNESS: Scarcity is finite or limited resources versus unlimited wants. "Finite" and "limited" are standard Cambridge synonyms; never label a basic definition of scarcity incorrect or a tautology. Do not require opportunity cost in the definition of scarcity itself.
 - REALISTIC, TONED-DOWN EVALUATION STRICTNESS FOR 8-MARK QUESTIONS (~300–450 words target):
   * AO3 is allocated ONLY 2 MARKS TOTAL. This is a concise AS Level Section B essay.
   * DO NOT demand A-Level criteria or complex multi-criteria trade-off matrices.
@@ -249,7 +250,8 @@ export function buildAoEvaluationDirective(maxMark: number, split: AoSplit): str
 
   return `SPECIAL DIRECTIVE FOR 12-MARK EVALUATIVE ESSAYS (${split.ao3_marks} AO3 Evaluation Marks Allocated):
 - PAPER SCOPE: THIS IS STRICTLY A CAMBRIDGE 9708 PAPER 2 (AS LEVEL) SECTION B ESSAY (${maxMark} marks total: AO1: ${split.ao1_marks}, AO2: ${split.ao2_marks}, AO3: ${split.ao3_marks}).
-- NEVER mention Paper 4, A-Level topics (such as oligopoly, monopolistic competition, Pareto efficiency, or Chapter 32), or extended Paper 4 essays. Focus 100% on AS Level Paper 2 content and knowledge base.
+- NEVER mention Paper 4 or A-Level topics (NO marginal utility/utility theory, NO diminishing returns, NO indifference curves, NO monopoly/oligopoly, NO dynamic/X/Pareto efficiency, NO MRPL, NO A2 macro). Grade and advise strictly on AS Level Paper 2 content and knowledge base.
+- DEFINITION FAIRNESS: Scarcity is finite or limited resources versus unlimited wants. "Finite" and "limited" are standard Cambridge synonyms; never label a basic definition of scarcity incorrect or a tautology. Do not require opportunity cost in the definition of scarcity itself.
 - EVALUATION IS MANDATORY. In "ao_breakdown.evaluation", evaluate the candidate's evaluation out of exactly ${split.ao3_marks} marks.
 - ZERO NUMERIC MARKS IN PROSE: Do NOT write numerical scores, mark breakdowns, or phrases like "cost you marks" anywhere inside the written feedback, Examiner Summary, AO explanations, or improvement bullets.
 - FOCUS STRICTLY ON STRENGTHS & IMPROVEMENTS: Focus purely on what the candidate did well economically and specific, syllabus-accurate improvements to elevate their analysis and evaluation.`;

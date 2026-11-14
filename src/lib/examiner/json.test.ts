@@ -173,4 +173,100 @@ The candidate scored well on AO1.
     expect(result.band).toBe("Top Band");
     expect(result.ao_breakdown.knowledge.awarded + result.ao_breakdown.analysis.awarded + result.ao_breakdown.evaluation.awarded).toBe(result.total_mark);
   });
+
+  it("sanitizes A-Level concepts and definitional pedantry out of AS Level (8m & 12m) examiner reports", async () => {
+    const { normaliseGrading, sanitizeAsLevelText } = await import("./types");
+
+    // 1. Direct test of sanitizeAsLevelText
+    const hallucinatedSummary =
+      "The student also incorrectly states 'Scarcity takes place when the resources are limited but the wants are unlimited'—this is a tautology and does not fully capture the economic concept of opportunity cost (the next best alternative forgone). The phrase 'limited resources' is vague and does not explicitly reference the fundamental economic problem of finite resources (as per [S1] and [S6]). Missing critical economic mechanisms like marginal utility, diminishing returns, or resource allocation trade-offs.";
+
+    const sanitizedSummary = sanitizeAsLevelText(hallucinatedSummary);
+    expect(sanitizedSummary).not.toContain("this is a tautology");
+    expect(sanitizedSummary).not.toContain("incorrectly states 'Scarcity takes place");
+    expect(sanitizedSummary).not.toContain("marginal utility");
+    expect(sanitizedSummary).not.toContain("diminishing returns");
+
+    // 2. Normalisation of 8-mark essay containing A-Level concepts and definitional hallucinations
+    const raw8 = {
+      total_mark: 3,
+      ao_breakdown: {
+        knowledge: {
+          awarded: 1,
+          out_of: 2,
+          comment:
+            "The student also incorrectly states 'Scarcity takes place when the resources are limited but the wants are unlimited'—this is a tautology and does not fully capture the economic concept of opportunity cost (the next best alternative forgone).",
+        },
+        analysis: {
+          awarded: 2,
+          out_of: 6,
+          comment:
+            "The analysis is descriptive rather than analytical. Missing critical economic mechanisms like marginal utility, diminishing returns, or resource allocation trade-offs.",
+        },
+        evaluation: {
+          awarded: 0,
+          out_of: 0,
+          comment: "Evaluation is not required for this question.",
+        },
+      },
+      examiner_summary:
+        "The response is missing key economic mechanisms such as opportunity cost, marginal utility, or resource allocation trade-offs.",
+      weaknesses: [
+        "The definition of scarcity is vague and colloquial ('resources are limited but wants are unlimited') and does not explicitly reference opportunity cost or the fundamental economic problem (as required by [S3] and [S6]).",
+        "The analysis is descriptive rather than analytical, missing critical economic mechanisms like marginal utility, diminishing returns, or resource allocation trade-offs.",
+      ],
+      missing_elements: {
+        definitions: [
+          "Explanation of how unlimited wants are economically defined (e.g., through marginal utility theory or diminishing returns).",
+        ],
+        analysis: [
+          "A step-by-step explanation of how high income levels in rich countries lead to persistent scarcity (e.g., through increased marginal wants, diminishing returns, or resource allocation trade-offs).",
+        ],
+        evaluation: [],
+        examples: ["Real world example in rich country."],
+        diagrams: [],
+      },
+      actionable_feedback: [
+        "Revise your definition of scarcity and integrate resource constraints without relying on diminishing returns.",
+      ],
+      suggested_resources: ["Cambridge 9708 Chapter 1: Scarcity, choice"],
+      suggested_practice: ["Practice scarcity questions"],
+    };
+
+    const split8 = { ao1_marks: 2, ao2_marks: 6, ao3_marks: 0 };
+    const result8 = normaliseGrading(raw8, 8, split8);
+
+    // Verify all A-level topics are purged
+    expect(result8.examiner_summary).not.toContain("marginal utility");
+    expect(result8.examiner_summary).not.toContain("diminishing returns");
+    expect(result8.weaknesses.some((w) => /marginal utility|diminishing returns/i.test(w))).toBe(false);
+    expect(result8.weaknesses.some((w) => /vague and colloquial/i.test(w))).toBe(false);
+    expect(result8.missing_elements.definitions.some((d) => /marginal utility|diminishing returns/i.test(d))).toBe(false);
+    expect(result8.missing_elements.analysis.some((a) => /marginal utility|diminishing returns/i.test(a))).toBe(false);
+    expect(result8.ao_breakdown.knowledge.comment).not.toContain("this is a tautology");
+    expect(result8.ao_breakdown.analysis.comment).not.toContain("marginal utility");
+
+    // 3. For 20-mark A Level essays, A-Level terms are legitimately preserved
+    const raw20 = {
+      total_mark: 16,
+      ao_breakdown: {
+        knowledge: { awarded: 2, out_of: 2, comment: "Sound knowledge of utility theory." },
+        analysis: { awarded: 9, out_of: 12, comment: "Detailed explanation using diminishing returns and marginal utility." },
+        evaluation: { awarded: 5, out_of: 6, comment: "Thorough evaluation." },
+      },
+      examiner_summary: "Strong essay analyzing oligopoly and dynamic efficiency.",
+      weaknesses: ["Could deepen the analysis of marginal utility."],
+      missing_elements: {
+        definitions: ["Equi-marginal principle"],
+        analysis: ["Diminishing returns mechanism"],
+        evaluation: [],
+        examples: [],
+        diagrams: [],
+      },
+    };
+    const split20 = { ao1_marks: 2, ao2_marks: 12, ao3_marks: 6 };
+    const result20 = normaliseGrading(raw20, 20, split20);
+    expect(result20.examiner_summary).toContain("oligopoly");
+    expect(result20.ao_breakdown.analysis.comment).toContain("diminishing returns");
+  });
 });

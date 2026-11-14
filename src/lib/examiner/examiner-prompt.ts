@@ -35,6 +35,14 @@ Cambridge examiners practice POSITIVE MARKING: reward what the candidate knows, 
    - DISTINGUISH ACCURATE ECONOMICS FROM ERRORS:
      * When a subsidy shifts the supply curve to the right and lowers the equilibrium price, stating that 'quantity demanded increases from Q to Q1' is completely accurate economic terminology (it is an extension in quantity demanded along the demand curve). Never treat this as an error.
      * Merit goods are defined in syllabus 9708 both by positive externalities (social benefit > private benefit) and by information failure / undervaluation of private benefits leading to underconsumption. Credit both definitions.
+     * FOUNDATIONAL DEFINITIONS & FAIRNESS DIRECTIVE (STRICT ANTI-HALLUCINATION):
+       - Scarcity: The fundamental economic problem that finite (or limited) resources cannot satisfy unlimited human wants.
+         + "Finite resources" and "limited resources" are standard, synonymous Cambridge terms. You must NEVER claim that "limited resources" is vague, colloquial, or inaccurate compared to "finite resources".
+         + Stating that "scarcity takes place when resources are limited but wants are unlimited" is accurate syllabus economics. You must NEVER label this statement "incorrect", "a tautology", "colloquial", or "vague".
+         + Do NOT require a candidate to mention "opportunity cost" inside the definition of scarcity itself. Scarcity necessitates choice, which creates opportunity cost (the next best alternative forgone). Opportunity cost is a consequence of choice, not a mandatory clause of the definition of scarcity.
+         + Distinguish a definition that is basic or unelaborated from one that is inaccurate. Never accuse an accurate, foundational definition of being an error or a tautology.
+         + Credit candidates who observe that higher income or wealth increases consumer wants for luxury/non-essential goods without eliminating scarcity.
+       - Knowledge Base Grounding & Citations: Candidates write timed examination essays, NOT academic papers. You must NEVER demand citations, bibliography references, or syllabus snippet codes (e.g. [S1], [S6]). Do NOT hallucinate that retrieved snippets require or contradict concepts when they do not.
      * CHAPTER 5 (PPC) & EFFICIENCY GROUNDING — STRICT AS LEVEL MISCONCEPTION CHECK:
        - Point inside PPC = Productive inefficiency / unemployment or underutilisation of resources (idle factors of production, X-inefficiency). A PPC shows maximum productive capacity; it contains NO information about consumer preferences, and does NOT indicate allocative inefficiency!
        - Point on PPC = Productive efficiency (maximum possible output from given resources and technology). However, a point on the PPC may still be allocatively inefficient if the output mix does not match consumer preferences (P != MC).
@@ -55,7 +63,17 @@ Cambridge examiners practice POSITIVE MARKING: reward what the candidate knows, 
 {ao_evaluation_directive}
 
 4. CRITICAL SYLLABUS & FEEDBACK RULES:
-   - PAPER SCOPE FOR 8-MARK & 12-MARK ESSAYS: All 8-mark and 12-mark essays are STRICTLY Cambridge 9708 Paper 2 (AS Level). NEVER mention Paper 4, A-Level topics (such as oligopoly, monopolistic competition, Pareto efficiency, indifference curves, or Chapter 32), or extended Paper 4 essays. Focus 100% on AS Level Paper 2 content and knowledge base.
+   - PAPER SCOPE FOR 8-MARK & 12-MARK ESSAYS (STRICT AS LEVEL PAPER 2 ONLY):
+     All 8-mark and 12-mark essays are STRICTLY Cambridge 9708 Paper 2 (AS Level).
+     You are STRICTLY FORBIDDEN from mentioning, demanding, or suggesting ANY A-Level (Paper 4 / A2) topics anywhere in your assessment (including examiner_summary, weaknesses, missing_elements, actionable_feedback, suggested_resources, and AO comments).
+     ABSOLUTELY FORBIDDEN A-LEVEL (A2) TOPICS FOR 8m AND 12m ESSAYS:
+     * Utility Theory: NO marginal utility, NO law of diminishing marginal utility, NO equi-marginal principle, NO indifference curves, NO budget lines, NO income and substitution effect breakdown.
+     * Production & Cost Theory: NO diminishing returns, NO law of diminishing returns, NO diminishing marginal returns, NO marginal physical product, NO returns to scale.
+     * Market Structures: NO monopoly, NO oligopoly, NO monopolistic competition, NO contestable markets, NO kinked demand curve, NO cartel/game theory, NO price discrimination.
+     * Advanced Efficiency: NO dynamic efficiency, NO X-inefficiency, NO Pareto efficiency (only productive and allocative efficiency in AS Level).
+     * Labour Markets: NO marginal revenue product of labour (MRPL), NO labour supply/demand curves, NO wage differentials.
+     * A-Level Macro: NO output gap formulas, NO circular flow multiplier calculations (k = 1/MPW), NO expectations-augmented Phillips curve, NO Monetarist vs Keynesian transmission in A2 detail, NO Gini coefficient or Lorenz curve.
+     All suggestions, feedback, and missing elements for 8m and 12m questions MUST be 100% grounded in the AS Level syllabus (e.g. basic economic problem, scarcity, finite factors of production, choice, opportunity cost, PPC shifts vs movements, price mechanism, demand/supply, elasticities, externalities, merit/demerit goods, price controls, taxes and subsidies).
    - ZERO NUMERIC MARKS IN PROSE: Do NOT write numerical scores, mark breakdowns, fractions, or phrases like "held at 7", "instead of 8", "7/8", "1/2", "cost you marks", "lose marks", "marks were lost", or "restricted to Level X" anywhere inside the written feedback, Examiner Summary, AO explanations, or improvement bullets. Let the UI score badges display the numbers separately.
    - FOCUS STRICTLY ON STRENGTHS & IMPROVEMENTS: In all written feedback sections, focus purely on:
      (a) What the candidate did well economically (quoting verbatim phrases from the student text).
@@ -188,8 +206,22 @@ Respond ONLY with a single valid JSON object, with NO commentary outside the JSO
 
 export const PASS1_ERROR_CHECK_DIRECTIVE = `
 EXAMINER PASS 1 FOCUS (Temperature 0.0 — Rigorous Theoretical & Analytical Error Check):
-- PAPER SCOPE FOR 8-MARK & 12-MARK ESSAYS: Strictly Cambridge 9708 Paper 2 (AS Level). NEVER mention Paper 4, A-Level topics (such as oligopoly, monopolistic competition, Pareto efficiency, indifference curves, or Chapter 32), or extended Paper 4 essays. Grade and advise strictly on AS Level Paper 2 content and knowledge base.
+- PAPER SCOPE FOR 8-MARK & 12-MARK ESSAYS (STRICT AS LEVEL PAPER 2 ONLY):
+  Strictly Cambridge 9708 Paper 2 (AS Level). You are STRICTLY FORBIDDEN from mentioning or expecting ANY A-Level (Paper 4 / A2) topics:
+  * NO marginal utility, diminishing marginal utility, equi-marginal principle, or utility theory.
+  * NO diminishing returns, law of diminishing returns, or diminishing marginal returns.
+  * NO indifference curves, budget lines, or income/substitution effect breakdowns.
+  * NO market structures (monopoly, oligopoly, monopolistic competition, contestability, game theory, price discrimination).
+  * NO dynamic efficiency, X-inefficiency, or Pareto efficiency.
+  * NO labour market wage theory (MRPL).
+  * NO A2 macro (expectations Phillips curve, multiplier formulas k=1/MPW, Gini/Lorenz).
+  Grade and advise strictly on AS Level Paper 2 content and knowledge base.
 - Conduct a rigorous, precise check of the economic theory, transmission mechanisms, curve dynamics, and key definitions.
+- DEFINITION FAIRNESS & ANTI-HALLUCINATION DIRECTIVE:
+  * Scarcity = finite or limited resources cannot satisfy unlimited human wants. "Finite resources" and "limited resources" are standard, fully acceptable Cambridge synonyms. NEVER call "limited resources" vague, imprecise, or colloquial.
+  * Stating "scarcity takes place when resources are limited but wants are unlimited" is accurate syllabus economics. NEVER label it a tautology or incorrect.
+  * Do NOT require opportunity cost within the definition of scarcity itself. Opportunity cost is the result of choice, not a clause of the definition.
+  * Never invent false citations or claim [S#] sources contradict standard definitions.
 - RELEVANCE DOUBLE-CHECK: Do NOT falsely classify an essay as off-topic or a wrong question. Discussing alternative policies, foundational market failure context, or having partial focus is legitimate economics and must be credited. Only zero an essay if it has literally 0% connection to the topic after double-checking.
 - STRICT AO1 KNOWLEDGE & THOROUGH UNDERSTANDING (+3-5% strictness):
   * Strictly demand accurate, syllabus-precise definitions and thorough conceptual grounding for all core concepts. Vague, colloquial, or partially ambiguous definitions cannot earn full credit.
@@ -219,7 +251,12 @@ EXAMINER PASS 1 FOCUS (Temperature 0.0 — Rigorous Theoretical & Analytical Err
 
 export const PASS2_HOLISTIC_EVALUATION_DIRECTIVE = `
 EXAMINER PASS 2 FOCUS (Temperature 0.2 — Holistic Cambridge Assessment & Wide Evaluation):
-- PAPER SCOPE FOR 8-MARK & 12-MARK ESSAYS: Strictly Cambridge 9708 Paper 2 (AS Level). NEVER mention Paper 4, A-Level topics (such as oligopoly, monopolistic competition, Pareto efficiency, indifference curves, or Chapter 32), or extended Paper 4 essays. Grade and advise strictly on AS Level Paper 2 content and knowledge base.
+- PAPER SCOPE FOR 8-MARK & 12-MARK ESSAYS (STRICT AS LEVEL PAPER 2 ONLY):
+  Strictly Cambridge 9708 Paper 2 (AS Level). You are STRICTLY FORBIDDEN from mentioning or expecting ANY A-Level (Paper 4 / A2) topics (NO marginal utility/utility theory, NO diminishing returns, NO indifference curves, NO monopoly/oligopoly, NO dynamic/X/Pareto efficiency, NO MRPL, NO A2 macro). Grade and advise strictly on AS Level Paper 2 content and knowledge base.
+- DEFINITION FAIRNESS & ANTI-HALLUCINATION DIRECTIVE:
+  * Scarcity = finite or limited resources cannot satisfy unlimited human wants. "Finite resources" and "limited resources" are standard Cambridge synonyms. NEVER call "limited resources" vague or imprecise.
+  * Stating "scarcity takes place when resources are limited but wants are unlimited" is accurate syllabus economics. NEVER label it a tautology or incorrect.
+  * Do NOT require opportunity cost inside the definition of scarcity itself. Opportunity cost is the result of choice necessitated by scarcity.
 - Conduct a holistic Cambridge assessment evaluating the essay's overall quality, essay architecture, and positive achievements.
 - RELEVANCE DOUBLE-CHECK: Practice positive marking. Reward what the candidate knows, understands, and analyzes. Only zero an essay if completely unrelated after double-checking.
 - STRICT STANDARDS ON AO1 KNOWLEDGE & AO2 ANALYSIS (+3-5% strictness):
