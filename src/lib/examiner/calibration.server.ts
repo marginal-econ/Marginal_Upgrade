@@ -83,16 +83,18 @@ export async function fetchCalibrationAnchors(
 }
 
 /**
- * Selects the single most relevant calibration anchor based on question topic keywords
- * and mark tariff, ensuring the system never injects redundant essays into the prompt.
+ * Selects the top 1 or 2 most relevant calibration anchors based on question topic keywords
+ * and mark tariff, ensuring the system strictly attaches only 1 or 2 anchors (never 18)
+ * to keep prompts laser-focused and token-efficient.
  */
-export function selectBestAnchor(
+export function selectBestAnchors(
   anchors: Anchor[],
   question?: string,
   maxMark?: number,
-): Anchor | null {
-  if (anchors.length === 0) return null;
-  if (!question) return anchors[0] ?? null;
+  limit = 2,
+): Anchor[] {
+  if (anchors.length === 0) return [];
+  if (!question) return anchors.slice(0, Math.min(limit, 2));
 
   const qLower = question.toLowerCase();
   const stopwords = new Set([
@@ -104,10 +106,7 @@ export function selectBestAnchor(
   ]);
   const qWords = qLower.match(/[a-z]{3,}/g)?.filter((w) => !stopwords.has(w)) || [];
 
-  let bestAnchor: Anchor = anchors[0]!;
-  let bestScore = -1;
-
-  for (const anchor of anchors) {
+  const scored = anchors.map((anchor) => {
     let score = 0;
     const aText = `${anchor.question} ${anchor.notes || ""}`.toLowerCase();
 
@@ -132,20 +131,29 @@ export function selectBestAnchor(
       score += 0.5;
     }
 
-    if (score > bestScore) {
-      bestScore = score;
-      bestAnchor = anchor;
-    }
-  }
+    return { anchor, score };
+  });
 
-  return bestAnchor;
+  scored.sort((a, b) => b.score - a.score);
+  const maxAnchors = Math.max(1, Math.min(2, limit));
+  return scored.slice(0, maxAnchors).map((s) => s.anchor);
 }
 
 /**
- * Builds a focused, topic-aware calibration section using at most 1 relevant
- * exemplar essay matching the question's syllabus topic and mark tariff.
- * This slashes prompt token load by ~2,000+ tokens while preserving senior
- * examiner benchmark accuracy.
+ * Selects the single most relevant calibration anchor.
+ */
+export function selectBestAnchor(
+  anchors: Anchor[],
+  question?: string,
+  maxMark?: number,
+): Anchor | null {
+  const chosen = selectBestAnchors(anchors, question, maxMark, 1);
+  return chosen[0] ?? null;
+}
+
+/**
+ * Builds a focused, topic-aware calibration section using at most 1 or 2 relevant
+ * exemplar essays matching the question's syllabus topic and mark tariff.
  */
 export function buildAnchorBlock(
   anchors: Anchor[],
@@ -154,21 +162,25 @@ export function buildAnchorBlock(
 ): string {
   if (anchors.length === 0) return "";
 
-  const chosenAnchor = selectBestAnchor(anchors, question, maxMark);
-  if (!chosenAnchor) return "";
-
-  const label = chosenAnchor.band_label ? chosenAnchor.band_label.toUpperCase() : "EXEMPLAR";
+  const chosenAnchors = selectBestAnchors(anchors, question, maxMark, 2);
+  if (chosenAnchors.length === 0) return "";
 
   const sections: string[] = [
-    "REAL CALIBRATION EXAMPLE — provided by a Cambridge senior examiner with a confirmed mark. " +
+    `REAL CALIBRATION ${chosenAnchors.length === 1 ? "EXAMPLE" : "EXAMPLES"} — provided by Cambridge senior examiners with confirmed marks. ` +
       "Treat this as ground truth for your scoring scale:",
-    `\n--- ${label} CALIBRATION BENCHMARK ---\n` +
-      `Question: ${chosenAnchor.question}\n` +
-      `Confirmed mark: ${chosenAnchor.mark}/${chosenAnchor.max_mark}\n` +
-      `Senior Examiner Rationale: ${chosenAnchor.notes ?? "(Standard Cambridge level benchmark)"}\n` +
-      `Exemplar Script:\n${chosenAnchor.essay_text}\n` +
-      `--- END EXAMPLE ---`,
   ];
+
+  for (const anchor of chosenAnchors) {
+    const label = anchor.band_label ? anchor.band_label.toUpperCase() : "EXEMPLAR";
+    sections.push(
+      `\n--- ${label} CALIBRATION BENCHMARK ---\n` +
+        `Question: ${anchor.question}\n` +
+        `Confirmed mark: ${anchor.mark}/${anchor.max_mark}\n` +
+        `Senior Examiner Rationale: ${anchor.notes ?? "(Standard Cambridge level benchmark)"}\n` +
+        `Exemplar Script:\n${anchor.essay_text}\n` +
+        `--- END EXAMPLE ---`,
+    );
+  }
 
   return sections.join("\n");
 }

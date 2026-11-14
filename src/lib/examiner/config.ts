@@ -217,17 +217,18 @@ export function buildAoEvaluationDirective(maxMark: number, split: AoSplit): str
   if (maxMark === 8 && split.ao3_marks === 2) {
     return `SPECIAL DIRECTIVE FOR 8-MARK EVALUATIVE ESSAYS (2 AO3 Evaluation Marks Allocated):
 - THIS IS AN 8-MARK SECTION B EVALUATIVE ESSAY — STRICTLY CAMBRIDGE 9708 PAPER 2 (AS LEVEL) (${maxMark} marks total: AO1: ${split.ao1_marks}, AO2: ${split.ao2_marks}, AO3: ${split.ao3_marks}).
+- 15-MINUTE TIMED EXAM CALIBRATION: An 8-mark response written in ~15 minutes (~200–350 words) cannot cover all syllabus permutations or peripheral topics. DO NOT penalise candidates for omitting secondary topics. Focus on the quality of the 1-2 core mechanisms and examples provided.
+- CALIBRATED EVALUATION LENIENCY:
+  * AO3 is allocated ONLY 2 MARKS TOTAL.
+  * AWARD FULL 2/2 MARKS (Level 2) if a counter-argument / opposing perspective is present and a reasoned, supported concluding judgement directly addresses the prompt.
+  * DO NOT demand complex multi-criteria trade-off matrices or university-level synoptic synthesis. A balanced perspective with a clear, supported conclusion fully earns Level 2 (2/2) and allows a strong essay to achieve full marks (8/8).
+  * Award Level 1 (1 of 2 marks) if the conclusion is a brief unsupported assertion or evaluation is superficial.
+  * Award Level 0 (0 of 2 marks) only if the essay is purely one-sided with no evaluative attempt.
+- ZERO INTERNAL CONTRADICTION: Never praise an example or concept in 'strengths' and simultaneously criticize or demand it in 'weaknesses' or 'missing_elements'. If an example is credited, do NOT claim examples are missing.
 - NEVER mention Paper 4 or A-Level topics (NO marginal utility/utility theory, NO diminishing returns, NO indifference curves, NO monopoly/oligopoly, NO dynamic/X/Pareto efficiency, NO MRPL, NO A2 macro). Grade and advise strictly on AS Level Paper 2 content and knowledge base.
 - DEFINITION FAIRNESS: Scarcity is finite or limited resources versus unlimited wants. "Finite" and "limited" are standard Cambridge synonyms; never label a basic definition of scarcity incorrect or a tautology. Do not require opportunity cost in the definition of scarcity itself.
-- REALISTIC, TONED-DOWN EVALUATION STRICTNESS FOR 8-MARK QUESTIONS (~300–450 words target):
-  * AO3 is allocated ONLY 2 MARKS TOTAL. This is a concise AS Level Section B essay.
-  * DO NOT demand A-Level criteria or complex multi-criteria trade-off matrices.
-  * AWARD FULL 2/2 MARKS (Level 2) ONLY WHEN THE ESSAY IS TRULY PERFECT: Both dimensions/perspectives are thoroughly explored in context AND a fully satisfied, supported concluding judgement answering the prompt directly is provided.
-  * CRITICAL 8-MARK EVALUATION & CONCLUSION RULE:
-    When evaluation criteria are NOT fully met, or the conclusion is NOT satisfied, incomplete, or unsupported:
-    Award Level 1 (1 of 2 marks) for AO3, capping the total score at 7. Only a perfect essay can receive 8.
-  * ZERO NUMERIC MARKS IN PROSE: Do NOT write numerical scores, mark breakdowns, or phrases like "held at 7", "instead of 8", or "cost you marks" anywhere inside the written feedback, Examiner Summary, AO explanations, or improvement bullets. Let the UI score badges display the numbers separately.
-  * FOCUS STRICTLY ON STRENGTHS & IMPROVEMENTS: Focus purely on (a) what the candidate did well economically, and (b) specific, syllabus-accurate improvements to elevate their analysis and evaluation (such as distinguishing movements onto the PPC from outward shifts, and using short-run vs. long-run criteria in the conclusion).
+- ZERO NUMERIC MARKS IN PROSE: Do NOT write numerical scores, mark breakdowns, or phrases like "held at 7", "instead of 8", or "cost you marks" anywhere inside the written feedback.
+- FOCUS STRICTLY ON STRENGTHS & IMPROVEMENTS: Focus purely on (a) what the candidate did well economically, and (b) specific, syllabus-accurate improvements to elevate their analysis and evaluation.
 - NEVER state that evaluation is not required.`;
   }
 
@@ -266,8 +267,8 @@ export function renderAo3Descriptors(maxMark: number, ao3Marks: number): string 
   }
   if (ao3Marks === 2) {
     return `- AO3 Evaluation & Concluding Judgement (2 marks total) — 8-MARK PAPER 2 (AS LEVEL) EVALUATIVE ESSAY:
-      * Level 2 (2 of 2): Strictly reserved for a perfect essay where both perspectives are thoroughly evaluated in context with a fully satisfied, supported concluding judgement answering the prompt.
-      * Level 1 (1 of 2): Awarded when evaluation criteria are not fully met or the concluding judgement is not fully satisfied (caps total score at 7). In written prose, do NOT mention numeric scores or phrases like "held at 7" or "instead of 8"; provide constructive AS Level improvements.
+      * Level 2 (2 of 2): Awarded when the candidate provides a counter-argument or balanced perspective and reaches a supported concluding judgement addressing the prompt.
+      * Level 1 (1 of 2): Basic evaluative comment or unsupported concluding assertion.
       * Level 0 (0 of 2): Purely descriptive or one-sided analysis with no evaluative weighing and no concluding judgement.`;
   }
   if (ao3Marks === 4) {

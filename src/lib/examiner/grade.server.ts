@@ -27,7 +27,7 @@ import {
   synthesizeDualPasses,
 } from "./arbitration.server";
 import { AUDIT_PROMPT } from "./audit-prompt";
-import { buildAnchorBlock, fetchCalibrationAnchors } from "./calibration.server";
+import { buildAnchorBlock, fetchCalibrationAnchors, selectBestAnchors } from "./calibration.server";
 import {
   buildAoEvaluationDirective,
   formatStructureNote,
@@ -45,6 +45,7 @@ import {
   PASS2_HOLISTIC_EVALUATION_DIRECTIVE,
 } from "./examiner-prompt";
 import { extractFirstJsonObject } from "./json";
+import { refineExaminerReport } from "./refine.server";
 import { bandFor, normaliseGrading, type Grading, type GroundingSource } from "./types";
 import {
   analyzeEssayQuality,
@@ -220,7 +221,7 @@ export async function gradeEssay(
     baseSystemPrompt = `${baseSystemPrompt}\n\n${renderContext(sources)}`;
   }
 
-  // --- calibration anchors -----------------------------------------------
+  // --- calibration anchors (strictly 1 or 2, never 18) ---------------------
   let anchors: any[] = [];
   try {
     anchors = await fetchCalibrationAnchors(supabase);
@@ -228,8 +229,10 @@ export async function gradeEssay(
     console.warn("[grade.server] Error fetching calibration anchors, proceeding with standard rubrics:", anchorErr);
     anchors = [];
   }
-  const anchorBlock = buildAnchorBlock(anchors, question, maxMark);
+  const selectedAnchors = selectBestAnchors(anchors, question, maxMark, 2);
+  const anchorBlock = buildAnchorBlock(selectedAnchors, question, maxMark);
   if (anchorBlock) baseSystemPrompt = `${baseSystemPrompt}\n\n${anchorBlock}`;
+  const actualAnchorsCount = Math.min(2, Math.max(selectedAnchors.length > 0 ? 1 : 0, selectedAnchors.length));
 
   // Critical Paper Scope & Feedback Rules for Paper 2 (8-mark and 12-mark essays)
   if (maxMark <= 12) {
@@ -319,7 +322,7 @@ export async function gradeEssay(
         `Even if the question begins with 'Explain', any evaluative clause requires critical evaluation and a concluding judgement.\n` +
         `You MUST evaluate AO3 out of exactly ${ao3_marks} marks. NEVER state that evaluation is not required.` +
         (maxMark === 8 && split.ao3_marks === 2
-          ? `\nCRITICAL 8-MARK EVALUATION RULE: Only a truly perfect essay receives full AO3 credit. When evaluation criteria are not fully met or the concluding judgement is not satisfied, award Level 1 for AO3 (caps score at 7). In prose feedback, never mention scores or phrases like "held at 7" or "instead of 8"; focus strictly on strengths and constructive AS Level improvements.`
+          ? `\n8-MARK EVALUATION CALIBRATION (~15 minutes): If the candidate presents a counter-argument and a reasoned conclusion directly addressing the prompt, award Level 2 evaluation (full 2 marks). Do NOT penalise for omitting secondary topics; credit 1-2 developed mechanisms and examples positively.`
           : "")
       : `[QUESTION SPECIFICATION: ${maxMark} Marks · NON-EVALUATIVE LEGACY ESSAY (AO1: ${ao1_marks}, AO2: ${ao2_marks}, AO3: 0)]\n` +
         `Pure explanatory / analytical question. Evaluation is NOT required; set AO3 awarded: 0, out_of: 0, with zero penalty.`;
@@ -495,8 +498,24 @@ export async function gradeEssay(
     }
   }
 
+  // --- PASS 3: SENIOR REPORT REFINER & CONSISTENCY AUDITOR ------------------
+  // Runs a third AI pass to eliminate contradictions, catch any unflagged
+  // economic misconceptions/slips, remove weird phrasing, and ensure Cambridge accuracy
+  try {
+    finalGrading = await refineExaminerReport({
+      question,
+      essayText,
+      maxMark,
+      split,
+      draftGrading: finalGrading,
+      userId: options.userId,
+    });
+  } catch (refineErr) {
+    console.warn("[grade.server] Pass 3 refinement error, proceeding with cleansed draft:", refineErr);
+  }
+
   finalGrading.sources = sources;
-  finalGrading.anchorsUsed = anchors.length;
+  finalGrading.anchorsUsed = actualAnchorsCount;
   finalGrading.grounding_status = groundingStatus;
   finalGrading.model = activeModel;
   finalGrading.keyRotated = keyRotated;

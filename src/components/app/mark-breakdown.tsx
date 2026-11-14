@@ -506,7 +506,7 @@ ${actionableFeedback.map((f, i) => `${i + 1}. ${stripStars(f)}`).join("\n")}`;
 
         <p className="text-xs text-muted-foreground leading-relaxed">
           {grading.anchorsUsed > 0
-            ? `${grading.anchorsUsed} human-confirmed Cambridge 9708 calibration anchors were referenced alongside official mark scheme descriptors.`
+            ? `${grading.anchorsUsed} human-confirmed Cambridge 9708 calibration ${grading.anchorsUsed === 1 ? "anchor was" : "anchors were"} referenced alongside official mark scheme descriptors.`
             : "Evaluated against verified Cambridge International 9708 Assessment Objective band descriptors."}
         </p>
 

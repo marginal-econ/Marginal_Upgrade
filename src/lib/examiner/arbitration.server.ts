@@ -19,6 +19,7 @@ import {
   bandFor,
   deduplicateFeedbackPoints,
   normaliseGrading,
+  purgeContradictions,
   sanitizeAsLevelText,
   stripScoreFractionsFromText,
   verifyVerbatimQuotes,
@@ -177,10 +178,10 @@ AUTHORITATIVE PRINCIPAL EXAMINER PRINCIPLES:
       * PAPER SCOPE FOR 8-MARK & 12-MARK ESSAYS (STRICT AS LEVEL PAPER 2 ONLY):
         Strictly Cambridge 9708 Paper 2 (AS Level). NEVER mention Paper 4, A-Level topics (NO marginal utility/utility theory, NO diminishing returns, NO indifference curves, NO monopoly/oligopoly, NO dynamic/X/Pareto efficiency, NO MRPL, NO A2 macro), or extended Paper 4 essays. Grade and advise strictly on AS Level Paper 2 content.
      * For 8-mark evaluative questions ({ao3_marks} = 2 marks):
-        - ONLY A PERFECT ESSAY CAN RECEIVE 8 MARKS (8/8).
-        - Full 2/2 marks for AO3 is strictly reserved for a truly perfect evaluative essay where all evaluation criteria are fully met and a supported concluding judgement resolves the prompt.
-        - When evaluation criteria are NOT fully met, or the concluding judgement is NOT satisfied, award Level 1 (1 of 2 marks) for AO3 (caps total score at 7).
+        - 15-MINUTE TIMED EXAM CALIBRATION: An 8-mark response written in ~15 minutes (~200-350 words) cannot cover all syllabus topics. Do NOT penalise candidates for omitting secondary topics. Focus on the quality of the 1-2 core mechanisms and examples provided.
+        - CALIBRATED EVALUATION LENIENCY: If the candidate provides a counter-argument / opposing perspective and a reasoned concluding judgement directly addressing the prompt, award Level 2 evaluation (full 2 of 2 marks). A sound essay with a good conclusion can achieve 8/8.
         - ZERO NUMERIC MARKS IN PROSE: Do NOT write numerical scores, mark breakdowns, or phrases like "held at 7", "instead of 8", or "cost you marks" anywhere inside written feedback or comments. Focus strictly on strengths and AS syllabus-accurate improvements.
+        - ZERO INTERNAL CONTRADICTIONS: Never praise an example or concept in strengths while criticizing or demanding it in weaknesses or missing elements.
      * For 20-mark extended essays ({ao3_marks} = 6 marks): Scrutinize synoptic evaluation rigorously with +3-5% strictness. Require candidates to synthesize micro and macro impacts, evaluate short-run vs long-run trade-offs, test elasticity conditions, and provide a reasoned, decisive contextual verdict answering the question prompt directly. Top Band (5-6/6) strictly demands critical prioritization of decisive factors.
    - Apply calibrated strictness (+3-5%) to AO3 Evaluation:
    - Demand critical prioritization: top band evaluation requires the candidate to explicitly justify which factor or criterion is most decisive (e.g. why inelastic demand limits short-run effectiveness vs long-run substitution).
@@ -374,9 +375,13 @@ export function synthesizeDualPasses(
   if (split.ao3_marks === 0) {
     eMark = 0;
   } else if (isEightMark) {
-    // Only a truly perfect essay gets 2/2 and 8/8.
-    // If evaluation criteria are not fully met or conclusion is not satisfied, award 1/2, keeping total <= 7.
-    eMark = (!hasUnmetEvaluationOrConclusion && pass1EvalAwarded === 2 && pass2EvalAwarded === 2) ? 2 : 1;
+    // Calibrated 8-mark evaluation leniency for ~15-minute essays:
+    // If either pass awarded full marks or both passes recognized a counter-argument / conclusion, award 2/2.
+    if (pass1EvalAwarded === 2 || pass2EvalAwarded === 2) {
+      eMark = 2;
+    } else {
+      eMark = Math.min(split.ao3_marks, Math.floor((pass1EvalAwarded + pass2EvalAwarded) / 2 + 0.5));
+    }
   } else {
     eMark = Math.min(
       split.ao3_marks,
@@ -385,25 +390,18 @@ export function synthesizeDualPasses(
   }
 
   let total = kMark + aMark + eMark;
-  if (isEightMark && hasUnmetEvaluationOrConclusion) {
-    // Keep the essay at 7 instead of 8: maximum 7/8
-    total = Math.min(7, total);
-    if (eMark > 1) eMark = 1;
-  } else if (total !== preferred.total_mark) {
+  if (!isEightMark && total !== preferred.total_mark) {
     const diff = preferred.total_mark - total;
     if (diff > 0 && aMark < split.ao2_marks) {
       aMark += 1;
     } else if (diff < 0 && aMark > 0) {
       aMark -= 1;
-    } else if (diff > 0 && eMark < split.ao3_marks && !(isEightMark && hasUnmetEvaluationOrConclusion)) {
+    } else if (diff > 0 && eMark < split.ao3_marks) {
       eMark += 1;
     } else if (diff < 0 && eMark > 0) {
       eMark -= 1;
     }
     total = kMark + aMark + eMark;
-    if (isEightMark && hasUnmetEvaluationOrConclusion) {
-      total = Math.min(7, total);
-    }
   }
 
   // Combine unique strengths (max 4) using semantic deduplication
@@ -460,10 +458,6 @@ export function synthesizeDualPasses(
     if (hasEvalMention) {
       eMark = 1;
     }
-  }
-  if (isEightMark && hasUnmetEvaluationOrConclusion) {
-    eMark = Math.min(1, eMark);
-    total = Math.min(7, kMark + aMark + eMark);
   }
 
   // Diagrams missing elements must always be empty unless specifically required
@@ -565,5 +559,6 @@ export function synthesizeDualPasses(
     result.missing_elements.diagrams = result.missing_elements.diagrams.map(sanitizeAsLevelText).filter((di) => di.length > 0);
   }
 
-  return quality ? applyWritingQualityGuardrail(result, quality, maxMark, split) : result;
+  const guardrailed = quality ? applyWritingQualityGuardrail(result, quality, maxMark, split) : result;
+  return purgeContradictions(guardrailed);
 }

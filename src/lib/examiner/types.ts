@@ -663,7 +663,7 @@ export function normaliseGrading(
     missingExamples = missingExamples.map((ex) => verifyVerbatimQuotes(ex, essayText));
   }
 
-  return cleanStars({
+  return purgeContradictions(cleanStars({
     total_mark: total,
     max_mark: maxMark,
     band,
@@ -692,7 +692,7 @@ export function normaliseGrading(
       raw.grounding_status === "mark_scheme_image" || raw.grounding_status === "unanchored"
         ? raw.grounding_status
         : "grounded",
-  });
+  }));
 }
 
 export function bandFor(total: number, maxMark: number): string {
@@ -701,5 +701,81 @@ export function bandFor(total: number, maxMark: number): string {
   if (ratio >= 0.55) return "Upper Middle Band";
   if (ratio >= 0.35) return "Lower Middle Band";
   return "Bottom Band";
+}
+
+/**
+ * Automatically resolves internal contradictions between strengths and weaknesses / missing elements:
+ * - If an example (e.g. real-world, Singapore, UK, healthcare, context) is praised in strengths,
+ *   purges any weakness or missing element claiming examples are missing, weak, or inadequate.
+ * - If definitions are praised in strengths, purges any weakness or missing element claiming
+ *   definitions are missing or vague.
+ * - If evaluation/conclusions are praised or awarded full marks, purges any weakness or missing
+ *   element claiming evaluation or conclusions are absent.
+ */
+export function purgeContradictions(grading: Grading): Grading {
+  const strengthsJoined = grading.strengths.join(" ").toLowerCase();
+
+  const praisesExamples =
+    /(?:real[- ]world|concrete|contextual|practical)\s+(?:example|application|case|illustration)|(?:example|application)\s+of\b|\bfor example\b|\bsuch as\b/i.test(
+      strengthsJoined,
+    );
+
+  const praisesDefinitions =
+    /(?:correctly|accurately)\s+(?:identifies|defines|explains the meaning)|foundational\s+definition|syllabus\s+definition|core idea of/i.test(
+      strengthsJoined,
+    );
+
+  const fullEvaluation =
+    grading.ao_breakdown.evaluation.out_of > 0 &&
+    grading.ao_breakdown.evaluation.awarded === grading.ao_breakdown.evaluation.out_of;
+
+  let weaknesses = [...grading.weaknesses];
+  let missingExamples = [...(grading.missing_elements.examples || [])];
+  let missingDefinitions = [...(grading.missing_elements.definitions || [])];
+  let missingEvaluation = [...(grading.missing_elements.evaluation || [])];
+
+  if (praisesExamples) {
+    weaknesses = weaknesses.filter(
+      (w) =>
+        !/\b(lacks?|missing|no|without|underdeveloped)\s+(?:real[- ]world\s+)?examples?\b/i.test(w) &&
+        !/\bexamples?\s+(?:are|is)\s+(?:lacking|missing|underdeveloped|absent|weak)\b/i.test(w) &&
+        !/\bmissing\s+critical\s+economic\s+mechanisms\s+like.*example/i.test(w),
+    );
+    missingExamples = [];
+  }
+
+  if (praisesDefinitions) {
+    weaknesses = weaknesses.filter(
+      (w) =>
+        !/\b(lacks?|missing|did not|failed to)\s+(?:define|definition|reference the fundamental)\b/i.test(w),
+    );
+    missingDefinitions = [];
+  }
+
+  if (fullEvaluation) {
+    weaknesses = weaknesses.filter(
+      (w) =>
+        !/\b(evaluation|concluding judgement|conclusion)\s+(?:is\s+)?(?:missing|lacking|absent|underdeveloped|fails? to)\b/i.test(w),
+    );
+    missingEvaluation = [];
+  }
+
+  // Ensure weaknesses list doesn't end up empty if all were filtered
+  if (weaknesses.length === 0) {
+    weaknesses = [
+      "To elevate your score further, expand your transmission mechanisms to link intermediate market shifts to long-term welfare outcomes.",
+    ];
+  }
+
+  return {
+    ...grading,
+    weaknesses,
+    missing_elements: {
+      ...grading.missing_elements,
+      examples: missingExamples,
+      definitions: missingDefinitions,
+      evaluation: missingEvaluation,
+    },
+  };
 }
 

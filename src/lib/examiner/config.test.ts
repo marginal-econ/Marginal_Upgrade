@@ -102,7 +102,8 @@ describe("Examiner Configuration & Gemini Model Allocation", () => {
     const evalDirective = buildAoEvaluationDirective(8, evalSplit);
     expect(evalDirective).toContain("2 AO3 Evaluation Marks Allocated");
     expect(evalDirective).toContain("THIS IS AN 8-MARK SECTION B EVALUATIVE ESSAY");
-    expect(evalDirective).toContain("REALISTIC, TONED-DOWN EVALUATION STRICTNESS FOR 8-MARK QUESTIONS");
+    expect(evalDirective).toContain("15-MINUTE TIMED EXAM CALIBRATION");
+    expect(evalDirective).toContain("CALIBRATED EVALUATION LENIENCY");
     expect(evalDirective).toContain("AWARD FULL 2/2 MARKS (Level 2)");
     expect(evalDirective).toContain("NEVER state that evaluation is not required");
 

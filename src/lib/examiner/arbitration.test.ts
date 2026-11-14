@@ -95,7 +95,7 @@ describe("Principal Examiner Arbitration & Confidence Engine", () => {
   describe("Dual-Pass Synthesis (synthesizeDualPasses)", () => {
     const split8 = { ao1_marks: 2, ao2_marks: 4, ao3_marks: 2 };
 
-    it("synthesizes an 8-mark essay to 7 instead of 8 when one pass awarded 1 for AO3", () => {
+    it("synthesizes an 8-mark essay with calibrated evaluation leniency for 15-minute essays", () => {
       const pass1: Grading = {
         ...mockGrading(7, "Top Band"),
         max_mark: 8,
@@ -114,15 +114,16 @@ describe("Principal Examiner Arbitration & Confidence Engine", () => {
         ao_breakdown: {
           knowledge: { awarded: 2, out_of: 2, comment: "Good definitions." },
           analysis: { awarded: 4, out_of: 4, comment: "Sound mechanisms." },
-          evaluation: { awarded: 2, out_of: 2, comment: "Good evaluation." },
+          evaluation: { awarded: 2, out_of: 2, comment: "Good evaluation with a reasoned conclusion." },
         },
         weaknesses: [],
         missing_elements: { definitions: [], analysis: [], evaluation: [], examples: [], diagrams: [] },
       };
 
       const reconciled = synthesizeDualPasses(pass1, pass2, 8, split8);
-      expect(reconciled.total_mark).toBe(7);
-      expect(reconciled.ao_breakdown.evaluation.awarded).toBe(1);
+      // With calibrated 15-minute leniency, a sound conclusion recognized by a pass is credited (2/2, 8/8)
+      expect(reconciled.total_mark).toBe(8);
+      expect(reconciled.ao_breakdown.evaluation.awarded).toBe(2);
     });
 
     it("filters false praise praising point inside PPC as allocatively inefficient and flags weakness", () => {

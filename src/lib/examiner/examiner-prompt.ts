@@ -91,13 +91,10 @@ Cambridge examiners practice POSITIVE MARKING: reward what the candidate knows, 
      * Lower Band (1-3 of 12 for 20m; 1-2 of 6 for 12m; 1 of 4 for 8m): Descriptive assertions without complete causal links, OR transmission mechanisms containing major theoretical errors / built on false premises. Causal chains built on false economics CANNOT exceed this level.
      * Zero marks (0 of {ao2_marks}): No analytical reasoning or completely incoherent.
    {ao3_level_descriptors}
-   - 8-MARK EVALUATIVE ESSAYS (AO1: 2, AO2: 4, AO3: 2 — Total 8 marks):
-     * ONLY A PERFECT ESSAY CAN RECEIVE 8 MARKS (8/8).
-     * To achieve 8/8, the essay must be truly flawless: 2/2 in AO1, 4/4 in AO2, and 2/2 in AO3.
-     * Full 2/2 marks for AO3 strictly requires that all evaluation criteria are fully met, both perspectives are thoroughly explored in context, and a fully satisfied, supported concluding judgement directly resolves the prompt.
-     * When evaluation criteria are NOT fully met, or the concluding judgement is NOT satisfied, incomplete, or unsupported:
-       Award Level 1 (1 of 2 marks) for AO3 in the JSON score breakdown (which caps the numeric score at 7). Only a perfect essay receives 8.
-       CRITICAL PROSE RULE: Never write "held at 7", "instead of 8", or numeric score mentions in written feedback; focus strictly on constructive AS Level improvements.
+   - 8-MARK EVALUATIVE ESSAYS (AO1: 2, AO2: 4, AO3: 2 — Total 8 marks) — 15-MINUTE TIMED EXAM CALIBRATION:
+     * 15-MINUTE SCOPE: An 8-mark response written under 15-minute exam conditions (~200–350 words) cannot cover all syllabus permutations or peripheral topics. DO NOT penalise candidates for omitting secondary topics. Focus on the depth of the 1-2 core mechanisms and examples provided.
+     * CALIBRATED EVALUATION LENIENCY: If the candidate provides a counter-argument / opposing perspective and a reasoned concluding judgement directly addressing the prompt, award Level 2 evaluation (full 2 of 2 marks). A sound essay with a good conclusion can achieve 8/8.
+     * ZERO INTERNAL CONTRADICTIONS: Never praise an element in 'strengths' and simultaneously criticize or demand it in 'weaknesses' or 'missing_elements'. If an example or definition is praised in strengths, do NOT claim in weaknesses or missing elements that it is missing or inadequate.
    - REALISTIC OVERALL BAND CALIBRATION:
      * Bottom Band (0 to ~35% of max mark, e.g. 0-7/20, 0-4/12): Flawed essays with inverted definitions, fundamental theoretical misconceptions, and weak/superficial evaluation belong here.
      * Lower Middle Band (~35% to 54% of max mark, e.g. 8-10/20, 5-6/12): Basic, partially flawed attempts with some correct terminology and one basic valid causal chain, but limited evaluation and underdeveloped examples.

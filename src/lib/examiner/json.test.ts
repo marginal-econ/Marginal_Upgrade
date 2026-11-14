@@ -354,4 +354,66 @@ The candidate scored well on AO1.
     expect(unwrapped).not.toContain("'high income level leads to unlimited wants'");
     expect(unwrapped).toContain("high income level leads to unlimited wants");
   });
+
+  it("purges contradictions between strengths and weaknesses / missing elements", async () => {
+    const { purgeContradictions } = await import("./types");
+
+    const contradictoryGrading: any = {
+      total_mark: 7,
+      max_mark: 8,
+      band: "Top Band",
+      ao_breakdown: {
+        knowledge: { awarded: 2, out_of: 2, comment: "Accurate definitions." },
+        analysis: { awarded: 3, out_of: 4, comment: "Sound mechanisms." },
+        evaluation: { awarded: 2, out_of: 2, comment: "Sound conclusion." },
+      },
+      examiner_summary: "Good essay.",
+      strengths: [
+        "The candidate provides a good real-world example of healthcare in the UK.",
+        "Accurately defines the core concepts.",
+      ],
+      weaknesses: [
+        "The essay lacks real-world examples to support the theoretical points.",
+        "Analysis could be developed further with intermediate steps.",
+      ],
+      missing_elements: {
+        definitions: ["Opportunity cost"],
+        analysis: [],
+        evaluation: [],
+        examples: ["Real-world application in healthcare"],
+        diagrams: [],
+      },
+      actionable_feedback: ["Extend transmission links."],
+      suggested_resources: [],
+      suggested_practice: [],
+    };
+
+    const resolved = purgeContradictions(contradictoryGrading);
+
+    // Contradictory weakness claiming examples are lacking must be pruned because strengths praised UK healthcare example
+    expect(resolved.weaknesses.some((w) => w.toLowerCase().includes("lacks real-world examples"))).toBe(false);
+    // Non-contradictory weakness must remain
+    expect(resolved.weaknesses.some((w) => w.toLowerCase().includes("intermediate steps"))).toBe(true);
+    // Missing examples list must be cleared
+    expect(resolved.missing_elements.examples).toEqual([]);
+  });
+
+  it("selects at most 2 calibration anchors even when database contains 18", async () => {
+    const { selectBestAnchors } = await import("./calibration.server");
+
+    // Mock 18 database anchors
+    const mockAnchors: any[] = Array.from({ length: 18 }, (_, i) => ({
+      question: `Question ${i + 1}: Discuss the economic effects of fiscal policy and taxation`,
+      essay_text: `Essay ${i + 1} content...`,
+      mark: 10,
+      max_mark: 12,
+      band_label: i % 2 === 0 ? "top" : "sound",
+      notes: null,
+    }));
+
+    const selected = selectBestAnchors(mockAnchors, "Explain how indirect taxes affect market equilibrium", 12, 2);
+    expect(selected.length).toBeLessThanOrEqual(2);
+    expect(selected.length).toBeGreaterThanOrEqual(1);
+    expect(selected.length).not.toBe(18);
+  });
 });
