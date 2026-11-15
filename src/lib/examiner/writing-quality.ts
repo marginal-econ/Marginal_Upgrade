@@ -161,9 +161,9 @@ export function analyzeEssayQuality(
       );
     } else if (words < 550) {
       isUndersized = true;
-      maxAllowableTotalMark = paragraphCount >= 3 && words >= 450 ? 15 : 12;
-      maxAllowableAo2 = paragraphCount >= 3 && words >= 450 ? 10 : 8;
-      maxAllowableAo3 = paragraphCount >= 3 && words >= 450 ? 4 : 3;
+      maxAllowableTotalMark = paragraphCount >= 4 && words >= 480 ? 18 : paragraphCount >= 3 && words >= 450 ? 15 : 12;
+      maxAllowableAo2 = paragraphCount >= 4 && words >= 480 ? 10 : paragraphCount >= 3 && words >= 450 ? 9 : 8;
+      maxAllowableAo3 = paragraphCount >= 4 && words >= 480 ? 5 : paragraphCount >= 3 && words >= 450 ? 4 : 3;
       qualityIssues.push(
         `Underdeveloped (${words} words vs 800–1200 expected). Fails to provide extended analysis of multiple perspectives.`,
       );
@@ -588,130 +588,18 @@ export function applyWritingQualityGuardrail(
   // 3. Authoritative 8-mark evaluative essay failsafe (keeps at 7 if evaluation criteria unmet or conclusion unsatisfied)
   result = applyEightMarkEvaluationGuardrail(result, maxMark, split);
 
-  // 4. Economic mechanics & comment-stated level consistency guardrail
-  result = applyEconomicMechanicsGuardrail(result, maxMark, split, essayText);
-
   return result;
 }
 
 /**
- * Economic Mechanics & Level Consistency Guardrail:
- * 1. Fatal Inverted Transmission Mechanisms & Reversed Curve Shifts:
- *    Under Cambridge 9708 regulations, inverting the direction of a curve shift
- *    (e.g. higher interest rates shifting AD right, tax shifting supply right)
- *    CANNOT exceed Level 1 Analysis (max 2/6 on 12m, max 1/4 on 8m, max 3/8 on 20m).
- *    Furthermore, evaluation based on an inverted mechanism cannot exceed Level 1 (max 1/4 on 12m).
- * 2. Core Policy Conflation:
- *    Conflating monetary policy with fiscal policy restricts AO1 Knowledge to maximum 1 mark.
- * 3. Comment-to-Score Level Consistency:
- *    If an examiner comment explicitly states an assessment objective is restricted or held
- *    to Level 1, the numeric score must not exceed Level 1.
+ * Economic Mechanics Guardrail (Safe Failsafe):
+ * Preserves qualitative examiner judgements without programmatic regex slashing of marks.
  */
 export function applyEconomicMechanicsGuardrail(
   grading: Grading,
-  maxMark: number,
-  split: AoSplit,
-  essayText?: string,
+  _maxMark: number,
+  _split: AoSplit,
+  _essayText?: string,
 ): Grading {
-  let ao1 = grading.ao_breakdown.knowledge.awarded;
-  let ao2 = grading.ao_breakdown.analysis.awarded;
-  let ao3 = grading.ao_breakdown.evaluation.awarded;
-
-  const ao1Comment = grading.ao_breakdown.knowledge.comment || "";
-  let ao2Comment = grading.ao_breakdown.analysis.comment || "";
-  const ao3Comment = grading.ao_breakdown.evaluation.comment || "";
-  const weaknessesText = (grading.weaknesses || []).join(" ");
-  const actionableText = (grading.actionable_feedback || []).join(" ");
-  const allContext = `${ao1Comment} ${ao2Comment} ${ao3Comment} ${weaknessesText} ${actionableText}`.toLowerCase();
-
-  // Inverted transmission mechanisms or reversed curve shifts
-  const isInvertedMechanism =
-    /(transmission|mechanism).*(is |was )?inverted|invert(s|ed|ing)? (the )?(transmission|mechanism|effect of)|(direction of (the )?.*(ad|as|curve|shift).*is reversed)|reversed (the )?direction|(ad|as|curve|shift) (is )?reversed|reversed curve shift|shifts? (supply|demand|ad|as) the wrong (way|direction)|(shift(s|ed)? (ad|as|supply|demand) (in the |to the )?incorrect direction)|higher interest rates (make borrowing cheaper|increase (consumption|ad|borrowing)|shift ad)|borrowing cheaper|inverts the effect of|fatal (analytical )?error.*shift|claims (that )?ad shifts right|ad shifts right.*rather than left/i.test(
-      allContext,
-    ) ||
-    (/(\b(higher interest rates|increase in interest rates|raising interest rates)\b[\s\S]{0,120}\b(shift(s|ed)? (aggregate demand|ad) to the right|make borrowing cheaper|borrowing becomes cheaper)\b)/i.test(
-      essayText || "",
-    ));
-
-  if (isInvertedMechanism) {
-    const maxLevel1Ao2 = maxMark === 12 ? 2 : maxMark === 8 ? 1 : Math.round(split.ao2_marks * 0.35);
-    if (ao2 > maxLevel1Ao2) {
-      ao2 = maxLevel1Ao2;
-    }
-    if (split.ao3_marks > 0) {
-      const maxAo3OnInverted = maxMark === 12 ? 1 : maxMark === 8 ? 0 : 2;
-      if (ao3 > maxAo3OnInverted) {
-        ao3 = maxAo3OnInverted;
-      }
-    }
-    ao2Comment = ao2Comment
-      .replace(/held at Level 2/gi, "held at Level 1")
-      .replace(/restricted to Level 2/gi, "restricted to Level 1")
-      .replace(/Level 2 \(Sound Mechanism\)/gi, "Level 1 (Basic / Inverted Mechanism)");
-  }
-
-  // Policy instrument conflation
-  const isPolicyConflated =
-    /conflates? (it with|monetary with|fiscal with|monetary policy with fiscal|the policy tools)/i.test(
-      allContext,
-    );
-  if (isPolicyConflated && ao1 > 1) {
-    ao1 = 1;
-  }
-
-  // Comment-stated Level Restrictions
-  if (/restricts? (ao1|knowledge) to (level 1|a single mark)|held at level 1|limited to (level 1|1 mark|a single mark)/i.test(ao1Comment)) {
-    if (ao1 > 1) {
-      ao1 = maxMark >= 20 ? 2 : 1;
-    }
-  }
-
-  if (/restricts? (ao2|analysis) to level 1|held at level 1|limited to level 1/i.test(ao2Comment)) {
-    const maxLevel1Ao2 = maxMark === 12 ? 2 : maxMark === 8 ? 1 : Math.round(split.ao2_marks * 0.35);
-    if (ao2 > maxLevel1Ao2) {
-      ao2 = maxLevel1Ao2;
-    }
-  }
-
-  if (split.ao3_marks > 0) {
-    if (/restricts? (ao3|evaluation) to level 1|held at level 1|limited to level 1|superficial evaluation.*restricts? ao3/i.test(ao3Comment)) {
-      const maxLevel1Ao3 = maxMark === 12 ? 2 : maxMark === 8 ? 1 : maxMark >= 20 ? 2 : Math.max(1, Math.round(split.ao3_marks * 0.35));
-      if (ao3 > maxLevel1Ao3) {
-        ao3 = maxLevel1Ao3;
-      }
-    }
-    if (
-      /no evaluation|evaluation is (wholly )?absent|fails? to provide (an? )?evaluation|no evaluative (reasoning|judgement|judgment)/i.test(
-        ao3Comment,
-      ) &&
-      !/sound evaluation|evaluative breadth|substantiated/i.test(ao3Comment)
-    ) {
-      ao3 = 0;
-    }
-  }
-
-  const newTotal = Math.max(0, Math.min(maxMark, ao1 + ao2 + ao3));
-  const newBand = bandFor(newTotal, maxMark);
-
-  return {
-    ...grading,
-    total_mark: newTotal,
-    band: newBand,
-    ao_breakdown: {
-      ...grading.ao_breakdown,
-      knowledge: {
-        ...grading.ao_breakdown.knowledge,
-        awarded: ao1,
-      },
-      analysis: {
-        ...grading.ao_breakdown.analysis,
-        awarded: ao2,
-        comment: stripScoreFractionsFromText(ao2Comment),
-      },
-      evaluation: {
-        ...grading.ao_breakdown.evaluation,
-        awarded: ao3,
-      },
-    },
-  };
+  return grading;
 }

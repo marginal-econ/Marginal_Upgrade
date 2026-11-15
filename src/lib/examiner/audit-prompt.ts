@@ -31,10 +31,6 @@ CAMBRIDGE MODERATION PRINCIPLES — POSITIVE, FAIR, ACCURATE MARKING:
    - ACCOUNTABILITY ON MAJOR THEORETICAL ERRORS:
      * Inverted definitions (e.g. defining negative externality as a benefit to firms paid by government, claiming carbon tax is a direct tax on income) earn 0 marks on AO1.
      * Flawed causal mechanisms built on false economic premises cannot exceed Level 1 (1-2 marks) in AO2.
-     * Inverted curve shifts / mechanisms (e.g. claiming higher interest rates shift AD to the right and increase inflation, an indirect tax increases supply) CANNOT exceed Level 1 in AO2 (max 1–2/6 on 12m, 1/4 on 8m).
-     * Policy conflation (e.g. confusing monetary policy with fiscal policy) CANNOT exceed 1 mark in AO1 (max 1/2).
-     * Zero-evaluation integrity: When AO3 is 0, never praise evaluation or balanced perspectives in strengths or examiner summary.
-     * Realistic calibration: essays with fundamental conceptual errors and weak comparative evaluation belong in Lower Middle or Bottom band (2-4/12), never Upper Middle (7+/12).
 
 3. EXAMPLES & REAL-WORLD APPLICATION (AO2):
    - Reward related real-world applications and detailed guiding theoretical models.

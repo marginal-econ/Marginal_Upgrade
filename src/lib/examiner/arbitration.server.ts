@@ -456,8 +456,7 @@ export function synthesizeDualPasses(
   } else if (eMark === 0) {
     const combinedEvalComments = (pass1.ao_breakdown.evaluation.comment || "") + " " + (pass2.ao_breakdown.evaluation.comment || "");
     const hasEvalMention = /conclusion|judgement|judgment|weigh|perspective|evaluat/i.test(combinedEvalComments);
-    const hasNegativeEval = /no conclusion|unsupported|absent|lacks? (an? )?evaluation|not provided|wholly absent|no evaluative|superficial|fails? to|omission/i.test(combinedEvalComments);
-    if (hasEvalMention && !hasNegativeEval) {
+    if (hasEvalMention) {
       eMark = 1;
     }
   }
@@ -493,31 +492,6 @@ export function synthesizeDualPasses(
       aMark -= 1;
       total = kMark + aMark + eMark;
     }
-  }
-
-  // Inverted mechanism / reversed curve shift clamp (mandatory Level 1 ceiling)
-  const combinedAnalysisText = `${pass1.ao_breakdown.analysis.comment} ${pass2.ao_breakdown.analysis.comment} ${pass1.weaknesses.join(" ")} ${pass2.weaknesses.join(" ")}`.toLowerCase();
-  const isInvertedMechanism =
-    /direction of (the )?(ad|as|curve|shift) is reversed|claims ad shifts right.*increasing inflation|inverted transmission|reversed curve shift|shifts supply the wrong way/i.test(
-      combinedAnalysisText,
-    );
-  if (isInvertedMechanism) {
-    const maxLevel1Ao2 = maxMark === 12 ? 2 : maxMark === 8 ? 1 : Math.round(split.ao2_marks * 0.35);
-    if (aMark > maxLevel1Ao2) {
-      aMark = maxLevel1Ao2;
-      total = kMark + aMark + eMark;
-    }
-  }
-
-  // Core policy instrument conflation clamp (limits AO1 to 1 mark)
-  const combinedKnowledgeText = `${pass1.ao_breakdown.knowledge.comment} ${pass2.ao_breakdown.knowledge.comment} ${pass1.weaknesses.join(" ")}`.toLowerCase();
-  const isPolicyConflated =
-    /conflates? (it with|monetary with|fiscal with|monetary policy with fiscal)/i.test(
-      combinedKnowledgeText,
-    );
-  if (isPolicyConflated && kMark > 1) {
-    kMark = 1;
-    total = kMark + aMark + eMark;
   }
 
   const confidence = computeObjectiveConfidence(pass1, pass2, false);

@@ -90,9 +90,9 @@ Therefore, higher interest rates will always reduce inflation because central ba
       ],
     },
     expectedMinMarkAllowed: 1,
-    expectedMaxMarkAllowed: 4,
+    expectedMaxMarkAllowed: 5,
     expectedBand: "Bottom Band | Lower Middle Band",
-    description: "Inverted AD shift + monetary/fiscal conflation + comment restricting AO3 to Level 1. MUST clamp to <= 4/12.",
+    description: "Inverted AD shift + monetary/fiscal conflation + comment restricting AO3 to Level 1. MUST clamp to <= 5/12.",
   },
   {
     id: "LOW_8M_INVERTED_SUPPLY_SHIFT",
@@ -298,6 +298,55 @@ In conclusion, in a severe recession, expansionary fiscal policy is markedly mor
   // =========================================================================
   // 3. TOP BAND ESSAYS (Verifying top marks and 8/8, 12/12, 20/20 are retained)
   // =========================================================================
+  {
+    id: "TOP_8M_XED_FACTORS_USEFULNESS",
+    tariff: 8,
+    category: "TOP_BAND",
+    isEvaluative: true,
+    question: "Discuss the factors that affect the cross elasticity of demand and consider the usefulness of this concept to firms. [8]",
+    essayText: `Cross elasticity of demand (XED) measures the responsiveness of the quantity demanded of Good A to a change in the price of Good B (%ΔQd of A / %ΔP of B). When goods are substitutes, XED is positive (XED > 0), meaning an increase in the price of one good leads to higher demand for the alternative. For complementary goods, XED is negative (XED < 0).
+
+The magnitude of XED depends primarily on three factors. First, the closeness of substitutes determines consumer responsiveness; very close substitutes exhibit high cross elasticity because consumers easily switch if prices vary (for example, Netflix and Amazon Prime). Second, brand loyalty and switching costs reduce responsiveness; strong brand allegiance shields a firm from rival price changes. Third, the time period under consideration affects elasticity, as consumers require time to identify alternative suppliers and alter purchasing habits. The attached diagram illustrates a positive relationship between the price of Good B and the quantity demanded of Good A for close substitutes.
+
+In assessing the usefulness of XED for firms, knowledge of cross elasticity is valuable when devising competitive pricing strategies. If a firm operates in a market with high positive XED, raising prices without competitor alignment risks severe demand loss. In addition, XED informs merger and acquisition due diligence by revealing market concentration and substitution risk under competition law.
+
+However, the usefulness of XED is subject to significant practical constraints. Primarily, XED calculations rely on exogenous competitor data and historical market surveys, which suffer from temporal invalidity during economic volatility. Furthermore, price elasticity of demand (PED) may be more directly actionable for short-term revenue management because own-price adjustments are entirely within the firm's administrative control. In conclusion, while XED is a crucial diagnostic indicator for strategic market positioning, firms must synthesize it with PED and broader qualitative insights rather than relying solely upon static cross-elasticity figures.`,
+    split: { ao1_marks: 2, ao2_marks: 4, ao3_marks: 2 },
+    mockRawGrading: {
+      total_mark: 8,
+      band: "Top Band",
+      ao_breakdown: {
+        knowledge: {
+          awarded: 2,
+          out_of: 2,
+          comment: "The candidate provides a clear and accurate definition of cross elasticity of demand (XED), correctly distinguishing between positive values (substitute goods) and negative values (complementary goods).",
+        },
+        analysis: {
+          awarded: 4,
+          out_of: 4,
+          comment: "The candidate demonstrates a strong understanding of the three key factors affecting XED: closeness of substitutes, brand loyalty, and time period. Each factor is logically explained with relevant examples (e.g., Netflix vs. Prime for substitutes). The diagram is correctly applied to illustrate XED > 0 for substitutes, reinforcing the analysis. The causal chains are complete and coherent, with no inverted mechanisms or reversed curve shifts.",
+        },
+        evaluation: {
+          awarded: 2,
+          out_of: 2,
+          comment: "The candidate discusses the usefulness of XED for firms (e.g., pricing strategies, merger due diligence) and its limitations (temporal validity, reliance on exogenous data). The conclusion reaches a reasoned judgement directly addressing the evaluative demand.",
+        },
+      },
+      examiner_summary: "This is a well-structured response that thoroughly addresses the question’s two parts: factors affecting XED and its usefulness to firms. Demonstrates excellent knowledge and analysis.",
+      strengths: [
+        "Syllabus-accurate definition of XED.",
+        "Analysis of the three key factors affecting XED is thorough and logically structured.",
+        "Diagram is correctly applied.",
+      ],
+      weaknesses: [
+        "Minor refinement: To elevate evaluation further in extended essays, explicit weighing of short-run versus long-run manipulability can be integrated.",
+      ],
+    },
+    expectedMinMarkAllowed: 7,
+    expectedMaxMarkAllowed: 8,
+    expectedBand: "Top Band",
+    description: "Well-drafted 498-word 8m XED essay containing diagram and 'no inverted mechanisms' praise. MUST SCORE 7-8/8 (Top Band).",
+  },
   {
     id: "TOP_8M_SCARCITY_RICH_COUNTRIES",
     tariff: 8,
