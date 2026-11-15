@@ -42,6 +42,8 @@ import {
   Layers,
   Check,
   Search as SearchIcon,
+  FileText,
+  Info,
 } from "lucide-react";
 import * as React from "react";
 import type { ReactNode } from "react";
@@ -1049,6 +1051,28 @@ export function AppShell({
                   }
                 />
                 <DropdownMenuSeparator />
+                <div className="px-2 py-1 text-[9.5px] font-bold text-muted-foreground uppercase tracking-wider">
+                  Platform &amp; Legal
+                </div>
+                <DropdownMenuItem asChild>
+                  <Link to="/about" className="flex items-center gap-2 cursor-pointer text-xs">
+                    <Info className="size-3.5 text-muted-foreground" />
+                    <span>About Marginal</span>
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/terms" className="flex items-center gap-2 cursor-pointer text-xs">
+                    <FileText className="size-3.5 text-muted-foreground" />
+                    <span>Terms &amp; Conditions</span>
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/privacy" className="flex items-center gap-2 cursor-pointer text-xs">
+                    <ShieldCheck className="size-3.5 text-muted-foreground" />
+                    <span>Privacy Policy</span>
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
                 <DropdownMenuItem
                   onClick={signOut}
                   className="flex items-center gap-2 cursor-pointer text-xs text-destructive focus:text-destructive focus:bg-destructive/10"
@@ -1346,6 +1370,33 @@ export function AppShell({
                   >
                     <GraduationCap className="size-4 text-purple-500" /> Feature Tutorials
                   </button>
+
+                  {/* Mobile Quick Legal & Policies Navigation */}
+                  <div className="pt-2 pb-1 border-t border-border/60 flex items-center justify-around text-[11px] text-muted-foreground">
+                    <Link
+                      to="/about"
+                      onClick={() => setMobileDrawerOpen(false)}
+                      className="hover:text-primary transition-colors flex items-center gap-1 font-medium"
+                    >
+                      <Info className="size-3 text-primary" /> About
+                    </Link>
+                    <span className="text-border/80">&bull;</span>
+                    <Link
+                      to="/terms"
+                      onClick={() => setMobileDrawerOpen(false)}
+                      className="hover:text-primary transition-colors flex items-center gap-1 font-medium"
+                    >
+                      <FileText className="size-3 text-primary" /> Terms
+                    </Link>
+                    <span className="text-border/80">&bull;</span>
+                    <Link
+                      to="/privacy"
+                      onClick={() => setMobileDrawerOpen(false)}
+                      className="hover:text-primary transition-colors flex items-center gap-1 font-medium"
+                    >
+                      <ShieldCheck className="size-3 text-primary" /> Privacy
+                    </Link>
+                  </div>
 
                   <div className="flex items-center justify-between pt-2 border-t border-border/60">
                     <Link
@@ -1974,6 +2025,37 @@ export function AppShell({
                     >
                       <Settings className="size-3.5 text-muted-foreground" />
                       <span>Profile &amp; Settings</span>
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator className="my-1 border-border/60" />
+                  <div className="px-2 py-1 text-[9.5px] font-bold text-muted-foreground uppercase tracking-wider">
+                    Platform &amp; Legal Policies
+                  </div>
+                  <DropdownMenuItem asChild className="p-0 mb-0.5">
+                    <Link
+                      to="/about"
+                      className="flex items-center gap-2.5 px-2.5 py-1.5 text-xs rounded-lg cursor-pointer hover:bg-muted/70 text-foreground"
+                    >
+                      <Info className="size-3.5 text-muted-foreground" />
+                      <span>About Marginal</span>
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild className="p-0 mb-0.5">
+                    <Link
+                      to="/terms"
+                      className="flex items-center gap-2.5 px-2.5 py-1.5 text-xs rounded-lg cursor-pointer hover:bg-muted/70 text-foreground"
+                    >
+                      <FileText className="size-3.5 text-muted-foreground" />
+                      <span>Terms &amp; Conditions</span>
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild className="p-0 mb-0.5">
+                    <Link
+                      to="/privacy"
+                      className="flex items-center gap-2.5 px-2.5 py-1.5 text-xs rounded-lg cursor-pointer hover:bg-muted/70 text-foreground"
+                    >
+                      <ShieldCheck className="size-3.5 text-muted-foreground" />
+                      <span>Privacy Policy</span>
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator className="my-1 border-border/60" />

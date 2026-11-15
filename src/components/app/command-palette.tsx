@@ -29,6 +29,8 @@ import {
   MessageSquare,
   CornerDownLeft,
   Filter,
+  FileText,
+  Info,
 } from "lucide-react";
 import * as React from "react";
 import { useState, useMemo, useEffect, useRef } from "react";
@@ -431,6 +433,57 @@ export function CommandPalette({
         keywords: ["settings", "profile", "avatar", "bio", "birthday", "layout", "account", "dossier"],
         onSelect: () => {
           navigate({ to: "/settings" });
+          onOpenChange(false);
+        },
+      },
+      {
+        id: "page-about",
+        title: "About Marginal & Pedagogical Vision",
+        subtitle: "Origins, Cambridge 9708 syllabus grounding, 259 mark scheme RAG, and founders",
+        category: "pages",
+        categoryLabel: "Platform & Policies",
+        icon: Info,
+        iconBg: "bg-purple-500/10",
+        iconColor: "text-purple-500",
+        badge: "About",
+        badgeTone: "border-purple-500/30 text-purple-600 dark:text-purple-400 bg-purple-500/10",
+        keywords: ["about", "founders", "marginal", "team", "vision", "who built", "pedagogy", "mission"],
+        onSelect: () => {
+          navigate({ to: "/about" });
+          onOpenChange(false);
+        },
+      },
+      {
+        id: "page-terms",
+        title: "Terms & Conditions (Official Terms of Use)",
+        subtitle: "Cambridge 9708 non-affiliation notice, AI second opinion calibration, academic honesty",
+        category: "pages",
+        categoryLabel: "Platform & Policies",
+        icon: FileText,
+        iconBg: "bg-blue-500/10",
+        iconColor: "text-blue-500",
+        badge: "Legal",
+        badgeTone: "border-blue-500/30 text-blue-600 dark:text-blue-400 bg-blue-500/10",
+        keywords: ["terms", "conditions", "tos", "rules", "legal", "academic honesty", "disclaimer", "cambridge"],
+        onSelect: () => {
+          navigate({ to: "/terms" });
+          onOpenChange(false);
+        },
+      },
+      {
+        id: "page-privacy",
+        title: "Privacy Policy & Student Data Protection",
+        subtitle: "Zero advertising tracking, private essay submissions, GDPR rights & JSON export",
+        category: "pages",
+        categoryLabel: "Platform & Policies",
+        icon: ShieldCheck,
+        iconBg: "bg-emerald-500/10",
+        iconColor: "text-emerald-500",
+        badge: "Privacy",
+        badgeTone: "border-emerald-500/30 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10",
+        keywords: ["privacy", "policy", "gdpr", "data", "security", "confidential", "export", "delete"],
+        onSelect: () => {
+          navigate({ to: "/privacy" });
           onOpenChange(false);
         },
       },
