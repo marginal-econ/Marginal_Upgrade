@@ -958,56 +958,54 @@ export function InteractiveBoyMascot({
               transition: "transform 0.12s ease-out",
             }}
           >
-            {/* Back Hair behind neck and ears */}
+            {/* Back Hair (Clean, natural crop framing behind the head - stops well above jaw!) */}
             <path
-              d="M74 96 C70 114 74 130 84 136 C82 126 80 112 82 96 Z"
+              d="M78 86 C74 54 94 40 120 40 C146 40 166 54 162 86 V112 C162 118 158 122 152 122 H88 C82 122 78 118 78 112 Z"
               fill="var(--mascot-hair, #1e1b4b)"
               stroke="var(--mascot-line, #1e1b4b)"
-              strokeWidth="3.5"
+              strokeWidth="4"
               strokeLinejoin="round"
             />
+            {/* Soft hair tufts peeking behind ears */}
             <path
-              d="M166 96 C170 114 166 130 156 136 C158 126 160 112 158 96 Z"
+              d="M78 98 C72 108 74 118 80 124 C76 116 76 106 78 98 Z"
               fill="var(--mascot-hair, #1e1b4b)"
-              stroke="var(--mascot-line, #1e1b4b)"
-              strokeWidth="3.5"
-              strokeLinejoin="round"
             />
             <path
-              d="M88 136 Q120 144 152 136 Q120 140 88 136 Z"
+              d="M162 98 C168 108 166 118 160 124 C164 116 164 106 162 98 Z"
               fill="var(--mascot-hair, #1e1b4b)"
             />
 
-            {/* 3D Snapback Cap Visor (Backwards Tilted Brim) */}
+            {/* Backwards Cap Visor (Tilted backward to the right) */}
             <g id="cap-brim">
-              {/* Visor Underside Shadow */}
+              {/* Visor underside shadow */}
               <path
-                d="M150 74 C166 80 186 85 200 85 C194 89 178 91 154 87 Z"
+                d="M152 70 C168 76 192 80 206 74 C198 81 176 85 152 78 Z"
                 fill="#2e1065"
                 stroke="var(--mascot-line, #1e1b4b)"
-                strokeWidth="3"
+                strokeWidth="3.5"
                 strokeLinejoin="round"
               />
-              {/* Visor Top Aerodynamic Curved Surface */}
+              {/* Visor upper surface */}
               <path
-                d="M148 62 C168 56 196 60 208 70 C210 75 206 81 198 85 C180 85 160 80 146 72 Z"
+                d="M150 60 C172 52 198 57 208 67 C210 72 204 77 194 80 C174 80 156 74 148 66 Z"
                 fill="url(#boy-cap-grad)"
                 stroke="var(--mascot-line, #1e1b4b)"
                 strokeWidth="4"
                 strokeLinejoin="round"
               />
-              {/* Visor Rim Highlight */}
+              {/* Visor top highlight */}
               <path
-                d="M150 64 C170 58 196 62 206 71"
+                d="M152 62 C172 55 196 59 204 67"
                 fill="none"
                 stroke="#c084fc"
                 strokeWidth="2"
                 strokeLinecap="round"
                 opacity="0.85"
               />
-              {/* Visor Precision Double Stitching */}
+              {/* Visor aerodynamic double stitch */}
               <path
-                d="M152 68 C168 64 190 68 198 75"
+                d="M154 66 C170 61 190 64 198 71"
                 fill="none"
                 stroke="#a855f7"
                 strokeWidth="1.2"
@@ -1016,16 +1014,25 @@ export function InteractiveBoyMascot({
               />
             </g>
 
-            {/* Handsome Face Shape (Youthful Tapered Jawline) */}
+            {/* Handsome Youthful Face Shape */}
             <path
-              d="M82 86 C80 66 94 56 120 56 C146 56 160 66 158 86 C158 110 148 138 120 138 C92 138 82 110 82 86 Z"
+              d="M82 86 C80 64 94 54 120 54 C146 54 160 64 158 86 C158 112 146 138 120 138 C94 138 82 112 82 86 Z"
               fill="url(#boy-skin-grad)"
               stroke="var(--mascot-line, #1e1b4b)"
-              strokeWidth="4.5"
+              strokeWidth="4"
               strokeLinejoin="round"
             />
+            {/* Signature Marginal Mint Rim Light on left cheek */}
+            <path
+              d="M86 84 C84 98 87 114 96 124"
+              fill="none"
+              stroke="var(--mascot-mint, #6ee7b7)"
+              strokeWidth="3.5"
+              strokeLinecap="round"
+              opacity="0.55"
+            />
 
-            {/* Left Ear & Detail */}
+            {/* Left Ear */}
             <ellipse
               cx="78"
               cy="104"
@@ -1035,9 +1042,16 @@ export function InteractiveBoyMascot({
               stroke="var(--mascot-line, #1e1b4b)"
               strokeWidth="3.5"
             />
-            <path d="M78 101 Q75 104 77 108" fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" />
+            <path
+              d="M78 100 C75 103 76 107 79 107"
+              fill="none"
+              stroke="var(--mascot-line, #1e1b4b)"
+              strokeWidth="2"
+              strokeLinecap="round"
+              opacity="0.5"
+            />
 
-            {/* Right Ear & Detail */}
+            {/* Right Ear */}
             <ellipse
               cx="162"
               cy="104"
@@ -1047,76 +1061,86 @@ export function InteractiveBoyMascot({
               stroke="var(--mascot-line, #1e1b4b)"
               strokeWidth="3.5"
             />
-            <path d="M162 101 Q165 104 163 108" fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" />
+            <path
+              d="M162 100 C165 103 164 107 161 107"
+              fill="none"
+              stroke="var(--mascot-line, #1e1b4b)"
+              strokeWidth="2"
+              strokeLinecap="round"
+              opacity="0.5"
+            />
 
-            {/* ── Cap Crown & Front Band (Sits On Top of Skull) ── */}
+            {/* Cap Crown (Clean, stylish backwards baseball cap) */}
             <g id="cap">
-              {/* Cap Main 6-Panel Dome */}
+              {/* Cap Main Dome */}
               <path
-                d="M78 72 C76 34 94 20 120 20 C146 20 164 34 162 72 C148 76 134 78 120 78 C106 78 92 76 78 72 Z"
+                d="M78 74 C76 36 94 22 120 22 C146 22 164 36 162 74 C148 66 134 62 120 62 C106 62 92 66 78 74 Z"
                 fill="url(#boy-cap-grad)"
                 stroke="var(--mascot-line, #1e1b4b)"
-                strokeWidth="4.5"
+                strokeWidth="4"
                 strokeLinejoin="round"
               />
-
-              {/* Front Cap Sweatband / Trim */}
+              {/* Back Opening Arch & Edge Trim */}
               <path
-                d="M78 72 C92 76 106 78 120 78 C134 78 148 76 162 72 L162 76 C148 80 134 82 120 82 C106 82 92 80 78 76 Z"
-                fill="#4c1d95"
-                stroke="var(--mascot-line, #1e1b4b)"
+                d="M80 73 C94 66 106 63 120 63 C134 63 146 66 160 73"
+                fill="none"
+                stroke="#3b0764"
                 strokeWidth="2.5"
-                strokeLinejoin="round"
+                strokeLinecap="round"
               />
-
-              {/* Back snapback arch cutout (since worn backwards) */}
+              {/* Subtle Cap Dome Seams */}
               <path
-                d="M110 78 C110 67 130 67 130 78 Z"
-                fill="url(#boy-skin-grad)"
-                stroke="var(--mascot-line, #1e1b4b)"
-                strokeWidth="2"
+                d="M120 24 V62"
+                fill="none"
+                stroke="#4c1d95"
+                strokeWidth="1.6"
+                strokeLinecap="round"
+                strokeDasharray="3 2"
               />
-              {/* Snapback adjustment plastic strap */}
-              <rect
-                x="108"
-                y="73"
-                width="24"
-                height="3.5"
-                rx="1.5"
-                fill="#2e1065"
-                stroke="var(--mascot-line, #1e1b4b)"
-                strokeWidth="1.5"
+              <path
+                d="M120 24 C108 34 96 46 88 64"
+                fill="none"
+                stroke="#4c1d95"
+                strokeWidth="1.4"
+                strokeLinecap="round"
               />
-              <circle cx="114" cy="74.8" r="0.8" fill="#a855f7" />
-              <circle cx="118" cy="74.8" r="0.8" fill="#a855f7" />
-              <circle cx="122" cy="74.8" r="0.8" fill="#a855f7" />
-              <circle cx="126" cy="74.8" r="0.8" fill="#a855f7" />
-
-              {/* Cap Panel Seams */}
-              <path d="M120 23 V67" fill="none" stroke="#4c1d95" strokeWidth="1.8" strokeLinecap="round" strokeDasharray="4 2" />
-              <path d="M120 23 C106 35 94 48 86 68" fill="none" stroke="#4c1d95" strokeWidth="1.5" strokeLinecap="round" />
-              <path d="M120 23 C134 35 146 48 154 68" fill="none" stroke="#4c1d95" strokeWidth="1.5" strokeLinecap="round" />
-
+              <path
+                d="M120 24 C132 34 144 46 152 64"
+                fill="none"
+                stroke="#4c1d95"
+                strokeWidth="1.4"
+                strokeLinecap="round"
+              />
               {/* Cap Eyelets */}
-              <circle cx="102" cy="44" r="2" fill="#2e1065" stroke="#7c3aed" strokeWidth="0.8" />
-              <circle cx="138" cy="44" r="2" fill="#2e1065" stroke="#7c3aed" strokeWidth="0.8" />
+              <circle cx="104" cy="42" r="1.8" fill="#2e1065" stroke="#7c3aed" strokeWidth="0.8" />
+              <circle cx="136" cy="42" r="1.8" fill="#2e1065" stroke="#7c3aed" strokeWidth="0.8" />
 
               {/* Cap Top Squatchee (Button) */}
-              <ellipse cx="120" cy="20.5" rx="5" ry="3.5" fill="#4c1d95" stroke="var(--mascot-line, #1e1b4b)" strokeWidth="3" />
-              <ellipse cx="119" cy="19.5" rx="2" ry="1" fill="#a855f7" opacity="0.8" />
+              <ellipse cx="120" cy="22" rx="4.5" ry="3" fill="#4c1d95" stroke="var(--mascot-line, #1e1b4b)" strokeWidth="3" />
+              <ellipse cx="119" cy="21" rx="1.8" ry="1" fill="#a855f7" opacity="0.8" />
 
-              {/* Mini Embroidered 'm' Logo Badge on Cap */}
-              <g transform="translate(93, 50) scale(0.65)">
-                <circle cx="0" cy="0" r="7.5" fill="rgba(255,255,255,0.22)" />
-                <text x="0" y="3.5" textAnchor="middle" fontSize="9" fontWeight="900" fontFamily="sans-serif" fill="#ffffff">m</text>
+              {/* Embroidered 'm' Logo Badge on Cap */}
+              <g transform="translate(96, 48) scale(0.65)">
+                <circle cx="0" cy="0" r="7.5" fill="rgba(255,255,255,0.25)" />
+                <text
+                  x="0"
+                  y="3.5"
+                  textAnchor="middle"
+                  fontSize="9.5"
+                  fontWeight="900"
+                  fontFamily="sans-serif"
+                  fill="#ffffff"
+                >
+                  m
+                </text>
               </g>
             </g>
 
-            {/* ── Stylish Front Hair Bangs & Sideburns (No More Bald Forehead!) ── */}
+            {/* Front Hair Bangs & Sideburns (Clean, stylized locks) */}
             <g id="hair-front">
               {/* Left Sideburn */}
               <path
-                d="M80 82 L76 102 C76 106 82 108 84 103 L86 86 Z"
+                d="M80 82 L76 100 C76 104 81 106 83 101 L85 86 Z"
                 fill="var(--mascot-hair, #1e1b4b)"
                 stroke="var(--mascot-line, #1e1b4b)"
                 strokeWidth="2.5"
@@ -1124,115 +1148,114 @@ export function InteractiveBoyMascot({
               />
               {/* Right Sideburn */}
               <path
-                d="M160 82 L164 102 C164 106 158 108 156 103 L154 86 Z"
+                d="M160 82 L164 100 C164 104 159 106 157 101 L155 86 Z"
                 fill="var(--mascot-hair, #1e1b4b)"
                 stroke="var(--mascot-line, #1e1b4b)"
                 strokeWidth="2.5"
                 strokeLinejoin="round"
               />
 
-              {/* Main Bangs cascading naturally across forehead */}
+              {/* Natural layered bangs framing forehead */}
               <path
-                d="M78 77 C77 86 83 95 90 97 C87 90 85 84 86 78 Z"
+                d="M82 72 C80 82 86 90 92 92 C90 85 88 78 88 70 Z"
                 fill="var(--mascot-hair, #1e1b4b)"
                 stroke="var(--mascot-line, #1e1b4b)"
                 strokeWidth="2.5"
                 strokeLinejoin="round"
               />
               <path
-                d="M86 78 C88 88 98 97 105 97 C101 88 97 82 96 78 Z"
+                d="M88 70 C90 82 99 92 108 90 C104 82 100 75 98 67 Z"
                 fill="var(--mascot-hair, #1e1b4b)"
                 stroke="var(--mascot-line, #1e1b4b)"
                 strokeWidth="2.5"
                 strokeLinejoin="round"
               />
               <path
-                d="M98 78 C106 90 116 99 122 100 C118 89 114 82 112 78 Z"
+                d="M102 67 C108 80 118 89 125 87 C122 78 118 72 116 66 Z"
                 fill="var(--mascot-hair, #1e1b4b)"
                 stroke="var(--mascot-line, #1e1b4b)"
                 strokeWidth="2.5"
                 strokeLinejoin="round"
               />
               <path
-                d="M116 78 C124 90 134 97 141 98 C135 88 130 82 128 78 Z"
+                d="M120 66 C128 78 138 86 146 84 C142 76 138 70 134 66 Z"
                 fill="var(--mascot-hair, #1e1b4b)"
                 stroke="var(--mascot-line, #1e1b4b)"
                 strokeWidth="2.5"
                 strokeLinejoin="round"
               />
               <path
-                d="M136 78 C144 87 154 95 160 97 C156 89 152 83 148 78 Z"
+                d="M138 67 C146 76 154 84 158 84 C156 77 152 71 148 68 Z"
                 fill="var(--mascot-hair, #1e1b4b)"
                 stroke="var(--mascot-line, #1e1b4b)"
                 strokeWidth="2.5"
                 strokeLinejoin="round"
               />
-
-              {/* Hair Lustre Streaks */}
-              <path d="M88 84 Q94 88 100 87" fill="none" stroke="#4338ca" strokeWidth="1.8" strokeLinecap="round" />
-              <path d="M104 84 Q112 90 118 88" fill="none" stroke="#4338ca" strokeWidth="1.8" strokeLinecap="round" />
-              <path d="M122 84 Q130 89 136 87" fill="none" stroke="#4338ca" strokeWidth="1.8" strokeLinecap="round" />
+              {/* Soft purple hair sheen highlights */}
+              <path d="M92 78 Q98 83 104 81" fill="none" stroke="#6366f1" strokeWidth="1.5" strokeLinecap="round" opacity="0.6" />
+              <path d="M110 76 Q118 82 123 79" fill="none" stroke="#6366f1" strokeWidth="1.5" strokeLinecap="round" opacity="0.6" />
             </g>
 
-            {/* ── Eyebrows ── */}
+            {/* Eyebrows */}
             {isBugCategory ? (
-              // Bug shock: Raised angled brows
               <g stroke="var(--mascot-line, #1e1b4b)" strokeWidth="3.5" strokeLinecap="round" fill="none">
-                <path d="M92 90 L106 86" />
-                <path d="M148 90 L134 86" />
+                <path d="M92 86 L106 82" />
+                <path d="M148 86 L134 82" />
               </g>
             ) : (
-              // Confident friendly arched brows
               <g stroke="var(--mascot-line, #1e1b4b)" strokeWidth="3.5" strokeLinecap="round" fill="none">
-                <path d="M92 91 Q100 86 108 89" />
-                <path d="M148 91 Q140 86 132 89" />
+                <path d="M92 88 Q100 83 108 86" />
+                <path d="M148 88 Q140 83 132 86" />
               </g>
             )}
 
-            {/* ── Expressive Eyes (Sclera + Dynamic Pupils + Dual Sparkles) ── */}
+            {/* Expressive Eyes (Dynamic Cursor Tracking + Blinking) */}
             {isBlinking ? (
-              // Happy creased-shut eyes when blinking
               <g stroke="var(--mascot-line, #1e1b4b)" strokeWidth="3.5" strokeLinecap="round" fill="none">
-                <path d="M92 107 Q100 114 108 107" />
-                <path d="M132 107 Q140 114 148 107" />
+                <path d="M91 106 Q100 113 109 106" />
+                <path d="M131 106 Q140 113 149 106" />
               </g>
             ) : (
               <g id="eyes">
-                {/* Sclera (White eye background with subtle shading) */}
-                <ellipse cx="100" cy="107" rx="10" ry="11" fill="#ffffff" stroke="var(--mascot-line, #1e1b4b)" strokeWidth="2.5" />
-                <ellipse cx="140" cy="107" rx="10" ry="11" fill="#ffffff" stroke="var(--mascot-line, #1e1b4b)" strokeWidth="2.5" />
-                {/* Upper eyelid soft shadow inside sclera */}
-                <path d="M91 103 Q100 106 109 103" fill="none" stroke="#cbd5e1" strokeWidth="2" strokeLinecap="round" />
-                <path d="M131 103 Q140 106 149 103" fill="none" stroke="#cbd5e1" strokeWidth="2" strokeLinecap="round" />
+                {/* Sclera */}
+                <ellipse cx="100" cy="106" rx="10" ry="11" fill="#ffffff" stroke="var(--mascot-line, #1e1b4b)" strokeWidth="2.5" />
+                <ellipse cx="140" cy="106" rx="10" ry="11" fill="#ffffff" stroke="var(--mascot-line, #1e1b4b)" strokeWidth="2.5" />
 
-                {/* Irises & Pupils tracking mouse cursor */}
-                {/* Left Eye Pupil Group */}
+                {/* Left Pupil Group (Tracks Pointer) */}
                 <g transform={`translate(${pupilOffsetX}, ${pupilOffsetY})`}>
-                  <circle cx="100" cy="107" r={isBugCategory ? 7.5 : 6.5} fill="url(#iris-grad)" />
-                  <circle cx="100" cy="107" r={isBugCategory ? 5.5 : 4.5} fill="#0f172a" />
-                  <circle cx="98" cy="104.5" r="2.2" fill="#ffffff" />
-                  <circle cx="102" cy="109" r="1.1" fill="#ffffff" opacity="0.85" />
+                  <circle cx="100" cy="106" r={isBugCategory ? 7.5 : 6.5} fill="url(#iris-grad)" />
+                  <circle cx="100" cy="106" r={isBugCategory ? 5.2 : 4.2} fill="#0f172a" />
+                  {/* Primary highlight */}
+                  <circle cx="98" cy="103.5" r="2.2" fill="#ffffff" />
+                  {/* Secondary catchlight */}
+                  <circle cx="102" cy="108" r="1.1" fill="#ffffff" opacity="0.85" />
+                  {/* Soft bottom iris glow */}
+                  <ellipse cx="100" cy="109.5" rx="3.5" ry="1.2" fill="#818cf8" opacity="0.45" />
                 </g>
 
-                {/* Right Eye Pupil Group */}
+                {/* Right Pupil Group (Tracks Pointer) */}
                 <g transform={`translate(${pupilOffsetX}, ${pupilOffsetY})`}>
-                  <circle cx="140" cy="107" r={isBugCategory ? 7.5 : 6.5} fill="url(#iris-grad)" />
-                  <circle cx="140" cy="107" r={isBugCategory ? 5.5 : 4.5} fill="#0f172a" />
-                  <circle cx="138" cy="104.5" r="2.2" fill="#ffffff" />
-                  <circle cx="142" cy="109" r="1.1" fill="#ffffff" opacity="0.85" />
+                  <circle cx="140" cy="106" r={isBugCategory ? 7.5 : 6.5} fill="url(#iris-grad)" />
+                  <circle cx="140" cy="106" r={isBugCategory ? 5.2 : 4.2} fill="#0f172a" />
+                  {/* Primary highlight */}
+                  <circle cx="138" cy="103.5" r="2.2" fill="#ffffff" />
+                  {/* Secondary catchlight */}
+                  <circle cx="142" cy="108" r="1.1" fill="#ffffff" opacity="0.85" />
+                  {/* Soft bottom iris glow */}
+                  <ellipse cx="140" cy="109.5" rx="3.5" ry="1.2" fill="#818cf8" opacity="0.45" />
                 </g>
 
-                {/* Upper Eyelash Contour */}
-                <path d="M90 104 Q100 99 110 104" fill="none" stroke="var(--mascot-line, #1e1b4b)" strokeWidth="3" strokeLinecap="round" />
-                <path d="M130 104 Q140 99 150 104" fill="none" stroke="var(--mascot-line, #1e1b4b)" strokeWidth="3" strokeLinecap="round" />
+                {/* Elegant Upper Lash Line (Framing upper contour, not slicing eyes!) */}
+                <path d="M89 101 C93 96 107 96 111 101" fill="none" stroke="var(--mascot-line, #1e1b4b)" strokeWidth="3" strokeLinecap="round" />
+                <path d="M129 101 C133 96 147 96 151 101" fill="none" stroke="var(--mascot-line, #1e1b4b)" strokeWidth="3" strokeLinecap="round" />
               </g>
             )}
 
-            {/* ── Designer Smart Glasses (Clear Transparent Lenses & Reflection) ── */}
+            {/* Designer Smart Glasses */}
             <g id="glasses">
-              {/* Frame Temple Bars to Ears */}
-              <path d="M86 106 L78 103" fill="none" stroke="var(--mascot-frame, #4c1d95)" strokeWidth="3" strokeLinecap="round" />
-              <path d="M154 106 L162 103" fill="none" stroke="var(--mascot-frame, #4c1d95)" strokeWidth="3" strokeLinecap="round" />
+              {/* Temples to ears */}
+              <path d="M85 106 L78 103" fill="none" stroke="var(--mascot-frame, #4c1d95)" strokeWidth="3" strokeLinecap="round" />
+              <path d="M155 106 L162 103" fill="none" stroke="var(--mascot-frame, #4c1d95)" strokeWidth="3" strokeLinecap="round" />
 
               {/* Center Bridge */}
               <path d="M113 105 Q120 102 127 105" fill="none" stroke="var(--mascot-frame, #4c1d95)" strokeWidth="3.5" strokeLinecap="round" />
@@ -1240,83 +1263,82 @@ export function InteractiveBoyMascot({
               {/* Left Lens Frame */}
               <circle
                 cx="100"
-                cy="107"
+                cy="106"
                 r="15"
-                fill="rgba(240, 245, 255, 0.12)"
+                fill="rgba(255, 255, 255, 0.08)"
                 stroke="var(--mascot-frame, #4c1d95)"
                 strokeWidth="3.5"
               />
-              {/* Left Lens Light Glare */}
-              <path d="M92 100 A12 12 0 0 1 104 94" fill="none" stroke="#ffffff" strokeWidth="2.2" strokeLinecap="round" opacity="0.85" />
+              {/* Left Lens Glare */}
+              <path d="M91 99 A12 12 0 0 1 103 93" fill="none" stroke="#ffffff" strokeWidth="2.2" strokeLinecap="round" opacity="0.85" />
 
               {/* Right Lens Frame */}
               <circle
                 cx="140"
-                cy="107"
+                cy="106"
                 r="15"
-                fill="rgba(240, 245, 255, 0.12)"
+                fill="rgba(255, 255, 255, 0.08)"
                 stroke="var(--mascot-frame, #4c1d95)"
                 strokeWidth="3.5"
               />
-              {/* Right Lens Light Glare */}
-              <path d="M132 100 A12 12 0 0 1 144 94" fill="none" stroke="#ffffff" strokeWidth="2.2" strokeLinecap="round" opacity="0.85" />
+              {/* Right Lens Glare */}
+              <path d="M131 99 A12 12 0 0 1 143 93" fill="none" stroke="#ffffff" strokeWidth="2.2" strokeLinecap="round" opacity="0.85" />
             </g>
 
-            {/* ── Cute Clean Nose ── */}
+            {/* Cute Clean Nose */}
             <path
-              d="M119 114 Q121 117 123 116"
+              d="M119 113 Q121 116 123 115"
               fill="none"
               stroke="var(--mascot-line, #1e1b4b)"
-              strokeWidth="2.8"
+              strokeWidth="2.5"
               strokeLinecap="round"
             />
-            <ellipse cx="120" cy="117.5" rx="2" ry="1" fill="#f59e0b" opacity="0.35" />
 
-            {/* ── Mouth (Responsive to context) ── */}
+            {/* Mouth */}
             {isBugCategory ? (
-              // Surprised "O" mouth
+              // Astonished "O" mouth
               <g id="mouth-shock">
                 <ellipse
                   cx="120"
-                  cy="129"
+                  cy="128"
                   rx="5.5"
                   ry="7"
                   fill="var(--mascot-line, #1e1b4b)"
                   stroke="var(--mascot-line, #1e1b4b)"
                   strokeWidth="2"
                 />
-                <ellipse cx="120" cy="131" rx="3" ry="4" fill="var(--mascot-tongue, #f43f5e)" />
+                <ellipse cx="120" cy="130" rx="3" ry="4" fill="var(--mascot-tongue, #f43f5e)" />
               </g>
             ) : isFeatureCategory || isHoveringSend ? (
-              // Enthusiastic open grin!
+              // Enthusiastic grin with bright smile
               <g id="mouth-grin">
                 <path
-                  d="M110 126 C111 138 129 138 130 126 Z"
+                  d="M111 125 C112 137 128 137 129 125 Z"
                   fill="var(--mascot-line, #1e1b4b)"
                   stroke="var(--mascot-line, #1e1b4b)"
                   strokeWidth="2.5"
                   strokeLinejoin="round"
                 />
-                <path d="M115 133 C118 131 122 131 125 133" fill="var(--mascot-tongue, #f43f5e)" stroke="none" />
-                <path d="M112 126 H128 V128 H112 Z" fill="#ffffff" />
+                <path d="M115 131 C118 129 122 129 125 131" fill="var(--mascot-tongue, #f43f5e)" stroke="none" />
+                <path d="M113 125 H127 V127 H113 Z" fill="#ffffff" />
               </g>
             ) : (
-              // Charming, friendly warm smile
+              // Warm charming friendly smile
               <g id="mouth-smile">
                 <path
-                  d="M111 127 Q120 135 129 127"
+                  d="M111 126 Q120 134 129 126"
                   fill="none"
                   stroke="var(--mascot-line, #1e1b4b)"
-                  strokeWidth="3.5"
+                  strokeWidth="3.2"
                   strokeLinecap="round"
                 />
-                <path d="M130 126 Q132 127 131 129" fill="none" stroke="var(--mascot-line, #1e1b4b)" strokeWidth="2" strokeLinecap="round" />
+                <path d="M129 125 Q131 126 130 128" fill="none" stroke="var(--mascot-line, #1e1b4b)" strokeWidth="2" strokeLinecap="round" />
               </g>
             )}
 
-            {/* ── Rosy Cheek Blush ── */}
-            <ellipse cx="90" cy="120" rx="5" ry="3" fill="var(--mascot-blush, #f43f5e)" opacity="0.3" />
-            <ellipse cx="150" cy="120" rx="5" ry="3" fill="var(--mascot-blush, #f43f5e)" opacity="0.3" />
+            {/* Rosy Cheek Blush */}
+            <ellipse cx="88" cy="118" rx="6" ry="3.5" fill="#fb7185" opacity="0.38" />
+            <ellipse cx="152" cy="118" rx="6" ry="3.5" fill="#fb7185" opacity="0.38" />
           </g>
         </svg>
       </div>
