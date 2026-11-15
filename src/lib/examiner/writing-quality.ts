@@ -390,10 +390,16 @@ export function applyEightMarkEvaluationGuardrail(
 
   // If evaluation shortfall detected, clamp AO3 to 1 and total to 7
   if (hasEvaluationShortfall) {
-    if (ao3 > 1) {
-      ao3 = 1;
+    let adjAo1 = ao1;
+    let adjAo2 = ao2;
+    let adjAo3 = ao3 > 1 ? 1 : ao3;
+    const targetTotal = Math.min(7, adjAo1 + adjAo2 + adjAo3);
+    while (adjAo1 + adjAo2 + adjAo3 > targetTotal) {
+      if (adjAo2 > 0) adjAo2--;
+      else if (adjAo1 > 0) adjAo1--;
+      else if (adjAo3 > 0) adjAo3--;
     }
-    const newTotal = Math.min(7, ao1 + ao2 + ao3);
+    const newTotal = adjAo1 + adjAo2 + adjAo3;
     const improvementNotice = "To elevate the evaluation, provide a more decisive concluding judgement that explicitly weighs the trade-offs in context (such as short-run versus long-run impacts).";
     const updatedComment = evalComment.includes("decisive concluding judgement")
       ? evalComment
@@ -405,9 +411,17 @@ export function applyEightMarkEvaluationGuardrail(
       band: bandFor(newTotal, maxMark),
       ao_breakdown: {
         ...grading.ao_breakdown,
+        knowledge: {
+          ...grading.ao_breakdown.knowledge,
+          awarded: adjAo1,
+        },
+        analysis: {
+          ...grading.ao_breakdown.analysis,
+          awarded: adjAo2,
+        },
         evaluation: {
           ...grading.ao_breakdown.evaluation,
-          awarded: ao3,
+          awarded: adjAo3,
           comment: stripScoreFractionsFromText(updatedComment),
         },
       },
@@ -417,11 +431,34 @@ export function applyEightMarkEvaluationGuardrail(
   // If total is 8, ensure it really is 2/2 in AO1, 4/4 in AO2, and 2/2 in AO3
   if (grading.total_mark === 8) {
     if (ao1 < 2 || ao2 < 4 || ao3 < 2) {
-      const fixedTotal = Math.min(7, ao1 + ao2 + ao3);
+      let adjAo1 = ao1;
+      let adjAo2 = ao2;
+      let adjAo3 = ao3;
+      const fixedTotal = Math.min(7, adjAo1 + adjAo2 + adjAo3);
+      while (adjAo1 + adjAo2 + adjAo3 > fixedTotal) {
+        if (adjAo2 > 0) adjAo2--;
+        else if (adjAo1 > 0) adjAo1--;
+        else if (adjAo3 > 0) adjAo3--;
+      }
       return {
         ...grading,
         total_mark: fixedTotal,
         band: bandFor(fixedTotal, maxMark),
+        ao_breakdown: {
+          ...grading.ao_breakdown,
+          knowledge: {
+            ...grading.ao_breakdown.knowledge,
+            awarded: adjAo1,
+          },
+          analysis: {
+            ...grading.ao_breakdown.analysis,
+            awarded: adjAo2,
+          },
+          evaluation: {
+            ...grading.ao_breakdown.evaluation,
+            awarded: adjAo3,
+          },
+        },
       };
     }
   }
@@ -585,6 +622,19 @@ export function applyWritingQualityGuardrail(
 
   // 3. Authoritative 8-mark evaluative essay failsafe (keeps at 7 if evaluation criteria unmet or conclusion unsatisfied)
   result = applyEightMarkEvaluationGuardrail(result, maxMark, split);
+
+  // 4. Guarantee strict mathematical invariant across all guardrail branches:
+  const sumAo =
+    result.ao_breakdown.knowledge.awarded +
+    result.ao_breakdown.analysis.awarded +
+    result.ao_breakdown.evaluation.awarded;
+  if (result.total_mark !== sumAo) {
+    result = {
+      ...result,
+      total_mark: sumAo,
+      band: bandFor(sumAo, maxMark),
+    };
+  }
 
   return result;
 }

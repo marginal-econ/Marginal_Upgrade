@@ -223,7 +223,14 @@ CREATE TABLE IF NOT EXISTS public.definitions (
 GRANT ALL ON public.definitions TO authenticated, service_role, anon;
 ALTER TABLE public.definitions ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "definitions_read" ON public.definitions;
-CREATE POLICY "definitions_read" ON public.definitions FOR SELECT TO authenticated USING (true);
+CREATE POLICY "definitions_read" ON public.definitions FOR SELECT TO authenticated
+  USING (
+    public.is_staff(auth.uid())
+    OR (
+      (category IS NULL OR category NOT IN ('upi_payment_request', 'coupon_code', 'system_config'))
+      AND (term NOT ILIKE '__%')
+    )
+  );
 
 -- 8. MCQ PAST PAPERS & ATTEMPTS
 CREATE TABLE IF NOT EXISTS public.mcq_pdf_papers (

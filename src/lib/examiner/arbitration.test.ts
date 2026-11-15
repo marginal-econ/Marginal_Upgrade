@@ -160,6 +160,49 @@ describe("Principal Examiner Arbitration & Confidence Engine", () => {
       // AO2 deducted for the analytical error
       expect(reconciled.ao_breakdown.analysis.awarded).toBe(3);
       expect(reconciled.total_mark).toBeLessThanOrEqual(7);
+      expect(
+        reconciled.ao_breakdown.knowledge.awarded +
+          reconciled.ao_breakdown.analysis.awarded +
+          reconciled.ao_breakdown.evaluation.awarded,
+      ).toBe(reconciled.total_mark);
+    });
+
+    it("guarantees mathematical invariant that AO1 + AO2 + AO3 sum strictly equals total_mark across multiple configurations", () => {
+      const testCases = [
+        { max: 8, split: { ao1_marks: 2, ao2_marks: 4, ao3_marks: 2 }, p1: [2, 4, 1], p2: [2, 4, 2] },
+        { max: 8, split: { ao1_marks: 2, ao2_marks: 4, ao3_marks: 2 }, p1: [2, 3, 2], p2: [2, 4, 2] },
+        { max: 12, split: { ao1_marks: 3, ao2_marks: 6, ao3_marks: 3 }, p1: [3, 5, 2], p2: [3, 6, 2] },
+        { max: 20, split: { ao1_marks: 4, ao2_marks: 10, ao3_marks: 6 }, p1: [4, 9, 5], p2: [3, 10, 5] },
+        { max: 8, split: { ao1_marks: 3, ao2_marks: 5, ao3_marks: 0 }, p1: [3, 4, 0], p2: [2, 5, 0] },
+      ];
+
+      for (const tc of testCases) {
+        const p1: Grading = {
+          ...mockGrading(tc.p1[0] + tc.p1[1] + tc.p1[2], "Band"),
+          max_mark: tc.max,
+          ao_breakdown: {
+            knowledge: { awarded: tc.p1[0], out_of: tc.split.ao1_marks, comment: "K" },
+            analysis: { awarded: tc.p1[1], out_of: tc.split.ao2_marks, comment: "A" },
+            evaluation: { awarded: tc.p1[2], out_of: tc.split.ao3_marks, comment: "E" },
+          },
+        };
+        const p2: Grading = {
+          ...mockGrading(tc.p2[0] + tc.p2[1] + tc.p2[2], "Band"),
+          max_mark: tc.max,
+          ao_breakdown: {
+            knowledge: { awarded: tc.p2[0], out_of: tc.split.ao1_marks, comment: "K" },
+            analysis: { awarded: tc.p2[1], out_of: tc.split.ao2_marks, comment: "A" },
+            evaluation: { awarded: tc.p2[2], out_of: tc.split.ao3_marks, comment: "E" },
+          },
+        };
+
+        const res = synthesizeDualPasses(p1, p2, tc.max, tc.split);
+        const aoSum =
+          res.ao_breakdown.knowledge.awarded +
+          res.ao_breakdown.analysis.awarded +
+          res.ao_breakdown.evaluation.awarded;
+        expect(aoSum).toBe(res.total_mark);
+      }
     });
   });
 });

@@ -974,7 +974,16 @@ function fillMissingQuestionPages(
     setLevel(paper.level);
     levelRef.current = paper.level;
     setQCount(paper.questionCount);
-    setAnswerKey(paper.answerKey as Record<number, Letter>);
+    if (completedAttempt) {
+      const completedKey = Object.fromEntries(
+        completedAttempt.questions
+          .filter((q) => q.correct_answer)
+          .map((q) => [q.number, q.correct_answer as Letter]),
+      );
+      setAnswerKey(completedKey);
+    } else {
+      setAnswerKey({});
+    }
     const draft =
       !completedAttempt ? readMcqDraft(effectiveUserId, paper.id) : null;
     const completedAnswers = completedAttempt
@@ -1402,10 +1411,7 @@ function fillMissingQuestionPages(
   /* ---------------- grading + feedback ---------------- */
 
   async function gradeAndSave() {
-    if (Object.keys(answerKey).length === 0) {
-      toast.error("No mark scheme loaded yet — upload one, or the answers can't be checked.");
-      return;
-    }
+    if (!selectedPaperId) return;
     setBusyLabel("Marking…");
     try {
       const matchedTopical = getTopicalPaperById(selectedPaperId);
@@ -1414,49 +1420,62 @@ function fillMissingQuestionPages(
       );
       const levelUpper = level === "a2" ? "A2" : "AS";
 
-      const allNumbers = new Set<number>([
-        ...Object.keys(answerKey).map(Number),
-        ...Object.keys(answers).map(Number),
-      ]);
-      const graded_ = [...allNumbers]
-        .filter((n) => n >= 1)
-        .sort((a, b) => a - b)
-        .map((number) => {
-          const correctAnswer = answerKey[number] ?? null;
-          const userAnswer = answers[number] ?? null;
-          const topicalQ = matchedTopical?.questions.find((q) => q.number === number);
-          const stemText =
-            stemByNumber.get(number) ??
-            (topicalQ
-              ? `${topicalQ.stem} A ${topicalQ.options.A} B ${topicalQ.options.B} C ${topicalQ.options.C} D ${topicalQ.options.D}`
-              : "");
-          const classified = classifyMcqQuestion({
-            level: levelUpper,
-            number,
-            text: stemText,
-            existingTopic: matchedTopical?.topic,
-            existingSubtopic: topicalQ?.subtopic,
-            existingSkill: topicalQ?.skill,
-          });
-          return {
-            number,
-            topic: classified.topic,
-            subtopic: topicalQ?.subtopic || classified.subtopic,
-            unit: classified.unit,
-            domain: classified.domain,
-            skill: classified.skill,
-            stem_text: stemText ? stemText.slice(0, 1400) : undefined,
-            correct_answer: correctAnswer,
-            user_answer: userAnswer,
-            correct: correctAnswer ? correctAnswer === userAnswer : null,
-          };
+      const totalCount = qCount || Math.max(...Object.keys(answers).map(Number), 30);
+      const submissionQuestions = Array.from({ length: totalCount }, (_, idx) => {
+        const number = idx + 1;
+        const userAnswer = answers[number] ?? null;
+        const topicalQ = matchedTopical?.questions.find((q) => q.number === number);
+        const stemText =
+          stemByNumber.get(number) ??
+          (topicalQ
+            ? `${topicalQ.stem} A ${topicalQ.options.A} B ${topicalQ.options.B} C ${topicalQ.options.C} D ${topicalQ.options.D}`
+            : "");
+        const classified = classifyMcqQuestion({
+          level: levelUpper,
+          number,
+          text: stemText,
+          existingTopic: matchedTopical?.topic,
+          existingSubtopic: topicalQ?.subtopic,
+          existingSkill: topicalQ?.skill,
         });
+        return {
+          number,
+          topic: classified.topic,
+          subtopic: topicalQ?.subtopic || classified.subtopic,
+          unit: classified.unit,
+          domain: classified.domain,
+          skill: classified.skill,
+          stem_text: stemText ? stemText.slice(0, 1400) : undefined,
+          correct_answer: null,
+          user_answer: userAnswer,
+          correct: null,
+        };
+      });
 
-      const scored = graded_.filter((q) => q.correct !== null);
-      const score = scored.filter((q) => q.correct).length;
-      setResult({ score, total: scored.length });
+      const res = await submitAttemptFn({
+        data: {
+          title: paperTitle,
+          filename: paperTitle,
+          level,
+          paperId: selectedPaperId,
+          questions: submissionQuestions,
+        },
+      });
+
+      const returnedQuestions = ((res as any).questions || []) as GradedQuestion[];
+      const scored = returnedQuestions.filter((q) => q.correct !== null);
+      const score = res.score ?? scored.filter((q) => q.correct).length;
+      const total = res.total ?? scored.length;
+
+      setResult({ score, total });
       setGraded(true);
-      setReviewQuestions(graded_);
+      setReviewQuestions(returnedQuestions);
+      const returnedKey = Object.fromEntries(
+        returnedQuestions
+          .filter((q) => q.correct_answer)
+          .map((q) => [q.number, q.correct_answer as Letter]),
+      );
+      setAnswerKey(returnedKey);
       setAttemptTopics(buildTopicStatsFromQuestions(scored, levelUpper));
       setAttemptDomains(
         aggregateMcqDomains(
@@ -1468,25 +1487,6 @@ function fillMissingQuestionPages(
           })),
         ),
       );
-
-      await submitAttemptFn({
-        data: {
-          title: paperTitle,
-          filename: paperTitle,
-          level,
-          paperId: selectedPaperId!,
-          questions: graded_.map((q) => ({
-            number: q.number,
-            topic: q.topic,
-            subtopic: q.subtopic,
-            stem_text: q.stem_text,
-            skill: q.skill,
-            correct_answer: q.correct_answer,
-            user_answer: q.user_answer,
-            correct: q.correct,
-          })),
-        },
-      });
       if (selectedPaperId) {
         window.localStorage.removeItem(mcqDraftKey(effectiveUserId, selectedPaperId));
         window.localStorage.removeItem(mcqActiveKey(effectiveUserId));
@@ -3146,10 +3146,7 @@ function paperCode(paper: McqPaperSummary): string {
 }
 
 function hasCompleteAnswerKey(paper: McqPaperSummary): boolean {
-  return Array.from(
-    { length: paper.questionCount },
-    (_, index) => paper.answerKey[String(index + 1)],
-  ).every(Boolean);
+  return (paper as any).hasCompleteKey ?? false;
 }
 
 function uniqueSorted<T>(values: T[], compare: (a: T, b: T) => number): T[] {

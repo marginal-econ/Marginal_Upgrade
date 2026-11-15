@@ -49,7 +49,14 @@ ALTER TABLE public.definitions ENABLE ROW LEVEL SECURITY;
 -- Everyone signed in can read the hub; only staff can add/edit/remove
 -- entries (extraction is a staff-triggered action, same as knowledge
 -- ingestion already is).
-CREATE POLICY "definitions_read" ON public.definitions FOR SELECT TO authenticated USING (true);
+CREATE POLICY "definitions_read" ON public.definitions FOR SELECT TO authenticated
+  USING (
+    public.is_staff(auth.uid())
+    OR (
+      (category IS NULL OR category NOT IN ('upi_payment_request', 'coupon_code', 'system_config'))
+      AND (term NOT ILIKE '__%')
+    )
+  );
 CREATE POLICY "definitions_write_staff" ON public.definitions FOR ALL TO authenticated
   USING (public.is_staff(auth.uid())) WITH CHECK (public.is_staff(auth.uid()));
 

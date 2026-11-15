@@ -589,7 +589,7 @@ function McqPapersAdminPage() {
                       {p.level.toUpperCase()}
                       {p.examSeries && p.examYear ? ` · ${p.examSeries} ${p.examYear}` : ""} ·{" "}
                       {p.questionCount} questions ·{" "}
-                      {Object.keys(p.answerKey).length > 0 ? "markable" : "no mark scheme yet"}
+                      {p.hasCompleteKey ? "markable" : "no mark scheme yet"}
                     </p>
                   </div>
                   <AlertDialog>
