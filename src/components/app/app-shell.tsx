@@ -1585,26 +1585,26 @@ export function AppShell({
 
         {/* ── Desktop Horizontal Topbar Navigation (navLayout === 'topbar') ── */}
         {navLayout === "topbar" && (
-          <header className="hidden lg:flex items-center justify-between h-14 border-b border-border/60 bg-background/80 backdrop-blur-xl px-4 sm:px-6 sticky top-0 z-40 w-full shrink-0 select-none shadow-[0_1px_3px_0_rgba(0,0,0,0.03)] dark:shadow-[0_1px_3px_0_rgba(0,0,0,0.2)]">
+          <header className="hidden lg:flex items-center justify-between h-14 border-b border-border/60 bg-background/80 backdrop-blur-xl px-3 sm:px-4 xl:px-6 sticky top-0 z-40 w-full shrink-0 select-none shadow-[0_1px_3px_0_rgba(0,0,0,0.03)] dark:shadow-[0_1px_3px_0_rgba(0,0,0,0.2)]">
             {/* Left: Brand + Navigation Dropdowns */}
-            <div className="flex items-center gap-3 xl:gap-4 min-w-0 shrink-0">
-              <Link to="/dashboard" className="flex items-center gap-2.5 shrink-0 group pr-1.5" title="Marginal Economics Dashboard">
+            <div className="flex items-center gap-2 xl:gap-3 2xl:gap-4 min-w-0 flex-1 mr-2 xl:mr-4">
+              <Link to="/dashboard" className="flex items-center gap-2 xl:gap-2.5 shrink-0 group pr-1 xl:pr-1.5" title="Marginal Economics Dashboard">
                 <div className="relative group/logo shrink-0">
                   <div className="absolute -inset-1 rounded-xl bg-gradient-to-r from-primary/30 to-purple-600/30 blur-xs opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                  <div className="relative size-9.5 shrink-0 rounded-xl bg-gradient-to-br from-primary/15 via-primary/8 to-transparent border border-primary/25 flex items-center justify-center overflow-hidden transition-all duration-200 group-hover:border-primary/50 group-hover:shadow-[0_0_16px_rgba(168,85,247,0.35)] shadow-xs">
+                  <div className="relative size-8.5 xl:size-9.5 shrink-0 rounded-xl bg-gradient-to-br from-primary/15 via-primary/8 to-transparent border border-primary/25 flex items-center justify-center overflow-hidden transition-all duration-200 group-hover:border-primary/50 group-hover:shadow-[0_0_16px_rgba(168,85,247,0.35)] shadow-xs">
                     <img
                       src="/marginal-m-icon-clean.png"
                       alt="Marginal"
                       aria-hidden="true"
-                      className="size-7 object-contain transition-transform duration-300 group-hover:scale-110 drop-shadow-xs"
+                      className="size-6 xl:size-7 object-contain transition-transform duration-300 group-hover:scale-110 drop-shadow-xs"
                     />
                   </div>
                 </div>
-                <span className="text-base font-extrabold tracking-tight text-foreground transition-colors group-hover:text-primary flex items-center gap-2">
+                <span className="text-sm xl:text-base font-extrabold tracking-tight text-foreground transition-colors group-hover:text-primary flex items-center gap-1.5 xl:gap-2">
                   Marginal
                   <Badge
                     variant="outline"
-                    className="text-[10px] font-mono px-2 py-0.5 border-primary/30 text-primary bg-primary/10 font-bold tracking-wide shadow-2xs"
+                    className="hidden xl:inline-flex text-[10px] font-mono px-1.5 xl:px-2 py-0.5 border-primary/30 text-primary bg-primary/10 font-bold tracking-wide shadow-2xs"
                   >
                     9708
                   </Badge>
@@ -1612,14 +1612,14 @@ export function AppShell({
               </Link>
 
               {/* Subtle Vertical Hairline Separator */}
-              <div className="hidden xl:block h-4 w-px bg-border/60 shrink-0" />
+              <div className="hidden 2xl:block h-4 w-px bg-border/60 shrink-0" />
 
               {/* Top Navigation Menus */}
-              <nav className="flex items-center gap-1 p-1 rounded-xl bg-muted/45 border border-border/60 shadow-2xs backdrop-blur-xs shrink-0">
+              <nav className="flex items-center gap-0.5 xl:gap-1 p-0.5 xl:p-1 rounded-xl bg-muted/45 border border-border/60 shadow-2xs backdrop-blur-xs min-w-0 overflow-x-auto no-scrollbar">
                 <Link
                   to="/dashboard"
                   className={cn(
-                    "group relative flex items-center gap-2 h-8 px-3 rounded-lg text-xs transition-all duration-150 cursor-pointer select-none whitespace-nowrap",
+                    "group relative flex items-center gap-1.5 xl:gap-2 h-8 px-2 xl:px-3 rounded-lg text-xs transition-all duration-150 cursor-pointer select-none whitespace-nowrap shrink-0",
                     pathname === "/dashboard"
                       ? "bg-background text-primary font-semibold shadow-xs border border-border/80 dark:border-border/60 ring-1 ring-primary/20"
                       : "text-muted-foreground hover:text-foreground hover:bg-background/60 font-medium",
@@ -1643,7 +1643,7 @@ export function AppShell({
                       <button
                         type="button"
                         className={cn(
-                          "group relative flex items-center gap-2 h-8 px-3 rounded-lg text-xs transition-all duration-150 cursor-pointer select-none whitespace-nowrap",
+                          "group relative flex items-center gap-1.5 xl:gap-2 h-8 px-2 xl:px-3 rounded-lg text-xs transition-all duration-150 cursor-pointer select-none whitespace-nowrap shrink-0",
                           isPracticeActive
                             ? "bg-background text-primary font-semibold shadow-xs border border-border/80 dark:border-border/60 ring-1 ring-primary/20"
                             : "text-muted-foreground hover:text-foreground hover:bg-background/60 font-medium group-data-[state=open]:bg-background/70 group-data-[state=open]:text-foreground",
@@ -1657,7 +1657,9 @@ export function AppShell({
                               : "text-muted-foreground/80 group-hover:text-foreground group-data-[state=open]:text-foreground",
                           )}
                         />
-                        <span>Exam Practice</span>
+                        <span>
+                          <span className="hidden xl:inline">Exam </span>Practice
+                        </span>
                         <ChevronDown className="size-3 text-muted-foreground/50 group-hover:text-foreground/80 group-data-[state=open]:rotate-180 group-data-[state=open]:text-foreground transition-all duration-200 shrink-0" />
                       </button>
                     </DropdownMenuTrigger>
@@ -1714,7 +1716,7 @@ export function AppShell({
                       <button
                         type="button"
                         className={cn(
-                          "group relative flex items-center gap-2 h-8 px-3 rounded-lg text-xs transition-all duration-150 cursor-pointer select-none whitespace-nowrap",
+                          "group relative flex items-center gap-1.5 xl:gap-2 h-8 px-2 xl:px-3 rounded-lg text-xs transition-all duration-150 cursor-pointer select-none whitespace-nowrap shrink-0",
                           isSyllabusActive
                             ? "bg-background text-primary font-semibold shadow-xs border border-border/80 dark:border-border/60 ring-1 ring-primary/20"
                             : "text-muted-foreground hover:text-foreground hover:bg-background/60 font-medium group-data-[state=open]:bg-background/70 group-data-[state=open]:text-foreground",
@@ -1728,7 +1730,9 @@ export function AppShell({
                               : "text-muted-foreground/80 group-hover:text-foreground group-data-[state=open]:text-foreground",
                           )}
                         />
-                        <span>Syllabus Resources</span>
+                        <span>
+                          <span className="hidden xl:inline">Syllabus </span>Resources
+                        </span>
                         <ChevronDown className="size-3 text-muted-foreground/50 group-hover:text-foreground/80 group-data-[state=open]:rotate-180 group-data-[state=open]:text-foreground transition-all duration-200 shrink-0" />
                       </button>
                     </DropdownMenuTrigger>
@@ -1778,7 +1782,7 @@ export function AppShell({
                       <button
                         type="button"
                         className={cn(
-                          "group relative flex items-center gap-2 h-8 px-3 rounded-lg text-xs transition-all duration-150 cursor-pointer select-none whitespace-nowrap",
+                          "group relative flex items-center gap-1.5 xl:gap-2 h-8 px-2 xl:px-3 rounded-lg text-xs transition-all duration-150 cursor-pointer select-none whitespace-nowrap shrink-0",
                           isClassroomActive
                             ? "bg-background text-primary font-semibold shadow-xs border border-border/80 dark:border-border/60 ring-1 ring-primary/20"
                             : "text-muted-foreground hover:text-foreground hover:bg-background/60 font-medium group-data-[state=open]:bg-background/70 group-data-[state=open]:text-foreground",
@@ -1835,7 +1839,7 @@ export function AppShell({
                   <Link
                     to="/classes"
                     className={cn(
-                      "group relative flex items-center gap-2 h-8 px-3 rounded-lg text-xs transition-all duration-150 cursor-pointer select-none whitespace-nowrap",
+                      "group relative flex items-center gap-1.5 xl:gap-2 h-8 px-2 xl:px-3 rounded-lg text-xs transition-all duration-150 cursor-pointer select-none whitespace-nowrap shrink-0",
                       isClassroomActive
                         ? "bg-background text-primary font-semibold shadow-xs border border-border/80 dark:border-border/60 ring-1 ring-primary/20"
                         : "text-muted-foreground hover:text-foreground hover:bg-background/60 font-medium",
@@ -1860,15 +1864,16 @@ export function AppShell({
                       <button
                         type="button"
                         className={cn(
-                          "group relative flex items-center gap-2 h-8 px-3 rounded-lg text-xs transition-all duration-150 cursor-pointer select-none whitespace-nowrap",
+                          "group relative flex items-center gap-1.5 xl:gap-2 h-8 px-2 xl:px-3 rounded-lg text-xs transition-all duration-150 cursor-pointer select-none whitespace-nowrap shrink-0",
                           isAdminActive
                             ? "bg-purple-500/15 text-purple-700 dark:text-purple-300 font-semibold shadow-xs border border-purple-500/30 ring-1 ring-purple-500/20"
                             : "text-purple-600/80 dark:text-purple-400/80 hover:text-purple-700 dark:hover:text-purple-300 hover:bg-purple-500/10 font-medium group-data-[state=open]:bg-purple-500/15",
                         )}
                       >
                         <ShieldCheck className="size-3.5 text-purple-600 dark:text-purple-400 shrink-0" />
-                        <span>Administration</span>
-                        <span className="text-[9px] font-mono font-bold px-1.5 py-0.2 rounded-full bg-purple-500/15 border border-purple-500/25 text-purple-700 dark:text-purple-300 shrink-0">
+                        <span className="hidden xl:inline">Administration</span>
+                        <span className="xl:hidden">Admin</span>
+                        <span className="hidden 2xl:inline-block text-[9px] font-mono font-bold px-1.5 py-0.2 rounded-full bg-purple-500/15 border border-purple-500/25 text-purple-700 dark:text-purple-300 shrink-0">
                           Root
                         </span>
                         <ChevronDown className="size-3 text-purple-600/60 group-hover:text-purple-700 group-data-[state=open]:rotate-180 transition-all duration-200 shrink-0" />
@@ -1934,17 +1939,18 @@ export function AppShell({
             </div>
 
             {/* Right: Symmetrical Action Toolbar */}
-            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            <div className="flex items-center gap-1 sm:gap-1.5 xl:gap-2 shrink-0 ml-auto">
               {/* Search / Command Trigger */}
               <button
                 type="button"
                 onClick={() => setCommandOpen(true)}
-                className="flex items-center gap-2 h-8 rounded-lg border border-border/70 bg-muted/30 hover:bg-muted/60 hover:border-primary/40 px-2.5 text-xs text-muted-foreground hover:text-foreground transition-all cursor-pointer shadow-2xs group min-w-[120px] lg:w-44 xl:w-52 shrink-0"
+                className="flex items-center gap-1.5 xl:gap-2 h-8 rounded-lg border border-border/70 bg-muted/30 hover:bg-muted/60 hover:border-primary/40 px-2 xl:px-2.5 text-xs text-muted-foreground hover:text-foreground transition-all cursor-pointer shadow-2xs group w-28 lg:w-32 xl:w-44 2xl:w-52 shrink-0"
                 title="Search Cambridge 9708 definitions, diagrams & tools (⌘K)"
               >
                 <SearchIcon className="size-3.5 text-primary group-hover:scale-110 transition-transform shrink-0" />
-                <span className="truncate text-muted-foreground/90 font-medium">Search or jump...</span>
-                <kbd className="pointer-events-none hidden sm:inline-flex h-4.5 select-none items-center gap-0.5 rounded border border-border/80 bg-background/90 px-1 font-mono text-[9px] font-medium text-muted-foreground ml-auto shadow-2xs">
+                <span className="truncate text-muted-foreground/90 font-medium hidden 2xl:inline">Search or jump...</span>
+                <span className="truncate text-muted-foreground/90 font-medium 2xl:hidden">Search...</span>
+                <kbd className="pointer-events-none hidden sm:inline-flex h-4.5 select-none items-center gap-0.5 rounded border border-border/80 bg-background/90 px-1 font-mono text-[9px] font-medium text-muted-foreground ml-auto shadow-2xs shrink-0">
                   ⌘K
                 </kbd>
               </button>
@@ -1983,7 +1989,7 @@ export function AppShell({
                 trigger={
                   <button
                     type="button"
-                    className="flex items-center gap-1.5 h-8 px-2.5 rounded-lg border border-border/70 bg-card/60 hover:bg-muted/80 text-xs font-medium text-foreground transition-all shadow-2xs cursor-pointer group shrink-0"
+                    className="flex items-center gap-1.5 h-8 px-2 xl:px-2.5 rounded-lg border border-border/70 bg-card/60 hover:bg-muted/80 text-xs font-medium text-foreground transition-all shadow-2xs cursor-pointer group shrink-0"
                     title="Send feedback or report an issue"
                   >
                     <MessageSquarePlus className="size-3.5 text-primary group-hover:scale-105 transition-transform shrink-0" />
@@ -1993,17 +1999,17 @@ export function AppShell({
               />
 
               {/* Night / Day Theme Toggle */}
-              <ThemeToggle className="size-8" />
+              <ThemeToggle className="size-8 shrink-0" />
 
               {/* Vertical Hairline Divider */}
-              <div className="h-4 w-px bg-border/60 mx-0.5 shrink-0" />
+              <div className="h-4 w-px bg-border/60 mx-0.5 shrink-0 hidden sm:block" />
 
               {/* User Profile Avatar Popover */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button
                     type="button"
-                    className="flex items-center gap-1.5 rounded-full p-1 ring-2 ring-primary/30 hover:ring-primary/70 hover:bg-primary/5 transition-all cursor-pointer shrink-0 shadow-2xs hover:shadow-[0_0_16px_rgba(168,85,247,0.35)] hover:scale-105 active:scale-95 duration-200"
+                    className="flex items-center gap-1.5 rounded-full p-0.5 xl:p-1 ring-2 ring-primary/30 hover:ring-primary/70 hover:bg-primary/5 transition-all cursor-pointer shrink-0 shadow-2xs hover:shadow-[0_0_16px_rgba(168,85,247,0.35)] hover:scale-105 active:scale-95 duration-200"
                     title="User Account & Settings"
                   >
                     <UserAvatar
@@ -2012,7 +2018,7 @@ export function AppShell({
                       fallbackInitials={candidateInitials}
                       showStatusDot={true}
                       shape="circle"
-                      className="size-9"
+                      className="size-8 xl:size-9"
                     />
                   </button>
                 </DropdownMenuTrigger>
@@ -2113,8 +2119,8 @@ export function AppShell({
 
         {/* ── Desktop Secondary Header Bar for Dock & Sidebar Layouts ── */}
         {navLayout !== "topbar" && (
-          <header className="hidden lg:flex items-center justify-between border-b border-border/70 bg-card/70 px-6 py-2.5 backdrop-blur-md sticky top-0 z-30 w-full shrink-0">
-            <div className="flex items-center gap-2.5 min-w-0">
+          <header className="hidden lg:flex items-center justify-between border-b border-border/70 bg-card/70 px-4 sm:px-6 py-2.5 backdrop-blur-md sticky top-0 z-30 w-full shrink-0">
+            <div className="flex items-center gap-2.5 min-w-0 flex-1 mr-3">
               {currentTutorial ? (
                 <div className="flex items-center gap-2.5 min-w-0">
                   <div className="size-7 rounded-lg bg-purple-500/10 border border-purple-500/20 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
@@ -2135,22 +2141,23 @@ export function AppShell({
                   </div>
                 </div>
               ) : (
-                <span className="text-xs font-semibold text-muted-foreground">
+                <span className="text-xs font-semibold text-muted-foreground truncate">
                   Cambridge International Economics 9708
                 </span>
               )}
             </div>
 
-            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            <div className="flex items-center gap-1 sm:gap-1.5 xl:gap-2 shrink-0 ml-auto">
               <button
                 type="button"
                 onClick={() => setCommandOpen(true)}
-                className="flex items-center gap-2 h-8 rounded-lg border border-border/70 bg-muted/30 hover:bg-muted/60 hover:border-primary/40 px-2.5 text-xs text-muted-foreground hover:text-foreground transition-all cursor-pointer shadow-2xs group min-w-[120px] lg:w-44 xl:w-52 shrink-0"
+                className="flex items-center gap-1.5 xl:gap-2 h-8 rounded-lg border border-border/70 bg-muted/30 hover:bg-muted/60 hover:border-primary/40 px-2 xl:px-2.5 text-xs text-muted-foreground hover:text-foreground transition-all cursor-pointer shadow-2xs group w-28 lg:w-32 xl:w-44 2xl:w-52 shrink-0"
                 title="Search Cambridge 9708 definitions, diagrams & tools (⌘K)"
               >
                 <SearchIcon className="size-3.5 text-primary group-hover:scale-110 transition-transform shrink-0" />
-                <span className="truncate text-muted-foreground/90 font-medium">Search or jump...</span>
-                <kbd className="pointer-events-none hidden sm:inline-flex h-4.5 select-none items-center gap-0.5 rounded border border-border/80 bg-background/90 px-1 font-mono text-[9px] font-medium text-muted-foreground ml-auto shadow-2xs">
+                <span className="truncate text-muted-foreground/90 font-medium hidden 2xl:inline">Search or jump...</span>
+                <span className="truncate text-muted-foreground/90 font-medium 2xl:hidden">Search...</span>
+                <kbd className="pointer-events-none hidden sm:inline-flex h-4.5 select-none items-center gap-0.5 rounded border border-border/80 bg-background/90 px-1 font-mono text-[9px] font-medium text-muted-foreground ml-auto shadow-2xs shrink-0">
                   ⌘K
                 </kbd>
               </button>
@@ -2187,7 +2194,7 @@ export function AppShell({
                 trigger={
                   <button
                     type="button"
-                    className="flex items-center gap-1.5 h-8 px-2.5 rounded-lg border border-border/70 bg-card/60 hover:bg-muted/80 text-xs font-medium text-foreground transition-all shadow-2xs cursor-pointer group shrink-0"
+                    className="flex items-center gap-1.5 h-8 px-2 xl:px-2.5 rounded-lg border border-border/70 bg-card/60 hover:bg-muted/80 text-xs font-medium text-foreground transition-all shadow-2xs cursor-pointer group shrink-0"
                     title="Send feedback or report an issue"
                   >
                     <MessageSquarePlus className="size-3.5 text-primary group-hover:scale-105 transition-transform shrink-0" />
@@ -2197,7 +2204,7 @@ export function AppShell({
               />
 
               {/* Night / Day Theme Toggle */}
-              <ThemeToggle className="size-8" />
+              <ThemeToggle className="size-8 shrink-0" />
             </div>
           </header>
         )}
