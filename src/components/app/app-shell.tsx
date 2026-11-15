@@ -75,7 +75,6 @@ import { usePresenceHeartbeat } from "@/hooks/use-presence";
 import { supabase } from "@/integrations/backend/client";
 import type { UserSubscriptionDetails } from "@/lib/usage-limits";
 import { cn } from "@/lib/utils";
-import { TopTutorialButton } from "@/components/tutorials/feature-tutorial-dialog";
 import { ThemeToggle } from "@/components/marketing/theme-toggle";
 import { matchTutorialByPath } from "@/lib/tutorials-data";
 import { useFeatureTutorial } from "@/components/tutorials/tutorial-context";
@@ -1471,12 +1470,6 @@ export function AppShell({
             >
               <SearchIcon className="size-3.5 text-primary" />
             </button>
-            <TopTutorialButton size="sm" showLabel={false} className="size-8 p-0 justify-center shrink-0" />
-            <LayoutSwitcherButton
-              navLayout={navLayout}
-              onChange={handleLayoutChange}
-              className="hidden sm:flex"
-            />
             {isUserAdmin ? (
               <Link
                 to="/admin"
@@ -1909,18 +1902,6 @@ export function AppShell({
                 </kbd>
               </button>
 
-              {/* Tutorials Quick Trigger */}
-              <TopTutorialButton
-                className="h-8 gap-1.5 px-2.5 rounded-lg border-purple-500/25 bg-purple-500/8 text-purple-700 dark:text-purple-300 hover:bg-purple-500/15 text-xs font-semibold shadow-2xs transition-all shrink-0 cursor-pointer"
-              />
-
-              {/* Layout Switcher */}
-              <LayoutSwitcherButton
-                navLayout={navLayout}
-                onChange={handleLayoutChange}
-                className="h-8 px-2.5 rounded-lg border-border/70 bg-card/60 hover:bg-muted/80 text-xs font-medium shrink-0"
-              />
-
               {/* Direct Messaging Portal */}
               {isUserAdmin ? (
                 <Link
@@ -2027,6 +2008,13 @@ export function AppShell({
                       <span>Profile &amp; Settings</span>
                     </Link>
                   </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => openTutorial()}
+                    className="flex items-center gap-2.5 px-2.5 py-2 text-xs rounded-lg cursor-pointer hover:bg-muted/70 text-foreground"
+                  >
+                    <GraduationCap className="size-3.5 text-purple-500" />
+                    <span>Feature Tutorials</span>
+                  </DropdownMenuItem>
                   <DropdownMenuSeparator className="my-1 border-border/60" />
                   <div className="px-2 py-1 text-[9.5px] font-bold text-muted-foreground uppercase tracking-wider">
                     Platform &amp; Legal Policies
@@ -2119,16 +2107,6 @@ export function AppShell({
                   ⌘K
                 </kbd>
               </button>
-
-              <TopTutorialButton
-                className="h-8 gap-1.5 px-2.5 rounded-lg border-purple-500/25 bg-purple-500/8 text-purple-700 dark:text-purple-300 hover:bg-purple-500/15 text-xs font-semibold shadow-2xs transition-all shrink-0 cursor-pointer"
-              />
-
-              <LayoutSwitcherButton
-                navLayout={navLayout}
-                onChange={handleLayoutChange}
-                className="h-8 px-2.5 rounded-lg border-border/70 bg-card/60 hover:bg-muted/80 text-xs font-medium shrink-0"
-              />
 
               {isUserAdmin ? (
                 <Link
