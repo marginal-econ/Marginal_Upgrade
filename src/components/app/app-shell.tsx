@@ -785,18 +785,30 @@ export function AppShell({
     [visibleGroups],
   );
   const isPracticeActive = useMemo(
-    () => Boolean(practiceGroup?.items.some((item) => isItemActive(item.to))),
+    () =>
+      Boolean(
+        practiceGroup?.items
+          .filter((item) => item.to !== "/dashboard")
+          .some((item) => isItemActive(item.to)),
+      ),
     [practiceGroup, pathname],
   );
   const isSyllabusActive = useMemo(
-    () => Boolean(syllabusGroup?.items.some((item) => isItemActive(item.to))),
+    () =>
+      Boolean(
+        syllabusGroup?.items
+          .filter((item) => item.to !== "/dashboard")
+          .some((item) => isItemActive(item.to)),
+      ),
     [syllabusGroup, pathname],
   );
   const isClassroomActive = useMemo(
     () =>
       Boolean(
-        classroomGroup?.items.some((item) => isItemActive(item.to)) ||
-          pathname.startsWith("/classes") ||
+        classroomGroup?.items
+          .filter((item) => item.to !== "/dashboard")
+          .some((item) => isItemActive(item.to)) ||
+          (pathname.startsWith("/classes") && pathname !== "/dashboard") ||
           pathname.startsWith("/review"),
       ),
     [classroomGroup, pathname],
@@ -1603,17 +1615,24 @@ export function AppShell({
               <div className="hidden xl:block h-4 w-px bg-border/60 shrink-0" />
 
               {/* Top Navigation Menus */}
-              <nav className="flex items-center gap-1 shrink-0">
+              <nav className="flex items-center gap-1 p-1 rounded-xl bg-muted/45 border border-border/60 shadow-2xs backdrop-blur-xs shrink-0">
                 <Link
                   to="/dashboard"
                   className={cn(
-                    "flex items-center gap-1.5 h-8 px-2.5 xl:px-3 rounded-lg text-xs font-medium whitespace-nowrap shrink-0 transition-all cursor-pointer",
+                    "group relative flex items-center gap-2 h-8 px-3 rounded-lg text-xs transition-all duration-150 cursor-pointer select-none whitespace-nowrap",
                     pathname === "/dashboard"
-                      ? "bg-primary/10 text-primary font-semibold border border-primary/25 shadow-2xs"
-                      : "text-muted-foreground hover:text-foreground hover:bg-muted/70",
+                      ? "bg-background text-primary font-semibold shadow-xs border border-border/80 dark:border-border/60 ring-1 ring-primary/20"
+                      : "text-muted-foreground hover:text-foreground hover:bg-background/60 font-medium",
                   )}
                 >
-                  <LayoutDashboard className="size-3.5 shrink-0 text-primary" />
+                  <LayoutDashboard
+                    className={cn(
+                      "size-3.5 shrink-0 transition-colors",
+                      pathname === "/dashboard"
+                        ? "text-primary"
+                        : "text-muted-foreground/80 group-hover:text-foreground",
+                    )}
+                  />
                   <span>Dashboard</span>
                 </Link>
 
@@ -1624,15 +1643,22 @@ export function AppShell({
                       <button
                         type="button"
                         className={cn(
-                          "group flex items-center gap-1.5 h-8 px-2.5 xl:px-3 rounded-lg text-xs font-medium whitespace-nowrap shrink-0 transition-all cursor-pointer",
+                          "group relative flex items-center gap-2 h-8 px-3 rounded-lg text-xs transition-all duration-150 cursor-pointer select-none whitespace-nowrap",
                           isPracticeActive
-                            ? "bg-primary/10 text-primary font-semibold border border-primary/25 shadow-2xs"
-                            : "text-muted-foreground hover:text-foreground hover:bg-muted/70",
+                            ? "bg-background text-primary font-semibold shadow-xs border border-border/80 dark:border-border/60 ring-1 ring-primary/20"
+                            : "text-muted-foreground hover:text-foreground hover:bg-background/60 font-medium group-data-[state=open]:bg-background/70 group-data-[state=open]:text-foreground",
                         )}
                       >
-                        <PenLine className="size-3.5 shrink-0 text-primary" />
+                        <PenLine
+                          className={cn(
+                            "size-3.5 shrink-0 transition-colors",
+                            isPracticeActive
+                              ? "text-primary"
+                              : "text-muted-foreground/80 group-hover:text-foreground group-data-[state=open]:text-foreground",
+                          )}
+                        />
                         <span>Exam Practice</span>
-                        <ChevronDown className="size-3 opacity-50 group-data-[state=open]:rotate-180 transition-transform duration-200 shrink-0" />
+                        <ChevronDown className="size-3 text-muted-foreground/50 group-hover:text-foreground/80 group-data-[state=open]:rotate-180 group-data-[state=open]:text-foreground transition-all duration-200 shrink-0" />
                       </button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="start" className="w-72 p-1.5 z-50 bg-popover/95 backdrop-blur-xl border border-border/80 shadow-xl rounded-xl animate-in fade-in-0 zoom-in-95">
@@ -1688,15 +1714,22 @@ export function AppShell({
                       <button
                         type="button"
                         className={cn(
-                          "group flex items-center gap-1.5 h-8 px-2.5 xl:px-3 rounded-lg text-xs font-medium whitespace-nowrap shrink-0 transition-all cursor-pointer",
+                          "group relative flex items-center gap-2 h-8 px-3 rounded-lg text-xs transition-all duration-150 cursor-pointer select-none whitespace-nowrap",
                           isSyllabusActive
-                            ? "bg-primary/10 text-primary font-semibold border border-primary/25 shadow-2xs"
-                            : "text-muted-foreground hover:text-foreground hover:bg-muted/70",
+                            ? "bg-background text-primary font-semibold shadow-xs border border-border/80 dark:border-border/60 ring-1 ring-primary/20"
+                            : "text-muted-foreground hover:text-foreground hover:bg-background/60 font-medium group-data-[state=open]:bg-background/70 group-data-[state=open]:text-foreground",
                         )}
                       >
-                        <BookOpen className="size-3.5 shrink-0 text-sky-500" />
+                        <BookOpen
+                          className={cn(
+                            "size-3.5 shrink-0 transition-colors",
+                            isSyllabusActive
+                              ? "text-primary"
+                              : "text-muted-foreground/80 group-hover:text-foreground group-data-[state=open]:text-foreground",
+                          )}
+                        />
                         <span>Syllabus Resources</span>
-                        <ChevronDown className="size-3 opacity-50 group-data-[state=open]:rotate-180 transition-transform duration-200 shrink-0" />
+                        <ChevronDown className="size-3 text-muted-foreground/50 group-hover:text-foreground/80 group-data-[state=open]:rotate-180 group-data-[state=open]:text-foreground transition-all duration-200 shrink-0" />
                       </button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="start" className="w-72 p-1.5 z-50 bg-popover/95 backdrop-blur-xl border border-border/80 shadow-xl rounded-xl animate-in fade-in-0 zoom-in-95">
@@ -1745,15 +1778,22 @@ export function AppShell({
                       <button
                         type="button"
                         className={cn(
-                          "group flex items-center gap-1.5 h-8 px-2.5 xl:px-3 rounded-lg text-xs font-medium whitespace-nowrap shrink-0 transition-all cursor-pointer",
+                          "group relative flex items-center gap-2 h-8 px-3 rounded-lg text-xs transition-all duration-150 cursor-pointer select-none whitespace-nowrap",
                           isClassroomActive
-                            ? "bg-primary/10 text-primary font-semibold border border-primary/25 shadow-2xs"
-                            : "text-muted-foreground hover:text-foreground hover:bg-muted/70",
+                            ? "bg-background text-primary font-semibold shadow-xs border border-border/80 dark:border-border/60 ring-1 ring-primary/20"
+                            : "text-muted-foreground hover:text-foreground hover:bg-background/60 font-medium group-data-[state=open]:bg-background/70 group-data-[state=open]:text-foreground",
                         )}
                       >
-                        <UsersRound className="size-3.5 shrink-0 text-emerald-500" />
+                        <UsersRound
+                          className={cn(
+                            "size-3.5 shrink-0 transition-colors",
+                            isClassroomActive
+                              ? "text-primary"
+                              : "text-muted-foreground/80 group-hover:text-foreground group-data-[state=open]:text-foreground",
+                          )}
+                        />
                         <span>{classroomLabel}</span>
-                        <ChevronDown className="size-3 opacity-50 group-data-[state=open]:rotate-180 transition-transform duration-200 shrink-0" />
+                        <ChevronDown className="size-3 text-muted-foreground/50 group-hover:text-foreground/80 group-data-[state=open]:rotate-180 group-data-[state=open]:text-foreground transition-all duration-200 shrink-0" />
                       </button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="start" className="w-64 p-1.5 z-50 bg-popover/95 backdrop-blur-xl border border-border/80 shadow-xl rounded-xl animate-in fade-in-0 zoom-in-95">
@@ -1776,8 +1816,8 @@ export function AppShell({
                             )}
                           >
                             <div className="flex items-center gap-2.5 min-w-0">
-                              <div className="size-6 rounded-md bg-emerald-500/10 flex items-center justify-center shrink-0">
-                                <item.icon className="size-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                              <div className="size-6 rounded-md bg-muted/60 flex items-center justify-center shrink-0 group-hover:bg-primary/10 transition-colors">
+                                <item.icon className="size-3.5 text-muted-foreground group-hover:text-primary transition-colors shrink-0" />
                               </div>
                               <span className="truncate font-medium">{item.label}</span>
                             </div>
@@ -1795,13 +1835,20 @@ export function AppShell({
                   <Link
                     to="/classes"
                     className={cn(
-                      "flex items-center gap-1.5 h-8 px-2.5 xl:px-3 rounded-lg text-xs font-medium whitespace-nowrap shrink-0 transition-all cursor-pointer",
-                      pathname.startsWith("/classes")
-                        ? "bg-primary/10 text-primary font-semibold border border-primary/25 shadow-2xs"
-                        : "text-muted-foreground hover:text-foreground hover:bg-muted/70",
+                      "group relative flex items-center gap-2 h-8 px-3 rounded-lg text-xs transition-all duration-150 cursor-pointer select-none whitespace-nowrap",
+                      isClassroomActive
+                        ? "bg-background text-primary font-semibold shadow-xs border border-border/80 dark:border-border/60 ring-1 ring-primary/20"
+                        : "text-muted-foreground hover:text-foreground hover:bg-background/60 font-medium",
                     )}
                   >
-                    <UsersRound className="size-3.5 shrink-0 text-emerald-500" />
+                    <UsersRound
+                      className={cn(
+                        "size-3.5 shrink-0 transition-colors",
+                        isClassroomActive
+                          ? "text-primary"
+                          : "text-muted-foreground/80 group-hover:text-foreground",
+                      )}
+                    />
                     <span>{classroomLabel}</span>
                   </Link>
                 )}
@@ -1813,18 +1860,18 @@ export function AppShell({
                       <button
                         type="button"
                         className={cn(
-                          "group flex items-center gap-1.5 h-8 px-2.5 rounded-lg text-xs font-semibold whitespace-nowrap shrink-0 transition-all cursor-pointer border shadow-2xs",
-                          pathname.startsWith("/admin")
-                            ? "border-purple-500/40 bg-purple-500/20 text-purple-700 dark:text-purple-300"
-                            : "border-purple-500/25 bg-purple-500/10 text-purple-700 dark:text-purple-300 hover:bg-purple-500/15",
+                          "group relative flex items-center gap-2 h-8 px-3 rounded-lg text-xs transition-all duration-150 cursor-pointer select-none whitespace-nowrap",
+                          isAdminActive
+                            ? "bg-purple-500/15 text-purple-700 dark:text-purple-300 font-semibold shadow-xs border border-purple-500/30 ring-1 ring-purple-500/20"
+                            : "text-purple-600/80 dark:text-purple-400/80 hover:text-purple-700 dark:hover:text-purple-300 hover:bg-purple-500/10 font-medium group-data-[state=open]:bg-purple-500/15",
                         )}
                       >
                         <ShieldCheck className="size-3.5 text-purple-600 dark:text-purple-400 shrink-0" />
                         <span>Administration</span>
-                        <span className="text-[9px] font-mono font-bold px-1 py-0 rounded bg-purple-500/20 text-purple-700 dark:text-purple-300">
+                        <span className="text-[9px] font-mono font-bold px-1.5 py-0.2 rounded-full bg-purple-500/15 border border-purple-500/25 text-purple-700 dark:text-purple-300 shrink-0">
                           Root
                         </span>
-                        <ChevronDown className="size-3 opacity-60 group-data-[state=open]:rotate-180 transition-transform duration-200 shrink-0" />
+                        <ChevronDown className="size-3 text-purple-600/60 group-hover:text-purple-700 group-data-[state=open]:rotate-180 transition-all duration-200 shrink-0" />
                       </button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="start" className="w-60 p-1.5 z-50 bg-popover/95 backdrop-blur-xl border border-border/80 shadow-xl rounded-xl animate-in fade-in-0 zoom-in-95">
