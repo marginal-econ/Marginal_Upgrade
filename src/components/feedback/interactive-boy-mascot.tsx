@@ -11,6 +11,9 @@ interface InteractiveBoyMascotProps {
   activeField?: "category" | "subject" | "message" | "name" | "email" | null;
   className?: string;
   onBugClick?: () => void;
+  bug1Caught?: boolean;
+  bug2Caught?: boolean;
+  onBug2CaughtChange?: (caught: boolean) => void;
 }
 
 export function InteractiveBoyMascot({
@@ -21,6 +24,9 @@ export function InteractiveBoyMascot({
   activeField = null,
   className,
   onBugClick,
+  bug1Caught = false,
+  bug2Caught,
+  onBug2CaughtChange,
 }: InteractiveBoyMascotProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const bugRef = useRef<HTMLDivElement>(null);
@@ -29,6 +35,14 @@ export function InteractiveBoyMascot({
   const [normPos, setNormPos] = useState({ x: 0, y: 0 });
   const [isBlinking, setIsBlinking] = useState(false);
   const [bugSquashed, setBugSquashed] = useState(false);
+  const isBug2Caught = bug2Caught !== undefined ? bug2Caught : bugSquashed;
+
+  const toggleBug2 = () => {
+    const next = !isBug2Caught;
+    setBugSquashed(next);
+    onBug2CaughtChange?.(next);
+    onBugClick?.();
+  };
   const [bugCaption, setBugCaption] = useState("~bzz!~");
   const [isBugEvading, setIsBugEvading] = useState(false);
   const [trailParticles, setTrailParticles] = useState<Array<{ id: number; x: number; y: number }>>([]);
@@ -74,25 +88,26 @@ export function InteractiveBoyMascot({
 
   // ── Procedural Random Flight Physics Loop ─────────────────────────────
   useEffect(() => {
-    if (category !== "bug" || bugSquashed) {
+    if (category !== "bug" || isBug2Caught) {
       return;
     }
 
     let animId: number;
-    let posX = 20;
-    let posY = -25;
+    let posX = 135;
+    let posY = 70;
     let vx = 0.5;
     let vy = -0.3;
     let currentAngle = 15;
 
-    // Boundary flight limits inside the mascot stage
-    const minX = -30;
-    const maxX = 175;
-    const minY = -55;
-    const maxY = 95;
+    // Safe boundary flight limits: keeps Barnaby on the open right/lower side of the mascot
+    // Never overlapping the speech bubble (minY >= 35)!
+    const minX = 40;
+    const maxX = 180;
+    const minY = 35;
+    const maxY = 130;
 
-    let targetX = 60 + (Math.random() - 0.5) * 80;
-    let targetY = -20 + (Math.random() - 0.5) * 60;
+    let targetX = 110 + (Math.random() - 0.5) * 60;
+    let targetY = 70 + (Math.random() - 0.5) * 40;
     let mode: "cruising" | "hovering" | "darting" | "evading" = "cruising";
     let modeTimer = 0;
     let lastTime = performance.now();
@@ -283,9 +298,13 @@ export function InteractiveBoyMascot({
 
     switch (category) {
       case "bug":
-        return bugSquashed
-          ? "🎯 Bullseye! Bug caught! Tell us where it happened."
-          : "🐛 Ahh, a bug in the wild! Help our engineers squash it!";
+        if (bug1Caught && isBug2Caught) {
+          return "🎉 Bullseye! Both bugs caught (2/2)! Tell our engineers what happened!";
+        }
+        if (bug1Caught || isBug2Caught) {
+          return "🎯 1 bug down, 1 to go! Catch the other bug!";
+        }
+        return "🐛 2 bugs loose in the room! Help our team squash them!";
       case "feature_request":
         return "💡 Ooh, a brilliant new idea! Tell us what to build!";
       case "grading_question":
@@ -380,27 +399,25 @@ export function InteractiveBoyMascot({
         </div>
       )}
 
-      {/* ── Procedural Flying Bug (when category === 'bug') ─────────────── */}
+      {/* ── Procedural Flying Bug #2: Barnaby the Jewel Beetle ─────────────── */}
       {isBugCategory && (
         <div
           ref={bugRef}
           className="pointer-events-auto absolute -top-8 -left-6 z-30 cursor-pointer will-change-transform select-none"
           style={{
-            transform: "translate3d(20px, -25px, 0px) rotate(15deg)",
-            transition: bugSquashed ? "transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)" : undefined,
+            transform: isBug2Caught
+              ? "translate3d(145px, 68px, 0px) rotate(10deg)"
+              : "translate3d(135px, 65px, 0px) rotate(15deg)",
+            transition: isBug2Caught ? "transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)" : undefined,
           }}
-          onClick={() => {
-            if (bugSquashed) {
-              setBugSquashed(false);
-              setBugCaption("~bzz!~");
-            } else {
-              setBugSquashed(true);
-              onBugClick?.();
-            }
-          }}
-          title={bugSquashed ? "Click to release bug!" : "Click to catch the bug!"}
+          onClick={toggleBug2}
+          title={
+            isBug2Caught
+              ? "Barnaby the Jewel Beetle (Caught!) — Click to release"
+              : "Barnaby the Jewel Beetle (~bzz!~) — Click to catch!"
+          }
         >
-          <div className="group relative flex flex-col items-center justify-center p-1.5 transition-transform hover:scale-125 active:scale-95">
+          <div className="group relative flex flex-col items-center justify-center p-1.5 transition-transform hover:scale-125 active:scale-90">
             {/* Jewel Beetle SVG Vector */}
             <svg
               viewBox="0 0 44 48"
@@ -448,7 +465,7 @@ export function InteractiveBoyMascot({
               </g>
 
               {/* 4 Translucent Flying Wings */}
-              {!bugSquashed && (
+              {!isBug2Caught && (
                 <g id="beetle-wings">
                   {/* Hindwings */}
                   <path
@@ -579,7 +596,7 @@ export function InteractiveBoyMascot({
               )}
 
               {/* Squashed Stars Halo */}
-              {bugSquashed && (
+              {isBug2Caught && (
                 <g style={{ transformOrigin: "22px 5px", animation: "dazedStars 2.5s infinite linear" }}>
                   <text x="12" y="2" fontSize="7" fill="#facc15">⭐</text>
                   <text x="26" y="2" fontSize="6" fill="#38bdf8">✨</text>
@@ -588,18 +605,18 @@ export function InteractiveBoyMascot({
               )}
             </svg>
 
-            {/* Interactive Dynamic Badge (Maintains "bzz!" in static render for tests) */}
+            {/* Subtle Hover Status Pill (Safe from cap collision) */}
             <span
               className={cn(
-                "mt-0.5 text-[9.5px] font-mono font-bold px-2 py-0.5 rounded-full border shadow-xs transition-all duration-200 select-none",
-                bugSquashed
-                  ? "bg-amber-500/15 border-amber-500/40 text-amber-600 dark:text-amber-400 font-extrabold"
+                "mt-0.5 text-[8.5px] font-mono font-bold px-1.5 py-0.2 rounded-full border shadow-2xs transition-all duration-200 select-none whitespace-nowrap",
+                isBug2Caught
+                  ? "bg-amber-500/15 border-amber-500/35 text-amber-600 dark:text-amber-400 font-extrabold"
                   : isBugEvading
-                  ? "bg-rose-500/15 border-rose-500/40 text-rose-600 dark:text-rose-400 scale-105"
-                  : "bg-emerald-500/15 border-emerald-500/30 text-emerald-600 dark:text-emerald-400",
+                  ? "bg-rose-500/20 border-rose-500/40 text-rose-600 dark:text-rose-400 scale-105"
+                  : "bg-emerald-500/15 border-emerald-500/30 text-emerald-600 dark:text-emerald-400 opacity-80 group-hover:opacity-100",
               )}
             >
-              {bugSquashed ? "🎯 SQUASHED!" : bugCaption}
+              {isBug2Caught ? "⭐ CAUGHT!" : "~bzz!~"}
             </span>
           </div>
         </div>
