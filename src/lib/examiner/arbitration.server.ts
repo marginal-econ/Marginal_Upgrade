@@ -21,6 +21,7 @@ import {
   normaliseGrading,
   purgeContradictions,
   sanitizeAsLevelText,
+  sanitizeALevelFeedbackText,
   stripScoreFractionsFromText,
   verifyVerbatimQuotes,
   type Grading,
@@ -558,6 +559,23 @@ export function synthesizeDualPasses(
     result.missing_elements.evaluation = result.missing_elements.evaluation.map(sanitizeAsLevelText).filter((e) => e.length > 0);
     result.missing_elements.examples = result.missing_elements.examples.map(sanitizeAsLevelText).filter((ex) => ex.length > 0);
     result.missing_elements.diagrams = result.missing_elements.diagrams.map(sanitizeAsLevelText).filter((di) => di.length > 0);
+  }
+
+  if (maxMark >= 20) {
+    result.ao_breakdown.knowledge.comment = sanitizeALevelFeedbackText(result.ao_breakdown.knowledge.comment);
+    result.ao_breakdown.analysis.comment = sanitizeALevelFeedbackText(result.ao_breakdown.analysis.comment);
+    result.ao_breakdown.evaluation.comment = sanitizeALevelFeedbackText(result.ao_breakdown.evaluation.comment);
+    result.examiner_summary = sanitizeALevelFeedbackText(result.examiner_summary);
+    result.strengths = deduplicateFeedbackPoints(result.strengths.map(sanitizeALevelFeedbackText).filter((s) => s.length > 0), 4);
+    result.weaknesses = deduplicateFeedbackPoints(result.weaknesses.map(sanitizeALevelFeedbackText).filter((w) => w.length > 0), 4);
+    result.actionable_feedback = deduplicateFeedbackPoints(result.actionable_feedback.map(sanitizeALevelFeedbackText).filter((f) => f.length > 0), 4);
+    result.suggested_resources = Array.from(new Set(result.suggested_resources.map(sanitizeALevelFeedbackText).filter((r) => r.length > 0))).slice(0, 3);
+    result.suggested_practice = Array.from(new Set(result.suggested_practice.map(sanitizeALevelFeedbackText).filter((p) => p.length > 0))).slice(0, 3);
+    result.missing_elements.definitions = result.missing_elements.definitions.map(sanitizeALevelFeedbackText).filter((d) => d.length > 0);
+    result.missing_elements.analysis = result.missing_elements.analysis.map(sanitizeALevelFeedbackText).filter((a) => a.length > 0);
+    result.missing_elements.evaluation = result.missing_elements.evaluation.map(sanitizeALevelFeedbackText).filter((e) => e.length > 0);
+    result.missing_elements.examples = result.missing_elements.examples.map(sanitizeALevelFeedbackText).filter((ex) => ex.length > 0);
+    result.missing_elements.diagrams = result.missing_elements.diagrams.map(sanitizeALevelFeedbackText).filter((di) => di.length > 0);
   }
 
   const guardrailed = quality ? applyWritingQualityGuardrail(result, quality, maxMark, split) : result;

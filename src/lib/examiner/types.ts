@@ -373,6 +373,80 @@ export function sanitizeAsLevelText(value: unknown): string {
   return s.trim();
 }
 
+/**
+ * Programmatically fixes syllabus labeling typos for 20-mark A Level (Paper 4) essays:
+ * - 20-mark essays belong exclusively to A Level (Paper 4) rather than AS Level (Paper 21).
+ * - Chapter 7 topics (Economic Efficiency and Utility Theory) are tagged as A Level (A2) rather than AS Level.
+ * - Updates any lingering "AS Level" or "Paper 21" references in 20-mark feedback to "A Level" / "Paper 4".
+ */
+export function sanitizeALevelFeedbackText(value: unknown): string {
+  if (typeof value !== "string" || !value) return "";
+  let s = value;
+
+  // 1. Properly label Chapter 7 as A Level (Economic Efficiency and Utility Theory)
+  s = s.replace(
+    /Chapter 7:\s*The Price System and the Microeconomy\s*\((?:Syllabus 9708,\s*)?AS Level,\s*Cambridge International Economics\)/gi,
+    "Chapter 7: Economic Efficiency and Utility Theory (Syllabus 9708, A Level, Cambridge International Economics)",
+  );
+  s = s.replace(
+    /Chapter 7:\s*The Price System and the Microeconomy\s*\((?:Syllabus 9708,\s*)?AS Level\)/gi,
+    "Chapter 7: Economic Efficiency and Utility Theory (Syllabus 9708, A Level)",
+  );
+  s = s.replace(
+    /Chapter 7:\s*The Price System and the Microeconomy\s*\(AS Level\)/gi,
+    "Chapter 7: Economic Efficiency and Utility Theory (A Level / A2)",
+  );
+  s = s.replace(
+    /Chapter 7:\s*The Price System and the Microeconomy/gi,
+    "Chapter 7: Economic Efficiency and Utility Theory",
+  );
+  s = s.replace(
+    /Chapter 7(?::\s*[^,\n\r()]+)?\s*\((?:Syllabus 9708,\s*)?AS Level,\s*Cambridge International Economics\)/gi,
+    "Chapter 7: Economic Efficiency and Utility Theory (Syllabus 9708, A Level, Cambridge International Economics)",
+  );
+  s = s.replace(
+    /Chapter 7(?::\s*[^,\n\r()]+)?\s*\((?:Syllabus 9708,\s*)?AS Level\)/gi,
+    "Chapter 7: Economic Efficiency and Utility Theory (Syllabus 9708, A Level)",
+  );
+  s = s.replace(
+    /Chapter 7(?::\s*[^,\n\r()]+)?\s*\(AS Level\)/gi,
+    "Chapter 7: Economic Efficiency and Utility Theory (A Level / A2)",
+  );
+  s = s.replace(
+    /Cambridge 9708 Chapter 7:\s*(?:Government microeconomic intervention|Maximum and minimum prices[^\n\r,]*)/gi,
+    "Cambridge 9708 Chapter 7: Economic Efficiency and Utility Theory (A Level / Paper 4)",
+  );
+
+  // 2. Fix syllabus level tags for 20-mark essays: AS Level -> A Level
+  s = s.replace(
+    /\bChapter 5:\s*Market Failure and Government Intervention\s*\((?:Syllabus 9708,\s*)?(?:AS|A) Level(?:\s*,\s*Cambridge International Economics)?\)/gi,
+    "Chapter 8: Market Failure and Government Failure (Syllabus 9708, A Level, Cambridge International Economics)",
+  );
+  s = s.replace(
+    /\bChapter 5:\s*Market Failure and Government Intervention\s*\(Cambridge 9708 Coursebook\)/gi,
+    "Chapter 8: Market Failure and Government Failure (Cambridge 9708 A Level Coursebook)",
+  );
+  s = s.replace(
+    /\(Syllabus 9708,\s*AS Level,\s*Cambridge International Economics\)/gi,
+    "(Syllabus 9708, A Level, Cambridge International Economics)",
+  );
+  s = s.replace(
+    /\(Syllabus 9708,\s*AS Level\)/gi,
+    "(Syllabus 9708, A Level)",
+  );
+
+  // 3. Fix Paper references: 20-mark essays are Paper 4 (A Level), never Paper 21 / Paper 2
+  s = s.replace(/\bPaper 21 Essay Question Compendium\b/gi, "Paper 41 Essay Question Compendium");
+  s = s.replace(/\bPaper 22 Essay Question Compendium\b/gi, "Paper 42 Essay Question Compendium");
+  s = s.replace(/\bPaper 23 Essay Question Compendium\b/gi, "Paper 43 Essay Question Compendium");
+  s = s.replace(/\bPaper 21\b/g, "Paper 41");
+  s = s.replace(/\bPaper 22\b/g, "Paper 42");
+  s = s.replace(/\bPaper 23\b/g, "Paper 43");
+  s = s.replace(/\bPaper 2\b/g, "Paper 4");
+
+  return s;
+}
+
 export function cleanMarkdownText(value: unknown): string {
   if (typeof value !== "string") return "";
   let text = stripStars(value);
@@ -423,6 +497,7 @@ export function normaliseGrading(
   maxMark: number,
   split: { ao1_marks: number; ao2_marks: number; ao3_marks: number },
   essayText?: string,
+  questionText?: string,
 ): Grading {
   const rawAo = (raw.ao_breakdown ?? {}) as Record<string, unknown>;
 
@@ -618,9 +693,10 @@ export function normaliseGrading(
   }
 
   // Dynamic topic-accurate syllabus chapter detection (eliminates generic placeholders)
-  const fullFeedbackText = `${examinerSummary} ${essayText || ""}`.toLowerCase();
+  const fullFeedbackText = `${examinerSummary} ${essayText || ""} ${questionText || ""}`.toLowerCase();
   const isElasticity = /\b(elasticit|xed|ped|yed|pes|substitute|complement|cross\s+elasticity)\b/i.test(fullFeedbackText);
   const isScarcity = /\b(scarcit|finite resource|unlimited want|opportunity cost|production possibilit|ppc)\b/i.test(fullFeedbackText);
+  const isEfficiency = /\b(economic efficiency|allocative eff|productive eff|pareto|deadweight loss)\b/i.test(fullFeedbackText);
   const isMarketFailure = /\b(market failure|externalit|public good|merit good|demerit good|asymmetric information)\b/i.test(fullFeedbackText);
   const isPriceControls = /\b(maximum price|minimum price|indirect tax|subsidy|price ceiling|price floor)\b/i.test(fullFeedbackText);
   const isTradeExchange = /\b(exchange rate|current account|balance of payments|depreciation|appreciation|tariff|protectionism)\b/i.test(fullFeedbackText);
@@ -637,7 +713,34 @@ export function normaliseGrading(
       (r) => !/relevant chapter|core theory & policy/i.test(r),
     );
     if (suggestedResources.length === 0) {
-      if (isElasticity) {
+      if (maxMark >= 20) {
+        if (isEfficiency || isMarketFailure || isPriceControls) {
+          suggestedResources = [
+            "Cambridge 9708 Chapter 7: Economic Efficiency and Utility Theory (A Level / Paper 4)",
+            "Cambridge 9708 Chapter 8: Market Failure and Government Failure (A Level / Paper 4)",
+          ];
+        } else if (isMarketStructure) {
+          suggestedResources = [
+            "Cambridge 9708 Chapter 7: Economic Efficiency and Utility Theory (A Level / Paper 4)",
+            "Cambridge 9708 Chapter 9: Market Structures and Contestability (A Level / Paper 4)",
+          ];
+        } else if (isMacroAdAs || isInflation) {
+          suggestedResources = [
+            "Cambridge 9708 Chapter 10: Macroeconomic Management and Policy Options (A Level / Paper 4)",
+            "Cambridge 9708 Chapter 11: Monetary and Supply-Side Policies (A Level / Paper 4)",
+          ];
+        } else if (isTradeExchange) {
+          suggestedResources = [
+            "Cambridge 9708 Chapter 12: International Economic Issues (A Level / Paper 4)",
+            "Cambridge 9708 Chapter 11: Exchange Rates and Globalization (A Level / Paper 4)",
+          ];
+        } else {
+          suggestedResources = [
+            "Cambridge 9708 Chapter 7: Economic Efficiency and Utility Theory (A Level / Paper 4)",
+            "Official Cambridge 9708 Paper 4 Examiner Guidance for Extended Essay Questions",
+          ];
+        }
+      } else if (isElasticity) {
         suggestedResources = [
           "Cambridge 9708 Chapter 8: Price elasticity of demand and supply",
           "Cambridge 9708 Chapter 9: Income and cross elasticities of demand",
@@ -755,17 +858,59 @@ export function normaliseGrading(
     suggestedPractice = Array.from(new Set(suggestedPractice.map(sanitizeAsLevelText).filter((p) => p.length > 0))).slice(0, 3);
   }
 
+  // Programmatic A Level (Paper 4, maxMark >= 20) Sanitization:
+  // Fixes syllabus labeling typos so Chapter 7 topics (Economic Efficiency and Utility Theory)
+  // are properly tagged as A Level (A2) rather than AS Level, and Paper 21 references map to Paper 4.
+  if (maxMark >= 20) {
+    knowledge.comment = sanitizeALevelFeedbackText(knowledge.comment);
+    analysis.comment = sanitizeALevelFeedbackText(analysis.comment);
+    evaluation.comment = sanitizeALevelFeedbackText(evaluation.comment);
+    examinerSummary = sanitizeALevelFeedbackText(examinerSummary);
+    strengths = deduplicateFeedbackPoints(strengths.map(sanitizeALevelFeedbackText).filter((s) => s.length > 0), 4);
+    weaknesses = deduplicateFeedbackPoints(weaknesses.map(sanitizeALevelFeedbackText).filter((w) => w.length > 0), 4);
+    actionableFeedback = deduplicateFeedbackPoints(actionableFeedback.map(sanitizeALevelFeedbackText).filter((f) => f.length > 0), 4);
+    suggestedResources = Array.from(new Set(suggestedResources.map(sanitizeALevelFeedbackText).filter((r) => r.length > 0))).slice(0, 3);
+    suggestedPractice = Array.from(new Set(suggestedPractice.map(sanitizeALevelFeedbackText).filter((p) => p.length > 0))).slice(0, 3);
+  }
+
   const rawDefs = toStringArray(rawMissing.definitions);
   const rawAna = toStringArray(rawMissing.analysis);
   const rawEval = split.ao3_marks === 0 ? [] : toStringArray(rawMissing.evaluation);
   const rawEx = toStringArray(rawMissing.examples);
   const rawDiag = toStringArray(rawMissing.diagrams);
 
-  let missingDefinitions = maxMark <= 12 ? rawDefs.map(sanitizeAsLevelText).filter((d) => d.length > 0) : rawDefs;
-  let missingAnalysis = maxMark <= 12 ? rawAna.map(sanitizeAsLevelText).filter((a) => a.length > 0) : rawAna;
-  let missingEvaluation = maxMark <= 12 ? rawEval.map(sanitizeAsLevelText).filter((e) => e.length > 0) : rawEval;
-  let missingExamples = maxMark <= 12 ? rawEx.map(sanitizeAsLevelText).filter((ex) => ex.length > 0) : rawEx;
-  let missingDiagrams = maxMark <= 12 ? rawDiag.map(sanitizeAsLevelText).filter((di) => di.length > 0) : rawDiag;
+  let missingDefinitions =
+    maxMark <= 12
+      ? rawDefs.map(sanitizeAsLevelText).filter((d) => d.length > 0)
+      : maxMark >= 20
+        ? rawDefs.map(sanitizeALevelFeedbackText).filter((d) => d.length > 0)
+        : rawDefs;
+  let missingAnalysis =
+    maxMark <= 12
+      ? rawAna.map(sanitizeAsLevelText).filter((a) => a.length > 0)
+      : maxMark >= 20
+        ? rawAna.map(sanitizeALevelFeedbackText).filter((a) => a.length > 0)
+        : rawAna;
+  let missingEvaluation =
+    split.ao3_marks === 0
+      ? []
+      : maxMark <= 12
+        ? rawEval.map(sanitizeAsLevelText).filter((e) => e.length > 0)
+        : maxMark >= 20
+          ? rawEval.map(sanitizeALevelFeedbackText).filter((e) => e.length > 0)
+          : rawEval;
+  let missingExamples =
+    maxMark <= 12
+      ? rawEx.map(sanitizeAsLevelText).filter((ex) => ex.length > 0)
+      : maxMark >= 20
+        ? rawEx.map(sanitizeALevelFeedbackText).filter((ex) => ex.length > 0)
+        : rawEx;
+  let missingDiagrams =
+    maxMark <= 12
+      ? rawDiag.map(sanitizeAsLevelText).filter((di) => di.length > 0)
+      : maxMark >= 20
+        ? rawDiag.map(sanitizeALevelFeedbackText).filter((di) => di.length > 0)
+        : rawDiag;
 
   if (essayText) {
     missingDefinitions = missingDefinitions.map((d) => verifyVerbatimQuotes(d, essayText));

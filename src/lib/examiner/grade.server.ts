@@ -46,7 +46,7 @@ import {
 } from "./examiner-prompt";
 import { extractFirstJsonObject } from "./json";
 import { refineExaminerReport } from "./refine.server";
-import { bandFor, normaliseGrading, type Grading, type GroundingSource } from "./types";
+import { bandFor, normaliseGrading, sanitizeALevelFeedbackText, type Grading, type GroundingSource } from "./types";
 import {
   analyzeEssayQuality,
   applyWritingQualityGuardrail,
@@ -290,11 +290,22 @@ export async function gradeEssay(
     `${question} ${essayText}`,
   );
   if (touchesPpcOrEfficiency) {
-    baseSystemPrompt = `${baseSystemPrompt}\n\n` +
-      `AUTHORITATIVE CHAPTER 5 (PPC & EFFICIENCY) KNOWLEDGE BASE RUBRIC (PAPER 2 AS LEVEL):\n` +
-      `- Point inside PPC = Productive inefficiency / unemployment or underutilisation of resources (idle factors, X-inefficiency). A PPC diagram shows maximum combinations of two goods given current resources; it contains NO information on consumer preferences. It does NOT represent allocative inefficiency.\n` +
-      `- Point on PPC = Productive efficiency (maximum possible output achievable from given resources at lowest cost). However, a point on the PPC may still be allocatively inefficient if the output combination does not match consumer preferences (where P != MC).\n` +
-      `- MANDATORY ANALYTICAL ERROR AUDIT: Flag any confusion between productive and allocative inefficiency on a PPC diagram as an analytical error (deduct AO2 credit). Examiners MUST NEVER praise a student for linking a point inside the PPC to allocative inefficiency. Focus feedback constructively on distinguishing movements onto the PPC from outward shifts and productive from allocative efficiency.`;
+    if (maxMark >= 20) {
+      baseSystemPrompt = `${baseSystemPrompt}\n\n` +
+        `AUTHORITATIVE CHAPTER 7 (ECONOMIC EFFICIENCY & UTILITY THEORY) KNOWLEDGE BASE RUBRIC (CAMBRIDGE 9708 A LEVEL PAPER 4):\n` +
+        `- 20-mark essay questions belong exclusively to Cambridge 9708 Paper 4 (A Level extended essays).\n` +
+        `- Economic efficiency (allocative, productive, and dynamic) is covered under Chapter 7: Economic Efficiency and Utility Theory (A Level / Paper 4).\n` +
+        `- Allocative efficiency: P = MC or MSB = MSC (social efficiency), optimizing consumer welfare.\n` +
+        `- Productive efficiency: producing at minimum average total cost (lowest point of LRAC) and on the PPC.\n` +
+        `- In a market economy without government intervention, market failures (externalities, monopoly power, public goods, information failure) prevent the price mechanism from achieving economic efficiency on its own.\n` +
+        `- When citing or suggesting syllabus concepts in feedback, label Chapter 7 as A Level: "Chapter 7: Economic Efficiency and Utility Theory (Cambridge 9708 A Level, Paper 4)". NEVER label 20-mark essays or Chapter 7 topics as AS Level or Paper 21.`;
+    } else {
+      baseSystemPrompt = `${baseSystemPrompt}\n\n` +
+        `AUTHORITATIVE CHAPTER 5 (PPC & EFFICIENCY) KNOWLEDGE BASE RUBRIC (PAPER 2 AS LEVEL):\n` +
+        `- Point inside PPC = Productive inefficiency / unemployment or underutilisation of resources (idle factors, X-inefficiency). A PPC diagram shows maximum combinations of two goods given current resources; it contains NO information on consumer preferences. It does NOT represent allocative inefficiency.\n` +
+        `- Point on PPC = Productive efficiency (maximum possible output achievable from given resources at lowest cost). However, a point on the PPC may still be allocatively inefficient if the output combination does not match consumer preferences (where P != MC).\n` +
+        `- MANDATORY ANALYTICAL ERROR AUDIT: Flag any confusion between productive and allocative inefficiency on a PPC diagram as an analytical error (deduct AO2 credit). Examiners MUST NEVER praise a student for linking a point inside the PPC to allocative inefficiency. Focus feedback constructively on distinguishing movements onto the PPC from outward shifts and productive from allocative efficiency.`;
+    }
   }
 
   baseSystemPrompt = `${baseSystemPrompt}\n\n${RESPONSE_CONTRACT}`;
@@ -528,6 +539,36 @@ export async function gradeEssay(
     });
   } catch (refineErr) {
     console.warn("[grade.server] Pass 3 refinement error, proceeding with cleansed draft:", refineErr);
+  }
+
+  if (maxMark >= 20) {
+    if (sources && sources.length > 0) {
+      sources = sources.map((s) => ({
+        ...s,
+        documentTitle: s.documentTitle
+          .replace(/\bPaper 21\b/g, "Paper 41")
+          .replace(/\bPaper 22\b/g, "Paper 42")
+          .replace(/\bPaper 23\b/g, "Paper 43")
+          .replace(/\bPaper 2\b/g, "Paper 4")
+          .replace(/\bAS Level\b/g, "A Level"),
+      }));
+    }
+    finalGrading.ao_breakdown.knowledge.comment = sanitizeALevelFeedbackText(finalGrading.ao_breakdown.knowledge.comment);
+    finalGrading.ao_breakdown.analysis.comment = sanitizeALevelFeedbackText(finalGrading.ao_breakdown.analysis.comment);
+    finalGrading.ao_breakdown.evaluation.comment = sanitizeALevelFeedbackText(finalGrading.ao_breakdown.evaluation.comment);
+    finalGrading.examiner_summary = sanitizeALevelFeedbackText(finalGrading.examiner_summary);
+    finalGrading.strengths = finalGrading.strengths.map(sanitizeALevelFeedbackText);
+    finalGrading.weaknesses = finalGrading.weaknesses.map(sanitizeALevelFeedbackText);
+    finalGrading.actionable_feedback = finalGrading.actionable_feedback.map(sanitizeALevelFeedbackText);
+    finalGrading.suggested_resources = finalGrading.suggested_resources.map(sanitizeALevelFeedbackText);
+    finalGrading.suggested_practice = finalGrading.suggested_practice.map(sanitizeALevelFeedbackText);
+    if (finalGrading.missing_elements) {
+      finalGrading.missing_elements.definitions = finalGrading.missing_elements.definitions.map(sanitizeALevelFeedbackText);
+      finalGrading.missing_elements.analysis = finalGrading.missing_elements.analysis.map(sanitizeALevelFeedbackText);
+      finalGrading.missing_elements.evaluation = finalGrading.missing_elements.evaluation.map(sanitizeALevelFeedbackText);
+      finalGrading.missing_elements.examples = finalGrading.missing_elements.examples.map(sanitizeALevelFeedbackText);
+      finalGrading.missing_elements.diagrams = finalGrading.missing_elements.diagrams.map(sanitizeALevelFeedbackText);
+    }
   }
 
   finalGrading.sources = sources;

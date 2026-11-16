@@ -634,4 +634,57 @@ In conclusion, while infrastructure expenditure is exceptionally effective in dr
     expect(res12.total_mark).toBe(8);
     expect(res12.band).toBe("Upper Middle Band");
   });
+
+  it("sanitizes 20-mark essay feedback to ensure Chapter 7 is labelled as A Level Economic Efficiency and Paper 21 maps to Paper 41", async () => {
+    const { sanitizeALevelFeedbackText, normaliseGrading } = await import("./types");
+
+    // Direct unit test of sanitizeALevelFeedbackText
+    const rawChapter7 =
+      "Chapter 7: The Price System and the Microeconomy (Syllabus 9708, AS Level). Review allocative and productive efficiency, deadweight loss, and the conditions for market equilibrium.";
+    const cleanedChapter7 = sanitizeALevelFeedbackText(rawChapter7);
+    expect(cleanedChapter7).toContain("Chapter 7: Economic Efficiency and Utility Theory (Syllabus 9708, A Level)");
+    expect(cleanedChapter7).not.toContain("AS Level");
+
+    const rawPaper21 = "Verified against Cambridge 9708 May/June 2023 Paper 21 Essay Question Compendium";
+    const cleanedPaper41 = sanitizeALevelFeedbackText(rawPaper21);
+    expect(cleanedPaper41).toBe("Verified against Cambridge 9708 May/June 2023 Paper 41 Essay Question Compendium");
+
+    // Test through normaliseGrading for a 20-mark essay
+    const raw20 = {
+      total_mark: 12,
+      max_mark: 20,
+      band: "Upper Middle Band",
+      ao_breakdown: {
+        knowledge: { awarded: 2, out_of: 2, comment: "Thorough knowledge of economic efficiency under Paper 21 syllabus." },
+        analysis: { awarded: 8, out_of: 12, comment: "Sound theoretical analysis under Chapter 7 (AS Level)." },
+        evaluation: { awarded: 2, out_of: 6, comment: "Basic evaluation." },
+      },
+      examiner_summary: "Submission covers economic efficiency under Cambridge 9708 AS Level.",
+      strengths: ["Clear definitions under Paper 2."],
+      weaknesses: ["Review Chapter 7: The Price System and the Microeconomy (Syllabus 9708, AS Level)."],
+      suggested_resources: [
+        "Chapter 7: The Price System and the Microeconomy (Syllabus 9708, AS Level). Review allocative and productive efficiency, deadweight loss, and the conditions for market equilibrium.",
+        "Chapter 5: Market Failure and Government Intervention (Syllabus 9708, AS Level, Cambridge International Economics). Focus on negative and positive externalities.",
+      ],
+      suggested_practice: ["Revise Chapter 7 (AS Level) concepts."],
+      missing_elements: {
+        definitions: [],
+        analysis: [],
+        evaluation: [],
+        examples: [],
+        diagrams: [],
+      },
+    };
+
+    const split20 = { ao1_marks: 2, ao2_marks: 12, ao3_marks: 6 };
+    const norm20 = normaliseGrading(raw20, 20, split20, "Economic efficiency essay text...", "With the help of a diagram, consider whether economic efficiency can be achieved without government intervention in a market economy. [20]");
+
+    expect(norm20.ao_breakdown.knowledge.comment).toContain("Paper 41");
+    expect(norm20.ao_breakdown.analysis.comment).toContain("Chapter 7: Economic Efficiency and Utility Theory");
+    expect(norm20.weaknesses[0]).toContain("Chapter 7: Economic Efficiency and Utility Theory (Syllabus 9708, A Level)");
+    expect(norm20.suggested_resources[0]).toContain("Chapter 7: Economic Efficiency and Utility Theory (Syllabus 9708, A Level)");
+    expect(norm20.suggested_resources[1]).toContain("Chapter 8: Market Failure and Government Failure (Syllabus 9708, A Level");
+    expect(norm20.suggested_practice[0]).toContain("A Level");
+    expect(norm20.suggested_resources.join(" ")).not.toContain("AS Level");
+  });
 });
