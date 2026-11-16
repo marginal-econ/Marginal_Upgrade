@@ -351,6 +351,66 @@ ${actionableFeedback.map((f, i) => `${i + 1}. ${stripStars(f)}`).join("\n")}`;
         </div>
       </div>
 
+      {/* Flagged Syllabus Misconceptions & Corrections Alert */}
+      {grading.flagged_errors && grading.flagged_errors.length > 0 && (
+        <div className="rounded-2xl border border-rose-500/40 bg-rose-500/10 p-4 sm:p-5 text-rose-200 shadow-md animate-in fade-in space-y-3">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <div className="flex items-center gap-2.5">
+              <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-rose-500/20 text-rose-400 border border-rose-500/30">
+                <AlertTriangle className="size-4" />
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-rose-300">
+                  Flagged Economics Misconception{grading.flagged_errors.length === 1 ? "" : "s"} ({grading.flagged_errors.length})
+                </h4>
+                <p className="text-[11px] text-rose-200/80">
+                  Cambridge examiners penalised the following theoretical misconception{grading.flagged_errors.length === 1 ? "" : "s"} under syllabus standards.
+                </p>
+              </div>
+            </div>
+            <Badge variant="outline" className="border-rose-400/40 bg-rose-400/20 text-rose-300 text-xs font-semibold">
+              Mark Penalty Applied
+            </Badge>
+          </div>
+
+          <div className="space-y-2.5 pt-1">
+            {grading.flagged_errors.map((err, idx) => (
+              <div
+                key={idx}
+                className="rounded-xl border border-rose-500/30 bg-background/70 p-3.5 text-xs space-y-2 text-foreground/90 shadow-2xs"
+              >
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <span className="font-bold text-rose-400 text-[11px] uppercase tracking-wider">
+                    {err.section} · {err.topic}
+                  </span>
+                  {err.penaltyApplied && (
+                    <Badge variant="secondary" className="text-[10px] bg-rose-500/15 text-rose-300 font-mono">
+                      {err.penaltyApplied}
+                    </Badge>
+                  )}
+                </div>
+
+                {err.quote && (
+                  <div className="text-muted-foreground bg-rose-500/5 border-l-2 border-rose-500/60 pl-2.5 py-1 text-[11.5px] italic">
+                    <span className="font-semibold text-rose-300 not-italic mr-1.5">Your Text:</span>
+                    "{err.quote}"
+                  </div>
+                )}
+
+                <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-2.5 text-emerald-200/90 text-xs space-y-0.5">
+                  <span className="font-bold text-emerald-400 flex items-center gap-1.5 text-[11px] uppercase tracking-wide">
+                    <CheckCircle2 className="size-3.5 text-emerald-400" /> Cambridge Syllabus Correction:
+                  </span>
+                  <p className="leading-relaxed pl-5 text-emerald-100">
+                    {err.correction}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Assessment Objectives Grid */}
       <div className="grid gap-3 sm:grid-cols-3">
         {AO_META.map((meta) => {

@@ -15,9 +15,12 @@ import { MODEL_EXAMINER, type AoSplit } from "./config";
 import { extractFirstJsonObject } from "./json";
 import { normaliseGrading, purgeContradictions, type Grading } from "./types";
 import { analyzeEssayQuality, applyWritingQualityGuardrail } from "./writing-quality.server";
+import { buildSyllabusErrorPromptCatalog } from "./syllabus-errors";
 
 export const REPORT_REFINER_PROMPT = `You are a Senior Principal Examiner for Cambridge International AS/A Level Economics (syllabus 9708).
 You are performing the third and final AI quality audit of an essay assessment report before it is delivered to the student and teacher.
+
+${buildSyllabusErrorPromptCatalog()}
 
 Your primary mission is to:
 1. AUDIT ECONOMIC ACCURACY & CATCH MISCONCEPTIONS ACROSS ALL CHAPTERS:
@@ -137,6 +140,9 @@ export async function refineExaminerReport(options: RefineReportOptions): Promis
     refined.confidence = Math.max(draftGrading.confidence, refined.confidence || 0.95);
     refined.audited = true;
     refined.arbitrated = draftGrading.arbitrated;
+    if (draftGrading.flagged_errors && draftGrading.flagged_errors.length > 0) {
+      refined.flagged_errors = draftGrading.flagged_errors;
+    }
 
     // Preserve topic-specific suggested_resources and practice from draftGrading if refiner omitted them or returned generic
     if (

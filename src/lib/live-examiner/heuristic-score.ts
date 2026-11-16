@@ -1,6 +1,7 @@
 import { defaultSplitForMaxMark, TARIFF_SPLITS } from "@/lib/examiner/config";
 import type { AoBreakdown, NextMove, ScoreEstimate, SentenceSpan } from "./types";
 import { extractQuestionTopicTokens } from "./topic-relevance";
+import { detectSyllabusErrors } from "@/lib/examiner/syllabus-errors";
 
 const DEFINITION_PATTERN =
   /\b(is defined as|refers to|means that|is when|are when|occurs when|is the responsiveness|measures the percentage change|formula for|is a good that|is a good which|are goods that|are goods which|refers to government|is a tax on|is an expenditure tax)\b/i;
@@ -179,13 +180,28 @@ export function computeHeuristicScore(params: {
   }
   const ao3 = Math.min(split.ao3_marks, rawAo3);
 
+  // Apply syllabus misconception penalties
+  const detectedErrors = detectSyllabusErrors(fullEssayText);
+  let finalAo1 = ao1;
+  let finalAo2 = ao2;
+  if (detectedErrors.length > 0) {
+    let ao1Pen = 0;
+    let ao2Pen = 0;
+    for (const d of detectedErrors) {
+      if (d.rule.aoTarget === "ao1") ao1Pen++;
+      else ao2Pen++;
+    }
+    finalAo1 = Math.max(0, finalAo1 - ao1Pen);
+    finalAo2 = Math.max(0, finalAo2 - ao2Pen);
+  }
+
   // Total clamped
-  const total = Math.min(maxMark, ao1 + ao2 + ao3);
+  const total = Math.min(maxMark, finalAo1 + finalAo2 + ao3);
 
   // Band descriptor
   const ratio = total / maxMark;
   let band = "Level 1: Basic";
-  if (ratio >= 0.75) {
+  if (ratio >= 0.75 && detectedErrors.length === 0) {
     band = "Level 4: Thorough & fully justified";
   } else if (ratio >= 0.5) {
     band = "Level 3: Sound analysis & balanced";
@@ -196,17 +212,28 @@ export function computeHeuristicScore(params: {
   // Next Moves (ranked by potential marginal gain)
   const nextMoves: NextMove[] = [];
 
-  if (ao1 < split.ao1_marks) {
+  if (detectedErrors.length > 0) {
+    const firstErr = detectedErrors[0]!;
+    nextMoves.push({
+      id: "correct_misconception",
+      aoTarget: firstErr.rule.aoTarget,
+      title: `Fix misconception: ${firstErr.rule.topic}`,
+      detail: `Cambridge penalty applied. Correction: ${firstErr.rule.correction}`,
+      potentialGain: 1,
+    });
+  }
+
+  if (finalAo1 < split.ao1_marks) {
     nextMoves.push({
       id: "improve_ao1",
       aoTarget: "ao1",
       title: "Add accurate economic definition",
-      detail: `Your AO1 score is ${ao1}/${split.ao1_marks}. Define key concepts using formal Cambridge terms.`,
-      potentialGain: split.ao1_marks - ao1,
+      detail: `Your AO1 score is ${finalAo1}/${split.ao1_marks}. Define key concepts using formal Cambridge terms.`,
+      potentialGain: split.ao1_marks - finalAo1,
     });
   }
 
-  if (ao2 < split.ao2_marks) {
+  if (finalAo2 < split.ao2_marks) {
     if (causalLinks < 3) {
       nextMoves.push({
         id: "improve_ao2_chain",
@@ -254,7 +281,7 @@ export function computeHeuristicScore(params: {
     maxMark,
     band,
     confidence: 0.65, // Provisional heuristic confidence
-    aoBreakdown: { ao1, ao2, ao3 },
+    aoBreakdown: { ao1: finalAo1, ao2: finalAo2, ao3 },
     nextMoves: topMoves,
     isProvisional: true,
     timestamp: Date.now(),

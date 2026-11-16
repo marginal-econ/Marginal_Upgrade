@@ -23,6 +23,16 @@ export type GroundingSource = {
   similarity: number;
 };
 
+export type FlaggedEconomicsError = {
+  id: string;
+  topic: string;
+  section: string;
+  studentError: string;
+  correction: string;
+  quote?: string;
+  penaltyApplied?: string;
+};
+
 export type Grading = {
   total_mark: number;
   max_mark: number;
@@ -51,6 +61,7 @@ export type Grading = {
   modelSwapped?: boolean;
   activeKeyType?: "primary" | "backup_pool" | "vip_fallback";
   latencyMs?: number;
+  flagged_errors?: FlaggedEconomicsError[];
 };
 
 const EMPTY_MISSING: MissingElements = {
@@ -62,6 +73,7 @@ const EMPTY_MISSING: MissingElements = {
 };
 
 import { cleanStars, stripStars } from "@/lib/utils";
+import { detectSyllabusErrors } from "./syllabus-errors";
 
 /**
  * Strips conflicting numeric mark fractions (e.g. "(3/4)", "1/4", "Level 2 (3/4)")
@@ -567,13 +579,59 @@ export function normaliseGrading(
     }
   }
 
+  const detectedSyllabusErrors = essayText ? detectSyllabusErrors(essayText) : [];
+  const flagged_errors: FlaggedEconomicsError[] = [];
+
+  if (Array.isArray(raw.flagged_errors)) {
+    for (const f of raw.flagged_errors) {
+      if (f && typeof f === "object" && "topic" in f) {
+        flagged_errors.push(f as FlaggedEconomicsError);
+      }
+    }
+  }
+
+  if (detectedSyllabusErrors.length > 0) {
+    for (const d of detectedSyllabusErrors) {
+      if (!flagged_errors.some((fe) => fe.id === d.rule.id)) {
+        flagged_errors.push({
+          id: d.rule.id,
+          topic: d.rule.topic,
+          section: d.rule.section,
+          studentError: d.rule.studentError,
+          correction: d.rule.correction,
+          quote: d.matchedText,
+          penaltyApplied: d.rule.aoImpact,
+        });
+      }
+    }
+
+    // Apply error penalties proportionally to AO1/AO2
+    let ao1Deductions = 0;
+    let ao2Deductions = 0;
+    for (const d of detectedSyllabusErrors) {
+      if (d.rule.aoTarget === "ao1") ao1Deductions += 1;
+      else ao2Deductions += 1;
+    }
+
+    if (ao1Deductions > 0 && knowledge.awarded > 0) {
+      knowledge.awarded = Math.max(0, knowledge.awarded - ao1Deductions);
+    }
+    if (ao2Deductions > 0 && analysis.awarded > 0) {
+      analysis.awarded = Math.max(0, analysis.awarded - ao2Deductions);
+    }
+  }
+
   const aoTotal = knowledge.awarded + analysis.awarded + evaluation.awarded;
   // The AO marks are the source of truth; a stated total that disagrees is a
   // model arithmetic slip, not a separate judgement.
   const total = Math.max(0, Math.min(maxMark, aoTotal));
   // The awarded mark is the source of truth for the Cambridge grade band:
   // A score of 10-12/12 is strictly Top Band (Level 4), never Upper Middle or Lower.
-  const band = bandFor(total, maxMark);
+  // Note: if syllabus misconceptions are present, Cambridge standards cap response from Top Band.
+  let band = bandFor(total, maxMark);
+  if (flagged_errors.length > 0 && band === "Top Band") {
+    band = "Upper Middle Band";
+  }
 
   const rawMissing = (raw.missing_elements ?? {}) as Record<string, unknown>;
 
@@ -919,7 +977,23 @@ export function normaliseGrading(
     missingExamples = missingExamples.map((ex) => verifyVerbatimQuotes(ex, essayText));
   }
 
-  return purgeContradictions(cleanStars({
+  if (flagged_errors.length > 0) {
+    for (const fe of flagged_errors) {
+      const errWeakness = `[Economic Misconception: ${fe.topic}] ${fe.quote ? `The response states "${fe.quote}". ` : ""}Syllabus Correction: ${fe.correction}`;
+      if (!weaknesses.some((w) => w.toLowerCase().includes(fe.topic.toLowerCase()))) {
+        weaknesses.unshift(errWeakness);
+      }
+      const errFeedback = `Correct syllabus understanding of ${fe.topic}: ${fe.correction}`;
+      if (!actionableFeedback.some((f) => f.toLowerCase().includes(fe.topic.toLowerCase()))) {
+        actionableFeedback.unshift(errFeedback);
+      }
+    }
+    if (!examinerSummary.includes("misconception") && !examinerSummary.includes("flagged")) {
+      examinerSummary += ` Note: ${flagged_errors.length} syllabus misconception${flagged_errors.length === 1 ? "" : "s"} (${flagged_errors.map((e) => e.topic).join(", ")}) was flagged and penalised under Cambridge Assessment criteria.`;
+    }
+  }
+
+  const cleaned = cleanStars({
     total_mark: total,
     max_mark: maxMark,
     band,
@@ -948,7 +1022,13 @@ export function normaliseGrading(
       raw.grounding_status === "mark_scheme_image" || raw.grounding_status === "unanchored"
         ? raw.grounding_status
         : "grounded",
-  }));
+  });
+
+  if (flagged_errors.length > 0) {
+    cleaned.flagged_errors = flagged_errors;
+  }
+
+  return purgeContradictions(cleaned);
 }
 
 export function bandFor(total: number, maxMark: number): string {
@@ -1003,7 +1083,8 @@ export function purgeContradictions(grading: Grading): Grading {
   if (praisesDefinitions) {
     weaknesses = weaknesses.filter(
       (w) =>
-        !/\b(lacks?|missing|did not|failed to)\s+(?:define|definition|reference the fundamental)\b/i.test(w),
+        w.startsWith("[Economic Misconception:") ||
+        (!/\b(lacks?|missing|did not|failed to)\s+(?:define|definition|reference the fundamental)\b/i.test(w)),
     );
     missingDefinitions = [];
   }

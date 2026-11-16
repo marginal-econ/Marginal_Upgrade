@@ -15,6 +15,7 @@
 import { chat } from "../ai.server";
 import { formatStructureNote, getStructureGuidance, MODEL_EXAMINER, TEMPERATURE_EXAMINER, type AoSplit } from "./config";
 import { extractFirstJsonObject } from "./json";
+import { buildSyllabusErrorPromptCatalog } from "./syllabus-errors";
 import {
   bandFor,
   deduplicateFeedbackPoints,
@@ -191,6 +192,8 @@ AUTHORITATIVE PRINCIPAL EXAMINER PRINCIPLES:
    - Be strict on superficial evaluation: a single token sentence or generic conclusion ('a mix of both is best') without justified weighing criteria must not reach top band.
    - NO ARTIFICIAL NUMERIC CAPS: Do NOT apply rigid programmatic caps or formulaic ceiling rules (such as 'caps AO3' or 'Table B capped'). Evaluate the candidate's evaluative depth and breadth holistically on its economic merit.
 6. ACCURATE ECONOMICS VS ERRORS & REALISTIC CALIBRATION:
+${buildSyllabusErrorPromptCatalog()}
+
     - CHAPTER 5 (PPC) & EFFICIENCY GROUNDING — STRICT AS LEVEL MISCONCEPTION CHECK:
       * Point inside PPC = Productive inefficiency / unemployment or underutilisation of resources (idle factors, X-inefficiency). A PPC shows productive capacity alone; it contains NO information about consumer preferences and does NOT represent allocative inefficiency!
       * Point on PPC = Productive efficiency (maximum possible output from given resources), though it may still be allocatively inefficient if the output mix does not match consumer preferences (P != MC).
@@ -528,6 +531,7 @@ export function synthesizeDualPasses(
     confidence,
     audited: true,
     arbitrated: false,
+    flagged_errors: pass1.flagged_errors || pass2.flagged_errors,
   };
 
   if (essayText) {
