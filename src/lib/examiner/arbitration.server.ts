@@ -15,7 +15,6 @@
 import { chat } from "../ai.server";
 import { formatStructureNote, getStructureGuidance, MODEL_EXAMINER, TEMPERATURE_EXAMINER, type AoSplit } from "./config";
 import { extractFirstJsonObject } from "./json";
-import { buildSyllabusErrorPromptCatalog } from "./syllabus-errors";
 import {
   bandFor,
   deduplicateFeedbackPoints,
@@ -192,8 +191,6 @@ AUTHORITATIVE PRINCIPAL EXAMINER PRINCIPLES:
    - Be strict on superficial evaluation: a single token sentence or generic conclusion ('a mix of both is best') without justified weighing criteria must not reach top band.
    - NO ARTIFICIAL NUMERIC CAPS: Do NOT apply rigid programmatic caps or formulaic ceiling rules (such as 'caps AO3' or 'Table B capped'). Evaluate the candidate's evaluative depth and breadth holistically on its economic merit.
 6. ACCURATE ECONOMICS VS ERRORS & REALISTIC CALIBRATION:
-${buildSyllabusErrorPromptCatalog()}
-
     - CHAPTER 5 (PPC) & EFFICIENCY GROUNDING — STRICT AS LEVEL MISCONCEPTION CHECK:
       * Point inside PPC = Productive inefficiency / unemployment or underutilisation of resources (idle factors, X-inefficiency). A PPC shows productive capacity alone; it contains NO information about consumer preferences and does NOT represent allocative inefficiency!
       * Point on PPC = Productive efficiency (maximum possible output from given resources), though it may still be allocatively inefficient if the output mix does not match consumer preferences (P != MC).
@@ -202,8 +199,7 @@ ${buildSyllabusErrorPromptCatalog()}
      * When a subsidy lowers market price, quantity demanded extends/increases along the curve (from Q to Q1). That is accurate economic terminology, not an error.
      * Merit goods are defined both by positive externalities and by information failure / undervaluation of private benefits. Both are syllabus-correct.
      * DEFINITION FAIRNESS & ANTI-HALLUCINATION: Scarcity is finite or limited resources versus unlimited wants. "Finite" and "limited" are standard Cambridge synonyms. Stating "scarcity takes place when resources are limited but wants are unlimited" is accurate syllabus economics; NEVER label it a tautology or incorrect. Do NOT require opportunity cost within the definition of scarcity itself. Never demand citations or snippets like [S#].
-   - ACCOUNTABILITY ON MAJOR THEORETICAL ERRORS & ZERO-HALLUCINATION CHECKLIST RULE:
-     * Treat the 22 syllabus errors strictly as an objective checklist. Never accuse a candidate of an error (e.g. claiming embargoes or quotas generate tax revenue) unless they literally wrote that exact false assertion in their essay. Overturn any pass that hallucinated an error not present in the essay, purge the false criticism, and restore the deducted mark.
+   - ACCOUNTABILITY ON MAJOR THEORETICAL ERRORS:
      * Inverted definitions (e.g. defining negative externality as a benefit to firms paid by government, claiming carbon tax is a direct tax on income) earn 0 marks on AO1.
      * Flawed causal mechanisms built on false economic premises cannot exceed Level 1 in AO2.
      * Realistic calibration: essays with fundamental conceptual errors and weak comparative evaluation belong in Lower Middle or Bottom band, never Upper Middle or Top Band.
@@ -532,7 +528,6 @@ export function synthesizeDualPasses(
     confidence,
     audited: true,
     arbitrated: false,
-    flagged_errors: pass1.flagged_errors || pass2.flagged_errors,
   };
 
   if (essayText) {

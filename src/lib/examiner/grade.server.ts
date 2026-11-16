@@ -46,7 +46,6 @@ import {
 } from "./examiner-prompt";
 import { extractFirstJsonObject } from "./json";
 import { refineExaminerReport } from "./refine.server";
-import { buildSyllabusErrorPromptCatalog } from "./syllabus-errors";
 import { bandFor, normaliseGrading, sanitizeALevelFeedbackText, type Grading, type GroundingSource } from "./types";
 import {
   analyzeEssayQuality,
@@ -309,7 +308,7 @@ export async function gradeEssay(
     }
   }
 
-  baseSystemPrompt = `${baseSystemPrompt}\n\n${buildSyllabusErrorPromptCatalog()}\n\n${RESPONSE_CONTRACT}`;
+  baseSystemPrompt = `${baseSystemPrompt}\n\n${RESPONSE_CONTRACT}`;
 
   const markSchemeImages = options.markSchemeImageDataUrls?.slice(0, 4) ?? [];
   const imageNote = markSchemeImages.length

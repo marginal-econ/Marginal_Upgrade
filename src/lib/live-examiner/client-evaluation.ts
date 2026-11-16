@@ -6,7 +6,6 @@ import type {
 } from "@/hooks/use-live-examiner-check";
 import { deterministicTerminologyIssues } from "./economics-glossary";
 import { analyzeGrammarAndMechanics } from "./grammar-engine";
-import { checkEconomicMisconceptions } from "./reasoning-engine";
 import { splitSentences } from "@/lib/writing-check/sentence-diff";
 import { classifySentence } from "./sentence-engine";
 
@@ -145,25 +144,9 @@ export function evaluateCambridgeAnswer(
     }
   }
 
-  // Issues (glossary, grammar, and syllabus misconceptions)
+  // Issues (glossary & grammar)
   const terms = deterministicTerminologyIssues(sentences);
   const grammar = analyzeGrammarAndMechanics(sentences);
-  const misconceptions: ActiveIssue[] = [];
-  for (const sentence of sentences) {
-    const found = checkEconomicMisconceptions(sentence, `mis_${sentence.slice(0, 15).replace(/\s+/g, "_")}`);
-    for (const f of found) {
-      misconceptions.push({
-        id: f.id,
-        original: f.original,
-        suggestion: f.suggestion || "",
-        category: f.category,
-        severity: f.severity,
-        explanation: f.explanation,
-        context: sentence,
-      });
-    }
-  }
-
   const rawIssues: ActiveIssue[] = [
     ...terms.map((t) => ({
       ...t,
@@ -173,15 +156,9 @@ export function evaluateCambridgeAnswer(
       ...g,
       id: `${g.category}::${g.context.trim().toLowerCase()}::${g.original.trim().toLowerCase()}`,
     })),
-    ...misconceptions.map((m) => ({
-      ...m,
-      id: `${m.category}::${m.context.trim().toLowerCase()}::${m.original.trim().toLowerCase()}`,
-    })),
   ];
   const issues: ActiveIssue[] = Array.from(new Map(rawIssues.map((item) => [item.id, item])).values());
-  const misconceptionCount = issues.filter(
-    (i) => i.category === "misconception" || i.category === "economics_accuracy",
-  ).length;
+  const misconceptionCount = issues.filter((i) => i.category === "misconception").length;
 
   // Calculate marks calibrated to Cambridge 9708 tariffs & Essay Grader bands
   // Strict Cambridge Examiner Guard: Fragments or < 10 words earn ZERO marks
@@ -196,11 +173,6 @@ export function evaluateCambridgeAnswer(
     } else if (ao1Count >= 1) {
       ao1Awarded = Math.min(split.ao1_marks, Math.max(1, Math.floor(split.ao1_marks * 0.5)));
     }
-  }
-
-  // Each theoretical misconception penalizes AO1 Knowledge marks
-  if (misconceptionCount > 0 && ao1Awarded > 0) {
-    ao1Awarded = Math.max(0, ao1Awarded - misconceptionCount);
   }
 
   let ao2Awarded = 0;

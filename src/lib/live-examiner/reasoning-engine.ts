@@ -1,6 +1,5 @@
 import type { IssueV2 } from "./types";
 import { stripStars } from "./clean-suggestion";
-import { SYLLABUS_ECONOMICS_ERRORS } from "../examiner/syllabus-errors";
 
 export type CausalChainStep = {
   text: string;
@@ -207,36 +206,7 @@ export function checkEconomicMisconceptions(sentence: string, sentenceId: string
   const issues: IssueV2[] = [];
   const norm = sentence.trim();
 
-  // 1. Authoritative Cambridge 9708 Syllabus Misconceptions Catalog
-  for (const rule of SYLLABUS_ECONOMICS_ERRORS) {
-    if (rule.pattern.test(norm)) {
-      const match = norm.match(rule.pattern);
-      const original = match ? match[0] : rule.flagWord;
-      const from = norm.indexOf(original);
-      const to = from >= 0 ? from + original.length : norm.length;
-
-      issues.push({
-        id: `${rule.id}::${sentenceId}`,
-        sentenceId,
-        from: Math.max(0, from),
-        to: Math.max(0, to),
-        category: "misconception",
-        severity: "high",
-        original: stripStars(original),
-        suggestion: stripStars(rule.correction),
-        explanation: `Student Error: ${rule.studentError} — Syllabus Correction: ${rule.correction}`,
-        evidence: `Cambridge 9708: ${rule.section} (${rule.topic})`,
-        aoImpact: rule.aoImpact,
-        status: "active",
-      });
-    }
-  }
-
-  // 2. Additional legacy deterministic checks
   for (const rule of EXTENDED_MISCONCEPTIONS) {
-    // Avoid duplicate issue if already covered by syllabus errors
-    if (issues.some((iss) => iss.id.startsWith(rule.id))) continue;
-
     if (rule.pattern.test(norm)) {
       const match = norm.match(rule.pattern);
       const original = match ? match[0] : rule.flagWord;

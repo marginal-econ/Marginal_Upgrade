@@ -29,7 +29,7 @@ describe("MarkBreakdown dynamic full-mark headers", () => {
     suggested_practice: ["Practice evaluating elasticity coefficients"],
     confidence: 0.98,
     anchorsUsed: 2,
-    grounding_status: "grounded",
+    grounding_status: "anchored",
     sources: [],
     audited: true,
   };

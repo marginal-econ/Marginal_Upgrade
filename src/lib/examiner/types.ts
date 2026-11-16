@@ -23,16 +23,6 @@ export type GroundingSource = {
   similarity: number;
 };
 
-export type FlaggedEconomicsError = {
-  id: string;
-  topic: string;
-  section: string;
-  studentError: string;
-  correction: string;
-  quote?: string;
-  penaltyApplied?: string;
-};
-
 export type Grading = {
   total_mark: number;
   max_mark: number;
@@ -61,7 +51,6 @@ export type Grading = {
   modelSwapped?: boolean;
   activeKeyType?: "primary" | "backup_pool" | "vip_fallback";
   latencyMs?: number;
-  flagged_errors?: FlaggedEconomicsError[];
 };
 
 const EMPTY_MISSING: MissingElements = {
@@ -73,7 +62,6 @@ const EMPTY_MISSING: MissingElements = {
 };
 
 import { cleanStars, stripStars } from "@/lib/utils";
-import { detectSyllabusErrors, auditAndPurgeHallucinatedMisconceptions } from "./syllabus-errors";
 
 /**
  * Strips conflicting numeric mark fractions (e.g. "(3/4)", "1/4", "Level 2 (3/4)")
@@ -579,14 +567,15 @@ export function normaliseGrading(
     }
   }
 
+  const aoTotal = knowledge.awarded + analysis.awarded + evaluation.awarded;
+  // The AO marks are the source of truth; a stated total that disagrees is a
+  // model arithmetic slip, not a separate judgement.
+  const total = Math.max(0, Math.min(maxMark, aoTotal));
+  // The awarded mark is the source of truth for the Cambridge grade band:
+  // A score of 10-12/12 is strictly Top Band (Level 4), never Upper Middle or Lower.
+  const band = bandFor(total, maxMark);
+
   const rawMissing = (raw.missing_elements ?? {}) as Record<string, unknown>;
-  const missingObj: Record<string, string[]> = {
-    definitions: toStringArray(rawMissing.definitions),
-    analysis: toStringArray(rawMissing.analysis),
-    evaluation: split.ao3_marks === 0 ? [] : toStringArray(rawMissing.evaluation),
-    examples: toStringArray(rawMissing.examples),
-    diagrams: toStringArray(rawMissing.diagrams),
-  };
 
   let strengths = toStringArray(raw.strengths);
   let weaknesses = toStringArray(raw.weaknesses);
@@ -594,105 +583,6 @@ export function normaliseGrading(
   let suggestedResources = toStringArray(raw.suggested_resources);
   let suggestedPractice = toStringArray(raw.suggested_practice);
   let examinerSummary = cleanComment(String(raw.examiner_summary ?? ""));
-
-  // Check and purge any hallucinated misconceptions before scoring
-  if (essayText) {
-    const auditRes = auditAndPurgeHallucinatedMisconceptions({
-      essayText,
-      maxMark,
-      split,
-      knowledgeAwarded: knowledge.awarded,
-      analysisAwarded: analysis.awarded,
-      evaluationAwarded: evaluation.awarded,
-      examinerSummary,
-      knowledgeComment: knowledge.comment,
-      analysisComment: analysis.comment,
-      evaluationComment: evaluation.comment,
-      strengths,
-      weaknesses,
-      actionableFeedback,
-      missingElements: missingObj,
-    });
-
-    knowledge.awarded = auditRes.knowledgeAwarded;
-    analysis.awarded = auditRes.analysisAwarded;
-    evaluation.awarded = auditRes.evaluationAwarded;
-    examinerSummary = auditRes.examinerSummary;
-    knowledge.comment = auditRes.knowledgeComment;
-    analysis.comment = auditRes.analysisComment;
-    evaluation.comment = auditRes.evaluationComment;
-    strengths = auditRes.strengths;
-    weaknesses = auditRes.weaknesses;
-    actionableFeedback = auditRes.actionableFeedback;
-  }
-
-  const detectedSyllabusErrors = essayText ? detectSyllabusErrors(essayText) : [];
-  const flagged_errors: FlaggedEconomicsError[] = [];
-
-  // Only accept raw.flagged_errors if verified against essayText
-  if (Array.isArray(raw.flagged_errors) && essayText) {
-    for (const f of raw.flagged_errors) {
-      if (f && typeof f === "object" && "topic" in f) {
-        const isVerified =
-          detectedSyllabusErrors.some((d) => d.rule.id === f.id) ||
-          (typeof f.quote === "string" && f.quote.length > 5 && essayText.toLowerCase().includes(f.quote.toLowerCase()));
-        if (isVerified) {
-          flagged_errors.push(f as FlaggedEconomicsError);
-        }
-      }
-    }
-  }
-
-  if (detectedSyllabusErrors.length > 0) {
-    for (const d of detectedSyllabusErrors) {
-      if (!flagged_errors.some((fe) => fe.id === d.rule.id)) {
-        flagged_errors.push({
-          id: d.rule.id,
-          topic: d.rule.topic,
-          section: d.rule.section,
-          studentError: d.rule.studentError,
-          correction: d.rule.correction,
-          quote: d.matchedText,
-          penaltyApplied: d.rule.aoImpact,
-        });
-      }
-    }
-
-    // Apply error penalties proportionally to AO1/AO2
-    let ao1Deductions = 0;
-    let ao2Deductions = 0;
-    for (const d of detectedSyllabusErrors) {
-      if (d.rule.aoTarget === "ao1") ao1Deductions += 1;
-      else ao2Deductions += 1;
-    }
-
-    if (ao1Deductions > 0 && knowledge.awarded > 0) {
-      knowledge.awarded = Math.max(0, knowledge.awarded - ao1Deductions);
-    }
-    if (ao2Deductions > 0 && analysis.awarded > 0) {
-      analysis.awarded = Math.max(0, analysis.awarded - ao2Deductions);
-    }
-  }
-
-  const aoTotal = knowledge.awarded + analysis.awarded + evaluation.awarded;
-  // The AO marks are the source of truth; a stated total that disagrees is a
-  // model arithmetic slip, not a separate judgement.
-  const total = Math.max(0, Math.min(maxMark, aoTotal));
-  // The awarded mark is the source of truth for the Cambridge grade band:
-  // A score of 10-12/12 is strictly Top Band (Level 4), never Upper Middle or Lower.
-  // Note: if syllabus misconceptions are present, Cambridge standards cap response from Top Band.
-  let band = bandFor(total, maxMark);
-  if (flagged_errors.length > 0 && band === "Top Band") {
-    band = "Upper Middle Band";
-  }
-
-  // If score is Top Band or full marks, ensure examiner summary does not contradict Top Band achievement
-  if (total === maxMark || band === "Top Band") {
-    examinerSummary = examinerSummary
-      .replace(/would\s+elevate\s+it\s+to\s+Top\s+Band\.?/gi, "fully achieves Top Band Cambridge standards.")
-      .replace(/to\s+reach\s+Top\s+Band\s+standards\.?/gi, "fully achieving Top Band Cambridge standards.")
-      .trim();
-  }
 
   // Ensure full-fledged feedback is ALWAYS provided to the student
   if (!examinerSummary || examinerSummary.length < 25) {
@@ -1029,23 +919,7 @@ export function normaliseGrading(
     missingExamples = missingExamples.map((ex) => verifyVerbatimQuotes(ex, essayText));
   }
 
-  if (flagged_errors.length > 0) {
-    for (const fe of flagged_errors) {
-      const errWeakness = `[Economic Misconception: ${fe.topic}] ${fe.quote ? `The response states "${fe.quote}". ` : ""}Syllabus Correction: ${fe.correction}`;
-      if (!weaknesses.some((w) => w.toLowerCase().includes(fe.topic.toLowerCase()))) {
-        weaknesses.unshift(errWeakness);
-      }
-      const errFeedback = `Correct syllabus understanding of ${fe.topic}: ${fe.correction}`;
-      if (!actionableFeedback.some((f) => f.toLowerCase().includes(fe.topic.toLowerCase()))) {
-        actionableFeedback.unshift(errFeedback);
-      }
-    }
-    if (!examinerSummary.includes("misconception") && !examinerSummary.includes("flagged")) {
-      examinerSummary += ` Note: ${flagged_errors.length} syllabus misconception${flagged_errors.length === 1 ? "" : "s"} (${flagged_errors.map((e) => e.topic).join(", ")}) was flagged and penalised under Cambridge Assessment criteria.`;
-    }
-  }
-
-  const cleaned = cleanStars({
+  return purgeContradictions(cleanStars({
     total_mark: total,
     max_mark: maxMark,
     band,
@@ -1074,13 +948,7 @@ export function normaliseGrading(
       raw.grounding_status === "mark_scheme_image" || raw.grounding_status === "unanchored"
         ? raw.grounding_status
         : "grounded",
-  });
-
-  if (flagged_errors.length > 0) {
-    cleaned.flagged_errors = flagged_errors;
-  }
-
-  return purgeContradictions(cleaned);
+  }));
 }
 
 export function bandFor(total: number, maxMark: number): string {
@@ -1135,8 +1003,7 @@ export function purgeContradictions(grading: Grading): Grading {
   if (praisesDefinitions) {
     weaknesses = weaknesses.filter(
       (w) =>
-        w.startsWith("[Economic Misconception:") ||
-        (!/\b(lacks?|missing|did not|failed to)\s+(?:define|definition|reference the fundamental)\b/i.test(w)),
+        !/\b(lacks?|missing|did not|failed to)\s+(?:define|definition|reference the fundamental)\b/i.test(w),
     );
     missingDefinitions = [];
   }

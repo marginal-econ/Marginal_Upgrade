@@ -15,25 +15,15 @@ import { MODEL_EXAMINER, type AoSplit } from "./config";
 import { extractFirstJsonObject } from "./json";
 import { normaliseGrading, purgeContradictions, type Grading } from "./types";
 import { analyzeEssayQuality, applyWritingQualityGuardrail } from "./writing-quality.server";
-import { buildSyllabusErrorPromptCatalog } from "./syllabus-errors";
 
 export const REPORT_REFINER_PROMPT = `You are a Senior Principal Examiner for Cambridge International AS/A Level Economics (syllabus 9708).
 You are performing the third and final AI quality audit of an essay assessment report before it is delivered to the student and teacher.
-
-${buildSyllabusErrorPromptCatalog()}
 
 Your primary mission is to:
 1. AUDIT ECONOMIC ACCURACY & CATCH MISCONCEPTIONS ACROSS ALL CHAPTERS:
    - Carefully review the student's essay text against the exam question.
    - If the student made an economic slip or terminology mix-up (e.g. writing "YED" instead of "XED", confusing normal/inferior goods with substitutes/complements, mixing up fiscal and monetary policy, confusing movements along a curve with shifts, or confusing productive with allocative inefficiency on a PPC), verify whether it was noted. If missed in the draft report, add a clear, constructive note in "weaknesses" and adjust AO1/AO2 comments accordingly.
    - If the draft report hallucinated an error (e.g. claiming standard textbook definitions of scarcity or opportunity cost are wrong, colloquial, or "tautologies"), OVERTURN and REMOVE that false criticism immediately.
-   - ZERO-HALLUCINATION AUDIT OF SYLLABUS MISCONCEPTIONS:
-     Check every criticism, weakness, and mark deduction in the draft report against the student's verbatim essay text like an objective checklist.
-     If the draft report claims the candidate made an economic misconception (e.g. claiming "embargoes generate government revenue", "quotas generate revenue", "price causes demand to shift", or "healthcare is a public good"), CHECK WHETHER THE CANDIDATE ACTUALLY WROTE THAT IN THE ESSAY.
-     If the candidate NEVER explicitly stated it (e.g. the student merely discussed tariffs generating revenue and separately mentioned embargoes as an alternative policy), it is a 100% HALLUCINATED ERROR!
-     You MUST IMMEDIATELY:
-     (1) PURGE and DELETE that false criticism from "weaknesses", "actionable_feedback", "examiner_summary", and AO comments.
-     (2) RESTORE any mark deducted for that hallucinated error (e.g. restore the 1 mark to AO1 or AO2 so the candidate is not penalized for an unwritten error).
    - STRICT AS LEVEL (PAPER 2) VS A LEVEL (PAPER 4) BOUNDARY: For 8-mark and 12-mark questions (Paper 2 AS Level), PURGE any mentions or demands of A-Level content (marginal utility, diminishing returns, indifference curves, market structures like monopoly/oligopoly, MRPL, dynamic efficiency). Never penalise an AS student for omitting A-Level theories.
 
 2. ELIMINATE ALL INTERNAL CONTRADICTIONS:
@@ -147,9 +137,6 @@ export async function refineExaminerReport(options: RefineReportOptions): Promis
     refined.confidence = Math.max(draftGrading.confidence, refined.confidence || 0.95);
     refined.audited = true;
     refined.arbitrated = draftGrading.arbitrated;
-    if (draftGrading.flagged_errors && draftGrading.flagged_errors.length > 0) {
-      refined.flagged_errors = draftGrading.flagged_errors;
-    }
 
     // Preserve topic-specific suggested_resources and practice from draftGrading if refiner omitted them or returned generic
     if (
