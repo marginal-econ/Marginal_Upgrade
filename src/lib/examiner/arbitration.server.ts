@@ -202,7 +202,8 @@ ${buildSyllabusErrorPromptCatalog()}
      * When a subsidy lowers market price, quantity demanded extends/increases along the curve (from Q to Q1). That is accurate economic terminology, not an error.
      * Merit goods are defined both by positive externalities and by information failure / undervaluation of private benefits. Both are syllabus-correct.
      * DEFINITION FAIRNESS & ANTI-HALLUCINATION: Scarcity is finite or limited resources versus unlimited wants. "Finite" and "limited" are standard Cambridge synonyms. Stating "scarcity takes place when resources are limited but wants are unlimited" is accurate syllabus economics; NEVER label it a tautology or incorrect. Do NOT require opportunity cost within the definition of scarcity itself. Never demand citations or snippets like [S#].
-   - ACCOUNTABILITY ON MAJOR THEORETICAL ERRORS:
+   - ACCOUNTABILITY ON MAJOR THEORETICAL ERRORS & ZERO-HALLUCINATION CHECKLIST RULE:
+     * Treat the 22 syllabus errors strictly as an objective checklist. Never accuse a candidate of an error (e.g. claiming embargoes or quotas generate tax revenue) unless they literally wrote that exact false assertion in their essay. Overturn any pass that hallucinated an error not present in the essay, purge the false criticism, and restore the deducted mark.
      * Inverted definitions (e.g. defining negative externality as a benefit to firms paid by government, claiming carbon tax is a direct tax on income) earn 0 marks on AO1.
      * Flawed causal mechanisms built on false economic premises cannot exceed Level 1 in AO2.
      * Realistic calibration: essays with fundamental conceptual errors and weak comparative evaluation belong in Lower Middle or Bottom band, never Upper Middle or Top Band.

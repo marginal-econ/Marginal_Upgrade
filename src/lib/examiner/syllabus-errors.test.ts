@@ -307,5 +307,64 @@ describe("Authoritative Cambridge 9708 Syllabus Misconceptions Catalog", () => {
       expect(graded.total_mark).toBeLessThan(20);
       expect(graded.band).toBe("Upper Middle Band");
     });
+
+    it("purges hallucinated 'embargoes generate revenue' accusation and restores deducted mark to full 12/12 Top Band", () => {
+      // The exact scenario reported by the user:
+      // The student wrote about tariffs generating revenue and discussed embargoes as an alternative,
+      // but NEVER claimed embargoes generate revenue. The AI model hallucinated the claim and docked 1 mark in AO2.
+      const essayText = `
+        Tariffs are customs duties placed on imported goods that raise the price of foreign goods and reduce dumping.
+        When tariffs are imposed, import expenditure falls, domestic producers are protected, and the government collects substantial tax revenue.
+        Alternative protectionist policies include quotas and embargoes. An embargo acts as a physical ban on imports from a specific nation.
+        In evaluation, the effectiveness of tariffs depends on price elasticity of demand and whether trading partners retaliate.
+      `;
+
+      // Mock raw output produced by an over-zealous LLM pass
+      const hallucinatedRawOutput = {
+        total_mark: 11,
+        max_mark: 12,
+        band: "Top Band",
+        ao_breakdown: {
+          knowledge: { awarded: 2, out_of: 2, comment: "The candidate demonstrates accurate definitions of tariffs." },
+          analysis: {
+            awarded: 5,
+            out_of: 6,
+            comment:
+              "The analysis is well-developed. However, the discussion of embargoes generating government revenue is incorrect (embargoes do not generate revenue; only tariffs do). This misconception deducts 1 mark in AO2 for theoretical mechanism error. Additionally, the analysis could better distinguish between short-run and long-run effects.",
+          },
+          evaluation: { awarded: 4, out_of: 4, comment: "Balanced evaluation considering PED and retaliation." },
+        },
+        examiner_summary:
+          "This is a strong 12-mark essay. However, a 1-mark deduction in AO2 is applied for the incorrect claim that embargoes generate government revenue (only tariffs do). While the essay meets high standards, minor refinements would elevate it to Top Band.",
+        strengths: ["Clear explanation of tariffs raising prices and collecting government revenue."],
+        weaknesses: [
+          "The candidate incorrectly states that embargoes generate government revenue, which is false (only tariffs generate revenue). This is a 1-mark AO2 deduction for theoretical mechanism error. Embargoes are quantitative restrictions that do not yield tax revenue for the government.",
+          "The analysis does not explicitly distinguish between short-run and long-run effects of tariffs on the current account deficit.",
+        ],
+        actionable_feedback: [
+          "Correct the misconception that embargoes generate government revenue. Only tariffs (customs duties) generate tax revenue for the government. Revise this point to clarify the distinction.",
+          "Explicitly distinguish between short-run and long-run effects of tariffs in your analysis.",
+        ],
+        suggested_resources: ["Cambridge 9708 Chapter 29: Protectionist policies"],
+        suggested_practice: ["Practice evaluating tariffs vs quotas"],
+        confidence: 0.98,
+      };
+
+      const split = { ao1_marks: 2, ao2_marks: 6, ao3_marks: 4 };
+      const normalized = normaliseGrading(hallucinatedRawOutput, 12, split, essayText);
+
+      // 1. Hallucinated misconception must be completely purged
+      expect(normalized.flagged_errors).toBeUndefined();
+      expect(normalized.weaknesses.some((w) => w.toLowerCase().includes("embargoes generate"))).toBe(false);
+      expect(normalized.actionable_feedback.some((f) => f.toLowerCase().includes("embargoes generate"))).toBe(false);
+      expect(normalized.ao_breakdown.analysis.comment).not.toContain("embargoes generating government revenue is incorrect");
+      expect(normalized.examiner_summary).not.toContain("incorrect claim that embargoes generate government revenue");
+
+      // 2. The 1 mark wrongfully deducted in AO2 must be restored!
+      expect(normalized.ao_breakdown.analysis.awarded).toBe(6);
+      expect(normalized.total_mark).toBe(12);
+      expect(normalized.band).toBe("Top Band");
+      expect(normalized.examiner_summary).not.toContain("would elevate it to Top Band");
+    });
   });
 });

@@ -12,6 +12,8 @@
  *   2.3 International Trade & Exchange Rates (Depreciation vs Devaluation, Depreciation on Current Account, Comparative vs Absolute, Tariffs vs Quotas)
  */
 
+import type { AoSplit } from "./config";
+
 export type SyllabusEconomicsError = {
   id: string;
   section: string;
@@ -22,6 +24,7 @@ export type SyllabusEconomicsError = {
   flagWord: string;
   aoTarget: "ao1" | "ao2";
   aoImpact: string;
+  criticismPattern: RegExp;
 };
 
 export const SYLLABUS_ECONOMICS_ERRORS: SyllabusEconomicsError[] = [
@@ -41,6 +44,8 @@ export const SYLLABUS_ECONOMICS_ERRORS: SyllabusEconomicsError[] = [
     flagWord: "price causes demand/supply to shift",
     aoTarget: "ao2",
     aoImpact: "Deduct 1 mark in AO2 Analysis for theoretical mechanism error (confusing shifts with movements along curves).",
+    criticismPattern:
+      /(?:price\s+(?:causes?|makes?|leads\s+to|shifts?)\s+(?:demand|supply)|shift\s+of\s+curves?\s+vs|confus(?:ing|ed)\s+shifts?\s+with\s+movement|movement\s+along\s+vs(?:\.|\s+)shift)/i,
   },
   {
     id: "ped_vs_pes_confusion",
@@ -55,6 +60,8 @@ export const SYLLABUS_ECONOMICS_ERRORS: SyllabusEconomicsError[] = [
     flagWord: "PES confused with PED factors or revenue rule",
     aoTarget: "ao1",
     aoImpact: "Deduct 1 mark in AO1 Knowledge / AO2 Analysis for confusing consumer demand elasticity with producer supply elasticity.",
+    criticismPattern:
+      /(?:pes\s+(?:governed|determined|depends\s+on)\s+by\s+(?:consumer|brand)|total\s+revenue\s+rule\s+(?:applied\s+to|for)\s+pes|pes\s+vs(?:\.|\s+)p[ed]s\s+confusion)/i,
   },
   {
     id: "yed_vs_xed_sign_confusion",
@@ -69,6 +76,8 @@ export const SYLLABUS_ECONOMICS_ERRORS: SyllabusEconomicsError[] = [
     flagWord: "negative XED called inferior good or negative YED called complement",
     aoTarget: "ao1",
     aoImpact: "Deduct 1 mark in AO1 Knowledge for confusing income elasticity signs with cross-price elasticity signs.",
+    criticismPattern:
+      /(?:negative\s+xed\s+(?:is|called|as)\s+an?\s+inferior|negative\s+yed\s+(?:is|called|as)\s+a\s+complement|yed\s+vs(?:\.|\s+)xed\s+sign)/i,
   },
   {
     id: "price_controls_maximum_minimum",
@@ -83,6 +92,8 @@ export const SYLLABUS_ECONOMICS_ERRORS: SyllabusEconomicsError[] = [
     flagWord: "maximum price above equilibrium or minimum price below equilibrium",
     aoTarget: "ao1",
     aoImpact: "Deduct 1 mark in AO1 Knowledge / AO2 Analysis for inverting statutory price control positions relative to market equilibrium.",
+    criticismPattern:
+      /(?:maximum\s+price\s+(?:is\s+)?set\s+above\s+equilibrium|minimum\s+price\s+(?:is\s+)?set\s+below\s+equilibrium|price\s+controls?\s+\(maximum\s+vs)/i,
   },
   {
     id: "consumer_vs_producer_surplus",
@@ -97,6 +108,8 @@ export const SYLLABUS_ECONOMICS_ERRORS: SyllabusEconomicsError[] = [
     flagWord: "consumer surplus defined as extra money/profit saved or incorrect diagram area",
     aoTarget: "ao1",
     aoImpact: "Deduct 1 mark in AO1 Knowledge for misdefining consumer surplus or inverting surplus diagram areas.",
+    criticismPattern:
+      /(?:consumer\s+surplus\s+as\s+(?:the\s+)?extra\s+money|misdefining\s+consumer\s+surplus|confusing\s+the\s+geometric\s+areas|consumer\s+vs(?:\.|\s+)producer\s+surplus)/i,
   },
 
   // =========================================================================
@@ -114,6 +127,8 @@ export const SYLLABUS_ECONOMICS_ERRORS: SyllabusEconomicsError[] = [
     flagWord: "healthcare/education/transport called public goods",
     aoTarget: "ao1",
     aoImpact: "Deduct 1 mark in AO1 Knowledge for confusing rival/excludable merit goods with non-rival/non-excludable public goods.",
+    criticismPattern:
+      /(?:calling\s+(?:healthcare|education|transport)\s+public\s+goods?|(?:healthcare|education|transport)\s+(?:is|are)\s+(?:pure\s+)?public\s+goods?|confusing\s+merit\s+goods\s+with\s+public\s+goods|public\s+goods\s+vs(?:\.|\s+)merit\s+goods)/i,
   },
   {
     id: "social_vs_external_cost_benefit",
@@ -127,6 +142,8 @@ export const SYLLABUS_ECONOMICS_ERRORS: SyllabusEconomicsError[] = [
     flagWord: "Social Cost equated to External Cost (omitting private costs)",
     aoTarget: "ao1",
     aoImpact: "Deduct 1 mark in AO1 Knowledge for confusing total social costs/benefits with external third-party spillover costs/benefits.",
+    criticismPattern:
+      /(?:social\s+cost\s*=\s*external\s+cost|writing\s+["']social\s+cost\s*=\s*external\s+cost["']|social\s+cost\/benefit\s+vs|omitting\s+private\s+costs)/i,
   },
   {
     id: "productive_vs_allocative_efficiency",
@@ -141,6 +158,8 @@ export const SYLLABUS_ECONOMICS_ERRORS: SyllabusEconomicsError[] = [
     flagWord: "allocative efficiency confused with productive efficiency criteria",
     aoTarget: "ao1",
     aoImpact: "Deduct 1 mark in AO1 Knowledge / AO2 Analysis for inverting the definitions and conditions of allocative and productive efficiency.",
+    criticismPattern:
+      /(?:productive\s+efficient\s+because\s+p\s*=\s*mc|allocatively\s+efficient\s+because\s+(?:it\s+)?minimi[sz]es\s+average\s+cost|inverting\s+productive\s+and\s+allocative|productive\s+vs(?:\.|\s+)allocative\s+efficiency)/i,
   },
   {
     id: "economies_of_scale_vs_returns_to_scale",
@@ -154,6 +173,8 @@ export const SYLLABUS_ECONOMICS_ERRORS: SyllabusEconomicsError[] = [
     flagWord: "economies of scale equated to increasing returns to scale",
     aoTarget: "ao1",
     aoImpact: "Deduct 1 mark in AO1 Knowledge for conflating technical returns to scale with financial long-run cost economies.",
+    criticismPattern:
+      /(?:treating\s+economies\s+of\s+scale\s+and\s+increasing\s+returns\s+to\s+scale\s+as\s+identical|equating\s+economies\s+of\s+scale|economies\s+of\s+scale\s+vs(?:\.|\s+)increasing\s+returns)/i,
   },
   {
     id: "normal_vs_supernormal_profit",
@@ -168,6 +189,8 @@ export const SYLLABUS_ECONOMICS_ERRORS: SyllabusEconomicsError[] = [
     flagWord: "normal profit defined as zero accounting profit or firm shutdown",
     aoTarget: "ao1",
     aoImpact: "Deduct 1 mark in AO1 Knowledge for confusing zero economic profit (normal profit) with zero accounting profit or shutdown conditions.",
+    criticismPattern:
+      /(?:normal\s+profit\s+means\s+zero\s+accounting\s+profit|firms\s+shut\s+down\s+when\s+making\s+zero\s+economic\s+profit|normal\s+profit\s+vs(?:\.|\s+)supernormal)/i,
   },
 
   // =========================================================================
@@ -186,6 +209,8 @@ export const SYLLABUS_ECONOMICS_ERRORS: SyllabusEconomicsError[] = [
     flagWord: "fall in inflation rate labeled deflation",
     aoTarget: "ao1",
     aoImpact: "Deduct 1 mark in AO1 Knowledge for confusing disinflation (slower price rise) with deflation (falling price level).",
+    criticismPattern:
+      /(?:fall\s+in\s+the\s+inflation\s+rate\s+[^.]*?\b(?:is|as)\s+deflation|calling\s+disinflation\s+deflation|deflation\s+vs(?:\.|\s+)disinflation)/i,
   },
   {
     id: "growth_vs_development",
@@ -199,6 +224,8 @@ export const SYLLABUS_ECONOMICS_ERRORS: SyllabusEconomicsError[] = [
     flagWord: "Real GDP increase treated as automatic proof of economic development",
     aoTarget: "ao1",
     aoImpact: "Deduct 1 mark in AO1 Knowledge / AO2 Analysis for treating quantitative GDP expansion as identical to multidimensional human development.",
+    criticismPattern:
+      /(?:real\s+gdp\s+(?:per\s+capita\s+)?(?:growth|increase)\s+as\s+proof\s+of\s+economic\s+development|treating\s+growth\s+as\s+development|economic\s+growth\s+vs(?:\.|\s+)economic\s+development)/i,
   },
   {
     id: "real_vs_nominal_variables",
@@ -212,6 +239,8 @@ export const SYLLABUS_ECONOMICS_ERRORS: SyllabusEconomicsError[] = [
     flagWord: "nominal variables confused with inflation-adjusted real values",
     aoTarget: "ao1",
     aoImpact: "Deduct 1 mark in AO1 Knowledge for conflating unadjusted nominal figures with inflation-adjusted real purchasing power.",
+    criticismPattern:
+      /(?:conflating\s+nominal\s+(?:gdp|wages?|interest\s+rates?)\s+with\s+real|real\s+vs(?:\.|\s+)nominal\s+variables)/i,
   },
   {
     id: "productivity_vs_production",
@@ -225,6 +254,8 @@ export const SYLLABUS_ECONOMICS_ERRORS: SyllabusEconomicsError[] = [
     flagWord: "production increase equated to productivity increase",
     aoTarget: "ao1",
     aoImpact: "Deduct 1 mark in AO1 Knowledge for confusing total physical production volume with factor productivity efficiency.",
+    criticismPattern:
+      /(?:saying\s+["']?output\s+increased,?\s+so\s+productivity\s+increased["']?|equating\s+production\s+with\s+productivity|productivity\s+vs(?:\.|\s+)production)/i,
   },
 
   // =========================================================================
@@ -243,6 +274,8 @@ export const SYLLABUS_ECONOMICS_ERRORS: SyllabusEconomicsError[] = [
     flagWord: "budget balance confused with current account balance",
     aoTarget: "ao1",
     aoImpact: "Deduct 1 mark in AO1 Knowledge for confusing domestic government fiscal balances with external balance of payments current accounts.",
+    criticismPattern:
+      /(?:budget\s+balance\s+vs(?:\.|\s+)current\s+account|budget\s+deficit\s+means\s+imports\s+exceed\s+exports|current\s+account\s+surplus\s+means\s+the\s+government\s+can\s+afford)/i,
   },
   {
     id: "central_bank_vs_government_policy",
@@ -257,6 +290,8 @@ export const SYLLABUS_ECONOMICS_ERRORS: SyllabusEconomicsError[] = [
     flagWord: "government attributed monetary policy or central bank attributed fiscal policy",
     aoTarget: "ao1",
     aoImpact: "Deduct 1 mark in AO1 Knowledge for confusing central bank monetary governance with government fiscal administration.",
+    criticismPattern:
+      /(?:attributing\s+interest\s+rate\s+or\s+money\s+supply\s+changes\s+to\s+the\s+government|attributing\s+fiscal\s+policy\s+to\s+the\s+central\s+bank|central\s+bank\s+vs(?:\.|\s+)government\s+policy)/i,
   },
   {
     id: "quantitative_easing_mechanics",
@@ -270,6 +305,8 @@ export const SYLLABUS_ECONOMICS_ERRORS: SyllabusEconomicsError[] = [
     flagWord: "QE described simply as printing physical banknotes",
     aoTarget: "ao2",
     aoImpact: "Deduct 1 mark in AO2 Analysis for failing to explain the electronic asset purchase transmission mechanism of QE.",
+    criticismPattern:
+      /(?:describing\s+qe\s+(?:simply\s+)?as\s+(?:the\s+central\s+bank\s+)?printing\s+(?:more\s+)?(?:physical\s+)?banknotes|quantitative\s+easing\s+\(qe\)\s+mechanics)/i,
   },
   {
     id: "supply_side_policy_time_lags",
@@ -284,6 +321,8 @@ export const SYLLABUS_ECONOMICS_ERRORS: SyllabusEconomicsError[] = [
     flagWord: "supply-side policy recommended as immediate fix for short-run recession",
     aoTarget: "ao2",
     aoImpact: "Deduct 1 mark in AO2 Analysis / AO3 Evaluation for ignoring severe implementation time lags of supply-side interventions.",
+    criticismPattern:
+      /(?:supply-side\s+policies\s+as\s+(?:the\s+)?best\s+solution\s+to\s+cure\s+an\s+immediate\s+short-run\s+recession|supply-side\s+policy\s+time\s+lags)/i,
   },
 
   // =========================================================================
@@ -302,6 +341,8 @@ export const SYLLABUS_ECONOMICS_ERRORS: SyllabusEconomicsError[] = [
     flagWord: "devaluation used for floating exchange rate or depreciation for fixed rate",
     aoTarget: "ao1",
     aoImpact: "Deduct 1 mark in AO1 Knowledge for misapplying fixed exchange rate terminology to floating currency markets.",
+    criticismPattern:
+      /(?:currency\s+["']?devalued["']?\s+under\s+a\s+floating|["']?depreciated["']?\s+under\s+a\s+fixed|depreciation\/appreciation\s+vs(?:\.|\s+)devaluation)/i,
   },
   {
     id: "currency_depreciation_current_account",
@@ -316,6 +357,8 @@ export const SYLLABUS_ECONOMICS_ERRORS: SyllabusEconomicsError[] = [
     flagWord: "currency depreciation claimed to automatically worsen current account",
     aoTarget: "ao2",
     aoImpact: "Deduct 1 mark in AO2 Analysis for ignoring export volume expansion and the Marshall-Lerner condition.",
+    criticismPattern:
+      /(?:depreciation\s+automatically\s+worsens\s+(?:the\s+)?current\s+account\s+deficit|effect\s+of\s+currency\s+depreciation\s+on\s+the\s+current\s+account)/i,
   },
   {
     id: "comparative_vs_absolute_advantage",
@@ -329,19 +372,23 @@ export const SYLLABUS_ECONOMICS_ERRORS: SyllabusEconomicsError[] = [
     flagWord: "comparative advantage defined as producing cheapest or in largest quantity",
     aoTarget: "ao1",
     aoImpact: "Deduct 1 mark in AO1 Knowledge for confusing comparative advantage (lower opportunity cost) with absolute advantage.",
+    criticismPattern:
+      /(?:export\s+goods\s+(?:it|they)\s+can\s+produce\s+["']?cheapest["']?\s+or\s+["']?in\s+the\s+largest\s+quantity["']?|comparative\s+advantage\s+vs(?:\.|\s+)absolute\s+advantage)/i,
   },
   {
     id: "tariffs_vs_quotas_revenue",
     section: "SECTION 2.3: International Trade & Exchange Rates",
     topic: "Tariffs vs. Quotas (Government Revenue)",
-    studentError: "Claiming that import quotas generate tax revenue for the domestic government.",
+    studentError: "Claiming that import quotas, embargoes, or quantitative restrictions generate tax revenue for the domestic government.",
     correction:
-      "Tariffs are customs duties that generate tax revenue for the domestic government. Quotas are quantitative physical limits that generate quota rents (windfall profits) that typically accrue to foreign exporters or domestic license holders, NOT government tax revenue (unless import licenses are auctioned).",
+      "Tariffs are customs duties that generate tax revenue for the domestic government. Quotas and embargoes are physical quantitative trade restrictions that do not generate government tax revenue (quotas generate quota rents for foreign exporters or license holders; embargoes ban trade completely and yield zero revenue).",
     pattern:
-      /(?:\b(?:import\s+)?quotas?\s+(?:generate|generates|provide|provides|raise|raises|yields?)\s+(?:tax\s+)?revenue\s+for\s+(?:the\s+)?(?:domestic\s+)?government\b|\bquotas?\s+(?:give|gives|brings?)\s+(?:the\s+)?government\s+tariff\s+revenue\b|\bgovernment\s+collects?\s+tax\s+revenue\s+from\s+(?:import\s+)?quotas?\b)/i,
-    flagWord: "import quotas claimed to generate government tax revenue",
+      /(?:\b(?:import\s+)?(?:quotas?|embargoes?|quantitative\s+restrictions?)\s+(?:generate|generates|provide|provides|raise|raises|yields?|creates?)\s+(?:tax\s+)?revenue\s+(?:for|to)\s+(?:the\s+)?(?:domestic\s+)?government\b|\b(?:quotas?|embargoes?)\s+(?:give|gives|brings?)\s+(?:the\s+)?government\s+(?:tariff\s+|tax\s+)?revenue\b|\bgovernment\s+collects?\s+tax\s+revenue\s+from\s+(?:import\s+)?(?:quotas?|embargoes?)\b)/i,
+    flagWord: "import quotas or embargoes claimed to generate government tax revenue",
     aoTarget: "ao1",
-    aoImpact: "Deduct 1 mark in AO1 Knowledge for falsely attributing customs tax revenue to non-tariff import quotas.",
+    aoImpact: "Deduct 1 mark in AO1 Knowledge for falsely attributing customs tax revenue to non-tariff import quotas or embargoes.",
+    criticismPattern:
+      /(?:(?:embargo|quota)e?s?\s+(?:do\s+not\s+generate|generating|generate)\s+(?:government\s+)?(?:tax\s+)?revenue|claim\s+that\s+(?:embargo|quota)e?s?\s+generate\s+(?:government\s+)?(?:tax\s+)?revenue|incorrect\s+claim\s+that\s+(?:embargo|quota)e?s?\s+generate|(?:embargo|quota)e?s?\s+are\s+quantitative\s+restrictions\s+that\s+do\s+not\s+yield|falsely\s+attributing\s+customs\s+tax\s+revenue\s+to\s+non-tariff|(?:discussion|misconception)\s+of\s+(?:embargo|quota)e?s?\s+generating\s+(?:government\s+)?revenue|tariffs\s+vs(?:\.|\s+)quotas\s+\(government\s+revenue\))/i,
   },
 ];
 
@@ -377,21 +424,189 @@ export function detectSyllabusErrors(text: string): DetectedEconomicsError[] {
 /**
  * Builds the comprehensive prompt directive injected into all Cambridge examiner passes
  * (Pass 1 error audit, Pass 2 holistic, Pass 3 refiner, arbitration).
+ *
+ * Implements a strict ZERO-HALLUCINATION OBJECTIVE CHECKLIST protocol to prevent
+ * the AI model from imagining errors or combining separate clauses into false accusations.
  */
 export function buildSyllabusErrorPromptCatalog(): string {
   const lines: string[] = [
-    "MANDATORY CAMBRIDGE 9708 SYLLABUS MISCONCEPTIONS & ERROR PENALISATION CATALOG:",
-    "If the candidate's essay contains ANY of the following specific errors, you MUST penalise them proportionately under AO1/AO2 (deduct marks and restrict from Top Band), and you MUST explicitly flag the error and state the syllabus correction in weaknesses and actionable feedback:",
+    "================================================================================",
+    "MANDATORY CAMBRIDGE 9708 SYLLABUS MISCONCEPTIONS & ERROR CHECKLIST PROTOCOL:",
+    "================================================================================",
+    "CRITICAL ZERO-HALLUCINATION CHECKLIST INSTRUCTION:",
+    "Treat the 22 items below strictly as an objective, evidence-based CHECKLIST.",
+    "- NEVER assume, guess, or extrapolate that a student made any of these errors.",
+    "- You must ONLY flag, deduct marks for, or mention an error if the candidate EXPLICITLY and VERBATIM states that exact false assertion in their text.",
+    "- ZERO CONFLATION / ZERO MISREADING: If a student mentions multiple concepts in the same essay (e.g. stating tariffs generate government revenue, and separately analyzing embargoes or quotas as alternative trade policies), that is 100% CORRECT economic analysis. DO NOT misread or combine separate sentences into an invented error (e.g. NEVER claim the student said 'embargoes generate revenue' unless they literally wrote that embargoes generate revenue).",
+    "- If an item on this checklist is NOT explicitly and verifiably present in the student's text, it is NOT AN ERROR: award full deserved marks without deduction, and do NOT mention the misconception in weaknesses, feedback, or summary.",
+    "",
+    "THE 22 SYLLABUS MISCONCEPTION CHECKLIST ITEMS:",
   ];
 
   for (const [index, err] of SYLLABUS_ECONOMICS_ERRORS.entries()) {
     lines.push(
       `${index + 1}. [${err.section}] ${err.topic}:`,
-      `   - Student Error: ${err.studentError}`,
-      `   - Mandatory Syllabus Correction: ${err.correction}`,
-      `   - Penalisation Directive: ${err.aoImpact}`,
+      `   - Explicit False Assertion: ${err.studentError}`,
+      `   - Cambridge Syllabus Truth: ${err.correction}`,
+      `   - Deduction Directive (ONLY if explicitly written): ${err.aoImpact}`,
     );
   }
 
   return lines.join("\n");
+}
+
+export type HallucinationAuditResult = {
+  knowledgeAwarded: number;
+  analysisAwarded: number;
+  evaluationAwarded: number;
+  examinerSummary: string;
+  knowledgeComment: string;
+  analysisComment: string;
+  evaluationComment: string;
+  strengths: string[];
+  weaknesses: string[];
+  actionableFeedback: string[];
+  missingElements: Record<string, string[]>;
+  purgedCount: number;
+  restoredMarks: { ao1: number; ao2: number };
+};
+
+/**
+ * Audits examiner feedback against the candidate's actual essay submission.
+ * If the examiner accused the candidate of an economic misconception from the 22 catalog rules,
+ * but the candidate NEVER wrote that false claim, this function purges the false accusation
+ * from all comments and feedback, and restores any deducted mark back to AO1 or AO2.
+ */
+export function auditAndPurgeHallucinatedMisconceptions(params: {
+  essayText: string;
+  maxMark: number;
+  split: AoSplit;
+  knowledgeAwarded: number;
+  analysisAwarded: number;
+  evaluationAwarded: number;
+  examinerSummary: string;
+  knowledgeComment: string;
+  analysisComment: string;
+  evaluationComment: string;
+  strengths: string[];
+  weaknesses: string[];
+  actionableFeedback: string[];
+  missingElements: Record<string, string[]>;
+}): HallucinationAuditResult {
+  const result: HallucinationAuditResult = {
+    knowledgeAwarded: params.knowledgeAwarded,
+    analysisAwarded: params.analysisAwarded,
+    evaluationAwarded: params.evaluationAwarded,
+    examinerSummary: params.examinerSummary,
+    knowledgeComment: params.knowledgeComment,
+    analysisComment: params.analysisComment,
+    evaluationComment: params.evaluationComment,
+    strengths: [...params.strengths],
+    weaknesses: [...params.weaknesses],
+    actionableFeedback: [...params.actionableFeedback],
+    missingElements: { ...params.missingElements },
+    purgedCount: 0,
+    restoredMarks: { ao1: 0, ao2: 0 },
+  };
+
+  if (!params.essayText || params.essayText.trim().length === 0) {
+    return result;
+  }
+
+  const detectedInEssay = detectSyllabusErrors(params.essayText);
+  const verifiedRuleIds = new Set(detectedInEssay.map((d) => d.rule.id));
+
+  for (const rule of SYLLABUS_ECONOMICS_ERRORS) {
+    // If the student actually made this error in essayText, keep it!
+    if (verifiedRuleIds.has(rule.id)) continue;
+
+    // Check if the examiner accused the candidate of this error
+    const feedbackBlob = [
+      result.examinerSummary,
+      result.knowledgeComment,
+      result.analysisComment,
+      result.evaluationComment,
+      ...result.weaknesses,
+      ...result.actionableFeedback,
+    ].join(" ");
+
+    const examinerAccusedError =
+      rule.criticismPattern.test(feedbackBlob) ||
+      result.weaknesses.some((w) => w.toLowerCase().includes(rule.topic.toLowerCase())) ||
+      result.actionableFeedback.some((f) => f.toLowerCase().includes(rule.topic.toLowerCase()));
+
+    if (!examinerAccusedError) continue;
+
+    // Double check if essayText actually has it via rule.pattern
+    if (rule.pattern.test(params.essayText)) continue;
+
+    // CONFIRMED HALLUCINATION: The examiner accused the student of this error,
+    // but the student NEVER wrote it. Purge the hallucination!
+    result.purgedCount++;
+
+    // 1. Purge from weaknesses
+    result.weaknesses = result.weaknesses.filter(
+      (w) => !rule.criticismPattern.test(w) && !w.toLowerCase().includes(rule.topic.toLowerCase()),
+    );
+
+    // 2. Purge from actionable_feedback
+    result.actionableFeedback = result.actionableFeedback.filter(
+      (f) => !rule.criticismPattern.test(f) && !f.toLowerCase().includes(rule.topic.toLowerCase()),
+    );
+
+    // 3. Purge from missing elements
+    for (const key of Object.keys(result.missingElements)) {
+      result.missingElements[key] = (result.missingElements[key] || []).filter(
+        (item) => !rule.criticismPattern.test(item) && !item.toLowerCase().includes(rule.topic.toLowerCase()),
+      );
+    }
+
+    // Helper to strip sentences accusing the student of this error or stating deductions
+    const stripAccusationSentences = (text: string): string => {
+      if (!text) return text;
+      const sentences = text.split(/(?<=[.!?])\s+/);
+      const kept = sentences.filter(
+        (s) =>
+          !rule.criticismPattern.test(s) &&
+          !/misconception\s+deducts\s+\d+\s+marks?/i.test(s) &&
+          !/\b\d+-mark\s+(?:deduction\s+in\s+ao[12]|ao[12]\s+deduction)\s+(?:is\s+)?applied\b/i.test(s),
+      );
+      return kept.join(" ").trim();
+    };
+
+    result.examinerSummary = stripAccusationSentences(result.examinerSummary);
+    result.analysisComment = stripAccusationSentences(result.analysisComment);
+    result.knowledgeComment = stripAccusationSentences(result.knowledgeComment);
+    result.evaluationComment = stripAccusationSentences(result.evaluationComment);
+
+    // 4. Restore any deducted marks
+    const feedbackForDeduction = `${params.examinerSummary} ${params.analysisComment} ${params.knowledgeComment} ${params.weaknesses.join(" ")}`;
+    const mentionsAo2Deduction =
+      /\b(?:deducts?|deduction\s+of|applied)\s+(\d+)\s+marks?\s+in\s+ao2\b/i.test(feedbackForDeduction) ||
+      /\b(\d+)-mark\s+(?:ao2|analysis)\s+deduction\b/i.test(feedbackForDeduction) ||
+      /\bdeducts?\s+1\s+mark\s+in\s+ao2\b/i.test(feedbackForDeduction) ||
+      /\b1-mark\s+ao2\s+deduction\b/i.test(feedbackForDeduction);
+
+    const mentionsAo1Deduction =
+      /\b(?:deducts?|deduction\s+of|applied)\s+(\d+)\s+marks?\s+in\s+ao1\b/i.test(feedbackForDeduction) ||
+      /\b(\d+)-mark\s+(?:ao1|knowledge)\s+deduction\b/i.test(feedbackForDeduction) ||
+      /\bdeducts?\s+1\s+mark\s+in\s+ao1\b/i.test(feedbackForDeduction) ||
+      /\b1-mark\s+ao1\s+deduction\b/i.test(feedbackForDeduction);
+
+    if (mentionsAo2Deduction && result.analysisAwarded < params.split.ao2_marks) {
+      result.analysisAwarded = Math.min(params.split.ao2_marks, result.analysisAwarded + 1);
+      result.restoredMarks.ao2 += 1;
+    } else if (mentionsAo1Deduction && result.knowledgeAwarded < params.split.ao1_marks) {
+      result.knowledgeAwarded = Math.min(params.split.ao1_marks, result.knowledgeAwarded + 1);
+      result.restoredMarks.ao1 += 1;
+    } else if (rule.aoTarget === "ao2" && result.analysisAwarded < params.split.ao2_marks) {
+      result.analysisAwarded = Math.min(params.split.ao2_marks, result.analysisAwarded + 1);
+      result.restoredMarks.ao2 += 1;
+    } else if (rule.aoTarget === "ao1" && result.knowledgeAwarded < params.split.ao1_marks) {
+      result.knowledgeAwarded = Math.min(params.split.ao1_marks, result.knowledgeAwarded + 1);
+      result.restoredMarks.ao1 += 1;
+    }
+  }
+
+  return result;
 }

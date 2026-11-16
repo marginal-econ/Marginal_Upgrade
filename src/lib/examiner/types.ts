@@ -73,7 +73,7 @@ const EMPTY_MISSING: MissingElements = {
 };
 
 import { cleanStars, stripStars } from "@/lib/utils";
-import { detectSyllabusErrors } from "./syllabus-errors";
+import { detectSyllabusErrors, auditAndPurgeHallucinatedMisconceptions } from "./syllabus-errors";
 
 /**
  * Strips conflicting numeric mark fractions (e.g. "(3/4)", "1/4", "Level 2 (3/4)")
@@ -579,13 +579,66 @@ export function normaliseGrading(
     }
   }
 
+  const rawMissing = (raw.missing_elements ?? {}) as Record<string, unknown>;
+  const missingObj: Record<string, string[]> = {
+    definitions: toStringArray(rawMissing.definitions),
+    analysis: toStringArray(rawMissing.analysis),
+    evaluation: split.ao3_marks === 0 ? [] : toStringArray(rawMissing.evaluation),
+    examples: toStringArray(rawMissing.examples),
+    diagrams: toStringArray(rawMissing.diagrams),
+  };
+
+  let strengths = toStringArray(raw.strengths);
+  let weaknesses = toStringArray(raw.weaknesses);
+  let actionableFeedback = toStringArray(raw.actionable_feedback);
+  let suggestedResources = toStringArray(raw.suggested_resources);
+  let suggestedPractice = toStringArray(raw.suggested_practice);
+  let examinerSummary = cleanComment(String(raw.examiner_summary ?? ""));
+
+  // Check and purge any hallucinated misconceptions before scoring
+  if (essayText) {
+    const auditRes = auditAndPurgeHallucinatedMisconceptions({
+      essayText,
+      maxMark,
+      split,
+      knowledgeAwarded: knowledge.awarded,
+      analysisAwarded: analysis.awarded,
+      evaluationAwarded: evaluation.awarded,
+      examinerSummary,
+      knowledgeComment: knowledge.comment,
+      analysisComment: analysis.comment,
+      evaluationComment: evaluation.comment,
+      strengths,
+      weaknesses,
+      actionableFeedback,
+      missingElements: missingObj,
+    });
+
+    knowledge.awarded = auditRes.knowledgeAwarded;
+    analysis.awarded = auditRes.analysisAwarded;
+    evaluation.awarded = auditRes.evaluationAwarded;
+    examinerSummary = auditRes.examinerSummary;
+    knowledge.comment = auditRes.knowledgeComment;
+    analysis.comment = auditRes.analysisComment;
+    evaluation.comment = auditRes.evaluationComment;
+    strengths = auditRes.strengths;
+    weaknesses = auditRes.weaknesses;
+    actionableFeedback = auditRes.actionableFeedback;
+  }
+
   const detectedSyllabusErrors = essayText ? detectSyllabusErrors(essayText) : [];
   const flagged_errors: FlaggedEconomicsError[] = [];
 
-  if (Array.isArray(raw.flagged_errors)) {
+  // Only accept raw.flagged_errors if verified against essayText
+  if (Array.isArray(raw.flagged_errors) && essayText) {
     for (const f of raw.flagged_errors) {
       if (f && typeof f === "object" && "topic" in f) {
-        flagged_errors.push(f as FlaggedEconomicsError);
+        const isVerified =
+          detectedSyllabusErrors.some((d) => d.rule.id === f.id) ||
+          (typeof f.quote === "string" && f.quote.length > 5 && essayText.toLowerCase().includes(f.quote.toLowerCase()));
+        if (isVerified) {
+          flagged_errors.push(f as FlaggedEconomicsError);
+        }
       }
     }
   }
@@ -633,14 +686,13 @@ export function normaliseGrading(
     band = "Upper Middle Band";
   }
 
-  const rawMissing = (raw.missing_elements ?? {}) as Record<string, unknown>;
-
-  let strengths = toStringArray(raw.strengths);
-  let weaknesses = toStringArray(raw.weaknesses);
-  let actionableFeedback = toStringArray(raw.actionable_feedback);
-  let suggestedResources = toStringArray(raw.suggested_resources);
-  let suggestedPractice = toStringArray(raw.suggested_practice);
-  let examinerSummary = cleanComment(String(raw.examiner_summary ?? ""));
+  // If score is Top Band or full marks, ensure examiner summary does not contradict Top Band achievement
+  if (total === maxMark || band === "Top Band") {
+    examinerSummary = examinerSummary
+      .replace(/would\s+elevate\s+it\s+to\s+Top\s+Band\.?/gi, "fully achieves Top Band Cambridge standards.")
+      .replace(/to\s+reach\s+Top\s+Band\s+standards\.?/gi, "fully achieving Top Band Cambridge standards.")
+      .trim();
+  }
 
   // Ensure full-fledged feedback is ALWAYS provided to the student
   if (!examinerSummary || examinerSummary.length < 25) {
