@@ -57,6 +57,41 @@ export const listMcqPapers = createServerFn({ method: "GET" })
     };
   });
 
+/**
+ * Direct lookup for one paper's mark-scheme answer key and question count by ID.
+ * Used by /mcq-live as a resilient fallback so answering buttons and grading
+ * are 100% guaranteed to load even before listMcqPapers finishes caching.
+ */
+export const getMcqPaperAnswerKey = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => z.object({ paperId: z.string().min(1) }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { supabase } = context;
+    const { data: row, error } = await supabase
+      .from("mcq_pdf_papers")
+      .select("id, question_count, answer_key")
+      .eq("id", data.paperId)
+      .maybeSingle();
+
+    if (error || !row) {
+      // Fallback: check in-memory topical papers
+      const { getTopicalPaperById } = await import("./topical-mcq-papers");
+      const topical = getTopicalPaperById(data.paperId);
+      if (topical) {
+        return {
+          answerKey: topical.answerKey,
+          questionCount: topical.questionCount,
+        };
+      }
+      return { answerKey: {}, questionCount: 30 };
+    }
+
+    return {
+      answerKey: (row.answer_key ?? {}) as Record<string, "A" | "B" | "C" | "D">,
+      questionCount: row.question_count || 30,
+    };
+  });
+
 const PaperInput = z
   .object({
     title: z.string().trim().min(1).max(200),

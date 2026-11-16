@@ -81,7 +81,7 @@ import {
   submitPdfMcqAttempt,
   type PaperHistoryEntry,
 } from "@/lib/mcq-pdf.functions";
-import { listMcqPapers } from "@/lib/mcq-papers.functions";
+import { listMcqPapers, getMcqPaperAnswerKey } from "@/lib/mcq-papers.functions";
 import {
   loadPdfjs,
   extractQuestionStems,
@@ -752,6 +752,7 @@ function McqLivePage() {
   const submitAttemptFn = useServerFn(submitPdfMcqAttempt);
   const explainFn = useServerFn(explainMcqAnswer);
   const fetchPaperPdfFn = useServerFn(fetchPaperPdf);
+  const getAnswerKeyFn = useServerFn(getMcqPaperAnswerKey);
 
   /** Fetches a short written explanation for one question, on demand — only
    *  ever called from the post-attempt review list, never during the attempt. */
@@ -973,8 +974,30 @@ function fillMissingQuestionPages(
     paperTitleRef.current = paper.title;
     setLevel(paper.level);
     levelRef.current = paper.level;
-    setQCount(paper.questionCount);
-    setAnswerKey(paper.answerKey as Record<number, Letter>);
+    setQCount(paper.questionCount || 30);
+    const resolvedInitialKey =
+      paper.answerKey && Object.keys(paper.answerKey).length > 0
+        ? paper.answerKey
+        : (paper as any).answer_key && Object.keys((paper as any).answer_key).length > 0
+          ? (paper as any).answer_key
+          : papersQuery.data?.papers.find((p) => p.id === paper.id)?.answerKey ??
+            getTopicalPaperById(paper.id)?.answerKey ??
+            {};
+    setAnswerKey(resolvedInitialKey as Record<number, Letter>);
+
+    // If answer key is still empty, fetch it immediately in the background
+    if (Object.keys(resolvedInitialKey).length === 0 && paper.id) {
+      void getAnswerKeyFn({ data: { paperId: paper.id } })
+        .then((res) => {
+          if (res?.answerKey && Object.keys(res.answerKey).length > 0) {
+            setAnswerKey(res.answerKey as Record<number, Letter>);
+            if (res.questionCount) setQCount(res.questionCount);
+          }
+        })
+        .catch((err) => {
+          console.warn("Async answer key lookup failed:", err);
+        });
+    }
     const draft =
       !completedAttempt ? readMcqDraft(effectiveUserId, paper.id) : null;
     const completedAnswers = completedAttempt
@@ -1223,6 +1246,34 @@ function fillMissingQuestionPages(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search.paperId, papersQuery.data, stage]);
 
+  // Synchronize answerKey and questionCount if papersQuery finishes loading or updates while in practice mode
+  useEffect(() => {
+    if (stage !== "practice" || !selectedPaperId) return;
+    if (Object.keys(answerKey).length > 0) return;
+    const dbMatch = papersQuery.data?.papers.find((p) => p.id === selectedPaperId);
+    if (dbMatch?.answerKey && Object.keys(dbMatch.answerKey).length > 0) {
+      setAnswerKey(dbMatch.answerKey as Record<number, Letter>);
+      if (dbMatch.questionCount && dbMatch.questionCount > 0) {
+        setQCount(dbMatch.questionCount);
+      }
+    } else {
+      const topMatch = getTopicalPaperById(selectedPaperId);
+      if (topMatch?.answerKey && Object.keys(topMatch.answerKey).length > 0) {
+        setAnswerKey(topMatch.answerKey as Record<number, Letter>);
+        if (topMatch.questionCount && topMatch.questionCount > 0) {
+          setQCount(topMatch.questionCount);
+        }
+      } else {
+        void getAnswerKeyFn({ data: { paperId: selectedPaperId } }).then((res) => {
+          if (res?.answerKey && Object.keys(res.answerKey).length > 0) {
+            setAnswerKey(res.answerKey as Record<number, Letter>);
+            if (res.questionCount) setQCount(res.questionCount);
+          }
+        });
+      }
+    }
+  }, [stage, selectedPaperId, answerKey, papersQuery.data, getAnswerKeyFn]);
+
   // Track currently visible page during scrolling so questions on the viewed page are known
   useEffect(() => {
     if (stage !== "practice" || pages.length === 0) return;
@@ -1402,8 +1453,33 @@ function fillMissingQuestionPages(
   /* ---------------- grading + feedback ---------------- */
 
   async function gradeAndSave() {
-    if (Object.keys(answerKey).length === 0) {
-      toast.error("No mark scheme loaded yet — upload one, or the answers can't be checked.");
+    let effectiveKey = answerKey;
+    if (Object.keys(effectiveKey).length === 0 && selectedPaperId) {
+      const dbMatch = papersQuery.data?.papers.find((p) => p.id === selectedPaperId);
+      if (dbMatch?.answerKey && Object.keys(dbMatch.answerKey).length > 0) {
+        effectiveKey = dbMatch.answerKey as Record<number, Letter>;
+        setAnswerKey(effectiveKey);
+      } else {
+        const topMatch = getTopicalPaperById(selectedPaperId);
+        if (topMatch?.answerKey && Object.keys(topMatch.answerKey).length > 0) {
+          effectiveKey = topMatch.answerKey as Record<number, Letter>;
+          setAnswerKey(effectiveKey);
+        } else {
+          try {
+            const res = await getAnswerKeyFn({ data: { paperId: selectedPaperId } });
+            if (res?.answerKey && Object.keys(res.answerKey).length > 0) {
+              effectiveKey = res.answerKey as Record<number, Letter>;
+              setAnswerKey(effectiveKey);
+            }
+          } catch (err) {
+            console.warn("Failed to fetch answer key before grading:", err);
+          }
+        }
+      }
+    }
+
+    if (Object.keys(effectiveKey).length === 0) {
+      toast.error("No mark scheme loaded yet — please wait or reload the paper.");
       return;
     }
     setBusyLabel("Marking…");
@@ -1415,14 +1491,15 @@ function fillMissingQuestionPages(
       const levelUpper = level === "a2" ? "A2" : "AS";
 
       const allNumbers = new Set<number>([
-        ...Object.keys(answerKey).map(Number),
+        ...Object.keys(effectiveKey).map(Number),
         ...Object.keys(answers).map(Number),
+        ...Array.from({ length: qCount || 30 }, (_, i) => i + 1),
       ]);
       const graded_ = [...allNumbers]
         .filter((n) => n >= 1)
         .sort((a, b) => a - b)
         .map((number) => {
-          const correctAnswer = answerKey[number] ?? null;
+          const correctAnswer = effectiveKey[number] ?? null;
           const userAnswer = answers[number] ?? null;
           const topicalQ = matchedTopical?.questions.find((q) => q.number === number);
           const stemText =
@@ -1518,17 +1595,41 @@ function fillMissingQuestionPages(
   /* ---------------- render ---------------- */
 
   const answeredCount = Object.keys(answers).length;
-  // Full ordered list of question numbers, straight off the mark scheme —
-  // this is what the answer side panel renders, one row per question,
-  // regardless of where (or how reliably) that question landed on the
-  // page image.
-  const questionNumbers = useMemo(
-    () =>
-      Object.keys(answerKey)
-        .map(Number)
-        .sort((a, b) => a - b),
-    [answerKey],
-  );
+  // Full ordered list of question numbers — renders one row per question.
+  // Guaranteed fallback ensures questions 1..qCount (default 30) ALWAYS render, so students can
+  // answer questions immediately even if the mark scheme is still resolving.
+  const questionNumbers = useMemo(() => {
+    const fromAnswerKey = Object.keys(answerKey)
+      .map(Number)
+      .filter((n) => Number.isFinite(n) && n >= 1)
+      .sort((a, b) => a - b);
+    if (fromAnswerKey.length > 0) return fromAnswerKey;
+
+    const fromAnswers = Object.keys(answers)
+      .map(Number)
+      .filter((n) => Number.isFinite(n) && n >= 1)
+      .sort((a, b) => a - b);
+
+    const fromStems = stemBlobs
+      .map((s) => s.number)
+      .filter((n) => Number.isFinite(n) && n >= 1)
+      .sort((a, b) => a - b);
+
+    const fromPages = Object.keys(questionPages)
+      .map(Number)
+      .filter((n) => Number.isFinite(n) && n >= 1)
+      .sort((a, b) => a - b);
+
+    const count = Math.max(
+      qCount,
+      fromAnswers.length > 0 ? Math.max(...fromAnswers) : 0,
+      fromStems.length > 0 ? Math.max(...fromStems) : 0,
+      fromPages.length > 0 ? Math.max(...fromPages) : 0,
+      30,
+    );
+
+    return Array.from({ length: count }, (_, i) => i + 1);
+  }, [answerKey, answers, stemBlobs, questionPages, qCount]);
 
   function leavePractice() {
     if (isExamFullscreenActive() || examModeActive) {
@@ -2836,15 +2937,16 @@ function AnswerSidePanel({
   const [filter, setFilter] = useState<"all" | "flagged" | "unanswered">("all");
   const [showGrid, setShowGrid] = useState(false);
 
-  if (numbers.length === 0) {
-    return <p className="text-xs text-muted-foreground">No questions loaded.</p>;
-  }
+  const effectiveNumbers = useMemo(() => {
+    if (numbers && numbers.length > 0) return numbers;
+    return Array.from({ length: 30 }, (_, i) => i + 1);
+  }, [numbers]);
 
-  const answeredCount = numbers.filter((n) => !!answers[n]).length;
-  const flaggedCount = numbers.filter((n) => flagged.has(n)).length;
-  const unansweredCount = numbers.length - answeredCount;
+  const answeredCount = effectiveNumbers.filter((n) => !!answers[n]).length;
+  const flaggedCount = effectiveNumbers.filter((n) => flagged.has(n)).length;
+  const unansweredCount = effectiveNumbers.length - answeredCount;
 
-  const filteredNumbers = numbers.filter((n) => {
+  const filteredNumbers = effectiveNumbers.filter((n) => {
     if (filter === "flagged") return flagged.has(n);
     if (filter === "unanswered") return !answers[n];
     return true;
@@ -2856,7 +2958,7 @@ function AnswerSidePanel({
       <div className="space-y-2 pb-2 border-b border-border/60">
         <div className="flex items-center justify-between">
           <span className="text-xs font-semibold tracking-tight text-foreground">
-            Questions ({answeredCount}/{numbers.length})
+            Questions ({answeredCount}/{effectiveNumbers.length})
           </span>
           <div className="flex items-center gap-1.5">
             {!graded && saveStatus ? (
@@ -2902,7 +3004,7 @@ function AnswerSidePanel({
               </span>
             </div>
             <div className="grid grid-cols-6 gap-1">
-              {numbers.map((n) => {
+              {effectiveNumbers.map((n) => {
                 const isAnswered = !!answers[n];
                 const isFlagged = flagged.has(n);
                 const isCurrent = activeQuestion === n || highlightNumber === n;
@@ -2951,7 +3053,7 @@ function AnswerSidePanel({
                 : "bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground"
             )}
           >
-            All ({numbers.length})
+            All ({effectiveNumbers.length})
           </button>
           <button
             type="button"
@@ -2994,7 +3096,7 @@ function AnswerSidePanel({
           ) : filter === "unanswered" ? (
             <div className="space-y-1">
               <p className="font-medium text-foreground">All answered!</p>
-              <p>You have answered all {numbers.length} questions in this paper.</p>
+              <p>You have answered all {effectiveNumbers.length} questions in this paper.</p>
             </div>
           ) : (
             <p>No questions found.</p>
