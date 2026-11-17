@@ -274,46 +274,47 @@ ${actionableFeedback.map((f, i) => `${i + 1}. ${stripStars(f)}`).join("\n")}`;
       )}
 
       {/* Hero Score Card */}
-      <div className={cn("panel relative overflow-hidden rounded-2xl p-5 sm:p-6 transition-all shadow-md", theme.card)}>
+      <div className={cn("panel relative overflow-hidden rounded-2xl p-5 sm:p-6 transition-all shadow-md backdrop-blur-xs", theme.card)}>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           {/* Main Score Display */}
           <div className="flex items-center gap-4">
-            <div className="flex flex-col items-center justify-center min-w-[90px] sm:min-w-[105px] py-2 px-3 rounded-xl bg-background/80 border border-border/80 shadow-inner">
-              <div className="flex items-baseline gap-0.5">
-                <span className="text-4xl sm:text-5xl font-extrabold tracking-tight tabular-nums bg-gradient-to-b from-foreground to-foreground/80 bg-clip-text text-transparent">
+            <div className="flex flex-col items-center justify-center min-w-[95px] sm:min-w-[115px] py-2.5 px-3.5 rounded-2xl bg-background/90 border border-border/80 shadow-inner">
+              <div className="flex items-baseline gap-1">
+                <span className="text-4xl sm:text-5xl font-black tracking-tight tabular-nums bg-gradient-to-b from-foreground via-foreground to-foreground/80 bg-clip-text text-transparent">
                   {grading.total_mark}
                 </span>
-                <span className="text-lg sm:text-xl font-bold text-muted-foreground">/{grading.max_mark}</span>
+                <span className="text-xl sm:text-2xl font-bold text-muted-foreground/75">/{grading.max_mark}</span>
               </div>
-              <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mt-0.5">
                 Overall Mark
               </span>
             </div>
 
-            <div className="space-y-1.5 min-w-0">
+            <div className="space-y-2 min-w-0">
               <div className="flex flex-wrap items-center gap-1.5">
-                <Badge variant="outline" className={cn("px-2.5 py-0.5 text-xs", theme.badge)}>
-                  <Award className="size-3 mr-1" />
+                <Badge variant="outline" className={cn("px-2.5 py-0.5 text-xs font-bold shadow-xs", theme.badge)}>
+                  <Award className="size-3.5 mr-1" />
                   {resolvedBand}
                 </Badge>
-                <Badge variant="outline" className="border-border/80 bg-background/60 text-foreground/80 text-[11px] font-medium">
+                <Badge variant="outline" className="border-border/80 bg-background/80 text-foreground/90 text-[11px] font-semibold px-2 py-0.5">
                   {theme.grade}
                 </Badge>
               </div>
 
-              <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground pt-0.5">
+              <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                 {grading.audited && (
-                  <span className="flex items-center gap-1 text-primary font-medium text-[11px]">
-                    <ShieldCheck className="size-3.5" /> Dual-Pass Audited
+                  <span className="inline-flex items-center gap-1 text-primary font-medium text-[11px] bg-primary/10 px-2 py-0.5 rounded-full border border-primary/20">
+                    <ShieldCheck className="size-3" /> Dual-Pass Audited
                   </span>
                 )}
                 {Boolean(grading.latencyMs) && (
-                  <span className="flex items-center gap-1 font-mono text-[11px]">
+                  <span className="inline-flex items-center gap-1 font-mono text-[11px] bg-muted/50 px-2 py-0.5 rounded-full border border-border/60">
                     <Clock className="size-3" /> Graded in {Math.round(grading.latencyMs! / 1000)}s
                   </span>
                 )}
-                <span className="font-medium text-[11px] tabular-nums">
-                  {Math.round(grading.confidence * 100)}% examiner confidence
+                <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground/90 font-medium">
+                  <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  <span className="tabular-nums">{Math.round(grading.confidence * 100)}%</span> examiner confidence
                 </span>
               </div>
             </div>
@@ -326,7 +327,7 @@ ${actionableFeedback.map((f, i) => `${i + 1}. ${stripStars(f)}`).join("\n")}`;
               variant="outline"
               size="sm"
               onClick={handleCopySummary}
-              className="w-full sm:w-auto h-8 gap-1.5 text-xs bg-background/60 hover:bg-background border-border/80 shadow-2xs"
+              className="w-full sm:w-auto h-8 gap-1.5 text-xs bg-background/80 hover:bg-background border-border/80 shadow-2xs font-medium"
             >
               {copied ? <Check className="size-3.5 text-emerald-500" /> : <Copy className="size-3.5 text-muted-foreground" />}
               {copied ? "Copied" : "Copy Grade"}
@@ -337,14 +338,14 @@ ${actionableFeedback.map((f, i) => `${i + 1}. ${stripStars(f)}`).join("\n")}`;
         {/* Overall Percentage Progress Bar */}
         <div className="mt-4 pt-3.5 border-t border-border/60 space-y-1.5">
           <div className="flex justify-between items-center text-xs">
-            <span className="font-medium text-muted-foreground flex items-center gap-1.5">
+            <span className="font-semibold text-foreground/90 flex items-center gap-1.5">
               <Sparkles className="size-3.5 text-primary" /> Cambridge 9708 Weighted Achievement
             </span>
             <span className="font-bold tabular-nums text-foreground">{Math.round(percent)}%</span>
           </div>
-          <div className="h-2.5 w-full overflow-hidden rounded-full bg-background/80 p-0.5 border border-border/50">
+          <div className="h-2.5 w-full overflow-hidden rounded-full bg-background/90 p-0.5 border border-border/60 shadow-inner">
             <div
-              className={cn("h-full rounded-full bg-gradient-to-r transition-all duration-700 ease-out", theme.progress)}
+              className={cn("h-full rounded-full bg-gradient-to-r transition-all duration-700 ease-out shadow-xs", theme.progress)}
               style={{ width: `${Math.max(4, Math.min(100, percent))}%` }}
             />
           </div>
@@ -362,15 +363,15 @@ ${actionableFeedback.map((f, i) => `${i + 1}. ${stripStars(f)}`).join("\n")}`;
           return (
             <div
               key={meta.key}
-              className={cn("panel relative p-3.5 sm:p-4 rounded-xl border transition-all flex flex-col justify-between", meta.border, meta.bg)}
+              className={cn("panel relative p-4 rounded-2xl border transition-all flex flex-col justify-between shadow-xs", meta.border, meta.bg)}
             >
               <div>
-                <div className="flex items-center justify-between gap-1.5 mb-1.5">
+                <div className="flex items-center justify-between gap-1.5 mb-2">
                   <div className="flex items-center gap-1.5 min-w-0">
-                    <Icon className={cn("size-3.5 shrink-0", meta.text)} />
-                    <span className="text-xs font-semibold text-foreground truncate">{meta.shortLabel}</span>
+                    <Icon className={cn("size-4 shrink-0", meta.text)} />
+                    <span className="text-xs font-bold text-foreground truncate">{meta.shortLabel}</span>
                   </div>
-                  <span className={cn("text-sm font-bold tabular-nums px-2 py-0.5 rounded-md bg-background/80 border border-border/60", meta.text)}>
+                  <span className={cn("text-xs font-black tabular-nums px-2 py-0.5 rounded-md bg-background/90 border border-border/70 shadow-2xs", meta.text)}>
                     {score.out_of === 0 ? "Not Required" : `${score.awarded}/${score.out_of}`}
                   </span>
                 </div>
@@ -382,7 +383,7 @@ ${actionableFeedback.map((f, i) => `${i + 1}. ${stripStars(f)}`).join("\n")}`;
                       style={{ width: `${score.out_of === 0 ? 100 : Math.max(2, width)}%` }}
                     />
                   </div>
-                  <span className="text-[10.5px] font-medium text-muted-foreground block">
+                  <span className="text-[10.5px] font-semibold text-muted-foreground block">
                     {levelText}
                   </span>
                 </div>
@@ -397,14 +398,14 @@ ${actionableFeedback.map((f, i) => `${i + 1}. ${stripStars(f)}`).join("\n")}`;
       </div>
 
       {/* Examiner Summary */}
-      <div className="panel p-4 sm:p-5 rounded-xl border-border/80 shadow-xs space-y-2">
+      <div className="panel p-4 sm:p-5 rounded-2xl border-l-4 border-l-primary border-border/80 bg-card/90 shadow-xs space-y-2">
         <div className="flex items-center gap-2">
           <Badge variant="outline" className="text-[10px] uppercase tracking-wider font-semibold border-primary/30 bg-primary/10 text-primary">
             Official Appraisal
           </Badge>
-          <h3 className="text-xs sm:text-sm font-semibold text-foreground">Examiner Summary</h3>
+          <h3 className="text-xs sm:text-sm font-bold text-foreground">Examiner Summary</h3>
         </div>
-        <p className="text-xs sm:text-sm leading-relaxed text-muted-foreground">
+        <p className="text-xs sm:text-sm leading-relaxed text-muted-foreground/95 font-sans">
           {summary}
         </p>
       </div>
@@ -553,44 +554,44 @@ function PointList({
   return (
     <div
       className={cn(
-        "panel p-3.5 sm:p-5 rounded-xl border space-y-3",
+        "panel p-4 sm:p-5 rounded-2xl border space-y-3.5 shadow-xs transition-all",
         isGood
-          ? "border-emerald-500/30 bg-emerald-500/[0.02]"
+          ? "border-emerald-500/30 bg-emerald-500/[0.03] dark:bg-emerald-950/10"
           : isNeutral
-            ? "border-primary/30 bg-primary/[0.02]"
-            : "border-rose-500/30 bg-rose-500/[0.02]"
+            ? "border-primary/30 bg-primary/[0.03] dark:bg-primary-950/10"
+            : "border-rose-500/30 bg-rose-500/[0.03] dark:bg-rose-950/10"
       )}
     >
-      <div className="flex items-center justify-between">
-        <h3 className="text-xs sm:text-sm font-semibold text-foreground flex items-center gap-1.5">
-          <Icon
-            className={cn(
-              "size-3.5",
-              isGood ? "text-emerald-400" : isNeutral ? "text-primary" : "text-rose-400"
-            )}
-          />
+      <div className="flex items-center justify-between border-b border-border/50 pb-2.5">
+        <h3 className="text-xs sm:text-sm font-bold text-foreground flex items-center gap-2">
+          <span className={cn(
+            "p-1 rounded-md",
+            isGood ? "bg-emerald-500/10 text-emerald-400" : isNeutral ? "bg-primary/10 text-primary" : "bg-rose-500/10 text-rose-400"
+          )}>
+            <Icon className="size-3.5" />
+          </span>
           {title}
         </h3>
         <Badge
           variant="outline"
           className={cn(
-            "text-[10px] font-mono",
+            "text-[10px] font-mono px-2 py-0.5 rounded-full font-semibold",
             isGood
-              ? "border-emerald-500/30 text-emerald-400"
+              ? "border-emerald-500/30 text-emerald-400 bg-emerald-500/5"
               : isNeutral
-                ? "border-primary/30 text-primary"
-                : "border-rose-500/30 text-rose-400"
+                ? "border-primary/30 text-primary bg-primary/5"
+                : "border-rose-500/30 text-rose-400 bg-rose-500/5"
           )}
         >
           {items.length} {items.length === 1 ? "point" : "points"}
         </Badge>
       </div>
-      <ul className="space-y-2">
+      <ul className="space-y-2.5">
         {items.map((item, index) => (
-          <li key={index} className="flex items-start gap-2 text-xs sm:text-sm leading-relaxed text-muted-foreground">
+          <li key={index} className="flex items-start gap-2.5 text-xs sm:text-sm leading-relaxed text-muted-foreground/95">
             <span
               className={cn(
-                "mt-1 size-1.5 rounded-full shrink-0",
+                "mt-1.5 size-1.5 rounded-full shrink-0",
                 isGood ? "bg-emerald-500" : isNeutral ? "bg-primary" : "bg-rose-500"
               )}
             />

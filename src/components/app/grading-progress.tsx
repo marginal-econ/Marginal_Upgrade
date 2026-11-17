@@ -56,19 +56,19 @@ const DEFAULT_STAGE_DETAILS: Record<number, { title: string; bullets: string[] }
 
 const LIVE_BACKEND_OPERATIONS = [
   { atSec: 0, title: "Query Ingestion & Vector Retrieval", detail: "Querying Supabase pgvector across official 9708 mark schemes and coursebooks..." },
-  { atSec: 6, title: "Syllabus Grounding & Level Descriptors", detail: "Grounding criteria against official Cambridge level descriptors and past exam benchmarks..." },
-  { atSec: 14, title: "Dual Examiner Execution (Pass 1 & Pass 2)", detail: "Simultaneously running Pass 1 (0.0 error audit) and Pass 2 (0.2 holistic Cambridge assessment)..." },
-  { atSec: 24, title: "AO1 Knowledge & Relevance Verification", detail: "Verifying precision of economic terms and checking topical relevance (unrelated essays receive 0)..." },
-  { atSec: 32, title: "AO2 Analytical Transmission & Application Audit", detail: "Tracing causal chains; rewarding detailed real-world applications and rejecting weak one-liners..." },
-  { atSec: 40, title: "AO3 Multi-Perspective Evaluation Weighing", detail: "Testing short-run vs long-run trade-offs, stakeholder impacts, and justified conclusions without caps..." },
-  { atSec: 48, title: "Principal Examiner Synthesis & Report Assembly", detail: "Concluding dual-examiner findings into authoritative marks, diagnostic feedback, and rewrite steps..." },
+  { atSec: 3, title: "Syllabus Grounding & Level Descriptors", detail: "Grounding criteria against official Cambridge level descriptors and past exam benchmarks..." },
+  { atSec: 7, title: "Dual Examiner Execution (Pass 1 & Pass 2)", detail: "Simultaneously running Pass 1 (0.0 error audit) and Pass 2 (0.2 holistic Cambridge assessment)..." },
+  { atSec: 12, title: "AO1 Knowledge & Relevance Verification", detail: "Verifying precision of economic terms and checking topical relevance (unrelated essays receive 0)..." },
+  { atSec: 16, title: "AO2 Analytical Transmission & Application Audit", detail: "Tracing causal chains; rewarding detailed real-world applications and rejecting weak one-liners..." },
+  { atSec: 20, title: "AO3 Multi-Perspective Evaluation Weighing", detail: "Testing short-run vs long-run trade-offs, stakeholder impacts, and justified conclusions without caps..." },
+  { atSec: 24, title: "Principal Examiner Synthesis & Report Assembly", detail: "Concluding dual-examiner findings into authoritative marks, diagnostic feedback, and rewrite steps..." },
 ];
 
 /**
- * Simulates staged progress calibrated to dual-examiner completion speeds (~45–60s).
+ * Simulates staged progress calibrated to optimized dual-examiner completion speeds (~22–28s).
  * Holds at 96% until the network request completes so it is never prematurely "done".
  */
-export function useStagedProgress(stages: ProgressStage[], active: boolean, totalMs = 48_000) {
+export function useStagedProgress(stages: ProgressStage[], active: boolean, totalMs = 25_000) {
   const [elapsed, setElapsed] = useState(0);
 
   useEffect(() => {
@@ -77,16 +77,18 @@ export function useStagedProgress(stages: ProgressStage[], active: boolean, tota
       return;
     }
     const startedAt = Date.now();
-    const interval = setInterval(() => setElapsed(Date.now() - startedAt), 120);
+    const interval = setInterval(() => setElapsed(Date.now() - startedAt), 100);
     return () => clearInterval(interval);
   }, [active]);
 
   const totalWeight = useMemo(() => stages.reduce((sum, s) => sum + s.weight, 0), [stages]);
 
-  // Smooth quadratic ease-out curve calibrated to ~45-60s duration.
-  const rawFraction = Math.min(1, elapsed / totalMs);
-  const eased = 1 - Math.pow(1 - rawFraction, 2);
-  const percent = Math.min(96, Math.round(eased * 96));
+  // Calibrated to real 22–28s dual-examiner completion speeds.
+  // Smooth asymptotic ease curve that moves responsively, reaching ~94-96% around 23-25s,
+  // and safely holds at 96% until the real network response completes.
+  const t = elapsed / totalMs;
+  const eased = 1 - Math.exp(-2.8 * t);
+  const percent = Math.min(96, Math.max(4, Math.round(eased * 102)));
 
   let cursor = 0;
   let stageIndex = 0;
@@ -106,7 +108,7 @@ export function useStagedProgress(stages: ProgressStage[], active: boolean, tota
 export function GradingProgress({
   stages,
   active,
-  totalMs = 48_000,
+  totalMs = 25_000,
 }: {
   stages: ProgressStage[];
   active: boolean;
@@ -154,12 +156,12 @@ export function GradingProgress({
         </div>
 
         <div className="flex flex-wrap items-center gap-2 shrink-0">
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary shadow-xs">
             <Clock className="size-3 text-primary shrink-0" />
-            <span>Est: ~45–60s</span>
+            <span>Est: ~22–28s</span>
           </span>
 
-          <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary tabular-nums">
+          <span className="rounded-full bg-primary/15 px-2.5 py-0.5 text-xs font-bold text-primary tabular-nums">
             {percent}%
           </span>
           <span className="rounded-full border border-border/80 px-2.5 py-0.5 text-xs text-muted-foreground tabular-nums font-mono">
@@ -206,7 +208,7 @@ export function GradingProgress({
       </div>
 
       {/* Extended evaluation notice */}
-      {elapsedSeconds >= 60 && (
+      {elapsedSeconds >= 35 && (
         <div className="flex items-center gap-2 text-[11.5px] text-primary font-medium bg-primary/10 border border-primary/20 rounded-md px-3 py-2 animate-in fade-in duration-300">
           <RotateCw className="size-3.5 shrink-0 animate-spin" />
           <span>Thorough Assessment In Progress: Principal examiner reconciling dual-pass evidence and synthesizing diagnostic report...</span>
@@ -299,7 +301,7 @@ export function GradingProgress({
             Free Community Access · Deep Cambridge 9708 Grounding Guarantee
           </p>
           <p className="text-[11px] leading-relaxed text-muted-foreground">
-            Estimated completion time: <strong>45–60 seconds</strong>. Dual-examiner parallel execution evaluates the script across theoretical precision, real-world application, and multi-perspective evaluation grounded in official Cambridge 9708 mark schemes.
+            Estimated completion time: <strong>22–28 seconds</strong>. Dual-examiner parallel execution evaluates the script across theoretical precision, real-world application, and multi-perspective evaluation grounded in official Cambridge 9708 mark schemes.
           </p>
         </div>
       </div>

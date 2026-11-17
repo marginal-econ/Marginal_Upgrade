@@ -1488,7 +1488,7 @@ function GradePage() {
                 { label: "Evaluating policy trade-offs, multi-perspective weighing & examples", weight: 3 },
                 { label: "Synthesizing diagnostic examiner report & actionable feedback", weight: 3 },
               ]}
-              totalMs={48_000}
+              totalMs={25_000}
             />
           ) : result ? (
             <div className="space-y-4">
