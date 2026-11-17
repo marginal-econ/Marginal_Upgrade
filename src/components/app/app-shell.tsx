@@ -1039,6 +1039,53 @@ export function AppShell({
                     <span>Profile & Settings</span>
                   </Link>
                 </DropdownMenuItem>
+
+                {/* Navigation Layout Switcher */}
+                <DropdownMenuSeparator className="my-1 border-border/60" />
+                <div className="px-2 py-1 text-[9.5px] font-bold text-muted-foreground uppercase tracking-wider">
+                  Navigation Layout
+                </div>
+                <div className="px-1.5 py-1 grid grid-cols-3 gap-1">
+                  <button
+                    type="button"
+                    onClick={() => handleLayoutChange("topbar")}
+                    className={cn(
+                      "flex flex-col items-center justify-center py-1.5 px-1 rounded-lg text-[10.5px] font-semibold transition-all cursor-pointer border",
+                      navLayout === "topbar"
+                        ? "bg-primary text-primary-foreground border-primary shadow-2xs font-bold"
+                        : "bg-muted/40 text-muted-foreground border-transparent hover:bg-muted/70 hover:text-foreground",
+                    )}
+                  >
+                    <PanelsTopBottom className="size-3.5 mb-0.5" />
+                    <span>Topbar</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleLayoutChange("sidebar")}
+                    className={cn(
+                      "flex flex-col items-center justify-center py-1.5 px-1 rounded-lg text-[10.5px] font-semibold transition-all cursor-pointer border",
+                      navLayout === "sidebar"
+                        ? "bg-primary text-primary-foreground border-primary shadow-2xs font-bold"
+                        : "bg-muted/40 text-muted-foreground border-transparent hover:bg-muted/70 hover:text-foreground",
+                    )}
+                  >
+                    <PanelLeft className="size-3.5 mb-0.5" />
+                    <span>Sidebar</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleLayoutChange("dock")}
+                    className={cn(
+                      "flex flex-col items-center justify-center py-1.5 px-1 rounded-lg text-[10.5px] font-semibold transition-all cursor-pointer border",
+                      navLayout === "dock"
+                        ? "bg-primary text-primary-foreground border-primary shadow-2xs font-bold"
+                        : "bg-muted/40 text-muted-foreground border-transparent hover:bg-muted/70 hover:text-foreground",
+                    )}
+                  >
+                    <Layers className="size-3.5 mb-0.5" />
+                    <span>Dock</span>
+                  </button>
+                </div>
                 <DropdownMenuItem
                   onClick={() => openTutorial()}
                   className="flex items-center gap-2 cursor-pointer text-xs"
@@ -1538,6 +1585,60 @@ export function AppShell({
                     <span>Profile &amp; Settings</span>
                   </Link>
                 </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => openTutorial()}
+                  className="flex items-center gap-2.5 px-2.5 py-2 text-xs rounded-lg cursor-pointer hover:bg-muted/70 text-foreground"
+                >
+                  <GraduationCap className="size-3.5 text-purple-500" />
+                  <span>Feature Tutorials</span>
+                </DropdownMenuItem>
+
+                {/* Navigation Layout Switcher */}
+                <DropdownMenuSeparator className="my-1 border-border/60" />
+                <div className="px-2 py-1 text-[9.5px] font-bold text-muted-foreground uppercase tracking-wider">
+                  Navigation Layout
+                </div>
+                <div className="px-1.5 py-1 grid grid-cols-3 gap-1">
+                  <button
+                    type="button"
+                    onClick={() => handleLayoutChange("topbar")}
+                    className={cn(
+                      "flex flex-col items-center justify-center py-1.5 px-1 rounded-lg text-[10.5px] font-semibold transition-all cursor-pointer border",
+                      navLayout === "topbar"
+                        ? "bg-primary text-primary-foreground border-primary shadow-2xs font-bold"
+                        : "bg-muted/40 text-muted-foreground border-transparent hover:bg-muted/70 hover:text-foreground",
+                    )}
+                  >
+                    <PanelsTopBottom className="size-3.5 mb-0.5" />
+                    <span>Topbar</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleLayoutChange("sidebar")}
+                    className={cn(
+                      "flex flex-col items-center justify-center py-1.5 px-1 rounded-lg text-[10.5px] font-semibold transition-all cursor-pointer border",
+                      navLayout === "sidebar"
+                        ? "bg-primary text-primary-foreground border-primary shadow-2xs font-bold"
+                        : "bg-muted/40 text-muted-foreground border-transparent hover:bg-muted/70 hover:text-foreground",
+                    )}
+                  >
+                    <PanelLeft className="size-3.5 mb-0.5" />
+                    <span>Sidebar</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleLayoutChange("dock")}
+                    className={cn(
+                      "flex flex-col items-center justify-center py-1.5 px-1 rounded-lg text-[10.5px] font-semibold transition-all cursor-pointer border",
+                      navLayout === "dock"
+                        ? "bg-primary text-primary-foreground border-primary shadow-2xs font-bold"
+                        : "bg-muted/40 text-muted-foreground border-transparent hover:bg-muted/70 hover:text-foreground",
+                    )}
+                  >
+                    <Layers className="size-3.5 mb-0.5" />
+                    <span>Dock</span>
+                  </button>
+                </div>
                 <DropdownMenuSeparator className="my-1 border-border/60" />
                 <div className="px-1 py-0.5">
                   <ThemeToggle variant="menu-item" />
@@ -1603,14 +1704,8 @@ export function AppShell({
                     />
                   </div>
                 </div>
-                <span className="text-base font-extrabold tracking-tight text-foreground transition-colors group-hover:text-primary flex items-center gap-2">
+                <span className="text-base font-extrabold tracking-tight text-foreground transition-colors group-hover:text-primary">
                   Marginal
-                  <Badge
-                    variant="outline"
-                    className="text-[10px] font-mono px-2 py-0.5 border-primary/30 text-primary bg-primary/10 font-bold tracking-wide shadow-2xs"
-                  >
-                    9708
-                  </Badge>
                 </span>
               </Link>
 
@@ -1863,34 +1958,21 @@ export function AppShell({
               </nav>
             </div>
 
-            {/* Right: Symmetrical Action Toolbar */}
-            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            {/* Right: Clean, Uncrowded Action Toolbar */}
+            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 ml-auto">
               {/* Search / Command Trigger */}
               <button
                 type="button"
                 onClick={() => setCommandOpen(true)}
-                className="flex items-center gap-1.5 xl:gap-2 h-8 rounded-lg border border-border/70 bg-muted/30 hover:bg-muted/60 hover:border-primary/40 px-2 xl:px-2.5 text-xs text-muted-foreground hover:text-foreground transition-all cursor-pointer shadow-2xs group w-28 lg:w-32 xl:w-44 2xl:w-52 shrink-0"
+                className="flex items-center gap-1.5 h-8 rounded-lg border border-border/70 bg-muted/30 hover:bg-muted/60 hover:border-primary/40 px-2 sm:px-2.5 text-xs text-muted-foreground hover:text-foreground transition-all cursor-pointer shadow-2xs group w-24 sm:w-28 xl:w-36 shrink-0"
                 title="Search Cambridge 9708 definitions, diagrams & tools (⌘K)"
               >
                 <SearchIcon className="size-3.5 text-primary group-hover:scale-110 transition-transform shrink-0" />
-                <span className="truncate text-muted-foreground/90 font-medium hidden 2xl:inline">Search or jump...</span>
-                <span className="truncate text-muted-foreground/90 font-medium 2xl:hidden">Search...</span>
-                <kbd className="pointer-events-none hidden sm:inline-flex h-4.5 select-none items-center gap-0.5 rounded border border-border/80 bg-background/90 px-1 font-mono text-[9px] font-medium text-muted-foreground ml-auto shadow-2xs shrink-0">
+                <span className="truncate text-muted-foreground/90 font-medium hidden sm:inline">Search...</span>
+                <kbd className="pointer-events-none hidden xl:inline-flex h-4.5 select-none items-center gap-0.5 rounded border border-border/80 bg-background/90 px-1 font-mono text-[9px] font-medium text-muted-foreground ml-auto shadow-2xs shrink-0">
                   ⌘K
                 </kbd>
               </button>
-
-              {/* Tutorials Quick Trigger */}
-              <TopTutorialButton
-                className="h-8 gap-1.5 px-2.5 rounded-lg border-purple-500/25 bg-purple-500/8 text-purple-700 dark:text-purple-300 hover:bg-purple-500/15 text-xs font-semibold shadow-2xs transition-all shrink-0 cursor-pointer"
-              />
-
-              {/* Layout Switcher */}
-              <LayoutSwitcherButton
-                navLayout={navLayout}
-                onChange={handleLayoutChange}
-                className="h-8 px-2.5 rounded-lg border-border/70 bg-card/60 hover:bg-muted/80 text-xs font-medium shrink-0"
-              />
 
               {/* Direct Messaging Portal */}
               {isUserAdmin ? (
@@ -1926,11 +2008,11 @@ export function AppShell({
                 trigger={
                   <button
                     type="button"
-                    className="flex items-center gap-1.5 h-8 px-2.5 rounded-lg border border-border/70 bg-card/60 hover:bg-muted/80 text-xs font-medium text-foreground transition-all shadow-2xs cursor-pointer group shrink-0"
+                    className="flex items-center gap-1.5 h-8 px-2 xl:px-2.5 rounded-lg border border-border/70 bg-card/60 hover:bg-muted/80 text-xs font-medium text-foreground transition-all shadow-2xs cursor-pointer group shrink-0"
                     title="Send feedback or report an issue"
                   >
                     <MessageSquarePlus className="size-3.5 text-primary group-hover:scale-105 transition-transform shrink-0" />
-                    <span className="hidden xl:inline">Feedback</span>
+                    <span className="hidden 2xl:inline">Feedback</span>
                   </button>
                 }
               />
@@ -1998,6 +2080,60 @@ export function AppShell({
                       <span>Profile &amp; Settings</span>
                     </Link>
                   </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => openTutorial()}
+                    className="flex items-center gap-2.5 px-2.5 py-2 text-xs rounded-lg cursor-pointer hover:bg-muted/70 text-foreground"
+                  >
+                    <GraduationCap className="size-3.5 text-purple-500" />
+                    <span>Feature Tutorials</span>
+                  </DropdownMenuItem>
+
+                  {/* Navigation Layout Switcher */}
+                  <DropdownMenuSeparator className="my-1 border-border/60" />
+                  <div className="px-2 py-1 text-[9.5px] font-bold text-muted-foreground uppercase tracking-wider">
+                    Navigation Layout
+                  </div>
+                  <div className="px-1.5 py-1 grid grid-cols-3 gap-1">
+                    <button
+                      type="button"
+                      onClick={() => handleLayoutChange("topbar")}
+                      className={cn(
+                        "flex flex-col items-center justify-center py-1.5 px-1 rounded-lg text-[10.5px] font-semibold transition-all cursor-pointer border",
+                        navLayout === "topbar"
+                          ? "bg-primary text-primary-foreground border-primary shadow-2xs font-bold"
+                          : "bg-muted/40 text-muted-foreground border-transparent hover:bg-muted/70 hover:text-foreground",
+                      )}
+                    >
+                      <PanelsTopBottom className="size-3.5 mb-0.5" />
+                      <span>Topbar</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleLayoutChange("sidebar")}
+                      className={cn(
+                        "flex flex-col items-center justify-center py-1.5 px-1 rounded-lg text-[10.5px] font-semibold transition-all cursor-pointer border",
+                        navLayout === "sidebar"
+                          ? "bg-primary text-primary-foreground border-primary shadow-2xs font-bold"
+                          : "bg-muted/40 text-muted-foreground border-transparent hover:bg-muted/70 hover:text-foreground",
+                      )}
+                    >
+                      <PanelLeft className="size-3.5 mb-0.5" />
+                      <span>Sidebar</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleLayoutChange("dock")}
+                      className={cn(
+                        "flex flex-col items-center justify-center py-1.5 px-1 rounded-lg text-[10.5px] font-semibold transition-all cursor-pointer border",
+                        navLayout === "dock"
+                          ? "bg-primary text-primary-foreground border-primary shadow-2xs font-bold"
+                          : "bg-muted/40 text-muted-foreground border-transparent hover:bg-muted/70 hover:text-foreground",
+                      )}
+                    >
+                      <Layers className="size-3.5 mb-0.5" />
+                      <span>Dock</span>
+                    </button>
+                  </div>
                   <DropdownMenuSeparator className="my-1 border-border/60" />
                   <div className="px-1 py-0.5">
                     <ThemeToggle variant="menu-item" />
@@ -2091,16 +2227,6 @@ export function AppShell({
                   ⌘K
                 </kbd>
               </button>
-
-              <TopTutorialButton
-                className="h-8 gap-1.5 px-2.5 rounded-lg border-purple-500/25 bg-purple-500/8 text-purple-700 dark:text-purple-300 hover:bg-purple-500/15 text-xs font-semibold shadow-2xs transition-all shrink-0 cursor-pointer"
-              />
-
-              <LayoutSwitcherButton
-                navLayout={navLayout}
-                onChange={handleLayoutChange}
-                className="h-8 px-2.5 rounded-lg border-border/70 bg-card/60 hover:bg-muted/80 text-xs font-medium shrink-0"
-              />
 
               {isUserAdmin ? (
                 <Link
