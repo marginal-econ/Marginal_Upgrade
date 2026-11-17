@@ -76,16 +76,16 @@ import { supabase } from "@/integrations/backend/client";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Marginal | AI Cambridge Economics (9708) Prep & Essay Examiner" },
+      { title: "Marginal | AI Cambridge AS & A Level Economics (9708) Prep & Essay Examiner" },
       {
         name: "description",
         content:
-          "Master Cambridge International AS & A Level Economics (9708) with Marginal. Features instant AI essay grading, live examiner feedback, and Paper 1 & Paper 3 MCQ practice.",
+          "Master Cambridge International AS & A Level Economics (9708) with Marginal. Features instant AI essay grading, live examiner feedback, and Paper 1, 2, 3 & 4 practice for both AS and A Level.",
       },
       {
         name: "keywords",
         content:
-          "9708 economics, Cambridge Economics 9708, Marginal AI, AS Level Economics, A Level Economics 9708 prep, parginal, parginal AI, marginal-econ, Marginal Cambridge Economics, 9708 economics prep, A Level Economics 9708",
+          "9708 economics, Cambridge Economics 9708, Marginal AI, AS Level Economics, A Level Economics 9708 prep, parginal, parginal AI, marginal-econ, Marginal Cambridge Economics, 9708 economics prep, A Level Economics 9708, AS and A level economics",
       },
       {
         property: "og:site_name",
@@ -93,11 +93,11 @@ export const Route = createFileRoute("/")({
       },
       {
         property: "og:title",
-        content: "Marginal | AI Cambridge Economics (9708) Prep",
+        content: "Marginal | Cambridge AS & A Level Economics (9708) Prep",
       },
       {
         property: "og:description",
-        content: "The complete Cambridge 9708 Economics mastery platform with AI essay grading and MCQ practice.",
+        content: "The complete Cambridge AS & A Level Economics (9708) mastery platform with AI essay grading and MCQ practice for Papers 1, 2, 3 & 4.",
       },
       {
         property: "og:url",
@@ -117,11 +117,11 @@ export const Route = createFileRoute("/")({
       },
       {
         name: "twitter:title",
-        content: "Marginal | AI Cambridge Economics (9708) Prep",
+        content: "Marginal | Cambridge AS & A Level Economics (9708) Prep",
       },
       {
         name: "twitter:description",
-        content: "The complete Cambridge 9708 Economics mastery platform with AI essay grading and MCQ practice.",
+        content: "The complete Cambridge AS & A Level Economics (9708) mastery platform with AI essay grading and MCQ practice for Papers 1, 2, 3 & 4.",
       },
       {
         name: "application-name",
@@ -205,6 +205,9 @@ export const Route = createFileRoute("/")({
 });
 
 const RIBBON_ITEMS = [
+  "Both AS & A Level",
+  "8m, 12m & 20m Essays",
+  "Papers 1, 2, 3 & 4",
   "Live Examiner",
   "Score Maximizer",
   "AO1 Knowledge",
@@ -350,6 +353,10 @@ const TRUST = [
 ];
 
 const FAQS = [
+  {
+    q: "Does Marginal support both Cambridge AS Level and A Level (A2)?",
+    a: "Yes, 100%. Marginal is purpose-built for both AS Level (Papers 1 & 2, including 8-mark and 12-mark essays and Section A data response) and A Level / A2 (Papers 3 & 4, including 20-mark evaluative essays and advanced micro/macro case studies). Every rubric and examiner model adapts specifically to the syllabus level you choose.",
+  },
   {
     q: "How does Marginal grade Cambridge 9708 essays?",
     a: "Marginal evaluates your essay against official Cambridge mark schemes and examiner reports, breaking your score into AO1 (Knowledge), AO2 (Analysis), and AO3 (Evaluation) assessment objectives with sentence-by-sentence feedback.",
@@ -535,6 +542,10 @@ function Index() {
                   <Sparkles className="size-3.5 text-primary animate-pulse" />
                   Cambridge 9708 Examiner Calibration
                 </span>
+                <span className="rounded-full bg-purple-500/15 border border-purple-500/30 px-2.5 py-0.5 text-[10.5px] font-mono font-bold text-purple-700 dark:text-purple-300 flex items-center gap-1.5 shadow-2xs">
+                  <GraduationCap className="size-3 text-purple-500" />
+                  Both AS &amp; A Level (Papers 1, 2, 3 &amp; 4)
+                </span>
                 <span className="rounded-full bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-0.5 text-[10.5px] font-mono font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5 shadow-2xs">
                   <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
                   <Users className="size-3 text-emerald-500" />
@@ -548,12 +559,12 @@ function Index() {
                 Marginal AI —{" "}
                 <span className="relative inline-block mt-1 sm:mt-1.5 px-2.5 sm:px-3 py-1 rounded-xl bg-purple-950/60 dark:bg-purple-950/70 border border-purple-500/40 text-amber-300 shadow-[0_0_20px_rgba(168,85,247,0.25)] backdrop-blur-md max-w-full">
                   <span className="bg-gradient-to-r from-amber-300 via-yellow-200 to-amber-400 bg-clip-text text-transparent font-black tracking-tight break-words">
-                    The Cambridge Economics Platform
+                    The Cambridge AS &amp; A Level Platform
                   </span>
                 </span>
               </h1>
               <h2 className="mt-3 text-base sm:text-xl md:text-2xl font-semibold text-primary">
-                Master AS & A Level Economics (9708) with AI Grading
+                Engineered for Both Cambridge AS &amp; A Level Economics (9708)
               </h2>
             </Reveal>
 
@@ -588,6 +599,34 @@ function Index() {
                 <div className="rounded-xl border border-amber-500/25 bg-card/70 p-2 sm:p-3 text-center backdrop-blur-md shadow-xs hover:border-amber-500/50 transition-colors">
                   <span className="text-base min-[380px]:text-xl sm:text-2xl font-black text-foreground tracking-tight block">Unlimited</span>
                   <span className="text-[9.5px] sm:text-[11px] text-muted-foreground font-semibold leading-tight block mt-0.5">Essay Gradings</span>
+                </div>
+              </div>
+            </Reveal>
+
+            {/* AS & A Level Syllabus Scope Breakdown */}
+            <Reveal delay={165}>
+              <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-w-xl">
+                <div className="rounded-xl border border-border/80 bg-card/60 p-2.5 backdrop-blur-xs flex items-start gap-2.5 text-left">
+                  <span className="rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-600 dark:text-blue-400 font-mono text-[10px] font-black px-1.5 py-0.5 shrink-0 mt-0.5">
+                    AS LEVEL
+                  </span>
+                  <div className="text-xs">
+                    <p className="font-bold text-foreground">Papers 1 &amp; 2</p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                      Paper 1 MCQs · Paper 2 Data Response &amp; 8m/12m Essays
+                    </p>
+                  </div>
+                </div>
+                <div className="rounded-xl border border-border/80 bg-card/60 p-2.5 backdrop-blur-xs flex items-start gap-2.5 text-left">
+                  <span className="rounded-lg bg-purple-500/10 border border-purple-500/20 text-purple-600 dark:text-purple-400 font-mono text-[10px] font-black px-1.5 py-0.5 shrink-0 mt-0.5">
+                    A LEVEL (A2)
+                  </span>
+                  <div className="text-xs">
+                    <p className="font-bold text-foreground">Papers 3 &amp; 4</p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                      Paper 3 MCQs · Paper 4 Case Studies &amp; 20m Evaluative Essays
+                    </p>
+                  </div>
                 </div>
               </div>
             </Reveal>
@@ -1285,6 +1324,9 @@ function Wordmark({ muted = false }: { muted?: boolean }) {
         <span className="text-[10px] font-mono font-bold tracking-tight px-1.5 py-0.5 rounded-md bg-purple-500/15 text-purple-600 dark:text-purple-300 border border-purple-500/30">
           AI
         </span>
+        <span className="hidden min-[440px]:inline-flex text-[9.5px] font-mono font-semibold px-1.5 py-0.5 rounded bg-muted/80 text-muted-foreground border border-border/60">
+          AS &amp; A Level
+        </span>
       </span>
     </span>
   );
@@ -1311,8 +1353,8 @@ function MinimalistHome({
           <Link to="/" className="flex items-center gap-2 font-bold text-base text-foreground no-underline">
             <img src="/marginal-m-icon-clean.png" alt="Marginal" className="size-7 object-contain" />
             <span>Marginal AI</span>
-            <span className="text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
-              9708
+            <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/30">
+              AS &amp; A Level
             </span>
           </Link>
 
@@ -1368,12 +1410,24 @@ function MinimalistHome({
           <div className="inline-flex items-center gap-2 text-xs font-mono font-bold uppercase tracking-wider text-primary">
             <span>Cambridge International AS &amp; A Level Economics</span>
             <span>·</span>
-            <span className="text-muted-foreground">Code 9708</span>
+            <span className="text-muted-foreground">Code 9708 · Papers 1, 2, 3 &amp; 4</span>
           </div>
 
           <h1 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight text-foreground">
-            Master Cambridge 9708 Economics.
+            Master Cambridge AS &amp; A Level Economics.
           </h1>
+
+          <div className="flex flex-wrap items-center gap-2 pt-1">
+            <span className="rounded-md border border-blue-500/30 bg-blue-500/10 px-2 py-0.5 text-xs font-mono font-bold text-blue-600 dark:text-blue-400">
+              AS Level: Papers 1 &amp; 2
+            </span>
+            <span className="rounded-md border border-purple-500/30 bg-purple-500/10 px-2 py-0.5 text-xs font-mono font-bold text-purple-600 dark:text-purple-400">
+              A Level: Papers 3 &amp; 4
+            </span>
+            <span className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-xs font-mono font-bold text-emerald-600 dark:text-emerald-400">
+              8m, 12m &amp; 20m Essays
+            </span>
+          </div>
 
           <p className="max-w-2xl text-base sm:text-lg text-muted-foreground leading-relaxed">
             {settings.heroDescription ||

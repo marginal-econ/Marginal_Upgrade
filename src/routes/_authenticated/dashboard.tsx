@@ -401,6 +401,11 @@ export function DashboardPage() {
                 </Button>
               )}
               <Button asChild variant="outline" size="sm">
+                <Link to="/review">
+                  <ClipboardCheck className="size-3.5 text-primary" /> Diagnostics &amp; Review
+                </Link>
+              </Button>
+              <Button asChild variant="outline" size="sm">
                 <Link to="/mcq-live">
                   <ListChecks className="size-3.5 text-primary" /> MCQ Past Papers
                 </Link>

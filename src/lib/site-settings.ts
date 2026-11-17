@@ -1,8 +1,8 @@
 export const DEFAULT_SETTINGS = {
   heroTitle: "Marginal AI —",
-  heroHighlight: "The Cambridge Economics Platform",
+  heroHighlight: "The Cambridge AS & A Level Platform",
   heroDescription:
-    "Marginal AI is the complete Cambridge 9708 Economics mastery platform with AI Essay Grading, Live Examiner, and Paper 1 & 3 MCQ practice.",
+    "Marginal AI is the complete Cambridge 9708 Economics mastery platform engineered specifically for both AS Level (Papers 1 & 2) and A Level (Papers 3 & 4) — featuring instant AI Essay Grading, Live Examiner, Data Response, and past paper MCQ drills.",
   heroNotice:
     "Start immediately with unlimited essay evaluations and full past paper MCQ drills. Instant AO1/AO2/AO3 breakdowns, syllabus citations, and line-by-line mark scheme matching.",
   joinTitle: "Master Cambridge 9708 Economics.",

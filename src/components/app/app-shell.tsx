@@ -257,6 +257,7 @@ const NAV_GROUPS: NavGroup[] = [
     collapsible: true,
     items: [
       { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+      { to: "/review", label: "Diagnostics & Review", icon: ClipboardCheck, badge: "Analytics" },
       { to: "/grade", label: "Grade Essays", icon: PenLine, badge: "AI Grader" },
       { to: "/mcq-live", label: "MCQ Past Papers", icon: ListChecks, badge: "P1 & P3" },
       {
@@ -275,6 +276,14 @@ const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
+    id: "classroom",
+    label: "Classroom",
+    collapsible: true,
+    items: [
+      { to: "/classes", label: "Classes", icon: UsersRound, badge: "Cohorts" },
+    ],
+  },
+  {
     id: "syllabus",
     label: "Syllabus Hub",
     collapsible: true,
@@ -285,15 +294,6 @@ const NAV_GROUPS: NavGroup[] = [
       { to: "/paper-matrix", label: "Paper Predictor", icon: Flame },
       { to: "/command-words", label: "Command Words", icon: Target },
       { to: "/showcase", label: "Exemplars Showcase", icon: Trophy },
-    ],
-  },
-  {
-    id: "classroom",
-    label: "Classroom & Progress",
-    collapsible: true,
-    items: [
-      { to: "/classes", label: "Classes", icon: UsersRound },
-      { to: "/review", label: "Diagnostics & Review", icon: ClipboardCheck },
     ],
   },
   {
@@ -316,6 +316,7 @@ const TEACHER_NAV_GROUPS: NavGroup[] = [
     collapsible: true,
     items: [
       { to: "/dashboard", label: "Educator Dashboard", icon: LayoutDashboard },
+      { to: "/review", label: "Diagnostics & Review", icon: ClipboardCheck, badge: "Analytics" },
       { to: "/grade", label: "Grade Essays", icon: PenLine, badge: "AI Grader" },
       { to: "/mcq-live", label: "MCQ Past Papers", icon: ListChecks, badge: "P1 & P3" },
       {
@@ -335,11 +336,10 @@ const TEACHER_NAV_GROUPS: NavGroup[] = [
   },
   {
     id: "classroom",
-    label: "Classroom & Progress",
+    label: "Classroom",
     collapsible: true,
     items: [
-      { to: "/classes", label: "My Classrooms", icon: UsersRound },
-      { to: "/review", label: "Diagnostics & Review", icon: ClipboardCheck },
+      { to: "/classes", label: "My Classrooms", icon: UsersRound, badge: "Cohorts" },
     ],
   },
   {
@@ -784,7 +784,12 @@ export function AppShell({
     [visibleGroups],
   );
   const isPracticeActive = useMemo(
-    () => Boolean(practiceGroup?.items.some((item) => isItemActive(item.to))),
+    () =>
+      Boolean(
+        practiceGroup?.items
+          .filter((item) => item.to !== "/dashboard" && item.to !== "/review")
+          .some((item) => isItemActive(item.to)),
+      ),
     [practiceGroup, pathname],
   );
   const isSyllabusActive = useMemo(
@@ -795,8 +800,7 @@ export function AppShell({
     () =>
       Boolean(
         classroomGroup?.items.some((item) => isItemActive(item.to)) ||
-          pathname.startsWith("/classes") ||
-          pathname.startsWith("/review"),
+          pathname.startsWith("/classes"),
       ),
     [classroomGroup, pathname],
   );
@@ -1573,6 +1577,21 @@ export function AppShell({
                   <span>Dashboard</span>
                 </Link>
 
+                {/* Diagnostics & Review: directly visible outside without dropdown */}
+                <Link
+                  to="/review"
+                  className={cn(
+                    "flex items-center gap-1.5 h-8 px-2.5 xl:px-3 rounded-lg text-xs font-medium whitespace-nowrap shrink-0 transition-all cursor-pointer",
+                    pathname.startsWith("/review")
+                      ? "bg-primary/10 text-primary font-semibold border border-primary/25 shadow-2xs"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted/70",
+                  )}
+                  title="Diagnostics, Assessment Objective Radar & Performance Review"
+                >
+                  <ClipboardCheck className="size-3.5 shrink-0 text-indigo-500" />
+                  <span>Diagnostics &amp; Review</span>
+                </Link>
+
                 {/* Exam Practice Dropdown */}
                 {practiceGroup && (
                   <DropdownMenu>
@@ -1596,10 +1615,10 @@ export function AppShell({
                         <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                           Cambridge 9708 Practice
                         </span>
-                        <span className="text-[9px] font-mono text-muted-foreground/80">AS & A2 Level</span>
+                        <span className="text-[9px] font-mono text-muted-foreground/80">AS &amp; A2 Level</span>
                       </div>
                       {practiceGroup.items
-                        .filter((item) => item.to !== "/dashboard")
+                        .filter((item) => item.to !== "/dashboard" && item.to !== "/review")
                         .map((item) => (
                         <DropdownMenuItem key={item.to} asChild className="p-0 mb-0.5">
                           <Link
@@ -1658,7 +1677,7 @@ export function AppShell({
                     <DropdownMenuContent align="start" className="w-72 p-1.5 z-50 bg-popover/95 backdrop-blur-xl border border-border/80 shadow-xl rounded-xl animate-in fade-in-0 zoom-in-95">
                       <div className="px-2.5 py-1.5 mb-1 border-b border-border/50 flex items-center justify-between">
                         <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                          Syllabus Hub & Knowledge
+                          Syllabus Hub &amp; Knowledge
                         </span>
                         <span className="text-[9px] font-mono text-muted-foreground/80">9708 Papers</span>
                       </div>
@@ -1694,73 +1713,20 @@ export function AppShell({
                   </DropdownMenu>
                 )}
 
-                {/* Classes & Progress */}
-                {classroomGroup && classroomGroup.items.length > 1 ? (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <button
-                        type="button"
-                        className={cn(
-                          "group flex items-center gap-1.5 h-8 px-2.5 xl:px-3 rounded-lg text-xs font-medium whitespace-nowrap shrink-0 transition-all cursor-pointer",
-                          isClassroomActive
-                            ? "bg-primary/10 text-primary font-semibold border border-primary/25 shadow-2xs"
-                            : "text-muted-foreground hover:text-foreground hover:bg-muted/70",
-                        )}
-                      >
-                        <UsersRound className="size-3.5 shrink-0 text-emerald-500" />
-                        <span>{classroomLabel}</span>
-                        <ChevronDown className="size-3 opacity-50 group-data-[state=open]:rotate-180 transition-transform duration-200 shrink-0" />
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start" className="w-64 p-1.5 z-50 bg-popover/95 backdrop-blur-xl border border-border/80 shadow-xl rounded-xl animate-in fade-in-0 zoom-in-95">
-                      <div className="px-2.5 py-1.5 mb-1 border-b border-border/50">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                          Classroom &amp; Progress
-                        </span>
-                      </div>
-                      {classroomGroup.items
-                        .filter((item) => item.to !== "/dashboard")
-                        .map((item) => (
-                        <DropdownMenuItem key={item.to} asChild className="p-0 mb-0.5">
-                          <Link
-                            to={item.to}
-                            className={cn(
-                              "flex items-center justify-between gap-2.5 px-2.5 py-2 text-xs rounded-lg cursor-pointer transition-all group",
-                              isItemActive(item.to)
-                                ? "bg-primary/10 text-primary font-semibold"
-                                : "hover:bg-muted/70 text-foreground",
-                            )}
-                          >
-                            <div className="flex items-center gap-2.5 min-w-0">
-                              <div className="size-6 rounded-md bg-emerald-500/10 flex items-center justify-center shrink-0">
-                                <item.icon className="size-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                              </div>
-                              <span className="truncate font-medium">{item.label}</span>
-                            </div>
-                            {item.badge && (
-                              <Badge variant="outline" className="text-[9px] px-1.5 py-0 shrink-0 font-mono">
-                                {item.badge}
-                              </Badge>
-                            )}
-                          </Link>
-                        </DropdownMenuItem>
-                      ))}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                ) : (
-                  <Link
-                    to="/classes"
-                    className={cn(
-                      "flex items-center gap-1.5 h-8 px-2.5 xl:px-3 rounded-lg text-xs font-medium whitespace-nowrap shrink-0 transition-all cursor-pointer",
-                      pathname.startsWith("/classes")
-                        ? "bg-primary/10 text-primary font-semibold border border-primary/25 shadow-2xs"
-                        : "text-muted-foreground hover:text-foreground hover:bg-muted/70",
-                    )}
-                  >
-                    <UsersRound className="size-3.5 shrink-0 text-emerald-500" />
-                    <span>{classroomLabel}</span>
-                  </Link>
-                )}
+                {/* Classroom: Standalone feature link directly visible */}
+                <Link
+                  to="/classes"
+                  className={cn(
+                    "flex items-center gap-1.5 h-8 px-2.5 xl:px-3 rounded-lg text-xs font-medium whitespace-nowrap shrink-0 transition-all cursor-pointer",
+                    pathname.startsWith("/classes")
+                      ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-semibold border border-emerald-500/25 shadow-2xs"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted/70",
+                  )}
+                  title="Classrooms, Cohorts &amp; Moderation"
+                >
+                  <UsersRound className="size-3.5 shrink-0 text-emerald-500" />
+                  <span>{classroomLabel}</span>
+                </Link>
 
                 {/* Admin Console Dropdown (if admin) */}
                 {isUserAdmin && adminGroup && (
