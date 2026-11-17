@@ -46,6 +46,7 @@ import {
 } from "./examiner-prompt";
 import { extractFirstJsonObject } from "./json";
 import { refineExaminerReport } from "./refine.server";
+import { cleanStars } from "@/lib/utils";
 import { bandFor, normaliseGrading, sanitizeALevelFeedbackText, type Grading, type GroundingSource } from "./types";
 import {
   analyzeEssayQuality,
@@ -64,13 +65,18 @@ function loadPrompt(template: string, values: Record<string, string | number>): 
 const RESPONSE_CONTRACT = `
 Return ONLY a single JSON object with exactly this shape:
 {
-  "total_mark": number,
-  "band": string,
+  "mechanism_validation": {
+    "core_mechanisms_sound": boolean,
+    "fatal_misconceptions_found": boolean,
+    "error_evidence_quotes": string[]
+  },
   "ao_breakdown": {
     "knowledge":  { "awarded": number, "out_of": number, "comment": string },
     "analysis":   { "awarded": number, "out_of": number, "comment": string },
     "evaluation": { "awarded": number, "out_of": number, "comment": string }
   },
+  "total_mark": number,
+  "band": string,
   "examiner_summary": string,
   "strengths": string[],
   "weaknesses": string[],
@@ -86,6 +92,11 @@ Return ONLY a single JSON object with exactly this shape:
   "suggested_practice": string[],
   "confidence": number
 }
+"mechanism_validation": verify causal transmission directionality before scoring.
+- "error_evidence_quotes": MUST contain exact verbatim quote(s) of any false economic claims. If essay is sound, keep empty [].
+- ANTI-HALLUCINATION: If there is no explicit verbatim error in the text, mark mechanisms as sound and award credit. Never invent errors.
+- If fatal_misconceptions_found is true, enforce Cambridge Level Ceilings (AO2 capped at Level 1, band Lower Middle or Bottom).
+- Strictly NO asterisks (* or **) in any feedback string.
 "confidence" is your own 0-1 confidence that a real Cambridge examiner would award the same total mark.
 "suggested_practice" must be concrete next tasks.
 Keep every comment specific to this essay's actual text — never generic advice.
@@ -377,32 +388,44 @@ export async function gradeEssay(
 
   let finalGrading: Grading;
 
-  if (runSinglePass) {
-    // Single pass path (used when audit is explicitly disabled)
-    const res = markSchemeImages.length
-      ? await visionChat({
+  // Resilient pass executor: attempts visionChat if markSchemeImages are present,
+  // but cleanly falls back to standard text chat if the active provider (e.g. Groq, OpenRouter)
+  // or keys do not support vision, ensuring essay grading never crashes.
+  const executeExaminerPass = async (systemPrompt: string, feature: string, temperature: number) => {
+    if (markSchemeImages.length) {
+      try {
+        return await visionChat({
           model: MODEL_EXAMINER,
-          systemPrompt: pass2SystemPrompt,
+          systemPrompt,
           prompt: userMessage,
           imageDataUrls: markSchemeImages,
           maxCompletionTokens: 8192,
           userId: options.userId,
-          feature: "grade_essay",
-        })
-      : await chat({
-          model: MODEL_EXAMINER,
-          temperature: TEMPERATURE_PASS2,
-          json: true,
-          isBudgetTier: options.isBudgetTier,
-          userId: options.userId,
-          feature: "grade_essay",
-          reasoningEffort: "low",
-          maxCompletionTokens: 8192,
-          messages: [
-            { role: "system", content: pass2SystemPrompt },
-            { role: "user", content: userMessage },
-          ],
+          feature,
         });
+      } catch (visionErr) {
+        console.warn(`[gradeEssay] visionChat failed or unsupported for ${feature}, falling back to text chat:`, visionErr);
+      }
+    }
+    return chat({
+      model: MODEL_EXAMINER,
+      temperature,
+      json: true,
+      isBudgetTier: options.isBudgetTier,
+      userId: options.userId,
+      feature,
+      reasoningEffort: "low",
+      maxCompletionTokens: 8192,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userMessage },
+      ],
+    });
+  };
+
+  if (runSinglePass) {
+    // Single pass path (used when audit is explicitly disabled)
+    const res = await executeExaminerPass(pass2SystemPrompt, "grade_essay", TEMPERATURE_PASS2);
 
     finalGrading = normaliseGrading(extractFirstJsonObject(res.text), maxMark, split, essayText);
     finalGrading = applyWritingQualityGuardrail(finalGrading, qualityAnalysis, maxMark, split);
@@ -424,54 +447,8 @@ export async function gradeEssay(
     // Pass 1: Temperature 0.0 (Analytical rigor & error checking)
     // Pass 2: Temperature 0.2 (Holistic evaluation & argument breadth)
     const [first, second] = await Promise.all([
-      markSchemeImages.length
-        ? visionChat({
-            model: MODEL_EXAMINER,
-            systemPrompt: pass1SystemPrompt,
-            prompt: userMessage,
-            imageDataUrls: markSchemeImages,
-            maxCompletionTokens: 8192,
-            userId: options.userId,
-          feature: "grade_essay_pass1_error_audit",
-          })
-        : chat({
-            model: MODEL_EXAMINER,
-            temperature: TEMPERATURE_PASS1, // 0.0
-            json: true,
-            isBudgetTier: options.isBudgetTier,
-            userId: options.userId,
-          feature: "grade_essay_pass1_error_audit",
-            reasoningEffort: "low",
-            maxCompletionTokens: 8192,
-            messages: [
-              { role: "system", content: pass1SystemPrompt },
-              { role: "user", content: userMessage },
-            ],
-          }),
-      markSchemeImages.length
-        ? visionChat({
-            model: MODEL_EXAMINER,
-            systemPrompt: pass2SystemPrompt,
-            prompt: userMessage,
-            imageDataUrls: markSchemeImages,
-            maxCompletionTokens: 8192,
-            userId: options.userId,
-          feature: "grade_essay_pass2_holistic",
-          })
-        : chat({
-            model: MODEL_EXAMINER,
-            temperature: TEMPERATURE_PASS2, // 0.2
-            json: true,
-            isBudgetTier: options.isBudgetTier,
-            userId: options.userId,
-          feature: "grade_essay_pass2_holistic",
-            reasoningEffort: "low",
-            maxCompletionTokens: 8192,
-            messages: [
-              { role: "system", content: pass2SystemPrompt },
-              { role: "user", content: userMessage },
-            ],
-          }),
+      executeExaminerPass(pass1SystemPrompt, "grade_essay_pass1_error_audit", TEMPERATURE_PASS1),
+      executeExaminerPass(pass2SystemPrompt, "grade_essay_pass2_holistic", TEMPERATURE_PASS2),
     ]);
 
     let grading1 = normaliseGrading(extractFirstJsonObject(first.text), maxMark, split, essayText);
@@ -580,6 +557,7 @@ export async function gradeEssay(
   finalGrading.activeKeyType = activeKeyType;
   const totalLatencyMs = Date.now() - startedAt;
   finalGrading.latencyMs = totalLatencyMs;
+  finalGrading = cleanStars(finalGrading);
 
   return {
     grading: finalGrading,

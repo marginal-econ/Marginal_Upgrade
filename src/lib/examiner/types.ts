@@ -919,7 +919,7 @@ export function normaliseGrading(
     missingExamples = missingExamples.map((ex) => verifyVerbatimQuotes(ex, essayText));
   }
 
-  return purgeContradictions(cleanStars({
+  return cleanStars(purgeContradictions({
     total_mark: total,
     max_mark: maxMark,
     band,

@@ -309,5 +309,136 @@ describe("Cambridge 9708 Writing Quality & Structural Calibration Engine", () =>
       expect(fixed.ao_breakdown.analysis.awarded).toBe(3);
       expect(fixed.total_mark).toBeLessThanOrEqual(7);
     });
+
+    it("preserves top marks when an essay correctly distinguishes productive from allocative efficiency without false deductions", () => {
+      const soundGrading: Grading = {
+        total_mark: 8,
+        max_mark: 8,
+        band: "Top Band",
+        ao_breakdown: {
+          knowledge: { awarded: 2, out_of: 2, comment: "Precise PPC definitions." },
+          analysis: { awarded: 4, out_of: 4, comment: "Accurately distinguishes productive efficiency on the curve from allocative efficiency which depends on consumer preferences." },
+          evaluation: { awarded: 2, out_of: 2, comment: "Reasoned conclusion." },
+        },
+        examiner_summary: "Sound essay with correct economics.",
+        strengths: [
+          "Correctly defines the PPC",
+          "Accurately distinguishes productive efficiency on the PPC from allocative efficiency",
+        ],
+        weaknesses: [],
+        missing_elements: {
+          definitions: [],
+          analysis: [],
+          evaluation: [],
+          examples: [],
+          diagrams: [],
+        },
+        actionable_feedback: [],
+        suggested_resources: [],
+        suggested_practice: [],
+        confidence: 0.95,
+      };
+
+      const result = applyWritingQualityGuardrail(soundGrading, mockHealthyQuality, 8, split8);
+
+      // Strength must NOT be stripped because economics is accurate
+      expect(result.strengths.some((s) => s.includes("distinguishes productive efficiency"))).toBe(true);
+      // Full AO2 marks preserved (4/4)
+      expect(result.ao_breakdown.analysis.awarded).toBe(4);
+      expect(result.total_mark).toBe(8);
+    });
+  });
+
+  describe("Economic Mechanics & Causal Integrity Failsafe", () => {
+    const split12 = { ao1_marks: 2, ao2_marks: 6, ao3_marks: 4 };
+    const mockHealthyQuality12 = {
+      wordCount: 520,
+      paragraphCount: 4,
+      boldingCount: 0,
+      latexCount: 0,
+      hasMarkdownBullets: false,
+      hasAiArtifacts: false,
+      isUndersized: false,
+      isSeverelyUndersized: false,
+      isMonolithicBlock: false,
+      targetRangeText: "500–750 words",
+      maxAllowableTotalMark: 12,
+      maxAllowableAo2: 6,
+      maxAllowableAo3: 4,
+      qualityIssues: [],
+    };
+
+    it("clamps an inflated 10/12 mark to Lower Middle Band when a fatal misconception / broken transmission chain is detected", () => {
+      const overgenerousFlawed: Grading = {
+        total_mark: 10,
+        max_mark: 12,
+        band: "Top Band",
+        ao_breakdown: {
+          knowledge: { awarded: 2, out_of: 2, comment: "Good vocabulary but inverted concepts." },
+          analysis: { awarded: 5, out_of: 6, comment: "Detailed attempt despite broken causal transmission." },
+          evaluation: { awarded: 3, out_of: 4, comment: "Evaluative comments present." },
+        },
+        examiner_summary: "The candidate writes extensively but has a fundamental misconception claiming that an increase in supply causes higher price.",
+        strengths: ["Fluently written prose"],
+        weaknesses: [
+          "Fatal economic error: inverted transmission chain claiming that an increase in supply causes higher price and that subsidies shift demand leftward.",
+        ],
+        missing_elements: {
+          definitions: [],
+          analysis: ["Correct transmission mechanism linking supply shifts to price reductions"],
+          evaluation: [],
+          examples: [],
+          diagrams: [],
+        },
+        actionable_feedback: ["Review basic supply and demand mechanics"],
+        suggested_resources: ["Cambridge 9708 Chapter 2"],
+        suggested_practice: ["Practice supply curve shifts"],
+        confidence: 0.9,
+      };
+
+      const clamped = applyWritingQualityGuardrail(overgenerousFlawed, mockHealthyQuality12, 12, split12);
+
+      // Clamped down from Top Band (10/12) to Lower Middle Band (<= 6/12)
+      expect(clamped.total_mark).toBeLessThanOrEqual(6);
+      expect(clamped.ao_breakdown.knowledge.awarded).toBeLessThanOrEqual(1);
+      expect(clamped.ao_breakdown.analysis.awarded).toBeLessThanOrEqual(2);
+      expect(clamped.band).toMatch(/(Lower Middle Band|Bottom Band)/);
+    });
+
+    it("strictly strips all markdown asterisks (* and **) from feedback fields", () => {
+      const gradingWithStars: Grading = {
+        total_mark: 11,
+        max_mark: 12,
+        band: "Top Band",
+        ao_breakdown: {
+          knowledge: { awarded: 2, out_of: 2, comment: "Strong **knowledge** of key terms." },
+          analysis: { awarded: 5, out_of: 6, comment: "Detailed *analysis* of mechanisms." },
+          evaluation: { awarded: 4, out_of: 4, comment: "Well-reasoned **conclusion**." },
+        },
+        examiner_summary: "A **distinguished** response demonstrating **excellent** economics.",
+        strengths: ["**Clear** understanding", "*Accurate* diagrams"],
+        weaknesses: ["Could deepen **short-run** vs *long-run* trade-offs."],
+        missing_elements: {
+          definitions: ["**Price elasticity**"],
+          analysis: [],
+          evaluation: [],
+          examples: [],
+          diagrams: [],
+        },
+        actionable_feedback: ["Deepen **transmission**."],
+        suggested_resources: ["**Chapter 1**"],
+        suggested_practice: ["Practice **essay**"],
+        confidence: 0.95,
+      };
+
+      const cleaned = applyWritingQualityGuardrail(gradingWithStars, mockHealthyQuality12, 12, split12);
+
+      expect(cleaned.examiner_summary).not.toContain("*");
+      expect(cleaned.ao_breakdown.knowledge.comment).not.toContain("*");
+      expect(cleaned.ao_breakdown.analysis.comment).not.toContain("*");
+      expect(cleaned.strengths.every((s) => !s.includes("*"))).toBe(true);
+      expect(cleaned.weaknesses.every((w) => !w.includes("*"))).toBe(true);
+      expect(cleaned.actionable_feedback.every((f) => !f.includes("*"))).toBe(true);
+    });
   });
 });

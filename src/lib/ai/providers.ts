@@ -25,11 +25,10 @@ export const AI_PROVIDERS = [
     baseUrl: "https://api.groq.com/openai/v1",
     keyHint: "gsk_...",
     models: [
-      "llama-3.1-8b-instant",
       "llama-3.3-70b-versatile",
-      "mixtral-8x7b-32768",
-      "qwen/qwen3.8-27b",
       "deepseek-r1-distill-llama-70b",
+      "llama-3.1-8b-instant",
+      "mixtral-8x7b-32768",
       "llama-3.2-11b-vision-preview",
     ],
     embeddingCapable: false,
@@ -165,11 +164,10 @@ export function getCandidateModels(provider: string, primaryModel?: string): str
 
   const fallbackMap: Record<string, string[]> = {
     groq: [
-      "llama-3.1-8b-instant",
       "llama-3.3-70b-versatile",
-      "mixtral-8x7b-32768",
-      "qwen/qwen3.8-27b",
       "deepseek-r1-distill-llama-70b",
+      "llama-3.1-8b-instant",
+      "mixtral-8x7b-32768",
       "llama-3.2-11b-vision-preview",
     ],
     xai: ["grok-beta", "grok-2-1212", "grok-2-vision-1212", "grok-vision-beta"],
@@ -177,9 +175,10 @@ export function getCandidateModels(provider: string, primaryModel?: string): str
       "meta-llama/llama-3.3-70b-instruct",
       "deepseek/deepseek-chat",
       "google/gemini-2.0-flash-001",
+      "deepseek/deepseek-r1",
+      "qwen/qwen-2.5-72b-instruct",
       "openai/gpt-4o-mini",
       "anthropic/claude-3.5-sonnet",
-      "deepseek/deepseek-r1",
     ],
     anthropic: [
       "claude-3-5-sonnet-20241022",
@@ -196,6 +195,18 @@ export function getCandidateModels(provider: string, primaryModel?: string): str
   for (const m of fallbacks) {
     if (!result.includes(m)) {
       result.push(m);
+    }
+  }
+
+  // If user selected a free-tier model on OpenRouter (:free), ensure free-tier fallbacks are available
+  if (provider === "openrouter" && primaryModel?.includes(":free")) {
+    const freeFallbacks = [
+      "meta-llama/llama-3.3-70b-instruct:free",
+      "deepseek/deepseek-r1:free",
+      "qwen/qwen-2.5-72b-instruct:free",
+    ];
+    for (const fm of freeFallbacks) {
+      if (!result.includes(fm)) result.push(fm);
     }
   }
 

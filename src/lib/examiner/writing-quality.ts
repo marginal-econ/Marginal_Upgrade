@@ -23,6 +23,7 @@
  *      remain uninhibited and receive full top-band marks on their merits.
  */
 
+import { cleanStars } from "@/lib/utils";
 import { bandFor, stripScoreFractionsFromText, type Grading } from "./types";
 import type { AoSplit } from "./config";
 
@@ -307,19 +308,33 @@ export function applyPpcMisconceptionGuardrail(
   grading: Grading,
   split: AoSplit,
 ): Grading {
-  const ppcConfusionRegex = /(?=.*(ppc|production possibility))(?=.*(allocative|pareto))/i;
   const allStrengths = grading.strengths || [];
-  const hadFalsePraise = allStrengths.some((s) => ppcConfusionRegex.test(s));
-  const filteredStrengths = allStrengths.filter((s) => !ppcConfusionRegex.test(s));
-
   const allWeaknesses = grading.weaknesses || [];
   const allComments = `${grading.ao_breakdown.analysis?.comment || ""} ${grading.ao_breakdown.evaluation?.comment || ""}`;
-  const hadPpcMention =
-    hadFalsePraise ||
-    ppcConfusionRegex.test(allComments) ||
-    /point\s+inside\s+(the\s+)?ppc.*allocative/i.test(allWeaknesses.join(" "));
+  const strengthsText = allStrengths.join(" ");
+  const weaknessesText = allWeaknesses.join(" ");
 
-  if (!hadFalsePraise && !hadPpcMention) {
+  // Explicit false praise: praising candidate for linking inside PPC to allocative/Pareto efficiency
+  const falsePraiseRegex = /(?:linking|connect|associat|treat)\w*\s+(?:a\s+)?point\s+inside\s+(?:the\s+)?ppc\s+(?:to|with|as)\s+(?:allocative|pareto)/i;
+  
+  // Safe recognition: candidate or examiner correctly distinguishes productive from allocative efficiency
+  const correctlyDistinguishes =
+    /(?:distinguish|distinguishes|differentiates?|contrasts?|correctly|accurately)\s+(?:productive\s+(?:and|from)\s+allocative|allocative\s+(?:and|from)\s+productive)/i.test(
+      `${strengthsText} ${allComments}`
+    );
+
+  const hadFalsePraise = !correctlyDistinguishes && allStrengths.some((s) => falsePraiseRegex.test(s));
+  const filteredStrengths = allStrengths.filter((s) => !falsePraiseRegex.test(s));
+
+  // Actual error: explicitly asserting inside PPC is allocative inefficiency, or weakness flagging actual confusion
+  const hasActualPpcConfusion =
+    !correctlyDistinguishes &&
+    (hadFalsePraise ||
+      /(?:point\s+inside|inside\s+(?:the\s+)?ppc)[^.]*?\b(?:allocativ|pareto)\s+inefficien/i.test(allComments) ||
+      /(?:confus(?:es?|ed|ing)|conflat(?:es?|ed|ing))\s+(?:productive\s+with\s+allocative|allocative\s+with\s+productive)/i.test(weaknessesText) ||
+      /point\s+inside\s+(the\s+)?ppc.*allocative/i.test(weaknessesText));
+
+  if (!hasActualPpcConfusion) {
     return grading;
   }
 
@@ -566,7 +581,7 @@ function applyStructuralCeilings(
 /**
  * Deterministic calibration failsafe: enforces Cambridge quality ceilings,
  * Chapter 5 PPC misconception checks, 8-mark evaluation 7/8 limits,
- * and economic mechanics / level consistency guardrails.
+ * and economic mechanics / causal integrity guardrails.
  */
 export function applyWritingQualityGuardrail(
   grading: Grading,
@@ -588,18 +603,89 @@ export function applyWritingQualityGuardrail(
   // 3. Authoritative 8-mark evaluative essay failsafe (keeps at 7 if evaluation criteria unmet or conclusion unsatisfied)
   result = applyEightMarkEvaluationGuardrail(result, maxMark, split);
 
-  return result;
+  // 4. Economic mechanics & causal integrity guardrail (ensures fatal misconceptions and broken causal chains are capped)
+  result = applyEconomicMechanicsGuardrail(result, maxMark, split, essayText);
+
+  // Clean stars and asterisks across all feedback fields
+  return cleanStars(result);
 }
 
 /**
- * Economic Mechanics Guardrail (Safe Failsafe):
- * Preserves qualitative examiner judgements without programmatic regex slashing of marks.
+ * Economic Mechanics & Causal Integrity Guardrail:
+ * Protects against 14B model leniency bias by enforcing Cambridge Level Ceilings
+ * whenever the examiner feedback identifies a verified fatal misconception or broken transmission chain,
+ * while leaving genuinely sound essays completely uninhibited.
  */
 export function applyEconomicMechanicsGuardrail(
   grading: Grading,
-  _maxMark: number,
-  _split: AoSplit,
+  maxMark: number,
+  split: AoSplit,
   _essayText?: string,
 ): Grading {
-  return grading;
+  const weaknessesText = (grading.weaknesses || []).join(" ").toLowerCase();
+  const summaryText = (grading.examiner_summary || "").toLowerCase();
+  const commentsText = `${grading.ao_breakdown.knowledge?.comment || ""} ${grading.ao_breakdown.analysis?.comment || ""}`.toLowerCase();
+  const combinedFeedback = `${weaknessesText} ${summaryText} ${commentsText}`;
+
+  // Only trigger if an explicit fatal economic misconception or inverted causal link was verified by the examiner
+  const hasFatalMisconception =
+    /\b(fundamental misconception|fatal economic error|inverted definition|inverted concept|claims? that an? increase in supply (causes?|leads? to|results? in) (higher|rising) price)\b/i.test(combinedFeedback) ||
+    /\b(claims? that (a )?subsid(y|ies) shifts? demand|claims? that (a )?tax shifts? demand to the right)\b/i.test(combinedFeedback);
+
+  const hasInvertedCausalTransmission =
+    /\b(broken causal transmission|inverted transmission chain|reversed cause and effect|mechanism operates in reverse)\b/i.test(combinedFeedback);
+
+  if (!hasFatalMisconception && !hasInvertedCausalTransmission) {
+    return grading;
+  }
+
+  let { knowledge, analysis, evaluation } = grading.ao_breakdown;
+  let ao1 = knowledge.awarded;
+  let ao2 = analysis.awarded;
+  let ao3 = evaluation.awarded;
+  let modified = false;
+
+  // 1. Inverted definition / fatal concept error: AO1 capped at 1
+  if (hasFatalMisconception && ao1 > 1) {
+    ao1 = 1;
+    modified = true;
+  }
+
+  // 2. Broken transmission chain: AO2 Analysis cannot exceed Level 1
+  const maxAo2 = maxMark === 8 ? 1 : maxMark === 12 ? 2 : Math.max(2, Math.floor(split.ao2_marks * 0.35));
+  if (hasInvertedCausalTransmission && ao2 > maxAo2) {
+    ao2 = maxAo2;
+    modified = true;
+  }
+
+  // 3. Overall mark ceiling: fatal misconceptions disqualify essay from Top Band and Upper Middle Band
+  const maxTotalAllowed = maxMark === 8 ? 4 : maxMark === 12 ? 6 : Math.round(maxMark * 0.5);
+  let total = ao1 + ao2 + ao3;
+
+  if (total > maxTotalAllowed) {
+    const excess = total - maxTotalAllowed;
+    ao3 = Math.max(0, ao3 - excess);
+    total = ao1 + ao2 + ao3;
+    if (total > maxTotalAllowed) {
+      ao2 = Math.max(1, ao2 - (total - maxTotalAllowed));
+      total = ao1 + ao2 + ao3;
+    }
+    modified = true;
+  }
+
+  if (!modified) {
+    return grading;
+  }
+
+  const updatedBand = bandFor(total, maxMark);
+  return {
+    ...grading,
+    total_mark: total,
+    band: updatedBand,
+    ao_breakdown: {
+      knowledge: { ...knowledge, awarded: ao1 },
+      analysis: { ...analysis, awarded: ao2 },
+      evaluation: { ...evaluation, awarded: ao3 },
+    },
+  };
 }

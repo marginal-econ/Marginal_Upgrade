@@ -12,6 +12,7 @@
  * 4. Calculates a rigorous, non-hallucinated confidence score derived from marking variance and evidence density.
  */
 
+import { cleanStars } from "@/lib/utils";
 import { chat } from "../ai.server";
 import { formatStructureNote, getStructureGuidance, MODEL_EXAMINER, TEMPERATURE_EXAMINER, type AoSplit } from "./config";
 import { extractFirstJsonObject } from "./json";
@@ -222,15 +223,22 @@ AUTHORITATIVE PRINCIPAL EXAMINER PRINCIPLES:
 10. SUBMISSION QUALITY & DEPTH PROFILE:
 {essay_quality_profile}
 
-Respond ONLY with a single valid JSON object, no markdown fences, no commentary outside the JSON. Never use markdown asterisks or bolding (**) in any string field:
+Respond ONLY with a single valid JSON object, no markdown fences, no commentary outside the JSON.
+STRICT PLAIN TEXT DIRECTIVE: NEVER use markdown asterisks (*, **, or ***) anywhere in any string field. Return clean plain text only.
 {
-  "total_mark": <integer, sum of the three awarded values below>,
-  "max_mark": {max_mark},
+  "mechanism_validation": {
+    "core_mechanisms_sound": <boolean, true if candidate's transmission chains operate in correct economic direction>,
+    "fatal_misconceptions_found": <boolean, true ONLY if an explicit verbatim falsehood is proven>,
+    "error_evidence_quotes": [
+      "<exact verbatim quote of any false economic claim, or empty array [] if mechanisms are sound>"
+    ]
+  },
   "ao_breakdown": {
     "knowledge": { "awarded": <int>, "out_of": {ao1_marks}, "comment": "<string explaining authoritative decision>" },
     "analysis": { "awarded": <int>, "out_of": {ao2_marks}, "comment": "<string explaining authoritative decision>" },
     "evaluation": { "awarded": <int>, "out_of": {ao3_marks}, "comment": "<string explaining authoritative decision>" }
   },
+  "total_mark": <integer, sum of the three awarded values above>,
   "band": "<Top Band | Upper Middle Band | Lower Middle Band | Bottom Band>",
   "examiner_summary": "<authoritative 2-3 sentence Principal Examiner verdict>",
   "strengths": ["<string quoting student text>", "..."],
@@ -474,14 +482,24 @@ export function synthesizeDualPasses(
   };
 
   // Chapter 5 PPC misconception filter for strengths:
-  // Strip any false praise claiming point inside PPC is allocatively inefficient or Pareto efficient
-  const ppcMisconceptionRegex = /(?=.*(ppc|production possibility))(?=.*(allocative|pareto))/i;
-  const filteredStrengths = strengths.filter(s => !ppcMisconceptionRegex.test(s));
+  // Strip any false praise claiming point inside PPC is allocatively inefficient or Pareto efficient,
+  // while preserving praise for candidates who accurately distinguish productive from allocative efficiency.
+  const falsePpcPraiseRegex = /(?:linking|connect|associat|treat)\w*\s+(?:a\s+)?point\s+inside\s+(?:the\s+)?ppc\s+(?:to|with|as)\s+(?:allocative|pareto)/i;
+  const correctlyDistinguishesPpc =
+    /(?:distinguish|distinguishes|differentiates?|contrasts?|correctly|accurately)\s+(?:productive\s+(?:and|from)\s+allocative|allocative\s+(?:and|from)\s+productive)/i.test(
+      strengths.join(" ")
+    );
 
-  // Check if either pass or feedback exhibited PPC & efficiency confusion
+  const filteredStrengths = correctlyDistinguishesPpc
+    ? strengths
+    : strengths.filter((s) => !falsePpcPraiseRegex.test(s));
+
+  // Check if either pass or feedback exhibited actual PPC & efficiency confusion
   const flaggedPpcMisconception =
-    ppcMisconceptionRegex.test([...pass1.strengths, ...pass2.strengths].join(" ")) ||
-    /point\s+inside\s+(the\s+)?ppc.*allocative/i.test([...pass1.weaknesses, ...pass2.weaknesses].join(" "));
+    !correctlyDistinguishesPpc &&
+    (strengths.some((s) => falsePpcPraiseRegex.test(s)) ||
+      /point\s+inside\s+(the\s+)?ppc.*allocative\s+inefficien/i.test([...pass1.weaknesses, ...pass2.weaknesses].join(" ")) ||
+      /(?:confus(?:es?|ed|ing)|conflat(?:es?|ed|ing))\s+(?:productive\s+with\s+allocative|allocative\s+with\s+productive)/i.test([...pass1.weaknesses, ...pass2.weaknesses].join(" ")));
 
   if (flaggedPpcMisconception) {
     const ppcWeakness = "Clarify the distinction between productive and allocative efficiency on the PPC: a point inside the PPC indicates productive inefficiency (unemployed or underutilized resources), whereas points on the curve represent productive efficiency. Allocative efficiency depends on whether the output mix reflects consumer preferences.";
@@ -579,5 +597,5 @@ export function synthesizeDualPasses(
   }
 
   const guardrailed = quality ? applyWritingQualityGuardrail(result, quality, maxMark, split) : result;
-  return purgeContradictions(guardrailed);
+  return cleanStars(purgeContradictions(guardrailed));
 }

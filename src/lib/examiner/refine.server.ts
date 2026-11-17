@@ -10,6 +10,7 @@
  *    essays so candidates are rewarded for what is written well without penalizing for omitting secondary topics.
  */
 
+import { cleanStars } from "@/lib/utils";
 import { chat } from "../ai.server";
 import { MODEL_EXAMINER, type AoSplit } from "./config";
 import { extractFirstJsonObject } from "./json";
@@ -18,11 +19,15 @@ import { analyzeEssayQuality, applyWritingQualityGuardrail } from "./writing-qua
 
 export const REPORT_REFINER_PROMPT = `You are a Senior Principal Examiner for Cambridge International AS/A Level Economics (syllabus 9708).
 You are performing the third and final AI quality audit of an essay assessment report before it is delivered to the student and teacher.
+STRICT PLAIN TEXT DIRECTIVE: NEVER use markdown asterisks (*, **, or ***) anywhere in your output. Return clean plain text only.
 
 Your primary mission is to:
 1. AUDIT ECONOMIC ACCURACY & CATCH MISCONCEPTIONS ACROSS ALL CHAPTERS:
    - Carefully review the student's essay text against the exam question.
-   - If the student made an economic slip or terminology mix-up (e.g. writing "YED" instead of "XED", confusing normal/inferior goods with substitutes/complements, mixing up fiscal and monetary policy, confusing movements along a curve with shifts, or confusing productive with allocative inefficiency on a PPC), verify whether it was noted. If missed in the draft report, add a clear, constructive note in "weaknesses" and adjust AO1/AO2 comments accordingly.
+   - ANTI-HALLUCINATION & PROTECTION OF SOUND ESSAYS:
+     * NEVER invent errors or penalize students for sound explanations. If the student accurately distinguished productive efficiency on the PPC from allocative efficiency, accurately traced supply/demand shifts, or defined scarcity correctly, NEVER add a false weakness or penalize marks.
+     * Only flag a misconception or error if you can verify an explicit economic falsehood in the student's text.
+   - If the student made an explicit economic slip or terminology mix-up (e.g. writing "YED" instead of "XED", confusing normal/inferior goods with substitutes/complements, mixing up fiscal and monetary policy, confusing movements along a curve with shifts, or confusing productive with allocative inefficiency on a PPC), verify whether it was noted. If missed in the draft report, add a clear, constructive note in "weaknesses" and adjust AO1/AO2 comments accordingly.
    - If the draft report hallucinated an error (e.g. claiming standard textbook definitions of scarcity or opportunity cost are wrong, colloquial, or "tautologies"), OVERTURN and REMOVE that false criticism immediately.
    - STRICT AS LEVEL (PAPER 2) VS A LEVEL (PAPER 4) BOUNDARY: For 8-mark and 12-mark questions (Paper 2 AS Level), PURGE any mentions or demands of A-Level content (marginal utility, diminishing returns, indifference curves, market structures like monopoly/oligopoly, MRPL, dynamic efficiency). Never penalise an AS student for omitting A-Level theories.
 
@@ -161,9 +166,9 @@ export async function refineExaminerReport(options: RefineReportOptions): Promis
       refined.suggested_practice = draftGrading.suggested_practice;
     }
 
-    return purgeContradictions(refined);
+    return cleanStars(purgeContradictions(refined));
   } catch (err) {
     console.warn("[refine.server] Pass 3 refinement failed, falling back to cleansed draft:", err);
-    return purgeContradictions(draftGrading);
+    return cleanStars(purgeContradictions(draftGrading));
   }
 }

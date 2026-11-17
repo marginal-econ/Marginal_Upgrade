@@ -46,7 +46,7 @@ function applyAiGatewayMode(
   activeProvider?: ProviderConfig | null,
 ): ChatOptions {
   // Essay grading requires full-fledged examiner feedback; never cap its tokens shorter
-  if (options.feature === "grade_essay" || options.feature === "examiner_grade") {
+  if (options.feature?.startsWith("grade_essay") || options.feature === "examiner_grade") {
     return {
       ...options,
       maxCompletionTokens: Math.max(options.maxCompletionTokens ?? 8192, 8192),
@@ -567,17 +567,25 @@ async function chatViaProvider(
   }
   if (options.json) body.response_format = { type: "json_object" };
 
-  const isEssayGrade = options.feature === "grade_essay" || options.feature === "examiner_grade";
+  const isEssayGrade = Boolean(options.feature?.startsWith("grade_essay") || options.feature === "examiner_grade");
   const effectiveMaxTokens =
     options.maxCompletionTokens ?? (isEssayGrade ? 8192 : config.provider === "mistral" ? 4000 : 3000);
   if (config.provider === "openai" || isReasoningModel) {
     body.max_completion_tokens = effectiveMaxTokens;
-  } else {
-    // Groq, Mistral, DeepSeek, xAI, OpenRouter, and custom endpoints expect max_tokens
-    body.max_tokens = effectiveMaxTokens;
-    if (config.provider === "openrouter") {
+  } else if (config.provider === "groq") {
+    // Groq models have a strict max_tokens ceiling (8192 for Llama 3.1 8B, 32768 for 70B)
+    body.max_tokens = Math.min(effectiveMaxTokens, 8192);
+  } else if (config.provider === "openrouter") {
+    // OpenRouter routes to diverse backends. Sending both max_tokens and max_completion_tokens
+    // causes 400 Bad Request on providers like Groq/Anthropic/Mistral via OpenRouter.
+    if (isReasoningModel) {
       body.max_completion_tokens = effectiveMaxTokens;
+    } else {
+      body.max_tokens = effectiveMaxTokens;
     }
+  } else {
+    // Mistral, DeepSeek, xAI, and custom endpoints expect max_tokens
+    body.max_tokens = effectiveMaxTokens;
   }
 
   const baseCandidateModels = getCandidateModels(config.provider, config.model);

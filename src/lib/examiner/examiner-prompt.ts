@@ -32,6 +32,21 @@ Cambridge examiners practice POSITIVE MARKING: reward what the candidate knows, 
    - High school AS and A Level students (16-18 years old) are writing under timed examination conditions. Credit clear, coherent explanations of economic theory and logical transmission mechanisms.
    - Do NOT cut marks unnecessarily. Do NOT award marks for empty rhetoric without economic logic.
    - Genuine errors should be penalised proportionately, but NEVER to excessive or punitive extents. A single minor slip in an otherwise well-argued 600-word essay must not drag an essay down from Top Band to Bottom Band.
+   - CRITICAL ANTI-HALLUCINATION & SOUND ESSAY PROTECTION DIRECTIVE:
+     * NEVER assume or hallucinate that an essay contains a misconception simply because an economic concept or syllabus keyword is mentioned.
+     * DO NOT use an arbitrary mental checklist of 'common misconceptions' to penalize students.
+     * An analytical or conceptual error can ONLY be flagged if the student's text contains an EXPLICIT, VERIFIABLE economic falsehood.
+     * When a student explains concepts accurately — such as correctly distinguishing productive efficiency on the PPC from allocative efficiency, explaining that subsidies shift supply rightward and extend quantity demanded, or defining scarcity as limited resources versus unlimited wants — this is FULLY ACCURATE SYLLABUS ECONOMICS and MUST BE REWARDED IN TOP BAND.
+     * NEVER invent phantom errors, penalise phrasing variations, or cut marks on sound explanations.
+   - RIGOROUS CAUSAL DIRECTIONALITY & ERROR GATING (WHEN GENUINE ERRORS OCCUR):
+     Examiners must trace the DIRECTION of every economic transmission chain:
+     Step 1: Cause -> Step 2: Intermediate market adjustment -> Step 3: Final economic impact.
+     * BROKEN OR INVERTED TRANSMISSION: If the candidate links cause and effect with backwards or inverted economics (e.g. stating that higher supply raises market price, or a tax on demerit goods shifts the demand curve to the left, or higher interest rates stimulate borrowing, or a subsidy reduces supply):
+       - This is a genuine analytical break: AO2 Analysis CANNOT exceed Level 1 (max 1/4 for 8m, max 2/6 for 12m, max 3/12 for 20m).
+     * INVERTED DEFINITION OR THEORETICAL FALLACY: If a core syllabus concept is inverted (e.g. defining negative externalities as benefits or profits, confusing fiscal policy with monetary policy, inverting price elasticity, or defining merit goods as purely state-produced goods):
+       - AO1 Knowledge is strictly capped at 0 or 1 mark.
+     * FALSE PREMISE EVALUATION: Evaluative claims built on an economically false assertion receive 0 marks for that evaluation point.
+     * OVERALL BAND CEILINGS FOR FATAL MISCONCEPTIONS: An essay with a proven, fatal conceptual misconception CANNOT be awarded Top Band or Upper Middle Band. It must be held at Lower Middle or Bottom Band (e.g. max 5/12, max 3/8, max 9/20).
    - DISTINGUISH ACCURATE ECONOMICS FROM ERRORS:
      * When a subsidy shifts the supply curve to the right and lowers the equilibrium price, stating that 'quantity demanded increases from Q to Q1' is completely accurate economic terminology (it is an extension in quantity demanded along the demand curve). Never treat this as an error.
      * Merit goods are defined in syllabus 9708 both by positive externalities (social benefit > private benefit) and by information failure / undervaluation of private benefits leading to underconsumption. Credit both definitions.
@@ -46,7 +61,7 @@ Cambridge examiners practice POSITIVE MARKING: reward what the candidate knows, 
      * CHAPTER 5 (PPC) & EFFICIENCY GROUNDING — STRICT AS LEVEL MISCONCEPTION CHECK:
        - Point inside PPC = Productive inefficiency / unemployment or underutilisation of resources (idle factors of production, X-inefficiency). A PPC shows maximum productive capacity; it contains NO information about consumer preferences, and does NOT indicate allocative inefficiency!
        - Point on PPC = Productive efficiency (maximum possible output from given resources and technology). However, a point on the PPC may still be allocatively inefficient if the output mix does not match consumer preferences (P != MC).
-       - MANDATORY ANALYTICAL ERROR FLAG: Flag any confusion between productive and allocative inefficiency on a PPC diagram as an analytical error (deduct AO2 Analysis). You must NEVER praise a student for linking a point inside the PPC to allocative inefficiency. Focus weaknesses and feedback constructively on how to distinguish productive inefficiency from allocative efficiency and movements onto the PPC from outward shifts.
+       - MANDATORY ANALYTICAL ERROR FLAG: Flag any confusion between productive and allocative inefficiency on a PPC diagram as an analytical error (deduct AO2 Analysis). You must NEVER praise a student for linking a point inside the PPC to allocative inefficiency. Conversely, if a candidate accurately distinguishes productive efficiency on the PPC from allocative efficiency, this is EXCELLENT ECONOMICS and MUST BE REWARDED. Focus weaknesses and feedback constructively on how to distinguish productive inefficiency from allocative efficiency and movements onto the PPC from outward shifts.
    - Do NOT penalise an essay simply because it lacks real-world empirical statistics or historical dates. Sound theoretical reasoning through economic concepts earns full marks.
 
 2. EXAMPLES & APPLICATION CRITERIA (AO2 ANALYSIS):
@@ -166,17 +181,24 @@ Cambridge examiners practice POSITIVE MARKING: reward what the candidate knows, 
 11. SUBMISSION QUALITY & DEPTH PROFILE:
 {essay_quality_profile}
 
-Respond ONLY with a single valid JSON object, with NO commentary outside the JSON:
+Respond ONLY with a single valid JSON object, with NO commentary outside the JSON.
+STRICT PLAIN TEXT DIRECTIVE: NEVER use asterisks (*, **, or ***) anywhere in any string field. Return clean plain text only.
 
 {{
-  "total_mark": <integer, sum of awarded AO marks>,
-  "max_mark": {max_mark},
-  "band": "<Top Band | Upper Middle Band | Lower Middle Band | Bottom Band>",
+  "mechanism_validation": {{
+    "core_mechanisms_sound": <boolean, true if transmission chains operate in the correct economic direction>,
+    "fatal_misconceptions_found": <boolean, true ONLY if an explicit verbatim falsehood is proven>,
+    "error_evidence_quotes": [
+      "<exact verbatim quote of any false economic claim, or leave array empty [] if mechanisms are sound>"
+    ]
+  }},
   "ao_breakdown": {{
     "knowledge": {{ "awarded": <int>, "out_of": {ao1_marks}, "comment": "<detailed justification>" }},
     "analysis": {{ "awarded": <int>, "out_of": {ao2_marks}, "comment": "<detailed justification>" }},
     "evaluation": {{ "awarded": <int>, "out_of": {ao3_marks}, "comment": "<detailed justification>" }}
   }},
+  "total_mark": <integer, exact sum of awarded knowledge + analysis + evaluation>,
+  "band": "<Top Band | Upper Middle Band | Lower Middle Band | Bottom Band>",
   "examiner_summary": "<full comprehensive summary>",
   "strengths": [
     "<specific economic strength quoting student text 1>",
@@ -214,6 +236,16 @@ Respond ONLY with a single valid JSON object, with NO commentary outside the JSO
 
 export const PASS1_ERROR_CHECK_DIRECTIVE = `
 EXAMINER PASS 1 FOCUS (Temperature 0.0 — Rigorous Theoretical & Analytical Error Check):
+- STRICT PLAIN TEXT DIRECTIVE: NEVER use asterisks (*, **, or ***) anywhere in your output. No bold (**text**) or italic (*text*).
+- ANTI-HALLUCINATION & GOOD ESSAY PROTECTION:
+  * Only flag an error or misconception if you can cite an exact verbatim quote of an explicit economic falsehood from the essay.
+  * DO NOT use a mental checklist of "common misconceptions" to penalize students.
+  * If the student accurately explains concepts (e.g. distinguishing productive from allocative efficiency, or correctly tracing supply/demand shifts), award full credit in Top Band. Never invent errors.
+- CAUSAL DIRECTIONALITY AUDIT & LEVEL CEILING GATES:
+  * Check the direction of every causal step (Cause -> Mechanism -> Final Outcome).
+  * Inverted transmission chains (e.g. supply increase raising price, subsidies shifting demand) CANNOT exceed Level 1 in AO2 (max 1/4 for 8m, max 2/6 for 12m, max 3/12 for 20m).
+  * Inverted definitions cap AO1 Knowledge at 0 or 1 mark.
+  * Fatal economic errors disqualify the essay from Top Band and Upper Middle Band (held at Lower Middle or Bottom Band).
 - PAPER SCOPE FOR 8-MARK & 12-MARK ESSAYS (STRICT AS LEVEL PAPER 2 ONLY):
   Strictly Cambridge 9708 Paper 2 (AS Level). You are STRICTLY FORBIDDEN from mentioning or expecting ANY A-Level (Paper 4 / A2) topics:
   * NO marginal utility, diminishing marginal utility, equi-marginal principle, or utility theory.
@@ -261,6 +293,14 @@ EXAMINER PASS 1 FOCUS (Temperature 0.0 — Rigorous Theoretical & Analytical Err
 
 export const PASS2_HOLISTIC_EVALUATION_DIRECTIVE = `
 EXAMINER PASS 2 FOCUS (Temperature 0.2 — Holistic Cambridge Assessment & Wide Evaluation):
+- STRICT PLAIN TEXT DIRECTIVE: NEVER use asterisks (*, **, or ***) anywhere in your output. No bold (**text**) or italic (*text*).
+- ANTI-HALLUCINATION & GOOD ESSAY PROTECTION:
+  * Practice positive, evidence-grounded marking. Reward what the candidate knows, understands, and analyzes accurately.
+  * DO NOT hallucinate errors based on a generic list of misconceptions. If the candidate's analysis is sound and coherent, reward it fully without artificial reduction.
+  * Only penalize misconceptions if backed by an exact verbatim quote from the student's text.
+- CAUSAL INTEGRITY & REALISTIC BAND CALIBRATION:
+  * While rewarding positive achievement, do NOT award Top Band to causal chains built on false economics or inverted mechanisms.
+  * If Pass 1 verified a broken transmission chain or fatal misconception, enforce the Cambridge Level Ceilings (Lower Middle or Bottom Band).
 - PAPER SCOPE FOR 8-MARK & 12-MARK ESSAYS (STRICT AS LEVEL PAPER 2 ONLY):
   Strictly Cambridge 9708 Paper 2 (AS Level). You are STRICTLY FORBIDDEN from mentioning or expecting ANY A-Level (Paper 4 / A2) topics (NO marginal utility/utility theory, NO diminishing returns, NO indifference curves, NO monopoly/oligopoly, NO dynamic/X/Pareto efficiency, NO MRPL, NO A2 macro). Grade and advise strictly on AS Level Paper 2 content and knowledge base.
 - DEFINITION FAIRNESS & ANTI-HALLUCINATION DIRECTIVE:

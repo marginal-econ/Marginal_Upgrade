@@ -79,14 +79,18 @@ CAMBRIDGE MODERATION PRINCIPLES — POSITIVE, FAIR, ACCURATE MARKING:
 Respond ONLY with a single valid JSON object, no markdown fences, no commentary outside the JSON:
 
 {{
-  "total_mark": <integer, sum of the three awarded values below>,
-  "max_mark": {max_mark},
-  "band": "<Top Band | Upper Middle Band | Lower Middle Band | Bottom Band>",
+  "mechanism_validation": {{
+    "core_mechanisms_sound": <boolean, true if transmission chains operate in correct economic direction>,
+    "fatal_misconceptions_found": <boolean, true ONLY if an explicit verbatim falsehood is proven>,
+    "error_evidence_quotes": ["<verbatim quote of any error, or empty array [] if sound>"]
+  }},
   "ao_breakdown": {{
     "knowledge": {{"awarded": <int>, "out_of": {ao1_marks}, "comment": "<justification>"}},
     "analysis": {{"awarded": <int>, "out_of": {ao2_marks}, "comment": "<justification>"}},
     "evaluation": {{"awarded": <int>, "out_of": {ao3_marks}, "comment": "<justification>"}}
   }},
+  "total_mark": <integer, sum of the three awarded values above>,
+  "band": "<Top Band | Upper Middle Band | Lower Middle Band | Bottom Band>",
   "strengths": ["<string>", "..."],
   "weaknesses": ["<string>", "..."],
   "missing_elements": {{
