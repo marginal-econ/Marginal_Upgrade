@@ -33,6 +33,11 @@ import {
   Zap,
   PanelsTopBottom,
   PanelLeft,
+  ArrowRight,
+  ExternalLink,
+  FileText,
+  Scale,
+  Lock,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -47,6 +52,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
   SelectContent,
@@ -131,6 +144,7 @@ export function SettingsPage() {
   const [navigationLayout, setNavigationLayout] = useState<NavigationLayout>(() =>
     getPlatformNavLayout(),
   );
+  const [legalDialog, setLegalDialog] = useState<"terms" | "privacy" | "about" | null>(null);
 
   const {
     openTutorial,
@@ -1464,10 +1478,421 @@ export function SettingsPage() {
                   </Button>
                 </div>
               </div>
+
+              {/* Platform Legal Policies & About Marginal */}
+              <div className="rounded-2xl border border-border/80 bg-card p-5 shadow-xs space-y-4 text-xs">
+                <div className="flex items-center justify-between border-b border-border/80 pb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="size-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
+                      <Scale className="size-4" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-foreground text-sm flex items-center gap-1.5">
+                        Terms, Privacy &amp; About
+                      </h3>
+                      <p className="text-[10.5px] text-muted-foreground">
+                        Official terms of service, candidate data privacy, and platform background.
+                      </p>
+                    </div>
+                  </div>
+                  <Badge
+                    variant="outline"
+                    className="text-[10px] border-emerald-500/30 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 font-bold"
+                  >
+                    Active
+                  </Badge>
+                </div>
+
+                <Tabs defaultValue="terms" className="w-full">
+                  <TabsList className="grid grid-cols-3 w-full h-8 bg-muted/60 p-0.5 rounded-lg text-[11px]">
+                    <TabsTrigger value="terms" className="text-[11px] font-semibold gap-1 px-1">
+                      <FileText className="size-3 text-blue-500" /> Terms
+                    </TabsTrigger>
+                    <TabsTrigger value="privacy" className="text-[11px] font-semibold gap-1 px-1">
+                      <ShieldCheck className="size-3 text-emerald-500" /> Privacy
+                    </TabsTrigger>
+                    <TabsTrigger value="about" className="text-[11px] font-semibold gap-1 px-1">
+                      <Info className="size-3 text-purple-500" /> About
+                    </TabsTrigger>
+                  </TabsList>
+
+                  {/* Tab 1: Terms & Conditions */}
+                  <TabsContent value="terms" className="space-y-3 pt-3 mt-0 focus-visible:outline-none">
+                    <div className="flex flex-wrap gap-1.5">
+                      <span className="px-2 py-0.5 rounded-md bg-blue-500/10 text-blue-600 dark:text-blue-400 text-[10px] font-semibold border border-blue-500/20">
+                        Independent 9708 Tool
+                      </span>
+                      <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] font-semibold border border-emerald-500/20">
+                        100% Student Owned
+                      </span>
+                    </div>
+
+                    <div className="space-y-2 rounded-xl border border-border/70 bg-muted/20 p-3 text-[11px] leading-relaxed text-muted-foreground">
+                      <p className="flex items-start gap-1.5 text-foreground">
+                        <Check className="size-3.5 text-emerald-500 shrink-0 mt-0.5" />
+                        <span>
+                          <strong className="text-foreground">Cambridge Independence:</strong> Marginal is an independent platform and is not affiliated with, endorsed by, or connected to Cambridge Assessment International Education (CAIE) or UCLES.
+                        </span>
+                      </p>
+                      <p className="flex items-start gap-1.5 text-foreground">
+                        <Check className="size-3.5 text-emerald-500 shrink-0 mt-0.5" />
+                        <span>
+                          <strong className="text-foreground">AI Second Opinion:</strong> Marking is generated by calibrated AI models grounded in 259 mark schemes. Every mark is a diagnostic second opinion, never an official Cambridge examination mark.
+                        </span>
+                      </p>
+                      <p className="flex items-start gap-1.5">
+                        <Check className="size-3.5 text-emerald-500 shrink-0 mt-0.5" />
+                        <span>
+                          <strong className="text-foreground">Your Work Stays Yours:</strong> You retain full intellectual property ownership of all essays and responses submitted.
+                        </span>
+                      </p>
+                      <p className="flex items-start gap-1.5">
+                        <Check className="size-3.5 text-emerald-500 shrink-0 mt-0.5" />
+                        <span>
+                          <strong className="text-foreground">Academic Honesty:</strong> Submitting AI-generated essays or misrepresenting model answers as your own violates these terms and school honesty rules.
+                        </span>
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2 pt-1">
+                      <Button
+                        asChild
+                        variant="outline"
+                        size="sm"
+                        className="flex-1 text-xs h-8 justify-between hover:bg-blue-500/10 hover:text-blue-600 hover:border-blue-500/30"
+                      >
+                        <Link to="/terms">
+                          <span className="flex items-center gap-1.5">
+                            <FileText className="size-3.5 text-blue-500" /> Read Full Terms
+                          </span>
+                          <ArrowRight className="size-3 text-muted-foreground" />
+                        </Link>
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setLegalDialog("terms")}
+                        className="text-[11px] h-8 px-2.5 text-muted-foreground hover:text-foreground"
+                      >
+                        Quick Summary
+                      </Button>
+                    </div>
+                  </TabsContent>
+
+                  {/* Tab 2: Privacy Policy */}
+                  <TabsContent value="privacy" className="space-y-3 pt-3 mt-0 focus-visible:outline-none">
+                    <div className="flex flex-wrap gap-1.5">
+                      <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] font-semibold border border-emerald-500/20">
+                        Zero Ad-Tracking
+                      </span>
+                      <span className="px-2 py-0.5 rounded-md bg-purple-500/10 text-purple-600 dark:text-purple-400 text-[10px] font-semibold border border-purple-500/20">
+                        Full Data Erasure
+                      </span>
+                    </div>
+
+                    <div className="space-y-2 rounded-xl border border-border/70 bg-muted/20 p-3 text-[11px] leading-relaxed text-muted-foreground">
+                      <p className="flex items-start gap-1.5 text-foreground">
+                        <Check className="size-3.5 text-emerald-500 shrink-0 mt-0.5" />
+                        <span>
+                          <strong className="text-foreground">Confidential Essays:</strong> Submitted work and performance trends are private to you and designated classroom educators.
+                        </span>
+                      </p>
+                      <p className="flex items-start gap-1.5 text-foreground">
+                        <Check className="size-3.5 text-emerald-500 shrink-0 mt-0.5" />
+                        <span>
+                          <strong className="text-foreground">Never Sold to Advertisers:</strong> Student essays and account records are never sold, rented, or monetized for commercial advertising.
+                        </span>
+                      </p>
+                      <p className="flex items-start gap-1.5">
+                        <Check className="size-3.5 text-emerald-500 shrink-0 mt-0.5" />
+                        <span>
+                          <strong className="text-foreground">Anonymised Showcase:</strong> Top distinction essays featured in the Exemplar Showcase are stripped of all personal names and school tags.
+                        </span>
+                      </p>
+                      <p className="flex items-start gap-1.5">
+                        <Check className="size-3.5 text-emerald-500 shrink-0 mt-0.5" />
+                        <span>
+                          <strong className="text-foreground">Export &amp; Deletion Rights:</strong> You can export your JSON dossier anytime (above) or request complete deletion of your account.
+                        </span>
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2 pt-1">
+                      <Button
+                        asChild
+                        variant="outline"
+                        size="sm"
+                        className="flex-1 text-xs h-8 justify-between hover:bg-emerald-500/10 hover:text-emerald-600 hover:border-emerald-500/30"
+                      >
+                        <Link to="/privacy">
+                          <span className="flex items-center gap-1.5">
+                            <ShieldCheck className="size-3.5 text-emerald-500" /> Read Full Privacy
+                          </span>
+                          <ArrowRight className="size-3 text-muted-foreground" />
+                        </Link>
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setLegalDialog("privacy")}
+                        className="text-[11px] h-8 px-2.5 text-muted-foreground hover:text-foreground"
+                      >
+                        Quick Summary
+                      </Button>
+                    </div>
+                  </TabsContent>
+
+                  {/* Tab 3: About Marginal */}
+                  <TabsContent value="about" className="space-y-3 pt-3 mt-0 focus-visible:outline-none">
+                    <div className="flex flex-wrap gap-1.5">
+                      <span className="px-2 py-0.5 rounded-md bg-purple-500/10 text-purple-600 dark:text-purple-400 text-[10px] font-semibold border border-purple-500/20">
+                        Cambridge 9708 Focused
+                      </span>
+                      <span className="px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400 text-[10px] font-semibold border border-amber-500/20">
+                        259 Mark Schemes
+                      </span>
+                    </div>
+
+                    <div className="space-y-2 rounded-xl border border-border/70 bg-muted/20 p-3 text-[11px] leading-relaxed text-muted-foreground">
+                      <p className="flex items-start gap-1.5 text-foreground">
+                        <Check className="size-3.5 text-emerald-500 shrink-0 mt-0.5" />
+                        <span>
+                          <strong className="text-foreground">The 14-Day Feedback Problem:</strong> Traditional essay grading takes 2 weeks. Marginal closes the feedback loop instantly so students learn before errors become habits.
+                        </span>
+                      </p>
+                      <p className="flex items-start gap-1.5 text-foreground">
+                        <Check className="size-3.5 text-emerald-500 shrink-0 mt-0.5" />
+                        <span>
+                          <strong className="text-foreground">259 Mark Scheme Grounding:</strong> Calibrated with official Cambridge 9708 mark schemes, chief examiner reports, and real grade boundaries.
+                        </span>
+                      </p>
+                      <p className="flex items-start gap-1.5">
+                        <Check className="size-3.5 text-emerald-500 shrink-0 mt-0.5" />
+                        <span>
+                          <strong className="text-foreground">Founding Team:</strong> Built by Saikrish Karthikeyan &amp; Suthir R to democratize top-tier economics pedagogy.
+                        </span>
+                      </p>
+                      <p className="flex items-start gap-1.5">
+                        <Check className="size-3.5 text-emerald-500 shrink-0 mt-0.5" />
+                        <span>
+                          <strong className="text-foreground">Comprehensive Tools:</strong> Full AS &amp; A2 coverage: Paper 1 &amp; 3 MCQs, Paper 2 &amp; 4 essays, vector diagrams, and Live Examiner.
+                        </span>
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2 pt-1">
+                      <Button
+                        asChild
+                        variant="outline"
+                        size="sm"
+                        className="flex-1 text-xs h-8 justify-between hover:bg-purple-500/10 hover:text-purple-600 hover:border-purple-500/30"
+                      >
+                        <Link to="/about">
+                          <span className="flex items-center gap-1.5">
+                            <Info className="size-3.5 text-purple-500" /> Read About Marginal
+                          </span>
+                          <ArrowRight className="size-3 text-muted-foreground" />
+                        </Link>
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setLegalDialog("about")}
+                        className="text-[11px] h-8 px-2.5 text-muted-foreground hover:text-foreground"
+                      >
+                        Quick Summary
+                      </Button>
+                    </div>
+                  </TabsContent>
+                </Tabs>
+              </div>
             </div>
           </div>
         )}
+
+        {/* Platform Legal & Policy Footer */}
+        <div className="pt-6 border-t border-border/80 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-muted-foreground">
+          <div className="flex items-center gap-2">
+            <div className="size-5 rounded-md bg-primary/10 text-primary flex items-center justify-center font-bold text-[10px]">
+              m
+            </div>
+            <span className="font-semibold text-foreground">Marginal Economics Engine</span>
+            <span>&bull;</span>
+            <span>Grounded for Cambridge 9708</span>
+          </div>
+          <div className="flex items-center gap-3.5 text-[11px] font-medium">
+            <Link
+              to="/about"
+              className="hover:text-primary transition-colors underline-offset-4 hover:underline"
+            >
+              About Marginal
+            </Link>
+            <span className="text-border/80">&bull;</span>
+            <Link
+              to="/terms"
+              className="hover:text-primary transition-colors underline-offset-4 hover:underline"
+            >
+              Terms &amp; Conditions
+            </Link>
+            <span className="text-border/80">&bull;</span>
+            <Link
+              to="/privacy"
+              className="hover:text-primary transition-colors underline-offset-4 hover:underline"
+            >
+              Privacy Policy
+            </Link>
+          </div>
+        </div>
       </div>
+
+      {/* Quick In-App Legal & About Dialog */}
+      <Dialog open={legalDialog !== null} onOpenChange={(open) => !open && setLegalDialog(null)}>
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+          {legalDialog === "terms" && (
+            <div className="space-y-4">
+              <DialogHeader className="text-left space-y-1">
+                <p className="text-[10px] font-bold tracking-wider text-blue-600 dark:text-blue-400 uppercase">
+                  Official Terms of Use
+                </p>
+                <DialogTitle className="text-lg font-bold flex items-center gap-2">
+                  <FileText className="size-5 text-blue-500" />
+                  Marginal Terms &amp; Conditions
+                </DialogTitle>
+                <DialogDescription className="text-xs">
+                  Summary of official terms governing your Cambridge 9708 practice and evaluation.
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="rounded-xl border border-blue-500/25 bg-blue-500/5 p-3.5 text-xs space-y-2">
+                <p className="font-semibold text-foreground">Key Principles in Short:</p>
+                <ul className="space-y-2 text-[11.5px] text-muted-foreground list-disc list-inside">
+                  <li>
+                    <strong className="text-foreground">Independent Tool:</strong> Marginal is independent and not affiliated with, endorsed by, or connected to Cambridge Assessment International Education or UCLES.
+                  </li>
+                  <li>
+                    <strong className="text-foreground">Formative Second Opinion:</strong> Marking is AI-generated and calibrated against 259 official mark schemes. It is a diagnostic second opinion, never an official Cambridge mark.
+                  </li>
+                  <li>
+                    <strong className="text-foreground">Student Ownership:</strong> You retain complete copyright and ownership of all submitted essays and responses.
+                  </li>
+                  <li>
+                    <strong className="text-foreground">Academic Honesty:</strong> Submitting AI-generated text as your own work breaches these terms and school academic honesty rules.
+                  </li>
+                  <li>
+                    <strong className="text-foreground">Exemplar Showcase:</strong> Only top distinction essays (&gt;10/12, &gt;15/20) may be featured in strictly de-identified form for peer learning.
+                  </li>
+                </ul>
+              </div>
+
+              <div className="flex items-center justify-between pt-2 border-t border-border/80">
+                <Button variant="ghost" size="sm" onClick={() => setLegalDialog(null)} className="text-xs">
+                  Close
+                </Button>
+                <Button asChild size="sm" className="text-xs font-semibold gap-1.5">
+                  <Link to="/terms" onClick={() => setLegalDialog(null)}>
+                    Open Full Terms Page <ArrowRight className="size-3.5" />
+                  </Link>
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {legalDialog === "privacy" && (
+            <div className="space-y-4">
+              <DialogHeader className="text-left space-y-1">
+                <p className="text-[10px] font-bold tracking-wider text-emerald-600 dark:text-emerald-400 uppercase">
+                  Student Privacy &amp; Data Rights
+                </p>
+                <DialogTitle className="text-lg font-bold flex items-center gap-2">
+                  <ShieldCheck className="size-5 text-emerald-500" />
+                  Marginal Privacy Policy
+                </DialogTitle>
+                <DialogDescription className="text-xs">
+                  How your submissions, account details, and diagnostic trajectories are protected.
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/5 p-3.5 text-xs space-y-2">
+                <p className="font-semibold text-foreground">Privacy Commitments:</p>
+                <ul className="space-y-2 text-[11.5px] text-muted-foreground list-disc list-inside">
+                  <li>
+                    <strong className="text-foreground">Strict Confidentiality:</strong> Your essays and progress are private to you and designated teachers.
+                  </li>
+                  <li>
+                    <strong className="text-foreground">Never Sold to Advertisers:</strong> We never sell student data or essays to advertisers or third parties.
+                  </li>
+                  <li>
+                    <strong className="text-foreground">Anonymised Peer Learning:</strong> Any exemplar answers featured are stripped of all names, emails, and school tags.
+                  </li>
+                  <li>
+                    <strong className="text-foreground">Full Data Portability:</strong> Export your complete candidate dossier in JSON format anytime from Settings.
+                  </li>
+                  <li>
+                    <strong className="text-foreground">Right to Erasure:</strong> You can request permanent account and data deletion at any time.
+                  </li>
+                </ul>
+              </div>
+
+              <div className="flex items-center justify-between pt-2 border-t border-border/80">
+                <Button variant="ghost" size="sm" onClick={() => setLegalDialog(null)} className="text-xs">
+                  Close
+                </Button>
+                <Button asChild size="sm" className="text-xs font-semibold gap-1.5">
+                  <Link to="/privacy" onClick={() => setLegalDialog(null)}>
+                    Open Full Privacy Page <ArrowRight className="size-3.5" />
+                  </Link>
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {legalDialog === "about" && (
+            <div className="space-y-4">
+              <DialogHeader className="text-left space-y-1">
+                <p className="text-[10px] font-bold tracking-wider text-purple-600 dark:text-purple-400 uppercase">
+                  Our Mission &amp; Origins
+                </p>
+                <DialogTitle className="text-lg font-bold flex items-center gap-2">
+                  <Info className="size-5 text-purple-500" />
+                  About Marginal AI
+                </DialogTitle>
+                <DialogDescription className="text-xs">
+                  Closing the 14-day essay turnaround gap for Cambridge Economics (9708).
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="rounded-xl border border-purple-500/25 bg-purple-500/5 p-3.5 text-xs space-y-2">
+                <p className="font-semibold text-foreground">Pedagogical Vision:</p>
+                <ul className="space-y-2 text-[11.5px] text-muted-foreground list-disc list-inside">
+                  <li>
+                    <strong className="text-foreground">Instant Feedback:</strong> Built because the two-week delay in teacher marking allows misconceptions to calcify.
+                  </li>
+                  <li>
+                    <strong className="text-foreground">259 Mark Schemes:</strong> Grounded via vector search in 15+ years of Cambridge 9708 mark schemes and examiner reports.
+                  </li>
+                  <li>
+                    <strong className="text-foreground">Full Syllabus:</strong> Supports Paper 1 (MCQ), Paper 2 (Data Response/Essays), Paper 3 (MCQ), and Paper 4 (A2).
+                  </li>
+                  <li>
+                    <strong className="text-foreground">Founders:</strong> Created by Saikrish Karthikeyan and Suthir R with a vision of accessible, rigorous economics pedagogy.
+                  </li>
+                </ul>
+              </div>
+
+              <div className="flex items-center justify-between pt-2 border-t border-border/80">
+                <Button variant="ghost" size="sm" onClick={() => setLegalDialog(null)} className="text-xs">
+                  Close
+                </Button>
+                <Button asChild size="sm" className="text-xs font-semibold gap-1.5">
+                  <Link to="/about" onClick={() => setLegalDialog(null)}>
+                    Open Full About Page <ArrowRight className="size-3.5" />
+                  </Link>
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

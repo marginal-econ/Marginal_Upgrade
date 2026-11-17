@@ -42,6 +42,8 @@ import {
   Layers,
   Check,
   Search as SearchIcon,
+  FileText,
+  Info,
 } from "lucide-react";
 import * as React from "react";
 import type { ReactNode } from "react";
@@ -1053,6 +1055,28 @@ export function AppShell({
                   }
                 />
                 <DropdownMenuSeparator />
+                <div className="px-2 py-1 text-[9.5px] font-bold text-muted-foreground uppercase tracking-wider">
+                  Platform &amp; Legal
+                </div>
+                <DropdownMenuItem asChild>
+                  <Link to="/about" className="flex items-center gap-2 cursor-pointer text-xs">
+                    <Info className="size-3.5 text-muted-foreground" />
+                    <span>About Marginal</span>
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/terms" className="flex items-center gap-2 cursor-pointer text-xs">
+                    <FileText className="size-3.5 text-muted-foreground" />
+                    <span>Terms of Service</span>
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/privacy" className="flex items-center gap-2 cursor-pointer text-xs">
+                    <ShieldCheck className="size-3.5 text-muted-foreground" />
+                    <span>Privacy Policy</span>
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
                 <DropdownMenuItem
                   onClick={signOut}
                   className="flex items-center gap-2 cursor-pointer text-xs text-destructive focus:text-destructive focus:bg-destructive/10"
@@ -1519,6 +1543,37 @@ export function AppShell({
                   <ThemeToggle variant="menu-item" />
                 </div>
                 <DropdownMenuSeparator className="my-1 border-border/60" />
+                <div className="px-2 py-1 text-[9.5px] font-bold text-muted-foreground uppercase tracking-wider">
+                  Platform &amp; Legal
+                </div>
+                <DropdownMenuItem asChild className="p-0 mb-0.5">
+                  <Link
+                    to="/about"
+                    className="flex items-center gap-2.5 px-2.5 py-1.5 text-xs rounded-lg cursor-pointer hover:bg-muted/70 text-foreground"
+                  >
+                    <Info className="size-3.5 text-muted-foreground" />
+                    <span>About Marginal</span>
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild className="p-0 mb-0.5">
+                  <Link
+                    to="/terms"
+                    className="flex items-center gap-2.5 px-2.5 py-1.5 text-xs rounded-lg cursor-pointer hover:bg-muted/70 text-foreground"
+                  >
+                    <FileText className="size-3.5 text-muted-foreground" />
+                    <span>Terms of Service</span>
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild className="p-0 mb-0.5">
+                  <Link
+                    to="/privacy"
+                    className="flex items-center gap-2.5 px-2.5 py-1.5 text-xs rounded-lg cursor-pointer hover:bg-muted/70 text-foreground"
+                  >
+                    <ShieldCheck className="size-3.5 text-muted-foreground" />
+                    <span>Privacy Policy</span>
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator className="my-1 border-border/60" />
                 <DropdownMenuItem
                   onClick={signOut}
                   className="flex items-center gap-2.5 px-2.5 py-2 text-xs rounded-lg text-destructive hover:bg-destructive/10 cursor-pointer font-medium"
@@ -1814,12 +1869,13 @@ export function AppShell({
               <button
                 type="button"
                 onClick={() => setCommandOpen(true)}
-                className="flex items-center gap-2 h-8 rounded-lg border border-border/70 bg-muted/30 hover:bg-muted/60 hover:border-primary/40 px-2.5 text-xs text-muted-foreground hover:text-foreground transition-all cursor-pointer shadow-2xs group min-w-[120px] lg:w-44 xl:w-52 shrink-0"
+                className="flex items-center gap-1.5 xl:gap-2 h-8 rounded-lg border border-border/70 bg-muted/30 hover:bg-muted/60 hover:border-primary/40 px-2 xl:px-2.5 text-xs text-muted-foreground hover:text-foreground transition-all cursor-pointer shadow-2xs group w-28 lg:w-32 xl:w-44 2xl:w-52 shrink-0"
                 title="Search Cambridge 9708 definitions, diagrams & tools (⌘K)"
               >
                 <SearchIcon className="size-3.5 text-primary group-hover:scale-110 transition-transform shrink-0" />
-                <span className="truncate text-muted-foreground/90 font-medium">Search or jump...</span>
-                <kbd className="pointer-events-none hidden sm:inline-flex h-4.5 select-none items-center gap-0.5 rounded border border-border/80 bg-background/90 px-1 font-mono text-[9px] font-medium text-muted-foreground ml-auto shadow-2xs">
+                <span className="truncate text-muted-foreground/90 font-medium hidden 2xl:inline">Search or jump...</span>
+                <span className="truncate text-muted-foreground/90 font-medium 2xl:hidden">Search...</span>
+                <kbd className="pointer-events-none hidden sm:inline-flex h-4.5 select-none items-center gap-0.5 rounded border border-border/80 bg-background/90 px-1 font-mono text-[9px] font-medium text-muted-foreground ml-auto shadow-2xs shrink-0">
                   ⌘K
                 </kbd>
               </button>
@@ -1947,6 +2003,37 @@ export function AppShell({
                     <ThemeToggle variant="menu-item" />
                   </div>
                   <DropdownMenuSeparator className="my-1 border-border/60" />
+                  <div className="px-2 py-1 text-[9.5px] font-bold text-muted-foreground uppercase tracking-wider">
+                    Platform &amp; Legal
+                  </div>
+                  <DropdownMenuItem asChild className="p-0 mb-0.5">
+                    <Link
+                      to="/about"
+                      className="flex items-center gap-2.5 px-2.5 py-1.5 text-xs rounded-lg cursor-pointer hover:bg-muted/70 text-foreground"
+                    >
+                      <Info className="size-3.5 text-muted-foreground" />
+                      <span>About Marginal</span>
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild className="p-0 mb-0.5">
+                    <Link
+                      to="/terms"
+                      className="flex items-center gap-2.5 px-2.5 py-1.5 text-xs rounded-lg cursor-pointer hover:bg-muted/70 text-foreground"
+                    >
+                      <FileText className="size-3.5 text-muted-foreground" />
+                      <span>Terms of Service</span>
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild className="p-0 mb-0.5">
+                    <Link
+                      to="/privacy"
+                      className="flex items-center gap-2.5 px-2.5 py-1.5 text-xs rounded-lg cursor-pointer hover:bg-muted/70 text-foreground"
+                    >
+                      <ShieldCheck className="size-3.5 text-muted-foreground" />
+                      <span>Privacy Policy</span>
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator className="my-1 border-border/60" />
                   <DropdownMenuItem
                     onClick={signOut}
                     className="flex items-center gap-2.5 px-2.5 py-2 text-xs rounded-lg text-destructive hover:bg-destructive/10 cursor-pointer font-medium"
@@ -1994,12 +2081,13 @@ export function AppShell({
               <button
                 type="button"
                 onClick={() => setCommandOpen(true)}
-                className="flex items-center gap-2 h-8 rounded-lg border border-border/70 bg-muted/30 hover:bg-muted/60 hover:border-primary/40 px-2.5 text-xs text-muted-foreground hover:text-foreground transition-all cursor-pointer shadow-2xs group min-w-[120px] lg:w-44 xl:w-52 shrink-0"
+                className="flex items-center gap-1.5 xl:gap-2 h-8 rounded-lg border border-border/70 bg-muted/30 hover:bg-muted/60 hover:border-primary/40 px-2 xl:px-2.5 text-xs text-muted-foreground hover:text-foreground transition-all cursor-pointer shadow-2xs group w-28 lg:w-32 xl:w-44 2xl:w-52 shrink-0"
                 title="Search Cambridge 9708 definitions, diagrams & tools (⌘K)"
               >
                 <SearchIcon className="size-3.5 text-primary group-hover:scale-110 transition-transform shrink-0" />
-                <span className="truncate text-muted-foreground/90 font-medium">Search or jump...</span>
-                <kbd className="pointer-events-none hidden sm:inline-flex h-4.5 select-none items-center gap-0.5 rounded border border-border/80 bg-background/90 px-1 font-mono text-[9px] font-medium text-muted-foreground ml-auto shadow-2xs">
+                <span className="truncate text-muted-foreground/90 font-medium hidden 2xl:inline">Search or jump...</span>
+                <span className="truncate text-muted-foreground/90 font-medium 2xl:hidden">Search...</span>
+                <kbd className="pointer-events-none hidden sm:inline-flex h-4.5 select-none items-center gap-0.5 rounded border border-border/80 bg-background/90 px-1 font-mono text-[9px] font-medium text-muted-foreground ml-auto shadow-2xs shrink-0">
                   ⌘K
                 </kbd>
               </button>

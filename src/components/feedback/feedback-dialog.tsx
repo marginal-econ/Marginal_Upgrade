@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   MessageSquarePlus,
   Send,
@@ -101,6 +101,15 @@ export function FeedbackDialog({
   const [activeField, setActiveField] = useState<
     "category" | "subject" | "message" | "name" | "email" | null
   >(null);
+  const [bug1Caught, setBug1Caught] = useState(false);
+  const [bug2Caught, setBug2Caught] = useState(false);
+
+  useEffect(() => {
+    if (category !== "bug" || !open) {
+      setBug1Caught(false);
+      setBug2Caught(false);
+    }
+  }, [category, open]);
 
   const sendFeedback = useServerFn(submitFeedback);
 
@@ -167,47 +176,153 @@ export function FeedbackDialog({
         <style>{`
           @keyframes dialogBugFlight {
             0% { transform: translate(0px, 0px) rotate(0deg); }
-            20% { transform: translate(220px, -60px) rotate(35deg); }
-            40% { transform: translate(160px, 160px) rotate(-20deg); }
-            60% { transform: translate(-100px, 120px) rotate(45deg); }
-            80% { transform: translate(-60px, -40px) rotate(-30deg); }
+            20% { transform: translate(50px, -20px) rotate(20deg); }
+            45% { transform: translate(110px, 35px) rotate(-15deg); }
+            70% { transform: translate(40px, 65px) rotate(15deg); }
+            85% { transform: translate(-25px, 25px) rotate(-10deg); }
             100% { transform: translate(0px, 0px) rotate(0deg); }
+          }
+          @keyframes hoverflyWingLeft {
+            0%, 100% { transform: rotate(-30deg) scaleY(1); }
+            50% { transform: rotate(40deg) scaleY(0.7); }
+          }
+          @keyframes hoverflyWingRight {
+            0%, 100% { transform: rotate(30deg) scaleY(1); }
+            50% { transform: rotate(-40deg) scaleY(0.7); }
           }
         `}</style>
 
-        {/* ── Flying Bug over the entire dialog when 'bug' is selected ────── */}
+        {/* ── Bug #1: Pip the Luminous Hoverfly (Soaring gracefully across header airspace) ────── */}
         {category === "bug" && (
           <div className="pointer-events-none absolute inset-0 z-30 overflow-hidden">
             <div
-              className="pointer-events-auto absolute z-40 cursor-pointer"
+              className={cn(
+                "pointer-events-auto absolute z-40 cursor-pointer transition-transform duration-300 select-none group",
+                bug1Caught ? "hover:scale-110" : "hover:scale-125 active:scale-90",
+              )}
               style={{
-                animation: "dialogBugFlight 12s infinite ease-in-out",
-                top: "22%",
-                left: "32%",
+                top: "13%",
+                left: "60%",
+                animation: bug1Caught ? "none" : "dialogBugFlight 14s infinite ease-in-out",
+                transform: bug1Caught ? "translate(30px, 10px) rotate(10deg)" : undefined,
               }}
               onClick={() => {
-                toast.success("🎯 You caught the bug! Describe what went wrong below.");
+                const next = !bug1Caught;
+                setBug1Caught(next);
+                if (next) {
+                  toast.success(
+                    bug2Caught
+                      ? "🎉 Both bugs caught! 2/2! You're a master debugger."
+                      : "🎯 Caught Pip the Hoverfly! (1 of 2 bugs caught) Now catch the jewel beetle!",
+                  );
+                }
               }}
-              title="Catch the bug!"
+              title={
+                bug1Caught
+                  ? "Pip the Hoverfly (Caught!) — Click to release"
+                  : "Pip the Hoverfly (~bzz!~) — Click to catch!"
+              }
             >
-              <div className="relative flex items-center justify-center p-2 group hover:scale-125 transition-transform">
-                <div
-                  className="absolute -top-1 left-1.5 h-3.5 w-2 rounded-full border border-sky-400/40 bg-sky-200/80 shadow-xs origin-bottom"
-                  style={{ animation: "flutterLeft 0.08s infinite ease-in-out" }}
-                />
-                <div
-                  className="absolute -top-1 right-1.5 h-3.5 w-2 rounded-full border border-sky-400/40 bg-sky-200/80 shadow-xs origin-bottom"
-                  style={{ animation: "flutterRight 0.08s infinite ease-in-out" }}
-                />
-                <div className="relative flex h-5 w-4 items-center justify-center rounded-full border-2 border-emerald-950 bg-emerald-600 shadow-md">
-                  <div className="size-1 rounded-full bg-yellow-300 animate-ping opacity-75" />
-                </div>
-                <div className="absolute -top-2 flex gap-1">
-                  <div className="h-2 w-0.5 -rotate-25 rounded-full bg-emerald-900" />
-                  <div className="h-2 w-0.5 rotate-25 rounded-full bg-emerald-900" />
-                </div>
-                <span className="absolute -bottom-3 text-[9px] font-mono font-bold text-emerald-600 dark:text-emerald-400 whitespace-nowrap opacity-80">
-                  ~bzz!~
+              {/* Luminous Hoverfly Vector */}
+              <div className="relative flex flex-col items-center justify-center p-1.5">
+                <svg
+                  viewBox="0 0 36 36"
+                  className="size-9 overflow-visible drop-shadow-md select-none pointer-events-none"
+                  aria-hidden="true"
+                >
+                  <defs>
+                    <linearGradient id="hoverfly-body" x1="0" y1="0" x2="1" y2="1">
+                      <stop offset="0%" stopColor="#34d399" />
+                      <stop offset="50%" stopColor="#10b981" />
+                      <stop offset="100%" stopColor="#047857" />
+                    </linearGradient>
+                    <radialGradient id="hoverfly-lantern" cx="50%" cy="50%" r="50%">
+                      <stop offset="0%" stopColor="#fef08a" />
+                      <stop offset="60%" stopColor="#facc15" />
+                      <stop offset="100%" stopColor="#d97706" />
+                    </radialGradient>
+                    <linearGradient id="hoverfly-wing" x1="0" y1="0" x2="1" y2="1">
+                      <stop offset="0%" stopColor="rgba(224, 242, 254, 0.95)" />
+                      <stop offset="100%" stopColor="rgba(56, 189, 248, 0.45)" />
+                    </linearGradient>
+                  </defs>
+
+                  {/* Bioluminescent soft glow */}
+                  <circle cx="18" cy="22" r="10" fill="#facc15" opacity="0.35" filter="blur(3px)" />
+
+                  {/* Translucent Fluttering Wings */}
+                  {!bug1Caught && (
+                    <g>
+                      <path
+                        d="M16 16 C9 4 3 6 7 17 C9 22 14 20 16 17 Z"
+                        fill="url(#hoverfly-wing)"
+                        stroke="#0284c7"
+                        strokeWidth="0.9"
+                        style={{
+                          transformOrigin: "16px 16px",
+                          animation: "hoverflyWingLeft 0.05s infinite alternate ease-in-out",
+                        }}
+                      />
+                      <path
+                        d="M20 16 C27 4 33 6 29 17 C27 22 22 20 20 17 Z"
+                        fill="url(#hoverfly-wing)"
+                        stroke="#0284c7"
+                        strokeWidth="0.9"
+                        style={{
+                          transformOrigin: "20px 16px",
+                          animation: "hoverflyWingRight 0.05s infinite alternate ease-in-out",
+                        }}
+                      />
+                    </g>
+                  )}
+
+                  {/* Jointed Fly Legs */}
+                  <g stroke="#064e3b" strokeWidth="1.3" strokeLinecap="round" fill="none">
+                    <path d="M14 18 L9 16 L6 20" />
+                    <path d="M14 22 L8 24 L5 28" />
+                    <path d="M22 18 L27 16 L30 20" />
+                    <path d="M22 22 L28 24 L31 28" />
+                  </g>
+
+                  {/* Luminous Abdomen */}
+                  <ellipse cx="18" cy="23" rx="5.5" ry="7" fill="url(#hoverfly-lantern)" />
+                  <ellipse cx="18" cy="23" rx="3.5" ry="4.5" fill="#fef9c3" opacity="0.85" />
+
+                  {/* Thorax */}
+                  <ellipse cx="18" cy="15" rx="4.8" ry="4.2" fill="url(#hoverfly-body)" stroke="#064e3b" strokeWidth="1.2" />
+
+                  {/* Head & Big Glossy Eyes */}
+                  <circle cx="18" cy="10" r="3.2" fill="#064e3b" />
+                  <circle cx="15.8" cy="9.2" r="2" fill="#38bdf8" stroke="#0c4a6e" strokeWidth="0.6" />
+                  <circle cx="15.2" cy="8.6" r="0.7" fill="#ffffff" />
+                  <circle cx="20.2" cy="9.2" r="2" fill="#38bdf8" stroke="#0c4a6e" strokeWidth="0.6" />
+                  <circle cx="19.6" cy="8.6" r="0.7" fill="#ffffff" />
+
+                  {/* Antennae */}
+                  <path d="M16.5 8 Q14 4 12 5" fill="none" stroke="#064e3b" strokeWidth="1.2" strokeLinecap="round" />
+                  <path d="M19.5 8 Q22 4 24 5" fill="none" stroke="#064e3b" strokeWidth="1.2" strokeLinecap="round" />
+                  <circle cx="12" cy="5" r="0.9" fill="#facc15" />
+                  <circle cx="24" cy="5" r="0.9" fill="#facc15" />
+
+                  {/* Dazed Stars when caught */}
+                  {bug1Caught && (
+                    <g style={{ transformOrigin: "18px 8px", animation: "dazedStars 2.5s infinite linear" }}>
+                      <text x="10" y="5" fontSize="7" fill="#facc15">⭐</text>
+                      <text x="22" y="5" fontSize="6" fill="#38bdf8">✨</text>
+                    </g>
+                  )}
+                </svg>
+
+                {/* Subtle Hover Status Pill */}
+                <span
+                  className={cn(
+                    "mt-0.5 text-[8.5px] font-mono font-bold px-1.5 py-0.2 rounded-full border shadow-2xs whitespace-nowrap transition-all duration-200",
+                    bug1Caught
+                      ? "bg-amber-500/15 border-amber-500/30 text-amber-600 dark:text-amber-400 font-extrabold"
+                      : "bg-emerald-500/15 border-emerald-500/30 text-emerald-600 dark:text-emerald-400 opacity-80 group-hover:opacity-100",
+                  )}
+                >
+                  {bug1Caught ? "⭐ CAUGHT!" : "~bzz!~"}
                 </span>
               </div>
             </div>
@@ -220,13 +335,35 @@ export function FeedbackDialog({
             {/* Ambient Background Aura */}
             <div className="pointer-events-none absolute -left-8 -top-8 size-36 rounded-full bg-primary/10 blur-2xl" />
 
-            <div className="space-y-1 relative z-10">
-              <div className="flex items-center gap-1.5 text-[10.5px] font-bold text-primary tracking-wide uppercase">
-                <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
-                Student Mascot
+            <div className="space-y-1.5 relative z-10">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5 text-[10.5px] font-bold text-primary tracking-wide uppercase">
+                  <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
+                  Student Mascot
+                </div>
+                {category === "bug" && (
+                  <span
+                    className={cn(
+                      "text-[9.5px] font-bold font-mono px-2 py-0.5 rounded-full border shadow-2xs transition-all",
+                      bug1Caught && bug2Caught
+                        ? "bg-purple-500/20 border-purple-500/40 text-purple-700 dark:text-purple-300 font-extrabold"
+                        : bug1Caught || bug2Caught
+                        ? "bg-amber-500/15 border-amber-500/35 text-amber-600 dark:text-amber-400 font-bold"
+                        : "bg-emerald-500/10 border-emerald-500/25 text-emerald-600 dark:text-emerald-400",
+                    )}
+                  >
+                    {bug1Caught && bug2Caught
+                      ? "🏆 2/2 Caught!"
+                      : bug1Caught || bug2Caught
+                      ? "🎯 1/2 Caught!"
+                      : "🪲 2 Bugs Flying"}
+                  </span>
+                )}
               </div>
               <p className="text-[11px] text-muted-foreground leading-snug">
-                Always here to react and send your message to the Marginal team.
+                {category === "bug"
+                  ? "Catch both bugs buzzing around the screen to help our engineers squash them!"
+                  : "Always here to react and send your message to the Marginal team."}
               </p>
             </div>
 
@@ -239,8 +376,17 @@ export function FeedbackDialog({
                 isHoveringSend={isHoveringSend}
                 activeField={activeField}
                 className="w-full"
-                onBugClick={() => {
-                  toast.success("🎯 You caught the bug! Describe what went wrong below.");
+                bug1Caught={bug1Caught}
+                bug2Caught={bug2Caught}
+                onBug2CaughtChange={(caught) => {
+                  setBug2Caught(caught);
+                  if (caught) {
+                    toast.success(
+                      bug1Caught
+                        ? "🎉 Both bugs caught! 2/2! You squashed all of them!"
+                        : "🎯 Squashed Barnaby the Jewel Beetle! (1 of 2 bugs caught) Now catch the flying one!",
+                    );
+                  }
                 }}
               />
             </div>

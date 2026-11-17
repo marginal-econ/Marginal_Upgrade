@@ -380,16 +380,37 @@ ${studentAnswer}
 `.trim();
 
   try {
-    const aiResponse = await chat({
-      model: MODEL_EXAMINER,
-      temperature: 0.1,
-      json: true,
-      messages: [
-        { role: "system", content: DATA_RESPONSE_MARKING_SYSTEM },
-        { role: "user", content: prompt },
-      ],
-      maxCompletionTokens: 2500,
-    });
+    let aiResponse: any = null;
+    let lastError: unknown = null;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        aiResponse = await chat({
+          model: MODEL_EXAMINER,
+          temperature: 0.1,
+          json: true,
+          messages: [
+            { role: "system", content: DATA_RESPONSE_MARKING_SYSTEM },
+            { role: "user", content: prompt },
+          ],
+          maxCompletionTokens: 2500,
+        });
+        if (aiResponse?.text) break;
+      } catch (err) {
+        lastError = err;
+        if (attempt === 0) {
+          await new Promise((r) => setTimeout(r, 600));
+        }
+      }
+    }
+
+    if (!aiResponse?.text) {
+      console.error(`Error marking question ${question.number}:`, lastError);
+      throw new Error(
+        `Examiner marking service unavailable for question ${question.number}: ${
+          lastError instanceof Error ? lastError.message : "AI model timed out or rate-limited"
+        }. Please retry marking.`,
+      );
+    }
 
     let raw: any = {};
     try {
@@ -484,38 +505,9 @@ ${studentAnswer}
     return evaluationResult;
   } catch (error) {
     console.error(`Error marking question ${question.number}:`, error);
-    // Graceful fallback with strict AO mathematical reconciliation
-    const fbInitial = Math.min(question.maxMark, Math.max(1, Math.floor(question.maxMark * 0.5)));
-    const { awardedMark: fbAwarded, aoBreakdown: fbAo } = reconcileAoBreakdown({
-      awardedMark: fbInitial,
-      maxMark: question.maxMark,
-      tariff: question.tariff,
-    });
-    return cleanStars({
-      questionNumber: question.number,
-      questionTitle: question.title,
-      maxMark: question.maxMark,
-      awardedMark: fbAwarded,
-      category: question.category,
-      extractContextCheck: {
-        usedContext: true,
-        contextQuality: "adequate",
-        feedback: "Response demonstrates relevant understanding.",
-      },
-      aoBreakdown: fbAo,
-      specificCriteriaMet: [
-        {
-          criterion: "Credited for relevant economic reasoning addressing the prompt.",
-        },
-      ],
-      examinerRationale: `Marked according to official Cambridge 9708 mark scheme standards. Response demonstrates creditable knowledge and context.`,
-      evidenceQuotes: [],
-      creditedPoints: ["Credited for relevant economic reasoning addressing the prompt."],
-      missingMarkSchemePoints: ["Detailed examiner mark scheme points."],
-      constructiveFeedback: ["Ensure all arguments provide sustained causal links directly referencing extract context."],
-      modelAnswerSnippet: "Consult the mark scheme guidance.",
-      improvementTip: "Develop deeper causal transmission mechanisms and explicit evaluation in context.",
-    });
+    throw error instanceof Error
+      ? error
+      : new Error(`Marking failed for question ${question.number}. Please retry.`);
   }
 }
 

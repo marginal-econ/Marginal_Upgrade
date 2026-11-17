@@ -617,6 +617,19 @@ export function applyWritingQualityGuardrail(
   // 4. Economic mechanics & causal integrity guardrail (ensures fatal misconceptions and broken causal chains are capped)
   result = applyEconomicMechanicsGuardrail(result, maxMark, split, essayText);
 
+  // 5. Guarantee strict mathematical invariant across all guardrail branches:
+  const sumAo =
+    result.ao_breakdown.knowledge.awarded +
+    result.ao_breakdown.analysis.awarded +
+    result.ao_breakdown.evaluation.awarded;
+  if (result.total_mark !== sumAo) {
+    result = {
+      ...result,
+      total_mark: sumAo,
+      band: bandFor(sumAo, maxMark),
+    };
+  }
+
   // Clean stars and asterisks across all feedback fields
   return cleanStars(result);
 }

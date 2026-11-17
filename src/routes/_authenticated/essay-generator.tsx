@@ -431,7 +431,7 @@ function EssayGeneratorPage() {
                 model answer appears here with diagrams and an AO breakdown.
               </p>
             </div>
-          ) : (
+          ) : essay ? (
             <article className="space-y-6">
               <header className="space-y-3">
                 <div className="flex flex-wrap items-center gap-2">
@@ -627,7 +627,7 @@ function EssayGeneratorPage() {
                 </div>
               ) : null}
             </article>
-          )}
+          ) : null}
         </section>
       </div>
     </>

@@ -470,6 +470,20 @@ export function synthesizeDualPasses(
     }
   }
 
+  // Strictly enforce AO boundary constraints
+  kMark = Math.max(0, Math.min(split.ao1_marks, kMark));
+  aMark = Math.max(0, Math.min(split.ao2_marks, aMark));
+  eMark = Math.max(0, Math.min(split.ao3_marks, eMark));
+
+  // Ensure total mark does not exceed maxMark
+  while (kMark + aMark + eMark > maxMark) {
+    if (aMark > 0) aMark--;
+    else if (kMark > 0) kMark--;
+    else if (eMark > 0) eMark--;
+  }
+
+  total = kMark + aMark + eMark;
+
   // Diagrams missing elements must always be empty unless specifically required
   const missingElements = {
     definitions: Array.from(new Set([...(pass1.missing_elements.definitions || []), ...(pass2.missing_elements.definitions || [])])).slice(0, 3),
