@@ -216,6 +216,15 @@ export async function chat(rawOptions: ChatOptions): Promise<ChatResult> {
       let lastErr: any = null;
       for (let pIdx = 0; pIdx < providersToTry.length; pIdx++) {
         const prov = providersToTry[pIdx]!;
+        // Groq free-tier payload limit (<8k tokens) cannot accommodate Pass 1 and Pass 2 (~16k context).
+        // Route directly to the next capable provider (e.g. Mistral) to eliminate 413 error latency.
+        if (
+          prov.provider === "groq" &&
+          (rawOptions.feature === "grade_essay_pass1_error_audit" || rawOptions.feature === "grade_essay_pass2_holistic") &&
+          pIdx + 1 < providersToTry.length
+        ) {
+          continue;
+        }
         const provOptions = applyAiGatewayMode(rawOptions, gateway.mode, prov);
         try {
           const provResult = await chatViaProvider(prov, provOptions);
@@ -1207,10 +1216,12 @@ export async function embed(
   const started = Date.now();
   let callError: Error | null = null;
   let resVectors: number[][] = [];
+  let resolvedModel = model;
 
   try {
     let config =
       overrideProvider !== undefined ? overrideProvider : await getActiveEmbeddingProvider();
+    if (config?.model) resolvedModel = config.model;
 
     if (!config) {
       const activeChat = await getActiveProvider();
@@ -1335,7 +1346,7 @@ export async function embed(
       const { supabaseAdmin } = await import("@/integrations/backend/client.server");
       await supabaseAdmin.from("ai_usage_log").insert({
         feature: "embedding",
-        model: model || "gemini-embedding-001",
+        model: resolvedModel || "mistral-embed-2312",
         latency_ms: Date.now() - started,
         ok: !callError,
         error_message: callError ? callError.message : null,

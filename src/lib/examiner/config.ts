@@ -102,7 +102,7 @@ export const MODEL_MECHANICAL = MODEL_FAST;
  * path in ai.server.ts — the direct OpenRouter/Google paths pick their own
  * model constants internally so they can be swapped independently.
  */
-export const MODEL_EMBEDDING = "google/gemini-embedding-2";
+export const MODEL_EMBEDDING = "mistral-embed-2312";
 
 /**
  * Nemotron 3 Embed 1B (OpenRouter, free) is fixed at 2048 dims, so this is
