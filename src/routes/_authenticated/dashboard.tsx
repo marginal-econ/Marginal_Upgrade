@@ -30,7 +30,7 @@ import {
   FileSpreadsheet,
   Wand2,
 } from "lucide-react";
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useCallback } from "react";
 
 import { PageHeader } from "@/components/app/app-shell";
 import { Badge } from "@/components/ui/badge";
@@ -46,6 +46,7 @@ import { getMyMcqSummary } from "@/lib/mcq-pdf.functions";
 import { TIER_LIMITS } from "@/lib/usage-limits";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/backend/client";
+import { TARIFF_SPLITS } from "@/lib/examiner/config";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({
@@ -167,40 +168,119 @@ export function DashboardPage() {
   const [hoveredPoint, setHoveredPoint] = useState<{
     index: number;
     mark: number;
+    maxMark?: number;
     date: string;
     question: string;
   } | null>(null);
 
   const versions = useMemo(() => progress.data ?? [], [progress.data]);
   const marks = useMemo(() => versions.map((v) => v.total_mark ?? 0), [versions]);
-  const average = useMemo(
-    () => (marks.length ? marks.reduce((a, b) => a + b, 0) / marks.length : 0),
-    [marks],
-  );
-  const best = useMemo(() => (marks.length ? Math.max(...marks) : 0), [marks]);
   const readyDocs = (docs.data ?? []).filter((document) => document.status === "ready").length;
 
-  const recent = marks.slice(-5);
-  const earlier = marks.slice(0, -5);
-  const delta =
-    recent.length && earlier.length
-      ? recent.reduce((a, b) => a + b, 0) / recent.length -
-        earlier.reduce((a, b) => a + b, 0) / earlier.length
-      : 0;
+  const essayMap = useMemo(
+    () => new Map((essays.data ?? []).map((e) => [e.id, e.max_mark])),
+    [essays.data],
+  );
+
+  const getVersionMaxMark = useCallback(
+    (v: {
+      essay_id?: string | null;
+      total_mark?: number | null;
+      essays?: { max_mark?: number | null; question?: string | null } | { max_mark?: number | null; question?: string | null }[] | null;
+    }) => {
+      const essayObj = Array.isArray(v.essays) ? v.essays[0] : v.essays;
+      if (essayObj?.max_mark && Number(essayObj.max_mark) > 0) {
+        return Number(essayObj.max_mark);
+      }
+      if (v.essay_id && essayMap.has(v.essay_id)) {
+        return essayMap.get(v.essay_id)!;
+      }
+      const mark = v.total_mark ?? 0;
+      if (mark > 12) return 20;
+      if (mark > 8) return 12;
+      return 12;
+    },
+    [essayMap],
+  );
 
   // Filtered versions by tariff
   const filteredVersions = useMemo(() => {
     if (activeTariff === "all") return versions;
-    // Map max_mark from matching essay if available
-    const essayMap = new Map((essays.data ?? []).map((e) => [e.id, e.max_mark]));
     return versions.filter((v) => {
-      // Best guess based on marks or essay reference
-      if (activeTariff === 12) return (v.total_mark ?? 0) <= 12;
-      if (activeTariff === 8) return (v.total_mark ?? 0) <= 8;
-      if (activeTariff === 20) return (v.total_mark ?? 0) > 12;
-      return true;
+      const maxMark = getVersionMaxMark(v);
+      return maxMark === activeTariff;
     });
-  }, [versions, essays.data, activeTariff]);
+  }, [versions, activeTariff, getVersionMaxMark]);
+
+  // Personal Best Attempt (percentage normalized across tariffs, with exact score & max mark)
+  const bestAttempt = useMemo(() => {
+    if (!versions.length) return null;
+    let topVersion = versions[0];
+    let topPct = -1;
+    let topMark = -1;
+
+    for (const v of versions) {
+      const mark = v.total_mark ?? 0;
+      const max = getVersionMaxMark(v);
+      const pct = max > 0 ? mark / max : 0;
+      if (pct > topPct || (pct === topPct && mark > topMark)) {
+        topPct = pct;
+        topMark = mark;
+        topVersion = v;
+      }
+    }
+    const maxMark = topVersion ? getVersionMaxMark(topVersion) : 12;
+    const mark = topVersion?.total_mark ?? 0;
+    return {
+      mark,
+      maxMark,
+      percentage: maxMark > 0 ? Math.round((mark / maxMark) * 100) : 0,
+    };
+  }, [versions, getVersionMaxMark]);
+
+  // Robust Average metrics across tariffs
+  const averageMetrics = useMemo(() => {
+    if (!versions.length) {
+      return {
+        display: "—",
+        avgPct: 0,
+        trend: 0,
+      };
+    }
+    const versionPercentages = versions.map((v) => {
+      const mark = v.total_mark ?? 0;
+      const max = getVersionMaxMark(v);
+      return max > 0 ? (mark / max) * 100 : 0;
+    });
+
+    const avgPct =
+      versionPercentages.reduce((a, b) => a + b, 0) / versionPercentages.length;
+
+    const firstMax = getVersionMaxMark(versions[0]);
+    const allSameTariff = versions.every((v) => getVersionMaxMark(v) === firstMax);
+
+    let display = "";
+    if (allSameTariff) {
+      const avgMark = marks.reduce((a, b) => a + b, 0) / marks.length;
+      display = `${avgMark.toFixed(1)}/${firstMax}`;
+    } else {
+      display = `${Math.round(avgPct)}%`;
+    }
+
+    const recentPct = versionPercentages.slice(-5);
+    const earlierPct = versionPercentages.slice(0, -5);
+    const trend =
+      recentPct.length && earlierPct.length
+        ? recentPct.reduce((a, b) => a + b, 0) / recentPct.length -
+          earlierPct.reduce((a, b) => a + b, 0) / earlierPct.length
+        : 0;
+
+    return {
+      display,
+      avgPct: Math.round(avgPct),
+      trend,
+    };
+  }, [versions, marks, getVersionMaxMark]);
 
   const aoAverage = (key: "ao1_awarded" | "ao2_awarded" | "ao3_awarded") => {
     const list = filteredVersions.length ? filteredVersions : versions;
@@ -208,15 +288,22 @@ export function DashboardPage() {
     return values.length ? values.reduce((a, b) => a + b, 0) / values.length : 0;
   };
 
+  const currentAoSplit = useMemo(() => {
+    if (activeTariff !== "all" && TARIFF_SPLITS[activeTariff]) {
+      return TARIFF_SPLITS[activeTariff];
+    }
+    return TARIFF_SPLITS[12];
+  }, [activeTariff]);
+
   // Study Progress & Consistency Index (0 - 100%)
   // Transparent calculation: average mark weight (60%) + practice volume (30%) + positive improvement trend (10%)
   const progressIndex = useMemo(() => {
     if (versions.length === 0) return 0;
-    const avgPercent = Math.min(100, (average / 12) * 100);
+    const avgPercent = Math.min(100, Math.max(0, averageMetrics.avgPct));
     const volumeScore = Math.min(30, versions.length * 6); // capped at 30% for 5+ essays
-    const consistencyScore = delta >= 0 ? 10 : 0;
+    const consistencyScore = averageMetrics.trend >= 0 ? 10 : 0;
     return Math.min(100, Math.round(avgPercent * 0.6 + volumeScore + consistencyScore));
-  }, [average, versions.length, delta]);
+  }, [averageMetrics.avgPct, averageMetrics.trend, versions.length]);
 
   const progressBadge = useMemo(() => {
     if (progressIndex >= 80)
@@ -542,11 +629,15 @@ export function DashboardPage() {
           />
           <InteractiveStat
             label="Average mark"
-            value={versions.length ? `${average.toFixed(1)}/12` : "—"}
-            badge={delta !== 0 ? `${delta > 0 ? "+" : ""}${delta.toFixed(1)} trend` : "Baseline"}
+            value={averageMetrics.display}
+            badge={
+              averageMetrics.trend !== 0
+                ? `${averageMetrics.trend > 0 ? "+" : ""}${averageMetrics.trend.toFixed(1)}% trend`
+                : "Baseline"
+            }
             hint={
               versions.length
-                ? `${Math.round((average / 12) * 100)}% Cambridge benchmark`
+                ? `${averageMetrics.avgPct}% Cambridge benchmark`
                 : "Submit to calculate"
             }
             loading={progress.isLoading}
@@ -576,7 +667,7 @@ export function DashboardPage() {
           />
           <InteractiveStat
             label="Personal best"
-            value={versions.length ? `${best}/12` : "—"}
+            value={bestAttempt ? `${bestAttempt.mark}/${bestAttempt.maxMark}` : "—"}
             badge="Top attempt"
             hint="Highest single awarded mark"
             loading={progress.isLoading}
@@ -597,9 +688,9 @@ export function DashboardPage() {
               </h2>
               <p className="text-xs text-muted-foreground">
                 Authoritative weightings for Cambridge 9708 evaluative essays:{" "}
-                <span className="font-semibold text-foreground">AO1 Knowledge (2m)</span> ·{" "}
-                <span className="font-semibold text-foreground">AO2 Analysis (6m)</span> ·{" "}
-                <span className="font-semibold text-foreground">AO3 Evaluation (4m)</span>
+                <span className="font-semibold text-foreground">AO1 Knowledge ({currentAoSplit.ao1_marks}m)</span> ·{" "}
+                <span className="font-semibold text-foreground">AO2 Analysis ({currentAoSplit.ao2_marks}m)</span> ·{" "}
+                <span className="font-semibold text-foreground">AO3 Evaluation ({currentAoSplit.ao3_marks}m)</span>
               </p>
             </div>
 
@@ -660,7 +751,7 @@ export function DashboardPage() {
               label="AO1 Knowledge"
               subtitle="Definitions, concepts & theory"
               score={aoAverage("ao1_awarded")}
-              maxScore={2}
+              maxScore={currentAoSplit.ao1_marks}
               tone="bg-sky-500"
               badgeClass="bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/30"
               insight="Accurate definitions and diagrams set the baseline for high marks."
@@ -671,7 +762,7 @@ export function DashboardPage() {
               label="AO2 Analysis"
               subtitle="Explicit chains of economic reasoning"
               score={aoAverage("ao2_awarded")}
-              maxScore={6}
+              maxScore={currentAoSplit.ao2_marks}
               tone="bg-indigo-500"
               badgeClass="bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/30"
               insight="Largest mark share. Build step-by-step causal mechanisms without skipping steps."
@@ -682,7 +773,7 @@ export function DashboardPage() {
               label="AO3 Evaluation"
               subtitle="Weighing up, conditions & justified judgement"
               score={aoAverage("ao3_awarded")}
-              maxScore={4}
+              maxScore={currentAoSplit.ao3_marks}
               tone="bg-amber-500"
               badgeClass="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30"
               insight="Decisive differentiator for Band 1. Must be justified with magnitude or elasticity."
@@ -1452,10 +1543,15 @@ function PerformanceChart({
   hoveredPoint,
   onHoverPoint,
 }: {
-  versions: Array<{ total_mark?: number | null; created_at: string; essay_id?: string | null }>;
-  hoveredPoint: { index: number; mark: number; date: string; question: string } | null;
+  versions: Array<{
+    total_mark?: number | null;
+    created_at: string;
+    essay_id?: string | null;
+    essays?: { max_mark?: number | null; question?: string | null } | { max_mark?: number | null; question?: string | null }[] | null;
+  }>;
+  hoveredPoint: { index: number; mark: number; maxMark?: number; date: string; question: string } | null;
   onHoverPoint: (
-    pt: { index: number; mark: number; date: string; question: string } | null,
+    pt: { index: number; mark: number; maxMark?: number; date: string; question: string } | null,
   ) => void;
 }) {
   const width = 800;
@@ -1467,17 +1563,19 @@ function PerformanceChart({
 
   const points = useMemo(() => {
     const list = versions.slice(-15);
-    const maxMarkVal = Math.max(12, ...list.map((v) => v.total_mark ?? 0));
     return list.map((v, i) => {
       const mark = v.total_mark ?? 0;
-      const pct = maxMarkVal > 0 ? Math.min(1, Math.max(0, mark / maxMarkVal)) : 0;
+      const essayObj = Array.isArray(v.essays) ? v.essays[0] : v.essays;
+      const maxMark = Number(essayObj?.max_mark) || (mark > 12 ? 20 : 12);
+      const pct = maxMark > 0 ? Math.min(1, Math.max(0, mark / maxMark)) : 0;
       const x = padding.left + (i / Math.max(1, list.length - 1)) * chartWidth;
       const y = padding.top + chartHeight - pct * chartHeight;
       const date = new Date(v.created_at).toLocaleDateString(undefined, {
         month: "short",
         day: "numeric",
       });
-      return { x, y, mark, maxMark: maxMarkVal, date, question: `Essay submission #${i + 1}` };
+      const qText = essayObj?.question || `Essay submission #${i + 1}`;
+      return { x, y, mark, maxMark, pct: Math.round(pct * 100), date, question: qText };
     });
   }, [versions, chartWidth, chartHeight, padding.left, padding.top]);
 
@@ -1617,7 +1715,7 @@ function PerformanceChart({
             key={idx}
             className="cursor-pointer"
             onMouseEnter={() =>
-              onHoverPoint({ index: idx, mark: pt.mark, date: pt.date, question: pt.question })
+              onHoverPoint({ index: idx, mark: pt.mark, maxMark: pt.maxMark, date: pt.date, question: pt.question })
             }
             onMouseLeave={() => onHoverPoint(null)}
           >
@@ -1637,9 +1735,9 @@ function PerformanceChart({
             transform={`translate(${Math.max(50, Math.min(width - 50, points[hoveredPoint.index]?.x ?? 0))}, ${Math.max(35, (points[hoveredPoint.index]?.y ?? 0) - 12)})`}
           >
             <rect
-              x="-48"
+              x="-56"
               y="-28"
-              width="96"
+              width="112"
               height="26"
               rx="6"
               className="fill-popover stroke-border shadow-md"
@@ -1651,7 +1749,7 @@ function PerformanceChart({
               textAnchor="middle"
               className="text-[11px] font-bold fill-foreground"
             >
-              {hoveredPoint.mark} marks awarded
+              {hoveredPoint.mark}/{hoveredPoint.maxMark ?? 12} awarded
             </text>
           </g>
         ) : null}

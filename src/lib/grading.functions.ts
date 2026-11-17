@@ -297,7 +297,7 @@ export const getProgress = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     const { data, error } = await context.supabase
       .from("essay_versions")
-      .select("total_mark, ao1_awarded, ao2_awarded, ao3_awarded, confidence, created_at")
+      .select("id, essay_id, total_mark, ao1_awarded, ao2_awarded, ao3_awarded, confidence, created_at, essays(id, max_mark, question)")
       .eq("user_id", context.userId)
       .order("created_at", { ascending: true })
       .limit(200);
