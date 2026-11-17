@@ -115,25 +115,26 @@ export function analyzeEssayQuality(
       qualityIssues.push(
         `Severely undersized (${words} words). Lacks the sustained analytical chains and evaluative breadth required for a 12-mark essay.`,
       );
-    } else if (words < 300) {
+    } else if (words < 280) {
       isUndersized = true;
-      // In Cambridge 9708, a 220-299 word script is an outline/synopsis: intermediate links are compressed into single clauses.
+      // In Cambridge 9708, a response under 280 words lacks the length to develop multiple mechanisms and evaluation.
       maxAllowableTotalMark = hasAiArtifacts || paragraphCount <= 1 ? 6 : 7;
       maxAllowableAo2 = hasAiArtifacts || paragraphCount <= 1 ? 3 : 4;
       maxAllowableAo3 = 2;
       qualityIssues.push(
-        `Compressed outline response (${words} words vs 500–750 expected). Transmission mechanisms are compressed into short assertions rather than fully explained step-by-step.`,
+        `Compressed outline response (${words} words vs 500–750 expected). Key mechanisms are compressed into short assertions.`,
       );
-    } else if (words < 420) {
-      // 300–419 words: structured concise or developing essay.
-      // If well-paragraphed (>= 3 paragraphs) without AI artifacts, can reach distinction marks (10-11/12).
-      maxAllowableTotalMark = hasAiArtifacts || paragraphCount <= 1 ? 7 : (paragraphCount >= 3 ? 11 : 9);
-      maxAllowableAo2 = hasAiArtifacts || paragraphCount <= 1 ? 3 : (paragraphCount >= 3 ? 6 : 5);
-      maxAllowableAo3 = hasAiArtifacts || paragraphCount <= 1 ? 2 : (paragraphCount >= 3 ? 4 : 3);
+    } else if (words < 380) {
+      // 280–379 words: structured concise essay.
+      // Clean, strategic analysis can achieve solid distinction (up to 9–10/12),
+      // while preventing generic surface summaries from reaching top-tier 11–12/12.
+      maxAllowableTotalMark = hasAiArtifacts || paragraphCount <= 1 ? 7 : (paragraphCount >= 3 ? 10 : 8);
+      maxAllowableAo2 = hasAiArtifacts || paragraphCount <= 1 ? 3 : (paragraphCount >= 3 ? 5 : 4);
+      maxAllowableAo3 = hasAiArtifacts || paragraphCount <= 1 ? 2 : (paragraphCount >= 3 ? 3 : 2);
     }
   } else if (maxMark === 8) {
     targetRangeText = split.ao3_marks === 0 ? "250–400 words" : "300–450 words";
-    if (words < 120) {
+    if (words < 100) {
       isSeverelyUndersized = true;
       maxAllowableTotalMark = 3;
       maxAllowableAo2 = split.ao3_marks === 0 ? 2 : 1;
@@ -141,7 +142,7 @@ export function analyzeEssayQuality(
       qualityIssues.push(
         `Fragment / extreme brevity (${words} words). Cambridge 8-mark questions expect ${targetRangeText}.`,
       );
-    } else if (words < 200) {
+    } else if (words < 180) {
       isUndersized = true;
       maxAllowableTotalMark = 5;
       maxAllowableAo2 = split.ao3_marks === 0 ? 3 : 2;
@@ -149,10 +150,15 @@ export function analyzeEssayQuality(
       qualityIssues.push(
         `Undersized (${words} words vs ${targetRangeText} expected). Analytical points lack sufficient explanatory depth.`,
       );
+    } else if (words < 240) {
+      // 180–239 words: concise response. Strategic analysis can score up to 7/8.
+      maxAllowableTotalMark = hasAiArtifacts || paragraphCount <= 1 ? 5 : (paragraphCount >= 2 ? 7 : 6);
+      maxAllowableAo2 = hasAiArtifacts || paragraphCount <= 1 ? 3 : (paragraphCount >= 2 ? 4 : 3);
+      maxAllowableAo3 = split.ao3_marks === 0 ? 0 : (hasAiArtifacts || paragraphCount <= 1 ? 1 : 2);
     }
   } else if (maxMark >= 20) {
     targetRangeText = "800–1200 words";
-    if (words < 350) {
+    if (words < 300) {
       isSeverelyUndersized = true;
       maxAllowableTotalMark = 7;
       maxAllowableAo2 = 4;
@@ -160,14 +166,19 @@ export function analyzeEssayQuality(
       qualityIssues.push(
         `Severely stunted (${words} words). Cambridge 20-mark extended essays require 800–1200 words.`,
       );
-    } else if (words < 550) {
+    } else if (words < 450) {
       isUndersized = true;
-      maxAllowableTotalMark = paragraphCount >= 4 && words >= 480 ? 18 : paragraphCount >= 3 && words >= 450 ? 15 : 12;
-      maxAllowableAo2 = paragraphCount >= 4 && words >= 480 ? 10 : paragraphCount >= 3 && words >= 450 ? 9 : 8;
-      maxAllowableAo3 = paragraphCount >= 4 && words >= 480 ? 5 : paragraphCount >= 3 && words >= 450 ? 4 : 3;
+      maxAllowableTotalMark = hasAiArtifacts || paragraphCount <= 2 ? 9 : 12;
+      maxAllowableAo2 = hasAiArtifacts || paragraphCount <= 2 ? 5 : 7;
+      maxAllowableAo3 = hasAiArtifacts || paragraphCount <= 2 ? 2 : 3;
       qualityIssues.push(
         `Underdeveloped (${words} words vs 800–1200 expected). Fails to provide extended analysis of multiple perspectives.`,
       );
+    } else if (words < 580) {
+      // 450–579 words: concise extended essay. Strategic analysis can reach distinction (15-16/20).
+      maxAllowableTotalMark = hasAiArtifacts || paragraphCount <= 2 ? 12 : (paragraphCount >= 4 ? 16 : 14);
+      maxAllowableAo2 = hasAiArtifacts || paragraphCount <= 2 ? 6 : (paragraphCount >= 4 ? 9 : 8);
+      maxAllowableAo3 = hasAiArtifacts || paragraphCount <= 2 ? 3 : (paragraphCount >= 4 ? 5 : 4);
     }
   } else {
     // Proportional fallback for non-standard tariffs

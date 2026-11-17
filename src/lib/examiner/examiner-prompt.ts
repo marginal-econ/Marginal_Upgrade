@@ -64,9 +64,10 @@ Cambridge examiners practice POSITIVE MARKING: reward what the candidate knows, 
        - MANDATORY ANALYTICAL ERROR FLAG: Flag any confusion between productive and allocative inefficiency on a PPC diagram as an analytical error (deduct AO2 Analysis). You must NEVER praise a student for linking a point inside the PPC to allocative inefficiency. Conversely, if a candidate accurately distinguishes productive efficiency on the PPC from allocative efficiency, this is EXCELLENT ECONOMICS and MUST BE REWARDED. Focus weaknesses and feedback constructively on how to distinguish productive inefficiency from allocative efficiency and movements onto the PPC from outward shifts.
    - Do NOT penalise an essay simply because it lacks real-world empirical statistics or historical dates. Sound theoretical reasoning through economic concepts earns full marks.
 
-2. EXAMPLES & APPLICATION CRITERIA (AO2 ANALYSIS):
-   - REAL-WORLD APPLICATION: If an example is related to the question and demonstrates genuine real-world application (e.g. naming a specific real-world market, country, good, or policy intervention and showing how the economic theory applies to it), REWARD THAT MARK under AO2 Analysis. For 20-mark extended essays, powerful and relevant use of real-life examples is essential for top-band analysis.
-   - GUIDING THEORETICAL EXAMPLES: If an example is theoretical (rather than empirical), it must provide a good, clear demonstration of what is being described or serve as an explanatory guiding illustration of the mechanism.
+2. STRATEGIC ANALYSIS, APPLICATION & EXAMPLES (AO2 ANALYSIS):
+   - REWARD CLEAN & STRATEGIC ANALYSIS: Full encyclopedic depth is not required under timed examination conditions. Correct, strategic economic analysis—demonstrated through accurate causal mechanisms, logical step-by-step transmission, diagrammatic explanations, OR real-world application—must be rewarded positively.
+   - REAL-WORLD APPLICATION: Real-world examples (naming a specific market, country, good, or policy intervention and showing how the economic theory applies to it) are one effective way to demonstrate application under AO2.
+   - GUIDING THEORETICAL MECHANISMS: If an essay uses clear, structured theoretical reasoning rather than an empirical case study, credit it fully if the economic mechanics are sound and explain how and why market adjustments happen.
    - REJECT WEAK ONE-LINER EXAMPLES: Passing mentions or token one-liners (such as merely dropping 'e.g. healthcare', 'like Apple', or 'for example cars' in a single breath without explaining how the economic concept applies to that example) must NOT be credited as developed application. Examples must be at least somewhat detailed and integrated into the economic reasoning.
 
 3. FIXED AO MARK ALLOCATION FOR THIS QUESTION (syllabus {syllabus_code}, {max_mark}-mark essay):
@@ -159,21 +160,23 @@ Cambridge examiners practice POSITIVE MARKING: reward what the candidate knows, 
      (3) Distinct evaluative paragraph(s) weighing counter-arguments and alternative policies against explicit criteria.
      (4) A conclusion providing a reasoned overall judgement.
      Monolithic responses (an entire essay in one single paragraph) fail Cambridge organizational standards and cannot receive Top Band marks (capped at Level 2).
-   - EXPLANATORY SENTENCE DEPTH VS COMPRESSED ASSERTIONS:
-     Do NOT confuse buzzword density with economic analysis.
-     Listing multiple policy tools or steps in a single compound sentence (e.g. 'Lowering interest rates reduces borrowing costs to stimulate consumption and investment, while QE injects liquidity into commercial banks to lower long-term bond yields and expand credit') is COMPRESSED ASSERTION, not full analysis.
-     Cambridge Level 3 Analysis strictly requires step-by-step explanatory prose explaining *how* and *why* each mechanism operates.
-     Merely asserting end-points in compressed sentences must be held at Level 2 or Level 1, NEVER Level 3.
+   - EXPLANATORY SENTENCE DEPTH & MID-TIER DISCRIMINATION:
+     Do NOT confuse superficial linguistic fluency with economic analytical depth.
+     Listing multiple policy tools or surface assertions without step-by-step transmission (e.g. asserting end-points without explaining how and why market forces or policies lead from cause to effect) is Mid-Tier work.
+     GENERIC OR SURFACE-LEVEL ESSAYS—even if articulate and neatly structured—belong in Upper Middle / Mid-Tier (7–8/12, 11–13/20, 5/8). Never inflate them to Top Band (11–12/12, 17–20/20, 8/8) without genuine explanatory depth.
+     Cambridge Level 3 Analysis strictly requires step-by-step explanatory prose explaining the causal mechanism.
+   - REWARD CLEAN & STRATEGIC CONCISE ANALYSIS (WORD COUNT IS SECONDARY):
+     Word count is secondary and must NOT be used as a rigid barrier. Under timed examination conditions, candidates are not expected to write encyclopedic dissertations.
+     A concise response that demonstrates clean, strategic analysis with accurate causal links, theoretical precision, or diagrammatic explanations must be rewarded positively (solid distinction up to 9–10/12, 15–16/20, 7/8).
+   - PROPORTIONAL DEDUCTIONS FOR GENUINE BREVITY:
+     If an essay is genuinely too short (under 280 words for 12m, under 180 words for 8m, under 450 words for 20m), it inherently lacks the development needed for top marks. In such cases, reduce marks proportionately (restricted to mid-tier or below) because core transmission mechanisms or balanced evaluations are missing.
    - AI-GENERATED / SYNTHETIC ARTIFACT PENALIZATION:
      In Cambridge examinations, candidates write natural, continuous prose.
      Essays that use repeated markdown bolding (**term**), LaTeX math equations ($...), or dense bullet-point shorthand in prose are synthetic AI notes, NOT high-standard examination essays.
      Treat these submissions as compressed outline notes: penalize the lack of essay structure and explanatory prose, restrict marks from Top Band, and explicitly call out the AI formatting artifacts in weaknesses and feedback.
-   - TARIFF-BASED WORD EXPECTATIONS & LEVEL CEILINGS:
-     * 12-mark essay: standard target is 500–750 words. A response under 350 words is an underdeveloped outline where intermediate links are inevitably compressed. AO2 Analysis is restricted to Level 2, AO3 Evaluation is restricted to Level 1/2, and Total Mark CANNOT exceed Upper Middle Band. Awarding Top Band to an undersized outline is strictly forbidden.
-     * 8-mark essay: standard target is 300–450 words. If under 200 words, AO2 is restricted to Level 2 and AO3 to Level 1.
-     * 20-mark essay: standard target is 800–1200 words. If under 550 words, AO2 is restricted to Level 2 and AO3 to Level 2.
-   - PROTECTION OF GENUINELY HIGH-QUALITY STUDENT ESSAYS:
-     When a student writes a thorough, well-paragraphed essay in natural prose (e.g. 500+ words for 12m, 800+ words for 20m) with clear step-by-step causal mechanisms and balanced evaluation, reward them fully in Top Band without artificial reduction!
+   - TOP BAND MARKS (11–12/12, 17–20/20, 8/8) REQUIRE SUSTAINED DEPTH:
+     Top Band marks are reserved for essays demonstrating genuine analytical depth: thorough step-by-step causal mechanisms, nuanced evaluation with reasoned judgements, or substantive application (real-world context or theoretical/diagrammatic reasoning).
+     When a candidate writes a thorough, well-paragraphed essay in natural prose with genuine depth (e.g. 500+ words for 12m, 800+ words for 20m), reward them fully in Top Band (11–12/12, 17–20/20) and never hold them down to mid-tier scores!
 
 10. OFFICIAL CAMBRIDGE RESPONSE STRUCTURE GUIDANCE:
 {structure_note}
