@@ -532,7 +532,7 @@ function AuthPage() {
       return;
     }
     if (!turnstileToken) {
-      toast.error("Please complete the security verification check before creating your account.");
+      toast.error("Please complete the human verification check before continuing.");
       return;
     }
     setBusy(true);
