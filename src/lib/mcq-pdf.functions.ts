@@ -55,12 +55,16 @@ export const explainMcqAnswer = createServerFn({ method: "POST" })
         topic: z.string().max(300).optional(),
         subtopic: z.string().max(300).optional(),
         mistakeType: MistakeTypeSchema.nullable().optional(),
+        questionImageDataUrl: z.string().max(1_500_000).nullable().optional(),
       })
       .parse(input),
   )
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
     const { explainPdfMcqAnswer } = await import("./mcq/mcq-pdf.server");
-    const explanation = await explainPdfMcqAnswer(data);
+    const explanation = await explainPdfMcqAnswer({
+      ...data,
+      userId: context.userId,
+    });
     return { explanation };
   });
 

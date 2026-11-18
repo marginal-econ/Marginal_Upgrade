@@ -634,7 +634,7 @@ export function McqReviewPanel({
 /** State for one question's on-demand AI explanation, keyed by question number. */
 export type ExplanationState =
   | "loading"
-  | { text: string; diagnostic?: McqDiagnostic }
+  | { text: string; diagnostic?: McqDiagnostic; visionGrounded?: boolean }
   | { error: string };
 
 /**
@@ -817,12 +817,23 @@ export function McqQuestionReviewList({
                             <span className="font-semibold text-primary text-[11px]">
                               {stripStars(explanation.diagnostic.concept)}
                             </span>
-                            <Badge
-                              variant="outline"
-                              className="text-emerald-600 dark:text-emerald-400 border-emerald-500/30 bg-emerald-500/10 text-[10px] py-0"
-                            >
-                              Ans: {q.correct_answer}
-                            </Badge>
+                            <div className="flex items-center gap-1">
+                              {explanation.visionGrounded ? (
+                                <Badge
+                                  variant="outline"
+                                  className="gap-0.5 border-sky-500/35 bg-sky-500/10 text-sky-700 dark:text-sky-300 text-[9px] py-0 px-1"
+                                >
+                                  <Eye className="h-2.5 w-2.5" />
+                                  Vision
+                                </Badge>
+                              ) : null}
+                              <Badge
+                                variant="outline"
+                                className="text-emerald-600 dark:text-emerald-400 border-emerald-500/30 bg-emerald-500/10 text-[10px] py-0"
+                              >
+                                Ans: {q.correct_answer}
+                              </Badge>
+                            </div>
                           </div>
 
                           <p className="text-[11px] text-foreground/90 leading-normal">
@@ -838,12 +849,35 @@ export function McqQuestionReviewList({
                             </div>
                           ) : null}
 
-                          {explanation.diagnostic.distractorTrap && !q.correct ? (
-                            <div className="rounded border border-rose-500/20 bg-rose-500/5 px-2 py-1.5 text-[11px] text-foreground/90">
-                              <span className="font-semibold text-rose-600 dark:text-rose-400">
-                                Trap:{" "}
+                          {explanation.diagnostic.distractorTrap ? (
+                            <div
+                              className={cn(
+                                "rounded border px-2 py-1.5 text-[11px] text-foreground/90",
+                                q.correct
+                                  ? "border-border/70 bg-muted/40"
+                                  : "border-rose-500/20 bg-rose-500/5",
+                              )}
+                            >
+                              <span
+                                className={cn(
+                                  "font-semibold",
+                                  q.correct
+                                    ? "text-foreground"
+                                    : "text-rose-600 dark:text-rose-400",
+                                )}
+                              >
+                                {q.correct ? "Trap avoided: " : "Trap: "}
                               </span>
                               {stripStars(explanation.diagnostic.distractorTrap)}
+                            </div>
+                          ) : null}
+
+                          {explanation.diagnostic.speedTip ? (
+                            <div className="rounded border border-primary/20 bg-primary/[0.04] px-2 py-1.5 text-[11px] text-foreground/90">
+                              <span className="font-semibold text-primary">
+                                Speed tip:{" "}
+                              </span>
+                              {stripStars(explanation.diagnostic.speedTip)}
                             </div>
                           ) : null}
                         </div>

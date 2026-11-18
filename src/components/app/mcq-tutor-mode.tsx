@@ -64,6 +64,7 @@ type McqTutorModeProps = {
   questionPages: Record<number, number>;
   questionSlices: Record<number, HTMLCanvasElement>;
   stemBlobs: StemBlob[];
+  topicalTopicMap?: Record<number, { topic: string; subtopic: string }>;
   answerKey: Record<number, Letter>;
   answers: Record<number, Letter>;
   checkedQuestions: Set<number>;
@@ -206,6 +207,7 @@ export function McqTutorMode({
   questionPages,
   questionSlices,
   stemBlobs,
+  topicalTopicMap,
   answerKey,
   answers,
   checkedQuestions,
@@ -342,12 +344,15 @@ export function McqTutorMode({
   // Syllabus classification for current question (instant, zero network)
   const questionMeta = useMemo(() => {
     const stem = stemBlobs.find((s) => s.number === currentNumber)?.text ?? "";
+    const topicalOverride = topicalTopicMap?.[currentNumber];
     return classifyMcqQuestion({
       level: level === "a2" ? "A2" : "AS",
       number: currentNumber,
       text: stem,
+      existingTopic: topicalOverride?.topic,
+      existingSubtopic: topicalOverride?.subtopic,
     });
-  }, [stemBlobs, currentNumber, level]);
+  }, [stemBlobs, currentNumber, level, topicalTopicMap]);
 
   // Resolve real PDF canvas (isolated single-question PDF crop OR full PDF page fallback)
   const sliceCanvas = questionSlices[currentNumber] ?? null;
@@ -450,9 +455,10 @@ export function McqTutorMode({
     }
 
     onCheckAnswer(currentNumber, liveSeconds);
-    // Immediately prefetch AI Examiner explanation in background on wrong answer
-    // so it's ready right after the student picks their mistake archetype!
-    if (correctAnswer && activeAnswer !== correctAnswer && !explanations[currentNumber]) {
+    // Immediately fetch Vision-Grounded Principal Examiner verification for BOTH
+    // correct answers (exact question confirmation & trap avoided) and wrong
+    // answers (ready the instant the student tags their mistake archetype).
+    if (correctAnswer && !explanations[currentNumber]) {
       onExplainQuestion(currentNumber, null);
     }
   }, [
@@ -1174,7 +1180,7 @@ export function McqTutorMode({
             {/* Step 2A: Instant Correction — CORRECT Outcome */}
             {isCorrect ? (
               <div className="space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-200">
-                <div className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-3.5 space-y-2">
+                <div className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-3.5 space-y-1.5">
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-300">
                       <CheckCircle2 className="h-5 w-5 shrink-0" />
@@ -1189,33 +1195,11 @@ export function McqTutorMode({
                       {formatElapsed(liveSeconds)}
                     </Badge>
                   </div>
-                  <p className="text-xs text-emerald-900/80 dark:text-emerald-200/80 leading-relaxed">
-                    {questionMeta.revisionTip}
+                  <p className="text-[11px] text-emerald-900/80 dark:text-emerald-200/80">
+                    Matches the official Cambridge 9708 mark scheme. Review the question-specific
+                    proof below or press Enter to keep moving.
                   </p>
                 </div>
-
-                {/* Optional Examiner Shortcut Breakdown on Correct Answer */}
-                {!explanation ? (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => onExplainQuestion(currentNumber, null)}
-                    className="w-full gap-1.5 text-xs"
-                  >
-                    <Sparkles className="h-3.5 w-3.5 text-primary" />
-                    <span>Show Examiner Shortcut &amp; Derivation</span>
-                  </Button>
-                ) : (
-                  <ExaminerRepairCard
-                    explanation={explanation}
-                    correctAnswer={correctAnswer!}
-                    userAnswer={activeAnswer ?? null}
-                    isCorrect={true}
-                    mistakeType={null}
-                    onRetry={() => onExplainQuestion(currentNumber, null)}
-                  />
-                )}
 
                 <TutorNextActionBar
                   isRedrill={isRedrill}
@@ -1231,6 +1215,29 @@ export function McqTutorMode({
                     setShowSessionReport(true);
                   }}
                 />
+
+                {/* Automatic Vision-Grounded Examiner Confirmation on Correct Answer */}
+                {explanation ? (
+                  <ExaminerRepairCard
+                    explanation={explanation}
+                    correctAnswer={correctAnswer!}
+                    userAnswer={activeAnswer ?? null}
+                    isCorrect={true}
+                    mistakeType={null}
+                    onRetry={() => onExplainQuestion(currentNumber, null)}
+                  />
+                ) : (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onExplainQuestion(currentNumber, null)}
+                    className="w-full gap-1.5 text-xs"
+                  >
+                    <Sparkles className="h-3.5 w-3.5 text-primary" />
+                    <span>Load Vision-Verified Explanation</span>
+                  </Button>
+                )}
               </div>
             ) : null}
 
@@ -1427,7 +1434,11 @@ function ExaminerRepairCard({
       <Card className="border-primary/25 bg-primary/[0.03]">
         <CardContent className="p-3.5 flex items-center gap-2.5 text-xs text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin text-primary shrink-0" />
-          <span>Principal Examiner is analyzing why Option {correctAnswer} is uniquely right…</span>
+          <span>
+            {isCorrect
+              ? `Reading the PDF question to verify why Option ${correctAnswer} is uniquely right…`
+              : `Reading the PDF question to analyze Option ${correctAnswer} & your distractor trap…`}
+          </span>
         </CardContent>
       </Card>
     );
@@ -1455,30 +1466,38 @@ function ExaminerRepairCard({
   return (
     <Card className="border-border/80 shadow-xs overflow-hidden">
       <CardHeader className="py-2.5 px-3.5 border-b border-border/60 bg-muted/25">
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-1.5">
           <CardTitle className="text-xs font-bold flex items-center gap-1.5 text-foreground">
             <Sparkles className="h-3.5 w-3.5 text-primary" />
-            <span>Examiner Repair Breakdown</span>
+            <span>{isCorrect ? "Examiner Confirmation" : "Examiner Repair Breakdown"}</span>
           </CardTitle>
-          <Badge
-            variant="outline"
-            className="border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-mono text-[10px] py-0"
-          >
-            Mark Scheme: {correctAnswer}
-          </Badge>
+          <div className="flex items-center gap-1.5">
+            {explanation.visionGrounded ? (
+              <Badge
+                variant="outline"
+                className="gap-1 border-sky-500/40 bg-sky-500/10 text-sky-700 dark:text-sky-300 text-[10px] py-0 px-1.5"
+                title="Verified directly against the official PDF question image & diagrams"
+              >
+                <Eye className="h-2.5 w-2.5" />
+                <span>PDF Vision</span>
+              </Badge>
+            ) : null}
+            <Badge
+              variant="outline"
+              className="border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-mono text-[10px] py-0"
+            >
+              Mark Scheme: {correctAnswer}
+            </Badge>
+          </div>
         </div>
       </CardHeader>
 
       <CardContent className="p-3.5 space-y-2.5 text-xs leading-relaxed">
         {d ? (
           <>
-            {d.keyRule ? (
-              <div className="rounded-lg border border-amber-500/25 bg-amber-500/[0.06] px-3 py-2">
-                <div className="flex items-center gap-1.5 font-bold text-amber-700 dark:text-amber-300 text-[11px] mb-0.5">
-                  <Lightbulb className="h-3.5 w-3.5" />
-                  <span>Golden Rule</span>
-                </div>
-                <p className="text-foreground/90">{stripStars(d.keyRule)}</p>
+            {d.concept ? (
+              <div className="text-[11px] font-semibold text-primary">
+                {stripStars(d.concept)}
               </div>
             ) : null}
 
@@ -1489,10 +1508,36 @@ function ExaminerRepairCard({
               <p className="text-foreground/90">{stripStars(d.correctReasoning)}</p>
             </div>
 
-            {d.distractorTrap && !isCorrect ? (
-              <div className="rounded-lg border border-rose-500/25 bg-rose-500/[0.06] px-3 py-2">
-                <div className="font-bold text-rose-700 dark:text-rose-300 text-[11px] mb-0.5">
-                  The Trap {userAnswer ? `(Why Option ${userAnswer} Fails)` : ""}
+            {d.keyRule ? (
+              <div className="rounded-lg border border-amber-500/25 bg-amber-500/[0.06] px-3 py-2">
+                <div className="flex items-center gap-1.5 font-bold text-amber-700 dark:text-amber-300 text-[11px] mb-0.5">
+                  <Lightbulb className="h-3.5 w-3.5" />
+                  <span>Golden Rule</span>
+                </div>
+                <p className="text-foreground/90">{stripStars(d.keyRule)}</p>
+              </div>
+            ) : null}
+
+            {d.distractorTrap ? (
+              <div
+                className={cn(
+                  "rounded-lg border px-3 py-2",
+                  isCorrect
+                    ? "border-slate-500/25 bg-muted/40"
+                    : "border-rose-500/25 bg-rose-500/[0.06]",
+                )}
+              >
+                <div
+                  className={cn(
+                    "font-bold text-[11px] mb-0.5",
+                    isCorrect
+                      ? "text-foreground/85"
+                      : "text-rose-700 dark:text-rose-300",
+                  )}
+                >
+                  {isCorrect
+                    ? "Top Distractor Trap You Avoided"
+                    : `The Trap ${userAnswer ? `(Why Option ${userAnswer} Fails)` : ""}`}
                 </div>
                 <p className="text-foreground/90">{stripStars(d.distractorTrap)}</p>
               </div>

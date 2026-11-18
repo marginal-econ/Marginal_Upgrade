@@ -789,9 +789,33 @@ function McqLivePage() {
   const fetchPaperPdfFn = useServerFn(fetchPaperPdf);
   const getAnswerKeyFn = useServerFn(getMcqPaperAnswerKey);
 
-  /** Fetches a structured Cambridge 9708 examiner explanation for one question,
+  /** Encodes a rendered PDF question canvas as a crisp compact JPEG for Gemini Vision grounding. */
+  function encodeCanvasForVision(canvas: HTMLCanvasElement | undefined | null): string | null {
+    if (!canvas || canvas.width === 0 || canvas.height === 0) return null;
+    try {
+      const MAX_WIDTH = 1100;
+      if (canvas.width <= MAX_WIDTH) {
+        return canvas.toDataURL("image/jpeg", 0.85);
+      }
+      const ratio = MAX_WIDTH / canvas.width;
+      const scaled = document.createElement("canvas");
+      scaled.width = MAX_WIDTH;
+      scaled.height = Math.max(1, Math.round(canvas.height * ratio));
+      const ctx = scaled.getContext("2d");
+      if (!ctx) return canvas.toDataURL("image/jpeg", 0.85);
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, scaled.width, scaled.height);
+      ctx.drawImage(canvas, 0, 0, scaled.width, scaled.height);
+      return scaled.toDataURL("image/jpeg", 0.85);
+    } catch {
+      return null;
+    }
+  }
+
+  /** Fetches a vision-grounded Cambridge 9708 examiner explanation for one question,
    *  on demand — called in post-attempt review OR immediately after checking a
-   *  question in Question-by-Question Tutor Mode. */
+   *  question in Question-by-Question Tutor Mode. Sends the actual cropped PDF
+   *  question image so diagrams, curves, shaded regions, and tables are read verbatim. */
   async function handleExplain(
     number: number,
     overrideMistakeType?: McqMistakeType | null,
@@ -808,21 +832,32 @@ function McqLivePage() {
       return;
     }
     try {
+      const matchedTopical = getTopicalPaperById(selectedPaperIdRef.current);
+      const topicalQ = matchedTopical?.questions.find((item) => item.number === number);
       const stem =
         stemBlobs.find((s) => s.number === number)?.text ??
         q?.stem_text ??
+        topicalQ?.stemText ??
         "";
       const inferred = classifyMcqQuestion({
         level: level === "a2" ? "A2" : "AS",
         number,
         text: stem,
-        existingTopic: q?.topic,
-        existingSubtopic: q?.subtopic,
+        existingTopic: q?.topic ?? matchedTopical?.shortTitle,
+        existingSubtopic: q?.subtopic ?? topicalQ?.subtopic,
       });
       const resolvedMistakeType =
         overrideMistakeType !== undefined
           ? overrideMistakeType
           : (mistakeTypesRef.current[number] ?? q?.mistake_type ?? null);
+
+      const sliceCanvas = questionSlices[number];
+      const pageNum = questionPages[number];
+      const fallbackPageCanvas = pageNum
+        ? pages.find((p) => p.pageNumber === pageNum)?.canvas
+        : undefined;
+      const questionImageDataUrl = encodeCanvasForVision(sliceCanvas ?? fallbackPageCanvas);
+
       const { explanation } = await explainFn({
         data: {
           level,
@@ -830,9 +865,10 @@ function McqLivePage() {
           stemText: stem,
           correctAnswer,
           userAnswer: q?.user_answer ?? answersRef.current[number] ?? null,
-          topic: q?.topic ?? inferred.topic,
-          subtopic: q?.subtopic ?? inferred.subtopic,
+          topic: q?.topic ?? matchedTopical?.shortTitle ?? inferred.topic,
+          subtopic: q?.subtopic ?? topicalQ?.subtopic ?? inferred.subtopic,
           mistakeType: resolvedMistakeType,
+          questionImageDataUrl,
         },
       });
       setExplanations((prev) => ({
@@ -840,7 +876,11 @@ function McqLivePage() {
         [number]:
           typeof explanation === "string"
             ? { text: explanation }
-            : { text: explanation.text, diagnostic: explanation.diagnostic },
+            : {
+                text: explanation.text,
+                diagnostic: explanation.diagnostic,
+                visionGrounded: explanation.visionGrounded,
+              },
       }));
     } catch (error) {
       setExplanations((prev) => ({
@@ -1817,6 +1857,16 @@ function fillMissingQuestionPages(
     return Array.from({ length: count }, (_, i) => i + 1);
   }, [answerKey, answers, stemBlobs, questionPages, qCount]);
 
+  const topicalTopicMap = useMemo(() => {
+    const matched = getTopicalPaperById(selectedPaperId);
+    if (!matched) return undefined;
+    const map: Record<number, { topic: string; subtopic: string }> = {};
+    for (const q of matched.questions) {
+      map[q.number] = { topic: matched.shortTitle, subtopic: q.subtopic };
+    }
+    return map;
+  }, [selectedPaperId]);
+
   function leavePractice() {
     if (isExamFullscreenActive() || examModeActive) {
       isLeavingExamModeRef.current = true;
@@ -2406,6 +2456,7 @@ function fillMissingQuestionPages(
               questionPages={questionPages}
               questionSlices={questionSlices}
               stemBlobs={stemBlobs}
+              topicalTopicMap={topicalTopicMap}
               answerKey={answerKey}
               answers={answers}
               checkedQuestions={checkedQuestions}
