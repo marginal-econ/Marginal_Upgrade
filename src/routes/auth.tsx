@@ -16,8 +16,14 @@ import { supabase } from "@/integrations/backend/client";
 import { getMe } from "@/lib/account.functions";
 import { registerTeacher, getTeacherProfileStatus } from "@/lib/teacher.functions";
 import { verifySignupEligibility } from "@/lib/auth-verification.functions";
+import {
+  requestSignupOtpFn,
+  verifySignupOtpFn,
+  resendSignupOtpFn,
+} from "@/lib/signup-otp.functions";
 import { isDisposableEmailClient } from "@/lib/disposable-check";
 import { TurnstileWidget } from "@/components/auth/turnstile-widget";
+import { OtpVerificationCard } from "@/components/auth/otp-input";
 import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
 import { ThemeToggle } from "@/components/marketing/theme-toggle";
 
@@ -183,6 +189,11 @@ function AuthPage() {
   const [referralCode, setReferralCode] = useState("");
   const [busy, setBusy] = useState(false);
   const verifySignupEligibilityFn = useServerFn(verifySignupEligibility);
+  const requestSignupOtpServerFn = useServerFn(requestSignupOtpFn);
+  const verifySignupOtpServerFn = useServerFn(verifySignupOtpFn);
+  const resendSignupOtpServerFn = useServerFn(resendSignupOtpFn);
+  const [signupStep, setSignupStep] = useState<"form" | "otp">("form");
+  const [signupChallengeId, setSignupChallengeId] = useState<string | null>(null);
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const emailIsDisposable = isDisposableEmailClient(email);
   // Set when the platform is at capacity and this sign-up went on the waitlist.
@@ -526,37 +537,80 @@ function AuthPage() {
     }
     setBusy(true);
     try {
-      // 1. Validate eligibility on server (blocks temp mails & verifies Turnstile)
-      await verifySignupEligibilityFn({
+      // 1. Request 6-digit OTP verification email via Mailjet
+      const res = await requestSignupOtpServerFn({
         data: {
           email: email.trim(),
+          fullName: fullName.trim(),
+          password,
+          school: school.trim() || undefined,
           turnstileToken,
         },
       });
 
-      // 2. Create Supabase account
-      const { data, error } = await supabase.auth.signUp({
-        email: email.trim(),
-        password,
-        options: {
-          data: {
-            full_name: fullName.trim() || email.split("@")[0],
-            school: school.trim() || undefined,
-          },
-        },
-      });
-      if (error) throw error;
-      if (data.session) {
-        toast.success("Account created! Welcome to Marginal.");
-        navigate({ to: targetRedirect, replace: true });
-      } else {
-        toast.success("Account created. You can now sign in.");
-      }
+      setSignupChallengeId(res.challengeId);
+      setSignupStep("otp");
+      toast.success(`Verification code sent to ${email.trim()}! Please check your inbox.`);
     } catch (err: any) {
-      toast.error(err?.message || "Could not create your account.");
+      toast.error(err?.message || "Could not initialize account verification.");
     } finally {
       setBusy(false);
     }
+  };
+
+  const handleVerifySignupOtp = async (code: string) => {
+    if (!signupChallengeId) return;
+    setBusy(true);
+    try {
+      // 1. Verify OTP and create confirmed account in Supabase
+      await verifySignupOtpServerFn({
+        data: {
+          challengeId: signupChallengeId,
+          code,
+          email: email.trim(),
+        },
+      });
+
+      // 2. Automatically log the student into their active workspace session
+      const { error: signInErr } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
+      });
+
+      if (signInErr) {
+        toast.success("Email verified! Please sign in with your password.");
+        setTab("signin");
+        setSignupStep("form");
+      } else {
+        toast.success("Email verified! Welcome to Marginal.");
+        navigate({ to: targetRedirect, replace: true });
+      }
+    } catch (err: any) {
+      toast.error(err?.message || "Verification failed. Please check the code and try again.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleResendSignupOtp = async () => {
+    if (!signupChallengeId) return;
+    try {
+      const res = await resendSignupOtpServerFn({
+        data: {
+          challengeId: signupChallengeId,
+          email: email.trim(),
+        },
+      });
+      setSignupChallengeId(res.challengeId);
+      toast.success("A fresh 6-digit code has been dispatched to your email!");
+    } catch (err: any) {
+      toast.error(err?.message || "Could not resend code. Please try again shortly.");
+      throw err;
+    }
+  };
+
+  const handleChangeSignupEmail = () => {
+    setSignupStep("form");
   };
 
   return (
@@ -1013,101 +1067,113 @@ function AuthPage() {
                       value="signup"
                       className="animate-in fade-in slide-in-from-bottom-1 duration-300"
                     >
-                      {/* Google OAuth for Sign Up */}
-                      <div className="space-y-3 mb-5">
-                        <GoogleSignInButton
-                          redirectTo={targetRedirect}
-                          label="Sign up with Google"
+                      {signupStep === "otp" && signupChallengeId ? (
+                        <OtpVerificationCard
+                          email={email.trim()}
+                          onVerify={handleVerifySignupOtp}
+                          onResend={handleResendSignupOtp}
+                          onChangeEmail={handleChangeSignupEmail}
+                          busy={busy}
                         />
+                      ) : (
+                        <>
+                          {/* Google OAuth for Sign Up */}
+                          <div className="space-y-3 mb-5">
+                            <GoogleSignInButton
+                              redirectTo={targetRedirect}
+                              label="Sign up with Google"
+                            />
 
-                        <div className="relative flex items-center justify-center my-3">
-                          <div className="absolute inset-0 flex items-center">
-                            <span className="w-full border-t border-border/80" />
-                          </div>
-                          <div className="relative flex justify-center text-[11px] uppercase">
-                            <span className="bg-card px-3 text-muted-foreground font-semibold tracking-wider">
-                              or create account with email
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-
-                      <form onSubmit={signUp} className="space-y-4">
-                        <Field id="name" label="Full name" value={fullName} onChange={setFullName} />
-                        <div className="space-y-1.5">
-                          <Field
-                            id="email-up"
-                            label="Email address"
-                            type="email"
-                            value={email}
-                            onChange={setEmail}
-                          />
-                          {emailIsDisposable && (
-                            <div className="flex items-start gap-2 rounded-xl border border-rose-500/40 bg-rose-500/10 p-2.5 text-xs text-rose-700 dark:text-rose-300 animate-in fade-in slide-in-from-top-1">
-                              <AlertTriangle className="size-4 shrink-0 mt-0.5 text-rose-500" />
-                              <div>
-                                <p className="font-semibold">Temporary or disposable email detected</p>
-                                <p className="text-[11px] text-muted-foreground mt-0.5">
-                                  Temporary addresses (from temp-mail, 10minutemail, mailinator, etc.) are blocked. Please use your permanent personal or school email.
-                                </p>
+                            <div className="relative flex items-center justify-center my-3">
+                              <div className="absolute inset-0 flex items-center">
+                                <span className="w-full border-t border-border/80" />
+                              </div>
+                              <div className="relative flex justify-center text-[11px] uppercase">
+                                <span className="bg-card px-3 text-muted-foreground font-semibold tracking-wider">
+                                  or create account with email
+                                </span>
                               </div>
                             </div>
-                          )}
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label htmlFor="password-up">Password (min. 6 characters)</Label>
-                          <Input
-                            id="password-up"
-                            type="password"
-                            required
-                            minLength={6}
-                            value={password}
-                            onChange={(event) => setPassword(event.target.value)}
-                            className="transition-shadow duration-150 focus-visible:ring-2"
-                          />
-                        </div>
-                        <Field
-                          id="school"
-                          label="School or College (optional)"
-                          value={school}
-                          onChange={setSchool}
-                          required={false}
-                        />
+                          </div>
 
-                        {/* Cloudflare Turnstile Human Verification */}
-                        <TurnstileWidget
-                          onVerify={(token) => setTurnstileToken(token)}
-                          onExpire={() => setTurnstileToken(null)}
-                        />
+                          <form onSubmit={signUp} className="space-y-4">
+                            <Field id="name" label="Full name" value={fullName} onChange={setFullName} />
+                            <div className="space-y-1.5">
+                              <Field
+                                id="email-up"
+                                label="Email address"
+                                type="email"
+                                value={email}
+                                onChange={setEmail}
+                              />
+                              {emailIsDisposable && (
+                                <div className="flex items-start gap-2 rounded-xl border border-rose-500/40 bg-rose-500/10 p-2.5 text-xs text-rose-700 dark:text-rose-300 animate-in fade-in slide-in-from-top-1">
+                                  <AlertTriangle className="size-4 shrink-0 mt-0.5 text-rose-500" />
+                                  <div>
+                                    <p className="font-semibold">Temporary or disposable email detected</p>
+                                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                                      Temporary addresses (from temp-mail, 10minutemail, mailinator, etc.) are blocked. Please use your permanent personal or school email.
+                                    </p>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label htmlFor="password-up">Password (min. 6 characters)</Label>
+                              <Input
+                                id="password-up"
+                                type="password"
+                                required
+                                minLength={6}
+                                value={password}
+                                onChange={(event) => setPassword(event.target.value)}
+                                className="transition-shadow duration-150 focus-visible:ring-2"
+                              />
+                            </div>
+                            <Field
+                              id="school"
+                              label="School or College (optional)"
+                              value={school}
+                              onChange={setSchool}
+                              required={false}
+                            />
 
-                        <Button
-                          type="submit"
-                          className="w-full transition-transform duration-150 active:scale-[0.98]"
-                          disabled={busy || emailIsDisposable}
-                        >
-                          {busy ? (
-                            <>
-                              <Loader2 className="size-4 animate-spin" /> Creating account…
-                            </>
-                          ) : (
-                            "Create account"
-                          )}
-                        </Button>
+                            {/* Cloudflare Turnstile Human Verification */}
+                            <TurnstileWidget
+                              onVerify={(token) => setTurnstileToken(token)}
+                              onExpire={() => setTurnstileToken(null)}
+                            />
 
-                        <div className="pt-1.5 text-center text-xs text-muted-foreground">
-                          Are you a Cambridge economics educator?{" "}
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setAccountType("teacher");
-                              setTeacherTab("signup");
-                            }}
-                            className="font-semibold text-purple-600 dark:text-purple-400 hover:underline"
-                          >
-                            Create Teacher Account →
-                          </button>
-                        </div>
-                      </form>
+                            <Button
+                              type="submit"
+                              className="w-full transition-transform duration-150 active:scale-[0.98]"
+                              disabled={busy || emailIsDisposable}
+                            >
+                              {busy ? (
+                                <>
+                                  <Loader2 className="size-4 animate-spin" /> Verifying…
+                                </>
+                              ) : (
+                                "Continue with Email Verification →"
+                              )}
+                            </Button>
+
+                            <div className="pt-1.5 text-center text-xs text-muted-foreground">
+                              Are you a Cambridge economics educator?{" "}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setAccountType("teacher");
+                                  setTeacherTab("signup");
+                                }}
+                                className="font-semibold text-purple-600 dark:text-purple-400 hover:underline"
+                              >
+                                Create Teacher Account →
+                              </button>
+                            </div>
+                          </form>
+                        </>
+                      )}
                     </TabsContent>
                   </Tabs>
                 </div>
