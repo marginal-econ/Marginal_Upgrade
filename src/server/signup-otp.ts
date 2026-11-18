@@ -1,6 +1,6 @@
 import { requireEnv, readEnv } from "./env";
 import { getSupabaseAdmin } from "./supabase";
-import { isDisposableEmail } from "./disposable-email";
+import { isDisposableEmail, isDisposableEmailServer } from "./disposable-email";
 
 export type SignupOtpPayload = {
   email: string;
@@ -282,7 +282,7 @@ export async function requestSignupOtp(payload: SignupOtpPayload) {
   const school = payload.school?.trim();
 
   // 1. Disposable email verification
-  if (isDisposableEmail(email)) {
+  if (await isDisposableEmailServer(email)) {
     throw new Error(
       "Temporary or disposable email addresses are not permitted. Please use your permanent personal or institutional email.",
     );

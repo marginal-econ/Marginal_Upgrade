@@ -1,9 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { isDisposableEmail } from "./disposable-email";
+import { isDisposableEmail, isDisposableEmailServer } from "./disposable-email";
 
 describe("disposable email protection", () => {
   it("detects and blocks popular temporary and disposable email providers", () => {
     const tempEmails = [
+      "poxaya7414@bcough.com",
+      "test@chuwel.com",
+      "user@fulldiets.com",
+      "user@ruutukf.com",
       "user@tempmail.com",
       "student@temp-mail.org",
       "test@10minutemail.com",
@@ -39,6 +43,12 @@ describe("disposable email protection", () => {
     for (const email of legitimateEmails) {
       expect(isDisposableEmail(email)).toBe(false);
     }
+  });
+
+  it("verifies async server-side verification correctly", async () => {
+    expect(await isDisposableEmailServer("poxaya7414@bcough.com")).toBe(true);
+    expect(await isDisposableEmailServer("student@gmail.com")).toBe(false);
+    expect(await isDisposableEmailServer("teacher@cambridge.edu")).toBe(false);
   });
 
   it("handles empty or invalid email strings gracefully", () => {

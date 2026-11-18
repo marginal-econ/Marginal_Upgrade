@@ -22,7 +22,6 @@ import {
   resendSignupOtpFn,
 } from "@/lib/signup-otp.functions";
 import { isDisposableEmailClient } from "@/lib/disposable-check";
-import { TurnstileWidget } from "@/components/auth/turnstile-widget";
 import { OtpVerificationCard } from "@/components/auth/otp-input";
 import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
 import { ThemeToggle } from "@/components/marketing/theme-toggle";
@@ -200,7 +199,6 @@ function AuthPage() {
   const resendSignupOtpServerFn = useServerFn(resendSignupOtpFn);
   const [signupStep, setSignupStep] = useState<"form" | "otp">("form");
   const [signupChallengeId, setSignupChallengeId] = useState<string | null>(null);
-  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const emailIsDisposable = isDisposableEmailClient(email);
   // Set when the platform is at capacity and this sign-up went on the waitlist.
   const [waitlistPosition, setWaitlistPosition] = useState<number | null>(null);
@@ -556,10 +554,6 @@ function AuthPage() {
       toast.error("Passwords do not match. Please verify both password entries.");
       return;
     }
-    if (!turnstileToken) {
-      toast.error("Please complete the human verification check before continuing.");
-      return;
-    }
     setBusy(true);
     try {
       // 1. Request 6-digit OTP verification email via Mailjet
@@ -569,7 +563,6 @@ function AuthPage() {
           fullName: fullName.trim(),
           password,
           school: school.trim() || undefined,
-          turnstileToken,
         },
       });
 
@@ -1155,12 +1148,6 @@ function AuthPage() {
                               value={school}
                               onChange={setSchool}
                               required={false}
-                            />
-
-                            {/* Cloudflare Turnstile Human Verification */}
-                            <TurnstileWidget
-                              onVerify={(token) => setTurnstileToken(token)}
-                              onExpire={() => setTurnstileToken(null)}
                             />
 
                             <Button
