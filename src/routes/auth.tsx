@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { ArrowLeft, CheckCircle2, Clock, GraduationCap, Hourglass, KeyRound, Loader2, School, ShieldCheck } from "lucide-react";
+import { AlertTriangle, ArrowLeft, CheckCircle2, Clock, GraduationCap, Hourglass, KeyRound, Loader2, School, ShieldCheck } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -15,6 +15,9 @@ import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/backend/client";
 import { getMe } from "@/lib/account.functions";
 import { registerTeacher, getTeacherProfileStatus } from "@/lib/teacher.functions";
+import { verifySignupEligibility } from "@/lib/auth-verification.functions";
+import { isDisposableEmailClient } from "@/lib/disposable-check";
+import { TurnstileWidget } from "@/components/auth/turnstile-widget";
 import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
 import { ThemeToggle } from "@/components/marketing/theme-toggle";
 
@@ -179,6 +182,9 @@ function AuthPage() {
   const [country, setCountry] = useState("");
   const [referralCode, setReferralCode] = useState("");
   const [busy, setBusy] = useState(false);
+  const verifySignupEligibilityFn = useServerFn(verifySignupEligibility);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const emailIsDisposable = isDisposableEmailClient(email);
   // Set when the platform is at capacity and this sign-up went on the waitlist.
   const [waitlistPosition, setWaitlistPosition] = useState<number | null>(null);
   const [waitlistChallengeId, setWaitlistChallengeId] = useState<string | null>(null);
@@ -504,12 +510,31 @@ function AuthPage() {
 
   const signUp = async (event: React.FormEvent) => {
     event.preventDefault();
+    if (emailIsDisposable) {
+      toast.error(
+        "Temporary or disposable email addresses are not permitted. Please use your permanent personal or school email.",
+      );
+      return;
+    }
     if (password.length < 6) {
       toast.error("Use at least 6 characters for your password.");
       return;
     }
+    if (!turnstileToken) {
+      toast.error("Please complete the security verification check before creating your account.");
+      return;
+    }
     setBusy(true);
     try {
+      // 1. Validate eligibility on server (blocks temp mails & verifies Turnstile)
+      await verifySignupEligibilityFn({
+        data: {
+          email: email.trim(),
+          turnstileToken,
+        },
+      });
+
+      // 2. Create Supabase account
       const { data, error } = await supabase.auth.signUp({
         email: email.trim(),
         password,
@@ -1009,13 +1034,26 @@ function AuthPage() {
 
                       <form onSubmit={signUp} className="space-y-4">
                         <Field id="name" label="Full name" value={fullName} onChange={setFullName} />
-                        <Field
-                          id="email-up"
-                          label="Email address"
-                          type="email"
-                          value={email}
-                          onChange={setEmail}
-                        />
+                        <div className="space-y-1.5">
+                          <Field
+                            id="email-up"
+                            label="Email address"
+                            type="email"
+                            value={email}
+                            onChange={setEmail}
+                          />
+                          {emailIsDisposable && (
+                            <div className="flex items-start gap-2 rounded-xl border border-rose-500/40 bg-rose-500/10 p-2.5 text-xs text-rose-700 dark:text-rose-300 animate-in fade-in slide-in-from-top-1">
+                              <AlertTriangle className="size-4 shrink-0 mt-0.5 text-rose-500" />
+                              <div>
+                                <p className="font-semibold">Temporary or disposable email detected</p>
+                                <p className="text-[11px] text-muted-foreground mt-0.5">
+                                  Temporary addresses (from temp-mail, 10minutemail, mailinator, etc.) are blocked. Please use your permanent personal or school email.
+                                </p>
+                              </div>
+                            </div>
+                          )}
+                        </div>
                         <div className="space-y-1.5">
                           <Label htmlFor="password-up">Password (min. 6 characters)</Label>
                           <Input
@@ -1035,10 +1073,17 @@ function AuthPage() {
                           onChange={setSchool}
                           required={false}
                         />
+
+                        {/* Cloudflare Turnstile Human Verification */}
+                        <TurnstileWidget
+                          onVerify={(token) => setTurnstileToken(token)}
+                          onExpire={() => setTurnstileToken(null)}
+                        />
+
                         <Button
                           type="submit"
                           className="w-full transition-transform duration-150 active:scale-[0.98]"
-                          disabled={busy}
+                          disabled={busy || emailIsDisposable}
                         >
                           {busy ? (
                             <>

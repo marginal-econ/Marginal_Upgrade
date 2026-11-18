@@ -1,5 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import {
+  AlertTriangle,
   ArrowLeft,
   BookOpen,
   CheckCircle2,
@@ -23,6 +24,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/backend/client";
 import { registerTeacher, getTeacherProfileStatus } from "@/lib/teacher.functions";
+import { isDisposableEmailClient } from "@/lib/disposable-check";
 import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
 
 export const Route = createFileRoute("/teacher-auth")({
@@ -218,6 +220,10 @@ export function TeacherAuthPage() {
     }
     if (!schoolEmail.trim() || !schoolEmail.includes("@")) {
       toast.error("A valid school/institutional email address is compulsory.");
+      return;
+    }
+    if (isDisposableEmailClient(schoolEmail)) {
+      toast.error("Temporary or disposable email addresses are not permitted. Please use your official school email.");
       return;
     }
     if (signUpPassword.length < 6) {
@@ -724,6 +730,17 @@ export function TeacherAuthPage() {
                         value={schoolEmail}
                         onChange={(e) => setSchoolEmail(e.target.value)}
                       />
+                      {isDisposableEmailClient(schoolEmail) && (
+                        <div className="flex items-start gap-2 rounded-xl border border-rose-500/40 bg-rose-500/10 p-2.5 text-xs text-rose-700 dark:text-rose-300 animate-in fade-in slide-in-from-top-1">
+                          <AlertTriangle className="size-4 shrink-0 mt-0.5 text-rose-500" />
+                          <div>
+                            <p className="font-semibold">Temporary or disposable email detected</p>
+                            <p className="text-[11px] text-muted-foreground mt-0.5">
+                              Temporary addresses are not permitted. Please use your official school or institutional email.
+                            </p>
+                          </div>
+                        </div>
+                      )}
                       <p className="text-[11px] text-muted-foreground">
                         Use your official school or college email domain to accelerate administrator verification.
                       </p>
