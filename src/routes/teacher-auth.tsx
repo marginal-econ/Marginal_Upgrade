@@ -26,6 +26,10 @@ import { supabase } from "@/integrations/backend/client";
 import { registerTeacher, getTeacherProfileStatus } from "@/lib/teacher.functions";
 import { isDisposableEmailClient } from "@/lib/disposable-check";
 import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
+import {
+  PasswordCreationFields,
+  validatePasswordStrength,
+} from "@/components/auth/password-creation-fields";
 
 export const Route = createFileRoute("/teacher-auth")({
   validateSearch: (search: Record<string, unknown>): { tab?: string } => ({
@@ -105,6 +109,8 @@ export function TeacherAuthPage() {
   const [schoolName, setSchoolName] = useState("");
   const [schoolEmail, setSchoolEmail] = useState("");
   const [signUpPassword, setSignUpPassword] = useState("");
+  const [signUpConfirmPassword, setSignUpConfirmPassword] = useState("");
+  const [showSignUpPasswordRequirements, setShowSignUpPasswordRequirements] = useState(false);
   const [signUpBusy, setSignUpBusy] = useState(false);
   const [submittedSuccess, setSubmittedSuccess] = useState(false);
   const [pendingAccountWarning, setPendingAccountWarning] = useState<string | null>(null);
@@ -226,8 +232,15 @@ export function TeacherAuthPage() {
       toast.error("Temporary or disposable email addresses are not permitted. Please use your official school email.");
       return;
     }
-    if (signUpPassword.length < 6) {
-      toast.error("Password must be at least 6 characters.");
+    const validation = validatePasswordStrength(signUpPassword, signUpConfirmPassword);
+    if (!validation.isStrong) {
+      setShowSignUpPasswordRequirements(true);
+      toast.error("Please create a strong educator password that meets all requirements.");
+      return;
+    }
+    if (!validation.matchesConfirm) {
+      setShowSignUpPasswordRequirements(true);
+      toast.error("Passwords do not match. Please verify both password entries.");
       return;
     }
 
@@ -746,17 +759,15 @@ export function TeacherAuthPage() {
                       </p>
                     </div>
 
-                    <div className="space-y-1.5">
-                      <Label htmlFor="t-signup-password">Choose Password</Label>
-                      <Input
-                        id="t-signup-password"
-                        type="password"
-                        required
-                        placeholder="At least 6 characters"
-                        value={signUpPassword}
-                        onChange={(e) => setSignUpPassword(e.target.value)}
-                      />
-                    </div>
+                    <PasswordCreationFields
+                      password={signUpPassword}
+                      onPasswordChange={setSignUpPassword}
+                      confirmPassword={signUpConfirmPassword}
+                      onConfirmPasswordChange={setSignUpConfirmPassword}
+                      showRequirements={showSignUpPasswordRequirements}
+                      idPrefix="t-signup"
+                      disabled={signUpBusy}
+                    />
 
                     <div className="rounded-lg border border-purple-500/20 bg-purple-500/5 p-3 text-xs text-muted-foreground space-y-1">
                       <div className="flex items-center gap-1.5 font-semibold text-foreground">

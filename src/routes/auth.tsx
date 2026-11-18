@@ -26,6 +26,10 @@ import { TurnstileWidget } from "@/components/auth/turnstile-widget";
 import { OtpVerificationCard } from "@/components/auth/otp-input";
 import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
 import { ThemeToggle } from "@/components/marketing/theme-toggle";
+import {
+  PasswordCreationFields,
+  validatePasswordStrength,
+} from "@/components/auth/password-creation-fields";
 
 /**
  * A progress bar for waits with no real percentage to report (a single
@@ -182,6 +186,8 @@ function AuthPage() {
       : "/dashboard";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [signUpConfirmPassword, setSignUpConfirmPassword] = useState("");
+  const [showStudentPasswordRequirements, setShowStudentPasswordRequirements] = useState(false);
   const [fullName, setFullName] = useState("");
   const [school, setSchool] = useState("");
   const [city, setCity] = useState("");
@@ -223,6 +229,8 @@ function AuthPage() {
   const [teacherSchoolName, setTeacherSchoolName] = useState("");
   const [teacherSignUpEmail, setTeacherSignUpEmail] = useState("");
   const [teacherSignUpPassword, setTeacherSignUpPassword] = useState("");
+  const [teacherSignUpConfirmPassword, setTeacherSignUpConfirmPassword] = useState("");
+  const [showTeacherPasswordRequirements, setShowTeacherPasswordRequirements] = useState(false);
   const [teacherSignUpBusy, setTeacherSignUpBusy] = useState(false);
   const [teacherSubmittedSuccess, setTeacherSubmittedSuccess] = useState(false);
 
@@ -265,8 +273,18 @@ function AuthPage() {
       toast.error("A valid school or institutional email address is required.");
       return;
     }
-    if (teacherSignUpPassword.length < 6) {
-      toast.error("Password must be at least 6 characters.");
+    const teacherValidation = validatePasswordStrength(
+      teacherSignUpPassword,
+      teacherSignUpConfirmPassword,
+    );
+    if (!teacherValidation.isStrong) {
+      setShowTeacherPasswordRequirements(true);
+      toast.error("Please create a strong educator password that meets all requirements.");
+      return;
+    }
+    if (!teacherValidation.matchesConfirm) {
+      setShowTeacherPasswordRequirements(true);
+      toast.error("Passwords do not match. Please verify both password entries.");
       return;
     }
 
@@ -527,8 +545,15 @@ function AuthPage() {
       );
       return;
     }
-    if (password.length < 6) {
-      toast.error("Use at least 6 characters for your password.");
+    const validation = validatePasswordStrength(password, signUpConfirmPassword);
+    if (!validation.isStrong) {
+      setShowStudentPasswordRequirements(true);
+      toast.error("Please create a strong password that meets all requirements.");
+      return;
+    }
+    if (!validation.matchesConfirm) {
+      setShowStudentPasswordRequirements(true);
+      toast.error("Passwords do not match. Please verify both password entries.");
       return;
     }
     if (!turnstileToken) {
@@ -893,18 +918,15 @@ function AuthPage() {
                             </p>
                           </div>
 
-                          <div className="space-y-1.5">
-                            <Label htmlFor="auth-t-signup-pass">Password (min. 6 characters)</Label>
-                            <Input
-                              id="auth-t-signup-pass"
-                              type="password"
-                              required
-                              minLength={6}
-                              placeholder="••••••••"
-                              value={teacherSignUpPassword}
-                              onChange={(e) => setTeacherSignUpPassword(e.target.value)}
-                            />
-                          </div>
+                          <PasswordCreationFields
+                            password={teacherSignUpPassword}
+                            onPasswordChange={setTeacherSignUpPassword}
+                            confirmPassword={teacherSignUpConfirmPassword}
+                            onConfirmPasswordChange={setTeacherSignUpConfirmPassword}
+                            showRequirements={showTeacherPasswordRequirements}
+                            idPrefix="auth-t-signup"
+                            disabled={teacherSignUpBusy}
+                          />
 
                           <Button
                             type="submit"
@@ -1118,18 +1140,15 @@ function AuthPage() {
                                 </div>
                               )}
                             </div>
-                            <div className="space-y-1.5">
-                              <Label htmlFor="password-up">Password (min. 6 characters)</Label>
-                              <Input
-                                id="password-up"
-                                type="password"
-                                required
-                                minLength={6}
-                                value={password}
-                                onChange={(event) => setPassword(event.target.value)}
-                                className="transition-shadow duration-150 focus-visible:ring-2"
-                              />
-                            </div>
+                            <PasswordCreationFields
+                              password={password}
+                              onPasswordChange={setPassword}
+                              confirmPassword={signUpConfirmPassword}
+                              onConfirmPasswordChange={setSignUpConfirmPassword}
+                              showRequirements={showStudentPasswordRequirements}
+                              idPrefix="student-signup"
+                              disabled={busy}
+                            />
                             <Field
                               id="school"
                               label="School or College (optional)"
