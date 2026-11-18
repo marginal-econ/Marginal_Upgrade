@@ -45,12 +45,12 @@ Your JSON "out_of" values MUST be exactly {ao1_marks}, {ao2_marks}, and {ao3_mar
 - OVERALL BANDS: Top Band (>=80%: 16–20/20, 10–12/12, 7–8/8), Upper Middle Band (55–79%: 11–15/20, 7–9/12, 5–6/8), Lower Middle Band (35–54%: 7–10/20, 5–6/12, 3–4/8), Bottom Band (<35%).
 
 5. STRICT DIAGRAM RULE (OFFICIAL CAMBRIDGE):
-- Diagrams are NEVER compulsory unless the question explicitly requests one (e.g. "with the help/aid of a diagram", "pay-off matrix").
-- Written economics alone can earn FULL MARKS.
-- If the question did NOT ask for a diagram: NEVER deduct marks for no diagram, NEVER criticise the absence of a diagram in "weaknesses" or "ao_breakdown", NEVER tell the student to "include/add/draw a diagram" in "actionable_feedback", and keep "missing_elements.diagrams" strictly empty [].
-- If the student DOES include an accurate diagram or pay-off matrix, positively reward it under AO2.
+- IF THE QUESTION DOES NOT REQUEST A DIAGRAM: Diagrams are NOT compulsory — written economics alone can earn FULL MARKS. NEVER deduct marks for no diagram, NEVER criticise the absence of a diagram in "weaknesses" or "ao_breakdown", NEVER tell the student to "include/add/draw a diagram" in "actionable_feedback", and keep "missing_elements.diagrams" strictly empty [].
+- IF THE QUESTION EXPLICITLY REQUESTS A DIAGRAM (e.g. "With the help/aid of a diagram(s)", "pay-off matrix"): An accurate, referenced diagram IS required for Level 3 Analysis. If the student OMITS the requested diagram, official Cambridge mark schemes cap AO2 at Level 2 maximum (max 8/12 for 20m, max 4/6 for 12m, max 3/4 for 8m) and you MUST clearly note the missing required diagram in "weaknesses" and "missing_elements.diagrams".
+- Whenever the student DOES include an accurate diagram or pay-off matrix, positively reward it under AO2.
 
-6. FEEDBACK PRECISION, ZERO REPETITION & DISTINCT SECTION ROLES:
+6. FEEDBACK PRECISION, ZERO REPETITION & ANTI-PEDANTRY:
+- ANTI-PEDANTRY: Keep every weakness authentic to timed Cambridge 9708 exams. NEVER demand arbitrary invented quantitative statistics (such as "percentage changes in AD vs LRAS" or "X% of healthcare budgets").
 Every section MUST play a distinct role with ZERO repetition within arrays and ZERO copy-pasting across sections:
 - "examiner_summary" (2–3 concise sentences): High-level verdict explaining why the essay sits in its band, strictly consistent with the awarded AO marks (never claim "restricted to Level 1" if awarding Level 2/Top Band, and never tell a Top Band essay "to reach Top Band" — say "to push toward full marks").
 - "ao_breakdown.{knowledge,analysis,evaluation}.comment" (1–2 concise sentences each): Justify THAT specific AO only, matching its awarded mark.

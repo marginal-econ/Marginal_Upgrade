@@ -60,8 +60,10 @@ YOUR FIVE MANDATORY AUDIT TASKS:
    - Never tell a Top Band essay ("Top Band") "to reach Top Band" — say "to push toward full marks" or "to refine further".
    - Never praise an example, definition, or diagram in "strengths" while claiming it is missing/inadequate in "weaknesses" or "missing_elements".
 
-4. STRICT DIAGRAM RULE:
-   - Unless the exam question explicitly asked for a diagram/graph/pay-off matrix, PURGE any weakness, actionable bullet, or missing_elements.diagrams entry that criticises the absence of a diagram or tells the student to add/draw one.
+4. STRICT DIAGRAM RULE & ANTI-PEDANTRY:
+   - If the exam question did NOT explicitly request a diagram/graph/pay-off matrix: PURGE any weakness, actionable bullet, or missing_elements.diagrams entry that criticises the absence of a diagram or tells the student to add/draw one.
+   - If the exam question EXPLICITLY requested a diagram ("With the help/aid of a diagram(s)") and NONE is present in the essay: ENFORCE official Cambridge "L2 maximum" for AO2 (max 8/12 on 20m, max 4/6 on 12m, max 3/4 on 8m) and ensure the omitted diagram is noted in "weaknesses" and "missing_elements.diagrams".
+   - ANTI-PEDANTRY: Remove unrealistic quantitative demands (such as demanding "percentage changes in AD vs LRAS" or "X% of budgets"). Also strictly enforce AO3 prioritization boundaries: an unweighted "it depends on A, B, and C" conclusion without prioritizing which factor dominates MUST stay at max 3/4 (12m) or max 4/6 (20m).
 
 5. CLEAN CAMBRIDGE PROSE:
    - Strictly NO asterisks (* or **), NO internal snippet tags ([S1], [S2]), NO numeric score fractions in prose (e.g. "7/8", "3/4", "cost you marks").
@@ -166,9 +168,9 @@ export async function refineExaminerReport(options: RefineReportOptions): Promis
 
     let refined = normaliseGrading(parsed, maxMark, split, essayText, question);
 
-    // Apply writing quality & economic mechanics guardrail directly to the refined report
+    // Apply writing quality, required-diagram L2 cap & economic mechanics guardrail directly to the refined report
     const quality = analyzeEssayQuality(essayText, maxMark, split);
-    refined = applyWritingQualityGuardrail(refined, quality, maxMark, split, essayText);
+    refined = applyWritingQualityGuardrail(refined, quality, maxMark, split, essayText, question);
 
     // Preserve metadata from earlier passes
     refined.sources = draftGrading.sources;

@@ -187,13 +187,23 @@ export function analyzeEssayQuality(
     }
   } else if (maxMark >= 20) {
     targetRangeText = "600–950 words";
-    if (words < 300) {
+    if (words < 180) {
       isSeverelyUndersized = true;
       maxAllowableTotalMark = 7;
       maxAllowableAo2 = 4;
       maxAllowableAo3 = 1;
       qualityIssues.push(
         `Severely stunted (${words} words). Cambridge 20-mark extended essays typically require 600–950 words.`,
+      );
+    } else if (words < 300) {
+      isUndersized = true;
+      // Solid, well-paragraphed 180–299w scripts with accurate theory earn Level 2 (up to 11/20),
+      // rather than being buried in Bottom Band (7/20) alongside factually inverted essays.
+      maxAllowableTotalMark = hasAiArtifacts || paragraphCount <= 2 ? 8 : 11;
+      maxAllowableAo2 = hasAiArtifacts || paragraphCount <= 2 ? 5 : 7;
+      maxAllowableAo3 = hasAiArtifacts || paragraphCount <= 2 ? 2 : 3;
+      qualityIssues.push(
+        `Underdeveloped (${words} words vs ${targetRangeText} typical depth). Needs sustained multi-perspective analysis and developed evaluation.`,
       );
     } else if (words < 450) {
       isUndersized = true;
@@ -621,9 +631,119 @@ function applyStructuralCeilings(
 }
 
 /**
+ * Detects whether a Cambridge exam question EXPLICITLY requires a diagram or pay-off matrix
+ * (e.g. "With the help of a diagram(s)", "With the aid of a diagram", "Using a diagram").
+ */
+export function questionRequiresDiagram(question?: string | null): boolean {
+  if (!question) return false;
+  return /\b(?:with\s+the\s+(?:help|aid)\s+of|using|draw(?:ing)?|illustrat(?:e|ing)\s+with)\s+(?:an?\s+)?(?:[\w/-]+\s+){0,4}(?:diagrams?(?:\(s\))?|pay[- ]?off\s+matrix)\b/i.test(
+    question,
+  );
+}
+
+/**
+ * Detects whether a student essay actually includes a diagram, pay-off matrix, or explicit
+ * graphical/axes illustration.
+ */
+export function essayHasDiagram(essayText?: string | null): boolean {
+  if (!essayText) return false;
+  return (
+    /\[DIAGRAM:/i.test(essayText) ||
+    /\|---+\|/.test(essayText) ||
+    /\b(?:as\s+shown\s+in\s+the\s+(?:diagram|graph|matrix|table)|diagram\s+(?:above|below)|attached\s+diagram|vertical\s+axis|horizontal\s+axis|x-axis|y-axis|pay[- ]?off\s+matrix\s+below|table\s+below)\b/i.test(
+      essayText,
+    )
+  );
+}
+
+/**
+ * Official Cambridge 9708 Required-Diagram Guardrail:
+ * When a question EXPLICITLY demands "With the help/aid of a diagram(s)" and the candidate
+ * omits any diagram/matrix, official Cambridge Mark Schemes cap Table A / AO2 at Level 2 maximum
+ * (max 8/12 on 20m Paper 4, max 4/6 on 12m Paper 2, max 3/4 on 8m eval / 4/6 on 8m legacy).
+ * Conversely, when a question does NOT request a diagram, this guardrail does nothing.
+ */
+export function applyRequiredDiagramGuardrail(
+  grading: Grading,
+  question: string | undefined,
+  essayText: string | undefined,
+  maxMark: number,
+  split: AoSplit,
+): Grading {
+  if (!question || !essayText) return grading;
+  if (!questionRequiresDiagram(question) || essayHasDiagram(essayText)) {
+    return grading;
+  }
+
+  const maxAo2WithoutDiagram =
+    maxMark >= 20
+      ? Math.min(split.ao2_marks, 8)
+      : maxMark === 12
+        ? Math.min(split.ao2_marks, 4)
+        : split.ao3_marks === 0
+          ? Math.min(split.ao2_marks, 4)
+          : Math.min(split.ao2_marks, 3);
+
+  let ao2 = grading.ao_breakdown.analysis.awarded;
+  const capped = ao2 > maxAo2WithoutDiagram;
+  if (capped) {
+    ao2 = maxAo2WithoutDiagram;
+  }
+
+  const ao1 = grading.ao_breakdown.knowledge.awarded;
+  const ao3 = grading.ao_breakdown.evaluation.awarded;
+  const total = ao1 + ao2 + ao3;
+  const updatedBand = bandFor(total, maxMark);
+
+  const diagWeakness =
+    "The question explicitly requested a diagram, which is missing from the submission; under Cambridge 9708 mark scheme rules, omitting a required diagram restricts analysis to Level 2.";
+  const weaknesses = [...(grading.weaknesses || [])];
+  if (!weaknesses.some((w) => /diagram|matrix/i.test(w))) {
+    weaknesses.unshift(diagWeakness);
+  }
+
+  const missingDiagrams = [...(grading.missing_elements?.diagrams || [])];
+  if (missingDiagrams.length === 0) {
+    missingDiagrams.push("Accurately labelled economic diagram explicitly requested by the question prompt.");
+  }
+
+  let analysisComment = grading.ao_breakdown.analysis.comment;
+  if (!/diagram|matrix/i.test(analysisComment)) {
+    analysisComment = `${analysisComment} Because the question explicitly asked for a diagram and none was included, analytical credit is capped at Level 2 under Cambridge marking rules.`.trim();
+  }
+
+  let summary = grading.examiner_summary;
+  if (capped && updatedBand !== grading.band && /\btop\s+band\b/i.test(summary)) {
+    summary = summary
+      .replace(/\bplacing\s+the\s+(?:work|essay|response)\s+(?:firmly\s+)?in\s+the\s+top\s+band\b/gi, `though omitting the requested diagram holds it in the ${updatedBand}`)
+      .replace(/\btop\s+band\b/gi, updatedBand);
+  }
+
+  return {
+    ...grading,
+    total_mark: total,
+    band: updatedBand,
+    examiner_summary: stripScoreFractionsFromText(summary),
+    ao_breakdown: {
+      ...grading.ao_breakdown,
+      analysis: {
+        ...grading.ao_breakdown.analysis,
+        awarded: ao2,
+        comment: stripScoreFractionsFromText(analysisComment),
+      },
+    },
+    weaknesses: weaknesses.slice(0, 4),
+    missing_elements: {
+      ...grading.missing_elements,
+      diagrams: missingDiagrams.slice(0, 2),
+    },
+  };
+}
+
+/**
  * Deterministic calibration failsafe: enforces Cambridge quality ceilings,
- * Chapter 5 PPC misconception checks, 8-mark evaluation 7/8 limits,
- * and economic mechanics / causal integrity guardrails.
+ * required-diagram L2 caps, Chapter 5 PPC misconception checks, 8-mark evaluation
+ * 7/8 limits, and economic mechanics / causal integrity guardrails.
  */
 export function applyWritingQualityGuardrail(
   grading: Grading,
@@ -631,6 +751,7 @@ export function applyWritingQualityGuardrail(
   maxMark: number,
   split: AoSplit,
   essayText?: string,
+  questionText?: string,
 ): Grading {
   let result = grading;
 
@@ -639,16 +760,19 @@ export function applyWritingQualityGuardrail(
     result = applyStructuralCeilings(result, quality, maxMark, split);
   }
 
-  // 2. Authoritative Chapter 5 PPC misconception check
+  // 2. Official Cambridge required-diagram Level 2 cap (ONLY when question explicitly asks for a diagram & none is present)
+  result = applyRequiredDiagramGuardrail(result, questionText, essayText, maxMark, split);
+
+  // 3. Authoritative Chapter 5 PPC misconception check
   result = applyPpcMisconceptionGuardrail(result, split);
 
-  // 3. Authoritative 8-mark evaluative essay failsafe (keeps at 7 if evaluation criteria unmet or conclusion unsatisfied)
+  // 4. Authoritative 8-mark evaluative essay failsafe (keeps at 7 if evaluation criteria unmet or conclusion unsatisfied)
   result = applyEightMarkEvaluationGuardrail(result, maxMark, split);
 
-  // 4. Economic mechanics & causal integrity guardrail (ensures fatal misconceptions and broken causal chains are capped)
+  // 5. Economic mechanics & causal integrity guardrail (ensures fatal misconceptions and broken causal chains are capped)
   result = applyEconomicMechanicsGuardrail(result, maxMark, split, essayText);
 
-  // 5. Guarantee strict mathematical invariant across all guardrail branches:
+  // 6. Guarantee strict mathematical invariant across all guardrail branches:
   const sumAo =
     result.ao_breakdown.knowledge.awarded +
     result.ao_breakdown.analysis.awarded +

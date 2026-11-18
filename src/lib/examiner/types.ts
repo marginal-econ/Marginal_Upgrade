@@ -1145,13 +1145,30 @@ export function deduplicateAcrossSections(grading: Grading, questionText?: strin
     diagrams: asksDiagram ? filterMissingList(grading.missing_elements?.diagrams || []) : [],
   };
 
-  // Deduplicate actionable_feedback internally AND against weaknesses/missing_elements
-  const rawActions = deduplicateFeedbackPoints(
-    (grading.actionable_feedback || [])
-      .filter((a) => !isUnrequestedDiagramCritique(a))
-      .map(fixTopBandPhrasing),
-    4,
-  );
+  // Deduplicate actionable_feedback internally (stricter overlap + shared evaluation-action prefix check)
+  // AND against weaknesses/missing_elements so two bullets never give the same advice twice
+  const dedupedRawActions: string[] = [];
+  for (const item of (grading.actionable_feedback || []).filter((a) => !isUnrequestedDiagramCritique(a)).map(fixTopBandPhrasing)) {
+    const trimmed = item.trim();
+    if (!trimmed) continue;
+    const isDup = dedupedRawActions.some((existing) => {
+      const sim = feedbackSimilarity(existing, trimmed);
+      if (sim.jaccard >= 0.28 || sim.overlap >= 0.44) return true;
+      // Catch pairs that both tell the student to "rank/prioritize in the evaluation" or "add a counter-argument in the evaluation"
+      const bothRankEval =
+        /\b(?:in\s+(?:the|your)\s+evaluation|conclusion).*\b(?:rank|prioriti[sz]e|most\s+decisive)\b/i.test(existing) &&
+        /\b(?:in\s+(?:the|your)\s+evaluation|conclusion).*\b(?:rank|prioriti[sz]e|most\s+decisive)\b/i.test(trimmed);
+      const bothCounterEval =
+        /\bevaluation\b.*\bcounter[- ]?argument\b/i.test(existing) &&
+        /\bevaluation\b.*\bcounter[- ]?argument\b/i.test(trimmed);
+      return bothRankEval || bothCounterEval;
+    });
+    if (!isDup) {
+      dedupedRawActions.push(trimmed);
+      if (dedupedRawActions.length >= 4) break;
+    }
+  }
+  const rawActions = dedupedRawActions;
 
   const distinctActions = rawActions.filter((action) => {
     const repeatsWeakness = weaknesses.some((w) => {

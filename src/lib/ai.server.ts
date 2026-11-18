@@ -525,7 +525,22 @@ async function chatViaProvider(
               console.warn(`[chatViaProvider:anthropic] Key ...${currentKey.slice(-4)} timed out (>30s). Rotating key...`);
               if (kIdx + 1 < activeKeysToTry.length) continue;
             }
-            throw fetchErr;
+            const errMsg = String(fetchErr?.message || fetchErr || "");
+          const isTransientNetwork =
+            /fetch failed|ECONNRESET|ETIMEDOUT|ENOTFOUND|socket|network|UND_ERR/i.test(errMsg);
+          if (isTransientNetwork) {
+            lastErrStatus = 503;
+            lastErrDetail = `Transient network error (${errMsg.slice(0, 80)}) on key ...${currentKey.slice(-4)}.`;
+            console.warn(
+              `[chatViaProvider] Model ${m} (key ...${currentKey.slice(-4)}) hit transient network error (${errMsg.slice(0, 60)}). Retrying next key...`,
+            );
+            await new Promise((resolve) => setTimeout(resolve, 600));
+            if (kIdx + 1 < activeKeysToTry.length) {
+              continue;
+            }
+            break;
+          }
+          throw fetchErr;
           }
         }
       }
@@ -847,6 +862,21 @@ async function chatViaProvider(
 
             if (kIdx + 1 < activeKeysToTry.length) {
               continue; // Try next key
+            }
+            break;
+          }
+          const errMsg = String(fetchErr?.message || fetchErr || "");
+          const isTransientNetwork =
+            /fetch failed|ECONNRESET|ETIMEDOUT|ENOTFOUND|socket|network|UND_ERR/i.test(errMsg);
+          if (isTransientNetwork) {
+            lastErrStatus = 503;
+            lastErrDetail = `Transient network error (${errMsg.slice(0, 80)}) on key ...${currentKey.slice(-4)}.`;
+            console.warn(
+              `[chatViaProvider] Model ${m} (key ...${currentKey.slice(-4)}) hit transient network error (${errMsg.slice(0, 60)}). Retrying next key...`,
+            );
+            await new Promise((resolve) => setTimeout(resolve, 600));
+            if (kIdx + 1 < activeKeysToTry.length) {
+              continue;
             }
             break;
           }

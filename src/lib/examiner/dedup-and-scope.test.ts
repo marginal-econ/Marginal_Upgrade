@@ -3,7 +3,8 @@ import { buildAoEvaluationDirective, buildPaperScopeDirective } from "./config";
 import { shouldTriggerArbitration } from "./arbitration.server";
 import { selectBestAnchors, type Anchor } from "./calibration.server";
 import { deduplicateAcrossSections, deduplicateFeedbackPoints, verifyVerbatimQuotes, type Grading } from "./types";
-import { analyzeEssayQuality, applyWritingQualityGuardrail } from "./writing-quality.server";
+import { extractRelevantSnippetWindow } from "../retrieval.server";
+import { analyzeEssayQuality, applyWritingQualityGuardrail, essayHasDiagram, questionRequiresDiagram } from "./writing-quality.server";
 
 function makeGrading(overrides: Partial<Grading> = {}): Grading {
   return {
@@ -188,5 +189,76 @@ describe("Feedback Deduplication, Paper Scope & 20-Mark Calibration", () => {
     expect(verified).toContain("theory's");
     expect(verified).toContain("candidate's");
     expect(verified).not.toContain("theorys");
+  });
+
+  it("extracts the exact question Indicative Content window from giant 25k-char Paper 4 mark schemes instead of Page 1 boilerplate", () => {
+    const coverBoilerplate =
+      "This document consists of 17 printed pages. Generic Marking Principle 1. Mark schemes should be read in conjunction with the question paper. ".repeat(
+        80,
+      );
+    const actualQuestionMs =
+      "\n[PAGE 12] Question 3: The introduction of a trade union into a perfectly competitive labour market will always lead to higher wage levels and unemployment. Indicative content: MRPL diagram, wage floor above equilibrium, L2 maximum if no accurate diagram provided. AO3 Evaluation: productivity agreements, capital-labour substitution.\n";
+    const trailing = "Question 5 Globalisation and low-income country standard of living. ".repeat(60);
+
+    const extracted = extractRelevantSnippetWindow(
+      coverBoilerplate + actualQuestionMs + trailing,
+      600,
+      "The introduction of a trade union into a perfectly competitive labour market will always lead to higher wage levels and unemployment.",
+    );
+
+    expect(extracted).toContain("Indicative content: MRPL diagram");
+    expect(extracted).toContain("L2 maximum if no accurate diagram provided");
+    expect(extracted).not.toContain("Generic Marking Principle 1");
+  });
+
+  it("enforces Cambridge Level 2 AO2 maximum when a required diagram is omitted, without affecting unrequested-diagram questions", () => {
+    const qReq = "With the help of a diagram, assess whether a buffer stock scheme benefits always outweigh its disadvantages.";
+    const qNoReq = "Assess whether protectionism is the best way to correct a current account deficit.";
+    const essayNoDiag = Array(4).fill(Array(90).fill("buffer stock price band").join(" ")).join("\n\n");
+    const essayWithDiag = `[DIAGRAM: Buffer Stock | axes: P, Q]\n\n${essayNoDiag}`;
+
+    expect(questionRequiresDiagram(qReq)).toBe(true);
+    expect(questionRequiresDiagram(qNoReq)).toBe(false);
+    expect(essayHasDiagram(essayNoDiag)).toBe(false);
+    expect(essayHasDiagram(essayWithDiag)).toBe(true);
+
+    const split12 = { ao1_marks: 2, ao2_marks: 6, ao3_marks: 4 };
+    const qProfile = analyzeEssayQuality(essayNoDiag, 12, split12);
+    const highDraft = makeGrading({
+      total_mark: 11,
+      max_mark: 12,
+      band: "Top Band",
+      ao_breakdown: {
+        knowledge: { awarded: 2, out_of: 2, comment: "Precise." },
+        analysis: { awarded: 5, out_of: 6, comment: "Strong written analysis." },
+        evaluation: { awarded: 4, out_of: 4, comment: "Balanced evaluation." },
+      },
+      weaknesses: ["Could deepen storage cost point."],
+      missing_elements: { definitions: [], analysis: [], evaluation: [], examples: [], diagrams: [] },
+    });
+
+    // Omitting required diagram caps 12m AO2 at Level 2 max (4/6) and adds diagram weakness
+    const capped = applyWritingQualityGuardrail(highDraft, qProfile, 12, split12, essayNoDiag, qReq);
+    expect(capped.ao_breakdown.analysis.awarded).toBe(4);
+    expect(capped.total_mark).toBe(10);
+    expect(capped.missing_elements.diagrams.length).toBeGreaterThan(0);
+
+    // Same essay WITH diagram keeps full AO2 = 5/6
+    const uncappedWithDiag = applyWritingQualityGuardrail(highDraft, qProfile, 12, split12, essayWithDiag, qReq);
+    expect(uncappedWithDiag.ao_breakdown.analysis.awarded).toBe(5);
+
+    // Question that did NOT request a diagram keeps full AO2 = 5/6
+    const uncappedNoReq = applyWritingQualityGuardrail(highDraft, qProfile, 12, split12, essayNoDiag, qNoReq);
+    expect(uncappedNoReq.ao_breakdown.analysis.awarded).toBe(5);
+  });
+
+  it("allows well-paragraphed 260-word Level 2 20-mark essays up to 11/20 instead of burying them at 7/20", () => {
+    const split20 = { ao1_marks: 2, ao2_marks: 12, ao3_marks: 6 };
+    const essay260 = Array(4).fill(Array(65).fill("utility").join(" ")).join("\n\n");
+    const quality = analyzeEssayQuality(essay260, 20, split20);
+    expect(quality.isSeverelyUndersized).toBe(false);
+    expect(quality.maxAllowableTotalMark).toBe(11);
+    expect(quality.maxAllowableAo2).toBe(7);
+    expect(quality.maxAllowableAo3).toBe(3);
   });
 });

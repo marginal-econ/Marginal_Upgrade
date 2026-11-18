@@ -257,9 +257,9 @@ Apply official Cambridge 9708 Paper 4 Table A (AO1+AO2 combined out of 14, mappe
 - EXAMPLES RULE FOR PAPER 4 (OFFICIAL CAMBRIDGE): Follow Table A — "supported by examples, WHERE APPROPRIATE." For pure A-Level micro theory essays (utility theory, indifference curves, oligopoly game theory/pay-off matrix, contestable markets, market structure efficiency, MRPL/monopsony), rigorous theoretical models, diagrams, numerical illustrations, or pay-off matrices qualify fully for Level 3 AO2 without requiring named countries. For applied macro or policy essays, contextual real-world application strengthens analysis.
 - TABLE B — AO3 EVALUATION (${split.ao3_marks} MARKS TOTAL, MANDATORY):
   * Level 2 (4–6 of 6): Provides a justified conclusion/judgement addressing the specific requirements of the question AND makes developed, reasoned, well-supported evaluative comments.
-    - 6/6: Sustained, prioritized evaluation weighing competing conditions/trade-offs (SR vs LR, assumptions/limitations, magnitude, elasticity, stakeholder impacts) culminating in a decisive contextual verdict directly resolving the prompt.
-    - 5/6: Developed, reasoned evaluative points weighing key trade-offs/limitations and a clear justified conclusion addressing the prompt.
-    - 4/6: Reasoned evaluative comments with some development and a relevant supported conclusion, though prioritization or depth is partial.
+    - 6/6: Sustained, prioritized evaluation explicitly ranking competing conditions/trade-offs (SR vs LR, assumptions/limitations, magnitude, elasticity, stakeholder impacts) culminating in a decisive contextual verdict directly resolving the prompt.
+    - 5/6: Developed, reasoned evaluative points weighing key trade-offs/limitations with clear prioritization (explaining WHICH factor is most decisive and WHY) and a substantiated conclusion.
+    - 4/6: Reasoned evaluative comments with some development and a relevant conditional conclusion, OR an unweighted "it depends on X, Y, and Z" conclusion that lists valid conditions without prioritizing which dominates. (NEVER award 5/6 or 6/6 to an unweighted "depends on A, B, and C" conclusion!)
   * Level 1 (1–3 of 6): Vague/general conclusion or simple evaluative comments with little development or supporting evidence.
     - 3/6: Multiple valid but undeveloped caveats ("depends on X, Y, Z") with a general conclusion.
     - 2/6: Brief counter-argument or limited evaluative remark with a formulaic conclusion.
@@ -269,8 +269,10 @@ Apply official Cambridge 9708 Paper 4 Table A (AO1+AO2 combined out of 14, mappe
   }
 
   return `TARIFF DIRECTIVE — 12-MARK PAPER 2 (AS LEVEL) EVALUATIVE ESSAY (~25–30 min, ~350–550 words · AO1: ${split.ao1_marks}, AO2: ${split.ao2_marks}, AO3: ${split.ao3_marks}):
-- Higher standard than 8-mark, but realistic for timed AS conditions; do NOT penalise omitting peripheral topics when 2–3 core mechanisms are well developed.
-- Top Band (10–12/12: AO1=2, AO2=5–6, AO3=3–4): 2–3 well-explained causal chains with relevant application/examples, balanced evaluation against clear economic criteria (elasticity, timeframe, magnitude, stakeholders), and a reasoned concluding judgement answering the prompt.`;
+- Higher standard than 8-mark, calibrated to official Cambridge AS Level Paper 2 marking:
+  * AO2 Analysis (6 marks): Reserve 5–6/6 for essays that unpack step-by-step intermediate causal transmission chains (e.g. labour market tightness, wage-cost pass-through, elasticity/PES effects, or developed contextual application). Clean, accurate textbook summaries that skip intermediate mechanisms (e.g. stating "AD shifts right, raising output and prices" in one sentence without unpacking why) sit at Level 2 (4/6, giving KAA = 6/8 with AO1 = 2).
+  * AO3 Evaluation (4 marks): Reserve full 4/4 for balanced evaluation that explicitly PRIORITISES which factor/condition dominates and WHY in a decisive concluding judgement. Balanced evaluation that ends with an unweighted conditional summary ("neither is always more likely; it depends on A, B, and C") earns 3/4, NOT 4/4. Brief/listed caveats with a generic "combination of both" ending earn 2/4.
+  * Top Band (10–12/12: AO1=2, AO2=5–6, AO3=3–4) requires developed step-by-step causal chains AND reasoned, criteria-grounded evaluation.`;
 }
 
 /**

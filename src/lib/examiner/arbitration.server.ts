@@ -264,7 +264,7 @@ export async function arbitrateGrading(options: ArbitrateOptions): Promise<Gradi
       : "Concluded authoritatively by Cambridge Principal Examiner pass.";
 
   reconciled.confidence = computeObjectiveConfidence(examinerGrading, moderatorGrading, true);
-  return deduplicateAcrossSections(applyWritingQualityGuardrail(reconciled, quality, maxMark, split, essayText), question);
+  return deduplicateAcrossSections(applyWritingQualityGuardrail(reconciled, quality, maxMark, split, essayText, question), question);
 }
 
 /**
@@ -563,6 +563,6 @@ export function synthesizeDualPasses(
     result.missing_elements.diagrams = result.missing_elements.diagrams.map(sanitizeALevelFeedbackText).filter((di) => di.length > 0);
   }
 
-  const guardrailed = quality ? applyWritingQualityGuardrail(result, quality, maxMark, split, essayText) : result;
+  const guardrailed = quality ? applyWritingQualityGuardrail(result, quality, maxMark, split, essayText, questionText) : result;
   return cleanStars(deduplicateAcrossSections(purgeContradictions(guardrailed), questionText));
 }

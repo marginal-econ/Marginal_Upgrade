@@ -439,11 +439,26 @@ export async function retrieve(
   return deduped;
 }
 
+const WINDOW_STOP_WORDS = new Set([
+  "the", "and", "that", "this", "with", "from", "for", "are", "was", "were",
+  "have", "has", "had", "does", "did", "would", "should", "could", "their",
+  "they", "them", "which", "what", "when", "where", "also", "into", "onto",
+  "then", "than", "more", "most", "some", "such", "only", "even", "will",
+  "discuss", "assess", "evaluate", "consider", "explain", "extent", "whether",
+  "statement", "always", "help", "diagram", "likely", "economy", "country",
+  "government", "economic", "market", "goods", "services", "between",
+]);
+
 /**
- * Strips recurring third-party hosting watermarks (e.g. PapaCambridge Trace IDs)
- * and trims oversized chunks so LLM context windows stay high-signal and token-efficient.
+ * Extracts the most relevant window from a large retrieved document chunk (such as
+ * 25,000-char Cambridge Paper 4 Mark Schemes where Page 1-6 are generic boilerplate
+ * and the actual question's Indicative Content sits on Pages 10-17).
  */
-function cleanSnippetForPrompt(snippet: string, maxChars = 1350): string {
+export function extractRelevantSnippetWindow(
+  snippet: string,
+  maxChars = 1350,
+  query?: string,
+): string {
   const cleaned = snippet
     .replace(/PapaCambridge\s*·\s*papacambridge\.com[^\n]*/gi, "")
     .replace(/Downloaded from PapaCambridge[^\n]*/gi, "")
@@ -452,21 +467,92 @@ function cleanSnippetForPrompt(snippet: string, maxChars = 1350): string {
     .replace(/Trace ID:\s*PC-[A-Z0-9]+/gi, "")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
-  return cleaned.length > maxChars ? `${cleaned.slice(0, maxChars)}...` : cleaned;
+
+  if (cleaned.length <= maxChars) return cleaned;
+  if (!query || !query.trim()) return `${cleaned.slice(0, maxChars)}...`;
+
+  const queryTerms = Array.from(
+    new Set(
+      query
+        .toLowerCase()
+        .replace(/[^\w\s-]/g, " ")
+        .split(/\s+/)
+        .filter((w) => w.length >= 3 && !WINDOW_STOP_WORDS.has(w)),
+    ),
+  );
+
+  if (queryTerms.length === 0) return `${cleaned.slice(0, maxChars)}...`;
+
+  // Slide a window of size `maxChars` in 350-char steps across the document
+  const step = 350;
+  let bestStart = 0;
+  let bestScore = -Infinity;
+
+  for (let start = 0; start < cleaned.length; start += step) {
+    const end = Math.min(cleaned.length, start + maxChars);
+    const sliceLower = cleaned.slice(start, end).toLowerCase();
+
+    let score = 0;
+    let uniqueTermsHit = 0;
+    for (const term of queryTerms) {
+      if (sliceLower.includes(term)) {
+        uniqueTermsHit++;
+        score += 4;
+      }
+    }
+    // Bonus for hitting multiple distinct question terms together (exact question match!)
+    score += uniqueTermsHit * uniqueTermsHit * 0.8;
+
+    // Bonus for actual Cambridge mark scheme content sections
+    if (/indicative\s+content/i.test(sliceLower)) score += 6;
+    if (/ao3\s+evaluation/i.test(sliceLower)) score += 4;
+    if (/l2\s+maximum|level\s+2\s+maximum|no\s+accurate\s+diagram/i.test(sliceLower)) score += 5;
+
+    // Heavy penalty for Page 1-6 generic mark scheme cover/preamble boilerplate
+    if (/generic\s+marking\s+principle|this\s+document\s+consists\s+of\s+\d+\s+printed\s+pages|mark\s+schemes\s+should\s+be\s+read\s+in\s+conjunction/i.test(sliceLower)) {
+      score -= 15;
+    }
+
+    if (score > bestScore) {
+      bestScore = score;
+      bestStart = start;
+    }
+    if (end >= cleaned.length) break;
+  }
+
+  // If no meaningful match found anywhere, fall back to start
+  if (bestScore <= 0) return `${cleaned.slice(0, maxChars)}...`;
+
+  // Snap start backward slightly to a clean boundary if possible
+  let snappedStart = bestStart;
+  if (snappedStart > 0) {
+    const prevBreak = cleaned.lastIndexOf("\n", snappedStart);
+    if (prevBreak !== -1 && snappedStart - prevBreak <= 120) {
+      snappedStart = prevBreak + 1;
+    }
+  }
+  const end = Math.min(cleaned.length, snappedStart + maxChars);
+  const prefix = snappedStart > 0 ? "..." : "";
+  const suffix = end < cleaned.length ? "..." : "";
+  return `${prefix}${cleaned.slice(snappedStart, end).trim()}${suffix}`;
 }
 
 /**
  * Render retrieved chunks as a numbered, citable context block. The [S1]-style
  * markers let the model cite instead of inventing.
  */
-export function renderContext(sources: GroundingSource[], maxCharsPerSnippet = 1350): string {
+export function renderContext(
+  sources: GroundingSource[],
+  maxCharsPerSnippet = 1350,
+  query?: string,
+): string {
   if (sources.length === 0) return "";
 
   const blocks = sources.map((source, index) => {
     const label = source.heading
       ? `${source.documentTitle} — ${source.heading}`
       : source.documentTitle;
-    return `[S${index + 1}] (${source.docType.replace("_", " ")}) ${label}\n${cleanSnippetForPrompt(source.snippet, maxCharsPerSnippet)}`;
+    return `[S${index + 1}] (${source.docType.replace("_", " ")}) ${label}\n${extractRelevantSnippetWindow(source.snippet, maxCharsPerSnippet, query)}`;
   });
 
   return [

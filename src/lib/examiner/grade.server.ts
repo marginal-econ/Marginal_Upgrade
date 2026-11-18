@@ -60,6 +60,8 @@ import {
   analyzeEssayQuality,
   applyWritingQualityGuardrail,
   buildQualityPromptDirective,
+  essayHasDiagram,
+  questionRequiresDiagram,
   type EssayQualityAnalysis,
 } from "./writing-quality.server";
 
@@ -255,11 +257,11 @@ export async function gradeEssay(
       return boost;
     };
     sources = [...sources].sort((a, b) => scoreSourceForTariff(b) - scoreSourceForTariff(a)).slice(0, 6);
-    baseSystemPrompt = `${baseSystemPrompt}\n\n${renderContext(sources, 1100)}`;
+    baseSystemPrompt = `${baseSystemPrompt}\n\n${renderContext(sources, 1300, question)}`;
   }
 
-  // Compact mark-scheme excerpt for Pass 3 (Refiner) & Arbitration so they stay grounded without exceeding Groq payload limits
-  const compactMarkSchemeContext = sources.length > 0 ? renderContext(sources.slice(0, 3), 420) : "";
+  // Compact mark-scheme excerpt centered directly on this question's indicative content for Pass 3 & Arbitration
+  const compactMarkSchemeContext = sources.length > 0 ? renderContext(sources.slice(0, 3), 550, question) : "";
 
   // --- calibration anchors (strictly 1 or 2, matching paper level) ----------
   let anchors: any[] = [];
@@ -342,8 +344,13 @@ export async function gradeEssay(
       : `[QUESTION SPECIFICATION: ${maxMark} Marks · NON-EVALUATIVE LEGACY ESSAY (AO1: ${ao1_marks}, AO2: ${ao2_marks}, AO3: 0)]\n` +
         `Pure explanatory / analytical question. Evaluation is NOT required; set AO3 awarded: 0, out_of: 0, with zero penalty.`;
 
+  const missingRequiredDiagramBanner =
+    questionRequiresDiagram(question) && !essayHasDiagram(essayText)
+      ? `\n[MANDATORY CAMBRIDGE DIAGRAM AUDIT: The exam question EXPLICITLY requests a diagram, and NO diagram or pay-off matrix was detected in the submission. Under official Cambridge 9708 mark schemes ("L2 maximum if no accurate diagram provided"), AO2 Analysis MUST NOT exceed Level 2 (${maxMark >= 20 ? "max 8/12" : maxMark === 12 ? "max 4/6" : "max 3/4"}), and you MUST note the omitted diagram in weaknesses and missing_elements.diagrams.]`
+      : "";
+
   const userMessage =
-    `${evalRequirementBanner}\n\n` +
+    `${evalRequirementBanner}${missingRequiredDiagramBanner}\n\n` +
     `EXAM QUESTION TO MARK IN FULL DEPTH (${maxMark} marks):\n` +
     `"""\n${question}\n"""\n\n` +
     `STUDENT ESSAY SUBMISSION:\n` +
@@ -405,7 +412,7 @@ export async function gradeEssay(
     const res = await executeExaminerPass(pass2SystemPrompt, "grade_essay", TEMPERATURE_PASS2);
 
     finalGrading = normaliseGrading(extractFirstJsonObject(res.text), maxMark, split, essayText, question);
-    finalGrading = applyWritingQualityGuardrail(finalGrading, qualityAnalysis, maxMark, split, essayText);
+    finalGrading = applyWritingQualityGuardrail(finalGrading, qualityAnalysis, maxMark, split, essayText, question);
     if (finalGrading.off_syllabus) {
       throw new OffSyllabusError(
         finalGrading.detected_subject || "another subject",
@@ -429,9 +436,9 @@ export async function gradeEssay(
     ]);
 
     let grading1 = normaliseGrading(extractFirstJsonObject(first.text), maxMark, split, essayText, question);
-    grading1 = applyWritingQualityGuardrail(grading1, qualityAnalysis, maxMark, split, essayText);
+    grading1 = applyWritingQualityGuardrail(grading1, qualityAnalysis, maxMark, split, essayText, question);
     let grading2 = normaliseGrading(extractFirstJsonObject(second.text), maxMark, split, essayText, question);
-    grading2 = applyWritingQualityGuardrail(grading2, qualityAnalysis, maxMark, split, essayText);
+    grading2 = applyWritingQualityGuardrail(grading2, qualityAnalysis, maxMark, split, essayText, question);
 
     if (grading1.off_syllabus || grading2.off_syllabus) {
       const rejected = grading1.off_syllabus ? grading1 : grading2;
