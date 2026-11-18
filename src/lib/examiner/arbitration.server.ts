@@ -14,10 +14,17 @@
 
 import { cleanStars } from "@/lib/utils";
 import { chat } from "../ai.server";
-import { formatStructureNote, getStructureGuidance, MODEL_EXAMINER, TEMPERATURE_EXAMINER, type AoSplit } from "./config";
+import {
+  buildAoEvaluationDirective,
+  buildPaperScopeDirective,
+  MODEL_EXAMINER,
+  TEMPERATURE_EXAMINER,
+  type AoSplit,
+} from "./config";
 import { extractFirstJsonObject } from "./json";
 import {
   bandFor,
+  deduplicateAcrossSections,
   deduplicateFeedbackPoints,
   normaliseGrading,
   purgeContradictions,
@@ -50,7 +57,8 @@ export function shouldTriggerArbitration(
   maxMark: number,
 ): DisputeCheckResult {
   const delta = Math.abs(examiner.total_mark - moderator.total_mark);
-  const threshold = Math.max(2, Math.round(maxMark * 0.18)); // e.g. 2 for 8-mark, 2-3 for 12-mark, 4 for 20-mark
+  // Tighter tolerance on 20-mark A Level essays (3 marks instead of 4) so material Paper 4 disagreements are always arbitrated
+  const threshold = maxMark >= 20 ? 3 : Math.max(2, Math.round(maxMark * 0.18));
 
   // Zero-mark relevance contradiction: one pass zeroed the essay as off-topic while the other awarded positive marks
   const zeroDiscrepancy =
@@ -67,8 +75,7 @@ export function shouldTriggerArbitration(
 
   const normEx = (examiner.band || "").toLowerCase();
   const normMod = (moderator.band || "").toLowerCase();
-  const bandMismatch = normEx !== normMod;
-  // Significant band discrepancy: e.g. Top band vs Middle band
+  // Significant band discrepancy: e.g. Top band vs Lower Middle, or Bottom vs Upper Middle
   const extremeBandMismatch =
     (normEx.includes("top") && normMod.includes("lower")) ||
     (normMod.includes("top") && normEx.includes("lower")) ||
@@ -136,123 +143,63 @@ export function computeObjectiveConfidence(
   return Math.max(0.35, Math.min(0.98, Number(score.toFixed(2))));
 }
 
-export const ARBITRATION_PROMPT = `You are a Principal Examiner for Cambridge International AS/A Level Economics (syllabus 9708).
-A student essay has been marked independently by two Senior Examiners:
-- Pass 1 focused on theoretical error checking and mechanism precision (temperature 0.0).
-- Pass 2 focused on holistic Cambridge marking and evaluation breadth (temperature 0.2).
-They have reached a material disagreement. Your job is to act as the final, authoritative arbitrator and conclude both passes together.
+export const ARBITRATION_PROMPT = `You are a Principal Examiner for Cambridge International AS & A Level Economics (syllabus 9708) resolving a material disagreement between Pass 1 (Error Audit) and Pass 2 (Holistic Assessment).
 
-You will be given:
-1. The exam question (out of {max_mark} marks).
-2. The student's essay.
-3. Pass 1's grading and breakdown.
-4. Pass 2's grading and breakdown.
-5. The specific reason for escalation.
+FIXED AO ALLOCATION ({max_mark} marks):
+- AO1 Knowledge: {ao1_marks} | AO2 Analysis: {ao2_marks} | AO3 Evaluation: {ao3_marks}
 
-FIXED AO MARK ALLOCATION (syllabus 9708, {max_mark}-mark essay):
-- AO1 Knowledge and understanding: exactly {ao1_marks} marks
-- AO2 Analysis: exactly {ao2_marks} marks
-- AO3 Evaluation: exactly {ao3_marks} marks
+{paper_scope_directive}
 
-AUTHORITATIVE PRINCIPAL EXAMINER PRINCIPLES:
-1. VERBATIM EVIDENCE: Base your decision on direct evidence from the student's text.
-2. RELEVANCE DIRECTIVE & MANDATORY DOUBLE-CHECK:
-   - Practice POSITIVE MARKING: NEVER classify an essay as off-topic or award 0 marks unless you have double-checked and verified that the essay is 100% UNRELATED to the question asked.
-   - Legitimate responses in Cambridge 9708 include:
-     * Comparing the primary policy against alternative policies (e.g. comparing subsidies with direct provision, education, maximum prices, or taxes).
-     * Establishing economic groundwork (e.g. market failure, positive/negative externalities, information failure, allocative inefficiency).
-     * Approaching the prompt with differing analytical emphasis or partial focus.
-     All of these MUST be marked positively on their economic merits.
-   - Only award 0 marks across all AOs if you have double-checked that the essay has ZERO economic relation to the question prompt (no economic overlap whatsoever). No grace marks for genuinely off-topic material.
-3. KNOWLEDGE & ANALYSIS CRITERIA (TIMED EXAM CALIBRATION):
-   - AO1 Knowledge: Demand syllabus-precise definitions and thorough economic knowledge and understanding across all key concepts. Vague or ambiguous terms earn 1 mark; inverted/false definitions receive 0.
-   - AO2 Analysis: Demand complete, unbroken causal transmission chains and thorough analysis. Omitted causal steps restrict analysis from Top Band. For 20-mark extended essays, analysis across all 12 marks must be thorough and multi-perspective.
-   - Examples & Application: If an example is related to the question and demonstrates genuine real-world application, reward that mark under AO2. For 20-mark essays, powerful and relevant use of real-life examples (naming specific countries, markets, or policy programs) integrated into the analytical mechanism is strictly required for Top Band. If theoretical, it must provide a clear demonstration of the mechanism. REJECT weak one-liner examples (e.g. passing mentions like "e.g. healthcare" without explanation).
-4. DIAGRAM DIRECTIVE (STRICT CAMBRIDGE RULE):
-   - Diagrams are NEVER compulsory unless the question explicitly asks for one (e.g. 'with the aid of a diagram').
-   - Written economics alone can achieve full marks (including full marks in AO2 and overall).
-   - NEVER penalise or deduct marks for the absence of a diagram. If either pass deducted marks for lack of a diagram, OVERTURN that deduction.
-   - If an accurate diagram is described or drawn, ensure it is POSITIVELY REWARDED under AO2.
-5. EVALUATION DIRECTIVE (STRONG, WIDE, AND RIGOROUS TIMED STANDARDS):
-   - EVALUATIVE VS NON-EVALUATIVE TARIFF DIRECTIVE:
-     * If {ao3_marks} is 0 marks: Evaluation is strictly NOT required (legacy Cambridge 8-mark 'Explain' questions). Set awarded: 0, out_of: 0, and comment: "Evaluation is not required for this question. No marks are lost for its omission." Keep missing_elements.evaluation empty [].
-     * If {ao3_marks} > 0 marks: Evaluation IS MANDATORY. You MUST grade AO3 out of {ao3_marks} marks. NEVER state that evaluation is not required, even if the question starts with 'Explain'.
-      * PAPER SCOPE FOR 8-MARK & 12-MARK ESSAYS (STRICT AS LEVEL PAPER 2 ONLY):
-        Strictly Cambridge 9708 Paper 2 (AS Level). NEVER mention Paper 4, A-Level topics (NO marginal utility/utility theory, NO diminishing returns, NO indifference curves, NO monopoly/oligopoly, NO dynamic/X/Pareto efficiency, NO MRPL, NO A2 macro), or extended Paper 4 essays. Grade and advise strictly on AS Level Paper 2 content.
-     * TARIFF-SPECIFIC TIMED EXAM CALIBRATION & FAIRNESS:
-        - 8-mark evaluative questions ({ao3_marks} = 2 marks, ~15 min): Cannot cover all syllabus topics. Do NOT penalise candidates for omitting secondary topics. If the candidate provides a counter-argument and a reasoned conclusion directly addressing the prompt, award Level 2 evaluation (full 2 of 2 marks). A sound essay with a good conclusion can achieve 8/8.
-        - 12-mark evaluative questions ({ao3_marks} = 4 marks, ~25-30 min): Standard is higher than 8m, but NOT overly strict. A student cannot write everything under timed conditions; do NOT penalise for omitting peripheral aspects when core mechanisms are well addressed. If the candidate provides 2-3 well-explained causal analysis points with real-world application, balanced evaluation, and a reasoned conclusion, award Top Band (10-12/12, with 3-4/4 in AO3).
-        - 20-mark extended essays ({ao3_marks} = 6 marks, ~40-45 min): Highest standard on Paper 4, but realistic for timed conditions. Thorough multi-perspective causal chains with real-world application, weighing trade-offs (e.g. short-run vs long-run or prioritized factors), and providing a substantiated overall verdict earns Top Band (16-20/20, with 5-6/6 in AO3).
-        - ZERO NUMERIC MARKS IN PROSE: Do NOT write numerical scores, mark breakdowns, or phrases like "held at 7", "instead of 8", or "cost you marks" anywhere inside written feedback or comments. Focus strictly on strengths and syllabus-accurate improvements.
-        - ZERO INTERNAL CONTRADICTIONS: Never praise an example or concept in strengths while criticizing or demanding it in weaknesses or missing elements.
-   - Maintain rigorous, fair evaluation moderation without artificial numeric caps or impossible expectations:
-   - Demand critical prioritization: top band evaluation requires the candidate to explicitly justify which factor or criterion is most decisive (e.g. why inelastic demand limits short-run effectiveness vs long-run substitution).
-   - Reject unprioritized textbook lists: merely reciting 'it depends on PED, time, and government budget' without contextual weighing belongs in middle band.
-   - For questions assessing whether a policy is the 'best way' or 'most effective' intervention, candidates must directly compare against alternative policies (e.g. permits, regulation, subsidies) against explicit criteria (PED pass-through, equity/regressive impacts, administrative feasibility, government failure in tax calibration). Superficial or missing comparative weighing cannot exceed Level 1 in AO3.
-   - Be strict on superficial evaluation: a single token sentence or generic conclusion ('a mix of both is best') without justified weighing criteria must not reach top band.
-   - NO ARTIFICIAL NUMERIC CAPS: Do NOT apply rigid programmatic caps or formulaic ceiling rules (such as 'caps AO3' or 'Table B capped'). Evaluate the candidate's evaluative depth and breadth holistically on its economic merit.
-6. ACCURATE ECONOMICS VS ERRORS & REALISTIC CALIBRATION:
-    - CHAPTER 5 (PPC) & EFFICIENCY GROUNDING — STRICT AS LEVEL MISCONCEPTION CHECK:
-      * Point inside PPC = Productive inefficiency / unemployment or underutilisation of resources (idle factors, X-inefficiency). A PPC shows productive capacity alone; it contains NO information about consumer preferences and does NOT represent allocative inefficiency!
-      * Point on PPC = Productive efficiency (maximum possible output from given resources), though it may still be allocatively inefficient if the output mix does not match consumer preferences (P != MC).
-      * MANDATORY ANALYTICAL ERROR FLAG: Flag any confusion between productive and allocative inefficiency on a PPC diagram as an analytical error (deduct 1 mark in AO2). You must NEVER praise this confusion. Overturn any pass that praised it and advise constructively on distinguishing productive inefficiency from allocative efficiency.
-    - Distinguish correct economics from genuine errors:
-     * When a subsidy lowers market price, quantity demanded extends/increases along the curve (from Q to Q1). That is accurate economic terminology, not an error.
-     * Merit goods are defined both by positive externalities and by information failure / undervaluation of private benefits. Both are syllabus-correct.
-     * DEFINITION FAIRNESS & ANTI-HALLUCINATION: Scarcity is finite or limited resources versus unlimited wants. "Finite" and "limited" are standard Cambridge synonyms. Stating "scarcity takes place when resources are limited but wants are unlimited" is accurate syllabus economics; NEVER label it a tautology or incorrect. Do NOT require opportunity cost within the definition of scarcity itself. Never demand citations or snippets like [S#].
-   - ACCOUNTABILITY ON MAJOR THEORETICAL ERRORS:
-     * Inverted definitions (e.g. defining negative externality as a benefit to firms paid by government, claiming carbon tax is a direct tax on income) earn 0 marks on AO1.
-     * Flawed causal mechanisms built on false economic premises cannot exceed Level 1 in AO2.
-     * Realistic calibration: essays with fundamental conceptual errors and weak comparative evaluation belong in Lower Middle or Bottom band, never Upper Middle or Top Band.
-7. ZERO-HALLUCINATION & HUMAN CONSTRUCTIVE TONE:
-   - Write feedback that feels genuinely human, encouraging, and supportive. Quote ONLY verbatim phrases that actually exist in the student's text.
-   - ZERO INTERNAL CODES: NEVER write [S1], [S2], (as per [S1]), or any [S#] tags in student-facing prose.
-   - NO REPETITIVE FEEDBACK: Ensure strengths and weaknesses address distinct points without duplicating topics.
-   - Zero asterisks (* or **): return clean plain text only.
+{ao_evaluation_directive}
 
-8. CAMBRIDGE WRITING QUALITY, DEPTH & PARAGRAPH STRUCTURE:
-   - Ensure the arbitrated mark complies with Cambridge writing standards:
-   - An essay under 350 words (for 12 marks) or under 550 words (for 20 marks) is an outline summary where transmission links are compressed. It must NOT be awarded Top Band Level 3/4 for AO2 or AO3.
-   - Single-paragraph monolithic submissions fail Cambridge organizational standards and cannot exceed Level 2.
-   - AI-generated formatting artifacts (**bolding**, raw LaTeX) must be penalized as compressed outline notes rather than examination essays.
-   - Preserve full credit for well-developed, paragraphed student essays (500+ words for 12m, 800+ words for 20m) that demonstrate sustained analysis, powerful real-life examples, and prioritized evaluation.
+AUTHORITATIVE ARBITRATION RULES:
+1. EVIDENCE-GROUNDED VERDICT: Base every AO mark strictly on verbatim evidence from the student's essay against official Cambridge level descriptors.
+2. POSITIVE MARKING & ERROR ACCOUNTABILITY:
+   - Credit accurate theory, diagrams, pay-off matrices, and valid mechanisms positively; overturn any hallucinated penalties (such as penalising A-Level theory on a 20m Paper 4 essay, penalising an unrequested missing diagram, or calling 2025/2026 dates "future").
+   - Hold firm on verified verbatim errors: inverted supply/demand/monetary/exchange-rate mechanisms cap AO2 at Level 1; inverted definitions cap AO1 at 0–1; claiming profit-maximising firms "overproduce" (instead of restricting output where MR=MC) or claiming subsidies guarantee productive efficiency or claiming inside-PPC is allocative inefficiency MUST be flagged and never praised.
+3. DIAGRAM RULE: Diagrams are NEVER compulsory unless explicitly requested in the question. Overturn any deduction or weakness penalising an unrequested missing diagram.
+4. ZERO REPETITION & DISTINCT SECTION ROLES:
+   - Every bullet in strengths (2–4), weaknesses (2–4), missing_elements (max 2 short phrases per non-empty category), and actionable_feedback (2–3 concrete rewrite steps) MUST be distinct with zero duplication within arrays or copy-pasting across sections.
+   - Summary and AO comments MUST match the awarded marks and band (never tell a Top Band essay "to reach Top Band").
+   - No markdown asterisks (*), no [S#] codes, no numeric score fractions in prose.
 
-9. OFFICIAL CAMBRIDGE RESPONSE STRUCTURE GUIDANCE:
-{structure_note}
-
-10. SUBMISSION QUALITY & DEPTH PROFILE:
 {essay_quality_profile}
 
-Respond ONLY with a single valid JSON object, no markdown fences, no commentary outside the JSON.
-STRICT PLAIN TEXT DIRECTIVE: NEVER use markdown asterisks (*, **, or ***) anywhere in any string field. Return clean plain text only.
+Respond ONLY with a single valid JSON object (no markdown fences, no commentary):
 {
   "mechanism_validation": {
-    "core_mechanisms_sound": <boolean, true if candidate's transmission chains operate in correct economic direction>,
-    "fatal_misconceptions_found": <boolean, true ONLY if an explicit verbatim falsehood is proven>,
-    "error_evidence_quotes": [
-      "<exact verbatim quote of any false economic claim, or empty array [] if mechanisms are sound>"
-    ]
+    "core_mechanisms_sound": <boolean>,
+    "fatal_misconceptions_found": <boolean>,
+    "error_evidence_quotes": ["<verbatim quote or []>"]
   },
   "ao_breakdown": {
-    "knowledge": { "awarded": <int>, "out_of": {ao1_marks}, "comment": "<string explaining authoritative decision>" },
-    "analysis": { "awarded": <int>, "out_of": {ao2_marks}, "comment": "<string explaining authoritative decision>" },
-    "evaluation": { "awarded": <int>, "out_of": {ao3_marks}, "comment": "<string explaining authoritative decision>" }
+    "knowledge": { "awarded": <int>, "out_of": {ao1_marks}, "comment": "<concise AO1 justification>" },
+    "analysis": { "awarded": <int>, "out_of": {ao2_marks}, "comment": "<concise AO2 justification>" },
+    "evaluation": { "awarded": <int>, "out_of": {ao3_marks}, "comment": "<concise AO3 justification>" }
   },
-  "total_mark": <integer, sum of the three awarded values above>,
+  "total_mark": <int, exact sum of awarded AO1+AO2+AO3>,
   "band": "<Top Band | Upper Middle Band | Lower Middle Band | Bottom Band>",
-  "examiner_summary": "<authoritative 2-3 sentence Principal Examiner verdict>",
-  "strengths": ["<string quoting student text>", "..."],
-  "weaknesses": ["<string highlighting genuine economic improvement>", "..."],
-  "missing_elements": {
-    "definitions": ["<string>"],
-    "analysis": ["<string>"],
-    "evaluation": ["<string>"],
-    "examples": ["<string>"],
-    "diagrams": []
-  },
-  "actionable_feedback": ["<string>", "..."],
-  "arbitration_rationale": "<precise explanation of how the two passes were reconciled>"
+  "examiner_summary": "<2-3 sentence authoritative verdict>",
+  "strengths": ["<distinct strength 1>", "<distinct strength 2>"],
+  "weaknesses": ["<distinct diagnostic weakness 1>", "<distinct diagnostic weakness 2>"],
+  "missing_elements": { "definitions": [], "analysis": [], "evaluation": [], "examples": [], "diagrams": [] },
+  "actionable_feedback": ["<concrete rewrite step 1>", "<concrete rewrite step 2>"],
+  "arbitration_rationale": "<1-2 sentence reconciliation rationale>"
 }`;
+
+function compactPassForArbitration(g: Grading): Record<string, unknown> {
+  return {
+    total_mark: g.total_mark,
+    band: g.band,
+    ao: {
+      ao1: `${g.ao_breakdown.knowledge.awarded}/${g.ao_breakdown.knowledge.out_of}: ${g.ao_breakdown.knowledge.comment}`,
+      ao2: `${g.ao_breakdown.analysis.awarded}/${g.ao_breakdown.analysis.out_of}: ${g.ao_breakdown.analysis.comment}`,
+      ao3: `${g.ao_breakdown.evaluation.awarded}/${g.ao_breakdown.evaluation.out_of}: ${g.ao_breakdown.evaluation.comment}`,
+    },
+    strengths: g.strengths.slice(0, 3),
+    weaknesses: g.weaknesses.slice(0, 3),
+  };
+}
 
 export type ArbitrateOptions = {
   question: string;
@@ -264,31 +211,35 @@ export type ArbitrateOptions = {
   disputeReason: string;
   userId?: string;
   qualityAnalysis?: EssayQualityAnalysis;
+  markSchemeContext?: string;
 };
 
 export async function arbitrateGrading(options: ArbitrateOptions): Promise<Grading> {
-  const { question, essayText, maxMark, split, examinerGrading, moderatorGrading, disputeReason } =
+  const { question, essayText, maxMark, split, examinerGrading, moderatorGrading, disputeReason, markSchemeContext } =
     options;
 
   const quality =
     options.qualityAnalysis ?? analyzeEssayQuality(essayText, maxMark, split);
-  const structureNote = formatStructureNote(getStructureGuidance(maxMark, split));
   const qualityDirective = buildQualityPromptDirective(quality, maxMark);
 
   const promptTemplate = ARBITRATION_PROMPT.replace(/{max_mark}/g, String(maxMark))
     .replace(/{ao1_marks}/g, String(split.ao1_marks))
     .replace(/{ao2_marks}/g, String(split.ao2_marks))
     .replace(/{ao3_marks}/g, String(split.ao3_marks))
-    .replace(/{structure_note}/g, structureNote)
+    .replace(/{paper_scope_directive}/g, buildPaperScopeDirective(maxMark))
+    .replace(/{ao_evaluation_directive}/g, buildAoEvaluationDirective(maxMark, split))
     .replace(/{essay_quality_profile}/g, qualityDirective);
 
-  const userMessage = [
+  const userParts = [
     `Exam Question (${maxMark} marks):\n${question}\n`,
     `Student Essay:\n${essayText}\n`,
-    `Dispute Escalation Reason:\n${disputeReason}\n`,
-    `Examiner Pass 1 (Error Audit, temp 0.0):\n${JSON.stringify(examinerGrading, null, 2)}\n`,
-    `Examiner Pass 2 (Holistic Evaluation, temp 0.2):\n${JSON.stringify(moderatorGrading, null, 2)}\n`,
-  ].join("\n");
+    `Dispute Reason: ${disputeReason}\n`,
+    `Pass 1 (Error Audit): ${JSON.stringify(compactPassForArbitration(examinerGrading))}\n`,
+    `Pass 2 (Holistic): ${JSON.stringify(compactPassForArbitration(moderatorGrading))}`,
+  ];
+  if (markSchemeContext) {
+    userParts.push(`\nCambridge Mark Scheme Excerpt:\n${markSchemeContext.slice(0, 1200)}`);
+  }
 
   const result = await chat({
     model: MODEL_EXAMINER,
@@ -298,12 +249,12 @@ export async function arbitrateGrading(options: ArbitrateOptions): Promise<Gradi
     feature: "grade_essay_arbitration",
     messages: [
       { role: "system", content: promptTemplate },
-      { role: "user", content: userMessage },
+      { role: "user", content: userParts.join("\n") },
     ],
   });
 
   const parsedRaw = extractFirstJsonObject(result.text);
-  const reconciled = normaliseGrading(parsedRaw, maxMark, split, essayText);
+  const reconciled = normaliseGrading(parsedRaw, maxMark, split, essayText, question);
 
   reconciled.audited = true;
   reconciled.arbitrated = true;
@@ -313,7 +264,7 @@ export async function arbitrateGrading(options: ArbitrateOptions): Promise<Gradi
       : "Concluded authoritatively by Cambridge Principal Examiner pass.";
 
   reconciled.confidence = computeObjectiveConfidence(examinerGrading, moderatorGrading, true);
-  return applyWritingQualityGuardrail(reconciled, quality, maxMark, split);
+  return deduplicateAcrossSections(applyWritingQualityGuardrail(reconciled, quality, maxMark, split, essayText), question);
 }
 
 /**
@@ -328,6 +279,7 @@ export function synthesizeDualPasses(
   split: AoSplit,
   quality?: EssayQualityAnalysis,
   essayText?: string,
+  questionText?: string,
 ): Grading {
   // If BOTH passes independently determined the essay was completely off-topic / unrelated (both awarded 0),
   // uphold the strict Cambridge zero-marks rule:
@@ -485,13 +437,14 @@ export function synthesizeDualPasses(
   total = kMark + aMark + eMark;
 
   // Diagrams missing elements must always be empty unless specifically required
+  // Semantically deduplicate missing_elements across Pass 1 & Pass 2 (never plain Set merge!)
   const missingElements = {
-    definitions: Array.from(new Set([...(pass1.missing_elements.definitions || []), ...(pass2.missing_elements.definitions || [])])).slice(0, 3),
-    analysis: Array.from(new Set([...(pass1.missing_elements.analysis || []), ...(pass2.missing_elements.analysis || [])])).slice(0, 3),
+    definitions: deduplicateFeedbackPoints([...(pass1.missing_elements.definitions || []), ...(pass2.missing_elements.definitions || [])], 2),
+    analysis: deduplicateFeedbackPoints([...(pass1.missing_elements.analysis || []), ...(pass2.missing_elements.analysis || [])], 2),
     evaluation: split.ao3_marks === 0
       ? []
-      : Array.from(new Set([...(pass1.missing_elements.evaluation || []), ...(pass2.missing_elements.evaluation || [])])).slice(0, 3),
-    examples: Array.from(new Set([...(pass1.missing_elements.examples || []), ...(pass2.missing_elements.examples || [])])).slice(0, 3),
+      : deduplicateFeedbackPoints([...(pass1.missing_elements.evaluation || []), ...(pass2.missing_elements.evaluation || [])], 2),
+    examples: deduplicateFeedbackPoints([...(pass1.missing_elements.examples || []), ...(pass2.missing_elements.examples || [])], 2),
     diagrams: [],
   };
 
@@ -610,6 +563,6 @@ export function synthesizeDualPasses(
     result.missing_elements.diagrams = result.missing_elements.diagrams.map(sanitizeALevelFeedbackText).filter((di) => di.length > 0);
   }
 
-  const guardrailed = quality ? applyWritingQualityGuardrail(result, quality, maxMark, split) : result;
-  return cleanStars(purgeContradictions(guardrailed));
+  const guardrailed = quality ? applyWritingQualityGuardrail(result, quality, maxMark, split, essayText) : result;
+  return cleanStars(deduplicateAcrossSections(purgeContradictions(guardrailed), questionText));
 }

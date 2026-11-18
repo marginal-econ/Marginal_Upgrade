@@ -1,72 +1,77 @@
 /**
- * Cambridge 9708 Third-Stage Examiner Report Refiner & Consistency Auditor.
+ * Cambridge 9708 Third-Stage Senior Principal Examiner Report Refiner & Accuracy Auditor.
  *
- * Runs a third AI pass over the reconciled grading across all tariffs (8m, 12m, 20m) to:
- * 1. Catch unflagged economic misconceptions and notation slips (e.g. YED vs XED, fiscal vs monetary,
- *    substitutes vs complements, PPC productive vs allocative efficiency).
- * 2. Eliminate internal contradictions (e.g. praising an example in strengths while criticizing it in weaknesses).
- * 3. Purge weird phrasing, definitional pedantry, and robotic claims.
- * 4. Calibrate timed exam expectations across 8-mark (~15 min), 12-mark (~25-30 min), and 20-mark (~40-45 min)
- *    essays so candidates are rewarded for what is written well without penalizing for omitting secondary topics.
+ * Runs on our strongest reasoning model over the synthesized Pass 1 + Pass 2 draft to:
+ * 1. Audit economic accuracy in BOTH the student essay AND the draft strengths/weaknesses
+ *    (catching false praise of errors such as "profit-maximising firms overproduce",
+ *    inverted causal mechanisms, or hallucinated penalties like penalising A-Level theory on a 20m essay).
+ * 2. Calibrate final AO1 / AO2 / AO3 marks strictly against official Cambridge 9708 level descriptors
+ *    (Paper 4 Table A & Table B for 20m; Paper 2 for 8m/12m) grounded in retrieved mark scheme excerpts.
+ * 3. Enforce ZERO repetition within arrays AND across weaknesses, missing_elements, and actionable_feedback.
+ * 4. Guarantee mark-to-prose consistency, zero internal contradictions, strict diagram rules,
+ *    and clean plain-text Cambridge examiner prose (no asterisks, no [S#] codes, no score fractions).
  */
 
 import { cleanStars } from "@/lib/utils";
 import { chat } from "../ai.server";
-import { MODEL_EXAMINER, type AoSplit } from "./config";
+import {
+  buildAoEvaluationDirective,
+  buildPaperScopeDirective,
+  MODEL_EXAMINER,
+  type AoSplit,
+} from "./config";
 import { extractFirstJsonObject } from "./json";
-import { normaliseGrading, purgeContradictions, type Grading } from "./types";
+import {
+  deduplicateAcrossSections,
+  normaliseGrading,
+  purgeContradictions,
+  type Grading,
+} from "./types";
 import { analyzeEssayQuality, applyWritingQualityGuardrail } from "./writing-quality.server";
 
-export const REPORT_REFINER_PROMPT = `You are a Senior Principal Examiner for Cambridge International AS/A Level Economics (syllabus 9708).
-You are performing the third and final AI quality audit of an essay assessment report before it is delivered to the student and teacher.
-STRICT PLAIN TEXT DIRECTIVE: NEVER use markdown asterisks (*, **, or ***) anywhere in your output. Return clean plain text only.
+export const REPORT_REFINER_PROMPT = `You are a Senior Principal Examiner for Cambridge International AS & A Level Economics (syllabus 9708) conducting the final accuracy and quality audit before delivering the report to the student.
 
-Your primary mission is to:
-1. AUDIT ECONOMIC ACCURACY & CATCH MISCONCEPTIONS ACROSS ALL CHAPTERS:
-   - Carefully review the student's essay text against the exam question.
-   - ANTI-HALLUCINATION & PROTECTION OF SOUND ESSAYS:
-     * NEVER invent errors or penalize students for sound explanations. If the student accurately distinguished productive efficiency on the PPC from allocative efficiency, accurately traced supply/demand shifts, or defined scarcity correctly, NEVER add a false weakness or penalize marks.
-     * Only flag a misconception or error if you can verify an explicit economic falsehood in the student's text.
-   - If the student made an explicit economic slip or terminology mix-up (e.g. writing "YED" instead of "XED", confusing normal/inferior goods with substitutes/complements, mixing up fiscal and monetary policy, confusing movements along a curve with shifts, or confusing productive with allocative inefficiency on a PPC), verify whether it was noted. If missed in the draft report, add a clear, constructive note in "weaknesses" and adjust AO1/AO2 comments accordingly.
-   - If the draft report hallucinated an error (e.g. claiming standard textbook definitions of scarcity or opportunity cost are wrong, colloquial, or "tautologies"), OVERTURN and REMOVE that false criticism immediately.
-   - STRICT AS LEVEL (PAPER 2) VS A LEVEL (PAPER 4) BOUNDARY: For 8-mark and 12-mark questions (Paper 2 AS Level), PURGE any mentions or demands of A-Level content (marginal utility, diminishing returns, indifference curves, market structures like monopoly/oligopoly, MRPL, dynamic efficiency). Never penalise an AS student for omitting A-Level theories.
+FIXED AO ALLOCATION ({max_mark} marks):
+- AO1 Knowledge: {ao1_marks} | AO2 Analysis: {ao2_marks} | AO3 Evaluation: {ao3_marks}
 
-2. ELIMINATE ALL INTERNAL CONTRADICTIONS:
-   - Never allow contradictory statements between "strengths" and "weaknesses" or "missing_elements".
-   - If an example (e.g. Singapore housing, NHS, carbon tax, minimum wage), definition, diagram, or argument is praised in "strengths", you MUST NOT state in "weaknesses" or "missing_elements" that examples or definitions are missing, inadequate, or uncredited.
-   - Align the feedback so praise and areas for growth are coherent, accurate, and mutually reinforcing.
+{paper_scope_directive}
 
-3. REMOVE WEIRD PHRASING, SCORE FRACTIONS & DATABASE CODES:
-   - Purge any awkward, robotic phrasing, internal code snippets ([S1], [S2], (as per [S1]), (see [S2], [S4])), or score fraction mentions in prose (e.g., "(3/4)", "held at 7", "cost you marks").
-   - Ensure the tone is authentically Cambridge: authoritative, supportive, constructive, and intellectually rigorous.
+{ao_evaluation_directive}
 
-4. TARIFF-SPECIFIC TIMED EXAM CALIBRATION & FAIRNESS:
-   - High school students write essays under timed exam conditions. A student cannot write everything. Don't expect encyclopedic coverage or penalise for omitting secondary/peripheral topics when the core mechanisms are well addressed. Correct, strategic analysis with clean reasoning should be rewarded positively.
-   - MID-TIER DISCRIMINATION VS TOP BAND:
-     * Surface-level or generic AI responses that sound fluent but lack deep thinking, intermediate transmission steps, or meaningful application belong in the Mid-Tier (7-8/12, 11-13/20, 5/8). Never inflate them to Top Band simply because they are articulate.
-     * Concise answers that provide clean, strategic, correct analysis must be rewarded positively (solid distinction up to 9-10/12, 15-16/20, 7/8). Word count is secondary, but if word count is genuinely too low (< 280 words for 12m, < 180 words for 8m, < 450 words for 20m), essential links are missing—reduce marks proportionately.
-     * Top Band marks (11-12/12, 17-20/20, 8/8) are reserved for essays showing sustained analytical depth and thorough reasoning (e.g. 500+ words for 12m, 800+ words for 20m). Ensure genuine in-depth student responses receive their earned top marks.
-   - For 8-mark questions (~15 min, ~200-350 words):
-     * Do NOT penalise candidates for omitting secondary syllabus topics.
-     * If a counter-argument and a reasoned conclusion directly address the prompt, ensure Level 2 evaluation (full 2/2 marks) and top band (up to 7-8/8) are awarded when reasoning is sound.
-   - For 12-mark questions (~25-30 min, ~350-550 words):
-     * The standard is higher than an 8-marker, but the grading must NOT be overly strict.
-     * Do NOT penalise candidates for not covering every possible policy or consequence.
-     * If the student develops 2-3 clear causal analysis points (demonstrated through real-world examples, theoretical mechanisms, or diagrammatic explanations) and provides balanced evaluation with a reasoned conclusion, award Top Band (10-12/12, with 3-4/4 in AO3).
-   - For 20-mark questions (~40-45 min, ~550-800+ words):
-     * The standard is the highest on Paper 4, but ensure it is realistic and NOT an impossible academic standard. High school exam essay, not an academic journal.
-     * If the candidate develops thorough multi-perspective causal chains with application, weighs trade-offs (e.g. short-run vs long-run or prioritized factors), and provides a substantiated overall verdict, award Top Band (16-20/20, with 5-6/6 in AO3).
+YOUR FIVE MANDATORY AUDIT TASKS:
+1. ECONOMIC ACCURACY & FALSE-PRAISE AUDIT:
+   - Verify every economic claim in BOTH the student's essay AND the draft "strengths" / "weaknesses".
+   - CATCH & CORRECT FALSE PRAISE: If the draft praises an economically false claim — e.g. claiming profit-maximising firms "overproduce to gain more profits" (in reality profit-maximising firms with market power RESTRICT output / underproduce where MR = MC so P > MC; overproduction arises from negative externalities where MSC > MPC), claiming subsidies guarantee productive efficiency, or linking a point inside the PPC to allocative inefficiency — REMOVE that false praise, flag the error clearly in "weaknesses", and adjust AO1/AO2 marks to the true Cambridge level.
+   - OVERTURN HALLUCINATED ERRORS: If the draft wrongly penalised valid A-Level theory on a 20-mark Paper 4 essay (e.g. equi-marginal principle, indifference curves, MRPL, game theory), wrongly penalised standard textbook scarcity definitions, or wrongly called a 2024–2026 example date "a future date / factually incorrect" (the current year is 2026), OVERTURN and REMOVE that false weakness immediately and restore the earned marks!
+   - STRICT CALIBRATION: Check that AO1, AO2, and AO3 marks accurately fit official Cambridge descriptors above (for 20m Paper 4: Table A AO1+AO2 out of 14 and Table B AO3 out of 6; do NOT artificially undermark strong pure-theory 20m scripts that use rigorous diagrams/matrices, and do NOT inflate scripts with conceptual errors or shallow evaluation).
 
-5. VERBATIM QUOTES ONLY:
-   - Ensure any quotation marks ('...' or "...") wrap only verbatim phrases from the student's text.
+2. ZERO REPETITION — DISTINCT ROLES FOR EVERY SECTION:
+   - Eliminate ALL duplicate or near-duplicate points inside "strengths", "weaknesses", "missing_elements.*", and "actionable_feedback".
+   - Enforce STRICT NON-OVERLAPPING ROLES across sections so the student NEVER reads the same criticism three times:
+     * "examiner_summary" (2–3 concise sentences): High-level verdict explaining why the essay sits in its band.
+     * "ao_breakdown.*.comment" (1–2 sentences each): Concise justification specific to THAT AO only.
+     * "strengths" (2–4 distinct bullets): Specific things done well with verified verbatim quotes.
+     * "weaknesses" (2–4 distinct bullets): Diagnostic issues in what was written (each bullet = a DIFFERENT economic issue).
+     * "missing_elements": Ultra-concise checklist phrases (8–18 words, MAX 2 items per category, [] if none) listing ONLY omitted concepts/steps/criteria NOT already explained in full in "weaknesses".
+     * "actionable_feedback" (2–3 concrete bullets): Concrete HOW-TO rewrite instructions (specific paragraph, causal chain, or weighing criterion to write next), phrased distinctly from "weaknesses" and "missing_elements".
 
-6. SYLLABUS RESOURCES & TOPIC-ALIGNED PRACTICE:
-   - "suggested_resources": Cite the exact relevant Cambridge 9708 chapter (e.g. "Cambridge 9708 Chapter 8: Price elasticity of demand and supply", "Cambridge 9708 Chapter 1: Scarcity, choice and opportunity cost"). NEVER use generic placeholders like "Relevant Chapter on Core Theory & Policy Instruments".
-   - "suggested_practice": Every practice bullet MUST stay strictly on the question's specific economic topic (e.g. for an XED/PED question, focus strictly on elasticity or pricing; NEVER drift into unrelated policy intervention, government failure, or consumer/producer surplus unless the question was specifically about policy).
+3. MARK-TO-PROSE CONSISTENCY & ZERO CONTRADICTIONS:
+   - Never contradict the awarded marks (e.g. never write "restricted to Level 1" when awarding Level 2 / Top Band).
+   - Never tell a Top Band essay ("Top Band") "to reach Top Band" — say "to push toward full marks" or "to refine further".
+   - Never praise an example, definition, or diagram in "strengths" while claiming it is missing/inadequate in "weaknesses" or "missing_elements".
 
-Respond ONLY with a single valid JSON object, no markdown fences, matching the schema:
+4. STRICT DIAGRAM RULE:
+   - Unless the exam question explicitly asked for a diagram/graph/pay-off matrix, PURGE any weakness, actionable bullet, or missing_elements.diagrams entry that criticises the absence of a diagram or tells the student to add/draw one.
+
+5. CLEAN CAMBRIDGE PROSE:
+   - Strictly NO asterisks (* or **), NO internal snippet tags ([S1], [S2]), NO numeric score fractions in prose (e.g. "7/8", "3/4", "cost you marks").
+   - Quotation marks ('...' or "...") MUST wrap ONLY exact verbatim phrases from the student's essay.
+   - "suggested_resources": Exact Cambridge 9708 chapter titles matching the question's paper scope (AS Paper 2 vs A-Level Paper 4).
+   - "suggested_practice": 2 targeted practice tasks strictly on this question's topic.
+
+Respond ONLY with a single valid JSON object (no markdown fences, no commentary):
 {
-  "total_mark": <integer, sum of awarded marks below>,
+  "total_mark": <int, exact sum of awarded AO1+AO2+AO3>,
   "max_mark": {max_mark},
   "ao_breakdown": {
     "knowledge": { "awarded": <int>, "out_of": {ao1_marks}, "comment": "<string>" },
@@ -78,10 +83,10 @@ Respond ONLY with a single valid JSON object, no markdown fences, matching the s
   "strengths": ["<string>", ...],
   "weaknesses": ["<string>", ...],
   "missing_elements": {
-    "definitions": ["<string>"],
-    "analysis": ["<string>"],
-    "evaluation": ["<string>"],
-    "examples": ["<string>"],
+    "definitions": [],
+    "analysis": [],
+    "evaluation": [],
+    "examples": [],
     "diagrams": []
   },
   "actionable_feedback": ["<string>", ...],
@@ -96,23 +101,49 @@ export type RefineReportOptions = {
   split: AoSplit;
   draftGrading: Grading;
   userId?: string;
+  markSchemeContext?: string;
 };
 
+function compactDraftForRefiner(draft: Grading): Record<string, unknown> {
+  return {
+    total_mark: draft.total_mark,
+    max_mark: draft.max_mark,
+    band: draft.band,
+    ao_breakdown: draft.ao_breakdown,
+    examiner_summary: draft.examiner_summary,
+    strengths: draft.strengths,
+    weaknesses: draft.weaknesses,
+    missing_elements: draft.missing_elements,
+    actionable_feedback: draft.actionable_feedback,
+    suggested_resources: draft.suggested_resources,
+    suggested_practice: draft.suggested_practice,
+  };
+}
+
 export async function refineExaminerReport(options: RefineReportOptions): Promise<Grading> {
-  const { question, essayText, maxMark, split, draftGrading, userId } = options;
+  const { question, essayText, maxMark, split, draftGrading, userId, markSchemeContext } = options;
 
   const promptTemplate = REPORT_REFINER_PROMPT
     .replace(/{max_mark}/g, String(maxMark))
     .replace(/{ao1_marks}/g, String(split.ao1_marks))
     .replace(/{ao2_marks}/g, String(split.ao2_marks))
-    .replace(/{ao3_marks}/g, String(split.ao3_marks));
+    .replace(/{ao3_marks}/g, String(split.ao3_marks))
+    .replace(/{paper_scope_directive}/g, buildPaperScopeDirective(maxMark))
+    .replace(/{ao_evaluation_directive}/g, buildAoEvaluationDirective(maxMark, split));
 
-  const userMessage = [
-    `EXAM QUESTION (${maxMark} marks, AO1: ${split.ao1_marks}, AO2: ${split.ao2_marks}, AO3: ${split.ao3_marks}):\n${question}\n`,
+  const userParts = [
+    `EXAM QUESTION (${maxMark} marks · AO1: ${split.ao1_marks}, AO2: ${split.ao2_marks}, AO3: ${split.ao3_marks}):\n${question}\n`,
     `STUDENT ESSAY:\n${essayText}\n`,
-    `DRAFT EXAMINER REPORT TO AUDIT & REFINE:\n${JSON.stringify(draftGrading, null, 2)}\n`,
-    `Perform the audit: eliminate contradictions, flag any missed economic misconceptions/slips (e.g. YED vs XED, curve movements vs shifts), remove weird phrasing, and ensure fair, realistic Cambridge accuracy for this ${maxMark}-mark essay.`,
-  ].join("\n");
+  ];
+
+  if (markSchemeContext && markSchemeContext.trim().length > 0) {
+    userParts.push(`OFFICIAL CAMBRIDGE MARK SCHEME / SYLLABUS EXCERPT:\n${markSchemeContext.slice(0, 1400)}\n`);
+  }
+
+  userParts.push(
+    `DRAFT EXAMINER REPORT TO AUDIT & REFINE:\n${JSON.stringify(compactDraftForRefiner(draftGrading))}\n`,
+    `Audit economic accuracy (including catching any false praise or hallucinated errors), verify marks against the Cambridge level descriptors, eliminate ALL repetition within and across sections, and return clean JSON.`,
+  );
 
   try {
     const result = await chat({
@@ -123,17 +154,17 @@ export async function refineExaminerReport(options: RefineReportOptions): Promis
       feature: "grade_essay_pass3_refiner",
       messages: [
         { role: "system", content: promptTemplate },
-        { role: "user", content: userMessage },
+        { role: "user", content: userParts.join("\n") },
       ],
     });
 
     const parsed = extractFirstJsonObject(result.text);
     if (!parsed || typeof parsed !== "object" || Object.keys(parsed).length === 0) {
       console.warn("[refine.server] Refiner returned empty or invalid JSON, preserving draft grading.");
-      return purgeContradictions(draftGrading);
+      return deduplicateAcrossSections(purgeContradictions(draftGrading), question);
     }
 
-    let refined = normaliseGrading(parsed, maxMark, split, essayText);
+    let refined = normaliseGrading(parsed, maxMark, split, essayText, question);
 
     // Apply writing quality & economic mechanics guardrail directly to the refined report
     const quality = analyzeEssayQuality(essayText, maxMark, split);
@@ -170,9 +201,9 @@ export async function refineExaminerReport(options: RefineReportOptions): Promis
       refined.suggested_practice = draftGrading.suggested_practice;
     }
 
-    return cleanStars(purgeContradictions(refined));
+    return cleanStars(deduplicateAcrossSections(purgeContradictions(refined), question));
   } catch (err) {
     console.warn("[refine.server] Pass 3 refinement failed, falling back to cleansed draft:", err);
-    return cleanStars(purgeContradictions(draftGrading));
+    return cleanStars(deduplicateAcrossSections(purgeContradictions(draftGrading), question));
   }
 }

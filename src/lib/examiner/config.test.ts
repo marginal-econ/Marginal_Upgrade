@@ -92,7 +92,7 @@ describe("Examiner Configuration & Gemini Model Allocation", () => {
     expect(evalSplit).toEqual({ ao1_marks: 2, ao2_marks: 4, ao3_marks: 2 });
   });
   it("builds exact evaluation directives and level descriptors matching 8m tariffs", async () => {
-    const { buildAoEvaluationDirective, renderAo3Descriptors, defaultSplitForMaxMark, isEvaluativeQuestion } = await import("./config");
+    const { buildAoEvaluationDirective, buildPaperScopeDirective, renderAo3Descriptors, defaultSplitForMaxMark, isEvaluativeQuestion } = await import("./config");
 
     const compoundQuestion = "Explain the difference between public goods and merit goods and consider whether healthcare should be classified as a public good or a merit good";
     expect(isEvaluativeQuestion(compoundQuestion)).toBe(true);
@@ -101,72 +101,73 @@ describe("Examiner Configuration & Gemini Model Allocation", () => {
     expect(evalSplit).toEqual({ ao1_marks: 2, ao2_marks: 4, ao3_marks: 2 });
 
     const evalDirective = buildAoEvaluationDirective(8, evalSplit);
-    expect(evalDirective).toContain("2 AO3 Evaluation Marks Allocated");
-    expect(evalDirective).toContain("THIS IS AN 8-MARK SECTION B EVALUATIVE ESSAY");
-    expect(evalDirective).toContain("15-MINUTE TIMED EXAM CALIBRATION");
-    expect(evalDirective).toContain("CALIBRATED EVALUATION LENIENCY");
-    expect(evalDirective).toContain("AWARD FULL 2/2 MARKS (Level 2)");
-    expect(evalDirective).toContain("NEVER state that evaluation is not required");
+    expect(evalDirective).toContain("8-MARK PAPER 2 (AS LEVEL) EVALUATIVE ESSAY");
+    expect(evalDirective).toContain("Award 2/2 (Level 2)");
+
+    const scope8 = buildPaperScopeDirective(8);
+    expect(scope8).toContain("STRICT CAMBRIDGE 9708 PAPER 2 (AS LEVEL ONLY)");
+    expect(scope8).toContain("ABSOLUTE PROHIBITION OF A-LEVEL");
 
     const legacySplit = defaultSplitForMaxMark(8, "8_legacy");
     expect(legacySplit).toEqual({ ao1_marks: 2, ao2_marks: 6, ao3_marks: 0 });
 
     const legacyDirective = buildAoEvaluationDirective(8, legacySplit);
-    expect(legacyDirective).toContain("0 AO3 Evaluation Marks");
-    expect(legacyDirective).toContain("EVALUATION IS STRICTLY NOT REQUIRED");
+    expect(legacyDirective).toContain("NON-EVALUATIVE LEGACY ESSAY");
+    expect(legacyDirective).toContain("EVALUATION IS NOT REQUIRED");
 
     const evalAo3Descriptors = renderAo3Descriptors(8, 2);
-    expect(evalAo3Descriptors).toContain("AO3 Evaluation & Concluding Judgement (2 marks total)");
+    expect(evalAo3Descriptors).toContain("AO3 Evaluation (2 marks — Paper 2 8m)");
 
     const legacyAo3Descriptors = renderAo3Descriptors(8, 0);
     expect(legacyAo3Descriptors).toContain("AO3 Evaluation (0 marks): Evaluation is NOT required");
   });
 
   it("builds exact evaluation directives and level descriptors matching 12m tariffs (calibrated timed standard, AS Level Paper 2)", async () => {
-    const { buildAoEvaluationDirective, renderAo3Descriptors, defaultSplitForMaxMark } = await import("./config");
+    const { buildAoEvaluationDirective, buildPaperScopeDirective, renderAo3Descriptors, defaultSplitForMaxMark } = await import("./config");
 
     const split12 = defaultSplitForMaxMark(12);
     expect(split12).toEqual({ ao1_marks: 2, ao2_marks: 6, ao3_marks: 4 });
 
     const directive12 = buildAoEvaluationDirective(12, split12);
-    expect(directive12).toContain("SPECIAL DIRECTIVE FOR 12-MARK EVALUATIVE ESSAYS");
-    expect(directive12).toContain("25–30 MINUTE TIMED EXAM CALIBRATION");
-    expect(directive12).toContain("ABSOLUTE PROHIBITION OF A-LEVEL (PAPER 4) CONCEPTS");
-    expect(directive12).toContain("ZERO INTERNAL CONTRADICTIONS");
+    expect(directive12).toContain("12-MARK PAPER 2 (AS LEVEL) EVALUATIVE ESSAY");
+    expect(directive12).toContain("Top Band (10–12/12");
+
+    const scope12 = buildPaperScopeDirective(12);
+    expect(scope12).toContain("ABSOLUTE PROHIBITION OF A-LEVEL (A2 / PAPER 4) CONCEPTS");
 
     const descriptors12 = renderAo3Descriptors(12, 4);
-    expect(descriptors12).toContain("12-MARK AS ESSAY (CALIBRATED TIMED STANDARD)");
-    expect(descriptors12).toContain("Top Band (3-4 of 4)");
-    expect(descriptors12).toContain("Middle Band (2 of 4)");
+    expect(descriptors12).toContain("Paper 2 12m");
+    expect(descriptors12).toContain("3–4/4");
   });
 
-  it("verifies the third AI refiner prompt covers 8m, 12m, and 20m timed exam calibrations and misconception audits", () => {
-    expect(REPORT_REFINER_PROMPT).toContain("AUDIT ECONOMIC ACCURACY & CATCH MISCONCEPTIONS ACROSS ALL CHAPTERS");
-    expect(REPORT_REFINER_PROMPT).toContain("ELIMINATE ALL INTERNAL CONTRADICTIONS");
-    expect(REPORT_REFINER_PROMPT).toContain("For 8-mark questions");
-    expect(REPORT_REFINER_PROMPT).toContain("For 12-mark questions");
-    expect(REPORT_REFINER_PROMPT).toContain("For 20-mark questions");
-    expect(REPORT_REFINER_PROMPT).toContain("STRICT AS LEVEL (PAPER 2) VS A LEVEL (PAPER 4) BOUNDARY");
+  it("verifies the third AI refiner prompt covers economic accuracy, paper scope, zero repetition, and mark consistency", () => {
+    expect(REPORT_REFINER_PROMPT).toContain("ECONOMIC ACCURACY & FALSE-PRAISE AUDIT");
+    expect(REPORT_REFINER_PROMPT).toContain("ZERO REPETITION — DISTINCT ROLES FOR EVERY SECTION");
+    expect(REPORT_REFINER_PROMPT).toContain("MARK-TO-PROSE CONSISTENCY & ZERO CONTRADICTIONS");
+    expect(REPORT_REFINER_PROMPT).toContain("STRICT DIAGRAM RULE");
+    expect(REPORT_REFINER_PROMPT).toContain("{paper_scope_directive}");
+    expect(REPORT_REFINER_PROMPT).toContain("{ao_evaluation_directive}");
   });
 
-  it("builds exact evaluation directives and level descriptors matching 20m tariffs (calibrated timed standard, thorough analysis, powerful real-life examples)", async () => {
-    const { buildAoEvaluationDirective, renderAo3Descriptors, defaultSplitForMaxMark } = await import("./config");
+  it("builds exact official Cambridge 9708 Paper 4 Table A & Table B directives matching 20m tariffs", async () => {
+    const { buildAoEvaluationDirective, buildPaperScopeDirective, renderAo3Descriptors, defaultSplitForMaxMark } = await import("./config");
 
     const split20 = defaultSplitForMaxMark(20);
     expect(split20).toEqual({ ao1_marks: 2, ao2_marks: 12, ao3_marks: 6 });
 
     const directive20 = buildAoEvaluationDirective(20, split20);
-    expect(directive20).toContain("SPECIAL DIRECTIVE FOR 20-MARK A LEVEL EXTENDED ESSAYS");
-    expect(directive20).toContain("RIGOROUS AO1 KNOWLEDGE & THOROUGH UNDERSTANDING");
-    expect(directive20).toContain("THOROUGH AO2 ANALYSIS & POWERFUL REAL-WORLD APPLICATION");
-    expect(directive20).toContain("POWERFUL USE OF REAL-LIFE EXAMPLES");
-    expect(directive20).toContain("STRICT AO3 SYNOPTIC EVALUATION & DECISIVE PRIORITIZATION");
+    expect(directive20).toContain("OFFICIAL CAMBRIDGE 9708 PAPER 4 (A LEVEL) 20-MARK EXTENDED ESSAY");
+    expect(directive20).toContain("TABLE A — AO1 KNOWLEDGE (2) + AO2 ANALYSIS (12) = 14 MARKS TOTAL");
+    expect(directive20).toContain("TABLE B — AO3 EVALUATION (6 MARKS TOTAL");
+    expect(directive20).toContain("WHERE APPROPRIATE");
+
+    const scope20 = buildPaperScopeDirective(20);
+    expect(scope20).toContain("PAPER 4 (A LEVEL / A2 EXTENDED ESSAYS)");
+    expect(scope20).toContain("FULL A-LEVEL (A2) SYLLABUS THEORY IS EXPECTED AND REWARDED POSITIVELY");
 
     const descriptors20 = renderAo3Descriptors(20, 6);
-    expect(descriptors20).toContain("20-MARK A LEVEL ESSAY (CALIBRATED TIMED STANDARD)");
-    expect(descriptors20).toContain("Top Band (5-6 of 6)");
-    expect(descriptors20).toContain("Sustained synoptic evaluation calibrated for a 40-45 minute timed exam");
-    expect(descriptors20).toContain("Middle Band (3-4 of 6)");
-    expect(descriptors20).toContain("Lower Band (1-2 of 6)");
+    expect(descriptors20).toContain("Official Cambridge 9708 Paper 4 Table B");
+    expect(descriptors20).toContain("Level 2 (4–6 of 6)");
+    expect(descriptors20).toContain("Level 1 (1–3 of 6)");
   });
 });

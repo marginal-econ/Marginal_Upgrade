@@ -198,79 +198,79 @@ export function aoMaxMarks(maxMark: number): { ao1: number; ao2: number; ao3: nu
 }
 
 /**
+ * Tariff-specific syllabus scope directive.
+ * Prevents A-Level (Paper 4) essays from ever being penalized for using A2 concepts,
+ * and prevents AS-Level (Paper 2) essays from being judged against A2 topics.
+ */
+export function buildPaperScopeDirective(maxMark: number): string {
+  if (maxMark >= 20) {
+    return `PAPER SCOPE — CAMBRIDGE 9708 PAPER 4 (A LEVEL / A2 EXTENDED ESSAYS):
+- This ${maxMark}-mark question is strictly Cambridge 9708 Paper 4 (A Level). NEVER refer to it as AS Level or Paper 2.
+- FULL A-LEVEL (A2) SYLLABUS THEORY IS EXPECTED AND REWARDED POSITIVELY:
+  * Microeconomics (Units 6–7): Diminishing marginal utility, equi-marginal principle (MUa/Pa = MUb/Pb), indifference curves & budget lines (income and substitution effects), cost/revenue theory, law of diminishing returns, market structures (perfect competition, monopoly, oligopoly, game theory/pay-off matrices, contestable markets, monopolistic competition, price discrimination), allocative/productive/dynamic/X-efficiency, labour markets (MRPL, monopsony, trade unions, transfer earnings & economic rent), externalities/market failure & government failure.
+  * Macroeconomics & International (Units 8–10): Keynesian multiplier & accelerator, liquidity preference & liquidity trap, Monetarist vs Keynesian transmission, expectations-augmented Phillips curve, supply-side & fiscal/monetary policy mixes, Marshall-Lerner condition, J-curve, globalisation, Gini/Lorenz inequality, economic development.
+- NEVER penalise a Paper 4 candidate for using A-Level concepts such as the equi-marginal principle, indifference curves, MRPL, game theory, or multiplier-accelerator.`;
+  }
+
+  return `PAPER SCOPE — STRICT CAMBRIDGE 9708 PAPER 2 (AS LEVEL ONLY):
+- This ${maxMark}-mark question is strictly Cambridge 9708 Paper 2 (AS Level).
+- ABSOLUTE PROHIBITION OF A-LEVEL (A2 / PAPER 4) CONCEPTS:
+  Do NOT demand, mention, or suggest ANY A-Level-only topics in your assessment (summary, AO comments, weaknesses, missing elements, feedback, resources):
+  * NO marginal utility / diminishing marginal utility / equi-marginal principle / indifference curves / budget lines.
+  * NO law of diminishing returns / returns to scale / MRPL / labour market wage theory.
+  * NO market structures (monopoly, oligopoly, monopolistic competition, contestability, game theory, price discrimination).
+  * NO dynamic efficiency, X-inefficiency, or Pareto efficiency (AS covers only productive & allocative efficiency).
+  * NO A2 macro (expectations-augmented Phillips curve, multiplier formula k=1/MPW, accelerator, Gini/Lorenz).
+- Grade and advise strictly on AS Level Paper 2 content.`;
+}
+
+/**
  * Builds the authoritative examiner directive for evaluation based on the question tariff.
  * For 8-mark questions, strictly distinguishes evaluative (AO1: 2, AO2: 4, AO3: 2) from
  * non-evaluative legacy (AO1: 2, AO2: 6, AO3: 0).
  */
 export function buildAoEvaluationDirective(maxMark: number, split: AoSplit): string {
   if (split.ao3_marks === 0) {
-    return `SPECIAL DIRECTIVE FOR NON-EVALUATIVE LEGACY ESSAYS (0 AO3 Evaluation Marks):
-- THIS IS A PURE EXPLANATORY / ANALYTICAL QUESTION (e.g. legacy Cambridge 8-mark 'Explain' or 'Analyse' question).
-- EVALUATION IS STRICTLY NOT REQUIRED.
-- Candidates MUST NOT be penalised in any way for the absence of evaluation, weighing, alternative policies, or a conclusion.
-- The entire ${maxMark} marks are allocated exclusively across AO1 Knowledge (${split.ao1_marks} marks) and AO2 Analysis (${split.ao2_marks} marks).
-- In "ao_breakdown.evaluation", you MUST set "awarded": 0, "out_of": 0, and "comment": "Evaluation is not required for this question. No marks are lost for its omission."
-- Keep "missing_elements.evaluation" completely empty [].
-- NEVER mention missing evaluation, lack of alternative perspectives, or missing conclusions in weaknesses, comments, or examiner summary.`;
+    return `TARIFF DIRECTIVE — NON-EVALUATIVE LEGACY ESSAY (${maxMark}m · AO1: ${split.ao1_marks}, AO2: ${split.ao2_marks}, AO3: 0):
+- Pure explanatory/analytical question. EVALUATION IS NOT REQUIRED; never penalise omitting evaluation or a conclusion.
+- Set ao_breakdown.evaluation = { awarded: 0, out_of: 0, comment: "Evaluation is not required for this question. No marks are lost for its omission." } and missing_elements.evaluation = [].`;
   }
 
   if (maxMark === 8 && split.ao3_marks === 2) {
-    return `SPECIAL DIRECTIVE FOR 8-MARK EVALUATIVE ESSAYS (2 AO3 Evaluation Marks Allocated):
-- THIS IS AN 8-MARK SECTION B EVALUATIVE ESSAY — STRICTLY CAMBRIDGE 9708 PAPER 2 (AS LEVEL) (${maxMark} marks total: AO1: ${split.ao1_marks}, AO2: ${split.ao2_marks}, AO3: ${split.ao3_marks}).
-- 15-MINUTE TIMED EXAM CALIBRATION: An 8-mark response written in ~15 minutes (~200–350 words) cannot cover all syllabus permutations or peripheral topics. DO NOT penalise candidates for omitting secondary topics. Focus on the quality of the 1-2 core mechanisms and examples provided.
-- CALIBRATED EVALUATION LENIENCY:
-  * AO3 is allocated ONLY 2 MARKS TOTAL.
-  * AWARD FULL 2/2 MARKS (Level 2) if a counter-argument / opposing perspective is present and a reasoned, supported concluding judgement directly addresses the prompt.
-  * DO NOT demand complex multi-criteria trade-off matrices or university-level synoptic synthesis. A balanced perspective with a clear, supported conclusion fully earns Level 2 (2/2) and allows a strong essay to achieve full marks (8/8).
-  * Award Level 1 (1 of 2 marks) if the conclusion is a brief unsupported assertion or evaluation is superficial.
-  * Award Level 0 (0 of 2 marks) only if the essay is purely one-sided with no evaluative attempt.
-- ZERO INTERNAL CONTRADICTION: Never praise an example or concept in 'strengths' and simultaneously criticize or demand it in 'weaknesses' or 'missing_elements'. If an example is credited, do NOT claim examples are missing.
-- NEVER mention Paper 4 or A-Level topics (NO marginal utility/utility theory, NO diminishing returns, NO indifference curves, NO monopoly/oligopoly, NO dynamic/X/Pareto efficiency, NO MRPL, NO A2 macro). Grade and advise strictly on AS Level Paper 2 content and knowledge base.
-- DEFINITION FAIRNESS: Scarcity is finite or limited resources versus unlimited wants. "Finite" and "limited" are standard Cambridge synonyms; never label a basic definition of scarcity incorrect or a tautology. Do not require opportunity cost in the definition of scarcity itself.
-- ZERO NUMERIC MARKS IN PROSE: Do NOT write numerical scores, mark breakdowns, or phrases like "held at 7", "instead of 8", or "cost you marks" anywhere inside the written feedback.
-- FOCUS STRICTLY ON STRENGTHS & IMPROVEMENTS: Focus purely on (a) what the candidate did well economically, and (b) specific, syllabus-accurate improvements to elevate their analysis and evaluation.
-- NEVER state that evaluation is not required.`;
+    return `TARIFF DIRECTIVE — 8-MARK PAPER 2 (AS LEVEL) EVALUATIVE ESSAY (~15 min, ~200–350 words · AO1: ${split.ao1_marks}, AO2: ${split.ao2_marks}, AO3: ${split.ao3_marks}):
+- Do NOT penalise omitting peripheral syllabus topics when 1–2 core mechanisms are well explained.
+- AO3 (2 marks): Award 2/2 (Level 2) for a clear counter-argument/balanced perspective PLUS a reasoned concluding judgement directly answering the prompt; 1/2 (Level 1) for a brief/unsupported evaluative comment; 0/2 for purely one-sided analysis.`;
   }
 
   if (maxMark === 20 || split.ao3_marks >= 6) {
-    return `SPECIAL DIRECTIVE FOR 20-MARK A LEVEL EXTENDED ESSAYS (AO1: ${split.ao1_marks}, AO2: ${split.ao2_marks}, AO3: ${split.ao3_marks}):
-- THIS IS A 20-MARK PAPER 4 A LEVEL EXTENDED EVALUATIVE ESSAY (${maxMark} marks total: AO1: ${split.ao1_marks}, AO2: ${split.ao2_marks}, AO3: ${split.ao3_marks}).
-- 40–45 MINUTE TIMED EXAM CALIBRATION:
-  * The standard for a 20-mark Paper 4 essay is the highest in the exam, but ensure it is realistic and NOT an impossible academic standard.
-  * Candidates write under timed exam conditions (~550–800+ words), not a university dissertation.
-  * Do NOT expect encyclopedic coverage or penalise for omitting secondary theoretical edge cases when the core question is addressed.
-  * Whatever is written should be accurate, coherent, and well-developed.
-- RIGOROUS AO1 KNOWLEDGE & THOROUGH UNDERSTANDING:
-  * Demand syllabus-precise definitions and thorough conceptual grounding across relevant economic principles.
-  * Precise terminology must be sustained across both microeconomic and macroeconomic dimensions. Inverted or false definitions earn 0 marks.
-- THOROUGH AO2 ANALYSIS & POWERFUL REAL-WORLD APPLICATION (${split.ao2_marks} MARKS TOTAL):
-  * Analysis must be extensive, thorough, and structured across multiple perspectives (e.g. opposing mechanisms, market structures, or micro/macro impacts).
-  * Build complete, unbroken causal transmission chains explaining step-by-step mechanisms.
-  * POWERFUL USE OF REAL-LIFE EXAMPLES: Candidates must actively integrate genuine, specific real-world examples (naming countries, specific markets, historical or contemporary policy interventions such as QE programs, carbon tax regimes, minimum wage legislation, or tariff disputes) directly into their causal mechanisms. Passing one-liner mentions ('e.g. healthcare') do NOT qualify for Top Band (${Math.max(10, split.ao2_marks - 2)}-${split.ao2_marks}/${split.ao2_marks}).
-- STRICT AO3 SYNOPTIC EVALUATION & DECISIVE PRIORITIZATION (${split.ao3_marks} MARKS TOTAL):
-  * Evaluation is strictly mandatory out of exactly ${split.ao3_marks} marks. NEVER claim evaluation is not required.
-  * Demand critical prioritization: the candidate should weigh competing considerations (e.g. short-run vs long-run, differing stakeholders, or elasticity conditions) and justify which factor or constraint is most decisive in context against explicit criteria.
-  * Reject superficial 'it depends on' lists. A substantiated contextual overall judgement resolving the prompt directly earns Top Band (${Math.max(5, split.ao3_marks - 1)}-${split.ao3_marks}/${split.ao3_marks}).
-- ZERO INTERNAL CONTRADICTIONS: Never praise an example, definition, or argument in 'strengths' and simultaneously criticize or demand it in 'weaknesses' or 'missing_elements'. If an example is credited, do NOT claim examples are missing.
-- DEFINITION FAIRNESS: Standard definitions must be credited positively; never penalize accurate syllabus concepts with pedantic or hallucinated criticisms.
-- ZERO NUMERIC MARKS IN PROSE: Do NOT write numerical scores, mark breakdowns, or phrases like 'cost you marks' anywhere inside the written feedback.`;
+    return `TARIFF DIRECTIVE — OFFICIAL CAMBRIDGE 9708 PAPER 4 (A LEVEL) 20-MARK EXTENDED ESSAY (~40–45 min · AO1: ${split.ao1_marks}, AO2: ${split.ao2_marks}, AO3: ${split.ao3_marks}):
+Apply official Cambridge 9708 Paper 4 Table A (AO1+AO2 combined out of 14, mapped to AO1=2 + AO2=12) and Table B (AO3 out of 6):
+- TABLE A — AO1 KNOWLEDGE (2) + AO2 ANALYSIS (12) = 14 MARKS TOTAL:
+  * Level 3 (11–14 combined -> AO1=2, AO2=9–12): Detailed knowledge and understanding with relevant explanations, supported by examples WHERE APPROPRIATE. Clearly addresses the question and fully develops multi-perspective causal chains. Accurate, well-explained analytical tools (diagrams, formulae, or pay-off matrices) where used. Well-organised, logical, and coherent.
+    - High Level 3 (13–14 combined: AO1=2, AO2=11–12): Sustained, thorough multi-perspective analysis with precise A-Level theory and strong contextual/model application.
+    - Mid/Low Level 3 (11–12 combined: AO1=2, AO2=9–10): Developed, accurate analysis across key perspectives, with minor compression or one secondary angle less developed.
+  * Level 2 (6–10 combined -> AO1=1–2, AO2=5–8): Sound knowledge of some relevant concepts, though explanations/examples are limited, overgeneralised, or contain inaccuracies. Addresses the general theme with limited development; analysis is generally accurate but lacks full step-by-step detail or misses a major part of the prompt.
+    - Strong Level 2 (9–10 combined: AO1=2, AO2=7–8): Clear valid mechanisms, but compressed chains, limited breadth, or a notable analytical slip.
+    - Mid/Low Level 2 (6–8 combined: AO1=1–2, AO2=5–6): Basic valid points mixed with unsupported assertions or a significant conceptual error (e.g. claiming profit-maximising monopolies "overproduce" instead of restricting output where MR=MC).
+  * Level 1 (1–5 combined -> AO1=0–1, AO2=1–4): Small number of relevant knowledge points limited by significant errors or omissions; largely descriptive or built on inverted/false causal mechanisms.
+  * Level 0 (0): No creditable response.
+- EXAMPLES RULE FOR PAPER 4 (OFFICIAL CAMBRIDGE): Follow Table A — "supported by examples, WHERE APPROPRIATE." For pure A-Level micro theory essays (utility theory, indifference curves, oligopoly game theory/pay-off matrix, contestable markets, market structure efficiency, MRPL/monopsony), rigorous theoretical models, diagrams, numerical illustrations, or pay-off matrices qualify fully for Level 3 AO2 without requiring named countries. For applied macro or policy essays, contextual real-world application strengthens analysis.
+- TABLE B — AO3 EVALUATION (${split.ao3_marks} MARKS TOTAL, MANDATORY):
+  * Level 2 (4–6 of 6): Provides a justified conclusion/judgement addressing the specific requirements of the question AND makes developed, reasoned, well-supported evaluative comments.
+    - 6/6: Sustained, prioritized evaluation weighing competing conditions/trade-offs (SR vs LR, assumptions/limitations, magnitude, elasticity, stakeholder impacts) culminating in a decisive contextual verdict directly resolving the prompt.
+    - 5/6: Developed, reasoned evaluative points weighing key trade-offs/limitations and a clear justified conclusion addressing the prompt.
+    - 4/6: Reasoned evaluative comments with some development and a relevant supported conclusion, though prioritization or depth is partial.
+  * Level 1 (1–3 of 6): Vague/general conclusion or simple evaluative comments with little development or supporting evidence.
+    - 3/6: Multiple valid but undeveloped caveats ("depends on X, Y, Z") with a general conclusion.
+    - 2/6: Brief counter-argument or limited evaluative remark with a formulaic conclusion.
+    - 1/6: Single token evaluative sentence or unsupported closing assertion.
+  * Level 0 (0 of 6): No creditable evaluation.
+- TIMED EXAM REALISM: Real 40-minute handwritten Paper 4 scripts (especially with diagrams or pay-off matrices) often run 500–850 words. Judge by analytical depth, conceptual accuracy, and evaluative quality — NOT encyclopedic length.`;
   }
 
-  return `SPECIAL DIRECTIVE FOR 12-MARK EVALUATIVE ESSAYS (${split.ao3_marks} AO3 Evaluation Marks Allocated):
-- PAPER SCOPE: THIS IS STRICTLY A CAMBRIDGE 9708 PAPER 2 (AS LEVEL) SECTION B ESSAY (${maxMark} marks total: AO1: ${split.ao1_marks}, AO2: ${split.ao2_marks}, AO3: ${split.ao3_marks}).
-- 25–30 MINUTE TIMED EXAM CALIBRATION:
-  * The standard for a 12-mark essay is a bit higher than an 8-mark essay, but grading MUST NOT be overly strict.
-  * A student cannot write so much in a timed exam. Do NOT expect everything or demand encyclopedic coverage of every syllabus permutation, alternative policy, or peripheral market impact.
-  * Do NOT penalise for omitting secondary aspects when the primary mechanisms are well addressed.
-  * What is written should be accurate, coherent, and well-explained. Reward what the candidate has written on its economic merits.
-  * If the candidate provides 2-3 well-explained causal analysis points with real-world application, balanced evaluation (e.g. opposing perspective, condition such as elasticity or timeframe), and a reasoned overall concluding judgement answering the prompt, award Top Band (10-12/12, with 3-4/4 in AO3).
-- ABSOLUTE PROHIBITION OF A-LEVEL (PAPER 4) CONCEPTS:
-  * NEVER mention or demand Paper 4 or A-Level topics (NO marginal utility/utility theory, NO diminishing returns, NO indifference curves, NO monopoly/oligopoly, NO dynamic/X/Pareto efficiency, NO MRPL, NO A2 macro). Grade and advise strictly on AS Level Paper 2 content and knowledge base.
-- DEFINITION FAIRNESS: Scarcity is finite or limited resources versus unlimited wants. "Finite" and "limited" are standard Cambridge synonyms; never label a basic definition of scarcity incorrect or a tautology. Do not require opportunity cost in the definition of scarcity itself.
-- ZERO INTERNAL CONTRADICTIONS: Never praise an example, definition, or argument in 'strengths' and simultaneously criticize or demand it in 'weaknesses' or 'missing_elements'. If an example is credited, do NOT claim examples are missing.
-- EVALUATION IS MANDATORY: In "ao_breakdown.evaluation", evaluate the candidate's evaluation out of exactly ${split.ao3_marks} marks.
-- ZERO NUMERIC MARKS IN PROSE: Do NOT write numerical scores, mark breakdowns, or phrases like "cost you marks" anywhere inside the written feedback, Examiner Summary, AO explanations, or improvement bullets.
-- FOCUS STRICTLY ON STRENGTHS & IMPROVEMENTS: Focus purely on what the candidate did well economically and specific, syllabus-accurate improvements to elevate their analysis and evaluation.`;
+  return `TARIFF DIRECTIVE — 12-MARK PAPER 2 (AS LEVEL) EVALUATIVE ESSAY (~25–30 min, ~350–550 words · AO1: ${split.ao1_marks}, AO2: ${split.ao2_marks}, AO3: ${split.ao3_marks}):
+- Higher standard than 8-mark, but realistic for timed AS conditions; do NOT penalise omitting peripheral topics when 2–3 core mechanisms are well developed.
+- Top Band (10–12/12: AO1=2, AO2=5–6, AO3=3–4): 2–3 well-explained causal chains with relevant application/examples, balanced evaluation against clear economic criteria (elasticity, timeframe, magnitude, stakeholders), and a reasoned concluding judgement answering the prompt.`;
 }
 
 /**
@@ -278,28 +278,27 @@ export function buildAoEvaluationDirective(maxMark: number, split: AoSplit): str
  */
 export function renderAo3Descriptors(maxMark: number, ao3Marks: number): string {
   if (ao3Marks === 0) {
-    return `- AO3 Evaluation (0 marks): Evaluation is NOT required for this question. Candidates must not be penalised for omitting evaluation, weighing, or conclusions.`;
+    return `- AO3 Evaluation (0 marks): Evaluation is NOT required. Award 0/0 with zero penalty.`;
   }
   if (ao3Marks === 2) {
-    return `- AO3 Evaluation & Concluding Judgement (2 marks total) — 8-MARK PAPER 2 (AS LEVEL) EVALUATIVE ESSAY:
-      * Level 2 (2 of 2): Awarded when the candidate provides a counter-argument or balanced perspective and reaches a supported concluding judgement addressing the prompt.
-      * Level 1 (1 of 2): Basic evaluative comment or unsupported concluding assertion.
-      * Level 0 (0 of 2): Purely descriptive or one-sided analysis with no evaluative weighing and no concluding judgement.`;
+    return `- AO3 Evaluation (2 marks — Paper 2 8m):
+      * Level 2 (2/2): Counter-argument or balanced perspective + supported concluding judgement addressing the prompt.
+      * Level 1 (1/2): Brief evaluative comment or unsupported concluding assertion.
+      * Level 0 (0/2): Purely descriptive/one-sided with no evaluation.`;
   }
   if (ao3Marks === 4) {
-    return `- AO3 Evaluation & Question Focus (4 marks total) — 12-MARK AS ESSAY (CALIBRATED TIMED STANDARD):
-      * Top Band (3-4 of 4): Balanced critical evaluation directly answering the prompt. Weighs perspectives against economic criteria (e.g. elasticity, time horizon, magnitude, or stakeholder impact) and reaches a reasoned, supported concluding judgement. Do not demand university-level synthesis.
-      * Middle Band (2 of 4): Evaluative points present on both sides with some judgement, but criteria are listed rather than prioritized, or conclusion is a mechanical summary.
-      * Lower Band (0-1 of 4): Purely one-sided assertion, token closing sentence without comparative analysis.`;
+    return `- AO3 Evaluation (4 marks — Paper 2 12m):
+      * Level 2 Top (3–4/4): Balanced critical evaluation weighing perspectives against economic criteria (elasticity, timeframe, magnitude, stakeholders) + reasoned concluding judgement answering the prompt.
+      * Level 1/2 Borderline (2/4): Both sides noted, but caveats are listed rather than weighed, or conclusion is mechanical.
+      * Level 1 Low (0–1/4): One-sided assertion or token closing sentence.`;
   }
   if (ao3Marks >= 6) {
-    return `- AO3 Evaluation & Synoptic Synthesis (${ao3Marks} marks total) — 20-MARK A LEVEL ESSAY (CALIBRATED TIMED STANDARD):
-      * Top Band (5-6 of ${ao3Marks}): Sustained synoptic evaluation calibrated for a 40-45 minute timed exam. Evaluates trade-offs with clear prioritization (e.g. explaining which constraint, time-horizon, or stakeholder impact is most decisive in context). Grounded in real-world application and leading to a substantiated contextual overall verdict directly resolving the prompt.
-      * Middle Band (3-4 of ${ao3Marks}): Clear balanced evaluation across multiple perspectives with sound economic criteria, but prioritization of decisive factors is less sustained, or the concluding judgement is partially formulaic.
-      * Lower Band (1-2 of ${ao3Marks}): Basic, limited evaluative comments without structured weighing, or generic unevidenced 'it depends on' lists.
-      * Zero (0 of ${ao3Marks}): No evaluative reasoning or conclusions.`;
+    return `- AO3 Evaluation (${ao3Marks} marks — Official Cambridge 9708 Paper 4 Table B):
+      * Level 2 (4–6 of ${ao3Marks}): Justified conclusion/judgement addressing the specific prompt + developed, reasoned, well-supported evaluative comments (6 = sustained prioritization + decisive verdict; 5 = developed weighing + clear justified verdict; 4 = reasoned evaluation + relevant conclusion with partial prioritization).
+      * Level 1 (1–3 of ${ao3Marks}): Vague/general conclusion or simple undeveloped evaluative comments (3 = multiple undeveloped caveats; 2 = brief counter-argument/formulaic ending; 1 = single token remark).
+      * Level 0 (0 of ${ao3Marks}): No creditable evaluation.`;
   }
-  return `- AO3 Evaluation (${ao3Marks} marks total): Evaluate the candidate's evaluative reasoning, weighing of perspectives, and concluding judgement out of ${ao3Marks} marks.`;
+  return `- AO3 Evaluation (${ao3Marks} marks): Assess evaluative weighing and concluding judgement out of ${ao3Marks}.`;
 }
 
 /**

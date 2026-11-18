@@ -440,25 +440,38 @@ export async function retrieve(
 }
 
 /**
+ * Strips recurring third-party hosting watermarks (e.g. PapaCambridge Trace IDs)
+ * and trims oversized chunks so LLM context windows stay high-signal and token-efficient.
+ */
+function cleanSnippetForPrompt(snippet: string, maxChars = 1350): string {
+  const cleaned = snippet
+    .replace(/PapaCambridge\s*·\s*papacambridge\.com[^\n]*/gi, "")
+    .replace(/Downloaded from PapaCambridge[^\n]*/gi, "")
+    .replace(/Licensed for hosting on papacambridge\.com only\.?/gi, "")
+    .replace(/Re-uploading, mirroring or re-hosting this file[^\n]*/gi, "")
+    .replace(/Trace ID:\s*PC-[A-Z0-9]+/gi, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+  return cleaned.length > maxChars ? `${cleaned.slice(0, maxChars)}...` : cleaned;
+}
+
+/**
  * Render retrieved chunks as a numbered, citable context block. The [S1]-style
  * markers let the model cite instead of inventing.
  */
-export function renderContext(sources: GroundingSource[]): string {
+export function renderContext(sources: GroundingSource[], maxCharsPerSnippet = 1350): string {
   if (sources.length === 0) return "";
 
   const blocks = sources.map((source, index) => {
     const label = source.heading
       ? `${source.documentTitle} — ${source.heading}`
       : source.documentTitle;
-    return `[S${index + 1}] (${source.docType.replace("_", " ")}) ${label}\n${source.snippet}`;
+    return `[S${index + 1}] (${source.docType.replace("_", " ")}) ${label}\n${cleanSnippetForPrompt(source.snippet, maxCharsPerSnippet)}`;
   });
 
   return [
     "RETRIEVED CAMBRIDGE 9708 SYLLABUS & MARK SCHEME GROUNDING MATERIAL:",
-    "Use this authoritative material as official guidance for marking standards, syllabus terminology, and model answers alongside core Cambridge 9708 Economics theory.",
-    "Ground your marking strictly in these Cambridge 9708 syllabus, mark scheme, and coursebook standards.",
-    "Do NOT output raw internal citation tags like [S1], [S2], or (as per [S6]) anywhere in student-facing prose (examiner summary, strengths, weaknesses, feedback); speak in standard, professional Cambridge examiner voice without citing snippet numbers.",
-    "Do NOT penalise candidates for valid economic concepts, mechanisms, or alternative examples that are accurate under syllabus 9708 simply because they are not quoted verbatim in these specific snippets.",
+    "Use this authoritative material as guidance for syllabus terminology, indicative content, and level standards. Do NOT output [S1]/[S2] tags in student-facing prose, and do NOT penalise valid Cambridge 9708 economic points merely because they are not verbatim in these excerpts.",
     "",
     blocks.join("\n\n"),
   ].join("\n");

@@ -66,12 +66,41 @@ export function analyzeEssayQuality(
   const cleanProse = cleanProseForWordCount(rawText);
   const words = cleanProse.length > 0 ? cleanProse.split(/\s+/).filter(Boolean).length : 0;
 
-  // Split into genuine paragraphs (ignoring purely whitespace lines)
-  const rawParagraphs = rawText
-    .split(/\n\s*\n/)
+  // Split into genuine paragraphs (ignoring purely whitespace lines and diagram tokens).
+  // Supports both double-newline (\n\n) paragraphs AND single-newline (\n) pasted/Word paragraphs,
+  // while still detecting true single-block monolithic pastes (0 paragraph breaks).
+  const doubleBreakParagraphs = rawText
+    .split(/\r?\n\s*\r?\n/)
     .map((p) => p.trim())
     .filter((p) => p.length > 0 && !/^\[DIAGRAM:[^\]]*\]$/i.test(p));
-  const paragraphCount = rawParagraphs.length;
+
+  let paragraphCount = doubleBreakParagraphs.length;
+  if (paragraphCount <= 1) {
+    const singleLines = rawText
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter((l) => l.length > 0 && !/^\[DIAGRAM:[^\]]*\]$/i.test(l));
+    if (singleLines.length >= 2) {
+      const lineWordCounts = singleLines.map((l) => l.split(/\s+/).filter(Boolean).length);
+      const avgWordsPerLine =
+        lineWordCounts.reduce((sum, n) => sum + n, 0) / Math.max(1, lineWordCounts.length);
+      const substantialLines = lineWordCounts.filter((n) => n >= 18).length;
+
+      if (avgWordsPerLine >= 18 || substantialLines >= 3) {
+        // Genuine paragraphs separated by single newlines (common when pasting from Word/Docs/PDF)
+        paragraphCount = singleLines.length;
+      } else if (singleLines.length >= 8) {
+        // OCR hard line-wrapped handwritten script: count paragraph-starter lines
+        const starterCount = singleLines.filter((l, idx) =>
+          idx === 0 ||
+          /^(firstly|secondly|thirdly|finally|however|moreover|furthermore|in addition|on the other hand|conversely|in conclusion|to conclude|overall|therefore|another|alternatively)\b/i.test(l),
+        ).length;
+        if (starterCount >= 3) {
+          paragraphCount = starterCount;
+        }
+      }
+    }
+  }
 
   // Detect AI-generated formatting artifacts
   const boldingMatches = rawText.match(/\*\*[^*]+\*\*/g) || [];
@@ -157,14 +186,14 @@ export function analyzeEssayQuality(
       maxAllowableAo3 = split.ao3_marks === 0 ? 0 : (hasAiArtifacts || paragraphCount <= 1 ? 1 : 2);
     }
   } else if (maxMark >= 20) {
-    targetRangeText = "800–1200 words";
+    targetRangeText = "600–950 words";
     if (words < 300) {
       isSeverelyUndersized = true;
       maxAllowableTotalMark = 7;
       maxAllowableAo2 = 4;
       maxAllowableAo3 = 1;
       qualityIssues.push(
-        `Severely stunted (${words} words). Cambridge 20-mark extended essays require 800–1200 words.`,
+        `Severely stunted (${words} words). Cambridge 20-mark extended essays typically require 600–950 words.`,
       );
     } else if (words < 450) {
       isUndersized = true;
@@ -172,12 +201,13 @@ export function analyzeEssayQuality(
       maxAllowableAo2 = hasAiArtifacts || paragraphCount <= 2 ? 5 : 7;
       maxAllowableAo3 = hasAiArtifacts || paragraphCount <= 2 ? 2 : 3;
       qualityIssues.push(
-        `Underdeveloped (${words} words vs 800–1200 expected). Fails to provide extended analysis of multiple perspectives.`,
+        `Underdeveloped (${words} words vs ${targetRangeText} typical depth). Fails to sustain extended multi-perspective analysis.`,
       );
-    } else if (words < 580) {
-      // 450–579 words: concise extended essay. Strategic analysis can reach distinction (15-16/20).
-      maxAllowableTotalMark = hasAiArtifacts || paragraphCount <= 2 ? 12 : (paragraphCount >= 4 ? 16 : 14);
-      maxAllowableAo2 = hasAiArtifacts || paragraphCount <= 2 ? 6 : (paragraphCount >= 4 ? 9 : 8);
+    } else if (words < 550) {
+      // 450–549 words: concise extended essay (e.g. timed 40-min script with diagrams or pay-off matrices).
+      // Allow up to 18/20 when well-paragraphed without AI artifacts so authentic Cambridge scripts are never artificially suppressed.
+      maxAllowableTotalMark = hasAiArtifacts || paragraphCount <= 2 ? 12 : (paragraphCount >= 4 ? 18 : 15);
+      maxAllowableAo2 = hasAiArtifacts || paragraphCount <= 2 ? 6 : (paragraphCount >= 4 ? 11 : 9);
       maxAllowableAo3 = hasAiArtifacts || paragraphCount <= 2 ? 3 : (paragraphCount >= 4 ? 5 : 4);
     }
   } else {
@@ -526,20 +556,26 @@ function applyStructuralCeilings(
     }
   }
 
-  // Specific actionable feedback: paragraph architecture & mechanism unpacking
-  if (quality.isUndersized || quality.isMonolithicBlock) {
+  // Specific actionable feedback: paragraph architecture ONLY when monolithic, or mechanism expansion when undersized
+  if (quality.isMonolithicBlock) {
     const structAction = `Structure your response into 4–5 distinct paragraphs: an introduction defining key concepts, 2–3 dedicated body paragraphs developing each transmission mechanism step-by-step, a comparative evaluation paragraph, and a justified conclusion.`;
     if (!actionableFeedback.some((f) => f.toLowerCase().includes("structure your response into"))) {
       actionableFeedback.unshift(structAction);
     }
   }
 
+  // Preserve the examiner's essay-specific summary & AO comments; NEVER fabricate a "without full paragraph structure" claim on multi-paragraph scripts!
   let examinerSummary = grading.examiner_summary;
   if (modified) {
-    if (split.ao3_marks === 0) {
-      examinerSummary = `While core economic definitions and theoretical concepts are accurate, the submission is a concise outline of ${quality.wordCount} words written without full paragraph structure. Developing each causal mechanism step-by-step across distinct paragraphs in continuous prose will elevate the analytical depth.`;
-    } else {
-      examinerSummary = `While core economic definitions and theoretical concepts are accurate, the submission is a concise outline of ${quality.wordCount} words written without full paragraph structure. Developing each causal mechanism step-by-step across distinct paragraphs alongside contextual evaluation will significantly strengthen the essay.`;
+    if (updatedBand !== grading.band && /\btop\s+band\b/i.test(examinerSummary)) {
+      examinerSummary = examinerSummary
+        .replace(/\bplacing\s+the\s+(?:work|essay|response)\s+(?:firmly\s+)?in\s+the\s+top\s+band\b/gi, `with structural constraints placing it in the ${updatedBand}`)
+        .replace(/\btop\s+band\b/gi, updatedBand);
+    }
+    if (quality.isMonolithicBlock && !/paragraph/i.test(examinerSummary)) {
+      examinerSummary = `${examinerSummary} Presenting the argument in distinct paragraphs with step-by-step causal chains will significantly improve clarity and depth.`.trim();
+    } else if (quality.isUndersized && !/concise|brief|short|underdeveloped|depth|word/i.test(examinerSummary)) {
+      examinerSummary = `${examinerSummary} At ${quality.wordCount} words, expanding each causal mechanism step-by-step will strengthen the analytical depth.`.trim();
     }
   }
 
@@ -566,10 +602,7 @@ function applyStructuralCeilings(
       analysis: {
         ...grading.ao_breakdown.analysis,
         awarded: ao2,
-        comment:
-          quality.isUndersized || quality.isMonolithicBlock
-            ? `Analysis demonstrates sound theoretical understanding; expanding compressed assertions into step-by-step causal links will significantly elevate analytical depth.`
-            : stripScoreFractionsFromText(grading.ao_breakdown.analysis.comment),
+        comment: stripScoreFractionsFromText(grading.ao_breakdown.analysis.comment),
       },
       evaluation: {
         ...grading.ao_breakdown.evaluation,
@@ -578,9 +611,7 @@ function applyStructuralCeilings(
         comment:
           split.ao3_marks === 0
             ? "Evaluation is not required for this question. No marks are lost for its omission."
-            : quality.isUndersized
-              ? `Evaluative points identify relevant limitations but lack sustained comparative development and criteria prioritization.`
-              : stripScoreFractionsFromText(grading.ao_breakdown.evaluation.comment),
+            : stripScoreFractionsFromText(grading.ao_breakdown.evaluation.comment),
       },
     },
     examiner_summary: stripScoreFractionsFromText(examinerSummary),

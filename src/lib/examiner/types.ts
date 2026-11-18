@@ -171,48 +171,67 @@ export function stripInternalSnippetCitations(value: unknown): string {
   return s.trim();
 }
 
-// Generic stop words for Jaccard semantic deduplication of feedback points
+// Generic stop words for semantic deduplication of feedback points
 const FEEDBACK_STOP_WORDS = new Set([
   "the", "and", "that", "this", "with", "from", "for", "are", "was", "were",
   "been", "being", "have", "has", "had", "does", "did", "doing", "would",
   "should", "could", "ought", "their", "they", "them", "which", "what",
   "when", "where", "also", "into", "onto", "then", "than", "more", "most",
   "some", "such", "only", "even", "student", "candidate", "essay", "response",
+  "economic", "economics", "analysis", "evaluation", "explanation", "explain",
+  "explaining", "your", "about", "while", "however", "although", "through",
+  "between", "whether", "further", "clear", "clearly", "provide", "provides",
+  "providing", "include", "including", "ensure", "strengthen", "elevate",
+  "improve", "deepen", "develop", "developed", "developing", "specific",
 ]);
 
+function extractFeedbackStems(text: string): Set<string> {
+  return new Set(
+    text
+      .toLowerCase()
+      .replace(/[^\w\s]/g, " ")
+      .split(/\s+/)
+      .filter((w) => w.length > 3 && !FEEDBACK_STOP_WORDS.has(w))
+      .map((w) => w.replace(/(ations|ation|ings|ing|tion|ment|ities|ity|ness|ally|ed|ly|es|s)$/, ""))
+      .filter((w) => w.length >= 3),
+  );
+}
+
 /**
- * Deduplicates strings based on content word overlap (Jaccard similarity >= 0.35),
- * preventing repetitive or near-duplicate feedback points.
+ * Computes Jaccard similarity and Overlap Coefficient (intersection / min(|A|, |B|))
+ * on stemmed content words so a longer bullet with a quote is still recognised as
+ * duplicating a shorter bullet on the exact same point.
+ */
+export function feedbackSimilarity(a: string, b: string): { jaccard: number; overlap: number } {
+  const aWords = extractFeedbackStems(a);
+  const bWords = extractFeedbackStems(b);
+  if (aWords.size === 0 || bWords.size === 0) return { jaccard: 0, overlap: 0 };
+  let intersection = 0;
+  for (const w of aWords) {
+    if (bWords.has(w)) intersection++;
+  }
+  const union = aWords.size + bWords.size - intersection;
+  const minSize = Math.min(aWords.size, bWords.size);
+  return {
+    jaccard: union > 0 ? intersection / union : 0,
+    overlap: minSize > 0 ? intersection / minSize : 0,
+  };
+}
+
+/**
+ * Deduplicates strings based on stemmed content-word Jaccard (>= 0.32) or
+ * Overlap Coefficient (>= 0.50), preventing repetitive or near-duplicate feedback points.
  */
 export function deduplicateFeedbackPoints(points: string[], maxCount = 4): string[] {
   const result: string[] = [];
 
-  const extractContentWords = (text: string): Set<string> => {
-    return new Set(
-      text
-        .toLowerCase()
-        .replace(/[^\w\s]/g, " ")
-        .split(/\s+/)
-        .filter((w) => w.length > 3 && !FEEDBACK_STOP_WORDS.has(w)),
-    );
-  };
-
-  const isSemanticDuplicate = (aWords: Set<string>, bWords: Set<string>): boolean => {
-    if (aWords.size === 0 || bWords.size === 0) return false;
-    let intersection = 0;
-    for (const w of aWords) {
-      if (bWords.has(w)) intersection++;
-    }
-    const union = new Set([...aWords, ...bWords]).size;
-    const similarity = intersection / union;
-    return similarity >= 0.35;
-  };
-
   for (const point of points) {
     const trimmed = point.trim();
     if (!trimmed) continue;
-    const words = extractContentWords(trimmed);
-    const exists = result.some((existing) => isSemanticDuplicate(extractContentWords(existing), words));
+    const exists = result.some((existing) => {
+      const sim = feedbackSimilarity(existing, trimmed);
+      return sim.jaccard >= 0.32 || sim.overlap >= 0.5;
+    });
     if (!exists) {
       result.push(trimmed);
       if (result.length >= maxCount) break;
@@ -240,32 +259,41 @@ export function verifyVerbatimQuotes(feedbackText: string, essayText?: string): 
 
   if (!normEssay) return feedbackText;
 
-  // Match quoted text with at least 8 characters / 2 words
-  return feedbackText.replace(/['"]([^'"\n\r]{8,})['"]/g, (match, quotedContent: string) => {
+  // Match properly paired quotes ("..." or '...') NOT embedded inside word apostrophes/possessives (e.g. theory's)
+  return feedbackText.replace(/(?<!\w)(["'])([^\n\r]{8,}?)\1(?!\w)/g, (match, _quote: string, quotedContent: string) => {
     const normQuoted = quotedContent
       .toLowerCase()
       .replace(/[^\w\s]/g, " ")
       .replace(/\s+/g, " ")
       .trim();
 
-    // If exact or normalized content is found in the essay, keep the quote
+    // If exact or normalized content is found verbatim in the essay, keep the quote
     if (normQuoted && normEssay.includes(normQuoted)) {
       return match;
     }
 
-    // Check if the majority of significant words (>3 letters) appear in the essay
-    const words = normQuoted.split(" ").filter((w) => w.length > 3);
-    if (words.length >= 3) {
+    // Allow minor OCR/punctuation differences ONLY if both high word match (>= 80%) AND
+    // sequential bigram order (>= 60% of adjacent word pairs) actually appear in the essay
+    const allTokens = normQuoted.split(" ").filter(Boolean);
+    const words = allTokens.filter((w) => w.length > 3);
+    if (words.length >= 3 && allTokens.length >= 3) {
       let matchedCount = 0;
       for (const w of words) {
         if (normEssay.includes(w)) matchedCount++;
       }
-      if (matchedCount / words.length >= 0.75) {
+      let bigramMatches = 0;
+      const totalBigrams = allTokens.length - 1;
+      for (let i = 0; i < totalBigrams; i++) {
+        if (normEssay.includes(`${allTokens[i]} ${allTokens[i + 1]}`)) {
+          bigramMatches++;
+        }
+      }
+      if (matchedCount / words.length >= 0.8 && bigramMatches / totalBigrams >= 0.6) {
         return match;
       }
     }
 
-    // Phantom quote: unwrap quotes so fabricated text is not presented as a direct student quotation
+    // Phantom/paraphrased quote: unwrap quotes so non-verbatim text is not presented as a direct student quotation
     return quotedContent;
   });
 }
@@ -443,6 +471,7 @@ export function sanitizeALevelFeedbackText(value: unknown): string {
   s = s.replace(/\bPaper 22\b/g, "Paper 42");
   s = s.replace(/\bPaper 23\b/g, "Paper 43");
   s = s.replace(/\bPaper 2\b/g, "Paper 4");
+  s = s.replace(/\bAS Level\b/gi, "A Level");
 
   return s;
 }
@@ -919,7 +948,13 @@ export function normaliseGrading(
     missingExamples = missingExamples.map((ex) => verifyVerbatimQuotes(ex, essayText));
   }
 
-  return cleanStars(purgeContradictions({
+  missingDefinitions = deduplicateFeedbackPoints(missingDefinitions, 2);
+  missingAnalysis = deduplicateFeedbackPoints(missingAnalysis, 2);
+  missingEvaluation = deduplicateFeedbackPoints(missingEvaluation, 2);
+  missingExamples = deduplicateFeedbackPoints(missingExamples, 2);
+  missingDiagrams = deduplicateFeedbackPoints(missingDiagrams, 2);
+
+  const normalized: Grading = cleanStars(purgeContradictions({
     total_mark: total,
     max_mark: maxMark,
     band,
@@ -949,6 +984,8 @@ export function normaliseGrading(
         ? raw.grounding_status
         : "grounded",
   }));
+
+  return deduplicateAcrossSections(normalized, questionText);
 }
 
 export function bandFor(total: number, maxMark: number): string {
@@ -1032,6 +1069,143 @@ export function purgeContradictions(grading: Grading): Grading {
       definitions: missingDefinitions,
       evaluation: missingEvaluation,
     },
+  };
+}
+
+/**
+ * Eliminates repetition BOTH within every array and across report sections
+ * (`weaknesses`, `missing_elements.*`, `actionable_feedback`), enforces the
+ * Cambridge diagram rule when the prompt didn't ask for a diagram, and ensures
+ * Top Band reports never tell the student "to reach Top Band".
+ */
+export function deduplicateAcrossSections(grading: Grading, questionText?: string): Grading {
+  const asksDiagram = questionText
+    ? /\b(diagram|graph|curve|pay[- ]?off\s+matrix)\b/i.test(questionText)
+    : false;
+
+  const isUnrequestedDiagramCritique = (text: string): boolean => {
+    if (asksDiagram) return false;
+    return (
+      /\b(?:absence|lack|omission)\s+of\s+(?:a\s+|an\s+|any\s+)?(?:well-labeled\s+|labeled\s+|clear\s+)?diagrams?\b/i.test(text) ||
+      /\b(?:include|add|draw|insert)\s+(?:a\s+|an\s+)?(?:well-labeled\s+|labeled\s+|clear\s+)?(?:demand\s+and\s+supply\s+|ad\/as\s+|economic\s+)?diagrams?\b/i.test(text) ||
+      /\bwithout\s+(?:a\s+|any\s+)?diagrams?\b/i.test(text)
+    );
+  };
+
+  const fixTopBandPhrasing = (text: string): string => {
+    if (grading.band !== "Top Band") return text;
+    return text
+      .replace(/\bto\s+(?:reach|achieve|enter|elevate\s+(?:the\s+)?(?:analysis|evaluation|essay|response)\s+to)\s+(?:the\s+)?top\s+band\b/gi, "to push toward full marks")
+      .replace(/\bin\s+order\s+to\s+reach\s+(?:the\s+)?top\s+band\b/gi, "to push toward full marks");
+  };
+
+  const strengths = deduplicateFeedbackPoints(
+    (grading.strengths || []).map(fixTopBandPhrasing),
+    4,
+  );
+
+  let weaknesses = deduplicateFeedbackPoints(
+    (grading.weaknesses || [])
+      .filter((w) => !isUnrequestedDiagramCritique(w))
+      .map(fixTopBandPhrasing),
+    4,
+  );
+
+  // Filter any missing_elements item that repeats an already-stated weakness or another missing item
+  const seenMissing: string[] = [];
+  const filterMissingList = (items: string[]): string[] => {
+    const out: string[] = [];
+    for (const raw of deduplicateFeedbackPoints(items || [], 2)) {
+      const cleaned = fixTopBandPhrasing(raw);
+      if (!cleaned || isUnrequestedDiagramCritique(cleaned)) continue;
+      const repeatsWeakness = weaknesses.some((w) => {
+        const sim = feedbackSimilarity(w, cleaned);
+        return sim.jaccard >= 0.36 || sim.overlap >= 0.58;
+      });
+      const repeatsEarlierMissing = seenMissing.some((m) => {
+        const sim = feedbackSimilarity(m, cleaned);
+        return sim.jaccard >= 0.34 || sim.overlap >= 0.55;
+      });
+      if (!repeatsWeakness && !repeatsEarlierMissing) {
+        out.push(cleaned);
+        seenMissing.push(cleaned);
+      }
+    }
+    return out;
+  };
+
+  const missingElements: MissingElements = {
+    definitions: filterMissingList(grading.missing_elements?.definitions || []),
+    analysis: filterMissingList(grading.missing_elements?.analysis || []),
+    evaluation:
+      grading.ao_breakdown.evaluation.out_of === 0
+        ? []
+        : filterMissingList(grading.missing_elements?.evaluation || []),
+    examples: filterMissingList(grading.missing_elements?.examples || []),
+    diagrams: asksDiagram ? filterMissingList(grading.missing_elements?.diagrams || []) : [],
+  };
+
+  // Deduplicate actionable_feedback internally AND against weaknesses/missing_elements
+  const rawActions = deduplicateFeedbackPoints(
+    (grading.actionable_feedback || [])
+      .filter((a) => !isUnrequestedDiagramCritique(a))
+      .map(fixTopBandPhrasing),
+    4,
+  );
+
+  const distinctActions = rawActions.filter((action) => {
+    const repeatsWeakness = weaknesses.some((w) => {
+      const sim = feedbackSimilarity(w, action);
+      return sim.jaccard >= 0.42 || sim.overlap >= 0.65;
+    });
+    const repeatsMissing = seenMissing.some((m) => {
+      const sim = feedbackSimilarity(m, action);
+      return sim.jaccard >= 0.42 || sim.overlap >= 0.65;
+    });
+    return !repeatsWeakness && !repeatsMissing;
+  });
+
+  // Always keep at least 1 actionable step (pick the least-overlapping one if all were near-duplicates)
+  let actionableFeedback = distinctActions.slice(0, 3);
+  if (actionableFeedback.length === 0 && rawActions.length > 0) {
+    const ranked = rawActions
+      .map((a) => ({
+        a,
+        maxSim: Math.max(
+          0,
+          ...weaknesses.map((w) => feedbackSimilarity(w, a).overlap),
+          ...seenMissing.map((m) => feedbackSimilarity(m, a).overlap),
+        ),
+      }))
+      .sort((x, y) => x.maxSim - y.maxSim);
+    actionableFeedback = [ranked[0].a];
+  }
+
+  if (weaknesses.length === 0 && grading.weaknesses?.length > 0) {
+    weaknesses = [fixTopBandPhrasing(grading.weaknesses[0])];
+  }
+
+  return {
+    ...grading,
+    examiner_summary: fixTopBandPhrasing(grading.examiner_summary),
+    ao_breakdown: {
+      knowledge: {
+        ...grading.ao_breakdown.knowledge,
+        comment: fixTopBandPhrasing(grading.ao_breakdown.knowledge.comment),
+      },
+      analysis: {
+        ...grading.ao_breakdown.analysis,
+        comment: fixTopBandPhrasing(grading.ao_breakdown.analysis.comment),
+      },
+      evaluation: {
+        ...grading.ao_breakdown.evaluation,
+        comment: fixTopBandPhrasing(grading.ao_breakdown.evaluation.comment),
+      },
+    },
+    strengths,
+    weaknesses,
+    missing_elements: missingElements,
+    actionable_feedback: actionableFeedback,
   };
 }
 

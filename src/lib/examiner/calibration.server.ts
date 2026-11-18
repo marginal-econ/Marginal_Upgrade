@@ -94,7 +94,22 @@ export function selectBestAnchors(
   limit = 2,
 ): Anchor[] {
   if (anchors.length === 0) return [];
-  if (!question) return anchors.slice(0, Math.min(limit, 2));
+
+  // Strictly separate A-Level Paper 4 (>= 20m) anchors from AS-Level Paper 2 (<= 12m) anchors
+  // so 20-mark essays are never calibrated against AS-level 8m/12m scripts (and vice versa).
+  let pool = anchors;
+  if (typeof maxMark === "number") {
+    if (maxMark >= 20) {
+      const a2Anchors = anchors.filter((a) => a.max_mark >= 20);
+      pool = a2Anchors;
+    } else if (maxMark <= 12) {
+      const exactTariff = anchors.filter((a) => a.max_mark === maxMark);
+      const asAnchors = anchors.filter((a) => a.max_mark <= 12);
+      pool = exactTariff.length > 0 ? exactTariff : asAnchors;
+    }
+  }
+  if (pool.length === 0) return [];
+  if (!question) return pool.slice(0, Math.min(limit, 2));
 
   const qLower = question.toLowerCase();
   const stopwords = new Set([
@@ -106,7 +121,7 @@ export function selectBestAnchors(
   ]);
   const qWords = qLower.match(/[a-z]{3,}/g)?.filter((w) => !stopwords.has(w)) || [];
 
-  const scored = anchors.map((anchor) => {
+  const scored = pool.map((anchor) => {
     let score = 0;
     const aText = `${anchor.question} ${anchor.notes || ""}`.toLowerCase();
 
@@ -117,13 +132,9 @@ export function selectBestAnchors(
       }
     }
 
-    // Tariff alignment (e.g. matching 12-mark vs 8-mark vs 20-mark)
-    if (typeof maxMark === "number") {
-      if (anchor.max_mark === maxMark) {
-        score += 2;
-      } else if (Math.abs(anchor.max_mark - maxMark) <= 4) {
-        score += 1;
-      }
+    // Exact tariff alignment bonus
+    if (typeof maxMark === "number" && anchor.max_mark === maxMark) {
+      score += 4;
     }
 
     // Prefer high-quality top-band anchor on ties
@@ -172,12 +183,16 @@ export function buildAnchorBlock(
 
   for (const anchor of chosenAnchors) {
     const label = anchor.band_label ? anchor.band_label.toUpperCase() : "EXEMPLAR";
+    const trimmedScript =
+      anchor.essay_text.length > 2400
+        ? `${anchor.essay_text.slice(0, 2400)}... [truncated]`
+        : anchor.essay_text;
     sections.push(
       `\n--- ${label} CALIBRATION BENCHMARK ---\n` +
         `Question: ${anchor.question}\n` +
         `Confirmed mark: ${anchor.mark}/${anchor.max_mark}\n` +
         `Senior Examiner Rationale: ${anchor.notes ?? "(Standard Cambridge level benchmark)"}\n` +
-        `Exemplar Script:\n${anchor.essay_text}\n` +
+        `Exemplar Script:\n${trimmedScript}\n` +
         `--- END EXAMPLE ---`,
     );
   }

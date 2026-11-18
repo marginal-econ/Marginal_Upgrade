@@ -30,6 +30,7 @@ import { AUDIT_PROMPT } from "./audit-prompt";
 import { buildAnchorBlock, fetchCalibrationAnchors, selectBestAnchors } from "./calibration.server";
 import {
   buildAoEvaluationDirective,
+  buildPaperScopeDirective,
   formatStructureNote,
   getStructureGuidance,
   MODEL_EXAMINER,
@@ -47,7 +48,14 @@ import {
 import { extractFirstJsonObject } from "./json";
 import { refineExaminerReport } from "./refine.server";
 import { cleanStars } from "@/lib/utils";
-import { bandFor, normaliseGrading, sanitizeALevelFeedbackText, type Grading, type GroundingSource } from "./types";
+import {
+  bandFor,
+  deduplicateAcrossSections,
+  normaliseGrading,
+  sanitizeALevelFeedbackText,
+  type Grading,
+  type GroundingSource,
+} from "./types";
 import {
   analyzeEssayQuality,
   applyWritingQualityGuardrail,
@@ -157,6 +165,7 @@ export async function gradeEssay(
     ao2_marks,
     ao3_marks,
     ao_definitions: renderAoDefinitions(),
+    paper_scope_directive: buildPaperScopeDirective(maxMark),
     ao_evaluation_directive: buildAoEvaluationDirective(maxMark, split),
     ao3_level_descriptors: renderAo3Descriptors(maxMark, ao3_marks),
     structure_note: structureNote,
@@ -228,11 +237,31 @@ export async function gradeEssay(
       console.warn("[grade.server] Floor retrieval warning:", err4 instanceof Error ? err4.message : err4);
     }
   }
+  // Tariff-aware source re-ranking: prioritise Paper 4 / A-Level sources for 20-mark essays,
+  // and Paper 2 / AS-Level sources for 8-mark and 12-mark essays; cap to top 6 high-signal chunks
   if (sources.length > 0) {
-    baseSystemPrompt = `${baseSystemPrompt}\n\n${renderContext(sources)}`;
+    const scoreSourceForTariff = (s: GroundingSource): number => {
+      const title = s.documentTitle || "";
+      let boost = s.similarity;
+      if (maxMark >= 20) {
+        if (/paper\s*4|9708[_/\s-]*[a-z0-9]+[_/\s-]*ms[_/\s-]*4|\ba\s*level\b|\ba2\b/i.test(title)) boost += 0.25;
+        if (/paper\s*2[123]?|\bas\s*level\b/i.test(title)) boost -= 0.18;
+        if (s.docType === "mark_scheme") boost += 0.08;
+      } else {
+        if (/paper\s*2[123]?|\bas\s*level\b/i.test(title)) boost += 0.2;
+        if (/paper\s*4[123]?|\ba2\b/i.test(title)) boost -= 0.2;
+        if (s.docType === "mark_scheme") boost += 0.06;
+      }
+      return boost;
+    };
+    sources = [...sources].sort((a, b) => scoreSourceForTariff(b) - scoreSourceForTariff(a)).slice(0, 6);
+    baseSystemPrompt = `${baseSystemPrompt}\n\n${renderContext(sources, 1100)}`;
   }
 
-  // --- calibration anchors (strictly 1 or 2, never 18) ---------------------
+  // Compact mark-scheme excerpt for Pass 3 (Refiner) & Arbitration so they stay grounded without exceeding Groq payload limits
+  const compactMarkSchemeContext = sources.length > 0 ? renderContext(sources.slice(0, 3), 420) : "";
+
+  // --- calibration anchors (strictly 1 or 2, matching paper level) ----------
   let anchors: any[] = [];
   try {
     anchors = await fetchCalibrationAnchors(supabase);
@@ -245,77 +274,25 @@ export async function gradeEssay(
   if (anchorBlock) baseSystemPrompt = `${baseSystemPrompt}\n\n${anchorBlock}`;
   const actualAnchorsCount = Math.min(2, Math.max(selectedAnchors.length > 0 ? 1 : 0, selectedAnchors.length));
 
-  // Critical Paper Scope & Feedback Rules for Paper 2 (8-mark and 12-mark essays)
+  // Authoritative AS-Level Chapter 1 (Scarcity) & Chapter 5 (PPC) rubrics — ONLY for Paper 2 (<= 12m)
   if (maxMark <= 12) {
-    baseSystemPrompt = `${baseSystemPrompt}\n\n` +
-      `CRITICAL PAPER SCOPE DIRECTIVE — STRICT CAMBRIDGE 9708 PAPER 2 (AS LEVEL ONLY):\n` +
-      `This ${maxMark}-mark question is strictly Cambridge 9708 Paper 2 (AS Level).\n` +
-      `1. ABSOLUTE PROHIBITION OF A-LEVEL (A2 / PAPER 4) CONCEPTS:\n` +
-      `   You are STRICTLY FORBIDDEN from mentioning, demanding, or suggesting ANY A-Level topics anywhere in your assessment (examiner_summary, weaknesses, missing_elements, actionable_feedback, suggested_resources, suggested_practice, AO comments):\n` +
-      `   * NO marginal utility, diminishing marginal utility, equi-marginal principle, or utility theory.\n` +
-      `   * NO diminishing returns, law of diminishing returns, or diminishing marginal returns (these are A-Level / cost theory).\n` +
-      `   * NO indifference curves, budget lines, or income and substitution effect breakdown.\n` +
-      `   * NO market structures (monopoly, oligopoly, monopolistic competition, contestability, game theory, price discrimination).\n` +
-      `   * NO dynamic efficiency, X-inefficiency, or Pareto efficiency.\n` +
-      `   * NO labour market wage theory (MRPL).\n` +
-      `   * NO A2 macro (expectations Phillips curve, multiplier formulas k=1/MPW, Gini/Lorenz).\n` +
-      `   Grade and advise strictly on AS Level Paper 2 content and knowledge base.\n` +
-      `2. DEFINITION FAIRNESS & ANTI-HALLUCINATION DIRECTIVE:\n` +
-      `   * Scarcity = finite or limited resources cannot satisfy unlimited human wants. "Finite resources" and "limited resources" are standard, synonymous Cambridge terms. NEVER call "limited resources" vague, colloquial, or inaccurate.\n` +
-      `   * Stating "scarcity takes place when resources are limited but wants are unlimited" is accurate syllabus economics. NEVER label it a tautology or incorrect.\n` +
-      `   * Do NOT require opportunity cost within the definition of scarcity itself. Opportunity cost is a consequence of choice, not a clause of the definition of scarcity.\n` +
-      `   * Candidates write timed examination essays; NEVER demand citations or [S#] snippet codes, and NEVER fabricate claims about what snippets require.\n` +
-      `3. ZERO NUMERIC MARKS IN PROSE: Do NOT write numerical scores, mark breakdowns, or phrases like "held at 7", "instead of 8", or "cost you marks" anywhere inside written feedback, Examiner Summary, AO explanations, or improvement bullets. Let the UI score badges display the numbers separately.\n` +
-      `4. FOCUS STRICTLY ON STRENGTHS & IMPROVEMENTS: In all written feedback sections, focus purely on (a) what the candidate did well economically, and (b) specific, syllabus-accurate improvements to elevate their analysis and evaluation (such as distinguishing movements onto the PPC from outward shifts, and using short-run vs. long-run criteria in the conclusion).`;
-  }
-
-  if (maxMark >= 20) {
-    baseSystemPrompt = `${baseSystemPrompt}\n\n` +
-      `CRITICAL PAPER SCOPE DIRECTIVE — CAMBRIDGE 9708 PAPER 4 (A LEVEL EXTENDED ESSAYS):\n` +
-      `This 20-mark question is Cambridge 9708 Paper 4 (A Level).\n` +
-      `1. TIMED EXAM CALIBRATION (~40-45 MINUTES): Standard is highest on Paper 4, but ensure it is realistic and NOT an impossible academic standard. High school exam essay, not an academic journal. Do NOT expect exhaustive coverage of every edge case. Reward thorough multi-perspective causal analysis, real-world examples, and prioritized evaluation.\n` +
-      `2. DEFINITION FAIRNESS & ANTI-HALLUCINATION DIRECTIVE:\n` +
-      `   * Standard Cambridge definitions must be credited positively; never penalize accurate syllabus concepts with pedantic or hallucinated criticisms.\n` +
-      `   * Candidates write timed examination essays; NEVER demand citations or [S#] snippet codes, and NEVER fabricate claims about what snippets require.\n` +
-      `3. ZERO NUMERIC MARKS IN PROSE: Do NOT write numerical scores, mark breakdowns, or phrases like "cost you marks" anywhere inside written feedback, Examiner Summary, AO explanations, or improvement bullets.\n` +
-      `4. FOCUS STRICTLY ON STRENGTHS & IMPROVEMENTS: Focus purely on (a) what the candidate did well economically, and (b) specific, syllabus-accurate improvements.`;
-  }
-
-  // Authoritative Chapter 1 (Scarcity & The Basic Economic Problem) Rubric:
-  const touchesScarcity = /\bscarcit(y|ies)|basic economic problem|unlimited wants|finite resources\b/i.test(
-    `${question} ${essayText}`,
-  );
-  if (touchesScarcity) {
-    baseSystemPrompt = `${baseSystemPrompt}\n\n` +
-      `AUTHORITATIVE CHAPTER 1 (SCARCITY & THE BASIC ECONOMIC PROBLEM) RUBRIC (PAPER 2 AS LEVEL):\n` +
-      `- Scarcity is defined as finite / limited resources being insufficient to satisfy infinite / unlimited human wants.\n` +
-      `- "Finite resources" and "limited resources" are standard, synonymous Cambridge terms. Do NOT claim "limited resources" is vague or incorrect.\n` +
-      `- Stating "scarcity takes place when resources are limited but wants are unlimited" is accurate syllabus economics. NEVER label this a tautology, colloquial, or an error.\n` +
-      `- Scarcity necessitates choice, and every choice incurs an opportunity cost (the benefit of the next best alternative forgone). Opportunity cost is the result of choice, not a mandatory clause of the definition of scarcity itself.\n` +
-      `- Rich countries experience persistent scarcity because human wants expand (e.g. higher-quality healthcare, luxury goods, cleaner environment, advanced technology), while resources (land, skilled labour, capital) remain finite.\n` +
-      `- FORBIDDEN A-LEVEL THEORIES: Do NOT mention or expect marginal utility, diminishing marginal utility, or diminishing returns to explain scarcity in rich countries. Explain scarcity strictly via expanding consumer wants, finite factors of production, and opportunity cost trade-offs.`;
-  }
-
-  // Authoritative Chapter 5 (PPC & Efficiency) Knowledge Base Rubric:
-  const touchesPpcOrEfficiency = /ppc|production possibility|productive eff|allocative eff/i.test(
-    `${question} ${essayText}`,
-  );
-  if (touchesPpcOrEfficiency) {
-    if (maxMark >= 20) {
+    const touchesScarcity = /\bscarcit(y|ies)|basic economic problem|unlimited wants|finite resources\b/i.test(
+      `${question} ${essayText}`,
+    );
+    if (touchesScarcity) {
       baseSystemPrompt = `${baseSystemPrompt}\n\n` +
-        `AUTHORITATIVE CHAPTER 7 (ECONOMIC EFFICIENCY & UTILITY THEORY) KNOWLEDGE BASE RUBRIC (CAMBRIDGE 9708 A LEVEL PAPER 4):\n` +
-        `- 20-mark essay questions belong exclusively to Cambridge 9708 Paper 4 (A Level extended essays).\n` +
-        `- Economic efficiency (allocative, productive, and dynamic) is covered under Chapter 7: Economic Efficiency and Utility Theory (A Level / Paper 4).\n` +
-        `- Allocative efficiency: P = MC or MSB = MSC (social efficiency), optimizing consumer welfare.\n` +
-        `- Productive efficiency: producing at minimum average total cost (lowest point of LRAC) and on the PPC.\n` +
-        `- In a market economy without government intervention, market failures (externalities, monopoly power, public goods, information failure) prevent the price mechanism from achieving economic efficiency on its own.\n` +
-        `- When citing or suggesting syllabus concepts in feedback, label Chapter 7 as A Level: "Chapter 7: Economic Efficiency and Utility Theory (Cambridge 9708 A Level, Paper 4)". NEVER label 20-mark essays or Chapter 7 topics as AS Level or Paper 21.`;
-    } else {
+        `AUTHORITATIVE CHAPTER 1 (SCARCITY) RUBRIC (PAPER 2 AS LEVEL):\n` +
+        `- Scarcity = finite/limited resources cannot satisfy unlimited human wants ("finite" and "limited" are synonymous Cambridge terms; never call "limited resources" vague or a tautology; do not require opportunity cost inside the definition of scarcity itself).\n` +
+        `- Rich countries experience scarcity via expanding human wants against finite factors of production — NEVER demand A-Level marginal utility or diminishing returns.`;
+    }
+
+    const touchesPpc = /\bppc\b|production possibility/i.test(`${question} ${essayText}`);
+    if (touchesPpc) {
       baseSystemPrompt = `${baseSystemPrompt}\n\n` +
-        `AUTHORITATIVE CHAPTER 5 (PPC & EFFICIENCY) KNOWLEDGE BASE RUBRIC (PAPER 2 AS LEVEL):\n` +
-        `- Point inside PPC = Productive inefficiency / unemployment or underutilisation of resources (idle factors, X-inefficiency). A PPC diagram shows maximum combinations of two goods given current resources; it contains NO information on consumer preferences. It does NOT represent allocative inefficiency.\n` +
-        `- Point on PPC = Productive efficiency (maximum possible output achievable from given resources at lowest cost). However, a point on the PPC may still be allocatively inefficient if the output combination does not match consumer preferences (where P != MC).\n` +
-        `- MANDATORY ANALYTICAL ERROR AUDIT: Flag any confusion between productive and allocative inefficiency on a PPC diagram as an analytical error (deduct AO2 credit). Examiners MUST NEVER praise a student for linking a point inside the PPC to allocative inefficiency. Focus feedback constructively on distinguishing movements onto the PPC from outward shifts and productive from allocative efficiency.`;
+        `AUTHORITATIVE CHAPTER 5 (PPC & EFFICIENCY) RUBRIC (PAPER 2 AS LEVEL):\n` +
+        `- Point inside PPC = Productive inefficiency (unemployed/underutilised resources), NOT allocative inefficiency.\n` +
+        `- Point on PPC = Productive efficiency (may still be allocatively inefficient if output mix mismatches consumer preferences).\n` +
+        `- Flag any confusion between productive and allocative inefficiency on a PPC as an analytical error and NEVER praise it.`;
     }
   }
 
@@ -360,7 +337,7 @@ export async function gradeEssay(
           : maxMark === 12 && split.ao3_marks === 4
             ? `\n12-MARK EVALUATION CALIBRATION (~25-30 minutes, AS Level): Standard is higher than 8-mark, but NOT overly strict. A student writes under timed conditions and cannot cover everything. Do NOT penalise for omitting peripheral aspects when the core mechanisms are well addressed. If the candidate provides 2-3 clear causal analysis points with an example and balanced evaluation with a reasoned conclusion, award Top Band (10-12/12, with 3-4/4 in AO3). Focus on the quality of what is written.`
             : maxMark >= 20
-              ? `\n20-MARK EVALUATION CALIBRATION (~40-45 minutes, A Level): Standard is the highest on Paper 4, but ensure it is realistic and NOT an impossible academic standard. It is a timed school exam essay, not a published thesis. Do NOT expect exhaustive coverage of every edge case. If the candidate demonstrates thorough multi-perspective causal chains with real-world application, weighs trade-offs (e.g. short-run vs long-run or prioritized factors), and provides a substantiated overall verdict, award Top Band (16-20/20, with 5-6/6 in AO3).`
+              ? `\n20-MARK A LEVEL PAPER 4 CALIBRATION (~40–45 minutes): Apply official Cambridge 9708 Paper 4 Table A (AO1+AO2 out of 14: L3 11–14, L2 6–10, L1 1–5) and Table B (AO3 out of 6: L2 4–6, L1 1–3). Full A-Level theory is expected and rewarded. For pure micro theory questions, rigorous models/diagrams/pay-off matrices qualify for Level 3 without requiring named countries; examples are expected where appropriate.`
               : "")
       : `[QUESTION SPECIFICATION: ${maxMark} Marks · NON-EVALUATIVE LEGACY ESSAY (AO1: ${ao1_marks}, AO2: ${ao2_marks}, AO3: 0)]\n` +
         `Pure explanatory / analytical question. Evaluation is NOT required; set AO3 awarded: 0, out_of: 0, with zero penalty.`;
@@ -427,8 +404,8 @@ export async function gradeEssay(
     // Single pass path (used when audit is explicitly disabled)
     const res = await executeExaminerPass(pass2SystemPrompt, "grade_essay", TEMPERATURE_PASS2);
 
-    finalGrading = normaliseGrading(extractFirstJsonObject(res.text), maxMark, split, essayText);
-    finalGrading = applyWritingQualityGuardrail(finalGrading, qualityAnalysis, maxMark, split);
+    finalGrading = normaliseGrading(extractFirstJsonObject(res.text), maxMark, split, essayText, question);
+    finalGrading = applyWritingQualityGuardrail(finalGrading, qualityAnalysis, maxMark, split, essayText);
     if (finalGrading.off_syllabus) {
       throw new OffSyllabusError(
         finalGrading.detected_subject || "another subject",
@@ -451,10 +428,10 @@ export async function gradeEssay(
       executeExaminerPass(pass2SystemPrompt, "grade_essay_pass2_holistic", TEMPERATURE_PASS2),
     ]);
 
-    let grading1 = normaliseGrading(extractFirstJsonObject(first.text), maxMark, split, essayText);
-    grading1 = applyWritingQualityGuardrail(grading1, qualityAnalysis, maxMark, split);
-    let grading2 = normaliseGrading(extractFirstJsonObject(second.text), maxMark, split, essayText);
-    grading2 = applyWritingQualityGuardrail(grading2, qualityAnalysis, maxMark, split);
+    let grading1 = normaliseGrading(extractFirstJsonObject(first.text), maxMark, split, essayText, question);
+    grading1 = applyWritingQualityGuardrail(grading1, qualityAnalysis, maxMark, split, essayText);
+    let grading2 = normaliseGrading(extractFirstJsonObject(second.text), maxMark, split, essayText, question);
+    grading2 = applyWritingQualityGuardrail(grading2, qualityAnalysis, maxMark, split, essayText);
 
     if (grading1.off_syllabus || grading2.off_syllabus) {
       const rejected = grading1.off_syllabus ? grading1 : grading2;
@@ -476,8 +453,7 @@ export async function gradeEssay(
     const disputeCheck = shouldTriggerArbitration(grading1, grading2, maxMark);
 
     if (disputeCheck.shouldArbitrate) {
-      // Discrepancy exceeds threshold (delta >= 2 or grade band mismatch):
-      // Principal Examiner arbitration resolves the dispute grounded in verbatim essay evidence
+      // Discrepancy exceeds threshold: Principal Examiner arbitration resolves the dispute
       try {
         const arbitratedGrading = await arbitrateGrading({
           question,
@@ -489,22 +465,22 @@ export async function gradeEssay(
           disputeReason: disputeCheck.reason,
           userId: options.userId,
           qualityAnalysis,
+          markSchemeContext: compactMarkSchemeContext,
         });
         finalGrading = arbitratedGrading;
       } catch (arbitrationErr) {
         console.warn("[grade.server] Arbitration failed, synthesizing dual passes directly:", arbitrationErr);
-        finalGrading = synthesizeDualPasses(grading1, grading2, maxMark, split, qualityAnalysis, essayText);
+        finalGrading = synthesizeDualPasses(grading1, grading2, maxMark, split, qualityAnalysis, essayText, question);
       }
     } else {
-      // Passes converged within tolerance (delta <= 1 and matching band):
-      // Synthesize both passes, embedding Pass 1's error precision with Pass 2's holistic judgment
-      finalGrading = synthesizeDualPasses(grading1, grading2, maxMark, split, qualityAnalysis, essayText);
+      // Passes converged within tolerance: synthesize both passes
+      finalGrading = synthesizeDualPasses(grading1, grading2, maxMark, split, qualityAnalysis, essayText, question);
     }
   }
 
-  // --- PASS 3: SENIOR REPORT REFINER & CONSISTENCY AUDITOR ------------------
-  // Runs a third AI pass to eliminate contradictions, catch any unflagged
-  // economic misconceptions/slips, remove weird phrasing, and ensure Cambridge accuracy
+  // --- PASS 3: SENIOR REPORT REFINER & ACCURACY AUDITOR ---------------------
+  // Runs a third AI pass grounded in official Cambridge mark scheme excerpts to audit economic accuracy,
+  // eliminate false praise / hallucinated penalties, calibrate marks, and ensure zero repetition.
   try {
     finalGrading = await refineExaminerReport({
       question,
@@ -513,6 +489,7 @@ export async function gradeEssay(
       split,
       draftGrading: finalGrading,
       userId: options.userId,
+      markSchemeContext: compactMarkSchemeContext,
     });
   } catch (refineErr) {
     console.warn("[grade.server] Pass 3 refinement error, proceeding with cleansed draft:", refineErr);
@@ -557,7 +534,7 @@ export async function gradeEssay(
   finalGrading.activeKeyType = activeKeyType;
   const totalLatencyMs = Date.now() - startedAt;
   finalGrading.latencyMs = totalLatencyMs;
-  finalGrading = cleanStars(finalGrading);
+  finalGrading = cleanStars(deduplicateAcrossSections(finalGrading, question));
 
   return {
     grading: finalGrading,
