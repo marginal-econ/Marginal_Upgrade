@@ -596,14 +596,6 @@ export function normaliseGrading(
     }
   }
 
-  const aoTotal = knowledge.awarded + analysis.awarded + evaluation.awarded;
-  // The AO marks are the source of truth; a stated total that disagrees is a
-  // model arithmetic slip, not a separate judgement.
-  const total = Math.max(0, Math.min(maxMark, aoTotal));
-  // The awarded mark is the source of truth for the Cambridge grade band:
-  // A score of 10-12/12 is strictly Top Band (Level 4), never Upper Middle or Lower.
-  const band = bandFor(total, maxMark);
-
   const rawMissing = (raw.missing_elements ?? {}) as Record<string, unknown>;
 
   let strengths = toStringArray(raw.strengths);
@@ -612,6 +604,49 @@ export function normaliseGrading(
   let suggestedResources = toStringArray(raw.suggested_resources);
   let suggestedPractice = toStringArray(raw.suggested_practice);
   let examinerSummary = cleanComment(String(raw.examiner_summary ?? ""));
+
+  // Enforce deterministic consistency with mechanism_validation & incoherent-evaluation diagnoses:
+  // 1. If the examiner explicitly flagged fatal_misconceptions_found=true AND core_mechanisms_sound=false,
+  //    enforce official Cambridge Level 1 AO2 ceilings so broken/inverted scripts cannot drift into Level 2/3.
+  const rawMech = (raw.mechanism_validation ?? null) as Record<string, unknown> | null;
+  if (rawMech && rawMech.fatal_misconceptions_found === true && rawMech.core_mechanisms_sound === false) {
+    const level1Ao2Cap = maxMark >= 20 ? 4 : maxMark === 12 ? 2 : 2;
+    const level1Ao3Cap = maxMark >= 20 ? 2 : maxMark === 12 ? 1 : 1;
+    if (analysis.awarded > level1Ao2Cap) analysis.awarded = level1Ao2Cap;
+    if (split.ao3_marks > 0 && evaluation.awarded > level1Ao3Cap) evaluation.awarded = level1Ao3Cap;
+  }
+
+  // 2. If the examiner's own evaluation comment or weaknesses explicitly diagnose incoherent/absent evaluation,
+  //    enforce consistent AO3 marks (0 on 8m, max 1 on 12m/20m) so prose and score never contradict.
+  //    Also on 20m Paper 4: if the examiner explicitly diagnoses BOTH a major directional error AND generic/unweighted
+  //    evaluation, enforce Level 1 caps (AO2 <= 4, AO3 <= 1) so prose ("lower middle/bottom band") matches the mark.
+  if (split.ao3_marks > 0) {
+    const fullDiagText = `${examinerSummary} ${analysis.comment} ${evaluation.comment} ${weaknesses.join(" ")}`;
+    const evalDiagText = `${evaluation.comment} ${weaknesses.join(" ")}`;
+    if (/\b(evaluation\s+is\s+(?:completely\s+)?(?:incoherent|absent|missing|non[- ]?existent)|incoherent(?:,\s+\w+)?\s+evaluation|no\s+creditable\s+evaluation)\b/i.test(evalDiagText)) {
+      const incoherentCap = maxMark === 8 ? 0 : 1;
+      if (evaluation.awarded > incoherentCap) evaluation.awarded = incoherentCap;
+    } else if (maxMark >= 20) {
+      const hasMajorDirectionalError = /\bmajor\s+directional\s+error\b|\binvert(?:s|ed)\s+(?:the\s+)?(?:causal|transmission|interest\s+rate|tax)\s+(?:chain|mechanism)\b/i.test(fullDiagText);
+      const hasGenericOrUnweightedEval = /\b(evaluation\s+is\s+(?:generic|superficial|unweighted|undeveloped)|unweighted\s+(?:evaluation|conclusion|list\s+of\s+factors)|generic\s+conclusion)\b/i.test(fullDiagText);
+      if (hasMajorDirectionalError) {
+        if (analysis.awarded > 4) analysis.awarded = 4;
+        if (evaluation.awarded > 1) evaluation.awarded = 1;
+      } else if (hasGenericOrUnweightedEval && analysis.awarded <= 8) {
+        // Level 2 Paper 4 scripts with generic/unweighted evaluation sit in Table B Level 1 (max 2-3/6), NOT 4/6
+        const l2EvalCap = analysis.awarded <= 5 ? 2 : 3;
+        if (evaluation.awarded > l2EvalCap) evaluation.awarded = l2EvalCap;
+      }
+    }
+  }
+
+  const aoTotal = knowledge.awarded + analysis.awarded + evaluation.awarded;
+  // The AO marks are the source of truth; a stated total that disagrees is a
+  // model arithmetic slip, not a separate judgement.
+  const total = Math.max(0, Math.min(maxMark, aoTotal));
+  // The awarded mark is the source of truth for the Cambridge grade band:
+  // A score of 10-12/12 is strictly Top Band (Level 4), never Upper Middle or Lower.
+  const band = bandFor(total, maxMark);
 
   // Ensure full-fledged feedback is ALWAYS provided to the student
   if (!examinerSummary || examinerSummary.length < 25) {
@@ -1120,11 +1155,11 @@ export function deduplicateAcrossSections(grading: Grading, questionText?: strin
       if (!cleaned || isUnrequestedDiagramCritique(cleaned)) continue;
       const repeatsWeakness = weaknesses.some((w) => {
         const sim = feedbackSimilarity(w, cleaned);
-        return sim.jaccard >= 0.36 || sim.overlap >= 0.58;
+        return sim.jaccard >= 0.30 || sim.overlap >= 0.48;
       });
       const repeatsEarlierMissing = seenMissing.some((m) => {
         const sim = feedbackSimilarity(m, cleaned);
-        return sim.jaccard >= 0.34 || sim.overlap >= 0.55;
+        return sim.jaccard >= 0.30 || sim.overlap >= 0.48;
       });
       if (!repeatsWeakness && !repeatsEarlierMissing) {
         out.push(cleaned);
@@ -1173,11 +1208,11 @@ export function deduplicateAcrossSections(grading: Grading, questionText?: strin
   const distinctActions = rawActions.filter((action) => {
     const repeatsWeakness = weaknesses.some((w) => {
       const sim = feedbackSimilarity(w, action);
-      return sim.jaccard >= 0.42 || sim.overlap >= 0.65;
+      return sim.jaccard >= 0.34 || sim.overlap >= 0.52;
     });
     const repeatsMissing = seenMissing.some((m) => {
       const sim = feedbackSimilarity(m, action);
-      return sim.jaccard >= 0.42 || sim.overlap >= 0.65;
+      return sim.jaccard >= 0.34 || sim.overlap >= 0.52;
     });
     return !repeatsWeakness && !repeatsMissing;
   });
@@ -1202,6 +1237,24 @@ export function deduplicateAcrossSections(grading: Grading, questionText?: strin
     weaknesses = [fixTopBandPhrasing(grading.weaknesses[0])];
   }
 
+  // Final pass: strip any missing_elements checklist bullet that repeats a kept actionable_feedback step
+  const stripActionDupes = (items: string[]): string[] =>
+    items.filter(
+      (m) =>
+        !actionableFeedback.some((a) => {
+          const sim = feedbackSimilarity(m, a);
+          return sim.jaccard >= 0.34 || sim.overlap >= 0.50;
+        }),
+    );
+
+  const finalMissingElements: MissingElements = {
+    definitions: stripActionDupes(missingElements.definitions),
+    analysis: stripActionDupes(missingElements.analysis),
+    evaluation: stripActionDupes(missingElements.evaluation),
+    examples: stripActionDupes(missingElements.examples),
+    diagrams: stripActionDupes(missingElements.diagrams),
+  };
+
   return {
     ...grading,
     examiner_summary: fixTopBandPhrasing(grading.examiner_summary),
@@ -1221,7 +1274,7 @@ export function deduplicateAcrossSections(grading: Grading, questionText?: strin
     },
     strengths,
     weaknesses,
-    missing_elements: missingElements,
+    missing_elements: finalMissingElements,
     actionable_feedback: actionableFeedback,
   };
 }

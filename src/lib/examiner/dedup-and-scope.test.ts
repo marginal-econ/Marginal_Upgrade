@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildAoEvaluationDirective, buildPaperScopeDirective } from "./config";
 import { shouldTriggerArbitration } from "./arbitration.server";
 import { selectBestAnchors, type Anchor } from "./calibration.server";
-import { deduplicateAcrossSections, deduplicateFeedbackPoints, verifyVerbatimQuotes, type Grading } from "./types";
+import { deduplicateAcrossSections, deduplicateFeedbackPoints, normaliseGrading, verifyVerbatimQuotes, type Grading } from "./types";
 import { extractRelevantSnippetWindow } from "../retrieval.server";
 import { analyzeEssayQuality, applyWritingQualityGuardrail, essayHasDiagram, questionRequiresDiagram } from "./writing-quality.server";
 
@@ -161,9 +161,19 @@ describe("Feedback Deduplication, Paper Scope & 20-Mark Calibration", () => {
       examiner_summary: "Specific economic feedback about efficiency.",
     });
     const out = applyWritingQualityGuardrail(graded, quality, 20, split20);
-    expect(out.total_mark).toBeLessThanOrEqual(12);
+    expect(out.total_mark).toBeLessThanOrEqual(13);
     expect(out.examiner_summary).toContain("Specific economic feedback about efficiency.");
     expect(out.examiner_summary).not.toMatch(/without full paragraph structure/i);
+  });
+
+  it("does not artificially cap well-paragraphed 420-word timed handwritten Cambridge 20-mark essays", () => {
+    const split20 = { ao1_marks: 2, ao2_marks: 12, ao3_marks: 6 };
+    const para = Array(60).fill("inflation").join(" ");
+    const essay420 = [para, para, para, para, para, para, para].join("\n\n");
+    const quality = analyzeEssayQuality(essay420, 20, split20);
+    expect(quality.paragraphCount).toBe(7);
+    expect(quality.isUndersized).toBe(false);
+    expect(quality.maxAllowableTotalMark).toBeGreaterThanOrEqual(16);
   });
 
   it("recognises single-newline pasted paragraphs so genuine multi-paragraph essays are not capped as monolithic", () => {
@@ -260,5 +270,50 @@ describe("Feedback Deduplication, Paper Scope & 20-Mark Calibration", () => {
     expect(quality.maxAllowableTotalMark).toBe(11);
     expect(quality.maxAllowableAo2).toBe(7);
     expect(quality.maxAllowableAo3).toBe(3);
+  });
+
+  it("enforces Cambridge Level 1 ceilings when fatal_misconceptions_found=true and AO3=0 on incoherent 8m evaluation", () => {
+    const split20 = { ao1_marks: 2, ao2_marks: 12, ao3_marks: 6 };
+    const raw20 = {
+      mechanism_validation: { core_mechanisms_sound: false, fatal_misconceptions_found: true, error_evidence_quotes: ["higher interest rates lower borrowing cost"] },
+      ao_breakdown: {
+        knowledge: { awarded: 1, out_of: 2, comment: "Basic terms." },
+        analysis: { awarded: 8, out_of: 12, comment: "Inverted mechanism." },
+        evaluation: { awarded: 3, out_of: 6, comment: "Generic closing." },
+      },
+      examiner_summary: "Broken transmission.",
+      strengths: ["Defines inflation."],
+      weaknesses: ["Inverts interest rate transmission."],
+      missing_elements: { definitions: [], analysis: [], evaluation: [], examples: [], diagrams: [] },
+      actionable_feedback: ["Fix the interest rate transmission chain."],
+    };
+    const norm20 = normaliseGrading(raw20, 20, split20);
+    expect(norm20.ao_breakdown.analysis.awarded).toBeLessThanOrEqual(4);
+    expect(norm20.ao_breakdown.evaluation.awarded).toBeLessThanOrEqual(2);
+    expect(norm20.total_mark).toBeLessThanOrEqual(7);
+
+    const split8 = { ao1_marks: 2, ao2_marks: 4, ao3_marks: 2 };
+    const raw8 = {
+      ao_breakdown: {
+        knowledge: { awarded: 1, out_of: 2, comment: "Wrong producer surplus definition." },
+        analysis: { awarded: 2, out_of: 4, comment: "Basic leftward shift." },
+        evaluation: { awarded: 1, out_of: 2, comment: "The evaluation is incoherent and unsupported." },
+      },
+      examiner_summary: "Basic shift with incoherent evaluation.",
+      strengths: ["Draws supply shift."],
+      weaknesses: ["The evaluation is incoherent and fails to answer the prompt."],
+      missing_elements: {
+        definitions: [],
+        analysis: ["Step-by-step transmission of how higher interest rates increase the cost of borrowing and reduce AD."],
+        evaluation: [],
+        examples: [],
+        diagrams: [],
+      },
+      actionable_feedback: ["Rewrite the paragraph to explain how higher interest rates increase the cost of borrowing and reduce AD."],
+    };
+    const norm8 = normaliseGrading(raw8, 8, split8);
+    expect(norm8.ao_breakdown.evaluation.awarded).toBe(0);
+    expect(norm8.total_mark).toBe(3);
+    expect(norm8.missing_elements.analysis).toEqual([]);
   });
 });

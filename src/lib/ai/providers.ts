@@ -25,15 +25,12 @@ export const AI_PROVIDERS = [
     baseUrl: "https://api.groq.com/openai/v1",
     keyHint: "gsk_...",
     models: [
+      "qwen/qwen3.8-27b",
       "llama-3.3-70b-versatile",
-      "deepseek-r1-distill-llama-70b",
-      "llama-3.1-8b-instant",
-      "mixtral-8x7b-32768",
-      "llama-3.2-11b-vision-preview",
     ],
     embeddingCapable: false,
-    visionCapable: true,
-    visionModels: ["llama-3.2-11b-vision-preview"],
+    visionCapable: false,
+    visionModels: [],
   },
   {
     id: "xai",

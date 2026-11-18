@@ -141,7 +141,7 @@ describe("Examiner Configuration & Gemini Model Allocation", () => {
   });
 
   it("verifies the third AI refiner prompt covers economic accuracy, paper scope, zero repetition, and mark consistency", () => {
-    expect(REPORT_REFINER_PROMPT).toContain("ECONOMIC ACCURACY & FALSE-PRAISE AUDIT");
+    expect(REPORT_REFINER_PROMPT).toContain("ECONOMIC ACCURACY, FALSE-PRAISE & ANTI-INFLATION LEVEL AUDIT");
     expect(REPORT_REFINER_PROMPT).toContain("ZERO REPETITION — DISTINCT ROLES FOR EVERY SECTION");
     expect(REPORT_REFINER_PROMPT).toContain("MARK-TO-PROSE CONSISTENCY & ZERO CONTRADICTIONS");
     expect(REPORT_REFINER_PROMPT).toContain("STRICT DIAGRAM RULE");

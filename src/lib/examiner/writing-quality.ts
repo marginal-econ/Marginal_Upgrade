@@ -153,16 +153,15 @@ export function analyzeEssayQuality(
       qualityIssues.push(
         `Compressed outline response (${words} words vs 500–750 expected). Key mechanisms are compressed into short assertions.`,
       );
-    } else if (words < 380) {
-      // 280–379 words: structured concise essay.
-      // Clean, strategic analysis can achieve solid distinction (up to 9–10/12),
-      // while preventing generic surface summaries from reaching top-tier 11–12/12.
-      maxAllowableTotalMark = hasAiArtifacts || paragraphCount <= 1 ? 7 : (paragraphCount >= 3 ? 10 : 8);
+    } else if (words < 360) {
+      // 280–359 words: concise timed AS script (real handwritten 10/12 Cambridge scripts often run 310–360w with diagrams).
+      // Well-paragraphed genuine scripts can reach up to 11/12; monolithic or AI-formatted scripts stay capped at 7–8/12.
+      maxAllowableTotalMark = hasAiArtifacts || paragraphCount <= 1 ? 7 : (paragraphCount >= 4 ? 11 : paragraphCount >= 3 ? 10 : 8);
       maxAllowableAo2 = hasAiArtifacts || paragraphCount <= 1 ? 3 : (paragraphCount >= 3 ? 5 : 4);
-      maxAllowableAo3 = hasAiArtifacts || paragraphCount <= 1 ? 2 : (paragraphCount >= 3 ? 3 : 2);
+      maxAllowableAo3 = hasAiArtifacts || paragraphCount <= 1 ? 2 : (paragraphCount >= 4 ? 4 : paragraphCount >= 3 ? 3 : 2);
     }
   } else if (maxMark === 8) {
-    targetRangeText = split.ao3_marks === 0 ? "250–400 words" : "300–450 words";
+    targetRangeText = split.ao3_marks === 0 ? "220–360 words" : "240–380 words";
     if (words < 100) {
       isSeverelyUndersized = true;
       maxAllowableTotalMark = 3;
@@ -171,7 +170,7 @@ export function analyzeEssayQuality(
       qualityIssues.push(
         `Fragment / extreme brevity (${words} words). Cambridge 8-mark questions expect ${targetRangeText}.`,
       );
-    } else if (words < 180) {
+    } else if (words < 165) {
       isUndersized = true;
       maxAllowableTotalMark = 5;
       maxAllowableAo2 = split.ao3_marks === 0 ? 3 : 2;
@@ -179,21 +178,21 @@ export function analyzeEssayQuality(
       qualityIssues.push(
         `Undersized (${words} words vs ${targetRangeText} expected). Analytical points lack sufficient explanatory depth.`,
       );
-    } else if (words < 240) {
-      // 180–239 words: concise response. Strategic analysis can score up to 7/8.
+    } else if (words < 220) {
+      // 165–219 words: concise response. Strategic analysis can score up to 7/8.
       maxAllowableTotalMark = hasAiArtifacts || paragraphCount <= 1 ? 5 : (paragraphCount >= 2 ? 7 : 6);
       maxAllowableAo2 = hasAiArtifacts || paragraphCount <= 1 ? 3 : (paragraphCount >= 2 ? 4 : 3);
       maxAllowableAo3 = split.ao3_marks === 0 ? 0 : (hasAiArtifacts || paragraphCount <= 1 ? 1 : 2);
     }
   } else if (maxMark >= 20) {
-    targetRangeText = "600–950 words";
+    targetRangeText = "450–850 words";
     if (words < 180) {
       isSeverelyUndersized = true;
       maxAllowableTotalMark = 7;
       maxAllowableAo2 = 4;
       maxAllowableAo3 = 1;
       qualityIssues.push(
-        `Severely stunted (${words} words). Cambridge 20-mark extended essays typically require 600–950 words.`,
+        `Severely stunted (${words} words). Cambridge 20-mark extended essays typically require ${targetRangeText}.`,
       );
     } else if (words < 300) {
       isUndersized = true;
@@ -205,20 +204,31 @@ export function analyzeEssayQuality(
       qualityIssues.push(
         `Underdeveloped (${words} words vs ${targetRangeText} typical depth). Needs sustained multi-perspective analysis and developed evaluation.`,
       );
-    } else if (words < 450) {
+    } else if (words < 380) {
       isUndersized = true;
-      maxAllowableTotalMark = hasAiArtifacts || paragraphCount <= 2 ? 9 : 12;
-      maxAllowableAo2 = hasAiArtifacts || paragraphCount <= 2 ? 5 : 7;
+      maxAllowableTotalMark = hasAiArtifacts || paragraphCount <= 2 ? 9 : 13;
+      maxAllowableAo2 = hasAiArtifacts || paragraphCount <= 2 ? 5 : 8;
       maxAllowableAo3 = hasAiArtifacts || paragraphCount <= 2 ? 2 : 3;
       qualityIssues.push(
-        `Underdeveloped (${words} words vs ${targetRangeText} typical depth). Fails to sustain extended multi-perspective analysis.`,
+        `Concise (${words} words vs ${targetRangeText} typical depth). Needs fuller analytical development and evaluation.`,
       );
-    } else if (words < 550) {
-      // 450–549 words: concise extended essay (e.g. timed 40-min script with diagrams or pay-off matrices).
-      // Allow up to 18/20 when well-paragraphed without AI artifacts so authentic Cambridge scripts are never artificially suppressed.
-      maxAllowableTotalMark = hasAiArtifacts || paragraphCount <= 2 ? 12 : (paragraphCount >= 4 ? 18 : 15);
-      maxAllowableAo2 = hasAiArtifacts || paragraphCount <= 2 ? 6 : (paragraphCount >= 4 ? 11 : 9);
-      maxAllowableAo3 = hasAiArtifacts || paragraphCount <= 2 ? 3 : (paragraphCount >= 4 ? 5 : 4);
+    } else if (words < 450) {
+      // 380–449 words: real timed handwritten Cambridge Paper 4 Top-Band scripts with diagrams
+      // (e.g. 9708/42 ECR High 16/20 at ~420 words across 6-8 paragraphs) must NOT be artificially capped at 12/20.
+      // Only monolithic/AI-formatted blocks in this length range remain undersized & capped at 11-12/20.
+      if (hasAiArtifacts || paragraphCount <= 2) {
+        isUndersized = true;
+        maxAllowableTotalMark = 11;
+        maxAllowableAo2 = 6;
+        maxAllowableAo3 = 3;
+        qualityIssues.push(
+          `Underdeveloped structure (${words} words across ${paragraphCount} paragraph(s)). Needs clear multi-paragraph analytical development.`,
+        );
+      } else {
+        maxAllowableTotalMark = paragraphCount >= 4 ? 18 : 15;
+        maxAllowableAo2 = paragraphCount >= 4 ? 11 : 9;
+        maxAllowableAo3 = paragraphCount >= 4 ? 5 : 4;
+      }
     }
   } else {
     // Proportional fallback for non-standard tariffs

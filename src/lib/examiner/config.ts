@@ -238,8 +238,10 @@ export function buildAoEvaluationDirective(maxMark: number, split: AoSplit): str
 
   if (maxMark === 8 && split.ao3_marks === 2) {
     return `TARIFF DIRECTIVE — 8-MARK PAPER 2 (AS LEVEL) EVALUATIVE ESSAY (~15 min, ~200–350 words · AO1: ${split.ao1_marks}, AO2: ${split.ao2_marks}, AO3: ${split.ao3_marks}):
-- Do NOT penalise omitting peripheral syllabus topics when 1–2 core mechanisms are well explained.
-- AO3 (2 marks): Award 2/2 (Level 2) for a clear counter-argument/balanced perspective PLUS a reasoned concluding judgement directly answering the prompt; 1/2 (Level 1) for a brief/unsupported evaluative comment; 0/2 for purely one-sided analysis.`;
+- Do NOT penalise omitting peripheral syllabus topics when core mechanisms AND synthesis are well explained.
+- AO1 (2 marks): Award 2/2 ONLY when ALL key terms are accurately defined; a misdefined core term (e.g. producer surplus = "willing to pay") caps AO1 at 1/2.
+- AO2 (4 marks): Reserve 4/4 for complete, error-free mechanisms including combining simultaneous shifts where required; separate unsynthesised shifts or partial explanations sit at 2–3/4.
+- AO3 (2 marks): Award 2/2 (Level 2) for a coherent, reasoned counter-argument/balanced perspective PLUS a supported concluding judgement directly answering the prompt; 1/2 (Level 1) for a brief/unsupported evaluative comment; 0/2 for one-sided analysis or incoherent/muddled assertions.`;
   }
 
   if (maxMark === 20 || split.ao3_marks >= 6) {
@@ -255,17 +257,17 @@ Apply official Cambridge 9708 Paper 4 Table A (AO1+AO2 combined out of 14, mappe
   * Level 1 (1–5 combined -> AO1=0–1, AO2=1–4): Small number of relevant knowledge points limited by significant errors or omissions; largely descriptive or built on inverted/false causal mechanisms.
   * Level 0 (0): No creditable response.
 - EXAMPLES RULE FOR PAPER 4 (OFFICIAL CAMBRIDGE): Follow Table A — "supported by examples, WHERE APPROPRIATE." For pure A-Level micro theory essays (utility theory, indifference curves, oligopoly game theory/pay-off matrix, contestable markets, market structure efficiency, MRPL/monopsony), rigorous theoretical models, diagrams, numerical illustrations, or pay-off matrices qualify fully for Level 3 AO2 without requiring named countries. For applied macro or policy essays, contextual real-world application strengthens analysis.
-- TABLE B — AO3 EVALUATION (${split.ao3_marks} MARKS TOTAL, MANDATORY):
-  * Level 2 (4–6 of 6): Provides a justified conclusion/judgement addressing the specific requirements of the question AND makes developed, reasoned, well-supported evaluative comments.
+- TABLE B — AO3 EVALUATION (${split.ao3_marks} MARKS TOTAL, MANDATORY — APPLY FULL 0–6 RANGE!):
+  * Level 2 (4–6 of 6): RESERVED ONLY for essays that provide BOTH a justified conclusion/judgement addressing the specific requirements of the question AND developed, reasoned, well-supported evaluative comments:
     - 6/6: Sustained, prioritized evaluation explicitly ranking competing conditions/trade-offs (SR vs LR, assumptions/limitations, magnitude, elasticity, stakeholder impacts) culminating in a decisive contextual verdict directly resolving the prompt.
     - 5/6: Developed, reasoned evaluative points weighing key trade-offs/limitations with clear prioritization (explaining WHICH factor is most decisive and WHY) and a substantiated conclusion.
-    - 4/6: Reasoned evaluative comments with some development and a relevant conditional conclusion, OR an unweighted "it depends on X, Y, and Z" conclusion that lists valid conditions without prioritizing which dominates. (NEVER award 5/6 or 6/6 to an unweighted "depends on A, B, and C" conclusion!)
-  * Level 1 (1–3 of 6): Vague/general conclusion or simple evaluative comments with little development or supporting evidence.
-    - 3/6: Multiple valid but undeveloped caveats ("depends on X, Y, Z") with a general conclusion.
-    - 2/6: Brief counter-argument or limited evaluative remark with a formulaic conclusion.
-    - 1/6: Single token evaluative sentence or unsupported closing assertion.
-  * Level 0 (0 of 6): No creditable evaluation.
-- TIMED EXAM REALISM: Real 40-minute handwritten Paper 4 scripts (especially with diagrams or pay-off matrices) often run 500–850 words. Judge by analytical depth, conceptual accuracy, and evaluative quality — NOT encyclopedic length.`;
+    - 4/6: Developed, reasoned evaluative points weighing genuine trade-offs/limitations in context with a justified conclusion (even if prioritization is partial — typical of real Cambridge 16–17/20 Top-Band scripts). NEVER award 4/6 to a generic, asserted, or unweighted "uncertain / many would argue / short run vs long run" conclusion!
+  * Level 1 (1–3 of 6 — WHERE MOST MIDDLE & LOW SCRIPTS SIT): Vague/general conclusion or simple/asserted evaluative comments with limited development:
+    - 3/6: Multiple valid evaluative caveats ("depends on X, Y, Z") with some explanation and a relevant conditional conclusion, but lacking sustained weighing.
+    - 2/6: Brief counter-arguments or unweighted/listed caveats with a generic/asserted conclusion (e.g. "uncertain in the long run", "many would argue...", "both have pros and cons" — typical of real Cambridge 10–11/20 Middle scripts!).
+    - 1/6: Single token evaluative sentence or unsupported closing assertion (e.g. "in the short run good, in the long run detrimental", "puts government in an uneasy situation", "depends on individuals' understanding" — typical of real Cambridge 4–5/20 Low scripts!).
+  * Level 0 (0 of 6): No creditable evaluation or incoherent assertions.
+- TIMED EXAM REALISM: Real 40-minute handwritten Paper 4 Top-Band scripts (especially with diagrams or pay-off matrices) often run 420–750 words. Judge by analytical depth, conceptual accuracy, and evaluative quality — NOT encyclopedic length. Conversely, a long 550–650 word script that wastes pages on the wrong policy or lacks AD/AS / transmission depth still belongs in Level 1 (4–6/20)!`;
   }
 
   return `TARIFF DIRECTIVE — 12-MARK PAPER 2 (AS LEVEL) EVALUATIVE ESSAY (~25–30 min, ~350–550 words · AO1: ${split.ao1_marks}, AO2: ${split.ao2_marks}, AO3: ${split.ao3_marks}):
@@ -295,10 +297,10 @@ export function renderAo3Descriptors(maxMark: number, ao3Marks: number): string 
       * Level 1 Low (0–1/4): One-sided assertion or token closing sentence.`;
   }
   if (ao3Marks >= 6) {
-    return `- AO3 Evaluation (${ao3Marks} marks — Official Cambridge 9708 Paper 4 Table B):
-      * Level 2 (4–6 of ${ao3Marks}): Justified conclusion/judgement addressing the specific prompt + developed, reasoned, well-supported evaluative comments (6 = sustained prioritization + decisive verdict; 5 = developed weighing + clear justified verdict; 4 = reasoned evaluation + relevant conclusion with partial prioritization).
-      * Level 1 (1–3 of ${ao3Marks}): Vague/general conclusion or simple undeveloped evaluative comments (3 = multiple undeveloped caveats; 2 = brief counter-argument/formulaic ending; 1 = single token remark).
-      * Level 0 (0 of ${ao3Marks}): No creditable evaluation.`;
+    return `- AO3 Evaluation (${ao3Marks} marks — Official Cambridge 9708 Paper 4 Table B — USE FULL 0–6 RANGE):
+      * Level 2 (4–6 of ${ao3Marks}): RESERVED for developed, reasoned, contextual evaluation + justified conclusion (6 = sustained prioritization + decisive verdict; 5 = developed weighing + clear justified verdict; 4 = developed contextual evaluative points + justified conclusion with partial prioritization). NEVER award 4/6 to generic/unweighted endings!
+      * Level 1 (1–3 of ${ao3Marks}): Simple/undeveloped caveats or generic conclusion (3 = multiple explained caveats without weighing; 2 = brief caveats + generic "uncertain / many would argue" conclusion; 1 = single token closing assertion).
+      * Level 0 (0 of ${ao3Marks}): No creditable evaluation or incoherent assertions.`;
   }
   return `- AO3 Evaluation (${ao3Marks} marks): Assess evaluative weighing and concluding judgement out of ${ao3Marks}.`;
 }
