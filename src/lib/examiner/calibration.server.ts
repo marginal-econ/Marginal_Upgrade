@@ -147,6 +147,26 @@ export function selectBestAnchors(
 
   scored.sort((a, b) => b.score - a.score);
   const maxAnchors = Math.max(1, Math.min(2, limit));
+  if (maxAnchors === 1 || scored.length <= 1) {
+    return scored.slice(0, maxAnchors).map((s) => s.anchor);
+  }
+
+  // Diverse multi-band calibration pairing: when selecting 2 anchors, pair the best
+  // Top/High anchor with the best Middle/Low anchor of the same tariff whenever available.
+  // This gives the examiner both the Level 3 ceiling AND the Level 1/2 boundary directly in context.
+  const isHighBand = (a: Anchor) => {
+    const lbl = (a.band_label || "").toLowerCase();
+    if (lbl === "top" || lbl === "high") return true;
+    if (lbl === "middle" || lbl === "low" || lbl === "mid" || lbl === "bottom") return false;
+    return a.max_mark > 0 && a.mark / a.max_mark >= 0.78;
+  };
+
+  const first = scored[0].anchor;
+  const firstIsHigh = isHighBand(first);
+  const contrasting = scored.slice(1).find((s) => isHighBand(s.anchor) !== firstIsHigh);
+  if (contrasting) {
+    return [first, contrasting.anchor];
+  }
   return scored.slice(0, maxAnchors).map((s) => s.anchor);
 }
 

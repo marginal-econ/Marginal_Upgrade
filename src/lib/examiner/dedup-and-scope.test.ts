@@ -316,4 +316,15 @@ describe("Feedback Deduplication, Paper Scope & 20-Mark Calibration", () => {
     expect(norm8.total_mark).toBe(3);
     expect(norm8.missing_elements.analysis).toEqual([]);
   });
+
+  it("pairs a Top/High anchor with a contrasting Middle/Low anchor for multi-band calibration", () => {
+    const anchors: Anchor[] = [
+      { question: "Evaluate monetary policy to reduce inflation", essay_text: "A", mark: 16, max_mark: 20, band_label: "top", notes: "High" },
+      { question: "Evaluate monetary policy to control inflation", essay_text: "B", mark: 17, max_mark: 20, band_label: "top", notes: "High 2" },
+      { question: "Evaluate monetary policy to reduce inflation", essay_text: "C", mark: 10, max_mark: 20, band_label: "middle", notes: "Mid" },
+    ];
+    const picked = selectBestAnchors(anchors, "Evaluate monetary policy to reduce inflation", 20, 2);
+    expect(picked).toHaveLength(2);
+    expect(picked.map((a) => a.band_label).sort()).toEqual(["middle", "top"]);
+  });
 });

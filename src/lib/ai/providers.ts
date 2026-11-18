@@ -161,11 +161,7 @@ export function getCandidateModels(provider: string, primaryModel?: string): str
 
   const fallbackMap: Record<string, string[]> = {
     groq: [
-      "llama-3.3-70b-versatile",
-      "deepseek-r1-distill-llama-70b",
-      "llama-3.1-8b-instant",
-      "mixtral-8x7b-32768",
-      "llama-3.2-11b-vision-preview",
+      "qwen/qwen3.8-27b",
     ],
     xai: ["grok-beta", "grok-2-1212", "grok-2-vision-1212", "grok-vision-beta"],
     openrouter: [

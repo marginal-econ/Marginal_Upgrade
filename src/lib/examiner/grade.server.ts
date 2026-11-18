@@ -349,8 +349,17 @@ export async function gradeEssay(
       ? `\n[MANDATORY CAMBRIDGE DIAGRAM AUDIT: The exam question EXPLICITLY requests a diagram, and NO diagram or pay-off matrix was detected in the submission. Under official Cambridge 9708 mark schemes ("L2 maximum if no accurate diagram provided"), AO2 Analysis MUST NOT exceed Level 2 (${maxMark >= 20 ? "max 8/12" : maxMark === 12 ? "max 4/6" : "max 3/4"}), and you MUST note the omitted diagram in weaknesses and missing_elements.diagrams.]`
       : "";
 
+  const isComparativeBestMethodQuestion =
+    split.ao3_marks > 0 &&
+    /\b(best\s+(?:method|way|policy)|only\s+way|most\s+effective\s+(?:method|way|policy)|more\s+effective\s+than|single\s+best)\b/i.test(
+      question,
+    );
+  const comparativeAuditBanner = isComparativeBestMethodQuestion
+    ? `\n[MANDATORY CAMBRIDGE COMPARATIVE / ONE-SIDEDNESS AUDIT: This question asks whether a named policy/factor is the "best/only/most effective" method. Check BEFORE scoring whether the candidate ACTUALLY ANALYSES at least ONE concrete alternative policy/method with its own causal mechanism (a passing 3-word mention in the conclusion like "along with demand-side policies" does NOT count!). If the essay analyses ONLY the named policy with ZERO analysed alternative, it is strictly ONE-SIDED: cap AO2 at Level 2 low (${maxMark >= 20 ? "max 6/12" : "max 3/6"}) and AO3 at ${maxMark >= 20 ? "0–2/6" : "0–1/4"} (${maxMark === 12 ? "official Cambridge L2;4 Ev0 standard" : "Level 1"}), and flag the missing alternative analysis as the top weakness.]`
+    : "";
+
   const userMessage =
-    `${evalRequirementBanner}${missingRequiredDiagramBanner}\n\n` +
+    `${evalRequirementBanner}${missingRequiredDiagramBanner}${comparativeAuditBanner}\n\n` +
     `EXAM QUESTION TO MARK IN FULL DEPTH (${maxMark} marks):\n` +
     `"""\n${question}\n"""\n\n` +
     `STUDENT ESSAY SUBMISSION:\n` +

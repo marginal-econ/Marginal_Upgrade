@@ -616,26 +616,56 @@ export function normaliseGrading(
     if (split.ao3_marks > 0 && evaluation.awarded > level1Ao3Cap) evaluation.awarded = level1Ao3Cap;
   }
 
-  // 2. If the examiner's own evaluation comment or weaknesses explicitly diagnose incoherent/absent evaluation,
-  //    enforce consistent AO3 marks (0 on 8m, max 1 on 12m/20m) so prose and score never contradict.
-  //    Also on 20m Paper 4: if the examiner explicitly diagnoses BOTH a major directional error AND generic/unweighted
-  //    evaluation, enforce Level 1 caps (AO2 <= 4, AO3 <= 1) so prose ("lower middle/bottom band") matches the mark.
+  // 2. Deterministic mark-to-diagnosis consistency checks:
+  //    - Incoherent/absent evaluation diagnosis -> AO3 capped (0 on 8m, <= 1 on 12m/20m)
+  //    - One-sided single-policy response on a "best method / only way" question -> AO2 L2 low & AO3 <= 1 (12m) / <= 2 (20m)
+  //    - Major directional error or generic/absent evaluation on 20m Paper 4 -> consistent Cambridge Table A & Table B level
   if (split.ao3_marks > 0) {
     const fullDiagText = `${examinerSummary} ${analysis.comment} ${evaluation.comment} ${weaknesses.join(" ")}`;
     const evalDiagText = `${evaluation.comment} ${weaknesses.join(" ")}`;
-    if (/\b(evaluation\s+is\s+(?:completely\s+)?(?:incoherent|absent|missing|non[- ]?existent)|incoherent(?:,\s+\w+)?\s+evaluation|no\s+creditable\s+evaluation)\b/i.test(evalDiagText)) {
+    const isComparativePrompt =
+      maxMark >= 12 &&
+      Boolean(questionText) &&
+      /\b(best\s+(?:method|way|policy)|only\s+way|most\s+effective\s+(?:method|way|policy)|more\s+effective\s+than|single\s+best)\b/i.test(
+        questionText!,
+      );
+    const isOneSidedMissingAlternative =
+      isComparativePrompt &&
+      /\b(single[- ]policy|only\s+analys(?:es|ing)\s+[\w\s-]{2,25}without\s+(?:analysing|comparing)|fails?\s+to\s+analys(?:e|ze)\s+any\s+alternative|does\s+not\s+analys(?:e|ze)\s+any\s+alternative|no\s+alternative\s+polic(?:y|ies)\s+(?:is|are)\s+analysed|one[- ]sided\s+(?:single[- ]policy|response|analysis\s+of\s+only))\b/i.test(
+        fullDiagText,
+      );
+
+    if (isOneSidedMissingAlternative) {
+      const oneSidedAo2Cap = maxMark >= 20 ? 6 : maxMark === 12 ? 3 : 2;
+      const oneSidedAo3Cap = maxMark >= 20 ? 2 : maxMark === 12 ? 1 : 0;
+      if (analysis.awarded > oneSidedAo2Cap) analysis.awarded = oneSidedAo2Cap;
+      if (evaluation.awarded > oneSidedAo3Cap) evaluation.awarded = oneSidedAo3Cap;
+    }
+
+    if (/\b(evaluation\s+is\s+(?:completely\s+)?(?:incoherent|absent|missing|non[- ]?existent)|incoherent(?:,\s+\w+)?\s+evaluation|no\s+creditable\s+evaluation|wholly\s+absent\s+evaluation)\b/i.test(evalDiagText)) {
       const incoherentCap = maxMark === 8 ? 0 : 1;
       if (evaluation.awarded > incoherentCap) evaluation.awarded = incoherentCap;
     } else if (maxMark >= 20) {
       const hasMajorDirectionalError = /\bmajor\s+directional\s+error\b|\binvert(?:s|ed)\s+(?:the\s+)?(?:causal|transmission|interest\s+rate|tax)\s+(?:chain|mechanism)\b/i.test(fullDiagText);
       const hasGenericOrUnweightedEval = /\b(evaluation\s+is\s+(?:generic|superficial|unweighted|undeveloped)|unweighted\s+(?:evaluation|conclusion|list\s+of\s+factors)|generic\s+conclusion)\b/i.test(fullDiagText);
+      const missesCoreRatioMechanism = /\b(does\s+not\s+(?:explicitly\s+)?explain\s+how\s+the\s+ratio\s+of\s+mes|fails?\s+to\s+(?:link|connect)\s+(?:total\s+)?market\s+(?:demand|size)\s+(?:to|with)\s+(?:mes|minimum\s+efficient\s+scale)|misses?\s+the\s+core\s+relationship)\b/i.test(fullDiagText);
       if (hasMajorDirectionalError) {
         if (analysis.awarded > 4) analysis.awarded = 4;
         if (evaluation.awarded > 1) evaluation.awarded = 1;
-      } else if (hasGenericOrUnweightedEval && analysis.awarded <= 8) {
-        // Level 2 Paper 4 scripts with generic/unweighted evaluation sit in Table B Level 1 (max 2-3/6), NOT 4/6
-        const l2EvalCap = analysis.awarded <= 5 ? 2 : 3;
-        if (evaluation.awarded > l2EvalCap) evaluation.awarded = l2EvalCap;
+      } else {
+        if (missesCoreRatioMechanism && analysis.awarded > 7) {
+          analysis.awarded = 7;
+        }
+        if (hasGenericOrUnweightedEval) {
+          if (analysis.awarded <= 5) {
+            if (evaluation.awarded > 2) evaluation.awarded = 2;
+          } else if (analysis.awarded <= 8) {
+            if (evaluation.awarded > 3) evaluation.awarded = 3;
+          } else if (/\b(?:evaluation\s+is\s+generic|generic\s+conclusion|misses\s+an\s+opportunity\s+to\s+evaluate\s+the\s+limitations)\b/i.test(evalDiagText)) {
+            // Even with higher AO2, explicitly diagnosed "evaluation is generic" with no limitations cannot earn Table B Level 2 (4+/6)
+            if (evaluation.awarded > 2) evaluation.awarded = 2;
+          }
+        }
       }
     }
   }
