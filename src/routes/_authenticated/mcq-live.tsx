@@ -20,6 +20,7 @@ import {
   Search,
   Shield,
   Sparkles,
+  Target,
   Timer as TimerIcon,
   Trash2,
   TrendingUp,
@@ -49,11 +50,14 @@ import {
   McqReviewPanel,
   McqQuestionReviewList,
   McqDomainBreakdown,
+  McqMistakeLedger,
   buildTopicStatsFromQuestions,
   type ExplanationState,
   type TopicStat,
   type GradedQuestion,
 } from "@/components/app/mcq-review-panel";
+import { McqTutorMode } from "@/components/app/mcq-tutor-mode";
+import { type McqMistakeType } from "@/lib/mcq-mistakes";
 import { Badge as UiBadge } from "@/components/ui/badge";
 import { ThemeToggle } from "@/components/marketing/theme-toggle";
 import { Button } from "@/components/ui/button";
@@ -84,8 +88,10 @@ import {
 import { listMcqPapers, getMcqPaperAnswerKey } from "@/lib/mcq-papers.functions";
 import {
   loadPdfjs,
-  extractQuestionStems,
+  extractQuestionSpans,
+  cropQuestionSliceCanvas,
   type PdfTextItem,
+  type QuestionPageSpan,
   type StemBlob,
 } from "@/lib/mcq-pdf-text";
 import {
@@ -128,6 +134,7 @@ export const Route = createFileRoute("/_authenticated/mcq-live")({
 
 type Letter = "A" | "B" | "C" | "D";
 type Level = "as" | "a2";
+type PracticeMode = "full_paper" | "question_by_question";
 
 /**
  * Real Cambridge 9708 paper timings — Paper 1 (AS) is 1 hour, Paper 3
@@ -152,8 +159,14 @@ type McqDraft = {
   paperId: string;
   paperTitle?: string;
   level?: Level;
+  practiceMode?: PracticeMode;
   answers: Record<number, Letter>;
   flagged?: number[];
+  checkedQuestions?: number[];
+  mistakeTypes?: Record<number, McqMistakeType>;
+  eliminatedOptions?: Record<number, Letter[]>;
+  questionTimes?: Record<number, number>;
+  activeQuestion?: number;
   timeLeft: number | null;
   savedAt: number;
 };
@@ -401,9 +414,18 @@ function McqLivePage() {
   const [busyLabel, setBusyLabel] = useState<string | null>(null);
 
   const [pages, setPages] = useState<PageImage[]>([]);
+  const [questionSlices, setQuestionSlices] = useState<Record<number, HTMLCanvasElement>>({});
   const [stemBlobs, setStemBlobs] = useState<StemBlob[]>([]);
   const [answers, setAnswers] = useState<Record<number, Letter>>({});
   const [flagged, setFlagged] = useState<Set<number>>(new Set());
+
+  // ---- Question-by-Question (Tutor & Mistake Diagnostic) Mode state ----
+  const [practiceMode, setPracticeMode] = useState<PracticeMode>("full_paper");
+  const [checkedQuestions, setCheckedQuestions] = useState<Set<number>>(new Set());
+  const [mistakeTypes, setMistakeTypes] = useState<Record<number, McqMistakeType>>({});
+  const [eliminatedOptions, setEliminatedOptions] = useState<Record<number, Letter[]>>({});
+  const [questionTimes, setQuestionTimes] = useState<Record<number, number>>({});
+  const [annotationClearSeq, setAnnotationClearSeq] = useState(0);
 
   // Autosave status & immediate-persistence tracking
   const [saveStatus, setSaveStatus] = useState<"saved" | "saving">("saved");
@@ -412,6 +434,16 @@ function McqLivePage() {
   answersRef.current = answers;
   const flaggedRef = useRef(flagged);
   flaggedRef.current = flagged;
+  const practiceModeRef = useRef(practiceMode);
+  practiceModeRef.current = practiceMode;
+  const checkedQuestionsRef = useRef(checkedQuestions);
+  checkedQuestionsRef.current = checkedQuestions;
+  const mistakeTypesRef = useRef(mistakeTypes);
+  mistakeTypesRef.current = mistakeTypes;
+  const eliminatedOptionsRef = useRef(eliminatedOptions);
+  eliminatedOptionsRef.current = eliminatedOptions;
+  const questionTimesRef = useRef(questionTimes);
+  questionTimesRef.current = questionTimes;
   const selectedPaperIdRef = useRef(selectedPaperId);
   selectedPaperIdRef.current = selectedPaperId;
   const paperTitleRef = useRef(paperTitle);
@@ -629,6 +661,8 @@ function McqLivePage() {
   const [explanations, setExplanations] = useState<Record<number, ExplanationState>>({});
   // Active question number currently selected / being viewed
   const [activeQuestion, setActiveQuestion] = useState<number>(1);
+  const activeQuestionRef = useRef(activeQuestion);
+  activeQuestionRef.current = activeQuestion;
   // Map of question number -> PDF page number (1-indexed)
   const [questionPages, setQuestionPages] = useState<Record<number, number>>({});
   // Mobile bottom sheets
@@ -715,6 +749,7 @@ function McqLivePage() {
       const ctx = canvas.getContext("2d");
       ctx?.clearRect(0, 0, canvas.width, canvas.height);
     });
+    setAnnotationClearSeq((n) => n + 1);
   }, []);
 
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -754,13 +789,17 @@ function McqLivePage() {
   const fetchPaperPdfFn = useServerFn(fetchPaperPdf);
   const getAnswerKeyFn = useServerFn(getMcqPaperAnswerKey);
 
-  /** Fetches a short written explanation for one question, on demand — only
-   *  ever called from the post-attempt review list, never during the attempt. */
-  async function handleExplain(number: number) {
+  /** Fetches a structured Cambridge 9708 examiner explanation for one question,
+   *  on demand — called in post-attempt review OR immediately after checking a
+   *  question in Question-by-Question Tutor Mode. */
+  async function handleExplain(
+    number: number,
+    overrideMistakeType?: McqMistakeType | null,
+  ) {
     if (explanations[number] === "loading") return;
     setExplanations((prev) => ({ ...prev, [number]: "loading" }));
     const q = reviewQuestions.find((r) => r.number === number);
-    const correctAnswer = q?.correct_answer;
+    const correctAnswer = q?.correct_answer ?? answerKey[number] ?? null;
     if (!correctAnswer) {
       setExplanations((prev) => ({
         ...prev,
@@ -773,15 +812,27 @@ function McqLivePage() {
         stemBlobs.find((s) => s.number === number)?.text ??
         q?.stem_text ??
         "";
+      const inferred = classifyMcqQuestion({
+        level: level === "a2" ? "A2" : "AS",
+        number,
+        text: stem,
+        existingTopic: q?.topic,
+        existingSubtopic: q?.subtopic,
+      });
+      const resolvedMistakeType =
+        overrideMistakeType !== undefined
+          ? overrideMistakeType
+          : (mistakeTypesRef.current[number] ?? q?.mistake_type ?? null);
       const { explanation } = await explainFn({
         data: {
           level,
           number,
           stemText: stem,
           correctAnswer,
-          userAnswer: q?.user_answer ?? null,
-          topic: q?.topic,
-          subtopic: q?.subtopic,
+          userAnswer: q?.user_answer ?? answersRef.current[number] ?? null,
+          topic: q?.topic ?? inferred.topic,
+          subtopic: q?.subtopic ?? inferred.subtopic,
+          mistakeType: resolvedMistakeType,
         },
       });
       setExplanations((prev) => ({
@@ -959,13 +1010,21 @@ function fillMissingQuestionPages(
       total: number;
       questions: GradedQuestion[];
     },
+    overrideMode?: PracticeMode,
   ) {
-    if (startInExamMode && !completedAttempt) {
+    const draft =
+      !completedAttempt ? readMcqDraft(effectiveUserId, paper.id) : null;
+    const resolvedMode: PracticeMode =
+      overrideMode ?? draft?.practiceMode ?? practiceModeRef.current ?? "full_paper";
+    setPracticeMode(resolvedMode);
+    practiceModeRef.current = resolvedMode;
+
+    if (startInExamMode && !completedAttempt && resolvedMode === "full_paper") {
       void handleEnableExamMode();
     }
     setExamViolations([]);
     setActiveViolation(null);
-    if (!completedAttempt && !startInExamMode) {
+    if (!completedAttempt && (!startInExamMode || resolvedMode !== "full_paper")) {
       hadExamModeRef.current = false;
     }
     setSelectedPaperId(paper.id);
@@ -998,8 +1057,6 @@ function fillMissingQuestionPages(
           console.warn("Async answer key lookup failed:", err);
         });
     }
-    const draft =
-      !completedAttempt ? readMcqDraft(effectiveUserId, paper.id) : null;
     const completedAnswers = completedAttempt
       ? Object.fromEntries(
           completedAttempt.questions.flatMap((question) =>
@@ -1007,12 +1064,35 @@ function fillMissingQuestionPages(
           ),
         )
       : null;
+    const completedMistakes = completedAttempt
+      ? Object.fromEntries(
+          completedAttempt.questions.flatMap((question) =>
+            question.mistake_type ? [[question.number, question.mistake_type]] : [],
+          ),
+        )
+      : null;
     const initialAnswers = completedAnswers ?? draft?.answers ?? {};
     const initialFlagged = new Set(draft?.flagged ?? []);
+    const initialChecked = completedAttempt
+      ? new Set(completedAttempt.questions.map((q) => q.number))
+      : new Set(draft?.checkedQuestions ?? []);
+    const initialMistakes: Record<number, McqMistakeType> =
+      (completedMistakes as Record<number, McqMistakeType> | null) ?? draft?.mistakeTypes ?? {};
+    const initialEliminated: Record<number, Letter[]> = draft?.eliminatedOptions ?? {};
+    const initialTimes: Record<number, number> = draft?.questionTimes ?? {};
+
     setAnswers(initialAnswers);
     answersRef.current = initialAnswers;
     setFlagged(initialFlagged);
     flaggedRef.current = initialFlagged;
+    setCheckedQuestions(initialChecked);
+    checkedQuestionsRef.current = initialChecked;
+    setMistakeTypes(initialMistakes);
+    mistakeTypesRef.current = initialMistakes;
+    setEliminatedOptions(initialEliminated);
+    eliminatedOptionsRef.current = initialEliminated;
+    setQuestionTimes(initialTimes);
+    questionTimesRef.current = initialTimes;
     setGraded(!!completedAttempt);
     setResult(
       completedAttempt && completedAttempt.score !== null
@@ -1104,6 +1184,7 @@ function fillMissingQuestionPages(
           onProgress: (label) => setBusyLabel(label),
         });
         setQuestionPages(topicalBuilt.questionPages);
+        setQuestionSlices(topicalBuilt.questionSlices);
         setPages(topicalBuilt.pages);
         setStemBlobs(topicalBuilt.stems);
       } else {
@@ -1117,8 +1198,13 @@ function fillMissingQuestionPages(
         const built: PageImage[] = [];
         const stems: StemBlob[] = [];
         const candidatePageMap: Record<number, number[]> = {};
+        const pageMetaByNum = new Map<
+          number,
+          { canvas: HTMLCanvasElement; heightPt: number; spans: QuestionPageSpan[] }
+        >();
         for (let p = 1; p <= doc.numPages; p++) {
           const page = await doc.getPage(p);
+          const unscaledViewport = page.getViewport({ scale: 1 });
           const viewport = page.getViewport({ scale: RENDER_SCALE });
 
           const canvas = document.createElement("canvas");
@@ -1126,14 +1212,20 @@ function fillMissingQuestionPages(
           canvas.height = viewport.height;
           const ctx = canvas.getContext("2d");
           if (!ctx) continue;
+          ctx.fillStyle = "#ffffff";
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
           await (page.render({ canvasContext: ctx, viewport } as any) as any).promise;
           built.push({ pageNumber: p, canvas });
 
+          let pageSpans: QuestionPageSpan[] = [];
           try {
             const content = await page.getTextContent();
-            const pageStems = extractQuestionStems(content.items as PdfTextItem[]);
-            stems.push(...pageStems);
-            for (const s of pageStems) {
+            pageSpans = extractQuestionSpans(
+              content.items as PdfTextItem[],
+              unscaledViewport.height,
+            );
+            stems.push(...pageSpans.map(({ number, text }) => ({ number, text })));
+            for (const s of pageSpans) {
               if (s.number >= 1 && s.number <= paper.questionCount) {
                 if (!candidatePageMap[s.number]) {
                   candidatePageMap[s.number] = [];
@@ -1144,6 +1236,12 @@ function fillMissingQuestionPages(
           } catch (textErr) {
             console.warn(`Text extraction skipped for page ${p}:`, textErr);
           }
+
+          pageMetaByNum.set(p, {
+            canvas,
+            heightPt: unscaledViewport.height,
+            spans: pageSpans,
+          });
         }
 
         // Resolve candidate sightings into a strictly monotonic question -> page map.
@@ -1172,6 +1270,24 @@ function fillMissingQuestionPages(
           }
         }
 
+        // Crop isolated single-question PDF slices for Question-by-Question Mode
+        const builtSlices: Record<number, HTMLCanvasElement> = {};
+        for (let q = 1; q <= paper.questionCount; q++) {
+          const resolvedPage = rawPageMap[q];
+          if (!resolvedPage) continue;
+          const pageMeta = pageMetaByNum.get(resolvedPage);
+          const span = pageMeta?.spans.find((s) => s.number === q);
+          if (pageMeta && span) {
+            builtSlices[q] = cropQuestionSliceCanvas({
+              pageCanvas: pageMeta.canvas,
+              pageHeightPt: pageMeta.heightPt,
+              yTop: span.yTop,
+              yBottom: span.yBottom,
+              scale: RENDER_SCALE,
+            });
+          }
+        }
+
         const completedPageMap = fillMissingQuestionPages(
           rawPageMap,
           paper.questionCount,
@@ -1192,10 +1308,16 @@ function fillMissingQuestionPages(
           .map(([number, text]) => ({ number, text }));
 
         setQuestionPages(completedPageMap);
+        setQuestionSlices(builtSlices);
         setPages(built);
         setStemBlobs(dedupedStems);
       }
-      setActiveQuestion(1);
+      const restoredActive =
+        draft?.activeQuestion && draft.activeQuestion >= 1 && draft.activeQuestion <= (paper.questionCount || 30)
+          ? draft.activeQuestion
+          : 1;
+      setActiveQuestion(restoredActive);
+      activeQuestionRef.current = restoredActive;
       setStage("practice");
       if (!completedAttempt) {
         saveDraftToStorage(
@@ -1327,7 +1449,13 @@ function fillMissingQuestionPages(
    * running out of time, via the effect below.
    */
   useEffect(() => {
-    if (stage !== "practice" || graded || !timerEnabled) return;
+    if (
+      stage !== "practice" ||
+      graded ||
+      !timerEnabled ||
+      practiceMode === "question_by_question"
+    )
+      return;
     const id = setInterval(() => {
       setTimeLeft((prev) => {
         if (prev === null) return prev;
@@ -1339,7 +1467,7 @@ function fillMissingQuestionPages(
       });
     }, 1000);
     return () => clearInterval(id);
-  }, [stage, graded, timerEnabled]);
+  }, [stage, graded, timerEnabled, practiceMode]);
 
   useEffect(() => {
     if (
@@ -1347,6 +1475,7 @@ function fillMissingQuestionPages(
       stage !== "practice" ||
       graded ||
       !timerEnabled ||
+      practiceMode === "question_by_question" ||
       autoSubmittedRef.current
     )
       return;
@@ -1355,7 +1484,7 @@ function fillMissingQuestionPages(
     toast.warning("Time's up — submitting your answers automatically.");
     gradeAndSave();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [timeLeft, stage, graded, timerEnabled]);
+  }, [timeLeft, stage, graded, timerEnabled, practiceMode]);
 
   /* ---------------- resilient autosave engine ---------------- */
 
@@ -1374,8 +1503,14 @@ function fillMissingQuestionPages(
           paperId: targetPaperId,
           paperTitle: paperTitleRef.current,
           level: levelRef.current,
+          practiceMode: practiceModeRef.current,
           answers: currentAnswers,
           flagged: Array.from(currentFlagged),
+          checkedQuestions: Array.from(checkedQuestionsRef.current),
+          mistakeTypes: mistakeTypesRef.current,
+          eliminatedOptions: eliminatedOptionsRef.current,
+          questionTimes: questionTimesRef.current,
+          activeQuestion: activeQuestionRef.current,
           timeLeft: currentTimeLeft,
           savedAt: Date.now(),
         };
@@ -1424,6 +1559,56 @@ function fillMissingQuestionPages(
       saveTimerRef.current = window.setTimeout(() => setSaveStatus("saved"), 400);
     },
     [timeUp, saveDraftToStorage],
+  );
+
+  const handleTutorCheckAnswer = useCallback(
+    (number: number, elapsedSeconds: number) => {
+      setSaveStatus("saving");
+      setCheckedQuestions((prev) => {
+        const next = new Set(prev);
+        next.add(number);
+        checkedQuestionsRef.current = next;
+        return next;
+      });
+      setQuestionTimes((prev) => {
+        const next = { ...prev, [number]: elapsedSeconds };
+        questionTimesRef.current = next;
+        return next;
+      });
+      saveDraftToStorage(answersRef.current, flaggedRef.current, timeLeftRef.current);
+      if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = window.setTimeout(() => setSaveStatus("saved"), 400);
+    },
+    [saveDraftToStorage],
+  );
+
+  const handleSetMistakeType = useCallback(
+    (number: number, type: McqMistakeType) => {
+      setSaveStatus("saving");
+      setMistakeTypes((prev) => {
+        const next = { ...prev, [number]: type };
+        mistakeTypesRef.current = next;
+        return next;
+      });
+      saveDraftToStorage(answersRef.current, flaggedRef.current, timeLeftRef.current);
+      if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = window.setTimeout(() => setSaveStatus("saved"), 400);
+    },
+    [saveDraftToStorage],
+  );
+
+  const handleToggleEliminate = useCallback(
+    (number: number, letter: Letter) => {
+      setEliminatedOptions((prev) => {
+        const cur = prev[number] ?? [];
+        const exists = cur.includes(letter);
+        const nextArr = exists ? cur.filter((l) => l !== letter) : [...cur, letter];
+        const next = { ...prev, [number]: nextArr };
+        eliminatedOptionsRef.current = next;
+        return next;
+      });
+    },
+    [],
   );
 
   // Periodic background draft sync (saves timer countdown progress every 5 seconds)
@@ -1504,17 +1689,16 @@ function fillMissingQuestionPages(
           const topicalQ = matchedTopical?.questions.find((q) => q.number === number);
           const stemText =
             stemByNumber.get(number) ??
-            (topicalQ
-              ? `${topicalQ.stem} A ${topicalQ.options.A} B ${topicalQ.options.B} C ${topicalQ.options.C} D ${topicalQ.options.D}`
-              : "");
+            (topicalQ?.stemText ?? "");
           const classified = classifyMcqQuestion({
             level: levelUpper,
             number,
             text: stemText,
-            existingTopic: matchedTopical?.topic,
+            existingTopic: matchedTopical?.shortTitle,
             existingSubtopic: topicalQ?.subtopic,
             existingSkill: topicalQ?.skill,
           });
+          const isCorrect = correctAnswer ? correctAnswer === userAnswer : null;
           return {
             number,
             topic: classified.topic,
@@ -1525,7 +1709,8 @@ function fillMissingQuestionPages(
             stem_text: stemText ? stemText.slice(0, 1400) : undefined,
             correct_answer: correctAnswer,
             user_answer: userAnswer,
-            correct: correctAnswer ? correctAnswer === userAnswer : null,
+            correct: isCorrect,
+            mistake_type: isCorrect === false ? (mistakeTypesRef.current[number] ?? null) : null,
           };
         });
 
@@ -1561,6 +1746,7 @@ function fillMissingQuestionPages(
             correct_answer: q.correct_answer,
             user_answer: q.user_answer,
             correct: q.correct,
+            mistake_type: q.mistake_type,
           })),
         },
       });
@@ -1777,7 +1963,9 @@ function fillMissingQuestionPages(
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
                     <span className="text-[11px] font-bold tracking-wider uppercase text-primary">
-                      In-Progress Exam
+                      {activeDraftSummary.draft.practiceMode === "question_by_question"
+                        ? "In-Progress 1-by-1 Tutor"
+                        : "In-Progress Exam"}
                     </span>
                     <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold text-amber-600 dark:text-amber-400">
                       <Clock className="h-3 w-3" />
@@ -1861,13 +2049,15 @@ function fillMissingQuestionPages(
                     papers={papersQuery.data!.papers}
                     busy={!!busyLabel}
                     busyPaperId={selectedPaperId}
-                    onStart={beginPractice}
+                    onStart={(paper) => beginPractice(paper, undefined, practiceMode)}
                     activeDraftPaperId={activeDraftSummary?.paper.id}
                     activeDraftAnswersCount={
                       activeDraftSummary ? Object.keys(activeDraftSummary.draft.answers).length : 0
                     }
                     startInExamMode={startInExamMode}
                     onToggleExamMode={setStartInExamMode}
+                    practiceMode={practiceMode}
+                    onChangePracticeMode={setPracticeMode}
                   />
                 )}
               </div>
@@ -1888,13 +2078,17 @@ function fillMissingQuestionPages(
               topicalPapers={TOPICAL_MCQ_PAPERS}
               busy={!!busyLabel}
               busyPaperId={selectedPaperId}
-              onStart={(topical) => beginPractice(toMcqPaperSummaryFromTopical(topical))}
+              onStart={(topical) =>
+                beginPractice(toMcqPaperSummaryFromTopical(topical), undefined, practiceMode)
+              }
               activeDraftPaperId={activeDraftSummary?.paper.id}
               activeDraftAnswersCount={
                 activeDraftSummary ? Object.keys(activeDraftSummary.draft.answers).length : 0
               }
               startInExamMode={startInExamMode}
               onToggleExamMode={setStartInExamMode}
+              practiceMode={practiceMode}
+              onChangePracticeMode={setPracticeMode}
             />
           ) : null}
 
@@ -1904,6 +2098,14 @@ function fillMissingQuestionPages(
               <div className="min-w-0 space-y-4">
                 {topicPerformance.data && topicPerformance.data.topics.length > 0 ? (
                   <>
+                    {topicPerformance.data.totalTaggedMistakes &&
+                    topicPerformance.data.totalTaggedMistakes > 0 &&
+                    topicPerformance.data.mistakeCounts ? (
+                      <McqMistakeLedger
+                        countsOverride={topicPerformance.data.mistakeCounts}
+                        title="Lifetime Mistake Pathology — Why You Lose Marks"
+                      />
+                    ) : null}
                     <McqDomainBreakdown
                       domains={aggregateMcqDomainsFromTopicStats(
                         topicPerformance.data.topics.map((t) => ({
@@ -1963,7 +2165,52 @@ function fillMissingQuestionPages(
             </div>
 
             <div className="flex items-center gap-1 sm:gap-2 shrink-0">
-              {timeLeft !== null ? (
+              {!examModeActive ? (
+                <div
+                  className="inline-flex items-center rounded-lg border border-border/80 bg-muted/40 p-0.5 text-[11px]"
+                  role="group"
+                  aria-label="Practice mode"
+                >
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPracticeMode("full_paper");
+                      practiceModeRef.current = "full_paper";
+                      saveDraftToStorage(answersRef.current, flaggedRef.current, timeLeftRef.current);
+                    }}
+                    className={cn(
+                      "inline-flex items-center gap-1 rounded-md px-2 py-1 font-semibold transition-all",
+                      practiceMode === "full_paper"
+                        ? "bg-background text-foreground shadow-2xs"
+                        : "text-muted-foreground hover:text-foreground",
+                    )}
+                    title="View the full scrollable PDF paper with side answer sheet"
+                  >
+                    <BookOpen className="h-3 w-3" />
+                    <span className="hidden md:inline">Full Paper</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPracticeMode("question_by_question");
+                      practiceModeRef.current = "question_by_question";
+                      saveDraftToStorage(answersRef.current, flaggedRef.current, timeLeftRef.current);
+                    }}
+                    className={cn(
+                      "inline-flex items-center gap-1 rounded-md px-2 py-1 font-semibold transition-all",
+                      practiceMode === "question_by_question"
+                        ? "bg-primary text-primary-foreground shadow-2xs"
+                        : "text-muted-foreground hover:text-foreground",
+                    )}
+                    title="One real PDF question at a time with instant correction & mistake diagnosis"
+                  >
+                    <Target className="h-3 w-3" />
+                    <span className="hidden sm:inline">1-by-1</span>
+                  </button>
+                </div>
+              ) : null}
+
+              {timeLeft !== null && practiceMode === "full_paper" ? (
                 <div className="flex items-center gap-1.5">
                   <Button
                     size="sm"
@@ -2026,22 +2273,26 @@ function fillMissingQuestionPages(
                 <span className="hidden sm:inline">Calculator</span>
               </Button>
 
-              <ExamToolbarControl
-                isActive={examModeActive}
-                onOpenPrompt={() => setExamPromptOpen(true)}
-                onExitExamMode={handleDisableExamMode}
-              />
+              {practiceMode === "full_paper" ? (
+                <ExamToolbarControl
+                  isActive={examModeActive}
+                  onOpenPrompt={() => setExamPromptOpen(true)}
+                  onExitExamMode={handleDisableExamMode}
+                />
+              ) : null}
 
               <ThemeToggle className="size-8" />
 
-              <div className="hidden md:flex items-center gap-2 min-w-[7rem]">
-                <Progress value={(answeredCount / Math.max(qCount, 1)) * 100} className="h-2" />
-                <span className="whitespace-nowrap font-mono text-xs text-muted-foreground">
-                  {answeredCount}/{qCount}
-                </span>
-              </div>
+              {practiceMode === "full_paper" ? (
+                <div className="hidden md:flex items-center gap-2 min-w-[7rem]">
+                  <Progress value={(answeredCount / Math.max(qCount, 1)) * 100} className="h-2" />
+                  <span className="whitespace-nowrap font-mono text-xs text-muted-foreground">
+                    {answeredCount}/{qCount}
+                  </span>
+                </div>
+              ) : null}
 
-              {flagged.size > 0 ? (
+              {flagged.size > 0 && practiceMode === "full_paper" ? (
                 <UiBadge
                   variant="outline"
                   className="gap-1 border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400 font-mono text-xs px-2 py-0.5 hidden xs:inline-flex"
@@ -2054,7 +2305,7 @@ function fillMissingQuestionPages(
               {!graded ? (
                 <div
                   className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-border/60 bg-muted/40 font-mono text-[11px] text-muted-foreground select-none"
-                  title="Autosave is active — all answers and timer progress are saved locally in your browser."
+                  title="Autosave is active — all answers and progress are saved locally in your browser."
                 >
                   {saveStatus === "saving" ? (
                     <>
@@ -2070,15 +2321,17 @@ function fillMissingQuestionPages(
                 </div>
               ) : null}
 
-              <Button
-                size="sm"
-                onClick={gradeAndSave}
-                disabled={!!busyLabel}
-                className="h-8 px-3 text-xs font-semibold gap-1.5 shadow-sm"
-              >
-                {busyLabel ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-                <span>Submit</span>
-              </Button>
+              {practiceMode === "full_paper" ? (
+                <Button
+                  size="sm"
+                  onClick={gradeAndSave}
+                  disabled={!!busyLabel}
+                  className="h-8 px-3 text-xs font-semibold gap-1.5 shadow-sm"
+                >
+                  {busyLabel ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                  <span>Submit</span>
+                </Button>
+              ) : null}
             </div>
           </div>
 
@@ -2138,146 +2391,198 @@ function fillMissingQuestionPages(
             </div>
           ) : null}
 
-          {timeUp ? (
+          {timeUp && practiceMode === "full_paper" ? (
             <div className="shrink-0 border-b border-destructive/30 bg-destructive/10 px-5 py-2 text-center text-xs text-destructive md:px-8">
               Time's up — this attempt has been submitted automatically.
             </div>
           ) : null}
 
-          {result
-            ? (() => {
-                const pct = Math.round((result.score / Math.max(result.total, 1)) * 100);
-                const tier = resultTier(pct);
-                return (
-                  <div
-                    className={cn(
-                      "shrink-0 flex flex-wrap items-center justify-between gap-3 border-b px-4 py-2.5 md:px-6",
-                      tier.className,
-                    )}
-                  >
-                    <div className="flex flex-wrap items-center gap-2.5">
-                      <tier.Icon className="h-5 w-5 shrink-0" />
-                      <span className="text-lg font-extrabold tracking-tight tabular-nums">
-                        {result.score} / {result.total}
-                      </span>
-                      <span className="rounded-full border border-current/25 bg-background/50 px-2 py-0.5 font-mono text-xs font-bold">
-                        {pct}%
-                      </span>
-                      <span className="text-xs sm:text-sm font-semibold">{tier.label}</span>
-                      <ExamIntegrityReport
-                        wasExamModeActive={hadExamModeRef.current || examModeActive}
-                        violations={examViolations}
-                      />
-                    </div>
-
-                    {attemptTopics.length > 0 ? (
-                      <Button
-                        size="sm"
-                        variant={showAttemptDiagnostics ? "default" : "outline"}
-                        onClick={() => setShowAttemptDiagnostics((v) => !v)}
-                        className="h-7 gap-1.5 px-2.5 text-xs font-semibold bg-background/90 text-foreground hover:bg-background"
+          {practiceMode === "question_by_question" ? (
+            <McqTutorMode
+              paperTitle={paperTitle}
+              level={level}
+              questionNumbers={questionNumbers}
+              pages={pages}
+              questionPages={questionPages}
+              questionSlices={questionSlices}
+              stemBlobs={stemBlobs}
+              answerKey={answerKey}
+              answers={answers}
+              checkedQuestions={checkedQuestions}
+              mistakeTypes={mistakeTypes}
+              eliminatedOptions={eliminatedOptions}
+              questionTimes={questionTimes}
+              flagged={flagged}
+              activeQuestion={activeQuestion}
+              explanations={explanations}
+              graded={graded}
+              busyLabel={busyLabel}
+              result={result}
+              attemptTopics={attemptTopics}
+              attemptDomains={attemptDomains}
+              reviewQuestions={reviewQuestions}
+              annotateMode={annotateMode}
+              annotateTool={annotateTool}
+              annotateColor={annotateColor}
+              annotationClearSeq={annotationClearSeq}
+              calcOpen={calcOpen}
+              onSelectActiveQuestion={(num) => {
+                setActiveQuestion(num);
+                activeQuestionRef.current = num;
+              }}
+              onPickAnswer={pick}
+              onCheckAnswer={handleTutorCheckAnswer}
+              onSetMistakeType={handleSetMistakeType}
+              onToggleEliminate={handleToggleEliminate}
+              onToggleFlag={toggleFlag}
+              onExplainQuestion={handleExplain}
+              onFinishSession={gradeAndSave}
+            />
+          ) : (
+            <>
+              {result
+                ? (() => {
+                    const pct = Math.round((result.score / Math.max(result.total, 1)) * 100);
+                    const tier = resultTier(pct);
+                    return (
+                      <div
+                        className={cn(
+                          "shrink-0 flex flex-wrap items-center justify-between gap-3 border-b px-4 py-2.5 md:px-6",
+                          tier.className,
+                        )}
                       >
-                        <TrendingUp className="h-3.5 w-3.5 text-primary" />
-                        <span>
-                          {showAttemptDiagnostics
-                            ? "Hide Topic Breakdown"
-                            : "View Topic Breakdown"}
-                        </span>
-                      </Button>
-                    ) : null}
-                  </div>
-                );
-              })()
-            : null}
+                        <div className="flex flex-wrap items-center gap-2.5">
+                          <tier.Icon className="h-5 w-5 shrink-0" />
+                          <span className="text-lg font-extrabold tracking-tight tabular-nums">
+                            {result.score} / {result.total}
+                          </span>
+                          <span className="rounded-full border border-current/25 bg-background/50 px-2 py-0.5 font-mono text-xs font-bold">
+                            {pct}%
+                          </span>
+                          <span className="text-xs sm:text-sm font-semibold">{tier.label}</span>
+                          <ExamIntegrityReport
+                            wasExamModeActive={hadExamModeRef.current || examModeActive}
+                            violations={examViolations}
+                          />
+                        </div>
 
-          <div
-            className={cn(
-              "flex-1 min-h-0 flex flex-col lg:flex-row overflow-hidden relative transition-all duration-150",
-              activeViolation && "blur-xl opacity-0 pointer-events-none select-none",
-            )}
-          >
-            {/* Paper Column: Independently scrollable, only the paper scrolls */}
-            <div
-              ref={scrollRef}
-              className="flex-1 min-w-0 h-full overflow-y-auto px-2 sm:px-4 py-4 scroll-smooth"
-            >
-              <div className="w-full max-w-[820px] mx-auto flex flex-col items-center gap-8 pb-36 lg:pb-16">
-                {graded && showAttemptDiagnostics && attemptTopics.length > 0 ? (
-                  <div className="w-full max-w-2xl space-y-3 pt-1 pb-4 border-b border-border/80 animate-in fade-in slide-in-from-top-2 duration-200">
-                    <McqDomainBreakdown
-                      domains={attemptDomains}
-                      title="This Paper: Microeconomics vs Macroeconomics"
-                    />
-                    <McqReviewPanel
-                      topics={attemptTopics}
-                      questions={reviewQuestions}
-                      onSelectQuestion={goToQuestion}
-                      title="Topic Diagnostic (This Paper)"
-                      emptyLabel="No topics tagged."
-                    />
-                  </div>
-                ) : null}
+                        {attemptTopics.length > 0 ? (
+                          <Button
+                            size="sm"
+                            variant={showAttemptDiagnostics ? "default" : "outline"}
+                            onClick={() => setShowAttemptDiagnostics((v) => !v)}
+                            className="h-7 gap-1.5 px-2.5 text-xs font-semibold bg-background/90 text-foreground hover:bg-background"
+                          >
+                            <TrendingUp className="h-3.5 w-3.5 text-primary" />
+                            <span>
+                              {showAttemptDiagnostics
+                                ? "Hide Topic Breakdown"
+                                : "View Topic Breakdown"}
+                            </span>
+                          </Button>
+                        ) : null}
+                      </div>
+                    );
+                  })()
+                : null}
 
-                {pages.map((page) => (
-                  <PageCanvas
-                    key={page.pageNumber}
-                    page={page}
-                    totalPages={pages.length}
-                    pageQuestions={Object.entries(questionPages)
-                      .filter(([, p]) => p === page.pageNumber)
-                      .map(([q]) => Number(q))
-                      .sort((a, b) => a - b)}
-                    answers={answers}
-                    activeQuestion={activeQuestion}
-                    onSelectQuestion={goToQuestion}
-                    annotateMode={annotateMode}
-                    annotateTool={annotateTool}
-                    annotateColor={annotateColor}
-                    onRegisterAnnotationCanvas={registerAnnotationCanvas}
-                  />
-                ))}
-              </div>
-            </div>
-
-            {/* Desktop Side Panel: Permanently FIXED right beside the paper, NEVER disappears */}
-            <aside
-              className={cn(
-                "hidden lg:flex flex-col shrink-0 h-full border-l border-border/80 bg-card/40 backdrop-blur-xs z-10",
-                graded ? "w-80 xl:w-96" : "w-72 xl:w-84"
-              )}
-            >
-              <div className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-4 pb-28">
-                {graded ? (
-                  <McqQuestionReviewList
-                    questions={reviewQuestions}
-                    onSelect={goToQuestion}
-                    onExplain={handleExplain}
-                    explanations={explanations}
-                    title="Review & explain"
-                  />
-                ) : (
-                  <AnswerSidePanel
-                    numbers={questionNumbers}
-                    answers={answers}
-                    answerKey={answerKey}
-                    graded={graded}
-                    onPick={pick}
-                    flagged={flagged}
-                    onToggleFlag={toggleFlag}
-                    highlightNumber={highlightNumber}
-                    rowRefs={answerRowRefs}
-                    onJumpToQuestion={goToQuestion}
-                    activeQuestion={activeQuestion}
-                    questionPages={questionPages}
-                    saveStatus={saveStatus}
-                  />
+              <div
+                className={cn(
+                  "flex-1 min-h-0 flex flex-col lg:flex-row overflow-hidden relative transition-all duration-150",
+                  activeViolation && "blur-xl opacity-0 pointer-events-none select-none",
                 )}
-              </div>
-            </aside>
-          </div>
+              >
+                {/* Paper Column: Independently scrollable, only the paper scrolls */}
+                <div
+                  ref={scrollRef}
+                  className="flex-1 min-w-0 h-full overflow-y-auto px-2 sm:px-4 py-4 scroll-smooth"
+                >
+                  <div className="w-full max-w-[820px] mx-auto flex flex-col items-center gap-8 pb-36 lg:pb-16">
+                    {graded && showAttemptDiagnostics && attemptTopics.length > 0 ? (
+                      <div className="w-full max-w-2xl space-y-3 pt-1 pb-4 border-b border-border/80 animate-in fade-in slide-in-from-top-2 duration-200">
+                        {Object.keys(mistakeTypes).length > 0 ? (
+                          <McqMistakeLedger
+                            mistakeTypes={mistakeTypes}
+                            wrongNumbers={reviewQuestions
+                              .filter((q) => q.correct === false)
+                              .map((q) => q.number)}
+                            onSelectQuestion={goToQuestion}
+                          />
+                        ) : null}
+                        <McqDomainBreakdown
+                          domains={attemptDomains}
+                          title="This Paper: Microeconomics vs Macroeconomics"
+                        />
+                        <McqReviewPanel
+                          topics={attemptTopics}
+                          questions={reviewQuestions}
+                          onSelectQuestion={goToQuestion}
+                          title="Topic Diagnostic (This Paper)"
+                          emptyLabel="No topics tagged."
+                        />
+                      </div>
+                    ) : null}
 
-          {/* Mobile floating bottom answering dock */}
-          <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-card/95 backdrop-blur-md border-t border-border shadow-2xl px-3 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+                    {pages.map((page) => (
+                      <PageCanvas
+                        key={page.pageNumber}
+                        page={page}
+                        totalPages={pages.length}
+                        pageQuestions={Object.entries(questionPages)
+                          .filter(([, p]) => p === page.pageNumber)
+                          .map(([q]) => Number(q))
+                          .sort((a, b) => a - b)}
+                        answers={answers}
+                        activeQuestion={activeQuestion}
+                        onSelectQuestion={goToQuestion}
+                        annotateMode={annotateMode}
+                        annotateTool={annotateTool}
+                        annotateColor={annotateColor}
+                        onRegisterAnnotationCanvas={registerAnnotationCanvas}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                {/* Desktop Side Panel: Permanently FIXED right beside the paper, NEVER disappears */}
+                <aside
+                  className={cn(
+                    "hidden lg:flex flex-col shrink-0 h-full border-l border-border/80 bg-card/40 backdrop-blur-xs z-10",
+                    graded ? "w-80 xl:w-96" : "w-72 xl:w-84"
+                  )}
+                >
+                  <div className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-4 pb-28">
+                    {graded ? (
+                      <McqQuestionReviewList
+                        questions={reviewQuestions}
+                        onSelect={goToQuestion}
+                        onExplain={handleExplain}
+                        explanations={explanations}
+                        title="Review & explain"
+                      />
+                    ) : (
+                      <AnswerSidePanel
+                        numbers={questionNumbers}
+                        answers={answers}
+                        answerKey={answerKey}
+                        graded={graded}
+                        onPick={pick}
+                        flagged={flagged}
+                        onToggleFlag={toggleFlag}
+                        highlightNumber={highlightNumber}
+                        rowRefs={answerRowRefs}
+                        onJumpToQuestion={goToQuestion}
+                        activeQuestion={activeQuestion}
+                        questionPages={questionPages}
+                        saveStatus={saveStatus}
+                      />
+                    )}
+                  </div>
+                </aside>
+              </div>
+
+              {/* Mobile floating bottom answering dock */}
+              <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-card/95 backdrop-blur-md border-t border-border shadow-2xl px-3 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
             {graded ? (
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
@@ -2481,6 +2786,8 @@ function fillMissingQuestionPages(
               </div>
             </SheetContent>
           </Sheet>
+            </>
+          )}
         </div>
       )}
 
@@ -2701,6 +3008,19 @@ function PastAttemptSheet({
               <Button type="button" className="w-full" onClick={onOpenFullPaper}>
                 <BookOpen className="size-4" /> Open full paper and questions
               </Button>
+
+              {attempt.questions.some((q) => !!q.mistake_type) ? (
+                <McqMistakeLedger
+                  mistakeTypes={Object.fromEntries(
+                    attempt.questions.flatMap((q) =>
+                      q.mistake_type ? [[q.number, q.mistake_type]] : [],
+                    ),
+                  )}
+                  wrongNumbers={attempt.questions
+                    .filter((q) => q.correct === false)
+                    .map((q) => q.number)}
+                />
+              ) : null}
 
               {sheetTopics.length > 0 ? (
                 <>
@@ -3258,6 +3578,70 @@ function uniqueSorted<T>(values: T[], compare: (a: T, b: T) => number): T[] {
   return Array.from(new Set(values)).sort(compare);
 }
 
+function PracticeModePicker({
+  value,
+  onChange,
+  compact = false,
+}: {
+  value: PracticeMode;
+  onChange: (mode: PracticeMode) => void;
+  compact?: boolean;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+          Practice Mode
+        </span>
+        {value === "question_by_question" ? (
+          <span className="text-[10px] font-semibold text-primary">
+            Instant correction + mistake diagnosis
+          </span>
+        ) : null}
+      </div>
+      <div className={cn("grid gap-2", compact ? "grid-cols-2" : "sm:grid-cols-2")}>
+        <button
+          type="button"
+          onClick={() => onChange("full_paper")}
+          className={cn(
+            "flex flex-col gap-0.5 rounded-xl border p-2.5 text-left transition-all",
+            value === "full_paper"
+              ? "border-2 border-primary bg-primary/[0.06] shadow-2xs"
+              : "border-border/80 bg-background hover:border-foreground/40",
+          )}
+        >
+          <div className="flex items-center gap-1.5 text-xs font-bold text-foreground">
+            <BookOpen className="h-3.5 w-3.5 text-primary shrink-0" />
+            <span>Full Exam Paper</span>
+          </div>
+          <p className="text-[11px] text-muted-foreground leading-snug">
+            Whole PDF scrollable paper, exam timer, marked at the end.
+          </p>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => onChange("question_by_question")}
+          className={cn(
+            "flex flex-col gap-0.5 rounded-xl border p-2.5 text-left transition-all",
+            value === "question_by_question"
+              ? "border-2 border-primary bg-primary/[0.06] shadow-2xs"
+              : "border-border/80 bg-background hover:border-foreground/40",
+          )}
+        >
+          <div className="flex items-center gap-1.5 text-xs font-bold text-foreground">
+            <Target className="h-3.5 w-3.5 text-primary shrink-0" />
+            <span>Question-by-Question</span>
+          </div>
+          <p className="text-[11px] text-muted-foreground leading-snug">
+            1 real PDF question at a time · corrects mistakes immediately.
+          </p>
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function PastPaperSelector({
   papers,
   busy,
@@ -3267,6 +3651,8 @@ function PastPaperSelector({
   activeDraftAnswersCount = 0,
   startInExamMode = false,
   onToggleExamMode,
+  practiceMode = "full_paper",
+  onChangePracticeMode,
 }: {
   papers: McqPaperSummary[];
   busy: boolean;
@@ -3276,6 +3662,8 @@ function PastPaperSelector({
   activeDraftAnswersCount?: number;
   startInExamMode?: boolean;
   onToggleExamMode?: (enabled: boolean) => void;
+  practiceMode?: PracticeMode;
+  onChangePracticeMode?: (mode: PracticeMode) => void;
 }) {
   const years = useMemo(() => {
     return uniqueSorted(
@@ -3463,7 +3851,11 @@ function PastPaperSelector({
 
         {selectedPaper ? (
           <div className="space-y-4 border-t pt-5">
-            {onToggleExamMode ? (
+            {onChangePracticeMode ? (
+              <PracticeModePicker value={practiceMode} onChange={onChangePracticeMode} />
+            ) : null}
+
+            {onToggleExamMode && practiceMode === "full_paper" ? (
               <div className="flex items-center justify-between gap-3 rounded-xl border border-primary/20 bg-primary/[0.03] p-3 text-xs">
                 <div className="flex items-start gap-2.5">
                   <Shield className="h-4 w-4 text-primary shrink-0 mt-0.5" />
@@ -3511,6 +3903,11 @@ function PastPaperSelector({
                   <>
                     <Play className="mr-1.5 h-4 w-4 fill-current" />
                     Resume in-progress exam
+                  </>
+                ) : practiceMode === "question_by_question" ? (
+                  <>
+                    <Target className="mr-1.5 h-4 w-4" />
+                    Start 1-by-1 Tutor
                   </>
                 ) : (
                   "Load question paper"
@@ -3636,6 +4033,8 @@ function TopicalPaperShowcase({
   activeDraftAnswersCount = 0,
   startInExamMode = false,
   onToggleExamMode,
+  practiceMode = "full_paper",
+  onChangePracticeMode,
 }: {
   topicalPapers: TopicalMcqPaper[];
   busy: boolean;
@@ -3645,6 +4044,8 @@ function TopicalPaperShowcase({
   activeDraftAnswersCount?: number;
   startInExamMode?: boolean;
   onToggleExamMode?: (enabled: boolean) => void;
+  practiceMode?: PracticeMode;
+  onChangePracticeMode?: (mode: PracticeMode) => void;
 }) {
   const [selectedLevel, setSelectedLevel] = useState<"as" | "a2">("as");
   const [selectedDomain, setSelectedDomain] = useState<"all" | "micro" | "macro">("all");
@@ -3852,7 +4253,15 @@ function TopicalPaperShowcase({
                 </div>
               </div>
 
-              {onToggleExamMode ? (
+              {onChangePracticeMode ? (
+                <PracticeModePicker
+                  value={practiceMode}
+                  onChange={onChangePracticeMode}
+                  compact
+                />
+              ) : null}
+
+              {onToggleExamMode && practiceMode === "full_paper" ? (
                 <div className="flex items-center justify-between gap-2 rounded-lg border border-primary/20 bg-primary/[0.03] px-3 py-2 text-xs">
                   <div className="flex items-center gap-2">
                     <Shield className="h-3.5 w-3.5 text-primary shrink-0" />
@@ -3883,6 +4292,11 @@ function TopicalPaperShowcase({
                   <>
                     <Play className="mr-1.5 h-4 w-4 fill-current" />
                     Resume Topic ({activeDraftAnswersCount}/{activeTopic.questionCount})
+                  </>
+                ) : practiceMode === "question_by_question" ? (
+                  <>
+                    <Target className="mr-1.5 h-4 w-4" />
+                    Start 1-by-1 Topical Tutor
                   </>
                 ) : (
                   <>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { extractQuestionStems, type PdfTextItem } from "./mcq-pdf-text";
+import { extractQuestionSpans, extractQuestionStems, type PdfTextItem } from "./mcq-pdf-text";
 
 describe("MCQ PDF Text Extraction & Page Mapping", () => {
   it("ignores cover / instructions pages completely (preventing false matches like 12 from 9708/12)", () => {
@@ -77,5 +77,25 @@ describe("MCQ PDF Text Extraction & Page Mapping", () => {
     expect(stems).toHaveLength(1);
     expect(stems[0].number).toBe(16);
     expect(stems[0].text).toContain("effective maximum price");
+  });
+
+  it("extracts non-overlapping yTop/yBottom PDF spans for single-question cropping", () => {
+    const pageItems: PdfTextItem[] = [
+      { str: "3", transform: [1, 0, 0, 1, 290, 805] }, // Page number header
+      { str: "4", transform: [1, 0, 0, 1, 50, 740] },
+      { str: "What causes a movement along a supply curve?", transform: [1, 0, 0, 1, 80, 740] },
+      { str: "5", transform: [1, 0, 0, 1, 50, 420] },
+      { str: "Which statement about public goods is correct?", transform: [1, 0, 0, 1, 80, 420] },
+      { str: "© UCLES 2023", transform: [1, 0, 0, 1, 50, 38] },
+      { str: "9708/12/M/J/23", transform: [1, 0, 0, 1, 260, 38] },
+    ];
+
+    const spans = extractQuestionSpans(pageItems, 842);
+    expect(spans).toHaveLength(2);
+    expect(spans[0].number).toBe(4);
+    expect(spans[1].number).toBe(5);
+    expect(spans[0].yTop).toBeGreaterThan(spans[0].yBottom);
+    expect(spans[0].yBottom).toBeGreaterThanOrEqual(spans[1].yTop - 8);
+    expect(spans[1].yBottom).toBeGreaterThanOrEqual(52);
   });
 });

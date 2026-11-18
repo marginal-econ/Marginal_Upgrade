@@ -3,10 +3,17 @@ import { z } from "zod";
 
 import { requireSupabaseAuth } from "@/integrations/backend/auth-middleware";
 import { classifyMcqQuestion } from "./mcq-domain";
+import { isMcqMistakeType, type McqMistakeType } from "./mcq-mistakes";
 
 export type { PaperHistoryEntry, McqDiagnostic, McqExplanationResult } from "./mcq/mcq-pdf.server";
 
 const LevelSchema = z.enum(["as", "a2"]);
+const MistakeTypeSchema = z.enum([
+  "concept_gap",
+  "distractor_trap",
+  "stem_misread",
+  "calculation_rush",
+]);
 
 /** Tag each extracted question with a syllabus topic — classification only, no new questions. */
 export const classifyMcqTopics = createServerFn({ method: "POST" })
@@ -47,6 +54,7 @@ export const explainMcqAnswer = createServerFn({ method: "POST" })
         userAnswer: z.enum(["A", "B", "C", "D"]).nullable(),
         topic: z.string().max(300).optional(),
         subtopic: z.string().max(300).optional(),
+        mistakeType: MistakeTypeSchema.nullable().optional(),
       })
       .parse(input),
   )
@@ -65,6 +73,7 @@ const SubmittedQuestion = z.object({
   correct_answer: z.enum(["A", "B", "C", "D"]).nullable(),
   user_answer: z.enum(["A", "B", "C", "D"]).nullable(),
   correct: z.boolean().nullable(),
+  mistake_type: MistakeTypeSchema.nullable().optional(),
 });
 
 /** Persist one graded past-paper attempt, so it feeds the same topic feedback as generated papers. */
@@ -132,9 +141,7 @@ export const submitPdfMcqAttempt = createServerFn({ method: "POST" })
       const topicalQuestion = topicalPaper?.questions.find((q) => q.number === number);
       const stemText =
         submitted?.stem_text?.trim() ||
-        (topicalQuestion
-          ? `${topicalQuestion.stem} A ${topicalQuestion.options.A} B ${topicalQuestion.options.B} C ${topicalQuestion.options.C} D ${topicalQuestion.options.D}`
-          : "");
+        (topicalQuestion?.stemText ?? "");
       const classified = classifyMcqQuestion({
         level: levelUpper,
         number,
@@ -142,12 +149,13 @@ export const submitPdfMcqAttempt = createServerFn({ method: "POST" })
         existingTopic:
           submitted?.topic && submitted.topic !== "Untagged"
             ? submitted.topic
-            : topicalPaper?.topic,
+            : topicalPaper?.shortTitle,
         existingSubtopic: submitted?.subtopic || topicalQuestion?.subtopic,
         existingSkill: submitted?.skill || topicalQuestion?.skill,
       });
       const correctAnswer = answerKey[String(number)];
       const userAnswer = submitted?.user_answer ?? null;
+      const isCorrect = userAnswer === correctAnswer;
       return {
         number,
         topic: classified.topic,
@@ -158,7 +166,10 @@ export const submitPdfMcqAttempt = createServerFn({ method: "POST" })
         stem_text: stemText ? stemText.slice(0, 1400) : undefined,
         correct_answer: correctAnswer,
         user_answer: userAnswer,
-        correct: userAnswer === correctAnswer,
+        correct: isCorrect,
+        mistake_type: !isCorrect && isMcqMistakeType(submitted?.mistake_type)
+          ? submitted!.mistake_type
+          : null,
       };
     });
     const score = graded.filter((question) => question.correct).length;
@@ -222,6 +233,14 @@ export const getMcqTopicPerformance = createServerFn({ method: "GET" })
       }
     >();
 
+    const mistakeCounts: Record<McqMistakeType, number> = {
+      concept_gap: 0,
+      distractor_trap: 0,
+      stem_misread: 0,
+      calculation_rush: 0,
+    };
+    let totalWrongWithMistakeTracking = 0;
+
     // Deduplicate by paper key using the latest completed attempt per paper
     // so retaking a paper reflects current mastery without double-counting.
     const seenPaperKeys = new Set<string>();
@@ -248,6 +267,10 @@ export const getMcqTopicPerformance = createServerFn({ method: "GET" })
           existingSubtopic: typeof q.subtopic === "string" ? q.subtopic : undefined,
         });
         const isCorrect = q.correct === true;
+        if (!isCorrect && isMcqMistakeType(q.mistake_type)) {
+          mistakeCounts[q.mistake_type] += 1;
+          totalWrongWithMistakeTracking += 1;
+        }
         const entry = buckets.get(classified.topic) ?? {
           topic: classified.topic,
           unit: classified.unit,
@@ -316,7 +339,11 @@ export const getMcqTopicPerformance = createServerFn({ method: "GET" })
         return b.marksLost - a.marksLost;
       });
 
-    return { topics };
+    return {
+      topics,
+      mistakeCounts,
+      totalTaggedMistakes: totalWrongWithMistakeTracking,
+    };
   });
 
 /**
@@ -508,6 +535,7 @@ export const getPdfMcqAttempt = createServerFn({ method: "GET" })
         correct_answer: (q.correct_answer ?? null) as "A" | "B" | "C" | "D" | null,
         user_answer: (q.user_answer ?? null) as "A" | "B" | "C" | "D" | null,
         correct: (q.correct ?? null) as boolean | null,
+        mistake_type: isMcqMistakeType(q.mistake_type) ? q.mistake_type : null,
       };
     });
 

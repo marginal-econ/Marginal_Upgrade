@@ -3922,6 +3922,7 @@ export async function renderTopicalPaperPages(options: {
   pages: Array<{ pageNumber: number; canvas: HTMLCanvasElement }>;
   stems: StemBlob[];
   questionPages: Record<number, number>;
+  questionSlices: Record<number, HTMLCanvasElement>;
 }> {
   const { topicalPaper, scale, fetchPdfBuffer, onProgress } = options;
   const pdfjs = await loadPdfjs();
@@ -3981,6 +3982,7 @@ export async function renderTopicalPaperPages(options: {
   const totalVirtualPages = Math.ceil(topicalPaper.questions.length / QUESTIONS_PER_PAGE);
   const builtPages: Array<{ pageNumber: number; canvas: HTMLCanvasElement }> = [];
   const questionPages: Record<number, number> = {};
+  const questionSlices: Record<number, HTMLCanvasElement> = {};
   const stems: StemBlob[] = topicalPaper.questions.map((q) => ({
     number: q.number,
     text: `[${q.sourcePaperCode} Q${q.originalQuestionNumber} · ${q.subtopic}] ${q.stemText}`,
@@ -4130,6 +4132,44 @@ export async function renderTopicalPaperPages(options: {
           Math.round(49.6 * scale),
           destY + Math.round(18.5 * scale),
         );
+
+        // Also build an isolated single-question PDF crop for Question-by-Question Mode
+        const padPx = Math.round(14 * scale);
+        const soloCanvas = document.createElement("canvas");
+        soloCanvas.width = srcEntry.canvas.width;
+        soloCanvas.height = srcH + padPx * 2;
+        const soloCtx = soloCanvas.getContext("2d");
+        if (soloCtx) {
+          soloCtx.fillStyle = "#ffffff";
+          soloCtx.fillRect(0, 0, soloCanvas.width, soloCanvas.height);
+          soloCtx.drawImage(
+            srcEntry.canvas,
+            0,
+            srcY,
+            srcEntry.canvas.width,
+            srcH,
+            0,
+            padPx,
+            srcEntry.canvas.width,
+            srcH,
+          );
+          soloCtx.fillStyle = "#ffffff";
+          soloCtx.fillRect(
+            Math.round(36 * scale),
+            padPx,
+            Math.round(32 * scale),
+            Math.round(34 * scale),
+          );
+          soloCtx.fillStyle = "#000000";
+          soloCtx.font = `bold ${Math.round(11 * scale)}px Arial, Helvetica, sans-serif`;
+          soloCtx.textBaseline = "alphabetic";
+          soloCtx.fillText(
+            String(q.number),
+            Math.round(49.6 * scale),
+            padPx + Math.round(18.5 * scale),
+          );
+          questionSlices[q.number] = soloCanvas;
+        }
       }
 
       cursorYPt += sliceHeightPt;
@@ -4156,5 +4196,6 @@ export async function renderTopicalPaperPages(options: {
     pages: builtPages,
     stems,
     questionPages,
+    questionSlices,
   };
 }

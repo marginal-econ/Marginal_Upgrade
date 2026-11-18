@@ -21,6 +21,7 @@ import { chat } from "../ai.server";
 import { MODEL_EXAMINER } from "../examiner/config";
 import { extractFirstJsonObject } from "../examiner/json";
 import { classifyMcqQuestion } from "../mcq-domain";
+import { MCQ_MISTAKE_META_MAP, type McqMistakeType } from "../mcq-mistakes";
 import { cleanStars } from "../utils";
 
 export type PdfMcqLevel = "as" | "a2";
@@ -174,8 +175,10 @@ export async function explainPdfMcqAnswer(options: {
   userAnswer: "A" | "B" | "C" | "D" | null;
   topic?: string;
   subtopic?: string;
+  mistakeType?: McqMistakeType | null;
 }): Promise<McqExplanationResult> {
-  const { level, number, stemText, correctAnswer, userAnswer, topic, subtopic } = options;
+  const { level, number, stemText, correctAnswer, userAnswer, topic, subtopic, mistakeType } =
+    options;
   const inferred = classifyMcqQuestion({
     level: level === "a2" ? "A2" : "AS",
     number,
@@ -184,10 +187,12 @@ export async function explainPdfMcqAnswer(options: {
     existingSubtopic: subtopic,
   });
 
+  const mistakeMeta = mistakeType ? MCQ_MISTAKE_META_MAP[mistakeType] : null;
+
   const systemPrompt = [
     "You are a Principal Examiner for Cambridge International AS & A Level Economics (9708)",
     `(${level === "a2" ? "A2 Level Paper 3" : "AS Level Paper 1"}) explaining a past multiple-choice question`,
-    "to a student reviewing their finished paper attempt. The question stem was extracted from a real past paper.",
+    "to a student reviewing their paper attempt. The question stem was extracted from a real past paper.",
     "Deliver an advanced, authoritative diagnostic breakdown.",
     "NO ASTERISKS: Never use asterisks (* or **) anywhere in any JSON string. Do not use markdown bold, italics, or asterisk bullets. Return plain text only with zero asterisks.",
     "",
@@ -209,7 +214,12 @@ export async function explainPdfMcqAnswer(options: {
     userAnswer
       ? `Student selected: Option ${userAnswer} (${userAnswer === correctAnswer ? "CORRECT" : "INCORRECT"})`
       : "Student left this question unattempted.",
-  ].join("\n");
+    mistakeMeta
+      ? `Student self-diagnosed mistake type: ${mistakeMeta.label} (${mistakeMeta.tagline}). Tailor distractorTrap and speedTip to directly repair this exact error pattern.`
+      : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
 
   const result = await chat({
     model: MODEL_EXAMINER,

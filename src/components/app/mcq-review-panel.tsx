@@ -3,9 +3,11 @@ import {
   AlertTriangle,
   Award,
   BookOpen,
+  Brain,
   CheckCircle2,
   ChevronDown,
   ChevronUp,
+  Eye,
   Lightbulb,
   Loader2,
   Sparkles,
@@ -26,6 +28,11 @@ import {
   type DomainStat,
   type McqSkill,
 } from "@/lib/mcq-domain";
+import {
+  buildMistakePathologySummary,
+  MCQ_MISTAKE_META_MAP,
+  type McqMistakeType,
+} from "@/lib/mcq-mistakes";
 
 export type TopicStat = {
   topic: string;
@@ -59,6 +66,7 @@ export type GradedQuestion = {
   correct_answer: "A" | "B" | "C" | "D" | null;
   user_answer: "A" | "B" | "C" | "D" | null;
   correct: boolean | null;
+  mistake_type?: McqMistakeType | null;
 };
 
 /**
@@ -742,6 +750,17 @@ export function McqQuestionReviewList({
                       <span className="min-w-0 flex-1 truncate text-[11px] text-muted-foreground">
                         {displayTopic}
                       </span>
+                      {q.correct === false && q.mistake_type && MCQ_MISTAKE_META_MAP[q.mistake_type] ? (
+                        <span
+                          className={cn(
+                            "hidden sm:inline-flex shrink-0 items-center rounded-full border px-1.5 py-0.2 text-[9px] font-semibold",
+                            MCQ_MISTAKE_META_MAP[q.mistake_type].badgeClassName,
+                          )}
+                          title={`Diagnosed mistake: ${MCQ_MISTAKE_META_MAP[q.mistake_type].label}`}
+                        >
+                          {MCQ_MISTAKE_META_MAP[q.mistake_type].shortLabel}
+                        </span>
+                      ) : null}
                       <span className="shrink-0 font-mono text-[11px]">
                         {skipped ? (
                           <span className="text-muted-foreground">
@@ -840,6 +859,172 @@ export function McqQuestionReviewList({
             })}
           </ul>
         )}
+      </CardContent>
+    </Card>
+  );
+}
+
+export function MistakeTypeIcon({
+  type,
+  className,
+}: {
+  type: McqMistakeType;
+  className?: string;
+}) {
+  switch (type) {
+    case "concept_gap":
+      return <Brain className={cn("h-4 w-4", className)} />;
+    case "distractor_trap":
+      return <AlertTriangle className={cn("h-4 w-4", className)} />;
+    case "stem_misread":
+      return <Eye className={cn("h-4 w-4", className)} />;
+    case "calculation_rush":
+      return <Zap className={cn("h-4 w-4", className)} />;
+  }
+}
+
+/**
+ * Reusable Cognitive Mistake Ledger ("Why You Lost Marks") card.
+ * Works both from per-question mistake maps (single attempt) and lifetime
+ * aggregate counts (overall analytics tab).
+ */
+export function McqMistakeLedger({
+  mistakeTypes,
+  wrongNumbers,
+  countsOverride,
+  onSelectQuestion,
+  title = "Why You Lost Marks — Mistake Pathology",
+  className,
+}: {
+  mistakeTypes?: Record<number, McqMistakeType | null | undefined>;
+  wrongNumbers?: number[];
+  countsOverride?: Record<McqMistakeType, number>;
+  onSelectQuestion?: (questionNumber: number) => void;
+  title?: string;
+  className?: string;
+}) {
+  const effectiveMap: Record<number, McqMistakeType> = {};
+  const effectiveWrong: number[] = [];
+
+  if (countsOverride) {
+    let syntheticIdx = 1;
+    for (const [k, count] of Object.entries(countsOverride) as [McqMistakeType, number][]) {
+      for (let i = 0; i < count; i += 1) {
+        effectiveMap[syntheticIdx] = k;
+        effectiveWrong.push(syntheticIdx);
+        syntheticIdx += 1;
+      }
+    }
+  }
+
+  const summary = buildMistakePathologySummary(
+    countsOverride ? effectiveMap : (mistakeTypes ?? {}),
+    countsOverride ? effectiveWrong : (wrongNumbers ?? []),
+  );
+
+  if (summary.totalTagged === 0 && summary.totalWrong === 0) {
+    return null;
+  }
+
+  return (
+    <Card className={cn("border-border/80 shadow-xs overflow-hidden", className)}>
+      <CardHeader className="pb-3 pt-4 px-4 border-b border-border/60 bg-muted/20">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-500/15 text-amber-600 dark:text-amber-400">
+              <Target className="h-4 w-4" />
+            </div>
+            <div>
+              <CardTitle className="text-sm font-bold tracking-tight">{title}</CardTitle>
+              <p className="text-[11px] text-muted-foreground">
+                {summary.totalTagged} diagnosed mistake{summary.totalTagged === 1 ? "" : "s"}
+                {summary.untaggedCount > 0 ? ` · ${summary.untaggedCount} untagged` : ""}
+              </p>
+            </div>
+          </div>
+
+          {summary.dominant ? (
+            <Badge
+              variant="outline"
+              className={cn(
+                "gap-1 font-semibold text-[11px] py-0.5",
+                summary.dominant.meta.badgeClassName,
+              )}
+            >
+              <MistakeTypeIcon type={summary.dominant.meta.id} className="h-3 w-3" />
+              <span>Primary Leak: {summary.dominant.meta.label}</span>
+            </Badge>
+          ) : null}
+        </div>
+      </CardHeader>
+
+      <CardContent className="p-4 space-y-3.5">
+        <div className="space-y-2.5">
+          {summary.buckets.map((bucket) => {
+            const isPrimary = summary.dominant?.meta.id === bucket.meta.id && bucket.count > 0;
+            return (
+              <div key={bucket.meta.id} className="space-y-1">
+                <div className="flex items-center justify-between gap-2 text-xs">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <span
+                      className={cn(
+                        "inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md border",
+                        bucket.meta.badgeClassName,
+                      )}
+                    >
+                      <MistakeTypeIcon type={bucket.meta.id} className="h-3 w-3" />
+                    </span>
+                    <span className={cn("font-semibold truncate", isPrimary && "text-foreground")}>
+                      {bucket.meta.label}
+                    </span>
+                    <span className="hidden sm:inline text-[11px] text-muted-foreground truncate">
+                      — {bucket.meta.tagline}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0 font-mono text-[11px]">
+                    <span className="font-bold text-foreground">{bucket.count}</span>
+                    <span className="text-muted-foreground">({bucket.pct}%)</span>
+                  </div>
+                </div>
+
+                <div className="h-2 w-full overflow-hidden rounded-full bg-muted/70">
+                  <div
+                    className={cn("h-full rounded-full transition-all duration-300", bucket.meta.barClassName)}
+                    style={{ width: `${bucket.count > 0 ? Math.max(6, bucket.pct) : 0}%` }}
+                  />
+                </div>
+
+                {!countsOverride && onSelectQuestion && bucket.questionNumbers.length > 0 ? (
+                  <div className="flex flex-wrap gap-1 pt-0.5">
+                    {bucket.questionNumbers.map((num) => (
+                      <button
+                        key={num}
+                        type="button"
+                        onClick={() => onSelectQuestion(num)}
+                        className={cn(
+                          "rounded border px-1.5 py-0.5 font-mono text-[10px] font-bold transition-colors hover:opacity-80",
+                          bucket.meta.badgeClassName,
+                        )}
+                      >
+                        Q{num}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="rounded-lg border border-primary/20 bg-primary/[0.04] px-3 py-2.5 text-xs leading-relaxed">
+          <div className="flex items-start gap-2">
+            <Lightbulb className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+            <div>
+              <span className="font-bold text-primary">Examiner Recommendation: </span>
+              <span className="text-foreground/90">{summary.recommendation}</span>
+            </div>
+          </div>
+        </div>
       </CardContent>
     </Card>
   );
