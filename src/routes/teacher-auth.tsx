@@ -343,7 +343,7 @@ export function TeacherAuthPage() {
           </Link>
 
           <div className="flex items-center gap-2">
-            <ThemeToggle className="size-8" />
+            <ThemeToggle />
             <Link
               to="/"
               className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"

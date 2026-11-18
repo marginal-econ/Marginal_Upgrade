@@ -635,7 +635,7 @@ function AuthPage() {
             <span className="text-base font-semibold sm:text-lg">Marginal</span>
           </Link>
           <div className="flex items-center gap-2">
-            <ThemeToggle className="size-8" />
+            <ThemeToggle />
             <Link
               to="/"
               className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"

@@ -472,7 +472,7 @@ function Index() {
 
           <div className="flex items-center gap-2">
             <SiteNavMobile />
-            <ThemeToggle className="size-8 sm:size-9" />
+            <ThemeToggle />
 
             <Link
               to="/teacher-auth"
