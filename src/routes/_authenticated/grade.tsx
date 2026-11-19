@@ -32,8 +32,9 @@ import {
   X,
   Zap,
   Wand2,
+  HelpCircle,
 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 
@@ -43,6 +44,9 @@ import { CompactProgressBar, GradingProgress, type ProgressStage } from "@/compo
 import { HandwritingUpload } from "@/components/app/handwriting-upload";
 import { MarkBreakdown } from "@/components/app/mark-breakdown";
 import { DiagramCheckDialog } from "@/components/app/diagram-check-dialog";
+import { SampleEssayBanner } from "@/components/app/sample-essay-banner";
+import { InSituTour, type TourStep } from "@/components/app/in-situ-tour";
+import { SAMPLE_ESSAYS, type SampleEssay } from "@/lib/sample-essays";
 import {
   MarkSchemeScreenshots,
   type MarkSchemeImage,
@@ -97,6 +101,7 @@ const gradeSearchSchema = z
     studentId: z.string().uuid().optional().catch(undefined),
     classroomId: z.string().uuid().optional().catch(undefined),
     studentName: z.string().optional().catch(undefined),
+    sample: z.union([z.string(), z.number(), z.boolean()]).optional().catch(undefined),
   })
   .passthrough()
   .catch({});
@@ -217,6 +222,9 @@ function GradePage() {
   const [isReturningGrade, setIsReturningGrade] = useState(false);
   const isDirectGradingMode = Boolean(search.assignmentId && search.studentId && search.classroomId);
 
+  const [activeSampleId, setActiveSampleId] = useState<string | null>(null);
+  const [isTourOpen, setIsTourOpen] = useState(false);
+
   const [question, setQuestion] = useState(() => {
     if (search.q) return search.q;
     if (typeof window !== "undefined") {
@@ -320,6 +328,37 @@ function GradePage() {
       }
     }
   }, [search.q, search.text, search.marks, search.essayType]);
+
+  const handleSelectSample = useCallback((sample: SampleEssay) => {
+    setQuestion(sample.question);
+    setEssayText(sample.essayText);
+    setMaxMark(sample.maxMark);
+    setEssayCategory(sample.tariff);
+    setActiveSampleId(sample.id);
+    toast.success(`Loaded ${sample.shortLabel}! Hit "Mark this essay" below to evaluate.`);
+  }, []);
+
+  const handleClearSample = useCallback(() => {
+    setQuestion("");
+    setEssayText("");
+    setActiveSampleId(null);
+    try {
+      localStorage.removeItem(DRAFT_STORAGE_KEY);
+    } catch {}
+    toast.info("Sample cleared. You can now type or paste your own essay.");
+  }, [DRAFT_STORAGE_KEY]);
+
+  useEffect(() => {
+    if (search.sample) {
+      const sampleParam = String(search.sample);
+      const matchedSample =
+        SAMPLE_ESSAYS.find(
+          (s) => s.maxMark === sampleParam || s.id.toLowerCase().includes(sampleParam.toLowerCase()),
+        ) || SAMPLE_ESSAYS[0];
+
+      handleSelectSample(matchedSample);
+    }
+  }, [search.sample, handleSelectSample]);
 
   const handleReturnToClassroom = async () => {
     if (!search.assignmentId || !search.studentId || !search.classroomId || !result) return;
@@ -661,11 +700,85 @@ function GradePage() {
     mutation.mutate();
   }
 
+  const tourSteps: TourStep[] = useMemo(
+    () => [
+      {
+        targetId: "tour-sample-banner",
+        title: "1-Click Cambridge Sandbox",
+        description:
+          "New to Marginal or testing out the app? Load a real Cambridge past paper essay with 1 click to watch how official mark schemes & AO rubrics grade it.",
+        badge: "Instant Demo",
+        actionHint: "Click 'Load 12M Sample' anytime to test with sample work.",
+      },
+      {
+        targetId: "tour-question",
+        title: "Cambridge Exam Question",
+        description:
+          "Type or paste your Cambridge question here. Our engine checks your question against official mark schemes and coursebook anchors automatically.",
+        badge: "Step 1",
+        actionHint: "Supports 8-mark (AS), 12-mark (AS), and 20-mark (A2) questions.",
+      },
+      {
+        targetId: "tour-tariff",
+        title: "Mark Scheme & Tariff Level",
+        description:
+          "Select the tariff band for your question. The examiner dynamically adjusts AO1 (Knowledge), AO2 (Application), and AO3/AO4 (Evaluation) mark weighting.",
+        badge: "Step 2",
+      },
+      {
+        targetId: "tour-essay",
+        title: "Your Essay (Text or Camera 📸)",
+        description:
+          "Paste or type your essay here, or click the camera upload button below to take photos of handwritten pages. Built-in OCR transcribes your writing automatically!",
+        badge: "Step 3",
+        actionHint: "Shortcut: Press Ctrl + Enter from anywhere to start marking.",
+      },
+      {
+        targetId: "tour-diagrams",
+        title: "Diagram References (AO2)",
+        description:
+          "Economics essays score higher when backed by diagrams. Snap a photo of your hand-drawn graph or select one from our built-in Cambridge Diagram Library.",
+        badge: "Step 4",
+      },
+      {
+        targetId: "tour-submit",
+        title: "Dual AI Cambridge Examiner",
+        description:
+          "Click here to evaluate! Dual AI examiners calibrated to Cambridge 9708 grade your response, provide line-by-line examiner commentary, and rewrite exemplar paragraphs.",
+        badge: "Step 5",
+      },
+    ],
+    [],
+  );
+
   return (
     <>
       <PageHeader
         title="Mark an essay"
         description="Marked to Cambridge 9708 standards, grounded in your own coursebook and mark schemes, then independently audited for central-tendency bias."
+        action={
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setIsTourOpen(true)}
+              className="h-8 px-2.5 text-xs text-muted-foreground hover:text-foreground border-border/80 rounded-xl cursor-pointer gap-1.5"
+            >
+              <HelpCircle className="size-3.5 text-primary" />
+              <span>How It Works</span>
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => handleSelectSample(SAMPLE_ESSAYS[0])}
+              className="h-8 px-3 text-xs font-semibold bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl shadow-xs gap-1.5 cursor-pointer"
+            >
+              <Wand2 className="size-3.5" />
+              <span>Try 12M Sample</span>
+            </Button>
+          </div>
+        }
       />
 
       {isDirectGradingMode && (
@@ -721,7 +834,16 @@ function GradePage() {
 
           <div className="max-w-7xl 2xl:max-w-[1600px] mx-auto grid gap-4 sm:gap-6 px-3.5 py-3 sm:py-5 sm:px-6 md:px-8 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
             <div className="panel space-y-3.5 sm:space-y-4 p-3.5 sm:p-5">
-              <div className="space-y-1.5">
+              <div id="tour-sample-banner">
+                <SampleEssayBanner
+                  activeSampleId={activeSampleId}
+                  onSelectSample={handleSelectSample}
+                  onClear={handleClearSample}
+                  onStartTour={() => setIsTourOpen(true)}
+                />
+              </div>
+
+              <div id="tour-question" className="space-y-1.5">
                 <div className="flex flex-wrap items-center justify-between gap-1.5 sm:gap-2">
                   <Label htmlFor="question" className="text-xs sm:text-sm font-semibold text-foreground">
                     Exam question
@@ -781,7 +903,7 @@ function GradePage() {
                 ) : null}
               </div>
 
-              <div className="space-y-2.5">
+              <div id="tour-tariff" className="space-y-2.5">
                 <div className="flex items-center justify-between">
                   <Label htmlFor="maxMark" className="text-xs sm:text-sm font-semibold text-foreground">
                     Question type &amp; mark scheme
@@ -939,7 +1061,7 @@ function GradePage() {
                 )}
               </div>
 
-              <div className="space-y-2">
+              <div id="tour-essay" className="space-y-2">
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
                     <Label htmlFor="essay" className="text-xs sm:text-sm font-semibold text-foreground">
@@ -1011,6 +1133,7 @@ function GradePage() {
               />
 
           <div
+            id="tour-diagrams"
             ref={diagramSectionRef}
             className={cn(
               "rounded-xl border bg-muted/20 overflow-hidden transition-all duration-300",
@@ -1465,6 +1588,7 @@ function GradePage() {
           )}
 
           <Button
+            id="tour-submit"
             size="lg"
             className="w-full h-11 sm:h-12 text-sm font-semibold rounded-xl shadow-md transition-all cursor-pointer bg-gradient-to-r from-primary via-indigo-600 to-primary text-white hover:opacity-95 hover:shadow-lg hover:shadow-primary/20"
             disabled={
@@ -1674,6 +1798,14 @@ function GradePage() {
           )}
         </div>
       </div>
+
+      <InSituTour
+        isOpen={isTourOpen}
+        onClose={() => setIsTourOpen(false)}
+        steps={tourSteps}
+        onActionClick={() => handleSelectSample(SAMPLE_ESSAYS[0])}
+        actionButtonLabel="Load 12M Sample"
+      />
     </>
   );
 }
