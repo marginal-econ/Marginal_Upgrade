@@ -205,24 +205,24 @@ export function AccuracyCredibilitySection({ className }: { className?: string }
             </div>
           </div>
 
-          {/* Card 4: Deduplication & Repetition-Free */}
+          {/* Card 4: 20-Mark A-Level Extended Alignment */}
           <div className="rounded-2xl border border-amber-500/30 bg-card/90 p-4 sm:p-5 backdrop-blur-md shadow-xs hover:border-amber-500/60 transition-all flex flex-col justify-between">
             <div>
               <div className="flex items-center justify-between text-muted-foreground text-xs mb-2">
-                <span className="font-semibold uppercase tracking-wider text-[10px] font-mono">Feedback Deduplication</span>
-                <Badge variant="outline" className="text-[10px] bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30">0 Repeats</Badge>
+                <span className="font-semibold uppercase tracking-wider text-[10px] font-mono">20-Mark A-Level Extended</span>
+                <Badge variant="outline" className="text-[10px] bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30">Paper 4</Badge>
               </div>
               <div className="flex items-baseline gap-1">
-                <span className="text-3xl sm:text-4xl font-black text-foreground tracking-tight">100%</span>
-                <span className="text-xs font-bold text-amber-600 dark:text-amber-400">Unique</span>
+                <span className="text-3xl sm:text-4xl font-black text-foreground tracking-tight">86.3%</span>
+                <span className="text-xs font-bold text-amber-600 dark:text-amber-400">Accuracy</span>
               </div>
               <p className="mt-2 text-xs text-muted-foreground leading-relaxed">
-                Algorithmic deduplication guarantees Weaknesses, Missing Syllabus Elements, and Actionable Steps never repeat identical points.
+                1.83 Mark Mean Error. 75% within ±2 marks of Cambridge Principal Examiners across Section B evaluative essays.
               </p>
             </div>
             <div className="mt-4 pt-3 border-t border-border/60 flex items-center gap-1.5 text-[11px] font-semibold text-amber-600 dark:text-amber-400">
-              <Layers className="size-3.5 text-amber-500 shrink-0" />
-              <span>Zero Boilerplate Feedback</span>
+              <Award className="size-3.5 text-amber-500 shrink-0" />
+              <span>Table A &amp; Table B Calibrated</span>
             </div>
           </div>
         </div>
@@ -301,24 +301,30 @@ export function AccuracyCredibilitySection({ className }: { className?: string }
                 </p>
               </div>
 
-              {/* 3 Core Calibrated Safeguards */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-2">
+              {/* 4 Core Calibrated Safeguards */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2">
                 <div className="rounded-lg border border-border/60 bg-muted/20 p-2.5 text-xs">
                   <span className="font-bold text-foreground block">Deterministic Caps</span>
-                  <span className="text-[11px] text-muted-foreground leading-tight block mt-0.5">
+                  <span className="text-[10.5px] text-muted-foreground leading-tight block mt-0.5">
                     Caps one-sided "best method" essays to L2 Max 4 marks.
                   </span>
                 </div>
                 <div className="rounded-lg border border-border/60 bg-muted/20 p-2.5 text-xs">
                   <span className="font-bold text-foreground block">Diagram Gating</span>
-                  <span className="text-[11px] text-muted-foreground leading-tight block mt-0.5">
+                  <span className="text-[10.5px] text-muted-foreground leading-tight block mt-0.5">
                     Requires valid economic diagram analysis for L3/L4 marks.
                   </span>
                 </div>
                 <div className="rounded-lg border border-border/60 bg-muted/20 p-2.5 text-xs">
                   <span className="font-bold text-foreground block">Multi-Band Anchors</span>
-                  <span className="text-[11px] text-muted-foreground leading-tight block mt-0.5">
-                    Anchored to High &amp; Middle official Cambridge exemplar pairs.
+                  <span className="text-[10.5px] text-muted-foreground leading-tight block mt-0.5">
+                    Anchored to High &amp; Middle Cambridge exemplar pairs.
+                  </span>
+                </div>
+                <div className="rounded-lg border border-border/60 bg-muted/20 p-2.5 text-xs">
+                  <span className="font-bold text-foreground block">Zero Repetition</span>
+                  <span className="text-[10.5px] text-muted-foreground leading-tight block mt-0.5">
+                    100% unique, non-repetitive feedback guaranteed.
                   </span>
                 </div>
               </div>
