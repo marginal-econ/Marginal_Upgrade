@@ -67,6 +67,7 @@ import { SiteNavLinks, SiteNavMobile } from "@/components/marketing/site-nav";
 import { ThemeToggle } from "@/components/marketing/theme-toggle";
 import { Magnetic, TiltCard } from "@/components/marketing/three-d";
 import { AiComparisonSection } from "@/components/marketing/ai-comparison-section";
+import { AccuracyCredibilitySection } from "@/components/marketing/accuracy-credibility-section";
 import { RealEssayShowcase } from "@/components/marketing/real-essay-showcase";
 import { TeachersSection } from "@/components/marketing/teachers-section";
 import { CosmicAtmosphere } from "@/components/marketing/cosmic-atmosphere";
@@ -479,7 +480,7 @@ function Index() {
 
           <div className="flex items-center gap-2">
             <SiteNavMobile />
-            <ThemeToggle className="size-8 sm:size-9" />
+            <ThemeToggle />
 
             <Link
               to="/teacher-auth"
@@ -574,7 +575,7 @@ function Index() {
                   ★★★★★
                 </div>
                 <span className="font-medium text-foreground">
-                  Calibrated against 1,400+ real Cambridge exam scripts
+                  89.6% Examiner Alignment · Calibrated against 30 real Cambridge ECR candidate scripts &amp; 1,400+ mark schemes
                 </span>
               </div>
             </Reveal>
@@ -587,18 +588,22 @@ function Index() {
 
             {/* Live Cambridge Metric Highlights */}
             <Reveal delay={150}>
-              <div className="mt-5 grid grid-cols-3 gap-2 sm:gap-3 max-w-xl">
-                <div className="rounded-xl border border-primary/25 bg-card/70 p-2 sm:p-3 text-center backdrop-blur-md shadow-xs hover:border-primary/50 transition-colors">
+              <div className="mt-5 grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-2.5 max-w-xl">
+                <div className="rounded-xl border border-emerald-500/30 bg-card/80 p-2 sm:p-2.5 text-center backdrop-blur-md shadow-xs hover:border-emerald-500/50 transition-colors">
+                  <span className="text-base min-[380px]:text-xl sm:text-2xl font-black text-emerald-600 dark:text-emerald-400 tracking-tight block">89.6%</span>
+                  <span className="text-[9.5px] sm:text-[10.5px] text-muted-foreground font-semibold leading-tight block mt-0.5">Examiner Match</span>
+                </div>
+                <div className="rounded-xl border border-primary/25 bg-card/70 p-2 sm:p-2.5 text-center backdrop-blur-md shadow-xs hover:border-primary/50 transition-colors">
                   <span className="text-base min-[380px]:text-xl sm:text-2xl font-black text-foreground tracking-tight block">1,400+</span>
-                  <span className="text-[9.5px] sm:text-[11px] text-muted-foreground font-semibold leading-tight block mt-0.5">Mark Schemes</span>
+                  <span className="text-[9.5px] sm:text-[10.5px] text-muted-foreground font-semibold leading-tight block mt-0.5">Mark Schemes</span>
                 </div>
-                <div className="rounded-xl border border-emerald-500/25 bg-card/70 p-2 sm:p-3 text-center backdrop-blur-md shadow-xs hover:border-emerald-500/50 transition-colors">
+                <div className="rounded-xl border border-blue-500/25 bg-card/70 p-2 sm:p-2.5 text-center backdrop-blur-md shadow-xs hover:border-blue-500/50 transition-colors">
                   <span className="text-base min-[380px]:text-xl sm:text-2xl font-black text-foreground tracking-tight block">AO1/2/3</span>
-                  <span className="text-[9.5px] sm:text-[11px] text-muted-foreground font-semibold leading-tight block mt-0.5">Clause Auditing</span>
+                  <span className="text-[9.5px] sm:text-[10.5px] text-muted-foreground font-semibold leading-tight block mt-0.5">Clause Auditing</span>
                 </div>
-                <div className="rounded-xl border border-amber-500/25 bg-card/70 p-2 sm:p-3 text-center backdrop-blur-md shadow-xs hover:border-amber-500/50 transition-colors">
+                <div className="rounded-xl border border-amber-500/25 bg-card/70 p-2 sm:p-2.5 text-center backdrop-blur-md shadow-xs hover:border-amber-500/50 transition-colors">
                   <span className="text-base min-[380px]:text-xl sm:text-2xl font-black text-foreground tracking-tight block">Unlimited</span>
-                  <span className="text-[9.5px] sm:text-[11px] text-muted-foreground font-semibold leading-tight block mt-0.5">Essay Gradings</span>
+                  <span className="text-[9.5px] sm:text-[10.5px] text-muted-foreground font-semibold leading-tight block mt-0.5">Essay Gradings</span>
                 </div>
               </div>
             </Reveal>
@@ -702,6 +707,9 @@ function Index() {
           <Ribbon items={RIBBON_ITEMS} />
         </div>
       </section>
+
+      {/* ── Verified Cambridge Examiner Accuracy & Benchmark ─────────────────── */}
+      <AccuracyCredibilitySection />
 
       {/* ── Real Graded Essay Showcase (User Scored Exemplar) ────────────── */}
       <RealEssayShowcase />

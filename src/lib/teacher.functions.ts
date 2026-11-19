@@ -19,10 +19,17 @@ export const registerTeacher = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/backend/client.server");
     const { requireEnv, readEnv } = await import("@/server/env");
+    const { isDisposableEmailServer } = await import("@/server/disposable-email");
 
     const email = data.schoolEmail.trim().toLowerCase();
     const fullName = data.fullName.trim();
     const schoolName = data.schoolName.trim();
+
+    if (await isDisposableEmailServer(email)) {
+      throw new Error(
+        "Temporary or disposable email addresses are not permitted. Please register using your official institutional email.",
+      );
+    }
 
     // 1. Create or check user in Auth
     const { data: createData, error: createError } = await supabaseAdmin.auth.admin.createUser({

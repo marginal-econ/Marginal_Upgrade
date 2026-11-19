@@ -1530,7 +1530,7 @@ export function AppShell({
             )}
 
             {/* Night / Day Theme Toggle */}
-            <ThemeToggle className="size-8" />
+            <ThemeToggle />
 
             {/* Mobile User Profile Avatar Trigger */}
             <DropdownMenu>
@@ -2018,7 +2018,7 @@ export function AppShell({
               />
 
               {/* Night / Day Theme Toggle */}
-              <ThemeToggle className="size-8" />
+              <ThemeToggle className="shrink-0" />
 
               {/* Vertical Hairline Divider */}
               <div className="h-4 w-px bg-border/60 mx-0.5 shrink-0" />
@@ -2270,7 +2270,7 @@ export function AppShell({
               />
 
               {/* Night / Day Theme Toggle */}
-              <ThemeToggle className="size-8" />
+              <ThemeToggle className="shrink-0" />
             </div>
           </header>
         )}

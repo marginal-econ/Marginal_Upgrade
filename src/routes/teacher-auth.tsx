@@ -1,5 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import {
+  AlertTriangle,
   ArrowLeft,
   BookOpen,
   CheckCircle2,
@@ -23,7 +24,12 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/backend/client";
 import { registerTeacher, getTeacherProfileStatus } from "@/lib/teacher.functions";
+import { isDisposableEmailClient } from "@/lib/disposable-check";
 import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
+import {
+  PasswordCreationFields,
+  validatePasswordStrength,
+} from "@/components/auth/password-creation-fields";
 
 export const Route = createFileRoute("/teacher-auth")({
   validateSearch: (search: Record<string, unknown>): { tab?: string } => ({
@@ -103,6 +109,8 @@ export function TeacherAuthPage() {
   const [schoolName, setSchoolName] = useState("");
   const [schoolEmail, setSchoolEmail] = useState("");
   const [signUpPassword, setSignUpPassword] = useState("");
+  const [signUpConfirmPassword, setSignUpConfirmPassword] = useState("");
+  const [showSignUpPasswordRequirements, setShowSignUpPasswordRequirements] = useState(false);
   const [signUpBusy, setSignUpBusy] = useState(false);
   const [submittedSuccess, setSubmittedSuccess] = useState(false);
   const [pendingAccountWarning, setPendingAccountWarning] = useState<string | null>(null);
@@ -220,8 +228,19 @@ export function TeacherAuthPage() {
       toast.error("A valid school/institutional email address is compulsory.");
       return;
     }
-    if (signUpPassword.length < 6) {
-      toast.error("Password must be at least 6 characters.");
+    if (isDisposableEmailClient(schoolEmail)) {
+      toast.error("Temporary or disposable email addresses are not permitted. Please use your official school email.");
+      return;
+    }
+    const validation = validatePasswordStrength(signUpPassword, signUpConfirmPassword);
+    if (!validation.isStrong) {
+      setShowSignUpPasswordRequirements(true);
+      toast.error("Please create a strong educator password that meets all requirements.");
+      return;
+    }
+    if (!validation.matchesConfirm) {
+      setShowSignUpPasswordRequirements(true);
+      toast.error("Passwords do not match. Please verify both password entries.");
       return;
     }
 
@@ -337,7 +356,7 @@ export function TeacherAuthPage() {
           </Link>
 
           <div className="flex items-center gap-2">
-            <ThemeToggle className="size-8" />
+            <ThemeToggle />
             <Link
               to="/"
               className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
@@ -724,22 +743,31 @@ export function TeacherAuthPage() {
                         value={schoolEmail}
                         onChange={(e) => setSchoolEmail(e.target.value)}
                       />
+                      {isDisposableEmailClient(schoolEmail) && (
+                        <div className="flex items-start gap-2 rounded-xl border border-rose-500/40 bg-rose-500/10 p-2.5 text-xs text-rose-700 dark:text-rose-300 animate-in fade-in slide-in-from-top-1">
+                          <AlertTriangle className="size-4 shrink-0 mt-0.5 text-rose-500" />
+                          <div>
+                            <p className="font-semibold">Temporary or disposable email detected</p>
+                            <p className="text-[11px] text-muted-foreground mt-0.5">
+                              Temporary addresses are not permitted. Please use your official school or institutional email.
+                            </p>
+                          </div>
+                        </div>
+                      )}
                       <p className="text-[11px] text-muted-foreground">
                         Use your official school or college email domain to accelerate administrator verification.
                       </p>
                     </div>
 
-                    <div className="space-y-1.5">
-                      <Label htmlFor="t-signup-password">Choose Password</Label>
-                      <Input
-                        id="t-signup-password"
-                        type="password"
-                        required
-                        placeholder="At least 6 characters"
-                        value={signUpPassword}
-                        onChange={(e) => setSignUpPassword(e.target.value)}
-                      />
-                    </div>
+                    <PasswordCreationFields
+                      password={signUpPassword}
+                      onPasswordChange={setSignUpPassword}
+                      confirmPassword={signUpConfirmPassword}
+                      onConfirmPasswordChange={setSignUpConfirmPassword}
+                      showRequirements={showSignUpPasswordRequirements}
+                      idPrefix="t-signup"
+                      disabled={signUpBusy}
+                    />
 
                     <div className="rounded-lg border border-purple-500/20 bg-purple-500/5 p-3 text-xs text-muted-foreground space-y-1">
                       <div className="flex items-center gap-1.5 font-semibold text-foreground">
