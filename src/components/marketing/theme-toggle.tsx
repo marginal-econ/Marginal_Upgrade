@@ -113,7 +113,7 @@ export function ThemeToggle({
         aria-label={label}
         title={label}
       >
-        <span className="theme-orb-inline" data-theme={theme ?? "light"}>
+        <span className="theme-orb-inline" data-theme={theme ?? "dark"}>
           <span className="orb-coin" aria-hidden="true">
             <span className="orb-face">
               <Sun className="size-4 text-amber-500" strokeWidth={2.2} />
@@ -138,7 +138,7 @@ export function ThemeToggle({
         "theme-orb relative flex items-center justify-center size-9 sm:size-9.5 rounded-2xl border border-border/80 bg-card/90 hover:bg-muted/80 text-foreground transition-all cursor-pointer shadow-xs hover:shadow-sm hover:border-amber-500/40 dark:hover:border-purple-500/40 group shrink-0",
         className,
       )}
-      data-theme={theme ?? "light"}
+      data-theme={theme ?? "dark"}
       aria-label={label}
       title={label}
     >

@@ -37,6 +37,7 @@ import {
 } from "@/components/app/live-examiner-history";
 import { LiveExaminerPanel, type AutosaveState } from "@/components/app/live-examiner-panel";
 import { MarkBreakdown } from "@/components/app/mark-breakdown";
+import { DiagramCheckDialog } from "@/components/app/diagram-check-dialog";
 import {
   MarkSchemeScreenshots,
   type MarkSchemeImage,
@@ -258,6 +259,7 @@ function LiveExaminerPage() {
   // called right from here so a student never has to leave the editor to
   // get a real mark. --------------------------------------------------
   const [gradeDialogOpen, setGradeDialogOpen] = useState(false);
+  const [diagramPromptOpen, setDiagramPromptOpen] = useState(false);
   const [revealedHints, setRevealedHints] = useState(0);
   const [modelAnswerOpen, setModelAnswerOpen] = useState(false);
   const gradeNow = useServerFn(gradeEssaySubmission);
@@ -280,12 +282,18 @@ function LiveExaminerPage() {
     onError: (error: Error) => toast.error(error.message),
   });
 
-  function handleGradeNow() {
+  function handleGradeNow(options?: { skipDiagramCheck?: boolean }) {
     const words = essayText.trim() ? essayText.trim().split(/\s+/).length : 0;
     if (words < 20) {
       toast.error("Write at least a short paragraph before grading.");
       return;
     }
+
+    if (!options?.skipDiagramCheck && diagrams.length === 0) {
+      setDiagramPromptOpen(true);
+      return;
+    }
+
     setGradeDialogOpen(true);
     gradeMutation.mutate();
     maxOutMutation.reset();
@@ -1252,6 +1260,15 @@ function LiveExaminerPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <DiagramCheckDialog
+        open={diagramPromptOpen}
+        onOpenChange={setDiagramPromptOpen}
+        question={question}
+        essayText={essayText}
+        onAddDiagram={() => setDiagramDialogOpen(true)}
+        onProceedAnyway={() => handleGradeNow({ skipDiagramCheck: true })}
+      />
 
       <Dialog open={gradeDialogOpen} onOpenChange={setGradeDialogOpen}>
         <DialogContent className="sm:max-w-2xl max-h-[88vh] overflow-y-auto">

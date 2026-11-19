@@ -42,6 +42,7 @@ import { ChainedChamber } from "@/components/app/chained-chamber";
 import { CompactProgressBar, GradingProgress, type ProgressStage } from "@/components/app/grading-progress";
 import { HandwritingUpload } from "@/components/app/handwriting-upload";
 import { MarkBreakdown } from "@/components/app/mark-breakdown";
+import { DiagramCheckDialog } from "@/components/app/diagram-check-dialog";
 import {
   MarkSchemeScreenshots,
   type MarkSchemeImage,
@@ -422,8 +423,22 @@ function GradePage() {
   const diagramCameraInputRef = useRef<HTMLInputElement>(null);
   const [isDiagramDragging, setIsDiagramDragging] = useState(false);
   const [diagramSectionOpen, setDiagramSectionOpen] = useState(false);
+  const [diagramPromptOpen, setDiagramPromptOpen] = useState(false);
+  const [isDiagramHighlighted, setIsDiagramHighlighted] = useState(false);
+  const diagramSectionRef = useRef<HTMLDivElement>(null);
   const [markSchemeSectionOpen, setMarkSchemeSectionOpen] = useState(false);
   const [settingsSectionOpen, setSettingsSectionOpen] = useState(false);
+
+  const handleOpenDiagramSection = useCallback(() => {
+    setDiagramSectionOpen(true);
+    setDiagramMode((current) => (current === "none" ? "upload" : current));
+    setIsDiagramHighlighted(true);
+    window.setTimeout(() => setIsDiagramHighlighted(false), 3500);
+    window.setTimeout(() => {
+      diagramSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 100);
+    toast.info("Upload your diagram image, take a photo, or choose from the diagram library.");
+  }, []);
 
   useEffect(() => {
     if (diagrams.length > 0) setDiagramSectionOpen(true);
@@ -627,7 +642,7 @@ function GradePage() {
     setDiagrams((current) => current.filter((d) => d.id !== id));
   }
 
-  function handleMarkClick() {
+  function handleMarkClick(options?: { skipDiagramCheck?: boolean }) {
     if (!readyToMark) {
       if (grammarCheckEngine === "in_house") {
         runInHouseCheck();
@@ -636,6 +651,13 @@ function GradePage() {
       }
       return;
     }
+
+    // Prompt user if no diagram has been attached to this essay yet
+    if (!options?.skipDiagramCheck && diagrams.length === 0) {
+      setDiagramPromptOpen(true);
+      return;
+    }
+
     mutation.mutate();
   }
 
@@ -988,7 +1010,15 @@ function GradePage() {
                 }}
               />
 
-          <div className="rounded-xl border border-border/70 bg-muted/20 overflow-hidden transition-all">
+          <div
+            ref={diagramSectionRef}
+            className={cn(
+              "rounded-xl border bg-muted/20 overflow-hidden transition-all duration-300",
+              isDiagramHighlighted
+                ? "ring-2 ring-primary border-primary shadow-lg shadow-primary/25 scale-[1.01]"
+                : "border-border/70",
+            )}
+          >
             <button
               type="button"
               onClick={() => setDiagramSectionOpen((prev) => !prev)}
@@ -1443,7 +1473,7 @@ function GradePage() {
               question.trim().length < 10 ||
               words < 20
             }
-            onClick={handleMarkClick}
+            onClick={() => handleMarkClick()}
           >
             {checkMutation.isPending ? (
               <>
@@ -1466,6 +1496,15 @@ function GradePage() {
               </div>
             )}
           </Button>
+
+          <DiagramCheckDialog
+            open={diagramPromptOpen}
+            onOpenChange={setDiagramPromptOpen}
+            question={question}
+            essayText={essayText}
+            onAddDiagram={handleOpenDiagramSection}
+            onProceedAnyway={() => handleMarkClick({ skipDiagramCheck: true })}
+          />
           <CompactProgressBar
             active={checkMutation.isPending}
             stages={[
