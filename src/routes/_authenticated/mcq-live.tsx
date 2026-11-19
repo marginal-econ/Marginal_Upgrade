@@ -689,7 +689,7 @@ function McqLivePage() {
       if (!options?.skipScrollPaper) {
         const isDesktop = typeof window !== "undefined" && window.innerWidth >= 1024;
         const targetPage =
-          questionPages[number] ??
+          questionPages?.[number] ??
           Math.min(pages.length, Math.max(1, Math.ceil(number / 2) + 1));
 
         const shouldScrollPaper = !isDesktop || targetPage !== visiblePage;
@@ -820,10 +820,10 @@ function McqLivePage() {
     number: number,
     overrideMistakeType?: McqMistakeType | null,
   ) {
-    if (explanations[number] === "loading") return;
+    if (explanations?.[number] === "loading") return;
     setExplanations((prev) => ({ ...prev, [number]: "loading" }));
     const q = reviewQuestions.find((r) => r.number === number);
-    const correctAnswer = q?.correct_answer ?? answerKey[number] ?? null;
+    const correctAnswer = q?.correct_answer ?? answerKey?.[number] ?? null;
     if (!correctAnswer) {
       setExplanations((prev) => ({
         ...prev,
@@ -849,10 +849,10 @@ function McqLivePage() {
       const resolvedMistakeType =
         overrideMistakeType !== undefined
           ? overrideMistakeType
-          : (mistakeTypesRef.current[number] ?? q?.mistake_type ?? null);
+          : (mistakeTypesRef.current?.[number] ?? q?.mistake_type ?? null);
 
-      const sliceCanvas = questionSlices[number];
-      const pageNum = questionPages[number];
+      const sliceCanvas = questionSlices?.[number];
+      const pageNum = questionPages?.[number];
       const fallbackPageCanvas = pageNum
         ? pages.find((p) => p.pageNumber === pageNum)?.canvas
         : undefined;
@@ -864,7 +864,7 @@ function McqLivePage() {
           number,
           stemText: stem,
           correctAnswer,
-          userAnswer: q?.user_answer ?? answersRef.current[number] ?? null,
+          userAnswer: q?.user_answer ?? answersRef.current?.[number] ?? null,
           topic: q?.topic ?? matchedTopical?.shortTitle ?? inferred.topic,
           subtopic: q?.subtopic ?? topicalQ?.subtopic ?? inferred.subtopic,
           mistakeType: resolvedMistakeType,
@@ -924,7 +924,7 @@ function McqLivePage() {
 
   async function handleHistoryExplain(number: number) {
     if (!historyAttempt.data) return;
-    if (historyExplanations[number] === "loading") return;
+    if (historyExplanations?.[number] === "loading") return;
     setHistoryExplanations((prev) => ({ ...prev, [number]: "loading" }));
     const q = historyAttempt.data.questions.find((r) => r.number === number);
     const correctAnswer = q?.correct_answer;
@@ -1724,8 +1724,8 @@ function fillMissingQuestionPages(
         .filter((n) => n >= 1)
         .sort((a, b) => a - b)
         .map((number) => {
-          const correctAnswer = effectiveKey[number] ?? null;
-          const userAnswer = answers[number] ?? null;
+          const correctAnswer = effectiveKey?.[number] ?? null;
+          const userAnswer = answers?.[number] ?? null;
           const topicalQ = matchedTopical?.questions.find((q) => q.number === number);
           const stemText =
             stemByNumber.get(number) ??
@@ -1750,7 +1750,7 @@ function fillMissingQuestionPages(
             correct_answer: correctAnswer,
             user_answer: userAnswer,
             correct: isCorrect,
-            mistake_type: isCorrect === false ? (mistakeTypesRef.current[number] ?? null) : null,
+            mistake_type: isCorrect === false ? (mistakeTypesRef.current?.[number] ?? null) : null,
           };
         });
 
@@ -2691,9 +2691,9 @@ function fillMissingQuestionPages(
                       / {qCount}
                     </span>
 
-                    {answers[activeQuestion] ? (
+                    {answers?.[activeQuestion] ? (
                       <span className="rounded-full bg-primary/10 border border-primary/30 px-2 py-0.5 font-mono text-[11px] font-bold text-primary">
-                        {answers[activeQuestion]}
+                        {answers?.[activeQuestion]}
                       </span>
                     ) : (
                       <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">
@@ -2732,7 +2732,7 @@ function fillMissingQuestionPages(
                 {/* Bottom row: Four large touch buttons for A, B, C, D */}
                 <div className="grid grid-cols-4 gap-2">
                   {(["A", "B", "C", "D"] as Letter[]).map((l) => {
-                    const isPicked = answers[activeQuestion] === l;
+                    const isPicked = answers?.[activeQuestion] === l;
                     return (
                       <button
                         key={l}
@@ -3313,13 +3313,13 @@ function AnswerSidePanel({
     return Array.from({ length: 30 }, (_, i) => i + 1);
   }, [numbers]);
 
-  const answeredCount = effectiveNumbers.filter((n) => !!answers[n]).length;
+  const answeredCount = effectiveNumbers.filter((n) => !!answers?.[n]).length;
   const flaggedCount = effectiveNumbers.filter((n) => flagged.has(n)).length;
   const unansweredCount = effectiveNumbers.length - answeredCount;
 
   const filteredNumbers = effectiveNumbers.filter((n) => {
     if (filter === "flagged") return flagged.has(n);
-    if (filter === "unanswered") return !answers[n];
+    if (filter === "unanswered") return !answers?.[n];
     return true;
   });
 
@@ -3376,7 +3376,7 @@ function AnswerSidePanel({
             </div>
             <div className="grid grid-cols-6 gap-1">
               {effectiveNumbers.map((n) => {
-                const isAnswered = !!answers[n];
+                const isAnswered = !!answers?.[n];
                 const isFlagged = flagged.has(n);
                 const isCurrent = activeQuestion === n || highlightNumber === n;
                 const pageNum = questionPages?.[n];
@@ -3399,7 +3399,7 @@ function AnswerSidePanel({
                           : "bg-background border-border/60 text-muted-foreground hover:bg-muted",
                       isFlagged && "border-amber-400 bg-amber-500/10 text-amber-600 dark:text-amber-400"
                     )}
-                    title={`Question ${n}${pageNum ? ` (Page ${pageNum})` : ""}${isFlagged ? " (Flagged)" : ""}${isAnswered ? ` (Answer: ${answers[n]})` : " (Unanswered)"}`}
+                    title={`Question ${n}${pageNum ? ` (Page ${pageNum})` : ""}${isFlagged ? " (Flagged)" : ""}${isAnswered ? ` (Answer: ${answers?.[n]})` : " (Unanswered)"}`}
                   >
                     {n}
                     {isFlagged ? (
@@ -3536,9 +3536,9 @@ function AnswerSidePanel({
                     <AnswerOptionButton
                       key={l}
                       letter={l}
-                      picked={answers[number] === l}
-                      correct={graded && answerKey[number] === l}
-                      wrong={graded && answers[number] === l && answerKey[number] !== l}
+                      picked={answers?.[number] === l}
+                      correct={graded && answerKey?.[number] === l}
+                      wrong={graded && answers?.[number] === l && answerKey?.[number] !== l}
                       onClick={() => {
                         onPick(number, l);
                         // On laptop/desktop side panel, picking an answer should NOT auto-scroll the paper!
@@ -3600,6 +3600,7 @@ type McqPaperSummary = Awaited<ReturnType<typeof listMcqPapers>>["papers"][numbe
 const SERIES_DISPLAY_ORDER = ["Oct/Nov", "May/June", "Feb/March"] as const;
 
 function paperCode(paper: McqPaperSummary): string {
+  if (!paper || !paper.title) return "Paper";
   // 1. Look for explicit "Paper XX"
   const namedPaper = paper.title.match(/\bpaper\s*(\d{1,2})\b/i)?.[1];
   if (namedPaper) return `Paper ${namedPaper.padStart(2, "0")}`;
@@ -3619,9 +3620,15 @@ function paperCode(paper: McqPaperSummary): string {
 }
 
 function hasCompleteAnswerKey(paper: McqPaperSummary): boolean {
+  if (!paper) return false;
+  if (typeof (paper as any).hasCompleteKey === "boolean") {
+    return (paper as any).hasCompleteKey;
+  }
+  const key = (paper as any).answerKey;
+  if (!key) return false;
   return Array.from(
-    { length: paper.questionCount },
-    (_, index) => paper.answerKey[String(index + 1)],
+    { length: paper.questionCount || 0 },
+    (_, index) => Boolean(key[String(index + 1)]),
   ).every(Boolean);
 }
 
@@ -3718,7 +3725,7 @@ function PastPaperSelector({
 }) {
   const years = useMemo(() => {
     return uniqueSorted(
-      papers.map((paper) => (paper.examYear ? String(paper.examYear) : "Unsorted")),
+      (papers || []).map((paper) => (paper?.examYear ? String(paper.examYear) : "Unsorted")),
       (a, b) => {
         if (a === "Unsorted") return 1;
         if (b === "Unsorted") return -1;
@@ -3731,14 +3738,14 @@ function PastPaperSelector({
   const activeYear = years.includes(selectedYear) ? selectedYear : (years[0] ?? "");
 
   const yearPapers = useMemo(() => {
-    return papers.filter(
-      (paper) => (paper.examYear ? String(paper.examYear) : "Unsorted") === activeYear,
+    return (papers || []).filter(
+      (paper) => (paper?.examYear ? String(paper.examYear) : "Unsorted") === activeYear,
     );
   }, [papers, activeYear]);
 
   const seriesOptions = useMemo(() => {
     return uniqueSorted(
-      yearPapers.map((paper) => paper.examSeries ?? "Unsorted"),
+      yearPapers.map((paper) => paper?.examSeries ?? "Unsorted"),
       (a, b) => {
         if (a === "Unsorted") return 1;
         if (b === "Unsorted") return -1;
@@ -3755,12 +3762,12 @@ function PastPaperSelector({
     : (seriesOptions[0] ?? "");
 
   const seriesPapers = useMemo(() => {
-    return yearPapers.filter((paper) => (paper.examSeries ?? "Unsorted") === activeSeries);
+    return yearPapers.filter((paper) => (paper?.examSeries ?? "Unsorted") === activeSeries);
   }, [yearPapers, activeSeries]);
 
   const levels = useMemo(() => {
     return uniqueSorted(
-      seriesPapers.map((paper) => paper.level),
+      seriesPapers.map((paper) => paper?.level ?? "as"),
       (a, b) => a.localeCompare(b),
     );
   }, [seriesPapers]);
@@ -3789,16 +3796,16 @@ function PastPaperSelector({
 
   const [selectedPaperId, setSelectedPaperId] = useState<string>("");
   const selectedPaper = useMemo(() => {
-    return matchingPapers.find((paper) => paper.id === selectedPaperId) ?? matchingPapers[0] ?? null;
+    return matchingPapers.find((paper) => paper?.id === selectedPaperId) ?? matchingPapers[0] ?? null;
   }, [matchingPapers, selectedPaperId]);
 
   function chooseYear(nextYear: string) {
     setSelectedYear(nextYear);
-    const nextYearPapers = papers.filter(
-      (paper) => (paper.examYear ? String(paper.examYear) : "Unsorted") === nextYear,
+    const nextYearPapers = (papers || []).filter(
+      (paper) => (paper?.examYear ? String(paper.examYear) : "Unsorted") === nextYear,
     );
     const nextSeriesOptions = uniqueSorted(
-      nextYearPapers.map((paper) => paper.examSeries ?? "Unsorted"),
+      nextYearPapers.map((paper) => paper?.examSeries ?? "Unsorted"),
       (a, b) => {
         if (a === "Unsorted") return 1;
         if (b === "Unsorted") return -1;
@@ -3813,17 +3820,17 @@ function PastPaperSelector({
     setSelectedSeries(nextSeries);
 
     const nextSeriesPapers = nextYearPapers.filter(
-      (paper) => (paper.examSeries ?? "Unsorted") === nextSeries,
+      (paper) => (paper?.examSeries ?? "Unsorted") === nextSeries,
     );
     const nextLevels = uniqueSorted(
-      nextSeriesPapers.map((paper) => paper.level),
+      nextSeriesPapers.map((paper) => paper?.level ?? "as"),
       (a, b) => a.localeCompare(b),
     );
     const nextLevel = nextLevels.includes(activeLevel) ? activeLevel : (nextLevels[0] ?? "as");
     setPreferredLevel(nextLevel);
 
     const nextMatching = nextSeriesPapers
-      .filter((paper) => paper.level === nextLevel)
+      .filter((paper) => (paper?.level ?? "as") === nextLevel)
       .sort((a, b) => paperCode(a).localeCompare(paperCode(b)));
     setSelectedPaperId(nextMatching[0]?.id ?? "");
   }
@@ -3831,17 +3838,17 @@ function PastPaperSelector({
   function chooseSeries(nextSeries: string) {
     setSelectedSeries(nextSeries);
     const nextSeriesPapers = yearPapers.filter(
-      (paper) => (paper.examSeries ?? "Unsorted") === nextSeries,
+      (paper) => (paper?.examSeries ?? "Unsorted") === nextSeries,
     );
     const nextLevels = uniqueSorted(
-      nextSeriesPapers.map((paper) => paper.level),
+      nextSeriesPapers.map((paper) => paper?.level ?? "as"),
       (a, b) => a.localeCompare(b),
     );
     const nextLevel = nextLevels.includes(activeLevel) ? activeLevel : (nextLevels[0] ?? "as");
     setPreferredLevel(nextLevel);
 
     const nextMatching = nextSeriesPapers
-      .filter((paper) => paper.level === nextLevel)
+      .filter((paper) => (paper?.level ?? "as") === nextLevel)
       .sort((a, b) => paperCode(a).localeCompare(paperCode(b)));
     setSelectedPaperId(nextMatching[0]?.id ?? "");
   }

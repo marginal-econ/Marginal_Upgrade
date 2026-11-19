@@ -132,9 +132,10 @@ function paperCodeOptions(level: Level) {
 }
 
 function completeAnswerCount(draft: DraftRow) {
+  if (!draft?.answerKey) return 0;
   return Array.from(
-    { length: draft.questionCount },
-    (_, index) => draft.answerKey[index + 1],
+    { length: draft.questionCount || 0 },
+    (_, index) => draft.answerKey?.[index + 1],
   ).filter(Boolean).length;
 }
 

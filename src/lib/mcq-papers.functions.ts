@@ -58,6 +58,7 @@ export const listMcqPapers = createServerFn({ method: "GET" })
           questionCount: qCount,
           qpUrl: p.qp_url as string,
           hasCompleteKey,
+          answerKey: keyObj,
           createdAt: p.created_at as string,
         };
       }),

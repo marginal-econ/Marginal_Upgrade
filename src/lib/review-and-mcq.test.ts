@@ -325,4 +325,30 @@ describe("Advanced MCQ Review and Response Engine", () => {
     expect(domains.find((d) => d.domain === "micro")?.accuracyPct).toBe(50);
     expect(domains.find((d) => d.domain === "macro")?.accuracyPct).toBe(100);
   });
+
+  it("safely validates mark scheme completeness even if answerKey is undefined without throwing 'reading 1'", () => {
+    function hasCompleteAnswerKey(paper: any): boolean {
+      if (!paper) return false;
+      if (typeof paper.hasCompleteKey === "boolean") {
+        return paper.hasCompleteKey;
+      }
+      const key = paper.answerKey;
+      if (!key) return false;
+      return Array.from(
+        { length: paper.questionCount || 0 },
+        (_, index) => Boolean(key[String(index + 1)]),
+      ).every(Boolean);
+    }
+
+    // Undefined answerKey but hasCompleteKey is false
+    expect(hasCompleteAnswerKey({ questionCount: 30, answerKey: undefined, hasCompleteKey: false })).toBe(false);
+    // Undefined answerKey and undefined hasCompleteKey
+    expect(hasCompleteAnswerKey({ questionCount: 30, answerKey: undefined })).toBe(false);
+    // Complete key
+    const fullKey: Record<string, string> = {};
+    for (let i = 1; i <= 30; i++) fullKey[String(i)] = "A";
+    expect(hasCompleteAnswerKey({ questionCount: 30, answerKey: fullKey })).toBe(true);
+    // Null paper
+    expect(hasCompleteAnswerKey(null)).toBe(false);
+  });
 });

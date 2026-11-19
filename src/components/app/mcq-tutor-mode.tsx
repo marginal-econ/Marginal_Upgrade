@@ -201,33 +201,34 @@ function TutorAnnotationCanvas({
 }
 
 export function McqTutorMode({
-  level,
-  questionNumbers,
-  pages,
-  questionPages,
-  questionSlices,
-  stemBlobs,
+  paperTitle = "Past paper practice",
+  level = "as",
+  questionNumbers = [],
+  pages = [],
+  questionPages = {},
+  questionSlices = {},
+  stemBlobs = [],
   topicalTopicMap,
-  answerKey,
-  answers,
-  checkedQuestions,
-  mistakeTypes,
-  eliminatedOptions,
-  questionTimes,
-  flagged,
-  activeQuestion,
-  explanations,
-  graded,
-  busyLabel,
-  result,
-  attemptTopics,
-  attemptDomains,
-  reviewQuestions,
-  annotateMode,
-  annotateTool,
-  annotateColor,
-  annotationClearSeq,
-  calcOpen,
+  answerKey = {},
+  answers = {},
+  checkedQuestions = new Set(),
+  mistakeTypes = {},
+  eliminatedOptions = {},
+  questionTimes = {},
+  flagged = new Set(),
+  activeQuestion = 1,
+  explanations = {},
+  graded = false,
+  busyLabel = null,
+  result = null,
+  attemptTopics = [],
+  attemptDomains = [],
+  reviewQuestions = [],
+  annotateMode = false,
+  annotateTool = "pen",
+  annotateColor = "#e11d48",
+  annotationClearSeq = 0,
+  calcOpen = false,
   onSelectActiveQuestion,
   onPickAnswer,
   onCheckAnswer,
@@ -268,7 +269,7 @@ export function McqTutorMode({
     if (isRedrill) {
       setLiveSeconds(0);
     } else {
-      setLiveSeconds(questionTimes[currentNumber] ?? 0);
+      setLiveSeconds(questionTimes?.[currentNumber] ?? 0);
     }
   }, [currentNumber, isRedrill, questionTimes]);
 
@@ -297,12 +298,12 @@ export function McqTutorMode({
     let wrongNumbers: number[] = [];
     let currentStreak = 0;
 
-    for (const num of questionNumbers) {
-      const isChecked = graded || checkedQuestions.has(num);
+    for (const num of questionNumbers || []) {
+      const isChecked = graded || checkedQuestions?.has(num);
       if (!isChecked) continue;
       checkedCount += 1;
-      const ans = answers[num];
-      const key = answerKey[num];
+      const ans = answers?.[num];
+      const key = answerKey?.[num];
       if (key && ans === key) {
         correctCount += 1;
         currentStreak += 1;
@@ -314,7 +315,7 @@ export function McqTutorMode({
 
     const accuracyPct =
       checkedCount > 0 ? Math.round((correctCount / checkedCount) * 100) : null;
-    const totalTrackedSeconds = Object.values(questionTimes).reduce((a, b) => a + b, 0);
+    const totalTrackedSeconds = Object.values(questionTimes ?? {}).reduce((a, b) => a + b, 0);
     const avgSeconds =
       checkedCount > 0 ? Math.round(totalTrackedSeconds / checkedCount) : null;
 
@@ -330,16 +331,16 @@ export function McqTutorMode({
   }, [questionNumbers, graded, checkedQuestions, answers, answerKey, questionTimes]);
 
   // Current question data
-  const activeAnswer = isRedrill ? redrillAnswers[currentNumber] : answers[currentNumber];
-  const correctAnswer = answerKey[currentNumber] ?? null;
+  const activeAnswer = isRedrill ? redrillAnswers?.[currentNumber] : answers?.[currentNumber];
+  const correctAnswer = answerKey?.[currentNumber] ?? null;
   const isCorrect =
     isCurrentChecked && correctAnswer !== null && activeAnswer === correctAnswer;
   const isIncorrect =
     isCurrentChecked && correctAnswer !== null && activeAnswer !== correctAnswer;
-  const selectedMistake = mistakeTypes[currentNumber] ?? null;
+  const selectedMistake = mistakeTypes?.[currentNumber] ?? null;
   const isTagSkipped = skippedTagging.has(currentNumber);
-  const activeEliminated = eliminatedOptions[currentNumber] ?? [];
-  const explanation = explanations[currentNumber];
+  const activeEliminated = eliminatedOptions?.[currentNumber] ?? [];
+  const explanation = explanations?.[currentNumber];
 
   // Syllabus classification for current question (instant, zero network)
   const questionMeta = useMemo(() => {
@@ -355,8 +356,8 @@ export function McqTutorMode({
   }, [stemBlobs, currentNumber, level, topicalTopicMap]);
 
   // Resolve real PDF canvas (isolated single-question PDF crop OR full PDF page fallback)
-  const sliceCanvas = questionSlices[currentNumber] ?? null;
-  const targetPageNum = questionPages[currentNumber] ?? 1;
+  const sliceCanvas = questionSlices?.[currentNumber] ?? null;
+  const targetPageNum = questionPages?.[currentNumber] ?? 1;
   const fullPageCanvas = useMemo(() => {
     return (
       pages.find((p) => p.pageNumber === targetPageNum)?.canvas ??
@@ -448,8 +449,8 @@ export function McqTutorMode({
         next.add(currentNumber);
         return next;
       });
-      if (correctAnswer && activeAnswer !== correctAnswer && !explanations[currentNumber]) {
-        onExplainQuestion(currentNumber, mistakeTypes[currentNumber] ?? null);
+      if (correctAnswer && activeAnswer !== correctAnswer && !explanations?.[currentNumber]) {
+        onExplainQuestion(currentNumber, mistakeTypes?.[currentNumber] ?? null);
       }
       return;
     }
@@ -458,7 +459,7 @@ export function McqTutorMode({
     // Immediately fetch Vision-Grounded Principal Examiner verification for BOTH
     // correct answers (exact question confirmation & trap avoided) and wrong
     // answers (ready the instant the student tags their mistake archetype).
-    if (correctAnswer && !explanations[currentNumber]) {
+    if (correctAnswer && !explanations?.[currentNumber]) {
       onExplainQuestion(currentNumber, null);
     }
   }, [
@@ -604,7 +605,10 @@ export function McqTutorMode({
   const redrillCorrectCount = useMemo(() => {
     if (!redrillQueue) return 0;
     return redrillQueue.filter(
-      (n) => redrillChecked.has(n) && redrillAnswers[n] && redrillAnswers[n] === answerKey[n],
+      (n) =>
+        redrillChecked.has(n) &&
+        redrillAnswers?.[n] &&
+        redrillAnswers?.[n] === answerKey?.[n],
     ).length;
   }, [redrillQueue, redrillChecked, redrillAnswers, answerKey]);
 
@@ -1300,7 +1304,7 @@ export function McqTutorMode({
                             type="button"
                             onClick={() => {
                               onSetMistakeType(currentNumber, m.id);
-                              if (!explanations[currentNumber]) {
+                              if (!explanations?.[currentNumber]) {
                                 onExplainQuestion(currentNumber, m.id);
                               }
                             }}
@@ -1343,7 +1347,7 @@ export function McqTutorMode({
                               next.add(currentNumber);
                               return next;
                             });
-                            if (!explanations[currentNumber]) {
+                            if (!explanations?.[currentNumber]) {
                               onExplainQuestion(currentNumber, null);
                             }
                           }}
