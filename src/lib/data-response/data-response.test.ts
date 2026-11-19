@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { PRELOADED_DATA_RESPONSE_PAPERS } from "./preloaded-papers";
-import { reconcileAoBreakdown } from "./marking-engine.server";
+import { markDataResponseQuestion, reconcileAoBreakdown } from "./marking-engine.server";
 import type { DataResponsePaper } from "./types";
 
 describe("Cambridge Economics (9708) Data Response Papers & Preloaded Suite", () => {
@@ -292,6 +292,22 @@ describe("Cambridge Economics (9708) Data Response Papers & Preloaded Suite", ()
           }
         }
       }
+    });
+
+    it("ensures blank or minimal attempts receive 0 marks instead of silent 50% passes", async () => {
+      const samplePaper = PRELOADED_DATA_RESPONSE_PAPERS[0];
+      const sampleQuestion = samplePaper.questions[0];
+
+      const blankResult = await markDataResponseQuestion({
+        extract: samplePaper.extract,
+        question: sampleQuestion,
+        studentAnswer: "",
+      });
+
+      expect(blankResult.awardedMark).toBe(0);
+      expect(blankResult.aoBreakdown.knowledge.awarded).toBe(0);
+      expect(blankResult.aoBreakdown.analysis.awarded).toBe(0);
+      expect(blankResult.examinerRationale).toContain("0 marks");
     });
   });
 });

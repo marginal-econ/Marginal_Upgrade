@@ -33,27 +33,34 @@ export const listMcqPapers = createServerFn({ method: "GET" })
     const { data, error } = await context.supabase
       .from("mcq_pdf_papers")
       .select(
-        "id, title, level, exam_year, exam_series, question_count, qp_url, ms_url, answer_key, created_at",
+        "id, title, level, exam_year, exam_series, question_count, qp_url, created_at, answer_key",
       )
       .order("exam_year", { ascending: false })
       .order("title", { ascending: true })
       .order("created_at", { ascending: false });
     if (error) throw new Error(error.message);
     return {
-      papers: (data ?? []).map((p) => ({
-        id: p.id as string,
-        title: p.title as string,
-        level: p.level as "as" | "a2",
-        // Nullable — papers uploaded before year/series existed predate
-        // this and simply won't be grouped; every new upload requires both.
-        examYear: (p.exam_year ?? null) as number | null,
-        examSeries: (p.exam_series ?? null) as string | null,
-        questionCount: p.question_count as number,
-        qpUrl: p.qp_url as string,
-        msUrl: p.ms_url as string | null,
-        answerKey: (p.answer_key ?? {}) as Record<string, "A" | "B" | "C" | "D">,
-        createdAt: p.created_at as string,
-      })),
+      papers: (data ?? []).map((p) => {
+        const keyObj = (p.answer_key ?? {}) as Record<string, string>;
+        const qCount = (p.question_count ?? 0) as number;
+        const hasCompleteKey =
+          qCount > 0 &&
+          Array.from({ length: qCount }, (_, i) => keyObj[String(i + 1)]).every(Boolean);
+
+        return {
+          id: p.id as string,
+          title: p.title as string,
+          level: p.level as "as" | "a2",
+          // Nullable — papers uploaded before year/series existed predate
+          // this and simply won't be grouped; every new upload requires both.
+          examYear: (p.exam_year ?? null) as number | null,
+          examSeries: (p.exam_series ?? null) as string | null,
+          questionCount: qCount,
+          qpUrl: p.qp_url as string,
+          hasCompleteKey,
+          createdAt: p.created_at as string,
+        };
+      }),
     };
   });
 

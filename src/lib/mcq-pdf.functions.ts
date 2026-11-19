@@ -191,11 +191,11 @@ export const submitPdfMcqAttempt = createServerFn({ method: "POST" })
         total: questionCount,
         completed_at: new Date().toISOString(),
       })
-      .select("id, score, total")
+      .select("id, score, total, questions")
       .single();
 
     if (error || !row) throw new Error(error?.message ?? "Could not save that attempt.");
-    return { attemptId: row.id, score: row.score, total: row.total };
+    return { attemptId: row.id, score: row.score, total: row.total, questions: graded };
   });
 
 /**

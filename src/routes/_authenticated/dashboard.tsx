@@ -430,13 +430,13 @@ export function DashboardPage() {
 
             <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-5">
               <div className="space-y-2 max-w-xl">
-                <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex items-center gap-2.5 flex-wrap">
                   <span className="size-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
                   <h2 className="text-xl sm:text-2xl font-black tracking-tight text-foreground">
                     {greeting},{" "}
                     <span className="bg-gradient-to-r from-primary via-purple-500 to-indigo-500 bg-clip-text text-transparent">
                       {userDisplayName.split(" ")[0]}
-                    </span>
+                    </span>{" "}
                     !
                   </h2>
                   {isTeacherUser ? (
