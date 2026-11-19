@@ -1051,7 +1051,7 @@ export function AppShell({
                     onClick={() => handleLayoutChange("topbar")}
                     className={cn(
                       "flex flex-col items-center justify-center py-1.5 px-1 rounded-lg text-[10.5px] font-semibold transition-all cursor-pointer border",
-                      navLayout === "topbar"
+                      (navLayout as NavigationLayout) === "topbar"
                         ? "bg-primary text-primary-foreground border-primary shadow-2xs font-bold"
                         : "bg-muted/40 text-muted-foreground border-transparent hover:bg-muted/70 hover:text-foreground",
                     )}
@@ -1064,7 +1064,7 @@ export function AppShell({
                     onClick={() => handleLayoutChange("sidebar")}
                     className={cn(
                       "flex flex-col items-center justify-center py-1.5 px-1 rounded-lg text-[10.5px] font-semibold transition-all cursor-pointer border",
-                      navLayout === "sidebar"
+                      (navLayout as NavigationLayout) === "sidebar"
                         ? "bg-primary text-primary-foreground border-primary shadow-2xs font-bold"
                         : "bg-muted/40 text-muted-foreground border-transparent hover:bg-muted/70 hover:text-foreground",
                     )}
@@ -1077,7 +1077,7 @@ export function AppShell({
                     onClick={() => handleLayoutChange("dock")}
                     className={cn(
                       "flex flex-col items-center justify-center py-1.5 px-1 rounded-lg text-[10.5px] font-semibold transition-all cursor-pointer border",
-                      navLayout === "dock"
+                      (navLayout as NavigationLayout) === "dock"
                         ? "bg-primary text-primary-foreground border-primary shadow-2xs font-bold"
                         : "bg-muted/40 text-muted-foreground border-transparent hover:bg-muted/70 hover:text-foreground",
                     )}
@@ -1604,7 +1604,7 @@ export function AppShell({
                     onClick={() => handleLayoutChange("topbar")}
                     className={cn(
                       "flex flex-col items-center justify-center py-1.5 px-1 rounded-lg text-[10.5px] font-semibold transition-all cursor-pointer border",
-                      navLayout === "topbar"
+                      (navLayout as NavigationLayout) === "topbar"
                         ? "bg-primary text-primary-foreground border-primary shadow-2xs font-bold"
                         : "bg-muted/40 text-muted-foreground border-transparent hover:bg-muted/70 hover:text-foreground",
                     )}
@@ -1617,7 +1617,7 @@ export function AppShell({
                     onClick={() => handleLayoutChange("sidebar")}
                     className={cn(
                       "flex flex-col items-center justify-center py-1.5 px-1 rounded-lg text-[10.5px] font-semibold transition-all cursor-pointer border",
-                      navLayout === "sidebar"
+                      (navLayout as NavigationLayout) === "sidebar"
                         ? "bg-primary text-primary-foreground border-primary shadow-2xs font-bold"
                         : "bg-muted/40 text-muted-foreground border-transparent hover:bg-muted/70 hover:text-foreground",
                     )}
@@ -1630,7 +1630,7 @@ export function AppShell({
                     onClick={() => handleLayoutChange("dock")}
                     className={cn(
                       "flex flex-col items-center justify-center py-1.5 px-1 rounded-lg text-[10.5px] font-semibold transition-all cursor-pointer border",
-                      navLayout === "dock"
+                      (navLayout as NavigationLayout) === "dock"
                         ? "bg-primary text-primary-foreground border-primary shadow-2xs font-bold"
                         : "bg-muted/40 text-muted-foreground border-transparent hover:bg-muted/70 hover:text-foreground",
                     )}
@@ -2099,7 +2099,7 @@ export function AppShell({
                       onClick={() => handleLayoutChange("topbar")}
                       className={cn(
                         "flex flex-col items-center justify-center py-1.5 px-1 rounded-lg text-[10.5px] font-semibold transition-all cursor-pointer border",
-                        navLayout === "topbar"
+                        (navLayout as NavigationLayout) === "topbar"
                           ? "bg-primary text-primary-foreground border-primary shadow-2xs font-bold"
                           : "bg-muted/40 text-muted-foreground border-transparent hover:bg-muted/70 hover:text-foreground",
                       )}
@@ -2112,7 +2112,7 @@ export function AppShell({
                       onClick={() => handleLayoutChange("sidebar")}
                       className={cn(
                         "flex flex-col items-center justify-center py-1.5 px-1 rounded-lg text-[10.5px] font-semibold transition-all cursor-pointer border",
-                        navLayout === "sidebar"
+                        (navLayout as NavigationLayout) === "sidebar"
                           ? "bg-primary text-primary-foreground border-primary shadow-2xs font-bold"
                           : "bg-muted/40 text-muted-foreground border-transparent hover:bg-muted/70 hover:text-foreground",
                       )}
@@ -2125,7 +2125,7 @@ export function AppShell({
                       onClick={() => handleLayoutChange("dock")}
                       className={cn(
                         "flex flex-col items-center justify-center py-1.5 px-1 rounded-lg text-[10.5px] font-semibold transition-all cursor-pointer border",
-                        navLayout === "dock"
+                        (navLayout as NavigationLayout) === "dock"
                           ? "bg-primary text-primary-foreground border-primary shadow-2xs font-bold"
                           : "bg-muted/40 text-muted-foreground border-transparent hover:bg-muted/70 hover:text-foreground",
                       )}

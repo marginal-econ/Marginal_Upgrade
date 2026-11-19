@@ -27,7 +27,7 @@ import {
   X,
   Zap,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 
@@ -404,11 +404,16 @@ function PaymentPortalPage() {
   const validateCouponMutation = useServerFn(validateCouponCode);
 
   // Dynamically calculate discount based on active plan price
-  const discountAmount = appliedCoupon
-    ? appliedCoupon.type === "percentage"
-      ? Math.round((finalBasePrice * appliedCoupon.value) / 100)
-      : Math.min(currency === "INR" ? appliedCoupon.value : convert(appliedCoupon.value), finalBasePrice)
-    : 0;
+  const discountAmount = useMemo(() => {
+    if (!appliedCoupon) return 0;
+    if (appliedCoupon.type === "percentage") {
+      return Math.round((finalBasePrice * appliedCoupon.value) / 100);
+    }
+    return Math.min(
+      currency === "INR" ? appliedCoupon.value : convert(appliedCoupon.value),
+      finalBasePrice,
+    );
+  }, [appliedCoupon, finalBasePrice, currency, convert]);
   const payableAmount = Math.max(0, finalBasePrice - discountAmount);
   // Alias for backward compatibility with existing component references
   const finalPrice = payableAmount;

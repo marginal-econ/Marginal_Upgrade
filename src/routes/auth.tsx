@@ -205,6 +205,9 @@ function AuthPage() {
   const [teacherTab, setTeacherTab] = useState<"signin" | "signup">(
     (search as any)?.tab === "signup" ? "signup" : "signin",
   );
+  const [studentTab, setStudentTab] = useState<"signin" | "signup">(
+    (search as any)?.tab === "signup" ? "signup" : "signin",
+  );
 
   // Teacher Sign In state
   const [teacherEmail, setTeacherEmail] = useState("");
@@ -553,7 +556,6 @@ function AuthPage() {
           fullName: fullName.trim(),
           password,
           school: school.trim() || undefined,
-          turnstileToken,
         },
       });
 
@@ -565,7 +567,7 @@ function AuthPage() {
 
       if (signInErr) {
         toast.success("Account created! Please sign in with your password.");
-        setTab("signin");
+        setStudentTab("signin");
       } else {
         toast.success("Account created! Welcome to Marginal.");
         navigate({ to: targetRedirect, replace: true });
@@ -907,7 +909,7 @@ function AuthPage() {
                     </p>
                   </div>
 
-                  <Tabs defaultValue="signin">
+                  <Tabs value={studentTab} onValueChange={(val: any) => setStudentTab(val)}>
                     <TabsList className="grid w-full grid-cols-2 mb-5">
                       <TabsTrigger
                         value="signin"

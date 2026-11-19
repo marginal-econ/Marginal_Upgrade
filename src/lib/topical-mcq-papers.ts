@@ -3902,6 +3902,7 @@ export function toMcqPaperSummaryFromTopical(topical: TopicalMcqPaper) {
     qpUrl: topical.questions[0]?.qpUrl ?? "",
     msUrl: null,
     questionCount: topical.questionCount,
+    hasCompleteKey: true,
     answerKey: topical.answerKey,
     createdAt: new Date(0).toISOString(),
   };

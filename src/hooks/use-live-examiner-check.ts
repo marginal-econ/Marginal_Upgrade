@@ -28,7 +28,13 @@ export type LiveExaminerIssue = {
   aoImpact?: string;
 };
 
-export type ActiveIssue = LiveExaminerIssue & { id: string };
+export type ActiveIssue = LiveExaminerIssue & {
+  id: string;
+  from?: number;
+  to?: number;
+  sentenceId?: string;
+  status?: "active" | "accepted" | "dismissed";
+};
 export type ActiveAoClassification = {
   id: string;
   ao: "AO1" | "AO2" | "AO3";

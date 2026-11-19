@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 
+vi.mock("@/integrations/backend/client.server", () => ({
+  supabaseAdmin: null,
+}));
+
 import { assertKnowledgeStaff } from "./knowledge.functions";
 
 function contextWithRoles(roles: Array<{ role: string }>) {

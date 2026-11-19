@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
+import { z } from "zod";
 import { getMe } from "@/lib/account.functions";
 import {
   Camera,
@@ -43,10 +44,12 @@ import { ExternalLink, Sparkles, BookOpen } from "lucide-react";
 import { filesToPageImages } from "@/lib/handwriting-images";
 import { generateSampleScriptPage } from "@/lib/examiner-platform/sample-script-generator";
 
+const newSessionSearchSchema = z.object({
+  paperId: z.string().optional(),
+});
+
 export const Route = createFileRoute("/_authenticated/examiner/new-session")({
-  validateSearch: (search: Record<string, unknown>) => ({
-    paperId: typeof search.paperId === "string" ? search.paperId : undefined,
-  }),
+  validateSearch: (search: Record<string, unknown>) => newSessionSearchSchema.parse(search),
   head: () => ({
     meta: [
       { title: "New Marking Session — Marginal Examiner" },

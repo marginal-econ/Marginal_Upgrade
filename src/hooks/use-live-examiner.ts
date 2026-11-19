@@ -172,7 +172,7 @@ export function useLiveExaminer(params: {
 
   // Record history helper (strictly capped at progressive lifetime budget up to 18 suggestions)
   const recordHistory = useCallback(
-    (fresh: LiveExaminerIssue[], maxAllowedBudget: number = MAX_SESSION_SUGGESTIONS) => {
+    (fresh: (LiveExaminerIssue & { id?: string })[], maxAllowedBudget: number = MAX_SESSION_SUGGESTIONS) => {
       setHistory((prev) => {
         const byId = new Map(prev.map((e) => [e.id, e]));
         const now = Date.now();
@@ -183,7 +183,8 @@ export function useLiveExaminer(params: {
             sessionSeenSuggestionsRef.current.size < maxAllowedBudget
           ) {
             sessionSeenSuggestionsRef.current.add(stableKey);
-            byId.set(iss.id, { ...iss, status: "active", firstSeenAt: now, resolvedAt: null });
+            const id = iss.id || `${iss.category}-${(iss.original || "").slice(0, 15)}-${now}-${Math.random().toString(36).slice(2, 6)}`;
+            byId.set(id, { ...iss, id, status: "active", firstSeenAt: now, resolvedAt: null });
           }
         }
         return Array.from(byId.values()).slice(0, MAX_SESSION_SUGGESTIONS);
@@ -306,12 +307,24 @@ export function useLiveExaminer(params: {
         // Always incorporate issues discovered by semantic intelligence if sentence is complete and suggestions allowed
         if (allowSuggestions && seg.isComplete && semantic?.issues && semantic.issues.length > 0) {
           for (const sIss of semantic.issues) {
+            const rawSIss = sIss as any;
             if (!cacheRef.current.isDismissed(seg.hash, sIss.category, sIss.original)) {
-              if (!sentenceIssues.some((si) => si.id === sIss.id || (si.category === sIss.category && si.original === sIss.original))) {
+              if (!sentenceIssues.some((si) => si.id === rawSIss.id || (si.category === sIss.category && si.original === sIss.original))) {
+                const sFrom = rawSIss.from !== undefined ? seg.from + rawSIss.from : seg.from;
+                const sTo = rawSIss.to !== undefined ? seg.from + rawSIss.to : seg.to;
                 sentenceIssues.push({
-                  ...sIss,
-                  from: sIss.from !== undefined ? seg.from + sIss.from : seg.from,
-                  to: sIss.to !== undefined ? seg.from + sIss.to : seg.to,
+                  id: rawSIss.id || `${sIss.category}-${seg.id}-${sFrom}`,
+                  sentenceId: seg.id,
+                  category: sIss.category as any,
+                  severity: sIss.severity,
+                  original: sIss.original,
+                  suggestion: sIss.suggestion || "",
+                  explanation: sIss.explanation,
+                  status: "active",
+                  from: sFrom,
+                  to: sTo,
+                  evidence: sIss.evidence,
+                  aoImpact: sIss.aoImpact,
                 });
               }
             }
@@ -432,21 +445,28 @@ export function useLiveExaminer(params: {
         if (explNorm && seenExplanations.has(explNorm)) continue;
 
         // Spread suggestions: max 1 active suggestion per sentence to avoid clustering
-        const currentInSentence = sentenceIssueCount.get(iss.sentenceId) || 0;
-        if (currentInSentence >= 1) continue;
+        const sid = iss.sentenceId || "";
+        const currentInSentence = sid ? (sentenceIssueCount.get(sid) || 0) : 0;
+        if (sid && currentInSentence >= 1) continue;
 
         // Prevent overlapping underlines in the same sentence
-        const overlaps = dedupedActiveIssues.some(
-          (existing) =>
-            existing.sentenceId === iss.sentenceId &&
-            Math.max(existing.from, iss.from) < Math.min(existing.to, iss.to),
-        );
-        if (overlaps) continue;
+        if (iss.from !== undefined && iss.to !== undefined) {
+          const from = iss.from;
+          const to = iss.to;
+          const overlaps = dedupedActiveIssues.some(
+            (existing) =>
+              existing.sentenceId === iss.sentenceId &&
+              existing.from !== undefined &&
+              existing.to !== undefined &&
+              Math.max(existing.from, from) < Math.min(existing.to, to),
+          );
+          if (overlaps) continue;
+        }
 
         if (origNorm) seenOriginals.add(stableKey);
         if (suggNorm) seenSuggestions.add(`${iss.category}::${suggNorm}`);
         if (explNorm) seenExplanations.add(explNorm);
-        sentenceIssueCount.set(iss.sentenceId, currentInSentence + 1);
+        if (sid) sentenceIssueCount.set(sid, currentInSentence + 1);
 
         dedupedActiveIssues.push(iss);
         if (dedupedActiveIssues.length >= maxActiveIssues) break;
@@ -669,7 +689,7 @@ export function useLiveExaminer(params: {
           result.predictedMark.total_mark = total;
           setPredictedMark(result.predictedMark);
           setAssessmentStatus("verified");
-          setMarkRange(result.markRange || [
+          setMarkRange((result as any)?.markRange || [
             Math.max(0, total - (total === 0 ? 0 : 1)),
             Math.min(maxMark, total + (total === 0 ? 0 : 1)),
           ]);
