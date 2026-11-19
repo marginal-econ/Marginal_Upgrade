@@ -459,7 +459,7 @@ function ShowcasePage() {
     <div className="flex flex-1 flex-col">
       <PageHeader
         title="Exemplar Showcase"
-        description="Top-scoring Cambridge 9708 essays automatically showcased for master-level study and revision."
+        description="Curated repository of top-scoring Cambridge 9708 Economics exam-calibrated scripts, authentic candidate responses, and distinction exemplars."
       />
 
       <div className="flex flex-1 flex-col gap-6 p-4 sm:p-5 md:p-8">
@@ -475,10 +475,10 @@ function ShowcasePage() {
                 Real student, teacher, and Cambridge Level 4 &amp; 5 exemplars.
               </h2>
               <p className="mt-1.5 text-xs leading-5 text-muted-foreground sm:text-sm">
-                Essays automatically appear here when scoring <strong>8/8</strong> (8-mark),{" "}
-                <strong>&gt;10</strong> (12-mark), or <strong>&gt;15</strong> (20-mark), alongside
-                teacher models and examiner answers. Click any exemplar to read the full essay and
-                complete examiner feedback report.
+                Essays featured here are exclusively verified Cambridge calibration anchors,
+                authentic returned candidate scripts (including Siyonah Shyam March 2025 examinations),
+                and official Cambridge ECR high-marked exemplars. Click any exemplar to read the full
+                essay and complete examiner feedback report.
               </p>
             </div>
             <div className="flex shrink-0 items-center gap-3">
@@ -503,9 +503,9 @@ function ShowcasePage() {
             {(
               [
                 { label: "All Tariffs", value: "all" },
-                { label: "8-mark (8/8)", value: 8 },
-                { label: "12-mark (>10)", value: 12 },
-                { label: "20-mark (>15)", value: 20 },
+                { label: "8-mark (AS)", value: 8 },
+                { label: "12-mark (AS)", value: 12 },
+                { label: "20-mark (A-Level)", value: 20 },
               ] as const
             ).map((tab) => (
               <Button
@@ -547,7 +547,7 @@ function ShowcasePage() {
             <p className="max-w-md text-xs leading-relaxed text-muted-foreground">
               {searchQuery
                 ? "Try clearing your search query or switching tariff filter."
-                : "Essays scoring 8/8 (8-mark), >10 (12-mark), or >15 (20-mark) written by students, teachers, or admins will automatically populate here."}
+                : "Curated Cambridge examiner calibration anchors and authentic distinction scripts will appear here."}
             </p>
           </div>
         ) : (
