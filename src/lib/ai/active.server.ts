@@ -468,18 +468,36 @@ export async function getActiveVisionProvider(): Promise<ProviderConfig | null> 
       value = normaliseConfig(visionGoogle[0]!);
     }
 
-    // 2. Any active Google key (all Google keys can call Gemini 3.8 Flash Vision)
-    if (!value) {
-      const { data: anyGoogle } = await supabaseAdmin
-        .from("ai_provider_keys")
-        .select("provider, api_key, base_url, model, label")
-        .eq("provider", "google")
-        .order("is_active", { ascending: false })
-        .order("updated_at", { ascending: false })
-        .limit(1);
+    // 2. Augment with keys from any configured Google pool so vision never fails on a single key
+    const { data: allGoogleRows } = await supabaseAdmin
+      .from("ai_provider_keys")
+      .select("api_key")
+      .eq("provider", "google");
 
-      if (anyGoogle && anyGoogle.length > 0 && anyGoogle[0]!.api_key) {
-        value = normaliseConfig(anyGoogle[0]!);
+    if (allGoogleRows && allGoogleRows.length > 0) {
+      const extraKeys: string[] = [];
+      for (const row of allGoogleRows) {
+        if (!row.api_key) continue;
+        const norm = normaliseConfig({ provider: "google", api_key: row.api_key, base_url: null, model: "", label: "" });
+        extraKeys.push(...norm.freeKeys, ...(norm.apiKeys || []));
+      }
+      const uniqueExtra = Array.from(new Set(extraKeys.filter((k) => k && k.length > 5)));
+      if (value) {
+        const existing = new Set(value.apiKeys || []);
+        const toAdd = uniqueExtra.filter((k) => !existing.has(k));
+        value.freeKeys = Array.from(new Set([...(value.freeKeys || []), ...toAdd]));
+        value.budgetPoolKeys = value.freeKeys;
+        value.apiKeys = Array.from(new Set([...(value.apiKeys || []), ...toAdd]));
+      } else if (uniqueExtra.length > 0) {
+        value = normaliseConfig({
+          provider: "google",
+          api_key: uniqueExtra[0]!,
+          base_url: null,
+          model: "gemini-3.8-flash",
+          label: "Google Vision Auto-Pool",
+        });
+        value.freeKeys = uniqueExtra;
+        value.apiKeys = uniqueExtra;
       }
     }
   } catch (err) {

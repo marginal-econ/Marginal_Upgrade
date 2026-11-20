@@ -164,10 +164,12 @@ async function transcribeViaGoogle(
     new Set(
       [
         model ? (model.startsWith("models/") ? model : `models/${model}`) : null,
+        "models/gemini-3-flash-preview",
+        "models/gemini-flash-lite-latest",
         "models/gemini-3.8-flash",
+        "models/gemini-3.1-flash-lite",
         "models/gemini-2.5-flash",
         "models/gemini-2.0-flash",
-        "models/gemini-1.5-flash",
       ].filter(Boolean) as string[],
     ),
   );
@@ -181,46 +183,38 @@ async function transcribeViaGoogle(
     for (let kIdx = 0; kIdx < keysToTry.length; kIdx++) {
       const currentKey = keysToTry[kIdx]!;
       try {
-        const makeRequest = async (useHighRes: boolean) => {
-          const genConfig: Record<string, unknown> = {
-            temperature: 0.1,
-            maxOutputTokens: MAX_OUTPUT_TOKENS,
-          };
-          if (useHighRes) {
-            genConfig.mediaResolution = "MEDIA_RESOLUTION_HIGH";
-          }
-          return fetch(`${GOOGLE_ENDPOINT}/${m}:generateContent`, {
-            method: "POST",
-            headers: { "content-type": "application/json", "x-goog-api-key": currentKey },
-            body: JSON.stringify({
-              systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
-              contents: [
-                {
-                  role: "user",
-                  parts: [
-                    { inlineData: { mimeType, data } },
-                    { text: hint ? `${PAGE_PROMPT}\nContext: ${hint}` : PAGE_PROMPT },
-                  ],
-                },
-              ],
-              generationConfig: genConfig,
-            }),
-            signal: AbortSignal.timeout(30_000),
-          });
+        const genConfig: Record<string, unknown> = {
+          temperature: 0.1,
+          maxOutputTokens: MAX_OUTPUT_TOKENS,
         };
-
-        let response = await makeRequest(true);
-
-        if (!response.ok && response.status === 400) {
-          // If 400 occurred, retry once without MEDIA_RESOLUTION_HIGH in case model doesn't support the flag
-          response = await makeRequest(false);
+        if (m.includes("1.5-pro")) {
+          genConfig.mediaResolution = "MEDIA_RESOLUTION_HIGH";
         }
+
+        const response = await fetch(`${GOOGLE_ENDPOINT}/${m}:generateContent`, {
+          method: "POST",
+          headers: { "content-type": "application/json", "x-goog-api-key": currentKey },
+          body: JSON.stringify({
+            systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+            contents: [
+              {
+                role: "user",
+                parts: [
+                  { inlineData: { mimeType, data } },
+                  { text: hint ? `${PAGE_PROMPT}\nContext: ${hint}` : PAGE_PROMPT },
+                ],
+              },
+            ],
+            generationConfig: genConfig,
+          }),
+          signal: AbortSignal.timeout(25_000),
+        });
 
         if (!response.ok) {
           const detail = await response.text().catch(() => "");
           lastErr = new Error(`Google (${m}) returned ${response.status}. ${detail.slice(0, 200)}`);
-          if (response.status === 429 || response.status === 503) {
-            markKeyRateLimited(currentKey, 60_000);
+          if (response.status === 429 || response.status === 503 || response.status === 402 || response.status === 401) {
+            markKeyRateLimited(currentKey, 300_000);
             console.warn(
               `[transcribeViaGoogle] Key ...${currentKey.slice(-4)} returned ${response.status}. Hopping to next key...`,
             );
