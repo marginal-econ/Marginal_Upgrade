@@ -3,6 +3,33 @@ import { describe, expect, it } from "vitest";
 
 import { MarkBreakdown } from "./mark-breakdown";
 import type { Grading } from "@/lib/examiner/types";
+import { formatEconomicsMathText, stripStars } from "@/lib/utils";
+
+describe("formatEconomicsMathText and stripStars formatting", () => {
+  it("converts raw LaTeX economics variables and subscripts to clean Unicode typography", () => {
+    const raw = "trade in goods and services orts ($P_x$) and raises the price of imports ($P_m$) from $10 to $20.";
+    const cleaned = formatEconomicsMathText(raw);
+    expect(cleaned).toContain("(Pₓ)");
+    expect(cleaned).toContain("(Pₘ)");
+    expect(cleaned).toContain("$10 to $20");
+    expect(cleaned).not.toContain("($P_x$)");
+    expect(cleaned).not.toContain("($P_m$)");
+  });
+
+  it("converts equations and subscripts for curves and variables", () => {
+    const raw = "When $AD_1$ shifts to $AD_2$, equilibrium output rises from $Y_1$ to $Y_2$ and price from $P_1$ to $P_2$. Also $MSB = MSC$ and $PED < 1$.";
+    const cleaned = stripStars(raw);
+    expect(cleaned).toContain("AD₁");
+    expect(cleaned).toContain("AD₂");
+    expect(cleaned).toContain("Y₁");
+    expect(cleaned).toContain("Y₂");
+    expect(cleaned).toContain("P₁");
+    expect(cleaned).toContain("P₂");
+    expect(cleaned).toContain("MSB = MSC");
+    expect(cleaned).toContain("PED < 1");
+    expect(cleaned).not.toContain("$");
+  });
+});
 
 describe("MarkBreakdown dynamic full-mark headers", () => {
   const baseGrading: Grading = {
@@ -62,5 +89,32 @@ describe("MarkBreakdown dynamic full-mark headers", () => {
 
     expect(markup).toContain("What cost you marks");
     expect(markup).toContain("How to elevate this answer to the next band");
+  });
+
+  it("renders clean (Pₓ) without raw ($P_x$) in MarkBreakdown feedback elements", () => {
+    const mathGrading: Grading = {
+      ...baseGrading,
+      examiner_summary: "Depreciation lowers the foreign price of exports ($P_x$) and raises the domestic price of imports ($P_m$).",
+      ao_breakdown: {
+        ...baseGrading.ao_breakdown,
+        analysis: {
+          awarded: 3,
+          out_of: 4,
+          comment: "Analysis shows $AD_1$ shifting to $AD_2$ with price rising from $P_1$ to $P_2$.",
+        },
+      },
+    };
+
+    const markup = renderToStaticMarkup(<MarkBreakdown grading={mathGrading} />);
+
+    expect(markup).toContain("(Pₓ)");
+    expect(markup).toContain("(Pₘ)");
+    expect(markup).toContain("AD₁");
+    expect(markup).toContain("AD₂");
+    expect(markup).toContain("P₁");
+    expect(markup).toContain("P₂");
+    expect(markup).not.toContain("($P_x$)");
+    expect(markup).not.toContain("($P_m$)");
+    expect(markup).not.toContain("$AD_1$");
   });
 });

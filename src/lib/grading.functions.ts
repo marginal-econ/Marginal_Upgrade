@@ -315,23 +315,14 @@ export const checkQuestionGrounding = createServerFn({ method: "POST" })
     if (data.question.length < 15) return { checked: false, grounded: false, sourceCount: 0 };
     const { retrieve } = await import("./retrieval.server");
     try {
-      // 1. First search: direct question against coursebooks, syllabus, notes, and past papers
+      // 1. Direct question against coursebooks, syllabus, notes, and past papers
       let sources = await retrieve(context.supabase, {
         query: data.question,
         matchCount: 6,
-        minSimilarity: 0.45,
+        minSimilarity: 0.35,
       });
 
-      // 2. Second search fallback: enriched query with mark scheme / coursebook terms
-      if (!sources || sources.length === 0) {
-        sources = await retrieve(context.supabase, {
-          query: `${data.question}\n\nMark scheme, coursebook chapter, band descriptors and syllabus guidance.`,
-          matchCount: 6,
-          minSimilarity: 0.38,
-        });
-      }
-
-      // 3. Third search fallback: broader similarity threshold ensuring all Cambridge questions ground
+      // 2. Second search fallback: broader similarity threshold ensuring all Cambridge questions ground
       if (!sources || sources.length === 0) {
         sources = await retrieve(context.supabase, {
           query: data.question,

@@ -74,7 +74,7 @@ Every section MUST play a distinct role with ZERO repetition within arrays and Z
 - "missing_elements": Short checklist phrases (8–18 words each, MAX 2 items per non-empty category, leave category [] if nothing is missing). List ONLY distinct omitted concepts/links NOT already explained in full in "weaknesses". Never duplicate bullets inside any category.
 - "actionable_feedback" (2–3 concrete bullets): Concrete HOW-TO rewrite instructions for the student's next draft (specific paragraph/chain/criterion to write), phrased distinctly from "weaknesses" and "missing_elements" — never copy-paste or lightly paraphrase the same sentence three times!
 - ZERO CONTRADICTIONS: Never praise an example, definition, or diagram in "strengths" while claiming it is missing/inadequate in "weaknesses" or "missing_elements".
-- CLEAN PROSE: Strictly NO markdown asterisks (* or **), NO internal snippet tags ([S1], [S2]), NO numeric scores or mark fractions in prose (e.g. "7/8", "3/4", "cost you marks").
+- CLEAN PROSE: Strictly NO markdown asterisks (* or **), NO internal snippet tags ([S1], [S2]), NO numeric scores or mark fractions in prose (e.g. "7/8", "3/4", "cost you marks"), and NO LaTeX math notation or dollar sign delimiters (e.g. do NOT write $P_x$, $P_m$, $Q_1$, $AD_1$, or $formula$). Always write economics variables and terms cleanly in standard plain text (e.g., Px, Pm, Q1, P1, AD1, MSB = MSC).
 - "suggested_resources": Cite exact relevant Cambridge 9708 chapter titles (matching AS Paper 2 or A-Level Paper 4 scope).
 - "suggested_practice": 2 concrete practice prompts strictly on this question's topic.
 
@@ -118,10 +118,10 @@ export const PASS1_ERROR_CHECK_DIRECTIVE = `EXAMINER PASS 1 FOCUS (Temperature 0
 - Catch real slips (e.g. inverted tax/monetary/exchange-rate direction, claiming profit-maximising firms "overproduce" instead of restricting output where MR=MC, claiming subsidies guarantee productive efficiency, PPC productive vs allocative confusion).
 - ANTI-HALLUCINATION: Only flag errors backed by an exact verbatim quote from the student text. Never invent errors on sound explanations.
 - Enforce Cambridge level placement accurately for inverted mechanisms (Level 1 AO2) while awarding full credit to accurate theory, diagrams, and matrices.
-- Strictly obey the Paper Scope directive above (AS Paper 2 vs A-Level Paper 4), the Diagram Rule, and Zero-Repetition distinct section roles. No asterisks, no [S#] codes, no numeric score fractions in prose.`;
+- Strictly obey the Paper Scope directive above (AS Paper 2 vs A-Level Paper 4), the Diagram Rule, and Zero-Repetition distinct section roles. No asterisks, no [S#] codes, no numeric score fractions, no LaTeX math or dollar signs in prose.`;
 
 export const PASS2_HOLISTIC_EVALUATION_DIRECTIVE = `EXAMINER PASS 2 FOCUS (Temperature 0.2 — Holistic Cambridge Best-Fit & Evaluation Assessment):
 - Practice positive, evidence-grounded Cambridge best-fit marking: reward what the candidate demonstrates across AO1, AO2, and AO3 under timed examination conditions.
 - Evaluate AO3 depth rigorously against the official Cambridge tariff descriptors: distinguish prioritized, contextual weighing and a decisive justified conclusion from generic "it depends on" lists or formulaic endings.
 - Do not inflate flawed or surface-level essays, and do not artificially suppress genuinely thorough, well-argued essays (including pure A-Level theoretical scripts with strong models/diagrams/pay-off matrices).
-- Strictly obey the Paper Scope directive above (AS Paper 2 vs A-Level Paper 4), the Diagram Rule, and Zero-Repetition distinct section roles. No asterisks, no [S#] codes, no numeric score fractions in prose.`;
+- Strictly obey the Paper Scope directive above (AS Paper 2 vs A-Level Paper 4), the Diagram Rule, and Zero-Repetition distinct section roles. No asterisks, no [S#] codes, no numeric score fractions, no LaTeX math or dollar signs in prose.`;

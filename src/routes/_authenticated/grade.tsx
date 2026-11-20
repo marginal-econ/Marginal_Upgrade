@@ -239,10 +239,18 @@ function GradePage() {
     return "";
   });
 
+  const [debouncedQuestion, setDebouncedQuestion] = useState(question.trim());
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedQuestion(question.trim());
+    }, 450);
+    return () => clearTimeout(timer);
+  }, [question]);
+
   const groundingQuery = useQuery({
-    queryKey: ["question-grounding", question.trim()],
-    queryFn: () => checkGrounding({ data: { question: question.trim() } }),
-    enabled: question.trim().length >= 15,
+    queryKey: ["question-grounding", debouncedQuestion],
+    queryFn: () => checkGrounding({ data: { question: debouncedQuestion } }),
+    enabled: debouncedQuestion.length >= 15,
     staleTime: 5 * 60_000,
   });
 
@@ -874,8 +882,8 @@ function GradePage() {
                   value={question}
                   onChange={(event) => setQuestion(event.target.value)}
                 />
-                {question.trim().length >= 15 ? (
-                  groundingQuery.isLoading ? (
+                {debouncedQuestion.length >= 15 ? (
+                  groundingQuery.isLoading || groundingQuery.isFetching ? (
                     <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground animate-pulse">
                       <Loader2 className="size-3 animate-spin" />
                       Checking Knowledge Base for official Cambridge mark schemes...
@@ -887,7 +895,7 @@ function GradePage() {
                         Knowledge Base Grounded: Verified against {groundingQuery.data.topMatchTitle} ({Math.round((groundingQuery.data.topSimilarity ?? 0) * 100)}% match)
                       </span>
                     </div>
-                  ) : (
+                  ) : groundingQuery.data?.checked ? (
                     <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-2 text-[11px] text-amber-300">
                       <div className="flex items-start gap-1.5">
                         <AlertTriangle className="size-3.5 mt-0.5 shrink-0 text-amber-400" />
@@ -898,6 +906,11 @@ function GradePage() {
                           </p>
                         </div>
                       </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                      <CheckCircle2 className="size-3.5 shrink-0 text-primary" />
+                      <span>Cambridge 9708 Knowledge Base connected and ready for grading.</span>
                     </div>
                   )
                 ) : null}

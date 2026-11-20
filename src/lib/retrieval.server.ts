@@ -119,6 +119,12 @@ export function expandEconomicQuery(query: string): string {
     },
     {
       triggers:
+        /\b(circular flow|leakages?|injections?|macroeconomic objectives)\b/i,
+      keywords:
+        "circular flow of income, injections, leakages, savings, taxation, imports, investment, government spending, exports, multiplier effect, macroeconomic equilibrium, national income determination",
+    },
+    {
+      triggers:
         /\b(aggregate demand|aggregate supply|ad[- ]as|macroeconomic equilibrium|sras|lras)\b/i,
       keywords:
         "consumption, investment, government expenditure, net exports, SRAS supply shocks, Keynesian AS, classical LRAS, inflationary gap, deflationary gap",
