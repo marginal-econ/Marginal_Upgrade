@@ -91,6 +91,7 @@ export const submitPdfMcqAttempt = createServerFn({ method: "POST" })
         level: LevelSchema,
         paperId: z.string().min(1).max(160),
         questions: z.array(SubmittedQuestion).max(80),
+        gradeOnlyAttempted: z.boolean().optional(),
       })
       .parse(input),
   )
@@ -159,7 +160,12 @@ export const submitPdfMcqAttempt = createServerFn({ method: "POST" })
       });
       const correctAnswer = answerKey[String(number)];
       const userAnswer = submitted?.user_answer ?? null;
-      const isCorrect = userAnswer === correctAnswer;
+      const isAttempted = userAnswer !== null && userAnswer !== undefined;
+      const isCorrect = isAttempted
+        ? userAnswer === correctAnswer
+        : data.gradeOnlyAttempted
+          ? null
+          : false;
       return {
         number,
         topic: classified.topic,
@@ -171,12 +177,16 @@ export const submitPdfMcqAttempt = createServerFn({ method: "POST" })
         correct_answer: correctAnswer,
         user_answer: userAnswer,
         correct: isCorrect,
-        mistake_type: !isCorrect && isMcqMistakeType(submitted?.mistake_type)
+        mistake_type: isCorrect === false && isMcqMistakeType(submitted?.mistake_type)
           ? submitted!.mistake_type
           : null,
       };
     });
-    const score = graded.filter((question) => question.correct).length;
+    const score = graded.filter((question) => question.correct === true).length;
+    const attemptedCount = graded.filter((question) => question.correct !== null).length;
+    const total = data.gradeOnlyAttempted
+      ? Math.max(1, attemptedCount)
+      : questionCount;
 
     const { data: row, error } = await supabase
       .from("mcq_pdf_attempts")
@@ -188,7 +198,7 @@ export const submitPdfMcqAttempt = createServerFn({ method: "POST" })
         paper_id: resolvedDbPaperId,
         questions: graded,
         score,
-        total: questionCount,
+        total,
         completed_at: new Date().toISOString(),
       })
       .select("id, score, total, questions")
@@ -262,6 +272,7 @@ export const getMcqTopicPerformance = createServerFn({ method: "GET" })
       for (const rawQ of questions) {
         if (!rawQ || typeof rawQ !== "object") continue;
         const q = rawQ as Record<string, unknown>;
+        if (q.correct === null || q.correct === undefined || q.user_answer === null) continue;
         const num = typeof q.number === "number" ? q.number : 1;
         const classified = classifyMcqQuestion({
           level: levelUpper,

@@ -6,6 +6,7 @@ import {
   BookOpen,
   Calculator as CalculatorIcon,
   CheckCircle2,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Clock,
@@ -51,11 +52,19 @@ import {
   McqQuestionReviewList,
   McqDomainBreakdown,
   McqMistakeLedger,
+  SubmitGradingDialog,
   buildTopicStatsFromQuestions,
   type ExplanationState,
   type TopicStat,
   type GradedQuestion,
 } from "@/components/app/mcq-review-panel";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { McqTutorMode } from "@/components/app/mcq-tutor-mode";
 import { type McqMistakeType } from "@/lib/mcq-mistakes";
 import { Badge as UiBadge } from "@/components/ui/badge";
@@ -168,6 +177,7 @@ type McqDraft = {
   questionTimes?: Record<number, number>;
   activeQuestion?: number;
   timeLeft: number | null;
+  gradeOnlyAttempted?: boolean;
   savedAt: number;
 };
 
@@ -453,6 +463,10 @@ function McqLivePage() {
 
   const [graded, setGraded] = useState(false);
   const [calcOpen, setCalcOpen] = useState(false);
+  const [gradeOnlyAttempted, setGradeOnlyAttempted] = useState<boolean>(false);
+  const gradeOnlyAttemptedRef = useRef(gradeOnlyAttempted);
+  gradeOnlyAttemptedRef.current = gradeOnlyAttempted;
+  const [submitPromptOpen, setSubmitPromptOpen] = useState<boolean>(false);
 
   // ---- Full Screen Proctored Test Mode (Window & Tab Lockdown) ----
   const [examModeActive, setExamModeActive] = useState<boolean>(false);
@@ -1133,6 +1147,9 @@ function fillMissingQuestionPages(
     eliminatedOptionsRef.current = initialEliminated;
     setQuestionTimes(initialTimes);
     questionTimesRef.current = initialTimes;
+    const initialGradeOnly = Boolean(draft?.gradeOnlyAttempted);
+    setGradeOnlyAttempted(initialGradeOnly);
+    gradeOnlyAttemptedRef.current = initialGradeOnly;
     setGraded(!!completedAttempt);
     setResult(
       completedAttempt && completedAttempt.score !== null
@@ -1552,6 +1569,7 @@ function fillMissingQuestionPages(
           questionTimes: questionTimesRef.current,
           activeQuestion: activeQuestionRef.current,
           timeLeft: currentTimeLeft,
+          gradeOnlyAttempted: gradeOnlyAttemptedRef.current,
           savedAt: Date.now(),
         };
         window.localStorage.setItem(
@@ -1677,7 +1695,14 @@ function fillMissingQuestionPages(
 
   /* ---------------- grading + feedback ---------------- */
 
-  async function gradeAndSave() {
+  async function gradeAndSave(options?: { gradeOnlyAttempted?: boolean }) {
+    const onlyAttempted = options?.gradeOnlyAttempted ?? gradeOnlyAttempted;
+    const attemptedCount = Object.keys(answers).filter((k) => !!answers[Number(k)]).length;
+    if (onlyAttempted && attemptedCount === 0) {
+      toast.error("Please answer at least one question before grading attempted questions.");
+      return;
+    }
+
     let effectiveKey = answerKey;
     if (Object.keys(effectiveKey).length === 0 && selectedPaperId) {
       const dbMatch = papersQuery.data?.papers.find((p) => p.id === selectedPaperId);
@@ -1738,7 +1763,10 @@ function fillMissingQuestionPages(
             existingSubtopic: topicalQ?.subtopic,
             existingSkill: topicalQ?.skill,
           });
-          const isCorrect = correctAnswer ? correctAnswer === userAnswer : null;
+          const isAttempted = userAnswer !== null && userAnswer !== undefined;
+          const isCorrect = isAttempted
+            ? (correctAnswer ? correctAnswer === userAnswer : null)
+            : (onlyAttempted ? null : false);
           return {
             number,
             topic: classified.topic,
@@ -1777,6 +1805,7 @@ function fillMissingQuestionPages(
           filename: paperTitle,
           level,
           paperId: selectedPaperId!,
+          gradeOnlyAttempted: onlyAttempted,
           questions: graded_.map((q) => ({
             number: q.number,
             topic: q.topic,
@@ -1810,7 +1839,11 @@ function fillMissingQuestionPages(
       queryClient.invalidateQueries({ queryKey: ["review-mcq-history"] });
       queryClient.invalidateQueries({ queryKey: ["review-mcq-topics"] });
       queryClient.invalidateQueries({ queryKey: ["review-panel"] });
-      toast.success(`Marked — ${score}/${scored.length}.`);
+      toast.success(
+        onlyAttempted
+          ? `Marked attempted questions — ${score}/${scored.length} (${Math.round((score / Math.max(scored.length, 1)) * 100)}%).`
+          : `Marked — ${score}/${scored.length}.`,
+      );
     } catch (err) {
       toast.error("Marking failed — your answers are still on screen, try again.");
     } finally {
@@ -2372,15 +2405,67 @@ function fillMissingQuestionPages(
               ) : null}
 
               {practiceMode === "full_paper" ? (
-                <Button
-                  size="sm"
-                  onClick={gradeAndSave}
-                  disabled={!!busyLabel}
-                  className="h-8 px-3 text-xs font-semibold gap-1.5 shadow-sm"
-                >
-                  {busyLabel ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-                  <span>Submit</span>
-                </Button>
+                <div className="inline-flex rounded-md shadow-sm">
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      if (gradeOnlyAttempted) {
+                        gradeAndSave({ gradeOnlyAttempted: true });
+                      } else if (answeredCount === qCount) {
+                        gradeAndSave({ gradeOnlyAttempted: false });
+                      } else if (answeredCount === 0) {
+                        toast.error("Please answer at least one question before submitting.");
+                      } else {
+                        setSubmitPromptOpen(true);
+                      }
+                    }}
+                    disabled={!!busyLabel}
+                    className="h-8 px-3 text-xs font-semibold gap-1.5 shadow-sm rounded-r-none"
+                  >
+                    {busyLabel ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                    <span>{gradeOnlyAttempted ? `Submit (${answeredCount}/${qCount})` : "Submit"}</span>
+                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        size="sm"
+                        disabled={!!busyLabel}
+                        className="h-8 px-1.5 border-l border-primary-foreground/20 rounded-l-none shadow-sm"
+                        title="Submission options"
+                      >
+                        <ChevronDown className="h-3.5 w-3.5" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-60 text-xs">
+                      <DropdownMenuItem
+                        onClick={() => {
+                          if (answeredCount === 0) {
+                            toast.error("Please answer at least one question first.");
+                            return;
+                          }
+                          gradeAndSave({ gradeOnlyAttempted: true });
+                        }}
+                        className="gap-2 cursor-pointer py-2"
+                      >
+                        <CheckCircle2 className="h-4 w-4 text-primary shrink-0" />
+                        <div className="flex flex-col text-left">
+                          <span className="font-semibold text-foreground">Grade Attempted Only</span>
+                          <span className="text-[10px] text-muted-foreground">{answeredCount} of {qCount} answered</span>
+                        </div>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => gradeAndSave({ gradeOnlyAttempted: false })}
+                        className="gap-2 cursor-pointer py-2"
+                      >
+                        <Award className="h-4 w-4 text-muted-foreground shrink-0" />
+                        <div className="flex flex-col text-left">
+                          <span className="font-semibold text-foreground">Grade Entire Paper</span>
+                          <span className="text-[10px] text-muted-foreground">Score out of {qCount} (unattempted = 0)</span>
+                        </div>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
               ) : null}
             </div>
           </div>
@@ -2510,6 +2595,14 @@ function fillMissingQuestionPages(
                           <span className="rounded-full border border-current/25 bg-background/50 px-2 py-0.5 font-mono text-xs font-bold">
                             {pct}%
                           </span>
+                          {result.total < qCount ? (
+                            <UiBadge
+                              variant="outline"
+                              className="text-[11px] font-mono border-primary/40 bg-primary/10 text-primary"
+                            >
+                              Attempted only ({result.total}/{qCount} Qs)
+                            </UiBadge>
+                          ) : null}
                           <span className="text-xs sm:text-sm font-semibold">{tier.label}</span>
                           <ExamIntegrityReport
                             wasExamModeActive={hadExamModeRef.current || examModeActive}
@@ -2626,6 +2719,12 @@ function fillMissingQuestionPages(
                         activeQuestion={activeQuestion}
                         questionPages={questionPages}
                         saveStatus={saveStatus}
+                        gradeOnlyAttempted={gradeOnlyAttempted}
+                        onToggleGradeOnlyAttempted={(val) => {
+                          setGradeOnlyAttempted(val);
+                          gradeOnlyAttemptedRef.current = val;
+                          setSaveStatus("saving");
+                        }}
                       />
                     )}
                   </div>
@@ -2791,6 +2890,12 @@ function fillMissingQuestionPages(
                   }}
                   activeQuestion={activeQuestion}
                   questionPages={questionPages}
+                  gradeOnlyAttempted={gradeOnlyAttempted}
+                  onToggleGradeOnlyAttempted={(val) => {
+                    setGradeOnlyAttempted(val);
+                    gradeOnlyAttemptedRef.current = val;
+                    setSaveStatus("saving");
+                  }}
                 />
               </div>
             </SheetContent>
@@ -2869,6 +2974,18 @@ function fillMissingQuestionPages(
         totalViolations={examViolations}
         onResume={handleResumeFullscreen}
         onDisableExamMode={handleDisableExamMode}
+      />
+
+      <SubmitGradingDialog
+        open={submitPromptOpen}
+        onOpenChange={setSubmitPromptOpen}
+        attemptedCount={answeredCount}
+        totalCount={qCount}
+        busy={!!busyLabel}
+        onConfirm={(onlyAttempted) => {
+          setSubmitPromptOpen(false);
+          gradeAndSave({ gradeOnlyAttempted: onlyAttempted });
+        }}
       />
     </div>
   );
@@ -3289,6 +3406,8 @@ function AnswerSidePanel({
   activeQuestion,
   questionPages,
   saveStatus,
+  gradeOnlyAttempted,
+  onToggleGradeOnlyAttempted,
 }: {
   numbers: number[];
   answers: Record<number, Letter>;
@@ -3304,6 +3423,8 @@ function AnswerSidePanel({
   activeQuestion?: number;
   questionPages?: Record<number, number>;
   saveStatus?: "saved" | "saving";
+  gradeOnlyAttempted?: boolean;
+  onToggleGradeOnlyAttempted?: (val: boolean) => void;
 }) {
   const [filter, setFilter] = useState<"all" | "flagged" | "unanswered">("all");
   const [showGrid, setShowGrid] = useState(false);
@@ -3454,6 +3575,27 @@ function AnswerSidePanel({
             Left ({unansweredCount})
           </button>
         </div>
+
+        {/* Grade only attempted option */}
+        {!graded && onToggleGradeOnlyAttempted ? (
+          <div className="flex items-center justify-between gap-2 px-2 py-1.5 rounded-md bg-muted/40 border border-border/60">
+            <label
+              htmlFor="grade-only-attempted-checkbox"
+              className="flex items-center gap-2 text-[11px] font-medium cursor-pointer select-none text-foreground"
+            >
+              <Checkbox
+                id="grade-only-attempted-checkbox"
+                checked={!!gradeOnlyAttempted}
+                onCheckedChange={(checked) => onToggleGradeOnlyAttempted(Boolean(checked))}
+                className="h-3.5 w-3.5"
+              />
+              <span>Grade only attempted</span>
+            </label>
+            <span className="text-[10px] font-mono text-muted-foreground">
+              {gradeOnlyAttempted ? `${answeredCount} Qs` : `All ${effectiveNumbers.length}`}
+            </span>
+          </div>
+        ) : null}
       </div>
 
       {/* Question list */}

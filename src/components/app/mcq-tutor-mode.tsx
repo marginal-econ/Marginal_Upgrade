@@ -43,6 +43,7 @@ import {
   McqMistakeLedger,
   McqReviewPanel,
   MistakeTypeIcon,
+  SubmitGradingDialog,
   type ExplanationState,
   type GradedQuestion,
   type TopicStat,
@@ -92,7 +93,7 @@ type McqTutorModeProps = {
   onToggleEliminate: (num: number, letter: Letter) => void;
   onToggleFlag: (num: number) => void;
   onExplainQuestion: (num: number, overrideMistakeType?: McqMistakeType | null) => void;
-  onFinishSession: () => void;
+  onFinishSession: (options?: { gradeOnlyAttempted?: boolean }) => void;
 };
 
 function formatElapsed(seconds: number): string {
@@ -244,6 +245,7 @@ export function McqTutorMode({
   const [skippedTagging, setSkippedTagging] = useState<Set<number>>(new Set());
   // Show end-of-session diagnostic report view
   const [showSessionReport, setShowSessionReport] = useState(false);
+  const [tutorSubmitOpen, setTutorSubmitOpen] = useState(false);
 
   // Focused Re-Drill Loop for missed questions (local revision loop, doesn't overwrite saved first score)
   const [redrillQueue, setRedrillQueue] = useState<number[] | null>(null);
@@ -329,6 +331,14 @@ export function McqTutorMode({
       avgSeconds,
     };
   }, [questionNumbers, graded, checkedQuestions, answers, answerKey, questionTimes]);
+
+  const handleRequestFinish = useCallback(() => {
+    if (sessionStats.checkedCount >= questionNumbers.length) {
+      onFinishSession({ gradeOnlyAttempted: false });
+    } else {
+      setTutorSubmitOpen(true);
+    }
+  }, [sessionStats.checkedCount, questionNumbers.length, onFinishSession]);
 
   // Current question data
   const activeAnswer = isRedrill ? redrillAnswers?.[currentNumber] : answers?.[currentNumber];
@@ -538,7 +548,7 @@ export function McqTutorMode({
           if (hasNext) {
             goNext();
           } else if (!isRedrill && !graded) {
-            onFinishSession();
+            handleRequestFinish();
           } else if (!isRedrill && graded) {
             setShowSessionReport(true);
           }
@@ -803,7 +813,7 @@ export function McqTutorMode({
                 disabled={!!busyLabel}
                 onClick={() => {
                   if (graded) setShowSessionReport(true);
-                  else onFinishSession();
+                  else handleRequestFinish();
                 }}
                 className="h-7 px-2.5 text-xs gap-1.5 font-semibold"
               >
@@ -1213,7 +1223,7 @@ export function McqTutorMode({
                   busyLabel={busyLabel}
                   redrillFinished={isRedrill && redrillDoneCount >= (redrillQueue?.length ?? 0)}
                   onNext={goNext}
-                  onFinish={onFinishSession}
+                  onFinish={handleRequestFinish}
                   onOpenReport={() => {
                     setRedrillQueue(null);
                     setShowSessionReport(true);
@@ -1401,7 +1411,7 @@ export function McqTutorMode({
                       busyLabel={busyLabel}
                       redrillFinished={isRedrill && redrillDoneCount >= (redrillQueue?.length ?? 0)}
                       onNext={goNext}
-                      onFinish={onFinishSession}
+                      onFinish={handleRequestFinish}
                       onOpenReport={() => {
                         setRedrillQueue(null);
                         setShowSessionReport(true);
@@ -1414,6 +1424,19 @@ export function McqTutorMode({
           </div>
         </aside>
       </div>
+
+      <SubmitGradingDialog
+        open={tutorSubmitOpen}
+        onOpenChange={setTutorSubmitOpen}
+        attemptedCount={sessionStats.checkedCount}
+        totalCount={questionNumbers.length}
+        title="Finish Tutor Practice Session"
+        busy={!!busyLabel}
+        onConfirm={(gradeOnlyAttempted) => {
+          setTutorSubmitOpen(false);
+          onFinishSession({ gradeOnlyAttempted });
+        }}
+      />
     </div>
   );
 }

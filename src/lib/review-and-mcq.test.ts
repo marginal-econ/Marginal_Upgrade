@@ -351,4 +351,100 @@ describe("Advanced MCQ Review and Response Engine", () => {
     // Null paper
     expect(hasCompleteAnswerKey(null)).toBe(false);
   });
+
+  it("supports grading only attempted questions without penalizing unattempted questions", () => {
+    const totalQuestions = 10;
+    const answerKey: Record<number, string> = {
+      1: "A", 2: "B", 3: "C", 4: "D", 5: "A",
+      6: "B", 7: "C", 8: "D", 9: "A", 10: "B",
+    };
+    // Candidate answered questions 1 to 4 only (got 1, 2, 3 right; 4 wrong; 5-10 unattempted)
+    const answers: Record<number, string> = {
+      1: "A", 2: "B", 3: "C", 4: "A",
+    };
+
+    function gradeAttempt(onlyAttempted: boolean) {
+      const graded = Array.from({ length: totalQuestions }, (_, i) => {
+        const number = i + 1;
+        const userAnswer = answers[number] ?? null;
+        const correctAnswer = answerKey[number];
+        const isAttempted = userAnswer !== null;
+        const isCorrect = isAttempted
+          ? userAnswer === correctAnswer
+          : onlyAttempted
+            ? null
+            : false;
+        return {
+          number,
+          userAnswer,
+          correctAnswer,
+          correct: isCorrect,
+        };
+      });
+
+      const scored = graded.filter((q) => q.correct !== null);
+      const score = scored.filter((q) => q.correct === true).length;
+      const total = onlyAttempted ? Math.max(1, scored.length) : totalQuestions;
+      const accuracyPct = Math.round((score / total) * 100);
+
+      return { graded, scored, score, total, accuracyPct };
+    }
+
+    // When grading ONLY attempted questions:
+    const attemptedResult = gradeAttempt(true);
+    expect(attemptedResult.score).toBe(3);
+    expect(attemptedResult.total).toBe(4);
+    expect(attemptedResult.accuracyPct).toBe(75);
+    expect(attemptedResult.scored).toHaveLength(4);
+    // Unattempted questions 5..10 have correct: null
+    for (let q = 5; q <= 10; q++) {
+      expect(attemptedResult.graded[q - 1].correct).toBeNull();
+    }
+
+    // When grading ENTIRE paper:
+    const fullResult = gradeAttempt(false);
+    expect(fullResult.score).toBe(3);
+    expect(fullResult.total).toBe(10);
+    expect(fullResult.accuracyPct).toBe(30);
+    expect(fullResult.scored).toHaveLength(10);
+    // Unattempted questions 5..10 are marked incorrect (false)
+    for (let q = 5; q <= 10; q++) {
+      expect(fullResult.graded[q - 1].correct).toBe(false);
+    }
+  });
+
+  it("buildTopicStatsFromQuestions excludes unattempted questions with correct === null from topic diagnostics", () => {
+    const stats = buildTopicStatsFromQuestions([
+      {
+        number: 1,
+        topic: "Basic Economic Ideas & Resource Allocation",
+        correct_answer: "A",
+        user_answer: "A",
+        correct: true,
+      },
+      {
+        number: 2,
+        topic: "Basic Economic Ideas & Resource Allocation",
+        correct_answer: "B",
+        user_answer: null,
+        correct: null, // Unattempted
+      },
+      {
+        number: 8,
+        topic: "Elasticities (PED, PES, YED & XED)",
+        correct_answer: "B",
+        user_answer: null,
+        correct: null, // Unattempted
+      },
+    ]);
+
+    // Only question 1 was graded (and correct)
+    expect(stats).toHaveLength(1);
+    expect(stats[0].topic).toBe("Basic Economic Ideas & Resource Allocation");
+    expect(stats[0].attempted).toBe(1);
+    expect(stats[0].correct).toBe(1);
+    expect(stats[0].accuracyPct).toBe(100);
+    expect(stats[0].wrongNumbers).toEqual([]);
+    expect(stats[0].questionNumbers).toEqual([1]);
+  });
 });
