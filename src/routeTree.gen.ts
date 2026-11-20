@@ -45,6 +45,8 @@ import { Route as AuthenticatedResponseStructureRouteImport } from './routes/_au
 import { Route as AuthenticatedReviewRouteImport } from './routes/_authenticated/review'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedShowcaseRouteImport } from './routes/_authenticated/showcase'
+import { Route as QuizIndexRouteImport } from './routes/quiz/index'
+import { Route as QuizPinRouteImport } from './routes/quiz/$pin'
 import { Route as AuthenticatedEssayEssayIdRouteImport } from './routes/_authenticated/essay.$essayId'
 import { Route as AuthenticatedExaminerIndexRouteImport } from './routes/_authenticated/examiner/index'
 import { Route as AuthenticatedExaminerBenchmarksRouteImport } from './routes/_authenticated/examiner/benchmarks'
@@ -243,6 +245,16 @@ const AuthenticatedShowcaseRoute = AuthenticatedShowcaseRouteImport.update({
   path: '/showcase',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const QuizIndexRoute = QuizIndexRouteImport.update({
+  id: '/quiz/',
+  path: '/quiz/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const QuizPinRoute = QuizPinRouteImport.update({
+  id: '/quiz/$pin',
+  path: '/quiz/$pin',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthenticatedEssayEssayIdRoute =
   AuthenticatedEssayEssayIdRouteImport.update({
     id: '/essay/$essayId',
@@ -322,6 +334,8 @@ export interface FileRoutesByFullPath {
   '/review': typeof AuthenticatedReviewRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/showcase': typeof AuthenticatedShowcaseRoute
+  '/quiz/$pin': typeof QuizPinRoute
+  '/quiz/': typeof QuizIndexRoute
   '/essay/$essayId': typeof AuthenticatedEssayEssayIdRoute
   '/examiner/benchmarks': typeof AuthenticatedExaminerBenchmarksRoute
   '/examiner/moderation': typeof AuthenticatedExaminerModerationRoute
@@ -366,6 +380,8 @@ export interface FileRoutesByTo {
   '/review': typeof AuthenticatedReviewRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/showcase': typeof AuthenticatedShowcaseRoute
+  '/quiz/$pin': typeof QuizPinRoute
+  '/quiz': typeof QuizIndexRoute
   '/essay/$essayId': typeof AuthenticatedEssayEssayIdRoute
   '/examiner/benchmarks': typeof AuthenticatedExaminerBenchmarksRoute
   '/examiner/moderation': typeof AuthenticatedExaminerModerationRoute
@@ -412,6 +428,8 @@ export interface FileRoutesById {
   '/_authenticated/review': typeof AuthenticatedReviewRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/showcase': typeof AuthenticatedShowcaseRoute
+  '/quiz/$pin': typeof QuizPinRoute
+  '/quiz/': typeof QuizIndexRoute
   '/_authenticated/essay/$essayId': typeof AuthenticatedEssayEssayIdRoute
   '/_authenticated/examiner/benchmarks': typeof AuthenticatedExaminerBenchmarksRoute
   '/_authenticated/examiner/moderation': typeof AuthenticatedExaminerModerationRoute
@@ -458,6 +476,8 @@ export interface FileRouteTypes {
     | '/review'
     | '/settings'
     | '/showcase'
+    | '/quiz/$pin'
+    | '/quiz/'
     | '/essay/$essayId'
     | '/examiner/benchmarks'
     | '/examiner/moderation'
@@ -502,6 +522,8 @@ export interface FileRouteTypes {
     | '/review'
     | '/settings'
     | '/showcase'
+    | '/quiz/$pin'
+    | '/quiz'
     | '/essay/$essayId'
     | '/examiner/benchmarks'
     | '/examiner/moderation'
@@ -547,6 +569,8 @@ export interface FileRouteTypes {
     | '/_authenticated/review'
     | '/_authenticated/settings'
     | '/_authenticated/showcase'
+    | '/quiz/$pin'
+    | '/quiz/'
     | '/_authenticated/essay/$essayId'
     | '/_authenticated/examiner/benchmarks'
     | '/_authenticated/examiner/moderation'
@@ -568,6 +592,8 @@ export interface RootRouteChildren {
   PrivacyRoute: typeof PrivacyRoute
   TeacherAuthRoute: typeof TeacherAuthRoute
   TermsRoute: typeof TermsRoute
+  QuizPinRoute: typeof QuizPinRoute
+  QuizIndexRoute: typeof QuizIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -824,6 +850,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedShowcaseRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/quiz/': {
+      id: '/quiz/'
+      path: '/quiz'
+      fullPath: '/quiz/'
+      preLoaderRoute: typeof QuizIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/quiz/$pin': {
+      id: '/quiz/$pin'
+      path: '/quiz/$pin'
+      fullPath: '/quiz/$pin'
+      preLoaderRoute: typeof QuizPinRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authenticated/essay/$essayId': {
       id: '/_authenticated/essay/$essayId'
       path: '/essay/$essayId'
@@ -963,6 +1003,8 @@ const rootRouteChildren: RootRouteChildren = {
   PrivacyRoute: PrivacyRoute,
   TeacherAuthRoute: TeacherAuthRoute,
   TermsRoute: TermsRoute,
+  QuizPinRoute: QuizPinRoute,
+  QuizIndexRoute: QuizIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
