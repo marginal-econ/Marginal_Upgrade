@@ -592,8 +592,8 @@ function LiveQuizRoomPage() {
             <div className="space-y-6">
               <Card className="overflow-hidden border-2 border-primary/40 bg-gradient-to-br from-primary/[0.08] via-background to-amber-500/[0.06] shadow-lg">
                 <CardContent className="p-6 sm:p-8">
-                  <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_1fr] gap-6 items-center">
-                    <div className="space-y-4 text-center lg:text-left">
+                  <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] gap-6 items-center">
+                    <div className="min-w-0 space-y-4 text-center lg:text-left">
                       <div className="inline-flex flex-wrap items-center justify-center lg:justify-start gap-2">
                         <Badge variant="outline" className="uppercase font-bold text-[11px]">
                           {meta.level} Level
@@ -1556,7 +1556,7 @@ function StudentLiveGameplayView({
   const progressPct = Math.round((answeredCount / Math.max(1, questionNumbers.length)) * 100);
 
   return (
-    <div className="min-h-screen flex flex-col bg-muted/15">
+    <div className="min-h-screen flex flex-col bg-muted/15 overflow-x-hidden">
       {/* Gamified Quizizz / Blooket Top HUD */}
       <header className="sticky top-0 z-30 border-b border-border bg-background/95 backdrop-blur-md px-3 sm:px-5 py-2.5">
         <div className="mx-auto max-w-6xl flex flex-wrap items-center justify-between gap-2">
@@ -1664,12 +1664,11 @@ function StudentLiveGameplayView({
         </div>
       </header>
 
-      {/* Main Split Workspace: Question on Left/Top + Vibrant A/B/C/D Tiles on Right/Bottom */}
-      <main className="flex-1 mx-auto w-full max-w-6xl px-3 sm:px-6 py-4 grid grid-cols-1 lg:grid-cols-[1.35fr_1fr] gap-5 items-start">
-        {/* Left: Real Cambridge PDF Question Slice OR Custom Question Card */}
-        <div className="space-y-3">
-          {/* Question Navigator Pills */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+      {/* Main Workspace: Full-Width Question Strip + Balanced 2-Column Split */}
+      <main className="flex-1 mx-auto w-full max-w-6xl px-3 sm:px-6 py-4 space-y-4">
+        {/* Full-Width Question Navigator Pills */}
+        <div className="w-full overflow-x-auto pb-1">
+          <div className="flex items-center gap-1.5 min-w-max">
             {questionNumbers.map((qNum, idx) => {
               const rec = mePlayer.answers?.[qNum] ?? feedbackByQuestion[qNum];
               const isCurrent = idx === currentIdx;
@@ -1702,9 +1701,14 @@ function StudentLiveGameplayView({
               );
             })}
           </div>
+        </div>
 
-          {/* Question Surface */}
-          <Card className="overflow-hidden border-2 border-border shadow-sm">
+        {/* Balanced 2-Column Grid: Question Surface (Left) + Fixed-Width Answer Panel (Right) */}
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_360px] xl:grid-cols-[minmax(0,1fr)_400px] gap-5 items-start">
+          {/* Left: Real Cambridge PDF Question Slice OR Custom Question Card */}
+          <div className="min-w-0 space-y-3">
+            {/* Question Surface */}
+            <Card className="overflow-hidden border-2 border-border shadow-sm">
             <CardHeader className="py-2.5 px-4 border-b border-border/70 bg-muted/25 flex flex-row items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 <Badge className="font-mono font-black text-xs">
@@ -1796,12 +1800,14 @@ function StudentLiveGameplayView({
         </div>
 
         {/* Right: Blooket / Quizizz Answer Tiles & Live Feedback */}
-        <div className="space-y-4">
+        <div className="min-w-0 space-y-4 lg:sticky lg:top-24">
           <Card className="border-2 border-border shadow-sm">
             <CardHeader className="py-3 px-4 border-b border-border/70 bg-muted/20">
-              <CardTitle className="text-xs font-extrabold uppercase tracking-wider text-muted-foreground flex items-center justify-between">
-                <span>Select Your Answer</span>
-                <span className="font-mono text-[10px] font-normal">Keys: A / B / C / D</span>
+              <CardTitle className="text-xs font-extrabold uppercase tracking-wider text-muted-foreground flex items-center justify-between gap-2">
+                <span className="truncate">Select Your Answer</span>
+                <span className="font-mono text-[10px] font-normal whitespace-nowrap shrink-0">
+                  Keys: A / B / C / D
+                </span>
               </CardTitle>
             </CardHeader>
             <CardContent className="p-4 space-y-2.5">
@@ -1894,20 +1900,20 @@ function StudentLiveGameplayView({
                     >
                       <CardContent className="p-4 space-y-2">
                         <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 min-w-0">
                             {isCorrect ? (
-                              <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                              <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
                             ) : (
-                              <XCircle className="h-5 w-5 text-rose-600 dark:text-rose-400" />
+                              <XCircle className="h-5 w-5 shrink-0 text-rose-600 dark:text-rose-400" />
                             )}
-                            <span className="text-sm font-black text-foreground">
+                            <span className="text-sm font-black text-foreground leading-snug">
                               {isCorrect
                                 ? `Correct! +${pts} pts`
                                 : `Not quite — Official answer is ${correctAns ?? "recorded"}`}
                             </span>
                           </div>
                           {localFeedback && isCorrect ? (
-                            <Badge className="bg-emerald-600 text-white font-mono text-[10px]">
+                            <Badge className="bg-emerald-600 text-white font-mono text-[10px] whitespace-nowrap shrink-0">
                               #{localFeedback.rank} / {localFeedback.totalPlayers}
                             </Badge>
                           ) : null}
@@ -2028,6 +2034,7 @@ function StudentLiveGameplayView({
               </Button>
             </div>
           )}
+        </div>
         </div>
       </main>
 

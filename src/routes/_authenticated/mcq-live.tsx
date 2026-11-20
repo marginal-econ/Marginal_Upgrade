@@ -4313,8 +4313,8 @@ function PastPaperSelector({
             ) : null}
 
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <div className="flex items-center gap-2">
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
                   <p className="text-sm font-semibold">{selectedPaper.title}</p>
                   {activeDraftPaperId === selectedPaper.id ? (
                     <UiBadge variant="secondary" className="border-primary/40 text-primary text-[10px] uppercase font-bold tracking-wider">
@@ -4329,15 +4329,15 @@ function PastPaperSelector({
                     : " · Incomplete mark scheme — ask an administrator to re-upload it"}
                 </p>
               </div>
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="flex flex-wrap items-center justify-end gap-2 shrink-0 sm:ml-auto">
                 {onHostLiveQuiz ? (
                   <Button
                     type="button"
-                    size="lg"
+                    size="default"
                     variant="outline"
                     disabled={busy || !hasCompleteAnswerKey(selectedPaper)}
                     onClick={() => onHostLiveQuiz(selectedPaper)}
-                    className="gap-1.5 font-semibold border-emerald-500/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/10"
+                    className="h-10 gap-1.5 whitespace-nowrap font-semibold border-emerald-500/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/10"
                     title="Generate a live Blooket / Quizizz link for students to play this paper together"
                   >
                     <Gamepad2 className="h-4 w-4" />
@@ -4345,10 +4345,10 @@ function PastPaperSelector({
                   </Button>
                 ) : null}
                 <Button
-                  size="lg"
+                  size="default"
                   disabled={busy || !hasCompleteAnswerKey(selectedPaper)}
                   onClick={() => onStart(selectedPaper)}
-                  className="min-w-44"
+                  className="h-10 whitespace-nowrap font-semibold"
                 >
                   {busy && busyPaperId === selectedPaper.id ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
