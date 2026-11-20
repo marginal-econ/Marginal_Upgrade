@@ -179,7 +179,7 @@ export function getCandidateModels(provider: string, primaryModel?: string): str
       "claude-3-opus-20240229",
     ],
     openai: ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo"],
-    google: ["gemini-3.8-flash", "gemini-2.5-flash", "gemini-2.5-pro"],
+    google: ["gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.6-flash", "gemini-flash-latest"],
     mistral: ["mistral-large-latest", "mistral-small-latest", "codestral-latest"],
     deepseek: ["deepseek-chat", "deepseek-reasoner"],
   };

@@ -241,6 +241,30 @@ export async function chat(rawOptions: ChatOptions): Promise<ChatResult> {
             }`,
           );
           if (isLast) {
+            if (prov.provider !== "google") {
+              try {
+                const { supabaseAdmin } = await import("@/integrations/backend/client.server");
+                const { data: googleKeys } = await supabaseAdmin
+                  .from("ai_provider_keys")
+                  .select("provider, api_key, base_url, model, label")
+                  .eq("provider", "google")
+                  .order("updated_at", { ascending: false })
+                  .limit(1);
+
+                if (googleKeys && googleKeys.length > 0 && googleKeys[0]!.api_key) {
+                  const googleConfig = normaliseConfig(googleKeys[0]!);
+                  googleConfig.model = "gemini-3.8-flash";
+                  console.warn(
+                    `[chat] All configured backup providers failed. Attempting emergency failover to Google Gemini (${googleConfig.model})...`,
+                  );
+                  const googleResult = await chatViaProvider(googleConfig, provOptions);
+                  result = { ...googleResult, latencyMs: Date.now() - started };
+                  return result;
+                }
+              } catch (emergencyErr) {
+                console.warn("[chat] Emergency Google failover also failed:", emergencyErr);
+              }
+            }
             throw err;
           }
           try {
@@ -420,7 +444,7 @@ async function chatViaProvider(
   const isLiveExaminerRealtime =
     isLiveExaminer && options.feature !== "live_examiner_maximise";
   const { freeKeys, paidKeys } = buildOrderedKeyPool(config);
-  const activeKeysToTry = getPrioritizedKeyOrder(config, keyCooldowns, isLiveExaminer);
+  const activeKeysToTry = getPrioritizedKeyOrder(config, keyCooldowns, true);
 
   if (config.provider === "anthropic") {
     const candidateModels = getCandidateModels("anthropic", config.model);
@@ -472,16 +496,19 @@ async function chatViaProvider(
             const text = await response.text();
             lastErrStatus = response.status;
             lastErrDetail = text;
-            if (
+            const isRateOrServerError =
               response.status === 429 ||
               response.status === 500 ||
               response.status === 502 ||
               response.status === 503 ||
               response.status === 504 ||
-              response.status === 524
-            ) {
-              markKeyRateLimited(currentKey, 60_000);
-              console.warn(`[chatViaProvider:anthropic] Key ...${currentKey.slice(-4)} returned ${response.status}. Rotating key...`);
+              response.status === 524;
+            const isQuotaOrAuth =
+              response.status === 402 || response.status === 401 || response.status === 403;
+
+            if (isRateOrServerError || isQuotaOrAuth) {
+              markKeyRateLimited(currentKey, isQuotaOrAuth ? 600_000 : 60_000);
+              console.warn(`[chatViaProvider:anthropic] Key ...${currentKey.slice(-4)} returned ${response.status} (${isQuotaOrAuth ? "quota/auth" : "rate/server"}). Rotating key...`);
               try {
                 const { supabaseAdmin } = await import("@/integrations/backend/client.server");
                 await supabaseAdmin.from("ai_usage_log").insert({
@@ -665,15 +692,18 @@ async function chatViaProvider(
           lastErrStatus = response.status;
           lastErrDetail = text;
 
-          // Rate limit or server error: rotate key or try next candidate model
-          if (
+          // Rate limit, server error, or key quota/auth error (402/401/403): rotate key or try next candidate model
+          const isRateOrServerError =
             response.status === 429 ||
             response.status === 500 ||
             response.status === 502 ||
             response.status === 503 ||
             response.status === 504 ||
-            response.status === 524
-          ) {
+            response.status === 524;
+          const isQuotaOrAuth =
+            response.status === 402 || response.status === 401 || response.status === 403;
+
+          if (isRateOrServerError || isQuotaOrAuth) {
             const isPaidKey = paidKeys.includes(currentKey);
             if (!isPaidKey) {
               had429OnFreePool = true;
@@ -682,11 +712,13 @@ async function chatViaProvider(
                 status: response.status,
                 message: text.includes("limit: 20")
                   ? "Free Tier 20 RPD per-project quota exceeded"
-                  : explain(response.status, text).slice(0, 60),
+                  : isQuotaOrAuth
+                    ? `Key quota / auth error (${response.status})`
+                    : explain(response.status, text).slice(0, 60),
                 latencyMs: Date.now() - keyStarted,
               });
             }
-            markKeyRateLimited(currentKey, 45_000);
+            markKeyRateLimited(currentKey, isQuotaOrAuth ? 600_000 : 45_000);
             console.warn(
               `[chatViaProvider] Model ${m} (key ...${currentKey.slice(-4)}, ${isPaidKey ? "emergency paid fallback" : "free pool key"}) returned ${response.status}. Attempting key rotation / fallback...`,
             );
@@ -1012,7 +1044,7 @@ async function embedViaGoogle(
   const vectors: number[][] = new Array(inputs.length);
   const googleModel = config.model.startsWith("models/") ? config.model : GOOGLE_EMBED_MODEL;
   const { paidKeys } = buildOrderedKeyPool(config);
-  const keysToTry = getPrioritizedKeyOrder(config, keyCooldowns, false);
+  const keysToTry = getPrioritizedKeyOrder(config, keyCooldowns, true);
 
   for (let offset = 0; offset < inputs.length; offset += EMBED_BATCH_LIMIT) {
     const batch = inputs.slice(offset, offset + EMBED_BATCH_LIMIT);
@@ -1055,11 +1087,22 @@ async function embedViaGoogle(
         lastErrStatus = response.status;
         lastErrDetail = detail;
 
-        // If rate limit or server error, mark cooldown and hop to next key
-        if (response.status === 429 || response.status === 503) {
-          markKeyRateLimited(currentKey, 60_000);
+        // If rate limit, server error, or quota/auth error, mark cooldown and hop to next key
+        const isTransientOrQuota =
+          response.status === 429 ||
+          response.status === 503 ||
+          response.status === 500 ||
+          response.status === 502 ||
+          response.status === 504 ||
+          response.status === 402 ||
+          response.status === 401 ||
+          response.status === 403;
+
+        if (isTransientOrQuota) {
+          const isQuotaOrAuth = response.status === 402 || response.status === 401 || response.status === 403;
+          markKeyRateLimited(currentKey, isQuotaOrAuth ? 600_000 : 60_000);
           console.warn(
-            `[embedViaGoogle] Key ...${currentKey.slice(-4)} (${isPaid ? "emergency paid fallback" : "free pool key"}) returned ${response.status}. Hopping to next key...`,
+            `[embedViaGoogle] Key ...${currentKey.slice(-4)} (${isPaid ? "emergency paid fallback" : "free pool key"}) returned ${response.status} (${isQuotaOrAuth ? "quota/auth" : "rate/server"}). Hopping to next key...`,
           );
           if (kIdx + 1 < keysToTry.length) continue;
         }
@@ -1138,8 +1181,7 @@ async function embedViaOpenAiCompatible(
   config: ProviderConfig,
 ): Promise<number[][]> {
   const vectors: number[][] = new Array(inputs.length);
-  const candidateKeys =
-    config.apiKeys && config.apiKeys.length > 0 ? config.apiKeys : [config.apiKey];
+  const keysToTry = getPrioritizedKeyOrder(config, keyCooldowns, true);
 
   for (let offset = 0; offset < inputs.length; offset += EMBED_BATCH_LIMIT) {
     const batch = inputs.slice(offset, offset + EMBED_BATCH_LIMIT);
@@ -1151,11 +1193,6 @@ async function embedViaOpenAiCompatible(
     const data = await withRetry429(async () => {
       const supportsDimensionsParam =
         config.provider === "openai" || config.provider === "openrouter";
-      const bestKey = getAvailableKey(candidateKeys);
-      const keysToTry =
-        candidateKeys.length > 1
-          ? [bestKey, ...candidateKeys.filter((k) => k !== bestKey)]
-          : candidateKeys;
 
       let lastErrStatus = 500;
       let lastErrDetail = "";
@@ -1184,10 +1221,21 @@ async function embedViaOpenAiCompatible(
         lastErrStatus = response.status;
         lastErrDetail = detail;
 
-        if (response.status === 429 || response.status === 503) {
-          markKeyRateLimited(currentKey, 60_000);
+        const isTransientOrQuota =
+          response.status === 429 ||
+          response.status === 503 ||
+          response.status === 500 ||
+          response.status === 502 ||
+          response.status === 504 ||
+          response.status === 402 ||
+          response.status === 401 ||
+          response.status === 403;
+
+        if (isTransientOrQuota) {
+          const isQuotaOrAuth = response.status === 402 || response.status === 401 || response.status === 403;
+          markKeyRateLimited(currentKey, isQuotaOrAuth ? 600_000 : 60_000);
           console.warn(
-            `[embedViaOpenAiCompatible] Key ...${currentKey.slice(-4)} returned ${response.status}. Hopping to next key...`,
+            `[embedViaOpenAiCompatible] Key ...${currentKey.slice(-4)} returned ${response.status} (${isQuotaOrAuth ? "quota/auth" : "rate/server"}). Hopping to next key...`,
           );
           if (kIdx + 1 < keysToTry.length) continue;
         }
@@ -1292,39 +1340,46 @@ export async function embed(
         resVectors = rawVectors.map((v) => normalizeVectorTo2048(v));
         return resVectors;
       } catch (configErr: any) {
-        // If Google embeddings fail due to regional/location restriction ("User location is not supported"),
-        // try to automatically fallback to an alternate configured embedding provider (e.g. Mistral, OpenAI, OpenRouter)
         const errMsg = configErr?.message || String(configErr);
-        if (config.provider === "google" && (errMsg.includes("User location") || errMsg.includes("FAILED_PRECONDITION") || configErr?.status === 400)) {
-          try {
-            const { supabaseAdmin } = await import("@/integrations/backend/client.server");
-            const { data: altKeys } = await supabaseAdmin
-              .from("ai_provider_keys")
-              .select("provider, api_key, base_url, model, label")
-              .neq("provider", "google")
-              .eq("purpose", "embedding")
-              .order("is_active", { ascending: false })
-              .order("updated_at", { ascending: false })
-              .limit(1);
+        console.warn(
+          `[embed] Primary embedding provider ${config.provider} (${config.model}) failed (${configErr?.status || 500}: ${errMsg.slice(0, 100)}). Attempting multi-provider embedding failover...`,
+        );
+        try {
+          const { supabaseAdmin } = await import("@/integrations/backend/client.server");
+          const { data: altKeys } = await supabaseAdmin
+            .from("ai_provider_keys")
+            .select("provider, api_key, base_url, model, label, is_active")
+            .or("purpose.eq.embedding,provider.eq.google,provider.eq.mistral")
+            .neq("provider", config.provider)
+            .order("is_active", { ascending: false })
+            .order("updated_at", { ascending: false });
 
-            if (altKeys && altKeys.length > 0 && altKeys[0]!.api_key) {
-              const altConfig: ProviderConfig = {
-                provider: altKeys[0]!.provider,
-                apiKey: altKeys[0]!.api_key,
-                model: String(altKeys[0]!.model || "mistral-embed-2312"),
-                baseUrl: altKeys[0]!.base_url ?? undefined,
-                label: altKeys[0]!.label ?? undefined,
-              };
-              console.warn(
-                `[embed] Google embedding failed due to regional restrictions. Falling back to configured ${altConfig.provider} (${altConfig.model})...`,
-              );
-              const altRaw = await embedViaConfig(inputs, altConfig);
-              resVectors = altRaw.map((v) => normalizeVectorTo2048(v));
-              return resVectors;
+          if (altKeys && altKeys.length > 0) {
+            for (const altRow of altKeys) {
+              if (!altRow.api_key || altRow.api_key.trim().length < 6) continue;
+              const altConfig = normaliseConfig(altRow);
+              if (altConfig.provider === "google") {
+                altConfig.model = GOOGLE_EMBED_MODEL;
+              } else if (altConfig.provider === "mistral" && !altConfig.model.includes("embed")) {
+                altConfig.model = "mistral-embed-2312";
+              }
+              try {
+                console.warn(
+                  `[embed] Falling back to alternate embedding provider ${altConfig.provider} (${altConfig.model})...`,
+                );
+                const altRaw = await embedViaConfig(inputs, altConfig);
+                resVectors = altRaw.map((v) => normalizeVectorTo2048(v));
+                resolvedModel = altConfig.model;
+                return resVectors;
+              } catch (altErr: any) {
+                console.warn(
+                  `[embed] Alternate provider ${altConfig.provider} (${altConfig.model}) failed: ${altErr?.message || altErr}`,
+                );
+              }
             }
-          } catch (fallbackErr) {
-            console.warn("[embed] Alternate embedding provider fallback failed:", fallbackErr);
           }
+        } catch (fallbackErr) {
+          console.warn("[embed] Alternate embedding provider fallback failed:", fallbackErr);
         }
         throw configErr;
       }
@@ -1412,7 +1467,7 @@ async function visionChatViaAnthropic(
     maxCompletionTokens?: number;
   },
 ): Promise<Omit<ChatResult, "latencyMs">> {
-  const keysToTry = getPrioritizedKeyOrder(config, keyCooldowns, false);
+  const keysToTry = getPrioritizedKeyOrder(config, keyCooldowns, true);
 
   let lastStatus = 500;
   let lastText = "";
@@ -1495,7 +1550,7 @@ async function visionChatViaOpenAiCompatible(
   },
 ): Promise<Omit<ChatResult, "latencyMs">> {
   const { paidKeys } = buildOrderedKeyPool(config);
-  const keysToTry = getPrioritizedKeyOrder(config, keyCooldowns, false);
+  const keysToTry = getPrioritizedKeyOrder(config, keyCooldowns, true);
 
   const meta = providerMeta(config.provider);
   let effectiveVisionModel = config.model;
