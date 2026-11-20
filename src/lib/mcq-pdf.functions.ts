@@ -593,10 +593,22 @@ export const fetchPaperPdf = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data }) => {
+    const parsedUrl = new URL(data.qpUrl);
+    if (
+      parsedUrl.protocol !== "https:" ||
+      (!parsedUrl.hostname.endsWith(".supabase.co") && !parsedUrl.hostname.endsWith(".supabase.com"))
+    ) {
+      throw new Error("Unsupported PDF storage host.");
+    }
     const res = await fetch(data.qpUrl);
     if (!res.ok) throw new Error(`Could not fetch PDF from storage (${res.status} ${res.statusText})`);
     const arrayBuffer = await res.arrayBuffer();
-    const base64 = Buffer.from(arrayBuffer).toString("base64");
-    return { base64 };
+    const bytes = new Uint8Array(arrayBuffer);
+    let binary = "";
+    const chunkSize = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+      binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+    }
+    return { base64: btoa(binary) };
   });
 

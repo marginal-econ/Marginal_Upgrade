@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
   ArrowLeft,
@@ -129,6 +129,7 @@ type LastAnswerFeedback = {
 function LiveQuizRoomPage() {
   const { pin: rawPin } = Route.useParams();
   const cleanPin = normalizeQuizPin(rawPin);
+  const queryClient = useQueryClient();
 
   const getQuizStateFn = useServerFn(getMcqQuizState);
   const joinQuizFn = useServerFn(joinMcqQuiz);
@@ -294,11 +295,21 @@ function LiveQuizRoomPage() {
     return idx >= 0 ? idx + 1 : null;
   }, [players, mePlayer]);
 
-  // Detect if host kicked this player
+  // Detect if host actually kicked this player (only after we have previously observed
+  // their player id in server state, never on the immediate render right after joining).
+  const seenPlayerIdRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!savedPlayer || !state || meta?.status === "ended") return;
-    if (quizQuery.isFetched && !players.some((p) => p.id === savedPlayer.id)) {
-      // Only clear if we already joined previously and server no longer lists us
+    if (!savedPlayer || !state || meta?.status === "ended") {
+      if (!savedPlayer) seenPlayerIdRef.current = null;
+      return;
+    }
+    const isPresent = players.some((p) => p.id === savedPlayer.id);
+    if (isPresent) {
+      seenPlayerIdRef.current = savedPlayer.id;
+      return;
+    }
+    if (seenPlayerIdRef.current === savedPlayer.id && !quizQuery.isFetching) {
+      seenPlayerIdRef.current = null;
       try {
         localStorage.removeItem(playerStorageKey(cleanPin));
       } catch {
@@ -307,7 +318,7 @@ function LiveQuizRoomPage() {
       setSavedPlayer(null);
       toast.info("You were removed from the quiz lobby.");
     }
-  }, [savedPlayer, state, players, meta?.status, quizQuery.isFetched, cleanPin]);
+  }, [savedPlayer, state, players, meta?.status, quizQuery.isFetching, cleanPin]);
 
   // Copy helpers
   const shareUrl =
@@ -336,9 +347,10 @@ function LiveQuizRoomPage() {
     if (starting) return;
     setStarting(true);
     try {
-      await startQuizFn({ data: { pin: cleanPin } });
+      const updated = await startQuizFn({ data: { pin: cleanPin } });
+      queryClient.setQueryData(["mcq-live-quiz", cleanPin], updated);
       broadcastSync();
-      await quizQuery.refetch();
+      void quizQuery.refetch();
       toast.success("Quiz started! All students are now live.");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not start quiz.");
@@ -351,9 +363,10 @@ function LiveQuizRoomPage() {
     if (ending) return;
     setEnding(true);
     try {
-      await endQuizFn({ data: { pin: cleanPin } });
+      const updated = await endQuizFn({ data: { pin: cleanPin } });
+      queryClient.setQueryData(["mcq-live-quiz", cleanPin], updated);
       broadcastSync();
-      await quizQuery.refetch();
+      void quizQuery.refetch();
       toast.success("Quiz ended! Final podium revealed to everyone.");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not end quiz.");
@@ -396,14 +409,17 @@ function LiveQuizRoomPage() {
         name: res.player.name,
         avatar: res.player.avatar,
       };
-      setSavedPlayer(stored);
+      // Seed React Query cache with the authoritative server state BEFORE setting savedPlayer
+      // so the student transitions instantly into the lobby/gameplay with zero race condition.
+      seenPlayerIdRef.current = stored.id;
+      queryClient.setQueryData(["mcq-live-quiz", cleanPin], res.state);
       try {
         localStorage.setItem(playerStorageKey(cleanPin), JSON.stringify(stored));
       } catch {
         /* ignore */
       }
+      setSavedPlayer(stored);
       broadcastSync();
-      await quizQuery.refetch();
       toast.success(`Joined as ${res.player.avatar} ${res.player.name}!`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not join quiz.");
@@ -438,6 +454,26 @@ function LiveQuizRoomPage() {
         <p className="text-sm font-semibold text-muted-foreground">
           Connecting to Live Quiz {formatQuizPin(cleanPin)}…
         </p>
+      </div>
+    );
+  }
+
+  if (quizQuery.isError && !state) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center space-y-4">
+        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-600">
+          <XCircle className="h-7 w-7" />
+        </div>
+        <h1 className="text-2xl font-black tracking-tight">Connection Hiccup</h1>
+        <p className="text-sm text-muted-foreground max-w-md">
+          Could not reach the quiz room right now. Check your connection and retry.
+        </p>
+        <div className="flex items-center gap-2">
+          <Button onClick={() => void quizQuery.refetch()}>Retry Connection</Button>
+          <Link to="/quiz">
+            <Button variant="outline">Back to Join</Button>
+          </Link>
+        </div>
       </div>
     );
   }
@@ -1303,12 +1339,23 @@ function StudentLiveGameplayView({
     Record<number, LastAnswerFeedback>
   >({});
 
-  // Render real Cambridge PDF slices once for library_paper / topical_paper
+  // Render real Cambridge PDF slices ONCE for library_paper / topical_paper
   const [renderedPdf, setRenderedPdf] = useState<RenderedQuizPaper | null>(null);
   const [pdfProgress, setPdfProgress] = useState<string | null>(
     meta.sourceType === "custom_questions" ? null : "Loading Cambridge question paper…",
   );
   const [pdfError, setPdfError] = useState<string | null>(null);
+  const [pdfReloadSeq, setPdfReloadSeq] = useState(0);
+
+  const fetchPdfFnRef = useRef(fetchPdfFn);
+  fetchPdfFnRef.current = fetchPdfFn;
+
+  const questionNumbersKey = meta.questionNumbers.join(",");
+  const maxPdfQuestion = useMemo(
+    () => Math.max(...meta.questionNumbers, 30),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [questionNumbersKey],
+  );
 
   useEffect(() => {
     if (meta.sourceType === "custom_questions") return;
@@ -1316,14 +1363,13 @@ function StudentLiveGameplayView({
     setPdfProgress("Loading official Cambridge paper…");
     setPdfError(null);
 
-    const maxQ = Math.max(...meta.questionNumbers, 30);
     void renderQuizPdfPaper({
       sourceType: meta.sourceType,
       paperId: meta.paperId,
       qpUrl: meta.qpUrl,
-      maxQuestionNumber: maxQ,
+      maxQuestionNumber: maxPdfQuestion,
       proxyFetchBase64: async (url) => {
-        const res = await fetchPdfFn({ data: { pin: cleanPin, qpUrl: url } });
+        const res = await fetchPdfFnRef.current({ data: { pin: cleanPin, qpUrl: url } });
         return res.base64;
       },
       onProgress: (label) => {
@@ -1346,7 +1392,7 @@ function StudentLiveGameplayView({
     return () => {
       cancelled = true;
     };
-  }, [meta.sourceType, meta.paperId, meta.qpUrl, meta.questionNumbers, cleanPin, fetchPdfFn]);
+  }, [meta.sourceType, meta.paperId, meta.qpUrl, maxPdfQuestion, cleanPin, pdfReloadSeq]);
 
   // Reset per-question timer whenever active question changes
   const existingAnswer = mePlayer.answers?.[currentNumber];
@@ -1719,9 +1765,17 @@ function StudentLiveGameplayView({
                   <p className="text-xs font-semibold text-muted-foreground">{pdfProgress}</p>
                 </div>
               ) : pdfError ? (
-                <div className="py-12 text-center space-y-2 text-destructive text-xs">
+                <div className="py-12 text-center space-y-3 text-destructive text-xs">
                   <XCircle className="h-6 w-6 mx-auto" />
                   <p>{pdfError}</p>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setPdfReloadSeq((s) => s + 1)}
+                  >
+                    Retry Loading Paper
+                  </Button>
                 </div>
               ) : displayedDataUrl ? (
                 <div className="rounded-lg border border-border/60 bg-white p-2 overflow-x-auto">

@@ -839,20 +839,28 @@ function McqLivePage() {
   function encodeCanvasForVision(canvas: HTMLCanvasElement | undefined | null): string | null {
     if (!canvas || canvas.width === 0 || canvas.height === 0) return null;
     try {
-      const MAX_WIDTH = 1100;
+      const MAX_WIDTH = 960;
+      const QUALITY = 0.78;
+      let dataUrl: string;
       if (canvas.width <= MAX_WIDTH) {
-        return canvas.toDataURL("image/jpeg", 0.85);
+        dataUrl = canvas.toDataURL("image/jpeg", QUALITY);
+      } else {
+        const ratio = MAX_WIDTH / canvas.width;
+        const scaled = document.createElement("canvas");
+        scaled.width = MAX_WIDTH;
+        scaled.height = Math.max(1, Math.round(canvas.height * ratio));
+        const ctx = scaled.getContext("2d");
+        if (!ctx) {
+          dataUrl = canvas.toDataURL("image/jpeg", QUALITY);
+        } else {
+          ctx.fillStyle = "#ffffff";
+          ctx.fillRect(0, 0, scaled.width, scaled.height);
+          ctx.drawImage(canvas, 0, 0, scaled.width, scaled.height);
+          dataUrl = scaled.toDataURL("image/jpeg", QUALITY);
+        }
       }
-      const ratio = MAX_WIDTH / canvas.width;
-      const scaled = document.createElement("canvas");
-      scaled.width = MAX_WIDTH;
-      scaled.height = Math.max(1, Math.round(canvas.height * ratio));
-      const ctx = scaled.getContext("2d");
-      if (!ctx) return canvas.toDataURL("image/jpeg", 0.85);
-      ctx.fillStyle = "#ffffff";
-      ctx.fillRect(0, 0, scaled.width, scaled.height);
-      ctx.drawImage(canvas, 0, 0, scaled.width, scaled.height);
-      return scaled.toDataURL("image/jpeg", 0.85);
+      // Keep payload well under Cloudflare Worker request body limits
+      return dataUrl.length <= 900_000 ? dataUrl : null;
     } catch {
       return null;
     }
@@ -904,20 +912,41 @@ function McqLivePage() {
         : undefined;
       const questionImageDataUrl = encodeCanvasForVision(sliceCanvas ?? fallbackPageCanvas);
 
-      const { explanation } = await explainFn({
-        data: {
-          paperId: selectedPaperIdRef.current || undefined,
-          level,
-          number,
-          stemText: stem,
-          correctAnswer,
-          userAnswer: q?.user_answer ?? answersRef.current?.[number] ?? null,
-          topic: q?.topic ?? matchedTopical?.shortTitle ?? inferred.topic,
-          subtopic: q?.subtopic ?? topicalQ?.subtopic ?? inferred.subtopic,
-          mistakeType: resolvedMistakeType,
-          questionImageDataUrl,
-        },
-      });
+      const basePayload = {
+        paperId: selectedPaperIdRef.current || undefined,
+        level,
+        number,
+        stemText: stem,
+        correctAnswer,
+        userAnswer: q?.user_answer ?? answersRef.current?.[number] ?? null,
+        topic: q?.topic ?? matchedTopical?.shortTitle ?? inferred.topic,
+        subtopic: q?.subtopic ?? topicalQ?.subtopic ?? inferred.subtopic,
+        mistakeType: resolvedMistakeType,
+      };
+
+      let explanation: Awaited<ReturnType<typeof explainFn>>["explanation"];
+      try {
+        const res = await explainFn({
+          data: {
+            ...basePayload,
+            questionImageDataUrl,
+          },
+        });
+        explanation = res.explanation;
+      } catch (firstErr) {
+        // Automatic text-grounded retry if a large vision payload hits a transient network error
+        if (questionImageDataUrl) {
+          const fallbackRes = await explainFn({
+            data: {
+              ...basePayload,
+              questionImageDataUrl: null,
+            },
+          });
+          explanation = fallbackRes.explanation;
+        } else {
+          throw firstErr;
+        }
+      }
       const resolvedExplanation =
         typeof explanation === "string"
           ? { text: explanation }
@@ -2011,14 +2040,21 @@ function fillMissingQuestionPages(
 
     const targetQ = targets[0];
     prefetchingRef.current.add(targetQ);
+    let started = false;
 
     const timer = setTimeout(() => {
+      started = true;
       void handleExplain(targetQ, null).finally(() => {
         prefetchingRef.current.delete(targetQ);
       });
     }, 200);
 
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      if (!started) {
+        prefetchingRef.current.delete(targetQ);
+      }
+    };
   }, [
     practiceMode,
     stage,
@@ -2029,6 +2065,11 @@ function fillMissingQuestionPages(
     questionSlices,
     explanations,
   ]);
+
+  // Clear in-flight prefetch tracking whenever paper changes or practice exits
+  useEffect(() => {
+    prefetchingRef.current.clear();
+  }, [selectedPaperId, stage]);
 
   function leavePractice() {
     if (isExamFullscreenActive() || examModeActive) {
@@ -2286,6 +2327,21 @@ function fillMissingQuestionPages(
               <div className="min-w-0">
                 {papersQuery.isLoading ? (
                   <p className="text-sm text-muted-foreground">Loading the library…</p>
+                ) : papersQuery.isError ? (
+                  <Card>
+                    <CardContent className="py-8 text-center space-y-3">
+                      <p className="text-sm text-muted-foreground">
+                        Could not load the past-paper library right now.
+                      </p>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => void papersQuery.refetch()}
+                      >
+                        Retry Loading Library
+                      </Button>
+                    </CardContent>
+                  </Card>
                 ) : (papersQuery.data?.papers.length ?? 0) === 0 ? (
                   <Card>
                     <CardContent className="py-8 text-center text-sm text-muted-foreground">

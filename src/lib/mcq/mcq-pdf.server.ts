@@ -508,7 +508,7 @@ export async function explainPdfMcqAnswer(options: {
 
     const finalResult = cleanStars({ text, diagnostic, visionGrounded });
     if (paperId && !mistakeType) {
-      void savePaperExplanationServer(paperId, number, finalResult);
+      await savePaperExplanationServer(paperId, number, finalResult).catch(() => {});
     }
     return finalResult;
   }
@@ -518,7 +518,7 @@ export async function explainPdfMcqAnswer(options: {
     visionGrounded,
   });
   if (paperId && !mistakeType) {
-    void savePaperExplanationServer(paperId, number, fallbackResult);
+    await savePaperExplanationServer(paperId, number, fallbackResult).catch(() => {});
   }
   return fallbackResult;
 }
