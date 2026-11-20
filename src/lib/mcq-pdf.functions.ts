@@ -39,14 +39,15 @@ export const classifyMcqTopics = createServerFn({ method: "POST" })
 
 /**
  * On-demand explanation for one question in the post-attempt review
- * screen — typically opened for a question the student got wrong. Never
- * called before an attempt is marked, and never used to grade anything.
+ * screen or Question-by-Question Tutor Mode. Automatically retrieves
+ * and caches stored explanations so students never wait for feedback.
  */
 export const explainMcqAnswer = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) =>
     z
       .object({
+        paperId: z.string().optional(),
         level: LevelSchema,
         number: z.number().int().positive(),
         stemText: z.string().max(4000).default(""),
@@ -66,6 +67,21 @@ export const explainMcqAnswer = createServerFn({ method: "POST" })
       userId: context.userId,
     });
     return { explanation };
+  });
+
+/**
+ * Loads all pre-stored explanations for a paper so that 1-by-1 Tutor Mode
+ * renders explanations instantly with zero loading delay.
+ */
+export const getStoredPaperExplanations = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({ paperId: z.string().min(1) }).parse(input),
+  )
+  .handler(async ({ data }) => {
+    const { getStoredPaperExplanationsServer } = await import("./mcq/mcq-pdf.server");
+    const explanations = await getStoredPaperExplanationsServer(data.paperId);
+    return { explanations };
   });
 
 const SubmittedQuestion = z.object({

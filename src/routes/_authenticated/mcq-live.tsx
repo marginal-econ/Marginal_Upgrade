@@ -87,6 +87,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import {
   classifyMcqTopics,
   explainMcqAnswer,
+  getStoredPaperExplanations,
   fetchPaperPdf,
   getMcqTopicPerformance,
   getMyPaperHistory,
@@ -800,6 +801,7 @@ function McqLivePage() {
   const classifyTopicsFn = useServerFn(classifyMcqTopics);
   const submitAttemptFn = useServerFn(submitPdfMcqAttempt);
   const explainFn = useServerFn(explainMcqAnswer);
+  const getStoredExplanationsFn = useServerFn(getStoredPaperExplanations);
   const fetchPaperPdfFn = useServerFn(fetchPaperPdf);
   const getAnswerKeyFn = useServerFn(getMcqPaperAnswerKey);
 
@@ -874,6 +876,7 @@ function McqLivePage() {
 
       const { explanation } = await explainFn({
         data: {
+          paperId: selectedPaperIdRef.current || undefined,
           level,
           number,
           stemText: stem,
@@ -885,17 +888,28 @@ function McqLivePage() {
           questionImageDataUrl,
         },
       });
-      setExplanations((prev) => ({
-        ...prev,
-        [number]:
-          typeof explanation === "string"
-            ? { text: explanation }
-            : {
-                text: explanation.text,
-                diagnostic: explanation.diagnostic,
-                visionGrounded: explanation.visionGrounded,
-              },
-      }));
+      const resolvedExplanation =
+        typeof explanation === "string"
+          ? { text: explanation }
+          : {
+              text: explanation.text,
+              diagnostic: explanation.diagnostic,
+              visionGrounded: explanation.visionGrounded,
+            };
+
+      setExplanations((prev) => {
+        const next = { ...prev, [number]: resolvedExplanation };
+        try {
+          if (selectedPaperIdRef.current) {
+            const cacheKey = `mcq_stored_explanations_${selectedPaperIdRef.current}`;
+            const existingRaw = localStorage.getItem(cacheKey);
+            const existing = existingRaw ? JSON.parse(existingRaw) : {};
+            existing[number] = resolvedExplanation;
+            localStorage.setItem(cacheKey, JSON.stringify(existing));
+          }
+        } catch {}
+        return next;
+      });
     } catch (error) {
       setExplanations((prev) => ({
         ...prev,
@@ -1193,7 +1207,41 @@ function fillMissingQuestionPages(
       setAttemptTopics([]);
       setAttemptDomains([]);
     }
-    setExplanations({});
+    // Instant synchronous cache restoration from localStorage so explanations exist in 0ms
+    let initialExplanations: Record<number, ExplanationState> = {};
+    try {
+      const cacheKey = `mcq_stored_explanations_${paper.id}`;
+      const savedRaw = localStorage.getItem(cacheKey);
+      if (savedRaw) {
+        const parsed = JSON.parse(savedRaw);
+        if (parsed && typeof parsed === "object") {
+          initialExplanations = parsed;
+        }
+      }
+    } catch {}
+    setExplanations(initialExplanations);
+
+    // Asynchronously fetch stored explanations from database/server in background (non-blocking)
+    if (paper.id) {
+      void getStoredExplanationsFn({ data: { paperId: paper.id } })
+        .then((res) => {
+          if (res?.explanations && Object.keys(res.explanations).length > 0) {
+            setExplanations((prev) => {
+              const merged = { ...res.explanations, ...prev };
+              try {
+                localStorage.setItem(
+                  `mcq_stored_explanations_${paper.id}`,
+                  JSON.stringify(merged),
+                );
+              } catch {}
+              return merged;
+            });
+          }
+        })
+        .catch((err) => {
+          console.warn("Async stored explanations load skipped:", err);
+        });
+    }
 
     // Reset the clock and scratch marks for this fresh attempt — real
     // Cambridge 9708 timings: Paper 1 (AS) is 1 hour, Paper 3 (A Level) is
@@ -1899,6 +1947,58 @@ function fillMissingQuestionPages(
     }
     return map;
   }, [selectedPaperId]);
+
+  const prefetchingRef = useRef<Set<number>>(new Set());
+
+  // Proactive 1-by-1 Tutor Pre-runner Engine:
+  // Instead of running feedback on-demand every time (delaying user practice time),
+  // runs the active question's explanation before itself and stores why the correct
+  // answer is right, then smoothly pre-fetches upcoming questions ahead of time.
+  useEffect(() => {
+    if (
+      practiceMode !== "question_by_question" ||
+      stage !== "practice" ||
+      graded ||
+      questionNumbers.length === 0 ||
+      Object.keys(answerKey).length === 0 ||
+      Object.keys(questionSlices).length === 0
+    ) {
+      return;
+    }
+
+    const currentQ = activeQuestion;
+    const nextQ = currentQ + 1;
+    const nextNextQ = currentQ + 2;
+
+    const targets = [currentQ, nextQ, nextNextQ].filter(
+      (n) =>
+        questionNumbers.includes(n) &&
+        !explanations[n] &&
+        !prefetchingRef.current.has(n),
+    );
+
+    if (targets.length === 0) return;
+
+    const targetQ = targets[0];
+    prefetchingRef.current.add(targetQ);
+
+    const timer = setTimeout(() => {
+      void handleExplain(targetQ, null).finally(() => {
+        prefetchingRef.current.delete(targetQ);
+      });
+    }, 200);
+
+    return () => clearTimeout(timer);
+  }, [
+    practiceMode,
+    stage,
+    graded,
+    activeQuestion,
+    questionNumbers,
+    answerKey,
+    questionSlices,
+    explanations,
+  ]);
 
   function leavePractice() {
     if (isExamFullscreenActive() || examModeActive) {

@@ -1231,27 +1231,14 @@ export function McqTutorMode({
                 />
 
                 {/* Automatic Vision-Grounded Examiner Confirmation on Correct Answer */}
-                {explanation ? (
-                  <ExaminerRepairCard
-                    explanation={explanation}
-                    correctAnswer={correctAnswer!}
-                    userAnswer={activeAnswer ?? null}
-                    isCorrect={true}
-                    mistakeType={null}
-                    onRetry={() => onExplainQuestion(currentNumber, null)}
-                  />
-                ) : (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => onExplainQuestion(currentNumber, null)}
-                    className="w-full gap-1.5 text-xs"
-                  >
-                    <Sparkles className="h-3.5 w-3.5 text-primary" />
-                    <span>Load Vision-Verified Explanation</span>
-                  </Button>
-                )}
+                <ExaminerRepairCard
+                  explanation={explanation ?? "loading"}
+                  correctAnswer={correctAnswer!}
+                  userAnswer={activeAnswer ?? null}
+                  isCorrect={true}
+                  mistakeType={null}
+                  onRetry={() => onExplainQuestion(currentNumber, null)}
+                />
               </div>
             ) : null}
 

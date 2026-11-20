@@ -17,6 +17,7 @@
  *   wrong (or wants to review) — text-only, generated on demand per
  *   question, never used to grade.
  */
+import { supabaseAdmin } from "@/integrations/backend/client.server";
 import { chat, visionChat } from "../ai.server";
 import { MODEL_EXAMINER } from "../examiner/config";
 import { extractFirstJsonObject } from "../examiner/json";
@@ -162,6 +163,163 @@ export type McqExplanationResult = {
   visionGrounded?: boolean;
 };
 
+/** Fast in-memory cache for active server instances (paperId:number -> McqExplanationResult) */
+const inMemoryExplanationCache = new Map<string, McqExplanationResult>();
+
+/**
+ * Retrieves all stored explanations for a paper (from database & cache)
+ * so students don't experience any waiting when practicing in Tutor Mode.
+ */
+export async function getStoredPaperExplanationsServer(
+  paperId: string,
+): Promise<Record<number, McqExplanationResult>> {
+  const result: Record<number, McqExplanationResult> = {};
+
+  // 1. Pull from in-memory cache for this paper
+  const prefix = `${paperId}:`;
+  for (const [key, val] of inMemoryExplanationCache.entries()) {
+    if (key.startsWith(prefix)) {
+      const qNum = parseInt(key.slice(prefix.length), 10);
+      if (Number.isFinite(qNum)) {
+        result[qNum] = val;
+      }
+    }
+  }
+
+  // 2. If it's a UUID paper from the library, pull from overlay.explanations in mcq_pdf_papers
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(paperId);
+  if (isUuid) {
+    try {
+      const { data, error } = await supabaseAdmin
+        .from("mcq_pdf_papers")
+        .select("overlay")
+        .eq("id", paperId)
+        .maybeSingle();
+
+      if (!error && data?.overlay) {
+        const dbExplanations = (data.overlay as Record<string, any>)?.explanations;
+        if (dbExplanations && typeof dbExplanations === "object") {
+          for (const [numStr, expl] of Object.entries(dbExplanations)) {
+            const qNum = parseInt(numStr, 10);
+            if (Number.isFinite(qNum) && expl && typeof expl === "object") {
+              result[qNum] = expl as McqExplanationResult;
+              inMemoryExplanationCache.set(`${paperId}:${qNum}`, expl as McqExplanationResult);
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.warn("Failed to fetch stored explanations from mcq_pdf_papers:", err);
+    }
+  } else {
+    // 3. If it's a topical paper, check if its source past papers have stored explanations!
+    try {
+      const { getTopicalPaperById } = await import("../topical-mcq-papers");
+      const topical = getTopicalPaperById(paperId);
+      if (topical) {
+        const sourceTitles = Array.from(
+          new Set(topical.questions.map((q) => q.sourcePaperTitle).filter(Boolean)),
+        );
+        if (sourceTitles.length > 0) {
+          const { data: sourcePapers } = await supabaseAdmin
+            .from("mcq_pdf_papers")
+            .select("title, overlay")
+            .in("title", sourceTitles);
+
+          if (sourcePapers) {
+            const byTitle = new Map(sourcePapers.map((p) => [p.title, p]));
+            for (const q of topical.questions) {
+              const sp = byTitle.get(q.sourcePaperTitle);
+              const spExpls = (sp?.overlay as any)?.explanations;
+              const spExpl = spExpls?.[String(q.originalQuestionNumber)];
+              if (spExpl && !result[q.number]) {
+                result[q.number] = spExpl as McqExplanationResult;
+                inMemoryExplanationCache.set(`${paperId}:${q.number}`, spExpl as McqExplanationResult);
+              }
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.warn("Failed to map topical paper explanations:", err);
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Persists an explanation to the in-memory cache and directly into Supabase (mcq_pdf_papers.overlay)
+ * so it is stored beforehand and accessible instantly to every student.
+ */
+export async function savePaperExplanationServer(
+  paperId: string,
+  number: number,
+  explanation: McqExplanationResult,
+): Promise<void> {
+  // Store in in-memory cache immediately
+  inMemoryExplanationCache.set(`${paperId}:${number}`, explanation);
+
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(paperId);
+  if (isUuid) {
+    try {
+      const { data } = await supabaseAdmin
+        .from("mcq_pdf_papers")
+        .select("id, overlay")
+        .eq("id", paperId)
+        .maybeSingle();
+
+      if (data) {
+        const currentOverlay = ((data.overlay as any) ?? {}) as Record<string, any>;
+        const currentExplanations = (currentOverlay.explanations ?? {}) as Record<string, any>;
+        currentExplanations[String(number)] = explanation;
+        await supabaseAdmin
+          .from("mcq_pdf_papers")
+          .update({
+            overlay: {
+              ...currentOverlay,
+              explanations: currentExplanations,
+            },
+          })
+          .eq("id", paperId);
+      }
+    } catch (err) {
+      console.warn("Failed to save explanation to mcq_pdf_papers:", err);
+    }
+  } else {
+    // If topical paper, also map back and save to the source Cambridge past paper
+    try {
+      const { getTopicalPaperById } = await import("../topical-mcq-papers");
+      const topical = getTopicalPaperById(paperId);
+      const q = topical?.questions.find((item) => item.number === number);
+      if (q?.sourcePaperTitle && q?.originalQuestionNumber) {
+        const { data: sp } = await supabaseAdmin
+          .from("mcq_pdf_papers")
+          .select("id, overlay")
+          .eq("title", q.sourcePaperTitle)
+          .maybeSingle();
+
+        if (sp) {
+          const currentOverlay = ((sp.overlay as any) ?? {}) as Record<string, any>;
+          const currentExplanations = (currentOverlay.explanations ?? {}) as Record<string, any>;
+          currentExplanations[String(q.originalQuestionNumber)] = explanation;
+          await supabaseAdmin
+            .from("mcq_pdf_papers")
+            .update({
+              overlay: {
+                ...currentOverlay,
+                explanations: currentExplanations,
+              },
+            })
+            .eq("id", sp.id);
+        }
+      }
+    } catch (err) {
+      console.warn("Failed to map topical explanation back to source paper:", err);
+    }
+  }
+}
+
 /**
  * Vision-grounded Principal Examiner explanation of why one question's
  * official Cambridge 9708 mark-scheme answer is uniquely correct.
@@ -173,6 +331,7 @@ export type McqExplanationResult = {
  * `chat()` with low reasoning effort if vision is unavailable.
  */
 export async function explainPdfMcqAnswer(options: {
+  paperId?: string | null;
   level: "as" | "a2";
   number: number;
   stemText: string;
@@ -185,6 +344,7 @@ export async function explainPdfMcqAnswer(options: {
   userId?: string | null;
 }): Promise<McqExplanationResult> {
   const {
+    paperId,
     level,
     number,
     stemText,
@@ -196,6 +356,18 @@ export async function explainPdfMcqAnswer(options: {
     questionImageDataUrl,
     userId,
   } = options;
+
+  // If paperId is provided and no mistakeType override is requested, check if we already have the stored explanation!
+  if (paperId && !mistakeType) {
+    const memoryHit = inMemoryExplanationCache.get(`${paperId}:${number}`);
+    if (memoryHit) {
+      return memoryHit;
+    }
+    const stored = await getStoredPaperExplanationsServer(paperId);
+    if (stored[number]) {
+      return stored[number];
+    }
+  }
   const inferred = classifyMcqQuestion({
     level: level === "a2" ? "A2" : "AS",
     number,
@@ -334,11 +506,19 @@ export async function explainPdfMcqAnswer(options: {
       speedTip: typeof p.speedTip === "string" ? p.speedTip.trim() : "",
     };
 
-    return cleanStars({ text, diagnostic, visionGrounded });
+    const finalResult = cleanStars({ text, diagnostic, visionGrounded });
+    if (paperId && !mistakeType) {
+      void savePaperExplanationServer(paperId, number, finalResult);
+    }
+    return finalResult;
   }
 
-  return cleanStars({
+  const fallbackResult = cleanStars({
     text: resultText.trim(),
     visionGrounded,
   });
+  if (paperId && !mistakeType) {
+    void savePaperExplanationServer(paperId, number, fallbackResult);
+  }
+  return fallbackResult;
 }
