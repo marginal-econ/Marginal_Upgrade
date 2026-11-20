@@ -75,7 +75,8 @@ export function InteractiveDiagramCanvas({ state, metrics, className }: CanvasPr
     <div className={cn("relative flex flex-col items-center select-none", className)}>
       <svg
         viewBox={`0 0 ${width} ${height}`}
-        className="w-full h-auto max-h-[460px] drop-shadow-sm font-sans"
+        className="w-full h-auto aspect-[460/340] max-h-[460px] drop-shadow-sm font-sans"
+        style={{ aspectRatio: `${width} / ${height}` }}
         aria-label="Interactive Cambridge Economics Diagram"
       >
         <defs>

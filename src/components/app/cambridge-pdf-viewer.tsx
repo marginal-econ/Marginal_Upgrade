@@ -133,7 +133,7 @@ function PdfPageCanvas({
       className="relative bg-white text-zinc-900 rounded shadow-md border border-zinc-200 dark:border-zinc-800 transition-all overflow-hidden mx-auto"
       style={{
         width: "100%",
-        maxWidth: containerWidth ? `${containerWidth - 32}px` : "640px",
+        maxWidth: containerWidth ? `${Math.max(260, containerWidth - 32)}px` : "640px",
         aspectRatio: `${1} / ${aspectRatio}`,
       }}
     >

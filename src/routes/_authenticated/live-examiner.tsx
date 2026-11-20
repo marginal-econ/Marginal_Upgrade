@@ -975,7 +975,7 @@ function LiveExaminerPage() {
                 size="sm"
                 variant="outline"
                 className="h-7 text-xs"
-                onClick={handleGradeNow}
+                onClick={() => handleGradeNow()}
               >
                 <Sparkles className="size-3.5" /> Grade now
               </Button>
@@ -1076,7 +1076,7 @@ function LiveExaminerPage() {
                     size="sm"
                     variant="outline"
                     className="h-8 text-xs"
-                    onClick={handleGradeNow}
+                    onClick={() => handleGradeNow()}
                   >
                     Official Grade
                   </Button>

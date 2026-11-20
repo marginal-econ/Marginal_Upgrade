@@ -485,7 +485,7 @@ function Index() {
             <Link
               to="/teacher-auth"
               search={{ tab: "signup" }}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-purple-500/40 bg-purple-500/15 px-2 sm:px-3 py-1.5 text-xs font-bold text-purple-800 dark:text-purple-200 hover:bg-purple-500/25 hover:border-purple-500/60 transition-all shadow-2xs whitespace-nowrap"
+              className="hidden min-[420px]:inline-flex items-center gap-1.5 rounded-lg border border-purple-500/40 bg-purple-500/15 px-2 sm:px-3 py-1.5 text-xs font-bold text-purple-800 dark:text-purple-200 hover:bg-purple-500/25 hover:border-purple-500/60 transition-all shadow-2xs whitespace-nowrap"
               title="Official Cambridge 9708 Teacher & Department Registration"
             >
               <School className="size-3.5 text-purple-600 dark:text-purple-400 shrink-0" />
@@ -1168,7 +1168,7 @@ function SpecimenCard() {
         Live Inspection
       </span>
 
-      <div className="pop p-6 md:p-7 bg-card">
+      <div className="pop p-4 sm:p-6 md:p-7 bg-card">
         {/* Toggle between Marginal Examiner vs Generic AI */}
         <div className="flex items-center justify-between gap-2 border-b border-border pb-4 mb-4">
           <div className="inline-flex rounded-lg bg-muted p-1 text-xs font-semibold">
@@ -1176,7 +1176,7 @@ function SpecimenCard() {
               type="button"
               onClick={() => setView("marginal")}
               className={cn(
-                "rounded-md px-3 py-1 transition-all",
+                "rounded-md px-2.5 sm:px-3 py-1 text-[11px] sm:text-xs transition-all",
                 view === "marginal"
                   ? "bg-primary text-primary-foreground shadow-2xs font-bold"
                   : "text-muted-foreground hover:text-foreground"
@@ -1188,7 +1188,7 @@ function SpecimenCard() {
               type="button"
               onClick={() => setView("generic")}
               className={cn(
-                "rounded-md px-3 py-1 transition-all",
+                "rounded-md px-2.5 sm:px-3 py-1 text-[11px] sm:text-xs transition-all",
                 view === "generic"
                   ? "bg-destructive/20 text-destructive font-bold shadow-2xs"
                   : "text-muted-foreground hover:text-foreground"

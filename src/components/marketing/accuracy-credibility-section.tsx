@@ -141,7 +141,7 @@ export function AccuracyCredibilitySection({ className }: { className?: string }
         </div>
 
         {/* ── Key Empirical Benchmark Cards ── */}
-        <div className="mt-12 grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5">
+        <div className="mt-12 grid grid-cols-1 min-[420px]:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5">
           {/* Card 1: Overall Alignment */}
           <div className="rounded-2xl border border-primary/30 bg-card/90 p-4 sm:p-5 backdrop-blur-md shadow-xs hover:border-primary/60 transition-all flex flex-col justify-between">
             <div>

@@ -94,8 +94,8 @@ export function EconomicsDiagram({
       viewBox={`0 0 ${W} ${H}`}
       role="img"
       aria-label={`${title} diagram`}
-      className={cn("w-full", className)}
-      style={{ fontFamily: "var(--font-sans)" }}
+      className={cn("w-full h-auto aspect-[460/340]", className)}
+      style={{ fontFamily: "var(--font-sans)", aspectRatio: `${W} / ${H}` }}
     >
       <title>{title}</title>
       <defs>

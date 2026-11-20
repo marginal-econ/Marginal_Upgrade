@@ -462,11 +462,11 @@ export function HandwritingUpload({
                 </div>
 
                 {/* Page Thumbnail */}
-                <div className="relative aspect-[3/4] w-full bg-muted/20 overflow-hidden flex items-center justify-center">
+                <div className="relative aspect-[3/4] w-full bg-muted/20 overflow-hidden flex items-center justify-center rounded-lg">
                   <img
                     src={page.dataUrl}
                     alt={`Document Page ${idx + 1}`}
-                    className="h-full w-full object-cover"
+                    className="h-full w-full object-contain p-1"
                   />
                   <div className="absolute bottom-1 left-1.5 rounded bg-background/80 px-1 py-0.5 text-[9px] font-mono text-muted-foreground backdrop-blur-xs">
                     #{idx + 1}
