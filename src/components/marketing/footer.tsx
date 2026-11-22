@@ -164,7 +164,7 @@ export function SiteFooter({ onToggleMinimalist }: { onToggleMinimalist?: () => 
               About Marginal
             </p>
             <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
-              Built by Saikrish and Suthir for one syllabus — AS and A Level Economics (9708). We
+              Built by Saikrish, Suthir, and Adithya for one syllabus — AS and A Level Economics (9708). We
               are closing the gap between writing an essay and knowing exactly how to improve it.
             </p>
             <div className="mt-4 flex flex-wrap gap-2" aria-label="Marginal facts">

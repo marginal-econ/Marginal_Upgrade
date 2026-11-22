@@ -42,16 +42,26 @@ const founders = [
   {
     name: "Saikrish Karthikeyan",
     initials: "SK",
-    role: "Co-founder and CEO",
+    role: "Co-founder & CEO",
+    focus: "Sole Backend & AI Systems Lead",
     linkedin: "https://www.linkedin.com/in/saikrish-karthikeyan-074453400/",
     photo: "/founders/sai-krish.webp",
   },
   {
     name: "Suthir R",
     initials: "SR",
-    role: "Co-founder and Design Head",
+    role: "Co-founder & Design Head",
+    focus: "Product Design, UI/UX & Brand",
     linkedin: "https://www.linkedin.com/in/suthir-r",
     photo: "/founders/suthir.webp",
+  },
+  {
+    name: "Adithya A",
+    initials: "AA",
+    role: "Chief Marketing Officer (CMO)",
+    focus: "In Charge of Marketing & Expansion",
+    linkedin: "https://www.linkedin.com/in/a-athithya/",
+    photo: "/founders/adithya.png",
   },
 ];
 
@@ -110,7 +120,7 @@ function AboutPage() {
             An essay comes back in two weeks. The exam does not wait that long.
           </h1>
           <p className="mt-5 max-w-3xl text-base leading-relaxed text-plum-foreground/80 md:text-lg">
-            Marginal is being built by two people for one syllabus — AS and A Level Economics (9708)
+            Marginal is built for one syllabus — Cambridge AS and A Level Economics (9708)
             — because the gap between writing an essay and finding out what was wrong with it is
             where most learning quietly goes missing.
           </p>
@@ -126,7 +136,7 @@ function AboutPage() {
               ))}
             </div>
             <span className="text-sm font-medium text-plum-foreground/85">
-              Built by Saikrish and Suthir
+              Built by Saikrish, Suthir, and Adithya
             </span>
           </div>
           <div className="mt-7 flex flex-wrap gap-2">
@@ -195,39 +205,39 @@ function AboutPage() {
 
         <Reveal>
           <section>
-            <p className="eyebrow eyebrow-accent">Who is building it</p>
+            <p className="eyebrow eyebrow-accent">Leadership &amp; Team</p>
             <h2 className="mt-2 text-2xl font-bold text-balance md:text-3xl">
-              Two co-founders, and no one else yet.
+              The team building and expanding Marginal.
             </h2>
             <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted-foreground md:text-base">
-              Both profiles are public — worth a look before you give an early product your email
-              address.
+              All profiles are public — feel free to connect with us directly on LinkedIn.
             </p>
-            <div className="mt-8 grid gap-5 sm:grid-cols-2">
+            <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
               {founders.map((founder) => (
                 <a
                   key={founder.initials}
                   href={founder.linkedin}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="pop pop-press group block overflow-hidden bg-surface"
+                  className="pop pop-press group flex flex-col justify-between overflow-hidden bg-surface"
                 >
                   <div className="relative overflow-hidden border-b-[1.5px] border-ink bg-[#f3ebdf]">
                     <img
                       src={founder.photo}
-                      alt={`${founder.name}, co-founder of Marginal`}
+                      alt={`${founder.name}, ${founder.role} at Marginal`}
                       className="aspect-square w-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.03]"
                     />
                     <span className="absolute top-3 left-3 rounded-md border-[1.5px] border-ink bg-surface/90 px-2 py-0.5 font-mono text-xs font-bold">
                       {founder.initials}
                     </span>
                   </div>
-                  <div className="flex items-center justify-between gap-3 p-5">
+                  <div className="flex items-start justify-between gap-3 p-5 flex-1">
                     <div>
                       <p className="text-lg font-bold">{founder.name}</p>
-                      <p className="mt-0.5 text-sm text-muted-foreground">{founder.role}</p>
+                      <p className="mt-0.5 text-xs font-bold text-primary tracking-wide">{founder.role}</p>
+                      <p className="mt-1 text-xs text-muted-foreground leading-snug">{founder.focus}</p>
                     </div>
-                    <span className="pop-sm inline-flex size-10 shrink-0 items-center justify-center bg-primary text-primary-foreground">
+                    <span className="pop-sm inline-flex size-9 shrink-0 items-center justify-center bg-primary text-primary-foreground mt-0.5">
                       <Linkedin className="size-4" />
                     </span>
                   </div>

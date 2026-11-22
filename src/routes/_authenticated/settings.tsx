@@ -1669,7 +1669,7 @@ export function SettingsPage() {
                       <p className="flex items-start gap-1.5">
                         <Check className="size-3.5 text-emerald-500 shrink-0 mt-0.5" />
                         <span>
-                          <strong className="text-foreground">Founding Team:</strong> Built by Saikrish Karthikeyan &amp; Suthir R to democratize top-tier economics pedagogy.
+                          <strong className="text-foreground">Founding Team:</strong> Built by Saikrish Karthikeyan, Suthir R &amp; Adithya A to democratize top-tier economics pedagogy.
                         </span>
                       </p>
                       <p className="flex items-start gap-1.5">
@@ -1874,7 +1874,7 @@ export function SettingsPage() {
                     <strong className="text-foreground">Full Syllabus:</strong> Supports Paper 1 (MCQ), Paper 2 (Data Response/Essays), Paper 3 (MCQ), and Paper 4 (A2).
                   </li>
                   <li>
-                    <strong className="text-foreground">Founders:</strong> Created by Saikrish Karthikeyan and Suthir R with a vision of accessible, rigorous economics pedagogy.
+                    <strong className="text-foreground">Team:</strong> Created by Saikrish Karthikeyan, Suthir R, and Adithya A with a vision of accessible, rigorous economics pedagogy.
                   </li>
                 </ul>
               </div>
