@@ -712,13 +712,17 @@ function GradePage() {
     adjustTextareaHeight();
   }, [essayText, essayFont, adjustTextareaHeight]);
 
-  // Auto-resize question textarea
+  // Auto-resize question textarea smoothly without layout jitter
+  const adjustQuestionHeight = useCallback(() => {
+    const el = questionInputRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.max(48, el.scrollHeight)}px`;
+  }, []);
+
   useEffect(() => {
-    if (questionInputRef.current) {
-      questionInputRef.current.style.height = "auto";
-      questionInputRef.current.style.height = `${Math.max(48, questionInputRef.current.scrollHeight)}px`;
-    }
-  }, [question]);
+    adjustQuestionHeight();
+  }, [question, adjustQuestionHeight]);
 
   const [previewDiagram, setPreviewDiagram] = useState<DiagramEntry | null>(null);
 
@@ -1576,7 +1580,14 @@ function GradePage() {
                   </div>
 
                   {/* Question Section */}
-                  <div className="rounded-2xl border border-border/60 bg-muted/20 p-4 space-y-3 w-full min-w-0">
+                  <div
+                    onClick={(e) => {
+                      if (e.target === e.currentTarget && questionInputRef.current) {
+                        questionInputRef.current.focus();
+                      }
+                    }}
+                    className="rounded-2xl border border-border/60 bg-muted/20 p-4 space-y-3 w-full min-w-0 cursor-text focus-within:border-primary/50 focus-within:bg-card focus-within:ring-2 focus-within:ring-primary/10 transition-all"
+                  >
                     <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground gap-2 flex-wrap">
                       <span className="flex items-center gap-1.5 text-foreground shrink-0">
                         <PenLine className="size-3.5 text-primary" /> Question Prompt
@@ -1585,10 +1596,18 @@ function GradePage() {
                         Cambridge 9708 Standard
                       </span>
                     </div>
-                    <Textarea
+                    <textarea
                       ref={questionInputRef}
                       rows={2}
-                      className="w-full resize-none border-0 bg-transparent p-0 text-base sm:text-lg font-semibold leading-relaxed focus-visible:ring-0 placeholder:text-muted-foreground/40 text-foreground shadow-none"
+                      spellCheck={true}
+                      className="block w-full resize-none border-0 bg-transparent p-0 text-base sm:text-lg font-semibold leading-relaxed focus:outline-none focus:ring-0 placeholder:text-muted-foreground/40 text-foreground shadow-none"
+                      style={{
+                        fontFamily: '"Inter Tight", "Outfit", system-ui, -apple-system, sans-serif',
+                        fontOpticalSizing: "none",
+                        letterSpacing: "0px",
+                        wordSpacing: "0px",
+                        lineHeight: "1.6",
+                      }}
                       placeholder="Enter or paste the exam question (e.g. Discuss whether a rise in the minimum wage will always reduce employment)..."
                       value={question}
                       onChange={(e) => setQuestion(e.target.value)}
