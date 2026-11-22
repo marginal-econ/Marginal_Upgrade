@@ -1,6 +1,7 @@
 import { supabaseAdmin } from "@/integrations/backend/client.server";
 import { isMarginalAdmin } from "@/lib/auth-admin";
 import { getStoredPaperExplanationsServer, type McqExplanationResult } from "@/lib/mcq/mcq-pdf.server";
+import { classifyMcqQuestion } from "./mcq-domain";
 import { getTopicalPaperById } from "@/lib/topical-mcq-papers";
 import {
   calculateQuizPoints,
@@ -598,10 +599,21 @@ export async function submitQuizAnswerServer(input: {
     activeMultiplier: 1, // consumed
   };
 
-  await QUIZ_STORE.set(playerKey(pin, input.playerId), updatedPlayer);
+  let persistedAttemptId = player.persistedAttemptId ?? null;
+  if (finished && (player.userId || updatedPlayer.userId)) {
+    const attemptId = await syncStudentQuizAttemptToDatabase(meta, updatedPlayer);
+    if (attemptId) persistedAttemptId = attemptId;
+  }
+
+  const finalPlayer: QuizPlayer = {
+    ...updatedPlayer,
+    persistedAttemptId,
+  };
+
+  await QUIZ_STORE.set(playerKey(pin, input.playerId), finalPlayer);
 
   const allPlayers = sortQuizLeaderboard(await QUIZ_STORE.list<QuizPlayer>(playerPrefix(pin)));
-  const rank = Math.max(1, allPlayers.findIndex((p) => p.id === updatedPlayer.id) + 1);
+  const rank = Math.max(1, allPlayers.findIndex((p) => p.id === finalPlayer.id) + 1);
 
   return {
     isCorrect,
@@ -612,25 +624,137 @@ export async function submitQuizAnswerServer(input: {
     streakBonus: breakdown.streakBonus,
     multiplier: mult,
     earnedPowerUp,
-    player: updatedPlayer,
+    player: finalPlayer,
     rank,
     totalPlayers: allPlayers.length,
     explanation: meta.showInstantFeedback ? storedExplanation : null,
   };
 }
 
+/**
+ * Persists the student's completed quiz attempt to mcq_pdf_attempts.
+ * This guarantees that:
+ * 1. The student's Review & Analytics profile immediately records the score, title, and topic accuracy.
+ * 2. mcq_topic_performance view recalculates their syllabus accuracy radar.
+ * 3. The teacher classroom diagnostic dashboard and individual student insight report reflect their performance.
+ */
+async function syncStudentQuizAttemptToDatabase(
+  meta: McqQuizMeta,
+  player: QuizPlayer,
+): Promise<string | null> {
+  const userId = player.userId;
+  if (!userId) return null;
+
+  try {
+    const levelUpper = meta.level === "a2" ? "A2" : "AS";
+    const total = meta.questionNumbers.length;
+
+    const gradedQuestions = meta.questionNumbers.map((num) => {
+      const answerRec = player.answers[num];
+      const userAnswer = answerRec?.selected ?? null;
+      const isCorrect = answerRec ? Boolean(answerRec.correct) : false;
+      const isAttempted = userAnswer !== null && userAnswer !== undefined;
+
+      let stemText = "";
+      let existingTopic = meta.paperTitle || meta.title;
+      if (meta.sourceType === "custom_questions") {
+        const cq = meta.customQuestions?.find((q) => q.number === num);
+        stemText = cq?.stem || "";
+        if (cq?.topic) existingTopic = cq.topic;
+      }
+
+      const classified = classifyMcqQuestion({
+        level: levelUpper,
+        number: num,
+        text: stemText,
+        existingTopic,
+      });
+
+      return {
+        number: num,
+        topic: classified.topic,
+        subtopic: classified.subtopic,
+        unit: classified.unit,
+        domain: classified.domain,
+        skill: classified.skill,
+        stem_text: stemText ? stemText.slice(0, 1400) : undefined,
+        correct_answer: answerRec?.correctAnswer ?? null,
+        user_answer: userAnswer,
+        correct: isAttempted ? isCorrect : false,
+      };
+    });
+
+    const score = gradedQuestions.filter((q) => q.correct).length;
+    const resolvedTitle = `[Live Quiz] ${meta.title || meta.paperTitle}`;
+
+    if (player.persistedAttemptId) {
+      const { error } = await supabaseAdmin
+        .from("mcq_pdf_attempts")
+        .update({
+          score,
+          total,
+          questions: gradedQuestions,
+          completed_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", player.persistedAttemptId);
+
+      if (!error) return player.persistedAttemptId;
+    }
+
+    const { data: newRow, error: insertError } = await supabaseAdmin
+      .from("mcq_pdf_attempts")
+      .insert({
+        user_id: userId,
+        title: resolvedTitle,
+        filename: meta.paperId ?? null,
+        paper_id: meta.paperId ?? null,
+        level: meta.level,
+        questions: gradedQuestions,
+        score,
+        total,
+        completed_at: new Date().toISOString(),
+      })
+      .select("id")
+      .maybeSingle();
+
+    if (!insertError && newRow?.id) {
+      return newRow.id;
+    }
+  } catch (err) {
+    console.warn("Could not sync quiz attempt to mcq_pdf_attempts:", err);
+  }
+  return null;
+}
+
 export async function finishQuizPlayerServer(
   rawPin: string,
   playerId: string,
+  callingUserId?: string | null,
 ): Promise<QuizPlayer> {
   const pin = normalizeQuizPin(rawPin);
+  const meta = await QUIZ_STORE.get<McqQuizMeta>(metaKey(pin));
   const player = await QUIZ_STORE.get<QuizPlayer>(playerKey(pin, playerId));
   if (!player) throw new Error("Player session not found.");
 
-  const updated: QuizPlayer = {
+  const effectiveUserId = player.userId || callingUserId || null;
+  let persistedAttemptId = player.persistedAttemptId ?? null;
+
+  const candidatePlayer: QuizPlayer = {
     ...player,
+    userId: effectiveUserId,
     finished: true,
     finishedAt: player.finishedAt ?? new Date().toISOString(),
+  };
+
+  if (effectiveUserId && meta) {
+    const attemptId = await syncStudentQuizAttemptToDatabase(meta, candidatePlayer);
+    if (attemptId) persistedAttemptId = attemptId;
+  }
+
+  const updated: QuizPlayer = {
+    ...candidatePlayer,
+    persistedAttemptId,
   };
   await QUIZ_STORE.set(playerKey(pin, playerId), updated);
   return updated;

@@ -250,9 +250,9 @@ export const finishQuizPlayer = createServerFn({ method: "POST" })
       })
       .parse(input),
   )
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
     const { finishQuizPlayerServer } = await import("./mcq-quiz.server");
-    const player = await finishQuizPlayerServer(data.pin, data.playerId);
+    const player = await finishQuizPlayerServer(data.pin, data.playerId, context.userId);
     return { player };
   });
 

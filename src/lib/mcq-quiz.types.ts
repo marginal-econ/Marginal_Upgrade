@@ -87,6 +87,7 @@ export type QuizPlayer = {
   activeShield?: boolean;
   activeMultiplier?: number;
   frozenUntil?: number | null;
+  persistedAttemptId?: string | null;
 };
 
 export type McqQuizMeta = {

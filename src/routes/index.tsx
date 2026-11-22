@@ -28,6 +28,8 @@ import {
   Users,
   FileSpreadsheet,
   FileText,
+  Gamepad2,
+  Trophy,
   Wand2,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -211,6 +213,8 @@ const RIBBON_ITEMS = [
   "8m, 12m & 20m Essays",
   "Papers 1, 2, 3 & 4",
   "Live Examiner",
+  "Multiplayer MCQ Arena",
+  "Live 6-Digit Quiz PIN",
   "Score Maximizer",
   "AO1 Knowledge",
   "AO2 Analysis",
@@ -234,8 +238,16 @@ const OBJECTIVES = [
   { code: "AO3", name: "Evaluation", dot: "bg-ao3", share: 45 },
 ];
 
-// All ten specialized features engineered for Cambridge 9708 Economics.
+// Specialized features engineered for Cambridge 9708 Economics.
 const TOOLS = [
+  {
+    icon: Gamepad2,
+    tile: "bg-amber-600",
+    badge: "Multiplayer Arena",
+    title: "Live MCQ Quiz Arena",
+    body: "Multiplayer Cambridge 9708 past paper races with 6-digit PIN, Serious Exam sprint, and Game Arena with power-ups (Steal, Swap & Tax).",
+    href: "/quiz",
+  },
   {
     icon: PenLine,
     tile: "bg-ao2",
@@ -664,6 +676,17 @@ function Index() {
                     <span>See Graded Sample</span>
                   </a>
                 </Button>
+                <Button
+                  asChild
+                  variant="outline"
+                  size="lg"
+                  className="h-12 px-4 text-sm font-semibold border-2 border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 text-foreground gap-2 shadow-xs cursor-pointer w-full sm:w-auto inline-flex items-center justify-center"
+                >
+                  <Link to="/quiz">
+                    <Gamepad2 className="size-4 text-amber-500 shrink-0" />
+                    <span>Live Quiz (PIN)</span>
+                  </Link>
+                </Button>
               </div>
               <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                 <span className="inline-flex items-center gap-1.5 font-medium text-foreground">
@@ -734,9 +757,60 @@ function Index() {
           <Reveal>
             <SectionHeading
               eyebrow="Cambridge 9708 Tools"
-              title="Ten specialized tools, one Cambridge syllabus"
-              lead="Ten specialized features engineered exclusively for Cambridge AS & A Level Economics (9708)."
+              title="Eleven specialized tools, one Cambridge syllabus"
+              lead="Eleven specialized features engineered exclusively for Cambridge AS & A Level Economics (9708)."
             />
+          </Reveal>
+
+          {/* Spotlight Banner: Live Multiplayer MCQ Quiz Arena */}
+          <Reveal delay={40}>
+            <div className="mt-8 mb-4 overflow-hidden rounded-2xl border-2 border-amber-500/40 bg-gradient-to-r from-amber-500/[0.12] via-primary/[0.06] to-purple-500/[0.12] p-5 sm:p-7 shadow-xl relative">
+              <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-5">
+                <div className="space-y-2 max-w-2xl">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="rounded-full bg-amber-500/20 border border-amber-500/40 px-2.5 py-0.5 text-[11px] font-mono font-bold text-amber-700 dark:text-amber-300 flex items-center gap-1.5 shadow-2xs">
+                      <Gamepad2 className="size-3.5 text-amber-500 animate-pulse" />
+                      NEW: MULTIPLAYER MCQ ARENA
+                    </span>
+                    <span className="rounded-full bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-0.5 text-[10.5px] font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                      ⚡ 6-Digit PIN · No Login Needed to Join
+                    </span>
+                    <span className="rounded-full bg-primary/10 border border-primary/20 px-2.5 py-0.5 text-[10.5px] font-mono font-bold text-primary">
+                      Both AS &amp; A Level
+                    </span>
+                  </div>
+                  <h3 className="text-xl sm:text-2xl font-black text-foreground tracking-tight">
+                    Race Cambridge Past Papers Live with Classmates &amp; Teachers
+                  </h3>
+                  <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
+                    Choose between <strong className="text-foreground">Serious Exam Sprint</strong> (silent timed mock) or <strong className="text-foreground">Game Arena</strong> with strategic power-ups (Pigouvian Tax, Rival Steals, 50/50 Elimination &amp; Policy Shock Freezes). Live podium and instant mark schemes.
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-3 shrink-0 w-full sm:w-auto">
+                  <Button
+                    asChild
+                    size="lg"
+                    className="h-11 px-5 text-xs sm:text-sm font-extrabold bg-amber-500 hover:bg-amber-600 text-amber-950 shadow-md gap-2"
+                  >
+                    <Link to="/quiz">
+                      <Gamepad2 className="size-4" />
+                      <span>Join with PIN</span>
+                    </Link>
+                  </Button>
+                  <Button
+                    asChild
+                    variant="outline"
+                    size="lg"
+                    className="h-11 px-4 text-xs sm:text-sm font-bold border-2 gap-2"
+                  >
+                    <Link to="/mcq-live">
+                      <Trophy className="size-4 text-primary" />
+                      <span>Host a Quiz (Free)</span>
+                    </Link>
+                  </Button>
+                </div>
+              </div>
+            </div>
           </Reveal>
 
           <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">

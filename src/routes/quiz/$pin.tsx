@@ -1521,6 +1521,16 @@ function StudentLiveGameplayView({
     }
   }, [hasNext, questionNumbers, mePlayer.answers, feedbackByQuestion]);
 
+  const activeQuestionBtnRef = useRef<HTMLButtonElement | null>(null);
+
+  useEffect(() => {
+    activeQuestionBtnRef.current?.scrollIntoView({
+      behavior: "smooth",
+      inline: "center",
+      block: "nearest",
+    });
+  }, [currentIdx]);
+
   const handleAnswer = useCallback(
     async (letter: QuizLetter) => {
       if (submitting || isAnswered || isFrozen) return;
@@ -1867,41 +1877,83 @@ function StudentLiveGameplayView({
 
       {/* Main Workspace (Optimized for iPad Portrait, Landscape & Mobile) */}
       <main className="flex-1 mx-auto w-full max-w-6xl px-3 sm:px-6 py-3 sm:py-4 space-y-3 sm:space-y-4">
-        {/* Question Navigator Number Bar */}
-        <div className="w-full overflow-x-auto pb-1">
-          <div className="flex items-center gap-1.5 min-w-max">
-            {questionNumbers.map((qNum, idx) => {
-              const rec = mePlayer.answers?.[qNum] ?? feedbackByQuestion[qNum];
-              const isCurrent = idx === currentIdx;
-              const recCorrect = rec
-                ? "isCorrect" in rec
-                  ? rec.isCorrect
-                  : rec.correct
-                : null;
+        {/* Question Navigator Number Bar & Quick Stepper (Clean, No Scrollbar, Compact) */}
+        <div className="flex items-center gap-1.5 w-full">
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={!hasPrev}
+            onClick={() => setCurrentIdx((i) => Math.max(0, i - 1))}
+            className="h-7 w-7 p-0 shrink-0 touch-manipulation rounded-md"
+            title="Previous question"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
 
-              return (
-                <button
-                  key={qNum}
-                  type="button"
-                  onClick={() => setCurrentIdx(idx)}
-                  className={cn(
-                    "h-8 min-w-[2.25rem] px-2 rounded-lg font-mono text-xs font-bold border transition-all shrink-0 active:scale-95 touch-manipulation",
-                    isCurrent
-                      ? "border-primary bg-primary text-primary-foreground shadow-xs scale-105"
-                      : recCorrect === true && meta.showInstantFeedback
-                        ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
-                        : recCorrect === false && meta.showInstantFeedback
-                          ? "border-rose-500/40 bg-rose-500/15 text-rose-700 dark:text-rose-300"
-                          : rec
-                            ? "border-primary/40 bg-primary/10 text-primary"
-                            : "border-border bg-background text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  {qNum}
-                </button>
-              );
-            })}
+          <div className="flex-1 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden py-0.5">
+            <div className="flex items-center gap-1 min-w-max">
+              {questionNumbers.map((qNum, idx) => {
+                const rec = mePlayer.answers?.[qNum] ?? feedbackByQuestion[qNum];
+                const isCurrent = idx === currentIdx;
+                const recCorrect = rec
+                  ? "isCorrect" in rec
+                    ? rec.isCorrect
+                    : rec.correct
+                  : null;
+
+                return (
+                  <button
+                    key={qNum}
+                    ref={isCurrent ? activeQuestionBtnRef : undefined}
+                    type="button"
+                    onClick={() => setCurrentIdx(idx)}
+                    className={cn(
+                      "h-7 min-w-[1.75rem] px-1 rounded-md font-mono text-[11px] font-bold border transition-all shrink-0 active:scale-95 touch-manipulation",
+                      isCurrent
+                        ? "border-primary bg-primary text-primary-foreground shadow-xs ring-1 ring-primary"
+                        : recCorrect === true && meta.showInstantFeedback
+                          ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+                          : recCorrect === false && meta.showInstantFeedback
+                            ? "border-rose-500/40 bg-rose-500/15 text-rose-700 dark:text-rose-300"
+                            : rec
+                              ? "border-primary/40 bg-primary/10 text-primary"
+                              : "border-border bg-background text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    {qNum}
+                  </button>
+                );
+              })}
+            </div>
           </div>
+
+          {hasNext ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="default"
+              onClick={goNext}
+              className="h-7 px-2.5 text-xs font-bold shrink-0 gap-1 touch-manipulation shadow-xs rounded-md"
+              title="Next question"
+            >
+              <span>Next</span>
+              <ChevronRight className="h-3.5 w-3.5" />
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              size="sm"
+              variant="default"
+              disabled={finishing}
+              onClick={handleFinishPaper}
+              className="h-7 px-2.5 text-xs font-bold shrink-0 gap-1 bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs rounded-md touch-manipulation"
+              title="Finish paper"
+            >
+              <span>Finish</span>
+              <Trophy className="h-3 w-3" />
+            </Button>
+          )}
         </div>
 
         {/* POWER-UP INVENTORY RACK (Game Arena Mode Only) */}
@@ -1986,8 +2038,48 @@ function StudentLiveGameplayView({
                   </span>
                 </div>
 
-                {/* Question Toolbar (Zoom + Fullpage Toggle) */}
+                {/* Question Toolbar (Direct Stepper + Fullpage Toggle) */}
                 <div className="flex items-center gap-1 sm:gap-1.5">
+                  <div className="flex items-center gap-1 border-r border-border/60 pr-1 sm:pr-1.5 mr-0.5">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      disabled={!hasPrev}
+                      onClick={() => setCurrentIdx((i) => Math.max(0, i - 1))}
+                      className="h-7 px-1.5 sm:px-2 text-xs gap-1"
+                      title="Previous question"
+                    >
+                      <ChevronLeft className="h-3.5 w-3.5" />
+                      <span className="hidden sm:inline">Prev</span>
+                    </Button>
+                    {hasNext ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="default"
+                        onClick={goNext}
+                        className="h-7 px-2 sm:px-2.5 text-xs font-bold gap-1 shadow-xs"
+                        title="Next question"
+                      >
+                        <span>Next</span>
+                        <ChevronRight className="h-3.5 w-3.5" />
+                      </Button>
+                    ) : (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="default"
+                        disabled={finishing}
+                        onClick={handleFinishPaper}
+                        className="h-7 px-2 sm:px-2.5 text-xs font-bold gap-1 bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs"
+                        title="Finish paper"
+                      >
+                        <span>Finish</span>
+                        <Trophy className="h-3 w-3" />
+                      </Button>
+                    )}
+                  </div>
                   {meta.sourceType !== "custom_questions" && sliceCanvas ? (
                     <Button
                       type="button"
@@ -2133,12 +2225,23 @@ function StudentLiveGameplayView({
 
             {/* Answer Options Card */}
             <Card className="border-2 border-border shadow-sm">
-              <CardHeader className="py-2.5 px-3 sm:px-4 border-b border-border/70 bg-muted/20">
+              <CardHeader className="py-2 px-3 sm:px-4 border-b border-border/70 bg-muted/20">
                 <CardTitle className="text-xs font-black uppercase tracking-wider text-muted-foreground flex items-center justify-between gap-2">
                   <span>Select Answer</span>
-                  <span className="font-mono text-[10px] font-normal whitespace-nowrap">
-                    Keyboard: A / B / C / D
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-[10px] font-normal whitespace-nowrap hidden sm:inline">
+                      Keys: A / B / C / D
+                    </span>
+                    {hasNext ? (
+                      <button
+                        type="button"
+                        onClick={goNext}
+                        className="text-[11px] font-bold text-primary hover:underline inline-flex items-center gap-0.5 cursor-pointer touch-manipulation"
+                      >
+                        <span>Next Question →</span>
+                      </button>
+                    ) : null}
+                  </div>
                 </CardTitle>
               </CardHeader>
 
@@ -2170,7 +2273,7 @@ function StudentLiveGameplayView({
                         disabled={submitting || isAnswered || isFrozen || isEliminated}
                         onClick={() => void handleAnswer(letter)}
                         className={cn(
-                          "w-full flex items-center gap-3 rounded-xl border-2 px-3.5 py-3 text-left transition-all min-h-[54px] sm:min-h-[58px] touch-manipulation select-none active:scale-[0.98]",
+                          "w-full flex items-center gap-2.5 sm:gap-3 rounded-xl border-2 px-3 py-2.5 sm:py-3 text-left transition-all min-h-[48px] sm:min-h-[52px] touch-manipulation select-none active:scale-[0.98]",
                           isEliminated
                             ? "border-border/30 bg-muted/10 opacity-30 line-through cursor-not-allowed"
                             : !isAnswered
@@ -2358,10 +2461,10 @@ function StudentLiveGameplayView({
                 <Button
                   type="button"
                   size="sm"
-                  variant="ghost"
+                  variant="outline"
                   disabled={!hasPrev}
                   onClick={() => setCurrentIdx((i) => Math.max(0, i - 1))}
-                  className="gap-1 text-xs touch-manipulation"
+                  className="gap-1 text-xs touch-manipulation h-9"
                 >
                   <ChevronLeft className="h-3.5 w-3.5" />
                   Prev
@@ -2369,12 +2472,12 @@ function StudentLiveGameplayView({
                 <Button
                   type="button"
                   size="sm"
-                  variant="ghost"
+                  variant="outline"
                   disabled={!hasNext}
-                  onClick={() => setCurrentIdx((i) => Math.min(questionNumbers.length - 1, i + 1))}
-                  className="gap-1 text-xs touch-manipulation"
+                  onClick={goNext}
+                  className="gap-1 text-xs font-bold text-foreground touch-manipulation h-9"
                 >
-                  Skip for now
+                  <span>Skip to Next Question</span>
                   <ChevronRight className="h-3.5 w-3.5" />
                 </Button>
               </div>
@@ -2382,6 +2485,54 @@ function StudentLiveGameplayView({
           </div>
         </div>
       </main>
+
+      {/* Sticky Floating Action Bar for Mobile & iPad - Guarantees Next Question is ALWAYS visible */}
+      <div className="lg:hidden sticky bottom-3 z-30 px-3 max-w-lg mx-auto w-full pointer-events-none mt-2">
+        <div className="pointer-events-auto flex items-center justify-between gap-2 rounded-2xl border-2 border-border/80 bg-background/95 backdrop-blur-md p-2 shadow-xl ring-1 ring-black/5">
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={!hasPrev}
+            onClick={() => setCurrentIdx((i) => Math.max(0, i - 1))}
+            className="h-9 px-3 text-xs gap-1 font-bold touch-manipulation"
+          >
+            <ChevronLeft className="h-4 w-4" />
+            <span>Prev</span>
+          </Button>
+
+          <span className="font-mono text-xs font-black text-foreground whitespace-nowrap">
+            Q{currentNumber} ({currentIdx + 1}/{questionNumbers.length})
+          </span>
+
+          {hasNext ? (
+            <Button
+              type="button"
+              size="sm"
+              onClick={goNext}
+              className="h-9 px-4 text-xs font-extrabold gap-1.5 shadow-md touch-manipulation"
+            >
+              <span>Next Question</span>
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              size="sm"
+              disabled={finishing}
+              onClick={handleFinishPaper}
+              className="h-9 px-4 text-xs font-extrabold gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white shadow-md touch-manipulation"
+            >
+              {finishing ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Trophy className="h-3.5 w-3.5" />
+              )}
+              <span>Finish Paper</span>
+            </Button>
+          )}
+        </div>
+      </div>
 
       {/* Target Rival Picker Dialog (For Steal, Swap, and Freeze) */}
       <Dialog
