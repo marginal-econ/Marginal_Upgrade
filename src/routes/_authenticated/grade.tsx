@@ -1167,15 +1167,10 @@ function GradePage() {
 
   const mutation = useMutation({
     mutationFn: () => {
-      // Guarantee authentic Cambridge paragraphing is always present in the grading submission
-      const essayToGrade = autoParagraphText(essayText);
-      if (essayToGrade !== essayText) {
-        setEssayText(essayToGrade);
-      }
       return grade({
         data: {
           question,
-          essayText: essayToGrade,
+          essayText,
           maxMark: essayCategory === "8_legacy" || essayCategory === "8_eval" ? 8 : Number(maxMark),
           essayType: essayCategory,
           auditPass,
@@ -1200,8 +1195,13 @@ function GradePage() {
       } catch {}
       toast.success(`Marked ${data.grading.total_mark}/${data.grading.max_mark}`);
       setTimeout(() => {
-        reportRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-      }, 300);
+        const target = document.getElementById("candidate-report-header");
+        if (target) {
+          target.scrollIntoView({ behavior: "smooth", block: "start" });
+        } else {
+          reportRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+      }, 150);
     },
     onError: (error: Error) => {
       toast.error(error.message, {
@@ -1243,18 +1243,6 @@ function GradePage() {
   }
 
   function handleMarkClick(options?: { skipDiagramCheck?: boolean }) {
-    // Ensure authentic Cambridge paragraphing is always present in grading
-    const wordCount = essayText.trim() ? essayText.trim().split(/\s+/).length : 0;
-    if (wordCount >= 60 && textParagraphs.length <= 1) {
-      const formatted = autoParagraphText(essayText);
-      if (formatted !== essayText) {
-        setEssayText(formatted);
-        toast.info("Structured candidate script into distinct paragraphs for Cambridge evaluation.", {
-          duration: 3500,
-        });
-      }
-    }
-
     // Prompt user only if no diagram has been attached or referenced in brackets yet
     const { matches } = extractDiagramReferences(essayText);
     const hasAnyDiagram = diagrams.length > 0 || matches.length > 0;
@@ -1931,24 +1919,69 @@ function GradePage() {
                       </div>
                     </div>
 
-                    {/* Active Diagram Placement Strip (Highlights placed diagrams in distinctive emerald/teal color) */}
-                    {inTextDiagrams.matches.length > 0 && (
-                      <div className="flex items-center gap-2 flex-wrap py-2 px-3 rounded-xl bg-emerald-500/[0.08] dark:bg-emerald-950/30 border border-emerald-500/30 text-xs animate-in fade-in">
-                        <span className="font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5 uppercase tracking-wider text-[11px] shrink-0">
-                          <Images className="size-3.5" /> Diagrams Placed:
-                        </span>
-                        {inTextDiagrams.matches.map((m, idx) => (
-                          <span
-                            key={idx}
-                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/15 dark:bg-emerald-900/40 border border-emerald-500/40 text-emerald-700 dark:text-emerald-300 font-mono text-xs font-semibold shadow-xs"
-                          >
-                            <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                            <span>(Diagram: {m.title})</span>
-                            <span className="text-[10.5px] text-emerald-600/80 dark:text-emerald-400/80 font-sans font-normal">
-                              · {getDiagramPlacementDescription(m.matchText).description}
+                    {/* Sleek Minimalist Cambridge 9708 Score Ribbon (Auto-scroll target) */}
+                    {result && !isEditingAfterGrade && (
+                      <div
+                        id="candidate-report-header"
+                        className="rounded-2xl border border-primary/30 bg-primary/[0.04] p-4 sm:p-5 space-y-3 animate-in fade-in shadow-xs"
+                      >
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                          <div className="flex items-center gap-3">
+                            <div className="size-10 rounded-xl bg-primary/15 border border-primary/30 flex items-center justify-center text-primary font-black text-sm shrink-0 shadow-xs">
+                              <Award className="size-5 text-primary" />
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-bold text-base text-foreground">
+                                  Cambridge 9708 Diagnostic Verdict
+                                </span>
+                                <Badge variant="outline" className="border-primary/40 bg-primary/10 text-primary font-semibold text-xs">
+                                  {result.grading.band}
+                                </Badge>
+                              </div>
+                              <p className="text-xs text-muted-foreground mt-0.5">
+                                Evaluated by dual Cambridge examiners across Assessment Objectives &amp; diagrammatic integration
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            <div className="px-3.5 py-1.5 rounded-xl bg-primary text-primary-foreground font-black text-base shadow-xs flex items-center gap-1.5">
+                              <span>{result.grading.total_mark}</span>
+                              <span className="text-xs opacity-80">/ {result.grading.max_mark}</span>
+                              <span className="text-[11px] font-normal uppercase tracking-wider ml-1">Marks</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Clean Minimalist AO Breakdown Pills */}
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-2 border-t border-border/50 text-xs">
+                          <div className="px-3 py-2 rounded-xl bg-background/60 border border-border/60 flex items-center justify-between">
+                            <span className="text-muted-foreground font-medium">AO1 Knowledge</span>
+                            <span className="font-mono font-bold text-foreground">
+                              {result.grading.ao_breakdown?.knowledge?.awarded ?? 0} / {result.grading.ao_breakdown?.knowledge?.out_of ?? 3}
                             </span>
-                          </span>
-                        ))}
+                          </div>
+                          <div className="px-3 py-2 rounded-xl bg-background/60 border border-border/60 flex items-center justify-between">
+                            <span className="text-muted-foreground font-medium">AO2 Analysis</span>
+                            <span className="font-mono font-bold text-foreground">
+                              {result.grading.ao_breakdown?.analysis?.awarded ?? 0} / {result.grading.ao_breakdown?.analysis?.out_of ?? 6}
+                            </span>
+                          </div>
+                          <div className="px-3 py-2 rounded-xl bg-background/60 border border-border/60 flex items-center justify-between col-span-2 sm:col-span-1">
+                            <span className="text-muted-foreground font-medium">AO3 Evaluation</span>
+                            <span className="font-mono font-bold text-foreground">
+                              {result.grading.ao_breakdown?.evaluation?.awarded ?? 0} / {result.grading.ao_breakdown?.evaluation?.out_of ?? 3}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* One-Sentence Examiner Summary */}
+                        {(result.grading.examiner_summary || (result.grading as any).overall_comment) && (
+                          <p className="text-xs text-foreground/80 italic pt-1 border-t border-border/40 leading-relaxed">
+                            "{stripScoreFractionsFromText(stripStars(result.grading.examiner_summary || (result.grading as any).overall_comment || ""))}"
+                          </p>
+                        )}
                       </div>
                     )}
 
@@ -2094,8 +2127,8 @@ function GradePage() {
                           </div>
                         </div>
 
-                        {/* Right Column: Pass 4 Google Docs Comment Cards Stream */}
-                        <div className="space-y-3 sticky top-20 max-h-[calc(100vh-140px)] overflow-y-auto pr-1">
+                        {/* Right Column: Pass 4 Google Docs Comment Cards Stream (No inner scrollbar) */}
+                        <div className="space-y-3">
                           <div className="flex items-center justify-between pb-2 border-b border-border/60">
                             <div className="flex items-center gap-1.5 font-bold text-xs text-foreground uppercase tracking-wider">
                               <MessageSquare className="size-4 text-primary" />
@@ -2225,9 +2258,9 @@ function GradePage() {
                         <Textarea
                           ref={essayInputRef}
                           id="essay"
-                          className="w-full resize-none border-0 bg-transparent p-0 text-base sm:text-[18px] md:text-[19px] font-serif leading-[1.95] tracking-tight focus-visible:ring-0 placeholder:text-muted-foreground/40 shadow-none text-foreground selection:bg-primary/20 overflow-hidden min-h-[520px]"
+                          className="w-full resize-none border-0 bg-transparent p-0 text-base sm:text-[17px] font-sans leading-relaxed tracking-normal focus-visible:ring-0 placeholder:text-muted-foreground/40 shadow-none text-foreground selection:bg-primary/20 overflow-hidden min-h-[520px]"
                           placeholder="Write your complete economics essay here, or drag diagrams directly from the tray above... You can drag and drop any diagram anywhere across your text, paste images with Ctrl+V, or snap notebook sketches. (Press Ctrl + Enter anytime to grade)"
-                        value={essayText}
+                          value={essayText}
                         onChange={(event) => {
                           setEssayText(event.target.value);
                           setWritingCheck(null);
@@ -2245,27 +2278,6 @@ function GradePage() {
                                   return;
                                 }
                               }
-                            }
-                          }
-                          const plainText = e.clipboardData?.getData("text/plain");
-                          if (plainText && plainText.split(/\s+/).length >= 60 && !plainText.includes("\n\n")) {
-                            const formatted = autoParagraphText(cleanMathDollarSigns(plainText));
-                            if (formatted !== plainText) {
-                              e.preventDefault();
-                              const textarea = essayInputRef.current;
-                              if (textarea) {
-                                const start = textarea.selectionStart ?? 0;
-                                const end = textarea.selectionEnd ?? start;
-                                const newText = essayText.slice(0, start) + formatted + essayText.slice(end);
-                                setEssayText(newText);
-                                setTimeout(() => {
-                                  textarea.setSelectionRange(start + formatted.length, start + formatted.length);
-                                }, 50);
-                              } else {
-                                setEssayText((prev: string) => (prev.trim() ? `${prev.trim()}\n\n${formatted}` : formatted));
-                              }
-                              toast.info("Auto-formatted pasted text into Cambridge paragraphs.");
-                              return;
                             }
                           }
                         }}
@@ -2303,15 +2315,6 @@ function GradePage() {
                               }
                               const newText = essayText.slice(0, caretPos) + tagToInsert + essayText.slice(caretPos);
                               setEssayText(cleanMathDollarSigns(newText));
-                              if (entry) {
-                                const curves = entry.curveLabels?.filter(Boolean).join(", ") || "not specified";
-                                const tag = `[DIAGRAM: ${entry.title} | axes: ${entry.yLabel} (y) / ${entry.xLabel} (x) | curves: ${curves} | labels: as per standard ${entry.title} diagram | accuracy: standard reference diagram positioned directly in script]`;
-                                setDiagrams((cur) =>
-                                  cur.some((d) => d.label === entry.title || d.catalogId === entry.id)
-                                    ? cur
-                                    : [...cur, { id: crypto.randomUUID(), label: entry.title, tag, catalogId: entry.id }]
-                                );
-                              }
                               setTimeout(() => {
                                 textarea.focus();
                                 textarea.setSelectionRange(caretPos + tagToInsert.length, caretPos + tagToInsert.length);
@@ -2519,38 +2522,9 @@ function GradePage() {
                   </div>
                 </div>
 
-                {/* Full Cambridge Candidate Diagnostic Report (Prominent, Full-Width, Never Sunk into a Corner) */}
+                {/* Optional Expandable Detailed Breakdown & Teacher Action */}
                 {result && (
-                  <div
-                    ref={reportRef}
-                    id="report-section"
-                    className="space-y-6 pt-4 animate-in fade-in duration-300 w-full min-w-0"
-                  >
-                    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/70 pb-4">
-                      <div className="flex items-center gap-3">
-                        <div className="size-11 rounded-2xl bg-primary/15 border border-primary/30 flex items-center justify-center text-primary shadow-inner shrink-0">
-                          <Award className="size-6 text-primary" />
-                        </div>
-                        <div>
-                          <h3 className="font-bold text-lg text-foreground">
-                            Complete Cambridge 9708 Candidate Diagnostic Report
-                          </h3>
-                          <p className="text-xs text-muted-foreground">
-                            Official evaluation across Assessment Objectives, examiner exemplar analysis &amp; actionable elevation steps
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <Badge className="bg-primary text-primary-foreground font-black text-sm px-3 py-1 shadow-xs">
-                          {result.grading.total_mark} / {result.grading.max_mark} Marks
-                        </Badge>
-                        <Badge variant="outline" className="border-border/80 text-foreground text-xs font-semibold px-2.5 py-1">
-                          {result.grading.band}
-                        </Badge>
-                      </div>
-                    </div>
-
+                  <div ref={reportRef} id="report-section" className="space-y-4 pt-2 w-full min-w-0">
                     {/* Teacher Direct Grading Action */}
                     {isDirectGradingMode && (
                       <div className="rounded-2xl border border-purple-500/40 bg-purple-950/40 p-4 sm:p-5 space-y-3 shadow-lg">
@@ -2572,8 +2546,21 @@ function GradePage() {
                       </div>
                     )}
 
-                    {/* Full Comprehensive Candidate Report */}
-                    <MarkBreakdown grading={result.grading} question={question} />
+                    {/* Minimalist Collapsible Full Criteria Breakdown (Takes minimal space unless expanded) */}
+                    <details className="group rounded-2xl border border-border/70 bg-card/30 p-4 transition-all">
+                      <summary className="flex items-center justify-between text-xs font-semibold text-muted-foreground cursor-pointer select-none hover:text-foreground">
+                        <span className="flex items-center gap-2">
+                          <SlidersHorizontal className="size-3.5 text-primary" />
+                          <span>Detailed Mark Scheme &amp; Assessment Objective Breakdown</span>
+                        </span>
+                        <span className="text-[10px] text-muted-foreground group-open:rotate-180 transition-transform">
+                          ▼
+                        </span>
+                      </summary>
+                      <div className="pt-4 mt-3 border-t border-border/50 animate-in fade-in">
+                        <MarkBreakdown grading={result.grading} question={question} />
+                      </div>
+                    </details>
                   </div>
                 )}
               </div>
