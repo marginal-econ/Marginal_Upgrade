@@ -86,12 +86,28 @@ export const gradeEssaySubmission = createServerFn({ method: "POST" })
 
     const split = defaultSplitForMaxMark(data.maxMark, data.essayType, data.question);
 
-    // A referenced diagram is appended after the student's own text, exactly
-    // like a hand-drawn diagram tag from OCR, so the examiner prompt's
-    // existing diagram-handling rules apply unchanged.
-    const gradedText = data.diagramReference
-      ? `${data.essayText}\n\n${data.diagramReference}`
-      : data.essayText;
+    // A referenced diagram is integrated directly into the script and appended
+    // so the examiner prompt's diagram-handling rules evaluate full curves and axes.
+    const { extractDiagramReferences } = await import("./diagram-detection");
+    const inText = extractDiagramReferences(data.essayText);
+
+    let preparedEssayText = data.essayText;
+    for (const rep of inText.inlineReplacements) {
+      if (!preparedEssayText.includes(rep.tag)) {
+        preparedEssayText = preparedEssayText.replace(rep.matchText, `\n\n${rep.tag}\n\n`);
+      }
+    }
+
+    const allDiagramTags = [
+      ...(data.diagramReference ? [data.diagramReference] : []),
+      ...inText.detectedTags,
+    ];
+    const uniqueDiagramTags = Array.from(new Set(allDiagramTags));
+    const combinedDiagramRef = uniqueDiagramTags.length > 0 ? uniqueDiagramTags.join("\n\n") : undefined;
+
+    const gradedText = combinedDiagramRef
+      ? (preparedEssayText.includes(combinedDiagramRef) ? preparedEssayText : `${preparedEssayText}\n\n${combinedDiagramRef}`)
+      : preparedEssayText;
 
     const isBudgetTier =
       !sub.isAdmin &&

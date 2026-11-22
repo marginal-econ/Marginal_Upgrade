@@ -89,6 +89,29 @@ describe("extractDiagramReferences", () => {
     expect(res.matches[0].title).toBe("Monopsony Labour Market");
     expect(res.matches[0].isCustom).toBe(true);
   });
+
+  it("accurately detects and expands (Diagram: Subsidy) in Siyonah Shyam merit goods script", () => {
+    const script = [
+      "However, subsidies and grants may not be enough. Though subsidies can be beneficial, incidence of subsidies matters. If demand is inelastic for merit goods like education in developed economies, incidence of subsidies causes subsidies to benefit firms more.",
+      "(Diagram: Subsidy)",
+      "Finally, the government may need to use intervention to ensure that merit goods like education and healthcare remain affordable.",
+    ].join("\n\n");
+
+    const res = extractDiagramReferences(script);
+    expect(res.matches).toHaveLength(1);
+    expect(res.matches[0].title).toBe("Subsidy");
+    expect(res.matches[0].isCustom).toBe(false);
+    expect(res.detectedTags[0]).toContain("DIAGRAM: Subsidy");
+    expect(res.detectedTags[0]).toContain("axes: Price (y) / Quantity (x)");
+    expect(res.detectedTags[0]).toContain("curves: D, S, S+subsidy");
+
+    let expanded = script;
+    for (const rep of res.inlineReplacements) {
+      expanded = expanded.replace(rep.matchText, `\n\n${rep.tag}\n\n`);
+    }
+    expect(expanded).toContain("[DIAGRAM: Subsidy");
+    expect(expanded).not.toContain("(Diagram: Subsidy)");
+  });
 });
 
 describe("autoParagraphText", () => {
