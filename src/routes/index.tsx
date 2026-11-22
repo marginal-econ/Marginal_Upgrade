@@ -256,8 +256,15 @@ function Index() {
             ) : (
               <>
                 <Link
+                  to="/teacher-auth"
+                  className="hidden sm:inline-flex rounded-lg px-2.5 py-1.5 text-xs sm:text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Teacher Sign In
+                </Link>
+
+                <Link
                   to="/auth"
-                  className="rounded-lg px-2.5 py-1.5 text-xs sm:text-sm font-semibold text-muted-foreground hover:text-foreground"
+                  className="rounded-lg px-2.5 py-1.5 text-xs sm:text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors"
                 >
                   Sign in
                 </Link>
@@ -267,7 +274,7 @@ function Index() {
                     to="/grade"
                     className="inline-flex min-h-8 sm:min-h-9 items-center justify-center gap-1.5 bg-primary px-3 sm:px-3.5 py-1.5 text-xs sm:text-sm font-semibold text-primary-foreground rounded-lg shadow-xs hover:bg-primary/90 transition-all"
                   >
-                    <span>Grade Essay Free</span>
+                    <span>Get Started</span>
                     <ArrowRight className="size-3.5" />
                   </Link>
                 </Magnetic>

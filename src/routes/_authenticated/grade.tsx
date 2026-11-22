@@ -431,6 +431,19 @@ function GradePage() {
   const [isTourOpen, setIsTourOpen] = useState(false);
   const [guestUpgradeOpen, setGuestUpgradeOpen] = useState(false);
 
+  // Auto-launch guided spotlight tour for guest students or first-time visitors
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const isGuest = isGuestUser(meQuery.data);
+    const tourDismissed = localStorage.getItem("marginal_grade_tour_seen") === "true";
+    if (isGuest && !tourDismissed && !result && !question.trim()) {
+      const timer = setTimeout(() => {
+        setIsTourOpen(true);
+      }, 450);
+      return () => clearTimeout(timer);
+    }
+  }, [meQuery.data, result, question]);
+
   const [question, setQuestion] = useState(() => {
     if (search.q) return search.q;
     if (typeof window !== "undefined") {
@@ -1247,48 +1260,57 @@ function GradePage() {
     () => [
       {
         targetId: "tour-sample-banner",
-        title: "1-Click Cambridge Sandbox",
+        title: "1-Click Interactive Sandbox",
         description:
-          "New to Marginal or testing out the app? Load a real Cambridge past paper essay with 1 click to watch how official mark schemes & AO rubrics grade it.",
-        badge: "Instant Demo",
-        actionHint: "Click 'Load 12M Sample' anytime to test with sample work.",
+          "Welcome to Marginal! Want to see how the examiner marks an essay with 1 click? Click 'Load 12M Sample' anytime to test the OCR, diagrams, and Cambridge marks instantly.",
+        badge: "Interactive Demo",
+        actionHint: "Click 'Load 12M Sample' to test right now!",
       },
       {
         targetId: "tour-question",
-        title: "Cambridge Exam Question",
+        title: "1. Exam Question & Command Words",
         description:
-          "Type or paste your Cambridge question here. Our engine checks your question against official mark schemes and coursebook anchors automatically.",
-        badge: "Step 1",
-        actionHint: "Supports 8-mark (AS), 12-mark (AS), and 20-mark (A2) questions.",
+          "Enter or paste any Cambridge 9708 question. Marginal detects command words ('Explain', 'Discuss', 'Assess', 'Evaluate') to calibrate AO1, AO2, and AO3 quotas automatically.",
+        badge: "Question Box",
+        actionHint: "Supports AS Level (8m, 12m) and A2 Level (20m) questions.",
       },
       {
         targetId: "tour-tariff",
-        title: "Mark Scheme & Tariff Level",
+        title: "2. Mark Tariff Level",
         description:
-          "Select the tariff band for your question. The examiner dynamically adjusts AO1 (Knowledge), AO2 (Application), and AO3/AO4 (Evaluation) mark weighting.",
-        badge: "Step 2",
+          "Pick the mark tariff (8m, 12m, or 20m). The examiner adjusts Knowledge (AO1), Analysis (AO2), and Evaluation (AO3) mark distribution accordingly.",
+        badge: "Cambridge Tariff",
       },
       {
-        targetId: "tour-essay",
-        title: "Your Essay (Text or Camera 📸)",
+        targetId: "tour-ocr",
+        title: "3. Import Handwriting (Vision OCR)",
         description:
-          "Paste or type your essay here, or click the camera upload button below to take photos of handwritten pages. Built-in handwriting recognition transcribes your writing automatically!",
-        badge: "Step 3",
-        actionHint: "Shortcut: Press Ctrl + Enter from anywhere to start marking.",
+          "Have a handwritten mock exam paper or school notebook? Click 'Import Handwriting' to snap a photo or upload pages — Vision OCR extracts candidate text and diagrams automatically!",
+        badge: "Handwriting OCR",
+        actionHint: "Fast photo extraction without typing.",
       },
       {
         targetId: "tour-diagrams",
-        title: "Diagram References (AO2)",
+        title: "4. Economics Diagrams & Curve Shifts",
         description:
-          "Economics essays score higher when backed by diagrams. Snap a photo of your hand-drawn graph or select one from our built-in Cambridge Diagram Library.",
-        badge: "Step 4",
+          "Attach diagrams to boost AO2 marks! Upload hand-drawn graph photos or insert curve tokens (e.g. [DIAGRAM: Tax shift MPC > MSC]). The examiner audits axes, equilibrium shifts, and welfare losses.",
+        badge: "Vector CAD",
+      },
+      {
+        targetId: "tour-essay",
+        title: "5. Candidate Essay Manuscript",
+        description:
+          "Type or edit your response here. Real-time word count tracks your progress, and paragraphs format automatically.",
+        badge: "Candidate Script",
+        actionHint: "Shortcut: Press Ctrl + Enter from anywhere to start marking.",
       },
       {
         targetId: "tour-submit",
-        title: "Dual AI Cambridge Examiner",
+        title: "6. Run Cambridge Examiner!",
         description:
-          "Click here to evaluate! Dual AI examiners calibrated to Cambridge 9708 grade your response, provide line-by-line examiner commentary, and rewrite exemplar paragraphs.",
-        badge: "Step 5",
+          "Hit 'Mark Essay' to trigger our 4-pass Cambridge pipeline. You'll receive official AO marks, band descriptors, and Google-Docs-style comment pins directly on your exact sentences!",
+        badge: "Dual AI Examiner",
+        actionHint: "Click to start evaluation when ready.",
       },
     ],
     [],
@@ -1391,7 +1413,7 @@ function GradePage() {
           </div>
 
           {/* Center: Cambridge Tariff Selector */}
-          <div className="flex items-center gap-1 rounded-xl bg-muted/60 p-1 border border-border/40 overflow-x-auto">
+          <div id="tour-tariff" className="flex items-center gap-1 rounded-xl bg-muted/60 p-1 border border-border/40 overflow-x-auto">
             {TARIFF_OPTIONS.map((opt) => {
               const isSelected = essayCategory === opt.value;
               return (
@@ -1420,6 +1442,7 @@ function GradePage() {
           <div className="flex items-center gap-1.5 shrink-0">
             {/* Import Handwriting */}
             <Button
+              id="tour-ocr"
               type="button"
               variant="outline"
               size="sm"
@@ -1587,8 +1610,52 @@ function GradePage() {
                     </p>
                   </div>
 
+                  {/* Interactive Quick-Test Banner for Guests & New Students */}
+                  <div
+                    id="tour-sample-banner"
+                    className="rounded-2xl border border-primary/30 bg-gradient-to-r from-primary/[0.08] via-indigo-500/[0.05] to-transparent p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs"
+                  >
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Sparkles className="size-4 text-primary" />
+                        <span className="text-xs font-bold text-foreground">
+                          Test Cambridge Examiner in 1 Click
+                        </span>
+                        <Badge className="bg-primary/15 text-primary border-primary/30 text-[9.5px] font-bold">
+                          Interactive Exemplar
+                        </Badge>
+                      </div>
+                      <p className="text-[11px] text-muted-foreground leading-relaxed">
+                        Load our verified 12-mark past paper exemplar (Exchange Rates &amp; Current Account) to test OCR, diagrams, and Cambridge marks right now.
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={() => handleSelectSample(SAMPLE_ESSAYS[0])}
+                        className="h-8 px-3.5 text-xs font-bold bg-primary hover:bg-primary/90 text-primary-foreground shadow-xs gap-1.5 cursor-pointer"
+                      >
+                        <Sparkles className="size-3.5" />
+                        <span>Load 12M Sample</span>
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setIsTourOpen(true)}
+                        className="h-8 px-2.5 text-xs text-muted-foreground hover:text-foreground border-border/80 gap-1 cursor-pointer"
+                      >
+                        <Lightbulb className="size-3 text-amber-500" />
+                        <span>How To Use</span>
+                      </Button>
+                    </div>
+                  </div>
+
                   {/* Question Section */}
                   <div
+                    id="tour-question"
                     onClick={(e) => {
                       if (e.target === e.currentTarget && questionInputRef.current) {
                         questionInputRef.current.focus();
@@ -2319,6 +2386,7 @@ function GradePage() {
                       </div>
                     ) : (
                       <div
+                        id="tour-essay"
                         onClick={(e) => {
                           if (e.target === e.currentTarget && essayInputRef.current) {
                             essayInputRef.current.focus();
@@ -3251,10 +3319,27 @@ function GradePage() {
 
       <InSituTour
         isOpen={isTourOpen}
-        onClose={() => setIsTourOpen(false)}
+        onClose={() => {
+          setIsTourOpen(false);
+          try {
+            localStorage.setItem("marginal_grade_tour_seen", "true");
+          } catch {}
+        }}
+        onComplete={() => {
+          setIsTourOpen(false);
+          try {
+            localStorage.setItem("marginal_grade_tour_seen", "true");
+          } catch {}
+        }}
         steps={tourSteps}
-        onActionClick={() => handleSelectSample(SAMPLE_ESSAYS[0])}
-        actionButtonLabel="Load 12M Sample"
+        onActionClick={() => {
+          handleSelectSample(SAMPLE_ESSAYS[0]);
+          setIsTourOpen(false);
+          try {
+            localStorage.setItem("marginal_grade_tour_seen", "true");
+          } catch {}
+        }}
+        actionButtonLabel="⚡ Load 12M Sample Essay"
       />
 
       <GuestUpgradeDialog
