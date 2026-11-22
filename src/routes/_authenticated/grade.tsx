@@ -89,7 +89,7 @@ import { checkWritingQuality } from "@/lib/writing-check.functions";
 import { analyzeGrammarAndMechanics } from "@/lib/live-examiner/grammar-engine";
 import { splitSentences } from "@/lib/writing-check/sentence-diff";
 import { getMe } from "@/lib/account.functions";
-import { cn, cleanMathDollarSigns, autoParagraphText } from "@/lib/utils";
+import { cn, cleanMathDollarSigns, autoParagraphText, stripStars } from "@/lib/utils";
 import { stripScoreFractionsFromText, type Grading } from "@/lib/examiner/types";
 import { isEvaluativeQuestion } from "@/lib/examiner/config";
 
@@ -828,19 +828,6 @@ function GradePage() {
       setEssayText(cleanMathDollarSigns(newParas.join("\n\n")));
     }
 
-    const fullEntry =
-      (catalogId && DIAGRAM_BY_ID[catalogId]) ??
-      DIAGRAMS.find((d) => d.title.toLowerCase() === cleanTitle.toLowerCase());
-    if (fullEntry) {
-      const curves = fullEntry.curveLabels?.filter(Boolean).join(", ") || "not specified";
-      const tag = `[DIAGRAM: ${fullEntry.title} | axes: ${fullEntry.yLabel} (y) / ${fullEntry.xLabel} (x) | curves: ${curves} | labels: as per standard ${fullEntry.title} diagram | accuracy: standard reference diagram positioned directly in script]`;
-      setDiagrams((current) =>
-        current.some((d) => d.label === fullEntry.title || d.catalogId === fullEntry.id)
-          ? current
-          : [...current, { id: crypto.randomUUID(), label: fullEntry.title, tag, catalogId: fullEntry.id }]
-      );
-    }
-
     setDraggingDiagram(null);
     setHoveredDropSlot(null);
     setPlacementPickerDiagram(null);
@@ -871,16 +858,6 @@ function GradePage() {
         const trimmed = cleanMathDollarSigns(prev).trim();
         return trimmed ? `${trimmed}\n\n(Diagram: ${entry.title})\n\n` : `(Diagram: ${entry.title})\n\n`;
       });
-    }
-    const fullEntry = DIAGRAM_BY_ID[entry.id] ?? DIAGRAMS.find((d) => d.id === entry.id);
-    if (fullEntry) {
-      const curves = fullEntry.curveLabels?.filter(Boolean).join(", ") || "not specified";
-      const tag = `[DIAGRAM: ${fullEntry.title} | axes: ${fullEntry.yLabel} (y) / ${fullEntry.xLabel} (x) | curves: ${curves} | labels: as per standard ${fullEntry.title} diagram | accuracy: standard reference diagram positioned directly in script]`;
-      setDiagrams((current) =>
-        current.some((d) => d.label === fullEntry.title || d.catalogId === fullEntry.id)
-          ? current
-          : [...current, { id: crypto.randomUUID(), label: fullEntry.title, tag, catalogId: fullEntry.id }]
-      );
     }
     setDiagramDrawerOpen(false);
     toast.success(`Positioned (Diagram: ${entry.title}) in candidate script`);
@@ -917,12 +894,6 @@ function GradePage() {
       });
     }
 
-    const tag = `[DIAGRAM: ${cleanTitle} (Custom Student Diagram) | candidate has drawn and referenced ${cleanTitle}${notesToInsert ? ` showing ${notesToInsert}` : ""} at this position in their script — evaluate candidate analysis, curves, and labels directly based on this referenced diagram]`;
-    setDiagrams((current) =>
-      current.some((d) => d.label.toLowerCase() === cleanTitle.toLowerCase())
-        ? current
-        : [...current, { id: crypto.randomUUID(), label: cleanTitle, tag }]
-    );
     setCustomDiagramTitle("");
     setCustomDiagramNotes("");
     setDiagramDrawerOpen(false);
@@ -2259,7 +2230,7 @@ function GradePage() {
                           ref={essayInputRef}
                           id="essay"
                           className="w-full resize-none border-0 bg-transparent p-0 text-base sm:text-[17px] font-sans leading-relaxed tracking-normal focus-visible:ring-0 placeholder:text-muted-foreground/40 shadow-none text-foreground selection:bg-primary/20 overflow-hidden min-h-[520px]"
-                          placeholder="Write your complete economics essay here, or drag diagrams directly from the tray above... You can drag and drop any diagram anywhere across your text, paste images with Ctrl+V, or snap notebook sketches. (Press Ctrl + Enter anytime to grade)"
+                          placeholder="Type or paste your candidate essay here... (Drag diagrams anywhere, paste images with Ctrl+V, or press Ctrl+Enter to grade)"
                           value={essayText}
                         onChange={(event) => {
                           setEssayText(event.target.value);
