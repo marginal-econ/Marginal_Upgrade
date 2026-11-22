@@ -55,7 +55,7 @@ import { ChainedChamber } from "@/components/app/chained-chamber";
 import { CompactProgressBar, GradingProgress, type ProgressStage } from "@/components/app/grading-progress";
 import { HandwritingUpload } from "@/components/app/handwriting-upload";
 import { MarkBreakdown } from "@/components/app/mark-breakdown";
-import { generatePass4Comments, type Pass4Comment } from "@/lib/pass4-comments";
+import { generatePass4Comments, parseParagraphBlocks, type Pass4Comment, type ParagraphBlock } from "@/lib/pass4-comments";
 import { DiagramCheckDialog } from "@/components/app/diagram-check-dialog";
 import { SampleEssayBanner } from "@/components/app/sample-essay-banner";
 import { InSituTour, type TourStep } from "@/components/app/in-situ-tour";
@@ -272,15 +272,79 @@ export type DiagramRefResult = {
 export function extractDiagramReferences(text: string): DiagramRefResult {
   if (!text) return { matches: [], detectedTags: [], inlineReplacements: [] };
 
-  const bracketRegex = /[\(\[]([^\)\]]+)[\)\]]/g;
   const matches: DiagramRefMatch[] = [];
   const detectedTags: string[] = [];
   const inlineReplacements: { matchText: string; tag: string }[] = [];
   const seenIds = new Set<string>();
 
-  let m: RegExpExecArray | null;
-  while ((m = bracketRegex.exec(text)) !== null) {
-    const rawContent = m[1].trim();
+  // 1. Explicit square bracket tags: e.g. [DIAGRAM: ...], [Figure: ...], [Graph: ...]
+  const squareRegex = /\[\s*(?:DIAGRAM|FIGURE|FIG|GRAPH)\s*:\s*([^\]]+)\]/gi;
+  let sm: RegExpExecArray | null;
+  while ((sm = squareRegex.exec(text)) !== null) {
+    const fullTag = sm[0];
+    const rawInner = sm[1].trim();
+
+    // Extract diagram name: before pipe '|', or before 'showing', or before 'representing', or before '('
+    let cleanName = rawInner;
+    if (cleanName.includes("|")) {
+      cleanName = cleanName.split("|")[0].trim();
+    }
+    cleanName = cleanName.replace(/\s+(?:showing|representing|illustrating)\b[\s\S]*/i, "").trim();
+    if (cleanName.includes("(") && !cleanName.startsWith("(")) {
+      cleanName = cleanName.replace(/\s*\([^)]*\)\s*/g, " ").trim();
+    }
+    cleanName = cleanName.replace(/\s+(?:diagram|figure|graph)$/i, "").trim();
+
+    const lowerClean = cleanName.toLowerCase();
+    const idKey = `diag-${lowerClean.replace(/[^a-z0-9]+/g, "-")}`;
+
+    if (!seenIds.has(idKey) && cleanName.length >= 2) {
+      seenIds.add(idKey);
+      const titleDisplay = cleanName.charAt(0).toUpperCase() + cleanName.slice(1);
+
+      // Match against official catalog
+      const found = DIAGRAMS.find((d) => {
+        const titleLower = d.title.toLowerCase();
+        const strippedTitle = titleLower.replace(/^the\s+/i, "");
+        if (lowerClean === titleLower || lowerClean === strippedTitle) return true;
+        if (d.id === "ad-as-growth" && (lowerClean.includes("ad/as") || lowerClean.includes("ad-as") || lowerClean.includes("ad/sras"))) return true;
+        if (d.id === "j-curve" && lowerClean.includes("j-curve")) return true;
+        if (titleLower.includes(lowerClean) || lowerClean.includes(titleLower)) return true;
+        return false;
+      });
+
+      const entry: DiagramEntry = found || {
+        id: idKey,
+        title: titleDisplay,
+        section: /lras|sras|ad[\s/-]*as|macro|inflation|gdp|monetary/i.test(cleanName) ? "Macroeconomics" : "Microeconomics",
+        topic: "Candidate Integrated Diagram",
+        represents: `${titleDisplay} economics diagram`,
+        whyUsed: `Visual model integrated directly into candidate script.`,
+        spec: {
+          type: "custom",
+          xLabel: "Real GDP (Y)",
+          yLabel: "Price Level (PL)",
+          curves: [],
+        } as any,
+        rules: ["Accurate axis labels and curve shifts required for credit"],
+      } as any;
+
+      matches.push({
+        title: entry.title,
+        entry,
+        matchText: fullTag,
+        isCustom: !found,
+      });
+      detectedTags.push(fullTag);
+      inlineReplacements.push({ matchText: fullTag, tag: fullTag });
+    }
+  }
+
+  // 2. Parenthesis tags: e.g. (Diagram: ...), (Maximum price), (The J-Curve Effect)
+  const parenRegex = /\(([^)]+)\)/g;
+  let pm: RegExpExecArray | null;
+  while ((pm = parenRegex.exec(text)) !== null) {
+    const rawContent = pm[1].trim();
 
     // Check if bracket explicitly indicates a diagram/figure
     const hasExplicitPrefix = /^(?:diagram|figure|fig\b|graph|see\s+diagram|see\s+figure|refer\s+to\s+diagram|refer\s+to\s+figure)[\s:\-–—]+/i.test(rawContent);
@@ -296,7 +360,7 @@ export function extractDiagramReferences(text: string): DiagramRefResult {
     // Skip short tokens, variables, acronyms: e.g. "px", "pm", "ad", "as", "ped", "12", "x - m"
     if (cleanContent.length < 3) continue;
     // Skip math/inequality expressions: e.g. "ped < 1", "pedx + pedm > 1", "qm > qopt", "x - m"
-    if (/[=<>+*/]/.test(cleanContent) || /\s-\s/.test(cleanContent)) continue;
+    if (/[=<>+*]/.test(cleanContent) || /\s-\s/.test(cleanContent)) continue;
     // Skip common non-diagram economic acronyms in brackets
     if (/^(?:sras|lras|mpc|msc|msb|mpb|mec|meb|ped|pes|yed|xed|gdp|cpi|rpi|hdi)\b/i.test(cleanContent)) continue;
 
@@ -339,6 +403,7 @@ export function extractDiagramReferences(text: string): DiagramRefResult {
         if (d.id === "j-curve" && cleanContent.includes("j-curve")) return true;
         if (d.id === "tariff" && cleanContent.includes("tariff")) return true;
         if (d.id === "ad-as-growth" && (cleanContent.includes("ad/as") || cleanContent.includes("ad-as"))) return true;
+        if (titleLower.includes(cleanContent) || cleanContent.includes(titleLower)) return true;
       }
 
       return false;
@@ -346,11 +411,11 @@ export function extractDiagramReferences(text: string): DiagramRefResult {
 
     if (found && !seenIds.has(found.id)) {
       seenIds.add(found.id);
-      matches.push({ title: found.title, entry: found, matchText: m[0], isCustom: false });
+      matches.push({ title: found.title, entry: found, matchText: pm[0], isCustom: false });
       const curves = found.spec.curves.map((c) => c.label).filter(Boolean).join(", ") || "standard curves";
       const tag = `[DIAGRAM: ${found.title} (${found.section}, ${found.topic}) | represents: ${found.represents} | axes: ${found.spec.yLabel} (y) / ${found.spec.xLabel} (x) | curves: ${curves} | referenced in candidate script: candidate has directly drawn and referenced ${found.title} at this position in their written response]`;
       detectedTags.push(tag);
-      inlineReplacements.push({ matchText: m[0], tag });
+      inlineReplacements.push({ matchText: pm[0], tag });
     } else if (!found && (hasExplicitPrefix || hasDiagramWord)) {
       // CUSTOM / NON-CATALOG DIAGRAM SUPPORT:
       // If candidate explicitly writes (Diagram: Lorenz Curve) or (Figure: Monopsony Labour Market),
@@ -383,12 +448,12 @@ export function extractDiagramReferences(text: string): DiagramRefResult {
           matches.push({
             title: displayTitle,
             entry: customEntry,
-            matchText: m[0],
+            matchText: pm[0],
             isCustom: true,
           });
           const tag = `[DIAGRAM: ${displayTitle} (Custom Student Diagram) | candidate has drawn and referenced ${displayTitle} at this exact position in their script — evaluate candidate's diagrammatic analysis, axes, shifts, and explanations directly based on this referenced diagram]`;
           detectedTags.push(tag);
-          inlineReplacements.push({ matchText: m[0], tag });
+          inlineReplacements.push({ matchText: pm[0], tag });
         }
       }
     }
@@ -750,18 +815,19 @@ function GradePage() {
     return generatePass4Comments(essayText, question, result.grading, inTextDiagrams.matches);
   }, [essayText, question, result?.grading, inTextDiagrams.matches]);
 
-  // Split essay into text paragraphs excluding diagram tags
+  // Unified syllabus paragraph blocks (ensuring identical indices between manuscript & comments)
+  const paragraphBlocks = useMemo(() => {
+    if (!essayText.trim()) return [];
+    return parseParagraphBlocks(essayText, inTextDiagrams.matches);
+  }, [essayText, inTextDiagrams.matches]);
+
+  // Split essay into text paragraphs excluding diagram tags (used for interactive drop target slots)
   const textParagraphs = useMemo(() => {
     if (!essayText.trim()) return [];
-    return essayText
-      .split(/\n\s*\n/)
-      .map((raw, idx) => ({
-        index: idx,
-        raw: raw.trim(),
-        isDiagram: /^\s*\((?:Diagram:\s*)?[^)]+\)\s*$/i.test(raw.trim()),
-      }))
-      .filter((p) => p.raw.length > 0 && !p.isDiagram);
-  }, [essayText]);
+    return paragraphBlocks
+      .filter((b) => !b.isDiagram)
+      .map((b) => ({ index: b.index, raw: b.text, isDiagram: false }));
+  }, [paragraphBlocks]);
 
   function getDiagramPlacementDescription(matchText: string): {
     description: string;
@@ -2136,27 +2202,22 @@ function GradePage() {
                               lineHeight: essayFont === "serif" ? "1.9" : "1.75",
                             }}
                           >
-                            {essayText.trim() ? (
-                              essayText.split(/\n\s*\n/).map((para, pIdx) => {
-                                const isDiag = /^\s*\((?:Diagram:\s*)?[^)]+\)\s*$/i.test(para.trim());
-                                const paraComments = pass4Comments.filter((c) => c.paragraphIndex === pIdx);
+                            {paragraphBlocks.length > 0 ? (
+                              paragraphBlocks.map((block) => {
+                                const isDiag = block.isDiagram;
+                                const paraComments = pass4Comments.filter((c) => c.paragraphIndex === block.index);
                                 const isParaActive = paraComments.some((c) => c.id === activeCommentId);
 
                                 if (isDiag) {
-                                  const diagTitle = para.trim().replace(/^\s*\((?:Diagram:\s*)?/, "").replace(/\)\s*$/, "").trim();
                                   const diagComment = pass4Comments.find(
-                                    (c) =>
-                                      c.category === "diagram" &&
-                                      (c.paragraphIndex === pIdx ||
-                                        c.highlightText.toLowerCase().includes(diagTitle.toLowerCase()) ||
-                                        diagTitle.toLowerCase().includes(c.highlightText.toLowerCase())),
+                                    (c) => c.category === "diagram" && c.paragraphIndex === block.index,
                                   );
                                   const isDiagActive = diagComment && activeCommentId === diagComment.id;
 
                                   return (
                                     <div
-                                      key={pIdx}
-                                      id={`pass4-para-${pIdx}`}
+                                      key={block.index}
+                                      id={`pass4-para-${block.index}`}
                                       onClick={() => {
                                         if (diagComment) {
                                           setActiveCommentId(diagComment.id);
@@ -2180,10 +2241,10 @@ function GradePage() {
                                           )}
                                         />
                                         <span className="font-mono font-bold text-xs sm:text-sm text-emerald-300">
-                                          {para.trim()}
+                                          {block.diagramTitle || block.text.replace(/^\[DIAGRAM:\s*/i, "").replace(/\]$/, "").slice(0, 50)}
                                         </span>
                                         <span className="text-[11px] text-emerald-400/80 font-sans hidden sm:inline">
-                                          · Cambridge 9708 Integrated Figure
+                                          · Cambridge 9708 Integrated Figure · {block.label}
                                         </span>
                                       </div>
                                       {diagComment && (
@@ -2206,8 +2267,8 @@ function GradePage() {
 
                                 return (
                                   <div
-                                    key={pIdx}
-                                    id={`pass4-para-${pIdx}`}
+                                    key={block.index}
+                                    id={`pass4-para-${block.index}`}
                                     onClick={() => {
                                       if (paraComments.length > 0) {
                                         const nextComment = isParaActive
@@ -2241,7 +2302,7 @@ function GradePage() {
                                         >
                                           <MessageSquare className="size-3" />
                                           <span>
-                                            {paraComments.length} {paraComments.length === 1 ? "Examiner Flag" : "Examiner Flags"}
+                                            {paraComments.length} {paraComments.length === 1 ? "Examiner Flag" : "Examiner Flags"} ({block.label})
                                           </span>
                                         </span>
                                         {isParaActive && (
@@ -2251,7 +2312,7 @@ function GradePage() {
                                         )}
                                       </div>
                                     )}
-                                    <p className="text-foreground/95">{para}</p>
+                                    <p className="text-foreground/95">{block.text}</p>
                                   </div>
                                 );
                               })

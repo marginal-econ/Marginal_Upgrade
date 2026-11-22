@@ -17,7 +17,7 @@ export interface Pass4Comment {
 
 /**
  * Diagnostic guidance tailored specifically to Cambridge 9708 syllabus diagrams.
- * Prevents generic supply/demand "price and quantity coordinates" from being applied to time-path models like the J-Curve.
+ * Prevents generic supply/demand "price and quantity coordinates" from being applied to macro models or time-path models like the J-Curve.
  */
 function getDiagramSyllabusGuidance(
   title: string,
@@ -42,19 +42,23 @@ function getDiagramSyllabusGuidance(
     };
   }
 
-  // 2. Macroeconomic AD/AS (Aggregate Demand / Aggregate Supply)
-  if (/ad[\s/-]*as|aggregate\s+demand|aggregate\s+supply/i.test(lowerTitle)) {
+  // 2. Macroeconomic AD/AS, LRAS, SRAS, Keynesian AS, Monetary Policy, Supply-Side
+  if (
+    /ad[\s/-]*as|aggregate\s+demand|aggregate\s+supply|\blras\b|\bsras\b|keynesian|monetarist|classical\s+lras|capacity\s+ceiling|output\s+gap|deflationary\s+gap|inflationary\s+gap|national\s+income|demand-pull|cost-push/i.test(
+      lowerTitle,
+    )
+  ) {
     if (isFullMarks) {
       return {
-        critique: `Diagram (${title}) is accurately integrated into the macroeconomic flow, illustrating shifts in aggregate demand/supply.`,
+        critique: `Diagram (${title}) is accurately integrated into macroeconomic flow, illustrating shifts in aggregate demand/supply and capacity constraints.`,
         suggestion: `Full marks secured. For academic distinction: distinguish between short-run Keynesian spare capacity versus long-run classical vertical LRAS constraints.`,
       };
     }
     return {
       critique: hasExplanation
-        ? `Diagram (${title}) is positioned in analytical flow. Ensure shifts in AD/SRAS are traced directly to changes in the general price level (PL) and real GDP (Y), explicitly identifying any resulting output gap.`
-        : `Diagram (${title}) is placed here, but subsequent analysis lacks explicit reference to price level (PL1 to PL2) and real output (Y1 to Y2) coordinates.`,
-      suggestion: `Integrate price level coordinates (PL1 to PL2) and real output coordinates (Y1 to Y2) directly into your written analysis to demonstrate transmission to macroeconomic objectives.`,
+        ? `Diagram (${title}) is positioned in analytical flow. Ensure shifts in AD/AS are traced directly to changes in the general price level ($PL_1 \\to PL_2$) and real output ($Y_1 \\to Y_2$), explicitly identifying any resulting output gap or capacity constraint.`
+        : `Diagram (${title}) is placed here, but subsequent analysis lacks explicit reference to general price level ($PL_1 \\to PL_2$) and real output ($Y_1 \\to Y_2$) coordinates.`,
+      suggestion: `Integrate general price level coordinates ($PL_1 \\to PL_2$) and real GDP coordinates ($Y_1 \\to Y_2$) directly into your written analysis to demonstrate transmission to macroeconomic stability, noting spare capacity or full employment bottlenecks.`,
     };
   }
 
@@ -86,7 +90,23 @@ function getDiagramSyllabusGuidance(
     };
   }
 
-  // 5. Lorenz Curve & Gini Coefficient
+  // 5. Monopoly, Oligopoly, Collusion, Game Theory & Market Structures
+  if (/monopoly|oligopoly|kinked|cartel|pay[\s-_]*off|game\s+theory|monopolistic/i.test(lowerTitle)) {
+    if (isFullMarks) {
+      return {
+        critique: `Diagram (${title}) accurately illustrates market structure equilibrium where profit maximisation occurs at $MC = MR$.`,
+        suggestion: `Full marks secured. For academic distinction: consider contrasting short-run supernormal profit with long-run contestability or dynamic efficiency R&D reinvestment.`,
+      };
+    }
+    return {
+      critique: hasExplanation
+        ? `Diagram (${title}) is positioned in analytical flow. Ensure the profit-maximising output coordinate ($MC = MR$) and corresponding price coordinate on the AR curve are explicitly integrated with supernormal profit areas or deadweight welfare loss.`
+        : `Diagram (${title}) is placed here, but subsequent analysis lacks explicit reference to profit-maximising coordinates ($MC = MR$) and the price markup on the AR curve.`,
+      suggestion: `Explicitly trace the coordinates: identify quantity where $MC = MR$, price on the average revenue (AR) curve, and the supernormal profit rectangle ($[P - AC] \\times Q$).`,
+    };
+  }
+
+  // 6. Lorenz Curve & Gini Coefficient
   if (/lorenz|gini/i.test(lowerTitle)) {
     if (isFullMarks) {
       return {
@@ -100,8 +120,8 @@ function getDiagramSyllabusGuidance(
     };
   }
 
-  // 6. Production Possibility Frontier (PPF)
-  if (/ppf|production\s*possibility/i.test(lowerTitle)) {
+  // 7. Production Possibility Frontier (PPF / PPC)
+  if (/ppf|ppc|production\s*possibility/i.test(lowerTitle)) {
     if (isFullMarks) {
       return {
         critique: `Diagram (${title}) accurately demonstrates opportunity cost and productive capacity.`,
@@ -114,7 +134,7 @@ function getDiagramSyllabusGuidance(
     };
   }
 
-  // 7. General Microeconomic Supply & Demand / Tax / Subsidy / Externality
+  // 8. General Microeconomic Supply & Demand / Tax / Subsidy / Externality
   if (isFullMarks) {
     return {
       critique: `Diagram (${title}) is accurately integrated with market equilibrium coordinates and welfare areas.`,
@@ -127,6 +147,74 @@ function getDiagramSyllabusGuidance(
       : `Diagram (${title}) is placed here, but the immediate following paragraph lacks explicit discussion of the diagram's curves, shifts, and market equilibrium changes.`,
     suggestion: `Explicitly connect the curves shown on the diagram to the market transmission mechanism in the accompanying text to secure full Level 3 AO2 marks.`,
   };
+}
+
+export interface ParagraphBlock {
+  index: number;
+  text: string;
+  isDiagram: boolean;
+  textParagraphNumber: number | null;
+  label: string;
+  diagramTitle?: string;
+}
+
+/**
+ * Robust detection of inline diagram blocks (e.g. [DIAGRAM: ...], (Diagram: ...)).
+ */
+export function isDiagramBlock(
+  text: string,
+  diagramMatches: { matchText: string }[] = [],
+): boolean {
+  const t = text.trim();
+  if (/^\[\s*(?:DIAGRAM|FIGURE|FIG|GRAPH)\s*:/i.test(t)) return true;
+  if (/^\(\s*(?:Diagram|Figure|Fig|Graph)\s*:/i.test(t)) return true;
+  if (/^\([^)]{3,80}\)$/.test(t) && /\b(?:diagram|curve|equilibrium|shortage|surplus|ppc|ppf)\b/i.test(t)) return true;
+  if (diagramMatches.some((m) => t.includes(m.matchText) || m.matchText.includes(t))) return true;
+  return false;
+}
+
+/**
+ * Splits essay text into discrete paragraph blocks with unified indexing and syllabus labels.
+ * Guarantees that diagram labels (e.g. "Diagram (after ¶2)") reflect actual preceding text paragraphs,
+ * eliminating phantom numbering.
+ */
+export function parseParagraphBlocks(
+  essayText: string,
+  diagramMatches: { matchText: string; title: string }[] = [],
+): ParagraphBlock[] {
+  if (!essayText.trim()) return [];
+
+  const rawChunks = essayText
+    .split(/\n\s*\n/)
+    .map((chunk) => chunk.trim())
+    .filter((chunk) => chunk.length > 0);
+
+  let textCounter = 0;
+  return rawChunks.map((text, index) => {
+    const isDiag = isDiagramBlock(text, diagramMatches);
+    if (!isDiag) {
+      textCounter++;
+      return {
+        index,
+        text,
+        isDiagram: false,
+        textParagraphNumber: textCounter,
+        label: `¶ Paragraph ${textCounter}`,
+      };
+    } else {
+      const matchingDiag = diagramMatches.find(
+        (m) => text.includes(m.matchText) || m.matchText.includes(text),
+      );
+      return {
+        index,
+        text,
+        isDiagram: true,
+        textParagraphNumber: null,
+        label: textCounter > 0 ? `Diagram (after ¶${textCounter})` : "Diagram (at start)",
+        diagramTitle: matchingDiag?.title,
+      };
+    }
+  });
 }
 
 /**
@@ -143,39 +231,14 @@ export function generatePass4Comments(
   if (!essayText.trim() || !grading) return [];
 
   const comments: Pass4Comment[] = [];
-
-  // Split essay into distinct paragraphs
-  const rawParagraphs = essayText
-    .split(/\n\s*\n/)
-    .map((p, idx) => ({ index: idx, text: p.trim() }))
-    .filter((p) => p.text.length > 0);
-
-  if (rawParagraphs.length === 0) return [];
+  const blocks = parseParagraphBlocks(essayText, diagramMatches);
+  if (blocks.length === 0) return [];
 
   // Track weakness texts already mapped to prevent duplicate diagnostics across categories
   const usedWeaknessTexts = new Set<string>();
 
   // Full marks check (12/12, 20/20, 8/8)
   const isFullMarks = (grading.total_mark ?? 0) >= (grading.max_mark ?? 12);
-
-  const isDiagramParagraph = (text: string) =>
-    /^\s*\((?:Diagram:\s*)?[^)]+\)\s*$/i.test(text) ||
-    diagramMatches.some((m) => text.includes(m.matchText));
-
-  // Compute preceding text paragraphs so diagrams are labeled as inserts, not numbered paragraphs
-  const getParagraphLabel = (targetIdx: number) => {
-    let precedingTextCount = 0;
-    for (let i = 0; i < targetIdx; i++) {
-      if (!isDiagramParagraph(rawParagraphs[i].text)) {
-        precedingTextCount++;
-      }
-    }
-    const isDiag = isDiagramParagraph(rawParagraphs[targetIdx].text);
-    if (isDiag) {
-      return precedingTextCount > 0 ? `Diagram (after ¶${precedingTextCount})` : "Diagram (at start)";
-    }
-    return `¶ Paragraph ${precedingTextCount + 1}`;
-  };
 
   // Helper to sanitize suggestion tone when full marks are achieved
   const formatSuggestion = (rawSuggestion: string, fallback: string) => {
@@ -195,25 +258,41 @@ export function generatePass4Comments(
   // 1. Pass 4: Decode Diagram Placement & Integration
   if (diagramMatches.length > 0) {
     diagramMatches.forEach((m, idx) => {
-      // Find the paragraph index where this diagram was placed
-      const paraIdx = rawParagraphs.findIndex((p) => p.text.includes(m.matchText));
-      const targetIndex = paraIdx !== -1 ? paraIdx : Math.min(1, rawParagraphs.length - 1);
-      const nextPara = rawParagraphs[targetIndex + 1];
+      // Find the specific block where this diagram sits
+      let targetBlock = blocks.find(
+        (b) => b.isDiagram && (b.text.includes(m.matchText) || m.matchText.includes(b.text)),
+      );
+      if (!targetBlock) {
+        targetBlock = blocks.find((b) => b.text.includes(m.matchText));
+      }
+      if (!targetBlock) {
+        targetBlock = blocks.find((b) => b.isDiagram) || blocks[Math.min(1, blocks.length - 1)];
+      }
+
+      const targetIndex = targetBlock ? targetBlock.index : 0;
+      const targetLabel = targetBlock ? targetBlock.label : "Diagram";
+      const nextBlock = blocks[targetIndex + 1];
 
       // Check whether subsequent analysis explains this diagram
       const hasDetailedExplanation =
-        nextPara &&
-        (nextPara.text.toLowerCase().includes("shift") ||
-          nextPara.text.toLowerCase().includes("equilibrium") ||
-          nextPara.text.toLowerCase().includes("shortage") ||
-          nextPara.text.toLowerCase().includes("surplus") ||
-          nextPara.text.toLowerCase().includes("deadweight") ||
-          nextPara.text.toLowerCase().includes("price") ||
-          nextPara.text.toLowerCase().includes("quantity") ||
-          nextPara.text.toLowerCase().includes("marshall") ||
-          nextPara.text.toLowerCase().includes("deficit") ||
-          nextPara.text.toLowerCase().includes("current account") ||
-          nextPara.text.toLowerCase().includes("time"));
+        nextBlock &&
+        !nextBlock.isDiagram &&
+        (nextBlock.text.toLowerCase().includes("shift") ||
+          nextBlock.text.toLowerCase().includes("equilibrium") ||
+          nextBlock.text.toLowerCase().includes("shortage") ||
+          nextBlock.text.toLowerCase().includes("surplus") ||
+          nextBlock.text.toLowerCase().includes("deadweight") ||
+          nextBlock.text.toLowerCase().includes("price") ||
+          nextBlock.text.toLowerCase().includes("quantity") ||
+          nextBlock.text.toLowerCase().includes("marshall") ||
+          nextBlock.text.toLowerCase().includes("deficit") ||
+          nextBlock.text.toLowerCase().includes("current account") ||
+          nextBlock.text.toLowerCase().includes("time") ||
+          nextBlock.text.toLowerCase().includes("as1") ||
+          nextBlock.text.toLowerCase().includes("lras") ||
+          nextBlock.text.toLowerCase().includes("sras") ||
+          nextBlock.text.toLowerCase().includes("gdp") ||
+          nextBlock.text.toLowerCase().includes("inflation"));
 
       const guidance = getDiagramSyllabusGuidance(m.title, isFullMarks, Boolean(hasDetailedExplanation));
 
@@ -234,7 +313,7 @@ export function generatePass4Comments(
         badge: isFullMarks ? "Diagram Mastery" : "Diagram Integration",
         color: "emerald",
         paragraphIndex: targetIndex,
-        paragraphLabel: getParagraphLabel(targetIndex),
+        paragraphLabel: targetLabel,
         highlightText: m.matchText,
         critique: stripScoreFractionsFromText(stripStars(critique)),
         suggestion: stripScoreFractionsFromText(stripStars(formatSuggestion(rawSuggestion, guidance.suggestion))),
@@ -242,8 +321,14 @@ export function generatePass4Comments(
     });
   } else {
     // If no diagram was included at all, highlight where a diagram should be integrated
-    const analysisParaIdx = Math.min(1, rawParagraphs.length - 1);
-    const paraText = rawParagraphs[analysisParaIdx]?.text || "";
+    const targetBlock =
+      blocks.find((b) => !b.isDiagram && b.textParagraphNumber === 2) ||
+      blocks.find((b) => !b.isDiagram) ||
+      blocks[0];
+
+    const targetIndex = targetBlock ? targetBlock.index : 0;
+    const targetLabel = targetBlock ? targetBlock.label : "¶ Paragraph 1";
+    const paraText = targetBlock?.text || "";
     const firstSentence = paraText.split(/[.!?]\s+/)[0] || paraText.slice(0, 80);
 
     comments.push({
@@ -252,8 +337,8 @@ export function generatePass4Comments(
       title: isFullMarks ? "Diagram Integration: Extension Model" : "Diagram Decoding: Visual Model Omission",
       badge: isFullMarks ? "Diagram Extension" : "Diagram Gap",
       color: isFullMarks ? "emerald" : "amber",
-      paragraphIndex: analysisParaIdx,
-      paragraphLabel: getParagraphLabel(analysisParaIdx),
+      paragraphIndex: targetIndex,
+      paragraphLabel: targetLabel,
       highlightText: firstSentence,
       critique: isFullMarks
         ? "No diagram was included in the script. While full marks were achieved through exhaustive textual reasoning, anchoring the response to an economics diagram represents examiner best practice."
@@ -276,29 +361,35 @@ export function generatePass4Comments(
   if (analysisWeakness) {
     usedWeaknessTexts.add(analysisWeakness);
 
-    // Identify best matching analytical paragraph (usually paragraph 1 or 2, containing economic reasoning)
-    let bestParaIdx = 1;
-    for (let i = 0; i < rawParagraphs.length; i++) {
-      if (isDiagramParagraph(rawParagraphs[i].text)) continue;
-      const t = rawParagraphs[i].text.toLowerCase();
-      if (
-        i !== 0 &&
-        i !== rawParagraphs.length - 1 &&
-        (t.includes("because") ||
-          t.includes("leads to") ||
-          t.includes("consequently") ||
-          t.includes("shifts") ||
-          t.includes("demand") ||
-          t.includes("supply") ||
-          t.includes("depreciation") ||
-          t.includes("inflation"))
-      ) {
-        bestParaIdx = i;
-        break;
-      }
+    // Identify best matching analytical non-diagram paragraph
+    let bestBlock = blocks.find(
+      (b) =>
+        !b.isDiagram &&
+        b.textParagraphNumber !== 1 &&
+        b.index !== blocks.length - 1 &&
+        (b.text.toLowerCase().includes("because") ||
+          b.text.toLowerCase().includes("leads to") ||
+          b.text.toLowerCase().includes("consequently") ||
+          b.text.toLowerCase().includes("shifts") ||
+          b.text.toLowerCase().includes("demand") ||
+          b.text.toLowerCase().includes("supply") ||
+          b.text.toLowerCase().includes("interest rate") ||
+          b.text.toLowerCase().includes("spending") ||
+          b.text.toLowerCase().includes("tax") ||
+          b.text.toLowerCase().includes("depreciation") ||
+          b.text.toLowerCase().includes("inflation")),
+    );
+
+    if (!bestBlock) {
+      bestBlock =
+        blocks.find((b) => !b.isDiagram && (b.textParagraphNumber ?? 0) >= 2) ||
+        blocks.find((b) => !b.isDiagram) ||
+        blocks[0];
     }
-    bestParaIdx = Math.min(bestParaIdx, rawParagraphs.length - 1);
-    const paraText = rawParagraphs[bestParaIdx]?.text || "";
+
+    const targetIndex = bestBlock.index;
+    const targetLabel = bestBlock.label;
+    const paraText = bestBlock.text;
     const firstSentence = paraText.split(/[.!?]\s+/)[0] || paraText.slice(0, 90);
 
     const rawSuggestion =
@@ -311,8 +402,8 @@ export function generatePass4Comments(
       title: isFullMarks ? "AO2 Synoptic Analysis: Extension & Edge Cases" : "AO2 Causal Analysis: Mechanism Transmission",
       badge: isFullMarks ? "Extension Tip" : "Analysis Gap",
       color: isFullMarks ? "sky" : "amber",
-      paragraphIndex: bestParaIdx,
-      paragraphLabel: getParagraphLabel(bestParaIdx),
+      paragraphIndex: targetIndex,
+      paragraphLabel: targetLabel,
       highlightText: firstSentence,
       critique: stripScoreFractionsFromText(stripStars(analysisWeakness)),
       suggestion: stripScoreFractionsFromText(stripStars(formatSuggestion(rawSuggestion, "Consider detailing secondary economic feedbacks (e.g. wage pressures or capacity limits)."))),
@@ -335,26 +426,30 @@ export function generatePass4Comments(
       ? grading.ao_breakdown.evaluation.comment
       : null);
 
-  if (evalWeakness && rawParagraphs.length >= 2) {
+  if (evalWeakness && blocks.filter((b) => !b.isDiagram).length >= 2) {
     usedWeaknessTexts.add(evalWeakness);
 
-    // Identify evaluative paragraph (starts with however, on the other hand, in conclusion, or last paragraph)
-    let evalParaIdx = rawParagraphs.length - 1;
-    for (let i = 0; i < rawParagraphs.length; i++) {
-      if (isDiagramParagraph(rawParagraphs[i].text)) continue;
-      const t = rawParagraphs[i].text.toLowerCase();
-      if (
-        t.startsWith("however") ||
-        t.startsWith("on the other hand") ||
-        t.startsWith("in conclusion") ||
-        t.startsWith("overall") ||
-        t.includes("depends on")
-      ) {
-        evalParaIdx = i;
-        break;
-      }
+    // Identify evaluative non-diagram paragraph
+    let evalBlock = blocks
+      .slice()
+      .reverse()
+      .find(
+        (b) =>
+          !b.isDiagram &&
+          (b.text.toLowerCase().startsWith("however") ||
+            b.text.toLowerCase().startsWith("on the other hand") ||
+            b.text.toLowerCase().startsWith("in conclusion") ||
+            b.text.toLowerCase().startsWith("overall") ||
+            b.text.toLowerCase().includes("depends on")),
+      );
+
+    if (!evalBlock) {
+      evalBlock = blocks.slice().reverse().find((b) => !b.isDiagram) || blocks[blocks.length - 1];
     }
-    const paraText = rawParagraphs[evalParaIdx]?.text || "";
+
+    const targetIndex = evalBlock.index;
+    const targetLabel = evalBlock.label;
+    const paraText = evalBlock.text;
     const firstSentence = paraText.split(/[.!?]\s+/)[0] || paraText.slice(0, 90);
 
     const rawSuggestion =
@@ -367,8 +462,8 @@ export function generatePass4Comments(
       title: isFullMarks ? "AO3 Evaluative Sophistication: Distinction Depth" : "AO3 Critical Evaluation: Depth & Weighing",
       badge: isFullMarks ? "Examiner Note" : "Evaluation Gap",
       color: isFullMarks ? "emerald" : "sky",
-      paragraphIndex: evalParaIdx,
-      paragraphLabel: getParagraphLabel(evalParaIdx),
+      paragraphIndex: targetIndex,
+      paragraphLabel: targetLabel,
       highlightText: firstSentence,
       critique: stripScoreFractionsFromText(stripStars(evalWeakness)),
       suggestion: stripScoreFractionsFromText(stripStars(formatSuggestion(rawSuggestion, "Explicitly weigh competing viewpoints against a defined economic criterion (e.g. time frame or elasticity bounds)."))),
@@ -398,24 +493,30 @@ export function generatePass4Comments(
   if (knowledgeWeakness) {
     usedWeaknessTexts.add(knowledgeWeakness);
 
-    // Locate matching paragraph that actually mentions the concept or default to paragraph 0
-    let targetKnowledgeIdx = 0;
+    // Locate matching non-diagram paragraph that actually mentions the concept or default to paragraph 1
+    let knowledgeBlock = blocks.find((b) => !b.isDiagram && b.textParagraphNumber === 1);
     const lowerWeakness = knowledgeWeakness.toLowerCase();
-    for (let i = 0; i < rawParagraphs.length; i++) {
-      if (isDiagramParagraph(rawParagraphs[i].text)) continue;
-      const pText = rawParagraphs[i].text.toLowerCase();
+    for (const b of blocks) {
+      if (b.isDiagram) continue;
+      const pText = b.text.toLowerCase();
       if (
         (lowerWeakness.includes("exchange rate") && pText.includes("exchange rate")) ||
         (lowerWeakness.includes("inflation") && pText.includes("inflation")) ||
         (lowerWeakness.includes("elasticity") && pText.includes("elasticity")) ||
         (lowerWeakness.includes("balance of payments") && pText.includes("balance of payments"))
       ) {
-        targetKnowledgeIdx = i;
+        knowledgeBlock = b;
         break;
       }
     }
 
-    const paraText = rawParagraphs[targetKnowledgeIdx]?.text || "";
+    if (!knowledgeBlock) {
+      knowledgeBlock = blocks.find((b) => !b.isDiagram) || blocks[0];
+    }
+
+    const targetIndex = knowledgeBlock.index;
+    const targetLabel = knowledgeBlock.label;
+    const paraText = knowledgeBlock.text;
     const firstSentence = paraText.split(/[.!?]\s+/)[0] || paraText.slice(0, 90);
 
     comments.push({
@@ -424,8 +525,8 @@ export function generatePass4Comments(
       title: isFullMarks ? "AO1 Knowledge Extension: Advanced Theoretical Framing" : "AO1 Knowledge: Conceptual Precision",
       badge: isFullMarks ? "Extension Tip" : "Terminology Gap",
       color: "indigo",
-      paragraphIndex: targetKnowledgeIdx,
-      paragraphLabel: getParagraphLabel(targetKnowledgeIdx),
+      paragraphIndex: targetIndex,
+      paragraphLabel: targetLabel,
       highlightText: firstSentence,
       critique: stripScoreFractionsFromText(stripStars(knowledgeWeakness)),
       suggestion: isFullMarks

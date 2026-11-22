@@ -232,4 +232,68 @@ Paragraph 5: In the long run, once consumers switch to domestic goods, the trade
     expect(diagramComment?.critique).not.toMatch(/price and quantity coordinates/i);
     expect(diagramComment?.suggestion).not.toMatch(/price and quantity coordinates/i);
   });
+
+  it("accurately handles Keynesian LRAS diagram with macro coordinates and prevents phantom paragraph indexing", () => {
+    // 8 text paragraphs with a diagram block inserted between ¶8 and ¶9
+    const paragraphs = [
+      "Paragraph 1: Introduction to macroeconomic aggregate demand and aggregate supply.",
+      "Paragraph 2: Aggregate demand consists of consumption, investment, government spending, and net exports.",
+      "Paragraph 3: An increase in government expenditure shifts the aggregate demand curve to the right.",
+      "Paragraph 4: In the short run, firms respond to higher aggregate demand by increasing production.",
+      "Paragraph 5: This leads to an increase in real GDP and lower cyclical unemployment.",
+      "Paragraph 6: However, the inflationary impact depends on the state of spare capacity in the economy.",
+      "Paragraph 7: According to the Keynesian view, the aggregate supply curve has three distinct phases.",
+      "Paragraph 8: When the economy operates with substantial spare capacity, output can expand without inflation.",
+      "[DIAGRAM: Keynesian LRAS diagram (price level vs real GDP)]",
+      "Paragraph 9: Once the economy reaches full employment Yfe, further shifts in aggregate demand are purely inflationary.",
+      "Paragraph 10: In conclusion, fiscal stimulus is only non-inflationary when spare capacity exists.",
+    ];
+    const mockMacroEssay = paragraphs.join("\n\n");
+
+    const macroGrading: Grading = {
+      total_mark: 15,
+      max_mark: 20,
+      band: "Level 4",
+      ao_breakdown: {
+        knowledge: { awarded: 4, out_of: 4, comment: "" },
+        analysis: { awarded: 7, out_of: 8, comment: "" },
+        evaluation: { awarded: 4, out_of: 8, comment: "" },
+      },
+      examiner_summary: "Strong analytical response on fiscal policy and aggregate supply.",
+      strengths: ["Clear Keynesian LRAS explanation"],
+      weaknesses: ["Diagram could more explicitly show the transition from spare capacity to full employment bottleneck."],
+      missing_elements: { definitions: [], analysis: [], evaluation: [], examples: [], diagrams: [] },
+      actionable_feedback: [],
+      suggested_resources: [],
+      suggested_practice: [],
+      confidence: 0.92,
+      audited: true,
+      sources: [],
+      anchorsUsed: 2,
+    };
+
+    const comments = generatePass4Comments(
+      mockMacroEssay,
+      "Discuss the effects of an increase in aggregate demand on real GDP and the price level [20]",
+      macroGrading,
+      [{ title: "Keynesian LRAS diagram", matchText: "[DIAGRAM: Keynesian LRAS diagram (price level vs real GDP)]" }],
+    );
+
+    const diagramComment = comments.find((c) => c.category === "diagram");
+    expect(diagramComment).toBeDefined();
+
+    // Verify paragraph label accurately counts preceding text paragraphs: 8, so "Diagram (after ¶8)"
+    expect(diagramComment?.paragraphLabel).toBe("Diagram (after ¶8)");
+    expect(diagramComment?.paragraphLabel).not.toBe("Diagram (after ¶18)");
+
+    // Verify macro-specific guidance: Price Level, Real GDP, capacity
+    expect(diagramComment?.suggestion).toMatch(/price level/i);
+    expect(diagramComment?.suggestion).toMatch(/real gdp|national output/i);
+    expect(diagramComment?.suggestion).toMatch(/spare capacity|full employment/i);
+
+    // Verify NO microeconomic welfare areas injected
+    expect(diagramComment?.critique).not.toMatch(/deadweight loss/i);
+    expect(diagramComment?.critique).not.toMatch(/surplus/i);
+    expect(diagramComment?.suggestion).not.toMatch(/deadweight loss/i);
+  });
 });
