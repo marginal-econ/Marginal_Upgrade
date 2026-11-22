@@ -694,18 +694,23 @@ function GradePage() {
   const [settingsDrawerOpen, setSettingsDrawerOpen] = useState(false);
   const [proofreadDrawerOpen, setProofreadDrawerOpen] = useState(false);
   const [detailedBreakdownOpen, setDetailedBreakdownOpen] = useState(false);
+  const [essayFont, setEssayFont] = useState<"serif" | "sans">("serif");
 
   const essayInputRef = useRef<HTMLTextAreaElement>(null);
   const questionInputRef = useRef<HTMLTextAreaElement>(null);
   const reportRef = useRef<HTMLDivElement>(null);
 
-  // Auto-resize essay textarea to feel like an authentic document
+  // Auto-resize essay textarea to feel like an authentic document without layout jitter
+  const adjustTextareaHeight = useCallback(() => {
+    const el = essayInputRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.max(520, el.scrollHeight)}px`;
+  }, []);
+
   useEffect(() => {
-    if (essayInputRef.current) {
-      essayInputRef.current.style.height = "auto";
-      essayInputRef.current.style.height = `${Math.max(460, essayInputRef.current.scrollHeight)}px`;
-    }
-  }, [essayText]);
+    adjustTextareaHeight();
+  }, [essayText, essayFont, adjustTextareaHeight]);
 
   // Auto-resize question textarea
   useEffect(() => {
@@ -1866,6 +1871,36 @@ function GradePage() {
                           </Button>
                         )}
 
+                        {/* Writing Font Selector (Cambridge Serif vs Clean Modern Sans) */}
+                        <div className="flex items-center gap-0.5 rounded-lg border border-border/60 bg-muted/30 p-0.5 text-[10.5px]">
+                          <button
+                            type="button"
+                            onClick={() => setEssayFont("serif")}
+                            className={cn(
+                              "px-2 py-0.5 rounded-md transition-all cursor-pointer",
+                              essayFont === "serif"
+                                ? "bg-background text-foreground shadow-xs font-serif font-bold"
+                                : "text-muted-foreground hover:text-foreground font-serif"
+                            )}
+                            title="Authentic Cambridge Examination Serif"
+                          >
+                            Serif
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setEssayFont("sans")}
+                            className={cn(
+                              "px-2 py-0.5 rounded-md transition-all cursor-pointer",
+                              essayFont === "sans"
+                                ? "bg-background text-foreground shadow-xs font-sans font-bold"
+                                : "text-muted-foreground hover:text-foreground font-sans"
+                            )}
+                            title="Clean Modern Sans font"
+                          >
+                            Sans
+                          </button>
+                        </div>
+
                         {words >= 60 && textParagraphs.length <= 1 && (
                           <button
                             type="button"
@@ -1953,6 +1988,36 @@ function GradePage() {
                             "{stripScoreFractionsFromText(stripStars(result.grading.examiner_summary || (result.grading as any).overall_comment || ""))}"
                           </p>
                         )}
+
+                        {/* Clear Guide to Full Candidate Diagnostic Report Below */}
+                        <div className="flex flex-wrap items-center justify-between gap-3 pt-2.5 border-t border-border/50 text-xs">
+                          <div className="flex items-center gap-2 text-muted-foreground">
+                            <Sparkles className="size-3.5 text-primary shrink-0" />
+                            <span>
+                              Complete criteria matrix, strengths, weaknesses &amp; model exemplars available below.
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <button
+                              type="button"
+                              onClick={() => setDetailedBreakdownOpen(true)}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-background hover:bg-muted text-foreground font-semibold text-[11px] border border-border/80 transition-all cursor-pointer shadow-xs"
+                            >
+                              <Eye className="size-3 text-muted-foreground" />
+                              <span>Quick Dialog ↗</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                document.getElementById("detailed-report-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
+                              }}
+                              className="inline-flex items-center gap-1 px-3 py-1 rounded-lg bg-primary text-primary-foreground font-bold text-[11px] hover:bg-primary/90 transition-all cursor-pointer shadow-xs"
+                            >
+                              <SlidersHorizontal className="size-3" />
+                              <span>Detailed Report Below ↓</span>
+                            </button>
+                          </div>
+                        </div>
                       </div>
                     )}
 
@@ -1970,7 +2035,21 @@ function GradePage() {
                             </span>
                           </div>
 
-                          <div className="space-y-4 font-serif text-base sm:text-[18px] md:text-[19px] leading-[1.95] text-foreground/95 min-h-[460px]">
+                          <div
+                            className={cn(
+                              "space-y-4 text-base sm:text-[18px] md:text-[19px] leading-[1.95] text-foreground/95 min-h-[460px]",
+                              essayFont === "serif" ? "font-serif" : "font-sans",
+                            )}
+                            style={{
+                              fontFamily:
+                                essayFont === "serif"
+                                  ? '"Newsreader", Georgia, Cambria, "Times New Roman", serif'
+                                  : '"Outfit", "Inter Tight", system-ui, -apple-system, sans-serif',
+                              fontOpticalSizing: "none",
+                              letterSpacing: "0px",
+                              lineHeight: essayFont === "serif" ? "1.9" : "1.75",
+                            }}
+                          >
                             {essayText.trim() ? (
                               essayText.split(/\n\s*\n/).map((para, pIdx) => {
                                 const isDiag = /^\s*\((?:Diagram:\s*)?[^)]+\)\s*$/i.test(para.trim());
@@ -2213,8 +2292,13 @@ function GradePage() {
                       </div>
                     ) : (
                       <div
+                        onClick={(e) => {
+                          if (e.target === e.currentTarget && essayInputRef.current) {
+                            essayInputRef.current.focus();
+                          }
+                        }}
                         className={cn(
-                          "relative rounded-2xl border border-border/70 bg-card/40 dark:bg-card/20 p-4 sm:p-6 transition-all w-full min-w-0 shadow-xs focus-within:border-primary/50 focus-within:bg-card focus-within:ring-2 focus-within:ring-primary/10",
+                          "relative rounded-2xl border border-border/70 bg-card/40 dark:bg-card/20 p-5 sm:p-7 transition-all w-full min-w-0 shadow-xs focus-within:border-primary/50 focus-within:bg-card focus-within:ring-2 focus-within:ring-primary/10 cursor-text",
                           isDraggingOverTextarea && "ring-2 ring-emerald-500 bg-emerald-500/[0.03]",
                         )}
                       >
@@ -2226,16 +2310,31 @@ function GradePage() {
                             </div>
                           </div>
                         )}
-                        <Textarea
+                        <textarea
                           ref={essayInputRef}
                           id="essay"
-                          className="w-full resize-none border-0 bg-transparent p-0 text-base sm:text-[17px] font-sans leading-relaxed tracking-normal focus-visible:ring-0 placeholder:text-muted-foreground/40 shadow-none text-foreground selection:bg-primary/20 overflow-hidden min-h-[520px]"
+                          spellCheck={true}
+                          rows={18}
+                          className={cn(
+                            "block w-full resize-none border-0 bg-transparent p-0 focus:outline-none focus:ring-0 shadow-none text-foreground selection:bg-primary/25 overflow-hidden min-h-[520px] placeholder:text-muted-foreground/35 leading-[1.9]",
+                            essayFont === "serif" ? "font-serif text-[18px] sm:text-[19px]" : "font-sans text-[17px] sm:text-[18px]",
+                          )}
+                          style={{
+                            fontFamily:
+                              essayFont === "serif"
+                                ? '"Newsreader", Georgia, Cambria, "Times New Roman", serif'
+                                : '"Outfit", "Inter Tight", system-ui, -apple-system, sans-serif',
+                            fontOpticalSizing: "none",
+                            letterSpacing: "0px",
+                            wordSpacing: "0px",
+                            lineHeight: essayFont === "serif" ? "1.9" : "1.75",
+                          }}
                           placeholder="Type or paste your candidate essay here... (Drag diagrams anywhere, paste images with Ctrl+V, or press Ctrl+Enter to grade)"
                           value={essayText}
-                        onChange={(event) => {
-                          setEssayText(event.target.value);
-                          setWritingCheck(null);
-                        }}
+                          onChange={(event) => {
+                            setEssayText(event.target.value);
+                            setWritingCheck(null);
+                          }}
                         onPaste={(e) => {
                           const items = e.clipboardData?.items;
                           if (items) {
@@ -2493,9 +2592,46 @@ function GradePage() {
                   </div>
                 </div>
 
-                {/* Optional Expandable Detailed Breakdown & Teacher Action */}
+                {/* Full Cambridge Candidate Diagnostic Report (Clear, Prominent, Never Hidden Away) */}
                 {result && (
-                  <div ref={reportRef} id="report-section" className="space-y-4 pt-2 w-full min-w-0">
+                  <div ref={reportRef} id="detailed-report-section" className="space-y-6 pt-6 border-t border-border/70 w-full min-w-0">
+                    <div className="flex flex-wrap items-center justify-between gap-4 p-5 sm:p-6 rounded-3xl bg-gradient-to-r from-primary/[0.08] via-card to-card border border-primary/25 shadow-xs">
+                      <div className="flex items-center gap-3.5">
+                        <div className="size-11 rounded-2xl bg-primary/15 border border-primary/30 flex items-center justify-center text-primary font-black text-base shadow-xs shrink-0">
+                          <Award className="size-6 text-primary" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2.5 flex-wrap">
+                            <h3 className="font-bold text-base sm:text-lg text-foreground">
+                              Complete Cambridge 9708 Candidate Diagnostic Report
+                            </h3>
+                            <Badge className="bg-primary text-primary-foreground font-bold text-xs px-2.5 py-0.5 shadow-xs">
+                              {result.grading.total_mark} / {result.grading.max_mark} Marks
+                            </Badge>
+                            <Badge variant="outline" className="border-primary/40 bg-primary/10 text-primary font-semibold text-xs">
+                              {result.grading.band}
+                            </Badge>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Detailed criteria breakdown across Knowledge (AO1), Analysis (AO2), Evaluation (AO3), syllabus missing elements &amp; model exemplars.
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setDetailedBreakdownOpen(true)}
+                          className="gap-1.5 text-xs font-semibold border-border/80 hover:bg-muted cursor-pointer"
+                        >
+                          <Eye className="size-3.5 text-muted-foreground" />
+                          <span>Popout Dialog ↗</span>
+                        </Button>
+                      </div>
+                    </div>
+
                     {/* Teacher Direct Grading Action */}
                     {isDirectGradingMode && (
                       <div className="rounded-2xl border border-purple-500/40 bg-purple-950/40 p-4 sm:p-5 space-y-3 shadow-lg">
@@ -2517,21 +2653,10 @@ function GradePage() {
                       </div>
                     )}
 
-                    {/* Minimalist Collapsible Full Criteria Breakdown (Takes minimal space unless expanded) */}
-                    <details className="group rounded-2xl border border-border/70 bg-card/30 p-4 transition-all">
-                      <summary className="flex items-center justify-between text-xs font-semibold text-muted-foreground cursor-pointer select-none hover:text-foreground">
-                        <span className="flex items-center gap-2">
-                          <SlidersHorizontal className="size-3.5 text-primary" />
-                          <span>Detailed Mark Scheme &amp; Assessment Objective Breakdown</span>
-                        </span>
-                        <span className="text-[10px] text-muted-foreground group-open:rotate-180 transition-transform">
-                          ▼
-                        </span>
-                      </summary>
-                      <div className="pt-4 mt-3 border-t border-border/50 animate-in fade-in">
-                        <MarkBreakdown grading={result.grading} question={question} />
-                      </div>
-                    </details>
+                    {/* Full Comprehensive Candidate Report */}
+                    <div id="report-section" className="rounded-3xl border border-border/80 bg-card p-5 sm:p-8 shadow-xs">
+                      <MarkBreakdown grading={result.grading} question={question} />
+                    </div>
                   </div>
                 )}
               </div>
