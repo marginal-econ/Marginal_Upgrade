@@ -2105,7 +2105,28 @@ function GradePage() {
                                         )}
                                       </div>
                                     )}
-                                    <p className="text-foreground/95">{block.text}</p>
+                                    {(() => {
+                                      const activeComment = paraComments.find((c) => c.id === activeCommentId);
+                                      const hl = activeComment?.highlightText?.trim();
+                                      if (isParaActive && hl && block.text.includes(hl)) {
+                                        const parts = block.text.split(hl);
+                                        return (
+                                          <p className="text-foreground/95">
+                                            {parts.map((part, i) => (
+                                              <span key={i}>
+                                                {part}
+                                                {i < parts.length - 1 && (
+                                                  <mark className="bg-amber-400/35 dark:bg-amber-400/30 text-foreground font-semibold px-1 py-0.5 rounded shadow-2xs">
+                                                    {hl}
+                                                  </mark>
+                                                )}
+                                              </span>
+                                            ))}
+                                          </p>
+                                        );
+                                      }
+                                      return <p className="text-foreground/95">{block.text}</p>;
+                                    })()}
                                   </div>
                                 );
                               })

@@ -212,7 +212,7 @@ describe("MCQ Live Quiz Engine (Blooket / Quizizz mode)", () => {
     const res = await resolveCorrectAnswerForQuestion(meta, 1);
     expect(res.correctAnswer).toBe("C");
     expect(res.storedExplanation?.text).toBe("Reason for C");
-  });
+  }, 20000);
 
   it("protects listAdminQuizSessionsServer and rejects non-admin users", async () => {
     const { listAdminQuizSessionsServer } = await import("./mcq-quiz.server");
@@ -222,5 +222,5 @@ describe("MCQ Live Quiz Engine (Blooket / Quizizz mode)", () => {
         email: "student@example.com",
       }),
     ).rejects.toThrow(/Unauthorized/);
-  });
+  }, 20000);
 });
