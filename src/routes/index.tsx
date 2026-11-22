@@ -27,6 +27,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -101,7 +102,7 @@ const RIBBON_ITEMS = [
   "Pass 4 In-Situ Sentence Comment Pins",
   "Paper 1 & 3 Timed MCQs with Rationales",
   "Handwriting Vision OCR for Mock Papers",
-  "Diagram CAD Lab & Curve Shifts",
+  "Hand-Drawn Diagram OCR & Curve Shifts",
   "1,400+ Cambridge Mark Schemes",
   "15-Year Topic Cycle Predictor",
 ];
@@ -124,12 +125,12 @@ const CAMBRIDGE_TOOLS = [
     href: "/mcq-live",
   },
   {
-    icon: Sliders,
+    icon: Target,
     tile: "bg-indigo-600",
-    badge: "Vector CAD",
-    title: "Economics Diagram CAD Lab",
-    body: "Dynamic micro and macro diagrams with interactive curve shifts, equilibrium tracking, and examiner labels.",
-    href: "/diagram-lab",
+    badge: "Skills Coach",
+    title: "AO Skills & Command Word Coach",
+    body: "Interactive command word drill to master Cambridge assessment objectives (AO1, AO2, AO3) and evaluation criteria.",
+    href: "/practice",
   },
   {
     icon: Flame,
@@ -224,11 +225,11 @@ function Index() {
           <nav className="hidden lg:flex items-center gap-6 text-xs font-semibold text-muted-foreground">
             <a href="#how-to-grade" className="hover:text-foreground transition-colors flex items-center gap-1.5">
               <PenLine className="size-3.5 text-primary" />
-              <span>How to Grade Essays</span>
+              <span>Grade Essays</span>
             </a>
             <a href="#how-to-mcq" className="hover:text-foreground transition-colors flex items-center gap-1.5">
               <ListChecks className="size-3.5 text-emerald-500" />
-              <span>How to Do MCQs</span>
+              <span>Do MCQs for Free</span>
             </a>
             <button
               type="button"
@@ -282,7 +283,7 @@ function Index() {
         </div>
       </header>
 
-      {/* ── 1. Hero: How to Grade & How to Master MCQs ───────────────────── */}
+      {/* ── 1. Hero: Grade Economics Essays & Do MCQs for Free ─────────────── */}
       <section className="relative overflow-hidden border-b-[1.5px] border-ink pb-12 pt-10 sm:pt-16">
         <div className="aurora-wash pointer-events-none absolute inset-0" aria-hidden="true" />
         <AuroraCanvas />
@@ -307,16 +308,16 @@ function Index() {
 
           <Reveal delay={60}>
             <h1 className="max-w-4xl mx-auto text-3xl sm:text-5xl md:text-6xl font-black tracking-tight leading-[1.1] text-foreground">
-              How to Grade Economics Essays &amp;{" "}
+              Grade Economics Essays &amp;{" "}
               <span className="bg-gradient-to-r from-primary via-purple-500 to-indigo-500 bg-clip-text text-transparent">
-                Master Cambridge MCQs.
+                Do MCQs for Free.
               </span>
             </h1>
           </Reveal>
 
           <Reveal delay={100}>
             <p className="max-w-2xl mx-auto text-base sm:text-lg text-muted-foreground leading-relaxed">
-              Marginal shows you exactly how Cambridge examiners evaluate your work. Type or photograph handwritten mock papers, attach curve shifts, and get line-by-line comment pins — or solve authentic Papers 1 &amp; 3 timed MCQs.
+              Experience authentic Cambridge 9708 examiner evaluation. Type or photograph handwritten mock papers, attach curve shifts, and get line-by-line comment pins — or practice authentic Papers 1 &amp; 3 timed MCQs.
             </p>
           </Reveal>
 
@@ -357,17 +358,17 @@ function Index() {
         </div>
       </section>
 
-      {/* ── 2. How to Grade an Essay (Visual Walkthrough) ────────────────── */}
+      {/* ── 2. Grade Cambridge Economics Essays Free (Visual Walkthrough) ── */}
       <section id="how-to-grade" className="relative border-b-[1.5px] border-ink py-16 sm:py-24 scroll-mt-16 bg-muted/10">
         <CosmicAtmosphere variant="cyan" sparkles={true} density="low" />
         <div className="relative z-10 mx-auto max-w-7xl 2xl:max-w-[1440px] px-4 sm:px-6 md:px-10 space-y-12">
           <Reveal>
             <div className="text-center space-y-2 max-w-3xl mx-auto">
               <span className="chip-soft border border-primary/30 bg-primary/10 text-primary font-bold text-xs uppercase tracking-wider">
-                <PenLine className="size-3.5 mr-1" /> Core Feature 1
+                <PenLine className="size-3.5 mr-1" /> Instant Essay Examiner
               </span>
               <h2 className="text-2xl sm:text-4xl font-black tracking-tight text-foreground">
-                How to Grade an Economics Essay
+                Grade Cambridge Economics Essays Free
               </h2>
               <p className="text-sm sm:text-base text-muted-foreground leading-relaxed">
                 From a blank draft or a handwritten mock paper photo to official Cambridge AO1, AO2, and AO3 marks with Pass 4 in-situ comment pins.
@@ -424,7 +425,7 @@ function Index() {
               </div>
             </Reveal>
 
-            {/* Step 3: Import Diagrams & Add Curve Shifts */}
+            {/* Step 3: Attach Diagrams & Add Curve Shifts */}
             <Reveal variant="pop" delay={150}>
               <div className="rounded-2xl border border-border/80 bg-card p-5 sm:p-6 shadow-xs flex flex-col justify-between h-full hover:border-primary/50 transition-all space-y-4">
                 <div className="space-y-3">
@@ -433,12 +434,12 @@ function Index() {
                       03
                     </span>
                     <Badge variant="outline" className="text-[10px] font-mono border-indigo-500/30 text-indigo-600 dark:text-indigo-400">
-                      Diagram CAD
+                      Diagrams &amp; Curves
                     </Badge>
                   </div>
-                  <h3 className="text-base font-bold text-foreground">Import Diagrams &amp; Curves</h3>
+                  <h3 className="text-base font-bold text-foreground">Attach Diagrams &amp; Curves</h3>
                   <p className="text-xs text-muted-foreground leading-relaxed">
-                    Upload diagram images or reference curves like tax incidence, deadweight loss, or AD/AS shifts. Add in-text tokens (e.g. <span className="font-mono text-[10.5px] bg-muted px-1 rounded">[DIAGRAM: Tax shift]</span>) for examiner auditing.
+                    Upload handwritten diagrams or tag curve shifts like tax incidence, deadweight loss, or AD/AS shifts with tags (e.g. <span className="font-mono text-[10.5px] bg-muted px-1 rounded">[DIAGRAM: Tax shift]</span>) for examiner auditing.
                   </p>
                 </div>
                 <div className="rounded-xl border border-indigo-500/20 bg-indigo-500/5 p-2.5 text-[11px] text-indigo-700 dark:text-indigo-300 flex items-center gap-2">
@@ -486,17 +487,17 @@ function Index() {
         </div>
       </section>
 
-      {/* ── 3. How to Do MCQs (Visual Walkthrough) ────────────────────────── */}
+      {/* ── 3. Do Cambridge Past Paper MCQs Free (Visual Walkthrough) ──────── */}
       <section id="how-to-mcq" className="relative border-b-[1.5px] border-ink py-16 sm:py-24 scroll-mt-16">
         <CosmicAtmosphere variant="gold" sparkles={true} density="low" />
         <div className="relative z-10 mx-auto max-w-7xl 2xl:max-w-[1440px] px-4 sm:px-6 md:px-10 space-y-12">
           <Reveal>
             <div className="text-center space-y-2 max-w-3xl mx-auto">
               <span className="chip-soft border border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold text-xs uppercase tracking-wider">
-                <ListChecks className="size-3.5 mr-1" /> Core Feature 2
+                <ListChecks className="size-3.5 mr-1" /> Timed MCQ Desk
               </span>
               <h2 className="text-2xl sm:text-4xl font-black tracking-tight text-foreground">
-                How to Master Cambridge MCQ Past Papers
+                Do Cambridge Past Paper MCQs Free
               </h2>
               <p className="text-sm sm:text-base text-muted-foreground leading-relaxed">
                 Practice authentic Paper 1 (AS) and Paper 3 (A2) past exams with realistic timers, scratchpad annotation, and official mark scheme rationales.
@@ -692,56 +693,83 @@ function Index() {
             </DialogDescription>
           </DialogHeader>
 
-          {/* 8 Cambridge Tools Grid */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-base sm:text-lg font-bold text-foreground flex items-center gap-2">
-                <BookOpen className="size-4.5 text-primary" />
-                <span>The 8 Specialized Cambridge 9708 Tools</span>
-              </h3>
-              <span className="text-xs font-mono text-muted-foreground">Papers 1, 2, 3 &amp; 4</span>
-            </div>
+          <Tabs defaultValue="tools" className="w-full space-y-5">
+            <TabsList className="bg-muted/80 p-1 h-auto flex-wrap sm:flex-nowrap gap-1 w-full justify-start rounded-xl">
+              <TabsTrigger value="tools" className="text-xs font-semibold py-1.5 px-3">
+                8 Cambridge Tools
+              </TabsTrigger>
+              <TabsTrigger value="accuracy" className="text-xs font-semibold py-1.5 px-3">
+                Accuracy &amp; Benchmarks
+              </TabsTrigger>
+              <TabsTrigger value="ai-comparison" className="text-xs font-semibold py-1.5 px-3">
+                Why Raw AI Fails
+              </TabsTrigger>
+              <TabsTrigger value="exemplar" className="text-xs font-semibold py-1.5 px-3">
+                10/12 Candidate Script
+              </TabsTrigger>
+              <TabsTrigger value="teachers" className="text-xs font-semibold py-1.5 px-3">
+                For Teachers
+              </TabsTrigger>
+            </TabsList>
 
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              {CAMBRIDGE_TOOLS.map((tool) => (
-                <Link
-                  key={tool.title}
-                  to={tool.href}
-                  onClick={() => setFullFeaturesOpen(false)}
-                  className="group rounded-xl border border-border/80 bg-card p-4 hover:border-primary/50 hover:shadow-md transition-all flex flex-col justify-between"
-                >
-                  <div className="space-y-2.5">
-                    <div className="flex items-center justify-between">
-                      <div className={cn("size-8 rounded-lg flex items-center justify-center text-white", tool.tile)}>
-                        <tool.icon className="size-4" />
+            <TabsContent value="tools" className="space-y-4 focus-visible:outline-none">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm sm:text-base font-bold text-foreground flex items-center gap-2">
+                  <BookOpen className="size-4 text-primary" />
+                  <span>The 8 Specialized Cambridge 9708 Tools</span>
+                </h3>
+                <span className="text-xs font-mono text-muted-foreground">Papers 1, 2, 3 &amp; 4</span>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                {CAMBRIDGE_TOOLS.map((tool) => (
+                  <Link
+                    key={tool.title}
+                    to={tool.href}
+                    onClick={() => setFullFeaturesOpen(false)}
+                    className="group rounded-xl border border-border/80 bg-card p-4 hover:border-primary/50 hover:shadow-md transition-all flex flex-col justify-between"
+                  >
+                    <div className="space-y-2.5">
+                      <div className="flex items-center justify-between">
+                        <div className={cn("size-8 rounded-lg flex items-center justify-center text-white", tool.tile)}>
+                          <tool.icon className="size-4" />
+                        </div>
+                        <Badge variant="outline" className="text-[9.5px] font-mono px-1.5 py-0">
+                          {tool.badge}
+                        </Badge>
                       </div>
-                      <Badge variant="outline" className="text-[9.5px] font-mono px-1.5 py-0">
-                        {tool.badge}
-                      </Badge>
+                      <h4 className="text-xs sm:text-sm font-bold text-foreground group-hover:text-primary transition-colors">
+                        {tool.title}
+                      </h4>
+                      <p className="text-[11px] text-muted-foreground leading-relaxed line-clamp-3">
+                        {tool.body}
+                      </p>
                     </div>
-                    <h4 className="text-xs sm:text-sm font-bold text-foreground group-hover:text-primary transition-colors">
-                      {tool.title}
-                    </h4>
-                    <p className="text-[11px] text-muted-foreground leading-relaxed line-clamp-3">
-                      {tool.body}
-                    </p>
-                  </div>
-                  <div className="mt-3 pt-2.5 border-t border-border/60 flex items-center justify-between text-[11px] font-semibold text-primary">
-                    <span>Open Tool</span>
-                    <ArrowUpRight className="size-3 group-hover:translate-x-0.5 transition-transform" />
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </div>
+                    <div className="mt-3 pt-2.5 border-t border-border/60 flex items-center justify-between text-[11px] font-semibold text-primary">
+                      <span>Open Tool</span>
+                      <ArrowUpRight className="size-3 group-hover:translate-x-0.5 transition-transform" />
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </TabsContent>
 
-          {/* Benchmarks & Real Script Showcase */}
-          <div className="space-y-8 pt-4 border-t border-border/80">
-            <AccuracyCredibilitySection />
-            <AiComparisonSection />
-            <RealEssayShowcase />
-            <TeachersSection />
-          </div>
+            <TabsContent value="accuracy" className="focus-visible:outline-none">
+              <AccuracyCredibilitySection className="py-2 sm:py-4 border-0 bg-transparent px-0" />
+            </TabsContent>
+
+            <TabsContent value="ai-comparison" className="focus-visible:outline-none">
+              <AiComparisonSection className="py-2 sm:py-4 border-0 bg-transparent px-0" />
+            </TabsContent>
+
+            <TabsContent value="exemplar" className="focus-visible:outline-none">
+              <RealEssayShowcase className="py-2 sm:py-4 border-0 bg-transparent px-0" />
+            </TabsContent>
+
+            <TabsContent value="teachers" className="focus-visible:outline-none">
+              <TeachersSection className="py-2 sm:py-4 border-0 bg-transparent px-0" />
+            </TabsContent>
+          </Tabs>
 
           <div className="pt-4 border-t border-border flex justify-end">
             <Button onClick={() => setFullFeaturesOpen(false)} className="bg-primary text-primary-foreground font-bold text-xs px-5">

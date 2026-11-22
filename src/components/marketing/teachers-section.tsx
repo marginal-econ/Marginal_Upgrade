@@ -3,8 +3,9 @@ import { ArrowRight, BookOpen, CheckCircle2, FileCheck2, GraduationCap, Layers, 
 import { Reveal } from "./reveal";
 import { Button } from "@/components/ui/button";
 import { CosmicAtmosphere } from "./cosmic-atmosphere";
+import { cn } from "@/lib/utils";
 
-export function TeachersSection() {
+export function TeachersSection({ className }: { className?: string } = {}) {
   const capabilities = [
     {
       icon: Users,
@@ -33,7 +34,7 @@ export function TeachersSection() {
   ];
 
   return (
-    <section id="teachers-section" className="relative border-b-[1.5px] border-ink bg-card/40 py-16 md:py-20 scroll-mt-16 overflow-hidden">
+    <section id="teachers-section" className={cn("relative border-b-[1.5px] border-ink bg-card/40 py-16 md:py-20 scroll-mt-16 overflow-hidden", className)}>
       <CosmicAtmosphere variant="purple" sparkles={true} density="medium" />
       <div className="relative z-10 mx-auto max-w-7xl 2xl:max-w-[1440px] px-4 sm:px-6 md:px-10 lg:px-12 xl:px-16">
         {/* Section Header */}

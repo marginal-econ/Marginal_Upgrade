@@ -198,16 +198,15 @@ export function Ribbon({
       aria-hidden="true"
       className={cn(
         "marquee-container group relative w-full overflow-hidden select-none transition-colors",
-        "border-y border-purple-300/40 dark:border-purple-500/25",
-        "bg-gradient-to-r from-purple-100/40 via-background/95 to-amber-100/30",
-        "dark:from-purple-950/45 dark:via-zinc-950/90 dark:to-indigo-950/45",
-        "backdrop-blur-2xl py-3 sm:py-3.5 shadow-[0_4px_24px_-4px_rgba(168,85,247,0.08)] dark:shadow-[0_4px_30px_rgba(0,0,0,0.5)]",
+        "border-y border-purple-500/15",
+        "bg-gradient-to-r from-purple-100/30 via-background/95 to-purple-100/20",
+        "dark:from-purple-950/30 dark:via-zinc-950/90 dark:to-indigo-950/30",
+        "backdrop-blur-xl py-3 sm:py-3.5 shadow-xs overflow-x-hidden",
         className,
       )}
     >
-      {/* Top & bottom vibrant cosmic ambient glow lines */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-[1.5px] bg-gradient-to-r from-transparent via-purple-500/60 to-transparent shadow-[0_0_10px_rgba(168,85,247,0.5)]" />
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[1.5px] bg-gradient-to-r from-transparent via-amber-400/45 to-transparent shadow-[0_0_10px_rgba(251,191,36,0.35)]" />
+      {/* Top subtle glow line */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
 
       {/* Smooth gradient fade masks on both edges prevent harsh letter clipping */}
       <div className="marquee-mask w-full overflow-hidden">
