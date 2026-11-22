@@ -44,6 +44,7 @@ import {
   ArrowDown,
   Check,
   MessageSquare,
+  Lightbulb,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -380,7 +381,7 @@ export function extractDiagramReferences(text: string): DiagramRefResult {
               curves: [],
             } as any,
             rules: ["Accurate axis labels and curve shifts required for credit"],
-          };
+          } as any;
           matches.push({
             title: displayTitle,
             entry: customEntry,
@@ -3348,7 +3349,7 @@ function GradePage() {
         title="Save Your Cambridge Diagnostic & Keep Access"
         scoreText={
           result
-            ? `Examiner Awarded: ${result.grading.total_mark}/${result.grading.max_mark} Marks (${result.grading.overall_band || "Band 1"})`
+            ? `Examiner Awarded: ${result.grading.total_mark}/${result.grading.max_mark} Marks (${(result.grading as any).overall_band || result.grading.overall_level || "Band 1"})`
             : undefined
         }
       />

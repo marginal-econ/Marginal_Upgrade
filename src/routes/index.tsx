@@ -489,7 +489,7 @@ function Index() {
 
       {/* ── 3. Do Cambridge Past Paper MCQs Free (Visual Walkthrough) ──────── */}
       <section id="how-to-mcq" className="relative border-b-[1.5px] border-ink py-16 sm:py-24 scroll-mt-16">
-        <CosmicAtmosphere variant="gold" sparkles={true} density="low" />
+        <CosmicAtmosphere variant="amber" sparkles={true} density="low" />
         <div className="relative z-10 mx-auto max-w-7xl 2xl:max-w-[1440px] px-4 sm:px-6 md:px-10 space-y-12">
           <Reveal>
             <div className="text-center space-y-2 max-w-3xl mx-auto">

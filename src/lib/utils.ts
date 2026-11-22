@@ -96,7 +96,7 @@ export function formatEconomicsMathText(text: unknown): string {
     // If it looks like currency (e.g. "$10 to $20"), don't match
     if (/\$\d/.test(inner)) return match;
     // Format inner subscripts if any remain
-    const formatted = inner.replace(/\b([A-Za-z]{1,4})_\{?([A-Za-z0-9]+)\}?\b/g, (_, v, sub) => `${v}${toSubscript(sub)}`);
+    const formatted = inner.replace(/\b([A-Za-z]{1,4})_\{?([A-Za-z0-9]+)\}?\b/g, (_: string, v: string, sub: string) => `${v}${toSubscript(sub)}`);
     return formatted.trim();
   });
 
