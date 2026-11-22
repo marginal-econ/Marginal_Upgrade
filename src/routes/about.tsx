@@ -58,12 +58,12 @@ const founders = [
     photo: "/founders/suthir.webp",
   },
   {
-    name: "Adithya A",
+    name: "Athithya A",
     initials: "AA",
     role: "Chief Marketing Officer (CMO)",
     focus: "In Charge of Marketing & Expansion",
     linkedin: "https://www.linkedin.com/in/a-athithya/",
-    photo: "/founders/adithya.png",
+    photo: "/founders/athithya.png",
   },
 ];
 
@@ -159,7 +159,7 @@ function AboutPage() {
               ))}
             </div>
             <span className="text-sm font-medium text-plum-foreground/85">
-              Founded &amp; created by Saikrish, with Suthir (Design) and Adithya (Marketing)
+              Founded &amp; created by Saikrish, with Suthir (Design) and Athithya (Marketing)
             </span>
           </div>
           <div className="mt-7 flex flex-wrap gap-2">
