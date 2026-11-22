@@ -179,4 +179,38 @@ describe("MCQ Live Quiz Engine (Blooket / Quizizz mode)", () => {
     expect(csv).toContain("Rank,Student Name,Score (pts)");
     expect(csv).toContain('1,"Smith, Alex",500,3,4,4,75%,2,Finished');
   });
+
+  it("resolves correct answers for custom questions cleanly without ReferenceError", async () => {
+    const { resolveCorrectAnswerForQuestion } = await import("./mcq-quiz.server");
+    const meta = {
+      pin: "123456",
+      title: "Custom Quiz",
+      hostUserId: "host1",
+      hostName: "Host",
+      sourceType: "custom_questions" as const,
+      paperId: null,
+      paperTitle: "Custom",
+      level: "as" as const,
+      questionNumbers: [1, 2],
+      customQuestions: [
+        {
+          number: 1,
+          stem: "Stem 1",
+          options: { A: "Opt A", B: "Opt B", C: "Opt C", D: "Opt D" },
+          correctAnswer: "C" as const,
+          explanation: "Reason for C",
+        },
+      ],
+      gameMode: "live_race" as const,
+      timeLimitSeconds: null,
+      showInstantFeedback: true,
+      showLiveLeaderboard: true,
+      status: "in_progress" as const,
+      createdAt: new Date().toISOString(),
+    };
+
+    const res = await resolveCorrectAnswerForQuestion(meta, 1);
+    expect(res.correctAnswer).toBe("C");
+    expect(res.storedExplanation?.text).toBe("Reason for C");
+  });
 });

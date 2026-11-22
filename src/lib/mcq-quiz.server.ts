@@ -422,7 +422,7 @@ export async function endMcqQuizServer(
   return state;
 }
 
-async function resolveCorrectAnswerForQuestion(
+export async function resolveCorrectAnswerForQuestion(
   meta: McqQuizMeta,
   questionNumber: number,
 ): Promise<{
@@ -460,6 +460,7 @@ async function resolveCorrectAnswerForQuestion(
       .maybeSingle();
 
     const answerKey = (paper?.answer_key ?? {}) as Record<string, QuizLetter>;
+    const correctAnswer = answerKey[String(questionNumber)] ?? null;
     const overlayExplanations = (paper?.overlay as Record<string, any> | null)?.explanations;
     let storedExplanation =
       meta.showInstantFeedback && overlayExplanations?.[String(questionNumber)]
