@@ -431,19 +431,6 @@ function GradePage() {
   const [isTourOpen, setIsTourOpen] = useState(false);
   const [guestUpgradeOpen, setGuestUpgradeOpen] = useState(false);
 
-  // Auto-launch guided spotlight tour for guest students or first-time visitors
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const isGuest = isGuestUser(meQuery.data);
-    const tourDismissed = localStorage.getItem("marginal_grade_tour_seen") === "true";
-    if (isGuest && !tourDismissed && !result && !question.trim()) {
-      const timer = setTimeout(() => {
-        setIsTourOpen(true);
-      }, 450);
-      return () => clearTimeout(timer);
-    }
-  }, [meQuery.data, result, question]);
-
   const [question, setQuestion] = useState(() => {
     if (search.q) return search.q;
     if (typeof window !== "undefined") {
@@ -715,6 +702,19 @@ function GradePage() {
   const essayInputRef = useRef<HTMLTextAreaElement>(null);
   const questionInputRef = useRef<HTMLTextAreaElement>(null);
   const reportRef = useRef<HTMLDivElement>(null);
+
+  // Auto-launch guided spotlight tour for guest students or first-time visitors
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const isGuest = isGuestUser(meQuery.data);
+    const tourDismissed = localStorage.getItem("marginal_grade_tour_seen") === "true";
+    if (isGuest && !tourDismissed && !result && !question.trim()) {
+      const timer = setTimeout(() => {
+        setIsTourOpen(true);
+      }, 450);
+      return () => clearTimeout(timer);
+    }
+  }, [meQuery.data, result, question]);
 
   // Auto-resize essay textarea to feel like an authentic document without layout jitter
   const adjustTextareaHeight = useCallback(() => {

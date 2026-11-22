@@ -243,43 +243,41 @@ function Index() {
             </a>
           </nav>
 
-          <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex items-center gap-1.5 sm:gap-2.5">
             <ThemeToggle className="size-8" />
 
+            <Link
+              to="/teacher-auth"
+              className="hidden sm:inline-flex rounded-lg px-2.5 py-1.5 text-xs sm:text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Teacher Sign In
+            </Link>
+
             {isAuthenticated ? (
-              <Button asChild size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold shadow-xs">
-                <Link to="/dashboard">
-                  <span>Open Dashboard</span>
-                  <ArrowRight className="size-3.5 ml-1.5" />
-                </Link>
-              </Button>
+              <Link
+                to="/dashboard"
+                className="rounded-lg px-2.5 py-1.5 text-xs sm:text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Dashboard
+              </Link>
             ) : (
-              <>
-                <Link
-                  to="/teacher-auth"
-                  className="hidden sm:inline-flex rounded-lg px-2.5 py-1.5 text-xs sm:text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  Teacher Sign In
-                </Link>
-
-                <Link
-                  to="/auth"
-                  className="rounded-lg px-2.5 py-1.5 text-xs sm:text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  Sign in
-                </Link>
-
-                <Magnetic strength={8}>
-                  <Link
-                    to="/grade"
-                    className="inline-flex min-h-8 sm:min-h-9 items-center justify-center gap-1.5 bg-primary px-3 sm:px-3.5 py-1.5 text-xs sm:text-sm font-semibold text-primary-foreground rounded-lg shadow-xs hover:bg-primary/90 transition-all"
-                  >
-                    <span>Get Started</span>
-                    <ArrowRight className="size-3.5" />
-                  </Link>
-                </Magnetic>
-              </>
+              <Link
+                to="/auth"
+                className="rounded-lg px-2.5 py-1.5 text-xs sm:text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Sign in
+              </Link>
             )}
+
+            <Magnetic strength={8}>
+              <Link
+                to="/grade"
+                className="inline-flex min-h-8 sm:min-h-9 items-center justify-center gap-1.5 bg-primary px-3 sm:px-3.5 py-1.5 text-xs sm:text-sm font-semibold text-primary-foreground rounded-lg shadow-xs hover:bg-primary/90 transition-all font-bold"
+              >
+                <span>Get Started</span>
+                <ArrowRight className="size-3.5" />
+              </Link>
+            </Magnetic>
           </div>
         </div>
       </header>
