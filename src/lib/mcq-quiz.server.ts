@@ -5,6 +5,7 @@ import { getTopicalPaperById } from "@/lib/topical-mcq-papers";
 import {
   calculateQuizPoints,
   computeQuizQuestionStats,
+  getRandomPowerUp,
   normalizeQuizPin,
   sortQuizLeaderboard,
   type CustomQuizQuestion,
@@ -12,10 +13,12 @@ import {
   type McqQuizPublicState,
   type PublicCustomQuizQuestion,
   type PublicMcqQuizMeta,
+  type QuizGameEvent,
   type QuizGameMode,
   type QuizLetter,
   type QuizLevel,
   type QuizPlayer,
+  type QuizPowerUp,
   type QuizSourceType,
 } from "./mcq-quiz.types";
 
@@ -321,6 +324,10 @@ export async function joinMcqQuizServer(input: {
         ...existing,
         name: cleanName,
         avatar: input.avatar || existing.avatar,
+        inventory: Array.isArray(existing.inventory) ? existing.inventory : [],
+        activeShield: Boolean(existing.activeShield),
+        activeMultiplier: existing.activeMultiplier || 1,
+        frozenUntil: existing.frozenUntil ?? null,
       }
     : {
         id: resolvedPlayerId,
@@ -338,6 +345,10 @@ export async function joinMcqQuizServer(input: {
         finishedAt: null,
         joinedAt: now,
         lastAnsweredAt: null,
+        inventory: [],
+        activeShield: false,
+        activeMultiplier: 1,
+        frozenUntil: null,
       };
 
   await QUIZ_STORE.set(playerKey(pin, resolvedPlayerId), player);
@@ -494,6 +505,12 @@ export async function submitQuizAnswerServer(input: {
     throw new Error("You are not registered in this quiz. Please rejoin.");
   }
 
+  // Freeze check
+  if (player.frozenUntil && player.frozenUntil > Date.now()) {
+    const rem = Math.ceil((player.frozenUntil - Date.now()) / 1000);
+    throw new Error(`You are currently frozen by a rival's Policy Shock! Thawing in ${rem}s.`);
+  }
+
   // Prevent double-scoring the same question
   if (player.answers[input.questionNumber]) {
     const existing = player.answers[input.questionNumber];
@@ -506,6 +523,8 @@ export async function submitQuizAnswerServer(input: {
       basePoints: existing.correct ? 100 : 0,
       speedBonus: 0,
       streakBonus: 0,
+      multiplier: 1,
+      earnedPowerUp: null,
       player,
       rank,
       totalPlayers: allPlayers.length,
@@ -519,16 +538,27 @@ export async function submitQuizAnswerServer(input: {
   );
   const isCorrect = correctAnswer !== null && input.selectedLetter === correctAnswer;
 
+  const mult = player.activeMultiplier && player.activeMultiplier > 1 ? player.activeMultiplier : 1;
+
   const breakdown = calculateQuizPoints({
     isCorrect,
     elapsedSeconds: input.elapsedSeconds,
     currentStreak: player.currentStreak,
     gameMode: meta.gameMode,
+    multiplier: mult,
   });
 
   const nextStreak = isCorrect ? player.currentStreak + 1 : 0;
   const bestStreak = Math.max(player.bestStreak, nextStreak);
   const now = new Date().toISOString();
+
+  // Earn power-up in Game Arena Mode (live_race) on correct answers
+  let earnedPowerUp: QuizPowerUp | null = null;
+  const currentInventory = Array.isArray(player.inventory) ? [...player.inventory] : [];
+  if (isCorrect && meta.gameMode === "live_race" && currentInventory.length < 3) {
+    earnedPowerUp = getRandomPowerUp();
+    currentInventory.push(earnedPowerUp);
+  }
 
   const updatedAnswers = {
     ...player.answers,
@@ -564,6 +594,8 @@ export async function submitQuizAnswerServer(input: {
     finished,
     finishedAt: finished ? (player.finishedAt ?? now) : null,
     lastAnsweredAt: now,
+    inventory: currentInventory,
+    activeMultiplier: 1, // consumed
   };
 
   await QUIZ_STORE.set(playerKey(pin, input.playerId), updatedPlayer);
@@ -578,6 +610,8 @@ export async function submitQuizAnswerServer(input: {
     basePoints: breakdown.base,
     speedBonus: breakdown.speedBonus,
     streakBonus: breakdown.streakBonus,
+    multiplier: mult,
+    earnedPowerUp,
     player: updatedPlayer,
     rank,
     totalPlayers: allPlayers.length,
@@ -676,3 +710,274 @@ export async function fetchQuizPaperPdfServer(rawPin: string, targetUrl: string)
   }
   return { base64: btoa(binary) };
 }
+
+export async function useQuizPowerUpServer(input: {
+  pin: string;
+  playerId: string;
+  powerUpId: string;
+  targetPlayerId?: string;
+}): Promise<{
+  ok: true;
+  event: QuizGameEvent;
+  state: McqQuizPublicState;
+}> {
+  const pin = normalizeQuizPin(input.pin);
+  const meta = await QUIZ_STORE.get<McqQuizMeta>(metaKey(pin));
+  if (!meta) throw new Error("Quiz not found.");
+  if (meta.status !== "in_progress") {
+    throw new Error("Power-ups can only be used during an active quiz.");
+  }
+  if (meta.gameMode !== "live_race") {
+    throw new Error("Power-ups are only enabled in Game Arena Mode.");
+  }
+
+  const actor = await QUIZ_STORE.get<QuizPlayer>(playerKey(pin, input.playerId));
+  if (!actor) throw new Error("Player not found.");
+
+  if (actor.frozenUntil && actor.frozenUntil > Date.now()) {
+    const rem = Math.ceil((actor.frozenUntil - Date.now()) / 1000);
+    throw new Error(`You are currently frozen! Thawing in ${rem}s.`);
+  }
+
+  const inventory = Array.isArray(actor.inventory) ? [...actor.inventory] : [];
+  const powerUpIndex = inventory.findIndex((p) => p.id === input.powerUpId);
+  if (powerUpIndex === -1) {
+    throw new Error("That power-up is no longer in your inventory.");
+  }
+  const powerUp = inventory[powerUpIndex];
+  inventory.splice(powerUpIndex, 1);
+  actor.inventory = inventory;
+
+  const allPlayers = await QUIZ_STORE.list<QuizPlayer>(playerPrefix(pin));
+  const sortedPlayers = sortQuizLeaderboard(allPlayers);
+  const now = new Date().toISOString();
+
+  let event: QuizGameEvent;
+
+  if (powerUp.type === "shield") {
+    actor.activeShield = true;
+    await QUIZ_STORE.set(playerKey(pin, actor.id), actor);
+    event = {
+      id: `ev_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      timestamp: now,
+      actorId: actor.id,
+      actorName: actor.name,
+      actorAvatar: actor.avatar,
+      type: "shield",
+      description: `${actor.avatar} ${actor.name} activated Central Bank Shield! 🛡️`,
+    };
+  } else if (powerUp.type === "multiplier_2x") {
+    actor.activeMultiplier = 2;
+    await QUIZ_STORE.set(playerKey(pin, actor.id), actor);
+    event = {
+      id: `ev_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      timestamp: now,
+      actorId: actor.id,
+      actorName: actor.name,
+      actorAvatar: actor.avatar,
+      type: "multiplier_2x",
+      description: `${actor.avatar} ${actor.name} activated 2x Productivity Surge for their next question! ⚡`,
+    };
+  } else if (powerUp.type === "fifty_fifty") {
+    await QUIZ_STORE.set(playerKey(pin, actor.id), actor);
+    event = {
+      id: `ev_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      timestamp: now,
+      actorId: actor.id,
+      actorName: actor.name,
+      actorAvatar: actor.avatar,
+      type: "fifty_fifty",
+      description: `${actor.avatar} ${actor.name} executed a 50/50 Market Clear! ✂️`,
+    };
+  } else if (powerUp.type === "steal") {
+    let targetId = input.targetPlayerId;
+    if (!targetId) {
+      const rival = sortedPlayers.find((p) => p.id !== actor.id);
+      targetId = rival?.id;
+    }
+    if (!targetId || targetId === actor.id) {
+      throw new Error("No rival player available to steal points from.");
+    }
+    const target = allPlayers.find((p) => p.id === targetId);
+    if (!target) throw new Error("Target player not found.");
+
+    if (target.activeShield) {
+      target.activeShield = false;
+      await QUIZ_STORE.set(playerKey(pin, target.id), target);
+      await QUIZ_STORE.set(playerKey(pin, actor.id), actor);
+      event = {
+        id: `ev_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+        timestamp: now,
+        actorId: actor.id,
+        actorName: actor.name,
+        actorAvatar: actor.avatar,
+        targetId: target.id,
+        targetName: target.name,
+        targetAvatar: target.avatar,
+        type: "steal",
+        blocked: true,
+        description: `🛡️ BLOCKED! ${actor.avatar} ${actor.name} tried to steal points from ${target.avatar} ${target.name}, but their Central Bank Shield absorbed it!`,
+      };
+    } else {
+      const stolen = Math.max(50, Math.min(300, Math.round(target.score * 0.15)));
+      target.score = Math.max(0, target.score - stolen);
+      actor.score += stolen;
+      await QUIZ_STORE.set(playerKey(pin, target.id), target);
+      await QUIZ_STORE.set(playerKey(pin, actor.id), actor);
+      event = {
+        id: `ev_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+        timestamp: now,
+        actorId: actor.id,
+        actorName: actor.name,
+        actorAvatar: actor.avatar,
+        targetId: target.id,
+        targetName: target.name,
+        targetAvatar: target.avatar,
+        type: "steal",
+        pointsDelta: stolen,
+        description: `🎯 CAPITAL STEAL! ${actor.avatar} ${actor.name} seized ${stolen} points from ${target.avatar} ${target.name}!`,
+      };
+    }
+  } else if (powerUp.type === "swap") {
+    let targetId = input.targetPlayerId;
+    if (!targetId) {
+      const rival = sortedPlayers.find((p) => p.id !== actor.id);
+      targetId = rival?.id;
+    }
+    if (!targetId || targetId === actor.id) {
+      throw new Error("Pick a rival player to swap score with.");
+    }
+    const target = allPlayers.find((p) => p.id === targetId);
+    if (!target) throw new Error("Target player not found.");
+
+    if (target.activeShield) {
+      target.activeShield = false;
+      await QUIZ_STORE.set(playerKey(pin, target.id), target);
+      await QUIZ_STORE.set(playerKey(pin, actor.id), actor);
+      event = {
+        id: `ev_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+        timestamp: now,
+        actorId: actor.id,
+        actorName: actor.name,
+        actorAvatar: actor.avatar,
+        targetId: target.id,
+        targetName: target.name,
+        targetAvatar: target.avatar,
+        type: "swap",
+        blocked: true,
+        description: `🛡️ BLOCKED! ${actor.avatar} ${actor.name} tried to Swap Scores with ${target.avatar} ${target.name}, but their Shield blocked it!`,
+      };
+    } else {
+      const prevActor = actor.score;
+      const prevTarget = target.score;
+      actor.score = prevTarget;
+      target.score = prevActor;
+      await QUIZ_STORE.set(playerKey(pin, target.id), target);
+      await QUIZ_STORE.set(playerKey(pin, actor.id), actor);
+      event = {
+        id: `ev_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+        timestamp: now,
+        actorId: actor.id,
+        actorName: actor.name,
+        actorAvatar: actor.avatar,
+        targetId: target.id,
+        targetName: target.name,
+        targetAvatar: target.avatar,
+        type: "swap",
+        description: `🔄 SCORE SWAP! ${actor.avatar} ${actor.name} swapped point balances with ${target.avatar} ${target.name} (${actor.score} pts ↔ ${target.score} pts)!`,
+      };
+    }
+  } else if (powerUp.type === "tax") {
+    const rivals = sortedPlayers.filter((p) => p.id !== actor.id).slice(0, 3);
+    if (rivals.length === 0) {
+      throw new Error("No rivals available to tax.");
+    }
+    let totalTaxCollected = 0;
+    const taxedNames: string[] = [];
+    for (const rival of rivals) {
+      if (rival.activeShield) {
+        rival.activeShield = false;
+        await QUIZ_STORE.set(playerKey(pin, rival.id), rival);
+      } else {
+        const tax = Math.max(30, Math.min(200, Math.round(rival.score * 0.1)));
+        rival.score = Math.max(0, rival.score - tax);
+        totalTaxCollected += tax;
+        taxedNames.push(`${rival.avatar} ${rival.name}`);
+        await QUIZ_STORE.set(playerKey(pin, rival.id), rival);
+      }
+    }
+    actor.score += totalTaxCollected;
+    await QUIZ_STORE.set(playerKey(pin, actor.id), actor);
+    event = {
+      id: `ev_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      timestamp: now,
+      actorId: actor.id,
+      actorName: actor.name,
+      actorAvatar: actor.avatar,
+      type: "tax",
+      pointsDelta: totalTaxCollected,
+      description: `📉 PIGOUVIAN TAX! ${actor.avatar} ${actor.name} collected a ${totalTaxCollected} pts dividend from ${taxedNames.join(", ") || "rivals"}!`,
+    };
+  } else if (powerUp.type === "freeze") {
+    let targetId = input.targetPlayerId;
+    if (!targetId) {
+      const rival = sortedPlayers.find((p) => p.id !== actor.id);
+      targetId = rival?.id;
+    }
+    if (!targetId || targetId === actor.id) {
+      throw new Error("Pick a rival player to freeze.");
+    }
+    const target = allPlayers.find((p) => p.id === targetId);
+    if (!target) throw new Error("Target player not found.");
+
+    if (target.activeShield) {
+      target.activeShield = false;
+      await QUIZ_STORE.set(playerKey(pin, target.id), target);
+      await QUIZ_STORE.set(playerKey(pin, actor.id), actor);
+      event = {
+        id: `ev_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+        timestamp: now,
+        actorId: actor.id,
+        actorName: actor.name,
+        actorAvatar: actor.avatar,
+        targetId: target.id,
+        targetName: target.name,
+        targetAvatar: target.avatar,
+        type: "freeze",
+        blocked: true,
+        description: `🛡️ BLOCKED! ${actor.avatar} ${actor.name} tried to Freeze ${target.avatar} ${target.name}, but their Shield deflected it!`,
+      };
+    } else {
+      target.frozenUntil = Date.now() + 5000;
+      await QUIZ_STORE.set(playerKey(pin, target.id), target);
+      await QUIZ_STORE.set(playerKey(pin, actor.id), actor);
+      event = {
+        id: `ev_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+        timestamp: now,
+        actorId: actor.id,
+        actorName: actor.name,
+        actorAvatar: actor.avatar,
+        targetId: target.id,
+        targetName: target.name,
+        targetAvatar: target.avatar,
+        type: "freeze",
+        description: `🧊 POLICY SHOCK! ${actor.avatar} ${actor.name} froze ${target.avatar} ${target.name} for 5 seconds!`,
+      };
+    }
+  } else {
+    throw new Error("Unsupported power-up type.");
+  }
+
+  // Update meta with recent event
+  const events = Array.isArray(meta.recentEvents) ? [event, ...meta.recentEvents].slice(0, 20) : [event];
+  const updatedMeta: McqQuizMeta = {
+    ...meta,
+    recentEvents: events,
+  };
+  await QUIZ_STORE.set(metaKey(pin), updatedMeta);
+
+  const state = await getMcqQuizStateServer(pin, { userId: actor.userId });
+  if (!state) throw new Error("Failed to load updated state.");
+  return { ok: true, event, state };
+}
+

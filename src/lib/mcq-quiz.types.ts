@@ -33,6 +33,39 @@ export type QuizAnswerRecord = {
   answeredAt: string;
 };
 
+export type QuizPowerUpType =
+  | "steal"
+  | "swap"
+  | "tax"
+  | "shield"
+  | "multiplier_2x"
+  | "fifty_fifty"
+  | "freeze";
+
+export type QuizPowerUp = {
+  id: string;
+  type: QuizPowerUpType;
+  title: string;
+  description: string;
+  icon: string;
+  badgeColor: string;
+};
+
+export type QuizGameEvent = {
+  id: string;
+  timestamp: string;
+  actorId: string;
+  actorName: string;
+  actorAvatar: string;
+  type: QuizPowerUpType;
+  description: string;
+  targetId?: string;
+  targetName?: string;
+  targetAvatar?: string;
+  pointsDelta?: number;
+  blocked?: boolean;
+};
+
 export type QuizPlayer = {
   id: string;
   userId?: string | null;
@@ -49,6 +82,11 @@ export type QuizPlayer = {
   finishedAt?: string | null;
   joinedAt: string;
   lastAnsweredAt?: string | null;
+  // Power-up game extensions:
+  inventory?: QuizPowerUp[];
+  activeShield?: boolean;
+  activeMultiplier?: number;
+  frozenUntil?: number | null;
 };
 
 export type McqQuizMeta = {
@@ -71,6 +109,7 @@ export type McqQuizMeta = {
   createdAt: string;
   startedAt?: string | null;
   endedAt?: string | null;
+  recentEvents?: QuizGameEvent[];
 };
 
 export type PublicMcqQuizMeta = Omit<McqQuizMeta, "customQuestions"> & {
@@ -128,29 +167,102 @@ export function formatQuizPin(pin: string): string {
   return clean;
 }
 
+export const POWER_UP_CATALOG: Record<QuizPowerUpType, Omit<QuizPowerUp, "id">> = {
+  steal: {
+    type: "steal",
+    title: "Capital Steal",
+    description: "Seize 15% points from any rival or the 1st place leader!",
+    icon: "🎯",
+    badgeColor: "bg-rose-500/20 text-rose-700 dark:text-rose-300 border-rose-500/40",
+  },
+  swap: {
+    type: "swap",
+    title: "Score Redistribution",
+    description: "Swap your entire point balance with another player!",
+    icon: "🔄",
+    badgeColor: "bg-purple-500/20 text-purple-700 dark:text-purple-300 border-purple-500/40",
+  },
+  tax: {
+    type: "tax",
+    title: "Pigouvian Tax",
+    description: "Levy a 10% tax on the top 3 leaderboard players and pocket the rebate!",
+    icon: "📉",
+    badgeColor: "bg-amber-500/20 text-amber-700 dark:text-amber-300 border-amber-500/40",
+  },
+  shield: {
+    type: "shield",
+    title: "Central Bank Shield",
+    description: "Immunity! Automatically blocks the next incoming hostile attack.",
+    icon: "🛡️",
+    badgeColor: "bg-sky-500/20 text-sky-700 dark:text-sky-300 border-sky-500/40",
+  },
+  multiplier_2x: {
+    type: "multiplier_2x",
+    title: "Productivity Surge (2x)",
+    description: "Your next correct answer awards double points!",
+    icon: "⚡",
+    badgeColor: "bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border-emerald-500/40",
+  },
+  fifty_fifty: {
+    type: "fifty_fifty",
+    title: "50/50 Market Clear",
+    description: "Eliminates 2 incorrect options on the current question.",
+    icon: "✂️",
+    badgeColor: "bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 border-indigo-500/40",
+  },
+  freeze: {
+    type: "freeze",
+    title: "Policy Shock Freeze",
+    description: "Freeze a rival player's screen with a liquidity freeze for 5s!",
+    icon: "🧊",
+    badgeColor: "bg-cyan-500/20 text-cyan-700 dark:text-cyan-300 border-cyan-500/40",
+  },
+};
+
+export function getRandomPowerUp(): QuizPowerUp {
+  const types: QuizPowerUpType[] = [
+    "steal",
+    "swap",
+    "tax",
+    "shield",
+    "multiplier_2x",
+    "fifty_fifty",
+    "freeze",
+  ];
+  const picked = types[Math.floor(Math.random() * types.length)];
+  const proto = POWER_UP_CATALOG[picked];
+  return {
+    ...proto,
+    id: `pw_${picked}_${Math.random().toString(36).slice(2, 9)}`,
+  };
+}
+
 /**
  * Gamified Blooket/Quizizz point calculation:
  * - Correct answer earns 100 base points.
  * - Live Race mode adds up to +50 speed bonus (decays smoothly over 60 seconds)
  *   plus +20 per active consecutive streak (capped at 10x = +200).
  * - Exam Sprint mode prioritizes accuracy (100 base + modest +10 streak bonus).
+ * - Multiplier doubles base and streak points.
  */
 export function calculateQuizPoints(input: {
   isCorrect: boolean;
   elapsedSeconds: number;
   currentStreak: number;
   gameMode: QuizGameMode;
+  multiplier?: number;
 }): QuizScoreBreakdown {
   if (!input.isCorrect) {
     return { points: 0, base: 0, speedBonus: 0, streakBonus: 0 };
   }
 
-  const base = 100;
+  const mult = input.multiplier && input.multiplier > 1 ? input.multiplier : 1;
+  const base = 100 * mult;
   const clampedSeconds = Math.max(0, Math.min(120, Number.isFinite(input.elapsedSeconds) ? input.elapsedSeconds : 30));
   const nextStreak = Math.max(0, input.currentStreak) + 1;
 
   if (input.gameMode === "exam_sprint") {
-    const streakBonus = Math.min(nextStreak - 1, 10) * 10;
+    const streakBonus = Math.min(nextStreak - 1, 10) * 10 * mult;
     return {
       points: base + streakBonus,
       base,
@@ -161,8 +273,8 @@ export function calculateQuizPoints(input: {
 
   // Live Race mode (Quizizz/Blooket style)
   const speedRatio = Math.max(0, 1 - clampedSeconds / 60);
-  const speedBonus = Math.round(50 * speedRatio);
-  const streakBonus = Math.min(nextStreak - 1, 10) * 20;
+  const speedBonus = Math.round(50 * speedRatio) * mult;
+  const streakBonus = Math.min(nextStreak - 1, 10) * 20 * mult;
 
   return {
     points: base + speedBonus + streakBonus,

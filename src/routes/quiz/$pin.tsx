@@ -31,6 +31,15 @@ import {
   X,
   XCircle,
   Zap,
+  Shield,
+  Scissors,
+  Snowflake,
+  RefreshCw,
+  Target,
+  TrendingDown,
+  ZoomIn,
+  ZoomOut,
+  RotateCcw,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -44,6 +53,13 @@ import { ThemeToggle } from "@/components/marketing/theme-toggle";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -59,14 +75,19 @@ import {
   kickQuizPlayer,
   startMcqQuiz,
   submitQuizAnswer,
+  useQuizPowerUp,
 } from "@/lib/mcq-quiz.functions";
 import {
   formatQuizPin,
   normalizeQuizPin,
+  POWER_UP_CATALOG,
   QUIZ_AVATARS,
   type McqQuizPublicState,
+  type QuizGameEvent,
   type QuizLetter,
   type QuizPlayer,
+  type QuizPowerUp,
+  type QuizPowerUpType,
 } from "@/lib/mcq-quiz.types";
 import { cn, stripStars } from "@/lib/utils";
 
@@ -139,6 +160,7 @@ function LiveQuizRoomPage() {
   const submitAnswerFn = useServerFn(submitQuizAnswer);
   const finishPlayerFn = useServerFn(finishQuizPlayer);
   const fetchPdfFn = useServerFn(fetchQuizPaperPdf);
+  const usePowerUpFn = useServerFn(useQuizPowerUp);
 
   // Persisted player session for this PIN so refreshing restores seat + score
   const [savedPlayer, setSavedPlayer] = useState<{
@@ -222,6 +244,14 @@ function LiveQuizRoomPage() {
       .on("broadcast", { event: "sync" }, () => {
         void refetchRef.current();
       })
+      .on("broadcast", { event: "powerup" }, ({ payload }) => {
+        if (payload?.description) {
+          toast(payload.description, {
+            icon: payload.blocked ? "🛡️" : "⚡",
+          });
+        }
+        void refetchRef.current();
+      })
       .subscribe();
     channelRef.current = channel;
 
@@ -237,6 +267,18 @@ function LiveQuizRoomPage() {
         type: "broadcast",
         event: "sync",
         payload: { ts: Date.now() },
+      });
+    } catch {
+      /* polling fallback covers sync */
+    }
+  }, []);
+
+  const broadcastPowerUp = useCallback((event: QuizGameEvent) => {
+    try {
+      void channelRef.current?.send({
+        type: "broadcast",
+        event: "powerup",
+        payload: event,
       });
     } catch {
       /* polling fallback covers sync */
@@ -508,7 +550,7 @@ function LiveQuizRoomPage() {
     const finishedCount = players.filter((p) => p.finished).length;
 
     return (
-      <div className="min-h-screen flex flex-col bg-gradient-to-b from-background via-primary/[0.02] to-muted/20">
+      <div className="min-h-[100dvh] flex flex-col bg-gradient-to-b from-background via-primary/[0.02] to-muted/20 touch-manipulation">
         {/* Top Host Bar */}
         <header className="sticky top-0 z-30 border-b border-border bg-background/90 backdrop-blur-md px-4 sm:px-6 py-3">
           <div className="mx-auto max-w-6xl flex flex-wrap items-center justify-between gap-3">
@@ -875,7 +917,7 @@ function LiveQuizRoomPage() {
   // 1. Not joined yet (and quiz is ended -> show public podium)
   if (!mePlayer && meta.status === "ended") {
     return (
-      <div className="min-h-screen flex flex-col bg-background">
+      <div className="min-h-[100dvh] flex flex-col bg-background touch-manipulation">
         <header className="border-b border-border px-5 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2 font-extrabold">
             <Gamepad2 className="h-5 w-5 text-primary" />
@@ -903,7 +945,7 @@ function LiveQuizRoomPage() {
   // 2. Student Join Screen (Nickname + Avatar Picker)
   if (!mePlayer) {
     return (
-      <div className="min-h-screen flex flex-col bg-gradient-to-br from-background via-primary/[0.04] to-amber-500/[0.05]">
+      <div className="min-h-[100dvh] flex flex-col bg-gradient-to-br from-background via-primary/[0.04] to-amber-500/[0.05] touch-manipulation">
         <header className="flex items-center justify-between px-5 py-3.5 border-b border-border/60 bg-background/80 backdrop-blur-sm">
           <div className="flex items-center gap-2">
             <Link to="/quiz">
@@ -1031,7 +1073,7 @@ function LiveQuizRoomPage() {
   // 3. Student Waiting Lobby
   if (meta.status === "lobby") {
     return (
-      <div className="min-h-screen flex flex-col bg-gradient-to-br from-background via-emerald-500/[0.04] to-primary/[0.05]">
+      <div className="min-h-[100dvh] flex flex-col bg-gradient-to-br from-background via-emerald-500/[0.04] to-primary/[0.05] touch-manipulation">
         <header className="flex items-center justify-between px-5 py-3.5 border-b border-border/60 bg-background/80 backdrop-blur-sm">
           <div className="flex items-center gap-2">
             <Badge className="bg-emerald-600 text-white font-bold gap-1">
@@ -1106,7 +1148,7 @@ function LiveQuizRoomPage() {
   // 4. Countdown overlay (3 - 2 - 1 - GO!)
   if (countdown !== null) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-primary/15 via-background to-emerald-500/15 p-6 text-center">
+      <div className="min-h-[100dvh] flex flex-col items-center justify-center bg-gradient-to-br from-primary/15 via-background to-emerald-500/15 p-6 text-center touch-manipulation">
         <p className="text-sm font-bold uppercase tracking-widest text-muted-foreground mb-3">
           Get Ready — {meta.title}
         </p>
@@ -1123,7 +1165,7 @@ function LiveQuizRoomPage() {
     const accuracy = Math.round((mePlayer.correctCount / totalQ) * 100);
 
     return (
-      <div className="min-h-screen flex flex-col bg-gradient-to-b from-background via-amber-500/[0.03] to-muted/20">
+      <div className="min-h-[100dvh] flex flex-col bg-gradient-to-b from-background via-amber-500/[0.03] to-muted/20 touch-manipulation">
         <header className="sticky top-0 z-20 border-b border-border bg-background/90 backdrop-blur-sm px-5 py-3 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
             <span className="text-xl">{mePlayer.avatar}</span>
@@ -1281,6 +1323,8 @@ function LiveQuizRoomPage() {
       submitAnswerFn={submitAnswerFn}
       finishPlayerFn={finishPlayerFn}
       fetchPdfFn={fetchPdfFn}
+      usePowerUpFn={usePowerUpFn}
+      broadcastPowerUp={broadcastPowerUp}
       onStateMutated={async () => {
         broadcastSync();
         await quizQuery.refetch();
@@ -1305,6 +1349,8 @@ function StudentLiveGameplayView({
   submitAnswerFn,
   finishPlayerFn,
   fetchPdfFn,
+  usePowerUpFn,
+  broadcastPowerUp,
   onStateMutated,
 }: {
   cleanPin: string;
@@ -1318,8 +1364,11 @@ function StudentLiveGameplayView({
   submitAnswerFn: ReturnType<typeof useServerFn<typeof submitQuizAnswer>>;
   finishPlayerFn: ReturnType<typeof useServerFn<typeof finishQuizPlayer>>;
   fetchPdfFn: ReturnType<typeof useServerFn<typeof fetchQuizPaperPdf>>;
+  usePowerUpFn: ReturnType<typeof useServerFn<typeof useQuizPowerUp>>;
+  broadcastPowerUp: (event: QuizGameEvent) => void;
   onStateMutated: () => Promise<void>;
 }) {
+  const isGameMode = meta.gameMode === "live_race";
   const questionNumbers = meta.questionNumbers;
   const [currentIdx, setCurrentIdx] = useState<number>(() => {
     const firstUnansweredIdx = questionNumbers.findIndex((n) => !mePlayer.answers?.[n]);
@@ -1328,10 +1377,26 @@ function StudentLiveGameplayView({
 
   const currentNumber = questionNumbers[currentIdx] ?? questionNumbers[0] ?? 1;
   const [showFullPage, setShowFullPage] = useState(false);
+  const [zoomLevel, setZoomLevel] = useState<number>(100);
   const [calcOpen, setCalcOpen] = useState(false);
   const [leaderboardOpen, setLeaderboardOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [finishing, setFinishing] = useState(false);
+
+  // Power-up game mechanics
+  const [usingPowerUpId, setUsingPowerUpId] = useState<string | null>(null);
+  const [targetPickerPowerUp, setTargetPickerPowerUp] = useState<QuizPowerUp | null>(null);
+  const [eliminatedOptions, setEliminatedOptions] = useState<Record<number, Set<QuizLetter>>>({});
+
+  // Clock for freeze check & answer timing
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  useEffect(() => {
+    const id = window.setInterval(() => setNowMs(Date.now()), 500);
+    return () => window.clearInterval(id);
+  }, []);
+
+  const isFrozen = Boolean(mePlayer.frozenUntil && mePlayer.frozenUntil > nowMs);
+  const freezeRemaining = isFrozen ? Math.ceil((mePlayer.frozenUntil! - nowMs) / 1000) : 0;
 
   // Per-question stopwatch for speed bonus calculation
   const [questionElapsed, setQuestionElapsed] = useState(0);
@@ -1401,16 +1466,17 @@ function StudentLiveGameplayView({
 
   useEffect(() => {
     setShowFullPage(false);
+    setZoomLevel(100);
     setQuestionElapsed(0);
   }, [currentNumber]);
 
   useEffect(() => {
-    if (isAnswered) return;
+    if (isAnswered || isFrozen) return;
     const id = window.setInterval(() => {
       setQuestionElapsed((s) => s + 1);
     }, 1000);
     return () => window.clearInterval(id);
-  }, [isAnswered]);
+  }, [isAnswered, isFrozen]);
 
   // Resolve current PDF slice or full page image
   const sliceCanvas = renderedPdf?.questionSlices?.[currentNumber] ?? null;
@@ -1443,7 +1509,6 @@ function StudentLiveGameplayView({
   const hasNext = currentIdx < questionNumbers.length - 1;
 
   const goNext = useCallback(() => {
-    // Prefer next unanswered question after currentIdx, or simply currentIdx + 1
     if (hasNext) {
       setCurrentIdx((i) => Math.min(questionNumbers.length - 1, i + 1));
     } else {
@@ -1458,7 +1523,7 @@ function StudentLiveGameplayView({
 
   const handleAnswer = useCallback(
     async (letter: QuizLetter) => {
-      if (submitting || isAnswered) return;
+      if (submitting || isAnswered || isFrozen) return;
       setSubmitting(true);
       try {
         const res = await submitAnswerFn({
@@ -1486,13 +1551,23 @@ function StudentLiveGameplayView({
             explanation: res.explanation,
           },
         }));
+
         if (meta.showInstantFeedback) {
           if (res.isCorrect) {
+            const multTag = (res as any).multiplier > 1 ? " ⚡ 2X MULTIPLIER!" : "";
             toast.success(
-              `+${res.pointsEarned} pts!${res.player.currentStreak >= 2 ? ` 🔥 ${res.player.currentStreak} streak!` : ""}`,
+              `+${res.pointsEarned} pts!${multTag}${res.player.currentStreak >= 2 ? ` 🔥 ${res.player.currentStreak} streak!` : ""}`,
             );
           }
         }
+
+        if ((res as any).earnedPowerUp) {
+          const pw = (res as any).earnedPowerUp as QuizPowerUp;
+          toast.success(`🎁 Earned ${pw.icon} ${pw.title}! Check your Power-Up rack.`, {
+            duration: 4000,
+          });
+        }
+
         await onStateMutated();
       } catch (err) {
         toast.error(err instanceof Error ? err.message : "Could not submit answer.");
@@ -1503,6 +1578,7 @@ function StudentLiveGameplayView({
     [
       submitting,
       isAnswered,
+      isFrozen,
       submitAnswerFn,
       cleanPin,
       mePlayer.id,
@@ -1527,17 +1603,63 @@ function StudentLiveGameplayView({
     }
   }
 
+  // Handle Power-Up Activation
+  async function handleActivatePowerUp(powerUp: QuizPowerUp, targetPlayerId?: string) {
+    if (usingPowerUpId || isFrozen) return;
+
+    if (powerUp.type === "fifty_fifty") {
+      const allLetters: QuizLetter[] = ["A", "B", "C", "D"];
+      const correct = customQuestion?.correctAnswer;
+      const wrong = correct ? allLetters.filter((l) => l !== correct) : allLetters.slice(0, 3);
+      const eliminated = new Set<QuizLetter>(wrong.slice(0, 2));
+      setEliminatedOptions((prev) => ({ ...prev, [currentNumber]: eliminated }));
+    }
+
+    setUsingPowerUpId(powerUp.id);
+    try {
+      const res = await usePowerUpFn({
+        data: {
+          pin: cleanPin,
+          playerId: mePlayer.id,
+          powerUpId: powerUp.id,
+          targetPlayerId,
+        },
+      });
+      broadcastPowerUp(res.event);
+      if (res.event.blocked) {
+        toast.warning(res.event.description);
+      } else {
+        toast.success(res.event.description);
+      }
+      setTargetPickerPowerUp(null);
+      await onStateMutated();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not activate power-up.");
+    } finally {
+      setUsingPowerUpId(null);
+    }
+  }
+
+  function handlePowerUpClick(powerUp: QuizPowerUp) {
+    if (powerUp.type === "steal" || powerUp.type === "swap" || powerUp.type === "freeze") {
+      setTargetPickerPowerUp(powerUp);
+    } else {
+      void handleActivatePowerUp(powerUp);
+    }
+  }
+
   // Keyboard shortcuts: A/B/C/D or 1-4 to pick answer, Enter/RightArrow for Next
   useEffect(() => {
-    if (calcOpen || leaderboardOpen) return;
+    if (calcOpen || leaderboardOpen || targetPickerPowerUp !== null) return;
     function onKeyDown(e: KeyboardEvent) {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
       const key = e.key.toUpperCase();
-      if (!isAnswered) {
-        if (key === "A" || key === "1") void handleAnswer("A");
-        else if (key === "B" || key === "2") void handleAnswer("B");
-        else if (key === "C" || key === "3") void handleAnswer("C");
-        else if (key === "D" || key === "4") void handleAnswer("D");
+      if (!isAnswered && !isFrozen) {
+        const eliminated = eliminatedOptions[currentNumber] ?? new Set();
+        if ((key === "A" || key === "1") && !eliminated.has("A")) void handleAnswer("A");
+        else if ((key === "B" || key === "2") && !eliminated.has("B")) void handleAnswer("B");
+        else if ((key === "C" || key === "3") && !eliminated.has("C")) void handleAnswer("C");
+        else if ((key === "D" || key === "4") && !eliminated.has("D")) void handleAnswer("D");
       } else if (e.key === "Enter" && hasNext) {
         e.preventDefault();
         goNext();
@@ -1547,31 +1669,61 @@ function StudentLiveGameplayView({
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [calcOpen, leaderboardOpen, isAnswered, handleAnswer, hasNext, hasPrev, goNext]);
+  }, [
+    calcOpen,
+    leaderboardOpen,
+    targetPickerPowerUp,
+    isAnswered,
+    isFrozen,
+    eliminatedOptions,
+    currentNumber,
+    handleAnswer,
+    hasNext,
+    hasPrev,
+    goNext,
+  ]);
 
   const answeredCount = Math.max(
     mePlayer.answeredCount,
     Object.keys({ ...mePlayer.answers, ...feedbackByQuestion }).length,
   );
   const progressPct = Math.round((answeredCount / Math.max(1, questionNumbers.length)) * 100);
+  const inventory = Array.isArray(mePlayer.inventory) ? mePlayer.inventory : [];
+  const currentEliminated = eliminatedOptions[currentNumber] ?? new Set<QuizLetter>();
+
+  // Filter rivals for target attacks
+  const rivals = useMemo(
+    () => players.filter((p) => p.id !== mePlayer.id),
+    [players, mePlayer.id],
+  );
 
   return (
-    <div className="min-h-screen flex flex-col bg-muted/15 overflow-x-hidden">
-      {/* Gamified Quizizz / Blooket Top HUD */}
-      <header className="sticky top-0 z-30 border-b border-border bg-background/95 backdrop-blur-md px-3 sm:px-5 py-2.5">
+    <div className="min-h-[100dvh] flex flex-col bg-gradient-to-b from-background via-muted/15 to-background overflow-x-hidden w-full select-none touch-manipulation">
+      {/* Top HUD (Responsive across iPhone, iPad, Desktop) */}
+      <header className="sticky top-0 z-30 border-b border-border bg-background/95 backdrop-blur-md px-3 sm:px-5 py-2.5 shadow-2xs">
         <div className="mx-auto max-w-6xl flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <span className="text-xl shrink-0">{mePlayer.avatar}</span>
+          {/* Left Player Seat */}
+          <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
+            <span className="text-xl sm:text-2xl shrink-0">{mePlayer.avatar}</span>
             <div className="min-w-0">
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs sm:text-sm font-extrabold text-foreground truncate max-w-[140px] sm:max-w-[220px]">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="text-xs sm:text-sm font-black text-foreground truncate max-w-[120px] sm:max-w-[200px]">
                   {mePlayer.name}
                 </span>
                 {myRank ? (
-                  <Badge className="bg-amber-500 text-amber-950 font-black text-[10px] py-0 px-1.5">
+                  <Badge className="bg-amber-500 text-amber-950 font-black text-[10px] py-0 px-1.5 shrink-0">
                     #{myRank} / {players.length}
                   </Badge>
                 ) : null}
+                {isGameMode ? (
+                  <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30 text-[9px] font-extrabold uppercase py-0 px-1 hidden md:inline-flex">
+                    Arena
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="text-[9px] font-mono py-0 px-1 hidden md:inline-flex">
+                    Exam
+                  </Badge>
+                )}
               </div>
               <p className="text-[10px] text-muted-foreground truncate hidden sm:block">
                 {meta.title}
@@ -1579,18 +1731,40 @@ function StudentLiveGameplayView({
             </div>
           </div>
 
-          {/* Center Score + Streak + Timer Pills */}
-          <div className="flex items-center gap-1.5 sm:gap-2">
-            <div className="inline-flex items-center gap-1 rounded-lg border border-primary/30 bg-primary/10 px-2.5 py-1 font-mono text-xs font-black text-primary">
+          {/* Center Badges (Score + Streak + Buffs + Timer) */}
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap justify-center">
+            <div className="inline-flex items-center gap-1 rounded-lg border border-primary/30 bg-primary/10 px-2.5 py-1 font-mono text-xs font-black text-primary shadow-2xs">
               <Trophy className="h-3.5 w-3.5" />
               <span>{mePlayer.score.toLocaleString()} pts</span>
             </div>
+
             {mePlayer.currentStreak >= 1 ? (
               <div className="inline-flex items-center gap-0.5 rounded-lg border border-amber-500/40 bg-amber-500/15 px-2 py-1 font-mono text-xs font-black text-amber-700 dark:text-amber-300">
                 <Flame className="h-3.5 w-3.5" />
                 <span>{mePlayer.currentStreak}</span>
               </div>
             ) : null}
+
+            {mePlayer.activeShield ? (
+              <div
+                className="inline-flex items-center gap-1 rounded-lg border border-sky-500/40 bg-sky-500/15 px-2 py-1 text-[11px] font-black text-sky-700 dark:text-sky-300 animate-pulse"
+                title="Central Bank Shield protects against next attack"
+              >
+                <Shield className="h-3.5 w-3.5 fill-current" />
+                <span className="hidden sm:inline">Shielded</span>
+              </div>
+            ) : null}
+
+            {mePlayer.activeMultiplier === 2 ? (
+              <div
+                className="inline-flex items-center gap-1 rounded-lg border border-emerald-500/40 bg-emerald-500/15 px-2 py-1 text-[11px] font-black text-emerald-700 dark:text-emerald-300 animate-pulse"
+                title="Next correct answer yields 2x double points"
+              >
+                <Zap className="h-3.5 w-3.5 fill-current" />
+                <span>2x Boost</span>
+              </div>
+            ) : null}
+
             {remainingSeconds !== null ? (
               <div
                 className={cn(
@@ -1606,18 +1780,18 @@ function StudentLiveGameplayView({
             ) : null}
           </div>
 
-          {/* Right Controls */}
-          <div className="flex items-center gap-1.5">
+          {/* Right Action Buttons */}
+          <div className="flex items-center gap-1 sm:gap-1.5">
             {meta.showLiveLeaderboard ? (
               <Button
                 type="button"
                 size="sm"
                 variant="outline"
                 onClick={() => setLeaderboardOpen(true)}
-                className="h-8 gap-1 text-xs font-semibold"
+                className="h-8 gap-1 text-xs font-bold px-2 sm:px-2.5"
               >
                 <Trophy className="h-3.5 w-3.5 text-amber-500" />
-                <span className="hidden sm:inline">Live Board</span>
+                <span className="hidden sm:inline">Live Rank</span>
               </Button>
             ) : null}
             <Button
@@ -1636,9 +1810,9 @@ function StudentLiveGameplayView({
                 size="sm"
                 variant="outline"
                 onClick={onBackToHostBoard}
-                className="h-8 text-xs font-semibold"
+                className="h-8 text-xs font-semibold px-2"
               >
-                Host View
+                Host
               </Button>
             ) : null}
             <Button
@@ -1647,7 +1821,7 @@ function StudentLiveGameplayView({
               variant="secondary"
               disabled={finishing}
               onClick={handleFinishPaper}
-              className="h-8 text-xs font-bold gap-1"
+              className="h-8 text-xs font-bold gap-1 px-2.5"
             >
               <Flag className="h-3 w-3" />
               <span className="hidden sm:inline">Finish</span>
@@ -1655,7 +1829,7 @@ function StudentLiveGameplayView({
           </div>
         </div>
 
-        {/* Whole-Paper Progress Bar */}
+        {/* Paper Progress Strip */}
         <div className="mx-auto max-w-6xl mt-2 flex items-center gap-2">
           <Progress value={progressPct} className="h-1.5 flex-1" />
           <span className="font-mono text-[10px] font-bold text-muted-foreground shrink-0">
@@ -1664,9 +1838,36 @@ function StudentLiveGameplayView({
         </div>
       </header>
 
-      {/* Main Workspace: Full-Width Question Strip + Balanced 2-Column Split */}
-      <main className="flex-1 mx-auto w-full max-w-6xl px-3 sm:px-6 py-4 space-y-4">
-        {/* Full-Width Question Navigator Pills */}
+      {/* Live Action Ticker for Game Arena Mode */}
+      {isGameMode && meta.recentEvents && meta.recentEvents.length > 0 ? (
+        <div className="border-b border-amber-500/20 bg-amber-500/[0.07] px-3 py-1.5">
+          <div className="mx-auto max-w-6xl flex items-center gap-2 overflow-x-auto text-[11px] font-semibold text-foreground/90">
+            <span className="flex items-center gap-1 text-amber-600 dark:text-amber-400 font-bold shrink-0">
+              <Zap className="h-3 w-3 fill-current" />
+              Arena Feed:
+            </span>
+            <div className="flex items-center gap-3 min-w-max">
+              {meta.recentEvents.slice(0, 3).map((ev) => (
+                <span
+                  key={ev.id}
+                  className={cn(
+                    "inline-flex items-center gap-1 rounded-md px-2 py-0.5",
+                    ev.blocked
+                      ? "bg-sky-500/15 text-sky-800 dark:text-sky-300 border border-sky-500/30"
+                      : "bg-background/80 border border-border/60",
+                  )}
+                >
+                  <span>{ev.description}</span>
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {/* Main Workspace (Optimized for iPad Portrait, Landscape & Mobile) */}
+      <main className="flex-1 mx-auto w-full max-w-6xl px-3 sm:px-6 py-3 sm:py-4 space-y-3 sm:space-y-4">
+        {/* Question Navigator Number Bar */}
         <div className="w-full overflow-x-auto pb-1">
           <div className="flex items-center gap-1.5 min-w-max">
             {questionNumbers.map((qNum, idx) => {
@@ -1684,7 +1885,7 @@ function StudentLiveGameplayView({
                   type="button"
                   onClick={() => setCurrentIdx(idx)}
                   className={cn(
-                    "h-7 min-w-[2rem] px-2 rounded-lg font-mono text-xs font-bold border transition-all shrink-0",
+                    "h-8 min-w-[2.25rem] px-2 rounded-lg font-mono text-xs font-bold border transition-all shrink-0 active:scale-95 touch-manipulation",
                     isCurrent
                       ? "border-primary bg-primary text-primary-foreground shadow-xs scale-105"
                       : recCorrect === true && meta.showInstantFeedback
@@ -1703,340 +1904,555 @@ function StudentLiveGameplayView({
           </div>
         </div>
 
-        {/* Balanced 2-Column Grid: Question Surface (Left) + Fixed-Width Answer Panel (Right) */}
-        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_360px] xl:grid-cols-[minmax(0,1fr)_400px] gap-5 items-start">
-          {/* Left: Real Cambridge PDF Question Slice OR Custom Question Card */}
-          <div className="min-w-0 space-y-3">
-            {/* Question Surface */}
-            <Card className="overflow-hidden border-2 border-border shadow-sm">
-            <CardHeader className="py-2.5 px-4 border-b border-border/70 bg-muted/25 flex flex-row items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <Badge className="font-mono font-black text-xs">
-                  Question {currentNumber}
-                </Badge>
-                <span className="text-[11px] text-muted-foreground font-medium">
-                  ({currentIdx + 1} of {questionNumbers.length})
-                </span>
-              </div>
+        {/* POWER-UP INVENTORY RACK (Game Arena Mode Only) */}
+        {isGameMode ? (
+          <div className="rounded-xl border-2 border-amber-500/35 bg-gradient-to-r from-amber-500/[0.08] via-background to-amber-500/[0.05] p-3 shadow-2xs">
+            <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-1.5">
-                {meta.sourceType !== "custom_questions" && sliceCanvas ? (
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => setShowFullPage((v) => !v)}
-                    className="h-7 px-2 text-[11px] gap-1"
-                  >
-                    {showFullPage ? (
-                      <>
-                        <Minimize2 className="h-3 w-3" />
-                        Crop Question
-                      </>
-                    ) : (
-                      <>
-                        <Maximize2 className="h-3 w-3" />
-                        Full Page
-                      </>
-                    )}
-                  </Button>
-                ) : null}
-                <Badge variant="outline" className="font-mono text-[10px] gap-1">
-                  <Clock className="h-2.5 w-2.5" />
-                  {formatClock(questionElapsed)}
-                </Badge>
-              </div>
-            </CardHeader>
-
-            <CardContent className="p-4 sm:p-5">
-              {meta.sourceType === "custom_questions" ? (
-                customQuestion ? (
-                  <div className="space-y-4">
-                    {customQuestion.topic ? (
-                      <Badge variant="secondary" className="text-[10px]">
-                        {customQuestion.topic}
-                      </Badge>
-                    ) : null}
-                    <p className="text-base sm:text-lg font-bold leading-relaxed text-foreground whitespace-pre-line">
-                      {customQuestion.stem}
-                    </p>
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground">Question not found.</p>
-                )
-              ) : pdfProgress ? (
-                <div className="py-16 flex flex-col items-center justify-center gap-3 text-center">
-                  <Loader2 className="h-7 w-7 animate-spin text-primary" />
-                  <p className="text-xs font-semibold text-muted-foreground">{pdfProgress}</p>
-                </div>
-              ) : pdfError ? (
-                <div className="py-12 text-center space-y-3 text-destructive text-xs">
-                  <XCircle className="h-6 w-6 mx-auto" />
-                  <p>{pdfError}</p>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setPdfReloadSeq((s) => s + 1)}
-                  >
-                    Retry Loading Paper
-                  </Button>
-                </div>
-              ) : displayedDataUrl ? (
-                <div className="rounded-lg border border-border/60 bg-white p-2 overflow-x-auto">
-                  <img
-                    src={displayedDataUrl}
-                    alt={`Question ${currentNumber}`}
-                    className="w-full h-auto block select-none"
-                  />
-                </div>
-              ) : (
-                <div className="py-12 text-center text-xs text-muted-foreground">
-                  <BookOpen className="h-6 w-6 mx-auto mb-2 opacity-60" />
-                  Rendering Question {currentNumber}…
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Right: Blooket / Quizizz Answer Tiles & Live Feedback */}
-        <div className="min-w-0 space-y-4 lg:sticky lg:top-24">
-          <Card className="border-2 border-border shadow-sm">
-            <CardHeader className="py-3 px-4 border-b border-border/70 bg-muted/20">
-              <CardTitle className="text-xs font-extrabold uppercase tracking-wider text-muted-foreground flex items-center justify-between gap-2">
-                <span className="truncate">Select Your Answer</span>
-                <span className="font-mono text-[10px] font-normal whitespace-nowrap shrink-0">
-                  Keys: A / B / C / D
+                <span className="text-sm font-black text-foreground flex items-center gap-1">
+                  ⚡ Power-Up Arsenal ({inventory.length}/3)
                 </span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-4 space-y-2.5">
-              {(["A", "B", "C", "D"] as QuizLetter[]).map((letter) => {
-                const style = OPTION_STYLES[letter];
-                const pickedLetter = localFeedback?.selected ?? existingAnswer?.selected;
-                const officialLetter = localFeedback?.correctAnswer ?? existingAnswer?.correctAnswer;
-                const isPicked = pickedLetter === letter;
-                const revealCorrect =
-                  isAnswered && meta.showInstantFeedback && officialLetter === letter;
-                const revealWrong =
-                  isAnswered &&
-                  meta.showInstantFeedback &&
-                  isPicked &&
-                  officialLetter &&
-                  officialLetter !== letter;
+                <span className="text-[10px] text-muted-foreground hidden sm:inline">
+                  Answer correctly to earn game-changing power-ups!
+                </span>
+              </div>
+              <Badge variant="outline" className="text-[10px] font-mono border-amber-500/40 text-amber-700 dark:text-amber-300">
+                Steal · Swap · Tax · Shield · 2x · Freeze
+              </Badge>
+            </div>
 
-                const optionText = customQuestion?.options?.[letter];
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              {[0, 1, 2].map((slotIdx) => {
+                const item = inventory[slotIdx];
+                if (!item) {
+                  return (
+                    <div
+                      key={slotIdx}
+                      className="flex items-center justify-center rounded-lg border border-dashed border-border/80 bg-muted/20 px-3 py-2 text-center text-xs text-muted-foreground"
+                    >
+                      <span className="text-[11px] font-medium opacity-70">
+                        Slot {slotIdx + 1}: Empty (Earn on correct answer)
+                      </span>
+                    </div>
+                  );
+                }
 
                 return (
-                  <button
-                    key={letter}
-                    type="button"
-                    disabled={submitting || isAnswered}
-                    onClick={() => void handleAnswer(letter)}
-                    className={cn(
-                      "w-full flex items-center gap-3 rounded-xl border-2 px-4 py-3.5 text-left transition-all active:scale-[0.98]",
-                      !isAnswered
-                        ? style.idle
-                        : revealCorrect
-                          ? "border-emerald-500 bg-emerald-500/15 ring-2 ring-emerald-500/30"
-                          : revealWrong
-                            ? "border-rose-500 bg-rose-500/15"
-                            : isPicked
-                              ? "border-primary bg-primary/10"
-                              : "border-border/50 bg-muted/20 opacity-60",
-                    )}
+                  <div
+                    key={item.id}
+                    className="flex items-center justify-between gap-2 rounded-lg border-2 border-amber-500/50 bg-background/95 p-2.5 shadow-2xs transition-all hover:border-amber-500"
                   >
-                    <span
-                      className={cn(
-                        "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg font-mono text-base font-black shadow-xs",
-                        revealCorrect
-                          ? "bg-emerald-600 text-white"
-                          : revealWrong
-                            ? "bg-rose-600 text-white"
-                            : style.badge,
-                      )}
-                    >
-                      {letter}
-                    </span>
-
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold text-foreground leading-snug">
-                        {optionText || style.label}
-                      </p>
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-2xl shrink-0">{item.icon}</span>
+                      <div className="min-w-0">
+                        <p className="text-xs font-black text-foreground truncate">{item.title}</p>
+                        <p className="text-[10px] text-muted-foreground truncate leading-tight">
+                          {item.description}
+                        </p>
+                      </div>
                     </div>
-
-                    {revealCorrect ? (
-                      <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                    ) : revealWrong ? (
-                      <XCircle className="h-5 w-5 text-rose-600 dark:text-rose-400 shrink-0" />
-                    ) : isPicked ? (
-                      <Check className="h-5 w-5 text-primary shrink-0" />
-                    ) : null}
-                  </button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      disabled={usingPowerUpId === item.id || isFrozen}
+                      onClick={() => handlePowerUpClick(item)}
+                      className="h-7 px-3 text-[11px] font-black uppercase bg-amber-500 hover:bg-amber-600 text-amber-950 shrink-0 shadow-2xs"
+                    >
+                      {usingPowerUpId === item.id ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        "USE"
+                      )}
+                    </Button>
+                  </div>
                 );
               })}
-            </CardContent>
-          </Card>
+            </div>
+          </div>
+        ) : null}
 
-          {/* Instant Gamified Feedback Banner */}
-          {isAnswered ? (
-            <div className="space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-200">
-              {meta.showInstantFeedback ? (
-                (() => {
-                  const isCorrect =
-                    localFeedback?.isCorrect ?? existingAnswer?.correct ?? false;
-                  const pts = localFeedback?.pointsEarned ?? existingAnswer?.points ?? 0;
-                  const correctAns =
-                    localFeedback?.correctAnswer ?? existingAnswer?.correctAnswer ?? null;
+        {/* 2-Column Responsive Layout (iPad Landscape: Side-by-Side | iPad Portrait: Stacked 2x2) */}
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.2fr)_minmax(340px,410px)] gap-4 sm:gap-5 items-start">
+          {/* LEFT: Cambridge Question Display (with iPad zoom controls) */}
+          <div className="min-w-0 space-y-3">
+            <Card className="overflow-hidden border-2 border-border shadow-sm">
+              <CardHeader className="py-2 px-3 sm:px-4 border-b border-border/70 bg-muted/25 flex flex-row items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <Badge className="font-mono font-black text-xs">
+                    Question {currentNumber}
+                  </Badge>
+                  <span className="text-[11px] text-muted-foreground font-medium">
+                    ({currentIdx + 1} of {questionNumbers.length})
+                  </span>
+                </div>
 
-                  return (
-                    <Card
-                      className={cn(
-                        "border-2",
-                        isCorrect
-                          ? "border-emerald-500/50 bg-emerald-500/10"
-                          : "border-rose-500/50 bg-rose-500/10",
-                      )}
+                {/* Question Toolbar (Zoom + Fullpage Toggle) */}
+                <div className="flex items-center gap-1 sm:gap-1.5">
+                  {meta.sourceType !== "custom_questions" && sliceCanvas ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setShowFullPage((v) => !v)}
+                      className="h-7 px-2 text-[11px] gap-1"
                     >
-                      <CardContent className="p-4 space-y-2">
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-2 min-w-0">
-                            {isCorrect ? (
-                              <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
-                            ) : (
-                              <XCircle className="h-5 w-5 shrink-0 text-rose-600 dark:text-rose-400" />
-                            )}
-                            <span className="text-sm font-black text-foreground leading-snug">
-                              {isCorrect
-                                ? `Correct! +${pts} pts`
-                                : `Not quite — Official answer is ${correctAns ?? "recorded"}`}
+                      {showFullPage ? (
+                        <>
+                          <Minimize2 className="h-3 w-3" />
+                          <span className="hidden sm:inline">Crop</span>
+                        </>
+                      ) : (
+                        <>
+                          <Maximize2 className="h-3 w-3" />
+                          <span className="hidden sm:inline">Full Page</span>
+                        </>
+                      )}
+                    </Button>
+                  ) : null}
+
+                  {/* Diagram Zoom Controls */}
+                  {displayedDataUrl ? (
+                    <div className="flex items-center gap-0.5 rounded-lg border border-border bg-background p-0.5">
+                      <button
+                        type="button"
+                        onClick={() => setZoomLevel((z) => Math.max(100, z - 25))}
+                        disabled={zoomLevel <= 100}
+                        className="rounded p-1 text-muted-foreground hover:text-foreground disabled:opacity-30"
+                        title="Zoom Out"
+                      >
+                        <ZoomOut className="h-3 w-3" />
+                      </button>
+                      <span className="w-8 text-center font-mono text-[10px] font-bold text-muted-foreground">
+                        {zoomLevel}%
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setZoomLevel((z) => Math.min(200, z + 25))}
+                        disabled={zoomLevel >= 200}
+                        className="rounded p-1 text-muted-foreground hover:text-foreground disabled:opacity-30"
+                        title="Zoom In"
+                      >
+                        <ZoomIn className="h-3 w-3" />
+                      </button>
+                      {zoomLevel !== 100 ? (
+                        <button
+                          type="button"
+                          onClick={() => setZoomLevel(100)}
+                          className="rounded p-1 text-primary hover:text-primary/80"
+                          title="Reset Zoom"
+                        >
+                          <RotateCcw className="h-2.5 w-2.5" />
+                        </button>
+                      ) : null}
+                    </div>
+                  ) : null}
+
+                  <Badge variant="outline" className="font-mono text-[10px] gap-1">
+                    <Clock className="h-2.5 w-2.5" />
+                    {formatClock(questionElapsed)}
+                  </Badge>
+                </div>
+              </CardHeader>
+
+              <CardContent className="p-3 sm:p-5">
+                {meta.sourceType === "custom_questions" ? (
+                  customQuestion ? (
+                    <div className="space-y-4">
+                      {customQuestion.topic ? (
+                        <Badge variant="secondary" className="text-[10px]">
+                          {customQuestion.topic}
+                        </Badge>
+                      ) : null}
+                      <p className="text-base sm:text-lg font-bold leading-relaxed text-foreground whitespace-pre-line">
+                        {customQuestion.stem}
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">Question not found.</p>
+                  )
+                ) : pdfProgress ? (
+                  <div className="py-16 flex flex-col items-center justify-center gap-3 text-center">
+                    <Loader2 className="h-7 w-7 animate-spin text-primary" />
+                    <p className="text-xs font-semibold text-muted-foreground">{pdfProgress}</p>
+                  </div>
+                ) : pdfError ? (
+                  <div className="py-12 text-center space-y-3 text-destructive text-xs">
+                    <XCircle className="h-6 w-6 mx-auto" />
+                    <p>{pdfError}</p>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setPdfReloadSeq((s) => s + 1)}
+                    >
+                      Retry Loading Paper
+                    </Button>
+                  </div>
+                ) : displayedDataUrl ? (
+                  <div className="rounded-lg border border-border/60 bg-white p-2 overflow-auto max-h-[55vh] sm:max-h-[62vh]">
+                    <img
+                      src={displayedDataUrl}
+                      alt={`Question ${currentNumber}`}
+                      style={{
+                        transform: `scale(${zoomLevel / 100})`,
+                        transformOrigin: "top left",
+                      }}
+                      className="w-full h-auto block select-none transition-transform duration-150"
+                    />
+                  </div>
+                ) : (
+                  <div className="py-12 text-center text-xs text-muted-foreground">
+                    <BookOpen className="h-6 w-6 mx-auto mb-2 opacity-60" />
+                    Rendering Question {currentNumber}…
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* RIGHT: Answer Dock with Frost Freeze Overlay and iPad 2x2 Grid */}
+          <div className="relative min-w-0 space-y-3 sm:space-y-4 lg:sticky lg:top-20">
+            {/* FROST OVERLAY (When hit with Liquidity Shock Freeze) */}
+            {isFrozen ? (
+              <div className="absolute inset-0 z-20 flex flex-col items-center justify-center rounded-2xl bg-cyan-950/80 backdrop-blur-md border-2 border-cyan-400 p-6 text-center animate-in fade-in zoom-in-95 duration-200 shadow-xl">
+                <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-cyan-500/20 text-cyan-300 text-3xl mb-2 animate-bounce">
+                  🧊
+                </div>
+                <h3 className="text-lg font-black text-white tracking-wide">
+                  POLICY SHOCK FREEZE!
+                </h3>
+                <p className="text-xs text-cyan-200 max-w-xs mt-1">
+                  A rival player hit you with a liquidity freeze. All inputs are temporarily locked!
+                </p>
+                <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-cyan-400/50 bg-cyan-500/30 px-5 py-2 text-sm font-mono font-black text-cyan-100 shadow-md">
+                  <Snowflake className="h-4 w-4 animate-spin text-cyan-300" />
+                  <span>Thawing in {freezeRemaining}s…</span>
+                </div>
+              </div>
+            ) : null}
+
+            {/* Answer Options Card */}
+            <Card className="border-2 border-border shadow-sm">
+              <CardHeader className="py-2.5 px-3 sm:px-4 border-b border-border/70 bg-muted/20">
+                <CardTitle className="text-xs font-black uppercase tracking-wider text-muted-foreground flex items-center justify-between gap-2">
+                  <span>Select Answer</span>
+                  <span className="font-mono text-[10px] font-normal whitespace-nowrap">
+                    Keyboard: A / B / C / D
+                  </span>
+                </CardTitle>
+              </CardHeader>
+
+              {/* Options Grid: Responsive 2-column on iPad/tablets for immediate touch reach! */}
+              <CardContent className="p-3 sm:p-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-2.5">
+                  {(["A", "B", "C", "D"] as QuizLetter[]).map((letter) => {
+                    const style = OPTION_STYLES[letter];
+                    const pickedLetter = localFeedback?.selected ?? existingAnswer?.selected;
+                    const officialLetter =
+                      localFeedback?.correctAnswer ?? existingAnswer?.correctAnswer;
+                    const isPicked = pickedLetter === letter;
+                    const isEliminated = currentEliminated.has(letter);
+                    const revealCorrect =
+                      isAnswered && meta.showInstantFeedback && officialLetter === letter;
+                    const revealWrong =
+                      isAnswered &&
+                      meta.showInstantFeedback &&
+                      isPicked &&
+                      officialLetter &&
+                      officialLetter !== letter;
+
+                    const optionText = customQuestion?.options?.[letter];
+
+                    return (
+                      <button
+                        key={letter}
+                        type="button"
+                        disabled={submitting || isAnswered || isFrozen || isEliminated}
+                        onClick={() => void handleAnswer(letter)}
+                        className={cn(
+                          "w-full flex items-center gap-3 rounded-xl border-2 px-3.5 py-3 text-left transition-all min-h-[54px] sm:min-h-[58px] touch-manipulation select-none active:scale-[0.98]",
+                          isEliminated
+                            ? "border-border/30 bg-muted/10 opacity-30 line-through cursor-not-allowed"
+                            : !isAnswered
+                              ? style.idle
+                              : revealCorrect
+                                ? "border-emerald-500 bg-emerald-500/15 ring-2 ring-emerald-500/30"
+                                : revealWrong
+                                  ? "border-rose-500 bg-rose-500/15"
+                                  : isPicked
+                                    ? "border-primary bg-primary/10"
+                                    : "border-border/50 bg-muted/20 opacity-60",
+                        )}
+                      >
+                        <span
+                          className={cn(
+                            "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg font-mono text-base font-black shadow-xs",
+                            isEliminated
+                              ? "bg-muted text-muted-foreground"
+                              : revealCorrect
+                                ? "bg-emerald-600 text-white"
+                                : revealWrong
+                                  ? "bg-rose-600 text-white"
+                                  : style.badge,
+                          )}
+                        >
+                          {letter}
+                        </span>
+
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-bold text-foreground leading-snug">
+                            {optionText || style.label}
+                          </p>
+                          {isEliminated ? (
+                            <span className="text-[10px] font-bold text-destructive">
+                              50/50 Eliminated
                             </span>
-                          </div>
-                          {localFeedback && isCorrect ? (
-                            <Badge className="bg-emerald-600 text-white font-mono text-[10px] whitespace-nowrap shrink-0">
-                              #{localFeedback.rank} / {localFeedback.totalPlayers}
-                            </Badge>
                           ) : null}
                         </div>
 
-                        {localFeedback && isCorrect ? (
-                          <div className="flex flex-wrap gap-1.5 text-[10px] font-semibold">
-                            <span className="rounded bg-background/80 px-2 py-0.5 border border-border">
-                              +{localFeedback.basePoints} base
-                            </span>
-                            {localFeedback.speedBonus > 0 ? (
-                              <span className="rounded bg-sky-500/15 text-sky-700 dark:text-sky-300 px-2 py-0.5 inline-flex items-center gap-0.5">
-                                <Zap className="h-2.5 w-2.5" />+{localFeedback.speedBonus} speed
-                              </span>
-                            ) : null}
-                            {localFeedback.streakBonus > 0 ? (
-                              <span className="rounded bg-amber-500/15 text-amber-700 dark:text-amber-300 px-2 py-0.5 inline-flex items-center gap-0.5">
-                                <Flame className="h-2.5 w-2.5" />+{localFeedback.streakBonus} streak
-                              </span>
-                            ) : null}
-                          </div>
+                        {revealCorrect ? (
+                          <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                        ) : revealWrong ? (
+                          <XCircle className="h-5 w-5 text-rose-600 dark:text-rose-400 shrink-0" />
+                        ) : isPicked ? (
+                          <Check className="h-5 w-5 text-primary shrink-0" />
                         ) : null}
+                      </button>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
 
-                        {/* Stored Instant Explanation (if available) */}
-                        {localFeedback?.explanation ? (
-                          <div className="mt-2 rounded-lg border border-border/70 bg-background/90 p-3 text-xs leading-relaxed space-y-1">
-                            <p className="font-bold text-primary flex items-center gap-1 text-[11px]">
-                              <Sparkles className="h-3 w-3" />
-                              Why Option {correctAns} is Right
-                              {localFeedback.explanation.visionGrounded ? (
-                                <Badge variant="outline" className="ml-auto text-[9px] py-0 gap-0.5">
-                                  <Eye className="h-2.5 w-2.5" />
-                                  Verified
-                                </Badge>
-                              ) : null}
-                            </p>
-                            <p className="text-foreground/90">
-                              {stripStars(
-                                localFeedback.explanation.diagnostic?.correctReasoning ||
-                                  localFeedback.explanation.text,
+            {/* Instant Feedback & Explanation Banner */}
+            {isAnswered ? (
+              <div className="space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-200">
+                {meta.showInstantFeedback ? (
+                  (() => {
+                    const isCorrect =
+                      localFeedback?.isCorrect ?? existingAnswer?.correct ?? false;
+                    const pts = localFeedback?.pointsEarned ?? existingAnswer?.points ?? 0;
+                    const correctAns =
+                      localFeedback?.correctAnswer ?? existingAnswer?.correctAnswer ?? null;
+
+                    return (
+                      <Card
+                        className={cn(
+                          "border-2",
+                          isCorrect
+                            ? "border-emerald-500/50 bg-emerald-500/10"
+                            : "border-rose-500/50 bg-rose-500/10",
+                        )}
+                      >
+                        <CardContent className="p-3.5 sm:p-4 space-y-2">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2 min-w-0">
+                              {isCorrect ? (
+                                <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                              ) : (
+                                <XCircle className="h-5 w-5 shrink-0 text-rose-600 dark:text-rose-400" />
                               )}
-                            </p>
+                              <span className="text-sm font-black text-foreground leading-snug">
+                                {isCorrect
+                                  ? `Correct! +${pts} pts`
+                                  : `Not quite — Official answer is ${correctAns ?? "recorded"}`}
+                              </span>
+                            </div>
+                            {localFeedback && isCorrect ? (
+                              <Badge className="bg-emerald-600 text-white font-mono text-[10px] whitespace-nowrap shrink-0">
+                                #{localFeedback.rank} / {localFeedback.totalPlayers}
+                              </Badge>
+                            ) : null}
                           </div>
-                        ) : null}
-                      </CardContent>
-                    </Card>
-                  );
-                })()
-              ) : (
-                <Card className="border-primary/40 bg-primary/5">
-                  <CardContent className="p-3.5 text-xs font-semibold text-foreground flex items-center gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-primary" />
-                    Answer locked in! Full results reveal when you finish.
-                  </CardContent>
-                </Card>
-              )}
 
-              {/* Next / Finish CTA */}
-              <div className="flex items-center gap-2">
+                          {localFeedback && isCorrect ? (
+                            <div className="flex flex-wrap gap-1.5 text-[10px] font-semibold">
+                              <span className="rounded bg-background/80 px-2 py-0.5 border border-border">
+                                +{localFeedback.basePoints} base
+                              </span>
+                              {localFeedback.speedBonus > 0 ? (
+                                <span className="rounded bg-sky-500/15 text-sky-700 dark:text-sky-300 px-2 py-0.5 inline-flex items-center gap-0.5">
+                                  <Zap className="h-2.5 w-2.5" />+{localFeedback.speedBonus} speed
+                                </span>
+                              ) : null}
+                              {localFeedback.streakBonus > 0 ? (
+                                <span className="rounded bg-amber-500/15 text-amber-700 dark:text-amber-300 px-2 py-0.5 inline-flex items-center gap-0.5">
+                                  <Flame className="h-2.5 w-2.5" />+{localFeedback.streakBonus} streak
+                                </span>
+                              ) : null}
+                            </div>
+                          ) : null}
+
+                          {localFeedback?.explanation ? (
+                            <div className="mt-2 rounded-lg border border-border/70 bg-background/90 p-3 text-xs leading-relaxed space-y-1">
+                              <p className="font-bold text-primary flex items-center gap-1 text-[11px]">
+                                <Sparkles className="h-3 w-3" />
+                                Why Option {correctAns} is Right
+                                {localFeedback.explanation.visionGrounded ? (
+                                  <Badge variant="outline" className="ml-auto text-[9px] py-0 gap-0.5">
+                                    <Eye className="h-2.5 w-2.5" />
+                                    Verified
+                                  </Badge>
+                                ) : null}
+                              </p>
+                              <p className="text-foreground/90">
+                                {stripStars(
+                                  localFeedback.explanation.diagnostic?.correctReasoning ||
+                                    localFeedback.explanation.text,
+                                )}
+                              </p>
+                            </div>
+                          ) : null}
+                        </CardContent>
+                      </Card>
+                    );
+                  })()
+                ) : (
+                  <Card className="border-primary/40 bg-primary/5">
+                    <CardContent className="p-3.5 text-xs font-semibold text-foreground flex items-center gap-2">
+                      <CheckCircle2 className="h-4 w-4 text-primary" />
+                      Answer locked in! Full results reveal when you finish.
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Next Question / Finish CTAs */}
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={!hasPrev}
+                    onClick={() => setCurrentIdx((i) => Math.max(0, i - 1))}
+                    className="h-11 px-3 touch-manipulation"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  {hasNext ? (
+                    <Button
+                      type="button"
+                      onClick={goNext}
+                      className="flex-1 h-11 text-sm font-extrabold gap-2 shadow-sm touch-manipulation"
+                    >
+                      <span>Next Question</span>
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  ) : (
+                    <Button
+                      type="button"
+                      disabled={finishing}
+                      onClick={handleFinishPaper}
+                      className="flex-1 h-11 text-sm font-extrabold gap-2 bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm touch-manipulation"
+                    >
+                      {finishing ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Trophy className="h-4 w-4" />
+                      )}
+                      Finish Paper &amp; See Podium
+                    </Button>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center justify-between gap-2">
                 <Button
                   type="button"
-                  variant="outline"
+                  size="sm"
+                  variant="ghost"
                   disabled={!hasPrev}
                   onClick={() => setCurrentIdx((i) => Math.max(0, i - 1))}
-                  className="h-11 px-3"
+                  className="gap-1 text-xs touch-manipulation"
                 >
-                  <ChevronLeft className="h-4 w-4" />
+                  <ChevronLeft className="h-3.5 w-3.5" />
+                  Prev
                 </Button>
-                {hasNext ? (
-                  <Button
-                    type="button"
-                    onClick={goNext}
-                    className="flex-1 h-11 text-sm font-extrabold gap-2 shadow-sm"
-                  >
-                    <span>Next Question</span>
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
-                ) : (
-                  <Button
-                    type="button"
-                    disabled={finishing}
-                    onClick={handleFinishPaper}
-                    className="flex-1 h-11 text-sm font-extrabold gap-2 bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
-                  >
-                    {finishing ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Trophy className="h-4 w-4" />
-                    )}
-                    Finish Paper &amp; See Podium
-                  </Button>
-                )}
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  disabled={!hasNext}
+                  onClick={() => setCurrentIdx((i) => Math.min(questionNumbers.length - 1, i + 1))}
+                  className="gap-1 text-xs touch-manipulation"
+                >
+                  Skip for now
+                  <ChevronRight className="h-3.5 w-3.5" />
+                </Button>
               </div>
-            </div>
-          ) : (
-            <div className="flex items-center justify-between gap-2">
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                disabled={!hasPrev}
-                onClick={() => setCurrentIdx((i) => Math.max(0, i - 1))}
-                className="gap-1 text-xs"
-              >
-                <ChevronLeft className="h-3.5 w-3.5" />
-                Prev
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                disabled={!hasNext}
-                onClick={() => setCurrentIdx((i) => Math.min(questionNumbers.length - 1, i + 1))}
-                className="gap-1 text-xs"
-              >
-                Skip for now
-                <ChevronRight className="h-3.5 w-3.5" />
-              </Button>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
         </div>
       </main>
+
+      {/* Target Rival Picker Dialog (For Steal, Swap, and Freeze) */}
+      <Dialog
+        open={targetPickerPowerUp !== null}
+        onOpenChange={(open) => {
+          if (!open) setTargetPickerPowerUp(null);
+        }}
+      >
+        <DialogContent className="max-w-md p-5">
+          <DialogHeader>
+            <div className="flex items-center gap-2">
+              <span className="text-3xl">{targetPickerPowerUp?.icon}</span>
+              <div>
+                <DialogTitle className="text-base font-black">
+                  Deploy {targetPickerPowerUp?.title}
+                </DialogTitle>
+                <DialogDescription className="text-xs">
+                  Choose which rival to target with this power-up:
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+
+          <div className="space-y-2 mt-3 max-h-72 overflow-y-auto pr-1">
+            {rivals.length === 0 ? (
+              <p className="text-xs text-muted-foreground py-6 text-center">
+                No rivals in the room yet! Wait for other classmates to join.
+              </p>
+            ) : (
+              rivals.map((rival, idx) => (
+                <button
+                  key={rival.id}
+                  type="button"
+                  disabled={Boolean(usingPowerUpId)}
+                  onClick={() => handleActivatePowerUp(targetPickerPowerUp!, rival.id)}
+                  className="w-full flex items-center justify-between rounded-xl border-2 border-border/80 bg-card p-3 text-left transition-all hover:border-primary hover:bg-primary/5 active:scale-[0.98] touch-manipulation"
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <span className="text-2xl shrink-0">{rival.avatar}</span>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs font-black text-foreground truncate">
+                          {rival.name}
+                        </span>
+                        {rival.activeShield ? (
+                          <Badge className="bg-sky-500/20 text-sky-700 dark:text-sky-300 text-[9px] py-0 px-1 border-sky-500/30 gap-0.5">
+                            <Shield className="h-2.5 w-2.5" />
+                            Shielded
+                          </Badge>
+                        ) : null}
+                      </div>
+                      <span className="text-[10px] font-mono font-bold text-muted-foreground">
+                        #{idx + 1} on board
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="text-right shrink-0">
+                    <span className="font-mono text-xs font-black text-primary block">
+                      {rival.score.toLocaleString()} pts
+                    </span>
+                    <span className="text-[10px] font-semibold text-primary underline">
+                      Attack &rarr;
+                    </span>
+                  </div>
+                </button>
+              ))
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Slide-over Live Leaderboard Sheet for Students */}
       <Sheet open={leaderboardOpen} onOpenChange={setLeaderboardOpen}>

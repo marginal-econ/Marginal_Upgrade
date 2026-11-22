@@ -271,3 +271,22 @@ export const fetchQuizPaperPdf = createServerFn({ method: "POST" })
     const { fetchQuizPaperPdfServer } = await import("./mcq-quiz.server");
     return fetchQuizPaperPdfServer(data.pin, data.qpUrl);
   });
+
+/** Student activates a power-up in Game Arena Mode (Steal, Swap, Tax, Shield, 2x, 50/50, Freeze). */
+export const useQuizPowerUp = createServerFn({ method: "POST" })
+  .middleware([optionalSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z
+      .object({
+        pin: z.string().min(4).max(12),
+        playerId: z.string().min(1).max(120),
+        powerUpId: z.string().min(1).max(120),
+        targetPlayerId: z.string().max(120).optional(),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data }) => {
+    const { useQuizPowerUpServer } = await import("./mcq-quiz.server");
+    return useQuizPowerUpServer(data);
+  });
+

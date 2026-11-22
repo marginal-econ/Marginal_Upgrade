@@ -4,7 +4,9 @@ import {
   calculateQuizPoints,
   computeQuizQuestionStats,
   formatQuizPin,
+  getRandomPowerUp,
   normalizeQuizPin,
+  POWER_UP_CATALOG,
   sortQuizLeaderboard,
   type PublicMcqQuizMeta,
   type QuizPlayer,
@@ -61,6 +63,23 @@ describe("MCQ Live Quiz Engine (Blooket / Quizizz mode)", () => {
       gameMode: "live_race",
     });
     expect(wrong.points).toBe(0);
+
+    const doubled = calculateQuizPoints({
+      isCorrect: true,
+      elapsedSeconds: 0,
+      currentStreak: 0,
+      gameMode: "live_race",
+      multiplier: 2,
+    });
+    expect(doubled).toEqual({ points: 300, base: 200, speedBonus: 100, streakBonus: 0 });
+  });
+
+  it("generates valid power-ups from the power-up catalog", () => {
+    const powerUp = getRandomPowerUp();
+    expect(powerUp.id).toBeDefined();
+    expect(powerUp.title).toBeDefined();
+    expect(powerUp.icon).toBeDefined();
+    expect(POWER_UP_CATALOG[powerUp.type]).toBeDefined();
   });
 
   it("prioritizes accuracy over speed in exam_sprint mode", () => {

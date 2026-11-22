@@ -29,7 +29,7 @@ function QuizJoinLandingPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-background via-primary/[0.04] to-emerald-500/[0.06]">
+    <div className="min-h-[100dvh] flex flex-col bg-gradient-to-br from-background via-primary/[0.04] to-emerald-500/[0.06] touch-manipulation">
       <header className="flex items-center justify-between px-5 py-4 border-b border-border/60 bg-background/80 backdrop-blur-sm">
         <Link to="/" className="flex items-center gap-2 font-extrabold tracking-tight text-foreground">
           <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-xs">

@@ -749,27 +749,37 @@ export function McqQuizHostModal({
 
           {/* Game Mode Cards */}
           <div className="space-y-2">
-            <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-              2. Scoring Style
-            </Label>
+            <div className="flex items-center justify-between">
+              <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                2. Quiz Mode
+              </Label>
+              <span className="text-[11px] font-semibold text-primary">
+                {gameMode === "live_race" ? "🎮 Game Arena with Power-Ups" : "🎓 Serious Exam Assessment"}
+              </span>
+            </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
               <button
                 type="button"
                 onClick={() => setGameMode("live_race")}
                 className={cn(
-                  "flex items-start gap-2.5 rounded-xl border p-3 text-left transition-all",
+                  "flex items-start gap-2.5 rounded-xl border-2 p-3.5 text-left transition-all active:scale-[0.99]",
                   gameMode === "live_race"
-                    ? "border-amber-500 bg-amber-500/10 ring-1 ring-amber-500/30"
-                    : "border-border hover:bg-muted/40",
+                    ? "border-amber-500 bg-amber-500/10 shadow-sm ring-1 ring-amber-500/40"
+                    : "border-border/80 hover:bg-muted/40",
                 )}
               >
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-500/15 text-amber-600 dark:text-amber-400">
-                  <Flame className="h-4 w-4" />
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-500/20 text-amber-600 dark:text-amber-400 text-lg">
+                  ⚡
                 </div>
-                <div>
-                  <p className="text-xs font-bold text-foreground">Live Race (Blooket / Quizizz)</p>
-                  <p className="text-[11px] text-muted-foreground leading-snug mt-0.5">
-                    Speed bonuses + fire streaks + live animated leaderboard as everyone races through the paper.
+                <div className="space-y-1 min-w-0">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <p className="text-xs font-black text-foreground">Game Arena Mode</p>
+                    <Badge className="bg-amber-500 text-amber-950 font-bold text-[9px] py-0 px-1.5">
+                      Power-Ups Active
+                    </Badge>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground leading-snug">
+                    Steal points, Swap scores, Pigouvian tax, Central Bank shields, 2x boosts, and Freeze attacks! High energy Blooket-style competition.
                   </p>
                 </div>
               </button>
@@ -778,19 +788,24 @@ export function McqQuizHostModal({
                 type="button"
                 onClick={() => setGameMode("exam_sprint")}
                 className={cn(
-                  "flex items-start gap-2.5 rounded-xl border p-3 text-left transition-all",
+                  "flex items-start gap-2.5 rounded-xl border-2 p-3.5 text-left transition-all active:scale-[0.99]",
                   gameMode === "exam_sprint"
-                    ? "border-primary bg-primary/10 ring-1 ring-primary/30"
-                    : "border-border hover:bg-muted/40",
+                    ? "border-primary bg-primary/10 shadow-sm ring-1 ring-primary/40"
+                    : "border-border/80 hover:bg-muted/40",
                 )}
               >
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-primary">
-                  <Trophy className="h-4 w-4" />
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-primary text-lg">
+                  🎓
                 </div>
-                <div>
-                  <p className="text-xs font-bold text-foreground">Class Exam Sprint</p>
-                  <p className="text-[11px] text-muted-foreground leading-snug mt-0.5">
-                    Accuracy-first scoring (no speed pressure) with live class heatmap for the teacher.
+                <div className="space-y-1 min-w-0">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <p className="text-xs font-black text-foreground">Serious Exam Mode</p>
+                    <Badge variant="outline" className="font-mono text-[9px] py-0 px-1.5">
+                      Standard
+                    </Badge>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground leading-snug">
+                    Distraction-free official exam timer, accuracy-first scoring, no power-ups, and full diagnostic report for mock exam prep.
                   </p>
                 </div>
               </button>

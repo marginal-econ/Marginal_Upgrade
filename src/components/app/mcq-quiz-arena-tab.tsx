@@ -8,6 +8,7 @@ import {
   ExternalLink,
   Flame,
   Gamepad2,
+  GraduationCap,
   Link2,
   Loader2,
   Play,
@@ -15,6 +16,7 @@ import {
   Trash2,
   Trophy,
   Users,
+  Zap,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -264,11 +266,16 @@ export function McqQuizArenaTab({
                           {quiz.level} · {quiz.questionNumbers.length}Q
                         </Badge>
                         {quiz.gameMode === "live_race" ? (
-                          <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-amber-600 dark:text-amber-400">
-                            <Flame className="h-3 w-3" />
-                            Live Race
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded-full border border-amber-500/20">
+                            <Zap className="h-3 w-3" />
+                            Game Arena
                           </span>
-                        ) : null}
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-muted-foreground bg-muted/60 px-1.5 py-0.5 rounded-full border border-border/40">
+                            <GraduationCap className="h-3 w-3" />
+                            Exam Sprint
+                          </span>
+                        )}
                       </div>
                       <p className="text-sm font-bold text-foreground truncate">{quiz.title}</p>
                       <p className="text-[11px] text-muted-foreground flex flex-wrap items-center gap-2">
