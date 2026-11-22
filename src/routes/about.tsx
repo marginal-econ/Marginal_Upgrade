@@ -65,6 +65,25 @@ const founders = [
   },
 ];
 
+const contributors = [
+  {
+    name: "Shiju R",
+    initials: "SR",
+    role: "Teacher & Academic Mentor",
+    tag: "Academic Mentor",
+    focus: "Economics educator providing curriculum rigor, Cambridge exam insights, and pedagogical mentorship.",
+    linkedin: "https://www.linkedin.com/in/shiju-rappai-csa-cbe-761889247/",
+  },
+  {
+    name: "Jaahnvi Lakshmi Narayan",
+    initials: "JL",
+    role: "Student Ambassador",
+    tag: "Student Ambassador",
+    focus: "Leading peer economics study groups, revision advocacy, and student feedback across Cambridge cohorts.",
+    linkedin: "https://www.linkedin.com/in/jaahnvi-lakshmi-narayan-34a5b3249/",
+  },
+];
+
 const loop = [
   {
     icon: PenLine,
@@ -249,6 +268,70 @@ function AboutPage() {
 
         <Reveal>
           <section>
+            <p className="eyebrow eyebrow-accent">Community &amp; Mentorship</p>
+            <h2 className="mt-2 text-2xl font-bold text-balance md:text-3xl">
+              Mentors &amp; Student Ambassadors.
+            </h2>
+            <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted-foreground md:text-base">
+              Dedicated educators and student advocates collaborating with Marginal to support Cambridge Economics learners.
+            </p>
+            <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+              {contributors.map((person) => (
+                <a
+                  key={person.name}
+                  href={person.linkedin}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="pop pop-press group flex flex-col justify-between overflow-hidden bg-surface"
+                >
+                  <div className="relative flex aspect-4/3 items-center justify-center border-b-[1.5px] border-ink bg-gradient-to-br from-muted/50 via-purple-500/10 to-muted/80">
+                    <div className="flex size-20 items-center justify-center rounded-2xl border-2 border-ink bg-background font-mono text-2xl font-black text-foreground shadow-sm transition-transform duration-300 group-hover:scale-105">
+                      {person.initials}
+                    </div>
+                    <span className="absolute top-3 right-3 rounded-md border-[1.5px] border-ink bg-surface/90 px-2.5 py-0.5 font-mono text-[11px] font-bold">
+                      {person.tag}
+                    </span>
+                  </div>
+                  <div className="flex items-start justify-between gap-3 p-5 flex-1">
+                    <div>
+                      <p className="text-lg font-bold">{person.name}</p>
+                      <p className="mt-0.5 text-xs font-bold text-primary tracking-wide">{person.role}</p>
+                      <p className="mt-1 text-xs text-muted-foreground leading-snug">{person.focus}</p>
+                    </div>
+                    <span className="pop-sm inline-flex size-9 shrink-0 items-center justify-center bg-primary text-primary-foreground mt-0.5">
+                      <Linkedin className="size-4" />
+                    </span>
+                  </div>
+                </a>
+              ))}
+
+              {/* Expanding Community / Ambassador Card */}
+              <div className="pop relative flex flex-col justify-between border-dashed border-2 border-border/80 bg-surface/50 p-6">
+                <div>
+                  <span className="inline-flex items-center rounded-md border-[1.5px] border-ink bg-primary/10 px-2 py-0.5 text-[11px] font-bold text-primary">
+                    Growing Community
+                  </span>
+                  <h3 className="mt-3 text-lg font-bold">Join as an Ambassador</h3>
+                  <p className="mt-1.5 text-xs sm:text-sm text-muted-foreground leading-relaxed">
+                    Passionate about economics? We will soon be welcoming more student ambassadors across Cambridge schools globally.
+                  </p>
+                </div>
+                <div className="pt-4 mt-auto border-t border-border/60">
+                  <a
+                    href="mailto:marginal.econ.ai@gmail.com?subject=Marginal%20Student%20Ambassador%20Application"
+                    className="inline-flex items-center gap-1.5 text-xs font-bold text-primary hover:underline"
+                  >
+                    <span>Apply to represent Marginal</span>
+                    <ArrowRight className="size-3.5" />
+                  </a>
+                </div>
+              </div>
+            </div>
+          </section>
+        </Reveal>
+
+        <Reveal>
+          <section>
             <p className="eyebrow eyebrow-accent">What Marginal is not</p>
             <h2 className="mt-2 text-2xl font-bold text-balance md:text-3xl">
               Two things worth saying plainly.
@@ -275,27 +358,6 @@ function AboutPage() {
               </Link>
               .
             </p>
-          </section>
-        </Reveal>
-
-        <Reveal>
-          <section className="pop relative overflow-hidden bg-plum p-7 text-plum-foreground md:p-10">
-            <div className="paper-grid pointer-events-none absolute inset-0 opacity-20" />
-            <div className="relative flex flex-col items-start gap-5 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <h2 className="text-xl font-bold md:text-2xl">Want it when it opens?</h2>
-                <p className="mt-1.5 text-sm text-plum-foreground/75">
-                  One email when the first cohort opens. Nothing else.
-                </p>
-              </div>
-              <Link
-                to="/"
-                hash="join"
-                className="pop pop-press inline-flex items-center gap-2 bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground"
-              >
-                Join the waitlist <ArrowRight className="size-4" />
-              </Link>
-            </div>
           </section>
         </Reveal>
       </main>
