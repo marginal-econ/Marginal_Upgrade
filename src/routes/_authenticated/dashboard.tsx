@@ -235,16 +235,6 @@ const TOOLS_INDEX = [
     keywords: ["mcq", "multiple choice", "paper 1", "paper 3", "past papers", "quiz", "timer"],
   },
   {
-    id: "tool-live-examiner",
-    title: "Live Examiner Studio",
-    category: "Tools & Features",
-    subtitle: "In-situ AI coaching as you type with real-time AO accumulation & Socratic alerts",
-    href: "/live-examiner",
-    badge: "Real-time AI",
-    icon: Sparkles,
-    keywords: ["live examiner", "socratic", "live", "draft", "coaching", "real-time"],
-  },
-  {
     id: "tool-question-bank",
     title: "Cambridge Question Bank",
     category: "Tools & Features",
@@ -651,13 +641,6 @@ export function DashboardPage() {
         description="Cambridge 9708 Economics candidate hub. Search past essays, syllabus topics, and monitor exam readiness."
         action={
           <div className="flex items-center gap-2">
-            {Boolean(me.data?.isAdmin) && (
-              <Button asChild variant="outline" size="sm" className="border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400 font-medium">
-                <Link to="/live-examiner">
-                  <Sparkles className="size-3.5 text-amber-500 mr-1.5" /> Live Examiner
-                </Link>
-              </Button>
-            )}
             <Button asChild size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold shadow-xs">
               <Link to="/grade">
                 <PenLine className="size-3.5 mr-1.5" /> Mark New Essay
@@ -1091,34 +1074,7 @@ export function DashboardPage() {
                 </div>
               </Link>
 
-              {/* Card 3: Live Examiner */}
-              <Link
-                to="/live-examiner"
-                className="group rounded-2xl border border-border/80 bg-card p-4 sm:p-5 hover:border-purple-500/60 hover:shadow-md transition-all flex flex-col justify-between"
-              >
-                <div>
-                  <div className="flex items-center justify-between">
-                    <div className="size-9 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center group-hover:bg-purple-600 group-hover:text-white transition-colors shadow-2xs">
-                      <Sparkles className="size-4.5" />
-                    </div>
-                    <Badge variant="outline" className="text-[10px] font-mono font-semibold border-purple-500/20 bg-purple-500/5 text-purple-600 dark:text-purple-400">
-                      In-Situ AI
-                    </Badge>
-                  </div>
-                  <h3 className="mt-3.5 text-sm sm:text-base font-bold text-foreground group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">
-                    Live Examiner
-                  </h3>
-                  <p className="mt-1 text-xs text-muted-foreground leading-relaxed line-clamp-2">
-                    Write in real-time with Socratic challenges and instant warnings before you submit flawed reasoning.
-                  </p>
-                </div>
-                <div className="mt-4 pt-3 border-t border-border/60 flex items-center justify-between text-xs font-semibold text-purple-600 dark:text-purple-400">
-                  <span>Open Studio</span>
-                  <ArrowUpRight className="size-3.5 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-                </div>
-              </Link>
-
-              {/* Card 4: Question Bank & Predictor */}
+              {/* Card 3: Question Bank & Cycle Predictor */}
               <Link
                 to="/question-bank"
                 className="group rounded-2xl border border-border/80 bg-card p-4 sm:p-5 hover:border-amber-500/60 hover:shadow-md transition-all flex flex-col justify-between"
@@ -1133,7 +1089,7 @@ export function DashboardPage() {
                     </Badge>
                   </div>
                   <h3 className="mt-3.5 text-sm sm:text-base font-bold text-foreground group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
-                    Question Bank
+                    Question Bank &amp; Predictor
                   </h3>
                   <p className="mt-1 text-xs text-muted-foreground leading-relaxed line-clamp-2">
                     15 years of Cambridge 9708 past papers, topic rotation predictor &amp; prompt generator.
@@ -1141,6 +1097,33 @@ export function DashboardPage() {
                 </div>
                 <div className="mt-4 pt-3 border-t border-border/60 flex items-center justify-between text-xs font-semibold text-amber-600 dark:text-amber-400">
                   <span>Explore Papers</span>
+                  <ArrowUpRight className="size-3.5 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+                </div>
+              </Link>
+
+              {/* Card 4: Diagram CAD Lab */}
+              <Link
+                to="/diagram-lab"
+                className="group rounded-2xl border border-border/80 bg-card p-4 sm:p-5 hover:border-purple-500/60 hover:shadow-md transition-all flex flex-col justify-between"
+              >
+                <div>
+                  <div className="flex items-center justify-between">
+                    <div className="size-9 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center group-hover:bg-purple-600 group-hover:text-white transition-colors shadow-2xs">
+                      <Sliders className="size-4.5" />
+                    </div>
+                    <Badge variant="outline" className="text-[10px] font-mono font-semibold border-purple-500/20 bg-purple-500/5 text-purple-600 dark:text-purple-400">
+                      Vector CAD
+                    </Badge>
+                  </div>
+                  <h3 className="mt-3.5 text-sm sm:text-base font-bold text-foreground group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">
+                    Diagram CAD Lab
+                  </h3>
+                  <p className="mt-1 text-xs text-muted-foreground leading-relaxed line-clamp-2">
+                    Interactive economics curves: tax shifts, subsidies, deadweight loss &amp; equilibrium labels.
+                  </p>
+                </div>
+                <div className="mt-4 pt-3 border-t border-border/60 flex items-center justify-between text-xs font-semibold text-purple-600 dark:text-purple-400">
+                  <span>Open Diagram CAD</span>
                   <ArrowUpRight className="size-3.5 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
                 </div>
               </Link>

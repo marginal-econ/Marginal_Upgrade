@@ -73,6 +73,8 @@ import { normalizeQuizPin, type QuizSourceType } from "@/lib/mcq-quiz.types";
 import { type McqMistakeType } from "@/lib/mcq-mistakes";
 import { Badge as UiBadge } from "@/components/ui/badge";
 import { ThemeToggle } from "@/components/marketing/theme-toggle";
+import { GuestUpgradeDialog } from "@/components/app/guest-upgrade-dialog";
+import { isGuestUser } from "@/lib/guest-session";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -407,6 +409,7 @@ function McqLivePage() {
   const me = useQuery({ queryKey: ["me"], queryFn: () => fetchMe() });
   const effectiveUserId = routeContext?.user?.id || me.data?.userId || "guest";
   const [stage, setStage] = useState<"library" | "practice">("library");
+  const [guestUpgradeOpen, setGuestUpgradeOpen] = useState(false);
 
   // Sync exam session state to AppShell and CSS to hide conflicting bottom navs
   useEffect(() => {
@@ -1951,6 +1954,11 @@ function fillMissingQuestionPages(
           ? `Marked attempted questions — ${score}/${scored.length} (${Math.round((score / Math.max(scored.length, 1)) * 100)}%).`
           : `Marked — ${score}/${scored.length}.`,
       );
+      if (isGuestUser(routeContext?.user)) {
+        setTimeout(() => {
+          setGuestUpgradeOpen(true);
+        }, 1200);
+      }
     } catch (err) {
       toast.error("Marking failed — your answers are still on screen, try again.");
     } finally {
@@ -3222,6 +3230,13 @@ function fillMissingQuestionPages(
           setSubmitPromptOpen(false);
           gradeAndSave({ gradeOnlyAttempted: onlyAttempted });
         }}
+      />
+
+      <GuestUpgradeDialog
+        open={guestUpgradeOpen}
+        onOpenChange={setGuestUpgradeOpen}
+        title="Save Your Cambridge MCQ Progress"
+        subtitle="You just completed a Cambridge 9708 MCQ attempt as a Guest. Create your permanent free student account now to track topic weaknesses and save all past papers."
       />
     </div>
   );

@@ -92,6 +92,8 @@ import { getMe } from "@/lib/account.functions";
 import { cn, cleanMathDollarSigns, autoParagraphText, stripStars } from "@/lib/utils";
 import { stripScoreFractionsFromText, type Grading } from "@/lib/examiner/types";
 import { isEvaluativeQuestion } from "@/lib/examiner/config";
+import { GuestUpgradeDialog } from "@/components/app/guest-upgrade-dialog";
+import { isGuestUser } from "@/lib/guest-session";
 
 // Optional prefill from the Question bank, Practice desk, or Classroom Direct Grading
 const gradeSearchSchema = z
@@ -427,6 +429,7 @@ function GradePage() {
 
   const [activeSampleId, setActiveSampleId] = useState<string | null>(null);
   const [isTourOpen, setIsTourOpen] = useState(false);
+  const [guestUpgradeOpen, setGuestUpgradeOpen] = useState(false);
 
   const [question, setQuestion] = useState(() => {
     if (search.q) return search.q;
@@ -1174,6 +1177,11 @@ function GradePage() {
         localStorage.removeItem(DRAFT_STORAGE_KEY);
       } catch {}
       toast.success(`Marked ${data.grading.total_mark}/${data.grading.max_mark}`);
+      if (isGuestUser(meQuery.data)) {
+        setTimeout(() => {
+          setGuestUpgradeOpen(true);
+        }, 1200);
+      }
       setTimeout(() => {
         const target = document.getElementById("candidate-report-header");
         if (target) {
@@ -3247,6 +3255,17 @@ function GradePage() {
         steps={tourSteps}
         onActionClick={() => handleSelectSample(SAMPLE_ESSAYS[0])}
         actionButtonLabel="Load 12M Sample"
+      />
+
+      <GuestUpgradeDialog
+        open={guestUpgradeOpen}
+        onOpenChange={setGuestUpgradeOpen}
+        title="Save Your Cambridge Diagnostic & Keep Access"
+        scoreText={
+          result
+            ? `Examiner Awarded: ${result.grading.total_mark}/${result.grading.max_mark} Marks (${result.grading.overall_band || "Band 1"})`
+            : undefined
+        }
       />
     </>
   );

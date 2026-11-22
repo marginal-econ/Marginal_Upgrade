@@ -12,6 +12,8 @@ import { supabase } from "@/integrations/backend/client";
 import { getMe } from "@/lib/account.functions";
 import { TIER_LIMITS, type PlanTier } from "@/lib/usage-limits";
 
+import { isGuestUser, ensureSessionOrGuest } from "@/lib/guest-session";
+
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
   head: () => ({
@@ -34,13 +36,28 @@ export const Route = createFileRoute("/_authenticated")({
           ),
         ),
       ]);
-      if (error || !data.user) {
-        throw redirect({
-          to: "/auth",
-          search: { redirect: location.pathname },
-        });
+      if (data?.user) {
+        return { user: data.user };
       }
-      return { user: data.user };
+
+      // Guest trial path: allow prospective students to enter /grade or /mcq-live directly
+      const isGuestAllowedPath =
+        location.pathname.startsWith("/grade") ||
+        location.pathname.startsWith("/mcq-live") ||
+        location.pathname.startsWith("/diagram-lab") ||
+        location.pathname.startsWith("/question-bank");
+
+      if (isGuestAllowedPath) {
+        const guestUser = await ensureSessionOrGuest();
+        if (guestUser) {
+          return { user: guestUser };
+        }
+      }
+
+      throw redirect({
+        to: "/auth",
+        search: { redirect: location.pathname },
+      });
     } catch (err) {
       if (isRedirect(err)) throw err;
       throw redirect({
@@ -111,8 +128,10 @@ function AuthenticatedLayout() {
   const resolvedRole = data?.role ?? userRole;
   const initialOnboardingActive = Boolean(privacyResolved && data?.tutorialCompleted === false);
 
+  const isGuest = isGuestUser(user);
+
   return (
-    <FeatureTutorialProvider canAutoTrigger={!initialOnboardingActive && privacyResolved}>
+    <FeatureTutorialProvider canAutoTrigger={!isGuest && !initialOnboardingActive && privacyResolved}>
       <AppShell
         role={resolvedRole}
         name={resolvedName}
@@ -124,15 +143,17 @@ function AuthenticatedLayout() {
         subscription={userSub}
       >
         <Outlet />
-        <PrivacyConsent userId={user.id} onResolved={handlePrivacyResolved} />
-        <OnboardingTutorial
-          open={initialOnboardingActive}
-          initialFullName={resolvedName || ""}
-          initialSchool={data?.school || (user.user_metadata as any)?.school || ""}
-          role={resolvedRole}
-          onFinished={() => {}}
-        />
-        <FeatureTutorialDialog />
+        {!isGuest && <PrivacyConsent userId={user.id} onResolved={handlePrivacyResolved} />}
+        {!isGuest && (
+          <OnboardingTutorial
+            open={initialOnboardingActive}
+            initialFullName={resolvedName || ""}
+            initialSchool={data?.school || (user.user_metadata as any)?.school || ""}
+            role={resolvedRole}
+            onFinished={() => {}}
+          />
+        )}
+        {!isGuest && <FeatureTutorialDialog />}
       </AppShell>
     </FeatureTutorialProvider>
   );
