@@ -51,6 +51,7 @@ describe("guest-session trial lockout", () => {
     expect(isGuestUser(null)).toBe(false);
     expect(isGuestUser({ user_metadata: { is_guest: true } })).toBe(true);
     expect(isGuestUser({ email: "guest_123@guest.marginal-econ.com" })).toBe(true);
+    expect(isGuestUser({ email: "guest.student@marginal-econ.com" })).toBe(true);
 
     localStorage.setItem("marginal_is_guest", "true");
     expect(isGuestUser({})).toBe(true);

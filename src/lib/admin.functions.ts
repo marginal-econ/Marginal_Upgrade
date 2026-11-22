@@ -8,7 +8,34 @@ import { isMarginalAdmin, MARGINAL_ADMIN_USER_ID } from "@/lib/auth-admin";
 
 type AuthContext = { supabase: SupabaseClient<Database>; userId: string };
 
-async function listAcceptedAuthUsers(): Promise<User[]> {
+/**
+ * Evaluates whether an auth user or user metadata belongs to an anonymous/ephemeral/shared guest account.
+ * Used across admin metrics, user directories, and active practitioner calculations to guarantee
+ * that prospective guest testers do NOT inflate the registered user portfolio or active user KPIs.
+ */
+export function isGuestAccount(user: { email?: string | null; user_metadata?: any }): boolean {
+  if (!user) return false;
+  if (user.user_metadata?.is_guest === true) return true;
+  const email = (user.email || "").toLowerCase().trim();
+  if (
+    email.startsWith("guest_") ||
+    email.includes("@guest.marginal-econ.com") ||
+    email === "guest.student@marginal-econ.com" ||
+    email.startsWith("test_guest_") ||
+    email.startsWith("upgrade_test_")
+  ) {
+    return true;
+  }
+  return false;
+}
+
+export function isGuestProfile(profile: { full_name?: string | null }): boolean {
+  if (!profile) return false;
+  const name = (profile.full_name || "").toLowerCase().trim();
+  return name === "guest student" || name.startsWith("guest student");
+}
+
+export async function listAcceptedAuthUsers(options?: { includeGuests?: boolean }): Promise<User[]> {
   try {
     const { supabaseAdmin } = await import("@/integrations/backend/client.server");
     const users: User[] = [];
@@ -22,7 +49,10 @@ async function listAcceptedAuthUsers(): Promise<User[]> {
       users.push(...data.users);
       if (data.users.length < 1000) break;
     }
-    return users;
+    if (options?.includeGuests) {
+      return users;
+    }
+    return users.filter((u) => !isGuestAccount(u));
   } catch (err) {
     console.warn("Exception in listAcceptedAuthUsers:", err);
     return [];
@@ -577,6 +607,8 @@ export const listUsers = createServerFn({ method: "GET" })
       if (!data || data.length < 1000) break;
     }
 
+    const cleanProfiles = profiles.filter((p) => !isGuestProfile(p));
+
     const roles: { user_id: string; role: string }[] = [];
     for (let offset = 0; ; offset += 1000) {
       const { data, error } = await supabaseAdmin
@@ -593,7 +625,7 @@ export const listUsers = createServerFn({ method: "GET" })
       roleMap.set(row.user_id, [...(roleMap.get(row.user_id) ?? []), row.role as string]);
     }
 
-    const profileMap = new Map(profiles.map((profile) => [profile.id, profile]));
+    const profileMap = new Map(cleanProfiles.map((profile) => [profile.id, profile]));
     const userMap = new Map<string, any>();
 
     for (const user of authUsers) {
@@ -621,7 +653,7 @@ export const listUsers = createServerFn({ method: "GET" })
       });
     }
 
-    for (const profile of profiles) {
+    for (const profile of cleanProfiles) {
       if (!userMap.has(profile.id)) {
         const list = roleMap.get(profile.id) ?? [];
         const isMarginal = isMarginalAdmin({ userId: profile.id });
@@ -799,6 +831,72 @@ export const clearAiUsageLog = createServerFn({ method: "POST" })
     if (error) throw new Error(`Clearing ai_usage_log failed: ${error.message}`);
     return { ok: true, deletedCount: count ?? 0 };
   });
+
+export const purgeGuestAccounts = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/backend/client.server");
+
+    // Fetch all auth users including ephemeral and test guests
+    const allUsers = await listAcceptedAuthUsers({ includeGuests: true });
+    const guestUsers = allUsers.filter((u) => {
+      const email = (u.email || "").toLowerCase().trim();
+      return (
+        u.user_metadata?.is_guest === true ||
+        email.startsWith("guest_") ||
+        email.includes("@guest.marginal-econ.com") ||
+        email.startsWith("test_guest_") ||
+        email.startsWith("upgrade_test_")
+      );
+    });
+
+    let deletedAuthCount = 0;
+    const errors: string[] = [];
+
+    for (const g of guestUsers) {
+      try {
+        const { error } = await supabaseAdmin.auth.admin.deleteUser(g.id);
+        if (error) {
+          errors.push(`Failed to delete user ${g.id} (${g.email}): ${error.message}`);
+        } else {
+          deletedAuthCount++;
+        }
+      } catch (err: any) {
+        errors.push(`Exception deleting user ${g.id}: ${err.message}`);
+      }
+    }
+
+    // Also purge orphaned "Guest Student" profiles
+    let deletedProfileCount = 0;
+    try {
+      const { data: guestProfiles } = await supabaseAdmin
+        .from("profiles")
+        .select("id")
+        .ilike("full_name", "%guest student%");
+
+      if (guestProfiles && guestProfiles.length > 0) {
+        const guestIds = guestProfiles.map((p: any) => p.id);
+        const { count } = await supabaseAdmin
+          .from("profiles")
+          .delete({ count: "exact" })
+          .in("id", guestIds);
+        deletedProfileCount = count ?? 0;
+      }
+    } catch (e: any) {
+      console.warn("Error purging guest profiles:", e);
+    }
+
+    return {
+      ok: true,
+      deletedAuthCount,
+      deletedProfileCount,
+      totalPurged: deletedAuthCount + deletedProfileCount,
+      errors: errors.length > 0 ? errors : null,
+      message: `Successfully purged ${deletedAuthCount} guest accounts. User metrics and portfolios are 100% clean.`,
+    };
+  });
+
 
 export const resetAllScores = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -2318,10 +2416,14 @@ export const adminListAllDossierUsers = createServerFn({ method: "GET" })
       }
     }
 
-    // Collect all distinct user IDs
+    // Collect all distinct user IDs (excluding any guest profiles/users)
     const allUserIds = new Set<string>();
     authUsers.forEach((u) => allUserIds.add(u.id));
-    (profilesRes.data ?? []).forEach((p: any) => allUserIds.add(p.id));
+    (profilesRes.data ?? []).forEach((p: any) => {
+      if (!isGuestProfile(p)) {
+        allUserIds.add(p.id);
+      }
+    });
 
     const now = Date.now();
     const result = Array.from(allUserIds).map((id) => {
@@ -2987,9 +3089,12 @@ export const adminGetPlatformDiagnostics = createServerFn({ method: "GET" })
       }
     }
 
-    // ── 2. Practice Mapping: Essays, MCQs, Live Examiner & Combined ──
+    // ── 2. Practice Mapping: Essays, MCQs, Live Examiner & Combined (Real Registered Users Only) ──
+    const realUserIds = new Set(users.map((u) => u.id));
+
     const userEssayMap = new Map<string, any[]>();
     for (const e of essays) {
+      if (!e.user_id || !realUserIds.has(e.user_id)) continue;
       const list = userEssayMap.get(e.user_id) || [];
       list.push(e);
       userEssayMap.set(e.user_id, list);
@@ -2997,6 +3102,7 @@ export const adminGetPlatformDiagnostics = createServerFn({ method: "GET" })
 
     const userMcqMap = new Map<string, any[]>();
     for (const m of allMcqs) {
+      if (!m.user_id || !realUserIds.has(m.user_id)) continue;
       const list = userMcqMap.get(m.user_id) || [];
       list.push(m);
       userMcqMap.set(m.user_id, list);
@@ -3004,6 +3110,7 @@ export const adminGetPlatformDiagnostics = createServerFn({ method: "GET" })
 
     const userLiveMap = new Map<string, any[]>();
     for (const l of liveSessions) {
+      if (!l.user_id || !realUserIds.has(l.user_id)) continue;
       const list = userLiveMap.get(l.user_id) || [];
       list.push(l);
       userLiveMap.set(l.user_id, list);

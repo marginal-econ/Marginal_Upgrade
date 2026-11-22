@@ -116,6 +116,7 @@ import {
   dismissPaidKeyAlerts,
   listProviderKeys,
   listUsers,
+  purgeGuestAccounts,
   fetchProviderModels,
   resetAllScores,
   resetStudentPracticeData,
@@ -4715,6 +4716,21 @@ function UsersPanel({ onTextUser }: { onTextUser?: (userId: string) => void } = 
     onError: (error: Error) => toast.error(error.message),
   });
 
+  const purgeGuests = useServerFn(purgeGuestAccounts);
+  const purgeMutation = useMutation({
+    mutationFn: () => purgeGuests(),
+    onSuccess: async (res) => {
+      toast.success(res.message || "Guest accounts successfully purged.");
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["admin-users"] }),
+        queryClient.invalidateQueries({ queryKey: ["admin-overview"] }),
+        queryClient.invalidateQueries({ queryKey: ["admin-dossier-users"] }),
+        queryClient.invalidateQueries({ queryKey: ["admin-user-activity"] }),
+      ]);
+    },
+    onError: (error: Error) => toast.error(error.message || "Failed to purge guest accounts"),
+  });
+
   const copyToClipboard = (text: string, id: string) => {
     navigator.clipboard.writeText(text);
     setCopiedId(id);
@@ -4876,7 +4892,7 @@ function UsersPanel({ onTextUser }: { onTextUser?: (userId: string) => void } = 
             </span>
           </div>
           <p className="text-[11px] text-muted-foreground mt-2 pt-2 border-t border-border/60 flex items-center justify-between">
-            <span>+{joinedToday.length} joined today</span>
+            <span className="text-emerald-600 dark:text-emerald-400 font-medium">Zero guest inflation</span>
             <span className="font-semibold text-primary">{studentsCount} students</span>
           </p>
         </div>
@@ -5134,6 +5150,27 @@ function UsersPanel({ onTextUser }: { onTextUser?: (userId: string) => void } = 
           </Button>
 
           <div className="ml-auto flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={purgeMutation.isPending}
+              onClick={() => {
+                if (
+                  window.confirm(
+                    "Purge all residual ephemeral guest accounts from the database? Real registered students and faculty will not be touched.",
+                  )
+                ) {
+                  purgeMutation.mutate();
+                }
+              }}
+              className="h-8 text-xs gap-1.5 font-semibold shrink-0 cursor-pointer text-amber-600 dark:text-amber-400 border-amber-500/30 hover:bg-amber-500/10"
+              title="Purge residual guest accounts to keep database metrics clean"
+            >
+              <Sparkles className="size-3.5 text-amber-500" />
+              <span>{purgeMutation.isPending ? "Purging Guests..." : "Purge Guest Accounts"}</span>
+            </Button>
+
             <Button
               type="button"
               variant="outline"
