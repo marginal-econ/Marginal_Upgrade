@@ -769,14 +769,17 @@ function GradePage() {
   // Auto-launch guided spotlight tour for first-time visitors
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const tourDismissed = localStorage.getItem("marginal_grade_tour_seen") === "true";
-    if (!tourDismissed && !result && !question.trim()) {
+    const tourDismissed =
+      localStorage.getItem("marginal_grade_tour_seen_v2") === "true" ||
+      localStorage.getItem("marginal_grade_tour_seen") === "true";
+    const forceTour = search.tour === "true";
+    if ((!tourDismissed || forceTour) && !result) {
       const timer = setTimeout(() => {
         setIsTourOpen(true);
       }, 450);
       return () => clearTimeout(timer);
     }
-  }, [result, question]);
+  }, [result, search.tour]);
 
   // Auto-resize essay textarea to feel like an authentic document without layout jitter
   const adjustTextareaHeight = useCallback(() => {
@@ -1677,10 +1680,10 @@ function GradePage() {
                       <div className="flex items-center gap-2 flex-wrap">
                         <Sparkles className="size-4 text-primary" />
                         <span className="text-xs font-bold text-foreground">
-                          Test Cambridge Examiner in 1 Click
+                          New to Marginal? Test Cambridge Examiner in 1 Click
                         </span>
                         <Badge className="bg-primary/15 text-primary border-primary/30 text-[9.5px] font-bold">
-                          Interactive Exemplar
+                          Quick Start
                         </Badge>
                       </div>
                       <p className="text-[11px] text-muted-foreground leading-relaxed">
@@ -3376,12 +3379,14 @@ function GradePage() {
           setIsTourOpen(false);
           try {
             localStorage.setItem("marginal_grade_tour_seen", "true");
+            localStorage.setItem("marginal_grade_tour_seen_v2", "true");
           } catch {}
         }}
         onComplete={() => {
           setIsTourOpen(false);
           try {
             localStorage.setItem("marginal_grade_tour_seen", "true");
+            localStorage.setItem("marginal_grade_tour_seen_v2", "true");
           } catch {}
         }}
         steps={tourSteps}
@@ -3390,6 +3395,7 @@ function GradePage() {
           setIsTourOpen(false);
           try {
             localStorage.setItem("marginal_grade_tour_seen", "true");
+            localStorage.setItem("marginal_grade_tour_seen_v2", "true");
           } catch {}
         }}
         actionButtonLabel="⚡ Load 12M Sample Essay"
