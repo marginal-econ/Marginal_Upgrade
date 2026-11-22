@@ -82,7 +82,7 @@ const ESSAY_CLAUSES: EssayClause[] = [
   },
 ];
 
-export function RealEssayShowcase({ className }: { className?: string } = {}) {
+export function RealEssayShowcase() {
   const [activeSentence, setActiveSentence] = useState<number | null>(null);
   const [filterAo, setFilterAo] = useState<"ALL" | "AO1" | "AO2" | "AO3">("ALL");
 
@@ -96,7 +96,7 @@ export function RealEssayShowcase({ className }: { className?: string } = {}) {
   const currentClause = activeSentence !== null ? ESSAY_CLAUSES[activeSentence] : null;
 
   return (
-    <section id="graded-exemplar" className={cn("relative border-b-[1.5px] border-ink bg-card/40 py-16 sm:py-20 md:py-24 scroll-mt-20 overflow-hidden", className)}>
+    <section id="graded-exemplar" className="relative border-b-[1.5px] border-ink bg-card/40 py-16 sm:py-20 md:py-24 scroll-mt-20 overflow-hidden">
       <CosmicAtmosphere variant="emerald" sparkles={true} density="medium" />
       <div className="relative z-10 mx-auto max-w-7xl 2xl:max-w-[1440px] px-4 sm:px-6 md:px-10 lg:px-12 xl:px-16 space-y-10">
         {/* Section Header */}

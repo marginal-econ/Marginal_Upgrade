@@ -25,7 +25,7 @@ export const Route = createFileRoute("/_authenticated")({
         return { user: sessionData.session.user };
       }
 
-      const { data } = await Promise.race([
+      const { data, error } = await Promise.race([
         supabase.auth.getUser(),
         new Promise<{ data: { user: null }; error: Error }>((resolve) =>
           setTimeout(
@@ -34,14 +34,13 @@ export const Route = createFileRoute("/_authenticated")({
           ),
         ),
       ]);
-      if (data?.user) {
-        return { user: data.user };
+      if (error || !data.user) {
+        throw redirect({
+          to: "/auth",
+          search: { redirect: location.pathname },
+        });
       }
-
-      throw redirect({
-        to: "/auth",
-        search: { redirect: location.pathname },
-      });
+      return { user: data.user };
     } catch (err) {
       if (isRedirect(err)) throw err;
       throw redirect({

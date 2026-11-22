@@ -368,68 +368,152 @@ export function DataResponseStudio() {
   return (
     <div className="space-y-6">
       {/* ==================================================================== */}
-      {/* CAMBRIDGE 9708 SECTION A GUIDELINES DIALOG                           */}
+      {/* TOP HEADER & STUDIO IDENTITY BANNER                                  */}
       {/* ==================================================================== */}
-      <Dialog open={showInstructions} onOpenChange={setShowInstructions}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto p-6 rounded-2xl">
-          <DialogHeader className="space-y-1.5 border-b border-border/80 pb-3">
-            <div className="flex items-center gap-2">
-              <Badge variant="outline" className="text-xs font-mono">
-                Section A Standards
+      <div className="relative overflow-hidden rounded-2xl border border-border/80 bg-gradient-to-br from-card via-card/95 to-muted/40 p-5 sm:p-6 shadow-sm backdrop-blur-sm">
+        <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-5">
+          <div className="space-y-2 min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="flex h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+              <div className="flex items-center gap-2 min-w-0">
+                <FileCheck2 className="h-6 w-6 text-emerald-500 shrink-0" />
+                <h2 className="text-xl sm:text-2xl font-extrabold tracking-tight text-foreground truncate">
+                  Cambridge Data Response Studio
+                </h2>
+              </div>
+              <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 text-xs font-bold uppercase tracking-wider shrink-0">
+                Section A Mastery
               </Badge>
-              <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 text-xs">
-                Official Rubric
+              <Badge variant="outline" className="text-xs font-semibold text-muted-foreground shrink-0">
+                9708 Syllabus
               </Badge>
             </div>
-            <DialogTitle className="text-xl font-black text-foreground">
-              Cambridge Data Response &amp; OFR Rules
-            </DialogTitle>
-            <DialogDescription className="text-xs text-muted-foreground">
-              Essential guidelines for maximizing AO1, AO2, and AO3 marks on Paper 2 &amp; Paper 4 Section A.
-            </DialogDescription>
-          </DialogHeader>
+            <p className="text-xs sm:text-sm text-muted-foreground max-w-2xl leading-relaxed">
+              Real examination case studies for Cambridge International AS Level (Paper 2) and A Level (Paper 4). Practice Table 1.1 interpretation, Own Figure Rule (OFR) calculations, curve shift diagrams, and extended essays graded strictly against official Cambridge mark scheme rubrics.
+            </p>
+          </div>
 
-          <div className="space-y-4 pt-2">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="p-3.5 rounded-xl border border-border/80 bg-muted/20 space-y-1.5">
-                <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 text-[10px] font-bold">
-                  STEP 1
-                </Badge>
-                <h4 className="font-bold text-xs text-foreground">Select Past Paper</h4>
+          {/* Quick Header Actions & Tab Navigation */}
+          <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowInstructions(!showInstructions)}
+              className="text-xs gap-1.5 h-9 font-medium border-border/80 hover:bg-muted/60 shrink-0"
+            >
+              <HelpCircle className="h-4 w-4 text-primary" />
+              {showInstructions ? "Hide Instructions" : "How to Use & Exam Rules"}
+              {showInstructions ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+            </Button>
+
+            <Tabs value={activeTab} onValueChange={(v: any) => setActiveTab(v)}>
+              <TabsList className="bg-muted/80 p-1 h-9 flex-wrap sm:flex-nowrap">
+                <TabsTrigger value="practice" className="gap-1.5 text-xs font-semibold">
+                  <PenTool className="h-3.5 w-3.5" />
+                  Practice Studio
+                </TabsTrigger>
+                {lastSubmission && (
+                  <TabsTrigger value="results" className="gap-1.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                    <Award className="h-3.5 w-3.5" />
+                    Marking Report
+                  </TabsTrigger>
+                )}
+                <TabsTrigger value="upload" className="gap-1.5 text-xs font-semibold">
+                  <UploadCloud className="h-3.5 w-3.5" />
+                  Upload & OCR
+                </TabsTrigger>
+                <TabsTrigger value="library" className="gap-1.5 text-xs font-semibold">
+                  <BookOpen className="h-3.5 w-3.5" />
+                  Paper Library ({papers.length})
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </div>
+        </div>
+      </div>
+
+      {/* ==================================================================== */}
+      {/* COLLAPSIBLE INSTRUCTIONS & CAMBRIDGE 9708 STANDARDISATION GUIDE      */}
+      {/* ==================================================================== */}
+      {showInstructions && (
+        <Card className="border border-primary/30 bg-primary/[0.02] shadow-sm transition-all animate-in fade-in-50 duration-200">
+          <CardHeader className="p-5 pb-3 border-b border-border/50">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 rounded-lg bg-primary/10 text-primary">
+                  <Compass className="h-4 w-4" />
+                </div>
+                <CardTitle className="text-sm font-bold tracking-tight text-foreground">
+                  How to Use the Data Response Studio & Cambridge Marking Rules
+                </CardTitle>
+              </div>
+              <Badge variant="secondary" className="text-[11px] font-mono">
+                Examiner Reference Standard
+              </Badge>
+            </div>
+            <CardDescription className="text-xs text-muted-foreground">
+              Follow this 4-step framework to maximize your AO1, AO2, and AO3 marks on Cambridge 9708 Section A papers.
+            </CardDescription>
+          </CardHeader>
+
+          <CardContent className="p-5 space-y-4">
+            {/* 4 Interactive Process Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="p-4 rounded-xl border border-border/70 bg-card/60 space-y-2">
+                <div className="flex items-center justify-between">
+                  <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 text-[10px] font-bold">
+                    STEP 1
+                  </Badge>
+                  <BookMarked className="h-4 w-4 text-emerald-500" />
+                </div>
+                <h4 className="font-bold text-xs text-foreground">Select or Upload Paper</h4>
                 <p className="text-[11px] text-muted-foreground leading-relaxed">
-                  Choose from official Cambridge 9708 Section A papers (AS &amp; A Level) or upload a custom QP + MS PDF.
+                  Choose from 30 official Cambridge 9708 past papers (15 AS & 15 A Level) or upload any custom QP + MS PDF via multi-model Vision OCR.
                 </p>
               </div>
-              <div className="p-3.5 rounded-xl border border-border/80 bg-muted/20 space-y-1.5">
-                <Badge className="bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 border-cyan-500/30 text-[10px] font-bold">
-                  STEP 2
-                </Badge>
+
+              <div className="p-4 rounded-xl border border-border/70 bg-card/60 space-y-2">
+                <div className="flex items-center justify-between">
+                  <Badge className="bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 border-cyan-500/30 text-[10px] font-bold">
+                    STEP 2
+                  </Badge>
+                  <Search className="h-4 w-4 text-cyan-500" />
+                </div>
                 <h4 className="font-bold text-xs text-foreground">Scrutinise Case Data</h4>
                 <p className="text-[11px] text-muted-foreground leading-relaxed">
-                  Inspect the case text, Table 1.1 figures, and charts. Use 1-click Quote to cite exact figures in your answers.
+                  Read the extract, search keywords, and inspect Table 1.1 figures. Use 1-click "Quote" to paste exact contextual data straight into your answers.
                 </p>
               </div>
-              <div className="p-3.5 rounded-xl border border-border/80 bg-muted/20 space-y-1.5">
-                <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30 text-[10px] font-bold">
-                  STEP 3
-                </Badge>
-                <h4 className="font-bold text-xs text-foreground">Workings &amp; OFR</h4>
+
+              <div className="p-4 rounded-xl border border-border/70 bg-card/60 space-y-2">
+                <div className="flex items-center justify-between">
+                  <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30 text-[10px] font-bold">
+                    STEP 3
+                  </Badge>
+                  <Calculator className="h-4 w-4 text-amber-500" />
+                </div>
+                <h4 className="font-bold text-xs text-foreground">Draft Answers & Workings</h4>
                 <p className="text-[11px] text-muted-foreground leading-relaxed">
-                  Show step-by-step arithmetic (Own Figure Rule applies). For diagrams, detail axes and shifts clearly.
+                  Show workings for calculation questions (Own Figure Rule applies). For diagram questions, describe axes and shifts. Write balanced arguments for 6+ mark questions.
                 </p>
               </div>
-              <div className="p-3.5 rounded-xl border border-border/80 bg-muted/20 space-y-1.5">
-                <Badge className="bg-purple-500/15 text-purple-700 dark:text-purple-300 border-purple-500/30 text-[10px] font-bold">
-                  STEP 4
-                </Badge>
+
+              <div className="p-4 rounded-xl border border-border/70 bg-card/60 space-y-2">
+                <div className="flex items-center justify-between">
+                  <Badge className="bg-purple-500/15 text-purple-700 dark:text-purple-300 border-purple-500/30 text-[10px] font-bold">
+                    STEP 4
+                  </Badge>
+                  <Trophy className="h-4 w-4 text-purple-500" />
+                </div>
                 <h4 className="font-bold text-xs text-foreground">Strict Cambridge Marking</h4>
                 <p className="text-[11px] text-muted-foreground leading-relaxed">
-                  Submit to receive exact Cambridge mark scheme criteria matching, AO allocations, and benchmark model answers.
+                  Submit to get line-by-line mark scheme matching, AO1-AO3 mark breakdowns, Level 3 evaluation checks, and verified Cambridge model answers.
                 </p>
               </div>
             </div>
 
-            <div className="space-y-2 pt-2 border-t border-border/70">
+            {/* Cambridge 3 Golden Rules Bar */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2">
               <div className="flex items-start gap-2.5 p-3 rounded-lg bg-amber-500/5 border border-amber-500/20 text-xs">
                 <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
                 <div>
@@ -437,7 +521,7 @@ export function DataResponseStudio() {
                     Level 3 Rubric Rule (6+ marks)
                   </span>
                   <span className="text-muted-foreground text-[11px] leading-tight">
-                    Marks above Level 2 (5+ marks) are withheld unless there is an explicit, balanced conclusion with contextual evaluation.
+                    Marks above Level 2 (5+ marks) are strictly withheld unless there is an explicit, balanced conclusion with contextual evaluation.
                   </span>
                 </div>
               </div>
@@ -458,229 +542,226 @@ export function DataResponseStudio() {
                 <Lightbulb className="h-4 w-4 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
                 <div>
                   <span className="font-bold text-blue-700 dark:text-blue-300 block">
-                    Extract Linkage Requirement
+                    Extract Linkage Penalty
                   </span>
                   <span className="text-muted-foreground text-[11px] leading-tight">
-                    Theoretical arguments without quoting figures, countries, or data from the extract are capped at partial marks.
+                    Pure textbook theory without quoting countries, company names, or figures from the case study extract is capped at partial marks.
                   </span>
                 </div>
               </div>
             </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* ==================================================================== */}
-      {/* MINIMALIST UNIFIED CONTROL BAR                                       */}
-      {/* ==================================================================== */}
-      <div className="rounded-xl border border-border/80 bg-card p-3 shadow-xs space-y-3">
-        {/* Row 1: Brand, Guidelines, View Tabs & Marking Action */}
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5">
-            <div className="size-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-xs">
-              9708
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-sm sm:text-base font-bold text-foreground">
-                  Data Response Studio
-                </h2>
-                <Badge variant="outline" className="text-[10px] font-mono border-emerald-500/30 text-emerald-600 dark:text-emerald-400">
-                  Section A
-                </Badge>
-              </div>
-              <p className="text-[11px] text-muted-foreground hidden sm:block">
-                Table 1.1 interpretation, Own Figure Rule (OFR) &amp; mark scheme evaluation
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setShowInstructions(true)}
-              className="text-xs h-8 px-2.5 text-muted-foreground hover:text-foreground gap-1.5"
-            >
-              <HelpCircle className="h-3.5 w-3.5 text-primary" />
-              <span>Guidelines</span>
-            </Button>
-
-            <Tabs value={activeTab} onValueChange={(v: any) => setActiveTab(v)}>
-              <TabsList className="bg-muted p-0.5 h-8">
-                <TabsTrigger value="practice" className="text-xs px-2.5 py-1 font-semibold">
-                  Studio
-                </TabsTrigger>
-                {lastSubmission && (
-                  <TabsTrigger value="results" className="text-xs px-2.5 py-1 font-semibold text-emerald-600 dark:text-emerald-400">
-                    Report
-                  </TabsTrigger>
-                )}
-                <TabsTrigger value="library" className="text-xs px-2.5 py-1 font-semibold">
-                  Library ({papers.length})
-                </TabsTrigger>
-                <TabsTrigger value="upload" className="text-xs px-2.5 py-1 font-semibold">
-                  Upload
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
-          </div>
-        </div>
-
-        {/* Row 2: Paper Selector, Level Pills & Actions (Practice View) */}
-        {activeTab === "practice" && (
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-2.5 pt-2 border-t border-border/60">
-            {/* Level selector & Paper Dropdown */}
-            <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 flex-1 min-w-0">
-              <div className="inline-flex rounded-lg border border-border bg-muted/60 p-0.5 text-[11px] font-semibold shrink-0">
-                <button
-                  type="button"
-                  onClick={() => setLevelFilter("all")}
-                  className={cn(
-                    "px-2 py-1 rounded-md transition-colors",
-                    levelFilter === "all" ? "bg-background text-foreground shadow-2xs font-bold" : "text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  All ({papers.length})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setLevelFilter("as")}
-                  className={cn(
-                    "px-2 py-1 rounded-md transition-colors",
-                    levelFilter === "as" ? "bg-emerald-600 text-white font-bold" : "text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  AS (P2)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setLevelFilter("a2")}
-                  className={cn(
-                    "px-2 py-1 rounded-md transition-colors",
-                    levelFilter === "a2" ? "bg-indigo-600 text-white font-bold" : "text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  A2 (P4)
-                </button>
-              </div>
-
-              <div className="flex-1 min-w-[200px]">
-                <Select
-                  value={selectedPaperId}
-                  onValueChange={(id) => {
-                    setSelectedPaperId(id);
-                    setActiveQuestionIdx(0);
-                  }}
-                >
-                  <SelectTrigger className="w-full bg-background font-medium text-xs h-8 min-w-0">
-                    <SelectValue placeholder="Select Data Response Paper..." />
-                  </SelectTrigger>
-                  <SelectContent className="max-h-[380px]">
-                    {filteredPapers.map((p) => (
-                      <SelectItem key={p.id} value={p.id} className="text-xs py-2">
-                        <div className="flex items-center gap-2">
-                          <Badge
-                            variant="outline"
-                            className={cn(
-                              "text-[10px] uppercase font-mono px-1.5 py-0 font-bold",
-                              p.qualificationLevel === "as"
-                                ? "border-emerald-500/40 text-emerald-600 dark:text-emerald-400 bg-emerald-500/5"
-                                : "border-indigo-500/40 text-indigo-600 dark:text-indigo-400 bg-indigo-500/5"
-                            )}
-                          >
-                            {p.qualificationLevel.toUpperCase()} {p.subjectCode}/{p.paperNumber}
-                          </Badge>
-                          <span className="truncate font-semibold">{p.title}</span>
-                          <span className="text-[11px] text-muted-foreground whitespace-nowrap">
-                            ({p.seriesLabel || "Official"})
-                          </span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            {/* Test Action Buttons */}
-            <div className="flex flex-wrap items-center gap-2 shrink-0">
-              {currentPaper?.sampleAnswers && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleLoadSampleAnswers}
-                  className="text-xs text-primary border-primary/30 hover:bg-primary/10 h-8 font-semibold gap-1.5 whitespace-nowrap"
-                  title="Load Cambridge benchmark answers into all sub-questions"
-                >
-                  <Sparkles className="h-3 w-3 text-primary" />
-                  <span>Benchmark</span>
-                </Button>
-              )}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setAnswers({});
-                  try {
-                    localStorage.removeItem(`marginal_dr_draft_${selectedPaperId}`);
-                  } catch {}
-                  toast.info("Cleared all question answers.");
-                }}
-                className="text-xs text-muted-foreground hover:text-destructive h-8 px-2.5 whitespace-nowrap"
-              >
-                Clear
-              </Button>
-              <Button
-                size="sm"
-                onClick={() => gradeMutation.mutate()}
-                disabled={gradeMutation.isPending || !currentPaper}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold gap-1.5 h-8 px-3.5 shadow-xs whitespace-nowrap"
-              >
-                {gradeMutation.isPending ? (
-                  <>
-                    <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-                    <span>Marking…</span>
-                  </>
-                ) : (
-                  <>
-                    <Send className="h-3.5 w-3.5" />
-                    <span>Mark Paper</span>
-                  </>
-                )}
-              </Button>
-            </div>
-          </div>
-        )}
-      </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* ==================================================================== */}
       {/* VIEW 1: PRACTICE STUDIO (Split-View Extract Reader & Answering)       */}
       {/* ==================================================================== */}
       {activeTab === "practice" && (
-        <div className="space-y-4">
-          {/* Active Paper Minimal Meta Bar */}
-          {currentPaper && (
-            <div className="flex flex-wrap items-center justify-between gap-2 px-1 text-xs text-muted-foreground">
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="font-semibold text-foreground">
-                  {currentPaper.title}
-                </span>
-                <span>·</span>
-                <span className="font-mono">{currentPaper.subjectCode}/{currentPaper.paperNumber}</span>
-                <span>·</span>
-                <span className="font-bold text-emerald-600 dark:text-emerald-400">{currentPaper.totalMarks} Marks</span>
-                <span>·</span>
-                <span className="flex items-center gap-1">
-                  <Clock className="h-3 w-3" />
-                  {currentPaper.durationMinutes}m
-                </span>
+        <div className="space-y-6">
+          {/* LEVEL SELECTION & PAPER FILTER TOOLBAR */}
+          <Card className="border border-border/80 shadow-sm bg-card/70 backdrop-blur-sm">
+            <CardContent className="p-4 space-y-4">
+              {/* Row 1: Level Filter Pills & Search Input */}
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground mr-1">
+                    Filter Level:
+                  </span>
+                  <Button
+                    variant={levelFilter === "all" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setLevelFilter("all")}
+                    className={cn(
+                      "text-xs font-semibold h-8 px-3 gap-1.5 transition-all",
+                      levelFilter === "all" ? "shadow-xs" : "hover:bg-muted"
+                    )}
+                  >
+                    All Papers ({papers.length})
+                  </Button>
+                  <Button
+                    variant={levelFilter === "as" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setLevelFilter("as")}
+                    className={cn(
+                      "text-xs font-semibold h-8 px-3 gap-1.5 transition-all",
+                      levelFilter === "as"
+                        ? "bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs"
+                        : "border-emerald-500/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10"
+                    )}
+                  >
+                    AS Level · Paper 2 ({asCount})
+                  </Button>
+                  <Button
+                    variant={levelFilter === "a2" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setLevelFilter("a2")}
+                    className={cn(
+                      "text-xs font-semibold h-8 px-3 gap-1.5 transition-all",
+                      levelFilter === "a2"
+                        ? "bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs"
+                        : "border-indigo-500/40 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-500/10"
+                    )}
+                  >
+                    A Level · Paper 4 ({a2Count})
+                  </Button>
+                </div>
+
+                {/* Quick Topic Search */}
+                <div className="relative w-full md:w-64">
+                  <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                  <Input
+                    placeholder="Search by topic, country, year…"
+                    value={paperSearchQuery}
+                    onChange={(e) => setPaperSearchQuery(e.target.value)}
+                    className="pl-8 h-8 text-xs bg-background"
+                  />
+                  {paperSearchQuery && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setPaperSearchQuery("")}
+                      className="absolute right-1 top-1 h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
+                    >
+                      ×
+                    </Button>
+                  )}
+                </div>
               </div>
-              <div className="text-[11px] font-mono font-medium">
-                Sub-question {activeQuestionIdx + 1} of {currentPaper.questions.length}
+
+              {/* Row 2: Selected Paper Dropdown & Active Exam Status Badges */}
+              <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3 pt-3 border-t border-border/50">
+                <div className="flex flex-1 items-center gap-2.5 min-w-0 flex-wrap sm:flex-nowrap">
+                  <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground whitespace-nowrap shrink-0">
+                    Active Paper:
+                  </Label>
+                  <Select
+                    value={selectedPaperId}
+                    onValueChange={(id) => {
+                      setSelectedPaperId(id);
+                      setActiveQuestionIdx(0);
+                    }}
+                  >
+                    <SelectTrigger className="w-full xl:max-w-md 2xl:max-w-xl bg-background font-medium text-xs h-9 min-w-0">
+                      <SelectValue placeholder="Select Data Response Paper..." />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-[380px]">
+                      {filteredPapers.map((p) => (
+                        <SelectItem key={p.id} value={p.id} className="text-xs py-2">
+                          <div className="flex items-center gap-2">
+                            <Badge
+                              variant="outline"
+                              className={cn(
+                                "text-[10px] uppercase font-mono px-1.5 py-0 font-bold",
+                                p.qualificationLevel === "as"
+                                  ? "border-emerald-500/40 text-emerald-600 dark:text-emerald-400 bg-emerald-500/5"
+                                  : "border-indigo-500/40 text-indigo-600 dark:text-indigo-400 bg-indigo-500/5"
+                              )}
+                            >
+                              {p.qualificationLevel.toUpperCase()} {p.subjectCode}/{p.paperNumber}
+                            </Badge>
+                            <span className="truncate font-semibold">{p.title}</span>
+                            <span className="text-[11px] text-muted-foreground whitespace-nowrap">
+                              ({p.seriesLabel || "Official"})
+                            </span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Test Controls & Submission Trigger */}
+                <div className="flex flex-wrap items-center gap-2 shrink-0 pt-1 xl:pt-0">
+                  {currentPaper?.sampleAnswers && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleLoadSampleAnswers}
+                      className="text-xs text-primary border-primary/30 hover:bg-primary/10 h-9 font-semibold gap-1.5 whitespace-nowrap"
+                      title="Load Cambridge benchmark answers into all sub-questions"
+                    >
+                      <Sparkles className="h-3.5 w-3.5 text-primary" />
+                      Load Benchmark Script
+                    </Button>
+                  )}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setAnswers({});
+                      try {
+                        localStorage.removeItem(`marginal_dr_draft_${selectedPaperId}`);
+                      } catch {}
+                      toast.info("Cleared all question answers.");
+                    }}
+                    className="text-xs text-muted-foreground hover:text-destructive h-9 whitespace-nowrap"
+                  >
+                    Clear All
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={() => gradeMutation.mutate()}
+                    disabled={gradeMutation.isPending || !currentPaper}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold gap-1.5 h-9 shadow-xs whitespace-nowrap shrink-0"
+                  >
+                    {gradeMutation.isPending ? (
+                      <>
+                        <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                        Marking against MS…
+                      </>
+                    ) : (
+                      <>
+                        <Send className="h-3.5 w-3.5" />
+                        Submit for Strict Marking
+                      </>
+                    )}
+                  </Button>
+                </div>
               </div>
-            </div>
-          )}
+
+              {/* Active Paper Feature Bar */}
+              {currentPaper && (
+                <div className="flex flex-wrap items-center gap-2 pt-2 text-xs">
+                  <Badge
+                    className={cn(
+                      "font-bold text-[11px]",
+                      currentPaper.qualificationLevel === "as"
+                        ? "bg-emerald-600 text-white"
+                        : "bg-indigo-600 text-white"
+                    )}
+                  >
+                    {currentPaper.qualificationLevel === "as" ? "Cambridge AS Level (Paper 2)" : "Cambridge A Level (Paper 4)"}
+                  </Badge>
+
+                  <Badge variant="outline" className="text-[11px] font-mono">
+                    {currentPaper.subjectCode}/{currentPaper.paperNumber} · {currentPaper.totalMarks} Marks
+                  </Badge>
+
+                  <Badge variant="secondary" className="text-[11px] font-medium">
+                    <Clock className="h-3 w-3 mr-1 text-muted-foreground" />
+                    {currentPaper.durationMinutes} Minutes Time Allocation
+                  </Badge>
+
+                  {currentPaper.extract.tables && currentPaper.extract.tables.length > 0 && (
+                    <Badge variant="outline" className="border-cyan-500/40 text-cyan-700 dark:text-cyan-300 bg-cyan-500/5 text-[11px]">
+                      Table 1.1 Data Included
+                    </Badge>
+                  )}
+
+                  {currentPaper.questions.some((q) => q.hasDiagramRequirement) && (
+                    <Badge variant="outline" className="border-purple-500/40 text-purple-700 dark:text-purple-300 bg-purple-500/5 text-[11px]">
+                      SVG Curve Shift Diagrams
+                    </Badge>
+                  )}
+
+                  <Badge variant="outline" className="border-amber-500/40 text-amber-700 dark:text-amber-300 bg-amber-500/5 text-[11px]">
+                    Level 3 Evaluative Rubrics
+                  </Badge>
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
           <CompactProgressBar
             active={gradeMutation.isPending}

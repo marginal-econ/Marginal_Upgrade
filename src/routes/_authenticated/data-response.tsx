@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { PageHeader } from "@/components/app/app-shell";
 import { DataResponseStudio } from "@/components/app/data-response-admin";
 
 export const Route = createFileRoute("/_authenticated/data-response")({
@@ -28,7 +29,11 @@ export const Route = createFileRoute("/_authenticated/data-response")({
 
 function DataResponsePage() {
   return (
-    <div className="w-full max-w-[1600px] mx-auto p-2 sm:p-4 space-y-4">
+    <div className="w-full max-w-[1600px] mx-auto p-3 sm:p-5 md:p-6 space-y-5">
+      <PageHeader
+        title="Data Response Papers"
+        description="Master Paper 2 & Paper 4 Section A case studies, interpret Table 1.1 figures, apply Own Figure Rule (OFR) calculations, and get marked strictly against official Cambridge mark schemes."
+      />
       <DataResponseStudio />
     </div>
   );
