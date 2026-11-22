@@ -60,7 +60,10 @@ export function formatEconomicsMathText(text: unknown): string {
   if (typeof text !== "string" || !text) return "";
   let s = text;
 
-  // 1. Common LaTeX commands
+  // 1. Display math blocks $$...$$
+  s = s.replace(/\$\$([\s\S]*?)\$\$/g, (_, inner) => inner.trim());
+
+  // 2. Common LaTeX commands
   s = s.replace(/\\text\{([^}]+)\}/g, "$1");
   s = s.replace(/\\mathrm\{([^}]+)\}/g, "$1");
   s = s.replace(/\\mathbf\{([^}]+)\}/g, "$1");
@@ -78,18 +81,18 @@ export function formatEconomicsMathText(text: unknown): string {
   s = s.replace(/\\leftarrow\b/g, "←");
   s = s.replace(/\\%/g, "%");
 
-  // 2. Subscripts inside dollar signs or parentheses or standalone:
+  // 3. Subscripts inside dollar signs or parentheses or standalone:
   // e.g. ($P_x$) -> (Pₓ), $P_{x}$ -> Pₓ, $Q_1$ -> Q₁, $AD_1$ -> AD₁
   s = s.replace(/\(\$([A-Za-z]+)_\{?([A-Za-z0-9]+)\}?\$\)/g, (_, v, sub) => `(${v}${toSubscript(sub)})`);
   s = s.replace(/\$([A-Za-z]+)_\{?([A-Za-z0-9]+)\}?\$/g, (_, v, sub) => `${v}${toSubscript(sub)}`);
 
-  // 3. Subscripts outside dollar signs on economic variables:
+  // 4. Subscripts outside dollar signs on economic variables:
   // e.g. P_x, P_m, Q_1, Q_2, AD_1, AS_1, SRAS_1, LRAS_1, MSB_1, Y_1, etc.
   s = s.replace(/\b([A-Za-z]{1,4})_\{?([A-Za-z0-9]+)\}?\b/g, (_, v, sub) => `${v}${toSubscript(sub)}`);
 
-  // 4. Unwrap math expressions inside $...$
+  // 5. Unwrap math expressions inside $...$
   // Math expressions start with a letter, Greek/operator symbol, or parenthesis (never digits like currency $100)
-  s = s.replace(/\$([A-Za-zΔ×·÷≤≥≠≈→←\\(][^$\n]{0,100}?)\$/g, (match, inner) => {
+  s = s.replace(/\$([A-Za-zΔ×·÷≤≥≠≈→←\\(][^$\n]{0,120}?)\$/g, (match, inner) => {
     // If it looks like currency (e.g. "$10 to $20"), don't match
     if (/\$\d/.test(inner)) return match;
     // Format inner subscripts if any remain
@@ -97,11 +100,42 @@ export function formatEconomicsMathText(text: unknown): string {
     return formatted.trim();
   });
 
-  // 5. Clean up any remaining stray math dollar signs wrapping single tokens or parenthesized tokens
+  // 6. Clean up any remaining stray math dollar signs wrapping single tokens or parenthesized tokens
   // e.g. $(P_x)$ -> (Pₓ), $(AD)$ -> (AD), $(X-M)$ -> (X-M), ($P$) -> (P)
   s = s.replace(/\$\(([^)]+)\)\$/g, "($1)");
   s = s.replace(/\(\$([^$]+)\$\)/g, "($1)");
+  s = s.replace(/\$([A-Za-z])/g, "$1");
+  s = s.replace(/([A-Za-z])\$/g, "$1");
 
+  return s;
+}
+
+/**
+ * Clean plain-text sanitizer for candidate scripts.
+ * Strips raw LaTeX math wrappers ($P_x$, $$formula$$, ($AD$)) into clean, authentic
+ * Cambridge student notation without raw dollar delimiters.
+ */
+export function cleanMathDollarSigns(text: unknown): string {
+  if (typeof text !== "string" || !text) return "";
+  let s = text;
+  // 1. Remove display math $$...$$
+  s = s.replace(/\$\$([\s\S]*?)\$\$/g, (_, inner) => inner.trim());
+  // 2. Format parenthesized variables with dollar signs: ($P_x$) -> (Px), ($P_m$) -> (Pm)
+  s = s.replace(/\(\$([A-Za-z]+)_\{?([A-Za-z0-9]+)\}?\$\)/g, "($1$2)");
+  s = s.replace(/\$([A-Za-z]+)_\{?([A-Za-z0-9]+)\}?\$/g, "$1$2");
+  // 3. Format standalone expressions like ($AD$), ($SRAS$), ($X - M$), ($PED_x + PED_m < 1$)
+  s = s.replace(/\(\$([^$]+)\$\)/g, (match, inner) => {
+    const cleaned = inner.replace(/_([A-Za-z0-9]+)/g, "$1");
+    return `(${cleaned.trim()})`;
+  });
+  // 4. Unwrap math expressions in $...$
+  s = s.replace(/\$([A-Za-zΔ][^$\n]*?)\$/g, (match, inner) => {
+    if (/^\d/.test(inner.trim())) return match;
+    const cleaned = inner.replace(/_([A-Za-z0-9]+)/g, "$1");
+    return cleaned.trim();
+  });
+  // 5. Clean any residual dollar signs touching letters
+  s = s.replace(/\$([A-Za-z])/g, "$1").replace(/([A-Za-z])\$/g, "$1");
   return s;
 }
 
@@ -147,4 +181,69 @@ export function cleanStars<T>(value: T): T {
     return res as T;
   }
   return value;
+}
+
+/**
+ * Automatically ensures authentic Cambridge paragraphing across student essays.
+ * If an essay is a single monolithic block of text (>= 60 words, 0 or 1 paragraphs),
+ * it intelligently detects logical transitions (discourse markers, counter-arguments,
+ * evaluation, conclusion) and full sentence breaks to structure into clean paragraphs.
+ */
+export function autoParagraphText(text: unknown): string {
+  if (typeof text !== "string" || !text.trim()) return "";
+  const raw = text.trim();
+
+  // If already properly paragraphed with multiple substantial paragraphs, leave intact
+  const existingParagraphs = raw
+    .split(/\n\s*\n/)
+    .map((p) => p.trim())
+    .filter((p) => p.length > 0 && !/^\s*\((?:Diagram:\s*)?[^)]+\)\s*$/i.test(p));
+
+  const words = raw.split(/\s+/).length;
+
+  // Only auto-paragraph if the essay is a monolithic block (words >= 60 with <= 1 paragraph)
+  if (words < 60 || existingParagraphs.length >= 2) {
+    return raw;
+  }
+
+  // 1. First attempt: Split at Cambridge discourse & transition markers that follow sentence endings (.!?)
+  const transitionPattern = /(?<=[.!?])\s+(?=(?:However|In contrast|Conversely|On the other hand|Furthermore|Moreover|In addition|Additionally|Alternatively|Secondly|Thirdly|Finally|In evaluation|To evaluate|In conclusion|Overall|Ultimately|Consequently|Therefore|From an evaluative standpoint|Examining this policy|With regard to|With regards to|Turning to|A government can|Monetary policy|Fiscal policy|Supply-side policy)\b)/i;
+
+  const splitByTransitions = raw.split(transitionPattern).map((p) => p.trim()).filter(Boolean);
+
+  if (splitByTransitions.length >= 2) {
+    return splitByTransitions.join("\n\n");
+  }
+
+  // 2. Second attempt: If no explicit transition words exist, split at natural sentence boundaries
+  // every 3-4 sentences (or roughly 80-110 words) to avoid a monolithic wall of text.
+  const sentences = raw.match(/[^.!?]+[.!?]+(?:\s|$)|[^.!?]+$/g);
+  if (!sentences || sentences.length <= 3) {
+    return raw;
+  }
+
+  const paragraphs: string[] = [];
+  let currentPara: string[] = [];
+  let currentWords = 0;
+
+  for (let i = 0; i < sentences.length; i++) {
+    const s = sentences[i].trim();
+    if (!s) continue;
+    const sWords = s.split(/\s+/).length;
+    currentPara.push(s);
+    currentWords += sWords;
+
+    const remainingSentences = sentences.length - (i + 1);
+    if ((currentWords >= 80 || currentPara.length >= 4) && remainingSentences >= 2) {
+      paragraphs.push(currentPara.join(" "));
+      currentPara = [];
+      currentWords = 0;
+    }
+  }
+
+  if (currentPara.length > 0) {
+    paragraphs.push(currentPara.join(" "));
+  }
+
+  return paragraphs.length >= 2 ? paragraphs.join("\n\n") : raw;
 }

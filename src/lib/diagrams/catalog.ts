@@ -1,6 +1,7 @@
 import { MACRO_DIAGRAMS } from "./macro";
 import { MICRO_DIAGRAMS } from "./micro";
 import type { DiagramEntry, DiagramSection } from "./types";
+export type { DiagramEntry, DiagramSection } from "./types";
 
 export const DIAGRAMS: DiagramEntry[] = [...MICRO_DIAGRAMS, ...MACRO_DIAGRAMS];
 

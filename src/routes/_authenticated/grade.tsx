@@ -33,6 +33,17 @@ import {
   Zap,
   Wand2,
   HelpCircle,
+  Plus,
+  Search,
+  GripVertical,
+  Eye,
+  BookOpenCheck,
+  SlidersHorizontal,
+  ArrowLeft,
+  ArrowUp,
+  ArrowDown,
+  Check,
+  MessageSquare,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -43,10 +54,13 @@ import { ChainedChamber } from "@/components/app/chained-chamber";
 import { CompactProgressBar, GradingProgress, type ProgressStage } from "@/components/app/grading-progress";
 import { HandwritingUpload } from "@/components/app/handwriting-upload";
 import { MarkBreakdown } from "@/components/app/mark-breakdown";
+import { generatePass4Comments, type Pass4Comment } from "@/lib/pass4-comments";
 import { DiagramCheckDialog } from "@/components/app/diagram-check-dialog";
 import { SampleEssayBanner } from "@/components/app/sample-essay-banner";
 import { InSituTour, type TourStep } from "@/components/app/in-situ-tour";
 import { SAMPLE_ESSAYS, type SampleEssay } from "@/lib/sample-essays";
+import { DIAGRAMS, type DiagramEntry, DIAGRAM_BY_ID } from "@/lib/diagrams/catalog";
+import { EconomicsDiagram } from "@/components/diagrams/economics-diagram";
 import {
   MarkSchemeScreenshots,
   type MarkSchemeImage,
@@ -75,8 +89,8 @@ import { checkWritingQuality } from "@/lib/writing-check.functions";
 import { analyzeGrammarAndMechanics } from "@/lib/live-examiner/grammar-engine";
 import { splitSentences } from "@/lib/writing-check/sentence-diff";
 import { getMe } from "@/lib/account.functions";
-import { cn } from "@/lib/utils";
-import type { Grading } from "@/lib/examiner/types";
+import { cn, cleanMathDollarSigns, autoParagraphText } from "@/lib/utils";
+import { stripScoreFractionsFromText, type Grading } from "@/lib/examiner/types";
 import { isEvaluativeQuestion } from "@/lib/examiner/config";
 
 // Optional prefill from the Question bank, Practice desk, or Classroom Direct Grading
@@ -140,7 +154,13 @@ type WritingCheck = {
   engine?: "in_house" | "ai";
 };
 
-type AttachedDiagram = { id: string; label: string; tag: string };
+type AttachedDiagram = {
+  id: string;
+  label: string;
+  tag: string;
+  catalogId?: string;
+  imageUrl?: string;
+};
 
 const TARIFF_OPTIONS = [
   {
@@ -193,6 +213,189 @@ const TARIFF_OPTIONS = [
   },
 ];
 
+const POPULAR_DRAGGABLE_DIAGRAMS = [
+  { id: "maximum-price", title: "Maximum Price" },
+  { id: "minimum-price", title: "Minimum Price" },
+  { id: "indirect-tax", title: "Specific Tax" },
+  { id: "subsidy", title: "Subsidy" },
+  { id: "tariff-diagram", title: "Tariff" },
+  { id: "ad-as-equilibrium", title: "AD/AS Growth" },
+  { id: "j-curve", title: "The J-Curve" },
+  { id: "phillips-curve", title: "Phillips Curve" },
+  { id: "lorenz-curve", title: "Lorenz Curve" },
+  { id: "deadweight-welfare-loss", title: "Deadweight Loss" },
+];
+
+const GENERIC_ECONOMICS_VOCAB = new Set([
+  "market equilibrium",
+  "free market equilibrium",
+  "supply curve",
+  "demand curve",
+  "supply",
+  "demand",
+  "equilibrium",
+  "price mechanism",
+  "elasticity",
+  "price elasticity",
+  "income elasticity",
+  "cross elasticity",
+  "consumer surplus",
+  "producer surplus",
+  "aggregate demand",
+  "aggregate supply",
+  "inflation",
+  "unemployment",
+  "economic growth",
+  "balance of payments",
+  "exchange rate",
+  "fiscal policy",
+  "monetary policy",
+  "supply-side policy",
+  "market failure",
+  "deadweight loss",
+]);
+
+export type DiagramRefMatch = {
+  title: string;
+  entry: DiagramEntry;
+  matchText: string;
+  isCustom?: boolean;
+};
+
+export type DiagramRefResult = {
+  matches: DiagramRefMatch[];
+  detectedTags: string[];
+  inlineReplacements: { matchText: string; tag: string }[];
+};
+
+export function extractDiagramReferences(text: string): DiagramRefResult {
+  if (!text) return { matches: [], detectedTags: [], inlineReplacements: [] };
+
+  const bracketRegex = /[\(\[]([^\)\]]+)[\)\]]/g;
+  const matches: DiagramRefMatch[] = [];
+  const detectedTags: string[] = [];
+  const inlineReplacements: { matchText: string; tag: string }[] = [];
+  const seenIds = new Set<string>();
+
+  let m: RegExpExecArray | null;
+  while ((m = bracketRegex.exec(text)) !== null) {
+    const rawContent = m[1].trim();
+
+    // Check if bracket explicitly indicates a diagram/figure
+    const hasExplicitPrefix = /^(?:diagram|figure|fig\b|graph|see\s+diagram|see\s+figure|refer\s+to\s+diagram|refer\s+to\s+figure)[\s:\-–—]+/i.test(rawContent);
+    const hasDiagramWord = /\b(?:diagram|graph|figure)\b/i.test(rawContent);
+
+    // Clean core name
+    const cleanContent = rawContent
+      .replace(/^(?:diagram|figure|fig\.?|graph|see\s+diagram|see\s+figure|refer\s+to\s+diagram|refer\s+to\s+figure)[\s:\-–—]*/i, "")
+      .replace(/\s+(?:diagram|graph|figure)$/i, "")
+      .trim()
+      .toLowerCase();
+
+    // Skip short tokens, variables, acronyms: e.g. "px", "pm", "ad", "as", "ped", "12", "x - m"
+    if (cleanContent.length < 3) continue;
+    // Skip math/inequality expressions: e.g. "ped < 1", "pedx + pedm > 1", "qm > qopt", "x - m"
+    if (/[=<>+*/]/.test(cleanContent) || /\s-\s/.test(cleanContent)) continue;
+    // Skip common non-diagram economic acronyms in brackets
+    if (/^(?:sras|lras|mpc|msc|msb|mpb|mec|meb|ped|pes|yed|xed|gdp|cpi|rpi|hdi)\b/i.test(cleanContent)) continue;
+
+    // RULE 1: Core economic vocabulary ("market equilibrium", "supply curve", "demand curve", etc.)
+    // MUST have an explicit prefix like "(Diagram: Market Equilibrium)" or explicit word "diagram"/"figure".
+    // Bare occurrences like "(market equilibrium)" or "(supply curve)" are regular economic sentences and MUST NOT match!
+    if (GENERIC_ECONOMICS_VOCAB.has(cleanContent) && !hasExplicitPrefix && !hasDiagramWord) {
+      continue;
+    }
+
+    // Attempt to find in the official 30+ Cambridge diagram library
+    const found = DIAGRAMS.find((d) => {
+      const titleLower = d.title.toLowerCase();
+      const strippedTitle = titleLower.replace(/^the\s+/i, "");
+
+      // If generic vocabulary term, only match if explicit prefix was given
+      if (GENERIC_ECONOMICS_VOCAB.has(titleLower) || GENERIC_ECONOMICS_VOCAB.has(strippedTitle)) {
+        if (!hasExplicitPrefix && !hasDiagramWord) return false;
+      }
+
+      // Exact title match: e.g. "the j-curve effect", "maximum price", "minimum price"
+      if (cleanContent === titleLower || cleanContent === strippedTitle) return true;
+
+      // Exact known aliases (MUST be full phrase, NEVER loose substring matching!)
+      if (d.id === "minimum-price" && (cleanContent === "minimum price" || cleanContent === "price floor")) return true;
+      if (d.id === "maximum-price" && (cleanContent === "maximum price" || cleanContent === "price ceiling")) return true;
+      if (d.id === "tariff" && (cleanContent === "tariff on imported goods" || (hasExplicitPrefix && cleanContent === "tariff"))) return true;
+      if (d.id === "quota" && (cleanContent === "import quota" || (hasExplicitPrefix && cleanContent === "quota"))) return true;
+      if (d.id === "j-curve" && (cleanContent === "j-curve" || cleanContent === "j-curve effect" || cleanContent === "j curve")) return true;
+      if (d.id === "phillips-curve" && (cleanContent === "phillips curve" || cleanContent === "short-run phillips curve")) return true;
+      if (d.id === "ad-as-growth" && (cleanContent === "ad/as" || cleanContent === "ad-as" || cleanContent === "aggregate demand and supply")) return true;
+      if (d.id === "ppc-growth" && (cleanContent === "production possibility curve" || cleanContent === "production possibility frontier" || (hasExplicitPrefix && cleanContent === "ppc"))) return true;
+      if (d.id === "negative-externality-production" && (cleanContent === "negative externality of production" || (hasExplicitPrefix && cleanContent === "negative externality"))) return true;
+      if (d.id === "positive-externality-consumption" && (cleanContent === "positive externality of consumption" || (hasExplicitPrefix && cleanContent === "positive externality"))) return true;
+
+      // When the user explicitly typed "Diagram: ..." or "... diagram", allow targeted matching
+      if (hasExplicitPrefix || hasDiagramWord) {
+        if (cleanContent === titleLower || cleanContent === strippedTitle) return true;
+        if (cleanContent.startsWith(strippedTitle) || strippedTitle.startsWith(cleanContent)) return true;
+        if (d.id === "j-curve" && cleanContent.includes("j-curve")) return true;
+        if (d.id === "tariff" && cleanContent.includes("tariff")) return true;
+        if (d.id === "ad-as-growth" && (cleanContent.includes("ad/as") || cleanContent.includes("ad-as"))) return true;
+      }
+
+      return false;
+    });
+
+    if (found && !seenIds.has(found.id)) {
+      seenIds.add(found.id);
+      matches.push({ title: found.title, entry: found, matchText: m[0], isCustom: false });
+      const curves = found.spec.curves.map((c) => c.label).filter(Boolean).join(", ") || "standard curves";
+      const tag = `[DIAGRAM: ${found.title} (${found.section}, ${found.topic}) | represents: ${found.represents} | axes: ${found.spec.yLabel} (y) / ${found.spec.xLabel} (x) | curves: ${curves} | referenced in candidate script: candidate has directly drawn and referenced ${found.title} at this position in their written response]`;
+      detectedTags.push(tag);
+      inlineReplacements.push({ matchText: m[0], tag });
+    } else if (!found && (hasExplicitPrefix || hasDiagramWord)) {
+      // CUSTOM / NON-CATALOG DIAGRAM SUPPORT:
+      // If candidate explicitly writes (Diagram: Lorenz Curve) or (Figure: Monopsony Labour Market),
+      // support it with full Cambridge examiner credit.
+      const formattedTitle = rawContent
+        .replace(/^(?:diagram|figure|fig\.?|graph|see\s+diagram|see\s+figure|refer\s+to\s+diagram|refer\s+to\s+figure)[\s:\-–—]*/i, "")
+        .replace(/\s+(?:diagram|graph|figure)$/i, "")
+        .trim();
+
+      if (formattedTitle.length >= 3) {
+        const customId = `custom-${formattedTitle.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
+        if (!seenIds.has(customId)) {
+          seenIds.add(customId);
+          const displayTitle = formattedTitle.charAt(0).toUpperCase() + formattedTitle.slice(1);
+          const customEntry: DiagramEntry = {
+            id: customId,
+            title: displayTitle,
+            section: "Microeconomics",
+            topic: "Candidate Custom Diagram",
+            represents: `Custom candidate diagram: ${displayTitle}`,
+            whyUsed: `Student-drawn diagram referenced at this position in candidate script.`,
+            spec: {
+              type: "custom",
+              xLabel: "Quantity (Q)",
+              yLabel: "Price / Value",
+              curves: [],
+            } as any,
+            rules: ["Accurate axis labels and curve shifts required for credit"],
+          };
+          matches.push({
+            title: displayTitle,
+            entry: customEntry,
+            matchText: m[0],
+            isCustom: true,
+          });
+          const tag = `[DIAGRAM: ${displayTitle} (Custom Student Diagram) | candidate has drawn and referenced ${displayTitle} at this exact position in their script — evaluate candidate's diagrammatic analysis, axes, shifts, and explanations directly based on this referenced diagram]`;
+          detectedTags.push(tag);
+          inlineReplacements.push({ matchText: m[0], tag });
+        }
+      }
+    }
+  }
+
+  return { matches, detectedTags, inlineReplacements };
+}
+
 function GradePage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -216,7 +419,7 @@ function GradePage() {
   const isTeacherUnpaid = isTeacher && !sub?.isPaid && !isAdmin;
   const isLimitReached = false;
 
-  const DRAFT_STORAGE_KEY = "marginal_essay_draft_v1";
+  const DRAFT_STORAGE_KEY = "marginal_essay_draft_v2";
 
   const gradeSubmissionFn = useServerFn(gradeAssignmentSubmission);
   const [isReturningGrade, setIsReturningGrade] = useState(false);
@@ -229,7 +432,7 @@ function GradePage() {
     if (search.q) return search.q;
     if (typeof window !== "undefined") {
       try {
-        const saved = localStorage.getItem(DRAFT_STORAGE_KEY);
+        const saved = localStorage.getItem(DRAFT_STORAGE_KEY) || localStorage.getItem("marginal_essay_draft_v1");
         if (saved) {
           const parsed = JSON.parse(saved);
           if (parsed.question) return parsed.question;
@@ -255,13 +458,17 @@ function GradePage() {
   });
 
   const [essayText, setEssayText] = useState(() => {
-    if (search.text) return search.text;
+    if (search.text) return cleanMathDollarSigns(search.text);
     if (typeof window !== "undefined") {
       try {
         const saved = localStorage.getItem(DRAFT_STORAGE_KEY);
         if (saved) {
           const parsed = JSON.parse(saved);
-          if (parsed.essayText) return parsed.essayText;
+          if (parsed.essayText) {
+            let cleaned = cleanMathDollarSigns(parsed.essayText);
+            cleaned = cleaned.replace(/^\s*\((?:Diagram:\s*)?[^)]+\)\s*(?=[A-Z])/i, "");
+            return cleaned;
+          }
         }
       } catch {}
     }
@@ -339,19 +546,28 @@ function GradePage() {
 
   const handleSelectSample = useCallback((sample: SampleEssay) => {
     setQuestion(sample.question);
-    setEssayText(sample.essayText);
+    setEssayText(cleanMathDollarSigns(sample.essayText));
     setMaxMark(sample.maxMark);
     setEssayCategory(sample.tariff);
     setActiveSampleId(sample.id);
+    setDiagrams([]);
+    setResult(null);
+    try {
+      localStorage.removeItem(DRAFT_STORAGE_KEY);
+      localStorage.removeItem("marginal_essay_draft_v1");
+    } catch {}
     toast.success(`Loaded ${sample.shortLabel}! Hit "Mark this essay" below to evaluate.`);
-  }, []);
+  }, [DRAFT_STORAGE_KEY]);
 
   const handleClearSample = useCallback(() => {
     setQuestion("");
     setEssayText("");
     setActiveSampleId(null);
+    setDiagrams([]);
+    setResult(null);
     try {
       localStorage.removeItem(DRAFT_STORAGE_KEY);
+      localStorage.removeItem("marginal_essay_draft_v1");
     } catch {}
     toast.info("Sample cleared. You can now type or paste your own essay.");
   }, [DRAFT_STORAGE_KEY]);
@@ -462,6 +678,320 @@ function GradePage() {
   // its own [DIAGRAM: ...] tag, and all of them are joined together when the
   // essay is submitted for marking.
   const [diagrams, setDiagrams] = useState<AttachedDiagram[]>([]);
+  const [diagramDrawerOpen, setDiagramDrawerOpen] = useState(false);
+  const [diagramTrayExpanded, setDiagramTrayExpanded] = useState(false);
+  const [draggingDiagram, setDraggingDiagram] = useState<{ id: string; title: string } | null>(null);
+  const [hoveredDropSlot, setHoveredDropSlot] = useState<number | null>(null);
+  const [placementPickerDiagram, setPlacementPickerDiagram] = useState<{ id: string; title: string } | null>(null);
+  const [diagramSearch, setDiagramSearch] = useState("");
+  const [diagramFilterSection, setDiagramFilterSection] = useState<"all" | "Microeconomics" | "Macroeconomics" | "custom">("all");
+  const [activeViewTab, setActiveViewTab] = useState<"editor" | "report">("editor");
+  const [activeCommentId, setActiveCommentId] = useState<string | null>(null);
+  const [isEditingAfterGrade, setIsEditingAfterGrade] = useState(false);
+  const [isDocDragging, setIsDocDragging] = useState(false);
+  const [ocrDrawerOpen, setOcrDrawerOpen] = useState(false);
+  const [markSchemeDrawerOpen, setMarkSchemeDrawerOpen] = useState(false);
+  const [settingsDrawerOpen, setSettingsDrawerOpen] = useState(false);
+  const [proofreadDrawerOpen, setProofreadDrawerOpen] = useState(false);
+  const [detailedBreakdownOpen, setDetailedBreakdownOpen] = useState(false);
+
+  const essayInputRef = useRef<HTMLTextAreaElement>(null);
+  const questionInputRef = useRef<HTMLTextAreaElement>(null);
+  const reportRef = useRef<HTMLDivElement>(null);
+
+  // Auto-resize essay textarea to feel like an authentic document
+  useEffect(() => {
+    if (essayInputRef.current) {
+      essayInputRef.current.style.height = "auto";
+      essayInputRef.current.style.height = `${Math.max(460, essayInputRef.current.scrollHeight)}px`;
+    }
+  }, [essayText]);
+
+  // Auto-resize question textarea
+  useEffect(() => {
+    if (questionInputRef.current) {
+      questionInputRef.current.style.height = "auto";
+      questionInputRef.current.style.height = `${Math.max(48, questionInputRef.current.scrollHeight)}px`;
+    }
+  }, [question]);
+
+  const [previewDiagram, setPreviewDiagram] = useState<DiagramEntry | null>(null);
+
+  // Directly parse all diagram references in brackets, e.g. (Maximum price), (J-curve)
+  const inTextDiagrams = useMemo(() => {
+    return extractDiagramReferences(essayText);
+  }, [essayText]);
+
+  // Pass 4: Decode diagram integration & compare report with candidate script
+  const pass4Comments = useMemo(() => {
+    if (!result?.grading) return [];
+    return generatePass4Comments(essayText, question, result.grading, inTextDiagrams.matches);
+  }, [essayText, question, result?.grading, inTextDiagrams.matches]);
+
+  // Split essay into text paragraphs excluding diagram tags
+  const textParagraphs = useMemo(() => {
+    if (!essayText.trim()) return [];
+    return essayText
+      .split(/\n\s*\n/)
+      .map((raw, idx) => ({
+        index: idx,
+        raw: raw.trim(),
+        isDiagram: /^\s*\((?:Diagram:\s*)?[^)]+\)\s*$/i.test(raw.trim()),
+      }))
+      .filter((p) => p.raw.length > 0 && !p.isDiagram);
+  }, [essayText]);
+
+  function getDiagramPlacementDescription(matchText: string): {
+    description: string;
+    canMoveEarlier: boolean;
+    canMoveLater: boolean;
+  } {
+    const idx = essayText.indexOf(matchText);
+    if (idx < 0) {
+      return {
+        description: "Positioned in candidate script",
+        canMoveEarlier: false,
+        canMoveLater: false,
+      };
+    }
+    const before = essayText.slice(0, idx);
+    const after = essayText.slice(idx + matchText.length);
+    const parasBefore = before
+      .trim()
+      .split(/\n\s*\n/)
+      .filter((p) => p.trim().length > 0 && !/^\s*\((?:Diagram:\s*)?[^)]+\)\s*$/i.test(p.trim()));
+    const parasAfter = after
+      .trim()
+      .split(/\n\s*\n/)
+      .filter((p) => p.trim().length > 0 && !/^\s*\((?:Diagram:\s*)?[^)]+\)\s*$/i.test(p.trim()));
+
+    const canMoveEarlier = parasBefore.length > 0;
+    const canMoveLater = parasAfter.length > 0;
+
+    if (parasBefore.length === 0) {
+      return {
+        description: "Positioned at beginning of essay (Before Paragraph 1)",
+        canMoveEarlier: false,
+        canMoveLater,
+      };
+    }
+
+    if (parasAfter.length === 0) {
+      return {
+        description: `Positioned after Paragraph ${parasBefore.length} (at end of essay)`,
+        canMoveEarlier,
+        canMoveLater: false,
+      };
+    }
+
+    return {
+      description: `Positioned between Paragraph ${parasBefore.length} and Paragraph ${parasBefore.length + 1}`,
+      canMoveEarlier,
+      canMoveLater,
+    };
+  }
+
+  function handleDropAtSlot(slotIndex: number, diagramTitle: string, catalogId?: string) {
+    const cleanTitle = diagramTitle.trim();
+    if (!cleanTitle) return;
+
+    const tagToInsert = `(Diagram: ${cleanTitle})`;
+    const rawParas = essayText
+      .split(/\n\s*\n/)
+      .map((p) => p.trim())
+      .filter((p) => p.length > 0);
+
+    if (rawParas.length === 0) {
+      setEssayText(`${tagToInsert}\n\n`);
+    } else {
+      const textOnly = rawParas.filter((p) => !/^\s*\((?:Diagram:\s*)?[^)]+\)\s*$/i.test(p));
+      let newParas: string[] = [];
+
+      if (slotIndex <= 0) {
+        newParas = [tagToInsert, ...rawParas];
+      } else if (slotIndex >= textOnly.length) {
+        newParas = [...rawParas, tagToInsert];
+      } else {
+        const targetText = textOnly[slotIndex - 1];
+        const targetIdx = rawParas.indexOf(targetText);
+        if (targetIdx >= 0) {
+          newParas = [
+            ...rawParas.slice(0, targetIdx + 1),
+            tagToInsert,
+            ...rawParas.slice(targetIdx + 1),
+          ];
+        } else {
+          newParas = [...rawParas, tagToInsert];
+        }
+      }
+
+      setEssayText(cleanMathDollarSigns(newParas.join("\n\n")));
+    }
+
+    const fullEntry =
+      (catalogId && DIAGRAM_BY_ID[catalogId]) ??
+      DIAGRAMS.find((d) => d.title.toLowerCase() === cleanTitle.toLowerCase());
+    if (fullEntry) {
+      const curves = fullEntry.curveLabels?.filter(Boolean).join(", ") || "not specified";
+      const tag = `[DIAGRAM: ${fullEntry.title} | axes: ${fullEntry.yLabel} (y) / ${fullEntry.xLabel} (x) | curves: ${curves} | labels: as per standard ${fullEntry.title} diagram | accuracy: standard reference diagram positioned directly in script]`;
+      setDiagrams((current) =>
+        current.some((d) => d.label === fullEntry.title || d.catalogId === fullEntry.id)
+          ? current
+          : [...current, { id: crypto.randomUUID(), label: fullEntry.title, tag, catalogId: fullEntry.id }]
+      );
+    }
+
+    setDraggingDiagram(null);
+    setHoveredDropSlot(null);
+    setPlacementPickerDiagram(null);
+
+    const slotLabel =
+      slotIndex <= 0
+        ? "at beginning of essay"
+        : slotIndex >= textParagraphs.length
+        ? "at end of essay"
+        : `after Paragraph ${slotIndex}`;
+    toast.success(`Positioned (Diagram: ${cleanTitle}) ${slotLabel}!`);
+  }
+
+  function insertDiagramAtCursor(entry: DiagramEntry | { id: string; title: string }) {
+    const textarea = essayInputRef.current;
+    const tagToInsert = ` (Diagram: ${entry.title}) `;
+    if (textarea && document.activeElement === textarea && textarea.selectionStart > 0) {
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd ?? start;
+      const newText = essayText.slice(0, start) + tagToInsert + essayText.slice(end);
+      setEssayText(cleanMathDollarSigns(newText));
+      setTimeout(() => {
+        textarea.focus();
+        textarea.setSelectionRange(start + tagToInsert.length, start + tagToInsert.length);
+      }, 50);
+    } else {
+      setEssayText((prev: string) => {
+        const trimmed = cleanMathDollarSigns(prev).trim();
+        return trimmed ? `${trimmed}\n\n(Diagram: ${entry.title})\n\n` : `(Diagram: ${entry.title})\n\n`;
+      });
+    }
+    const fullEntry = DIAGRAM_BY_ID[entry.id] ?? DIAGRAMS.find((d) => d.id === entry.id);
+    if (fullEntry) {
+      const curves = fullEntry.curveLabels?.filter(Boolean).join(", ") || "not specified";
+      const tag = `[DIAGRAM: ${fullEntry.title} | axes: ${fullEntry.yLabel} (y) / ${fullEntry.xLabel} (x) | curves: ${curves} | labels: as per standard ${fullEntry.title} diagram | accuracy: standard reference diagram positioned directly in script]`;
+      setDiagrams((current) =>
+        current.some((d) => d.label === fullEntry.title || d.catalogId === fullEntry.id)
+          ? current
+          : [...current, { id: crypto.randomUUID(), label: fullEntry.title, tag, catalogId: fullEntry.id }]
+      );
+    }
+    setDiagramDrawerOpen(false);
+    toast.success(`Positioned (Diagram: ${entry.title}) in candidate script`);
+  }
+
+  function insertCatalogDiagram(entry: DiagramEntry) {
+    insertDiagramAtCursor(entry);
+  }
+
+  const [customDiagramTitle, setCustomDiagramTitle] = useState("");
+  const [customDiagramNotes, setCustomDiagramNotes] = useState("");
+
+  function insertCustomDiagram(titleToInsert: string, notesToInsert?: string) {
+    const cleanTitle = titleToInsert.trim();
+    if (!cleanTitle) {
+      toast.error("Please enter a diagram title.");
+      return;
+    }
+    const textarea = essayInputRef.current;
+    const tagToInsert = ` (Diagram: ${cleanTitle}) `;
+    if (textarea && document.activeElement === textarea && textarea.selectionStart > 0) {
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd ?? start;
+      const newText = essayText.slice(0, start) + tagToInsert + essayText.slice(end);
+      setEssayText(cleanMathDollarSigns(newText));
+      setTimeout(() => {
+        textarea.focus();
+        textarea.setSelectionRange(start + tagToInsert.length, start + tagToInsert.length);
+      }, 50);
+    } else {
+      setEssayText((prev: string) => {
+        const trimmed = cleanMathDollarSigns(prev).trim();
+        return trimmed ? `${trimmed}\n\n(Diagram: ${cleanTitle})` : `(Diagram: ${cleanTitle})\n\n`;
+      });
+    }
+
+    const tag = `[DIAGRAM: ${cleanTitle} (Custom Student Diagram) | candidate has drawn and referenced ${cleanTitle}${notesToInsert ? ` showing ${notesToInsert}` : ""} at this position in their script — evaluate candidate analysis, curves, and labels directly based on this referenced diagram]`;
+    setDiagrams((current) =>
+      current.some((d) => d.label.toLowerCase() === cleanTitle.toLowerCase())
+        ? current
+        : [...current, { id: crypto.randomUUID(), label: cleanTitle, tag }]
+    );
+    setCustomDiagramTitle("");
+    setCustomDiagramNotes("");
+    setDiagramDrawerOpen(false);
+    toast.success(`Positioned custom (Diagram: ${cleanTitle}) in candidate script`);
+  }
+
+  const [isDraggingOverTextarea, setIsDraggingOverTextarea] = useState(false);
+
+  function moveDiagramEarlier(matchText: string) {
+    const idx = essayText.indexOf(matchText);
+    if (idx <= 0) {
+      toast.info("Diagram is already at the beginning of the essay.");
+      return;
+    }
+    const before = essayText.slice(0, idx);
+    const after = essayText.slice(idx + matchText.length);
+    const paragraphsBefore = before.trim().split(/\n\s*\n/);
+    if (paragraphsBefore.length <= 1) {
+      const newText = `${matchText.trim()}\n\n${paragraphsBefore.join("\n\n")}${after ? `\n\n${after.trim()}` : ""}`;
+      setEssayText(cleanMathDollarSigns(newText));
+      toast.success("Moved diagram earlier in essay.");
+      return;
+    }
+    const lastPara = paragraphsBefore.pop();
+    const newBefore = paragraphsBefore.join("\n\n");
+    const newText = `${newBefore ? `${newBefore}\n\n` : ""}${matchText.trim()}\n\n${lastPara}${after ? `\n\n${after.trim()}` : ""}`;
+    setEssayText(cleanMathDollarSigns(newText));
+    toast.success("Moved diagram earlier in essay.");
+  }
+
+  function moveDiagramLater(matchText: string) {
+    const idx = essayText.indexOf(matchText);
+    if (idx < 0) return;
+    const before = essayText.slice(0, idx);
+    const after = essayText.slice(idx + matchText.length);
+    const paragraphsAfter = after.trim().split(/\n\s*\n/);
+    if (paragraphsAfter.length === 0 || !paragraphsAfter[0]) {
+      toast.info("Diagram is already at the end of the essay.");
+      return;
+    }
+    const firstParaAfter = paragraphsAfter.shift();
+    const restAfter = paragraphsAfter.join("\n\n");
+    const newText = `${before ? `${before.trim()}\n\n` : ""}${firstParaAfter}\n\n${matchText.trim()}${restAfter ? `\n\n${restAfter.trim()}` : ""}`;
+    setEssayText(cleanMathDollarSigns(newText));
+    toast.success("Moved diagram later in essay.");
+  }
+
+  function removeDiagramFromEssay(matchText: string) {
+    const newText = essayText.replace(matchText, "").replace(/\n\s*\n\s*\n/g, "\n\n").trim();
+    setEssayText(cleanMathDollarSigns(newText));
+    toast.info("Removed diagram from script.");
+  }
+
+  const filteredDiagrams = useMemo(() => {
+    const q = diagramSearch.trim().toLowerCase();
+    return DIAGRAMS.filter((d) => {
+      if (diagramFilterSection !== "all" && diagramFilterSection !== "custom") {
+        if (d.section !== diagramFilterSection) return false;
+      }
+      if (!q) return true;
+      return (
+        d.title.toLowerCase().includes(q) ||
+        d.topic.toLowerCase().includes(q) ||
+        d.represents.toLowerCase().includes(q) ||
+        d.whyUsed.toLowerCase().includes(q)
+      );
+    });
+  }, [diagramSearch, diagramFilterSection]);
+
   const [markSchemeImages, setMarkSchemeImages] = useState<MarkSchemeImage[]>([]);
   const [diagramMode, setDiagramMode] = useState<"none" | "upload" | "library" | "url">("none");
   const [diagramLibraryId, setDiagramLibraryId] = useState<string>("");
@@ -475,16 +1005,16 @@ function GradePage() {
   const diagramSectionRef = useRef<HTMLDivElement>(null);
   const [markSchemeSectionOpen, setMarkSchemeSectionOpen] = useState(false);
   const [settingsSectionOpen, setSettingsSectionOpen] = useState(false);
+  const [activeAccessory, setActiveAccessory] = useState<"none" | "handwriting" | "diagrams" | "markscheme" | "settings">("none");
 
   const handleOpenDiagramSection = useCallback(() => {
+    setDiagramDrawerOpen(true);
+    setActiveAccessory("diagrams");
     setDiagramSectionOpen(true);
     setDiagramMode((current) => (current === "none" ? "upload" : current));
     setIsDiagramHighlighted(true);
     window.setTimeout(() => setIsDiagramHighlighted(false), 3500);
-    window.setTimeout(() => {
-      diagramSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-    }, 100);
-    toast.info("Upload your diagram image, take a photo, or choose from the diagram library.");
+    toast.info("Curate a Cambridge diagram or upload your hand-drawn graph.");
   }, []);
 
   useEffect(() => {
@@ -499,7 +1029,11 @@ function GradePage() {
     try {
       const text = await navigator.clipboard.readText();
       if (text) {
-        setEssayText((current: string) => (current.trim() ? `${current.trim()}\n\n${text}` : text));
+        let cleaned = cleanMathDollarSigns(text);
+        if (cleaned.split(/\s+/).length >= 60 && !cleaned.includes("\n\n")) {
+          cleaned = autoParagraphText(cleaned);
+        }
+        setEssayText((current: string) => (current.trim() ? `${current.trim()}\n\n${cleaned}` : cleaned));
         setWritingCheck(null);
         toast.success("Pasted clipboard text into essay.");
       }
@@ -521,28 +1055,35 @@ function GradePage() {
 
   const describeDiagramImageMutation = useMutation({
     mutationFn: ({ image, label }: { image: string; label?: string }) =>
-      describeDiagramImg({ data: { image } }).then((res) => ({ ...res, label })),
+      describeDiagramImg({ data: { image } }).then((res) => ({ ...res, label, image })),
     onSuccess: (data) => {
+      const cleanLabel = (data.label || "Uploaded Diagram").replace(/\.[^/.]+$/, "");
       setDiagrams((current) => [
         ...current,
-        { id: crypto.randomUUID(), label: data.label || "Uploaded diagram", tag: data.tag },
+        { id: crypto.randomUUID(), label: cleanLabel, tag: data.tag, imageUrl: data.image },
       ]);
+      setEssayText((prev: string) => {
+        const trimmed = cleanMathDollarSigns(prev).trim();
+        return trimmed ? `${trimmed}\n\n(Diagram: ${cleanLabel})\n\n` : `(Diagram: ${cleanLabel})\n\n`;
+      });
       setDiagramMode("none");
-      toast.success("Diagram image read and attached to your essay.");
+      setDiagramDrawerOpen(false);
+      toast.success(`Diagram image "${cleanLabel}" analyzed and positioned in your essay.`);
     },
     onError: (error: Error) => toast.error(error.message),
   });
 
   const describeDiagramUrlMutation = useMutation({
-    mutationFn: (url: string) => describeDiagramLink({ data: { url } }),
+    mutationFn: (url: string) => describeDiagramLink({ data: { url } }).then((res) => ({ ...res, url })),
     onSuccess: (data) => {
       setDiagrams((current) => [
         ...current,
-        { id: crypto.randomUUID(), label: "Diagram from URL", tag: data.tag },
+        { id: crypto.randomUUID(), label: "Diagram from URL", tag: data.tag, imageUrl: data.url },
       ]);
       setDiagramUrl("");
       setDiagramMode("none");
-      toast.success("Diagram read and attached to your essay.");
+      setDiagramDrawerOpen(false);
+      toast.success("Diagram read and embedded in your essay.");
     },
     onError: (error: Error) => toast.error(error.message),
   });
@@ -625,11 +1166,16 @@ function GradePage() {
   });
 
   const mutation = useMutation({
-    mutationFn: () =>
-      grade({
+    mutationFn: () => {
+      // Guarantee authentic Cambridge paragraphing is always present in the grading submission
+      const essayToGrade = autoParagraphText(essayText);
+      if (essayToGrade !== essayText) {
+        setEssayText(essayToGrade);
+      }
+      return grade({
         data: {
           question,
-          essayText,
+          essayText: essayToGrade,
           maxMark: essayCategory === "8_legacy" || essayCategory === "8_eval" ? 8 : Number(maxMark),
           essayType: essayCategory,
           auditPass,
@@ -638,9 +1184,13 @@ function GradePage() {
           markSchemeImageDataUrls:
             markSchemeImages.length > 0 ? markSchemeImages.map((img) => img.dataUrl) : undefined,
         },
-      }),
+      });
+    },
     onSuccess: (data) => {
       setResult({ grading: data.grading as Grading, essayId: data.essayId });
+      setActiveViewTab("report");
+      setIsEditingAfterGrade(false);
+      setActiveCommentId(null);
       queryClient.invalidateQueries({ queryKey: ["essays"] });
       queryClient.invalidateQueries({ queryKey: ["review-essays"] });
       queryClient.invalidateQueries({ queryKey: ["review-panel"] });
@@ -649,6 +1199,9 @@ function GradePage() {
         localStorage.removeItem(DRAFT_STORAGE_KEY);
       } catch {}
       toast.success(`Marked ${data.grading.total_mark}/${data.grading.max_mark}`);
+      setTimeout(() => {
+        reportRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 300);
     },
     onError: (error: Error) => {
       toast.error(error.message, {
@@ -690,17 +1243,23 @@ function GradePage() {
   }
 
   function handleMarkClick(options?: { skipDiagramCheck?: boolean }) {
-    if (!readyToMark) {
-      if (grammarCheckEngine === "in_house") {
-        runInHouseCheck();
-      } else {
-        checkMutation.mutate();
+    // Ensure authentic Cambridge paragraphing is always present in grading
+    const wordCount = essayText.trim() ? essayText.trim().split(/\s+/).length : 0;
+    if (wordCount >= 60 && textParagraphs.length <= 1) {
+      const formatted = autoParagraphText(essayText);
+      if (formatted !== essayText) {
+        setEssayText(formatted);
+        toast.info("Structured candidate script into distinct paragraphs for Cambridge evaluation.", {
+          duration: 3500,
+        });
       }
-      return;
     }
 
-    // Prompt user if no diagram has been attached to this essay yet
-    if (!options?.skipDiagramCheck && diagrams.length === 0) {
+    // Prompt user only if no diagram has been attached or referenced in brackets yet
+    const { matches } = extractDiagramReferences(essayText);
+    const hasAnyDiagram = diagrams.length > 0 || matches.length > 0;
+
+    if (!options?.skipDiagramCheck && !hasAnyDiagram) {
       setDiagramPromptOpen(true);
       return;
     }
@@ -737,7 +1296,7 @@ function GradePage() {
         targetId: "tour-essay",
         title: "Your Essay (Text or Camera 📸)",
         description:
-          "Paste or type your essay here, or click the camera upload button below to take photos of handwritten pages. Built-in OCR transcribes your writing automatically!",
+          "Paste or type your essay here, or click the camera upload button below to take photos of handwritten pages. Built-in handwriting recognition transcribes your writing automatically!",
         badge: "Step 3",
         actionHint: "Shortcut: Press Ctrl + Enter from anywhere to start marking.",
       },
@@ -763,7 +1322,7 @@ function GradePage() {
     <>
       <PageHeader
         title="Mark an essay"
-        description="Marked to Cambridge 9708 standards, grounded in your own coursebook and mark schemes, then independently audited for central-tendency bias."
+        description="Marked to Cambridge 9708 standards, grounded in your syllabus and coursebooks."
         action={
           <div className="flex items-center gap-2">
             <Button
@@ -776,1041 +1335,1809 @@ function GradePage() {
               <HelpCircle className="size-3.5 text-primary" />
               <span>How It Works</span>
             </Button>
-            <Button
-              type="button"
-              size="sm"
-              onClick={() => handleSelectSample(SAMPLE_ESSAYS[0])}
-              className="h-8 px-3 text-xs font-semibold bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl shadow-xs gap-1.5 cursor-pointer"
-            >
-              <Wand2 className="size-3.5" />
-              <span>Try 12M Sample</span>
-            </Button>
+            {activeSampleId ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={handleClearSample}
+                className="h-8 px-2.5 text-xs text-muted-foreground hover:text-foreground gap-1.5 rounded-xl cursor-pointer"
+              >
+                <X className="size-3.5" />
+                <span>Clear Sample</span>
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => handleSelectSample(SAMPLE_ESSAYS[0])}
+                className="h-8 px-3 text-xs font-semibold bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl shadow-xs gap-1.5 cursor-pointer"
+              >
+                <Wand2 className="size-3.5" />
+                <span>Try 12M Sample</span>
+              </Button>
+            )}
           </div>
         }
       />
 
       {isDirectGradingMode && (
-            <div className="px-3.5 pt-3 pb-0 sm:px-6 sm:pt-4 md:px-8">
-              <div className="p-4 rounded-2xl bg-gradient-to-r from-purple-950/80 via-indigo-950/80 to-purple-950/80 border border-purple-500/40 shadow-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-xl bg-purple-600/30 border border-purple-500/50 flex items-center justify-center text-purple-300 shrink-0">
-                    <GraduationCap className="h-5 w-5" />
+        <div className="px-3.5 pt-3 pb-0 sm:px-6 sm:pt-4 md:px-8">
+          <div className="p-4 rounded-2xl bg-gradient-to-r from-purple-950/80 via-indigo-950/80 to-purple-950/80 border border-purple-500/40 shadow-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-xl bg-purple-600/30 border border-purple-500/50 flex items-center justify-center text-purple-300 shrink-0">
+                <GraduationCap className="h-5 w-5" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xs font-bold uppercase tracking-wider text-purple-300">
+                    Teacher Direct Grading Desk
+                  </span>
+                  <Badge className="bg-purple-900/80 text-purple-200 border-purple-700 text-[10px]">
+                    Class Assignment Submission
+                  </Badge>
+                </div>
+                <p className="text-sm font-semibold text-white mt-0.5">
+                  Directly evaluating submission for:{" "}
+                  <strong className="text-purple-300">{search.studentName || "Student"}</strong>
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  navigate({
+                    to: "/classes",
+                  })
+                }
+                className="border-purple-700/60 text-purple-200 hover:text-white hover:bg-purple-900/40 text-xs"
+              >
+                Back to Classroom
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Top Google Docs Command Bar (Single-Row, Ultra-Refined, Non-Wrapping) */}
+      <div className="sticky top-12 z-20 backdrop-blur-md bg-background/90 border-b border-border/60 py-2.5 px-3.5 sm:px-6 md:px-8">
+        <div className="max-w-5xl 2xl:max-w-6xl mx-auto flex items-center justify-between gap-3 flex-wrap">
+          {/* Left: Document Identity & Word count */}
+          <div className="flex items-center gap-2.5">
+            <div className="size-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="text-xs font-bold text-foreground">Candidate Script</span>
+            <span className="text-xs text-muted-foreground font-mono">
+              · {words} words
+            </span>
+          </div>
+
+          {/* Center: Cambridge Tariff Selector */}
+          <div className="flex items-center gap-1 rounded-xl bg-muted/60 p-1 border border-border/40 overflow-x-auto">
+            {TARIFF_OPTIONS.map((opt) => {
+              const isSelected = essayCategory === opt.value;
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => {
+                    setEssayCategory(opt.value);
+                    setWritingCheck(null);
+                  }}
+                  className={cn(
+                    "flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold transition-all shrink-0 cursor-pointer",
+                    isSelected
+                      ? "bg-background text-foreground shadow-2xs font-bold ring-1 ring-border/40"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  <span>{opt.marks}</span>
+                  <span className="text-[10px] opacity-75 font-normal">({opt.badge})</span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Right: Essential Actions */}
+          <div className="flex items-center gap-1.5 shrink-0">
+            {/* Import Handwriting */}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setOcrDrawerOpen(true)}
+              className="h-8 px-2.5 text-xs font-medium border-border/70 hover:bg-muted text-foreground gap-1.5 rounded-xl cursor-pointer"
+              title="Import handwritten pages"
+            >
+              <Camera className="size-3.5 text-primary" />
+              <span className="hidden sm:inline">Import Handwriting</span>
+            </Button>
+
+            {/* Proofread */}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={runInHouseCheck}
+              disabled={words < 5}
+              className="h-8 px-2.5 text-xs font-medium border-border/70 hover:bg-muted text-foreground gap-1.5 rounded-xl cursor-pointer"
+              title="Run Cambridge Economics Proofreading"
+            >
+              <Zap className="size-3.5 text-amber-500 fill-amber-500" />
+              <span className="hidden sm:inline">Proofread</span>
+            </Button>
+
+            {/* Settings & Mark Scheme Drawer */}
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={() => setSettingsDrawerOpen(true)}
+              className="size-8 text-muted-foreground hover:text-foreground rounded-xl"
+              title="Examiner Settings & Vision Mark Scheme"
+            >
+              <SlidersHorizontal className="size-3.5" />
+            </Button>
+
+            {/* Primary Grade Button */}
+            <Button
+              id="tour-submit"
+              size="sm"
+              disabled={
+                mutation.isPending ||
+                checkMutation.isPending ||
+                question.trim().length < 10 ||
+                words < 20
+              }
+              onClick={() => handleMarkClick()}
+              className="h-8 px-3.5 text-xs font-semibold rounded-xl bg-gradient-to-r from-primary via-indigo-600 to-primary text-white shadow-xs hover:opacity-95 cursor-pointer gap-1.5"
+            >
+              {mutation.isPending ? (
+                <>
+                  <Loader2 className="size-3.5 animate-spin" />
+                  <span>Grading...</span>
+                </>
+              ) : result ? (
+                <>
+                  <RotateCcw className="size-3.5" />
+                  <span>Re-Grade</span>
+                </>
+              ) : (
+                <>
+                  <GraduationCap className="size-3.5" />
+                  <span>Grade Essay</span>
+                  <span className="opacity-70 text-[10px] hidden md:inline">(⌘↵)</span>
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
+      </div>
+
+          {/* Main Google Docs Studio Canvas */}
+          <div className="w-full max-w-7xl 2xl:max-w-[1600px] mx-auto px-3.5 sm:px-6 md:px-8 py-5 min-w-0">
+            {mutation.isPending ? (
+              <div className="max-w-3xl mx-auto py-12">
+                <GradingProgress
+                  active
+                  stages={[
+                    { label: "Referring Cambridge 9708 Knowledge Base & Mark Schemes", weight: 3 },
+                    { label: "Dual-Examiner Parallel Evaluation (Pass 1 Error Check & Pass 2 Holistic)", weight: 5 },
+                    { label: "Checking Assessment Objectives: AO1 Knowledge · AO2 Application · AO3 Evaluation", weight: 4 },
+                    { label: "Evaluating policy trade-offs, multi-perspective weighing & examples", weight: 3 },
+                    { label: "Synthesizing diagnostic examiner report & actionable feedback", weight: 3 },
+                  ]}
+                  totalMs={25_000}
+                />
+              </div>
+            ) : (
+              <div className="space-y-8 w-full max-w-5xl 2xl:max-w-6xl mx-auto min-w-0">
+                {/* Prominent Cambridge Score Banner when graded */}
+                {result && (
+                  <div className="rounded-2xl border border-primary/30 bg-gradient-to-r from-primary/10 via-primary/5 to-background p-4 sm:p-5 shadow-sm animate-in fade-in duration-300">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div className="flex items-center gap-3.5">
+                        <div className="size-12 rounded-2xl bg-primary/15 border border-primary/30 flex items-center justify-center text-primary shrink-0 shadow-inner">
+                          <Award className="size-6 text-primary" />
+                        </div>
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-bold text-base sm:text-lg text-foreground">
+                              Cambridge 9708 Assessment Complete
+                            </span>
+                            <Badge className="bg-primary text-primary-foreground font-black text-xs px-2.5 py-0.5">
+                              {result.grading.total_mark} / {result.grading.max_mark} Marks
+                            </Badge>
+                            <Badge variant="outline" className="border-border/80 text-foreground/90 text-xs font-semibold">
+                              {result.grading.band}
+                            </Badge>
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            {result.grading.latencyMs ? `Graded in ${Math.round(result.grading.latencyMs / 1000)}s · ` : ""}
+                            Full examiner diagnostic report and Cambridge exemplar breakdown generated below.
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        <Button
+                          size="sm"
+                          onClick={() => {
+                            reportRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+                          }}
+                          className="text-xs font-semibold rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground gap-1.5 cursor-pointer shadow-xs"
+                        >
+                          <ChevronDown className="size-3.5" /> View Diagnostic Report
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleMarkClick()}
+                          className="text-xs font-medium border-border/80 hover:bg-muted text-foreground rounded-xl gap-1.5 cursor-pointer"
+                        >
+                          <RotateCcw className="size-3.5" /> Re-Grade
+                        </Button>
+                      </div>
+                    </div>
                   </div>
-                  <div>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-xs font-bold uppercase tracking-wider text-purple-300">
-                        Teacher Direct Grading Desk
-                      </span>
-                      <Badge className="bg-purple-900/80 text-purple-200 border-purple-700 text-[10px]">
-                        Class Assignment Submission
+                )}
+
+                {/* Candidate Script Document Sheet */}
+                <div
+                  ref={resultRef}
+                  className={cn(
+                    "relative rounded-3xl border border-border/80 bg-card text-card-foreground shadow-md p-5 sm:p-8 lg:p-10 space-y-6 min-h-[850px] transition-all w-full min-w-0 max-w-full overflow-hidden",
+                    isDocDragging && "ring-2 ring-primary border-primary shadow-xl shadow-primary/20",
+                  )}
+                >
+                  {/* Cambridge International Examination Letterhead */}
+                  <div className="border-b border-border/60 pb-5 space-y-2 w-full min-w-0">
+                    <div className="flex items-center justify-between text-[11px] font-mono uppercase tracking-widest text-muted-foreground">
+                      <span>Cambridge Assessment International Education</span>
+                      <span>Syllabus 9708</span>
+                    </div>
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <h2 className="text-sm sm:text-base font-bold tracking-tight text-foreground">
+                        Economics Examination · Candidate Response Script
+                      </h2>
+                      <Badge variant="outline" className="border-primary/40 bg-primary/5 text-primary text-[10px] font-mono">
+                        {(TARIFF_OPTIONS.find((t) => t.value === essayCategory) || TARIFF_OPTIONS[2]).fullTitle}
                       </Badge>
                     </div>
-                    <p className="text-sm font-semibold text-white mt-0.5">
-                      Directly evaluating submission for:{" "}
-                      <strong className="text-purple-300">{search.studentName || "Student"}</strong>
+                    <p className="text-[11px] text-muted-foreground leading-relaxed">
+                      {(TARIFF_OPTIONS.find((t) => t.value === essayCategory) || TARIFF_OPTIONS[2]).guidance} · <strong className="text-foreground">{(TARIFF_OPTIONS.find((t) => t.value === essayCategory) || TARIFF_OPTIONS[2]).aoFull}</strong>
+                    </p>
+                  </div>
+
+                  {/* Question Section */}
+                  <div className="rounded-2xl border border-border/60 bg-muted/20 p-4 space-y-3 w-full min-w-0">
+                    <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground gap-2 flex-wrap">
+                      <span className="flex items-center gap-1.5 text-foreground shrink-0">
+                        <PenLine className="size-3.5 text-primary" /> Question Prompt
+                      </span>
+                      <span className="text-[11px] font-mono text-muted-foreground shrink-0">
+                        Cambridge 9708 Standard
+                      </span>
+                    </div>
+                    <Textarea
+                      ref={questionInputRef}
+                      rows={2}
+                      className="w-full resize-none border-0 bg-transparent p-0 text-base sm:text-lg font-semibold leading-relaxed focus-visible:ring-0 placeholder:text-muted-foreground/40 text-foreground shadow-none"
+                      placeholder="Enter or paste the exam question (e.g. Discuss whether a rise in the minimum wage will always reduce employment)..."
+                      value={question}
+                      onChange={(e) => setQuestion(e.target.value)}
+                    />
+
+                    {/* Prominent Cambridge Knowledge Base Calibration Banner */}
+                    {question.trim().length >= 8 && (
+                      <div className="flex items-center justify-between gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/[0.06] p-3 text-xs text-emerald-400 animate-in fade-in duration-200 w-full min-w-0">
+                        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                          <CheckCircle2 className="size-4 text-emerald-400 shrink-0" />
+                          <div className="min-w-0 flex-1">
+                            <div className="font-semibold text-emerald-300 flex items-center gap-2 flex-wrap">
+                              <span>Calibrated with Cambridge 9708 Knowledge Base</span>
+                              {groundingQuery.isLoading && (
+                                <span className="size-1.5 rounded-full bg-emerald-400 animate-ping" />
+                              )}
+                            </div>
+                            <div className="text-[11px] text-emerald-400/80 leading-relaxed">
+                              {groundingQuery.data?.grounded && groundingQuery.data.topMatchTitle
+                                ? `Grounded in: ${groundingQuery.data.topMatchTitle} · Cambridge syllabus & mark scheme criteria verified`
+                                : "Question actively grounded against official Cambridge syllabus topics, coursebook anchors, and examiner mark schemes."}
+                            </div>
+                          </div>
+                        </div>
+                        <Badge variant="outline" className="border-emerald-500/40 bg-emerald-500/10 text-emerald-300 text-[10px] font-mono shrink-0 uppercase tracking-wider">
+                          Calibrated
+                        </Badge>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Collapsible Diagram Studio (Clean, Prominent & Expandable On-Demand) */}
+                  <div
+                    id="tour-diagrams"
+                    className="rounded-2xl border border-primary/25 bg-primary/[0.03] overflow-hidden transition-all duration-200 w-full min-w-0"
+                  >
+                    <div className="flex items-center justify-between p-2.5 sm:px-3.5 flex-wrap gap-2 w-full min-w-0">
+                      {/* Left: Prominent Clickable Trigger to toggle draggable tray */}
+                      <button
+                        type="button"
+                        onClick={() => setDiagramTrayExpanded((prev) => !prev)}
+                        className="flex items-center gap-2.5 text-xs font-semibold text-foreground hover:text-primary transition-colors cursor-pointer group select-none text-left"
+                        title={diagramTrayExpanded ? "Click to collapse diagram tray" : "Click to expand draggable diagrams"}
+                      >
+                        <div className="flex size-7 items-center justify-center rounded-lg bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-all shrink-0">
+                          <Images className="size-4" />
+                        </div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-bold text-foreground group-hover:text-primary">
+                            Drag or Insert Diagram
+                          </span>
+                          <Badge variant="outline" className="border-primary/40 bg-primary/10 text-primary text-[10px] font-mono">
+                            30+ Cambridge &amp; Custom
+                          </Badge>
+                          {inTextDiagrams.matches.length > 0 && (
+                            <Badge variant="outline" className="border-emerald-500/40 bg-emerald-500/10 text-emerald-400 text-[10px] font-mono">
+                              {inTextDiagrams.matches.length} in essay
+                            </Badge>
+                          )}
+                        </div>
+                        <ChevronDown
+                          className={cn(
+                            "size-4 text-muted-foreground group-hover:text-primary transition-transform duration-200 shrink-0",
+                            diagramTrayExpanded && "rotate-180",
+                          )}
+                        />
+                      </button>
+
+                      {/* Right: Quick actions that work instantly whether tray is expanded or not */}
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setDiagramFilterSection("custom");
+                            setDiagramDrawerOpen(true);
+                          }}
+                          className="h-7 px-2.5 text-xs text-muted-foreground hover:text-foreground rounded-lg gap-1.5 cursor-pointer"
+                          title="Paste or upload diagram image"
+                        >
+                          <Upload className="size-3 text-primary" />
+                          <span className="hidden sm:inline">Upload Image</span>
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => diagramCameraInputRef.current?.click()}
+                          className="h-7 px-2.5 text-xs text-muted-foreground hover:text-foreground rounded-lg gap-1.5 cursor-pointer"
+                          title="Take photo of handwritten notebook diagram"
+                        >
+                          <Camera className="size-3 text-primary" />
+                          <span className="hidden sm:inline">Photo</span>
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setDiagramFilterSection("all");
+                            setDiagramDrawerOpen(true);
+                          }}
+                          className="h-7 px-2.5 text-xs border-primary/30 text-primary hover:bg-primary/10 rounded-lg gap-1 font-semibold cursor-pointer"
+                        >
+                          <span>Browse All ↗</span>
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Draggable Diagram Tray (Visible on click with smooth animation) */}
+                    {diagramTrayExpanded && (
+                      <div className="border-t border-primary/15 bg-background/60 p-3.5 space-y-2.5 animate-in fade-in slide-in-from-top-1 duration-200 w-full min-w-0">
+                        <div className="flex items-center justify-between text-[11px] text-muted-foreground gap-2 flex-wrap">
+                          <span className="flex items-center gap-1.5 font-medium">
+                            <GripVertical className="size-3 text-primary" />
+                            Drag any diagram directly into your text below, or click to insert at cursor:
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setDiagramFilterSection("all");
+                              setDiagramDrawerOpen(true);
+                            }}
+                            className="text-primary hover:underline font-medium text-[11px] cursor-pointer shrink-0"
+                          >
+                            Browse 30+ Library &amp; Draw Custom →
+                          </button>
+                        </div>
+
+                        {/* Popular Draggable Diagram Chips - Wrapped so they fit any screen without blowout */}
+                        <div className="flex flex-wrap items-center gap-2 pt-1 w-full min-w-0">
+                          {POPULAR_DRAGGABLE_DIAGRAMS.map((diag) => {
+                            const isAlreadyAdded = inTextDiagrams.matches.some((m) => m.entry.id === diag.id);
+                            return (
+                              <div
+                                key={diag.id}
+                                draggable={true}
+                                onDragStart={(e) => {
+                                  e.dataTransfer.setData("application/marginal-diagram", diag.id);
+                                  e.dataTransfer.setData("application/marginal-diagram-title", diag.title);
+                                  e.dataTransfer.setData("text/plain", `\n\n(Diagram: ${diag.title})\n\n`);
+                                  e.dataTransfer.effectAllowed = "copy";
+                                  setDraggingDiagram({ id: diag.id, title: diag.title });
+                                }}
+                                onDragEnd={() => {
+                                  setDraggingDiagram(null);
+                                  setHoveredDropSlot(null);
+                                }}
+                                onClick={() => {
+                                  if (textParagraphs.length >= 2) {
+                                    setPlacementPickerDiagram(diag);
+                                  } else {
+                                    insertDiagramAtCursor(diag);
+                                  }
+                                }}
+                                className={cn(
+                                  "inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold whitespace-nowrap cursor-grab active:cursor-grabbing transition-all select-none group shadow-2xs shrink-0",
+                                  isAlreadyAdded
+                                    ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-300"
+                                    : "border-border/80 bg-card hover:bg-primary/10 hover:border-primary/50 text-foreground",
+                                )}
+                                title="Drag to place in any paragraph, or click to choose paragraph position"
+                              >
+                                <GripVertical className="size-3 text-muted-foreground group-hover:text-primary shrink-0" />
+                                <span>{diag.title}</span>
+                                {isAlreadyAdded ? (
+                                  <Check className="size-3 text-emerald-400 shrink-0" />
+                                ) : (
+                                  <Plus className="size-3 text-muted-foreground group-hover:text-primary shrink-0" />
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Interactive Paragraph Drop Target Slots when Dragging a Diagram */}
+                  {draggingDiagram && (
+                    <div className="rounded-2xl border-2 border-dashed border-emerald-500/60 bg-emerald-500/[0.04] p-4 space-y-3 animate-in fade-in zoom-in-95 duration-150">
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <div className="flex items-center gap-2 text-xs font-bold text-emerald-400">
+                          <GripVertical className="size-4 animate-bounce text-emerald-400" />
+                          <span>Drag &amp; drop "{draggingDiagram.title}" into your desired paragraph position:</span>
+                        </div>
+                        <Badge variant="outline" className="border-emerald-500/40 bg-emerald-500/10 text-emerald-300 text-[10px] font-mono">
+                          Active Drop Targets
+                        </Badge>
+                      </div>
+
+                      <div className="space-y-2 pt-1">
+                        <div
+                          onDragOver={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setHoveredDropSlot(0);
+                          }}
+                          onDragLeave={() => setHoveredDropSlot(null)}
+                          onDrop={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            handleDropAtSlot(0, draggingDiagram.title, draggingDiagram.id);
+                          }}
+                          className={cn(
+                            "p-2.5 rounded-xl border border-dashed text-xs text-center font-medium transition-all cursor-pointer select-none",
+                            hoveredDropSlot === 0
+                              ? "border-emerald-500 bg-emerald-500/25 text-emerald-300 font-bold scale-[1.01] shadow-md ring-2 ring-emerald-500/50"
+                              : "border-border/70 bg-card hover:border-emerald-500/50 text-muted-foreground",
+                          )}
+                        >
+                          {hoveredDropSlot === 0
+                            ? `📍 Release to place (Diagram: ${draggingDiagram.title}) at the very beginning`
+                            : `＋ Drop at beginning (Before Paragraph 1)`}
+                        </div>
+
+                        {textParagraphs.map((para, pIdx) => (
+                          <div key={pIdx} className="space-y-2">
+                            <div className="p-3 rounded-xl bg-card border border-border/60 text-xs text-foreground/80 leading-relaxed shadow-2xs">
+                              <span className="font-bold text-primary mr-1.5">Paragraph {pIdx + 1}:</span>
+                              <span className="line-clamp-2 text-muted-foreground">{para.raw}</span>
+                            </div>
+
+                            <div
+                              onDragOver={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setHoveredDropSlot(pIdx + 1);
+                              }}
+                              onDragLeave={() => setHoveredDropSlot(null)}
+                              onDrop={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                handleDropAtSlot(pIdx + 1, draggingDiagram.title, draggingDiagram.id);
+                              }}
+                              className={cn(
+                                "p-2.5 rounded-xl border border-dashed text-xs text-center font-medium transition-all cursor-pointer select-none",
+                                hoveredDropSlot === pIdx + 1
+                                  ? "border-emerald-500 bg-emerald-500/25 text-emerald-300 font-bold scale-[1.01] shadow-md ring-2 ring-emerald-500/50"
+                                  : "border-border/70 bg-card hover:border-emerald-500/50 text-muted-foreground",
+                              )}
+                            >
+                              {hoveredDropSlot === pIdx + 1
+                                ? `📍 Release to place (Diagram: ${draggingDiagram.title}) after Paragraph ${pIdx + 1}`
+                                : `＋ Drop after Paragraph ${pIdx + 1} ${pIdx + 1 < textParagraphs.length ? `(Before Paragraph ${pIdx + 2})` : "(At end of essay)"}`}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Candidate Essay Response Area */}
+                  <div className="space-y-3 pt-1 w-full min-w-0">
+                    <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground px-1 gap-2 flex-wrap">
+                      <span className="flex items-center gap-1.5 text-foreground shrink-0">
+                        <FileText className="size-3.5 text-primary" /> Candidate Essay Response
+                      </span>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {result && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setIsEditingAfterGrade((prev) => !prev)}
+                            className="h-7 px-2.5 rounded-lg text-xs font-medium gap-1.5 cursor-pointer hover:bg-muted"
+                          >
+                            {isEditingAfterGrade ? (
+                              <>
+                                <MessageSquare className="size-3 text-primary" />
+                                <span>View Pass 4 Comments ({pass4Comments.length})</span>
+                              </>
+                            ) : (
+                              <>
+                                <PenLine className="size-3 text-muted-foreground" />
+                                <span>Edit Script</span>
+                              </>
+                            )}
+                          </Button>
+                        )}
+
+                        {words >= 60 && textParagraphs.length <= 1 && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const formatted = autoParagraphText(essayText);
+                              if (formatted !== essayText) {
+                                setEssayText(formatted);
+                                toast.success("Structured candidate script into distinct paragraphs!");
+                              } else {
+                                toast.info("No natural paragraph splits found.");
+                              }
+                            }}
+                            className="text-[11px] font-semibold text-primary hover:underline flex items-center gap-1 cursor-pointer"
+                            title="Format monolithic text into Cambridge paragraphs"
+                          >
+                            <Sparkles className="size-3 text-primary" /> Format Paragraphs
+                          </button>
+                        )}
+                        <span className="text-[11px] font-mono text-muted-foreground shrink-0">
+                          {words} words · {result ? "Graded" : "Ctrl+Enter to grade"}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Active Diagram Placement Strip (Highlights placed diagrams in distinctive emerald/teal color) */}
+                    {inTextDiagrams.matches.length > 0 && (
+                      <div className="flex items-center gap-2 flex-wrap py-2 px-3 rounded-xl bg-emerald-500/[0.08] dark:bg-emerald-950/30 border border-emerald-500/30 text-xs animate-in fade-in">
+                        <span className="font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5 uppercase tracking-wider text-[11px] shrink-0">
+                          <Images className="size-3.5" /> Diagrams Placed:
+                        </span>
+                        {inTextDiagrams.matches.map((m, idx) => (
+                          <span
+                            key={idx}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/15 dark:bg-emerald-900/40 border border-emerald-500/40 text-emerald-700 dark:text-emerald-300 font-mono text-xs font-semibold shadow-xs"
+                          >
+                            <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                            <span>(Diagram: {m.title})</span>
+                            <span className="text-[10.5px] text-emerald-600/80 dark:text-emerald-400/80 font-sans font-normal">
+                              · {getDiagramPlacementDescription(m.matchText).description}
+                            </span>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Single Integrated Manuscript Mode: Interactive Pass 4 Review when graded, Pure Writing Surface when drafting */}
+                    {result && !isEditingAfterGrade ? (
+                      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_340px] xl:grid-cols-[minmax(0,1fr)_370px] gap-6 items-start">
+                        {/* Left Column: Annotated Candidate Manuscript with Google Docs in-situ highlights */}
+                        <div className="rounded-2xl border border-border/70 bg-card/40 dark:bg-card/20 p-5 sm:p-7 shadow-xs space-y-4">
+                          <div className="flex items-center justify-between border-b border-border/60 pb-3">
+                            <span className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5 uppercase tracking-wider font-sans">
+                              <BookOpenCheck className="size-3.5 text-primary" /> Annotated Candidate Manuscript
+                            </span>
+                            <span className="text-[11px] text-muted-foreground/80 font-mono">
+                              Click any passage or comment to inspect
+                            </span>
+                          </div>
+
+                          <div className="space-y-4 font-serif text-base sm:text-[18px] md:text-[19px] leading-[1.95] text-foreground/95 min-h-[460px]">
+                            {essayText.trim() ? (
+                              essayText.split(/\n\s*\n/).map((para, pIdx) => {
+                                const isDiag = /^\s*\((?:Diagram:\s*)?[^)]+\)\s*$/i.test(para.trim());
+                                const paraComments = pass4Comments.filter((c) => c.paragraphIndex === pIdx);
+                                const isParaActive = paraComments.some((c) => c.id === activeCommentId);
+
+                                if (isDiag) {
+                                  const diagTitle = para.trim().replace(/^\s*\((?:Diagram:\s*)?/, "").replace(/\)\s*$/, "").trim();
+                                  const diagComment = pass4Comments.find(
+                                    (c) =>
+                                      c.category === "diagram" &&
+                                      (c.paragraphIndex === pIdx ||
+                                        c.highlightText.toLowerCase().includes(diagTitle.toLowerCase()) ||
+                                        diagTitle.toLowerCase().includes(c.highlightText.toLowerCase())),
+                                  );
+                                  const isDiagActive = diagComment && activeCommentId === diagComment.id;
+
+                                  return (
+                                    <div
+                                      key={pIdx}
+                                      id={`pass4-para-${pIdx}`}
+                                      onClick={() => {
+                                        if (diagComment) {
+                                          setActiveCommentId(diagComment.id);
+                                          document
+                                            .getElementById(`pass4-card-${diagComment.id}`)
+                                            ?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+                                        }
+                                      }}
+                                      className={cn(
+                                        "my-3 py-3 px-4 rounded-xl border transition-all duration-200 cursor-pointer shadow-xs flex items-center justify-between gap-3 font-sans",
+                                        isDiagActive
+                                          ? "border-emerald-500 bg-emerald-500/20 ring-2 ring-emerald-400/80 shadow-md scale-[1.01]"
+                                          : "border-emerald-500/40 bg-emerald-500/[0.08] dark:bg-emerald-950/30 hover:border-emerald-400 hover:bg-emerald-500/15",
+                                      )}
+                                    >
+                                      <div className="flex items-center gap-2.5">
+                                        <Images
+                                          className={cn(
+                                            "size-4 shrink-0",
+                                            isDiagActive ? "text-emerald-300 animate-pulse" : "text-emerald-400",
+                                          )}
+                                        />
+                                        <span className="font-mono font-bold text-xs sm:text-sm text-emerald-300">
+                                          {para.trim()}
+                                        </span>
+                                        <span className="text-[11px] text-emerald-400/80 font-sans hidden sm:inline">
+                                          · Cambridge 9708 Integrated Figure
+                                        </span>
+                                      </div>
+                                      {diagComment && (
+                                        <Badge
+                                          variant="outline"
+                                          className={cn(
+                                            "text-[10px] gap-1 cursor-pointer transition-colors",
+                                            isDiagActive
+                                              ? "border-emerald-400 bg-emerald-400/30 text-white font-bold"
+                                              : "border-emerald-500/40 bg-emerald-500/20 text-emerald-300",
+                                          )}
+                                        >
+                                          <MessageSquare className="size-2.5" />
+                                          <span>Decoded by Pass 4</span>
+                                        </Badge>
+                                      )}
+                                    </div>
+                                  );
+                                }
+
+                                return (
+                                  <div
+                                    key={pIdx}
+                                    id={`pass4-para-${pIdx}`}
+                                    onClick={() => {
+                                      if (paraComments.length > 0) {
+                                        const nextComment = isParaActive
+                                          ? paraComments[0]
+                                          : paraComments.find((c) => c.id !== activeCommentId) || paraComments[0];
+                                        setActiveCommentId(nextComment.id);
+                                        document
+                                          .getElementById(`pass4-card-${nextComment.id}`)
+                                          ?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+                                      }
+                                    }}
+                                    className={cn(
+                                      "relative rounded-xl transition-all duration-200 leading-[1.95] tracking-tight",
+                                      paraComments.length > 0 && "cursor-pointer group",
+                                      isParaActive
+                                        ? "bg-amber-400/15 ring-2 ring-amber-400/80 p-3.5 shadow-sm border-l-4 border-amber-500"
+                                        : paraComments.length > 0
+                                          ? "border-l-3 border-amber-400/60 pl-3.5 py-1 hover:bg-amber-400/[0.06]"
+                                          : "p-0.5",
+                                    )}
+                                  >
+                                    {paraComments.length > 0 && (
+                                      <div className="flex items-center justify-between gap-2 pb-1 text-xs select-none">
+                                        <span
+                                          className={cn(
+                                            "inline-flex items-center gap-1 text-[11px] font-sans font-semibold rounded-md px-2 py-0.5 transition-colors",
+                                            isParaActive
+                                              ? "bg-amber-500 text-black font-bold shadow-xs"
+                                              : "bg-amber-500/15 text-amber-500 group-hover:bg-amber-500/25",
+                                          )}
+                                        >
+                                          <MessageSquare className="size-3" />
+                                          <span>
+                                            {paraComments.length} {paraComments.length === 1 ? "Examiner Flag" : "Examiner Flags"}
+                                          </span>
+                                        </span>
+                                        {isParaActive && (
+                                          <span className="text-[10px] text-amber-500 font-mono font-medium animate-pulse">
+                                            ● Active In-Situ Focus
+                                          </span>
+                                        )}
+                                      </div>
+                                    )}
+                                    <p className="text-foreground/95">{para}</p>
+                                  </div>
+                                );
+                              })
+                            ) : (
+                              <p className="text-muted-foreground/40 italic font-sans text-sm">
+                                Candidate script is empty.
+                              </p>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Right Column: Pass 4 Google Docs Comment Cards Stream */}
+                        <div className="space-y-3 sticky top-20 max-h-[calc(100vh-140px)] overflow-y-auto pr-1">
+                          <div className="flex items-center justify-between pb-2 border-b border-border/60">
+                            <div className="flex items-center gap-1.5 font-bold text-xs text-foreground uppercase tracking-wider">
+                              <MessageSquare className="size-4 text-primary" />
+                              <span>Pass 4 Examiner Comments</span>
+                            </div>
+                            <Badge variant="outline" className="text-[10px] font-mono border-primary/30 text-primary">
+                              {pass4Comments.length} {pass4Comments.length === 1 ? "Comment" : "Comments"}
+                            </Badge>
+                          </div>
+
+                          {pass4Comments.length === 0 ? (
+                            <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/[0.06] p-4 text-center space-y-1">
+                              <CheckCircle2 className="size-5 text-emerald-400 mx-auto" />
+                              <p className="text-xs font-semibold text-emerald-400">Exemplar Integration</p>
+                              <p className="text-[11px] text-muted-foreground">
+                                All diagrams, causal mechanisms, and evaluation criteria meet Cambridge standards.
+                              </p>
+                            </div>
+                          ) : (
+                            pass4Comments.map((comment) => {
+                              const isActive = activeCommentId === comment.id;
+                              const categoryColor =
+                                comment.category === "diagram"
+                                  ? "border-emerald-500/40 bg-emerald-500/[0.05] hover:border-emerald-500/70"
+                                  : comment.category === "evaluation"
+                                    ? "border-sky-500/40 bg-sky-500/[0.05] hover:border-sky-500/70"
+                                    : comment.category === "knowledge"
+                                      ? "border-indigo-500/40 bg-indigo-500/[0.05] hover:border-indigo-500/70"
+                                      : "border-amber-500/40 bg-amber-500/[0.05] hover:border-amber-500/70";
+
+                              const activeColor =
+                                comment.category === "diagram"
+                                  ? "ring-2 ring-emerald-400 border-emerald-500 bg-emerald-500/15 shadow-md"
+                                  : comment.category === "evaluation"
+                                    ? "ring-2 ring-sky-400 border-sky-500 bg-sky-500/15 shadow-md"
+                                    : comment.category === "knowledge"
+                                      ? "ring-2 ring-indigo-400 border-indigo-500 bg-indigo-500/15 shadow-md"
+                                      : "ring-2 ring-amber-400 border-amber-500 bg-amber-500/15 shadow-md";
+
+                              const badgeColor =
+                                comment.category === "diagram"
+                                  ? "border-emerald-500/40 bg-emerald-500/20 text-emerald-400"
+                                  : comment.category === "evaluation"
+                                    ? "border-sky-500/40 bg-sky-500/20 text-sky-400"
+                                    : comment.category === "knowledge"
+                                      ? "border-indigo-500/40 bg-indigo-500/20 text-indigo-400"
+                                      : "border-amber-500/40 bg-amber-500/20 text-amber-400";
+
+                              return (
+                                <div
+                                  key={comment.id}
+                                  id={`pass4-card-${comment.id}`}
+                                  onClick={() => {
+                                    setActiveCommentId(comment.id);
+                                    document
+                                      .getElementById(`pass4-para-${comment.paragraphIndex}`)
+                                      ?.scrollIntoView({ behavior: "smooth", block: "center" });
+                                  }}
+                                  className={cn(
+                                    "rounded-xl border p-3.5 space-y-2.5 transition-all duration-200 cursor-pointer text-xs",
+                                    categoryColor,
+                                    isActive && activeColor,
+                                  )}
+                                >
+                                  <div className="flex items-center justify-between gap-1.5 flex-wrap">
+                                    <span className={cn("px-2 py-0.5 rounded-md font-mono text-[10px] font-bold border", badgeColor)}>
+                                      {comment.badge}
+                                    </span>
+                                    <span className="text-[10px] text-muted-foreground font-mono flex items-center gap-1">
+                                      <span>¶ Paragraph {comment.paragraphIndex + 1}</span>
+                                    </span>
+                                  </div>
+
+                                  <h5 className="font-bold text-xs text-foreground leading-snug">
+                                    {comment.title}
+                                  </h5>
+
+                                  {comment.highlightText && (
+                                    <div className="text-[11px] font-serif italic text-muted-foreground bg-background/50 border-l-2 border-primary/50 pl-2 py-1 rounded-r-md">
+                                      "{comment.highlightText}"
+                                    </div>
+                                  )}
+
+                                  <div className="space-y-1">
+                                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/80 flex items-center gap-1">
+                                      <span className="size-1.5 rounded-full bg-amber-400" /> Examiner Diagnostic:
+                                    </span>
+                                    <p className="text-[11.5px] text-foreground/90 leading-relaxed">
+                                      {comment.critique}
+                                    </p>
+                                  </div>
+
+                                  <div className="pt-2 border-t border-border/40 space-y-1">
+                                    <span className="text-[10px] font-bold uppercase tracking-wider text-primary flex items-center gap-1">
+                                      <Sparkles className="size-3 text-primary" /> Exemplar Fix:
+                                    </span>
+                                    <p className="text-[11px] text-muted-foreground leading-relaxed">
+                                      {comment.suggestion}
+                                    </p>
+                                  </div>
+
+                                  <div className="flex items-center justify-between pt-1 text-[10px] text-muted-foreground/70">
+                                    <span>Click to highlight in script</span>
+                                    {isActive && <span className="font-semibold text-primary">● Active Pin</span>}
+                                  </div>
+                                </div>
+                              );
+                            })
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <div
+                        className={cn(
+                          "relative rounded-2xl border border-border/70 bg-card/40 dark:bg-card/20 p-4 sm:p-6 transition-all w-full min-w-0 shadow-xs focus-within:border-primary/50 focus-within:bg-card focus-within:ring-2 focus-within:ring-primary/10",
+                          isDraggingOverTextarea && "ring-2 ring-emerald-500 bg-emerald-500/[0.03]",
+                        )}
+                      >
+                        {isDraggingOverTextarea && (
+                          <div className="absolute inset-0 z-20 flex items-center justify-center bg-background/85 backdrop-blur-xs rounded-2xl border-2 border-dashed border-emerald-500 pointer-events-none animate-in fade-in">
+                            <div className="flex items-center gap-2 text-emerald-400 font-bold text-sm bg-card border border-emerald-500/40 px-4 py-2.5 rounded-xl shadow-lg">
+                              <GripVertical className="size-4 animate-bounce" />
+                              <span>Drop diagram anywhere here to position in candidate script</span>
+                            </div>
+                          </div>
+                        )}
+                        <Textarea
+                          ref={essayInputRef}
+                          id="essay"
+                          className="w-full resize-none border-0 bg-transparent p-0 text-base sm:text-[18px] md:text-[19px] font-serif leading-[1.95] tracking-tight focus-visible:ring-0 placeholder:text-muted-foreground/40 shadow-none text-foreground selection:bg-primary/20 overflow-hidden min-h-[520px]"
+                          placeholder="Write your complete economics essay here, or drag diagrams directly from the tray above... You can drag and drop any diagram anywhere across your text, paste images with Ctrl+V, or snap notebook sketches. (Press Ctrl + Enter anytime to grade)"
+                        value={essayText}
+                        onChange={(event) => {
+                          setEssayText(event.target.value);
+                          setWritingCheck(null);
+                        }}
+                        onPaste={(e) => {
+                          const items = e.clipboardData?.items;
+                          if (items) {
+                            for (const item of items) {
+                              if (item.type.startsWith("image/")) {
+                                const file = item.getAsFile();
+                                if (file) {
+                                  e.preventDefault();
+                                  handleDiagramFiles([file]);
+                                  toast.success("Pasting diagram image from clipboard into essay...");
+                                  return;
+                                }
+                              }
+                            }
+                          }
+                          const plainText = e.clipboardData?.getData("text/plain");
+                          if (plainText && plainText.split(/\s+/).length >= 60 && !plainText.includes("\n\n")) {
+                            const formatted = autoParagraphText(cleanMathDollarSigns(plainText));
+                            if (formatted !== plainText) {
+                              e.preventDefault();
+                              const textarea = essayInputRef.current;
+                              if (textarea) {
+                                const start = textarea.selectionStart ?? 0;
+                                const end = textarea.selectionEnd ?? start;
+                                const newText = essayText.slice(0, start) + formatted + essayText.slice(end);
+                                setEssayText(newText);
+                                setTimeout(() => {
+                                  textarea.setSelectionRange(start + formatted.length, start + formatted.length);
+                                }, 50);
+                              } else {
+                                setEssayText((prev: string) => (prev.trim() ? `${prev.trim()}\n\n${formatted}` : formatted));
+                              }
+                              toast.info("Auto-formatted pasted text into Cambridge paragraphs.");
+                              return;
+                            }
+                          }
+                        }}
+                        onDragOver={(e) => {
+                          e.preventDefault();
+                          e.dataTransfer.dropEffect = "copy";
+                          if (!isDraggingOverTextarea) setIsDraggingOverTextarea(true);
+                        }}
+                        onDragLeave={(e) => {
+                          e.preventDefault();
+                          setIsDraggingOverTextarea(false);
+                        }}
+                        onDrop={(e) => {
+                          setIsDraggingOverTextarea(false);
+                          const diagramId = e.dataTransfer.getData("application/marginal-diagram");
+                          const diagramTitle = e.dataTransfer.getData("application/marginal-diagram-title");
+                          const entry = diagramId ? (DIAGRAM_BY_ID[diagramId] ?? DIAGRAMS.find((d) => d.id === diagramId)) : null;
+                          const titleToInsert = entry?.title ?? diagramTitle ?? (diagramId || null);
+                          if (titleToInsert) {
+                            e.preventDefault();
+                            const textarea = essayInputRef.current;
+                            const tagToInsert = `\n\n(Diagram: ${titleToInsert})\n\n`;
+                            if (textarea) {
+                              let caretPos = textarea.selectionStart ?? essayText.length;
+                              if ((document as any).caretRangeFromPoint) {
+                                const range = (document as any).caretRangeFromPoint(e.clientX, e.clientY);
+                                if (range && range.startOffset !== undefined) {
+                                  caretPos = range.startOffset;
+                                }
+                              } else if ((document as any).caretPositionFromPoint) {
+                                const pos = (document as any).caretPositionFromPoint(e.clientX, e.clientY);
+                                if (pos && pos.offset !== undefined) {
+                                  caretPos = pos.offset;
+                                }
+                              }
+                              const newText = essayText.slice(0, caretPos) + tagToInsert + essayText.slice(caretPos);
+                              setEssayText(cleanMathDollarSigns(newText));
+                              if (entry) {
+                                const curves = entry.curveLabels?.filter(Boolean).join(", ") || "not specified";
+                                const tag = `[DIAGRAM: ${entry.title} | axes: ${entry.yLabel} (y) / ${entry.xLabel} (x) | curves: ${curves} | labels: as per standard ${entry.title} diagram | accuracy: standard reference diagram positioned directly in script]`;
+                                setDiagrams((cur) =>
+                                  cur.some((d) => d.label === entry.title || d.catalogId === entry.id)
+                                    ? cur
+                                    : [...cur, { id: crypto.randomUUID(), label: entry.title, tag, catalogId: entry.id }]
+                                );
+                              }
+                              setTimeout(() => {
+                                textarea.focus();
+                                textarea.setSelectionRange(caretPos + tagToInsert.length, caretPos + tagToInsert.length);
+                              }, 50);
+                            } else {
+                              setEssayText((prev: string) => `${cleanMathDollarSigns(prev)}\n\n(Diagram: ${titleToInsert})\n\n`);
+                            }
+                            toast.success(`Positioned (Diagram: ${titleToInsert}) in candidate script.`);
+                            setDiagramDrawerOpen(false);
+                            return;
+                          }
+                          const files = e.dataTransfer.files;
+                          if (files && files.length > 0) {
+                            e.preventDefault();
+                            handleDiagramFiles(files);
+                          }
+                        }}
+                        onKeyDown={(event) => {
+                          if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+                            event.preventDefault();
+                            handleMarkClick();
+                          }
+                        }}
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Visual Embedded Diagram Figure Cards in Candidate Script */}
+                  {inTextDiagrams.matches.length > 0 && (
+                    <div className="space-y-4 pt-4 border-t border-border/60">
+                      <div className="flex items-center justify-between">
+                        <span className="font-semibold text-xs text-foreground flex items-center gap-1.5 uppercase tracking-wider">
+                          <Images className="size-4 text-primary" />
+                          Embedded Diagram Figures ({inTextDiagrams.matches.length})
+                        </span>
+                        <span className="text-[11px] text-muted-foreground font-mono">
+                          Positioned in analytical flow · Cambridge 9708 Standard
+                        </span>
+                      </div>
+
+                      <div className="space-y-4">
+                        {inTextDiagrams.matches.map((m, idx) => {
+                          const attachedImg = diagrams.find((d) => d.label.toLowerCase() === m.title.toLowerCase())?.imageUrl;
+                          const posInfo = getDiagramPlacementDescription(m.matchText);
+                          return (
+                            <div
+                              key={`${m.entry.id}-${idx}`}
+                              draggable={true}
+                              onDragStart={(e) => {
+                                e.dataTransfer.setData("application/marginal-diagram", m.entry.id);
+                                e.dataTransfer.setData("application/marginal-diagram-title", m.title);
+                                e.dataTransfer.setData("text/plain", `\n\n${m.matchText}\n\n`);
+                                setDraggingDiagram({ id: m.entry.id, title: m.title });
+                              }}
+                              onDragEnd={() => {
+                                setDraggingDiagram(null);
+                                setHoveredDropSlot(null);
+                              }}
+                              className="rounded-2xl border border-primary/30 bg-primary/[0.03] p-4 space-y-3 animate-in fade-in transition-all hover:border-primary/50 shadow-sm"
+                            >
+                              <div className="flex items-center justify-between flex-wrap gap-2">
+                                <div className="flex items-center gap-2">
+                                  <GripVertical className="size-4 text-muted-foreground hover:text-primary cursor-grab shrink-0" />
+                                  <div className="size-6 rounded-lg bg-primary/10 flex items-center justify-center text-primary font-bold text-xs">
+                                    {idx + 1}
+                                  </div>
+                                  <div>
+                                    <h4 className="font-bold text-sm text-foreground flex items-center gap-2">
+                                      <span>Figure {idx + 1}: {m.isCustom ? `Custom Diagram (${m.title})` : m.title}</span>
+                                      <Badge variant="outline" className="text-[10px] border-primary/40 bg-primary/10 text-primary font-mono">
+                                        {m.isCustom ? "Candidate Drawn" : "Cambridge 9708"}
+                                      </Badge>
+                                    </h4>
+                                    <p className="text-xs text-emerald-400 font-medium flex items-center gap-1.5 mt-0.5">
+                                      <CheckCircle2 className="size-3.5 text-emerald-400 shrink-0" />
+                                      <span>{posInfo.description}</span>
+                                    </p>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => moveDiagramEarlier(m.matchText)}
+                                    disabled={!posInfo.canMoveEarlier}
+                                    className="h-7 px-2 text-xs rounded-lg gap-1 cursor-pointer hover:bg-primary/10 disabled:opacity-40"
+                                    title="Move diagram earlier in essay (before previous paragraph)"
+                                  >
+                                    <ArrowUp className="size-3" />
+                                    <span className="hidden sm:inline">Move Earlier</span>
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => moveDiagramLater(m.matchText)}
+                                    disabled={!posInfo.canMoveLater}
+                                    className="h-7 px-2 text-xs rounded-lg gap-1 cursor-pointer hover:bg-primary/10 disabled:opacity-40"
+                                    title="Move diagram later in essay (after next paragraph)"
+                                  >
+                                    <ArrowDown className="size-3" />
+                                    <span className="hidden sm:inline">Move Later</span>
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => setPreviewDiagram(m.entry)}
+                                    className="h-7 px-2 text-xs text-primary hover:text-primary hover:bg-primary/10 rounded-lg gap-1 cursor-pointer"
+                                    title="View graph specifications and examiner criteria"
+                                  >
+                                    <Eye className="size-3" />
+                                    <span className="hidden sm:inline">Inspect</span>
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => removeDiagramFromEssay(m.matchText)}
+                                    className="h-7 px-2 text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg gap-1 cursor-pointer"
+                                    title="Remove diagram from script"
+                                  >
+                                    <X className="size-3" />
+                                  </Button>
+                                </div>
+                              </div>
+
+                              {/* Visual Graph Preview inside the Figure Card */}
+                              {attachedImg ? (
+                                <div className="rounded-xl border border-border/70 bg-card p-3 max-w-xl mx-auto flex flex-col items-center gap-2">
+                                  <img
+                                    src={attachedImg}
+                                    alt={m.title}
+                                    className="max-h-56 rounded-lg object-contain border border-border/60"
+                                  />
+                                  <span className="text-[11px] text-muted-foreground font-mono">Candidate Uploaded Diagram Image</span>
+                                </div>
+                              ) : !m.isCustom && m.entry.spec ? (
+                                <div className="rounded-xl border border-border/70 bg-card p-3 shadow-inner max-w-xl mx-auto">
+                                  <EconomicsDiagram spec={m.entry.spec} title={m.title} className="w-full max-h-48" />
+                                </div>
+                              ) : null}
+
+                              <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-1 border-t border-border/40">
+                                <span className="italic">{m.entry.represents || "Candidate referenced economics diagram"}</span>
+                                <span className="text-primary font-medium text-[10px] uppercase tracking-wider">
+                                  Examiner evaluates diagram integration at this position
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Proofreading Suggestions (when available) */}
+                  {spellCheckEnabled && writingCheck && !checkIsStale && (
+                    <WritingCheckPanel
+                      check={writingCheck}
+                      onAccept={() => {
+                        const corrected = writingCheck.correctedText;
+                        setEssayText(corrected);
+                        setCheckedTextSnapshot(corrected);
+                        setWritingCheck({ issues: [], correctedText: corrected, clean: true });
+                        toast.success("Corrections applied to candidate script.");
+                      }}
+                    />
+                  )}
+
+                  {/* Document Footer */}
+                  <div className="pt-6 border-t border-border/60 flex items-center justify-between text-xs text-muted-foreground flex-wrap gap-2">
+                    <span className="font-mono text-[11px]">
+                      End of Candidate Script · Cambridge 9708 Standard
+                    </span>
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={handlePasteEssay}
+                        className="text-xs hover:text-foreground flex items-center gap-1 font-medium cursor-pointer"
+                      >
+                        <ClipboardPaste className="size-3.5" /> Paste
+                      </button>
+                      {(question.trim() || essayText.trim()) && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setQuestion("");
+                            setEssayText("");
+                            setDiagrams([]);
+                            setResult(null);
+                            try {
+                              localStorage.removeItem(DRAFT_STORAGE_KEY);
+                            } catch {}
+                            toast.info("Document cleared.");
+                          }}
+                          className="text-xs text-muted-foreground/60 hover:text-destructive cursor-pointer"
+                        >
+                          Clear All
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Full Cambridge Candidate Diagnostic Report (Prominent, Full-Width, Never Sunk into a Corner) */}
+                {result && (
+                  <div
+                    ref={reportRef}
+                    id="report-section"
+                    className="space-y-6 pt-4 animate-in fade-in duration-300 w-full min-w-0"
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/70 pb-4">
+                      <div className="flex items-center gap-3">
+                        <div className="size-11 rounded-2xl bg-primary/15 border border-primary/30 flex items-center justify-center text-primary shadow-inner shrink-0">
+                          <Award className="size-6 text-primary" />
+                        </div>
+                        <div>
+                          <h3 className="font-bold text-lg text-foreground">
+                            Complete Cambridge 9708 Candidate Diagnostic Report
+                          </h3>
+                          <p className="text-xs text-muted-foreground">
+                            Official evaluation across Assessment Objectives, examiner exemplar analysis &amp; actionable elevation steps
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Badge className="bg-primary text-primary-foreground font-black text-sm px-3 py-1 shadow-xs">
+                          {result.grading.total_mark} / {result.grading.max_mark} Marks
+                        </Badge>
+                        <Badge variant="outline" className="border-border/80 text-foreground text-xs font-semibold px-2.5 py-1">
+                          {result.grading.band}
+                        </Badge>
+                      </div>
+                    </div>
+
+                    {/* Teacher Direct Grading Action */}
+                    {isDirectGradingMode && (
+                      <div className="rounded-2xl border border-purple-500/40 bg-purple-950/40 p-4 sm:p-5 space-y-3 shadow-lg">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="font-bold text-purple-300 text-sm">Teacher Classroom Sync</span>
+                          <Badge className="bg-purple-600 text-white text-[10px]">Ready to Submit</Badge>
+                        </div>
+                        <p className="text-xs text-purple-200">
+                          Sync this official examiner grade ({result.grading.total_mark}/{maxMark}) and diagnostic report directly back to the student.
+                        </p>
+                        <Button
+                          size="sm"
+                          disabled={isReturningGrade}
+                          onClick={handleReturnToClassroom}
+                          className="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs py-2.5 shadow-md cursor-pointer"
+                        >
+                          {isReturningGrade ? "Returning Grade..." : "Save & Return to Student"}
+                        </Button>
+                      </div>
+                    )}
+
+                    {/* Full Comprehensive Candidate Report */}
+                    <MarkBreakdown grading={result.grading} question={question} />
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Slide-out Curate Diagram Drawer */}
+          {diagramDrawerOpen && (
+            <div className="fixed inset-0 z-50 flex justify-end bg-background/70 backdrop-blur-xs animate-in fade-in duration-200">
+              <div className="w-full max-w-lg bg-card border-l border-border h-full flex flex-col shadow-2xl p-6 space-y-4 animate-in slide-in-from-right duration-300">
+                <div className="flex items-center justify-between border-b border-border/60 pb-3">
+                  <div className="flex items-center gap-2">
+                    <Images className="size-5 text-primary" />
+                    <div>
+                      <h3 className="font-bold text-sm text-foreground">Curate Cambridge 9708 Diagram</h3>
+                      <p className="text-xs text-muted-foreground">Drag into candidate script or click to embed</p>
+                    </div>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setDiagramDrawerOpen(false)}
+                    className="size-8 rounded-xl"
+                  >
+                    <X className="size-4" />
+                  </Button>
+                </div>
+
+                <div className="relative">
+                  <Search className="size-4 absolute left-3 top-2.5 text-muted-foreground" />
+                  <Input
+                    placeholder="Search 30+ Cambridge diagrams (e.g. minimum price, tariff, monopoly, J-curve)..."
+                    value={diagramSearch}
+                    onChange={(e) => setDiagramSearch(e.target.value)}
+                    className="pl-9 rounded-xl text-xs"
+                  />
+                </div>
+
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {(["all", "Microeconomics", "Macroeconomics", "custom"] as const).map((sec) => (
+                    <button
+                      key={sec}
+                      type="button"
+                      onClick={() => setDiagramFilterSection(sec)}
+                      className={cn(
+                        "rounded-lg px-2.5 py-1 text-xs font-semibold transition-all cursor-pointer border",
+                        diagramFilterSection === sec
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "border-border/60 bg-muted/30 text-muted-foreground hover:text-foreground",
+                      )}
+                    >
+                      {sec === "all" ? "All (30+)" : sec === "custom" ? "+ Custom / Upload" : sec}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Drag & Type Instruction Banner */}
+                <div className="rounded-xl border border-primary/20 bg-primary/[0.04] p-3 text-xs text-muted-foreground flex items-start gap-2.5">
+                  <Sparkles className="size-4 text-primary shrink-0 mt-0.5" />
+                  <div className="space-y-0.5">
+                    <p className="font-semibold text-foreground">Position diagrams directly where you want:</p>
+                    <p className="text-[11.5px] leading-relaxed">
+                      Drag any card directly onto your essay, click <strong>+ Insert at Cursor</strong>, or simply type <strong>(Diagram: Name)</strong> e.g. <span className="font-mono text-primary font-medium">(Diagram: Maximum Price)</span> or <span className="font-mono text-primary font-medium">(Diagram: Lorenz Curve)</span> anywhere in your text.
                     </p>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() =>
-                      navigate({
-                        to: "/classes",
-                      })
-                    }
-                    className="border-purple-700/60 text-purple-200 hover:text-white hover:bg-purple-900/40 text-xs"
-                  >
-                    Back to Classroom
-                  </Button>
+                <div className="flex-1 overflow-y-auto space-y-3 pr-1">
+                  {diagramFilterSection === "custom" ? (
+                    <div className="space-y-4 pt-2">
+                      {/* Insert Non-Catalog Diagram by Name */}
+                      <div className="rounded-2xl border border-primary/30 bg-primary/[0.04] p-4 space-y-3">
+                        <div className="flex items-center gap-2">
+                          <Sparkles className="size-4 text-primary" />
+                          <h4 className="font-bold text-xs text-foreground">Insert Non-Catalog or Custom Diagram</h4>
+                        </div>
+                        <p className="text-[11.5px] text-muted-foreground leading-relaxed">
+                          Referencing a diagram not in the catalog (e.g. Lorenz Curve, Monopsony Labour Market, Circular Flow, Harrod-Domar, or custom graph)? Type its name to position it directly at your cursor.
+                        </p>
+                        <div className="space-y-2">
+                          <Input
+                            placeholder="Diagram Name (e.g. Lorenz Curve, Monopsony Labour Market)..."
+                            value={customDiagramTitle}
+                            onChange={(e) => setCustomDiagramTitle(e.target.value)}
+                            className="text-xs rounded-xl"
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                e.preventDefault();
+                                insertCustomDiagram(customDiagramTitle, customDiagramNotes);
+                              }
+                            }}
+                          />
+                          <Input
+                            placeholder="Optional notes or key curves (e.g. 45° line of equality, Gini area)..."
+                            value={customDiagramNotes}
+                            onChange={(e) => setCustomDiagramNotes(e.target.value)}
+                            className="text-xs rounded-xl"
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                e.preventDefault();
+                                insertCustomDiagram(customDiagramTitle, customDiagramNotes);
+                              }
+                            }}
+                          />
+                          <Button
+                            type="button"
+                            size="sm"
+                            disabled={!customDiagramTitle.trim()}
+                            onClick={() => insertCustomDiagram(customDiagramTitle, customDiagramNotes)}
+                            className="w-full text-xs font-semibold rounded-xl bg-primary text-primary-foreground gap-1.5 cursor-pointer"
+                          >
+                            <Plus className="size-3.5" />
+                            Insert (Diagram: {customDiagramTitle.trim() || "Custom"}) at Cursor
+                          </Button>
+                        </div>
+                      </div>
+
+                      <div className="border-t border-border/60 pt-3 space-y-3">
+                        <div className="flex items-center gap-2">
+                          <Camera className="size-4 text-primary" />
+                          <h4 className="font-bold text-xs text-foreground">Or Upload Hand-Drawn Diagram Photo</h4>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Upload or snap a photo of your hand-drawn economics diagram. Cambridge examiners will mark it as drawn on the candidate script.
+                        </p>
+                        <input
+                          ref={diagramFileInputRef}
+                          type="file"
+                          accept="image/*,.heic,.heif"
+                          multiple
+                          className="hidden"
+                          onChange={(e) => {
+                            handleDiagramFiles(e.target.files);
+                            e.target.value = "";
+                          }}
+                        />
+                        <input
+                          ref={diagramCameraInputRef}
+                          type="file"
+                          accept="image/*"
+                          capture="environment"
+                          multiple
+                          className="hidden"
+                          onChange={(e) => {
+                            handleDiagramFiles(e.target.files);
+                            e.target.value = "";
+                          }}
+                        />
+                        <div
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => diagramFileInputRef.current?.click()}
+                          className="flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-border p-6 text-center hover:bg-muted/30 cursor-pointer"
+                        >
+                          <Upload className="size-6 text-primary" />
+                          <span className="text-xs font-semibold text-foreground">Click to upload diagram photo</span>
+                          <span className="text-[11px] text-muted-foreground">PNG, JPEG, WebP, HEIC</span>
+                        </div>
+                        <div className="flex items-center justify-center gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => diagramCameraInputRef.current?.click()}
+                            className="h-8 gap-1.5 text-xs font-medium rounded-xl"
+                          >
+                            <Camera className="size-3.5 text-primary" /> Take Photo
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ) : filteredDiagrams.length === 0 ? (
+                    <div className="py-10 text-center space-y-3">
+                      <p className="text-xs text-muted-foreground">
+                        No catalog diagram matching "{diagramSearch}".
+                      </p>
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={() => insertCustomDiagram(diagramSearch)}
+                        className="text-xs bg-primary text-primary-foreground font-semibold rounded-xl gap-1.5 cursor-pointer"
+                      >
+                        <Plus className="size-3.5" />
+                        Insert (Diagram: {diagramSearch}) as Custom Diagram
+                      </Button>
+                    </div>
+                  ) : (
+                    filteredDiagrams.map((entry) => {
+                      const isAlreadyAdded =
+                        inTextDiagrams.matches.some((m) => m.entry.id === entry.id) ||
+                        diagrams.some((d) => d.catalogId === entry.id);
+                      return (
+                        <div
+                          key={entry.id}
+                          draggable={true}
+                          onDragStart={(e) => {
+                            e.dataTransfer.setData("application/marginal-diagram", entry.id);
+                            e.dataTransfer.setData("application/marginal-diagram-title", entry.title);
+                            e.dataTransfer.setData("text/plain", ` (Diagram: ${entry.title}) `);
+                            e.dataTransfer.effectAllowed = "copy";
+                          }}
+                          className={cn(
+                            "rounded-2xl border p-3.5 space-y-2.5 transition-all bg-muted/10 hover:bg-muted/30 hover:border-primary/50 group cursor-grab active:cursor-grabbing",
+                            isAlreadyAdded ? "border-emerald-500/40 bg-emerald-500/5" : "border-border/70",
+                          )}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div>
+                              <div className="flex items-center gap-1.5">
+                                <GripVertical className="size-3.5 text-muted-foreground group-hover:text-primary cursor-grab" />
+                                <h4 className="font-bold text-xs text-foreground">{entry.title}</h4>
+                              </div>
+                              <p className="text-[11px] text-muted-foreground pl-5 font-mono">
+                                {entry.section} · {entry.topic}
+                              </p>
+                            </div>
+                            <Button
+                              type="button"
+                              size="sm"
+                              onClick={() => insertDiagramAtCursor(entry)}
+                              className="h-7 px-2.5 text-xs font-semibold rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground gap-1 cursor-pointer"
+                            >
+                              {isAlreadyAdded ? (
+                                <>
+                                  <Check className="size-3 text-emerald-300" /> Inserted
+                                </>
+                              ) : (
+                                <>
+                                  <Plus className="size-3" /> Insert at Cursor
+                                </>
+                              )}
+                            </Button>
+                          </div>
+
+                          <div className="rounded-xl border border-border/60 bg-card p-2 pointer-events-none">
+                            <EconomicsDiagram spec={entry.spec} title={entry.title} className="w-full max-h-36" />
+                          </div>
+
+                          <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                            <span className="italic line-clamp-1">{entry.represents}</span>
+                            <span className="text-[10px] text-primary/70 font-mono shrink-0">Drag to position ↗</span>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
                 </div>
               </div>
             </div>
           )}
 
-          <div className="px-3.5 pt-3 pb-0 sm:px-6 sm:pt-4 md:px-8">
-            <div className="flex items-center gap-2 rounded-lg border border-primary/20 bg-primary/[0.03] px-3 py-2 text-[11px] sm:text-xs text-muted-foreground">
-              <ShieldCheck className="size-3.5 sm:size-4 shrink-0 text-primary" />
-              <p className="leading-snug sm:leading-relaxed">
-                <span className="text-foreground font-semibold">Cambridge 9708 Standard:</span>{" "}
-                Calibrated against official assessment guidelines. Independent study platform.
-              </p>
-            </div>
-          </div>
-
-          <div className="max-w-7xl 2xl:max-w-[1600px] mx-auto grid gap-4 sm:gap-6 px-3.5 py-3 sm:py-5 sm:px-6 md:px-8 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
-            <div className="panel space-y-3.5 sm:space-y-4 p-3.5 sm:p-5">
-              <div id="tour-sample-banner">
-                <SampleEssayBanner
-                  activeSampleId={activeSampleId}
-                  onSelectSample={handleSelectSample}
-                  onClear={handleClearSample}
-                  onStartTour={() => setIsTourOpen(true)}
-                />
-              </div>
-
-              <div id="tour-question" className="space-y-1.5">
-                <div className="flex flex-wrap items-center justify-between gap-1.5 sm:gap-2">
-                  <Label htmlFor="question" className="text-xs sm:text-sm font-semibold text-foreground">
-                    Exam question
-                  </Label>
-                  <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-                    <Link
-                      to="/response-structure"
-                      className="text-[11px] text-muted-foreground hover:text-foreground underline underline-offset-2 transition-colors shrink-0 flex items-center gap-1"
-                    >
-                      <GraduationCap className="size-3" />
-                      How to write an essay
-                    </Link>
-                    <span className="text-muted-foreground/40 hidden xs:inline">·</span>
-                    <Link
-                      to="/essay-generator"
-                      className="text-[11px] text-purple-600 dark:text-purple-400 hover:underline transition-colors shrink-0 flex items-center gap-1"
-                    >
-                      <Wand2 className="size-3" />
-                      Sample model essay
-                    </Link>
-                  </div>
-                </div>
-                <Textarea
-                  id="question"
-                  rows={2}
-                  className="min-h-[64px] sm:min-h-[80px] text-xs sm:text-sm"
-                  placeholder="Discuss whether a rise in the minimum wage will always reduce employment."
-                  value={question}
-                  onChange={(event) => setQuestion(event.target.value)}
-                />
-                {debouncedQuestion.length >= 15 ? (
-                  groundingQuery.isLoading || groundingQuery.isFetching ? (
-                    <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground animate-pulse">
-                      <Loader2 className="size-3 animate-spin" />
-                      Checking Knowledge Base for official Cambridge mark schemes...
-                    </p>
-                  ) : groundingQuery.data?.grounded ? (
-                    <div className="flex items-center gap-1.5 text-[11px] text-emerald-400 font-medium">
-                      <CheckCircle2 className="size-3.5 shrink-0" />
-                      <span>
-                        Knowledge Base Grounded: Verified against {groundingQuery.data.topMatchTitle} ({Math.round((groundingQuery.data.topSimilarity ?? 0) * 100)}% match)
-                      </span>
-                    </div>
-                  ) : groundingQuery.data?.checked ? (
-                    <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-2 text-[11px] text-amber-300">
-                      <div className="flex items-start gap-1.5">
-                        <AlertTriangle className="size-3.5 mt-0.5 shrink-0 text-amber-400" />
-                        <div className="space-y-0.5">
-                          <span className="font-semibold">No specific mark scheme or book reference found</span>
-                          <p className="text-amber-200/80 leading-normal">
-                            Paste or attach a screenshot of the official mark scheme below for question-specific grounding, or this essay will be marked against standard Cambridge AO level rubrics.
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                      <CheckCircle2 className="size-3.5 shrink-0 text-primary" />
-                      <span>Cambridge 9708 Knowledge Base connected and ready for grading.</span>
-                    </div>
-                  )
-                ) : null}
-              </div>
-
-              <div id="tour-tariff" className="space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="maxMark" className="text-xs sm:text-sm font-semibold text-foreground">
-                    Question type &amp; mark scheme
-                  </Label>
-                  <span className="text-[11px] text-muted-foreground font-mono">Cambridge 9708</span>
-                </div>
-
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  {TARIFF_OPTIONS.map((opt) => {
-                    const isSelected = essayCategory === opt.value;
-                    return (
-                      <button
-                        key={opt.value}
-                        type="button"
-                        onClick={() => {
-                          setEssayCategory(opt.value);
-                          setWritingCheck(null);
-                        }}
-                        className={cn(
-                          "group relative flex flex-col justify-between text-left p-2.5 sm:p-3 rounded-xl border transition-all cursor-pointer",
-                          isSelected
-                            ? "border-primary bg-primary/[0.08] shadow-xs ring-1 ring-primary/40 text-foreground"
-                            : "border-border/60 bg-muted/20 hover:bg-muted/40 hover:border-border text-muted-foreground hover:text-foreground"
-                        )}
-                      >
-                        <div className="w-full">
-                          <div className="flex items-center justify-between gap-1 w-full">
-                            <span
-                              className={cn(
-                                "text-sm sm:text-base font-bold tracking-tight",
-                                isSelected ? "text-primary" : "text-foreground"
-                              )}
-                            >
-                              {opt.marks}
-                            </span>
-                            <span
-                              className={cn(
-                                "text-[9.5px] font-medium px-1.5 py-0.5 rounded border leading-none shrink-0",
-                                isSelected
-                                  ? "border-primary/40 bg-primary/10 text-primary"
-                                  : "border-border/60 bg-muted/40 text-muted-foreground"
-                              )}
-                            >
-                              {opt.badge}
-                            </span>
-                          </div>
-
-                          <div className="text-[11px] font-medium text-foreground/90 mt-1 leading-snug">
-                            {opt.subtitle}
-                          </div>
-                        </div>
-
-                        <div className="flex items-center justify-between text-[10px] font-mono text-muted-foreground mt-2 pt-1.5 border-t border-border/40 w-full">
-                          <span>{opt.targetWords}</span>
-                          {isSelected ? (
-                            <span className="flex items-center gap-1 text-[9px] font-sans font-medium text-primary">
-                              <span className="size-1.5 rounded-full bg-primary animate-pulse" />
-                              Active
-                            </span>
-                          ) : (
-                            <span className="text-[9px] font-sans text-muted-foreground/60">{opt.paperLevel}</span>
-                          )}
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {/* Unified contextual Cambridge specification bar */}
-                {(() => {
-                  const currentTariff =
-                    TARIFF_OPTIONS.find((t) => t.value === essayCategory) || TARIFF_OPTIONS[2];
-                  const isLegacy = essayCategory === "8_legacy";
-
-                  return (
-                    <div
-                      className={cn(
-                        "flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2.5 sm:px-3 sm:py-2 rounded-xl border text-xs transition-colors",
-                        isLegacy
-                          ? "border-sky-500/30 bg-sky-500/[0.08] text-sky-200"
-                          : "border-primary/25 bg-primary/[0.04] text-foreground/90"
-                      )}
-                    >
-                      <div className="flex items-start sm:items-center gap-2 min-w-0">
-                        {isLegacy ? (
-                          <Sparkles className="size-4 shrink-0 mt-0.5 sm:mt-0 text-sky-400" />
-                        ) : (
-                          <CheckCircle2 className="size-4 shrink-0 mt-0.5 sm:mt-0 text-primary" />
-                        )}
-                        <div className="min-w-0 space-y-0.5">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-semibold text-foreground text-xs">
-                              {currentTariff.fullTitle}
-                            </span>
-                            <Badge
-                              variant="outline"
-                              className={cn(
-                                "text-[9px] px-1.5 py-0",
-                                isLegacy
-                                  ? "border-sky-500/40 text-sky-300"
-                                  : "border-primary/40 text-primary"
-                              )}
-                            >
-                              {currentTariff.badge}
-                            </Badge>
-                          </div>
-                          <p
-                            className={cn(
-                              "text-[11px] leading-relaxed",
-                              isLegacy ? "text-sky-200/90" : "text-muted-foreground"
-                            )}
-                          >
-                            {currentTariff.guidance}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2 shrink-0 self-start sm:self-center">
-                        <span
-                          className={cn(
-                            "font-mono text-[10.5px] font-medium px-2 py-0.5 rounded-md border",
-                            isLegacy
-                              ? "border-sky-500/30 bg-sky-500/15 text-sky-200"
-                              : "border-border/60 bg-muted/60 text-foreground/80"
-                          )}
-                        >
-                          {currentTariff.aoFull}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })()}
-
-                {essayCategory === "8_eval" && question.trim().length >= 15 && !isEvaluativeQuestion(question) && (
-                  <div className="flex items-center justify-between gap-2 p-2.5 rounded-xl border border-amber-500/30 bg-amber-500/10 text-xs text-amber-200">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <AlertCircle className="size-4 shrink-0 text-amber-400" />
-                      <span className="text-[11px]">
-                        No evaluative keywords detected (&quot;consider&quot;, &quot;to what extent&quot;). Is this a legacy 8-mark question with no evaluation required?
-                      </span>
-                    </div>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      onClick={() => {
-                        setEssayCategory("8_legacy");
-                        toast.success("Switched to 8M Legacy (No evaluation required)");
-                      }}
-                      className="shrink-0 h-6 px-2 text-[10px] font-medium border-amber-500/40 text-amber-300 hover:bg-amber-500/20"
-                    >
-                      Switch to Legacy (No Eval)
-                    </Button>
-                  </div>
-                )}
-              </div>
-
-              <div id="tour-essay" className="space-y-2">
-                <div className="flex items-center justify-between gap-2">
+          {/* Slide-out Handwriting OCR Drawer */}
+          {ocrDrawerOpen && (
+            <div className="fixed inset-0 z-50 flex justify-end bg-background/70 backdrop-blur-xs animate-in fade-in duration-200">
+              <div className="w-full max-w-lg bg-card border-l border-border h-full flex flex-col shadow-2xl p-6 space-y-4 animate-in slide-in-from-right duration-300">
+                <div className="flex items-center justify-between border-b border-border/60 pb-3">
                   <div className="flex items-center gap-2">
-                    <Label htmlFor="essay" className="text-xs sm:text-sm font-semibold text-foreground">
-                      Your answer
-                    </Label>
-                    {words >= 20 && (
-                      <span
-                        className={cn(
-                          "text-[10.5px] font-medium px-2 py-0.5 rounded-full border",
-                          (essayCategory === "8_legacy" && words >= 250 && words <= 450) ||
-                          (essayCategory === "8_eval" && words >= 300 && words <= 500) ||
-                          (essayCategory === "12" && words >= 500 && words <= 750) ||
-                          (essayCategory === "20" && words >= 800 && words <= 1300)
-                            ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
-                            : "border-border/60 bg-muted/30 text-muted-foreground"
-                        )}
-                      >
-                        {(essayCategory === "8_legacy" && words >= 250 && words <= 450) ||
-                         (essayCategory === "8_eval" && words >= 300 && words <= 500) ||
-                         (essayCategory === "12" && words >= 500 && words <= 750) ||
-                         (essayCategory === "20" && words >= 800 && words <= 1300)
-                          ? "Target word count reached"
-                          : `Target: ~${essayCategory === "8_legacy" ? "250–400" : essayCategory === "8_eval" ? "300–450" : essayCategory === "12" ? "500–750" : "800–1200"}w`}
-                      </span>
-                    )}
+                    <Camera className="size-5 text-primary" />
+                    <div>
+                      <h3 className="font-bold text-sm text-foreground">Import Handwriting Scanner</h3>
+                      <p className="text-xs text-muted-foreground">Transcribe handwritten pages directly into script</p>
+                    </div>
                   </div>
-
-                  <div className="flex items-center gap-2">
-                    <span className="text-[11px] sm:text-xs text-muted-foreground font-mono">{words} words</span>
-                    <button
-                      type="button"
-                      onClick={handlePasteEssay}
-                      title="Paste from clipboard"
-                      className="p-1 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer text-xs flex items-center gap-1"
-                    >
-                      <ClipboardPaste className="size-3.5" />
-                      <span className="hidden sm:inline text-[11px]">Paste</span>
-                    </button>
-                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setOcrDrawerOpen(false)}
+                    className="size-8 rounded-xl"
+                  >
+                    <X className="size-4" />
+                  </Button>
                 </div>
-
-                <div className="relative">
-                  <Textarea
-                    id="essay"
-                    rows={8}
-                    className="font-sans text-xs sm:text-[15px] leading-relaxed sm:leading-[1.8] p-3 sm:p-4 rounded-xl min-h-[170px] sm:min-h-[290px] bg-background/80 focus:bg-background transition-colors"
-                    placeholder="Paste or type your full essay here, or upload handwritten pages below… (Tip: press Ctrl+Enter to mark)"
-                    value={essayText}
-                    onChange={(event) => {
-                      setEssayText(event.target.value);
+                <div className="flex-1 overflow-y-auto">
+                  <HandwritingUpload
+                    hint={question}
+                    onText={(text) => {
+                      const formatted = autoParagraphText(cleanMathDollarSigns(text));
+                      setEssayText((current: string) => (current.trim() ? `${current.trim()}\n\n${formatted}` : formatted));
                       setWritingCheck(null);
+                      setOcrDrawerOpen(false);
+                      toast.success("Handwriting transcribed into candidate script!");
                     }}
-                    onKeyDown={(event) => {
-                      if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
-                        event.preventDefault();
-                        handleMarkClick();
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Slide-out Mark Scheme Vision Drawer */}
+          {markSchemeDrawerOpen && (
+            <div className="fixed inset-0 z-50 flex justify-end bg-background/70 backdrop-blur-xs animate-in fade-in duration-200">
+              <div className="w-full max-w-lg bg-card border-l border-border h-full flex flex-col shadow-2xl p-6 space-y-4 animate-in slide-in-from-right duration-300">
+                <div className="flex items-center justify-between border-b border-border/60 pb-3">
+                  <div className="flex items-center gap-2">
+                    <FileText className="size-5 text-primary" />
+                    <div>
+                      <h3 className="font-bold text-sm text-foreground">Vision Mark Scheme</h3>
+                      <p className="text-xs text-muted-foreground">Attach screenshots of official Cambridge mark scheme</p>
+                    </div>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setMarkSchemeDrawerOpen(false)}
+                    className="size-8 rounded-xl"
+                  >
+                    <X className="size-4" />
+                  </Button>
+                </div>
+                <div className="flex-1 overflow-y-auto space-y-3">
+                  <p className="text-xs text-muted-foreground">
+                    Paste a screenshot of the official mark scheme page. The examiner will read it directly during evaluation alongside the Cambridge Knowledge Base.
+                  </p>
+                  <MarkSchemeScreenshots
+                    images={markSchemeImages}
+                    onAdd={(img) => setMarkSchemeImages((current) => [...current, img])}
+                    onRemove={(id) =>
+                      setMarkSchemeImages((current) => current.filter((img) => img.id !== id))
+                    }
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Slide-out Preferences Drawer */}
+          {settingsDrawerOpen && (
+            <div className="fixed inset-0 z-50 flex justify-end bg-background/70 backdrop-blur-xs animate-in fade-in duration-200">
+              <div className="w-full max-w-md bg-card border-l border-border h-full flex flex-col shadow-2xl p-6 space-y-4 animate-in slide-in-from-right duration-300">
+                <div className="flex items-center justify-between border-b border-border/60 pb-3">
+                  <div className="flex items-center gap-2">
+                    <SlidersHorizontal className="size-5 text-primary" />
+                    <div>
+                      <h3 className="font-bold text-sm text-foreground">Examiner Preferences</h3>
+                      <p className="text-xs text-muted-foreground">Audit pass and proofreading engine</p>
+                    </div>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setSettingsDrawerOpen(false)}
+                    className="size-8 rounded-xl"
+                  >
+                    <X className="size-4" />
+                  </Button>
+                </div>
+                <div className="flex-1 overflow-y-auto space-y-4">
+                  <Toggle
+                    label="Independent audit pass"
+                    hint="A second examiner re-checks the mark to correct clustering around middle bands."
+                    checked={auditPass}
+                    onChange={setAuditPass}
+                  />
+                  <Toggle
+                    label="Spelling & grammar check"
+                    hint="Quick proofreading pass before marking. Never alters economic marks."
+                    checked={spellCheckEnabled}
+                    onChange={(value) => {
+                      setSpellCheckEnabled(value);
+                      if (!value) {
+                        setWritingCheck(null);
+                        setCheckedTextSnapshot(null);
                       }
                     }}
                   />
                 </div>
               </div>
-
-              <HandwritingUpload
-                hint={question}
-                onText={(text) => {
-                  setEssayText((current: string) => (current.trim() ? `${current.trim()}\n\n${text}` : text));
-                  setWritingCheck(null);
-                }}
-              />
-
-          <div
-            id="tour-diagrams"
-            ref={diagramSectionRef}
-            className={cn(
-              "rounded-xl border bg-muted/20 overflow-hidden transition-all duration-300",
-              isDiagramHighlighted
-                ? "ring-2 ring-primary border-primary shadow-lg shadow-primary/25 scale-[1.01]"
-                : "border-border/70",
-            )}
-          >
-            <button
-              type="button"
-              onClick={() => setDiagramSectionOpen((prev) => !prev)}
-              className="w-full flex items-center justify-between p-3 sm:p-3.5 text-left hover:bg-muted/40 transition-colors cursor-pointer"
-            >
-              <div className="flex items-center gap-2.5">
-                <Images className="size-4 text-primary shrink-0" />
-                <div>
-                  <span className="text-xs sm:text-sm font-semibold text-foreground">Diagram references</span>
-                  <span className="text-[11px] text-muted-foreground ml-2 hidden sm:inline">Attach graph or chart</span>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <Badge variant="outline" className={cn("text-[10px]", diagrams.length > 0 ? "border-emerald-500/40 text-emerald-400 bg-emerald-500/10" : "text-muted-foreground")}>
-                  {diagrams.length > 0 ? `${diagrams.length} attached` : "Optional"}
-                </Badge>
-                {diagramSectionOpen ? <ChevronUp className="size-3.5 text-muted-foreground" /> : <ChevronDown className="size-3.5 text-muted-foreground" />}
-              </div>
-            </button>
-
-            {diagramSectionOpen && (
-              <div className="p-3.5 sm:p-4 pt-1 border-t border-border/50 space-y-3 animate-in fade-in duration-200">
-                <p className="text-xs text-muted-foreground">
-                  Typed your essay online and referred to one or more diagrams without drawing them?
-                  Attach each one so it's marked like a diagram drawn on the page — pick from the
-                  diagram library, or paste a link to an image of it.
-                </p>
-
-            {diagrams.length > 0 ? (
-              <ul className="space-y-1.5">
-                {diagrams.map((d) => (
-                  <li
-                    key={d.id}
-                    className="flex items-center justify-between gap-2 rounded-md border border-border bg-background p-2.5 text-xs"
-                  >
-                    <span className="flex items-center gap-2 text-muted-foreground">
-                      <CheckCircle2 className="size-3.5 shrink-0 text-emerald-600" />
-                      {d.label}
-                    </span>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="size-6 shrink-0"
-                      onClick={() => removeDiagram(d.id)}
-                      aria-label={`Remove ${d.label}`}
-                    >
-                      <X className="size-3.5" />
-                    </Button>
-                  </li>
-                ))}
-              </ul>
-            ) : null}
-
-            <Select
-              value={diagramMode}
-              onValueChange={(value: "none" | "upload" | "library" | "url") => setDiagramMode(value)}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Add a diagram…" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">
-                  {diagrams.length > 0 ? "No more diagrams to add" : "No diagram to reference"}
-                </SelectItem>
-                <SelectItem value="upload">Upload diagram image / photo</SelectItem>
-                <SelectItem value="library">Choose from the diagram library</SelectItem>
-                <SelectItem value="url">Paste a diagram image URL</SelectItem>
-              </SelectContent>
-            </Select>
-
-            {diagramMode === "upload" ? (
-              <div className="space-y-2">
-                {/* Photo Library / Gallery Input - uncaptured to open photo gallery */}
-                <input
-                  ref={diagramFileInputRef}
-                  type="file"
-                  accept="image/*,.heic,.heif"
-                  multiple
-                  className="hidden"
-                  onChange={(e) => {
-                    handleDiagramFiles(e.target.files);
-                    e.target.value = "";
-                  }}
-                />
-                {/* Camera Input - explicit environment capture */}
-                <input
-                  ref={diagramCameraInputRef}
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  multiple
-                  className="hidden"
-                  onChange={(e) => {
-                    handleDiagramFiles(e.target.files);
-                    e.target.value = "";
-                  }}
-                />
-                <div
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => {
-                    if (!describeDiagramImageMutation.isPending) {
-                      diagramFileInputRef.current?.click();
-                    }
-                  }}
-                  onKeyDown={(e) => {
-                    if ((e.key === "Enter" || e.key === " ") && !describeDiagramImageMutation.isPending) {
-                      e.preventDefault();
-                      diagramFileInputRef.current?.click();
-                    }
-                  }}
-                  onPaste={(e) => {
-                    const items = e.clipboardData?.files;
-                    if (items && items.length > 0) {
-                      e.preventDefault();
-                      handleDiagramFiles(items);
-                    }
-                  }}
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    setIsDiagramDragging(true);
-                  }}
-                  onDragLeave={() => setIsDiagramDragging(false)}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    setIsDiagramDragging(false);
-                    const files = e.dataTransfer?.files;
-                    if (files && files.length > 0) {
-                      handleDiagramFiles(files);
-                    }
-                  }}
-                  className={`flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-4 text-center cursor-pointer transition-colors focus:outline-none focus:ring-2 focus:ring-ring ${
-                    isDiagramDragging
-                      ? "border-primary bg-primary/5"
-                      : "border-border bg-background hover:bg-muted/30"
-                  } ${describeDiagramImageMutation.isPending ? "opacity-70 pointer-events-none" : ""}`}
-                >
-                  {describeDiagramImageMutation.isPending ? (
-                    <div className="flex items-center gap-2 text-primary font-medium text-xs">
-                      <Loader2 className="size-4 animate-spin" />
-                      Analyzing diagram and extracting economic labels…
-                    </div>
-                  ) : (
-                    <>
-                      <div className="flex items-center gap-2 text-foreground font-medium text-xs">
-                        <Upload className="size-4 text-primary" />
-                        Click to upload diagram image, drag &amp; drop, or paste (Ctrl+V)
-                      </div>
-                      <p className="text-[11px] text-muted-foreground">
-                        Supports PNG, JPEG, WebP, HEIC photos of hand-drawn diagrams, or digital exports
-                      </p>
-                    </>
-                  )}
-                </div>
-
-                {!describeDiagramImageMutation.isPending ? (
-                  <div className="flex items-center justify-center gap-2 pt-0.5">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => diagramFileInputRef.current?.click()}
-                      className="h-8 gap-1.5 text-xs font-medium"
-                    >
-                      <Images className="size-3.5 text-primary" />
-                      Photos / Gallery
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => diagramCameraInputRef.current?.click()}
-                      className="h-8 gap-1.5 text-xs font-medium"
-                    >
-                      <Camera className="size-3.5 text-primary" />
-                      Take Photo
-                    </Button>
-                  </div>
-                ) : null}
-              </div>
-            ) : null}
-
-            {diagramMode === "library" ? (
-              <Select value={diagramLibraryId} onValueChange={applyLibraryDiagram}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Search the diagram library…" />
-                </SelectTrigger>
-                <SelectContent className="max-h-72">
-                  {(diagramLibraryQuery.data ?? []).map((entry) => (
-                    <SelectItem key={entry.id} value={entry.id}>
-                      {entry.title} · {entry.section === "Microeconomics" ? "Micro" : "Macro"}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            ) : null}
-
-            {diagramMode === "url" ? (
-              <div className="space-y-2">
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="https://example.com/my-diagram.png"
-                    value={diagramUrl}
-                    onChange={(event) => setDiagramUrl(event.target.value)}
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    disabled={!diagramUrl.trim() || describeDiagramUrlMutation.isPending}
-                    onClick={() => describeDiagramUrlMutation.mutate(diagramUrl.trim())}
-                  >
-                    {describeDiagramUrlMutation.isPending ? (
-                      <Loader2 className="size-4 animate-spin" />
-                    ) : (
-                      "Read diagram"
-                    )}
-                  </Button>
-                </div>
-                <CompactProgressBar
-                  active={describeDiagramUrlMutation.isPending}
-                  stages={[
-                    { label: "Fetching diagram image", weight: 2 },
-                    { label: "Reading axes, curves, shifts & labels", weight: 4 },
-                  ] satisfies ProgressStage[]}
-                  totalMs={10_000}
-                  title="Analyzing your diagram image…"
-                />
-              </div>
-            ) : null}
-              </div>
-            )}
-          </div>
-
-          <div className="rounded-xl border border-border/70 bg-muted/20 overflow-hidden transition-all">
-            <button
-              type="button"
-              onClick={() => setMarkSchemeSectionOpen((prev) => !prev)}
-              className="w-full flex items-center justify-between p-3 sm:p-3.5 text-left hover:bg-muted/40 transition-colors cursor-pointer"
-            >
-              <div className="flex items-center gap-2.5">
-                <FileText className="size-4 text-primary shrink-0" />
-                <div>
-                  <span className="text-xs sm:text-sm font-semibold text-foreground">Mark scheme screenshot</span>
-                  <span className="text-[11px] text-muted-foreground ml-2 hidden sm:inline">Vision-grounded assessment</span>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <Badge variant="outline" className={cn("text-[10px]", markSchemeImages.length > 0 ? "border-primary/40 text-primary bg-primary/10" : "text-muted-foreground")}>
-                  {markSchemeImages.length > 0 ? `${markSchemeImages.length} attached` : "Optional"}
-                </Badge>
-                {markSchemeSectionOpen ? <ChevronUp className="size-3.5 text-muted-foreground" /> : <ChevronDown className="size-3.5 text-muted-foreground" />}
-              </div>
-            </button>
-
-            {markSchemeSectionOpen && (
-              <div className="p-3.5 sm:p-4 pt-1 border-t border-border/50 space-y-2 animate-in fade-in duration-200">
-                <p className="text-xs text-muted-foreground">
-                  Paste a screenshot of the relevant mark scheme page and the examiner will read it
-                  directly — on top of your knowledge base — while marking this essay.
-                </p>
-                <MarkSchemeScreenshots
-                  images={markSchemeImages}
-                  onAdd={(img) => setMarkSchemeImages((current) => [...current, img])}
-                  onRemove={(id) =>
-                    setMarkSchemeImages((current) => current.filter((img) => img.id !== id))
-                  }
-                />
-              </div>
-            )}
-          </div>
-
-          <div className="rounded-xl border border-border/70 bg-muted/20 overflow-hidden transition-all">
-            <button
-              type="button"
-              onClick={() => setSettingsSectionOpen((prev) => !prev)}
-              className="w-full flex items-center justify-between p-3 sm:p-3.5 text-left hover:bg-muted/40 transition-colors cursor-pointer"
-            >
-              <div className="flex items-center gap-2.5">
-                <ShieldCheck className="size-4 text-primary shrink-0" />
-                <div>
-                  <span className="text-xs sm:text-sm font-semibold text-foreground">Examiner &amp; proofreading settings</span>
-                  <span className="text-[11px] text-muted-foreground ml-2 hidden sm:inline">Dual-pass &amp; spelling engine</span>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <Badge variant="outline" className="text-[10px] border-emerald-500/30 text-emerald-400 bg-emerald-500/10">
-                  Dual Pass Active
-                </Badge>
-                {settingsSectionOpen ? <ChevronUp className="size-3.5 text-muted-foreground" /> : <ChevronDown className="size-3.5 text-muted-foreground" />}
-              </div>
-            </button>
-
-            {settingsSectionOpen && (
-              <div className="p-3.5 sm:p-4 pt-2 border-t border-border/50 space-y-3 animate-in fade-in duration-200">
-            <Toggle
-              label="Independent audit pass"
-              hint="A second examiner re-checks the mark to correct clustering around the middle bands."
-              checked={auditPass}
-              onChange={setAuditPass}
-            />
-            <p className="flex items-start gap-1.5 text-xs text-muted-foreground">
-              <CheckCircle2 className="mt-0.5 size-3 shrink-0 text-emerald-600" />
-              Every mark is grounded in your knowledge base and any calibration anchors you've set
-              up — this always runs now, not just when it happens to help.
-            </p>
-            <Toggle
-              label="Spelling & grammar check"
-              hint="Quick proofreading pass before marking — optional, and never changes economics content or marks. Turn off to mark straight away."
-              checked={spellCheckEnabled}
-              onChange={(value) => {
-                setSpellCheckEnabled(value);
-                if (!value) {
-                  setWritingCheck(null);
-                  setCheckedTextSnapshot(null);
-                }
-              }}
-            />
-
-            {spellCheckEnabled && (
-              <div className="pt-3 border-t border-border/60 space-y-2.5 animate-in fade-in duration-200">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="font-semibold text-foreground flex items-center gap-1.5">
-                    <SpellCheck className="size-3.5 text-primary" /> Proofreading Engine
-                  </span>
-                  <span className="text-[11px] text-muted-foreground">Select preferred checker</span>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setGrammarCheckEngine("in_house");
-                      setWritingCheck(null);
-                    }}
-                    className={cn(
-                      "flex flex-col text-left p-2.5 rounded-lg border text-xs transition-all cursor-pointer",
-                      grammarCheckEngine === "in_house"
-                        ? "border-primary bg-primary/10 shadow-xs ring-1 ring-primary/40"
-                        : "border-border/80 bg-background/60 hover:bg-background"
-                    )}
-                  >
-                    <span className="font-bold flex items-center gap-1.5 text-foreground">
-                      <Zap className="size-3 text-amber-500 fill-amber-500" /> In-House Cambridge Engine
-                    </span>
-                    <span className="text-[10.5px] text-muted-foreground mt-0.5 leading-relaxed">
-                      0ms instant · Subject terminology &amp; misconceptions · Zero tokens
-                    </span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setGrammarCheckEngine("ai");
-                      setWritingCheck(null);
-                    }}
-                    className={cn(
-                      "flex flex-col text-left p-2.5 rounded-lg border text-xs transition-all cursor-pointer",
-                      grammarCheckEngine === "ai"
-                        ? "border-primary bg-primary/10 shadow-xs ring-1 ring-primary/40"
-                        : "border-border/80 bg-background/60 hover:bg-background"
-                    )}
-                  >
-                    <span className="font-bold flex items-center gap-1.5 text-foreground">
-                      <Sparkles className="size-3 text-primary" /> AI Deep Proofreader
-                    </span>
-                    <span className="text-[10.5px] text-muted-foreground mt-0.5 leading-relaxed">
-                      Comprehensive neural proofreading · Contextual suggestions
-                    </span>
-                  </button>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-2 pt-1">
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    onClick={runInHouseCheck}
-                    disabled={words < 5}
-                    className="h-7 text-xs gap-1.5"
-                  >
-                    <Zap className="size-3 text-amber-500 fill-amber-500" /> Check with In-House Engine (0ms)
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    onClick={() => checkMutation.mutate()}
-                    disabled={checkMutation.isPending || words < 5}
-                    className="h-7 text-xs gap-1.5"
-                  >
-                    {checkMutation.isPending ? (
-                      <Loader2 className="size-3 animate-spin text-primary" />
-                    ) : (
-                      <Sparkles className="size-3 text-primary" />
-                    )}
-                    Check with AI
-                  </Button>
-                </div>
-              </div>
-            )}
-              </div>
-            )}
-          </div>
-
-          {spellCheckEnabled && writingCheck && !checkIsStale ? (
-            <WritingCheckPanel
-              check={writingCheck}
-              onAccept={() => {
-                const corrected = writingCheck.correctedText;
-                setEssayText(corrected);
-                setCheckedTextSnapshot(corrected);
-                // Corrections have now been applied to the essay text, so the
-                // panel must reflect "clean" — otherwise it keeps showing the
-                // same stale issue list and an Apply button that looks like
-                // it does nothing on a second click.
-                setWritingCheck({ issues: [], correctedText: corrected, clean: true });
-                toast.success("Corrections applied.");
-              }}
-            />
-          ) : null}
-
-          {(question.trim() || essayText.trim()) && (
-            <div className="flex items-center justify-between text-xs text-muted-foreground px-1 py-1">
-              <span className="flex items-center gap-1.5 opacity-80">
-                <span className="size-1.5 rounded-full bg-emerald-500 inline-block animate-pulse" />
-                Question &amp; essay answer autosaved in browser
-              </span>
-              <button
-                type="button"
-                onClick={() => {
-                  setQuestion("");
-                  setEssayText("");
-                  try {
-                    localStorage.removeItem(DRAFT_STORAGE_KEY);
-                  } catch {}
-                  toast.info("Essay draft cleared.");
-                }}
-                className="hover:text-destructive underline underline-offset-2 transition-colors cursor-pointer"
-              >
-                Clear draft
-              </button>
             </div>
           )}
 
-          <Button
-            id="tour-submit"
-            size="lg"
-            className="w-full h-11 sm:h-12 text-sm font-semibold rounded-xl shadow-md transition-all cursor-pointer bg-gradient-to-r from-primary via-indigo-600 to-primary text-white hover:opacity-95 hover:shadow-lg hover:shadow-primary/20"
-            disabled={
-              mutation.isPending ||
-              checkMutation.isPending ||
-              question.trim().length < 10 ||
-              words < 20
-            }
-            onClick={() => handleMarkClick()}
-          >
-            {checkMutation.isPending ? (
-              <>
-                <SpellCheck className="size-4 mr-2 animate-pulse" /> Checking spelling &amp; grammar…
-              </>
-            ) : mutation.isPending ? (
-              <>
-                <Loader2 className="size-4 mr-2 animate-spin" /> Marking with dual examiners — this takes up to a minute
-              </>
-            ) : readyToMark ? (
-              <div className="flex items-center justify-center gap-2 w-full">
-                <Sparkles className="size-4 text-amber-300" />
-                <span>Mark this essay</span>
-                <span className="text-[11px] opacity-70 font-normal hidden sm:inline">(Ctrl + Enter)</span>
+          {/* In-Text Diagram SVG Preview Modal */}
+          {previewDiagram && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-xs p-4 sm:p-6 overflow-y-auto animate-in fade-in duration-200">
+              <div className="w-full max-w-2xl bg-card border border-border rounded-3xl shadow-2xl p-6 sm:p-8 space-y-4 max-h-[90vh] overflow-y-auto animate-in zoom-in-95 duration-200">
+                <div className="flex items-center justify-between border-b border-border/60 pb-3">
+                  <div className="flex items-center gap-2.5">
+                    <Images className="size-5 text-primary" />
+                    <div>
+                      <h3 className="font-bold text-base text-foreground">{previewDiagram.title}</h3>
+                      <p className="text-xs text-muted-foreground font-mono">
+                        {previewDiagram.section} · {previewDiagram.topic} · Cambridge 9708 Standard
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setPreviewDiagram(null)}
+                    className="size-8 rounded-xl cursor-pointer"
+                  >
+                    <X className="size-4" />
+                  </Button>
+                </div>
+                {previewDiagram.id.startsWith("custom-") || (previewDiagram.spec as any)?.type === "custom" ? (
+                  <div className="rounded-2xl border border-primary/20 bg-primary/[0.04] p-6 space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="size-5 text-primary" />
+                      <span className="font-bold text-sm text-foreground">Candidate-Drawn Custom Diagram</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      This diagram was referenced directly in the candidate script. Cambridge 9708 examiners award full AO2 analysis marks for candidate-drawn diagrams based on:
+                    </p>
+                    <ul className="list-disc list-inside text-xs text-foreground/90 space-y-1.5 pl-1">
+                      <li>Correct labelling of vertical and horizontal axes</li>
+                      <li>Accurate curve trajectories, initial equilibria, and shifts</li>
+                      <li>Directional shift arrows and equilibrium points (e.g. P1 to P2, Q1 to Q2)</li>
+                      <li>Direct integration with analytical chains of reasoning in surrounding text</li>
+                    </ul>
+                  </div>
+                ) : (
+                  <>
+                    <div className="rounded-2xl border border-border/70 bg-background p-4 shadow-inner overflow-hidden">
+                      <EconomicsDiagram spec={previewDiagram.spec} title={previewDiagram.title} className="w-full max-h-72" />
+                    </div>
+                    <div className="space-y-2 text-xs">
+                      <div className="rounded-xl bg-muted/30 border border-border/60 p-3 space-y-1">
+                        <span className="font-semibold text-foreground">Economic Representation:</span>
+                        <p className="text-muted-foreground leading-relaxed">{previewDiagram.represents}</p>
+                      </div>
+                      <div className="rounded-xl bg-primary/[0.04] border border-primary/20 p-3 space-y-1">
+                        <span className="font-semibold text-primary">Cambridge Examiner Criteria:</span>
+                        <p className="text-muted-foreground leading-relaxed">{previewDiagram.whyUsed}</p>
+                      </div>
+                    </div>
+                  </>
+                )}
+                <div className="pt-2 flex items-center justify-end gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPreviewDiagram(null)}
+                    className="rounded-xl text-xs cursor-pointer"
+                  >
+                    Close
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => {
+                      insertDiagramAtCursor(previewDiagram);
+                      setPreviewDiagram(null);
+                    }}
+                    className="rounded-xl text-xs bg-primary text-primary-foreground font-semibold gap-1.5 cursor-pointer"
+                  >
+                    <Plus className="size-3.5" /> Insert into Script Again
+                  </Button>
+                </div>
               </div>
-            ) : (
-              <div className="flex items-center justify-center gap-2 w-full">
-                <SpellCheck className="size-4" />
-                <span>Check spelling &amp; grammar, then mark</span>
+            </div>
+          )}
+
+          {/* Full Detailed Breakdown Dialog / Modal */}
+          {detailedBreakdownOpen && result && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-xs p-4 sm:p-6 overflow-y-auto animate-in fade-in duration-200">
+              <div className="w-full max-w-4xl bg-card border border-border rounded-3xl shadow-2xl p-6 sm:p-8 space-y-4 max-h-[90vh] overflow-y-auto animate-in zoom-in-95 duration-200">
+                <div className="flex items-center justify-between border-b border-border/60 pb-3">
+                  <div className="flex items-center gap-2">
+                    <Award className="size-5 text-primary" />
+                    <div>
+                      <h3 className="font-bold text-base text-foreground">Complete Cambridge Diagnostic Report</h3>
+                      <p className="text-xs text-muted-foreground">Score: {result.grading.total_mark} / {result.grading.max_mark} · {result.grading.band}</p>
+                    </div>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setDetailedBreakdownOpen(false)}
+                    className="size-8 rounded-xl"
+                  >
+                    <X className="size-4" />
+                  </Button>
+                </div>
+                <MarkBreakdown grading={result.grading} />
               </div>
-            )}
-          </Button>
+            </div>
+          )}
+
+          {/* 1-Click Diagram Paragraph Placement Modal */}
+          {placementPickerDiagram && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-xs p-4 overflow-y-auto animate-in fade-in duration-200">
+              <div className="w-full max-w-lg bg-card border border-border rounded-3xl shadow-2xl p-5 sm:p-6 space-y-4 max-h-[85vh] overflow-y-auto animate-in zoom-in-95 duration-200">
+                <div className="flex items-center justify-between border-b border-border/60 pb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="size-7 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+                      <Images className="size-4" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-sm text-foreground">Choose Paragraph Placement</h3>
+                      <p className="text-xs text-muted-foreground font-mono">
+                        Positioning (Diagram: {placementPickerDiagram.title})
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setPlacementPickerDiagram(null)}
+                    className="size-8 rounded-xl"
+                  >
+                    <X className="size-4" />
+                  </Button>
+                </div>
+
+                <p className="text-xs text-muted-foreground">
+                  Select where in your analytical flow this diagram should be placed and evaluated:
+                </p>
+
+                <div className="space-y-2 max-h-[50vh] overflow-y-auto pr-1">
+                  <button
+                    type="button"
+                    onClick={() => handleDropAtSlot(0, placementPickerDiagram.title, placementPickerDiagram.id)}
+                    className="w-full text-left p-3 rounded-xl border border-dashed border-border/70 hover:border-primary/50 hover:bg-primary/5 transition-all flex items-center justify-between group cursor-pointer"
+                  >
+                    <span className="text-xs font-semibold text-foreground group-hover:text-primary">
+                      ＋ Place at Beginning (Before Paragraph 1)
+                    </span>
+                    <Badge variant="outline" className="text-[10px] text-muted-foreground font-mono">
+                      Beginning
+                    </Badge>
+                  </button>
+
+                  {textParagraphs.map((para, pIdx) => (
+                    <div key={pIdx} className="space-y-1.5 pt-1">
+                      <div className="p-2.5 rounded-lg bg-muted/30 border border-border/50 text-[11px] text-muted-foreground line-clamp-2 italic">
+                        Paragraph {pIdx + 1}: "{para.raw}"
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleDropAtSlot(pIdx + 1, placementPickerDiagram.title, placementPickerDiagram.id)}
+                        className="w-full text-left p-2.5 rounded-xl border border-dashed border-border/70 hover:border-emerald-500/60 hover:bg-emerald-500/5 transition-all flex items-center justify-between group cursor-pointer"
+                      >
+                        <span className="text-xs font-semibold text-foreground group-hover:text-emerald-400">
+                          ＋ Insert after Paragraph {pIdx + 1} {pIdx + 1 < textParagraphs.length ? `(Before Paragraph ${pIdx + 2})` : "(At end of essay)"}
+                        </span>
+                        <Badge variant="outline" className="text-[10px] text-emerald-400/80 font-mono">
+                          After Para {pIdx + 1}
+                        </Badge>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
 
           <DiagramCheckDialog
             open={diagramPromptOpen}
             onOpenChange={setDiagramPromptOpen}
             question={question}
             essayText={essayText}
-            onAddDiagram={handleOpenDiagramSection}
+            onAddDiagram={() => {
+              setDiagramPromptOpen(false);
+              setDiagramDrawerOpen(true);
+            }}
             onProceedAnyway={() => handleMarkClick({ skipDiagramCheck: true })}
           />
-          <CompactProgressBar
-            active={checkMutation.isPending}
-            stages={[
-              { label: "Scanning spelling, grammar & economics terminology", weight: 3 },
-              { label: "Preparing clean corrected draft", weight: 3 },
-            ] satisfies ProgressStage[]}
-            totalMs={10_000}
-            title="Checking spelling & grammar with AI…"
-          />
-        </div>
-
-        <div ref={resultRef}>
-          {mutation.isPending ? (
-            <GradingProgress
-              active
-              stages={[
-                { label: "Referring Cambridge 9708 Knowledge Base & Mark Schemes", weight: 3 },
-                { label: "Dual-Examiner Parallel Evaluation (Pass 1 Error Check & Pass 2 Holistic)", weight: 5 },
-                { label: "Checking Assessment Objectives: AO1 Knowledge · AO2 Application · AO3 Evaluation", weight: 4 },
-                { label: "Evaluating policy trade-offs, multi-perspective weighing & examples", weight: 3 },
-                { label: "Synthesizing diagnostic examiner report & actionable feedback", weight: 3 },
-              ]}
-              totalMs={25_000}
-            />
-          ) : result ? (
-            <div className="space-y-4">
-              <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-primary/30 bg-primary/5 px-4 py-3 text-xs shadow-sm">
-                <div className="flex items-center gap-2 text-foreground font-medium">
-                  <CheckCircle2 className="size-4 text-emerald-500 shrink-0" />
-                  <span>Cambridge 9708 Standard Assessment Complete</span>
-                </div>
-                {((result as any).latencyMs || result.grading?.latencyMs) ? (
-                  <Badge variant="outline" className="gap-1 border-primary/40 bg-primary/10 text-primary font-mono text-[11px] font-semibold">
-                    <Clock className="size-3.5" /> Graded in {Math.round(((result as any).latencyMs || result.grading?.latencyMs || 0) / 1000)}s
-                  </Badge>
-                ) : null}
-              </div>
-              <MarkBreakdown grading={result.grading} />
-
-              {isDirectGradingMode && (
-                <div className="p-4 rounded-2xl bg-gradient-to-r from-purple-950/90 via-indigo-950/90 to-purple-950/90 border border-purple-500/50 shadow-xl space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <GraduationCap className="h-5 w-5 text-purple-400" />
-                      <span className="font-bold text-sm text-white">Save &amp; Return to Student</span>
-                    </div>
-                    <Badge className="bg-purple-600 text-white border-0 text-xs font-bold px-2.5 py-1">
-                      Final Score: {result.grading.total_mark} / {maxMark}
-                    </Badge>
-                  </div>
-                  <p className="text-xs text-purple-200">
-                    Sync this examiner score and diagnostic commentary back to{" "}
-                    <strong className="text-white">{search.studentName || "the student"}</strong>'s
-                    classroom gradebook.
-                  </p>
-                  <div className="flex items-center gap-2 pt-1">
-                    <Button
-                      className="flex-1 bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs shadow-md"
-                      disabled={isReturningGrade}
-                      onClick={handleReturnToClassroom}
-                    >
-                      {isReturningGrade ? (
-                        <>
-                          <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
-                          Returning Grade...
-                        </>
-                      ) : (
-                        <>
-                          <CheckCircle2 className="h-4 w-4 mr-1.5" />
-                          Save Grade &amp; Return to Classroom
-                        </>
-                      )}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() =>
-                        navigate({
-                          to: "/classes",
-                        })
-                      }
-                      className="border-border text-xs text-muted-foreground hover:text-white"
-                    >
-                      Back to Class
-                    </Button>
-                  </div>
-                </div>
-              )}
-              {result.essayId ? (
-                <Button
-                  variant="outline"
-                  className="w-full"
-                  onClick={() =>
-                    navigate({ to: "/essay/$essayId", params: { essayId: result.essayId! } })
-                  }
-                >
-                  Open full report and rewrite
-                </Button>
-              ) : null}
-            </div>
-          ) : (
-            <div className="panel hidden lg:flex h-full min-h-[460px] flex-col justify-between p-6 sm:p-7 rounded-2xl border-border/80 shadow-xs">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between border-b border-border/60 pb-3">
-                  <div className="flex items-center gap-2">
-                    <Award className="size-4 text-primary" />
-                    <span className="text-xs font-bold uppercase tracking-wider text-primary">
-                      Cambridge 9708 Examination Desk
-                    </span>
-                  </div>
-                  <Badge variant="outline" className="text-[10px] font-mono border-primary/30 text-primary bg-primary/10">
-                    Dual Examiner Active
-                  </Badge>
-                </div>
-
-                <p className="text-xs leading-relaxed text-muted-foreground">
-                  Your essay is evaluated under official Cambridge International AS &amp; A Level Economics marking principles:
-                </p>
-
-                <div className="space-y-2.5 pt-1">
-                  <div className="p-3 rounded-xl border border-sky-500/20 bg-sky-500/[0.03] space-y-1">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-semibold text-sky-400 flex items-center gap-1.5">
-                        <BookOpen className="size-3.5" /> AO1 Knowledge &amp; Understanding
-                      </span>
-                      <span className="text-[10px] font-mono text-muted-foreground">Definitions &amp; Models</span>
-                    </div>
-                    <p className="text-[11.5px] leading-relaxed text-muted-foreground">
-                      Precision of definitions and syllabus 9708 economic theory. Positive marking applies throughout.
-                    </p>
-                  </div>
-
-                  <div className="p-3 rounded-xl border border-indigo-500/20 bg-indigo-500/[0.03] space-y-1">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-semibold text-indigo-400 flex items-center gap-1.5">
-                        <TrendingUp className="size-3.5" /> AO2 Causal Analysis &amp; Application
-                      </span>
-                      <span className="text-[10px] font-mono text-muted-foreground">Transmission Chains</span>
-                    </div>
-                    <p className="text-[11.5px] leading-relaxed text-muted-foreground">
-                      Logical step-by-step cause-and-effect chains. Rewards genuine real-world application and guiding models.
-                    </p>
-                  </div>
-
-                  <div className="p-3 rounded-xl border border-emerald-500/20 bg-emerald-500/[0.03] space-y-1">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-semibold text-emerald-400 flex items-center gap-1.5">
-                        <Scale className="size-3.5" /> AO3 Critical Evaluation
-                      </span>
-                      <span className="text-[10px] font-mono text-muted-foreground">Multi-Perspective Weighing</span>
-                    </div>
-                    <p className="text-[11.5px] leading-relaxed text-muted-foreground">
-                      Comparing perspectives (short vs long run, stakeholders, trade-offs) leading to justified judgements.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="pt-4 border-t border-border/60 flex items-center justify-between text-xs text-muted-foreground">
-                <span className="flex items-center gap-1.5">
-                  <span className="size-2 rounded-full bg-emerald-500 inline-block animate-pulse" />
-                  Ready to mark
-                </span>
-                <span className="font-mono text-[11px] text-muted-foreground">Shortcut: Ctrl + Enter</span>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
 
       <InSituTour
         isOpen={isTourOpen}
