@@ -312,10 +312,12 @@ export async function joinMcqQuizServer(input: {
     throw new Error("Enter a nickname to join the quiz.");
   }
 
+  if (!input.userId) {
+    throw new Error("You must sign in or create an account to join a live quiz.");
+  }
+
   // Re-use playerId if reconnecting (or userId-based deterministic id when signed in)
-  const resolvedPlayerId =
-    input.playerId?.trim() ||
-    (input.userId ? `u_${input.userId}` : `g_${crypto.randomUUID().replace(/-/g, "").slice(0, 12)}`);
+  const resolvedPlayerId = input.playerId?.trim() || `u_${input.userId}`;
 
   const existing = await QUIZ_STORE.get<QuizPlayer>(playerKey(pin, resolvedPlayerId));
   const now = new Date().toISOString();
@@ -458,12 +460,20 @@ async function resolveCorrectAnswerForQuestion(
       .maybeSingle();
 
     const answerKey = (paper?.answer_key ?? {}) as Record<string, QuizLetter>;
-    const correctAnswer = answerKey[String(questionNumber)] ?? null;
     const overlayExplanations = (paper?.overlay as Record<string, any> | null)?.explanations;
-    const storedExplanation =
+    let storedExplanation =
       meta.showInstantFeedback && overlayExplanations?.[String(questionNumber)]
         ? (overlayExplanations[String(questionNumber)] as McqExplanationResult)
         : null;
+
+    if (meta.showInstantFeedback && !storedExplanation) {
+      try {
+        const stored = await getStoredPaperExplanationsServer(meta.paperId);
+        storedExplanation = stored[questionNumber] ?? null;
+      } catch {
+        // fallback
+      }
+    }
     return { correctAnswer, storedExplanation };
   }
 
@@ -570,6 +580,7 @@ export async function submitQuizAnswerServer(input: {
       points: breakdown.points,
       elapsedSeconds: Math.max(0, Math.round(input.elapsedSeconds)),
       answeredAt: now,
+      explanation: meta.showInstantFeedback ? (storedExplanation ?? null) : null,
     },
   };
 

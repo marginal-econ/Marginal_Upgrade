@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import {
@@ -153,18 +153,30 @@ export function McqQuizHostModal({
   ]);
   const [creating, setCreating] = useState(false);
 
-  // Sync defaults when modal opens with a pre-selected paper
+  // Only sync/initialize when modal transitions to open, NEVER reset when user clicks another paper
+  const prevOpenRef = useRef(false);
   useEffect(() => {
-    if (!open) return;
-    if (initialSourceType) setSourceType(initialSourceType);
-    if (initialSourceType === "library_paper" && initialPaperId) {
-      setSelectedLibraryId(initialPaperId);
-    } else if (initialSourceType === "topical_paper" && initialPaperId) {
-      setSelectedTopicalId(initialPaperId);
-    } else if (!selectedLibraryId && libraryPapers[0]?.id) {
+    if (open && !prevOpenRef.current) {
+      if (initialSourceType) setSourceType(initialSourceType);
+      if (initialSourceType === "library_paper" && initialPaperId) {
+        setSelectedLibraryId(initialPaperId);
+      } else if (initialSourceType === "topical_paper" && initialPaperId) {
+        setSelectedTopicalId(initialPaperId);
+      } else if (libraryPapers[0]?.id) {
+        setSelectedLibraryId(libraryPapers[0].id);
+      }
+      setPaperSearch("");
+      setTitle("");
+    }
+    prevOpenRef.current = open;
+  }, [open, initialSourceType, initialPaperId, libraryPapers]);
+
+  // If papers loaded asynchronously while modal is open
+  useEffect(() => {
+    if (open && !selectedLibraryId && libraryPapers.length > 0) {
       setSelectedLibraryId(libraryPapers[0].id);
     }
-  }, [open, initialSourceType, initialPaperId, libraryPapers, selectedLibraryId]);
+  }, [open, selectedLibraryId, libraryPapers]);
 
   const selectedLibraryPaper = useMemo(
     () => libraryPapers.find((p) => p.id === selectedLibraryId) ?? libraryPapers[0] ?? null,
@@ -411,13 +423,13 @@ export function McqQuizHostModal({
                 </div>
               </div>
 
-              <div className="max-h-44 overflow-y-auto space-y-1 pr-1">
+              <div className="max-h-56 sm:max-h-64 overflow-y-auto space-y-1 pr-1">
                 {filteredLibraryPapers.length === 0 ? (
                   <p className="py-4 text-center text-xs text-muted-foreground">
                     No matching past papers found.
                   </p>
                 ) : (
-                  filteredLibraryPapers.slice(0, 60).map((paper) => {
+                  filteredLibraryPapers.map((paper) => {
                     const selected = selectedLibraryPaper?.id === paper.id;
                     return (
                       <button

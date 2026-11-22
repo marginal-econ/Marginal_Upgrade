@@ -31,6 +31,7 @@ export type QuizAnswerRecord = {
   points: number;
   elapsedSeconds: number;
   answeredAt: string;
+  explanation?: any | null;
 };
 
 export type QuizPowerUpType =

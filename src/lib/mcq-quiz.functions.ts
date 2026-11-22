@@ -196,9 +196,9 @@ export const getMcqQuizState = createServerFn({ method: "POST" })
     return { state };
   });
 
-/** Student joins a live quiz room by PIN with nickname & avatar. */
+/** Student joins a live quiz room by PIN with nickname & avatar (Signup/Login strictly required). */
 export const joinMcqQuiz = createServerFn({ method: "POST" })
-  .middleware([optionalSupabaseAuth])
+  .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) =>
     z
       .object({

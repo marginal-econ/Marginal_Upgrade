@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
@@ -20,6 +20,7 @@ import {
   Gamepad2,
   Link2,
   Loader2,
+  Lock,
   Maximize2,
   Minimize2,
   Play,
@@ -40,6 +41,7 @@ import {
   ZoomIn,
   ZoomOut,
   RotateCcw,
+  Lightbulb,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -77,6 +79,7 @@ import {
   submitQuizAnswer,
   useQuizPowerUp,
 } from "@/lib/mcq-quiz.functions";
+import { explainMcqAnswer } from "@/lib/mcq-pdf.functions";
 import {
   formatQuizPin,
   normalizeQuizPin,
@@ -151,6 +154,7 @@ function LiveQuizRoomPage() {
   const { pin: rawPin } = Route.useParams();
   const cleanPin = normalizeQuizPin(rawPin);
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
   const getQuizStateFn = useServerFn(getMcqQuizState);
   const joinQuizFn = useServerFn(joinMcqQuiz);
@@ -161,6 +165,10 @@ function LiveQuizRoomPage() {
   const finishPlayerFn = useServerFn(finishQuizPlayer);
   const fetchPdfFn = useServerFn(fetchQuizPaperPdf);
   const usePowerUpFn = useServerFn(useQuizPowerUp);
+
+  // Authenticated user session state (must be signed in to join)
+  const [currentUser, setCurrentUser] = useState<any | null>(null);
+  const [authLoaded, setAuthLoaded] = useState(false);
 
   // Persisted player session for this PIN so refreshing restores seat + score
   const [savedPlayer, setSavedPlayer] = useState<{
@@ -214,20 +222,41 @@ function LiveQuizRoomPage() {
   const players = state?.players ?? [];
   const isHost = Boolean(state?.isHost);
 
-  // Auto-fill nickname from signed-in Supabase user if available
+  // Track signed-in Supabase user session (required to join)
   useEffect(() => {
-    if (nickname) return;
-    void supabase.auth.getSession().then(({ data }) => {
-      const user = data.session?.user;
-      if (!user) return;
-      const suggested =
-        (user.user_metadata as any)?.full_name ||
-        (user.user_metadata as any)?.name ||
-        (user.email ? user.email.split("@")[0] : "");
-      if (suggested && !nickname) {
-        setNickname(String(suggested).slice(0, 28));
+    supabase.auth.getSession().then(({ data }) => {
+      const user = data.session?.user ?? null;
+      setCurrentUser(user);
+      setAuthLoaded(true);
+      if (user && !nickname) {
+        const suggested =
+          (user.user_metadata as any)?.full_name ||
+          (user.user_metadata as any)?.name ||
+          (user.email ? user.email.split("@")[0] : "");
+        if (suggested) {
+          setNickname(String(suggested).slice(0, 28));
+        }
       }
     });
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+      const user = session?.user ?? null;
+      setCurrentUser(user);
+      setAuthLoaded(true);
+      if (user && !nickname) {
+        const suggested =
+          (user.user_metadata as any)?.full_name ||
+          (user.user_metadata as any)?.name ||
+          (user.email ? user.email.split("@")[0] : "");
+        if (suggested) {
+          setNickname(String(suggested).slice(0, 28));
+        }
+      }
+    });
+
+    return () => {
+      authListener.subscription.unsubscribe();
+    };
   }, [nickname]);
 
   // Supabase Realtime Broadcast Channel for instant <50ms cross-device sync
@@ -432,6 +461,11 @@ function LiveQuizRoomPage() {
   async function handleJoin(e: React.FormEvent) {
     e.preventDefault();
     if (joining) return;
+    if (!currentUser) {
+      toast.info("Please sign in or create an account to join the live quiz.");
+      navigate({ to: "/auth", search: { redirect: `/quiz/${cleanPin}` } as any });
+      return;
+    }
     if (!nickname.trim()) {
       toast.error("Enter a nickname to join the quiz!");
       return;
@@ -998,7 +1032,28 @@ function LiveQuizRoomPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <form onSubmit={handleJoin} className="space-y-5">
+              {authLoaded && !currentUser ? (
+                <div className="space-y-4 py-2 text-center">
+                  <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary border border-primary/20">
+                    <Lock className="h-7 w-7" />
+                  </div>
+                  <div className="space-y-1">
+                    <h3 className="text-lg font-black text-foreground">Sign In or Sign Up to Compete</h3>
+                    <p className="text-xs text-muted-foreground max-w-sm mx-auto leading-relaxed">
+                      You must be signed in with an account to join live quizzes. Your Cambridge MCQ scores, streak bonuses, and diagnostic feedback will be recorded in your student profile.
+                    </p>
+                  </div>
+                  <div className="pt-2 flex flex-col sm:flex-row gap-2 justify-center">
+                    <Button asChild size="lg" className="h-11 font-extrabold gap-2 bg-primary text-primary-foreground">
+                      <Link to="/auth" search={{ redirect: `/quiz/${cleanPin}` } as any}>
+                        <span>Sign In / Create Account</span>
+                        <ArrowRight className="h-4 w-4" />
+                      </Link>
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <form onSubmit={handleJoin} className="space-y-5">
                 <div className="space-y-1.5">
                   <label htmlFor="quiz-nickname" className="text-xs font-bold text-foreground">
                     Your Nickname
@@ -1063,6 +1118,7 @@ function LiveQuizRoomPage() {
                   )}
                 </Button>
               </form>
+              )}
             </CardContent>
           </Card>
         </main>
@@ -1382,6 +1438,8 @@ function StudentLiveGameplayView({
   const [leaderboardOpen, setLeaderboardOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [finishing, setFinishing] = useState(false);
+  const explainAnswerFn = useServerFn(explainMcqAnswer);
+  const [explainingQuestion, setExplainingQuestion] = useState(false);
 
   // Power-up game mechanics
   const [usingPowerUpId, setUsingPowerUpId] = useState<string | null>(null);
@@ -1610,6 +1668,53 @@ function StudentLiveGameplayView({
       toast.error(err instanceof Error ? err.message : "Could not finish quiz.");
     } finally {
       setFinishing(false);
+    }
+  }
+
+  // On-demand explanation fetch if pre-cached explanation was missing
+  async function handleRequestExplanation(
+    qNum: number,
+    correctAns: QuizLetter,
+    userAnswer: QuizLetter | null,
+  ) {
+    if (explainingQuestion) return;
+    setExplainingQuestion(true);
+    try {
+      const res = await explainAnswerFn({
+        data: {
+          paperId: meta.paperId ?? undefined,
+          level: meta.level,
+          number: qNum,
+          correctAnswer: correctAns,
+          userAnswer,
+          stemText: customQuestion?.stem || "",
+        },
+      });
+      if (res?.explanation) {
+        setFeedbackByQuestion((prev) => ({
+          ...prev,
+          [qNum]: {
+            ...(prev[qNum] ?? {
+              questionNumber: qNum,
+              selected: userAnswer ?? ("A" as QuizLetter),
+              isCorrect: userAnswer === correctAns,
+              correctAnswer: correctAns,
+              pointsEarned: 0,
+              basePoints: 0,
+              speedBonus: 0,
+              streakBonus: 0,
+              rank: 1,
+              totalPlayers: players.length,
+            }),
+            explanation: res.explanation,
+          },
+        }));
+        toast.success("Examiner explanation loaded!");
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not generate explanation.");
+    } finally {
+      setExplainingQuestion(false);
     }
   }
 
@@ -2245,9 +2350,9 @@ function StudentLiveGameplayView({
                 </CardTitle>
               </CardHeader>
 
-              {/* Options Grid: Responsive 2-column on iPad/tablets for immediate touch reach! */}
-              <CardContent className="p-3 sm:p-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-2.5">
+              {/* Options Grid: Responsive 2x2 compact grid on all devices */}
+              <CardContent className="p-2 sm:p-2.5">
+                <div className="grid grid-cols-2 gap-2">
                   {(["A", "B", "C", "D"] as QuizLetter[]).map((letter) => {
                     const style = OPTION_STYLES[letter];
                     const pickedLetter = localFeedback?.selected ?? existingAnswer?.selected;
@@ -2273,7 +2378,7 @@ function StudentLiveGameplayView({
                         disabled={submitting || isAnswered || isFrozen || isEliminated}
                         onClick={() => void handleAnswer(letter)}
                         className={cn(
-                          "w-full flex items-center gap-2.5 sm:gap-3 rounded-xl border-2 px-3 py-2.5 sm:py-3 text-left transition-all min-h-[48px] sm:min-h-[52px] touch-manipulation select-none active:scale-[0.98]",
+                          "w-full flex items-center gap-2 rounded-xl border-2 px-2.5 py-2 text-left transition-all min-h-[42px] sm:min-h-[46px] touch-manipulation select-none active:scale-[0.98]",
                           isEliminated
                             ? "border-border/30 bg-muted/10 opacity-30 line-through cursor-not-allowed"
                             : !isAnswered
@@ -2289,7 +2394,7 @@ function StudentLiveGameplayView({
                       >
                         <span
                           className={cn(
-                            "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg font-mono text-base font-black shadow-xs",
+                            "flex h-7 w-7 sm:h-8 sm:w-8 shrink-0 items-center justify-center rounded-lg font-mono text-sm font-black shadow-xs",
                             isEliminated
                               ? "bg-muted text-muted-foreground"
                               : revealCorrect
@@ -2303,22 +2408,22 @@ function StudentLiveGameplayView({
                         </span>
 
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-bold text-foreground leading-snug">
-                            {optionText || style.label}
+                          <p className="text-xs sm:text-sm font-bold text-foreground leading-tight truncate">
+                            {optionText || `Option ${letter}`}
                           </p>
                           {isEliminated ? (
-                            <span className="text-[10px] font-bold text-destructive">
+                            <span className="text-[9px] font-bold text-destructive block">
                               50/50 Eliminated
                             </span>
                           ) : null}
                         </div>
 
                         {revealCorrect ? (
-                          <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                          <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
                         ) : revealWrong ? (
-                          <XCircle className="h-5 w-5 text-rose-600 dark:text-rose-400 shrink-0" />
+                          <XCircle className="h-4 w-4 text-rose-600 dark:text-rose-400 shrink-0" />
                         ) : isPicked ? (
-                          <Check className="h-5 w-5 text-primary shrink-0" />
+                          <Check className="h-4 w-4 text-primary shrink-0" />
                         ) : null}
                       </button>
                     );
@@ -2327,9 +2432,9 @@ function StudentLiveGameplayView({
               </CardContent>
             </Card>
 
-            {/* Instant Feedback & Explanation Banner */}
+            {/* Instant Feedback, Direct Next Action Bar & Examiner Explanation */}
             {isAnswered ? (
-              <div className="space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-200">
+              <div className="space-y-2.5 animate-in fade-in slide-in-from-bottom-2 duration-200">
                 {meta.showInstantFeedback ? (
                   (() => {
                     const isCorrect =
@@ -2337,28 +2442,33 @@ function StudentLiveGameplayView({
                     const pts = localFeedback?.pointsEarned ?? existingAnswer?.points ?? 0;
                     const correctAns =
                       localFeedback?.correctAnswer ?? existingAnswer?.correctAnswer ?? null;
+                    const pickedLetter = localFeedback?.selected ?? existingAnswer?.selected ?? null;
+                    const activeExplanation: McqExplanationResult | null =
+                      localFeedback?.explanation ?? existingAnswer?.explanation ?? null;
+                    const d = activeExplanation?.diagnostic;
 
                     return (
-                      <Card
-                        className={cn(
-                          "border-2",
-                          isCorrect
-                            ? "border-emerald-500/50 bg-emerald-500/10"
-                            : "border-rose-500/50 bg-rose-500/10",
-                        )}
-                      >
-                        <CardContent className="p-3.5 sm:p-4 space-y-2">
+                      <>
+                        {/* Result Score Banner */}
+                        <div
+                          className={cn(
+                            "rounded-xl border-2 p-2.5 sm:p-3 space-y-1.5",
+                            isCorrect
+                              ? "border-emerald-500/50 bg-emerald-500/10"
+                              : "border-rose-500/50 bg-rose-500/10",
+                          )}
+                        >
                           <div className="flex items-center justify-between gap-2">
                             <div className="flex items-center gap-2 min-w-0">
                               {isCorrect ? (
-                                <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                                <CheckCircle2 className="h-4 w-4 sm:h-5 sm:w-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
                               ) : (
-                                <XCircle className="h-5 w-5 shrink-0 text-rose-600 dark:text-rose-400" />
+                                <XCircle className="h-4 w-4 sm:h-5 sm:w-5 shrink-0 text-rose-600 dark:text-rose-400" />
                               )}
-                              <span className="text-sm font-black text-foreground leading-snug">
+                              <span className="text-xs sm:text-sm font-black text-foreground leading-tight truncate">
                                 {isCorrect
                                   ? `Correct! +${pts} pts`
-                                  : `Not quite — Official answer is ${correctAns ?? "recorded"}`}
+                                  : `Not quite — Mark Scheme is Option ${correctAns ?? "recorded"}`}
                               </span>
                             </div>
                             {localFeedback && isCorrect ? (
@@ -2369,92 +2479,220 @@ function StudentLiveGameplayView({
                           </div>
 
                           {localFeedback && isCorrect ? (
-                            <div className="flex flex-wrap gap-1.5 text-[10px] font-semibold">
-                              <span className="rounded bg-background/80 px-2 py-0.5 border border-border">
+                            <div className="flex flex-wrap gap-1 text-[10px] font-semibold">
+                              <span className="rounded bg-background/80 px-1.5 py-0.5 border border-border">
                                 +{localFeedback.basePoints} base
                               </span>
                               {localFeedback.speedBonus > 0 ? (
-                                <span className="rounded bg-sky-500/15 text-sky-700 dark:text-sky-300 px-2 py-0.5 inline-flex items-center gap-0.5">
+                                <span className="rounded bg-sky-500/15 text-sky-700 dark:text-sky-300 px-1.5 py-0.5 inline-flex items-center gap-0.5">
                                   <Zap className="h-2.5 w-2.5" />+{localFeedback.speedBonus} speed
                                 </span>
                               ) : null}
                               {localFeedback.streakBonus > 0 ? (
-                                <span className="rounded bg-amber-500/15 text-amber-700 dark:text-amber-300 px-2 py-0.5 inline-flex items-center gap-0.5">
+                                <span className="rounded bg-amber-500/15 text-amber-700 dark:text-amber-300 px-1.5 py-0.5 inline-flex items-center gap-0.5">
                                   <Flame className="h-2.5 w-2.5" />+{localFeedback.streakBonus} streak
                                 </span>
                               ) : null}
                             </div>
                           ) : null}
+                        </div>
 
-                          {localFeedback?.explanation ? (
-                            <div className="mt-2 rounded-lg border border-border/70 bg-background/90 p-3 text-xs leading-relaxed space-y-1">
-                              <p className="font-bold text-primary flex items-center gap-1 text-[11px]">
-                                <Sparkles className="h-3 w-3" />
-                                Why Option {correctAns} is Right
-                                {localFeedback.explanation.visionGrounded ? (
-                                  <Badge variant="outline" className="ml-auto text-[9px] py-0 gap-0.5">
+                        {/* Direct Next Action Bar - Prominent & Immediately Clickable without scrolling */}
+                        <div className="flex items-center gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            disabled={!hasPrev}
+                            onClick={() => setCurrentIdx((i) => Math.max(0, i - 1))}
+                            className="h-10 px-3 touch-manipulation"
+                            title="Previous question"
+                          >
+                            <ChevronLeft className="h-4 w-4" />
+                          </Button>
+                          {hasNext ? (
+                            <Button
+                              type="button"
+                              onClick={goNext}
+                              className="flex-1 h-10 text-sm font-black gap-2 shadow-sm touch-manipulation bg-primary text-primary-foreground hover:bg-primary/90"
+                            >
+                              <span>Next Question</span>
+                              <ChevronRight className="h-4 w-4" />
+                            </Button>
+                          ) : (
+                            <Button
+                              type="button"
+                              disabled={finishing}
+                              onClick={handleFinishPaper}
+                              className="flex-1 h-10 text-sm font-black gap-2 bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm touch-manipulation"
+                            >
+                              {finishing ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Trophy className="h-4 w-4" />
+                              )}
+                              <span>Finish Paper &amp; See Podium</span>
+                            </Button>
+                          )}
+                        </div>
+
+                        {/* Structured Cambridge Examiner Explanation Card */}
+                        {activeExplanation ? (
+                          <div className="rounded-xl border border-border/80 bg-card p-3 sm:p-3.5 space-y-2 text-xs leading-relaxed shadow-xs max-h-[36vh] sm:max-h-[40vh] overflow-y-auto pr-1">
+                            <div className="flex items-center justify-between gap-1.5 pb-1.5 border-b border-border/60">
+                              <span className="font-bold text-foreground text-xs flex items-center gap-1.5">
+                                <Sparkles className="h-3.5 w-3.5 text-primary" />
+                                <span>Why Option {correctAns} is Right</span>
+                              </span>
+                              <div className="flex items-center gap-1 shrink-0">
+                                {activeExplanation.visionGrounded ? (
+                                  <Badge
+                                    variant="outline"
+                                    className="gap-0.5 border-sky-500/40 bg-sky-500/10 text-sky-700 dark:text-sky-300 text-[9px] py-0 px-1"
+                                    title="Verified directly against Cambridge diagram & question stem"
+                                  >
                                     <Eye className="h-2.5 w-2.5" />
-                                    Verified
+                                    <span>Verified</span>
                                   </Badge>
                                 ) : null}
-                              </p>
-                              <p className="text-foreground/90">
-                                {stripStars(
-                                  localFeedback.explanation.diagnostic?.correctReasoning ||
-                                    localFeedback.explanation.text,
-                                )}
+                                <Badge
+                                  variant="outline"
+                                  className="border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-mono text-[9px] py-0"
+                                >
+                                  Mark Scheme: {correctAns}
+                                </Badge>
+                              </div>
+                            </div>
+
+                            {d?.concept ? (
+                              <div className="text-[11px] font-semibold text-primary">
+                                {stripStars(d.concept)}
+                              </div>
+                            ) : null}
+
+                            <div className="space-y-1">
+                              <p className="text-foreground/90 font-normal leading-relaxed text-xs">
+                                {stripStars(d?.correctReasoning || activeExplanation.text)}
                               </p>
                             </div>
-                          ) : null}
-                        </CardContent>
-                      </Card>
+
+                            {d?.keyRule ? (
+                              <div className="rounded-lg border border-amber-500/25 bg-amber-500/[0.06] p-2 space-y-0.5">
+                                <div className="flex items-center gap-1 font-bold text-amber-700 dark:text-amber-300 text-[10px]">
+                                  <Lightbulb className="h-3 w-3" />
+                                  <span>Golden Rule</span>
+                                </div>
+                                <p className="text-foreground/90 text-[11px] leading-snug font-normal">
+                                  {stripStars(d.keyRule)}
+                                </p>
+                              </div>
+                            ) : null}
+
+                            {d?.distractorTrap ? (
+                              <div
+                                className={cn(
+                                  "rounded-lg border p-2 space-y-0.5",
+                                  isCorrect ? "border-slate-500/25 bg-muted/40" : "border-rose-500/25 bg-rose-500/[0.06]",
+                                )}
+                              >
+                                <div
+                                  className={cn(
+                                    "font-bold text-[10px]",
+                                    isCorrect ? "text-foreground/85" : "text-rose-700 dark:text-rose-300",
+                                  )}
+                                >
+                                  {isCorrect
+                                    ? "Top Distractor Avoided"
+                                    : `Distractor Trap ${pickedLetter ? `(Why Option ${pickedLetter} Fails)` : ""}`}
+                                </div>
+                                <p className="text-foreground/90 text-[11px] leading-snug font-normal">
+                                  {stripStars(d.distractorTrap)}
+                                </p>
+                              </div>
+                            ) : null}
+
+                            {d?.speedTip ? (
+                              <div className="rounded-lg border border-primary/20 bg-primary/[0.04] p-2 space-y-0.5">
+                                <div className="flex items-center gap-1 font-bold text-primary text-[10px]">
+                                  <Zap className="h-3 w-3" />
+                                  <span>45-Second Speed Tip</span>
+                                </div>
+                                <p className="text-foreground/90 text-[11px] leading-snug font-normal">
+                                  {stripStars(d.speedTip)}
+                                </p>
+                              </div>
+                            ) : null}
+                          </div>
+                        ) : (
+                          <div className="rounded-xl border border-dashed border-border/80 bg-muted/20 p-3 text-center space-y-2">
+                            <p className="text-xs text-muted-foreground">
+                              Official Mark Scheme answer is{" "}
+                              <strong className="text-foreground font-mono font-bold">Option {correctAns}</strong>.
+                            </p>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              disabled={explainingQuestion}
+                              onClick={() => void handleRequestExplanation(currentNumber, correctAns!, pickedLetter)}
+                              className="h-8 text-xs font-bold gap-1.5 bg-background shadow-xs"
+                            >
+                              {explainingQuestion ? (
+                                <>
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                  Analyzing Diagram &amp; Stem…
+                                </>
+                              ) : (
+                                <>
+                                  <Sparkles className="h-3 w-3 text-primary" />
+                                  Explain with AI Examiner
+                                </>
+                              )}
+                            </Button>
+                          </div>
+                        )}
+                      </>
                     );
                   })()
                 ) : (
-                  <Card className="border-primary/40 bg-primary/5">
-                    <CardContent className="p-3.5 text-xs font-semibold text-foreground flex items-center gap-2">
-                      <CheckCircle2 className="h-4 w-4 text-primary" />
-                      Answer locked in! Full results reveal when you finish.
-                    </CardContent>
-                  </Card>
-                )}
-
-                {/* Next Question / Finish CTAs */}
-                <div className="flex items-center gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    disabled={!hasPrev}
-                    onClick={() => setCurrentIdx((i) => Math.max(0, i - 1))}
-                    className="h-11 px-3 touch-manipulation"
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </Button>
-                  {hasNext ? (
-                    <Button
-                      type="button"
-                      onClick={goNext}
-                      className="flex-1 h-11 text-sm font-extrabold gap-2 shadow-sm touch-manipulation"
-                    >
-                      <span>Next Question</span>
-                      <ChevronRight className="h-4 w-4" />
-                    </Button>
-                  ) : (
-                    <Button
-                      type="button"
-                      disabled={finishing}
-                      onClick={handleFinishPaper}
-                      className="flex-1 h-11 text-sm font-extrabold gap-2 bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm touch-manipulation"
-                    >
-                      {finishing ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
+                  <>
+                    <Card className="border-primary/40 bg-primary/5">
+                      <CardContent className="p-3 text-xs font-semibold text-foreground flex items-center gap-2">
+                        <CheckCircle2 className="h-4 w-4 text-primary" />
+                        Answer locked in! Full results reveal when you finish.
+                      </CardContent>
+                    </Card>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        disabled={!hasPrev}
+                        onClick={() => setCurrentIdx((i) => Math.max(0, i - 1))}
+                        className="h-10 px-3 touch-manipulation"
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </Button>
+                      {hasNext ? (
+                        <Button
+                          type="button"
+                          onClick={goNext}
+                          className="flex-1 h-10 text-sm font-extrabold gap-2 shadow-sm touch-manipulation bg-primary text-primary-foreground hover:bg-primary/90"
+                        >
+                          <span>Next Question</span>
+                          <ChevronRight className="h-4 w-4" />
+                        </Button>
                       ) : (
-                        <Trophy className="h-4 w-4" />
+                        <Button
+                          type="button"
+                          disabled={finishing}
+                          onClick={handleFinishPaper}
+                          className="flex-1 h-10 text-sm font-extrabold gap-2 bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm touch-manipulation"
+                        >
+                          Finish Paper &amp; See Podium
+                        </Button>
                       )}
-                      Finish Paper &amp; See Podium
-                    </Button>
-                  )}
-                </div>
+                    </div>
+                  </>
+                )}
               </div>
             ) : (
               <div className="flex items-center justify-between gap-2">

@@ -773,7 +773,7 @@ function Index() {
                       NEW: MULTIPLAYER MCQ ARENA
                     </span>
                     <span className="rounded-full bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-0.5 text-[10.5px] font-mono font-bold text-emerald-600 dark:text-emerald-400">
-                      ⚡ 6-Digit PIN · No Login Needed to Join
+                      ⚡ 6-Digit PIN · Sign In to Compete &amp; Save Diagnostics
                     </span>
                     <span className="rounded-full bg-primary/10 border border-primary/20 px-2.5 py-0.5 text-[10.5px] font-mono font-bold text-primary">
                       Both AS &amp; A Level
